@@ -1178,7 +1178,10 @@ def connect_basic_material(object, material, shader):
     is_really_opaque = shader.inputs["Alpha"].default_value == 1.0
     if alpha_file is not None:
         alpha_node = make_image_node(nodes, alpha_file, "opacity_tex", "Non-Color")
-        link_nodes(links, alpha_node, "Color", shader, "Alpha")
+        if "_diffuse." in alpha_file.lower() or "_albedo." in alpha_file.lower():
+            link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
+        else:    
+            link_nodes(links, alpha_node, "Color", shader, "Alpha")            
         if alpha_node.image is not None:
             is_really_opaque = is_image_opaque(alpha_node.image)
     # material alpha blend settings
@@ -1423,7 +1426,10 @@ def connect_emission_alpha(object, material, shader):
     reset_cursor()
     if alpha_file is not None:
         alpha_node = make_image_node(nodes, alpha_file, "opacity_tex", "Non-Color")
-        link_nodes(links, alpha_node, "Color", shader, "Alpha")
+        if "_diffuse." in alpha_file.lower() or "_albedo." in alpha_file.lower():
+            link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
+        else:    
+            link_nodes(links, alpha_node, "Color", shader, "Alpha")
         if alpha_node.image is not None:
             is_really_opaque = is_image_opaque(alpha_node.image)
     # material settings
@@ -1733,6 +1739,8 @@ def cache_object_materials(object):
                                 cache.diffuse = node.image
                             elif socket == "Alpha":
                                 cache.alpha = node.image
+                                if "diffuse" in name or "albedo" in name:
+                                    cache.alpha_is_diffuse = True
                             elif socket == "Color":
                                 if "bump" in name:
                                     cache.bump = node.image
@@ -2434,7 +2442,7 @@ def set_node_from_property(node):
         # color_hair_mixer
         elif "_hair_" in name or "_scalp_" in name:
             set_node_input(node, "AO Strength", props.hair_ao)
-            set_node_input(node, "Blend Strength", props.hair_blend)
+            set_node_input(node, "Blend Strength", props.hair)
         # color_teeth_mixer
         elif "_teeth_" in name:
             set_node_input(node, "AO Strength", props.teeth_ao)
@@ -2771,6 +2779,7 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
     normal: bpy.props.PointerProperty(type=bpy.types.Image)
     bump: bpy.props.PointerProperty(type=bpy.types.Image)
     alpha: bpy.props.PointerProperty(type=bpy.types.Image)
+    alpha_is_diffuse: bpy.props.BoolProperty(default=False)
 
 class CC3ImportProps(bpy.types.PropertyGroup):
 
@@ -2799,7 +2808,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     blend_mode: bpy.props.EnumProperty(items=[
                         ("BLEND","Blend","Basic Alpha Blend"),
                         ("HASHED","Hashed","Resolves Z sorting issues, but needs more samples")
-                    ], default="HASHED")    
+                    ], default="BLEND")
                     
     update_mode: bpy.props.EnumProperty(items=[
                         ("UPDATE_ALL","Last Import","Update the shader parameters for all objects from the last import"),
