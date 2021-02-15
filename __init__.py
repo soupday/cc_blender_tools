@@ -11,6 +11,7 @@ bl_info = {
 import bpy
 import os
 import sys
+from bpy.types import OBJECT_OT_assign_property_defaults
 import mathutils
 import random
 from enum import Enum
@@ -33,12 +34,12 @@ sclera_normal_map = ["scleran", "scleranormal"]
 iris_normal_map = ["irisn", "irisnormal"]
 teeth_gradient_map = ["gradao", "gradientao"]
 teeth_gums_map = ["gumsmask"]
-        
+
 # lists of the suffixes used by the modifier maps 
 # (not connected directly to input but modify base inputs)
 mod_ao_map = ["ao", "ambientocclusion", "ambient occlusion"]
 mod_basecolorblend_map = ["bcbmap", "basecolorblend2"]
-mod_specmask_map = ["specularmask", "specmask"]
+mod_specmask_map = ["specularmask", "specmask", "hspecmap", "hairspecularmaskmap"]
 mod_transmission_map = ["transmap", "transmissionmap"]
 mod_normalblend_map = ["nbmap", "normalmapblend"]
 mod_micronormal_map = ["micron", "micronormal"]
@@ -54,10 +55,12 @@ image_types = [".bmp", ".sgi", ".rgb", ".bw", ".png", ".jpg", ".jpeg", ".jp2", "
 node_id = 1000
 node_prefix = "cc3iid_"
 
+objects_processed = []
+
 def unique_name(name):
     global node_id
     name = node_prefix + name + "_" + version_string + "_" + str(node_id)
-    node_id += 1    
+    node_id += 1        
     return name
     
 def is_skin_material(material):
@@ -175,6 +178,12 @@ def get_shader_input(material, input):
                 if input in n.inputs:
                     return n.inputs[input]
     return None
+
+def get_input_connected_to(node, socket):
+    try:
+        return node.outputs[socket].links[0].to_socket.name
+    except:
+        return None
 
 def get_node_by_id(material, id):
     if material.node_tree is not None:
@@ -524,8 +533,6 @@ def strip_name(name):
         name = name[:-4]
     return name
 
-
-##
 ## Try to find the texture for a material input by searching for the material name
 ## appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness  
 ##
@@ -535,7 +542,7 @@ def find_material_texture(material, suffix_list):
     
     if name[-3:].isdigit() and name[-4] == ".":
         name = name[:-4]
-    
+
     for suffix in suffix_list:
         search = name + "_" + suffix + "."
         filename = find_image_file(search)
@@ -1566,15 +1573,17 @@ def append_node_group(path, object_name):
 
 
 def fetch_node_group(name):    
+
     paths = [bpy.path.abspath("//"),
-             os.path.join(bpy.utils.script_path_user(), "addons", "cc3_tools"),
+             os.path.dirname(os.path.realpath(__file__)),
              ]
     for path in paths:
+        print("Trying to append: " + path + " > " + name)
         if os.path.exists(path):                        
             group = append_node_group(path, name)
             if group is not None:
-                return group                    
-    return None
+                return group
+    raise ValueError("Error trying to append group: " + name + ", _LIB.blend library file not found.")
 
 
 def process_material(object, material):
@@ -1644,7 +1653,6 @@ def process_material_slots(object):
 
 
 def scan_for_hair_object(object):
-    
     for slot in object.material_slots:
         if slot.material is not None:
             if is_hair_object(object, slot.material):
@@ -1701,14 +1709,9 @@ def reset_nodes(material):
     link_nodes(links, shader, "BSDF", out, "Surface")
 
 
-
-##
-## Make a list of all the packed images found in the objects materials
-## These will be embedded textures from the fbx import,
-## so these go first in the list.
-##
-def scan_object_images(object):
+def cache_object_materials(object):
     global image_list
+    props = bpy.context.scene.CC3ImportProps
     
     if object is None:
         return
@@ -1716,50 +1719,29 @@ def scan_object_images(object):
     if object.type == "MESH":
         for slot in object.material_slots:    
             if slot.material.node_tree is not None:
+                cache = props.material_cache.add()
+                cache.material = slot.material
                 nodes = slot.material.node_tree.nodes
                 for node in nodes:
                     if node.type == "TEX_IMAGE":
                         if node.image is not None:
-                            if node.image.packed_file is not None:                                
-                                filepath = node.image.filepath
-                                dir, name = os.path.split(filepath)
-                                name = name.lower()
-                                image_list[name] = filepath
-                                print("    Found packed image: " + name)
+                            filepath = node.image.filepath
+                            dir, name = os.path.split(filepath)
+                            name = name.lower()
+                            socket = get_input_connected_to(node, "Color")
+                            if socket == "Base Color":
+                                cache.diffuse = node.image
+                            elif socket == "Alpha":
+                                cache.alpha = node.image
+                            elif socket == "Color":
+                                if "bump" in name:
+                                    cache.bump = node.image
+                                else:
+                                    cache.normal = node.image                            
                 
     for child in object.children:
-        scan_object_images(child)
-    
-## None recursive directory scan for images.
-def scan_directory_images(dir):
-    if os.path.exists(dir):
-        for root, dirs, files in os.walk(dir):
-            for name in files:
-                n = name.lower()
-                for ft in image_types:
-                    if (ft in n):
-                        image_list[n] = os.path.join(root,name)
-                        print("    Found image: " + n)
-                        break
- 
-##
-## Make a list of all the images found packed in the objects and then 
-## in the folders supplied.
-##
-def scan_for_images(dir_list):
-    global image_list
-    props = bpy.context.scene.CC3ImportProps
-    
-    print("Scanning objects for packed images")
-    for p in props.import_objects:
-        if p.object is not None:
-            scan_object_images(p.object)
-        
-    for dir in dir_list:
-        print("Compiling list of possible images in: " + dir)
-        scan_directory_images(dir)
-        
-
+        cache_object_materials(child)
+   
 def scan_object_for_image_paths(object, dir_base, paths, character_name):
     for slot in object.material_slots:
         if slot.material is not None:
@@ -1781,6 +1763,38 @@ def scan_object_for_image_paths(object, dir_base, paths, character_name):
             
     return paths
 
+def add_cached_image(material, image, suffix):
+    if material is not None and image is not None:
+        dir, name = os.path.split(image.filepath)
+        base, ext = os.path.splitext(name)
+        n = name.lower()
+        # embedded images don't always follow the <material_name>_<suffix> pattern
+        # so we fake it...
+        embedded_name = material.name.lower() + "_" + suffix + ext.lower()
+        image_list[embedded_name] = image.filepath
+        print("    Found embedded image: " + n)
+
+def build_image_list(image_dirs):
+    # scan cached materials for embedded images
+    props = bpy.context.scene.CC3ImportProps
+    for p in props.material_cache:
+        add_cached_image(p.material, p.diffuse, "diffuse")
+        add_cached_image(p.material, p.alpha, "alpha")
+        add_cached_image(p.material, p.normal, "normal")
+        add_cached_image(p.material, p.bump, "bump")
+            
+    # scan found directories for possible images
+    for dir in image_dirs:
+        print("Compiling list of possible images in: " + dir)
+        if os.path.exists(dir):
+            for root, dirs, files in os.walk(dir):
+                for name in files:
+                    n = name.lower()
+                    for ft in image_types:
+                        if (ft in n):
+                            image_list[n] = os.path.join(root,name)
+                            print("    Found image: " + n)
+                            break
 
 def get_image_paths(filepath):
     props = bpy.context.scene.CC3ImportProps    
@@ -1851,9 +1865,6 @@ def select_all_child_objects(object):
     for child in object.children:
         select_all_child_objects(child)
 
-
-objects_processed = []
-
 class CC3Import(bpy.types.Operator):
     """Import CC3 Character and build materials"""
     bl_idname = "cc3.importer"
@@ -1892,6 +1903,7 @@ class CC3Import(bpy.types.Operator):
         dir, name = os.path.split(self.filepath)
         image_list.clear()
         props.import_objects.clear()
+        props.material_cache.clear()
         type = name[-3:].lower()
         name = name[:-4]
         props.import_type = type
@@ -1905,6 +1917,8 @@ class CC3Import(bpy.types.Operator):
                 if obj.type == "ARMATURE":    
                     p = props.import_objects.add()
                     p.object = obj
+                elif obj.type == "MESH":
+                    cache_object_materials(obj)
             print("Done .Fbx Import.")
     
         elif type == "obj":
@@ -1924,14 +1938,9 @@ class CC3Import(bpy.types.Operator):
                 if obj.type == "MESH":
                     p = props.import_objects.add()
                     p.object = obj
+                    cache_object_materials(obj)
             print("Done .Obj Import.")
           
-        #if self.param == "IMPORT_PIPELINE":
-        #    mode = props.setup_mode
-        #    props.setup_mode = "BASIC"
-        #    self.build_materials()
-        #    props.setup_mode = mode
-        #else:
         self.build_materials() 
         
     
@@ -1945,7 +1954,7 @@ class CC3Import(bpy.types.Operator):
         
         if len(image_list) == 0:
             image_dirs = get_image_paths(props.import_file)
-            scan_for_images(image_dirs)
+            build_image_list(image_dirs)
         
         if props.build_mode == "IMPORTED":
             for p in props.import_objects:
@@ -2339,7 +2348,7 @@ def quick_set_process_object(param, object):
 
 
 def quick_set_execute(param):     
-    global objects_processed 
+    global objects_processed
     objects_processed.clear()
     props = bpy.context.scene.CC3ImportProps
     
@@ -2756,6 +2765,13 @@ def reset_parameters():
 class CC3ObjectPointer(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
 
+class CC3MaterialCache(bpy.types.PropertyGroup):
+    material: bpy.props.PointerProperty(type=bpy.types.Material)
+    diffuse: bpy.props.PointerProperty(type=bpy.types.Image)
+    normal: bpy.props.PointerProperty(type=bpy.types.Image)
+    bump: bpy.props.PointerProperty(type=bpy.types.Image)
+    alpha: bpy.props.PointerProperty(type=bpy.types.Image)
+
 class CC3ImportProps(bpy.types.PropertyGroup):
 
     setup_mode: bpy.props.EnumProperty(items=[
@@ -2792,6 +2808,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     
     import_file: bpy.props.StringProperty(default="", subtype="FILE_PATH")
     import_objects: bpy.props.CollectionProperty(type=CC3ObjectPointer)
+    material_cache: bpy.props.CollectionProperty(type=CC3MaterialCache)
     import_type: bpy.props.StringProperty(default="")
 
     stage1: bpy.props.BoolProperty(default=True)
@@ -3471,6 +3488,7 @@ class CC3NodeCoord(bpy.types.Panel):
 def register():
     bpy.utils.register_class(CC3NodeCoord)
     bpy.utils.register_class(CC3ObjectPointer)
+    bpy.utils.register_class(CC3MaterialCache)
     bpy.utils.register_class(CC3ImportProps)    
     bpy.utils.register_class(MyPanel)
     bpy.utils.register_class(MyPanel2)
@@ -3485,6 +3503,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(CC3NodeCoord)
     bpy.utils.unregister_class(CC3ObjectPointer)
+    bpy.utils.unregister_class(CC3MaterialCache)
     bpy.utils.unregister_class(CC3ImportProps)
     bpy.utils.unregister_class(MyPanel)
     bpy.utils.unregister_class(MyPanel2)
