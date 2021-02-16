@@ -56,6 +56,8 @@ cursor_top = mathutils.Vector((0,0))
 max_cursor = mathutils.Vector((0,0))
 new_nodes = []
 
+open_mouth_constraint = None
+
 LOG_LEVEL = 1
 
 def log_info(msg):
@@ -2407,6 +2409,40 @@ def quick_set_update(self, context):
     if not block_update:
         quick_set_execute("UPDATE_ALL")
 
+def find_pose_bone(name):
+    props = bpy.context.scene.CC3ImportProps
+
+    for p in props.import_objects:
+        obj = p.object
+        if (obj.type == "ARMATURE"):
+            if name in obj.pose.bones:
+                return obj.pose.bones[name]
+    return None
+
+def open_mouth_update(self, context):
+    props = bpy.context.scene.CC3ImportProps
+
+    bone = find_pose_bone("CC_Base_JawRoot")
+    if bone is not None:
+        constraint = None
+
+        for con in bone.constraints:
+            if con.name == "iCC3_open_mouth_contraint":
+                constraint = con
+
+        if props.open_mouth == 0:
+            if constraint is not None:
+                constraint.influence = props.open_mouth
+                bone.constraints.remove(constraint)
+        else:
+            if constraint is None:
+                constraint = bone.constraints.new(type="LIMIT_ROTATION")
+                constraint.name = "iCC3_open_mouth_contraint"
+                constraint.use_limit_z = True
+                constraint.min_z = 0.43633
+                constraint.max_z = 0.43633
+                constraint.owner_space = "LOCAL"
+            constraint.influence = props.open_mouth
 
 class CC3QuickSet(bpy.types.Operator):
     """Quick Set Functions"""
@@ -2851,6 +2887,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("UPDATE_SELECTED","Selected Only","Update the shader parameters only in the selected objects")
                     ], default="UPDATE_ALL")
 
+    open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
+
     import_file: bpy.props.StringProperty(default="", subtype="FILE_PATH")
     import_objects: bpy.props.CollectionProperty(type=CC3ObjectPointer)
     material_cache: bpy.props.CollectionProperty(type=CC3MaterialCache)
@@ -2888,7 +2926,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     skin_arm_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=quick_set_update)
     skin_leg_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=quick_set_update)
 
-    eye_toggle: bpy.props.BoolProperty(default=False)
+    eye_toggle: bpy.props.BoolProperty(default=True)
     eye_ao: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=quick_set_update)
     eye_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
     eye_specular: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=quick_set_update)
@@ -2911,7 +2949,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     eye_sclera_brightness: bpy.props.FloatProperty(default=0.75, min=0, max=5, update=quick_set_update)
     eye_iris_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=quick_set_update)
 
-    teeth_toggle: bpy.props.BoolProperty(default=False)
+    teeth_toggle: bpy.props.BoolProperty(default=True)
     teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
     teeth_gums_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=quick_set_update)
     teeth_teeth_brightness: bpy.props.FloatProperty(default=0.7, min=0, max=1, update=quick_set_update)
@@ -2929,7 +2967,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     teeth_micronormal: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=quick_set_update)
     teeth_tiling: bpy.props.FloatProperty(default=10, min=0, max=50, update=quick_set_update)
 
-    tongue_toggle: bpy.props.BoolProperty(default=False)
+    tongue_toggle: bpy.props.BoolProperty(default=True)
     tongue_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
     tongue_brightness: bpy.props.FloatProperty(default=1, min=0, max=1, update=quick_set_update)
     tongue_desaturation: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=quick_set_update)
@@ -2944,7 +2982,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     tongue_micronormal: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=quick_set_update)
     tongue_tiling: bpy.props.FloatProperty(default=4, min=0, max=50, update=quick_set_update)
 
-    nails_toggle: bpy.props.BoolProperty(default=False)
+    nails_toggle: bpy.props.BoolProperty(default=True)
     nails_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
     nails_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=quick_set_update)
     nails_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
@@ -2954,7 +2992,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     nails_micronormal: bpy.props.FloatProperty(default=1, min=0, max=1, update=quick_set_update)
     nails_tiling: bpy.props.FloatProperty(default=42, min=0, max=50, update=quick_set_update)
 
-    hair_toggle: bpy.props.BoolProperty(default=False)
+    hair_toggle: bpy.props.BoolProperty(default=True)
     hair_hint: bpy.props.StringProperty(default="hair,beard", update=quick_set_update)
     hair_object: bpy.props.PointerProperty(type=bpy.types.Object, update=quick_set_update)
     hair_scalp_hint: bpy.props.StringProperty(default="scalp,base", update=quick_set_update)
@@ -2970,7 +3008,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=quick_set_update)
     hair_bump: bpy.props.FloatProperty(default=1, min=0, max=10, update=quick_set_update)
 
-    default_toggle: bpy.props.BoolProperty(default=False)
+    default_toggle: bpy.props.BoolProperty(default=True)
     default_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
     default_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
     default_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
@@ -3410,6 +3448,8 @@ class MyPanel(bpy.types.Panel):
             split = layout.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
+            col_1.label(text="Open Mouth")
+            col_2.prop(props, "open_mouth", text="", slider=True)
             col_1.label(text="Fetch Parameters")
             op = col_2.operator("cc3.quickset", icon="COPYDOWN", text="Fetch")
             if props.update_mode == "UPDATE_ALL":
