@@ -56,8 +56,6 @@ cursor_top = mathutils.Vector((0,0))
 max_cursor = mathutils.Vector((0,0))
 new_nodes = []
 
-open_mouth_constraint = None
-
 LOG_LEVEL = 1
 
 def log_info(msg):
@@ -382,16 +380,6 @@ def is_input_connected(input):
         return True
     return False
 
-def input_is_image_node(input, filename):
-    if len(input.links) == 1:
-        from_node = input.links[0].from_node
-        if from_node.type == "TEX_IMAGE":
-            image = from_node.image
-            if image.type == "IMAGE" and image.filepath != "":
-                if os.path.samefile(image.filepath, filename):
-                    return True
-    return False
-
 # load an image from a file, but try to find it in the existing images first
 def load_image(filename, color_space):
 
@@ -408,30 +396,6 @@ def load_image(filename, color_space):
     image = bpy.data.images.load(filename)
     image.colorspace_settings.name = color_space
     return image
-
-
-def is_image_opaque(image):
-
-    if image is None:
-        return True
-
-    # dirty hack to determine if opacity texture has none opaque pixels
-    # copy the image and scale it to 8x8
-    # any alpha pixels *should* reduce the opacity in the scaled copy
-    copy = image.copy()
-    copy.scale(8,8)
-
-    for x in range(0,8):
-        for y in range(0,8):
-
-            i = (x + (y * 8)) * 4
-
-            if copy.pixels[i] < 1.0:
-                bpy.data.images.remove(copy)
-                return False
-
-    bpy.data.images.remove(copy)
-    return True
 
 def clear_cursor():
     cursor_top.x = 0
@@ -557,19 +521,16 @@ def strip_name(name):
         name = name[:-4]
     return name
 
-## Try to find the texture for a material input by searching for the material name
-## appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness
-##
-def find_material_texture(material, suffix_list):
 
+# Try to find the texture for a material input by searching for the material name
+# appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness
+def find_material_image(material, suffix_list):
     name = strip_name(material.name)
-
     for suffix in suffix_list:
         search = name + "_" + suffix + "."
         filename = find_image_file(search)
         if filename is not None:
             return filename
-
     return None
 
 
@@ -694,7 +655,7 @@ def connect_basic_eye_material(object, material, shader):
     # Base Color
     #
     reset_cursor()
-    diffuse_file = find_material_texture(material, BASE_COLOR_MAP)
+    diffuse_file = find_material_image(material, BASE_COLOR_MAP)
     if diffuse_file is not None:
         diffuse_node = make_image_node(nodes, diffuse_file, "diffuse_tex", "sRGB")
         advance_cursor(1.0)
@@ -731,7 +692,7 @@ def connect_basic_eye_material(object, material, shader):
     # Normal
     #
     reset_cursor()
-    normal_file = find_material_texture(material, SCLERA_NORMAL_MAP)
+    normal_file = find_material_image(material, SCLERA_NORMAL_MAP)
     if normal_file is not None:
         strength_node = make_value_node(nodes, "Normal Strength", "eye_basic_normal", props.eye_basic_normal)
         normal_node = make_image_node(nodes, normal_file, "normal_tex", "Non-Color")
@@ -772,10 +733,10 @@ def connect_adv_eye_material(object, material, shader):
     # Base Color
     reset_cursor()
     # maps
-    diffuse_file = find_material_texture(material, BASE_COLOR_MAP)
-    sclera_file = find_material_texture(material, SCLERA_MAP)
-    blend_file = find_material_texture(material, MOD_BASECOLORBLEND_MAP)
-    ao_file = find_material_texture(material, MOD_AO_MAP)
+    diffuse_file = find_material_image(material, BASE_COLOR_MAP)
+    sclera_file = find_material_image(material, SCLERA_MAP)
+    blend_file = find_material_image(material, MOD_BASECOLORBLEND_MAP)
+    ao_file = find_material_image(material, MOD_AO_MAP)
     diffuse_node = sclera_node = blend_node = ao_node = iris_tiling_node = sclera_tiling_node = None
     advance_cursor(-count_maps(diffuse_file, sclera_file, blend_file, ao_file))
     if diffuse_file is not None:
@@ -877,7 +838,7 @@ def connect_adv_eye_material(object, material, shader):
     # Normal
     drop_cursor(0.1)
     reset_cursor()
-    snormal_file = find_material_texture(material, SCLERA_NORMAL_MAP)
+    snormal_file = find_material_image(material, SCLERA_NORMAL_MAP)
     snormal_node = snormal_tiling_node = None
     # space
     advance_cursor(-count_maps(snormal_file))
@@ -926,7 +887,7 @@ def connect_adv_mouth_material(object, material, shader):
     mask_node = None
     teeth = is_teeth_material(material)
     if teeth:
-        mask_file = find_material_texture(material, TEETH_GUMS_MAP)
+        mask_file = find_material_image(material, TEETH_GUMS_MAP)
         # if no gums mask file is found for the teeth,
         # just connect as default advanced material
         if mask_file is None:
@@ -934,7 +895,7 @@ def connect_adv_mouth_material(object, material, shader):
             return
     # if no gradient ao file is found for the teeth or tongue
     # just connect as default advanced material
-    gradient_file = find_material_texture(material, MOUTH_GRADIENT_MAP)
+    gradient_file = find_material_image(material, MOUTH_GRADIENT_MAP)
     gradient_node = None
     if gradient_file is None:
         connect_advanced_material(object, material, shader)
@@ -958,8 +919,8 @@ def connect_adv_mouth_material(object, material, shader):
     reset_cursor()
     advance_cursor(-2)
     # maps
-    diffuse_file = find_material_texture(material, BASE_COLOR_MAP)
-    ao_file = find_material_texture(material, MOD_AO_MAP)
+    diffuse_file = find_material_image(material, BASE_COLOR_MAP)
+    ao_file = find_material_image(material, MOD_AO_MAP)
     diffuse_node = ao_node = None
     advance_cursor(2 - count_maps(diffuse_file, ao_file))
     if diffuse_file is not None:
@@ -1045,8 +1006,8 @@ def connect_adv_mouth_material(object, material, shader):
     specprop, specular = get_specular_strength(object, material)
     roughprop, roughness = get_roughness_strength(object, material)
     # maps
-    metallic_file = find_material_texture(material, METALLIC_MAP)
-    roughness_file = find_material_texture(material, ROUGHNESS_MAP)
+    metallic_file = find_material_image(material, METALLIC_MAP)
+    roughness_file = find_material_image(material, ROUGHNESS_MAP)
     metallic_node = roughness_node = roughness_mult_node = None
     if metallic_file is not None:
         metallic_node = make_image_node(nodes, metallic_file, "metallic_tex", "Non-Color")
@@ -1121,8 +1082,8 @@ def connect_basic_material(object, material, shader):
     # Base Color
     #
     reset_cursor()
-    diffuse_file = find_material_texture(material, BASE_COLOR_MAP)
-    ao_file = find_material_texture(material, MOD_AO_MAP)
+    diffuse_file = find_material_image(material, BASE_COLOR_MAP)
+    ao_file = find_material_image(material, MOD_AO_MAP)
     diffuse_node = ao_node = None
     if (diffuse_file is not None):
         diffuse_node = make_image_node(nodes, diffuse_file, "diffuse_tex", "sRGB")
@@ -1143,7 +1104,7 @@ def connect_basic_material(object, material, shader):
     # Metallic
     #
     reset_cursor()
-    metallic_file = find_material_texture(material, METALLIC_MAP)
+    metallic_file = find_material_image(material, METALLIC_MAP)
     metallic_node = None
     if metallic_file is not None:
         metallic_node = make_image_node(nodes, metallic_file, "metallic_tex", "Non-Color")
@@ -1152,8 +1113,8 @@ def connect_basic_material(object, material, shader):
     # Specular
     #
     reset_cursor()
-    specular_file = find_material_texture(material, SPECULAR_MAP)
-    mask_file = find_material_texture(material, MOD_SPECMASK_MAP)
+    specular_file = find_material_image(material, SPECULAR_MAP)
+    mask_file = find_material_image(material, MOD_SPECMASK_MAP)
     prop_spec, spec = get_specular_strength(object, material)
     specular_node = mask_node = mult_node = None
     if specular_file is not None:
@@ -1180,7 +1141,7 @@ def connect_basic_material(object, material, shader):
     # Roughness
     #
     reset_cursor()
-    roughness_file = find_material_texture(material, ROUGHNESS_MAP)
+    roughness_file = find_material_image(material, ROUGHNESS_MAP)
     roughness_node = None
     if roughness_file is not None:
         roughness_node = make_image_node(nodes, roughness_file, "roughness_tex", "Non-Color")
@@ -1189,7 +1150,7 @@ def connect_basic_material(object, material, shader):
     # Emission
     #
     reset_cursor()
-    emission_file = find_material_texture(material, EMISSION_MAP)
+    emission_file = find_material_image(material, EMISSION_MAP)
     emission_node = None
     if emission_file is not None:
         emission_node = make_image_node(nodes, emission_file, "emission_tex", "Non-Color")
@@ -1198,8 +1159,7 @@ def connect_basic_material(object, material, shader):
     # Alpha
     #
     reset_cursor()
-    alpha_file = find_material_texture(material, ALPHA_MAP)
-    is_really_opaque = shader.inputs["Alpha"].default_value == 1.0
+    alpha_file = find_material_image(material, ALPHA_MAP)
     alpha_node = None
     if alpha_file is not None:
         alpha_node = make_image_node(nodes, alpha_file, "opacity_tex", "Non-Color")
@@ -1207,24 +1167,19 @@ def connect_basic_material(object, material, shader):
             link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
         else:
             link_nodes(links, alpha_node, "Color", shader, "Alpha")
-        if alpha_node.image is not None:
-            is_really_opaque = is_image_opaque(alpha_node.image)
     # material alpha blend settings
-    if is_really_opaque:
-        set_material_alpha(material, "OPAQUE")
-    elif is_input_connected(shader.inputs["Alpha"]) or shader.inputs["Alpha"].default_value < 1.0:
-        if is_hair_object(object, material) or is_eyelash_material(material):
+    if is_hair_object(object, material) or is_eyelash_material(material):
             set_material_alpha(material, "HASHED")
-        else:
-            set_material_alpha(material, props.blend_mode)
+    elif shader.inputs["Alpha"].default_value < 1.0:
+        set_material_alpha(material, props.blend_mode)
     else:
         set_material_alpha(material, "OPAQUE")
 
     # Normal
     #
     reset_cursor()
-    normal_file = find_material_texture(material, NORMAL_MAP)
-    bump_file = find_material_texture(material, BUMP_MAP)
+    normal_file = find_material_image(material, NORMAL_MAP)
+    bump_file = find_material_image(material, BUMP_MAP)
     normal_node = bump_node = normalmap_node = bumpmap_node = None
     if normal_file is not None:
         normal_node = make_image_node(nodes, normal_file, "normal_tex", "Non-Color")
@@ -1251,9 +1206,9 @@ def connect_basic_material(object, material, shader):
 def connect_base_color(object, material, shader):
     props = bpy.context.scene.CC3ImportProps
 
-    diffuse_file = find_material_texture(material, BASE_COLOR_MAP)
-    blend_file = find_material_texture(material, MOD_BASECOLORBLEND_MAP)
-    ao_file = find_material_texture(material, MOD_AO_MAP)
+    diffuse_file = find_material_image(material, BASE_COLOR_MAP)
+    blend_file = find_material_image(material, MOD_BASECOLORBLEND_MAP)
+    ao_file = find_material_image(material, MOD_AO_MAP)
     prop_blend, blend_value = get_blend_strength(object, material)
     prop_ao, ao_value = get_ao_strength(object, material)
     prop_group = get_material_group(object, material)
@@ -1302,8 +1257,8 @@ def connect_base_color(object, material, shader):
 def connect_subsurface(object, material, shader, diffuse_node):
     props = bpy.context.scene.CC3ImportProps
 
-    sss_file = find_material_texture(material, SUBSURFACE_MAP)
-    trans_file = find_material_texture(material, MOD_TRANSMISSION_MAP)
+    sss_file = find_material_image(material, SUBSURFACE_MAP)
+    trans_file = find_material_image(material, MOD_TRANSMISSION_MAP)
     prop_radius, sss_radius = get_sss_radius(object, material)
     prop_falloff, sss_falloff = get_sss_falloff(object, material)
     prop_group = get_material_group(object, material)
@@ -1352,10 +1307,10 @@ def connect_subsurface(object, material, shader, diffuse_node):
 def connect_msr(object, material, shader):
     props = bpy.context.scene.CC3ImportProps
 
-    metallic_file = find_material_texture(material, METALLIC_MAP)
-    specular_file = find_material_texture(material, SPECULAR_MAP)
-    mask_file = find_material_texture(material, MOD_SPECMASK_MAP)
-    roughness_file = find_material_texture(material, ROUGHNESS_MAP)
+    metallic_file = find_material_image(material, METALLIC_MAP)
+    specular_file = find_material_image(material, SPECULAR_MAP)
+    mask_file = find_material_image(material, MOD_SPECMASK_MAP)
+    roughness_file = find_material_image(material, ROUGHNESS_MAP)
     prop_spec, specular_strength = get_specular_strength(object, material)
     prop_roughness, roughness_remap = get_roughness_strength(object, material)
     prop_group = get_material_group(object, material)
@@ -1401,13 +1356,12 @@ def connect_msr(object, material, shader):
 def connect_emission_alpha(object, material, shader):
     props = bpy.context.scene.CC3ImportProps
 
-    emission_file = find_material_texture(material, EMISSION_MAP)
-    alpha_file = find_material_texture(material, ALPHA_MAP)
+    emission_file = find_material_image(material, EMISSION_MAP)
+    alpha_file = find_material_image(material, ALPHA_MAP)
 
     nodes = material.node_tree.nodes
     links = material.node_tree.links
     emission_node = alpha_node = None
-    is_really_opaque = False
     # emission
     reset_cursor()
     if emission_file is not None:
@@ -1421,23 +1375,11 @@ def connect_emission_alpha(object, material, shader):
             link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
         else:
             link_nodes(links, alpha_node, "Color", shader, "Alpha")
-        if alpha_node.image is not None:
-            is_really_opaque = is_image_opaque(alpha_node.image)
     # material settings
-    if is_really_opaque:
-        set_material_alpha(material, "OPAQUE")
-
-    elif is_input_connected(shader.inputs["Alpha"]) or shader.inputs["Alpha"].default_value < 1.0:
-
-        if is_hair_object(object, material) or is_eyelash_material(material):
+    if is_hair_object(object, material) or is_eyelash_material(material):
             set_material_alpha(material, "HASHED")
-        else:
-            if props.blend_mode == "HASHED":
-                set_material_alpha(material, "HASHED")
-            elif props.blend_mode == "BLEND":
-                set_material_alpha(material, "BLEND")
-            else:
-                set_material_alpha(material, "OPAQUE")
+    elif shader.inputs["Alpha"].default_value < 1.0:
+        set_material_alpha(material, props.blend_mode)
     else:
         set_material_alpha(material, "OPAQUE")
 
@@ -1446,11 +1388,11 @@ def connect_normal(object, material, shader):
     props = bpy.context.scene.CC3ImportProps
 
     normal_node = bump_node = blend_node = micro_node = mask_node = tiling_node = None
-    normal_file = find_material_texture(material, NORMAL_MAP)
-    bump_file = find_material_texture(material, BUMP_MAP)
-    blend_file = find_material_texture(material, MOD_NORMALBLEND_MAP)
-    micro_file = find_material_texture(material, MOD_MICRONORMAL_MAP)
-    mask_file = find_material_texture(material, MOD_MICRONORMALMASK_MAP)
+    normal_file = find_material_image(material, NORMAL_MAP)
+    bump_file = find_material_image(material, BUMP_MAP)
+    blend_file = find_material_image(material, MOD_NORMALBLEND_MAP)
+    micro_file = find_material_image(material, MOD_MICRONORMAL_MAP)
+    mask_file = find_material_image(material, MOD_MICRONORMALMASK_MAP)
     prop_bump, bump_strength = get_bump_strength(object, material)
     prop_blend, blend_strength = get_normal_blend_strength(object, material)
     prop_micronormal, micronormal_strength = get_micronormal_strength(object, material)
@@ -2241,6 +2183,7 @@ def remove_all_lights():
         if obj.type == "LIGHT" and not obj.hide_viewport:
             bpy.data.objects.remove(obj)
 
+
 class CC3Scene(bpy.types.Operator):
     """Scene Tools"""
     bl_idname = "cc3.scene"
@@ -2255,115 +2198,141 @@ class CC3Scene(bpy.types.Operator):
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
 
-        if self.param == "BLENDER_DEFAULT":
+        # store selection and mode
+        current_selected = bpy.context.selected_objects
+        current_active = bpy.context.active_object
+        current_mode = bpy.context.mode
+        # go to object mode
+        try:
+            if current_mode != "OBJECT":
+                bpy.ops.object.mode_set(mode="OBJECT")
 
-            bpy.context.scene.eevee.use_gtao = False
-            bpy.context.scene.eevee.gtao_distance = 0.2
-            bpy.context.scene.eevee.gtao_factor = 1.0
-            bpy.context.scene.eevee.use_bloom = False
-            bpy.context.scene.eevee.bloom_threshold = 0.8
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 6.5
-            bpy.context.scene.eevee.bloom_intensity = 0.05
-            bpy.context.scene.eevee.use_ssr = False
-            bpy.context.scene.eevee.use_ssr_refraction = False
-            bpy.context.scene.view_settings.view_transform = "Filmic"
-            bpy.context.scene.view_settings.look = "None"
-            bpy.context.scene.view_settings.exposure = 0.0
-            bpy.context.scene.view_settings.gamma = 1.0
+            if self.param == "BLENDER_DEFAULT":
 
-            remove_all_lights()
+                bpy.context.scene.eevee.use_gtao = False
+                bpy.context.scene.eevee.gtao_distance = 0.2
+                bpy.context.scene.eevee.gtao_factor = 1.0
+                bpy.context.scene.eevee.use_bloom = False
+                bpy.context.scene.eevee.bloom_threshold = 0.8
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 6.5
+                bpy.context.scene.eevee.bloom_intensity = 0.05
+                bpy.context.scene.eevee.use_ssr = False
+                bpy.context.scene.eevee.use_ssr_refraction = False
+                bpy.context.scene.view_settings.view_transform = "Filmic"
+                bpy.context.scene.view_settings.look = "None"
+                bpy.context.scene.view_settings.exposure = 0.0
+                bpy.context.scene.view_settings.gamma = 1.0
 
-            key1 = add_point_light("Light",
-                    (4.076245307922363, 1.0054539442062378, 5.903861999511719),
-                    (0.6503279805183411, 0.055217113345861435, 1.8663908243179321),
-                    1000, 0.1)
+                remove_all_lights()
 
-        elif self.param == "CC3_DEFAULT":
+                key1 = add_point_light("Light",
+                        (4.076245307922363, 1.0054539442062378, 5.903861999511719),
+                        (0.6503279805183411, 0.055217113345861435, 1.8663908243179321),
+                        1000, 0.1)
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.35
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 2.0
-            bpy.context.scene.eevee.bloom_intensity = 0.1
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.view_settings.view_transform = "Filmic"
-            bpy.context.scene.view_settings.look = "Medium High Contrast"
-            bpy.context.scene.view_settings.exposure = 0.5
-            bpy.context.scene.view_settings.gamma = 0.5
+            elif self.param == "CC3_DEFAULT":
 
-            remove_all_lights()
+                bpy.context.scene.eevee.use_gtao = True
+                bpy.context.scene.eevee.gtao_distance = 0.25
+                bpy.context.scene.eevee.gtao_factor = 0.5
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.35
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 2.0
+                bpy.context.scene.eevee.bloom_intensity = 0.1
+                bpy.context.scene.eevee.use_ssr = True
+                bpy.context.scene.eevee.use_ssr_refraction = True
+                bpy.context.scene.view_settings.view_transform = "Filmic"
+                bpy.context.scene.view_settings.look = "Medium High Contrast"
+                bpy.context.scene.view_settings.exposure = 0.5
+                bpy.context.scene.view_settings.gamma = 0.5
 
-            key1 = add_spot_light("Key1",
-                    (0.71149, -1.49019, 2.04134),
-                    (1.2280241250991821, 0.4846124053001404, 0.3449903726577759),
-                    100, 0.25, 2.095, 9.7)
+                remove_all_lights()
 
-            key2 = add_spot_light("Key2",
-                    (0.63999, -1.3600, 0.1199),
-                    (1.8845493793487549, 0.50091552734375, 0.6768553256988525),
-                    100, 0.25, 2.095, 9.7)
+                key1 = add_spot_light("Key1",
+                        (0.71149, -1.49019, 2.04134),
+                        (1.2280241250991821, 0.4846124053001404, 0.3449903726577759),
+                        100, 0.25, 2.095, 9.7)
 
-            back = add_spot_light("Back",
-                    (0.0, 2.0199, 1.69),
-                    (-1.3045594692230225, 0.11467886716127396, 0.03684665635228157),
-                    100, 0.25, 1.448, 9.14)
+                key2 = add_spot_light("Key2",
+                        (0.63999, -1.3600, 0.1199),
+                        (1.8845493793487549, 0.50091552734375, 0.6768553256988525),
+                        100, 0.25, 2.095, 9.7)
 
-            set_contact_shadow(key1, 0.1, 0.001)
-            set_contact_shadow(key2, 0.1, 0.005)
+                back = add_spot_light("Back",
+                        (0.0, 2.0199, 1.69),
+                        (-1.3045594692230225, 0.11467886716127396, 0.03684665635228157),
+                        100, 0.25, 1.448, 9.14)
 
-        elif self.param == "PORTRAIT_LIGHTS":
+                set_contact_shadow(key1, 0.1, 0.001)
+                set_contact_shadow(key2, 0.1, 0.005)
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.35
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 2.0
-            bpy.context.scene.eevee.bloom_intensity = 0.1
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.view_settings.view_transform = "Filmic"
-            bpy.context.scene.view_settings.look = "Medium High Contrast"
-            bpy.context.scene.view_settings.exposure = 0.5
-            bpy.context.scene.view_settings.gamma = 0.6
+            elif self.param == "PORTRAIT_LIGHTS":
 
-            remove_all_lights()
+                bpy.context.scene.eevee.use_gtao = True
+                bpy.context.scene.eevee.gtao_distance = 0.25
+                bpy.context.scene.eevee.gtao_factor = 0.5
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.35
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 2.0
+                bpy.context.scene.eevee.bloom_intensity = 0.1
+                bpy.context.scene.eevee.use_ssr = True
+                bpy.context.scene.eevee.use_ssr_refraction = True
+                bpy.context.scene.view_settings.view_transform = "Filmic"
+                bpy.context.scene.view_settings.look = "Medium High Contrast"
+                bpy.context.scene.view_settings.exposure = 0.5
+                bpy.context.scene.view_settings.gamma = 0.6
 
-            key = add_area_light("Key",
-                    (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
-                    (1.0848181247711182, -0.881056010723114, -0.5597077012062073),
-                    40, 2)
+                remove_all_lights()
 
-            fill = add_area_light("Fill",
-                    (2.28589, -1.51410, 1.40742),
-                    (1.4248263835906982, 0.9756063222885132, 0.8594209551811218),
-                    20, 2)
+                key = add_area_light("Key",
+                        (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
+                        (1.0848181247711182, -0.881056010723114, -0.5597077012062073),
+                        40, 2)
 
-            back = add_area_light("Back",
-                    (0.36789, 0.61511, 2.36201),
-                    (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
-                    20, 1)
+                fill = add_area_light("Fill",
+                        (2.28589, -1.51410, 1.40742),
+                        (1.4248263835906982, 0.9756063222885132, 0.8594209551811218),
+                        20, 2)
 
-            set_contact_shadow(key, 0.1, 0.001)
-            set_contact_shadow(fill, 0.1, 0.005)
+                back = add_area_light("Back",
+                        (0.36789, 0.61511, 2.36201),
+                        (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
+                        20, 1)
+
+                set_contact_shadow(key, 0.1, 0.001)
+                set_contact_shadow(fill, 0.1, 0.005)
+
+        except:
+            print("Something went wrong adding lights... wrong editor context?")
+
+        # restore selection
+        bpy.ops.object.select_all(action='DESELECT')
+        for object in current_selected:
+            try:
+                object.select_set(True)
+            except:
+                pass
+        bpy.context.view_layer.objects.active = current_active
+        try:
+            if current_mode != "OBJECT":
+                bpy.ops.object.mode_set(mode=current_mode)
+        except:
+            pass
 
         return {"FINISHED"}
 
     @classmethod
     def description(cls, context, properties):
 
-        if properties.param == "DEFAULT_LIGHTS":
-            return "Add the default 3 point lighting arrangement"
-        elif properties.param == "CAMERA":
-            return "Add camera"
-        elif properties.param == "SETTINGS":
-            return "Apply the settings for ambient occlusion, bloom and color mapping"
+        if properties.param == "BLENDER_DEFAULT":
+            return "Restore the render settings and lighting to the Blender defaults"
+        elif properties.param == "CC3_DEFAULT":
+            return "Set the render settings and lighting to a facsimile of the default CC3 lighting"
+        elif properties.param == "PORTRAIT LIGHTS":
+            return "Set the render settings and lighting to a soft 3 point lighting setup focused on the face"
         return ""
 
 
@@ -2409,20 +2378,21 @@ def quick_set_update(self, context):
     if not block_update:
         quick_set_execute("UPDATE_ALL")
 
-def find_pose_bone(name):
+def find_pose_bone(*name):
     props = bpy.context.scene.CC3ImportProps
 
     for p in props.import_objects:
         obj = p.object
         if (obj.type == "ARMATURE"):
-            if name in obj.pose.bones:
-                return obj.pose.bones[name]
+            for n in name:
+                if n in obj.pose.bones:
+                    return obj.pose.bones[n]
     return None
 
 def open_mouth_update(self, context):
     props = bpy.context.scene.CC3ImportProps
 
-    bone = find_pose_bone("CC_Base_JawRoot")
+    bone = find_pose_bone("CC_Base_JawRoot", "JawRoot")
     if bone is not None:
         constraint = None
 
@@ -3218,9 +3188,9 @@ class MyPanel(bpy.types.Panel):
                     col_2.prop(props, "eye_iris_radius", text="", slider=True)
                     col_1.label(text="*Iris Mask Hardness")
                     col_2.prop(props, "eye_iris_hardness", text="", slider=True)
-                    col_1.label(text="Eye SSS Radius")
+                    col_1.label(text="SS Radius (cm)")
                     col_2.prop(props, "eye_sss_radius", text="", slider=True)
-                    col_1.label(text="Eye SSS Faloff")
+                    col_1.label(text="SSS Faloff")
                     col_2.prop(props, "eye_sss_falloff", text="")
                     col_1.label(text="Sclera Normal")
                     col_2.prop(props, "eye_sclera_normal", text="", slider=True)
@@ -3271,7 +3241,7 @@ class MyPanel(bpy.types.Panel):
                     col_2.prop(props, "teeth_gums_sss_scatter", text="", slider=True)
                     col_1.label(text="Teeth SSS Scatter")
                     col_2.prop(props, "teeth_teeth_sss_scatter", text="", slider=True)
-                    col_1.label(text="SSS Radius")
+                    col_1.label(text="SSS Radius (cm)")
                     col_2.prop(props, "teeth_sss_radius", text="", slider=True)
                     col_1.label(text="SSS Falloff")
                     col_2.prop(props, "teeth_sss_falloff", text="", slider=True)
@@ -3306,7 +3276,7 @@ class MyPanel(bpy.types.Panel):
                     col_2.prop(props, "tongue_roughness", text="", slider=True)
                     col_1.label(text="SSS Scatter")
                     col_2.prop(props, "tongue_sss_scatter", text="", slider=True)
-                    col_1.label(text="SSS Radius")
+                    col_1.label(text="SSS Radius (cm)")
                     col_2.prop(props, "tongue_sss_radius", text="", slider=True)
                     col_1.label(text="SSS Falloff")
                     col_2.prop(props, "tongue_sss_falloff", text="", slider=True)
@@ -3331,7 +3301,7 @@ class MyPanel(bpy.types.Panel):
                     col_2.prop(props, "nails_specular", text="", slider=True)
                     col_1.label(text="*Nails Roughness")
                     col_2.prop(props, "nails_roughness", text="", slider=True)
-                    col_1.label(text="SSS Radius")
+                    col_1.label(text="SSS Radius (cm)")
                     col_2.prop(props, "nails_sss_radius", text="", slider=True)
                     col_1.label(text="SSS Falloff")
                     col_2.prop(props, "nails_sss_falloff", text="", slider=True)
@@ -3361,7 +3331,7 @@ class MyPanel(bpy.types.Panel):
                     col_2.prop(props, "hair_scalp_specular", text="", slider=True)
                     col_1.label(text="*Scalp Roughness")
                     col_2.prop(props, "hair_scalp_roughness", text="", slider=True)
-                    col_1.label(text="SSS Radius")
+                    col_1.label(text="SSS Radius (cm)")
                     col_2.prop(props, "hair_sss_radius", text="", slider=True)
                     col_1.label(text="SSS Falloff")
                     col_2.prop(props, "hair_sss_falloff", text="")
@@ -3384,13 +3354,13 @@ class MyPanel(bpy.types.Panel):
                     col_2.prop(props, "default_blend", text="", slider=True)
                     col_1.label(text="*Default Roughness")
                     col_2.prop(props, "default_roughness", text="", slider=True)
-                    col_1.label(text="Default SSS Radius")
+                    col_1.label(text="SSS Radius (cm)")
                     col_2.prop(props, "default_sss_radius", text="", slider=True)
-                    col_1.label(text="Default SSS Falloff")
+                    col_1.label(text="SSS Falloff")
                     col_2.prop(props, "default_sss_falloff", text="")
-                    col_1.label(text="Default Micro Normal")
+                    col_1.label(text="Micro Normal")
                     col_2.prop(props, "default_micronormal", text="", slider=True)
-                    col_1.label(text="Default MNormal Tiling")
+                    col_1.label(text="Micro Normal Tiling")
                     col_2.prop(props, "default_tiling", text="", slider=True)
                     col_1.label(text="*Bump Height (mm)")
                     col_2.prop(props, "default_bump", text="", slider=True)
@@ -3450,12 +3420,6 @@ class MyPanel(bpy.types.Panel):
             col_2 = split.column()
             col_1.label(text="Open Mouth")
             col_2.prop(props, "open_mouth", text="", slider=True)
-            col_1.label(text="Fetch Parameters")
-            op = col_2.operator("cc3.quickset", icon="COPYDOWN", text="Fetch")
-            if props.update_mode == "UPDATE_ALL":
-                op.param = "FETCH_ALL"
-            elif props.update_mode == "UPDATE_SELECTED":
-                op.param = "FETCH_SELECTED"
             col_1.label(text="Reset Parameters")
             op = col_2.operator("cc3.quickset", icon="DECORATE_OVERRIDE", text="Reset")
             op.param = "RESET"
