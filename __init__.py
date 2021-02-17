@@ -2231,6 +2231,14 @@ class CC3Scene(bpy.types.Operator):
                         (0.6503279805183411, 0.055217113345861435, 1.8663908243179321),
                         1000, 0.1)
 
+                bpy.context.space_data.shading.type = 'RENDERED'
+                bpy.context.space_data.shading.use_scene_lights_render = True
+                bpy.context.space_data.shading.use_scene_world_render = False
+                bpy.context.space_data.shading.studio_light = 'forest.exr'
+                bpy.context.space_data.shading.studiolight_rotate_z = 0
+                bpy.context.space_data.shading.studiolight_intensity = 1
+                bpy.context.space_data.shading.studiolight_background_alpha = 0
+
             elif self.param == "CC3_DEFAULT":
 
                 bpy.context.scene.eevee.use_gtao = True
@@ -2244,7 +2252,7 @@ class CC3Scene(bpy.types.Operator):
                 bpy.context.scene.eevee.use_ssr = True
                 bpy.context.scene.eevee.use_ssr_refraction = True
                 bpy.context.scene.view_settings.view_transform = "Filmic"
-                bpy.context.scene.view_settings.look = "Medium High Contrast"
+                bpy.context.scene.view_settings.look = "Medium Contrast"
                 bpy.context.scene.view_settings.exposure = 0.5
                 bpy.context.scene.view_settings.gamma = 0.5
 
@@ -2267,6 +2275,14 @@ class CC3Scene(bpy.types.Operator):
 
                 set_contact_shadow(key1, 0.1, 0.001)
                 set_contact_shadow(key2, 0.1, 0.005)
+
+                bpy.context.space_data.shading.type = 'RENDERED'
+                bpy.context.space_data.shading.use_scene_lights_render = True
+                bpy.context.space_data.shading.use_scene_world_render = False
+                bpy.context.space_data.shading.studio_light = 'studio.exr'
+                bpy.context.space_data.shading.studiolight_rotate_z = 0
+                bpy.context.space_data.shading.studiolight_intensity = 0.75
+                bpy.context.space_data.shading.studiolight_background_alpha = 0
 
             elif self.param == "PORTRAIT_LIGHTS":
 
@@ -2305,6 +2321,14 @@ class CC3Scene(bpy.types.Operator):
                 set_contact_shadow(key, 0.1, 0.001)
                 set_contact_shadow(fill, 0.1, 0.005)
 
+                bpy.context.space_data.shading.type = 'RENDERED'
+                bpy.context.space_data.shading.use_scene_lights_render = True
+                bpy.context.space_data.shading.use_scene_world_render = False
+                bpy.context.space_data.shading.studio_light = 'courtyard.exr'
+                bpy.context.space_data.shading.studiolight_rotate_z = 2.00713
+                bpy.context.space_data.shading.studiolight_intensity = 0.35
+                bpy.context.space_data.shading.studiolight_background_alpha = 0
+
         except:
             print("Something went wrong adding lights... wrong editor context?")
 
@@ -2315,8 +2339,8 @@ class CC3Scene(bpy.types.Operator):
                 object.select_set(True)
             except:
                 pass
-        bpy.context.view_layer.objects.active = current_active
         try:
+            bpy.context.view_layer.objects.active = current_active
             if current_mode != "OBJECT":
                 bpy.ops.object.mode_set(mode=current_mode)
         except:
@@ -2826,13 +2850,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     node_id: bpy.props.IntProperty(default=1000)
 
     setup_mode: bpy.props.EnumProperty(items=[
-                        ("BASIC","Basic","No fancy crap"),
-                        ("ADVANCED","Advanced","Adds Subsurface, blend maps, micro normals")
+                        ("BASIC","Basic Materials","Build basic PBR materials."),
+                        ("ADVANCED","Adv. Materials","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
                     ], default="BASIC")
 
     build_mode: bpy.props.EnumProperty(items=[
-                        ("IMPORTED","Imported","Build materials for all the imported objects"),
-                        ("SELECTED","Selected","Build materials only for the selected objects")
+                        ("IMPORTED","All Imported","Build materials for all the imported objects."),
+                        ("SELECTED","Only Selected","Build materials only for the selected objects.")
                     ], default="IMPORTED")
 
     export_mode: bpy.props.EnumProperty(items=[
@@ -2848,12 +2872,12 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     ], default="IMPORTED")
 
     blend_mode: bpy.props.EnumProperty(items=[
-                        ("BLEND","Blend","Basic Alpha Blend"),
-                        ("HASHED","Hashed","Resolves Z sorting issues, but needs more samples")
+                        ("BLEND","Alpha Blend","Setup any non opaque materials as basic Alpha Blend"),
+                        ("HASHED","Alpha Hashed","Setup non opaque materials as alpha hashed (Resolves Z sorting issues, but may need more samples)")
                     ], default="BLEND")
 
     update_mode: bpy.props.EnumProperty(items=[
-                        ("UPDATE_ALL","Last Import","Update the shader parameters for all objects from the last import"),
+                        ("UPDATE_ALL","All Imported","Update the shader parameters for all objects from the last import"),
                         ("UPDATE_SELECTED","Selected Only","Update the shader parameters only in the selected objects")
                     ], default="UPDATE_ALL")
 
@@ -3040,19 +3064,13 @@ class MyPanel(bpy.types.Panel):
                 "2. Build Materials",
                 "stage2",
                 props.stage2):
+            layout.prop(props, "setup_mode", expand=True)
+            layout.prop(props, "blend_mode", expand=True)
+            layout.prop(props, "build_mode", expand=True)
+            layout.separator()
             split = layout.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
-            col_1.label(text="Mode")
-            col_2.prop(props, "setup_mode", text="")
-            col_1.label(text="Preferred Blend")
-            col_2.prop(props, "blend_mode", text="")
-            col_1.separator()
-            col_2.separator()
-            col_1.label(text="Operate On")
-            col_2.prop(props, "build_mode", text="")
-            col_1.separator()
-            col_2.separator()
             col_1.label(text="Hair Hint")
             col_2.prop(props, "hair_hint", text="")
             col_1.label(text="Scalp Hint")
@@ -3103,11 +3121,7 @@ class MyPanel(bpy.types.Panel):
                 "4. Adjust Parameters",
                 "stage4",
                 props.stage4):
-            split = layout.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Update")
-            col_2.prop(props, "update_mode", text="")
+            layout.prop(props, "update_mode", expand=True)
             if props.setup_mode == "ADVANCED":
                 # Skin Settings
                 layout.separator()
