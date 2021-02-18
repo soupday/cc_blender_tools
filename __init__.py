@@ -1908,14 +1908,37 @@ class CC3Import(bpy.types.Operator):
 
 
     def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
 
+        # import character
+        if self.param == "IMPORT" or self.param == "IMPORT_PIPELINE" or self.param == "IMPORT_QUALITY":
 
-        if self.param == "IMPORT" or self.param == "IMPORT_PIPELINE":
+            # use basic materials for morph/accessory editing as it has better viewport performance
+            if self.param == "IMPORT_PIPELINE":
+                props.setup_mode = "BASIC"
+
+            # use advanced materials for quality/rendering
+            elif self.param == "IMPORT_QUALITY":
+                props.setup_mode = "ADVANCED"
+
             self.import_character()
 
+            # use the cc3 lighting for morph/accessory editing
+            if self.param == "IMPORT_PIPELINE":
+                setup_scene_default("CC3_DEFAULT")
+                # for any objects with shape keys select basis and enable show in edit mode
+                for p in props.import_objects:
+                    init_character_for_edit(p.object)
+
+            # use portrait lighting for quality mode
+            elif self.param == "IMPORT_QUALITY":
+                setup_scene_default("PORTRAIT_LIGHTS")
+
+        # build materials
         elif self.param == "BUILD":
             self.build_materials()
 
+        # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
             rebuild_node_groups()
 
@@ -1923,7 +1946,7 @@ class CC3Import(bpy.types.Operator):
 
 
     def invoke(self, context, event):
-        if self.param == "IMPORT" or self.param == "IMPORT_PIPELINE":
+        if self.param == "IMPORT" or self.param == "IMPORT_PIPELINE" or self.param == "IMPORT_QUALITY":
             context.window_manager.fileselect_add(self)
             return {"RUNNING_MODAL"}
 
@@ -1939,6 +1962,8 @@ class CC3Import(bpy.types.Operator):
             return "Import .fbx or .obj character from CC3 for morph or accessory creation.\n" \
                    "For best results for morph creation, in CC3, export mesh only fbx to blender, or obj nude character in bind pose.\n" \
                    "Note: nude character in bind pose .obj does not export any materials"
+        elif properties.param == "IMPORT_QUALITY":
+            return "Import .fbx or .obj character from CC3 for rendering.\n"
         return ""
 
 
@@ -2183,6 +2208,195 @@ def remove_all_lights():
         if obj.type == "LIGHT" and not obj.hide_viewport:
             bpy.data.objects.remove(obj)
 
+def init_fbx_edit():
+    props = bpy.context.scene.CC3ImportProps
+
+def init_character_for_edit(object):
+    #bpy.context.active_object.data.shape_keys.key_blocks['Basis']
+    if object.type == "MESH":
+        shape_keys = object.data.shape_keys
+        if shape_keys is not None:
+            blocks = shape_keys.key_blocks
+            if blocks is not None:
+                if len(blocks) > 0:
+                    set_shape_key_edit(object)
+
+    if object.type == "ARMATURE":
+        for child in object.children:
+            init_character_for_edit(child)
+
+
+def set_shape_key_edit(object):
+    try:
+        #current_mode = bpy.context.mode
+        #if current_mode != "OBJECT":
+        #    bpy.ops.object.mode_set(mode="OBJECT")
+        #bpy.context.view_layer.objects.active = object
+        object.active_shape_key_index = 0
+        object.show_only_shape_key = True
+        object.use_shape_key_edit_mode = True
+    except:
+        log_error("Unable to set shape key edit mode!")
+
+
+def setup_scene_default(scene_type):
+    # store selection and mode
+    current_selected = bpy.context.selected_objects
+    current_active = bpy.context.active_object
+    current_mode = bpy.context.mode
+    # go to object mode
+    try:
+        if current_mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+
+        bpy.context.space_data.lens = 120
+
+
+        if scene_type == "BLENDER_DEFAULT":
+
+            bpy.context.scene.eevee.use_gtao = False
+            bpy.context.scene.eevee.gtao_distance = 0.2
+            bpy.context.scene.eevee.gtao_factor = 1.0
+            bpy.context.scene.eevee.use_bloom = False
+            bpy.context.scene.eevee.bloom_threshold = 0.8
+            bpy.context.scene.eevee.bloom_knee = 0.5
+            bpy.context.scene.eevee.bloom_radius = 6.5
+            bpy.context.scene.eevee.bloom_intensity = 0.05
+            bpy.context.scene.eevee.use_ssr = False
+            bpy.context.scene.eevee.use_ssr_refraction = False
+            bpy.context.scene.view_settings.view_transform = "Filmic"
+            bpy.context.scene.view_settings.look = "None"
+            bpy.context.scene.view_settings.exposure = 0.0
+            bpy.context.scene.view_settings.gamma = 1.0
+
+            remove_all_lights()
+
+            key1 = add_point_light("Light",
+                    (4.076245307922363, 1.0054539442062378, 5.903861999511719),
+                    (0.6503279805183411, 0.055217113345861435, 1.8663908243179321),
+                    1000, 0.1)
+
+            bpy.context.space_data.shading.type = 'RENDERED'
+            bpy.context.space_data.shading.use_scene_lights_render = True
+            bpy.context.space_data.shading.use_scene_world_render = False
+            bpy.context.space_data.shading.studio_light = 'forest.exr'
+            bpy.context.space_data.shading.studiolight_rotate_z = 0
+            bpy.context.space_data.shading.studiolight_intensity = 1
+            bpy.context.space_data.shading.studiolight_background_alpha = 0
+            bpy.context.space_data.lens = 50
+            bpy.context.space_data.clip_start = 0.1
+
+        elif scene_type == "CC3_DEFAULT":
+
+            bpy.context.scene.eevee.use_gtao = True
+            bpy.context.scene.eevee.gtao_distance = 0.25
+            bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_bloom = True
+            bpy.context.scene.eevee.bloom_threshold = 0.35
+            bpy.context.scene.eevee.bloom_knee = 0.5
+            bpy.context.scene.eevee.bloom_radius = 2.0
+            bpy.context.scene.eevee.bloom_intensity = 0.1
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.view_settings.view_transform = "Filmic"
+            bpy.context.scene.view_settings.look = "Medium Contrast"
+            bpy.context.scene.view_settings.exposure = 0.5
+            bpy.context.scene.view_settings.gamma = 0.5
+
+            remove_all_lights()
+
+            key1 = add_spot_light("Key1",
+                    (0.71149, -1.49019, 2.04134),
+                    (1.2280241250991821, 0.4846124053001404, 0.3449903726577759),
+                    100, 0.25, 2.095, 9.7)
+
+            key2 = add_spot_light("Key2",
+                    (0.63999, -1.3600, 0.1199),
+                    (1.8845493793487549, 0.50091552734375, 0.6768553256988525),
+                    100, 0.25, 2.095, 9.7)
+
+            back = add_spot_light("Back",
+                    (0.0, 2.0199, 1.69),
+                    (-1.3045594692230225, 0.11467886716127396, 0.03684665635228157),
+                    100, 0.25, 1.448, 9.14)
+
+            set_contact_shadow(key1, 0.1, 0.001)
+            set_contact_shadow(key2, 0.1, 0.005)
+
+            bpy.context.space_data.shading.type = 'RENDERED'
+            bpy.context.space_data.shading.use_scene_lights_render = True
+            bpy.context.space_data.shading.use_scene_world_render = False
+            bpy.context.space_data.shading.studio_light = 'studio.exr'
+            bpy.context.space_data.shading.studiolight_rotate_z = 0
+            bpy.context.space_data.shading.studiolight_intensity = 0.75
+            bpy.context.space_data.shading.studiolight_background_alpha = 0
+            bpy.context.space_data.lens = 80
+            bpy.context.space_data.clip_start = 0.01
+
+        elif scene_type == "PORTRAIT_LIGHTS":
+
+            bpy.context.scene.eevee.use_gtao = True
+            bpy.context.scene.eevee.gtao_distance = 0.25
+            bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_bloom = True
+            bpy.context.scene.eevee.bloom_threshold = 0.35
+            bpy.context.scene.eevee.bloom_knee = 0.5
+            bpy.context.scene.eevee.bloom_radius = 2.0
+            bpy.context.scene.eevee.bloom_intensity = 0.1
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.view_settings.view_transform = "Filmic"
+            bpy.context.scene.view_settings.look = "Medium High Contrast"
+            bpy.context.scene.view_settings.exposure = 0.5
+            bpy.context.scene.view_settings.gamma = 0.6
+
+            remove_all_lights()
+
+            key = add_area_light("Key",
+                    (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
+                    (1.0848181247711182, -0.881056010723114, -0.5597077012062073),
+                    40, 2)
+
+            fill = add_area_light("Fill",
+                    (2.28589, -1.51410, 1.40742),
+                    (1.4248263835906982, 0.9756063222885132, 0.8594209551811218),
+                    20, 2)
+
+            back = add_area_light("Back",
+                    (0.36789, 0.61511, 2.36201),
+                    (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
+                    20, 1)
+
+            set_contact_shadow(key, 0.1, 0.001)
+            set_contact_shadow(fill, 0.1, 0.005)
+
+            bpy.context.space_data.shading.type = 'RENDERED'
+            bpy.context.space_data.shading.use_scene_lights_render = True
+            bpy.context.space_data.shading.use_scene_world_render = False
+            bpy.context.space_data.shading.studio_light = 'courtyard.exr'
+            bpy.context.space_data.shading.studiolight_rotate_z = 2.00713
+            bpy.context.space_data.shading.studiolight_intensity = 0.35
+            bpy.context.space_data.shading.studiolight_background_alpha = 0
+            bpy.context.space_data.lens = 80
+            bpy.context.space_data.clip_start = 0.01
+
+    except:
+        log_error("Something went wrong adding lights... wrong editor context?")
+
+    # restore selection
+    bpy.ops.object.select_all(action='DESELECT')
+    for object in current_selected:
+        try:
+            object.select_set(True)
+        except:
+            pass
+    try:
+        bpy.context.view_layer.objects.active = current_active
+        if current_mode != "OBJECT":
+            bpy.ops.object.mode_set(mode=current_mode)
+    except:
+        pass
+
 
 class CC3Scene(bpy.types.Operator):
     """Scene Tools"""
@@ -2196,156 +2410,7 @@ class CC3Scene(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-
-        # store selection and mode
-        current_selected = bpy.context.selected_objects
-        current_active = bpy.context.active_object
-        current_mode = bpy.context.mode
-        # go to object mode
-        try:
-            if current_mode != "OBJECT":
-                bpy.ops.object.mode_set(mode="OBJECT")
-
-            if self.param == "BLENDER_DEFAULT":
-
-                bpy.context.scene.eevee.use_gtao = False
-                bpy.context.scene.eevee.gtao_distance = 0.2
-                bpy.context.scene.eevee.gtao_factor = 1.0
-                bpy.context.scene.eevee.use_bloom = False
-                bpy.context.scene.eevee.bloom_threshold = 0.8
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 6.5
-                bpy.context.scene.eevee.bloom_intensity = 0.05
-                bpy.context.scene.eevee.use_ssr = False
-                bpy.context.scene.eevee.use_ssr_refraction = False
-                bpy.context.scene.view_settings.view_transform = "Filmic"
-                bpy.context.scene.view_settings.look = "None"
-                bpy.context.scene.view_settings.exposure = 0.0
-                bpy.context.scene.view_settings.gamma = 1.0
-
-                remove_all_lights()
-
-                key1 = add_point_light("Light",
-                        (4.076245307922363, 1.0054539442062378, 5.903861999511719),
-                        (0.6503279805183411, 0.055217113345861435, 1.8663908243179321),
-                        1000, 0.1)
-
-                bpy.context.space_data.shading.type = 'RENDERED'
-                bpy.context.space_data.shading.use_scene_lights_render = True
-                bpy.context.space_data.shading.use_scene_world_render = False
-                bpy.context.space_data.shading.studio_light = 'forest.exr'
-                bpy.context.space_data.shading.studiolight_rotate_z = 0
-                bpy.context.space_data.shading.studiolight_intensity = 1
-                bpy.context.space_data.shading.studiolight_background_alpha = 0
-
-            elif self.param == "CC3_DEFAULT":
-
-                bpy.context.scene.eevee.use_gtao = True
-                bpy.context.scene.eevee.gtao_distance = 0.25
-                bpy.context.scene.eevee.gtao_factor = 0.5
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.35
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 2.0
-                bpy.context.scene.eevee.bloom_intensity = 0.1
-                bpy.context.scene.eevee.use_ssr = True
-                bpy.context.scene.eevee.use_ssr_refraction = True
-                bpy.context.scene.view_settings.view_transform = "Filmic"
-                bpy.context.scene.view_settings.look = "Medium Contrast"
-                bpy.context.scene.view_settings.exposure = 0.5
-                bpy.context.scene.view_settings.gamma = 0.5
-
-                remove_all_lights()
-
-                key1 = add_spot_light("Key1",
-                        (0.71149, -1.49019, 2.04134),
-                        (1.2280241250991821, 0.4846124053001404, 0.3449903726577759),
-                        100, 0.25, 2.095, 9.7)
-
-                key2 = add_spot_light("Key2",
-                        (0.63999, -1.3600, 0.1199),
-                        (1.8845493793487549, 0.50091552734375, 0.6768553256988525),
-                        100, 0.25, 2.095, 9.7)
-
-                back = add_spot_light("Back",
-                        (0.0, 2.0199, 1.69),
-                        (-1.3045594692230225, 0.11467886716127396, 0.03684665635228157),
-                        100, 0.25, 1.448, 9.14)
-
-                set_contact_shadow(key1, 0.1, 0.001)
-                set_contact_shadow(key2, 0.1, 0.005)
-
-                bpy.context.space_data.shading.type = 'RENDERED'
-                bpy.context.space_data.shading.use_scene_lights_render = True
-                bpy.context.space_data.shading.use_scene_world_render = False
-                bpy.context.space_data.shading.studio_light = 'studio.exr'
-                bpy.context.space_data.shading.studiolight_rotate_z = 0
-                bpy.context.space_data.shading.studiolight_intensity = 0.75
-                bpy.context.space_data.shading.studiolight_background_alpha = 0
-
-            elif self.param == "PORTRAIT_LIGHTS":
-
-                bpy.context.scene.eevee.use_gtao = True
-                bpy.context.scene.eevee.gtao_distance = 0.25
-                bpy.context.scene.eevee.gtao_factor = 0.5
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.35
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 2.0
-                bpy.context.scene.eevee.bloom_intensity = 0.1
-                bpy.context.scene.eevee.use_ssr = True
-                bpy.context.scene.eevee.use_ssr_refraction = True
-                bpy.context.scene.view_settings.view_transform = "Filmic"
-                bpy.context.scene.view_settings.look = "Medium High Contrast"
-                bpy.context.scene.view_settings.exposure = 0.5
-                bpy.context.scene.view_settings.gamma = 0.6
-
-                remove_all_lights()
-
-                key = add_area_light("Key",
-                        (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
-                        (1.0848181247711182, -0.881056010723114, -0.5597077012062073),
-                        40, 2)
-
-                fill = add_area_light("Fill",
-                        (2.28589, -1.51410, 1.40742),
-                        (1.4248263835906982, 0.9756063222885132, 0.8594209551811218),
-                        20, 2)
-
-                back = add_area_light("Back",
-                        (0.36789, 0.61511, 2.36201),
-                        (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
-                        20, 1)
-
-                set_contact_shadow(key, 0.1, 0.001)
-                set_contact_shadow(fill, 0.1, 0.005)
-
-                bpy.context.space_data.shading.type = 'RENDERED'
-                bpy.context.space_data.shading.use_scene_lights_render = True
-                bpy.context.space_data.shading.use_scene_world_render = False
-                bpy.context.space_data.shading.studio_light = 'courtyard.exr'
-                bpy.context.space_data.shading.studiolight_rotate_z = 2.00713
-                bpy.context.space_data.shading.studiolight_intensity = 0.35
-                bpy.context.space_data.shading.studiolight_background_alpha = 0
-
-        except:
-            print("Something went wrong adding lights... wrong editor context?")
-
-        # restore selection
-        bpy.ops.object.select_all(action='DESELECT')
-        for object in current_selected:
-            try:
-                object.select_set(True)
-            except:
-                pass
-        try:
-            bpy.context.view_layer.objects.active = current_active
-            if current_mode != "OBJECT":
-                bpy.ops.object.mode_set(mode=current_mode)
-        except:
-            pass
-
+        setup_scene_default(self.param)
         return {"FINISHED"}
 
     @classmethod
@@ -3424,6 +3489,7 @@ class MyPanel(bpy.types.Panel):
                 col_2.prop(props, "default_bump", text="", slider=True)
 
         layout.separator()
+
         if fake_drop_down(layout.box().row(),
                 "5. Utilities",
                 "stage5",
@@ -3445,6 +3511,8 @@ class MyPanel(bpy.types.Panel):
             layout.separator()
             split = layout.split(factor=0.5)
             layout.separator()
+
+        layout.separator_spacer()
 
 
 class MyPanel2(bpy.types.Panel):
@@ -3469,6 +3537,8 @@ class MyPanel2(bpy.types.Panel):
         col_1.label(text="Export Character")
         op = col_2.operator("cc3.exporter", icon="EXPORT", text="To CC3")
         op.param ="EXPORT"
+
+        layout.separator_spacer()
 
 
 class MyPanel3(bpy.types.Panel):
@@ -3499,6 +3569,8 @@ class MyPanel3(bpy.types.Panel):
         op = col_2.operator("cc3.scene", icon="LIGHT", text="Lights")
         op.param = "PORTRAIT_LIGHTS"
 
+        layout.separator_spacer()
+
 
 class MyPanel4(bpy.types.Panel):
     bl_idname = "CC3_PT_Pipeline_Panel"
@@ -3509,15 +3581,24 @@ class MyPanel4(bpy.types.Panel):
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
+
         layout = self.layout
+
+        box = layout.box()
+        box.label(text="Render / Quality", icon="INFO")
+
+        split = layout.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+
+        col_1.label(text="Import Character")
+        op = col_2.operator("cc3.importer", icon="IMPORT", text="From CC3")
+        op.param = "IMPORT_QUALITY"
 
         layout.separator()
 
         box = layout.box()
-
-        box.label(text="Import / Export character for", icon="INFO")
-        box.label(text="morph or accessory creation")
-        box.label(text="(No animation data)")
+        box.label(text="Morph / Accessory", icon="INFO")
 
         split = layout.split(factor=0.5)
         col_1 = split.column()
@@ -3527,8 +3608,8 @@ class MyPanel4(bpy.types.Panel):
         op = col_2.operator("cc3.importer", icon="IMPORT", text="From CC3")
         op.param = "IMPORT_PIPELINE"
 
-        col_1.label(text="Export From")
-        col_2.prop(props, "pipeline_mode", text="")
+        #col_1.label(text="Export From")
+        #col_2.prop(props, "pipeline_mode", text="")
 
         col_1.label(text="Export Character")
         op = col_2.operator("cc3.exporter", icon="EXPORT", text="To CC3")
@@ -3538,7 +3619,7 @@ class MyPanel4(bpy.types.Panel):
         op = col_2.operator("cc3.exporter", icon="EXPORT", text="To CC3")
         op.param = "EXPORT_ACCESSORY"
 
-
+        layout.separator_spacer()
 
 
 class CC3NodeCoord(bpy.types.Panel):
@@ -3562,10 +3643,10 @@ def register():
     bpy.utils.register_class(CC3ObjectPointer)
     bpy.utils.register_class(CC3MaterialCache)
     bpy.utils.register_class(CC3ImportProps)
+    bpy.utils.register_class(MyPanel4)
     bpy.utils.register_class(MyPanel)
     bpy.utils.register_class(MyPanel2)
     bpy.utils.register_class(MyPanel3)
-    bpy.utils.register_class(MyPanel4)
     bpy.utils.register_class(CC3Import)
     bpy.utils.register_class(CC3Export)
     bpy.utils.register_class(CC3Scene)
