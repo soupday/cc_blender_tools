@@ -1680,9 +1680,6 @@ def cache_object_materials(object):
                                 else:
                                     cache.normal = node.image
 
-    for child in object.children:
-        cache_object_materials(child)
-
 def scan_object_for_image_paths(object, dir_base, paths, character_name):
     for slot in object.material_slots:
         if slot.material is not None:
@@ -1745,9 +1742,9 @@ def get_image_paths(filepath):
     name = name[:-4]
     if type == "fbx":
         # for fbx imports, the textures are located in:
-        # non embedded texture: <dir>/<name>.fbm
-        # everything else: <dir>/textures/<name>
-        # embedded textures are packed into the blend file on import
+        #   non embedded main textures: <dir>/<name>.fbm
+        #   everything else: <dir>/textures/<name>
+        #   embedded textures are packed into the blend file on import
         paths = []
         fbm_dir = os.path.join(dir, name+".fbm")
         tex_dir = os.path.join(dir, "textures", name)
