@@ -7,7 +7,6 @@ import mathutils
 #   2. get image objects instead of file names so embedded images can return the image node directly as paths can be the same
 #   3. prefs for setting lighting automatically etc...
 #   4. sclera normal flattening (not strength)
-#   5. mouth cavity gradient map
 #   6. defaults for node group inputs
 
 bl_info = {
@@ -24,7 +23,7 @@ VERSION_STRING = "v1.0.0"
 
 # lists of the suffixes used by the input maps
 BASE_COLOR_MAP = ["diffuse", "albedo"]
-SUBSURFACE_MAP = ["SSSMap", "SSS"]
+SUBSURFACE_MAP = ["sssmap", "sss"]
 METALLIC_MAP = ["metallic"]
 SPECULAR_MAP = ["specular"]
 ROUGHNESS_MAP = ["roughness"]
@@ -52,7 +51,6 @@ MOD_MICRONORMALMASK_MAP = ["micronmask", "micronormalmask"]
 # blender uses metres, CC3 uses centimetres
 UNIT_SCALE = 0.01
 
-image_list = {}
 # https://docs.blender.org/manual/en/latest/files/media/image_formats.html
 IMAGE_TYPES = [".bmp", ".sgi", ".rgb", ".bw", ".png", ".jpg", ".jpeg", ".jp2", ".j2c",
                ".tga", ".cin", ".dpx", ".exr", ".hdr", ".tif", ".tiff"]
@@ -462,11 +460,11 @@ def make_shader_node(nodes, type, scale = 1.0):
     return shader_node
 
 ## color_space: Non-Color, sRGB
-def make_image_node(nodes, filename, prop, color_space, scale = 1.0):
-    if filename is None:
+def make_image_node(nodes, image, prop, scale = 1.0):
+    if image is None:
         return None
     image_node = make_shader_node(nodes, "ShaderNodeTexImage", scale)
-    image_node.image = load_image(filename, color_space)
+    image_node.image = image
     image_node.name = unique_name(prop)
     return image_node
 
@@ -509,37 +507,55 @@ def make_node_group_node(nodes, group, label, name):
     group_node.name = unique_name("(" + name + ")")
     return group_node
 
-##
-## Search the image list for an image filename that contains the search substring
-##
-def find_image_file(search):
-
-    search = search.lower()
-
-    for filename in image_list.keys():
-        # the search string must be at the start of the filename
-        if filename.find(search) == 0:
-            return image_list[filename]
-
-    return None
-
-
 # remove any .001 from the material name
 def strip_name(name):
     if name[-3:].isdigit() and name[-4] == ".":
         name = name[:-4]
     return name
 
+##
+## Search the image list for an image filename that contains the search substring
+##
+def find_image_file(dir, material, suffix_list):
+
+    material_name = strip_name(material.name).lower()
+
+    files = os.listdir(dir)
+    for file in files:
+        file_name = file.lower()
+        if material_name in file_name:
+            for suffix in suffix_list:
+                if suffix in file_name:
+                    return os.path.join(dir, file)
+
+    return None
+
 
 # Try to find the texture for a material input by searching for the material name
 # appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness
 def find_material_image(material, suffix_list):
-    name = strip_name(material.name)
-    for suffix in suffix_list:
-        search = name + "_" + suffix + "."
-        filename = find_image_file(search)
-        if filename is not None:
-            return filename
+    props = bpy.context.scene.CC3ImportProps
+    color_space = "Non-Color"
+    if "diffuse" in suffix_list or "sclera" in suffix_list:
+        color_space = "sRGB"
+    # try to find the image from the material cache
+    for p in props.material_cache:
+        if p.material == material:
+            if "diffuse" in suffix_list:
+                return p.diffuse
+            elif "specular" in suffix_list:
+                return p.specular
+            elif "opacity" in suffix_list:
+                return p.alpha
+            elif "normal" in suffix_list:
+                return p.normal
+            elif "bump" in suffix_list:
+                return p.bump
+            else:
+                image_file = find_image_file(p.dir, p.material, suffix_list)
+                if image_file is not None:
+                    return load_image(image_file, color_space)
+            break
     return None
 
 
@@ -665,9 +681,9 @@ def connect_basic_eye_material(object, material, shader):
     # Base Color
     #
     reset_cursor()
-    diffuse_file = find_material_image(material, BASE_COLOR_MAP)
-    if diffuse_file is not None:
-        diffuse_node = make_image_node(nodes, diffuse_file, "diffuse_tex", "sRGB")
+    diffuse_image =  find_material_image(material, BASE_COLOR_MAP)
+    if diffuse_image is not None:
+        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
         advance_cursor(1.0)
         hsv_node = make_shader_node(nodes, "ShaderNodeHueSaturation", 0.6)
         hsv_node.label = "HSV"
@@ -702,10 +718,10 @@ def connect_basic_eye_material(object, material, shader):
     # Normal
     #
     reset_cursor()
-    normal_file = find_material_image(material, SCLERA_NORMAL_MAP)
-    if normal_file is not None:
+    normal_image = find_material_image(material, SCLERA_NORMAL_MAP)
+    if normal_image is not None:
         strength_node = make_value_node(nodes, "Normal Strength", "eye_basic_normal", props.eye_basic_normal)
-        normal_node = make_image_node(nodes, normal_file, "normal_tex", "Non-Color")
+        normal_node = make_image_node(nodes, normal_image, "normal_tex")
         advance_cursor()
         normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
         link_nodes(links, strength_node, "Value", normalmap_node, "Strength")
@@ -743,22 +759,22 @@ def connect_adv_eye_material(object, material, shader):
     # Base Color
     reset_cursor()
     # maps
-    diffuse_file = find_material_image(material, BASE_COLOR_MAP)
-    sclera_file = find_material_image(material, SCLERA_MAP)
-    blend_file = find_material_image(material, MOD_BASECOLORBLEND_MAP)
-    ao_file = find_material_image(material, MOD_AO_MAP)
+    diffuse_image = find_material_image(material, BASE_COLOR_MAP)
+    sclera_image = find_material_image(material, SCLERA_MAP)
+    blend_image = find_material_image(material, MOD_BASECOLORBLEND_MAP)
+    ao_image = find_material_image(material, MOD_AO_MAP)
     diffuse_node = sclera_node = blend_node = ao_node = iris_tiling_node = sclera_tiling_node = None
-    advance_cursor(-count_maps(diffuse_file, sclera_file, blend_file, ao_file))
-    if diffuse_file is not None:
+    advance_cursor(-count_maps(diffuse_image, sclera_image, blend_image, ao_image))
+    if diffuse_image is not None:
         advance_cursor(-1)
         drop_cursor(0.75)
         group = get_node_group("tiling_pivot_mapping")
         iris_tiling_node = make_node_group_node(nodes, group, "Iris Scaling", "tiling_color_iris_mapping")
         set_node_input(iris_tiling_node, "Pivot", (0.5, 0.5, 0))
         advance_cursor()
-        diffuse_node = make_image_node(nodes, diffuse_file, "diffuse_tex", "sRGB")
+        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
         step_cursor()
-    if sclera_file is not None:
+    if sclera_image is not None:
         advance_cursor(-1)
         drop_cursor(0.75)
         group = get_node_group("tiling_pivot_mapping")
@@ -766,14 +782,14 @@ def connect_adv_eye_material(object, material, shader):
         set_node_input(sclera_tiling_node, "Pivot", (0.5, 0.5, 0))
         set_node_input(sclera_tiling_node, "Tiling", 1.0 / props.eye_sclera_scale)
         advance_cursor()
-        sclera_node = make_image_node(nodes, sclera_file, "sclera_tex", "sRGB")
+        sclera_node = make_image_node(nodes, sclera_image, "sclera_tex")
         sclera_node.extension = "EXTEND"
         step_cursor()
-    if ao_file is not None:
-        ao_node = make_image_node(nodes, ao_file, "ao_tex", "Non-Color")
+    if ao_image is not None:
+        ao_node = make_image_node(nodes, ao_image, "ao_tex")
         step_cursor()
-    if blend_file is not None:
-        blend_node = make_image_node(nodes, blend_file, "blend_tex", "Non-Color")
+    if blend_image is not None:
+        blend_node = make_image_node(nodes, blend_image, "blend_tex")
         step_cursor()
     # groups
     group = get_node_group("color_eye_mixer")
@@ -787,18 +803,18 @@ def connect_adv_eye_material(object, material, shader):
     set_node_input(color_node, "Sclera Brightness", props.eye_sclera_brightness)
     # links
     link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
-    if diffuse_file is not None:
+    if diffuse_image is not None:
         link_nodes(links, iris_mask_node, "Scale", iris_tiling_node, "Tiling")
         link_nodes(links, iris_tiling_node, "Vector", diffuse_node, "Vector")
         link_nodes(links, diffuse_node, "Color", color_node, "Cornea Diffuse")
-    if sclera_file is not None:
+    if sclera_image is not None:
         link_nodes(links, sclera_tiling_node, "Vector", sclera_node, "Vector")
         link_nodes(links, sclera_node, "Color", color_node, "Sclera Diffuse")
     else:
         link_nodes(links, diffuse_node, "Color", color_node, "Sclera Diffuse")
-    if blend_file is not None:
+    if blend_image is not None:
         link_nodes(links, blend_node, "Color", color_node, "Blend")
-    if ao_file is not None:
+    if ao_image is not None:
         link_nodes(links, ao_node, "Color", color_node, "AO")
     link_nodes(links, color_node, "Base Color", shader, "Base Color")
 
@@ -848,19 +864,19 @@ def connect_adv_eye_material(object, material, shader):
     # Normal
     drop_cursor(0.1)
     reset_cursor()
-    snormal_file = find_material_image(material, SCLERA_NORMAL_MAP)
+    snormal_image = find_material_image(material, SCLERA_NORMAL_MAP)
     snormal_node = snormal_tiling_node = None
     # space
-    advance_cursor(-count_maps(snormal_file))
+    advance_cursor(-count_maps(snormal_image))
     # maps
-    if snormal_file is not None:
+    if snormal_image is not None:
         advance_cursor(-1)
         drop_cursor(0.75)
         group = get_node_group("tiling_mapping")
         snormal_tiling_node = make_node_group_node(nodes, group, "Sclera Normal Tiling", "tiling_normal_sclera_mapping")
         set_node_input(snormal_tiling_node, "Tiling", props.eye_sclera_tiling)
         advance_cursor()
-        snormal_node = make_image_node(nodes, snormal_file, "sclera_normal_tex", "Non-Color")
+        snormal_node = make_image_node(nodes, snormal_image, "sclera_normal_tex")
         step_cursor()
     # groups
     group = get_node_group("normal_micro_mask_mixer")
@@ -869,7 +885,7 @@ def connect_adv_eye_material(object, material, shader):
     set_node_input(nm_group, "Micro Normal Strength", props.eye_sclera_normal)
     # links
     link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Micro Normal Mask")
-    if snormal_file is not None:
+    if snormal_image is not None:
         link_nodes(links, snormal_node, "Color", nm_group, "Micro Normal")
         link_nodes(links, snormal_tiling_node, "Vector", snormal_node, "Vector")
     link_nodes(links, nm_group, "Normal", shader, "Normal")
@@ -893,29 +909,29 @@ def connect_adv_mouth_material(object, material, shader):
     reset_cursor()
     advance_cursor(-2)
     # maps
-    mask_file = None
+    mask_image = None
     mask_node = None
     teeth = is_teeth_material(material)
     if teeth:
-        mask_file = find_material_image(material, TEETH_GUMS_MAP)
+        mask_image = find_material_image(material, TEETH_GUMS_MAP)
         # if no gums mask file is found for the teeth,
         # just connect as default advanced material
-        if mask_file is None:
+        if mask_image is None:
             connect_advanced_material(object, material, shader)
             return
     # if no gradient ao file is found for the teeth or tongue
     # just connect as default advanced material
-    gradient_file = find_material_image(material, MOUTH_GRADIENT_MAP)
+    gradient_image = find_material_image(material, MOUTH_GRADIENT_MAP)
     gradient_node = None
-    if gradient_file is None:
+    if gradient_image is None:
         connect_advanced_material(object, material, shader)
         return
-    advance_cursor(2 - count_maps(mask_file, gradient_file))
-    if mask_file is not None:
-        mask_node = make_image_node(nodes, mask_file, "gums_mask_tex", "Non-Color")
+    advance_cursor(2 - count_maps(mask_image, gradient_image))
+    if mask_image is not None:
+        mask_node = make_image_node(nodes, mask_image, "gums_mask_tex")
         step_cursor()
-    if gradient_file is not None:
-        gradient_node = make_image_node(nodes, gradient_file, "gradient_ao_tex", "Non-Color")
+    if gradient_image is not None:
+        gradient_node = make_image_node(nodes, gradient_image, "gradient_ao_tex")
         step_cursor()
         # nodes
         gradientrgb_node = make_shader_node(nodes, "ShaderNodeSeparateRGB")
@@ -929,15 +945,15 @@ def connect_adv_mouth_material(object, material, shader):
     reset_cursor()
     advance_cursor(-2)
     # maps
-    diffuse_file = find_material_image(material, BASE_COLOR_MAP)
-    ao_file = find_material_image(material, MOD_AO_MAP)
+    diffuse_image = find_material_image(material, BASE_COLOR_MAP)
+    ao_image = find_material_image(material, MOD_AO_MAP)
     diffuse_node = ao_node = None
-    advance_cursor(2 - count_maps(diffuse_file, ao_file))
-    if diffuse_file is not None:
-        diffuse_node = make_image_node(nodes, diffuse_file, "diffuse_tex", "sRGB")
+    advance_cursor(2 - count_maps(diffuse_image, ao_image))
+    if diffuse_image is not None:
+        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
         step_cursor()
-    if ao_file is not None:
-        ao_node = make_image_node(nodes, ao_file, "ao_tex", "Non-Color")
+    if ao_image is not None:
+        ao_node = make_image_node(nodes, ao_image, "ao_tex")
         step_cursor()
     # groups
     if teeth:
@@ -1016,16 +1032,16 @@ def connect_adv_mouth_material(object, material, shader):
     specprop, specular = get_specular_strength(object, material)
     roughprop, roughness = get_roughness_strength(object, material)
     # maps
-    metallic_file = find_material_image(material, METALLIC_MAP)
-    roughness_file = find_material_image(material, ROUGHNESS_MAP)
+    metallic_image = find_material_image(material, METALLIC_MAP)
+    roughness_image = find_material_image(material, ROUGHNESS_MAP)
     metallic_node = roughness_node = roughness_mult_node = None
-    if metallic_file is not None:
-        metallic_node = make_image_node(nodes, metallic_file, "metallic_tex", "Non-Color")
+    if metallic_image is not None:
+        metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
         step_cursor()
     else:
         advance_cursor()
-    if roughness_file is not None:
-        roughness_node = make_image_node(nodes, roughness_file, "roughness_tex", "Non-Color")
+    if roughness_image is not None:
+        roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
         advance_cursor()
         roughness_mult_node = make_math_node(nodes, "MULTIPLY", 1, roughness)
         if teeth:
@@ -1091,15 +1107,15 @@ def connect_basic_material(object, material, shader):
     # Base Color
     #
     reset_cursor()
-    diffuse_file = find_material_image(material, BASE_COLOR_MAP)
-    ao_file = find_material_image(material, MOD_AO_MAP)
+    diffuse_image = find_material_image(material, BASE_COLOR_MAP)
+    ao_image = find_material_image(material, MOD_AO_MAP)
     diffuse_node = ao_node = None
-    if (diffuse_file is not None):
-        diffuse_node = make_image_node(nodes, diffuse_file, "diffuse_tex", "sRGB")
-        if ao_file is not None:
+    if (diffuse_image is not None):
+        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
+        if ao_image is not None:
             prop, ao_strength = get_ao_strength(object, material)
             fac_node = make_value_node(nodes, "Ambient Occlusion Strength", prop, ao_strength)
-            ao_node = make_image_node(nodes, ao_file, "ao_tex", "Non-Color")
+            ao_node = make_image_node(nodes, ao_image, "ao_tex")
             advance_cursor(1.5)
             drop_cursor(0.75)
             mix_node = make_mixrgb_node(nodes, "MULTIPLY")
@@ -1113,31 +1129,31 @@ def connect_basic_material(object, material, shader):
     # Metallic
     #
     reset_cursor()
-    metallic_file = find_material_image(material, METALLIC_MAP)
+    metallic_image = find_material_image(material, METALLIC_MAP)
     metallic_node = None
-    if metallic_file is not None:
-        metallic_node = make_image_node(nodes, metallic_file, "metallic_tex", "Non-Color")
+    if metallic_image is not None:
+        metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
         link_nodes(links, metallic_node, "Color", shader, "Metallic")
 
     # Specular
     #
     reset_cursor()
-    specular_file = find_material_image(material, SPECULAR_MAP)
-    mask_file = find_material_image(material, MOD_SPECMASK_MAP)
+    specular_image = find_material_image(material, SPECULAR_MAP)
+    mask_image = find_material_image(material, MOD_SPECMASK_MAP)
     prop_spec, spec = get_specular_strength(object, material)
     specular_node = mask_node = mult_node = None
-    if specular_file is not None:
-        specular_node = make_image_node(nodes, specular_file, "specular_tex", "Non-Color")
+    if specular_image is not None:
+        specular_node = make_image_node(nodes, specular_image, "specular_tex")
         link_nodes(links, specular_node, "Color", shader, "Specular")
     # always make a specular value node for skin or if there is a mask (but no map)
     elif prop_spec != "default_specular":
         specular_node = make_value_node(nodes, "Specular Strength", prop_spec, spec)
         link_nodes(links, specular_node, "Value", shader, "Specular")
-    elif mask_file is not None:
+    elif mask_image is not None:
         specular_node = make_value_node(nodes, "Specular Strength", "default_basic_specular", shader.inputs["Specular"].default_value)
         link_nodes(links, specular_node, "Value", shader, "Specular")
-    if mask_file is not None:
-        mask_node = make_image_node(nodes, mask_file, "specular_mask_tex", "Non-Color")
+    if mask_image is not None:
+        mask_node = make_image_node(nodes, mask_image, "specular_mask_tex")
         advance_cursor()
         mult_node = make_math_node(nodes, "MULTIPLY")
         if specular_node.type == "VALUE":
@@ -1150,10 +1166,10 @@ def connect_basic_material(object, material, shader):
     # Roughness
     #
     reset_cursor()
-    roughness_file = find_material_image(material, ROUGHNESS_MAP)
+    roughness_image = find_material_image(material, ROUGHNESS_MAP)
     roughness_node = None
-    if roughness_file is not None:
-        roughness_node = make_image_node(nodes, roughness_file, "roughness_tex", "Non-Color")
+    if roughness_image is not None:
+        roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
         rprop_name, rprop_val = get_roughness_strength(object, material)
         if is_skin_material(material):
             advance_cursor()
@@ -1174,26 +1190,27 @@ def connect_basic_material(object, material, shader):
     # Emission
     #
     reset_cursor()
-    emission_file = find_material_image(material, EMISSION_MAP)
+    emission_image = find_material_image(material, EMISSION_MAP)
     emission_node = None
-    if emission_file is not None:
-        emission_node = make_image_node(nodes, emission_file, "emission_tex", "Non-Color")
+    if emission_image is not None:
+        emission_node = make_image_node(nodes, emission_image, "emission_tex")
         link_nodes(links, emission_node, "Color", shader, "Emission")
 
     # Alpha
     #
     reset_cursor()
-    alpha_file = find_material_image(material, ALPHA_MAP)
+    alpha_image = find_material_image(material, ALPHA_MAP)
     alpha_node = None
-    if alpha_file is not None:
-        alpha_node = make_image_node(nodes, alpha_file, "opacity_tex", "Non-Color")
-        if "_diffuse." in alpha_file.lower() or "_albedo." in alpha_file.lower():
+    if alpha_image is not None:
+        alpha_node = make_image_node(nodes, alpha_image, "opacity_tex")
+        dir,file = os.path.split(alpha_image.filepath)
+        if "_diffuse." in file.lower() or "_albedo." in file.lower():
             link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
         else:
             link_nodes(links, alpha_node, "Color", shader, "Alpha")
     # material alpha blend settings
     if is_hair_object(object, material) or is_eyelash_material(material):
-            set_material_alpha(material, "HASHED")
+        set_material_alpha(material, "HASHED")
     elif shader.inputs["Alpha"].default_value < 1.0:
         set_material_alpha(material, props.blend_mode)
     else:
@@ -1202,25 +1219,25 @@ def connect_basic_material(object, material, shader):
     # Normal
     #
     reset_cursor()
-    normal_file = find_material_image(material, NORMAL_MAP)
-    bump_file = find_material_image(material, BUMP_MAP)
+    normal_image = find_material_image(material, NORMAL_MAP)
+    bump_image = find_material_image(material, BUMP_MAP)
     normal_node = bump_node = normalmap_node = bumpmap_node = None
-    if normal_file is not None:
-        normal_node = make_image_node(nodes, normal_file, "normal_tex", "Non-Color")
+    if normal_image is not None:
+        normal_node = make_image_node(nodes, normal_image, "normal_tex")
         advance_cursor()
         normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
         link_nodes(links, normal_node, "Color", normalmap_node, "Color")
         link_nodes(links, normalmap_node, "Normal", shader, "Normal")
-    if bump_file is not None:
+    if bump_image is not None:
         prop_bump, bump_strength = get_bump_strength(object, material)
         bump_strength_node = make_value_node(nodes, "Bump Strength", prop_bump, bump_strength / 1000)
-        bump_node = make_image_node(nodes, bump_file, "bump_tex", "Non-Color")
+        bump_node = make_image_node(nodes, bump_image, "bump_tex")
         advance_cursor()
         bumpmap_node = make_shader_node(nodes, "ShaderNodeBump", 0.7)
         advance_cursor()
         link_nodes(links, bump_strength_node, "Value", bumpmap_node, "Distance")
         link_nodes(links, bump_node, "Color", bumpmap_node, "Height")
-        if normal_file is not None:
+        if normal_image is not None:
             link_nodes(links, normalmap_node, "Normal", bumpmap_node, "Normal")
         link_nodes(links, bumpmap_node, "Normal", shader, "Normal")
 
@@ -1230,10 +1247,10 @@ def connect_basic_material(object, material, shader):
 def connect_base_color(object, material, shader):
     props = bpy.context.scene.CC3ImportProps
 
-    diffuse_file = find_material_image(material, BASE_COLOR_MAP)
-    blend_file = find_material_image(material, MOD_BASECOLORBLEND_MAP)
-    ao_file = find_material_image(material, MOD_AO_MAP)
-    mcmao_file = find_material_image(material, MOD_MCMAO_MAP)
+    diffuse_image = find_material_image(material, BASE_COLOR_MAP)
+    blend_image = find_material_image(material, MOD_BASECOLORBLEND_MAP)
+    ao_image = find_material_image(material, MOD_AO_MAP)
+    mcmao_image = find_material_image(material, MOD_MCMAO_MAP)
     prop_blend, blend_value = get_blend_strength(object, material)
     prop_ao, ao_value = get_ao_strength(object, material)
     prop_group = get_material_group(object, material)
@@ -1242,50 +1259,51 @@ def connect_base_color(object, material, shader):
     links = material.node_tree.links
     reset_cursor()
     # space
-    advance_cursor(-count_maps(diffuse_file, ao_file, blend_file, mcmao_file))
+    advance_cursor(-count_maps(diffuse_image, ao_image, blend_image, mcmao_image))
     # maps
     ao_node = blend_node = diffuse_node = mcmao_node = None
-    if mcmao_file is not None:
-        mcmao_node = make_image_node(nodes, mcmao_file, "mcmao_tex", "Non-Color")
+    if mcmao_image is not None:
+        mcmao_node = make_image_node(nodes, mcmao_image, "mcmao_tex")
         step_cursor()
-    if ao_file is not None:
-        ao_node = make_image_node(nodes, ao_file, "diffuse_tex", "Non-Color")
+    if ao_image is not None:
+        ao_node = make_image_node(nodes, ao_image, "diffuse_tex")
         step_cursor()
-    if blend_file is not None:
-        blend_node = make_image_node(nodes, blend_file, "diffuse_tex", "Non-Color")
+    if blend_image is not None:
+        blend_node = make_image_node(nodes, blend_image, "diffuse_tex")
         step_cursor()
-    if diffuse_file is not None:
-        diffuse_node = make_image_node(nodes, diffuse_file, "diffuse_tex", "sRGB")
+    if diffuse_image is not None:
+        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
         step_cursor()
     # groups
-    if mcmao_file is not None:
+    if mcmao_image is not None:
         group = get_node_group("color_head_mixer")
         group_node = make_node_group_node(nodes, group, "Base Color Head Mixer", "color_" + prop_group + "_mixer")
-    elif blend_file is not None:
+        drop_cursor(0.3)
+    elif blend_image is not None:
         group = get_node_group("color_blend_ao_mixer")
         group_node = make_node_group_node(nodes, group, "Base Color Mixer", "color_" + prop_group + "_mixer")
     else:
         group = get_node_group("color_ao_mixer")
         group_node = make_node_group_node(nodes, group, "Base Color Mixer", "color_" + prop_group + "_mixer")
     # values
-    if diffuse_file is None:
+    if diffuse_image is None:
         set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
-    if blend_file is not None:
+    if blend_image is not None:
         set_node_input(group_node, "Blend Strength", blend_value)
-    if mcmao_file is not None:
+    if mcmao_image is not None:
         set_node_input(group_node, "Mouth AO", props.skin_mouth_ao)
         set_node_input(group_node, "Nostril AO", props.skin_nostril_ao)
         set_node_input(group_node, "Lips AO", props.skin_lips_ao)
     set_node_input(group_node, "AO Strength", ao_value)
     # links
-    if mcmao_file is not None:
+    if mcmao_image is not None:
         link_nodes(links, mcmao_node, "Color", group_node, "MCMAO")
         link_nodes(links, mcmao_node, "Alpha", group_node, "LLAO")
-    if diffuse_file is not None:
+    if diffuse_image is not None:
         link_nodes(links, diffuse_node, "Color", group_node, "Diffuse")
-    if blend_file is not None:
+    if blend_image is not None:
         link_nodes(links, blend_node, "Color", group_node, "Blend")
-    if ao_file is not None:
+    if ao_image is not None:
         link_nodes(links, ao_node, "Color", group_node, "AO")
     link_nodes(links, group_node, "Base Color", shader, "Base Color")
 
@@ -1295,27 +1313,27 @@ def connect_base_color(object, material, shader):
 def connect_subsurface(object, material, shader, diffuse_node):
     props = bpy.context.scene.CC3ImportProps
 
-    sss_file = find_material_image(material, SUBSURFACE_MAP)
-    trans_file = find_material_image(material, MOD_TRANSMISSION_MAP)
+    sss_image = find_material_image(material, SUBSURFACE_MAP)
+    trans_image = find_material_image(material, MOD_TRANSMISSION_MAP)
     prop_radius, sss_radius = get_sss_radius(object, material)
     prop_falloff, sss_falloff = get_sss_falloff(object, material)
     prop_group = get_material_group(object, material)
 
-    if sss_file is None and trans_file is None and not is_hair_object(object, material) and not is_skin_material(material):
+    if sss_image is None and trans_image is None and not is_hair_object(object, material) and not is_skin_material(material):
         return None
 
     nodes = material.node_tree.nodes
     links = material.node_tree.links
     reset_cursor()
     # space
-    advance_cursor(-count_maps(trans_file, sss_file))
+    advance_cursor(-count_maps(trans_image, sss_image))
     # maps
     sss_node = trans_node = None
-    if trans_file is not None:
-        trans_node = make_image_node(nodes, trans_file, "transmission_tex", "Non-Color")
+    if trans_image is not None:
+        trans_node = make_image_node(nodes, trans_image, "transmission_tex")
         step_cursor()
-    if sss_file is not None:
-        sss_node = make_image_node(nodes, sss_file, "sss_tex", "Non-Color")
+    if sss_image is not None:
+        sss_node = make_image_node(nodes, sss_image, "sss_tex")
         step_cursor()
     # group
     group = get_node_group("subsurface_mixer")
@@ -1345,10 +1363,10 @@ def connect_subsurface(object, material, shader, diffuse_node):
 def connect_msr(object, material, shader):
     props = bpy.context.scene.CC3ImportProps
 
-    metallic_file = find_material_image(material, METALLIC_MAP)
-    specular_file = find_material_image(material, SPECULAR_MAP)
-    mask_file = find_material_image(material, MOD_SPECMASK_MAP)
-    roughness_file = find_material_image(material, ROUGHNESS_MAP)
+    metallic_image = find_material_image(material, METALLIC_MAP)
+    specular_image = find_material_image(material, SPECULAR_MAP)
+    mask_image = find_material_image(material, MOD_SPECMASK_MAP)
+    roughness_image = find_material_image(material, ROUGHNESS_MAP)
     prop_spec, specular_strength = get_specular_strength(object, material)
     prop_roughness, roughness_remap = get_roughness_strength(object, material)
     prop_group = get_material_group(object, material)
@@ -1358,20 +1376,20 @@ def connect_msr(object, material, shader):
 
     reset_cursor()
     # space
-    advance_cursor(-count_maps(mask_file, specular_file, roughness_file, metallic_file))
+    advance_cursor(-count_maps(mask_image, specular_image, roughness_image, metallic_image))
     # maps
     metallic_node = specular_node = roughness_node = mask_node = None
-    if roughness_file is not None:
-        roughness_node = make_image_node(nodes, roughness_file, "roughness_tex", "Non-Color")
+    if roughness_image is not None:
+        roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
         step_cursor()
-    if mask_file is not None:
-        mask_node = make_image_node(nodes, mask_file, "specular_mask_tex", "Non-Color")
+    if mask_image is not None:
+        mask_node = make_image_node(nodes, mask_image, "specular_mask_tex")
         step_cursor()
-    if specular_file is not None:
-        specular_node = make_image_node(nodes, specular_file, "specular_tex", "Non-Color")
+    if specular_image is not None:
+        specular_node = make_image_node(nodes, specular_image, "specular_tex")
         step_cursor()
-    if metallic_file is not None:
-        metallic_node = make_image_node(nodes, metallic_file, "metallic_tex", "Non-Color")
+    if metallic_image is not None:
+        metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
         step_cursor()
     # groups
     group = get_node_group("msr_mixer")
@@ -1394,28 +1412,29 @@ def connect_msr(object, material, shader):
 def connect_emission_alpha(object, material, shader):
     props = bpy.context.scene.CC3ImportProps
 
-    emission_file = find_material_image(material, EMISSION_MAP)
-    alpha_file = find_material_image(material, ALPHA_MAP)
+    emission_image = find_material_image(material, EMISSION_MAP)
+    alpha_image = find_material_image(material, ALPHA_MAP)
 
     nodes = material.node_tree.nodes
     links = material.node_tree.links
     emission_node = alpha_node = None
     # emission
     reset_cursor()
-    if emission_file is not None:
-        emission_node = make_image_node(nodes, emission_file, "emission_tex", "Non-Color")
+    if emission_image is not None:
+        emission_node = make_image_node(nodes, emission_image, "emission_tex")
         link_nodes(links, emission_node, "Color", shader, "Emission")
     # alpha
     reset_cursor()
-    if alpha_file is not None:
-        alpha_node = make_image_node(nodes, alpha_file, "opacity_tex", "Non-Color")
-        if "_diffuse." in alpha_file.lower() or "_albedo." in alpha_file.lower():
+    if alpha_image is not None:
+        alpha_node = make_image_node(nodes, alpha_image, "opacity_tex")
+        dir,file = os.path.split(alpha_image.filepath)
+        if "_diffuse." in file.lower() or "_albedo." in file.lower():
             link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
         else:
             link_nodes(links, alpha_node, "Color", shader, "Alpha")
     # material settings
     if is_hair_object(object, material) or is_eyelash_material(material):
-            set_material_alpha(material, "HASHED")
+        set_material_alpha(material, "HASHED")
     elif shader.inputs["Alpha"].default_value < 1.0:
         set_material_alpha(material, props.blend_mode)
     else:
@@ -1426,11 +1445,11 @@ def connect_normal(object, material, shader):
     props = bpy.context.scene.CC3ImportProps
 
     normal_node = bump_node = blend_node = micro_node = mask_node = tiling_node = None
-    normal_file = find_material_image(material, NORMAL_MAP)
-    bump_file = find_material_image(material, BUMP_MAP)
-    blend_file = find_material_image(material, MOD_NORMALBLEND_MAP)
-    micro_file = find_material_image(material, MOD_MICRONORMAL_MAP)
-    mask_file = find_material_image(material, MOD_MICRONORMALMASK_MAP)
+    normal_image = find_material_image(material, NORMAL_MAP)
+    bump_image = find_material_image(material, BUMP_MAP)
+    blend_image = find_material_image(material, MOD_NORMALBLEND_MAP)
+    micro_image = find_material_image(material, MOD_MICRONORMAL_MAP)
+    mask_image = find_material_image(material, MOD_MICRONORMALMASK_MAP)
     prop_bump, bump_strength = get_bump_strength(object, material)
     prop_blend, blend_strength = get_normal_blend_strength(object, material)
     prop_micronormal, micronormal_strength = get_micronormal_strength(object, material)
@@ -1444,38 +1463,38 @@ def connect_normal(object, material, shader):
 
     advance_cursor(-5)
     # space
-    advance_cursor(5 - count_maps(bump_file, mask_file, micro_file, blend_file, normal_file))
+    advance_cursor(5 - count_maps(bump_image, mask_image, micro_image, blend_image, normal_image))
     # maps
-    if bump_file is not None:
-        bump_node = make_image_node(nodes, bump_file, "bump_tex", "Non-Color")
+    if bump_image is not None:
+        bump_node = make_image_node(nodes, bump_image, "bump_tex")
         step_cursor()
-    if mask_file is not None:
-        mask_node = make_image_node(nodes, mask_file, "micro_normal_mask_tex", "Non-Color")
+    if mask_image is not None:
+        mask_node = make_image_node(nodes, mask_image, "micro_normal_mask_tex")
         step_cursor()
-    if micro_file is not None:
+    if micro_image is not None:
         advance_cursor(-1)
         drop_cursor(0.75)
         group = get_node_group("tiling_mapping")
         tiling_node = make_node_group_node(nodes, group, "Micro Normal Tiling", "tiling_" + prop_group + "_mapping")
         advance_cursor()
-        micro_node = make_image_node(nodes, micro_file, "micro_normal_tex", "Non-Color")
+        micro_node = make_image_node(nodes, micro_image, "micro_normal_tex")
         step_cursor()
-    if blend_file is not None:
-        blend_node = make_image_node(nodes, blend_file, "normal_blend_tex", "Non-Color")
+    if blend_image is not None:
+        blend_node = make_image_node(nodes, blend_image, "normal_blend_tex")
         step_cursor()
-    if normal_file is not None:
-        normal_node = make_image_node(nodes, normal_file, "normal_tex", "Non-Color")
+    if normal_image is not None:
+        normal_node = make_image_node(nodes, normal_image, "normal_tex")
         step_cursor()
     # groups
-    if bump_file is not None:
+    if bump_image is not None:
         group = get_node_group("bump_mixer")
-    elif normal_file is not None and bump_file is None and mask_file is None and \
-            micro_file is None and blend_file is None:
+    elif normal_image is not None and bump_image is None and mask_image is None and \
+            micro_image is None and blend_image is None:
         normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap")
         link_nodes(links, normal_node, "Color", normalmap_node, "Color")
         link_nodes(links, normalmap_node, "Normal", shader, "Normal")
         return normalmap_node
-    elif blend_file is not None:
+    elif blend_image is not None:
         group = get_node_group("normal_micro_mask_blend_mixer")
     else:
         group =  get_node_group("normal_micro_mask_mixer")
@@ -1626,8 +1645,8 @@ def process_material(object, material):
 def process_material_slots(object):
 
     for slot in object.material_slots:
-            log_info("Processing Material: " + slot.material.name)
-            process_material(object, slot.material)
+        log_info("Processing Material: " + slot.material.name)
+        process_material(object, slot.material)
 
 
 def scan_for_hair_object(object):
@@ -1685,10 +1704,30 @@ def reset_nodes(material):
 
     link_nodes(links, shader, "BSDF", out, "Surface")
 
+def get_material_dir(base_dir, character_name, import_type, object, material):
+    if import_type == "fbx":
+        object_name = strip_name(object.name)
+        mesh_name = strip_name(object.data.name)
+        material_name = strip_name(material.name)
+        if "cc_base_" in object_name.lower():
+            path = os.path.join(base_dir, "textures", character_name, character_name, mesh_name, material_name)
+            if os.path.exists(path):
+                return path
+        path = os.path.join(base_dir, "textures", character_name, object_name, mesh_name, material_name)
+        if os.path.exists(path):
+            return path
+        return os.path.join(base_dir, character_name + ".fbm")
+
+    elif import_type == "obj":
+        return os.path.join(base_dir, character_name)
+
 
 def cache_object_materials(object):
     global image_list
     props = bpy.context.scene.CC3ImportProps
+    base_dir, file_name = os.path.split(props.import_file)
+    type = file_name[-3:].lower()
+    character_name = file_name[:-4]
 
     if object is None:
         return
@@ -1698,6 +1737,7 @@ def cache_object_materials(object):
             if slot.material.node_tree is not None:
                 cache = props.material_cache.add()
                 cache.material = slot.material
+                cache.dir = get_material_dir(base_dir, character_name, type, object, slot.material)
                 nodes = slot.material.node_tree.nodes
                 for node in nodes:
                     if node.type == "TEX_IMAGE":
@@ -1708,6 +1748,8 @@ def cache_object_materials(object):
                             socket = get_input_connected_to(node, "Color")
                             if socket == "Base Color":
                                 cache.diffuse = node.image
+                            elif socket == "Specular":
+                                cache.specular = node.image
                             elif socket == "Alpha":
                                 cache.alpha = node.image
                                 if "diffuse" in name or "albedo" in name:
@@ -1717,107 +1759,6 @@ def cache_object_materials(object):
                                     cache.bump = node.image
                                 else:
                                     cache.normal = node.image
-
-def scan_object_for_image_paths(object, dir_base, paths, character_name):
-    for slot in object.material_slots:
-        if slot.material is not None:
-            object_name = strip_name(object.name)
-            mesh_name = strip_name(object.data.name)
-            material_name = strip_name(slot.material.name)
-            if "cc_base_" in object_name.lower():
-                path = os.path.join(dir_base, character_name, mesh_name, material_name)
-                if os.path.exists(path):
-                    log_info("    Found image path: " + path)
-                    paths.append(path)
-            path = os.path.join(dir_base, object_name, mesh_name, material_name)
-            if os.path.exists(path):
-                log_info("    Found image path: " + path)
-                paths.append(path)
-
-    for child in object.children:
-        scan_object_for_image_paths(child, dir_base, paths, character_name)
-
-    return paths
-
-def add_cached_image(material, image, suffix):
-    if material is not None and image is not None:
-        dir, name = os.path.split(image.filepath)
-        base, ext = os.path.splitext(name)
-        n = name.lower()
-        # embedded images don't always follow the <material_name>_<suffix> pattern
-        # so we fake it...
-        base_name = strip_name(material.name)
-        embedded_name = base_name.lower() + "_" + suffix + ext.lower()
-        image_list[embedded_name] = image.filepath
-        log_info("    Found embedded image: " + n)
-
-def build_image_list(image_dirs):
-    # scan cached materials for embedded images
-    props = bpy.context.scene.CC3ImportProps
-    for p in props.material_cache:
-        add_cached_image(p.material, p.diffuse, "diffuse")
-        add_cached_image(p.material, p.alpha, "alpha")
-        add_cached_image(p.material, p.normal, "normal")
-        add_cached_image(p.material, p.bump, "bump")
-
-    # scan found directories for possible images
-    for dir in image_dirs:
-        log_info("Compiling list of possible images in: " + dir)
-        if os.path.exists(dir):
-            for root, dirs, files in os.walk(dir):
-                for name in files:
-                    n = name.lower()
-                    for ft in IMAGE_TYPES:
-                        if (ft in n):
-                            image_list[n] = os.path.join(root,name)
-                            log_info("    Found image: " + n)
-                            break
-
-def get_image_paths(filepath):
-    props = bpy.context.scene.CC3ImportProps
-    dir, name = os.path.split(filepath)
-    type = name[-3:].lower()
-    name = name[:-4]
-    if type == "fbx":
-        # for fbx imports, the textures are located in:
-        #   non embedded main textures: <dir>/<name>.fbm
-        #   everything else: <dir>/textures/<name>
-        #   embedded textures are packed into the blend file on import
-        paths = []
-        fbm_dir = os.path.join(dir, name+".fbm")
-        tex_dir = os.path.join(dir, "textures", name)
-
-        log_info("FBX Import, looking for main image path:")
-
-        if os.path.exists(fbm_dir):
-            log_info("    Found image path: " + fbm_dir)
-            paths.append(fbm_dir)
-
-        log_info("FBX Import, scanning object materials for paths:")
-
-        if os.path.exists(tex_dir):
-            for p in props.import_objects:
-                if p.object.type == "ARMATURE":
-                    scan_object_for_image_paths(p.object, tex_dir, paths, name)
-
-        return paths
-
-    elif type == "obj":
-        # for obj imports, the textures are located in: <dir>/<name>
-        paths = []
-
-        log_info("OBJ Import, looking for image path:")
-
-        tex_dir = os.path.join(dir, name)
-        if os.path.exists(tex_dir):
-            log_info("    Found image path: " + tex_dir)
-            paths.append(tex_dir)
-
-        return paths
-
-    return []
-
-
 
 def tag_objects(default = True):
     for object in bpy.data.objects:
@@ -1876,7 +1817,6 @@ class CC3Import(bpy.types.Operator):
             import_anim = False
         props.import_file = self.filepath
         dir, name = os.path.split(self.filepath)
-        image_list.clear()
         props.import_objects.clear()
         props.material_cache.clear()
         type = name[-3:].lower()
@@ -1925,10 +1865,6 @@ class CC3Import(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
 
         check_node_groups()
-
-        if len(image_list) == 0:
-            image_dirs = get_image_paths(props.import_file)
-            build_image_list(image_dirs)
 
         if props.build_mode == "IMPORTED":
             for p in props.import_objects:
@@ -2312,14 +2248,15 @@ def setup_scene_default(scene_type):
                     1000, 0.1)
 
             bpy.context.space_data.shading.type = 'MATERIAL'
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
+            bpy.context.space_data.shading.use_scene_lights = True
+            bpy.context.space_data.shading.use_scene_world = False
             bpy.context.space_data.shading.studio_light = 'forest.exr'
             bpy.context.space_data.shading.studiolight_rotate_z = 0
             bpy.context.space_data.shading.studiolight_intensity = 1
             bpy.context.space_data.shading.studiolight_background_alpha = 0
             bpy.context.space_data.lens = 50
             bpy.context.space_data.clip_start = 0.1
+
 
         elif scene_type == "CC3_DEFAULT":
 
@@ -2359,8 +2296,8 @@ def setup_scene_default(scene_type):
             #set_contact_shadow(key2, 0.1, 0.005)
 
             bpy.context.space_data.shading.type = 'MATERIAL'
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
+            bpy.context.space_data.shading.use_scene_lights = True
+            bpy.context.space_data.shading.use_scene_world = False
             bpy.context.space_data.shading.studio_light = 'studio.exr'
             bpy.context.space_data.shading.studiolight_rotate_z = 0
             bpy.context.space_data.shading.studiolight_intensity = 0.75
@@ -2406,8 +2343,8 @@ def setup_scene_default(scene_type):
             set_contact_shadow(fill, 0.1, 0.005)
 
             bpy.context.space_data.shading.type = 'MATERIAL'
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
+            bpy.context.space_data.shading.use_scene_lights = True
+            bpy.context.space_data.shading.use_scene_world = False
             bpy.context.space_data.shading.studio_light = 'courtyard.exr'
             bpy.context.space_data.shading.studiolight_rotate_z = 2.00713
             bpy.context.space_data.shading.studiolight_intensity = 0.35
@@ -2957,10 +2894,12 @@ class CC3ObjectPointer(bpy.types.PropertyGroup):
 
 class CC3MaterialCache(bpy.types.PropertyGroup):
     material: bpy.props.PointerProperty(type=bpy.types.Material)
+    dir: bpy.props.StringProperty(default="")
     diffuse: bpy.props.PointerProperty(type=bpy.types.Image)
     normal: bpy.props.PointerProperty(type=bpy.types.Image)
     bump: bpy.props.PointerProperty(type=bpy.types.Image)
     alpha: bpy.props.PointerProperty(type=bpy.types.Image)
+    specular: bpy.props.PointerProperty(type=bpy.types.Image)
     alpha_is_diffuse: bpy.props.BoolProperty(default=False)
 
 class CC3ImportProps(bpy.types.PropertyGroup):
