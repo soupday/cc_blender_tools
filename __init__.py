@@ -614,8 +614,9 @@ def connect_tearline_material(object, material, shader):
     set_node_input(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
     set_node_input(shader, "Metallic", 1.0)
     set_node_input(shader, "Specular", 1.0)
-    set_node_input(shader, "Roughness", 0.0)
-    set_node_input(shader, "Alpha", 0.1)
+    set_node_input(shader, "Roughness", props.eye_tearline_roughness)
+    set_node_input(shader, "Alpha", props.eye_tearline_alpha)
+    shader.name = unique_name("eye_tearline_shader")
     set_material_alpha(material, props.blend_mode)
     material.shadow_method = "NONE"
 
@@ -2774,6 +2775,11 @@ def set_node_from_property(node):
     elif "default_bump" in name:
         set_node_output(node, "Value", props.default_bump / 1000)
 
+    # Other
+    elif "eye_tearline_shader" in name:
+        set_node_input(node, "Alpha", props.eye_tearline_alpha)
+        set_node_input(node, "Roughness", props.eye_tearline_roughness)
+
 
 def refresh_parameters(material):
 
@@ -2832,6 +2838,8 @@ def reset_parameters():
     props.eye_sclera_brightness = 0.75
     props.eye_iris_brightness = 1.0
     props.eye_basic_brightness = 0.9
+    props.eye_tearline_alpha = 0.05
+    props.eye_tearline_roughness = 0.1
 
     props.teeth_ao = 1.0
     props.teeth_gums_brightness = 0.9
@@ -3004,6 +3012,9 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=quick_set_update)
     eye_sclera_brightness: bpy.props.FloatProperty(default=0.75, min=0, max=5, update=quick_set_update)
     eye_iris_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=quick_set_update)
+
+    eye_tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=quick_set_update)
+    eye_tearline_roughness: bpy.props.FloatProperty(default=0.1, min=0, max=0.5, update=quick_set_update)
 
     teeth_toggle: bpy.props.BoolProperty(default=True)
     teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
@@ -3280,6 +3291,10 @@ class MyPanel(bpy.types.Panel):
                     col_2.prop(props, "eye_shadow_color", text="")
                     col_1.label(text="Eye Occlusion")
                     col_2.prop(props, "eye_occlusion", text="", slider=True)
+                    col_1.label(text="*Tearline Alpha")
+                    col_2.prop(props, "eye_tearline_alpha", text="", slider=True)
+                    col_1.label(text="*Tearline Roughness")
+                    col_2.prop(props, "eye_tearline_roughness", text="", slider=True)
                     col_1.label(text="Sclera Brightness")
                     col_2.prop(props, "eye_sclera_brightness", text="", slider=True)
                     col_1.label(text="Iris Brightness")
@@ -3584,12 +3599,7 @@ class MyPanel4(bpy.types.Panel):
         box = layout.box()
         box.label(text="Render / Quality", icon="INFO")
 
-        split = layout.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-
-        col_1.label(text="Import Character")
-        op = col_2.operator("cc3.importer", icon="IMPORT", text="From CC3")
+        op = layout.operator("cc3.importer", icon="IMPORT", text="Import Character")
         op.param = "IMPORT_QUALITY"
 
         layout.separator()
@@ -3597,23 +3607,13 @@ class MyPanel4(bpy.types.Panel):
         box = layout.box()
         box.label(text="Morph / Accessory", icon="INFO")
 
-        split = layout.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-
-        col_1.label(text="Import Character")
-        op = col_2.operator("cc3.importer", icon="IMPORT", text="From CC3")
+        op = layout.operator("cc3.importer", icon="IMPORT", text="Import Morph Character")
         op.param = "IMPORT_PIPELINE"
 
-        #col_1.label(text="Export From")
-        #col_2.prop(props, "pipeline_mode", text="")
-
-        col_1.label(text="Export Character")
-        op = col_2.operator("cc3.exporter", icon="EXPORT", text="To CC3")
+        op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Morph Character")
         op.param = "EXPORT_PIPELINE"
 
-        col_1.label(text="Export Accessory")
-        op = col_2.operator("cc3.exporter", icon="EXPORT", text="To CC3")
+        op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Accessory")
         op.param = "EXPORT_ACCESSORY"
 
         layout.separator_spacer()
