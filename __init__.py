@@ -2,6 +2,14 @@ import bpy
 import os
 import mathutils
 
+# TODO
+#   1. add sss map and transmission map to sss overlay node group, don't use them, but include inputs for custom use
+#   2. get image objects instead of file names so embedded images can return the image node directly as paths can be the same
+#   3. prefs for setting lighting automatically etc...
+#   4. sclera normal flattening (not strength)
+#   5. mouth cavity gradient map
+#   6. defaults for node group inputs
+
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
@@ -34,6 +42,7 @@ TEETH_GUMS_MAP = ["gumsmask"]
 # (not connected directly to input but modify base inputs)
 MOD_AO_MAP = ["ao", "ambientocclusion", "ambient occlusion"]
 MOD_BASECOLORBLEND_MAP = ["bcbmap", "basecolorblend2"]
+MOD_MCMAO_MAP = ["mnaomask", "mouthcavitymaskandao"]
 MOD_SPECMASK_MAP = ["specmask", "hspecmap", "specularmask", "hairspecularmaskmap"]
 MOD_TRANSMISSION_MAP = ["transmap", "transmissionmap"]
 MOD_NORMALBLEND_MAP = ["nbmap", "normalmapblend"]
@@ -1075,7 +1084,6 @@ def connect_advanced_material(object, material, shader):
 
 
 def connect_basic_material(object, material, shader):
-
     props = bpy.context.scene.CC3ImportProps
     nodes = material.node_tree.nodes
     links = material.node_tree.links
@@ -1089,16 +1097,16 @@ def connect_basic_material(object, material, shader):
     if (diffuse_file is not None):
         diffuse_node = make_image_node(nodes, diffuse_file, "diffuse_tex", "sRGB")
         if ao_file is not None:
-                prop, ao_strength = get_ao_strength(object, material)
-                fac_node = make_value_node(nodes, "Ambient Occlusion Strength", prop, ao_strength)
-                ao_node = make_image_node(nodes, ao_file, "ao_tex", "Non-Color")
-                advance_cursor(1.5)
-                drop_cursor(0.75)
-                mix_node = make_mixrgb_node(nodes, "MULTIPLY")
-                link_nodes(links, diffuse_node, "Color", mix_node, "Color1")
-                link_nodes(links, ao_node, "Color", mix_node, "Color2")
-                link_nodes(links, fac_node, "Value", mix_node, "Fac")
-                link_nodes(links, mix_node, "Color", shader, "Base Color")
+            prop, ao_strength = get_ao_strength(object, material)
+            fac_node = make_value_node(nodes, "Ambient Occlusion Strength", prop, ao_strength)
+            ao_node = make_image_node(nodes, ao_file, "ao_tex", "Non-Color")
+            advance_cursor(1.5)
+            drop_cursor(0.75)
+            mix_node = make_mixrgb_node(nodes, "MULTIPLY")
+            link_nodes(links, diffuse_node, "Color", mix_node, "Color1")
+            link_nodes(links, ao_node, "Color", mix_node, "Color2")
+            link_nodes(links, fac_node, "Value", mix_node, "Fac")
+            link_nodes(links, mix_node, "Color", shader, "Base Color")
         else:
             link_nodes(links, diffuse_node, "Color", shader, "Base Color")
 
@@ -1146,7 +1154,22 @@ def connect_basic_material(object, material, shader):
     roughness_node = None
     if roughness_file is not None:
         roughness_node = make_image_node(nodes, roughness_file, "roughness_tex", "Non-Color")
-        link_nodes(links, roughness_node, "Color", shader, "Roughness")
+        rprop_name, rprop_val = get_roughness_strength(object, material)
+        if is_skin_material(material):
+            advance_cursor()
+            remap_node = make_shader_node(nodes, "ShaderNodeMapRange")
+            remap_node.name = unique_name(rprop_name)
+            set_node_input(remap_node, "To Min", rprop_val)
+            link_nodes(links, roughness_node, "Color", remap_node, "Value")
+            link_nodes(links, remap_node, "Result", shader, "Roughness")
+        elif is_teeth_material(material):
+            advance_cursor()
+            rmult_node = make_math_node(nodes, "MULTIPLY", 1, rprop_val)
+            rmult_node.name = unique_name(rprop_name)
+            link_nodes(links, roughness_node, "Color", rmult_node, 0)
+            link_nodes(links, rmult_node, "Value", shader, "Roughness")
+        else:
+            link_nodes(links, roughness_node, "Color", shader, "Roughness")
 
     # Emission
     #
@@ -1210,6 +1233,7 @@ def connect_base_color(object, material, shader):
     diffuse_file = find_material_image(material, BASE_COLOR_MAP)
     blend_file = find_material_image(material, MOD_BASECOLORBLEND_MAP)
     ao_file = find_material_image(material, MOD_AO_MAP)
+    mcmao_file = find_material_image(material, MOD_MCMAO_MAP)
     prop_blend, blend_value = get_blend_strength(object, material)
     prop_ao, ao_value = get_ao_strength(object, material)
     prop_group = get_material_group(object, material)
@@ -1218,9 +1242,12 @@ def connect_base_color(object, material, shader):
     links = material.node_tree.links
     reset_cursor()
     # space
-    advance_cursor(-count_maps(diffuse_file, ao_file, blend_file))
+    advance_cursor(-count_maps(diffuse_file, ao_file, blend_file, mcmao_file))
     # maps
-    ao_node = blend_node = diffuse_node = None
+    ao_node = blend_node = diffuse_node = mcmao_node = None
+    if mcmao_file is not None:
+        mcmao_node = make_image_node(nodes, mcmao_file, "mcmao_tex", "Non-Color")
+        step_cursor()
     if ao_file is not None:
         ao_node = make_image_node(nodes, ao_file, "diffuse_tex", "Non-Color")
         step_cursor()
@@ -1231,7 +1258,10 @@ def connect_base_color(object, material, shader):
         diffuse_node = make_image_node(nodes, diffuse_file, "diffuse_tex", "sRGB")
         step_cursor()
     # groups
-    if blend_file is not None:
+    if mcmao_file is not None:
+        group = get_node_group("color_head_mixer")
+        group_node = make_node_group_node(nodes, group, "Base Color Head Mixer", "color_" + prop_group + "_mixer")
+    elif blend_file is not None:
         group = get_node_group("color_blend_ao_mixer")
         group_node = make_node_group_node(nodes, group, "Base Color Mixer", "color_" + prop_group + "_mixer")
     else:
@@ -1242,8 +1272,15 @@ def connect_base_color(object, material, shader):
         set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
     if blend_file is not None:
         set_node_input(group_node, "Blend Strength", blend_value)
+    if mcmao_file is not None:
+        set_node_input(group_node, "Mouth AO", props.skin_mouth_ao)
+        set_node_input(group_node, "Nostril AO", props.skin_nostril_ao)
+        set_node_input(group_node, "Lips AO", props.skin_lips_ao)
     set_node_input(group_node, "AO Strength", ao_value)
     # links
+    if mcmao_file is not None:
+        link_nodes(links, mcmao_node, "Color", group_node, "MCMAO")
+        link_nodes(links, mcmao_node, "Alpha", group_node, "LLAO")
     if diffuse_file is not None:
         link_nodes(links, diffuse_node, "Color", group_node, "Diffuse")
     if blend_file is not None:
@@ -1288,7 +1325,7 @@ def connect_subsurface(object, material, shader, diffuse_node):
     set_node_input(group_node, "Falloff", sss_falloff)
     # links
     link_nodes(links, diffuse_node, "Base Color", group_node, "Diffuse")
-    link_nodes(links, diffuse_node, "Diffuse", group_node, "Diffuse")
+    #link_nodes(links, diffuse_node, "Diffuse", group_node, "Diffuse")
     link_nodes(links, diffuse_node, "Color", group_node, "Diffuse")
     link_nodes(links, sss_node, "Color", group_node, "Scatter")
     link_nodes(links, trans_node, "Color", group_node, "Transmission")
@@ -1433,11 +1470,11 @@ def connect_normal(object, material, shader):
     if bump_file is not None:
         group = get_node_group("bump_mixer")
     elif normal_file is not None and bump_file is None and mask_file is None and \
-        micro_file is None and blend_file is None:
-            normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap")
-            link_nodes(links, normal_node, "Color", normalmap_node, "Color")
-            link_nodes(links, normalmap_node, "Normal", shader, "Normal")
-            return normalmap_node
+            micro_file is None and blend_file is None:
+        normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap")
+        link_nodes(links, normal_node, "Color", normalmap_node, "Color")
+        link_nodes(links, normalmap_node, "Normal", shader, "Normal")
+        return normalmap_node
     elif blend_file is not None:
         group = get_node_group("normal_micro_mask_blend_mixer")
     else:
@@ -1461,7 +1498,7 @@ def connect_normal(object, material, shader):
 
 
 # base names of all node groups in the library blend file
-node_groups = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "color_teeth_mixer", "color_tongue_mixer",
+node_groups = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "color_teeth_mixer", "color_tongue_mixer", "color_head_mixer",
                "subsurface_mixer", "subsurface_overlay_mixer",
                "msr_mixer", "msr_overlay_mixer",
                "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer",
@@ -2274,7 +2311,7 @@ def setup_scene_default(scene_type):
                     (0.6503279805183411, 0.055217113345861435, 1.8663908243179321),
                     1000, 0.1)
 
-            bpy.context.space_data.shading.type = 'RENDERED'
+            bpy.context.space_data.shading.type = 'MATERIAL'
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = 'forest.exr'
@@ -2318,10 +2355,10 @@ def setup_scene_default(scene_type):
                     (-1.3045594692230225, 0.11467886716127396, 0.03684665635228157),
                     100, 0.25, 1.448, 9.14)
 
-            set_contact_shadow(key1, 0.1, 0.001)
-            set_contact_shadow(key2, 0.1, 0.005)
+            #set_contact_shadow(key1, 0.1, 0.001)
+            #set_contact_shadow(key2, 0.1, 0.005)
 
-            bpy.context.space_data.shading.type = 'RENDERED'
+            bpy.context.space_data.shading.type = 'MATERIAL'
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = 'studio.exr'
@@ -2368,7 +2405,7 @@ def setup_scene_default(scene_type):
             set_contact_shadow(key, 0.1, 0.001)
             set_contact_shadow(fill, 0.1, 0.005)
 
-            bpy.context.space_data.shading.type = 'RENDERED'
+            bpy.context.space_data.shading.type = 'MATERIAL'
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = 'courtyard.exr'
@@ -2548,6 +2585,9 @@ def set_node_from_property(node):
         if "_skin_" in name:
             set_node_input(node, "AO Strength", props.skin_ao)
             set_node_input(node, "Blend Strength", props.skin_blend)
+            set_node_input(node, "Mouth AO", props.skin_mouth_ao)
+            set_node_input(node, "Nostril AO", props.skin_nostril_ao)
+            set_node_input(node, "Lips AO", props.skin_lips_ao)
         # color_eye_mixer
         elif "_eye_" in name:
             set_node_input(node, "AO Strength", props.eye_ao)
@@ -2748,10 +2788,14 @@ def set_node_from_property(node):
         set_node_output(node, "Value", props.skin_ao)
     elif "skin_basic_specular" in name:
         set_node_output(node, "Value", props.skin_basic_specular)
+    elif "skin_basic_roughness" in name:
+        set_node_input(node, "To Min", props.skin_basic_roughness)
     elif "eye_specular" in name:
         set_node_output(node, "Value", props.eye_specular)
     elif "teeth_specular" in name:
         set_node_output(node, "Value", props.teeth_specular)
+    elif "teeth_roughess" in name:
+        set_node_input(node, 1, props.teeth_roughness)
     elif "tongue_specular" in name:
         set_node_output(node, "Value", props.tongue_specular)
     elif "nails_specular" in name:
@@ -2804,7 +2848,8 @@ def reset_parameters():
     props.skin_normal_blend = 0.0
     props.skin_roughness = 0.1
     props.skin_specular = 0.3
-    props.skin_basic_specular = 0.2
+    props.skin_basic_specular = 0.4
+    props.skin_basic_roughness = 0.2
     props.skin_sss_radius = 1.5
     props.skin_sss_falloff = (1.0, 0.112, 0.072, 1.0)
     props.skin_head_micronormal = 0.5
@@ -2815,6 +2860,9 @@ def reset_parameters():
     props.skin_body_tiling = 20
     props.skin_arm_tiling = 20
     props.skin_leg_tiling = 20
+    props.skin_mouth_ao = 2.5
+    props.skin_nostril_ao = 2.5
+    props.skin_lips_ao = 2.5
 
     props.eye_ao = 0.2
     props.eye_blend = 0.0
@@ -2989,6 +3037,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     skin_body_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=quick_set_update)
     skin_arm_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=quick_set_update)
     skin_leg_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=quick_set_update)
+    skin_mouth_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=quick_set_update)
+    skin_nostril_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=quick_set_update)
+    skin_lips_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=quick_set_update)
+
 
     eye_toggle: bpy.props.BoolProperty(default=True)
     eye_ao: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=quick_set_update)
@@ -3018,8 +3070,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     teeth_toggle: bpy.props.BoolProperty(default=True)
     teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
-    teeth_gums_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=quick_set_update)
-    teeth_teeth_brightness: bpy.props.FloatProperty(default=0.7, min=0, max=1, update=quick_set_update)
+    teeth_gums_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=quick_set_update)
+    teeth_teeth_brightness: bpy.props.FloatProperty(default=0.7, min=0, max=2, update=quick_set_update)
     teeth_gums_desaturation: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
     teeth_teeth_desaturation: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=quick_set_update)
     teeth_front: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
@@ -3036,7 +3088,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     tongue_toggle: bpy.props.BoolProperty(default=True)
     tongue_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
-    tongue_brightness: bpy.props.FloatProperty(default=1, min=0, max=1, update=quick_set_update)
+    tongue_brightness: bpy.props.FloatProperty(default=1, min=0, max=2, update=quick_set_update)
     tongue_desaturation: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=quick_set_update)
     tongue_front: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
     tongue_rear: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
@@ -3246,6 +3298,12 @@ class MyPanel(bpy.types.Panel):
                     col_2.prop(props, "skin_arm_tiling", text="", slider=True)
                     col_1.label(text="Leg MNormal Tiling")
                     col_2.prop(props, "skin_leg_tiling", text="", slider=True)
+                    col_1.label(text="Mouth AO")
+                    col_2.prop(props, "skin_mouth_ao", text="", slider=True)
+                    col_1.label(text="Nostril AO")
+                    col_2.prop(props, "skin_nostril_ao", text="", slider=True)
+                    col_1.label(text="Lips AO")
+                    col_2.prop(props, "skin_lips_ao", text="", slider=True)
 
                 # Eye settings
                 layout.separator()
@@ -3471,6 +3529,8 @@ class MyPanel(bpy.types.Panel):
                 col_2.prop(props, "skin_ao", text="", slider=True)
                 col_1.label(text="Skin Specular")
                 col_2.prop(props, "skin_basic_specular", text="", slider=True)
+                col_1.label(text="Skin Roughness")
+                col_2.prop(props, "skin_basic_roughness", text="", slider=True)
                 col_1.label(text="Eye Specular")
                 col_2.prop(props, "eye_specular", text="", slider=True)
                 col_1.label(text="Eye Roughness")
@@ -3483,6 +3543,8 @@ class MyPanel(bpy.types.Panel):
                 col_2.prop(props, "eye_basic_brightness", text="", slider=True)
                 col_1.label(text="Teeth Specular")
                 col_2.prop(props, "teeth_specular", text="", slider=True)
+                col_1.label(text="Teeth Roughness")
+                col_2.prop(props, "teeth_roughness", text="", slider=True)
                 col_1.label(text="Tongue Specular")
                 col_2.prop(props, "tongue_specular", text="", slider=True)
                 col_1.label(text="Nails Specular")
