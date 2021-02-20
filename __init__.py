@@ -1746,11 +1746,14 @@ def cache_object_materials(object):
                             dir, name = os.path.split(filepath)
                             name = name.lower()
                             socket = get_input_connected_to(node, "Color")
+                            # the fbx importer in 2.91 makes a total balls up of the opacity
+                            # and connects the alpha output to the socket and not the color output
+                            alpha_socket = get_input_connected_to(node, "Alpha")
                             if socket == "Base Color":
                                 cache.diffuse = node.image
                             elif socket == "Specular":
                                 cache.specular = node.image
-                            elif socket == "Alpha":
+                            elif socket == "Alpha" or alpha_socket == "Alpha":
                                 cache.alpha = node.image
                                 if "diffuse" in name or "albedo" in name:
                                     cache.alpha_is_diffuse = True
