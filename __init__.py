@@ -3,7 +3,6 @@ import os
 import mathutils
 
 # TODO
-#   1. add sss map and transmission map to sss overlay node group, don't use them, but include inputs for custom use
 #   3. prefs for setting lighting automatically etc...
 #   6. defaults for node group inputs
 
@@ -1582,8 +1581,69 @@ def fetch_node_group(name):
     raise ValueError("Unable to append node group from library file!")
 
 
-def process_material(object, material):
+def clean_colletion(collection):
+    for item in collection:
+        if (item.use_fake_user and item.users == 1) or item.users == 0:
+            collection.remove(item)
 
+def delete_object(obj):
+    if obj is None:
+        return
+
+    try:
+        for child in obj.children:
+            delete_object(child)
+
+        # remove any armature actions
+        if obj.type == "ARMATURE":
+            if obj.animation_data is not None:
+                if obj.animation_data.action is not None:
+                    bpy.data.actions.remove(obj.animation_data.action)
+
+        # remove any shape key actions and remove the shape keys
+        if obj.type == "MESH":
+            if obj.data.shape_keys is not None:
+                if obj.data.shape_keys.animation_data is not None:
+                    if obj.data.shape_keys.animation_data.action is not None:
+                        bpy.data.actions.remove(obj.data.shape_keys.animation_data.action)
+            obj.shape_key_clear()
+
+        # remove materials->nodes->images
+        for slot in obj.material_slots:
+            material = slot.material
+            if material.node_tree is not None:
+                nodes = material.node_tree.nodes
+                for node in nodes:
+                    if node.type == "TEX_IMAGE":
+                        image = node.image
+                        bpy.data.images.remove(image)
+                    nodes.remove(node)
+            bpy.data.materials.remove(material)
+
+        if obj.type == "ARMATURE":
+            bpy.data.armatures.remove(obj.data)
+        else:
+            bpy.data.objects.remove(obj)
+
+    except:
+        log_error("Something went wrong deleting object...")
+
+def delete_character():
+    props = bpy.context.scene.CC3ImportProps
+
+    for p in props.import_objects:
+        delete_object(p.object)
+
+    props.import_objects.clear()
+    props.import_file = ""
+    props.material_cache.clear()
+
+    clean_colletion(bpy.data.materials)
+    clean_colletion(bpy.data.images)
+    clean_colletion(bpy.data.meshes)
+    clean_colletion(bpy.data.node_groups)
+
+def process_material(object, material):
     props = bpy.context.scene.CC3ImportProps
 
     reset_nodes(material)
@@ -1882,6 +1942,7 @@ class CC3Import(bpy.types.Operator):
 
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
+        prefs = context.preferences.addons[__name__].preferences
 
         # import character
         if self.param == "IMPORT" or self.param == "IMPORT_PIPELINE" or self.param == "IMPORT_QUALITY":
@@ -1898,14 +1959,16 @@ class CC3Import(bpy.types.Operator):
 
             # use the cc3 lighting for morph/accessory editing
             if self.param == "IMPORT_PIPELINE":
-                setup_scene_default("CC3_DEFAULT")
+                if prefs.auto_lighting:
+                    setup_scene_default("CC3_DEFAULT")
                 # for any objects with shape keys select basis and enable show in edit mode
                 for p in props.import_objects:
                     init_character_for_edit(p.object)
 
             # use portrait lighting for quality mode
             elif self.param == "IMPORT_QUALITY":
-                setup_scene_default("PORTRAIT_LIGHTS")
+                if prefs.auto_lighting:
+                    setup_scene_default("PORTRAIT_LIGHTS")
 
         # build materials
         elif self.param == "BUILD":
@@ -1914,6 +1977,9 @@ class CC3Import(bpy.types.Operator):
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
             rebuild_node_groups()
+
+        elif self.param == "DELETE_CHARACTER":
+            delete_character()
 
         return {"FINISHED"}
 
@@ -3515,13 +3581,15 @@ class MyPanel(bpy.types.Panel):
             col_2 = split.column()
             col_1.label(text="Open Mouth")
             col_2.prop(props, "open_mouth", text="", slider=True)
-            col_1.label(text="Reset Parameters")
-            op = col_2.operator("cc3.quickset", icon="DECORATE_OVERRIDE", text="Reset")
+
+            op = layout.operator("cc3.quickset", icon="DECORATE_OVERRIDE", text="Reset Parameters")
             op.param = "RESET"
 
-            col_1.label(text="Rebuild Node Groups")
-            op = col_2.operator("cc3.importer", icon="HEART", text="Rebuild")
+            op = layout.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
             op.param ="REBUILD_NODE_GROUPS"
+
+            op = layout.operator("cc3.importer", icon="REMOVE", text="Remove Character")
+            op.param ="DELETE_CHARACTER"
 
             layout.separator()
             split = layout.split(factor=0.5)
@@ -3638,6 +3706,26 @@ class CC3NodeCoord(bpy.types.Panel):
             row.label(text=str(int(coords.x/10)*10) + ", " + str(int(coords.y/10)*10))
 
 
+
+class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
+    # this must match the add-on name, use '__package__'
+    # when defining this in a submodule of a python package.
+    bl_idname = __name__
+
+    #import_type: bpy.props.StringProperty(default="")
+    #stage1: bpy.props.BoolProperty(default=True)
+    #skin_basic_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=quick_set_update)
+
+    auto_lighting: bpy.props.BoolProperty(name="Auto Lighting", default=True, description="Automatically change lighting on quick import.")
+
+    def draw(self, context):
+        layout = self.layout
+        layout.label(text="This is a preferences view for our add-on")
+        layout.prop(self, "auto_lighting")
+
+
+
+
 def register():
     bpy.utils.register_class(CC3NodeCoord)
     bpy.utils.register_class(CC3ObjectPointer)
@@ -3651,6 +3739,7 @@ def register():
     bpy.utils.register_class(CC3Export)
     bpy.utils.register_class(CC3Scene)
     bpy.utils.register_class(CC3QuickSet)
+    bpy.utils.register_class(CC3ToolsAddonPreferences)
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=CC3ImportProps)
 
 def unregister():
@@ -3666,6 +3755,7 @@ def unregister():
     bpy.utils.unregister_class(CC3Export)
     bpy.utils.unregister_class(CC3Scene)
     bpy.utils.unregister_class(CC3QuickSet)
+    bpy.utils.unregister_class(CC3ToolsAddonPreferences)
 
     del(bpy.types.Scene.CC3ImportProps)
 
