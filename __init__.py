@@ -4,9 +4,7 @@ import mathutils
 
 # TODO
 #   1. add sss map and transmission map to sss overlay node group, don't use them, but include inputs for custom use
-#   2. get image objects instead of file names so embedded images can return the image node directly as paths can be the same
 #   3. prefs for setting lighting automatically etc...
-#   4. sclera normal flattening (not strength)
 #   6. defaults for node group inputs
 
 bl_info = {
@@ -252,7 +250,7 @@ def get_micronormal_strength(object, material):
     elif "std_tongue" in name:
         return "tongue_micronormal", props.tongue_micronormal
     elif is_eye_material(material):
-        return "eye_sclera_normal", props.eye_sclera_normal
+        return "eye_sclera_normal", 1 - props.eye_sclera_normal
     return "default_micronormal", props.default_micronormal
 
 def get_micronormal_tiling(object, material):
@@ -525,7 +523,8 @@ def find_image_file(dir, material, suffix_list):
         file_name = file.lower()
         if material_name in file_name:
             for suffix in suffix_list:
-                if suffix in file_name:
+                search = "_" + suffix + "."
+                if search in file_name:
                     return os.path.join(dir, file)
 
     return None
@@ -882,7 +881,7 @@ def connect_adv_eye_material(object, material, shader):
     group = get_node_group("normal_micro_mask_mixer")
     nm_group = make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
     # values
-    set_node_input(nm_group, "Micro Normal Strength", props.eye_sclera_normal)
+    set_node_input(nm_group, "Micro Normal Strength", 1 - props.eye_sclera_normal)
     # links
     link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Micro Normal Mask")
     if snormal_image is not None:
@@ -2663,7 +2662,7 @@ def set_node_from_property(node):
             set_node_input(node, "Micro Normal Strength", props.skin_leg_micronormal)
         # normal_eye_mixer
         elif "_eye_" in name:
-            set_node_input(node, "Micro Normal Strength", props.eye_sclera_normal)
+            set_node_input(node, "Micro Normal Strength", 1 - props.eye_sclera_normal)
         # normal_hair_mixer
         elif "_hair_" in name or "_scalp_" in name:
             set_node_input(node, "Bump Map Height", props.hair_bump / 1000)
@@ -2786,8 +2785,8 @@ def reset_parameters():
     props.skin_ao = 1.0
     props.skin_blend = 0.0
     props.skin_normal_blend = 0.0
-    props.skin_roughness = 0.1
-    props.skin_specular = 0.3
+    props.skin_roughness = 0.2
+    props.skin_specular = 0.4
     props.skin_basic_specular = 0.4
     props.skin_basic_roughness = 0.2
     props.skin_sss_radius = 1.5
@@ -2815,7 +2814,7 @@ def reset_parameters():
     props.eye_iris_hardness = 0.85
     props.eye_sss_radius = 1.0
     props.eye_sss_falloff = (1.0, 1.0, 1.0, 1.0)
-    props.eye_sclera_normal = 0.1
+    props.eye_sclera_normal = 0.9
     props.eye_sclera_tiling = 2.0
     props.eye_basic_roughness = 0.05
     props.eye_basic_normal = 0.1
@@ -2827,7 +2826,7 @@ def reset_parameters():
     props.eye_iris_brightness = 1.0
     props.eye_basic_brightness = 0.9
     props.eye_tearline_alpha = 0.05
-    props.eye_tearline_roughness = 0.1
+    props.eye_tearline_roughness = 0.15
 
     props.teeth_ao = 1.0
     props.teeth_gums_brightness = 0.9
@@ -2957,7 +2956,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     stage6: bpy.props.BoolProperty(default=True)
 
     skin_basic_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=quick_set_update)
-    skin_basic_roughness: bpy.props.FloatProperty(default=0.1, min=0, max=2, update=quick_set_update)
+    skin_basic_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=2, update=quick_set_update)
     eye_basic_roughness: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=quick_set_update)
     eye_basic_normal: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=quick_set_update)
     eye_basic_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=quick_set_update)
@@ -2966,7 +2965,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     skin_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
     skin_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
     skin_normal_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
-    skin_roughness: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=quick_set_update)
+    skin_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=quick_set_update)
     skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=quick_set_update)
     skin_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=5, update=quick_set_update)
     skin_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -2997,7 +2996,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     eye_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=quick_set_update)
     eye_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=quick_set_update)
-    eye_sclera_normal: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=quick_set_update)
+    eye_sclera_normal: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=quick_set_update)
     eye_sclera_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=quick_set_update)
     eye_shadow_hardness: bpy.props.FloatProperty(default=0.75, min=0, max=1, update=quick_set_update)
     eye_shadow_radius: bpy.props.FloatProperty(default=0.3, min=0, max=0.5, update=quick_set_update)
@@ -3008,7 +3007,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     eye_iris_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=quick_set_update)
 
     eye_tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=quick_set_update)
-    eye_tearline_roughness: bpy.props.FloatProperty(default=0.1, min=0, max=0.5, update=quick_set_update)
+    eye_tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=quick_set_update)
 
     teeth_toggle: bpy.props.BoolProperty(default=True)
     teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
@@ -3279,7 +3278,7 @@ class MyPanel(bpy.types.Panel):
                     col_2.prop(props, "eye_sss_radius", text="", slider=True)
                     col_1.label(text="SSS Faloff")
                     col_2.prop(props, "eye_sss_falloff", text="")
-                    col_1.label(text="Sclera Normal")
+                    col_1.label(text="Sclera Normal Flatten")
                     col_2.prop(props, "eye_sclera_normal", text="", slider=True)
                     col_1.label(text="Sclera Normal Tiling")
                     col_2.prop(props, "eye_sclera_tiling", text="", slider=True)
