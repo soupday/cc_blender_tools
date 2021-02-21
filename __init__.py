@@ -84,28 +84,28 @@ def unique_name(name):
     props.node_id = props.node_id + 1
     return name
 
-def is_skin_material(material):
-    if "std_skin_" in material.name.lower():
+def is_skin_material(mat):
+    if "std_skin_" in mat.name.lower():
         return True
     return False
 
-def is_scalp_material(material):
+def is_scalp_material(mat):
     props = bpy.context.scene.CC3ImportProps
     hints = props.hair_scalp_hint.split(",")
     for hint in hints:
         h = hint.strip()
         if h != "":
-            if h in material.name.lower():
+            if h in mat.name.lower():
                 return True
     return False
 
-def is_eyelash_material(material):
-    if "std_eyelash" in material.name.lower():
+def is_eyelash_material(mat):
+    if "std_eyelash" in mat.name.lower():
         return True
     return False
 
-def is_mouth_material(material):
-    name = material.name.lower()
+def is_mouth_material(mat):
+    name = mat.name.lower()
     if "std_upper_teeth" in name:
         return True
     elif "std_lower_teeth" in name:
@@ -114,33 +114,33 @@ def is_mouth_material(material):
         return True
     return False
 
-def is_teeth_material(material):
-    name = material.name.lower()
+def is_teeth_material(mat):
+    name = mat.name.lower()
     if "std_upper_teeth" in name:
         return True
     elif "std_lower_teeth" in name:
         return True
     return False
 
-def is_tongue_material(material):
-    name = material.name.lower()
+def is_tongue_material(mat):
+    name = mat.name.lower()
     if "std_tongue" in name:
         return True
     return False
 
-def is_nails_material(material):
-    name = material.name.lower()
+def is_nails_material(mat):
+    name = mat.name.lower()
     if "std_nails" in name:
         return True
     return False
 
-def is_hair_object(object, material):
+def is_hair_object(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    if props.hair_object is not None and object == props.hair_object:
+    if props.hair_object is not None and obj == props.hair_object:
         return True
     hints = props.hair_hint.split(",")
-    object_name = object.name.lower()
-    material_name = material.name.lower()
+    object_name = obj.name.lower()
+    material_name = mat.name.lower()
     for hint in hints:
         h = hint.strip()
         if h != "":
@@ -150,23 +150,23 @@ def is_hair_object(object, material):
                 return True
     return False
 
-def is_eye_material(material):
-    if "std_cornea_" in material.name.lower():
+def is_eye_material(mat):
+    if "std_cornea_" in mat.name.lower():
         return True
     return False
 
-def is_tearline_material(material):
-    if "std_tearline_" in material.name.lower():
+def is_tearline_material(mat):
+    if "std_tearline_" in mat.name.lower():
         return True
     return False
 
-def is_eye_occlusion_material(material):
-    if "std_eye_occlusion_" in material.name.lower():
+def is_eye_occlusion_material(mat):
+    if "std_eye_occlusion_" in mat.name.lower():
         return True
     return False
 
-def get_material_group(object, material):
-    name = material.name.lower()
+def get_material_group(obj, mat):
+    name = mat.name.lower()
     if "std_skin_head" in name:
         return "skin_head"
     elif "std_skin_body" in name:
@@ -183,18 +183,18 @@ def get_material_group(object, material):
         return "nails"
     elif "std_tongue" in name:
         return "tongue"
-    elif is_hair_object(object, material):
-        if is_scalp_material(material):
+    elif is_hair_object(obj, mat):
+        if is_scalp_material(mat):
             return "scalp"
         return "hair"
-    elif is_eye_material(material):
+    elif is_eye_material(mat):
         return "eye"
     else:
         return "default"
 
-def get_shader_input(material, input):
-    if material.node_tree is not None:
-        for n in material.node_tree.nodes:
+def get_shader_input(mat, input):
+    if mat.node_tree is not None:
+        for n in mat.node_tree.nodes:
             if n.type == "BSDF_PRINCIPLED":
                 if input in n.inputs:
                     return n.inputs[input]
@@ -206,32 +206,32 @@ def get_input_connected_to(node, socket):
     except:
         return None
 
-def get_node_by_id(material, id):
-    if material.node_tree is not None:
-        nodes = material.node_tree.nodes
+def get_node_by_id(mat, id):
+    if mat.node_tree is not None:
+        nodes = mat.node_tree.nodes
         for node in nodes:
             if id in node.name:
                 return node
     return None
 
 
-def get_default_shader_input(material, input):
-    if material.node_tree is not None:
-        for n in material.node_tree.nodes:
+def get_default_shader_input(mat, input):
+    if mat.node_tree is not None:
+        for n in mat.node_tree.nodes:
             if n.type == "BSDF_PRINCIPLED":
                 if input in n.inputs:
                     return n.inputs[input].default_value
     return 0.0
 
-def get_bump_strength(object, material):
+def get_bump_strength(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    if is_hair_object(object, material):
+    if is_hair_object(obj, mat):
         return "hair_bump", props.hair_bump
     return "default_bump", props.default_bump
 
-def get_micronormal_strength(object, material):
+def get_micronormal_strength(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    name = material.name.lower()
+    name = mat.name.lower()
     if "std_skin_head" in name:
         return "skin_head_micronormal", props.skin_head_micronormal
     elif "std_skin_body" in name:
@@ -248,13 +248,13 @@ def get_micronormal_strength(object, material):
         return "nails_micronormal", props.nails_micronormal
     elif "std_tongue" in name:
         return "tongue_micronormal", props.tongue_micronormal
-    elif is_eye_material(material):
+    elif is_eye_material(mat):
         return "eye_sclera_normal", 1 - props.eye_sclera_normal
     return "default_micronormal", props.default_micronormal
 
-def get_micronormal_tiling(object, material):
+def get_micronormal_tiling(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    name = material.name.lower()
+    name = mat.name.lower()
     if "std_skin_head" in name:
         return "skin_head_tiling", props.skin_head_tiling
     elif "std_skin_body" in name:
@@ -271,111 +271,111 @@ def get_micronormal_tiling(object, material):
         return "tongue_tiling", props.tongue_tiling
     elif "std_nails" in name:
         return "nails_tiling", props.nails_tiling
-    elif is_eye_material(material):
+    elif is_eye_material(mat):
         return "eye_sclera_tiling", props.eye_sclera_tiling
     return "default_tiling", props.default_tiling
 
-def get_specular_strength(object, material):
+def get_specular_strength(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    if is_eye_material(material):
+    if is_eye_material(mat):
         return "eye_specular", props.eye_specular
-    elif is_skin_material(material):
+    elif is_skin_material(mat):
         if props.setup_mode == "ADVANCED":
             return "skin_specular", props.skin_specular
         else:
             return "skin_basic_specular", props.skin_basic_specular
-    elif is_hair_object(object, material):
-        if is_scalp_material(material):
+    elif is_hair_object(obj, mat):
+        if is_scalp_material(mat):
             return "hair_scalp_specular", props.hair_scalp_specular
         return "hair_specular", props.hair_specular
-    elif is_nails_material(material):
+    elif is_nails_material(mat):
         return "nails_specular", props.nails_specular
-    elif is_teeth_material(material):
+    elif is_teeth_material(mat):
         return "teeth_specular", props.teeth_specular
-    elif is_tongue_material(material):
+    elif is_tongue_material(mat):
         return "tongue_specular", props.tongue_specular
-    return "default_specular", get_default_shader_input(material, "Specular")
+    return "default_specular", get_default_shader_input(mat, "Specular")
 
-def get_roughness_strength(object, material):
+def get_roughness_strength(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    if is_skin_material(material):
+    if is_skin_material(mat):
         if props.setup_mode == "ADVANCED":
             return "skin_roughness", props.skin_roughness
         else:
             return "skin_basic_roughness", props.skin_basic_roughness
-    elif is_hair_object(object, material):
-        if is_scalp_material(material):
+    elif is_hair_object(obj, mat):
+        if is_scalp_material(mat):
             return "hair_scalp_roughness", props.hair_scalp_roughness
         return "hair_roughness", props.hair_roughness
-    elif is_nails_material(material):
+    elif is_nails_material(mat):
         return "nails_roughness", props.nails_roughness
-    elif is_teeth_material(material):
+    elif is_teeth_material(mat):
         return "teeth_roughness", props.teeth_roughness
-    elif is_tongue_material(material):
+    elif is_tongue_material(mat):
         return "tongue_roughness", props.tongue_roughness
     return "default_roughness", props.default_roughness
 
-def get_ao_strength(object, material):
+def get_ao_strength(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    if is_eye_material(material):
+    if is_eye_material(mat):
         return "eye_ao", props.eye_ao
-    elif is_skin_material(material):
+    elif is_skin_material(mat):
         return "skin_ao", props.skin_ao
-    elif is_hair_object(object, material):
+    elif is_hair_object(obj, mat):
         return "hair_ao", props.hair_ao
-    elif is_nails_material(material):
+    elif is_nails_material(mat):
         return "nails_ao", props.nails_ao
-    elif is_teeth_material(material):
+    elif is_teeth_material(mat):
         return "teeth_ao", props.teeth_ao
-    elif is_tongue_material(material):
+    elif is_tongue_material(mat):
         return "tongue_ao", props.tongue_ao
     return "default_ao", props.default_ao
 
-def get_blend_strength(object, material):
+def get_blend_strength(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    if is_eye_material(material):
+    if is_eye_material(mat):
         return "eye_blend", props.eye_blend
-    elif is_skin_material(material):
+    elif is_skin_material(mat):
         return "skin_blend", props.skin_blend
-    elif is_hair_object(object, material):
+    elif is_hair_object(obj, mat):
         return "hair_blend", props.hair_blend
     return "default_blend", props.default_blend
 
-def get_normal_blend_strength(object, material):
+def get_normal_blend_strength(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    if is_skin_material(material):
+    if is_skin_material(mat):
         return "skin_normal_blend", props.skin_normal_blend
     return "default_normal_blend", props.default_normal_blend
 
-def get_sss_radius(object, material):
+def get_sss_radius(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    if is_eye_material(material):
+    if is_eye_material(mat):
         return "eye_sss_radius", props.eye_sss_radius
-    elif is_skin_material(material):
+    elif is_skin_material(mat):
         return "skin_sss_radius", props.skin_sss_radius
-    elif is_hair_object(object, material):
+    elif is_hair_object(obj, mat):
         return "hair_sss_radius", props.hair_sss_radius
-    elif is_nails_material(material):
+    elif is_nails_material(mat):
         return "nails_sss_radius", props.nails_sss_radius
-    elif is_teeth_material(material):
+    elif is_teeth_material(mat):
         return "teeth_sss_radius", props.teeth_sss_radius
-    elif is_tongue_material(material):
+    elif is_tongue_material(mat):
         return "tongue_sss_radius", props.tongue_sss_radius
     return "default_sss_radius", props.default_sss_radius
 
-def get_sss_falloff(object, material):
+def get_sss_falloff(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-    if is_eye_material(material):
+    if is_eye_material(mat):
         return "eye_sss_falloff", props.eye_sss_falloff
-    elif is_skin_material(material):
+    elif is_skin_material(mat):
         return "skin_sss_falloff", props.skin_sss_falloff
-    elif is_hair_object(object, material):
+    elif is_hair_object(obj, mat):
         return "hair_sss_falloff", props.hair_sss_falloff
-    elif is_nails_material(material):
+    elif is_nails_material(mat):
         return "nails_sss_falloff", props.nails_sss_falloff
-    elif is_teeth_material(material):
+    elif is_teeth_material(mat):
         return "teeth_sss_falloff", props.teeth_sss_falloff
-    elif is_tongue_material(material):
+    elif is_tongue_material(mat):
         return "tongue_sss_falloff", props.tongue_sss_falloff
     return "default_sss_falloff", props.default_sss_falloff
 
@@ -510,12 +510,10 @@ def strip_name(name):
         name = name[:-4]
     return name
 
-##
-## Search the image list for an image filename that contains the search substring
-##
-def find_image_file(dir, material, suffix_list):
+## Search the directory for an image filename that contains the search substring
+def find_image_file(dir, mat, suffix_list):
 
-    material_name = strip_name(material.name).lower()
+    material_name = strip_name(mat.name).lower()
 
     files = os.listdir(dir)
     for file in files:
@@ -531,60 +529,69 @@ def find_image_file(dir, material, suffix_list):
 
 # Try to find the texture for a material input by searching for the material name
 # appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness
-def find_material_image(material, suffix_list):
+def find_material_image(mat, suffix_list):
     props = bpy.context.scene.CC3ImportProps
     color_space = "Non-Color"
     if "diffuse" in suffix_list or "sclera" in suffix_list:
         color_space = "sRGB"
     # try to find the image from the material cache
     for p in props.material_cache:
-        if p.material == material:
-            if "diffuse" in suffix_list:
-                return p.diffuse
-            elif "specular" in suffix_list:
-                return p.specular
-            elif "opacity" in suffix_list:
-                return p.alpha
-            elif "normal" in suffix_list:
-                return p.normal
-            elif "bump" in suffix_list:
-                return p.bump
-            else:
-                image_file = find_image_file(p.dir, p.material, suffix_list)
-                if image_file is not None:
-                    return load_image(image_file, color_space)
+        if p.material == mat:
+            # there is a a bug in the blender fbx and obj importers, files with spaces in the name
+            # sometimes don't import the images correctly, so we can only trust the imported images
+            # in the material_cache if they were embedded in the fbx.
+            if props.import_embedded:
+                if "diffuse" in suffix_list:
+                    return p.diffuse
+                elif "specular" in suffix_list:
+                    return p.specular
+                elif "opacity" in suffix_list:
+                    return p.alpha
+                elif "normal" in suffix_list:
+                    return p.normal
+                elif "bump" in suffix_list:
+                    return p.bump
+            # otherwise find the files directly in the material directory
+            image_file = find_image_file(p.dir, p.material, suffix_list)
+            # failing that look in the main tex directory (if different)
+            if image_file is None and \
+               props.import_main_tex_dir != "" and \
+               os.path.normcase(p.dir) != os.path.normcase(props.import_main_tex_dir):
+                image_file = find_image_file(props.import_main_tex_dir, p.material, suffix_list)
+            if image_file is not None:
+                return load_image(image_file, color_space)
             break
     return None
 
 
-def apply_alpha_override(object, material, method):
-    input = get_shader_input(material, "Alpha")
+def apply_alpha_override(obj, mat, method):
+    input = get_shader_input(mat, "Alpha")
     if input is None:
         return
     if is_input_connected(input):
-        set_material_alpha(material, method)
+        set_material_alpha(mat, method)
     elif input.default_value < 1.0:
-        set_material_alpha(material, method)
+        set_material_alpha(mat, method)
     else:
-        set_material_alpha(material, "OPAQUE")
+        set_material_alpha(mat, "OPAQUE")
     return
 
 
-def set_material_alpha(material, method):
+def set_material_alpha(mat, method):
     if method == "HASHED":
-        material.blend_method = "HASHED"
-        material.shadow_method = "HASHED"
-        material.use_backface_culling = False
+        mat.blend_method = "HASHED"
+        mat.shadow_method = "HASHED"
+        mat.use_backface_culling = False
     elif method == "BLEND":
-        material.blend_method = "BLEND"
-        material.shadow_method = "CLIP"
-        material.use_backface_culling = True
-        material.show_transparent_back = True
-        material.alpha_threshold = 0.5
+        mat.blend_method = "BLEND"
+        mat.shadow_method = "CLIP"
+        mat.use_backface_culling = True
+        mat.show_transparent_back = True
+        mat.alpha_threshold = 0.5
     else:
-        material.blend_method = "OPAQUE"
-        material.shadow_method = "OPAQUE"
-        material.use_backface_culling = False
+        mat.blend_method = "OPAQUE"
+        mat.shadow_method = "OPAQUE"
+        mat.use_backface_culling = False
 
 
 def get_node_input(node, input, default):
@@ -632,7 +639,7 @@ def count_maps(*maps):
             count += 1
     return count
 
-def connect_tearline_material(object, material, shader):
+def connect_tearline_material(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
     set_node_input(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
     set_node_input(shader, "Metallic", 1.0)
@@ -640,15 +647,15 @@ def connect_tearline_material(object, material, shader):
     set_node_input(shader, "Roughness", props.eye_tearline_roughness)
     set_node_input(shader, "Alpha", props.eye_tearline_alpha)
     shader.name = unique_name("eye_tearline_shader")
-    set_material_alpha(material, props.blend_mode)
-    material.shadow_method = "NONE"
+    set_material_alpha(mat, props.blend_mode)
+    mat.shadow_method = "NONE"
 
 
-def connect_eye_occlusion_material(object, material, shader):
+def connect_eye_occlusion_material(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
 
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     set_node_input(shader, "Base Color", (0.0, 0.0, 0.0, 1.0))
     set_node_input(shader, "Metallic", 0.0)
@@ -665,21 +672,21 @@ def connect_eye_occlusion_material(object, material, shader):
     # links
     link_nodes(links, occ_node, "Alpha", shader, "Alpha")
 
-    set_material_alpha(material, props.blend_mode)
-    material.shadow_method = "NONE"
+    set_material_alpha(mat, props.blend_mode)
+    mat.shadow_method = "NONE"
 
 
-def connect_basic_eye_material(object, material, shader):
+def connect_basic_eye_material(obj, mat, shader):
 
     props = bpy.context.scene.CC3ImportProps
 
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     # Base Color
     #
     reset_cursor()
-    diffuse_image =  find_material_image(material, BASE_COLOR_MAP)
+    diffuse_image =  find_material_image(mat, BASE_COLOR_MAP)
     if diffuse_image is not None:
         diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
         advance_cursor(1.0)
@@ -716,7 +723,7 @@ def connect_basic_eye_material(object, material, shader):
     # Normal
     #
     reset_cursor()
-    normal_image = find_material_image(material, SCLERA_NORMAL_MAP)
+    normal_image = find_material_image(mat, SCLERA_NORMAL_MAP)
     if normal_image is not None:
         strength_node = make_value_node(nodes, "Normal Strength", "eye_basic_normal", props.eye_basic_normal)
         normal_node = make_image_node(nodes, normal_image, "normal_tex")
@@ -734,12 +741,12 @@ def connect_basic_eye_material(object, material, shader):
     return
 
 
-def connect_adv_eye_material(object, material, shader):
+def connect_adv_eye_material(obj, mat, shader):
 
     props = bpy.context.scene.CC3ImportProps
 
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     # Iris Mask
     reset_cursor()
@@ -757,10 +764,10 @@ def connect_adv_eye_material(object, material, shader):
     # Base Color
     reset_cursor()
     # maps
-    diffuse_image = find_material_image(material, BASE_COLOR_MAP)
-    sclera_image = find_material_image(material, SCLERA_MAP)
-    blend_image = find_material_image(material, MOD_BASECOLORBLEND_MAP)
-    ao_image = find_material_image(material, MOD_AO_MAP)
+    diffuse_image = find_material_image(mat, BASE_COLOR_MAP)
+    sclera_image = find_material_image(mat, SCLERA_MAP)
+    blend_image = find_material_image(mat, MOD_BASECOLORBLEND_MAP)
+    ao_image = find_material_image(mat, MOD_AO_MAP)
     diffuse_node = sclera_node = blend_node = ao_node = iris_tiling_node = sclera_tiling_node = None
     advance_cursor(-count_maps(diffuse_image, sclera_image, blend_image, ao_image))
     if diffuse_image is not None:
@@ -857,12 +864,12 @@ def connect_adv_eye_material(object, material, shader):
 
     # emission and alpha
     set_node_input(shader, "Alpha", 1.0)
-    connect_emission_alpha(object, material, shader)
+    connect_emission_alpha(obj, mat, shader)
 
     # Normal
     drop_cursor(0.1)
     reset_cursor()
-    snormal_image = find_material_image(material, SCLERA_NORMAL_MAP)
+    snormal_image = find_material_image(mat, SCLERA_NORMAL_MAP)
     snormal_node = snormal_tiling_node = None
     # space
     advance_cursor(-count_maps(snormal_image))
@@ -896,12 +903,12 @@ def connect_adv_eye_material(object, material, shader):
     return
 
 
-def connect_adv_mouth_material(object, material, shader):
+def connect_adv_mouth_material(obj, mat, shader):
 
     props = bpy.context.scene.CC3ImportProps
 
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     # Gums Mask and Gradient AO
     reset_cursor()
@@ -909,20 +916,20 @@ def connect_adv_mouth_material(object, material, shader):
     # maps
     mask_image = None
     mask_node = None
-    teeth = is_teeth_material(material)
+    teeth = is_teeth_material(mat)
     if teeth:
-        mask_image = find_material_image(material, TEETH_GUMS_MAP)
+        mask_image = find_material_image(mat, TEETH_GUMS_MAP)
         # if no gums mask file is found for the teeth,
         # just connect as default advanced material
         if mask_image is None:
-            connect_advanced_material(object, material, shader)
+            connect_advanced_material(obj, mat, shader)
             return
     # if no gradient ao file is found for the teeth or tongue
     # just connect as default advanced material
-    gradient_image = find_material_image(material, MOUTH_GRADIENT_MAP)
+    gradient_image = find_material_image(mat, MOUTH_GRADIENT_MAP)
     gradient_node = None
     if gradient_image is None:
-        connect_advanced_material(object, material, shader)
+        connect_advanced_material(obj, mat, shader)
         return
     advance_cursor(2 - count_maps(mask_image, gradient_image))
     if mask_image is not None:
@@ -943,8 +950,8 @@ def connect_adv_mouth_material(object, material, shader):
     reset_cursor()
     advance_cursor(-2)
     # maps
-    diffuse_image = find_material_image(material, BASE_COLOR_MAP)
-    ao_image = find_material_image(material, MOD_AO_MAP)
+    diffuse_image = find_material_image(mat, BASE_COLOR_MAP)
+    ao_image = find_material_image(mat, MOD_AO_MAP)
     diffuse_node = ao_node = None
     advance_cursor(2 - count_maps(diffuse_image, ao_image))
     if diffuse_image is not None:
@@ -978,7 +985,7 @@ def connect_adv_mouth_material(object, material, shader):
     # links
     if teeth:
         gao_socket = "G"
-        if "std_lower_teeth" in material.name.lower():
+        if "std_lower_teeth" in mat.name.lower():
             gao_socket = "R"
         link_nodes(links, mask_node, "Color", color_node, "Gums Mask")
         link_nodes(links, gradientrgb_node, gao_socket, color_node, "Gradient AO")
@@ -1027,11 +1034,11 @@ def connect_adv_mouth_material(object, material, shader):
     advance_cursor(-2.7)
     # props
     metallic = 0
-    specprop, specular = get_specular_strength(object, material)
-    roughprop, roughness = get_roughness_strength(object, material)
+    specprop, specular = get_specular_strength(obj, mat)
+    roughprop, roughness = get_roughness_strength(obj, mat)
     # maps
-    metallic_image = find_material_image(material, METALLIC_MAP)
-    roughness_image = find_material_image(material, ROUGHNESS_MAP)
+    metallic_image = find_material_image(mat, METALLIC_MAP)
+    roughness_image = find_material_image(mat, ROUGHNESS_MAP)
     metallic_node = roughness_node = roughness_mult_node = None
     if metallic_image is not None:
         metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
@@ -1075,10 +1082,10 @@ def connect_adv_mouth_material(object, material, shader):
 
     # emission and alpha
     set_node_input(shader, "Alpha", 1.0)
-    connect_emission_alpha(object, material, shader)
+    connect_emission_alpha(obj, mat, shader)
 
     # Normal
-    connect_normal(object, material, shader)
+    connect_normal(obj, mat, shader)
 
     # Clearcoat
     #
@@ -1088,30 +1095,30 @@ def connect_adv_mouth_material(object, material, shader):
     return
 
 
-def connect_advanced_material(object, material, shader):
-    base_colour_node = connect_base_color(object, material, shader)
-    connect_subsurface(object, material, shader, base_colour_node)
-    connect_msr(object, material, shader)
-    connect_emission_alpha(object, material, shader)
-    connect_normal(object, material, shader)
+def connect_advanced_material(obj, mat, shader):
+    base_colour_node = connect_base_color(obj, mat, shader)
+    connect_subsurface(obj, mat, shader, base_colour_node)
+    connect_msr(obj, mat, shader)
+    connect_emission_alpha(obj, mat, shader)
+    connect_normal(obj, mat, shader)
     return
 
 
-def connect_basic_material(object, material, shader):
+def connect_basic_material(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     # Base Color
     #
     reset_cursor()
-    diffuse_image = find_material_image(material, BASE_COLOR_MAP)
-    ao_image = find_material_image(material, MOD_AO_MAP)
+    diffuse_image = find_material_image(mat, BASE_COLOR_MAP)
+    ao_image = find_material_image(mat, MOD_AO_MAP)
     diffuse_node = ao_node = None
     if (diffuse_image is not None):
         diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
         if ao_image is not None:
-            prop, ao_strength = get_ao_strength(object, material)
+            prop, ao_strength = get_ao_strength(obj, mat)
             fac_node = make_value_node(nodes, "Ambient Occlusion Strength", prop, ao_strength)
             ao_node = make_image_node(nodes, ao_image, "ao_tex")
             advance_cursor(1.5)
@@ -1127,7 +1134,7 @@ def connect_basic_material(object, material, shader):
     # Metallic
     #
     reset_cursor()
-    metallic_image = find_material_image(material, METALLIC_MAP)
+    metallic_image = find_material_image(mat, METALLIC_MAP)
     metallic_node = None
     if metallic_image is not None:
         metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
@@ -1136,9 +1143,9 @@ def connect_basic_material(object, material, shader):
     # Specular
     #
     reset_cursor()
-    specular_image = find_material_image(material, SPECULAR_MAP)
-    mask_image = find_material_image(material, MOD_SPECMASK_MAP)
-    prop_spec, spec = get_specular_strength(object, material)
+    specular_image = find_material_image(mat, SPECULAR_MAP)
+    mask_image = find_material_image(mat, MOD_SPECMASK_MAP)
+    prop_spec, spec = get_specular_strength(obj, mat)
     specular_node = mask_node = mult_node = None
     if specular_image is not None:
         specular_node = make_image_node(nodes, specular_image, "specular_tex")
@@ -1164,19 +1171,19 @@ def connect_basic_material(object, material, shader):
     # Roughness
     #
     reset_cursor()
-    roughness_image = find_material_image(material, ROUGHNESS_MAP)
+    roughness_image = find_material_image(mat, ROUGHNESS_MAP)
     roughness_node = None
     if roughness_image is not None:
         roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
-        rprop_name, rprop_val = get_roughness_strength(object, material)
-        if is_skin_material(material):
+        rprop_name, rprop_val = get_roughness_strength(obj, mat)
+        if is_skin_material(mat):
             advance_cursor()
             remap_node = make_shader_node(nodes, "ShaderNodeMapRange")
             remap_node.name = unique_name(rprop_name)
             set_node_input(remap_node, "To Min", rprop_val)
             link_nodes(links, roughness_node, "Color", remap_node, "Value")
             link_nodes(links, remap_node, "Result", shader, "Roughness")
-        elif is_teeth_material(material):
+        elif is_teeth_material(mat):
             advance_cursor()
             rmult_node = make_math_node(nodes, "MULTIPLY", 1, rprop_val)
             rmult_node.name = unique_name(rprop_name)
@@ -1188,7 +1195,7 @@ def connect_basic_material(object, material, shader):
     # Emission
     #
     reset_cursor()
-    emission_image = find_material_image(material, EMISSION_MAP)
+    emission_image = find_material_image(mat, EMISSION_MAP)
     emission_node = None
     if emission_image is not None:
         emission_node = make_image_node(nodes, emission_image, "emission_tex")
@@ -1197,7 +1204,7 @@ def connect_basic_material(object, material, shader):
     # Alpha
     #
     reset_cursor()
-    alpha_image = find_material_image(material, ALPHA_MAP)
+    alpha_image = find_material_image(mat, ALPHA_MAP)
     alpha_node = None
     if alpha_image is not None:
         alpha_node = make_image_node(nodes, alpha_image, "opacity_tex")
@@ -1207,18 +1214,18 @@ def connect_basic_material(object, material, shader):
         else:
             link_nodes(links, alpha_node, "Color", shader, "Alpha")
     # material alpha blend settings
-    if is_hair_object(object, material) or is_eyelash_material(material):
-        set_material_alpha(material, "HASHED")
+    if is_hair_object(obj, mat) or is_eyelash_material(mat):
+        set_material_alpha(mat, "HASHED")
     elif shader.inputs["Alpha"].default_value < 1.0:
-        set_material_alpha(material, props.blend_mode)
+        set_material_alpha(mat, props.blend_mode)
     else:
-        set_material_alpha(material, "OPAQUE")
+        set_material_alpha(mat, "OPAQUE")
 
     # Normal
     #
     reset_cursor()
-    normal_image = find_material_image(material, NORMAL_MAP)
-    bump_image = find_material_image(material, BUMP_MAP)
+    normal_image = find_material_image(mat, NORMAL_MAP)
+    bump_image = find_material_image(mat, BUMP_MAP)
     normal_node = bump_node = normalmap_node = bumpmap_node = None
     if normal_image is not None:
         normal_node = make_image_node(nodes, normal_image, "normal_tex")
@@ -1227,7 +1234,7 @@ def connect_basic_material(object, material, shader):
         link_nodes(links, normal_node, "Color", normalmap_node, "Color")
         link_nodes(links, normalmap_node, "Normal", shader, "Normal")
     if bump_image is not None:
-        prop_bump, bump_strength = get_bump_strength(object, material)
+        prop_bump, bump_strength = get_bump_strength(obj, mat)
         bump_strength_node = make_value_node(nodes, "Bump Strength", prop_bump, bump_strength / 1000)
         bump_node = make_image_node(nodes, bump_image, "bump_tex")
         advance_cursor()
@@ -1242,19 +1249,19 @@ def connect_basic_material(object, material, shader):
     return
 
 
-def connect_base_color(object, material, shader):
+def connect_base_color(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
 
-    diffuse_image = find_material_image(material, BASE_COLOR_MAP)
-    blend_image = find_material_image(material, MOD_BASECOLORBLEND_MAP)
-    ao_image = find_material_image(material, MOD_AO_MAP)
-    mcmao_image = find_material_image(material, MOD_MCMAO_MAP)
-    prop_blend, blend_value = get_blend_strength(object, material)
-    prop_ao, ao_value = get_ao_strength(object, material)
-    prop_group = get_material_group(object, material)
+    diffuse_image = find_material_image(mat, BASE_COLOR_MAP)
+    blend_image = find_material_image(mat, MOD_BASECOLORBLEND_MAP)
+    ao_image = find_material_image(mat, MOD_AO_MAP)
+    mcmao_image = find_material_image(mat, MOD_MCMAO_MAP)
+    prop_blend, blend_value = get_blend_strength(obj, mat)
+    prop_ao, ao_value = get_ao_strength(obj, mat)
+    prop_group = get_material_group(obj, mat)
 
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
     reset_cursor()
     # space
     advance_cursor(-count_maps(diffuse_image, ao_image, blend_image, mcmao_image))
@@ -1308,20 +1315,20 @@ def connect_base_color(object, material, shader):
     return group_node
 
 
-def connect_subsurface(object, material, shader, diffuse_node):
+def connect_subsurface(obj, mat, shader, diffuse_node):
     props = bpy.context.scene.CC3ImportProps
 
-    sss_image = find_material_image(material, SUBSURFACE_MAP)
-    trans_image = find_material_image(material, MOD_TRANSMISSION_MAP)
-    prop_radius, sss_radius = get_sss_radius(object, material)
-    prop_falloff, sss_falloff = get_sss_falloff(object, material)
-    prop_group = get_material_group(object, material)
+    sss_image = find_material_image(mat, SUBSURFACE_MAP)
+    trans_image = find_material_image(mat, MOD_TRANSMISSION_MAP)
+    prop_radius, sss_radius = get_sss_radius(obj, mat)
+    prop_falloff, sss_falloff = get_sss_falloff(obj, mat)
+    prop_group = get_material_group(obj, mat)
 
-    if sss_image is None and trans_image is None and not is_hair_object(object, material) and not is_skin_material(material):
+    if sss_image is None and trans_image is None and not is_hair_object(obj, mat) and not is_skin_material(mat):
         return None
 
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
     reset_cursor()
     # space
     advance_cursor(-count_maps(trans_image, sss_image))
@@ -1350,27 +1357,27 @@ def connect_subsurface(object, material, shader, diffuse_node):
     link_nodes(links, group_node, "Subsurface Color", shader, "Subsurface Color")
 
     # subsurface translucency
-    if is_skin_material(material) or is_hair_object(object, material):
-        material.use_sss_translucency = True
+    if is_skin_material(mat) or is_hair_object(obj, mat):
+        mat.use_sss_translucency = True
     else:
-        material.use_sss_translucency = False
+        mat.use_sss_translucency = False
 
     return group_node
 
 
-def connect_msr(object, material, shader):
+def connect_msr(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
 
-    metallic_image = find_material_image(material, METALLIC_MAP)
-    specular_image = find_material_image(material, SPECULAR_MAP)
-    mask_image = find_material_image(material, MOD_SPECMASK_MAP)
-    roughness_image = find_material_image(material, ROUGHNESS_MAP)
-    prop_spec, specular_strength = get_specular_strength(object, material)
-    prop_roughness, roughness_remap = get_roughness_strength(object, material)
-    prop_group = get_material_group(object, material)
+    metallic_image = find_material_image(mat, METALLIC_MAP)
+    specular_image = find_material_image(mat, SPECULAR_MAP)
+    mask_image = find_material_image(mat, MOD_SPECMASK_MAP)
+    roughness_image = find_material_image(mat, ROUGHNESS_MAP)
+    prop_spec, specular_strength = get_specular_strength(obj, mat)
+    prop_roughness, roughness_remap = get_roughness_strength(obj, mat)
+    prop_group = get_material_group(obj, mat)
 
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     reset_cursor()
     # space
@@ -1407,14 +1414,14 @@ def connect_msr(object, material, shader):
     return group_node
 
 
-def connect_emission_alpha(object, material, shader):
+def connect_emission_alpha(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
 
-    emission_image = find_material_image(material, EMISSION_MAP)
-    alpha_image = find_material_image(material, ALPHA_MAP)
+    emission_image = find_material_image(mat, EMISSION_MAP)
+    alpha_image = find_material_image(mat, ALPHA_MAP)
 
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
     emission_node = alpha_node = None
     # emission
     reset_cursor()
@@ -1431,31 +1438,31 @@ def connect_emission_alpha(object, material, shader):
         else:
             link_nodes(links, alpha_node, "Color", shader, "Alpha")
     # material settings
-    if is_hair_object(object, material) or is_eyelash_material(material):
-        set_material_alpha(material, "HASHED")
+    if is_hair_object(obj, mat) or is_eyelash_material(mat):
+        set_material_alpha(mat, "HASHED")
     elif shader.inputs["Alpha"].default_value < 1.0:
-        set_material_alpha(material, props.blend_mode)
+        set_material_alpha(mat, props.blend_mode)
     else:
-        set_material_alpha(material, "OPAQUE")
+        set_material_alpha(mat, "OPAQUE")
 
 
-def connect_normal(object, material, shader):
+def connect_normal(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
 
     normal_node = bump_node = blend_node = micro_node = mask_node = tiling_node = None
-    normal_image = find_material_image(material, NORMAL_MAP)
-    bump_image = find_material_image(material, BUMP_MAP)
-    blend_image = find_material_image(material, MOD_NORMALBLEND_MAP)
-    micro_image = find_material_image(material, MOD_MICRONORMAL_MAP)
-    mask_image = find_material_image(material, MOD_MICRONORMALMASK_MAP)
-    prop_bump, bump_strength = get_bump_strength(object, material)
-    prop_blend, blend_strength = get_normal_blend_strength(object, material)
-    prop_micronormal, micronormal_strength = get_micronormal_strength(object, material)
-    prop_tiling, micronormal_tiling = get_micronormal_tiling(object, material)
-    prop_group = get_material_group(object, material)
+    normal_image = find_material_image(mat, NORMAL_MAP)
+    bump_image = find_material_image(mat, BUMP_MAP)
+    blend_image = find_material_image(mat, MOD_NORMALBLEND_MAP)
+    micro_image = find_material_image(mat, MOD_MICRONORMAL_MAP)
+    mask_image = find_material_image(mat, MOD_MICRONORMALMASK_MAP)
+    prop_bump, bump_strength = get_bump_strength(obj, mat)
+    prop_blend, blend_strength = get_normal_blend_strength(obj, mat)
+    prop_micronormal, micronormal_strength = get_micronormal_strength(obj, mat)
+    prop_tiling, micronormal_tiling = get_micronormal_tiling(obj, mat)
+    prop_group = get_material_group(obj, mat)
 
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     reset_cursor()
 
@@ -1610,15 +1617,15 @@ def delete_object(obj):
 
         # remove materials->nodes->images
         for slot in obj.material_slots:
-            material = slot.material
-            if material.node_tree is not None:
-                nodes = material.node_tree.nodes
+            mat = slot.material
+            if mat.node_tree is not None:
+                nodes = mat.node_tree.nodes
                 for node in nodes:
                     if node.type == "TEX_IMAGE":
                         image = node.image
                         bpy.data.images.remove(image)
                     nodes.remove(node)
-            bpy.data.materials.remove(material)
+            bpy.data.materials.remove(mat)
 
         if obj.type == "ARMATURE":
             bpy.data.armatures.remove(obj.data)
@@ -1643,17 +1650,17 @@ def delete_character():
     clean_colletion(bpy.data.meshes)
     clean_colletion(bpy.data.node_groups)
 
-def process_material(object, material):
+def process_material(obj, mat):
     props = bpy.context.scene.CC3ImportProps
 
-    reset_nodes(material)
+    reset_nodes(mat)
 
-    node_tree = material.node_tree
+    node_tree = mat.node_tree
     nodes = node_tree.nodes
     shader = None
 
-    if props.hair_object is None and is_hair_object(object, material):
-        props.hair_object = object
+    if props.hair_object is None and is_hair_object(obj, mat):
+        props.hair_object = obj
 
     # find the Principled BSDF shader node
     for n in nodes:
@@ -1667,85 +1674,85 @@ def process_material(object, material):
 
     clear_cursor()
 
-    if is_eye_material(material):
+    if is_eye_material(mat):
 
         if props.setup_mode == "BASIC":
-            connect_basic_eye_material(object, material, shader)
+            connect_basic_eye_material(obj, mat, shader)
 
         elif props.setup_mode == "ADVANCED":
-            connect_adv_eye_material(object, material, shader)
+            connect_adv_eye_material(obj, mat, shader)
 
         move_new_nodes(-600, 0)
 
-    elif is_tearline_material(material):
+    elif is_tearline_material(mat):
 
-        connect_tearline_material(object, material, shader)
+        connect_tearline_material(obj, mat, shader)
 
-    elif is_eye_occlusion_material(material):
+    elif is_eye_occlusion_material(mat):
 
-        connect_eye_occlusion_material(object, material, shader)
+        connect_eye_occlusion_material(obj, mat, shader)
         move_new_nodes(-600, 0)
 
-    elif is_mouth_material(material) and props.setup_mode == "ADVANCED":
+    elif is_mouth_material(mat) and props.setup_mode == "ADVANCED":
 
-        connect_adv_mouth_material(object, material, shader)
+        connect_adv_mouth_material(obj, mat, shader)
         move_new_nodes(-600, 0)
 
     else:
 
         if props.setup_mode == "BASIC":
-            connect_basic_material(object, material, shader)
+            connect_basic_material(obj, mat, shader)
 
         elif props.setup_mode == "ADVANCED":
-            connect_advanced_material(object, material, shader)
+            connect_advanced_material(obj, mat, shader)
 
         move_new_nodes(-600, 0)
 
-def process_material_slots(object):
+def process_material_slots(obj):
 
-    for slot in object.material_slots:
+    for slot in obj.material_slots:
         log_info("Processing Material: " + slot.material.name)
-        process_material(object, slot.material)
+        process_material(obj, slot.material)
 
 
-def scan_for_hair_object(object):
-    for slot in object.material_slots:
+def scan_for_hair_object(obj):
+    for slot in obj.material_slots:
         if slot.material is not None:
-            if is_hair_object(object, slot.material):
-                return object
+            if is_hair_object(obj, slot.material):
+                return obj
     return None
 
-def process_object(object, objects_processed):
+def process_object(obj, objects_processed):
     props = bpy.context.scene.CC3ImportProps
 
-    if object is None or object in objects_processed:
+    if obj is None or obj in objects_processed:
         return
 
-    objects_processed.append(object)
+    objects_processed.append(obj)
 
-    log_info("Processing Object: " + object.name + ", Type: " + object.type)
+    log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
 
     # try to determine if this is the hair object, if not set
     if props.hair_object is None:
-        props.hair_object = scan_for_hair_object(object)
+        props.hair_object = scan_for_hair_object(obj)
 
     # process any materials found in a mesh object
-    if object.type == "MESH":
-        process_material_slots(object)
+    if obj.type == "MESH":
+        process_material_slots(obj)
 
     # process child objects
-    for child in object.children:
+    for child in obj.children:
         process_object(child, objects_processed)
 
 
 
-def reset_nodes(material):
+def reset_nodes(mat):
 
-    if not material.use_nodes:
-        material.use_nodes = True
+    if not mat.use_nodes:
+        mat.use_nodes = True
 
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     links.clear()
 
@@ -1763,11 +1770,11 @@ def reset_nodes(material):
 
     link_nodes(links, shader, "BSDF", out, "Surface")
 
-def get_material_dir(base_dir, character_name, import_type, object, material):
+def get_material_dir(base_dir, character_name, import_type, obj, mat):
     if import_type == "fbx":
-        object_name = strip_name(object.name)
-        mesh_name = strip_name(object.data.name)
-        material_name = strip_name(material.name)
+        object_name = strip_name(obj.name)
+        mesh_name = strip_name(obj.data.name)
+        material_name = strip_name(mat.name)
         if "cc_base_" in object_name.lower():
             path = os.path.join(base_dir, "textures", character_name, character_name, mesh_name, material_name)
             if os.path.exists(path):
@@ -1781,22 +1788,22 @@ def get_material_dir(base_dir, character_name, import_type, object, material):
         return os.path.join(base_dir, character_name)
 
 
-def cache_object_materials(object):
+def cache_object_materials(obj):
     global image_list
     props = bpy.context.scene.CC3ImportProps
     base_dir, file_name = os.path.split(props.import_file)
     type = file_name[-3:].lower()
     character_name = file_name[:-4]
 
-    if object is None:
+    if obj is None:
         return
 
-    if object.type == "MESH":
-        for slot in object.material_slots:
+    if obj.type == "MESH":
+        for slot in obj.material_slots:
             if slot.material.node_tree is not None:
                 cache = props.material_cache.add()
                 cache.material = slot.material
-                cache.dir = get_material_dir(base_dir, character_name, type, object, slot.material)
+                cache.dir = get_material_dir(base_dir, character_name, type, obj, slot.material)
                 nodes = slot.material.node_tree.nodes
                 for node in nodes:
                     if node.type == "TEX_IMAGE":
@@ -1823,26 +1830,26 @@ def cache_object_materials(object):
                                     cache.normal = node.image
 
 def tag_objects(default = True):
-    for object in bpy.data.objects:
-        object.tag = default
+    for obj in bpy.data.objects:
+        obj.tag = default
 
 
 def untagged_objects(default = True):
 
     untagged = []
 
-    for object in bpy.data.objects:
-        if not object.tag == default:
-            untagged.append(object)
-        object.tag = default
+    for obj in bpy.data.objects:
+        if not obj.tag == default:
+            untagged.append(obj)
+        obj.tag = default
 
     return untagged
 
 
-def select_all_child_objects(object):
-    if object.type == "ARMATURE" or object.type == "MESH":
-        object.select_set(True)
-    for child in object.children:
+def select_all_child_objects(obj):
+    if obj.type == "ARMATURE" or obj.type == "MESH":
+        obj.select_set(True)
+    for child in obj.children:
         select_all_child_objects(child)
 
 class CC3Import(bpy.types.Operator):
@@ -1884,9 +1891,17 @@ class CC3Import(bpy.types.Operator):
         type = name[-3:].lower()
         name = name[:-4]
         props.import_type = type
+        props.import_space_in_name = " " in name
 
         if type == "fbx":
-
+            # determine the main texture dir
+            props.import_main_tex_dir = os.path.join(dir, name + ".fbm")
+            if os.path.exists(props.import_main_tex_dir):
+                props.import_embedded = False
+            else:
+                props.import_main_tex_dir = ""
+                props.import_embedded = True
+            # invoke the fbx importer
             tag_objects()
             bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim)
             imported = untagged_objects()
@@ -1899,6 +1914,12 @@ class CC3Import(bpy.types.Operator):
             log_info("Done .Fbx Import.")
 
         elif type == "obj":
+            # determine the main texture dir
+            props.import_main_tex_dir = os.path.join(dir, name)
+            props.import_embedded = False
+            if not os.path.exists(props.import_main_tex_dir):
+                props.import_main_tex_dir = ""
+            # invoke the obj importer
             tag_objects()
             if self.param == "IMPORT_PIPELINE":
                 bpy.ops.import_scene.obj(filepath = self.filepath, split_mode = "OFF",
@@ -1968,7 +1989,7 @@ class CC3Import(bpy.types.Operator):
             # use portrait lighting for quality mode
             elif self.param == "IMPORT_QUALITY":
                 if prefs.auto_lighting:
-                    setup_scene_default("PORTRAIT_LIGHTS")
+                    setup_scene_default("COURTYARD_LEFT")
 
         # build materials
         elif self.param == "BUILD":
@@ -2062,13 +2083,13 @@ class CC3Export(bpy.types.Operator):
                             if p.object.type == "ARMATURE":
                                 select_all_child_objects(p.object)
                 elif mode == "SELECTED":
-                    for object in bpy.context.selected_objects:
-                        if object.type == "ARMATURE":
-                            select_all_child_objects(object)
+                    for obj in bpy.context.selected_objects:
+                        if obj.type == "ARMATURE":
+                            select_all_child_objects(obj)
                 elif mode == "BOTH":
-                    for object in bpy.context.selected_objects:
-                        if object.type == "ARMATURE":
-                            select_all_child_objects(object)
+                    for obj in bpy.context.selected_objects:
+                        if obj.type == "ARMATURE":
+                            select_all_child_objects(obj)
                     for p in props.import_objects:
                         if p.object is not None:
                             if p.object.type == "ARMATURE":
@@ -2104,8 +2125,8 @@ class CC3Export(bpy.types.Operator):
 
             # restore selection
             bpy.ops.object.select_all(action='DESELECT')
-            for object in old_selection:
-                object.select_set(True)
+            for obj in old_selection:
+                obj.select_set(True)
             bpy.context.view_layer.objects.active = old_active
 
         elif self.param == "EXPORT_ACCESSORY":
@@ -2125,8 +2146,8 @@ class CC3Export(bpy.types.Operator):
 
             # restore selection
             bpy.ops.object.select_all(action='DESELECT')
-            for object in old_selection:
-                object.select_set(True)
+            for obj in old_selection:
+                obj.select_set(True)
             bpy.context.view_layer.objects.active = old_active
 
 
@@ -2205,19 +2226,20 @@ def set_contact_shadow(light, distance, thickness):
     light.data.contact_shadow_distance = distance
     light.data.contact_shadow_thickness = thickness
 
-def track_to(object, target):
-    constraint = object.constraints.new(type="TRACK_TO")
+def track_to(obj, target):
+    constraint = obj.constraints.new(type="TRACK_TO")
     constraint.target = target
     constraint.track_axis = "TRACK_NEGATIVE_Z"
     constraint.up_axis = "UP_Y"
 
-def add_spot_light(name, location, rotation, energy, blend, size, distance):
+def add_spot_light(name, location, rotation, energy, blend, size, distance, radius):
     bpy.ops.object.light_add(type="SPOT",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
     light.name = name
     light.data.energy = energy
-    light.data.shadow_soft_size = blend
+    light.data.shadow_soft_size = radius
+    light.data.spot_blend = blend
     light.data.spot_size = size
     light.data.use_custom_distance = True
     light.data.cutoff_distance = distance
@@ -2250,30 +2272,30 @@ def remove_all_lights():
 def init_fbx_edit():
     props = bpy.context.scene.CC3ImportProps
 
-def init_character_for_edit(object):
+def init_character_for_edit(obj):
     #bpy.context.active_object.data.shape_keys.key_blocks['Basis']
-    if object.type == "MESH":
-        shape_keys = object.data.shape_keys
+    if obj.type == "MESH":
+        shape_keys = obj.data.shape_keys
         if shape_keys is not None:
             blocks = shape_keys.key_blocks
             if blocks is not None:
                 if len(blocks) > 0:
-                    set_shape_key_edit(object)
+                    set_shape_key_edit(obj)
 
-    if object.type == "ARMATURE":
-        for child in object.children:
+    if obj.type == "ARMATURE":
+        for child in obj.children:
             init_character_for_edit(child)
 
 
-def set_shape_key_edit(object):
+def set_shape_key_edit(obj):
     try:
         #current_mode = bpy.context.mode
         #if current_mode != "OBJECT":
         #    bpy.ops.object.mode_set(mode="OBJECT")
         #bpy.context.view_layer.objects.active = object
-        object.active_shape_key_index = 0
-        object.show_only_shape_key = True
-        object.use_shape_key_edit_mode = True
+        obj.active_shape_key_index = 0
+        obj.show_only_shape_key = True
+        obj.use_shape_key_edit_mode = True
     except:
         log_error("Unable to set shape key edit mode!")
 
@@ -2322,6 +2344,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studiolight_rotate_z = 0
             bpy.context.space_data.shading.studiolight_intensity = 1
             bpy.context.space_data.shading.studiolight_background_alpha = 0
+            bpy.context.space_data.shading.studiolight_background_blur = 0
             bpy.context.space_data.lens = 50
             bpy.context.space_data.clip_start = 0.1
 
@@ -2348,17 +2371,17 @@ def setup_scene_default(scene_type):
             key1 = add_spot_light("Key1",
                     (0.71149, -1.49019, 2.04134),
                     (1.2280241250991821, 0.4846124053001404, 0.3449903726577759),
-                    100, 0.25, 2.095, 9.7)
+                    100, 0.5, 2.095, 9.7, 0.25)
 
             key2 = add_spot_light("Key2",
                     (0.63999, -1.3600, 0.1199),
                     (1.8845493793487549, 0.50091552734375, 0.6768553256988525),
-                    100, 0.25, 2.095, 9.7)
+                    100, 0.5, 2.095, 9.7, 0.25)
 
             back = add_spot_light("Back",
                     (0.0, 2.0199, 1.69),
                     (-1.3045594692230225, 0.11467886716127396, 0.03684665635228157),
-                    100, 0.25, 1.448, 9.14)
+                    100, 0.5, 1.448, 9.14, 0.25)
 
             #set_contact_shadow(key1, 0.1, 0.001)
             #set_contact_shadow(key2, 0.1, 0.005)
@@ -2370,10 +2393,59 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studiolight_rotate_z = 0
             bpy.context.space_data.shading.studiolight_intensity = 0.75
             bpy.context.space_data.shading.studiolight_background_alpha = 0
+            bpy.context.space_data.shading.studiolight_background_blur = 0
             bpy.context.space_data.lens = 80
             bpy.context.space_data.clip_start = 0.01
 
-        elif scene_type == "PORTRAIT_LIGHTS":
+        elif scene_type == "STUDIO_RIGHT":
+
+            bpy.context.scene.eevee.use_gtao = True
+            bpy.context.scene.eevee.gtao_distance = 0.25
+            bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_bloom = True
+            bpy.context.scene.eevee.bloom_threshold = 0.35
+            bpy.context.scene.eevee.bloom_knee = 0.5
+            bpy.context.scene.eevee.bloom_radius = 2.0
+            bpy.context.scene.eevee.bloom_intensity = 0.1
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.view_settings.view_transform = "Filmic"
+            bpy.context.scene.view_settings.look = "High Contrast"
+            bpy.context.scene.view_settings.exposure = 0.5
+            bpy.context.scene.view_settings.gamma = 1.0
+
+            remove_all_lights()
+
+            key = add_spot_light("Key",
+                    (0.3088499903678894, -4.569439888000488, 2.574970006942749),
+                    (0.39095374941825867, 1.3875367641448975, -1.1152653694152832),
+                    400, 0.75, 0.75, 7.5, 0.4)
+
+            right = add_area_light("Right",
+                    (2.067525863647461, 0.8794340491294861, 1.1529420614242554),
+                    (3.115412712097168, 1.7226399183273315, 9.79827880859375),
+                    50, 2)
+
+            back = add_spot_light("Ear",
+                    (0.6740000247955322, 1.906999945640564, 1.6950000524520874),
+                    (-0.03316125646233559, 1.3578661680221558, 1.1833332777023315),
+                    100, 1, 1.0996, 9.1, 0.5)
+
+            set_contact_shadow(key, 0.1, 0.01)
+            set_contact_shadow(right, 0.1, 0.005)
+
+            bpy.context.space_data.shading.type = 'MATERIAL'
+            bpy.context.space_data.shading.use_scene_lights = True
+            bpy.context.space_data.shading.use_scene_world = False
+            bpy.context.space_data.shading.studio_light = 'studio.exr'
+            bpy.context.space_data.shading.studiolight_rotate_z = 0.0
+            bpy.context.space_data.shading.studiolight_intensity = 0.2
+            bpy.context.space_data.shading.studiolight_background_alpha = 0.5
+            bpy.context.space_data.shading.studiolight_background_blur = 0.5
+            bpy.context.space_data.lens = 80
+            bpy.context.space_data.clip_start = 0.01
+
+        elif scene_type == "COURTYARD_LEFT":
 
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
@@ -2416,7 +2488,9 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studio_light = 'courtyard.exr'
             bpy.context.space_data.shading.studiolight_rotate_z = 2.00713
             bpy.context.space_data.shading.studiolight_intensity = 0.35
-            bpy.context.space_data.shading.studiolight_background_alpha = 0
+            bpy.context.space_data.shading.studiolight_background_alpha = 0.5
+            bpy.context.space_data.shading.studiolight_background_blur = 0.5
+
             bpy.context.space_data.lens = 80
             bpy.context.space_data.clip_start = 0.01
 
@@ -2425,9 +2499,9 @@ def setup_scene_default(scene_type):
 
     # restore selection
     bpy.ops.object.select_all(action='DESELECT')
-    for object in current_selected:
+    for obj in current_selected:
         try:
-            object.select_set(True)
+            obj.select_set(True)
         except:
             pass
     try:
@@ -2465,23 +2539,23 @@ class CC3Scene(bpy.types.Operator):
         return ""
 
 
-def quick_set_process_object(param, object, objects_processed):
-    if object is not None and object not in objects_processed:
-        if object.type == "MESH":
-            objects_processed.append(object)
-            for slot in object.material_slots:
+def quick_set_process_object(param, obj, objects_processed):
+    if obj is not None and obj not in objects_processed:
+        if obj.type == "MESH":
+            objects_processed.append(obj)
+            for slot in obj.material_slots:
                 if slot.material is not None:
-                    material = slot.material
+                    mat = slot.material
                     if param == "OPAQUE" or param == "BLEND" or param == "HASHED":
-                        apply_alpha_override(object, material, param)
+                        apply_alpha_override(obj, mat, param)
                     elif param == "SINGLE_SIDED":
-                        material.use_backface_culling = True
+                        mat.use_backface_culling = True
                     elif param == "DOUBLE_SIDED":
-                        material.use_backface_culling = False
+                        mat.use_backface_culling = False
                     elif param == "UPDATE_SELECTED" or param == "UPDATE_ALL":
-                        refresh_parameters(material)
+                        refresh_parameters(mat)
 
-        for child in object.children:
+        for child in obj.children:
             quick_set_process_object(param, child, objects_processed)
 
 
@@ -2830,13 +2904,13 @@ def set_node_from_property(node):
         set_node_input(node, "Roughness", props.eye_tearline_roughness)
 
 
-def refresh_parameters(material):
+def refresh_parameters(mat):
 
-    if (material.node_tree is None):
+    if (mat.node_tree is None):
         log_warn("No node tree!")
         return
 
-    for node in material.node_tree.nodes:
+    for node in mat.node_tree.nodes:
 
         if NODE_PREFIX in node.name:
             set_node_from_property(node)
@@ -3012,6 +3086,9 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     import_objects: bpy.props.CollectionProperty(type=CC3ObjectPointer)
     material_cache: bpy.props.CollectionProperty(type=CC3MaterialCache)
     import_type: bpy.props.StringProperty(default="")
+    import_embedded: bpy.props.BoolProperty(default=False)
+    import_main_tex_dir: bpy.props.StringProperty(default="")
+    import_space_in_name: bpy.props.BoolProperty(default=False)
 
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
@@ -3648,9 +3725,13 @@ class MyPanel3(bpy.types.Panel):
         op = col_2.operator("cc3.scene", icon="LIGHT", text="Lights")
         op.param = "CC3_DEFAULT"
 
-        col_1.label(text="Portrait Lighting")
+        col_1.label(text="Studio Right")
         op = col_2.operator("cc3.scene", icon="LIGHT", text="Lights")
-        op.param = "PORTRAIT_LIGHTS"
+        op.param = "STUDIO_RIGHT"
+
+        col_1.label(text="Courtyard Left")
+        op = col_2.operator("cc3.scene", icon="LIGHT", text="Lights")
+        op.param = "COURTYARD_LEFT"
 
         layout.separator_spacer()
 
@@ -3718,10 +3799,26 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     auto_lighting: bpy.props.BoolProperty(name="Auto Lighting", default=True, description="Automatically change lighting on quick import.")
 
+    quality_lighting: bpy.props.EnumProperty(items=[
+                        ("BLENDER_DEFAULT","Blender Default","Blenders default lighting setup"),
+                        ("CC3_DEFAULT","CC3 Default","Replica of CC3 default lighting setup"),
+                        ("STUDIO_RIGHT","Studio Right","Right facing 3 point lighting with the studio hdri"),
+                        ("COURTYARD_LEFT","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri")
+                    ], default="COURTYARD_LEFT", name = "Render / Quality Lighting")
+
+    pipeline_lighting: bpy.props.EnumProperty(items=[
+                        ("BLENDER_DEFAULT","Blender Default","Blenders default lighting setup"),
+                        ("CC3_DEFAULT","CC3 Default","Replica of CC3 default lighting setup"),
+                        ("STUDIO_RIGHT","Studio Right","Right facing 3 point lighting with the studio hdri"),
+                        ("COURTYARD_LEFT","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri")
+                    ], default="CC3_DEFAULT", name = "Morph / Accessory Editing Lighting")
+
     def draw(self, context):
         layout = self.layout
         layout.label(text="This is a preferences view for our add-on")
         layout.prop(self, "auto_lighting")
+        layout.prop(self, "quality_lighting")
+        layout.prop(self, "pipeline_lighting")
 
 
 
