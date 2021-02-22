@@ -511,21 +511,21 @@ def strip_name(name):
     return name
 
 ## Search the directory for an image filename that contains the search substring
-def find_image_file(dir, mat, suffix_list):
-
+def find_image_file(dirs, mat, suffix_list):
     material_name = strip_name(mat.name).lower()
-
-    files = os.listdir(dir)
-    for file in files:
-        file_name = file.lower()
-        if material_name in file_name:
-            for suffix in suffix_list:
-                search = "_" + suffix + "."
-                if search in file_name:
-                    return os.path.join(dir, file)
-
+    last = ""
+    for dir in dirs:
+        if last != dir and dir != "" and os.path.normcase(dir) != os.path.normcase(last):
+            last = dir
+            files = os.listdir(dir)
+            for file in files:
+                file_name = file.lower()
+                if material_name in file_name:
+                    for suffix in suffix_list:
+                        search = "_" + suffix + "."
+                        if search in file_name:
+                            return os.path.join(dir, file)
     return None
-
 
 # Try to find the texture for a material input by searching for the material name
 # appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness
@@ -537,27 +537,17 @@ def find_material_image(mat, suffix_list):
     # try to find the image from the material cache
     for p in props.material_cache:
         if p.material == mat:
-            # there is a a bug in the blender fbx and obj importers, files with spaces in the name
-            # sometimes don't import the images correctly, so we can only trust the imported images
-            # in the material_cache if they were embedded in the fbx.
-            if props.import_embedded:
-                if "diffuse" in suffix_list:
-                    return p.diffuse
-                elif "specular" in suffix_list:
-                    return p.specular
-                elif "opacity" in suffix_list:
-                    return p.alpha
-                elif "normal" in suffix_list:
-                    return p.normal
-                elif "bump" in suffix_list:
-                    return p.bump
-            # otherwise find the files directly in the material directory
-            image_file = find_image_file(p.dir, p.material, suffix_list)
-            # failing that look in the main tex directory (if different)
-            if image_file is None and \
-               props.import_main_tex_dir != "" and \
-               os.path.normcase(p.dir) != os.path.normcase(props.import_main_tex_dir):
-                image_file = find_image_file(props.import_main_tex_dir, p.material, suffix_list)
+            if "diffuse" in suffix_list:
+                return p.diffuse
+            elif "specular" in suffix_list:
+                return p.specular
+            elif "opacity" in suffix_list:
+                return p.alpha
+            elif "normal" in suffix_list:
+                return p.normal
+            elif "bump" in suffix_list:
+                return p.bump
+            image_file = find_image_file([p.dir, props.import_main_tex_dir], p.material, suffix_list)
             if image_file is not None:
                 return load_image(image_file, color_space)
             break
@@ -615,21 +605,21 @@ def set_node_input(node, socket, value):
         try:
             node.inputs[socket].default_value = value
         except:
-            log_warn("Unable to set input: " + node.name + "[" + str(socket) + "]")
+            log_info("Unable to set input: " + node.name + "[" + str(socket) + "]")
 
 def set_node_output(node, socket, value):
     if node is not None:
         try:
             node.outputs[socket].default_value = value
         except:
-            log_warn("Unable to set output: " + node.name + "[" + str(socket) + "]")
+            log_info("Unable to set output: " + node.name + "[" + str(socket) + "]")
 
 def link_nodes(links, from_node, from_socket, to_node, to_socket):
     if from_node is not None and to_node is not None:
         try:
             links.new(from_node.outputs[from_socket], to_node.inputs[to_socket])
         except:
-            log_warn("Unable to link: " + from_node.name + "[" + str(from_socket) + "] to " +
+            log_info("Unable to link: " + from_node.name + "[" + str(from_socket) + "] to " +
                   to_node.name + "[" + str(to_socket) + "]")
 
 def count_maps(*maps):
@@ -1791,6 +1781,7 @@ def get_material_dir(base_dir, character_name, import_type, obj, mat):
 def cache_object_materials(obj):
     global image_list
     props = bpy.context.scene.CC3ImportProps
+    main_tex_dir = props.import_main_tex_dir
     base_dir, file_name = os.path.split(props.import_file)
     type = file_name[-3:].lower()
     character_name = file_name[:-4]
@@ -1810,6 +1801,20 @@ def cache_object_materials(obj):
                         if node.image is not None:
                             filepath = node.image.filepath
                             dir, name = os.path.split(filepath)
+                            if os.path.normcase(dir) != os.path.normcase(main_tex_dir):
+                                log_warn("Import bug! Wrong image path detected: " + dir)
+                                log_warn("    Attempting to correct...")
+                                correct_path = os.path.join(main_tex_dir, name)
+                                if os.path.exists(correct_path):
+                                    log_warn("    Correct image path found: " + correct_path)
+                                    node.image.filepath = correct_path
+                                else:
+                                    correct_path = os.path.join(cache.dir, name)
+                                    if os.path.exists(correct_path):
+                                        log_warn("    Correct image path found: " + correct_path)
+                                        node.image.filepath = correct_path
+                                    else:
+                                        log_error("    Unable to find correct image!")
                             name = name.lower()
                             socket = get_input_connected_to(node, "Color")
                             # the fbx importer in 2.91 makes a total balls up of the opacity
