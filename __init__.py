@@ -3670,9 +3670,6 @@ class MyPanel(bpy.types.Panel):
             op = layout.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
             op.param ="REBUILD_NODE_GROUPS"
 
-            op = layout.operator("cc3.importer", icon="REMOVE", text="Remove Character")
-            op.param ="DELETE_CHARACTER"
-
             layout.separator()
             split = layout.split(factor=0.5)
             layout.separator()
@@ -3773,7 +3770,13 @@ class MyPanel4(bpy.types.Panel):
         op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Accessory")
         op.param = "EXPORT_ACCESSORY"
 
-        layout.separator_spacer()
+        layout.separator()
+
+        box = layout.box()
+        box.label(text="Clean Up", icon="INFO")
+
+        op = layout.operator("cc3.importer", icon="REMOVE", text="Remove Character")
+        op.param ="DELETE_CHARACTER"
 
 
 class CC3NodeCoord(bpy.types.Panel):
