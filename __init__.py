@@ -515,7 +515,8 @@ def find_image_file(dirs, mat, suffix_list):
     material_name = strip_name(mat.name).lower()
     last = ""
     for dir in dirs:
-        if last != dir and dir != "" and os.path.normcase(dir) != os.path.normcase(last):
+        if last != dir and dir != "" and os.path.normcase(dir) != os.path.normcase(last) and \
+                os.path.exists(dir):
             last = dir
             files = os.listdir(dir)
             for file in files:
@@ -1982,11 +1983,15 @@ class CC3Import(bpy.types.Operator):
                 props.setup_mode = "ADVANCED"
 
             self.import_character()
+            zoom_to_character()
 
             # use the cc3 lighting for morph/accessory editing
             if self.param == "IMPORT_PIPELINE":
                 if prefs.auto_lighting:
-                    setup_scene_default("CC3_DEFAULT")
+                    if props.import_type == "fbx":
+                        setup_scene_default("CC3_DEFAULT")
+                    else:
+                        setup_scene_default("SOLID_MATCAP")
                 # for any objects with shape keys select basis and enable show in edit mode
                 for p in props.import_objects:
                     init_character_for_edit(p.object)
@@ -2306,6 +2311,8 @@ def set_shape_key_edit(obj):
 
 
 def setup_scene_default(scene_type):
+    props = bpy.context.scene.CC3ImportProps
+
     # store selection and mode
     current_selected = bpy.context.selected_objects
     current_active = bpy.context.active_object
@@ -2353,6 +2360,15 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.lens = 50
             bpy.context.space_data.clip_start = 0.1
 
+        elif scene_type == "SOLID_MATCAP":
+
+            remove_all_lights()
+
+            bpy.context.space_data.shading.type = 'SOLID'
+            bpy.context.space_data.shading.light = 'MATCAP'
+            bpy.context.space_data.shading.studio_light = 'basic_1.exr'
+            bpy.context.space_data.shading.show_cavity = True
+            bpy.context.space_data.lens = 80
 
         elif scene_type == "CC3_DEFAULT":
 
@@ -2516,6 +2532,16 @@ def setup_scene_default(scene_type):
     except:
         pass
 
+# zoom view to imported character
+def zoom_to_character():
+    props = bpy.context.scene.CC3ImportProps
+    try:
+        bpy.ops.object.select_all(action='DESELECT')
+        for p in props.import_objects:
+            p.object.select_set(True)
+        bpy.ops.view3d.view_selected()
+    except:
+        pass
 
 class CC3Scene(bpy.types.Operator):
     """Scene Tools"""
@@ -3720,19 +3746,23 @@ class MyPanel3(bpy.types.Panel):
         col_2 = split.column()
 
         col_1.label(text="Blender Default")
-        op = col_2.operator("cc3.scene", icon="LIGHT", text="Lights")
+        op = col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Lights")
         op.param = "BLENDER_DEFAULT"
 
+        col_1.label(text="Solid Matcap")
+        op = col_2.operator("cc3.scene", icon="SHADING_SOLID", text="Lights")
+        op.param = "SOLID_MATCAP"
+
         col_1.label(text="CC3 Default")
-        op = col_2.operator("cc3.scene", icon="LIGHT", text="Lights")
+        op = col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Lights")
         op.param = "CC3_DEFAULT"
 
         col_1.label(text="Studio Right")
-        op = col_2.operator("cc3.scene", icon="LIGHT", text="Lights")
+        op = col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Lights")
         op.param = "STUDIO_RIGHT"
 
         col_1.label(text="Courtyard Left")
-        op = col_2.operator("cc3.scene", icon="LIGHT", text="Lights")
+        op = col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Lights")
         op.param = "COURTYARD_LEFT"
 
         layout.separator_spacer()
