@@ -2278,9 +2278,41 @@ def remove_all_lights():
     for obj in bpy.data.objects:
         if obj.type == "LIGHT" and not obj.hide_viewport:
             bpy.data.objects.remove(obj)
+        elif obj.type == "EMPTY":
+            if "KeyTarget" in obj.name or \
+               "FillTarget" in obj.name or \
+               "BackTarget" in obj.name or \
+               "CameraTarget" in obj.name:
+                bpy.data.objects.remove(obj)
 
-def init_fbx_edit():
-    props = bpy.context.scene.CC3ImportProps
+
+def camera_setup(loc, target):
+    # find an active camera
+    camera = None
+    for obj in bpy.data.objects:
+        if obj.type == "CAMERA" and obj.visible_get():
+            camera = obj
+            camera.location = loc
+            break
+    if camera is None:
+        bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=loc)
+        camera = bpy.context.active_object
+
+    track_to(camera, target)
+    camera.data.lens = 80
+    camera.data.dof.use_dof = True
+    camera.data.dof.focus_object = target
+    camera.data.dof.aperture_fstop = 4
+    camera.data.dof.aperture_blades = 5
+    camera.data.dof.aperture_rotation = 0
+    camera.data.dof.aperture_ratio = 1
+    camera.data.display_size = 0.2
+    camera.data.show_limits = True
+
+def compositor_setup():
+    bpy.context.scene.use_nodes = True
+
+
 
 def init_character_for_edit(obj):
     #bpy.context.active_object.data.shape_keys.key_blocks['Basis']
@@ -2515,6 +2547,70 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.lens = 80
             bpy.context.space_data.clip_start = 0.01
 
+        elif scene_type == "3POINT_TRACKING":
+
+            bpy.context.scene.eevee.use_gtao = True
+            bpy.context.scene.eevee.gtao_distance = 0.25
+            bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_bloom = True
+            bpy.context.scene.eevee.bloom_threshold = 0.35
+            bpy.context.scene.eevee.bloom_knee = 0.5
+            bpy.context.scene.eevee.bloom_radius = 2.0
+            bpy.context.scene.eevee.bloom_intensity = 0.1
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.view_settings.view_transform = "Filmic"
+            bpy.context.scene.view_settings.look = "Medium High Contrast"
+            bpy.context.scene.view_settings.exposure = 0.5
+            bpy.context.scene.view_settings.gamma = 0.6
+
+            remove_all_lights()
+
+            key = add_area_light("Key",
+                    (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
+                    (1.0848181247711182, -0.881056010723114, -0.5597077012062073),
+                    40, 2)
+            target_key = add_target("KeyTarget", (-0.006276353262364864, -0.004782751202583313, 1.503425121307373))
+            track_to(key, target_key)
+
+            fill = add_area_light("Fill",
+                    (2.28589, -1.51410, 1.40742),
+                    (1.4248263835906982, 0.9756063222885132, 0.8594209551811218),
+                    20, 2)
+            target_fill = add_target("FillTarget", (0.013503191992640495, 0.005856933072209358, 1.1814184188842773))
+            track_to(fill, target_fill)
+
+            back = add_area_light("Back",
+                    (0.36789, 0.61511, 2.36201),
+                    (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
+                    20, 1)
+            target_back = add_target("BackTarget", (0.0032256320118904114, 0.06994983553886414, 1.6254671812057495))
+            track_to(back, target_back)
+
+            camera_target = add_target("CameraTarget", (-0.009874746203422546, 0.054338354617357254, 1.5087003707885742))
+            camera_setup((0.10340524464845657, -0.7236879467964172, 1.4925715923309326), camera_target)
+
+            bpy.context.scene.render.resolution_x = 1920
+            bpy.context.scene.render.resolution_y = 2560
+            bpy.context.scene.render.resolution_percentage = 100
+
+            set_contact_shadow(key, 0.1, 0.001)
+            set_contact_shadow(fill, 0.1, 0.005)
+
+            bpy.context.space_data.shading.type = 'MATERIAL'
+            bpy.context.space_data.shading.use_scene_lights = True
+            bpy.context.space_data.shading.use_scene_world = False
+            bpy.context.space_data.shading.studio_light = 'courtyard.exr'
+            bpy.context.space_data.shading.studiolight_rotate_z = 2.00713
+            bpy.context.space_data.shading.studiolight_intensity = 0.35
+            bpy.context.space_data.shading.studiolight_background_alpha = 0.5
+            bpy.context.space_data.shading.studiolight_background_blur = 0.5
+
+            bpy.context.space_data.lens = 80
+            bpy.context.space_data.clip_start = 0.01
+
+    except Exception as e:
+        print(e)
     except:
         log_error("Something went wrong adding lights... wrong editor context?")
 
@@ -3764,6 +3860,10 @@ class MyPanel3(bpy.types.Panel):
         col_1.label(text="Courtyard Left")
         op = col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Lights")
         op.param = "COURTYARD_LEFT"
+
+        col_1.label(text="3 Point Tracking & Camera")
+        op = col_2.operator("cc3.scene", icon="TRACKING", text="Lights")
+        op.param = "3POINT_TRACKING"
 
         layout.separator_spacer()
 
