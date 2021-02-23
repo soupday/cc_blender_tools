@@ -2311,8 +2311,45 @@ def camera_setup(loc, target):
 
 def compositor_setup():
     bpy.context.scene.use_nodes = True
+    nodes = bpy.context.scene.node_tree.nodes
+    links = bpy.context.scene.node_tree.links
+    nodes.clear()
+    rlayers_node = make_shader_node(nodes, "CompositorNodeRLayers")
+    c_node = make_shader_node(nodes, "CompositorNodeComposite")
+    glare_node = make_shader_node(nodes, "CompositorNodeGlare")
+    lens_node = make_shader_node(nodes, "CompositorNodeLensdist")
+    rlayers_node.location = (-780,260)
+    c_node.location = (150,140)
+    glare_node.location = (-430,230)
+    lens_node.location = (-100,150)
+    glare_node.glare_type = 'FOG_GLOW'
+    glare_node.quality = 'HIGH'
+    glare_node.threshold = 0.75
+    lens_node.use_fit = True
+    lens_node.inputs["Dispersion"].default_value = 0.05
+    link_nodes(links, rlayers_node, "Image", glare_node, "Image")
+    link_nodes(links, glare_node, "Image", lens_node, "Image")
+    link_nodes(links, lens_node, "Image", c_node, "Image")
 
-
+def world_setup():
+    bpy.context.scene.world.use_nodes = True
+    nodes = bpy.context.scene.world.node_tree.nodes
+    links = bpy.context.scene.world.node_tree.links
+    nodes.clear()
+    tc_node = make_shader_node(nodes, "ShaderNodeTexCoord")
+    mp_node = make_shader_node(nodes, "ShaderNodeMapping")
+    et_node = make_shader_node(nodes, "ShaderNodeTexEnvironment")
+    bg_node = make_shader_node(nodes, "ShaderNodeBackground")
+    wo_node = make_shader_node(nodes, "ShaderNodeOutputWorld")
+    tc_node.location = (-820,350)
+    mp_node.location = (-610,370)
+    et_node.location = (-300,320)
+    bg_node.location = (10,300)
+    wo_node.location = (300,300)
+    link_nodes(links, tc_node, "Generated", mp_node, "Vector")
+    link_nodes(links, mp_node, "Vector", et_node, "Vector")
+    link_nodes(links, et_node, "Color", bg_node, "Color")
+    link_nodes(links, bg_node, "Background", wo_node, "Surface")
 
 def init_character_for_edit(obj):
     #bpy.context.active_object.data.shape_keys.key_blocks['Basis']
@@ -2597,14 +2634,9 @@ def setup_scene_default(scene_type):
             set_contact_shadow(key, 0.1, 0.001)
             set_contact_shadow(fill, 0.1, 0.005)
 
-            bpy.context.space_data.shading.type = 'MATERIAL'
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.studio_light = 'courtyard.exr'
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.00713
-            bpy.context.space_data.shading.studiolight_intensity = 0.35
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.5
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
+            bpy.context.space_data.shading.type = 'RENDERED'
+            bpy.context.space_data.shading.use_scene_lights_rendered = True
+            bpy.context.space_data.shading.use_scene_world_rendered = True
 
             bpy.context.space_data.lens = 80
             bpy.context.space_data.clip_start = 0.01
@@ -2652,6 +2684,9 @@ class CC3Scene(bpy.types.Operator):
 
     def execute(self, context):
         setup_scene_default(self.param)
+        if (self.param == "3POINT_TRACKING"):
+            compositor_setup()
+            world_setup()
         return {"FINISHED"}
 
     @classmethod
@@ -3860,6 +3895,11 @@ class MyPanel3(bpy.types.Panel):
         col_1.label(text="Courtyard Left")
         op = col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Lights")
         op.param = "COURTYARD_LEFT"
+
+        layout.separator()
+        split = layout.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
 
         col_1.label(text="3 Point Tracking & Camera")
         op = col_2.operator("cc3.scene", icon="TRACKING", text="Lights")
