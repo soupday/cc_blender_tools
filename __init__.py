@@ -2350,6 +2350,11 @@ def world_setup():
     link_nodes(links, mp_node, "Vector", et_node, "Vector")
     link_nodes(links, et_node, "Color", bg_node, "Color")
     link_nodes(links, bg_node, "Background", wo_node, "Surface")
+    bin_dir, bin_file = os.path.split(bpy.app.binary_path)
+    version = bpy.app.version_string[:4]
+    hdri_path = os.path.join(bin_dir, version, "datafiles", "studiolights", "world", "forest.exr")
+    et_node.image = load_image(hdri_path, "Linear")
+
 
 def init_character_for_edit(obj):
     #bpy.context.active_object.data.shape_keys.key_blocks['Basis']
@@ -2406,6 +2411,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bloom_intensity = 0.05
             bpy.context.scene.eevee.use_ssr = False
             bpy.context.scene.eevee.use_ssr_refraction = False
+            bpy.context.scene.eevee.bokeh_max_size = 32
             bpy.context.scene.view_settings.view_transform = "Filmic"
             bpy.context.scene.view_settings.look = "None"
             bpy.context.scene.view_settings.exposure = 0.0
@@ -2499,6 +2505,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bloom_intensity = 0.1
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.eevee.bokeh_max_size = 32
             bpy.context.scene.view_settings.view_transform = "Filmic"
             bpy.context.scene.view_settings.look = "High Contrast"
             bpy.context.scene.view_settings.exposure = 0.5
@@ -2547,6 +2554,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bloom_intensity = 0.1
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.eevee.bokeh_max_size = 32
             bpy.context.scene.view_settings.view_transform = "Filmic"
             bpy.context.scene.view_settings.look = "Medium High Contrast"
             bpy.context.scene.view_settings.exposure = 0.5
@@ -2596,6 +2604,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bloom_intensity = 0.1
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.eevee.bokeh_max_size = 32
             bpy.context.scene.view_settings.view_transform = "Filmic"
             bpy.context.scene.view_settings.look = "Medium High Contrast"
             bpy.context.scene.view_settings.exposure = 0.5
@@ -2635,8 +2644,9 @@ def setup_scene_default(scene_type):
             set_contact_shadow(fill, 0.1, 0.005)
 
             bpy.context.space_data.shading.type = 'RENDERED'
-            bpy.context.space_data.shading.use_scene_lights_rendered = True
-            bpy.context.space_data.shading.use_scene_world_rendered = True
+            bpy.context.space_data.shading.use_scene_lights_render = True
+            bpy.context.space_data.shading.use_scene_world_render = True
+
 
             bpy.context.space_data.lens = 80
             bpy.context.space_data.clip_start = 0.01
@@ -3931,10 +3941,10 @@ class MyPanel4(bpy.types.Panel):
         box = layout.box()
         box.label(text="Morph / Accessory", icon="INFO")
 
-        op = layout.operator("cc3.importer", icon="IMPORT", text="Import Morph Character")
+        op = layout.operator("cc3.importer", icon="IMPORT", text="Import Morph")
         op.param = "IMPORT_PIPELINE"
 
-        op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Morph Character")
+        op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Morph")
         op.param = "EXPORT_PIPELINE"
 
         op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Accessory")
