@@ -1861,7 +1861,7 @@ def select_all_child_objects(obj):
 class CC3Import(bpy.types.Operator):
     """Import CC3 Character and build materials"""
     bl_idname = "cc3.importer"
-    bl_label = "Import CC3 Character"
+    bl_label = "Import"
     bl_options = {"REGISTER", "UNDO"}
 
     filepath: bpy.props.StringProperty(
@@ -2040,7 +2040,7 @@ class CC3Import(bpy.types.Operator):
 class CC3Export(bpy.types.Operator):
     """Export CC3 Character"""
     bl_idname = "cc3.exporter"
-    bl_label = "Export CC3 Character"
+    bl_label = "Export"
     bl_options = {"REGISTER"}
 
     filepath: bpy.props.StringProperty(
@@ -2281,33 +2281,65 @@ def remove_all_lights():
         elif obj.type == "EMPTY":
             if "KeyTarget" in obj.name or \
                "FillTarget" in obj.name or \
-               "BackTarget" in obj.name or \
-               "CameraTarget" in obj.name:
+               "BackTarget" in obj.name:
                 bpy.data.objects.remove(obj)
 
 
-def camera_setup(loc, target):
+def camera_setup(camera_loc, target_loc):
     # find an active camera
     camera = None
+    target = None
     for obj in bpy.data.objects:
-        if obj.type == "CAMERA" and obj.visible_get():
+        if camera is None and obj.type == "CAMERA" and obj.visible_get():
             camera = obj
-            camera.location = loc
-            break
+            camera.location = camera_loc
+        if target is None and obj.type == "EMPTY" and obj.visible_get() and "CameraTarget" in obj.name:
+            target = obj
+            target.location = target_loc
     if camera is None:
-        bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=loc)
+        bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=camera_loc)
         camera = bpy.context.active_object
+    if target is None:
+        target = add_target("CameraTarget", target_loc)
 
     track_to(camera, target)
-    camera.data.lens = 80
+    camera.data.lens = 120
     camera.data.dof.use_dof = True
     camera.data.dof.focus_object = target
-    camera.data.dof.aperture_fstop = 4
+    camera.data.dof.aperture_fstop = 2.8
     camera.data.dof.aperture_blades = 5
     camera.data.dof.aperture_rotation = 0
     camera.data.dof.aperture_ratio = 1
     camera.data.display_size = 0.2
     camera.data.show_limits = True
+
+    camera_auto_target(camera, target)
+
+    return camera, target
+
+def camera_auto_target(camera, target):
+    props = bpy.context.scene.CC3ImportProps
+    arm = None
+    for p in props.import_objects:
+        obj = p.object
+        if (obj.type == "ARMATURE"):
+            arm = obj
+            break
+
+    if arm is not None:
+        left_eye = find_pose_bone("CC_Base_L_Eye", "L_Eye")
+        right_eye = find_pose_bone("CC_Base_R_Eye", "R_Eye")
+        head = find_pose_bone("CC_Base_FacialBone", "FacialBone")
+
+        if left_eye is None or right_eye is None or head is None:
+            return
+
+        head_location = arm.matrix_world @ head.head
+        head_dir = (arm.matrix_world @ head.vector).normalized()
+        print(head_dir)
+        target_location = arm.matrix_world @ ((left_eye.head + right_eye.head) * 0.5)
+        target.location = target_location + head_dir * 0.03
+        camera.location = head_location + head_dir * 2
 
 def compositor_setup():
     bpy.context.scene.use_nodes = True
@@ -2463,6 +2495,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.gamma = 0.5
 
             remove_all_lights()
+            camera_setup((0.1, -0.75, 1.6), (0, 0, 1.5))
 
             key1 = add_spot_light("Key1",
                     (0.71149, -1.49019, 2.04134),
@@ -2512,6 +2545,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.gamma = 1.0
 
             remove_all_lights()
+            camera_setup((0.1, -0.75, 1.6), (0, 0, 1.5))
 
             key = add_spot_light("Key",
                     (0.3088499903678894, -4.569439888000488, 2.574970006942749),
@@ -2561,6 +2595,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.gamma = 0.6
 
             remove_all_lights()
+            camera_setup((0.1, -0.75, 1.6), (0, 0, 1.5))
 
             key = add_area_light("Key",
                     (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
@@ -2611,6 +2646,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.gamma = 0.6
 
             remove_all_lights()
+            camera_setup((0.1, -0.75, 1.6), (0, 0, 1.5))
 
             key = add_area_light("Key",
                     (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
@@ -2632,9 +2668,6 @@ def setup_scene_default(scene_type):
                     20, 1)
             target_back = add_target("BackTarget", (0.0032256320118904114, 0.06994983553886414, 1.6254671812057495))
             track_to(back, target_back)
-
-            camera_target = add_target("CameraTarget", (-0.009874746203422546, 0.054338354617357254, 1.5087003707885742))
-            camera_setup((0.10340524464845657, -0.7236879467964172, 1.4925715923309326), camera_target)
 
             bpy.context.scene.render.resolution_x = 1920
             bpy.context.scene.render.resolution_y = 2560
@@ -2772,7 +2805,7 @@ def open_mouth_update(self, context):
         constraint = None
 
         for con in bone.constraints:
-            if con.name == "iCC3_open_mouth_contraint":
+            if "iCC3_open_mouth_contraint" in con.name:
                 constraint = con
 
         if props.open_mouth == 0:
