@@ -1976,30 +1976,31 @@ class CC3Import(bpy.types.Operator):
 
             # use basic materials for morph/accessory editing as it has better viewport performance
             if self.param == "IMPORT_PIPELINE":
-                props.setup_mode = "BASIC"
+                props.setup_mode = prefs.pipeline_mode
 
             # use advanced materials for quality/rendering
             elif self.param == "IMPORT_QUALITY":
-                props.setup_mode = "ADVANCED"
+                props.setup_mode = prefs.quality_mode
 
             self.import_character()
-            zoom_to_character()
 
             # use the cc3 lighting for morph/accessory editing
             if self.param == "IMPORT_PIPELINE":
-                if prefs.auto_lighting:
+                if prefs.auto_lighting and props.auto_lighting:
                     if props.import_type == "fbx":
-                        setup_scene_default("CC3_DEFAULT")
+                        setup_scene_default(prefs.pipeline_lighting)
                     else:
-                        setup_scene_default("SOLID_MATCAP")
+                        setup_scene_default(prefs.morph_lighting)
                 # for any objects with shape keys select basis and enable show in edit mode
                 for p in props.import_objects:
                     init_character_for_edit(p.object)
 
             # use portrait lighting for quality mode
             elif self.param == "IMPORT_QUALITY":
-                if prefs.auto_lighting:
-                    setup_scene_default("COURTYARD_LEFT")
+                if prefs.auto_lighting and props.auto_lighting:
+                    setup_scene_default(prefs.quality_lighting)
+
+            zoom_to_character()
 
         # build materials
         elif self.param == "BUILD":
@@ -2274,15 +2275,23 @@ def add_point_light(name, location, rotation, energy, size):
     light.data.energy = energy
     return light
 
-def remove_all_lights():
+def remove_all_lights(inc_camera = False):
     for obj in bpy.data.objects:
         if obj.type == "LIGHT" and not obj.hide_viewport:
             bpy.data.objects.remove(obj)
-        elif obj.type == "EMPTY":
-            if "KeyTarget" in obj.name or \
-               "FillTarget" in obj.name or \
-               "BackTarget" in obj.name:
-                bpy.data.objects.remove(obj)
+
+        elif inc_camera and obj.type == "EMPTY" and "CameraTarget" in obj.name:
+            bpy.data.objects.remove(obj)
+
+        elif obj.type == "EMPTY" and \
+            ("KeyTarget" in obj.name or \
+             "FillTarget" in obj.name or \
+             "BackTarget" in obj.name):
+            bpy.data.objects.remove(obj)
+
+        elif inc_camera and obj.type == "CAMERA":
+            bpy.data.objects.remove(obj)
+
 
 
 def camera_setup(camera_loc, target_loc):
@@ -2314,6 +2323,10 @@ def camera_setup(camera_loc, target_loc):
     camera.data.show_limits = True
 
     camera_auto_target(camera, target)
+
+    bpy.context.scene.render.resolution_x = 1920
+    bpy.context.scene.render.resolution_y = 2560
+    bpy.context.scene.render.resolution_percentage = 100
 
     return camera, target
 
@@ -2449,7 +2462,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.exposure = 0.0
             bpy.context.scene.view_settings.gamma = 1.0
 
-            remove_all_lights()
+            remove_all_lights(True)
 
             key1 = add_point_light("Light",
                     (4.076245307922363, 1.0054539442062378, 5.903861999511719),
@@ -2469,7 +2482,7 @@ def setup_scene_default(scene_type):
 
         elif scene_type == "SOLID_MATCAP":
 
-            remove_all_lights()
+            remove_all_lights(True)
 
             bpy.context.space_data.shading.type = 'SOLID'
             bpy.context.space_data.shading.light = 'MATCAP'
@@ -2494,8 +2507,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.exposure = 0.5
             bpy.context.scene.view_settings.gamma = 0.5
 
-            remove_all_lights()
-            camera_setup((0.1, -0.75, 1.6), (0, 0, 1.5))
+            remove_all_lights(True)
 
             key1 = add_spot_light("Key1",
                     (0.71149, -1.49019, 2.04134),
@@ -2668,10 +2680,6 @@ def setup_scene_default(scene_type):
                     20, 1)
             target_back = add_target("BackTarget", (0.0032256320118904114, 0.06994983553886414, 1.6254671812057495))
             track_to(back, target_back)
-
-            bpy.context.scene.render.resolution_x = 1920
-            bpy.context.scene.render.resolution_y = 2560
-            bpy.context.scene.render.resolution_percentage = 100
 
             set_contact_shadow(key, 0.1, 0.001)
             set_contact_shadow(fill, 0.1, 0.005)
@@ -3295,6 +3303,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     import_main_tex_dir: bpy.props.StringProperty(default="")
     import_space_in_name: bpy.props.BoolProperty(default=False)
 
+    auto_lighting: bpy.props.BoolProperty(default=True)
+
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
     stage2: bpy.props.BoolProperty(default=True)
@@ -3451,6 +3461,7 @@ class MyPanel(bpy.types.Panel):
 
         obj = context.object
         props = bpy.context.scene.CC3ImportProps
+        prefs = context.preferences.addons[__name__].preferences
 
         if fake_drop_down(layout.box().row(),
                 "1. Import Character",
@@ -3870,13 +3881,6 @@ class MyPanel(bpy.types.Panel):
             op = layout.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
             op.param ="REBUILD_NODE_GROUPS"
 
-            layout.separator()
-            split = layout.split(factor=0.5)
-            layout.separator()
-
-        layout.separator_spacer()
-
-
 class MyPanel2(bpy.types.Panel):
     bl_idname = "CC3_PT_Export_Settings_Panel"
     bl_label = "CC3 Export Character"
@@ -3900,9 +3904,6 @@ class MyPanel2(bpy.types.Panel):
         op = col_2.operator("cc3.exporter", icon="EXPORT", text="To CC3")
         op.param ="EXPORT"
 
-        layout.separator_spacer()
-
-
 class MyPanel3(bpy.types.Panel):
     bl_idname = "CC3_PT_Scene_Panel"
     bl_label = "CC3 Scene Tools"
@@ -3914,41 +3915,29 @@ class MyPanel3(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         layout = self.layout
 
-        layout.separator()
-        split = layout.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
+        box = layout.box()
+        box.label(text="Scene Lighting", icon="INFO")
+        col = layout.column()
 
-        col_1.label(text="Blender Default")
-        op = col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Lights")
-        op.param = "BLENDER_DEFAULT"
-
-        col_1.label(text="Solid Matcap")
-        op = col_2.operator("cc3.scene", icon="SHADING_SOLID", text="Lights")
+        op = col.operator("cc3.scene", icon="SHADING_SOLID", text="Solid Matcap")
         op.param = "SOLID_MATCAP"
 
-        col_1.label(text="CC3 Default")
-        op = col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Lights")
+        op = col.operator("cc3.scene", icon="SHADING_TEXTURE", text="Blender Default")
+        op.param = "BLENDER_DEFAULT"
+        op = col.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3 Default")
         op.param = "CC3_DEFAULT"
 
-        col_1.label(text="Studio Right")
-        op = col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Lights")
+        op = col.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio Right")
         op.param = "STUDIO_RIGHT"
-
-        col_1.label(text="Courtyard Left")
-        op = col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Lights")
+        op = col.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard Left")
         op.param = "COURTYARD_LEFT"
 
-        layout.separator()
-        split = layout.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
+        box = layout.box()
+        box.label(text="Scene, World & Compositor", icon="INFO")
+        col = layout.column()
 
-        col_1.label(text="3 Point Tracking & Camera")
-        op = col_2.operator("cc3.scene", icon="TRACKING", text="Lights")
+        op = col.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
         op.param = "3POINT_TRACKING"
-
-        layout.separator_spacer()
 
 
 class MyPanel4(bpy.types.Panel):
@@ -3960,8 +3949,11 @@ class MyPanel4(bpy.types.Panel):
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
+        prefs = context.preferences.addons[__name__].preferences
 
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
 
         box = layout.box()
         box.label(text="Render / Quality", icon="INFO")
@@ -3983,6 +3975,11 @@ class MyPanel4(bpy.types.Panel):
         op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Accessory")
         op.param = "EXPORT_ACCESSORY"
 
+        if prefs.auto_lighting:
+            layout.separator()
+            col = layout.column(align = True)
+            col.prop(props, "auto_lighting", text="Auto Lighting")
+
         layout.separator()
 
         box = layout.box()
@@ -3990,7 +3987,6 @@ class MyPanel4(bpy.types.Panel):
 
         op = layout.operator("cc3.importer", icon="REMOVE", text="Remove Character")
         op.param ="DELETE_CHARACTER"
-
 
 class CC3NodeCoord(bpy.types.Panel):
     bl_label = "Node Coordinates panel"
@@ -4018,10 +4014,11 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     #stage1: bpy.props.BoolProperty(default=True)
     #skin_basic_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=quick_set_update)
 
-    auto_lighting: bpy.props.BoolProperty(name="Auto Lighting", default=True, description="Automatically change lighting on quick import.")
+    auto_lighting: bpy.props.BoolProperty(name="Auto Lighting", default=True, description="Allow automatically changing lighting on quick import.")
 
     quality_lighting: bpy.props.EnumProperty(items=[
                         ("BLENDER_DEFAULT","Blender Default","Blenders default lighting setup"),
+                        ("SOLID_MATCAP","Solid Matcap","Solid shading matcap lighting for sculpting / mesh editing"),
                         ("CC3_DEFAULT","CC3 Default","Replica of CC3 default lighting setup"),
                         ("STUDIO_RIGHT","Studio Right","Right facing 3 point lighting with the studio hdri"),
                         ("COURTYARD_LEFT","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri")
@@ -4029,17 +4026,40 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     pipeline_lighting: bpy.props.EnumProperty(items=[
                         ("BLENDER_DEFAULT","Blender Default","Blenders default lighting setup"),
+                        ("SOLID_MATCAP","Solid Matcap","Solid shading matcap lighting for sculpting / mesh editing"),
                         ("CC3_DEFAULT","CC3 Default","Replica of CC3 default lighting setup"),
                         ("STUDIO_RIGHT","Studio Right","Right facing 3 point lighting with the studio hdri"),
                         ("COURTYARD_LEFT","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri")
-                    ], default="CC3_DEFAULT", name = "Morph / Accessory Editing Lighting")
+                    ], default="CC3_DEFAULT", name = "(FBX) Accessory Editing Lighting")
+
+    morph_lighting: bpy.props.EnumProperty(items=[
+                        ("BLENDER_DEFAULT","Blender Default","Blenders default lighting setup"),
+                        ("SOLID_MATCAP","Solid Matcap","Solid shading matcap lighting for sculpting / mesh editing"),
+                        ("CC3_DEFAULT","CC3 Default","Replica of CC3 default lighting setup"),
+                        ("STUDIO_RIGHT","Studio Right","Right facing 3 point lighting with the studio hdri"),
+                        ("COURTYARD_LEFT","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri")
+                    ], default="SOLID_MATCAP", name = "(OBJ) Morph Edit Lighting")
+
+    quality_mode: bpy.props.EnumProperty(items=[
+                        ("BASIC","Basic Materials","Build basic PBR materials for quality / rendering"),
+                        ("ADVANCED","Advanced Materials","Build advanced materials for quality / rendering")
+                    ], default="ADVANCED", name = "Render / Quality Material Mode")
+
+    pipeline_mode: bpy.props.EnumProperty(items=[
+                        ("BASIC","Basic Materials","Build basic PBR materials for character morph / accessory editing"),
+                        ("ADVANCED","Advanced Materials","Build advanced materials for character morph / accessory editing")
+                    ], default="BASIC", name = "Morph / Accessory Material Mode")
 
     def draw(self, context):
         layout = self.layout
         layout.label(text="This is a preferences view for our add-on")
+        layout.use_property_split = True
+        layout.prop(self, "quality_mode")
+        layout.prop(self, "pipeline_mode")
         layout.prop(self, "auto_lighting")
         layout.prop(self, "quality_lighting")
         layout.prop(self, "pipeline_lighting")
+        layout.prop(self, "morph_lighting")
 
 
 
