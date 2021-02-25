@@ -76,6 +76,11 @@ def log_error(msg):
     """Log an error message to console and raise an exception."""
     print("Error: " + msg)
 
+def message_box(message = "", title = "Info", icon = 'INFO'):
+    def draw(self, context):
+        self.layout.label(text = message)
+    bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
+
 def unique_name(name):
     """Generate a unique name for the node or property to quickly
        identify texture nodes or nodes with parameters."""
@@ -1907,9 +1912,17 @@ class CC3Import(bpy.types.Operator):
             else:
                 props.import_main_tex_dir = ""
                 props.import_embedded = True
+
+            # check for fbxkey
+            props.import_haskey = os.path.exists(os.path.join(dir, name + ".fbxkey"))
+            if self.param == "IMPORT_PIPELINE" and not props.import_haskey:
+                message_box("This character export does not have an .fbxkey file, it cannot be used to create character morphs.", "FBXKey Warning")
+
             # invoke the fbx importer
             tag_objects()
             bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim)
+
+            # process imported objects
             imported = untagged_objects()
             for obj in imported:
                 if obj.type == "ARMATURE":
@@ -1925,6 +1938,12 @@ class CC3Import(bpy.types.Operator):
             props.import_embedded = False
             if not os.path.exists(props.import_main_tex_dir):
                 props.import_main_tex_dir = ""
+
+            # check for objkey
+            props.import_haskey = os.path.exists(os.path.join(dir, name + ".ObjKey"))
+            if self.param == "IMPORT_PIPELINE" and not props.import_haskey:
+                message_box("This character export does not have an .ObjKey file, it cannot be used to create character morphs.", "OBJKey Warning")
+
             # invoke the obj importer
             tag_objects()
             if self.param == "IMPORT_PIPELINE":
@@ -1935,6 +1954,8 @@ class CC3Import(bpy.types.Operator):
                 bpy.ops.import_scene.obj(filepath = self.filepath, split_mode = "ON",
                         use_split_objects = True, use_split_groups = True,
                         use_groups_as_vgroups = False)
+
+            # process imported objects
             imported = untagged_objects()
             for obj in imported:
                 # scale obj import by 1/100
@@ -2744,6 +2765,7 @@ class CC3Scene(bpy.types.Operator):
         if (self.param == "TEMPLATE"):
             compositor_setup()
             world_setup()
+            message_box("World nodes and compositor template set up.")
         return {"FINISHED"}
 
     @classmethod
@@ -3314,6 +3336,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     import_embedded: bpy.props.BoolProperty(default=False)
     import_main_tex_dir: bpy.props.StringProperty(default="")
     import_space_in_name: bpy.props.BoolProperty(default=False)
+    import_haskey: bpy.props.BoolProperty(default=False)
 
     auto_lighting: bpy.props.BoolProperty(default=True)
 
