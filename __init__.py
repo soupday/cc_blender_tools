@@ -2369,9 +2369,9 @@ def compositor_setup():
     lens_node.location = (-100,150)
     glare_node.glare_type = 'FOG_GLOW'
     glare_node.quality = 'HIGH'
-    glare_node.threshold = 0.75
+    glare_node.threshold = 0.85
     lens_node.use_fit = True
-    lens_node.inputs["Dispersion"].default_value = 0.05
+    lens_node.inputs["Dispersion"].default_value = 0.025
     link_nodes(links, rlayers_node, "Image", glare_node, "Image")
     link_nodes(links, glare_node, "Image", lens_node, "Image")
     link_nodes(links, lens_node, "Image", c_node, "Image")
@@ -2556,8 +2556,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.exposure = 0.5
             bpy.context.scene.view_settings.gamma = 1.0
 
-            remove_all_lights()
-            camera_setup((0.1, -0.75, 1.6), (0, 0, 1.5))
+            remove_all_lights(True)
 
             key = add_spot_light("Key",
                     (0.3088499903678894, -4.569439888000488, 2.574970006942749),
@@ -2575,7 +2574,7 @@ def setup_scene_default(scene_type):
                     100, 1, 1.0996, 9.1, 0.5)
 
             set_contact_shadow(key, 0.1, 0.01)
-            set_contact_shadow(right, 0.1, 0.005)
+            set_contact_shadow(right, 0.1, 0.01)
 
             bpy.context.space_data.shading.type = 'MATERIAL'
             bpy.context.space_data.shading.use_scene_lights = True
@@ -2606,8 +2605,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.exposure = 0.5
             bpy.context.scene.view_settings.gamma = 0.6
 
-            remove_all_lights()
-            camera_setup((0.1, -0.75, 1.6), (0, 0, 1.5))
+            remove_all_lights(True)
 
             key = add_area_light("Key",
                     (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
@@ -2624,8 +2622,8 @@ def setup_scene_default(scene_type):
                     (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
                     20, 1)
 
-            set_contact_shadow(key, 0.1, 0.001)
-            set_contact_shadow(fill, 0.1, 0.005)
+            set_contact_shadow(key, 0.1, 0.01)
+            set_contact_shadow(fill, 0.1, 0.01)
 
             bpy.context.space_data.shading.type = 'MATERIAL'
             bpy.context.space_data.shading.use_scene_lights = True
@@ -2663,26 +2661,26 @@ def setup_scene_default(scene_type):
             key = add_area_light("Key",
                     (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
                     (1.0848181247711182, -0.881056010723114, -0.5597077012062073),
-                    40, 2)
+                    40, 1)
             target_key = add_target("KeyTarget", (-0.006276353262364864, -0.004782751202583313, 1.503425121307373))
             track_to(key, target_key)
 
             fill = add_area_light("Fill",
                     (2.28589, -1.51410, 1.40742),
                     (1.4248263835906982, 0.9756063222885132, 0.8594209551811218),
-                    20, 2)
+                    10, 1)
             target_fill = add_target("FillTarget", (0.013503191992640495, 0.005856933072209358, 1.1814184188842773))
             track_to(fill, target_fill)
 
             back = add_area_light("Back",
                     (0.36789, 0.61511, 2.36201),
                     (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
-                    20, 1)
+                    40, 0.5)
             target_back = add_target("BackTarget", (0.0032256320118904114, 0.06994983553886414, 1.6254671812057495))
             track_to(back, target_back)
 
-            set_contact_shadow(key, 0.1, 0.001)
-            set_contact_shadow(fill, 0.1, 0.005)
+            set_contact_shadow(key, 0.1, 0.01)
+            set_contact_shadow(fill, 0.1, 0.01)
 
             bpy.context.space_data.shading.type = 'RENDERED'
             bpy.context.space_data.shading.use_scene_lights_render = True
