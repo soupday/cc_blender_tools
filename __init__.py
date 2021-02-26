@@ -1888,12 +1888,19 @@ class CC3Import(bpy.types.Operator):
 
     use_anim: bpy.props.BoolProperty(name = "Import Animation", description = "Import animation with character.\nWarning: long animations take a very long time to import in Blender 2.83", default = True)
 
+    running = False
+    imported = False
+    built = False
+    lighting = False
+    timer = None
+    clock = 0
+
     def import_character(self):
         props = bpy.context.scene.CC3ImportProps
 
         import_anim = self.use_anim
         # don't import animation data if importing for morph/accessory
-        if self.param == "IMPORT_PIPELINE":
+        if self.param == "IMPORT_MORPH":
             import_anim = False
         props.import_file = self.filepath
         dir, name = os.path.split(self.filepath)
@@ -1938,7 +1945,7 @@ class CC3Import(bpy.types.Operator):
 
             # invoke the obj importer
             tag_objects()
-            if self.param == "IMPORT_PIPELINE":
+            if self.param == "IMPORT_MORPH":
                 bpy.ops.import_scene.obj(filepath = self.filepath, split_mode = "OFF",
                         use_split_objects = False, use_split_groups = False,
                         use_groups_as_vgroups = True)
@@ -1975,62 +1982,115 @@ class CC3Import(bpy.types.Operator):
 
         log_info("Done Build.")
 
-    def run_one(self, context):
-        pass
+    def run_import(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = context.preferences.addons[__name__].preferences
 
-    def run_two(self, context):
-        pass
+        # use basic materials for morph/accessory editing as it has better viewport performance
+        if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
+            props.setup_mode = prefs.pipeline_mode
+
+        # use advanced materials for quality/rendering
+        elif self.param == "IMPORT_QUALITY":
+            props.setup_mode = prefs.quality_mode
+
+        self.import_character()
+
+        # check for fbxkey
+        if props.import_type == "fbx":
+            props.import_haskey = os.path.exists(os.path.join(props.import_dir, props.import_name + ".fbxkey"))
+            if self.param == "IMPORT_MORPH" and not props.import_haskey:
+                message_box("This character export does not have an .fbxkey file, it cannot be used to create character morphs in CC3.", "FBXKey Warning")
+
+
+        # check for objkey
+        if props.import_type == "obj":
+            props.import_haskey = os.path.exists(os.path.join(props.import_dir, props.import_name + ".ObjKey"))
+            if self.param == "IMPORT_MORPH" and not props.import_haskey:
+                message_box("This character export does not have an .ObjKey file, it cannot be used to create character morphs in CC3.", "OBJKey Warning")
+
+        self.imported = True
+
+    def run_build(self, context):
+        self.build_materials()
+        self.built = True
+
+    def run_lighting(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = context.preferences.addons[__name__].preferences
+
+        # use the cc3 lighting for morph/accessory editing
+        if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
+            if prefs.auto_lighting and props.auto_lighting:
+                if props.import_type == "fbx":
+                    setup_scene_default(prefs.pipeline_lighting)
+                else:
+                    setup_scene_default(prefs.morph_lighting)
+            # for any objects with shape keys select basis and enable show in edit mode
+            for p in props.import_objects:
+                init_character_for_edit(p.object)
+
+        # use portrait lighting for quality mode
+        elif self.param == "IMPORT_QUALITY":
+            if prefs.auto_lighting and props.auto_lighting:
+                setup_scene_default(prefs.quality_lighting)
+
+        zoom_to_character()
+        self.lighting = True
+
+    def modal(self, context, event):
+
+        # 60 second timeout
+        if event.type == 'TIMER':
+            self.clock = self.clock + 1
+            if self.clock > 60:
+                return self.cancel(context)
+
+        if event.type == 'TIMER' and not self.running:
+            if not self.imported:
+                self.running = True
+                self.run_import(context)
+                self.clock = 0
+                self.running = False
+            elif not self.built:
+                self.running = True
+                self.run_build(context)
+                self.clock = 0
+                self.running = False
+            elif not self.lighting:
+                self.running = True
+                self.run_lighting(context)
+                self.clock = 0
+                self.running = False
+
+            if self.imported and self.built and self.lighting:
+                self.cancel(context)
+                self.report({'INFO'}, "All done!")
+                return {'FINISHED'}
+
+        return {'PASS_THROUGH'}
+
+    def cancel(self, context):
+        context.window_manager.event_timer_remove(self.timer)
+        self.timer = None
+        return {'CANCELLED'}
 
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
         prefs = context.preferences.addons[__name__].preferences
 
         # import character
-        if self.param == "IMPORT" or self.param == "IMPORT_PIPELINE" or self.param == "IMPORT_QUALITY":
-
-            # use basic materials for morph/accessory editing as it has better viewport performance
-            if self.param == "IMPORT_PIPELINE":
-                props.setup_mode = prefs.pipeline_mode
-
-            # use advanced materials for quality/rendering
-            elif self.param == "IMPORT_QUALITY":
-                props.setup_mode = prefs.quality_mode
-
-            self.import_character()
-            self.build_materials()
-
-            # check for fbxkey
-            if props.import_type == "fbx":
-                props.import_haskey = os.path.exists(os.path.join(props.import_dir, props.import_name + ".fbxkey"))
-                if self.param == "IMPORT_PIPELINE" and not props.import_haskey:
-                    message_box("This character export does not have an .fbxkey file, it cannot be used to create character morphs.", "FBXKey Warning")
-                    self.report({'INFO'}, "This character export does not have an .fbxkey file, it cannot be used to create character morphs.")
-
-
-            # check for objkey
-            if props.import_type == "obj":
-                props.import_haskey = os.path.exists(os.path.join(props.import_dir, props.import_name + ".ObjKey"))
-                if self.param == "IMPORT_PIPELINE" and not props.import_haskey:
-                    message_box("This character export does not have an .ObjKey file, it cannot be used to create character morphs.", "OBJKey Warning")
-                    self.report({'INFO'}, "This character export does not have an .ObjKey file, it cannot be used to create character morphs.")
-
-            # use the cc3 lighting for morph/accessory editing
-            if self.param == "IMPORT_PIPELINE":
-                if prefs.auto_lighting and props.auto_lighting:
-                    if props.import_type == "fbx":
-                        setup_scene_default(prefs.pipeline_lighting)
-                    else:
-                        setup_scene_default(prefs.morph_lighting)
-                # for any objects with shape keys select basis and enable show in edit mode
-                for p in props.import_objects:
-                    init_character_for_edit(p.object)
-
-            # use portrait lighting for quality mode
-            elif self.param == "IMPORT_QUALITY":
-                if prefs.auto_lighting and props.auto_lighting:
-                    setup_scene_default(prefs.quality_lighting)
-
-            zoom_to_character()
+        if "IMPORT_" in self.param:
+            if self.timer is None:
+                self.imported = False
+                self.built = False
+                self.lighting = False
+                self.running = False
+                self.clock = 0
+                self.report({'INFO'}, "Importing Character, please wait for import to finish and materials to build...")
+                context.window_manager.modal_handler_add(self)
+                self.timer = context.window_manager.event_timer_add(1.0, window = context.window)
+                return {'PASS_THROUGH'}
 
         # build materials
         elif self.param == "BUILD":
@@ -2045,9 +2105,8 @@ class CC3Import(bpy.types.Operator):
 
         return {"FINISHED"}
 
-
     def invoke(self, context, event):
-        if self.param == "IMPORT" or self.param == "IMPORT_PIPELINE" or self.param == "IMPORT_QUALITY":
+        if "IMPORT_" in self.param:
             context.window_manager.fileselect_add(self)
             return {"RUNNING_MODAL"}
 
@@ -2059,20 +2118,25 @@ class CC3Import(bpy.types.Operator):
             return "Import a new .fbx or .obj character exported by Character Creator 3"
         elif properties.param == "REIMPORT":
             return "Rebuild the materials from the last import with the current settings"
-        elif properties.param == "IMPORT_PIPELINE":
-            return "Import .fbx or .obj character from CC3 for morph or accessory creation.\n" \
-                   "For best results, in CC3, export 'mesh only' fbx or obj nude character in bind pose.\n" \
-                   "Notes for CC3 export:\n1. OBJ export 'Nude Character in Bind Pose' .obj does not export any materials.\n" \
-                   "2. OBJ export 'Character with Current Pose' does not create an .objkey and cannot be used for morph creation.\n" \
-                   "3. FBX export with motion in 'Current Pose' or 'Custom Motion' also does not export an .fbxkey and cannot be used for morph creation"
+        elif properties.param == "IMPORT_MORPH":
+            return "Import .fbx or .obj character from CC3 for morph creation. This does not import any animation data.\n" \
+                   "Notes for exporting from CC3:\n" \
+                   "1. For best results for morph creation export FBX: 'Mesh Only' or OBJ: Nude Character in Bind Pose, as these guarantee .fbxkey or .objkey generation.\n" \
+                   "2. OBJ export 'Nude Character in Bind Pose' .obj does not export any materials.\n" \
+                   "3. OBJ export 'Character with Current Pose' does not create an .objkey and cannot be used for morph creation.\n" \
+                   "4. FBX export with motion in 'Current Pose' or 'Custom Motion' also does not export an .fbxkey and cannot be used for morph creation"
+        elif properties.param == "IMPORT_ACCESSORY":
+            return "Import .fbx or .obj character from CC3 for accessory creation. This will import current pose or animation.\n" \
+                   "Notes for exporting from CC3:\n" \
+                   "1. OBJ or FBX exports in 'Current Pose' are good for accessory creation as they import back into CC3 in exactly the right place"
         elif properties.param == "IMPORT_QUALITY":
             return "Import .fbx or .obj character from CC3 for rendering"
         elif properties.param == "BUILD":
-            return "Build"
+            return "Build (or Rebuild) materials for the current imported character with the current build settings"
         elif properties.param == "DELETE_CHARACTER":
-            return "Delete"
+            return "Removes the character and any associated objects, meshes, materials, nodes, images, armature actions and shapekeys. Basically deletes everything not nailed down.\n**Do not press this if there is anything you want to keep!**"
         elif properties.param == "REBUILD_NODE_GROUPS":
-            return "Rebuild"
+            return "Rebuilds the shader node groups for the advanced and eye materials."
         return ""
 
 
@@ -2108,10 +2172,10 @@ class CC3Export(bpy.types.Operator):
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
 
-        if self.param == "EXPORT_PIPELINE" or self.param == "EXPORT":
+        if self.param == "EXPORT_MORPH" or self.param == "EXPORT":
             export_anim = self.use_anim
             mode = props.export_mode
-            if self.param == "EXPORT_PIPELINE":
+            if self.param == "EXPORT_MORPH":
                 export_anim = False
                 mode = props.pipeline_mode
             props.import_file = self.filepath
@@ -2157,7 +2221,7 @@ class CC3Export(bpy.types.Operator):
                             if p.object.type == "MESH":
                                 p.object.select_set(True)
 
-                if self.param == "EXPORT_PIPELINE":
+                if self.param == "EXPORT_MORPH":
                     bpy.ops.export_scene.obj(filepath=self.filepath,
                             use_selection = True,
                             global_scale = 100,
@@ -2228,9 +2292,9 @@ class CC3Export(bpy.types.Operator):
         if self.param == "EXPORT_ACCESSORY":
             self.filename_ext = "." + props.import_type
         # exporting for pipeline depends on what was imported...
-        elif self.param == "EXPORT_PIPELINE" or self.param == "EXPORT":
+        elif self.param == "EXPORT_MORPH" or self.param == "EXPORT":
             mode = props.export_mode
-            if self.param == "EXPORT_PIPELINE":
+            if self.param == "EXPORT_MORPH":
                 mode = props.pipeline_mode
             # exporting imported or both, use the same file type as imported
             if mode == "IMPORTED" or mode == "BOTH":
@@ -2257,7 +2321,7 @@ class CC3Export(bpy.types.Operator):
     @classmethod
     def description(cls, context, properties):
 
-        if properties.param == "EXPORT_PIPELINE":
+        if properties.param == "EXPORT_MORPH":
             return "Export full character to import back into CC3"
         elif properties.param == "EXPORT_ACCESSORY":
             return "Export selected object(s) for import into CC3 as accessories"
@@ -2350,7 +2414,7 @@ def camera_setup(camera_loc, target_loc):
         target = add_target("CameraTarget", target_loc)
 
     track_to(camera, target)
-    camera.data.lens = 120
+    camera.data.lens = 80
     camera.data.dof.use_dof = True
     camera.data.dof.focus_object = target
     camera.data.dof.aperture_fstop = 2.8
@@ -2429,6 +2493,7 @@ def world_setup():
     et_node.location = (-300,320)
     bg_node.location = (10,300)
     wo_node.location = (300,300)
+    set_node_input(bg_node, "Strength", 0.5)
     link_nodes(links, tc_node, "Generated", mp_node, "Vector")
     link_nodes(links, mp_node, "Vector", et_node, "Vector")
     link_nodes(links, et_node, "Color", bg_node, "Color")
@@ -2681,16 +2746,16 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
             bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.35
+            bpy.context.scene.eevee.bloom_threshold = 0.5
             bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 2.0
+            bpy.context.scene.eevee.bloom_radius = 5.0
             bpy.context.scene.eevee.bloom_intensity = 0.1
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
             bpy.context.scene.view_settings.view_transform = "Filmic"
             bpy.context.scene.view_settings.look = "Medium High Contrast"
-            bpy.context.scene.view_settings.exposure = 0.5
+            bpy.context.scene.view_settings.exposure = 0.6
             bpy.context.scene.view_settings.gamma = 0.6
 
             remove_all_lights()
@@ -2787,11 +2852,11 @@ class CC3Scene(bpy.types.Operator):
         elif properties.param == "CC3":
             return "Use material shading with render settings and lighting to a replica of the default CC3 lighting"
         elif properties.param == "STUDIO":
-            return "Use rendered shading with the studio hdri and left side 3 point lighting"
+            return "Use rendered shading with the Studio HDRI and left sided 3 point lighting"
         elif properties.param == "COURTYARD":
-            return "Use rendered shading with the courtyard hdri and right side 3 point lighting"
+            return "Use rendered shading with the Courtyard HDRI and right sided 3 point lighting"
         elif properties.param == "TEMPLATE":
-            return "Use rendered shading with world lighting, set up the compositor and world nodes with a basic template and setup lights and a camera to use tracking contraints"
+            return "Sets up a rendering template with rendered shading and world lighting. Sets up the Compositor and World nodes with a basic setup and adds tracking lights, a tracking camera and targetting objects"
         return ""
 
 
@@ -2894,7 +2959,7 @@ class CC3QuickSet(bpy.types.Operator):
         if properties.param == "UPDATE_ALL":
             return "Update all objects from the last import, with the current parameters"
         elif properties.param == "UPDATE_SELECTED":
-            return "Update only the currently selected objects, with the current parameters"
+            return "Update the currently selected objects, with the current parameters"
         elif properties.param == "OPAQUE":
             return "Set blend mode of all selected objects with alpha channels to opaque"
         elif properties.param == "BLEND":
@@ -2902,9 +2967,13 @@ class CC3QuickSet(bpy.types.Operator):
         elif properties.param == "HASHED":
             return "Set blend mode of all selected objects with alpha channels to alpha hashed"
         elif properties.param == "FETCH":
-            return "Fetch the parameters from the selected objects."
+            return "Fetch the parameters from the selected objects"
         elif properties.param == "RESET":
-            return "Reset parameters to the defaults."
+            return "Reset parameters to the defaults"
+        elif properties.param == "SINGLE_SIDED":
+            return "Set material to be single sided, only visible from front facing"
+        elif properties.param == "DOUBLE_SIDED":
+            return "Set material to be double sided, visible from both sides"
         return ""
 
 
@@ -4012,11 +4081,14 @@ class MyPanel4(bpy.types.Panel):
         box = layout.box()
         box.label(text="Morph / Accessory", icon="INFO")
 
-        op = layout.operator("cc3.importer", icon="IMPORT", text="Import Character")
-        op.param = "IMPORT_PIPELINE"
+        op = layout.operator("cc3.importer", icon="IMPORT", text="Import For Morph")
+        op.param = "IMPORT_MORPH"
 
-        op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Character")
-        op.param = "EXPORT_PIPELINE"
+        op = layout.operator("cc3.importer", icon="IMPORT", text="Import For Accessory")
+        op.param = "IMPORT_ACCESSORY"
+
+        op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Character Morph")
+        op.param = "EXPORT_MORPH"
 
         op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Accessory")
         op.param = "EXPORT_ACCESSORY"
