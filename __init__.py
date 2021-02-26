@@ -1856,6 +1856,57 @@ def untagged_objects(default = True):
 
     return untagged
 
+def reconstruct_obj_materials(obj):
+    # remove all materials
+    # add dummy materials
+    #  head/body/arm/leg/nails/eyelash
+    #  Std_Skin_Head
+    #  Std_Skin_Body
+    #  Std_Skin_Arm
+    #  Std_Skin_Leg
+    #  Std_Nails
+    #  Std_Eyelash
+    #  Std_Upper_Teeth
+    #  Std_Lower_Teeth (Combine or ignore?)
+    #  Std_Tongue
+    mesh = obj.data
+    ul = mesh.uv_layers[0]
+    for poly in mesh.polygons:
+        loop_index = poly.loop_indices[0]
+        loop_entry = mesh.loops[loop_index]
+        vertex = mesh.vertices[loop_entry.vertex_index]
+        #group = 1
+        #if len(vertex.groups) > 0:
+        #    group = vertex.groups[0].group
+        group = vertex.groups[0].group
+        uv = ul.data[loop_entry.index].uv
+        x = uv[0]
+        # eyelash
+        if x > 5:
+            pass
+        # nails
+        elif x > 4:
+            pass
+        # legs
+        elif x > 3:
+            pass
+        # arms
+        elif x > 2:
+            pass
+        # body
+        elif x > 1:
+            pass
+        # head/eyes/tongue/teeth
+        else:
+            # vertex groups 0 - tongue, 1 - body(head), 2 - eye, 3 - teeth
+            if group == 0:
+                pass
+            elif group == 1:
+                pass
+            elif group == 2:
+                pass
+            else:
+                pass
 
 def select_all_child_objects(obj):
     if obj.type == "ARMATURE" or obj.type == "MESH":
