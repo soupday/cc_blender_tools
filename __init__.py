@@ -1902,6 +1902,8 @@ class CC3Import(bpy.types.Operator):
         type = name[-3:].lower()
         name = name[:-4]
         props.import_type = type
+        props.import_name = name
+        props.import_dir = dir
         props.import_space_in_name = " " in name
 
         if type == "fbx":
@@ -1912,11 +1914,6 @@ class CC3Import(bpy.types.Operator):
             else:
                 props.import_main_tex_dir = ""
                 props.import_embedded = True
-
-            # check for fbxkey
-            props.import_haskey = os.path.exists(os.path.join(dir, name + ".fbxkey"))
-            if self.param == "IMPORT_PIPELINE" and not props.import_haskey:
-                message_box("This character export does not have an .fbxkey file, it cannot be used to create character morphs.", "FBXKey Warning")
 
             # invoke the fbx importer
             tag_objects()
@@ -1938,11 +1935,6 @@ class CC3Import(bpy.types.Operator):
             props.import_embedded = False
             if not os.path.exists(props.import_main_tex_dir):
                 props.import_main_tex_dir = ""
-
-            # check for objkey
-            props.import_haskey = os.path.exists(os.path.join(dir, name + ".ObjKey"))
-            if self.param == "IMPORT_PIPELINE" and not props.import_haskey:
-                message_box("This character export does not have an .ObjKey file, it cannot be used to create character morphs.", "OBJKey Warning")
 
             # invoke the obj importer
             tag_objects()
@@ -1966,10 +1958,6 @@ class CC3Import(bpy.types.Operator):
                     cache_object_materials(obj)
             log_info("Done .Obj Import.")
 
-        self.build_materials()
-
-
-
     def build_materials(self):
         objects_processed = []
         props = bpy.context.scene.CC3ImportProps
@@ -1987,6 +1975,11 @@ class CC3Import(bpy.types.Operator):
 
         log_info("Done Build.")
 
+    def run_one(self, context):
+        pass
+
+    def run_two(self, context):
+        pass
 
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
@@ -2004,6 +1997,22 @@ class CC3Import(bpy.types.Operator):
                 props.setup_mode = prefs.quality_mode
 
             self.import_character()
+            self.build_materials()
+
+            # check for fbxkey
+            if props.import_type == "fbx":
+                props.import_haskey = os.path.exists(os.path.join(props.import_dir, props.import_name + ".fbxkey"))
+                if self.param == "IMPORT_PIPELINE" and not props.import_haskey:
+                    message_box("This character export does not have an .fbxkey file, it cannot be used to create character morphs.", "FBXKey Warning")
+                    self.report({'INFO'}, "This character export does not have an .fbxkey file, it cannot be used to create character morphs.")
+
+
+            # check for objkey
+            if props.import_type == "obj":
+                props.import_haskey = os.path.exists(os.path.join(props.import_dir, props.import_name + ".ObjKey"))
+                if self.param == "IMPORT_PIPELINE" and not props.import_haskey:
+                    message_box("This character export does not have an .ObjKey file, it cannot be used to create character morphs.", "OBJKey Warning")
+                    self.report({'INFO'}, "This character export does not have an .ObjKey file, it cannot be used to create character morphs.")
 
             # use the cc3 lighting for morph/accessory editing
             if self.param == "IMPORT_PIPELINE":
@@ -3333,6 +3342,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     import_objects: bpy.props.CollectionProperty(type=CC3ObjectPointer)
     material_cache: bpy.props.CollectionProperty(type=CC3MaterialCache)
     import_type: bpy.props.StringProperty(default="")
+    import_name: bpy.props.StringProperty(default="")
+    import_dir: bpy.props.StringProperty(default="")
     import_embedded: bpy.props.BoolProperty(default=False)
     import_main_tex_dir: bpy.props.StringProperty(default="")
     import_space_in_name: bpy.props.BoolProperty(default=False)
