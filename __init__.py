@@ -553,10 +553,14 @@ def find_material_image(mat, suffix_list):
                 return p.normal
             elif "bump" in suffix_list:
                 return p.bump
-            image_file = find_image_file([p.dir, props.import_main_tex_dir], p.material, suffix_list)
+            image_file = find_image_file([p.dir, props.import_main_tex_dir], mat, suffix_list)
             if image_file is not None:
                 return load_image(image_file, color_space)
             break
+    if len(props.material_cache) == 0:
+        image_file = find_image_file([props.import_main_tex_dir], mat, suffix_list)
+        if image_file is not None:
+            return load_image(image_file, color_space)
     return None
 
 
@@ -1857,56 +1861,84 @@ def untagged_objects(default = True):
     return untagged
 
 def reconstruct_obj_materials(obj):
-    # remove all materials
-    # add dummy materials
-    #  head/body/arm/leg/nails/eyelash
-    #  Std_Skin_Head
-    #  Std_Skin_Body
-    #  Std_Skin_Arm
-    #  Std_Skin_Leg
-    #  Std_Nails
-    #  Std_Eyelash
-    #  Std_Upper_Teeth
-    #  Std_Lower_Teeth (Combine or ignore?)
-    #  Std_Tongue
     mesh = obj.data
+    # remove all materials
+    mesh.materials.clear()
+    # add new materials
+    #  head/body/arm/leg/nails/eyelash/teeth/tongue
+    mat_head = bpy.data.materials.new("Std_Skin_Head") #0
+    mat_body = bpy.data.materials.new("Std_Skin_Body") #1
+    mat_arm = bpy.data.materials.new("Std_Skin_Arm") #2
+    mat_leg = bpy.data.materials.new("Std_Skin_Leg") #3
+    mat_nails = bpy.data.materials.new("Std_Nails") #4
+    mat_eyelash = bpy.data.materials.new("Std_Eyelash") #5
+    mat_uteeth= bpy.data.materials.new("Std_Upper_Teeth") #6
+    mat_lteeth = bpy.data.materials.new("Std_Lower_Teeth") #7
+    mat_tongue = bpy.data.materials.new("Std_Tongue") #8
+    mat_reye = bpy.data.materials.new("Std_Eye_R") #9
+    mat_leye = bpy.data.materials.new("Std_Eye_L") #10
+    mat_rcornea = bpy.data.materials.new("Std_Cornea_R") #11
+    mat_lcornea = bpy.data.materials.new("Std_Cornea_L") #12
+    mesh.materials.append(mat_head)
+    mesh.materials.append(mat_body)
+    mesh.materials.append(mat_arm)
+    mesh.materials.append(mat_leg)
+    mesh.materials.append(mat_nails)
+    mesh.materials.append(mat_eyelash)
+    mesh.materials.append(mat_uteeth)
+    mesh.materials.append(mat_lteeth)
+    mesh.materials.append(mat_tongue)
+    mesh.materials.append(mat_reye)
+    mesh.materials.append(mat_leye)
+    mesh.materials.append(mat_rcornea)
+    mesh.materials.append(mat_lcornea)
     ul = mesh.uv_layers[0]
+    # figure out which polygon belongs to which material from the vertex groups, uv coords and polygon indices
     for poly in mesh.polygons:
         loop_index = poly.loop_indices[0]
         loop_entry = mesh.loops[loop_index]
         vertex = mesh.vertices[loop_entry.vertex_index]
-        #group = 1
-        #if len(vertex.groups) > 0:
-        #    group = vertex.groups[0].group
         group = vertex.groups[0].group
         uv = ul.data[loop_entry.index].uv
         x = uv[0]
-        # eyelash
         if x > 5:
-            pass
-        # nails
+            poly.material_index = 5 # eyelash
         elif x > 4:
-            pass
-        # legs
+            poly.material_index = 4 # nails
         elif x > 3:
-            pass
-        # arms
+            poly.material_index = 3 # legs
         elif x > 2:
-            pass
-        # body
+            poly.material_index = 2 # arms
         elif x > 1:
-            pass
-        # head/eyes/tongue/teeth
+            poly.material_index = 1 # body
         else:
-            # vertex groups 0 - tongue, 1 - body(head), 2 - eye, 3 - teeth
+            # head/eyes/tongue/teeth
+            # vertex groups: 0 - tongue, 1 - body(head), 2 - eye, 3 - teeth
             if group == 0:
-                pass
+                poly.material_index = 8
             elif group == 1:
-                pass
+                poly.material_index = 0
             elif group == 2:
-                pass
-            else:
-                pass
+                # assign by polygon index (and hope these stay the same across exports)
+                # eye_r: 14342-14501
+                # cornea_r: 14502-14661
+                # eye_l: 14662-14821
+                # cornea_l: 14822-14981
+                if poly.index >= 14822:
+                    poly.material_index = 12
+                elif poly.index >= 14662:
+                    poly.material_index = 10
+                elif poly.index >= 14502:
+                    poly.material_index = 11
+                else:
+                    poly.material_index = 9
+            else: #3
+                # upper teeth: 14982-16162
+                # lower teeth: 16163-17402
+                if poly.index >= 16163:
+                    poly.material_index = 7
+                else:
+                    poly.material_index = 6
 
 def select_all_child_objects(obj):
     if obj.type == "ARMATURE" or obj.type == "MESH":
@@ -2013,7 +2045,11 @@ class CC3Import(bpy.types.Operator):
                 if obj.type == "MESH":
                     p = props.import_objects.add()
                     p.object = obj
-                    cache_object_materials(obj)
+                    if self.param == "IMPORT_MORPH":
+                        if props.import_main_tex_dir != "":
+                            reconstruct_obj_materials(obj)
+                    else:
+                        cache_object_materials(obj)
             log_info("Done .Obj Import.")
 
     def build_materials(self):
