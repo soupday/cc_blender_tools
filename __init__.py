@@ -2168,7 +2168,7 @@ class CC3Import(bpy.types.Operator):
         prefs = context.preferences.addons[__name__].preferences
 
         # import character
-        if "IMPORT_" in self.param:
+        if "IMPORT" in self.param:
             if self.timer is None:
                 self.imported = False
                 self.built = False
@@ -2194,7 +2194,7 @@ class CC3Import(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        if "IMPORT_" in self.param:
+        if "IMPORT" in self.param:
             context.window_manager.fileselect_add(self)
             return {"RUNNING_MODAL"}
 
@@ -3372,7 +3372,7 @@ def reset_parameters():
     props.eye_basic_roughness = 0.05
     props.eye_basic_normal = 0.1
     props.eye_shadow_radius = 0.3
-    props.eye_shadow_hardness = 0.75
+    props.eye_shadow_hardness = 0.5
     props.eye_shadow_color = (1.0, 0.497, 0.445, 1.0)
     props.eye_occlusion = 0.5
     props.eye_sclera_brightness = 0.75
@@ -3559,7 +3559,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=quick_set_update)
     eye_sclera_normal: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=quick_set_update)
     eye_sclera_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=quick_set_update)
-    eye_shadow_hardness: bpy.props.FloatProperty(default=0.75, min=0, max=1, update=quick_set_update)
+    eye_shadow_hardness: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=quick_set_update)
     eye_shadow_radius: bpy.props.FloatProperty(default=0.3, min=0, max=0.5, update=quick_set_update)
     eye_shadow_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 0.497, 0.445, 1.0), min = 0.0, max = 1.0, update=quick_set_update)
