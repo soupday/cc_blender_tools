@@ -2047,7 +2047,8 @@ class CC3Import(bpy.types.Operator):
                     p.object = obj
                     if self.param == "IMPORT_MORPH":
                         if props.import_main_tex_dir != "":
-                            reconstruct_obj_materials(obj)
+                            #reconstruct_obj_materials(obj)
+                            pass
                     else:
                         cache_object_materials(obj)
             log_info("Done .Obj Import.")
