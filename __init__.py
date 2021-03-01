@@ -3514,7 +3514,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     stage6: bpy.props.BoolProperty(default=True)
 
     skin_basic_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=quick_set_update)
-    skin_basic_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=2, update=quick_set_update)
+    skin_basic_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=quick_set_update)
     eye_basic_roughness: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=quick_set_update)
     eye_basic_normal: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=quick_set_update)
     eye_basic_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=quick_set_update)
