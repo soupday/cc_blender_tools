@@ -1618,14 +1618,15 @@ def delete_object(obj):
         # remove materials->nodes->images
         for slot in obj.material_slots:
             mat = slot.material
-            if mat.node_tree is not None:
-                nodes = mat.node_tree.nodes
-                for node in nodes:
-                    if node.type == "TEX_IMAGE":
-                        image = node.image
-                        bpy.data.images.remove(image)
-                    nodes.remove(node)
-            bpy.data.materials.remove(mat)
+            if mat is not None:
+                if mat.node_tree is not None:
+                    nodes = mat.node_tree.nodes
+                    for node in nodes:
+                        if node.type == "TEX_IMAGE" and node.image is not None:
+                            image = node.image
+                            bpy.data.images.remove(image)
+                        nodes.remove(node)
+                bpy.data.materials.remove(mat)
 
         if obj.type == "ARMATURE":
             bpy.data.armatures.remove(obj.data)
@@ -1807,10 +1808,11 @@ def cache_object_materials(obj):
                 cache.dir = get_material_dir(base_dir, character_name, type, obj, slot.material)
                 nodes = slot.material.node_tree.nodes
                 for node in nodes:
-                    if node.type == "TEX_IMAGE":
-                        if node.image is not None:
-                            filepath = node.image.filepath
-                            dir, name = os.path.split(filepath)
+                    if node.type == "TEX_IMAGE" and node.image is not None:
+                        filepath = node.image.filepath
+                        dir, name = os.path.split(filepath)
+                        # detect incorrent image paths for non packed (not embedded) images and attempt to correct...
+                        if node.image.packed_file is None:
                             if os.path.normcase(dir) != os.path.normcase(main_tex_dir):
                                 log_warn("Import bug! Wrong image path detected: " + dir)
                                 log_warn("    Attempting to correct...")
@@ -1825,24 +1827,24 @@ def cache_object_materials(obj):
                                         node.image.filepath = correct_path
                                     else:
                                         log_error("    Unable to find correct image!")
-                            name = name.lower()
-                            socket = get_input_connected_to(node, "Color")
-                            # the fbx importer in 2.91 makes a total balls up of the opacity
-                            # and connects the alpha output to the socket and not the color output
-                            alpha_socket = get_input_connected_to(node, "Alpha")
-                            if socket == "Base Color":
-                                cache.diffuse = node.image
-                            elif socket == "Specular":
-                                cache.specular = node.image
-                            elif socket == "Alpha" or alpha_socket == "Alpha":
-                                cache.alpha = node.image
-                                if "diffuse" in name or "albedo" in name:
-                                    cache.alpha_is_diffuse = True
-                            elif socket == "Color":
-                                if "bump" in name:
-                                    cache.bump = node.image
-                                else:
-                                    cache.normal = node.image
+                        name = name.lower()
+                        socket = get_input_connected_to(node, "Color")
+                        # the fbx importer in 2.91 makes a total balls up of the opacity
+                        # and connects the alpha output to the socket and not the color output
+                        alpha_socket = get_input_connected_to(node, "Alpha")
+                        if socket == "Base Color":
+                            cache.diffuse = node.image
+                        elif socket == "Specular":
+                            cache.specular = node.image
+                        elif socket == "Alpha" or alpha_socket == "Alpha":
+                            cache.alpha = node.image
+                            if "diffuse" in name or "albedo" in name:
+                                cache.alpha_is_diffuse = True
+                        elif socket == "Color":
+                            if "bump" in name:
+                                cache.bump = node.image
+                            else:
+                                cache.normal = node.image
 
 def tag_objects(default = True):
     for obj in bpy.data.objects:
@@ -2132,7 +2134,9 @@ class CC3Import(bpy.types.Operator):
         if event.type == 'TIMER':
             self.clock = self.clock + 1
             if self.clock > 60:
-                return self.cancel(context)
+                self.cancel(context)
+                self.report({'INFO'}, "Import operator timed out!")
+                return {'CANCELLED'}
 
         if event.type == 'TIMER' and not self.running:
             if not self.imported:
@@ -2159,9 +2163,9 @@ class CC3Import(bpy.types.Operator):
         return {'PASS_THROUGH'}
 
     def cancel(self, context):
-        context.window_manager.event_timer_remove(self.timer)
-        self.timer = None
-        return {'CANCELLED'}
+        if self.timer is not None:
+            context.window_manager.event_timer_remove(self.timer)
+            self.timer = None
 
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
@@ -2668,7 +2672,6 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studiolight_intensity = 1
             bpy.context.space_data.shading.studiolight_background_alpha = 0
             bpy.context.space_data.shading.studiolight_background_blur = 0
-            bpy.context.space_data.lens = 50
             bpy.context.space_data.clip_start = 0.1
 
         elif scene_type == "MATCAP":
@@ -2679,7 +2682,6 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.light = 'MATCAP'
             bpy.context.space_data.shading.studio_light = 'basic_1.exr'
             bpy.context.space_data.shading.show_cavity = True
-            bpy.context.space_data.lens = 80
 
         elif scene_type == "CC3":
 
@@ -2726,7 +2728,6 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studiolight_intensity = 0.75
             bpy.context.space_data.shading.studiolight_background_alpha = 0
             bpy.context.space_data.shading.studiolight_background_blur = 0
-            bpy.context.space_data.lens = 80
             bpy.context.space_data.clip_start = 0.01
 
         elif scene_type == "STUDIO":
@@ -2775,7 +2776,6 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studiolight_intensity = 0.2
             bpy.context.space_data.shading.studiolight_background_alpha = 0.5
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.lens = 80
             bpy.context.space_data.clip_start = 0.01
 
         elif scene_type == "COURTYARD":
@@ -2825,7 +2825,6 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studiolight_background_alpha = 0.5
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
 
-            bpy.context.space_data.lens = 80
             bpy.context.space_data.clip_start = 0.01
 
         elif scene_type == "TEMPLATE":
@@ -2877,8 +2876,6 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = True
 
-
-            bpy.context.space_data.lens = 80
             bpy.context.space_data.clip_start = 0.01
 
     except Exception as e:
@@ -3424,7 +3421,7 @@ def reset_parameters():
     props.hair_roughness = 0.0
     props.hair_scalp_specular = 0.0
     props.hair_scalp_roughness = 0.0
-    props.hair_sss_radius = 2.0
+    props.hair_sss_radius = 1.0
     props.hair_sss_falloff = (1.0, 1.0, 1.0, 1.0)
     props.hair_bump = 1
 
@@ -3624,7 +3621,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     hair_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
     hair_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
     hair_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=quick_set_update)
-    hair_sss_radius: bpy.props.FloatProperty(default=2.0, min=0.1, max=5, update=quick_set_update)
+    hair_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=quick_set_update)
     hair_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=quick_set_update)
     hair_bump: bpy.props.FloatProperty(default=1, min=0, max=10, update=quick_set_update)
