@@ -1183,7 +1183,7 @@ def connect_basic_material(obj, mat, shader):
             set_node_input(remap_node, "To Min", rprop_val)
             link_nodes(links, roughness_node, "Color", remap_node, "Value")
             link_nodes(links, remap_node, "Result", shader, "Roughness")
-        elif is_teeth_material(mat):
+        elif is_teeth_material(mat) or is_tongue_material(mat):
             advance_cursor()
             rmult_node = make_math_node(nodes, "MULTIPLY", 1, rprop_val)
             rmult_node.name = unique_name(rprop_name)
@@ -2636,9 +2636,6 @@ def setup_scene_default(scene_type):
         if current_mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
 
-        bpy.context.space_data.lens = 120
-
-
         if scene_type == "BLENDER":
 
             bpy.context.scene.eevee.use_gtao = False
@@ -3335,10 +3332,10 @@ def reset_parameters():
     props.skin_ao = 1.0
     props.skin_blend = 0.0
     props.skin_normal_blend = 0.0
-    props.skin_roughness = 0.2
+    props.skin_roughness = 0.15
     props.skin_specular = 0.4
     props.skin_basic_specular = 0.4
-    props.skin_basic_roughness = 0.2
+    props.skin_basic_roughness = 0.15
     props.skin_sss_radius = 1.5
     props.skin_sss_falloff = (1.0, 0.112, 0.072, 1.0)
     props.skin_head_micronormal = 0.5
@@ -3514,7 +3511,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     stage6: bpy.props.BoolProperty(default=True)
 
     skin_basic_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=quick_set_update)
-    skin_basic_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=quick_set_update)
+    skin_basic_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=1, update=quick_set_update)
     eye_basic_roughness: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=quick_set_update)
     eye_basic_normal: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=quick_set_update)
     eye_basic_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=quick_set_update)
@@ -3523,7 +3520,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     skin_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=quick_set_update)
     skin_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
     skin_normal_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
-    skin_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=quick_set_update)
+    skin_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=1, update=quick_set_update)
     skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=quick_set_update)
     skin_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=5, update=quick_set_update)
     skin_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -4047,6 +4044,8 @@ class MyPanel(bpy.types.Panel):
                 col_2.prop(props, "teeth_roughness", text="", slider=True)
                 col_1.label(text="Tongue Specular")
                 col_2.prop(props, "tongue_specular", text="", slider=True)
+                col_1.label(text="Tongue Roughness")
+                col_2.prop(props, "tongue_roughness", text="", slider=True)
                 col_1.label(text="Nails Specular")
                 col_2.prop(props, "nails_specular", text="", slider=True)
                 col_1.label(text="Hair AO")
@@ -4152,7 +4151,7 @@ class MyPanel4(bpy.types.Panel):
         prefs = context.preferences.addons[__name__].preferences
 
         layout = self.layout
-        layout.use_property_split = True
+        layout.use_property_split = False
         layout.use_property_decorate = False
 
         box = layout.box()
@@ -4161,22 +4160,26 @@ class MyPanel4(bpy.types.Panel):
         op = layout.operator("cc3.importer", icon="IMPORT", text="Import Character")
         op.param = "IMPORT_QUALITY"
 
-        layout.separator()
-
         box = layout.box()
-        box.label(text="Morph / Accessory", icon="INFO")
+        box.label(text="Morph Editing", icon="INFO")
 
         op = layout.operator("cc3.importer", icon="IMPORT", text="Import For Morph")
         op.param = "IMPORT_MORPH"
 
-        op = layout.operator("cc3.importer", icon="IMPORT", text="Import For Accessory")
-        op.param = "IMPORT_ACCESSORY"
-
         op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Character Morph")
         op.param = "EXPORT_MORPH"
 
+        box = layout.box()
+        box.label(text="Accessory Editing", icon="INFO")
+
+        op = layout.operator("cc3.importer", icon="IMPORT", text="Import For Accessory")
+        op.param = "IMPORT_ACCESSORY"
+
         op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Accessory")
         op.param = "EXPORT_ACCESSORY"
+
+        box = layout.box()
+        box.label(text="Settings", icon="INFO")
 
         if prefs.auto_lighting:
             layout.separator()
