@@ -8,6 +8,11 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 ### How it works
 The character exports from CC3 have a very rigid naming structure. The folders the textures are stored in always follow the same pattern e.g. _filename_.obj exports exporting all textures into the _filename_ folder and .fbx exports store textures in the _filename_.fbm folder and in textures/_filename_/_objectname_/_meshname_/_materialname_ folders amongst others. All objects in the export have unique names and unique material names with all texture names following a similar convention such as _materialname_ + _type_ e.g. 'Std_Skin_Head_Diffuse.png' or 'Vest_Normal.png'. Thus textures for each material can be easily discovered without the need for deep recursive scans for texture files. The add-on then reconstructs the material nodes, for each object and material, using these textures and the material setup parameters as needed (This bit isn't so easy...).
 
+On the way this add-on also resolves a few bugs and idiosyncrasies in Blender, namely the FBX importer attaching the wrong opacity for the eyes, hair and eyelashes and a curious bug in the importers for both OBJ and FBX where Blender can't find the right textures if the exported file has spaces in the name and there is more than one character in the same folder. It has something to do with 3DS Max replacing all spaces with underscores when it exports and uses spaces as a separator for multiple texures, so the Blender coders made their importers work the same way...
+
+For this reason:
+**Warning: when exporting characters to and from Blender - DO NOT put spaces in the file name.**
+
 ## Installation, Updating, Removal
 ### To Install
 - Download the latest release [0.1-alpha](https://github.com/soupday/cc3_blender_tools/archive/0_1_alpha.zip).
