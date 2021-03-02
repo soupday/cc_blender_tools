@@ -18,6 +18,7 @@ Add-on for importing and auto setup of Character Creator 3 character exports.
 - Follow the installation instructions, above, to install the new version.
 ## Usage
 This add-on is meant to be used on a single CC3 Character at a time. As such it is not meant to be used as part of a complex scene but rather to prepare characters for rendering or to edit character morphs or accessories.
+
 The add-on consists of three main panels:
 ### CC3 Import
 #### Import Character
@@ -29,7 +30,9 @@ Some notes on what to export from CC3:
 - To create character morphs the export must generate an .fbxkey or .objkey file.
 - For **OBJ** exports, only the **OBJ**->**Nude Character in Bind Pose** will generate an .objkey file.
 - For **FBX** exports, the **FBX Options** parameter should be set to **Mesh Only** to generate an .fbxkey file,
+
 _or_
+
 - to **Mesh and Motion** with the **Include Motion** parameter set to **Callibration**
 ### CC3 Scene Tools
 
