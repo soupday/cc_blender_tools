@@ -1,6 +1,10 @@
 # CC3 Blender Tools
 Add-on for importing and auto setup of Character Creator 3 character exports.
 
+Using Blender in the Character Creator 3 pipeline can often feel like hitting a brick wall. Spending potentially hours having to get the import settings correct, setting up the materials often with hundreds of textures, or just having to forgoe the materials all-together and work with just basic solid shading.
+
+This add-on aims to reduce that time spent getting characters into Blender down to just a few seconds and make use of as many of the exported textures as possible.
+
 ## Installation, Updating, Removal
 ### To Install
 - Download the latest release [0.1-alpha](https://github.com/soupday/cc3_blender_tools/archive/0_1_alpha.zip).
@@ -85,7 +89,7 @@ In this panel there are some functions to quickly create a few different lightin
     * FBX exports should be imported back into CC3 using the **File**->**Import** menu _or_ the **Create**->**Cloth, Hair, Acc ( With FbxKey )**, these appear to do the same thing and will replace the current character with the imported one. It will ask for the **Decrypt Key File**, this is the .fbxkey generated with the original character export from CC3. It's important to note that the character is imported without any materials as the blender fbx export does not support material data, or it's in a form that CC3 does not recognize. Once imported a morph of the character can be created using the **Create**->**Head & Body Morph Sliders** menu, or an accessory can be created from any of the imported objects.
     * OBJ exports should be imported back into CC3 using the **Create**->**Morph Slider** Editor menu. Select either the Default Morph (for full body morphs) or Current Morph (for relative morphs) as the **Source Morph**, then select the .obj file exported as the **Target Morph**, with the original characters .objkey for the **Checksum File Path**
 #### Accessory Editing
-- **Import For Accessory** - Imports the character for accessory creation / editing. Sets the material build mode to basic for better viewport performance and sets the scene lighting to **CC3 Default** or to **Solid Matcap** if the .obj character has no materials. (this can be changed in the preferences). This does not require an fbxkey or objkey if making non skin weighted accessories.
+- **Import For Accessory** - Imports the character for accessory creation / editing. Sets the material build mode to basic for better viewport performance and sets the scene lighting to **CC3 Default** or to **Solid Matcap** if the .obj character has no materials (this can be changed in the preferences). This does not require an fbxkey or objkey if making non skin weighted accessories.
 - **Export Accessory** - Exports the selected object(s) as accessories. These should be imported into CC3 using the **Create->Accessory** menu. The accessory will be imported without any materials. If the character was originally exported from CC3 in **Current Pose** the accessory export _should_ import back into CC3 in exactly the right place.
 #### Settings
 - **Auto Lighting** - The auto setup of the lighting can be turned off here if you don't want the add-on to mess with your lighting or render settings. It can also be turned off completely in the preferences.
