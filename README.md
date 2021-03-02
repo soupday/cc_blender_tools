@@ -81,7 +81,7 @@ In this panel there are some functions to quickly create a few different lightin
 - **Courtyard Left** - Rendered shading with left sided softer 3 point lighting with contact shadows using the Courtyard HDRi.
 - **3 Point Tracking & Camera** - Rendered shading with tracking lights and camera, independent light and camera targets. It also sets up the world and compositor node trees ready for custom mapped HDRi in the world nodes and glare and lens distortion in the compositor.
 ### CC3 Pipeline
-The purpose of this panel is to provide quick methods of importing and exporting characters and accessories for specific purposes.
+The purpose of this panel is to provide quick methods of importing and exporting characters and accessories for specific purposes. As such this panel goes first in the tool tab, but it is described last here, in order to fully understand what it does.
 #### Render / Quality
 - **Import Character** - Imports the character for rendering. Sets the material build mode to advanced and applies the **Studio Right** scene lighting setup.
 #### Morph Editing
