@@ -3,7 +3,7 @@ An add-on for importing and automatically setting up materials for Character Cre
 
 Using Blender in the Character Creator 3 pipeline can often feel like hitting a brick wall. Spending potentially hours having to get the import settings correct and setting up the materials often with hundreds of textures.
 
-This add-on aims to reduce that time spent getting characters into Blender down to just a few seconds and make use of as many of the exported textures as possible to work in the highest quality possible.
+This add-on aims to reduce that time spent getting characters into Blender down to just a few seconds and make use of as many of the exported textures as possible so that character artists can work in the highest quality possible using Blender.
 
 ### How it works
 The character exports from CC3 have a very rigid naming structure. The folders the textures are stored in always follow the same pattern e.g. _filename_.obj exports exporting all textures into the _filename_ folder and .fbx exports store textures in the _filename_.fbm folder and in textures/_filename_/_objectname_/_meshname_/_materialname_ folders amongst others. All objects in the export have unique names and unique material names with all texture names following a similar convention such as _materialname_ + _type_ e.g. 'Std_Skin_Head_Diffuse.png' or 'Vest_Normal.png'. Thus textures for each material can be easily discovered without the need for deep recursive scans for texture files. The add-on then reconstructs the material nodes, for each object and material, using these textures and the material setup parameters as needed (This bit isn't so easy...).
