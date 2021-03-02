@@ -2,6 +2,10 @@
 Add-on for importing and auto setup of Character Creator 3 character exports.
 
 ## Installation
-1. Download the "Source code (zip)" from the [latest release](https://github.com/soupday/cc3_blender_tools/releases/tag/0_1_alpha) (in the right hand column).
+1. Download the latest release [0.1-alpha](https://github.com/soupday/cc3_blender_tools/archive/0_1_alpha.zip).
+2. In Blender go to menu **Edit**->**Preferences** then select **Add-ons**.
+3. Click the **Install** button and navigate to where you downloaded the zip file, select the file and click **Install Add-on**.
+4. Activate the add-on by clicking the checkbox next to **Characters: CC3 Tools**.
+5. The add-ons functionality is available through the **CC3** Tab in the tool menu to the right of the main viewport. Press _N_ to show the tools if they are hidden.
 
 
