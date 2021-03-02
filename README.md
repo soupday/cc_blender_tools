@@ -30,8 +30,8 @@ The import character button will import a .fbx or .obj export from CC3. The add-
 
 Some notes on what to export from CC3:
 - All **FBX** (To Blender) and **OBJ** character exports can be used for rendering or general use, but the **File**->**Export**->**OBJ**->**Nude Character in Bind Pose** menu export does not export any materials.
-- FBX export options should set **Target Tool Preset** to Blender.
-- OBJ export options should check the **Export Materials** box (if available).
+- FBX export (**File**->**Export**->**FBX (Clothed Character)** menu) options should set **Target Tool Preset** to Blender.
+- OBJ export (**File**->**Export**->**OBJ**->**Character with Current Pose** menu) options should check the **Export Materials** box (if available).
 - To create _character morphs_ the export must generate an .fbxkey or .objkey file:
     * For **OBJ** exports, only the **File**->**Export**->**OBJ**->**Nude Character in Bind Pose** menu exporter will generate an .objkey file.
     * For **FBX** exports use **File**->**Export**->**FBX (Clothed Character)** menu where the **FBX Options** parameter should be set to **Mesh Only** to generate an .fbxkey file,
