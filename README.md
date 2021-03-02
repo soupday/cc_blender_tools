@@ -64,7 +64,7 @@ Material parameters will be adjusted in real time as the parameter sliders are c
 
 #### Utilities
 Here are some useful utility functions.
-- **Open Mouth** - The mouth can be opened to see within the mouth cavity. This operation uses a bone constraint and does overwrite any animation or pose, Set this back to zero to remove the contraint.
+- **Open Mouth** - The mouth can be opened to see within the mouth cavity. This operation uses a bone constraint and does not overwrite any animation or pose, Set this back to zero to remove the contraint.
 - **Reset Parameters** - Resets all parameters back to their defaults and updates the character materials.
 - **Rebuild Node Groups** - This will delete and rebuild the node groups for the advanced materials. Materials will need to be rebuilt afterwards.
 ### CC3 Scene Tools
@@ -73,8 +73,21 @@ In this panel there are some functions to quickly create a few different lightin
 - **Blender Default** - Material shading with a single point light and the forest HDRi, the default blender setup.
 - **CC3 Default** - Material shading with a 3 point lighting setup roughly the same as the CC3 application default character lighting.
 - **Studio Right** - Rendered shading with right sided 3 point lighting with contact shadows using the Studio HDRi.
-- **Courtyard Left** - Rendered shading with left sided 3 point lighting with contact shadows using the Courtyard HDRi.
+- **Courtyard Left** - Rendered shading with left sided softer 3 point lighting with contact shadows using the Courtyard HDRi.
 - **3 Point Tracking & Camera** - Rendered shading with tracking lights and camera, independent light and camera targets. It also sets up the world and compositor node trees ready for custom mapped HDRi in the world nodes and glare and lens distortion in the compositor.
 ### CC3 Pipeline
 
-
+#### Render / Quality
+- **Import Character** - Imports the character for rendering. Sets the material build mode to advanced and applies the **Studio Right** scene lighting setup.
+#### Morph Editing
+- **Import For Morph** - Imports the character for morph editing. Sets the material build mode to basic for better viewport performance and sets the scene lighting to **CC3 Default**. If the imported character file has no corresponding .fbxkey or .objkey it will show a warning message that this character cannot be used for creating character morphs.
+- **Export Character Morph** - Exports the character, with the same filetype as imported, for reimport back into CC3.
+    * FBX exports should be imported back into CC3 using the **File**->**Import** menu _or_ the **Create**->**Cloth, Hair, Acc ( With FbxKey )**, these appear to do the same thing and will replace the current character with the imported one. It will ask for the **Decrypt Key File**, this is the .fbxkey generated with the original character export from CC3. It's important to note that the character is imported without any materials as the blender fbx export does not support material data, or it's in a form that CC3 does not recognize. Once imported a morph of the character can be created using the **Create**->**Head & Body Morph Sliders** menu, or an accessory can be created from any of the imported objects.
+    * OBJ exports should be imported back into CC3 using the **Create**->**Morph Slider** Editor menu. Select either the Default Morph (for full body morphs) or Current Morph (for relative morphs) as the **Source Morph**, then select the .obj file exported as the **Target Morph**, with the original characters .objkey for the **Checksum File Path**
+#### Accessory Editing
+- **Import For Accessory** - Imports the character for accessory creation / editing. Sets the material build mode to basic for better viewport performance and sets the scene lighting to **CC3 Default**. This does not require an fbxkey or objkey if making non skin weighted accessories. If the character was exported in **Current Pose** the accessory export _should_ import back into CC3 in exactly the right place.
+- **Export Accessory** - Exports the selected object(s) as accessories. These should be imported into CC3 using the **Create->Accessory** menu. The accessory will be imported without any materials.
+#### Settings
+- **Auto Lighting** - The auto setup of the lighting can be turned off here if you don't want the add-on to mess with your lighting or render settings.
+#### Cleanup
+- **Delete Character** - This will delete the character and any associated objects, meshes, materials, nodes, images, armature actions and shapekeys. Basically deletes everything not nailed down. **Do not press this if there is anything you want to keep!**
