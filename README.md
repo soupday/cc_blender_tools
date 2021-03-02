@@ -34,7 +34,7 @@ The import character button will import a .fbx or .obj export from CC3. The add-
 Some notes on what to export from CC3:
 - All **FBX** (To Blender) and **OBJ** character exports can be used for rendering or general use, but the **File**->**Export**->**OBJ**->**Nude Character in Bind Pose** menu export does not export any materials.
 - FBX export (**File**->**Export**->**FBX (Clothed Character)** menu) options should set **Target Tool Preset** to **Blender**.
-- OBJ export (**File**->**Export**->**OBJ**->**Character with Current Pose** menu) options should check the **Export Materials** box (if available).
+- OBJ export (**File**->**Export**->**OBJ**->**Character with Current Pose** menu) options should check the **Export Materials** box.
 - To create _character morphs_ the export must generate an .fbxkey or .objkey file:
     * For **OBJ** exports, only the **File**->**Export**->**OBJ**->**Nude Character in Bind Pose** menu exporter will generate an .objkey file.
     * For **FBX** exports use **File**->**Export**->**FBX (Clothed Character)** menu where the **FBX Options** parameter should be set to **Mesh Only** to generate an .fbxkey file,
@@ -84,7 +84,7 @@ In this panel there are some functions to quickly create a few different lightin
 - **Courtyard Left** - Rendered shading with left sided softer 3 point lighting with contact shadows using the Courtyard HDRi.
 - **3 Point Tracking & Camera** - Rendered shading with tracking lights and camera, independent light and camera targets. It also sets up the world and compositor node trees ready for custom mapped HDRi in the world nodes and glare and lens distortion in the compositor.
 ### CC3 Pipeline
-The purpose of this panel is to provide quick methods of importing and exporting characters and accessories for specific purposes. As such this panel goes first in the tool tab, but it is described last here, in order to fully understand what it does.
+The purpose of this panel is to provide quick methods of importing and exporting characters and accessories for specific purposes in order to streamline as much as possible the pipeline between CC3 and Blender. As such this panel goes first in the tool tab, but it is described last here, in order to fully understand what it does.
 #### Render / Quality
 - **Import Character** - Imports the character for rendering. Sets the material build mode to advanced and applies the **Studio Right** scene lighting setup.
 #### Morph Editing
