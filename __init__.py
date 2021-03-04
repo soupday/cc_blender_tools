@@ -2,13 +2,22 @@ import bpy
 import os
 import mathutils
 
+# DONE
+#   - When no texture maps are present for an advanced node group, does not generate the node group.
 # TODO
-# test daz converted textures?
+#   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
+#       (Might help with Daz conversions and/or 3rd party characters that have non-standard or unexpected material names.)
+#   - Function to reset preferences to default.
+#   - Use physX weight maps to generate vertex pin weights for cloth/hair physics (Optional in the preferences).
+#       (There's a modifier that can generate vertex weights from a texture.)
+#   - Automatically setup cloth/hair physics (Optional in the preferences)
+#   - Automatically generate full IK rig with Rigify or Auto-Rig Pro (Optional in the preferences)
+#       (Not sure if this is possible to invoke these add-ons from code...)
 
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 1, 0),
+    "version": (0, 2, 0),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
