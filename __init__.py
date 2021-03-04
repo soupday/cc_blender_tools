@@ -7,16 +7,17 @@ import mathutils
 #   - When no texture maps are present for an advanced node group, does not generate the node group.
 # TODO
 #   - When exporting morph characters with .fbxkey or .objkey files, copy the key with the export.
+#   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
+#       (Might help with Daz conversions and/or 3rd party characters that have non-standard or unexpected material names.)
+#   - Function to reset preferences to default values.
+#   - Use physX weight maps to generate vertex pin weights for cloth/hair physics (Optional in the preferences).
+#       (There's a modifier that can generate vertex weights from a texture.)
+#   - Automatically setup cloth/hair physics (Optional in the preferences)
+# FUTURE
 #   - When exporting FBX morph characters the material setup is not compatible with the FBX exporter and no materials transfer into CC3,
 #       perhaps copy the character and setup dummy materials with just the base textures so that CC3 can pick up some of them,
 #       or make the morph import setup a 'Compatible' shader setup that the FBX exporter and CC3 can work with.
 #       i.e. just the diffuse, specular, metallic, roughness, opacity, normal/bump
-#   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
-#       (Might help with Daz conversions and/or 3rd party characters that have non-standard or unexpected material names.)
-#   - Function to reset preferences to default.
-#   - Use physX weight maps to generate vertex pin weights for cloth/hair physics (Optional in the preferences).
-#       (There's a modifier that can generate vertex weights from a texture.)
-#   - Automatically setup cloth/hair physics (Optional in the preferences)
 #   - Automatically generate full IK rig with Rigify or Auto-Rig Pro (Optional in the preferences)
 #       (Not sure if this is possible to invoke these add-ons from code...)
 
