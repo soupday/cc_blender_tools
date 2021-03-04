@@ -2,6 +2,7 @@ import bpy
 import os
 import mathutils
 
+# Version: 0.2.x
 # DONE
 #   - When no texture maps are present for an advanced node group, does not generate the node group.
 # TODO
