@@ -3,8 +3,7 @@ import os
 import mathutils
 
 # TODO
-#   3. prefs for setting lighting automatically etc...
-#   6. defaults for node group inputs
+# test daz converted textures?
 
 bl_info = {
     "name": "CC3 Tools",
@@ -1260,11 +1259,15 @@ def connect_base_color(obj, mat, shader):
     prop_ao, ao_value = get_ao_strength(obj, mat)
     prop_group = get_material_group(obj, mat)
 
+    count = count_maps(diffuse_image, ao_image, blend_image, mcmao_image)
+    if count == 0:
+        return None
+
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     reset_cursor()
     # space
-    advance_cursor(-count_maps(diffuse_image, ao_image, blend_image, mcmao_image))
+    advance_cursor(-count)
     # maps
     ao_node = blend_node = diffuse_node = mcmao_node = None
     if mcmao_image is not None:
@@ -1324,14 +1327,16 @@ def connect_subsurface(obj, mat, shader, diffuse_node):
     prop_falloff, sss_falloff = get_sss_falloff(obj, mat)
     prop_group = get_material_group(obj, mat)
 
-    if sss_image is None and trans_image is None and not is_hair_object(obj, mat) and not is_skin_material(mat):
-        return None
-
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
+
+    count = count_maps(trans_image, sss_image)
+    if count == 0 and not is_hair_object(obj, mat) and not is_skin_material(mat):
+        return None
+
     reset_cursor()
     # space
-    advance_cursor(-count_maps(trans_image, sss_image))
+    advance_cursor(-count)
     # maps
     sss_node = trans_node = None
     if trans_image is not None:
@@ -1346,10 +1351,12 @@ def connect_subsurface(obj, mat, shader, diffuse_node):
     # values
     set_node_input(group_node, "Radius", sss_radius * UNIT_SCALE)
     set_node_input(group_node, "Falloff", sss_falloff)
+    if diffuse_node is None:
+        set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
     # links
-    link_nodes(links, diffuse_node, "Base Color", group_node, "Diffuse")
-    #link_nodes(links, diffuse_node, "Diffuse", group_node, "Diffuse")
-    link_nodes(links, diffuse_node, "Color", group_node, "Diffuse")
+    else:
+        link_nodes(links, diffuse_node, "Base Color", group_node, "Diffuse")
+        link_nodes(links, diffuse_node, "Color", group_node, "Diffuse")
     link_nodes(links, sss_node, "Color", group_node, "Scatter")
     link_nodes(links, trans_node, "Color", group_node, "Transmission")
     link_nodes(links, group_node, "Subsurface", shader, "Subsurface")
@@ -1379,9 +1386,13 @@ def connect_msr(obj, mat, shader):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
+    count = count_maps(mask_image, specular_image, roughness_image, metallic_image)
+    if count == 0:
+        return None
+
     reset_cursor()
     # space
-    advance_cursor(-count_maps(mask_image, specular_image, roughness_image, metallic_image))
+    advance_cursor(-count)
     # maps
     metallic_node = specular_node = roughness_node = mask_node = None
     if roughness_image is not None:
@@ -1464,11 +1475,13 @@ def connect_normal(obj, mat, shader):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    reset_cursor()
+    count = count_maps(bump_image, mask_image, micro_image, blend_image, normal_image)
+    if count == 0:
+        return None
 
-    advance_cursor(-5)
+    reset_cursor()
     # space
-    advance_cursor(5 - count_maps(bump_image, mask_image, micro_image, blend_image, normal_image))
+    advance_cursor(-count)
     # maps
     if bump_image is not None:
         bump_node = make_image_node(nodes, bump_image, "bump_tex")
