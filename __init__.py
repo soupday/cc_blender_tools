@@ -1,23 +1,24 @@
 import bpy
 import os
+from bpy.types import VIEW3D_OT_edit_mesh_extrude_individual_move
 import mathutils
+import shutil
 
 # Version: 0.2.x
 # DONE
 #   - When no texture maps are present for an advanced node group, does not generate the node group.
+#   - When exporting morph characters with .fbxkey or .objkey files, the key file is copied along with the export.
+#   - Function added to reset preferences to default values.
+#   - Added a Compatible material mode, which sets up very basic materials that when exported to CC3, it imports
+#       some of the textures properly. Not all of them unfortunately.
 # TODO
-#   - When exporting morph characters with .fbxkey or .objkey files, copy the key with the export.
-#   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
-#       (Might help with Daz conversions and/or 3rd party characters that have non-standard or unexpected material names.)
-#   - Function to reset preferences to default values.
 #   - Use physX weight maps to generate vertex pin weights for cloth/hair physics (Optional in the preferences).
 #       (There's a modifier that can generate vertex weights from a texture.)
 #   - Automatically setup cloth/hair physics (Optional in the preferences)
+#   - When setting the alpha mode using the quick fix buttons, remember it in the material_cache
 # FUTURE
-#   - When exporting FBX morph characters the material setup is not compatible with the FBX exporter and no materials transfer into CC3,
-#       perhaps copy the character and setup dummy materials with just the base textures so that CC3 can pick up some of them,
-#       or make the morph import setup a 'Compatible' shader setup that the FBX exporter and CC3 can work with.
-#       i.e. just the diffuse, specular, metallic, roughness, opacity, normal/bump
+#   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
+#       (Might help with Daz conversions and/or 3rd party characters that have non-standard or unexpected material names.)
 #   - Automatically generate full IK rig with Rigify or Auto-Rig Pro (Optional in the preferences)
 #       (Not sure if this is possible to invoke these add-ons from code...)
 
@@ -48,6 +49,7 @@ SCLERA_NORMAL_MAP = ["scleran", "scleranormal"]
 IRIS_NORMAL_MAP = ["irisn", "irisnormal"]
 MOUTH_GRADIENT_MAP = ["gradao", "gradientao"]
 TEETH_GUMS_MAP = ["gumsmask"]
+WEIGHT_MAP = ["weightmap"]
 
 # lists of the suffixes used by the modifier maps
 # (not connected directly to input but modify base inputs)
@@ -75,16 +77,16 @@ cursor_top = mathutils.Vector((0,0))
 max_cursor = mathutils.Vector((0,0))
 new_nodes = []
 
-LOG_LEVEL = 1
-
 def log_info(msg):
+    prefs = bpy.context.preferences.addons[__name__].preferences
     """Log an info message to console."""
-    if LOG_LEVEL >= 2:
+    if prefs.log_level == "ALL":
         print(msg)
 
 def log_warn(msg):
+    prefs = bpy.context.preferences.addons[__name__].preferences
     """Log a warning message to console."""
-    if LOG_LEVEL >= 1:
+    if prefs.log_level == "ALL" or prefs.log_level == "WARN":
         print("Warning: " + msg)
 
 def log_error(msg):
@@ -1263,6 +1265,105 @@ def connect_basic_material(obj, mat, shader):
 
     return
 
+# the 'Compatible' material is the bare minimum required to export the corrent textures with the FBX
+# it will connect just the diffuse, metallic, specular, roughness, opacity and normal/bump
+def connect_compat_material(obj, mat, shader):
+    props = bpy.context.scene.CC3ImportProps
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    # Base Color
+    #
+    reset_cursor()
+    diffuse_image = find_material_image(mat, BASE_COLOR_MAP)
+    if (diffuse_image is not None):
+        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
+        link_nodes(links, diffuse_node, "Color", shader, "Base Color")
+
+    # Metallic
+    #
+    reset_cursor()
+    metallic_image = find_material_image(mat, METALLIC_MAP)
+    metallic_node = None
+    if metallic_image is not None:
+        metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
+        link_nodes(links, metallic_node, "Color", shader, "Metallic")
+
+    # Specular
+    #
+    reset_cursor()
+    specular_image = find_material_image(mat, SPECULAR_MAP)
+    if specular_image is not None:
+        specular_node = make_image_node(nodes, specular_image, "specular_tex")
+        link_nodes(links, specular_node, "Color", shader, "Specular")
+    if is_skin_material(mat):
+        set_node_input(shader, "Specular", 0.2)
+    if is_eye_material(mat):
+        set_node_input(shader, "Specular", 0.8)
+
+    # Roughness
+    #
+    reset_cursor()
+    roughness_image = find_material_image(mat, ROUGHNESS_MAP)
+    if roughness_image is not None:
+        roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
+        link_nodes(links, roughness_node, "Color", shader, "Roughness")
+    if is_eye_material(mat):
+        set_node_input(shader, "Roughness", 0)
+
+    # Emission
+    #
+    reset_cursor()
+    emission_image = find_material_image(mat, EMISSION_MAP)
+    emission_node = None
+    if emission_image is not None:
+        emission_node = make_image_node(nodes, emission_image, "emission_tex")
+        link_nodes(links, emission_node, "Color", shader, "Emission")
+
+    # Alpha
+    #
+    reset_cursor()
+    alpha_image = find_material_image(mat, ALPHA_MAP)
+    alpha_node = None
+    if alpha_image is not None:
+        alpha_node = make_image_node(nodes, alpha_image, "opacity_tex")
+        file = os.path.split(alpha_image.filepath)[1]
+        if "_diffuse." in file.lower() or "_albedo." in file.lower():
+            link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
+        else:
+            link_nodes(links, alpha_node, "Color", shader, "Alpha")
+    # material alpha blend settings
+    if is_hair_object(obj, mat) or is_eyelash_material(mat):
+        set_material_alpha(mat, "HASHED")
+    elif is_eye_occlusion_material(mat) or is_tearline_material(mat):
+        set_material_alpha(mat, props.blend_mode)
+    elif shader.inputs["Alpha"].default_value < 1.0:
+        set_material_alpha(mat, props.blend_mode)
+    else:
+        set_material_alpha(mat, "OPAQUE")
+
+    # Normal
+    #
+    reset_cursor()
+    normal_image = find_material_image(mat, NORMAL_MAP)
+    bump_image = find_material_image(mat, BUMP_MAP)
+    normal_node = bump_node = normalmap_node = bumpmap_node = None
+    if normal_image is not None:
+        normal_node = make_image_node(nodes, normal_image, "normal_tex")
+        advance_cursor()
+        normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
+        link_nodes(links, normal_node, "Color", normalmap_node, "Color")
+        link_nodes(links, normalmap_node, "Normal", shader, "Normal")
+    elif bump_image is not None:
+        bump_node = make_image_node(nodes, bump_image, "bump_tex")
+        advance_cursor()
+        bumpmap_node = make_shader_node(nodes, "ShaderNodeBump", 0.7)
+        advance_cursor()
+        set_node_input(bumpmap_node, "Distance", 0.002)
+        link_nodes(links, bump_node, "Color", bumpmap_node, "Height")
+        link_nodes(links, bumpmap_node, "Normal", shader, "Normal")
+
+    return
 
 def connect_base_color(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
@@ -1557,6 +1658,37 @@ node_groups = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "col
                "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer",
                "eye_occlusion_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping"]
 
+def remove_weight_maps(obj):
+    for mod in obj.modifiers:
+        if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
+            obj.modifiers.remove(mod)
+
+def attach_weight_map(obj, mat):
+    weight_map = find_material_image(mat, WEIGHT_MAP)
+    if weight_map is not None:
+        tex_name = mat.name + "_Weight"
+        tex = None
+        for t in bpy.data.textures:
+            if tex_name in t.name:
+                tex = t
+        if tex is None:
+            tex = bpy.data.textures.new(unique_name(tex_name), "IMAGE")
+        tex.image = weight_map
+        if "_PhysXWeightMap" not in obj.vertex_groups:
+            obj.vertex_groups.new(name = "_PhysXWeightMap")
+        mod = obj.modifiers.new(unique_name(mat.name + "_WeightMix"), "VERTEX_WEIGHT_EDIT")
+        mod.mask_texture = tex
+        mod.use_add = True
+        mod.use_remove = True
+        mod.add_threshold = 0.01
+        mod.remove_threshold = 0.01
+        mod.vertex_group = "_PhysXWeightMap"
+        mod.default_weight = 1
+        mod.falloff_type = 'LINEAR'
+        mod.invert_falloff = True
+        mod.mask_constant = 1
+        mod.mask_tex_mapping = 'UV'
+        mod.mask_tex_use_channel = 'INT'
 
 def get_node_group(name):
     for group in bpy.data.node_groups:
@@ -1704,7 +1836,12 @@ def process_material(obj, mat):
 
     clear_cursor()
 
-    if is_eye_material(mat):
+    if props.setup_mode == "COMPAT":
+        connect_compat_material(obj, mat, shader)
+
+        move_new_nodes(-600, 0)
+
+    elif is_eye_material(mat):
 
         if props.setup_mode == "BASIC":
             connect_basic_eye_material(obj, mat, shader)
@@ -1743,6 +1880,7 @@ def process_material_slots(obj):
     for slot in obj.material_slots:
         log_info("Processing Material: " + slot.material.name)
         process_material(obj, slot.material)
+        attach_weight_map(obj, slot.material)
 
 
 def scan_for_hair_object(obj):
@@ -1766,6 +1904,7 @@ def process_object(obj, objects_processed):
     if props.hair_object is None:
         props.hair_object = scan_for_hair_object(obj)
 
+    remove_weight_maps(obj)
     # process any materials found in a mesh object
     if obj.type == "MESH":
         process_material_slots(obj)
@@ -1773,8 +1912,6 @@ def process_object(obj, objects_processed):
     # process child objects
     for child in obj.children:
         process_object(child, objects_processed)
-
-
 
 def reset_nodes(mat):
 
@@ -1817,7 +1954,6 @@ def get_material_dir(base_dir, character_name, import_type, obj, mat):
     elif import_type == "obj":
         return os.path.join(base_dir, character_name)
 
-
 def cache_object_materials(obj):
     global image_list
     props = bpy.context.scene.CC3ImportProps
@@ -1834,6 +1970,7 @@ def cache_object_materials(obj):
             if slot.material.node_tree is not None:
                 cache = props.material_cache.add()
                 cache.material = slot.material
+                cache.object = obj
                 cache.dir = get_material_dir(base_dir, character_name, type, obj, slot.material)
                 nodes = slot.material.node_tree.nodes
                 for node in nodes:
@@ -2106,9 +2243,10 @@ class CC3Import(bpy.types.Operator):
         prefs = context.preferences.addons[__name__].preferences
 
         # use basic materials for morph/accessory editing as it has better viewport performance
-        if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
+        if self.param == "IMPORT_MORPH":
+            props.setup_mode = prefs.morph_mode
+        elif self.param == "IMPORT_ACCESSORY":
             props.setup_mode = prefs.pipeline_mode
-
         # use advanced materials for quality/rendering
         elif self.param == "IMPORT_QUALITY":
             props.setup_mode = prefs.quality_mode
@@ -2117,14 +2255,16 @@ class CC3Import(bpy.types.Operator):
 
         # check for fbxkey
         if props.import_type == "fbx":
-            props.import_haskey = os.path.exists(os.path.join(props.import_dir, props.import_name + ".fbxkey"))
+            props.import_key_file = os.path.join(props.import_dir, props.import_name + ".fbxkey")
+            props.import_haskey = os.path.exists(props.import_key_file)
             if self.param == "IMPORT_MORPH" and not props.import_haskey:
                 message_box("This character export does not have an .fbxkey file, it cannot be used to create character morphs in CC3.", "FBXKey Warning")
 
 
         # check for objkey
         if props.import_type == "obj":
-            props.import_haskey = os.path.exists(os.path.join(props.import_dir, props.import_name + ".ObjKey"))
+            props.import_key_file = os.path.join(props.import_dir, props.import_name + ".ObjKey")
+            props.import_haskey = os.path.exists(props.import_key_file)
             if self.param == "IMPORT_MORPH" and not props.import_haskey:
                 message_box("This character export does not have an .ObjKey file, it cannot be used to create character morphs in CC3.", "OBJKey Warning")
 
@@ -2294,11 +2434,7 @@ class CC3Export(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
 
         if self.param == "EXPORT_MORPH" or self.param == "EXPORT":
-            export_anim = self.use_anim
-            mode = props.export_mode
-            if self.param == "EXPORT_MORPH":
-                export_anim = False
-                mode = props.pipeline_mode
+            export_anim = self.use_anim and self.param != "EXPORT_MORPH"
             props.import_file = self.filepath
             dir, name = os.path.split(self.filepath)
             type = name[-3:].lower()
@@ -2310,37 +2446,38 @@ class CC3Export(bpy.types.Operator):
 
             if type == "fbx":
 
-                if mode == "IMPORTED":
+                # don't bring anything else with a morph export
+                if self.param == "EXPORT_MORPH" and props.import_haskey:
                     bpy.ops.object.select_all(action='DESELECT')
-                    for p in props.import_objects:
-                        if p.object is not None:
-                            if p.object.type == "ARMATURE":
-                                select_all_child_objects(p.object)
-                elif mode == "SELECTED":
-                    for obj in bpy.context.selected_objects:
-                        if obj.type == "ARMATURE":
-                            select_all_child_objects(obj)
-                elif mode == "BOTH":
-                    for obj in bpy.context.selected_objects:
-                        if obj.type == "ARMATURE":
-                            select_all_child_objects(obj)
-                    for p in props.import_objects:
-                        if p.object is not None:
-                            if p.object.type == "ARMATURE":
-                                select_all_child_objects(p.object)
+
+                for p in props.import_objects:
+                    if p.object is not None and p.object.type == "ARMATURE":
+                        select_all_child_objects(p.object)
 
                 bpy.ops.export_scene.fbx(filepath=self.filepath,
                         use_selection = True,
                         bake_anim = export_anim,
                         add_leaf_bones=False)
 
+                if props.import_haskey:
+                    try:
+                        key_dir, key_file = os.path.split(props.import_key_file)
+                        old_name, key_type = os.path.splitext(key_file)
+                        new_key_path = os.path.join(dir, name + key_type)
+                        shutil.copyfile(props.import_key_file, new_key_path)
+                    except:
+                        log_error("Unable to copy keyfile: " + props.import_key_file + " to: " + new_key_path)
+
             else:
 
-                if mode == "IMPORTED":
-                    for p in props.import_objects:
-                        if p.object is not None:
-                            if p.object.type == "MESH":
-                                p.object.select_set(True)
+                # don't bring anything else with a morph export
+                if self.param == "EXPORT_MORPH" and props.import_haskey:
+                    bpy.ops.object.select_all(action='DESELECT')
+
+                # select all the imported objects
+                for p in props.import_objects:
+                    if p.object is not None and p.object.type == "MESH":
+                        p.object.select_set(True)
 
                 if self.param == "EXPORT_MORPH":
                     bpy.ops.export_scene.obj(filepath=self.filepath,
@@ -2357,11 +2494,20 @@ class CC3Export(bpy.types.Operator):
                             keep_vertex_order = True,
                             use_vertex_groups = True)
 
+                if props.import_haskey:
+                    try:
+                        key_dir, key_file = os.path.split(props.import_key_file)
+                        old_name, key_type = os.path.splitext(key_file)
+                        new_key_path = os.path.join(dir, name + key_type)
+                        shutil.copyfile(props.import_key_file, new_key_path)
+                    except:
+                        log_error("Unable to copy keyfile: " + props.import_key_file + "\n    to: " + new_key_path)
+
             # restore selection
-            bpy.ops.object.select_all(action='DESELECT')
-            for obj in old_selection:
-                obj.select_set(True)
-            bpy.context.view_layer.objects.active = old_active
+            #bpy.ops.object.select_all(action='DESELECT')
+            #for obj in old_selection:
+            #    obj.select_set(True)
+            #bpy.context.view_layer.objects.active = old_active
 
         elif self.param == "EXPORT_ACCESSORY":
             props.import_file = self.filepath
@@ -2414,18 +2560,7 @@ class CC3Export(bpy.types.Operator):
             self.filename_ext = "." + props.import_type
         # exporting for pipeline depends on what was imported...
         elif self.param == "EXPORT_MORPH" or self.param == "EXPORT":
-            mode = props.export_mode
-            if self.param == "EXPORT_MORPH":
-                mode = props.pipeline_mode
-            # exporting imported or both, use the same file type as imported
-            if mode == "IMPORTED" or mode == "BOTH":
-                self.filename_ext = "." + props.import_type
-            # exporting selected, use fbx only if there is an armature present
-            elif mode == "SELECTED":
-                self.filename_ext = ".obj"
-                for obj in bpy.context.selected_objects:
-                    if obj.type == "ARMATURE":
-                        self.filename_ext = ".fbx"
+            self.filename_ext = "." + props.import_type
         else:
             self.filename_ext = ".none"
 
@@ -2998,6 +3133,9 @@ def quick_set_execute(param):
     if param == "RESET":
         reset_parameters()
 
+    elif param == "RESET_PREFS":
+        reset_preferences()
+
     elif param == "UPDATE_ALL":
         for p in props.import_objects:
             if p.object is not None:
@@ -3351,6 +3489,15 @@ def refresh_parameters(mat):
         if NODE_PREFIX in node.name:
             set_node_from_property(node)
 
+def reset_preferences():
+    prefs = bpy.context.preferences.addons[__name__].preferences
+    prefs.quality_lighting = "STUDIO"
+    prefs.pipeline_lighting = "CC3"
+    prefs.morph_lighting = "MATCAP"
+    prefs.quality_mode = "ADVANCED"
+    prefs.pipeline_mode = "BASIC"
+    prefs.morph_mode = "COMPAT"
+    prefs.log_level = "ERRORS"
 
 def reset_parameters():
     global block_update
@@ -3472,6 +3619,8 @@ class CC3ObjectPointer(bpy.types.PropertyGroup):
 
 class CC3MaterialCache(bpy.types.PropertyGroup):
     material: bpy.props.PointerProperty(type=bpy.types.Material)
+    compat: bpy.props.PointerProperty(type=bpy.types.Material)
+    object: bpy.props.PointerProperty(type=bpy.types.Object)
     dir: bpy.props.StringProperty(default="")
     diffuse: bpy.props.PointerProperty(type=bpy.types.Image)
     normal: bpy.props.PointerProperty(type=bpy.types.Image)
@@ -3485,25 +3634,14 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     node_id: bpy.props.IntProperty(default=1000)
 
     setup_mode: bpy.props.EnumProperty(items=[
-                        ("BASIC","Basic Materials","Build basic PBR materials."),
-                        ("ADVANCED","Adv. Materials","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
+                        ("BASIC","Basic","Build basic PBR materials."),
+                        ("COMPAT","Compat","Build Very basic PBR materials which will be more compatible with CC3 importer."),
+                        ("ADVANCED","Adv.","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
                     ], default="BASIC")
 
     build_mode: bpy.props.EnumProperty(items=[
                         ("IMPORTED","All Imported","Build materials for all the imported objects."),
                         ("SELECTED","Only Selected","Build materials only for the selected objects.")
-                    ], default="IMPORTED")
-
-    export_mode: bpy.props.EnumProperty(items=[
-                        ("IMPORTED","Imported","Export only the last imported character"),
-                        ("SELECTED","Selected","Export only the selected objects"),
-                        ("BOTH","Both","Export the last imported character and any additional selected objects")
-                    ], default="IMPORTED")
-
-    pipeline_mode: bpy.props.EnumProperty(items=[
-                        ("IMPORTED","Imported","Export only the last imported character"),
-                        ("SELECTED","Selected","Export only the selected objects"),
-                        ("BOTH","Both","Export the last imported character and any additional selected objects")
                     ], default="IMPORTED")
 
     blend_mode: bpy.props.EnumProperty(items=[
@@ -3528,6 +3666,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     import_main_tex_dir: bpy.props.StringProperty(default="")
     import_space_in_name: bpy.props.BoolProperty(default=False)
     import_haskey: bpy.props.BoolProperty(default=False)
+    import_key_file: bpy.props.StringProperty(default="")
 
     auto_lighting: bpy.props.BoolProperty(default=True)
 
@@ -3737,6 +3876,8 @@ class MyPanel(bpy.types.Panel):
                 box = layout.box()
                 if props.setup_mode == "ADVANCED":
                     text = "Build Advanced Materials"
+                elif props.setup_mode == "COMPAT":
+                    text = "Build Compatible Materials"
                 else:
                     text = "Build Basic Materials"
                 op = box.operator("cc3.importer", icon="MATERIAL", text=text)
@@ -4109,29 +4250,6 @@ class MyPanel(bpy.types.Panel):
             op = layout.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
             op.param ="REBUILD_NODE_GROUPS"
 
-class MyPanel2(bpy.types.Panel):
-    bl_idname = "CC3_PT_Export_Settings_Panel"
-    bl_label = "CC3 Export Character"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "CC3"
-
-    def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        layout = self.layout
-
-        layout.separator()
-        split = layout.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-
-        col_1.label(text="Operate On")
-        col_2.prop(props, "export_mode", text="")
-
-        col_1.label(text="Export Character")
-        op = col_2.operator("cc3.exporter", icon="EXPORT", text="To CC3")
-        op.param ="EXPORT"
-
 class MyPanel3(bpy.types.Panel):
     bl_idname = "CC3_PT_Scene_Panel"
     bl_label = "CC3 Scene Tools"
@@ -4256,7 +4374,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("MATCAP","Solid Matcap","Solid shading matcap lighting for sculpting / mesh editing"),
                         ("CC3","CC3 Default","Replica of CC3 default lighting setup"),
                         ("STUDIO","Studio Right","Right facing 3 point lighting with the studio hdri"),
-                        ("COURTYARD","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri")
+                        ("COURTYARD","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri"),
                     ], default="STUDIO", name = "Render / Quality Lighting")
 
     pipeline_lighting: bpy.props.EnumProperty(items=[
@@ -4264,7 +4382,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("MATCAP","Solid Matcap","Solid shading matcap lighting for sculpting / mesh editing"),
                         ("CC3","CC3 Default","Replica of CC3 default lighting setup"),
                         ("STUDIO","Studio Right","Right facing 3 point lighting with the studio hdri"),
-                        ("COURTYARD","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri")
+                        ("COURTYARD","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri"),
                     ], default="CC3", name = "(FBX) Accessory Editing Lighting")
 
     morph_lighting: bpy.props.EnumProperty(items=[
@@ -4272,18 +4390,30 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("MATCAP","Solid Matcap","Solid shading matcap lighting for sculpting / mesh editing"),
                         ("CC3","CC3 Default","Replica of CC3 default lighting setup"),
                         ("STUDIO","Studio Right","Right facing 3 point lighting with the studio hdri"),
-                        ("COURTYARD","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri")
+                        ("COURTYARD","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri"),
                     ], default="MATCAP", name = "(OBJ) Morph Edit Lighting")
 
     quality_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic Materials","Build basic PBR materials for quality / rendering"),
-                        ("ADVANCED","Advanced Materials","Build advanced materials for quality / rendering")
+                        ("ADVANCED","Advanced Materials","Build advanced materials for quality / rendering"),
                     ], default="ADVANCED", name = "Render / Quality Material Mode")
 
+    # = accessory_mode
     pipeline_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic Materials","Build basic PBR materials for character morph / accessory editing"),
-                        ("ADVANCED","Advanced Materials","Build advanced materials for character morph / accessory editing")
-                    ], default="BASIC", name = "Morph / Accessory Material Mode")
+                        ("ADVANCED","Advanced Materials","Build advanced materials for character morph / accessory editing"),
+                    ], default="BASIC", name = "Accessory Material Mode")
+
+    morph_mode: bpy.props.EnumProperty(items=[
+                        ("BASIC","Basic Materials","Build basic PBR materials for character morph / accessory editing"),
+                        ("ADVANCED","Advanced Materials","Build advanced materials for character morph / accessory editing"),
+                    ], default="BASIC", name = "Character Morph Material Mode")
+
+    log_level: bpy.props.EnumProperty(items=[
+                        ("ALL","All","Log everything to console."),
+                        ("WARN","Warnings & Errors","Log warnings and error messages to console."),
+                        ("ERRORS","Just Errors","Log only errors to console."),
+                    ], default="ERRORS", name = "(Debug) Log Level")
 
     def draw(self, context):
         layout = self.layout
@@ -4291,13 +4421,14 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.use_property_split = True
         layout.prop(self, "quality_mode")
         layout.prop(self, "pipeline_mode")
+        layout.prop(self, "morph_mode")
         layout.prop(self, "auto_lighting")
         layout.prop(self, "quality_lighting")
         layout.prop(self, "pipeline_lighting")
         layout.prop(self, "morph_lighting")
-
-
-
+        layout.prop(self, "log_level")
+        op = layout.operator("cc3.quickset", icon="FILE_REFRESH", text="Reset to Defaults")
+        op.param = "RESET_PREFS"
 
 def register():
     bpy.utils.register_class(CC3NodeCoord)
@@ -4306,7 +4437,6 @@ def register():
     bpy.utils.register_class(CC3ImportProps)
     bpy.utils.register_class(MyPanel4)
     bpy.utils.register_class(MyPanel)
-    #bpy.utils.register_class(MyPanel2)
     bpy.utils.register_class(MyPanel3)
     bpy.utils.register_class(CC3Import)
     bpy.utils.register_class(CC3Export)
@@ -4320,10 +4450,9 @@ def unregister():
     bpy.utils.unregister_class(CC3ObjectPointer)
     bpy.utils.unregister_class(CC3MaterialCache)
     bpy.utils.unregister_class(CC3ImportProps)
-    bpy.utils.unregister_class(MyPanel)
-    #bpy.utils.unregister_class(MyPanel2)
-    bpy.utils.unregister_class(MyPanel3)
     bpy.utils.unregister_class(MyPanel4)
+    bpy.utils.unregister_class(MyPanel)
+    bpy.utils.unregister_class(MyPanel3)
     bpy.utils.unregister_class(CC3Import)
     bpy.utils.unregister_class(CC3Export)
     bpy.utils.unregister_class(CC3Scene)
