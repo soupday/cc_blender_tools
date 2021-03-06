@@ -2280,7 +2280,7 @@ class CC3Import(bpy.types.Operator):
 
         # use the cc3 lighting for morph/accessory editing
         if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-            if prefs.auto_lighting and props.auto_lighting:
+            if prefs.lighting_mode == "ON" and props.lighting_mode == "ON":
                 if props.import_type == "fbx":
                     setup_scene_default(prefs.pipeline_lighting)
                 else:
@@ -2291,7 +2291,7 @@ class CC3Import(bpy.types.Operator):
 
         # use portrait lighting for quality mode
         elif self.param == "IMPORT_QUALITY":
-            if prefs.auto_lighting and props.auto_lighting:
+            if prefs.lighting_mode == "ON" and props.lighting_mode == "ON":
                 setup_scene_default(prefs.quality_lighting)
 
         zoom_to_character()
@@ -3635,8 +3635,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     setup_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic","Build basic PBR materials."),
-                        ("COMPAT","Compat","Build Very basic PBR materials which will be more compatible with CC3 importer."),
-                        ("ADVANCED","Adv.","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
+                        ("ADVANCED","Advanced","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
                     ], default="BASIC")
 
     build_mode: bpy.props.EnumProperty(items=[
@@ -3668,7 +3667,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     import_haskey: bpy.props.BoolProperty(default=False)
     import_key_file: bpy.props.StringProperty(default="")
 
-    auto_lighting: bpy.props.BoolProperty(default=True)
+    lighting_mode: bpy.props.EnumProperty(items=[
+                        ("OFF","No Lighting","No automatic lighting and render settings."),
+                        ("ON","Auto Lighting","Automatically sets lighting and render settings, depending on use."),
+                    ], default="OFF")
 
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
@@ -3815,8 +3817,8 @@ def fake_drop_down(row, label, prop_name, prop_bool_value):
 
 
 class MyPanel(bpy.types.Panel):
-    bl_idname = "CC3_PT_Import_Settings_Panel"
-    bl_label = "CC3 Import Character"
+    bl_idname = "CC3_PT_Material_Settings_Panel"
+    bl_label = "CC3 Material Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "CC3"
@@ -3829,14 +3831,21 @@ class MyPanel(bpy.types.Panel):
         prefs = context.preferences.addons[__name__].preferences
 
         if fake_drop_down(layout.box().row(),
-                "1. Import Character",
+                "1. Import Details",
                 "stage1",
                 props.stage1):
             box = layout.box()
-            op = box.operator("cc3.importer", icon="IMPORT", text="Import Character")
-            op.param ="IMPORT"
+            #op = box.operator("cc3.importer", icon="IMPORT", text="Import Character")
+            #op.param ="IMPORT"
             # import details
             if props.import_file != "" or len(props.import_objects) > 0:
+                box.label(text="Name: " + props.import_name)
+                box.label(text="Type: " + props.import_type.upper())
+                if props.import_haskey:
+                    box.label(text="Key File: Yes")
+                else:
+                    box.label(text="Key File: No")
+
                 split = layout.split(factor=0.05)
                 col_1 = split.column()
                 col_2 = split.column()
@@ -3848,6 +3857,8 @@ class MyPanel(bpy.types.Panel):
                         for p in props.import_objects:
                             if p.object is not None:
                                 box.prop(p, "object", text="")
+            else:
+                box.label(text="No Character")
 
         layout.separator()
         if fake_drop_down(layout.box().row(),
@@ -4259,6 +4270,7 @@ class MyPanel3(bpy.types.Panel):
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
+        prefs = context.preferences.addons[__name__].preferences
         layout = self.layout
 
         box = layout.box()
@@ -4301,42 +4313,33 @@ class MyPanel4(bpy.types.Panel):
         layout.use_property_split = False
         layout.use_property_decorate = False
 
-        box = layout.box()
-        box.label(text="Render / Quality", icon="INFO")
+        if prefs.lighting_mode == "ON":
+            box = layout.box()
+            box.label(text="Settings", icon="TOOL_SETTINGS")
+            layout.prop(props, "lighting_mode", expand=True)
 
+        box = layout.box()
+        box.label(text="Render / Quality", icon="RENDER_RESULT")
         op = layout.operator("cc3.importer", icon="IMPORT", text="Import Character")
         op.param = "IMPORT_QUALITY"
 
         box = layout.box()
-        box.label(text="Morph Editing", icon="INFO")
-
+        box.label(text="Morph Editing", icon="OUTLINER_OB_ARMATURE")
         op = layout.operator("cc3.importer", icon="IMPORT", text="Import For Morph")
         op.param = "IMPORT_MORPH"
-
         op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Character Morph")
         op.param = "EXPORT_MORPH"
 
         box = layout.box()
-        box.label(text="Accessory Editing", icon="INFO")
-
+        box.label(text="Accessory Editing", icon="MOD_CLOTH")
         op = layout.operator("cc3.importer", icon="IMPORT", text="Import For Accessory")
         op.param = "IMPORT_ACCESSORY"
-
         op = layout.operator("cc3.exporter", icon="EXPORT", text="Export Accessory")
         op.param = "EXPORT_ACCESSORY"
 
-        box = layout.box()
-        box.label(text="Settings", icon="INFO")
-
-        if prefs.auto_lighting:
-            layout.separator()
-            col = layout.column(align = True)
-            col.prop(props, "auto_lighting", text="Auto Lighting")
-
         layout.separator()
-
         box = layout.box()
-        box.label(text="Clean Up", icon="INFO")
+        box.label(text="Clean Up", icon="TRASH")
 
         op = layout.operator("cc3.importer", icon="REMOVE", text="Remove Character")
         op.param ="DELETE_CHARACTER"
@@ -4363,11 +4366,10 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     # when defining this in a submodule of a python package.
     bl_idname = __name__
 
-    #import_type: bpy.props.StringProperty(default="")
-    #stage1: bpy.props.BoolProperty(default=True)
-    #skin_basic_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=quick_set_update)
-
-    auto_lighting: bpy.props.BoolProperty(name="Auto Lighting", default=True, description="Allow automatically changing lighting on quick import.")
+    lighting_mode: bpy.props.EnumProperty(items=[
+                        ("OFF","Off","No automatic lighting and render settings."),
+                        ("ON","On","Automatically sets lighting and render settings, depending on use."),
+                    ], default="OFF", name = "Automatic Lighting")
 
     quality_lighting: bpy.props.EnumProperty(items=[
                         ("BLENDER","Blender Default","Blenders default lighting setup"),
@@ -4417,15 +4419,18 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        layout.label(text="This is a preferences view for our add-on")
         layout.use_property_split = True
+        layout.label(text="Material settings:")
         layout.prop(self, "quality_mode")
         layout.prop(self, "pipeline_mode")
         layout.prop(self, "morph_mode")
-        layout.prop(self, "auto_lighting")
-        layout.prop(self, "quality_lighting")
-        layout.prop(self, "pipeline_lighting")
-        layout.prop(self, "morph_lighting")
+        layout.label(text="Lighting:")
+        layout.prop(self, "lighting_mode")
+        if self.lighting_mode == "ON":
+            layout.prop(self, "quality_lighting")
+            layout.prop(self, "pipeline_lighting")
+            layout.prop(self, "morph_lighting")
+        layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")
         op = layout.operator("cc3.quickset", icon="FILE_REFRESH", text="Reset to Defaults")
         op.param = "RESET_PREFS"
