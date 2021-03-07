@@ -1658,9 +1658,151 @@ node_groups = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "col
                "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer",
                "eye_occlusion_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping"]
 
-def remove_weight_maps(obj):
+def setup_cloth_physics(mod, type):
+    mod.settings.vertex_group_mass = "_PhysXWeightMap"
+    mod.settings.time_scale = 1
+    if type == "HAIR":
+        mod.settings.quality = 10
+        mod.settings.pin_stiffness = 0.02
+        # physical properties
+        mod.settings.mass = 0.25
+        mod.settings.air_damping = 1
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 5
+        mod.settings.compression_stiffness = 5
+        mod.settings.shear_stiffness = 5
+        mod.settings.bending_stiffness = 0.01
+        # dampening
+        mod.settings.tension_damping = 0
+        mod.settings.compression_damping = 0
+        mod.settings.shear_damping = 0
+        mod.settings.bending_damping = 0.1
+        # collision
+        mod.collision_settings.distance_min = 0.005
+    elif type == "SILK":
+        mod.settings.quality = 5
+        mod.settings.pin_stiffness = 0.2
+        # physical properties
+        mod.settings.mass = 0.15
+        mod.settings.air_damping = 1
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 5
+        mod.settings.compression_stiffness = 5
+        mod.settings.shear_stiffness = 5
+        mod.settings.bending_stiffness = 0.05
+        # dampening
+        mod.settings.tension_damping = 0
+        mod.settings.compression_damping = 0
+        mod.settings.shear_damping = 0
+        mod.settings.bending_damping = 0.1
+        # collision
+        mod.collision_settings.distance_min = 0.005
+    elif type == "DENIM":
+        mod.settings.quality = 12
+        mod.settings.pin_stiffness = 0.2
+        # physical properties
+        mod.settings.mass = 1
+        mod.settings.air_damping = 1
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 40
+        mod.settings.compression_stiffness = 40
+        mod.settings.shear_stiffness = 40
+        mod.settings.bending_stiffness = 10
+        # dampening
+        mod.settings.tension_damping = 25
+        mod.settings.compression_damping = 25
+        mod.settings.shear_damping = 25
+        mod.settings.bending_damping = 0.1
+        # collision
+        mod.collision_settings.distance_min = 0.005
+    elif type == "LEATHER":
+        mod.settings.quality = 15
+        mod.settings.pin_stiffness = 0.2
+        # physical properties
+        mod.settings.mass = 0.4
+        mod.settings.air_damping = 1
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 80
+        mod.settings.compression_stiffness = 80
+        mod.settings.shear_stiffness = 80
+        mod.settings.bending_stiffness = 150
+        # dampening
+        mod.settings.tension_damping = 25
+        mod.settings.compression_damping = 25
+        mod.settings.shear_damping = 25
+        mod.settings.bending_damping = 0.1
+        # collision
+        mod.collision_settings.distance_min = 0.005
+    elif type == "RUBBER":
+        mod.settings.quality = 7
+        mod.settings.pin_stiffness = 0.2
+        # physical properties
+        mod.settings.mass = 3
+        mod.settings.air_damping = 1
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 15
+        mod.settings.compression_stiffness = 15
+        mod.settings.shear_stiffness = 15
+        mod.settings.bending_stiffness = 25
+        # dampening
+        mod.settings.tension_damping = 25
+        mod.settings.compression_damping = 25
+        mod.settings.shear_damping = 25
+        mod.settings.bending_damping = 0.1
+        # collision
+        mod.collision_settings.distance_min = 0.005
+    else: #cotton
+        mod.settings.quality = 5
+        mod.settings.pin_stiffness = 0.2
+        # physical properties
+        mod.settings.mass = 0.3
+        mod.settings.air_damping = 1
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 15
+        mod.settings.compression_stiffness = 15
+        mod.settings.shear_stiffness = 15
+        mod.settings.bending_stiffness = 0.5
+        # dampening
+        mod.settings.tension_damping = 5
+        mod.settings.compression_damping = 5
+        mod.settings.shear_damping = 5
+        mod.settings.bending_damping = 0.1
+        # collision
+        mod.collision_settings.distance_min = 0.005
+
+def setup_physics(obj, is_hair):
+    if "Base_Body" in obj.name:
+        collision_mod = obj.modifiers.new(name=unique_name("Collision"), type="COLLISION")
+        collision_mod.settings.thickness_outer = 0.005
+
+    if "_PhysXWeightMap" in obj.vertex_groups:
+        cloth_mod = obj.modifiers.new(name=unique_name("Cloth"), type="CLOTH")
+        frame_count = 250
+        if obj.parent is not None and obj.parent.animation_data is not None and \
+                obj.parent.animation_data.action is not None:
+            frame_count = obj.parent.animation_data.action.frame_range[1]
+
+        cloth_mod.point_cache.frame_start = 1
+        cloth_mod.point_cache.frame_end = frame_count
+
+        if is_hair:
+            setup_cloth_physics(cloth_mod, "HAIR")
+        else:
+            setup_cloth_physics(cloth_mod, "COTTON")
+
+def remove_physics_settings(obj):
     for mod in obj.modifiers:
         if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
+            obj.modifiers.remove(mod)
+        elif mod.type == "CLOTH" and NODE_PREFIX in mod.name:
+            obj.modifiers.remove(mod)
+        elif mod.type == "COLLISION" and NODE_PREFIX in mod.name:
             obj.modifiers.remove(mod)
 
 def attach_weight_map(obj, mat):
@@ -1876,11 +2018,14 @@ def process_material(obj, mat):
         move_new_nodes(-600, 0)
 
 def process_material_slots(obj):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__].preferences
 
     for slot in obj.material_slots:
         log_info("Processing Material: " + slot.material.name)
         process_material(obj, slot.material)
-        attach_weight_map(obj, slot.material)
+        if prefs.physics == "ENABLED" and props.physics_mode == "ON":
+            attach_weight_map(obj, slot.material)
 
 
 def scan_for_hair_object(obj):
@@ -1892,6 +2037,7 @@ def scan_for_hair_object(obj):
 
 def process_object(obj, objects_processed):
     props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__].preferences
 
     if obj is None or obj in objects_processed:
         return
@@ -1904,10 +2050,13 @@ def process_object(obj, objects_processed):
     if props.hair_object is None:
         props.hair_object = scan_for_hair_object(obj)
 
-    remove_weight_maps(obj)
+    remove_physics_settings(obj)
     # process any materials found in a mesh object
     if obj.type == "MESH":
         process_material_slots(obj)
+        # setup physics
+        if prefs.physics == "ENABLED" and props.physics_mode == "ON":
+            setup_physics(obj, props.hair_object == obj)
 
     # process child objects
     for child in obj.children:
@@ -2280,7 +2429,7 @@ class CC3Import(bpy.types.Operator):
 
         # use the cc3 lighting for morph/accessory editing
         if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-            if prefs.lighting_mode == "ON" and props.lighting_mode == "ON":
+            if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
                 if props.import_type == "fbx":
                     setup_scene_default(prefs.pipeline_lighting)
                 else:
@@ -2291,7 +2440,7 @@ class CC3Import(bpy.types.Operator):
 
         # use portrait lighting for quality mode
         elif self.param == "IMPORT_QUALITY":
-            if prefs.lighting_mode == "ON" and props.lighting_mode == "ON":
+            if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
                 setup_scene_default(prefs.quality_lighting)
 
         zoom_to_character()
@@ -3491,6 +3640,8 @@ def refresh_parameters(mat):
 
 def reset_preferences():
     prefs = bpy.context.preferences.addons[__name__].preferences
+    prefs.lighting = "ENABLED"
+    prefs.physics = "ENABLED"
     prefs.quality_lighting = "STUDIO"
     prefs.pipeline_lighting = "CC3"
     prefs.morph_lighting = "MATCAP"
@@ -3669,8 +3820,12 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     lighting_mode: bpy.props.EnumProperty(items=[
                         ("OFF","No Lighting","No automatic lighting and render settings."),
-                        ("ON","Auto Lighting","Automatically sets lighting and render settings, depending on use."),
+                        ("ON","Lighting","Automatically sets lighting and render settings, depending on use."),
                     ], default="OFF")
+    physics_mode: bpy.props.EnumProperty(items=[
+                        ("OFF","No Physics","No generated physics."),
+                        ("ON","Physics","Automatically generates physics vertex groups and settings."),
+                    ], default="ON")
 
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
@@ -4313,10 +4468,13 @@ class MyPanel4(bpy.types.Panel):
         layout.use_property_split = False
         layout.use_property_decorate = False
 
-        if prefs.lighting_mode == "ON":
+        if prefs.lighting == "ENABLED" or prefs.physics == "ENABLED":
             box = layout.box()
             box.label(text="Settings", icon="TOOL_SETTINGS")
-            layout.prop(props, "lighting_mode", expand=True)
+            if prefs.lighting == "ENABLED":
+                layout.prop(props, "lighting_mode", expand=True)
+            if prefs.physics == "ENABLED":
+                layout.prop(props, "physics_mode", expand=True)
 
         box = layout.box()
         box.label(text="Render / Quality", icon="RENDER_RESULT")
@@ -4366,10 +4524,15 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     # when defining this in a submodule of a python package.
     bl_idname = __name__
 
-    lighting_mode: bpy.props.EnumProperty(items=[
-                        ("OFF","Off","No automatic lighting and render settings."),
-                        ("ON","On","Automatically sets lighting and render settings, depending on use."),
-                    ], default="OFF", name = "Automatic Lighting")
+    lighting: bpy.props.EnumProperty(items=[
+                        ("DISABLED","Disabled","No automatic lighting and render settings."),
+                        ("ENABLED","Enabled","Allows automatic lighting and render settings."),
+                    ], default="ENABLED", name = "Automatic Lighting")
+
+    physics: bpy.props.EnumProperty(items=[
+                        ("DISABLED","Disabled","No physics auto setup."),
+                        ("ENABLED","Enabled","Allows automatic physics setup from physX weight maps."),
+                    ], default="ENABLED", name = "Generate Physics")
 
     quality_lighting: bpy.props.EnumProperty(items=[
                         ("BLENDER","Blender Default","Blenders default lighting setup"),
@@ -4425,11 +4588,13 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "pipeline_mode")
         layout.prop(self, "morph_mode")
         layout.label(text="Lighting:")
-        layout.prop(self, "lighting_mode")
-        if self.lighting_mode == "ON":
+        layout.prop(self, "lighting")
+        if self.lighting == "ENABLED":
             layout.prop(self, "quality_lighting")
             layout.prop(self, "pipeline_lighting")
             layout.prop(self, "morph_lighting")
+        layout.label(text="Physics:")
+        layout.prop(self, "physics")
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")
         op = layout.operator("cc3.quickset", icon="FILE_REFRESH", text="Reset to Defaults")
