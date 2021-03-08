@@ -1867,20 +1867,21 @@ def add_collision_physics(obj):
     cache.coll = True
     setup_collision_physics(obj)
 
-## TODO needs work...
 def add_cloth_physics(obj):
     props = bpy.context.scene.CC3ImportProps
     wh = int(props.physics_tex_size)
     cache = get_object_cache(obj)
     for mat in obj.data.materials:
         weight_map = find_material_image(mat, WEIGHT_MAP)
-        if weight_map is None or cache.cloth == "REMOVED":
-            image = bpy.data.images.new(mat.name + "_WeightMap", wh, wh, is_data=True)
+        if weight_map is None:
+            weight_map = bpy.data.images.new(mat.name + "_WeightMap", wh, wh, is_data=True)
             # save the image out...
             mat_cache = get_material_cache(mat)
-            mat_cache.temp_weight_map = image
-            attach_weight_map(obj, mat, image)
-
+            mat_cache.temp_weight_map = weight_map
+            attach_weight_map(obj, mat, weight_map)
+        elif cache.cloth == "REMOVED":
+            cache.cloth = "NONE"
+            attach_weight_map(obj, mat, weight_map)
     setup_cloth_physics(obj, props.hair_object == obj)
 
 def attach_weight_map(obj, mat, wm = None):
