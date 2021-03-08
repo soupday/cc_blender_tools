@@ -3,6 +3,7 @@ import os
 from bpy.types import VIEW3D_OT_edit_mesh_extrude_individual_move
 import mathutils
 import shutil
+import math
 
 # Version: 0.2.x
 # DONE
@@ -17,6 +18,7 @@ import shutil
 #   - Automatically setup cloth/hair physics (Optional in the preferences)
 #   - When setting the alpha mode using the quick fix buttons, remember it in the material_cache
 # FUTURE
+#   - Remember quick alpha settings and quick physics settings...
 #   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
 #       (Might help with Daz conversions and/or 3rd party characters that have non-standard or unexpected material names.)
 #   - Automatically generate full IK rig with Rigify or Auto-Rig Pro (Optional in the preferences)
@@ -558,30 +560,40 @@ def find_material_image(mat, suffix_list):
     if "diffuse" in suffix_list or "sclera" in suffix_list:
         color_space = "sRGB"
     # try to find the image from the material cache
-    for p in props.material_cache:
-        if p.material == mat:
-            if "diffuse" in suffix_list:
-                return p.diffuse
-            elif "specular" in suffix_list:
-                return p.specular
-            elif "opacity" in suffix_list:
-                return p.alpha
-            elif "normal" in suffix_list:
-                return p.normal
-            elif "bump" in suffix_list:
-                return p.bump
-            image_file = find_image_file([p.dir, props.import_main_tex_dir], mat, suffix_list)
-            if image_file is not None:
-                return load_image(image_file, color_space)
-            break
-    if len(props.material_cache) == 0:
+    cache = get_material_cache(mat)
+    if cache is not None:
+        if "diffuse" in suffix_list:
+            return cache.diffuse
+        elif "specular" in suffix_list:
+            return cache.specular
+        elif "opacity" in suffix_list:
+            return cache.alpha
+        elif "normal" in suffix_list:
+            return cache.normal
+        elif "bump" in suffix_list:
+            return cache.bump
+        elif "weightmap" in suffix_list and cache.temp_weight_map is not None:
+            return cache.temp_weight_map
+        image_file = find_image_file([cache.dir, props.import_main_tex_dir], mat, suffix_list)
+        if image_file is not None:
+            return load_image(image_file, color_space)
+    else:
         image_file = find_image_file([props.import_main_tex_dir], mat, suffix_list)
         if image_file is not None:
             return load_image(image_file, color_space)
     return None
 
+def apply_backface_culling(obj, mat, sides):
+    cache = get_object_cache(obj)
+    cache.sides = sides
+    if sides == 1:
+        mat.use_backface_culling = True
+    else:
+        mat.use_backface_culling = False
 
 def apply_alpha_override(obj, mat, method):
+    cache = get_object_cache(obj)
+    cache.alpha = method
     input = get_shader_input(mat, "Alpha")
     if input is None:
         return
@@ -591,8 +603,6 @@ def apply_alpha_override(obj, mat, method):
         set_material_alpha(mat, method)
     else:
         set_material_alpha(mat, "OPAQUE")
-    return
-
 
 def set_material_alpha(mat, method):
     if method == "HASHED":
@@ -1658,10 +1668,15 @@ node_groups = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "col
                "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer",
                "eye_occlusion_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping"]
 
-def setup_cloth_physics(mod, type):
-    mod.settings.vertex_group_mass = "_PhysXWeightMap"
+def apply_cloth_settings(obj, cloth_type):
+    prefs = bpy.context.preferences.addons[__name__].preferences
+    mod = get_cloth_physics(obj)
+    cache = get_object_cache(obj)
+    cache.cloth = cloth_type
+
+    mod.settings.vertex_group_mass = prefs.physics_group
     mod.settings.time_scale = 1
-    if type == "HAIR":
+    if cloth_type == "HAIR":
         mod.settings.quality = 10
         mod.settings.pin_stiffness = 0.02
         # physical properties
@@ -1680,7 +1695,7 @@ def setup_cloth_physics(mod, type):
         mod.settings.bending_damping = 0.1
         # collision
         mod.collision_settings.distance_min = 0.005
-    elif type == "SILK":
+    elif cloth_type == "SILK":
         mod.settings.quality = 5
         mod.settings.pin_stiffness = 0.2
         # physical properties
@@ -1699,7 +1714,7 @@ def setup_cloth_physics(mod, type):
         mod.settings.bending_damping = 0.1
         # collision
         mod.collision_settings.distance_min = 0.005
-    elif type == "DENIM":
+    elif cloth_type == "DENIM":
         mod.settings.quality = 12
         mod.settings.pin_stiffness = 0.2
         # physical properties
@@ -1718,7 +1733,7 @@ def setup_cloth_physics(mod, type):
         mod.settings.bending_damping = 0.1
         # collision
         mod.collision_settings.distance_min = 0.005
-    elif type == "LEATHER":
+    elif cloth_type == "LEATHER":
         mod.settings.quality = 15
         mod.settings.pin_stiffness = 0.2
         # physical properties
@@ -1737,7 +1752,7 @@ def setup_cloth_physics(mod, type):
         mod.settings.bending_damping = 0.1
         # collision
         mod.collision_settings.distance_min = 0.005
-    elif type == "RUBBER":
+    elif cloth_type == "RUBBER":
         mod.settings.quality = 7
         mod.settings.pin_stiffness = 0.2
         # physical properties
@@ -1776,27 +1791,45 @@ def setup_cloth_physics(mod, type):
         # collision
         mod.collision_settings.distance_min = 0.005
 
-def setup_physics(obj, is_hair):
-    if "Base_Body" in obj.name:
+def get_cloth_physics(obj):
+    for mod in obj.modifiers:
+        if mod.type == "CLOTH" and NODE_PREFIX in mod.name:
+            return mod
+    return None
+
+def get_collision_physics(obj):
+    for mod in obj.modifiers:
+        if mod.type == "COLLISION" and NODE_PREFIX in mod.name:
+            return mod
+    return None
+
+def setup_collision_physics(obj):
+    if get_collision_physics(obj) is None:
         collision_mod = obj.modifiers.new(name=unique_name("Collision"), type="COLLISION")
         collision_mod.settings.thickness_outer = 0.005
 
-    if "_PhysXWeightMap" in obj.vertex_groups:
+def setup_cloth_physics(obj, is_hair, cache = "NONE"):
+    prefs = bpy.context.preferences.addons[__name__].preferences
+
+    if get_cloth_physics(obj) is None and prefs.physics_group in obj.vertex_groups:
         cloth_mod = obj.modifiers.new(name=unique_name("Cloth"), type="CLOTH")
+        # set bake frame range
         frame_count = 250
         if obj.parent is not None and obj.parent.animation_data is not None and \
                 obj.parent.animation_data.action is not None:
-            frame_count = obj.parent.animation_data.action.frame_range[1]
+            frame_count = math.ceil(obj.parent.animation_data.action.frame_range[1])
 
         cloth_mod.point_cache.frame_start = 1
         cloth_mod.point_cache.frame_end = frame_count
 
-        if is_hair:
-            setup_cloth_physics(cloth_mod, "HAIR")
+        if cache != "NONE":
+            apply_cloth_settings(obj, cache)
+        elif is_hair:
+            apply_cloth_settings(obj, "HAIR")
         else:
-            setup_cloth_physics(cloth_mod, "COTTON")
+            apply_cloth_settings(obj, "COTTON")
 
-def remove_physics_settings(obj):
+def remove_all_physics(obj):
     for mod in obj.modifiers:
         if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
             obj.modifiers.remove(mod)
@@ -1805,8 +1838,61 @@ def remove_physics_settings(obj):
         elif mod.type == "COLLISION" and NODE_PREFIX in mod.name:
             obj.modifiers.remove(mod)
 
-def attach_weight_map(obj, mat):
-    weight_map = find_material_image(mat, WEIGHT_MAP)
+def remove_cloth_physics(obj):
+    prefs = bpy.context.preferences.addons[__name__].preferences
+    cache = get_object_cache(obj)
+    cache.cloth = "REMOVED"
+    for mod in obj.modifiers:
+        if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
+            tex = mod.mask_texture
+            image = tex.image
+            obj.modifiers.remove(mod)
+            if image.source == "GENERATED":
+                bpy.data.images.remove(image)
+                bpy.data.textures.remove(tex)
+        elif mod.type == "CLOTH" and NODE_PREFIX in mod.name:
+            obj.modifiers.remove(mod)
+    if prefs.physics_group in obj.vertex_groups:
+        obj.vertex_groups.remove(obj.vertex_groups[prefs.physics_group])
+
+def remove_collision_physics(obj):
+    cache = get_object_cache(obj)
+    cache.coll = False
+    for mod in obj.modifiers:
+        if mod.type == "COLLISION" and NODE_PREFIX in mod.name:
+            obj.modifiers.remove(mod)
+
+def add_collision_physics(obj):
+    cache = get_object_cache(obj)
+    cache.coll = True
+    setup_collision_physics(obj)
+
+## TODO needs work...
+def add_cloth_physics(obj):
+    props = bpy.context.scene.CC3ImportProps
+    wh = int(props.physics_tex_size)
+    cache = get_object_cache(obj)
+    for mat in obj.data.materials:
+        weight_map = find_material_image(mat, WEIGHT_MAP)
+        if weight_map is None or cache.cloth == "REMOVED":
+            image = bpy.data.images.new(mat.name + "_WeightMap", wh, wh, is_data=True)
+            # save the image out...
+            mat_cache = get_material_cache(mat)
+            mat_cache.temp_weight_map = image
+            attach_weight_map(obj, mat, image)
+
+    setup_cloth_physics(obj, props.hair_object == obj)
+
+def attach_weight_map(obj, mat, wm = None):
+    prefs = bpy.context.preferences.addons[__name__].preferences
+    cache = get_object_cache(obj)
+    if cache.cloth == "REMOVED":
+        return
+
+    if wm is None:
+        weight_map = find_material_image(mat, WEIGHT_MAP)
+    else:
+        weight_map = wm
     if weight_map is not None:
         tex_name = mat.name + "_Weight"
         tex = None
@@ -1816,15 +1902,15 @@ def attach_weight_map(obj, mat):
         if tex is None:
             tex = bpy.data.textures.new(unique_name(tex_name), "IMAGE")
         tex.image = weight_map
-        if "_PhysXWeightMap" not in obj.vertex_groups:
-            obj.vertex_groups.new(name = "_PhysXWeightMap")
+        if prefs.physics_group not in obj.vertex_groups:
+            obj.vertex_groups.new(name = prefs.physics_group)
         mod = obj.modifiers.new(unique_name(mat.name + "_WeightMix"), "VERTEX_WEIGHT_EDIT")
         mod.mask_texture = tex
         mod.use_add = True
         mod.use_remove = True
         mod.add_threshold = 0.01
         mod.remove_threshold = 0.01
-        mod.vertex_group = "_PhysXWeightMap"
+        mod.vertex_group = prefs.physics_group
         mod.default_weight = 1
         mod.falloff_type = 'LINEAR'
         mod.invert_falloff = True
@@ -1919,17 +2005,15 @@ def delete_object(obj):
             obj.shape_key_clear()
 
         # remove materials->nodes->images
-        for slot in obj.material_slots:
-            mat = slot.material
-            if mat is not None:
-                if mat.node_tree is not None:
-                    nodes = mat.node_tree.nodes
-                    for node in nodes:
-                        if node.type == "TEX_IMAGE" and node.image is not None:
-                            image = node.image
-                            bpy.data.images.remove(image)
-                        nodes.remove(node)
-                bpy.data.materials.remove(mat)
+        for mat in obj.data.materials:
+            if mat.node_tree is not None:
+                nodes = mat.node_tree.nodes
+                for node in nodes:
+                    if node.type == "TEX_IMAGE" and node.image is not None:
+                        image = node.image
+                        bpy.data.images.remove(image)
+                    nodes.remove(node)
+            bpy.data.materials.remove(mat)
 
         if obj.type == "ARMATURE":
             bpy.data.armatures.remove(obj.data)
@@ -2017,21 +2101,10 @@ def process_material(obj, mat):
 
         move_new_nodes(-600, 0)
 
-def process_material_slots(obj):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__].preferences
-
-    for slot in obj.material_slots:
-        log_info("Processing Material: " + slot.material.name)
-        process_material(obj, slot.material)
-        if prefs.physics == "ENABLED" and props.physics_mode == "ON":
-            attach_weight_map(obj, slot.material)
-
-
 def scan_for_hair_object(obj):
-    for slot in obj.material_slots:
-        if slot.material is not None:
-            if is_hair_object(obj, slot.material):
+    if obj.type == "MESH":
+        for mat in obj.data.materials:
+            if is_hair_object(obj, mat):
                 return obj
     return None
 
@@ -2046,17 +2119,41 @@ def process_object(obj, objects_processed):
 
     log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
 
+    cache = get_object_cache(obj)
+
     # try to determine if this is the hair object, if not set
     if props.hair_object is None:
         props.hair_object = scan_for_hair_object(obj)
 
-    remove_physics_settings(obj)
+    # when rebuilding materials remove all the physics modifiers
+    # they don't seem to like having their settings changed...
+    remove_all_physics(obj)
     # process any materials found in a mesh object
     if obj.type == "MESH":
-        process_material_slots(obj)
-        # setup physics
+        for mat in obj.data.materials:
+            log_info("Processing Material: " + mat.name)
+            process_material(obj, mat)
+            attach_weight_map(obj, mat)
+            # apply cached alpha settings
+            if cache.alpha != "NONE":
+                apply_alpha_override(obj, mat, cache.alpha)
+            if cache.sides > 0:
+                apply_backface_culling(obj, mat, cache.sides)
+
+        # setup default physics
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
-            setup_physics(obj, props.hair_object == obj)
+            if "Base_Body" in obj.name or cache.coll:
+                setup_collision_physics(obj)
+            else:
+                # don't need to cache the cloth physics settings as the presence of
+                # weight maps determines if cloth physics is set up...
+                setup_cloth_physics(obj, props.hair_object == obj, cache.cloth)
+
+    elif obj.type == "ARMATURE":
+        # set the frame range of the scene to the active action on the armature
+        if obj.animation_data is not None and obj.animation_data.action is not None:
+            frame_count = math.ceil(obj.animation_data.action.frame_range[1])
+            bpy.context.scene.frame_end = frame_count
 
     # process child objects
     for child in obj.children:
@@ -2103,8 +2200,23 @@ def get_material_dir(base_dir, character_name, import_type, obj, mat):
     elif import_type == "obj":
         return os.path.join(base_dir, character_name)
 
+def get_object_cache(obj):
+    props = bpy.context.scene.CC3ImportProps
+    for cache in props.object_cache:
+        if cache.object == obj:
+            return cache
+    cache = props.object_cache.add()
+    cache.object = obj
+    return cache
+
+def get_material_cache(mat):
+    props = bpy.context.scene.CC3ImportProps
+    for cache in props.material_cache:
+        if cache.material == mat:
+            return cache
+    return None
+
 def cache_object_materials(obj):
-    global image_list
     props = bpy.context.scene.CC3ImportProps
     main_tex_dir = props.import_main_tex_dir
     base_dir, file_name = os.path.split(props.import_file)
@@ -2115,13 +2227,13 @@ def cache_object_materials(obj):
         return
 
     if obj.type == "MESH":
-        for slot in obj.material_slots:
-            if slot.material.node_tree is not None:
+        for mat in obj.data.materials:
+            if mat.node_tree is not None:
                 cache = props.material_cache.add()
-                cache.material = slot.material
+                cache.material = mat
                 cache.object = obj
-                cache.dir = get_material_dir(base_dir, character_name, type, obj, slot.material)
-                nodes = slot.material.node_tree.nodes
+                cache.dir = get_material_dir(base_dir, character_name, type, obj, mat)
+                nodes = mat.node_tree.nodes
                 for node in nodes:
                     if node.type == "TEX_IMAGE" and node.image is not None:
                         filepath = node.image.filepath
@@ -3254,32 +3366,62 @@ class CC3Scene(bpy.types.Operator):
             return "Sets up a rendering template with rendered shading and world lighting. Sets up the Compositor and World nodes with a basic setup and adds tracking lights, a tracking camera and targetting objects"
         return ""
 
-
 def quick_set_process_object(param, obj, objects_processed):
     if obj is not None and obj not in objects_processed:
         if obj.type == "MESH":
             objects_processed.append(obj)
-            for slot in obj.material_slots:
-                if slot.material is not None:
-                    mat = slot.material
-                    if param == "OPAQUE" or param == "BLEND" or param == "HASHED":
-                        apply_alpha_override(obj, mat, param)
-                    elif param == "SINGLE_SIDED":
-                        mat.use_backface_culling = True
-                    elif param == "DOUBLE_SIDED":
-                        mat.use_backface_culling = False
-                    elif param == "UPDATE_SELECTED" or param == "UPDATE_ALL":
-                        refresh_parameters(mat)
+            for mat in obj.data.materials:
+                if param == "OPAQUE" or param == "BLEND" or param == "HASHED":
+                    apply_alpha_override(obj, mat, param)
+                elif param == "SINGLE_SIDED":
+                    apply_backface_culling(obj, mat, 1)
+                elif param == "DOUBLE_SIDED":
+                    apply_backface_culling(obj, mat, 2)
+                elif param == "UPDATE_SELECTED" or param == "UPDATE_ALL":
+                    refresh_parameters(mat)
 
         for child in obj.children:
             quick_set_process_object(param, child, objects_processed)
-
 
 def quick_set_execute(param):
     objects_processed = []
     props = bpy.context.scene.CC3ImportProps
 
-    if param == "RESET":
+    if "PHYSICS_" in param:
+        if param == "PHYSICS_ADD_CLOTH":
+            for obj in bpy.context.selected_objects:
+                add_cloth_physics(obj)
+        elif param == "PHYSICS_REMOVE_CLOTH":
+            for obj in bpy.context.selected_objects:
+                remove_cloth_physics(obj)
+        elif param == "PHYSICS_ADD_COLLISION":
+            for obj in bpy.context.selected_objects:
+                add_collision_physics(obj)
+        elif param == "PHYSICS_REMOVE_COLLISION":
+            for obj in bpy.context.selected_objects:
+                remove_collision_physics(obj)
+        elif param == "PHYSICS_HAIR":
+            for obj in bpy.context.selected_objects:
+                apply_cloth_settings(obj, "HAIR")
+        elif param == "PHYSICS_COTTON":
+            for obj in bpy.context.selected_objects:
+                apply_cloth_settings(obj, "COTTON")
+        elif param == "PHYSICS_DENIM":
+            for obj in bpy.context.selected_objects:
+                apply_cloth_settings(obj, "DENIM")
+        elif param == "PHYSICS_LEATHER":
+            for obj in bpy.context.selected_objects:
+                apply_cloth_settings(obj, "LEATHER")
+        elif param == "PHYSICS_RUBBER":
+            for obj in bpy.context.selected_objects:
+                apply_cloth_settings(obj, "RUBBER")
+        elif param == "PHYSICS_SILK":
+            for obj in bpy.context.selected_objects:
+                apply_cloth_settings(obj, "SILK")
+        elif param == "PHYSICS_PAINT":
+            pass
+
+    elif param == "RESET":
         reset_parameters()
 
     elif param == "RESET_PREFS":
@@ -3289,7 +3431,12 @@ def quick_set_execute(param):
         for p in props.import_objects:
             if p.object is not None:
                 quick_set_process_object(param, p.object, objects_processed)
-    else:
+
+    elif param == "UPDATE_SELECTED":
+        for obj in bpy.context.selected_objects:
+            quick_set_process_object(param, obj, objects_processed)
+
+    else: # blend modes or single/double sided...
         for obj in bpy.context.selected_objects:
             quick_set_process_object(param, obj, objects_processed)
 
@@ -3335,6 +3482,10 @@ def open_mouth_update(self, context):
                 constraint.max_z = 0.43633
                 constraint.owner_space = "LOCAL"
             constraint.influence = props.open_mouth
+
+def physics_strength_update(self, context):
+    props = bpy.context.scene.CC3ImportProps
+    pass
 
 class CC3QuickSet(bpy.types.Operator):
     """Quick Set Functions"""
@@ -3778,7 +3929,15 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
     bump: bpy.props.PointerProperty(type=bpy.types.Image)
     alpha: bpy.props.PointerProperty(type=bpy.types.Image)
     specular: bpy.props.PointerProperty(type=bpy.types.Image)
+    temp_weight_map: bpy.props.PointerProperty(type=bpy.types.Image)
     alpha_is_diffuse: bpy.props.BoolProperty(default=False)
+
+class CC3ObjectCache(bpy.types.PropertyGroup):
+    object: bpy.props.PointerProperty(type=bpy.types.Object)
+    alpha: bpy.props.StringProperty(default="NONE")
+    sides: bpy.props.IntProperty(default=0)
+    coll: bpy.props.BoolProperty(default=False)
+    cloth: bpy.props.StringProperty(default="NONE")
 
 class CC3ImportProps(bpy.types.PropertyGroup):
 
@@ -3805,10 +3964,21 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     ], default="UPDATE_ALL")
 
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
+    physics_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=physics_strength_update)
+    physics_tex_size: bpy.props.EnumProperty(items=[
+                        ("64","64 x 64","64 x 64 texture size"),
+                        ("128","128 x 128","128 x 128 texture size"),
+                        ("256","256 x 256","256 x 256 texture size"),
+                        ("512","512 x 512","512 x 512 texture size"),
+                        ("1024","1024 x 1024","1024 x 1024 texture size"),
+                        ("2048","2048 x 2048","2048 x 2048 texture size"),
+                        ("4096","4096 x 4096","4096 x 4096 texture size"),
+                    ], default="1024")
 
     import_file: bpy.props.StringProperty(default="", subtype="FILE_PATH")
     import_objects: bpy.props.CollectionProperty(type=CC3ObjectPointer)
     material_cache: bpy.props.CollectionProperty(type=CC3MaterialCache)
+    object_cache: bpy.props.CollectionProperty(type=CC3ObjectCache)
     import_type: bpy.props.StringProperty(default="")
     import_name: bpy.props.StringProperty(default="")
     import_dir: bpy.props.StringProperty(default="")
@@ -3971,7 +4141,7 @@ def fake_drop_down(row, label, prop_name, prop_bool_value):
     return prop_bool_value
 
 
-class MyPanel(bpy.types.Panel):
+class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Material_Settings_Panel"
     bl_label = "CC3 Material Settings"
     bl_space_type = "VIEW_3D"
@@ -4416,7 +4586,7 @@ class MyPanel(bpy.types.Panel):
             op = layout.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
             op.param ="REBUILD_NODE_GROUPS"
 
-class MyPanel3(bpy.types.Panel):
+class CC3ToolsScenePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Scene_Panel"
     bl_label = "CC3 Scene Tools"
     bl_space_type = "VIEW_3D"
@@ -4452,8 +4622,86 @@ class MyPanel3(bpy.types.Panel):
         op = col.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
         op.param = "TEMPLATE"
 
+class CC3ToolsPhysicsPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Physics_Panel"
+    bl_label = "CC3 Physics Tools"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "CC3"
 
-class MyPanel4(bpy.types.Panel):
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = context.preferences.addons[__name__].preferences
+        layout = self.layout
+
+        show_add_cloth = False
+        show_remove_cloth = False
+        show_add_coll = False
+        show_remove_coll = False
+        for obj in bpy.context.selected_objects:
+            if get_cloth_physics(obj) is None:
+                show_add_cloth = True
+            else:
+                show_remove_cloth = True
+            if get_collision_physics(obj) is None:
+                show_add_coll = True
+            else:
+                show_remove_coll = True
+
+        box = layout.box()
+        box.label(text="Create / Remove", icon="PHYSICS")
+        col = layout.column()
+        if show_add_cloth:
+            op = col.operator("cc3.quickset", icon="ADD", text="Add Cloth Physics")
+            op.param = "PHYSICS_ADD_CLOTH"
+        if show_remove_cloth:
+            op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Cloth Physics")
+            op.param = "PHYSICS_REMOVE_CLOTH"
+        if show_add_cloth or show_remove_cloth:
+            col.separator()
+        if show_add_coll:
+            op = col.operator("cc3.quickset", icon="ADD", text="Add Collision Physics")
+            op.param = "PHYSICS_ADD_COLLISION"
+        if show_remove_coll:
+            op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Collision Physics")
+            op.param = "PHYSICS_REMOVE_COLLISION"
+        if show_add_coll or show_remove_coll:
+            col.separator()
+        split = col.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="WeightMap Size")
+        col_2.prop(props, "physics_tex_size", text="")
+
+        box = layout.box()
+        box.label(text="Quick Settings", icon="OPTIONS")
+        col = layout.column()
+        op = col.operator("cc3.quickset", icon="USER", text="Hair")
+        op.param = "PHYSICS_HAIR"
+        op = col.operator("cc3.quickset", icon="MATCLOTH", text="Cotton")
+        op.param = "PHYSICS_COTTON"
+        op = col.operator("cc3.quickset", icon="MATCLOTH", text="Denim")
+        op.param = "PHYSICS_DENIM"
+        op = col.operator("cc3.quickset", icon="MATCLOTH", text="Leather")
+        op.param = "PHYSICS_LEATHER"
+        op = col.operator("cc3.quickset", icon="MATCLOTH", text="Rubber")
+        op.param = "PHYSICS_RUBBER"
+        op = col.operator("cc3.quickset", icon="MATCLOTH", text="Silk")
+        op.param = "PHYSICS_SILK"
+
+        box = layout.box()
+        box.label(text="Paint", icon="TEXTURE_DATA")
+        split = layout.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="Strength")
+        col_2.prop(props, "physics_strength", text="", slider=True)
+        col = layout.column()
+        op = col.operator("cc3.quickset", icon="BRUSH_DATA", text="Paint Weight Map")
+        op.param = "PHYSICS_PAINT"
+
+
+class CC3ToolsPipelinePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Pipeline_Panel"
     bl_label = "CC3 Pipeline"
     bl_space_type = "VIEW_3D"
@@ -4502,20 +4750,20 @@ class MyPanel4(bpy.types.Panel):
         op = layout.operator("cc3.importer", icon="REMOVE", text="Remove Character")
         op.param ="DELETE_CHARACTER"
 
-class CC3NodeCoord(bpy.types.Panel):
-    bl_label = "Node Coordinates panel"
-    bl_idname = "CC3I_PT_NodeCoord"
-    bl_space_type = "NODE_EDITOR"
-    bl_region_type = "UI"
-
-    def draw(self, context):
-
-        if context.active_node is not None:
-            layout = self.layout
-            layout.separator()
-            row = layout.box().row()
-            coords = context.active_node.location
-            row.label(text=str(int(coords.x/10)*10) + ", " + str(int(coords.y/10)*10))
+#class CC3NodeCoord(bpy.types.Panel):
+#    bl_label = "Node Coordinates panel"
+#    bl_idname = "CC3I_PT_NodeCoord"
+#    bl_space_type = "NODE_EDITOR"
+#    bl_region_type = "UI"
+#
+#    def draw(self, context):
+#
+#        if context.active_node is not None:
+#            layout = self.layout
+#            layout.separator()
+#            row = layout.box().row()
+#            coords = context.active_node.location
+#            row.label(text=str(int(coords.x/10)*10) + ", " + str(int(coords.y/10)*10))
 
 
 
@@ -4580,6 +4828,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("ERRORS","Just Errors","Log only errors to console."),
                     ], default="ERRORS", name = "(Debug) Log Level")
 
+    physics_group: bpy.props.StringProperty(default="CC_Physics_Weight", name="Physics Vertex Group Name")
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -4595,19 +4845,21 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
             layout.prop(self, "morph_lighting")
         layout.label(text="Physics:")
         layout.prop(self, "physics")
+        layout.prop(self, "physics_group")
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")
         op = layout.operator("cc3.quickset", icon="FILE_REFRESH", text="Reset to Defaults")
         op.param = "RESET_PREFS"
 
 def register():
-    bpy.utils.register_class(CC3NodeCoord)
     bpy.utils.register_class(CC3ObjectPointer)
     bpy.utils.register_class(CC3MaterialCache)
+    bpy.utils.register_class(CC3ObjectCache)
     bpy.utils.register_class(CC3ImportProps)
-    bpy.utils.register_class(MyPanel4)
-    bpy.utils.register_class(MyPanel)
-    bpy.utils.register_class(MyPanel3)
+    bpy.utils.register_class(CC3ToolsPipelinePanel)
+    bpy.utils.register_class(CC3ToolsMaterialSettingsPanel)
+    bpy.utils.register_class(CC3ToolsPhysicsPanel)
+    bpy.utils.register_class(CC3ToolsScenePanel)
     bpy.utils.register_class(CC3Import)
     bpy.utils.register_class(CC3Export)
     bpy.utils.register_class(CC3Scene)
@@ -4616,13 +4868,14 @@ def register():
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=CC3ImportProps)
 
 def unregister():
-    bpy.utils.unregister_class(CC3NodeCoord)
     bpy.utils.unregister_class(CC3ObjectPointer)
     bpy.utils.unregister_class(CC3MaterialCache)
+    bpy.utils.unregister_class(CC3ObjectCache)
     bpy.utils.unregister_class(CC3ImportProps)
-    bpy.utils.unregister_class(MyPanel4)
-    bpy.utils.unregister_class(MyPanel)
-    bpy.utils.unregister_class(MyPanel3)
+    bpy.utils.unregister_class(CC3ToolsPipelinePanel)
+    bpy.utils.unregister_class(CC3ToolsMaterialSettingsPanel)
+    bpy.utils.unregister_class(CC3ToolsScenePanel)
+    bpy.utils.unregister_class(CC3ToolsPhysicsPanel)
     bpy.utils.unregister_class(CC3Import)
     bpy.utils.unregister_class(CC3Export)
     bpy.utils.unregister_class(CC3Scene)
