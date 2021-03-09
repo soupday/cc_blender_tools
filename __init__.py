@@ -1,6 +1,5 @@
 import bpy
 import os
-from bpy.types import VIEW3D_OT_edit_mesh_extrude_individual_move
 import mathutils
 import shutil
 import math
@@ -34,7 +33,7 @@ bl_info = {
     "description": "Automatic import and material setup of CC3 characters.",
 }
 
-VERSION_STRING = "v1.0.0"
+VERSION_STRING = "v0.2.0"
 
 # lists of the suffixes used by the input maps
 BASE_COLOR_MAP = ["diffuse", "albedo"]
@@ -582,6 +581,16 @@ def find_material_image(mat, suffix_list):
         if image_file is not None:
             return load_image(image_file, color_space)
     return None
+
+def save_temp_images(obj, mat):
+    props = bpy.context.scene.CC3ImportProps
+    for cache in props.material_cache:
+        dir = cache.dir
+        name = strip_name(mat.name)
+        if cache.temp_weight_map is not None:
+            filepath = os.path.join(dir, name + "_WeightMap.png")
+            cache.temp_weight_map.filepath = filepath
+            cache.temp_weight_map.save()
 
 def apply_backface_culling(obj, mat, sides):
     cache = get_object_cache(obj)
@@ -1670,10 +1679,11 @@ node_groups = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "col
 
 def apply_cloth_settings(obj, cloth_type):
     prefs = bpy.context.preferences.addons[__name__].preferences
-    mod = get_cloth_physics(obj)
+    mod = get_cloth_physics_mod(obj)
     cache = get_object_cache(obj)
     cache.cloth = cloth_type
 
+    log_info("Setting " + obj.name + " cloth settings to: " + cloth_type)
     mod.settings.vertex_group_mass = prefs.physics_group
     mod.settings.time_scale = 1
     if cloth_type == "HAIR":
@@ -1791,34 +1801,50 @@ def apply_cloth_settings(obj, cloth_type):
         # collision
         mod.collision_settings.distance_min = 0.005
 
-def get_cloth_physics(obj):
+def get_cloth_physics_mod(obj):
     for mod in obj.modifiers:
         if mod.type == "CLOTH" and NODE_PREFIX in mod.name:
             return mod
     return None
 
-def get_collision_physics(obj):
+def get_collision_physics_mod(obj):
     for mod in obj.modifiers:
         if mod.type == "COLLISION" and NODE_PREFIX in mod.name:
             return mod
     return None
 
+def get_weight_map_mods(obj):
+    mods = []
+    for mod in obj.modifiers:
+        if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
+            mods.append(mod)
+    return mods
+
+def get_weight_map_mod(obj, mat):
+    for mod in obj.modifiers:
+        if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name and (mat.name + "_WeightMix") in mod.name:
+            return mod
+    return None
+
 def setup_collision_physics(obj):
-    if get_collision_physics(obj) is None:
+    if get_collision_physics_mod(obj) is None:
         collision_mod = obj.modifiers.new(name=unique_name("Collision"), type="COLLISION")
         collision_mod.settings.thickness_outer = 0.005
+        log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
 
 def setup_cloth_physics(obj, is_hair, cache = "NONE"):
     prefs = bpy.context.preferences.addons[__name__].preferences
 
-    if get_cloth_physics(obj) is None and prefs.physics_group in obj.vertex_groups:
+    if get_cloth_physics_mod(obj) is None and prefs.physics_group in obj.vertex_groups:
         cloth_mod = obj.modifiers.new(name=unique_name("Cloth"), type="CLOTH")
+        log_info("Cloth Modifier: " + cloth_mod.name + " applied to " + obj.name)
         # set bake frame range
         frame_count = 250
         if obj.parent is not None and obj.parent.animation_data is not None and \
                 obj.parent.animation_data.action is not None:
             frame_count = math.ceil(obj.parent.animation_data.action.frame_range[1])
 
+        log_info("Setting " + obj.name + " bake cache frame range to [1-" + str(frame_count) + "]")
         cloth_mod.point_cache.frame_start = 1
         cloth_mod.point_cache.frame_end = frame_count
 
@@ -1830,6 +1856,7 @@ def setup_cloth_physics(obj, is_hair, cache = "NONE"):
             apply_cloth_settings(obj, "COTTON")
 
 def remove_all_physics(obj):
+    log_info("Removing all related physics modifiers from: " + obj.name)
     for mod in obj.modifiers:
         if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
             obj.modifiers.remove(mod)
@@ -1841,18 +1868,19 @@ def remove_all_physics(obj):
 def remove_cloth_physics(obj):
     prefs = bpy.context.preferences.addons[__name__].preferences
     cache = get_object_cache(obj)
-    cache.cloth = "REMOVED"
+    cache.cloth = "REMOVED_" + cache.cloth
+    log_info("Removing cloth physics from: " + obj.name)
+
     for mod in obj.modifiers:
         if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
-            tex = mod.mask_texture
-            image = tex.image
+            log_info("    Removing Weight Edit modifer: " + mod.name)
             obj.modifiers.remove(mod)
-            if image.source == "GENERATED":
-                bpy.data.images.remove(image)
-                bpy.data.textures.remove(tex)
         elif mod.type == "CLOTH" and NODE_PREFIX in mod.name:
+            log_info("    Removing Cloth modifer: " + mod.name)
             obj.modifiers.remove(mod)
+
     if prefs.physics_group in obj.vertex_groups:
+        log_info("    Removing vertex group: " + prefs.physics_group)
         obj.vertex_groups.remove(obj.vertex_groups[prefs.physics_group])
 
 def remove_collision_physics(obj):
@@ -1860,6 +1888,7 @@ def remove_collision_physics(obj):
     cache.coll = False
     for mod in obj.modifiers:
         if mod.type == "COLLISION" and NODE_PREFIX in mod.name:
+            log_info("Removing Collision modifer: " + mod.name)
             obj.modifiers.remove(mod)
 
 def add_collision_physics(obj):
@@ -1872,28 +1901,55 @@ def add_cloth_physics(obj):
     wh = int(props.physics_tex_size)
     cache = get_object_cache(obj)
     for mat in obj.data.materials:
-        weight_map = find_material_image(mat, WEIGHT_MAP)
-        if weight_map is None:
-            weight_map = bpy.data.images.new(mat.name + "_WeightMap", wh, wh, is_data=True)
-            # save the image out...
-            mat_cache = get_material_cache(mat)
-            mat_cache.temp_weight_map = weight_map
-            attach_weight_map(obj, mat, weight_map)
-        elif cache.cloth == "REMOVED":
-            cache.cloth = "NONE"
-            attach_weight_map(obj, mat, weight_map)
-    setup_cloth_physics(obj, props.hair_object == obj)
+        weight_map = get_weight_map_image(obj, mat)
+        if "REMOVED_" in cache.cloth:
+            cache.cloth = cache.cloth[8:]
+            log_info("Cloth setting: " + cache.cloth + " restored to: " + obj.name + "/" + mat.name)
+        else:
+            log_info(obj.name + "/" + mat.name + " has existing weight map: " + weight_map.name)
+        attach_material_weight_map(obj, mat, weight_map)
+    setup_cloth_physics(obj, props.hair_object == obj, cache.cloth)
 
-def attach_weight_map(obj, mat, wm = None):
+def get_weight_map_image(obj, mat):
+    props = bpy.context.scene.CC3ImportProps
+    tex_size = int(props.physics_tex_size)
+    weight_map = find_material_image(mat, WEIGHT_MAP)
+    if weight_map is None:
+        # make a new blank weight map
+        weight_map = bpy.data.images.new(mat.name + "_WeightMap", tex_size, tex_size, is_data=True)
+        # make the image 'dirty' so it can be packed
+        weight_map.pixels[0] = 0.0
+        weight_map.pack()
+        log_info("Weight-map image: " + weight_map.name + " created and packed")
+        mat_cache = get_material_cache(mat)
+        mat_cache.temp_weight_map = weight_map
+    return weight_map
+
+def add_material_weight_map(obj, mat):
+    weight_map = get_weight_map_image(obj, mat)
+    attach_material_weight_map(obj, mat, weight_map)
+
+def remove_material_weight_map(obj, mat):
+    for mod in obj.modifiers:
+        print(mod.name)
+        if mod.type == "VERTEX_WEIGHT_EDIT" and \
+           NODE_PREFIX in mod.name and \
+           (mat.name + "_WeightMix") in mod.name:
+            log_info("    Removing Weight Edit modifer: " + mod.name)
+            obj.modifiers.remove(mod)
+    pass
+
+def attach_material_weight_map(obj, mat, weight_map = None):
     prefs = bpy.context.preferences.addons[__name__].preferences
+
     cache = get_object_cache(obj)
-    if cache.cloth == "REMOVED":
+    if "REMOVED_" in cache.cloth:
+        log_info("Weight map has been disabled!")
         return
 
-    if wm is None:
+    if weight_map is None:
         weight_map = find_material_image(mat, WEIGHT_MAP)
-    else:
-        weight_map = wm
+
     if weight_map is not None:
         tex_name = mat.name + "_Weight"
         tex = None
@@ -1902,6 +1958,9 @@ def attach_weight_map(obj, mat, wm = None):
                 tex = t
         if tex is None:
             tex = bpy.data.textures.new(unique_name(tex_name), "IMAGE")
+            log_info("Texture: " + tex.name + " created for weight map transfer")
+        else:
+            log_info("Texture: " + tex.name + " already exists for weight map transfer")
         tex.image = weight_map
         if prefs.physics_group not in obj.vertex_groups:
             obj.vertex_groups.new(name = prefs.physics_group)
@@ -1918,6 +1977,27 @@ def attach_weight_map(obj, mat, wm = None):
         mod.mask_constant = 1
         mod.mask_tex_mapping = 'UV'
         mod.mask_tex_use_channel = 'INT'
+        log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
+
+def paint_weight_map(obj, mat):
+    props = bpy.context.scene.CC3ImportProps
+    props.paint_store_render = bpy.context.space_data.shading.type
+
+    if bpy.context.mode != "PAINT_TEXTURE":
+        bpy.ops.object.mode_set(mode="TEXTURE_PAINT")
+
+    if bpy.context.mode == "PAINT_TEXTURE":
+        weight_map = get_weight_map_image(obj, mat)
+        bpy.context.scene.tool_settings.image_paint.mode = 'IMAGE'
+        bpy.context.scene.tool_settings.image_paint.canvas = weight_map
+        bpy.context.space_data.shading.type = 'SOLID'
+
+def stop_paint():
+    props = bpy.context.scene.CC3ImportProps
+
+    if bpy.context.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.space_data.shading.type = props.paint_store_render
 
 def get_node_group(name):
     for group in bpy.data.node_groups:
@@ -2134,7 +2214,7 @@ def process_object(obj, objects_processed):
         for mat in obj.data.materials:
             log_info("Processing Material: " + mat.name)
             process_material(obj, mat)
-            attach_weight_map(obj, mat)
+            attach_material_weight_map(obj, mat)
             # apply cached alpha settings
             if cache.alpha != "NONE":
                 apply_alpha_override(obj, mat, cache.alpha)
@@ -2235,6 +2315,8 @@ def cache_object_materials(obj):
                 cache.object = obj
                 cache.dir = get_material_dir(base_dir, character_name, type, obj, mat)
                 nodes = mat.node_tree.nodes
+                # weight maps
+
                 for node in nodes:
                     if node.type == "TEX_IMAGE" and node.image is not None:
                         filepath = node.image.filepath
@@ -3384,10 +3466,11 @@ def quick_set_process_object(param, obj, objects_processed):
         for child in obj.children:
             quick_set_process_object(param, child, objects_processed)
 
-def quick_set_execute(param):
+def quick_set_execute(param, context = bpy.context):
     objects_processed = []
     props = bpy.context.scene.CC3ImportProps
 
+    print(context.mode)
     if "PHYSICS_" in param:
         if param == "PHYSICS_ADD_CLOTH":
             for obj in bpy.context.selected_objects:
@@ -3401,6 +3484,10 @@ def quick_set_execute(param):
         elif param == "PHYSICS_REMOVE_COLLISION":
             for obj in bpy.context.selected_objects:
                 remove_collision_physics(obj)
+        elif param == "PHYSICS_ADD_WEIGHTMAP":
+            add_material_weight_map(context.object, context.object.material_slots[context.object.active_material_index].material)
+        elif param == "PHYSICS_REMOVE_WEIGHTMAP":
+            remove_material_weight_map(context.object, context.object.material_slots[context.object.active_material_index].material)
         elif param == "PHYSICS_HAIR":
             for obj in bpy.context.selected_objects:
                 apply_cloth_settings(obj, "HAIR")
@@ -3420,10 +3507,12 @@ def quick_set_execute(param):
             for obj in bpy.context.selected_objects:
                 apply_cloth_settings(obj, "SILK")
         elif param == "PHYSICS_PAINT":
-            pass
+            paint_weight_map(context.object, context.object.material_slots[context.object.active_material_index].material)
+        elif param == "PHYSICS_DONE_PAINTING":
+            stop_paint()
 
     elif param == "RESET":
-        reset_parameters()
+        reset_parameters(context)
 
     elif param == "RESET_PREFS":
         reset_preferences()
@@ -3446,7 +3535,7 @@ block_update = False
 def quick_set_update(self, context):
     global block_update
     if not block_update:
-        quick_set_execute("UPDATE_ALL")
+        quick_set_execute("UPDATE_ALL", context)
 
 def find_pose_bone(*name):
     props = bpy.context.scene.CC3ImportProps
@@ -3484,9 +3573,28 @@ def open_mouth_update(self, context):
                 constraint.owner_space = "LOCAL"
             constraint.influence = props.open_mouth
 
+def s2lin(x):
+    a = 0.055
+    if x <= 0.04045:
+        y = x * (1.0/12.92)
+    else:
+        y = pow((x + a)*(1.0/(1 + a)), 2.4)
+    return y
+
+def lin2s(x):
+    a = 0.055
+    if x <= 0.0031308:
+        y = x * 12.92
+    else:
+        y = (1 + a)*pow(x, 1/2.4) - a
+    return y
+
 def physics_strength_update(self, context):
     props = bpy.context.scene.CC3ImportProps
-    pass
+
+    if bpy.context.mode == "PAINT_TEXTURE":
+        s = props.physics_strength
+        bpy.context.scene.tool_settings.unified_paint_settings.color = (s, s, s)
 
 class CC3QuickSet(bpy.types.Operator):
     """Quick Set Functions"""
@@ -3500,7 +3608,7 @@ class CC3QuickSet(bpy.types.Operator):
         )
 
     def execute(self, context):
-        quick_set_execute(self.param)
+        quick_set_execute(self.param, context)
         return {"FINISHED"}
 
     @classmethod
@@ -3802,7 +3910,7 @@ def reset_preferences():
     prefs.morph_mode = "COMPAT"
     prefs.log_level = "ERRORS"
 
-def reset_parameters():
+def reset_parameters(context = bpy.context):
     global block_update
     props = bpy.context.scene.CC3ImportProps
 
@@ -3913,7 +4021,7 @@ def reset_parameters():
     props.default_bump = 5
 
     block_update = False
-    quick_set_execute("UPDATE_ALL")
+    quick_set_execute("UPDATE_ALL", context)
 
     return
 
@@ -3988,6 +4096,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     import_space_in_name: bpy.props.BoolProperty(default=False)
     import_haskey: bpy.props.BoolProperty(default=False)
     import_key_file: bpy.props.StringProperty(default="")
+
+    paint_store_render: bpy.props.StringProperty(default="")
 
     lighting_mode: bpy.props.EnumProperty(items=[
                         ("OFF","No Lighting","No automatic lighting and render settings."),
@@ -4635,44 +4745,57 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         prefs = context.preferences.addons[__name__].preferences
         layout = self.layout
 
-        show_add_cloth = False
-        show_remove_cloth = False
-        show_add_coll = False
-        show_remove_coll = False
+        missing_cloth = False
+        has_cloth = False
+        missing_coll = False
+        has_coll = False
+        has_temp_weight = False
+        weight_maps = 0
+        active_has_cloth = False
+        meshes_selected = 0
         for obj in bpy.context.selected_objects:
-            if get_cloth_physics(obj) is None:
-                show_add_cloth = True
-            else:
-                show_remove_cloth = True
-            if get_collision_physics(obj) is None:
-                show_add_coll = True
-            else:
-                show_remove_coll = True
+            if obj.type == "MESH":
+                meshes_selected += 1
+                cloth_mod = get_cloth_physics_mod(obj)
+                coll_mod = get_collision_physics_mod(obj)
+                if cloth_mod is None:
+                    missing_cloth = True
+                else:
+                    weight_mods = get_weight_map_mods(obj)
+                    if context.object == obj:
+                        weight_maps = len(weight_mods)
+                        active_has_cloth = True
+                    for mod in weight_mods:
+                        if mod.mask_texture is not None and \
+                        mod.mask_texture.image is not None and \
+                        mod.mask_texture.image.packed_file is not None:
+                            has_temp_weight = True
+                    has_cloth = True
+                if coll_mod is None:
+                    missing_coll = True
+                else:
+                    has_coll = True
 
         box = layout.box()
         box.label(text="Create / Remove", icon="PHYSICS")
         col = layout.column()
-        if show_add_cloth:
+        if missing_cloth:
             op = col.operator("cc3.quickset", icon="ADD", text="Add Cloth Physics")
             op.param = "PHYSICS_ADD_CLOTH"
-        if show_remove_cloth:
+        if has_cloth:
             op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Cloth Physics")
             op.param = "PHYSICS_REMOVE_CLOTH"
-        if show_add_cloth or show_remove_cloth:
+        if missing_cloth or has_cloth:
             col.separator()
-        if show_add_coll:
+        if missing_coll:
             op = col.operator("cc3.quickset", icon="ADD", text="Add Collision Physics")
             op.param = "PHYSICS_ADD_COLLISION"
-        if show_remove_coll:
+        if has_coll:
             op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Collision Physics")
             op.param = "PHYSICS_REMOVE_COLLISION"
-        if show_add_coll or show_remove_coll:
-            col.separator()
-        split = col.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text="WeightMap Size")
-        col_2.prop(props, "physics_tex_size", text="")
+        if meshes_selected == 0:
+            col.label(text="Select a mesh object...")
+
 
         box = layout.box()
         box.label(text="Quick Settings", icon="OPTIONS")
@@ -4691,16 +4814,43 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         op.param = "PHYSICS_SILK"
 
         box = layout.box()
-        box.label(text="Paint", icon="TEXTURE_DATA")
+        box.label(text="Weight Maps", icon="TEXTURE_DATA")
+
+        if not active_has_cloth:
+            col = layout.column()
+            col.label(text="No Cloth physics on object...")
+
         split = layout.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
-        col_1.label(text="Strength")
-        col_2.prop(props, "physics_strength", text="", slider=True)
-        col = layout.column()
-        op = col.operator("cc3.quickset", icon="BRUSH_DATA", text="Paint Weight Map")
-        op.param = "PHYSICS_PAINT"
+        col_1.label(text="WeightMap Size")
+        col_2.prop(props, "physics_tex_size", text="")
 
+        if active_has_cloth:
+            col = layout.column()
+            ob = context.object
+            col.template_list("MATERIAL_UL_weightedmatslots", "", ob, "material_slots", ob, "active_material_index", rows=1)
+            if get_weight_map_mod(obj, ob.material_slots[ob.active_material_index].material) is None:
+                op = col.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
+                op.param = "PHYSICS_ADD_WEIGHTMAP"
+            else:
+                op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Weight Map")
+                op.param = "PHYSICS_REMOVE_WEIGHTMAP"
+                if bpy.context.mode == "PAINT_TEXTURE":
+                    split = col.split(factor=0.5)
+                    col_1 = split.column()
+                    col_2 = split.column()
+                    col_1.label(text="Strength")
+                    col_2.prop(props, "physics_strength", text="", slider=True)
+                    op = col.operator("cc3.quickset", icon="CHECKMARK", text="Done Weight Painting!")
+                    op.param = "PHYSICS_DONE_PAINTING"
+                else:
+                    op = col.operator("cc3.quickset", icon="BRUSH_DATA", text="Paint Weight Map")
+                    op.param = "PHYSICS_PAINT"
+        if has_temp_weight:
+            col = layout.column()
+            op = col.operator("cc3.quickset", icon="FILE_TICK", text="Save Weight Maps")
+            op.param = "PHYSICS_SAVE"
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Pipeline_Panel"
@@ -4852,37 +5002,32 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         op = layout.operator("cc3.quickset", icon="FILE_REFRESH", text="Reset to Defaults")
         op.param = "RESET_PREFS"
 
+class MATERIAL_UL_weightedmatslots(bpy.types.UIList):
+    def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
+        slot = item
+        ma = slot.material
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            if ma:
+                layout.prop(ma, "name", text="", emboss=False, icon_value=icon)
+            else:
+                layout.label(text="", icon_value=icon)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+classes = (CC3ObjectPointer, CC3MaterialCache, CC3ObjectCache, CC3ImportProps,
+           CC3ToolsPipelinePanel, CC3ToolsMaterialSettingsPanel, CC3ToolsPhysicsPanel, CC3ToolsScenePanel,
+           MATERIAL_UL_weightedmatslots,
+           CC3Import, CC3Export, CC3Scene, CC3QuickSet, CC3ToolsAddonPreferences)
+
 def register():
-    bpy.utils.register_class(CC3ObjectPointer)
-    bpy.utils.register_class(CC3MaterialCache)
-    bpy.utils.register_class(CC3ObjectCache)
-    bpy.utils.register_class(CC3ImportProps)
-    bpy.utils.register_class(CC3ToolsPipelinePanel)
-    bpy.utils.register_class(CC3ToolsMaterialSettingsPanel)
-    bpy.utils.register_class(CC3ToolsPhysicsPanel)
-    bpy.utils.register_class(CC3ToolsScenePanel)
-    bpy.utils.register_class(CC3Import)
-    bpy.utils.register_class(CC3Export)
-    bpy.utils.register_class(CC3Scene)
-    bpy.utils.register_class(CC3QuickSet)
-    bpy.utils.register_class(CC3ToolsAddonPreferences)
+    for cls in classes:
+        bpy.utils.register_class(cls)
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=CC3ImportProps)
 
 def unregister():
-    bpy.utils.unregister_class(CC3ObjectPointer)
-    bpy.utils.unregister_class(CC3MaterialCache)
-    bpy.utils.unregister_class(CC3ObjectCache)
-    bpy.utils.unregister_class(CC3ImportProps)
-    bpy.utils.unregister_class(CC3ToolsPipelinePanel)
-    bpy.utils.unregister_class(CC3ToolsMaterialSettingsPanel)
-    bpy.utils.unregister_class(CC3ToolsScenePanel)
-    bpy.utils.unregister_class(CC3ToolsPhysicsPanel)
-    bpy.utils.unregister_class(CC3Import)
-    bpy.utils.unregister_class(CC3Export)
-    bpy.utils.unregister_class(CC3Scene)
-    bpy.utils.unregister_class(CC3QuickSet)
-    bpy.utils.unregister_class(CC3ToolsAddonPreferences)
-
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
     del(bpy.types.Scene.CC3ImportProps)
 
 
