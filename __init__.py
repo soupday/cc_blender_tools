@@ -9,15 +9,17 @@ import math
 #   - When no texture maps are present for an advanced node group, does not generate the node group.
 #   - When exporting morph characters with .fbxkey or .objkey files, the key file is copied along with the export.
 #   - Function added to reset preferences to default values.
-#   - Added a Compatible material mode, which sets up very basic materials that when exported to CC3, it imports
-#       some of the textures properly. Not all of them unfortunately.
-# TODO
 #   - Use physX weight maps to generate vertex pin weights for cloth/hair physics (Optional in the preferences).
 #       (There's a modifier that can generate vertex weights from a texture.)
 #   - Automatically setup cloth/hair physics (Optional in the preferences)
 #   - When setting the alpha mode using the quick fix buttons, remember it in the material_cache
+#   - Remembers the quick physics settings
+#
+# TODO
+#   - Paint and save weight maps for physics
+#   - Prefs for physics settings
+#
 # FUTURE
-#   - Remember quick alpha settings and quick physics settings...
 #   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
 #       (Might help with Daz conversions and/or 3rd party characters that have non-standard or unexpected material names.)
 #   - Automatically generate full IK rig with Rigify or Auto-Rig Pro (Optional in the preferences)
