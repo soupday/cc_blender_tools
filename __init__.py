@@ -587,15 +587,6 @@ def find_material_image(mat, suffix_list):
             return load_image(image_file, color_space)
     return None
 
-def save_temp_images(obj, mat):
-    props = bpy.context.scene.CC3ImportProps
-    for cache in props.material_cache:
-        dir = cache.dir
-        name = strip_name(mat.name)
-        if cache.temp_weight_map is not None:
-            filepath = os.path.join(dir, name + "_WeightMap.png")
-            cache.temp_weight_map.filepath = filepath
-            cache.temp_weight_map.save()
 
 def apply_backface_culling(obj, mat, sides):
     cache = get_material_cache(mat)
@@ -2140,11 +2131,10 @@ def paint_weight_map(obj, mat):
 
     if bpy.context.mode == "PAINT_TEXTURE":
         weight_map = get_weight_map_image(obj, mat)
+        props.paint_object = obj
+        props.paint_material = mat
+        props.paint_image = weight_map
         if weight_map is not None:
-            # TODO search all layouts and set the tex of any paint modes...
-            # try and set up texture paint layout too as well as current
-            #
-            # image editor image: bpy.data.screens['Scripting'].areas[5].spaces[0].image
             bpy.context.scene.tool_settings.image_paint.mode = 'IMAGE'
             bpy.context.scene.tool_settings.image_paint.canvas = weight_map
             bpy.context.space_data.shading.type = 'SOLID'
@@ -2156,6 +2146,74 @@ def stop_paint():
     if bpy.context.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
     bpy.context.space_data.shading.type = props.paint_store_render
+
+    props.paint_image.pack()
+    props.paint_image.save()
+
+
+def save_temp_weight_maps():
+    """Saves all active temporary weight map images to their respective material folders.
+
+    Clears active temporary weight maps from material cache.
+    """
+
+    props = bpy.context.scene.CC3ImportProps
+    for mat_cache in props.material_cache:
+        obj_cache = get_object_cache(mat_cache.object)
+        if (mat_cache.temp_weight_map is not None
+            and obj_cache.cloth_physics != "OFF"
+            and mat_cache.cloth_physics != "OFF"):
+
+            log_info("Temporary weight map: " + mat_cache.temp_weight_map.name)
+            dir = mat_cache.dir
+            name = strip_name(mat_cache.material.name)
+            filepath = os.path.join(dir, name + "_WeightMap.png")
+            log_info("    Saved to: " + filepath)
+            mat_cache.temp_weight_map.filepath = filepath
+            mat_cache.temp_weight_map.save()
+            mat_cache.temp_weight_map = None
+
+def save_dirty_weight_maps(obj = None):
+    """Saves all active weight map images to their respective material folders.
+
+    Temporary weight maps are repacked and saved to the file system.
+    Clears active temporary weight maps from material cache.
+    """
+
+    props = bpy.context.scene.CC3ImportProps
+
+    if obj is None:
+        for p in props.import_objects:
+            if p.object.type == "ARMATURE":
+                for child in p.object.children:
+                    save_dirty_weight_maps(child)
+                    return
+            elif p.object.type == "MESH":
+                save_dirty_weight_maps(p.object)
+                return
+
+    obj_cache = get_object_cache(obj)
+    if obj_cache.cloth_physics != "OFF":
+        for mat in obj.data.materials:
+            if mat is not None:
+                mat_cache = get_material_cache(mat)
+                if mat_cache.cloth_physics != "OFF":
+                    weight_map = get_weight_map_image(obj, mat, False)
+                    if (weight_map is not None and weight_map.is_dirty):
+                        # Save all active temporary weight maps
+                        if (mat_cache.temp_weight_map == weight_map):
+                            dir = mat_cache.dir
+                            name = strip_name(mat_cache.material.name)
+                            filepath = os.path.join(dir, name + "_WeightMap.png")
+                            mat_cache.temp_weight_map.filepath = filepath
+                            mat_cache.temp_weight_map.save()
+                            mat_cache.temp_weight_map = None
+                            log_info("Temporary Weight Map: " + weight_map.name + " saved to: " + filepath)
+                        # Save any dirty weight maps
+                        elif weight_map.is_dirty:
+                            weight_map.save()
+                            log_info("Weight Map: " + weight_map.name + " saved to: " + weight_map.filepath)
+
 
 
 def get_node_group(name):
@@ -3737,6 +3795,8 @@ def quick_set_execute(param, context = bpy.context):
                 paint_weight_map(context.object, context.object.material_slots[context.object.active_material_index].material)
         elif param == "PHYSICS_DONE_PAINTING":
             stop_paint()
+        elif param == "PHYSICS_SAVE":
+            save_dirty_weight_maps()
 
     elif param == "RESET":
         reset_parameters(context)
@@ -4332,6 +4392,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     import_space_in_name: bpy.props.BoolProperty(default=False)
     import_haskey: bpy.props.BoolProperty(default=False)
     import_key_file: bpy.props.StringProperty(default="")
+
+    paint_object: bpy.props.PointerProperty(type=bpy.types.Object)
+    paint_material: bpy.props.PointerProperty(type=bpy.types.Material)
+    paint_image: bpy.props.PointerProperty(type=bpy.types.Image)
 
     quick_set_mode: bpy.props.EnumProperty(items=[
                         ("OBJECT","Object","Set the alpha blend mode and backface culling to all materials on the selected object(s)"),
