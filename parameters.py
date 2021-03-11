@@ -1,11 +1,12 @@
 import bpy
 
-from .materials import *
-from .nodes import *
-from .bones import *
-from .physics import *
-from .utils import *
-from .vars import *
+from . cache import *
+from . materials import *
+from . nodes import *
+from . bones import *
+from . physics import *
+from . utils import *
+from . vars import *
 
 def set_node_from_property(node):
     props = bpy.context.scene.CC3ImportProps

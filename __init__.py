@@ -31,15 +31,23 @@
 # Primary modules: importer, exporter, scene, parameters, ui
 #
 
-import bpy
+if "bpy" in locals():
+    import importlib
+    import sys
+    mods = ["physics", "parameters", "ui"]
+    for name in mods:
+        print("Reloading module: " + name)
+        mod = sys.modules.get(__name__+"."+name)
+        importlib.reload(mod)
 
-from .cache import CC3MaterialCache, CC3ObjectCache
-from .exporter import CC3Export
-from .importer import CC3Import
-from .parameters import (CC3ImportProps, CC3ObjectPointer, CC3QuickSet,
+import bpy
+from . cache import CC3MaterialCache, CC3ObjectCache
+from . exporter import CC3Export
+from . importer import CC3Import
+from . parameters import (CC3ImportProps, CC3ObjectPointer, CC3QuickSet,
                         CC3ToolsAddonPreferences)
-from .scene import CC3Scene
-from .ui import (CC3ToolsMaterialSettingsPanel, CC3ToolsPhysicsPanel,
+from . scene import CC3Scene
+from . ui import (CC3ToolsMaterialSettingsPanel, CC3ToolsPhysicsPanel,
                 CC3ToolsPipelinePanel, CC3ToolsScenePanel,
                 MATERIAL_UL_weightedmatslots)
 
@@ -60,10 +68,12 @@ classes = (CC3ObjectPointer, CC3MaterialCache, CC3ObjectCache, CC3ImportProps,
 
 def register():
     for cls in classes:
+        print("Registering Class: " + cls.__name__)
         bpy.utils.register_class(cls)
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=CC3ImportProps)
 
 def unregister():
     for cls in classes:
+        print("Unregistering Class: " + cls.__name__)
         bpy.utils.unregister_class(cls)
     del(bpy.types.Scene.CC3ImportProps)

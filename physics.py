@@ -475,7 +475,6 @@ def paint_weight_map(obj, mat):
 def has_dirty_weightmaps(objects):
     for obj in objects:
         if obj.type == "MESH":
-            print(obj.name)
             for mod in obj.modifiers:
                 if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
                     if mod.mask_texture is not None and mod.mask_texture.image is not None:

@@ -2,6 +2,7 @@ import bpy
 
 from .vars import *
 
+__reload_order_index__ = -1
 
 class CC3MaterialCache(bpy.types.PropertyGroup):
     material: bpy.props.PointerProperty(type=bpy.types.Material)
