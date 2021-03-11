@@ -834,7 +834,8 @@ def quick_set_execute(param, context = bpy.context):
         elif param == "PHYSICS_DONE_PAINTING":
             stop_paint()
         elif param == "PHYSICS_SAVE":
-            save_dirty_weight_maps()
+            save_temp_weight_maps()
+            save_dirty_weight_maps(bpy.context.selected_objects)
 
     elif param == "RESET":
         reset_parameters(context)

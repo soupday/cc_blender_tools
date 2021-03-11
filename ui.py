@@ -138,7 +138,8 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
             if props.import_name == "":
                 column.enabled = False
 
-            column.prop(props, "update_mode", expand=True)
+            row = column.row()
+            row.prop(props, "update_mode", expand=True)
             if props.setup_mode == "ADVANCED":
                 # Skin Settings
                 column.separator()
@@ -627,7 +628,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                 else:
                     op = col.operator("cc3.quickset", icon="BRUSH_DATA", text="Paint Weight Map")
                     op.param = "PHYSICS_PAINT"
-        if has_temp_weight:
+        if has_temp_weight or has_dirty_weightmaps(bpy.context.selected_objects):
             col = layout.column()
             op = col.operator("cc3.quickset", icon="FILE_TICK", text="Save Weight Maps")
             op.param = "PHYSICS_SAVE"

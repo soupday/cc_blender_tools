@@ -17,6 +17,7 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
     alpha_is_diffuse: bpy.props.BoolProperty(default=False)
     alpha_mode: bpy.props.StringProperty(default="NONE") # NONE, BLEND, HASHED, OPAQUE
     culling_sides: bpy.props.IntProperty(default=0) # 0 - default, 1 - single sided, 2 - double sided
+    # bit of a misnomer, this means enabled/disabled weight maps.
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
 
 

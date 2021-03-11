@@ -472,6 +472,32 @@ def paint_weight_map(obj, mat):
             bpy.context.space_data.shading.type = 'SOLID'
 
 
+def has_dirty_weightmaps(objects):
+    for obj in objects:
+        if obj.type == "MESH":
+            print(obj.name)
+            for mod in obj.modifiers:
+                if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
+                    if mod.mask_texture is not None and mod.mask_texture.image is not None:
+                        image = mod.mask_texture.image
+                        if image.is_dirty:
+                            return True
+    return False
+
+
+def get_dirty_weightmaps(objects):
+    maps = []
+    for obj in objects:
+        if obj.type == "MESH":
+            for mod in obj.modifiers:
+                if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
+                    if mod.mask_texture is not None and mod.mask_texture.image is not None:
+                        image = mod.mask_texture.image
+                        if image.is_dirty:
+                            maps.append(image)
+    return maps
+
+
 def stop_paint():
     props = bpy.context.scene.CC3ImportProps
 
@@ -505,44 +531,18 @@ def save_temp_weight_maps():
             mat_cache.temp_weight_map.save()
             mat_cache.temp_weight_map = None
 
-def save_dirty_weight_maps(obj = None):
-    """Saves all active weight map images to their respective material folders.
 
-    Temporary weight maps are repacked and saved to the file system.
-    Clears active temporary weight maps from material cache.
+def save_dirty_weight_maps(objects):
+    """Saves all altered active weight map images to their respective material folders.
     """
 
     props = bpy.context.scene.CC3ImportProps
 
-    if obj is None:
-        for p in props.import_objects:
-            if p.object.type == "ARMATURE":
-                for child in p.object.children:
-                    save_dirty_weight_maps(child)
-                    return
-            elif p.object.type == "MESH":
-                save_dirty_weight_maps(p.object)
-                return
+    maps = get_dirty_weightmaps(objects)
 
-    obj_cache = get_object_cache(obj)
-    if obj_cache.cloth_physics != "OFF":
-        for mat in obj.data.materials:
-            if mat is not None:
-                mat_cache = get_material_cache(mat)
-                if mat_cache.cloth_physics != "OFF":
-                    weight_map = get_weight_map_image(obj, mat, False)
-                    if (weight_map is not None and weight_map.is_dirty):
-                        # Save all active temporary weight maps
-                        if (mat_cache.temp_weight_map == weight_map):
-                            dir = mat_cache.dir
-                            name = strip_name(mat_cache.material.name)
-                            filepath = os.path.join(dir, name + "_WeightMap.png")
-                            mat_cache.temp_weight_map.filepath = filepath
-                            mat_cache.temp_weight_map.save()
-                            mat_cache.temp_weight_map = None
-                            log_info("Temporary Weight Map: " + weight_map.name + " saved to: " + filepath)
-                        # Save any dirty weight maps
-                        elif weight_map.is_dirty:
-                            weight_map.save()
-                            log_info("Weight Map: " + weight_map.name + " saved to: " + weight_map.filepath)
+    for weight_map in maps:
+        if weight_map.is_dirty:
+            # Save all active temporary weight maps
+            weight_map.save()
+            log_info("Weight Map: " + weight_map.name + " saved to: " + weight_map.filepath)
 

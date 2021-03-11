@@ -37,16 +37,16 @@ from .cache import CC3MaterialCache, CC3ObjectCache
 from .exporter import CC3Export
 from .importer import CC3Import
 from .parameters import (CC3ImportProps, CC3ObjectPointer, CC3QuickSet,
-                         CC3ToolsAddonPreferences)
+                        CC3ToolsAddonPreferences)
 from .scene import CC3Scene
 from .ui import (CC3ToolsMaterialSettingsPanel, CC3ToolsPhysicsPanel,
-                 CC3ToolsPipelinePanel, CC3ToolsScenePanel,
-                 MATERIAL_UL_weightedmatslots)
+                CC3ToolsPipelinePanel, CC3ToolsScenePanel,
+                MATERIAL_UL_weightedmatslots)
 
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 2, 0),
+    "version": (0, 2, 1),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
