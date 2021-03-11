@@ -6,19 +6,25 @@ from .vars import *
 
 
 def log_info(msg):
+    """Log an info message to console.
+    """
+
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    """Log an info message to console."""
     if prefs.log_level == "ALL":
         print(msg)
 
 def log_warn(msg):
+    """Log a warning message to console.
+    """
+
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    """Log a warning message to console."""
     if prefs.log_level == "ALL" or prefs.log_level == "WARN":
         print("Warning: " + msg)
 
 def log_error(msg):
-    """Log an error message to console and raise an exception."""
+    """Log an error message to console and raise an exception.
+    """
+
     print("Error: " + msg)
 
 def message_box(message = "", title = "Info", icon = 'INFO'):
@@ -28,39 +34,48 @@ def message_box(message = "", title = "Info", icon = 'INFO'):
 
 def unique_name(name):
     """Generate a unique name for the node or property to quickly
-       identify texture nodes or nodes with parameters."""
+    identify texture nodes or nodes with parameters.
+    """
+
     props = bpy.context.scene.CC3ImportProps
     name = NODE_PREFIX + name + "_" + VERSION_STRING + "_" + str(props.node_id)
     props.node_id = props.node_id + 1
     return name
 
-# remove any .001 from the material name
+
 def strip_name(name):
+    """Strips any blender duplicate name number suffix (e.g. Material.003) from the name.
+    """
+
     if name[-3:].isdigit() and name[-4] == ".":
         name = name[:-4]
     return name
 
-# load an image from a file, but try to find it in the existing images first
-def load_image(filename, color_space):
+
+def load_image(filepath, color_space):
+    """Loads an image from a file, but tries to find it in the existing images first by matching the filepath.
+    """
 
     for i in bpy.data.images:
         if (i.type == "IMAGE" and i.filepath != ""):
             try:
-                if os.path.normcase(i.filepath) == os.path.normcase(filename):
+                if os.path.normcase(i.filepath) == os.path.normcase(filepath):
                     log_info("    Using existing image: " + i.filepath)
                     return i
             except:
                 pass
 
-    log_info("    Loading new image: " + filename)
-    image = bpy.data.images.load(filename)
+    log_info("    Loading new image: " + filepath)
+    image = bpy.data.images.load(filepath)
     image.colorspace_settings.name = color_space
     return image
+
 
 def clean_colletion(collection):
     for item in collection:
         if (item.use_fake_user and item.users == 1) or item.users == 0:
             collection.remove(item)
+
 
 def tag_objects(default = True):
     for obj in bpy.data.objects:

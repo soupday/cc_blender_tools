@@ -1,6 +1,5 @@
 import bpy
 
-from .bones import *
 from .physics import *
 from .utils import *
 from .vars import *
@@ -15,32 +14,6 @@ def fake_drop_down(row, label, prop_name, prop_bool_value):
         row.prop(props, prop_name, icon="TRIA_RIGHT", icon_only=True, emboss=False)
     row.label(text=label)
     return prop_bool_value
-
-
-def open_mouth_update(self, context):
-    props = bpy.context.scene.CC3ImportProps
-
-    bone = find_pose_bone("CC_Base_JawRoot", "JawRoot")
-    if bone is not None:
-        constraint = None
-
-        for con in bone.constraints:
-            if "iCC3_open_mouth_contraint" in con.name:
-                constraint = con
-
-        if props.open_mouth == 0:
-            if constraint is not None:
-                constraint.influence = props.open_mouth
-                bone.constraints.remove(constraint)
-        else:
-            if constraint is None:
-                constraint = bone.constraints.new(type="LIMIT_ROTATION")
-                constraint.name = "iCC3_open_mouth_contraint"
-                constraint.use_limit_z = True
-                constraint.min_z = 0.43633
-                constraint.max_z = 0.43633
-                constraint.owner_space = "LOCAL"
-            constraint.influence = props.open_mouth
 
 
 class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
