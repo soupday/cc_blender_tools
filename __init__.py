@@ -1,31 +1,38 @@
+# Version: 0.2.x
+#   DONE
+#   - When no texture maps are present for an advanced node group, does not generate the node group.
+#   - When exporting morph characters with .fbxkey or .objkey files, the key file is copied along with the export.
+#   - Function added to reset preferences to default values.
+#   - Alpha blend settings and back face culling settings can be applied to materials in the object now.
+#   - Option to apply alpha blend settings to whole object(s) or just active materal.
+#   - Remembers the applied alpha blend settings and re-applies when rebuilding materials.
+#
+#   Physics:
+#   - Uses the physX weight maps to auto-generate vertex pin weights for cloth/hair physics (Optional in the preferences).
+#   - Automatically sets up cloth/hair physics modifiers (Optional in the preferences)
+#   - Physics cloth presets can be applied to the selected object(s) and are remembered with rebuilding materials.
+#   - Weightmaps can be added/removed to the individual materials of the objects.
+#   - Operator to setup and begin texture painting of the per material weight maps.
+#
+# TODO
+#   - Operator to save any modified weight maps to disk.
+#   - Prefs for physics settings.
+#   - Pick Scalp Material (Is there an eye dropper for materials?).
+#   - Button to auto transfer skin weights to accessories.
+#
+# FUTURE PLANS
+#   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
+#       (Might help with Daz conversions and/or 3rd party characters that have non-standard or unexpected material names.)
+#   - Automatically generate full IK rig with Rigify or Auto-Rig Pro (Optional in the preferences)
+#       (Not sure if this is possible to invoke these add-ons from code...)
+#
+# --------------------------------------------------------------
+
 import bpy
 import os
 import mathutils
 import shutil
 import math
-
-# Version: 0.2.x
-# DONE
-#   - When no texture maps are present for an advanced node group, does not generate the node group.
-#   - When exporting morph characters with .fbxkey or .objkey files, the key file is copied along with the export.
-#   - Function added to reset preferences to default values.
-#   - Use physX weight maps to generate vertex pin weights for cloth/hair physics (Optional in the preferences).
-#       (There's a modifier that can generate vertex weights from a texture.)
-#   - Automatically setup cloth/hair physics (Optional in the preferences)
-#   - When setting the alpha mode using the quick fix buttons, remember it in the material_cache
-#   - Remembers the quick physics settings
-#
-# TODO
-#   - Paint and save weight maps for physics
-#   - Prefs for physics settings
-#   - Pick Scalp Material...
-#   - Button to auto transfer skin weights to accessories
-#
-# FUTURE
-#   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
-#       (Might help with Daz conversions and/or 3rd party characters that have non-standard or unexpected material names.)
-#   - Automatically generate full IK rig with Rigify or Auto-Rig Pro (Optional in the preferences)
-#       (Not sure if this is possible to invoke these add-ons from code...)
 
 bl_info = {
     "name": "CC3 Tools",
@@ -1996,17 +2003,18 @@ def get_weight_map_image(obj, mat, create = False):
     weight_map = find_material_image(mat, WEIGHT_MAP)
 
     if weight_map is None and create:
-        tex_size = int(props.physics_tex_size)
-        weight_map = bpy.data.images.new(strip_name(mat.name) + "_WeightMap", tex_size, tex_size, is_data=True)
-        # make the image 'dirty' so it can be packed
-        weight_map.pixels[0] = 0.0
-        weight_map.filepath = strip_name(mat.name) + "_WeightMap"
-
         cache = get_material_cache(mat)
-        if cache is not None:
-            cache.temp_weight_map = weight_map
-
-        log_info("Weight-map image: " + weight_map.name + " created and packed")
+        name = strip_name(mat.name) + "_WeightMap"
+        tex_size = int(props.physics_tex_size)
+        weight_map = bpy.data.images.new(name, tex_size, tex_size, is_data=True)
+        # make the image 'dirty' so it converts to a file based image which can be saved:
+        weight_map.pixels[0] = 0.0
+        weight_map.file_format = "PNG"
+        weight_map.filepath_raw = os.path.join(cache.dir, name + ".png")
+        weight_map.save()
+        # keep track of which weight maps we created:
+        cache.temp_weight_map = weight_map
+        log_info("Weight-map image: " + weight_map.name + " created and saved.")
 
     return weight_map
 
@@ -2036,12 +2044,10 @@ def remove_material_weight_map(obj, mat):
     or the texture based on the weight map image, just the modifier.
     """
 
-    prefs = bpy.context.preferences.addons[__name__].preferences
-    for mod in obj.modifiers:
-        if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
-            if mat.name + "_WeightMix" in mod.name:
-                log_info("    Removing weight map vertex edit modifer: " + mod.name)
-                obj.modifiers.remove(mod)
+    mod = get_weight_map_mod(obj, mat)
+    if mod is not None:
+        log_info("    Removing weight map vertex edit modifer: " + mod.name)
+        obj.modifiers.remove(mod)
 
 
 def enable_material_weight_map(obj, mat):
@@ -2122,34 +2128,19 @@ def attach_material_weight_map(obj, mat, weight_map):
         log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
 
 
-def paint_weight_map(obj, mat):
-    props = bpy.context.scene.CC3ImportProps
-    props.paint_store_render = bpy.context.space_data.shading.type
-
-    if bpy.context.mode != "PAINT_TEXTURE":
-        bpy.ops.object.mode_set(mode="TEXTURE_PAINT")
-
-    if bpy.context.mode == "PAINT_TEXTURE":
-        weight_map = get_weight_map_image(obj, mat)
-        props.paint_object = obj
-        props.paint_material = mat
-        props.paint_image = weight_map
-        if weight_map is not None:
-            bpy.context.scene.tool_settings.image_paint.mode = 'IMAGE'
-            bpy.context.scene.tool_settings.image_paint.canvas = weight_map
-            bpy.context.space_data.shading.type = 'SOLID'
-
-
-def has_dirty_weightmaps(objects):
+def count_weightmaps(objects):
+    num_maps = 0
+    num_dirty = 0
     for obj in objects:
         if obj.type == "MESH":
             for mod in obj.modifiers:
                 if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
                     if mod.mask_texture is not None and mod.mask_texture.image is not None:
+                        num_maps += 1
                         image = mod.mask_texture.image
                         if image.is_dirty:
-                            return True
-    return False
+                            num_dirty += 1
+    return num_maps, num_dirty
 
 
 def get_dirty_weightmaps(objects):
@@ -2165,41 +2156,35 @@ def get_dirty_weightmaps(objects):
     return maps
 
 
-def stop_paint():
+def begin_paint_weight_map(obj, mat):
     props = bpy.context.scene.CC3ImportProps
+    if obj is not None and mat is not None:
+        props.paint_store_render = bpy.context.space_data.shading.type
 
-    if bpy.context.mode != "OBJECT":
-        bpy.ops.object.mode_set(mode="OBJECT")
-    bpy.context.space_data.shading.type = props.paint_store_render
+        if bpy.context.mode != "PAINT_TEXTURE":
+            bpy.ops.object.mode_set(mode="TEXTURE_PAINT")
 
-    props.paint_image.pack()
-    props.paint_image.save()
+        if bpy.context.mode == "PAINT_TEXTURE":
+            physics_strength_update(None, None)
+            weight_map = get_weight_map_image(obj, mat)
+            props.paint_object = obj
+            props.paint_material = mat
+            props.paint_image = weight_map
+            if weight_map is not None:
+                bpy.context.scene.tool_settings.image_paint.mode = 'IMAGE'
+                bpy.context.scene.tool_settings.image_paint.canvas = weight_map
+                bpy.context.space_data.shading.type = 'SOLID'
 
 
-def save_temp_weight_maps():
-    """Saves all active temporary weight map images to their respective material folders.
-
-    Clears active temporary weight maps from material cache.
-    """
-
-    props = bpy.context.scene.CC3ImportProps
-    for mat_cache in props.material_cache:
-        obj_cache = get_object_cache(mat_cache.object)
-        if (mat_cache.temp_weight_map is not None
-            and obj_cache.cloth_physics != "OFF"
-            and mat_cache.cloth_physics != "OFF"):
-
-            log_info("Temporary weight map: " + mat_cache.temp_weight_map.name)
-            dir = mat_cache.dir
-            name = strip_name(mat_cache.material.name)
-            filepath = os.path.join(dir, name + "_WeightMap.png")
-            log_info("    Saving to: " + filepath)
-            mat_cache.temp_weight_map.filepath_raw = filepath
-            mat_cache.temp_weight_map.filepath = filepath
-            mat_cache.temp_weight_map.save()
-            bpy.ops.file.unpack_item(method="WRITE_ORIGINAL", id_name=mat_cache.temp_weight_map.name)
-            mat_cache.temp_weight_map = None
-            log_info("    Done.")
+def end_paint_weight_map():
+    try:
+        props = bpy.context.scene.CC3ImportProps
+        if bpy.context.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+        bpy.context.space_data.shading.type = props.paint_store_render
+        props.paint_image.save()
+    except:
+        log_error("Something went wrong restoring object mode from paint mode!")
 
 
 def save_dirty_weight_maps(objects):
@@ -2207,8 +2192,6 @@ def save_dirty_weight_maps(objects):
 
     Also saves any missing weight maps.
     """
-
-    props = bpy.context.scene.CC3ImportProps
 
     maps = get_dirty_weightmaps(objects)
 
@@ -2221,6 +2204,21 @@ def save_dirty_weight_maps(objects):
             log_info("Missing weight map: " + weight_map.name + " : " + weight_map.filepath)
             weight_map.save()
             log_info("Weight Map: " + weight_map.name + " saved to: " + weight_map.filepath)
+
+
+def delete_selected_weight_map(obj, mat):
+    if obj is not None and obj.type == "MESH" and mat is not None:
+        mod = get_weight_map_mod(obj, mat)
+        if mod is not None and mod.mask_texture is not None and mod.mask_texture.image is not None:
+            image = mod.mask_texture.image
+            try:
+                if image.filepath != "" and os.path.exists(image.filepath):
+                    log_info("Removing weight map file: " + image.filepath)
+                    os.remove(image.filepath)
+            except:
+                log_error("Removing weight map file: " + image.filepath)
+        log_info("Removing 'Vertex Weight Edit' modifer")
+        obj.modifiers.remove(mod)
 
 
 def get_node_group(name):
@@ -3799,12 +3797,13 @@ def quick_set_execute(param, context = bpy.context):
                     apply_cloth_settings(obj, "SILK")
         elif param == "PHYSICS_PAINT":
             if context.object is not None and context.object.type == "MESH":
-                paint_weight_map(context.object, context.object.material_slots[context.object.active_material_index].material)
+                begin_paint_weight_map(context.object, context_material(context))
         elif param == "PHYSICS_DONE_PAINTING":
-            stop_paint()
+            end_paint_weight_map()
         elif param == "PHYSICS_SAVE":
-            save_temp_weight_maps()
             save_dirty_weight_maps(bpy.context.selected_objects)
+        elif param == "PHYSICS_DELETE":
+            delete_selected_weight_map(context.object, context_material(context))
 
     elif param == "RESET":
         reset_parameters(context)
@@ -4377,7 +4376,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     ], default="UPDATE_ALL")
 
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
-    physics_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=physics_strength_update)
+    physics_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=physics_strength_update)
     physics_tex_size: bpy.props.EnumProperty(items=[
                         ("64","64 x 64","64 x 64 texture size"),
                         ("128","128 x 128","128 x 128 texture size"),
@@ -5104,6 +5103,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                     missing_coll = True
                 else:
                     has_coll = True
+        num_weight_maps, num_dirty_weight_maps = count_weightmaps(bpy.context.selected_objects)
 
         box = layout.box()
         box.label(text="Create / Remove", icon="PHYSICS")
@@ -5177,9 +5177,14 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                     op = col.operator("cc3.quickset", icon="BRUSH_DATA", text="Paint Weight Map")
                     op.param = "PHYSICS_PAINT"
 
-        col = layout.column()
-        op = col.operator("cc3.quickset", icon="FILE_TICK", text="Save Weight Maps")
-        op.param = "PHYSICS_SAVE"
+        if num_weight_maps > 0:
+            split = layout.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            op = col_1.operator("cc3.quickset", icon="FILE_TICK", text="Save")
+            op.param = "PHYSICS_SAVE"
+            op = col_2.operator("cc3.quickset", icon="ERROR", text="Delete")
+            op.param = "PHYSICS_DELETE"
 
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):
