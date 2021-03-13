@@ -5230,14 +5230,9 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                 col.enabled = False
             op = col.operator("cc3.quickset", icon="BRUSH_DATA", text="Paint Weight Map")
             op.param = "PHYSICS_PAINT"
-            split = layout.split(factor=0.5)
+            split = col.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
-            if wmm is None:
-                col_1.enabled = False
-                col_1.active = False
-                col_2.enabled = False
-                col_2.active = False
             op = col_1.operator("cc3.quickset", icon="FILE_TICK", text="Save")
             op.param = "PHYSICS_SAVE"
             op = col_2.operator("cc3.quickset", icon="ERROR", text="Delete")
