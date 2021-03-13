@@ -1852,7 +1852,7 @@ def add_collision_physics(obj):
             and "Base_Body" in obj.name)):
 
         if get_collision_physics_mod(obj) is None:
-            collision_mod = obj.modifiers.new("Collision", type="COLLISION")
+            collision_mod = obj.modifiers.new(unique_name("Collision"), type="COLLISION")
             collision_mod.settings.thickness_outer = 0.005
             log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
     elif cache.collision_physics == "OFF":
@@ -1886,7 +1886,7 @@ def add_cloth_physics(obj):
     if cache.cloth_physics == "ON" and get_cloth_physics_mod(obj) is None:
 
         # Create the Cloth modifier
-        cloth_mod = obj.modifiers.new("Cloth", type="CLOTH")
+        cloth_mod = obj.modifiers.new(unique_name("Cloth"), type="CLOTH")
         log_info("Cloth Modifier: " + cloth_mod.name + " applied to " + obj.name)
 
         # Create the physics pin vertex group if it doesn't exist
@@ -2049,11 +2049,19 @@ def fix_physics_mod_order(obj):
     """
 
     try:
+        if bpy.context.view_layer.objects.active is not obj:
+            obj.select_set(True)
+            bpy.context.view_layer.objects.active = obj
         num_mods = len(obj.modifiers)
         cloth_mod = get_cloth_physics_mod(obj)
+        max = 50
         if cloth_mod is not None:
             while obj.modifiers.find(cloth_mod.name) < num_mods - 1:
+                print("Shifting: " + cloth_mod.name)
                 bpy.ops.object.modifier_move_down(modifier=cloth_mod.name)
+            max -= 1
+            if max == 0:
+                return
     except:
         log_error("Something went wrong fixing cloth modifier order...")
 
@@ -2378,7 +2386,7 @@ def delete_character():
     props.import_main_tex_dir = ""
     props.import_space_in_name = False
     props.import_embedded = False
-    props.import_haskey = ""
+    props.import_haskey = False
     props.import_key_file = ""
     props.material_cache.clear()
     props.object_cache.clear()
