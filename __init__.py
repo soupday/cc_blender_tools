@@ -1686,6 +1686,8 @@ node_groups = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "col
 def apply_cloth_settings(obj, cloth_type):
     prefs = bpy.context.preferences.addons[__name__].preferences
     mod = get_cloth_physics_mod(obj)
+    if mod is None:
+        return
     cache = get_object_cache(obj)
     cache.cloth_settings = cloth_type
 
@@ -1810,14 +1812,14 @@ def apply_cloth_settings(obj, cloth_type):
 
 def get_cloth_physics_mod(obj):
     for mod in obj.modifiers:
-        if mod.type == "CLOTH" and NODE_PREFIX in mod.name:
+        if mod.type == "CLOTH":
             return mod
     return None
 
 
 def get_collision_physics_mod(obj):
     for mod in obj.modifiers:
-        if mod.type == "COLLISION" and NODE_PREFIX in mod.name:
+        if mod.type == "COLLISION":
             return mod
     return None
 
@@ -1850,7 +1852,7 @@ def add_collision_physics(obj):
             and "Base_Body" in obj.name)):
 
         if get_collision_physics_mod(obj) is None:
-            collision_mod = obj.modifiers.new(name=unique_name("Collision"), type="COLLISION")
+            collision_mod = obj.modifiers.new("Collision", type="COLLISION")
             collision_mod.settings.thickness_outer = 0.005
             log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
     elif cache.collision_physics == "OFF":
@@ -1862,7 +1864,7 @@ def remove_collision_physics(obj):
     """
 
     for mod in obj.modifiers:
-        if mod.type == "COLLISION" and NODE_PREFIX in mod.name:
+        if mod.type == "COLLISION":
             log_info("Removing Collision modifer: " + mod.name + " from: " + obj.name)
             obj.modifiers.remove(mod)
 
@@ -1884,7 +1886,7 @@ def add_cloth_physics(obj):
     if cache.cloth_physics == "ON" and get_cloth_physics_mod(obj) is None:
 
         # Create the Cloth modifier
-        cloth_mod = obj.modifiers.new(name=unique_name("Cloth"), type="CLOTH")
+        cloth_mod = obj.modifiers.new("Cloth", type="CLOTH")
         log_info("Cloth Modifier: " + cloth_mod.name + " applied to " + obj.name)
 
         # Create the physics pin vertex group if it doesn't exist
@@ -1912,6 +1914,8 @@ def add_cloth_physics(obj):
         for mat in obj.data.materials:
             add_material_weight_map(obj, mat, create = False)
 
+        fix_physics_mod_order(obj)
+
     elif cache.cloth_physics == "OFF":
         log_info("Cloth Physics disabled for: " + obj.name)
 
@@ -1926,7 +1930,7 @@ def remove_cloth_physics(obj):
 
     # Remove the Cloth modifier
     for mod in obj.modifiers:
-        if mod.type == "CLOTH" and NODE_PREFIX in mod.name:
+        if mod.type == "CLOTH":
             log_info("Removing Cloth modifer: " + mod.name + " from: " + obj.name)
             obj.modifiers.remove(mod)
 
@@ -1955,9 +1959,9 @@ def remove_all_physics_mods(obj):
     for mod in obj.modifiers:
         if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
             obj.modifiers.remove(mod)
-        elif mod.type == "CLOTH" and NODE_PREFIX in mod.name:
+        elif mod.type == "CLOTH":
             obj.modifiers.remove(mod)
-        elif mod.type == "COLLISION" and NODE_PREFIX in mod.name:
+        elif mod.type == "COLLISION":
             obj.modifiers.remove(mod)
 
 
@@ -1980,8 +1984,6 @@ def enable_cloth_physics(obj):
     cache.cloth_physics = "ON"
     log_info("Enabling Cloth physics for: " + obj.name)
     add_cloth_physics(obj)
-    for mat in obj.data.materials:
-        add_material_weight_map(obj, mat, create = False)
 
 
 def disable_cloth_physics(obj):
@@ -2025,16 +2027,36 @@ def add_material_weight_map(obj, mat, create = False):
     Gets or creates (if instructed) the material's weight map then creates
     or re-creates the modifier to generate the physics 'Pin' vertex group.
     """
-    if create:
-        weight_map = get_weight_map_image(obj, mat, create)
-    else:
-        weight_map = find_material_image(mat, WEIGHT_MAP)
-    cache = get_material_cache(mat)
 
-    remove_material_weight_map(obj, mat)
-    if cache.cloth_physics != "OFF":
+    if cloth_physics_available(obj, mat):
+        if create:
+            weight_map = get_weight_map_image(obj, mat, create)
+        else:
+            weight_map = find_material_image(mat, WEIGHT_MAP)
+        cache = get_material_cache(mat)
+
+        remove_material_weight_map(obj, mat)
         if weight_map is not None:
             attach_material_weight_map(obj, mat, weight_map)
+    else:
+        log_info("Cloth Physics has been disabled for: " + obj.name)
+        return
+
+
+def fix_physics_mod_order(obj):
+    """Moves any cloth modifier to the end of the list, so it is operates
+    on all the 'Vertex Weight Edit' modifiers.
+    """
+
+    try:
+        num_mods = len(obj.modifiers)
+        cloth_mod = get_cloth_physics_mod(obj)
+        if cloth_mod is not None:
+            while obj.modifiers.find(cloth_mod.name) < num_mods - 1:
+                bpy.ops.object.modifier_move_down(modifier=cloth_mod.name)
+    except:
+        log_error("Something went wrong fixing cloth modifier order...")
+
 
 
 def remove_material_weight_map(obj, mat):
@@ -2058,6 +2080,7 @@ def enable_material_weight_map(obj, mat):
     if cache.cloth_physics == "OFF":
         cache.cloth_physics = "ON"
     add_material_weight_map(obj, mat, True)
+    fix_physics_mod_order(obj)
 
 
 def disable_material_weight_map(obj, mat):
@@ -2070,6 +2093,33 @@ def disable_material_weight_map(obj, mat):
     pass
 
 
+def collision_physics_available(obj):
+    obj_cache = get_object_cache(obj)
+    collision_mod = get_collision_physics_mod(obj)
+    if collision_mod is None:
+        if obj_cache.collision_physics == "OFF":
+            return False
+    return True
+
+
+def cloth_physics_available(obj, mat):
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    cloth_mod = get_cloth_physics_mod(obj)
+    if cloth_mod is None:
+        if obj_cache.cloth_physics == "OFF":
+            return False
+        if mat_cache.cloth_physics == "OFF":
+            return False
+    else:
+        # if cloth physics was disabled by the add-on,
+        # but re-enabled in the physics panel,
+        # correct the object cache setting:
+        if obj_cache.cloth_physics == "OFF":
+            obj_cache.cloth_physics == "ON"
+    return True
+
+
 def attach_material_weight_map(obj, mat, weight_map):
     """Attaches a weight map to the object's material via a 'Vertex Weight Edit' modifier.
 
@@ -2078,17 +2128,6 @@ def attach_material_weight_map(obj, mat, weight_map):
     """
 
     prefs = bpy.context.preferences.addons[__name__].preferences
-    obj_cache = get_object_cache(obj)
-    mat_cache = get_material_cache(mat)
-
-    # TODO These need to be in the material cache, not the object cache....
-    # weight map instructions prefixed as "REMOVED" will not be attached
-    if obj_cache.cloth_physics == "OFF":
-        log_info("Cloth Physics has been disabled for: " + obj.name)
-        return
-    if mat_cache.cloth_physics == "OFF":
-        log_info("Weight maps have been disabled for: " + obj.name + "/" + mat.name)
-        return
 
     if weight_map is not None:
         # Make a texture based on the weight map image
@@ -5107,28 +5146,29 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Create / Remove", icon="PHYSICS")
+
         col = layout.column()
-        if missing_cloth:
-            op = col.operator("cc3.quickset", icon="ADD", text="Add Cloth Physics")
-            op.param = "PHYSICS_ADD_CLOTH"
-        if has_cloth:
+        if not missing_cloth:
             op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Cloth Physics")
             op.param = "PHYSICS_REMOVE_CLOTH"
-        if missing_cloth or has_cloth:
-            col.separator()
-        if missing_coll:
-            op = col.operator("cc3.quickset", icon="ADD", text="Add Collision Physics")
-            op.param = "PHYSICS_ADD_COLLISION"
-        if has_coll:
+        else:
+            op = col.operator("cc3.quickset", icon="ADD", text="Add Cloth Physics")
+            op.param = "PHYSICS_ADD_CLOTH"
+        if not missing_coll:
             op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Collision Physics")
             op.param = "PHYSICS_REMOVE_COLLISION"
+        else:
+            op = col.operator("cc3.quickset", icon="ADD", text="Add Collision Physics")
+            op.param = "PHYSICS_ADD_COLLISION"
         if meshes_selected == 0:
-            col.label(text="Select a mesh object...")
-
+            col.enabled = False
 
         box = layout.box()
         box.label(text="Presets", icon="OPTIONS")
+
         col = layout.column()
+        if not has_cloth:
+            col.enabled = False
         op = col.operator("cc3.quickset", icon="USER", text="Hair")
         op.param = "PHYSICS_HAIR"
         op = col.operator("cc3.quickset", icon="MATCLOTH", text="Cotton")
@@ -5145,42 +5185,51 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         box = layout.box()
         box.label(text="Weight Maps", icon="TEXTURE_DATA")
 
-        if not active_has_cloth:
-            col = layout.column()
-            col.label(text="No Cloth physics on object...")
-
         split = layout.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
+        if not has_cloth:
+            col_1.enabled = False
+            col_2.enabled = False
         col_1.label(text="WeightMap Size")
         col_2.prop(props, "physics_tex_size", text="")
 
-        if active_has_cloth:
+        col = layout.column()
+        if not active_has_cloth:
+            col.enabled = False
+        obj = context.object
+        mat = context_material(context)
+        if obj is not None:
+            col.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
+        wmm = get_weight_map_mod(obj, mat)
+        if wmm is None:
+            op = col.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
+            op.param = "PHYSICS_ADD_WEIGHTMAP"
+        else:
+            op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Weight Map")
+            op.param = "PHYSICS_REMOVE_WEIGHTMAP"
+        if bpy.context.mode == "PAINT_TEXTURE":
+            split = col.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Strength")
+            col_2.prop(props, "physics_strength", text="", slider=True)
+            op = col.operator("cc3.quickset", icon="CHECKMARK", text="Done Weight Painting!")
+            op.param = "PHYSICS_DONE_PAINTING"
+        else:
             col = layout.column()
-            ob = context.object
-            col.template_list("MATERIAL_UL_weightedmatslots", "", ob, "material_slots", ob, "active_material_index", rows=1)
-            if get_weight_map_mod(obj, context_material(context)) is None:
-                op = col.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
-                op.param = "PHYSICS_ADD_WEIGHTMAP"
-            else:
-                op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Weight Map")
-                op.param = "PHYSICS_REMOVE_WEIGHTMAP"
-                if bpy.context.mode == "PAINT_TEXTURE":
-                    split = col.split(factor=0.5)
-                    col_1 = split.column()
-                    col_2 = split.column()
-                    col_1.label(text="Strength")
-                    col_2.prop(props, "physics_strength", text="", slider=True)
-                    op = col.operator("cc3.quickset", icon="CHECKMARK", text="Done Weight Painting!")
-                    op.param = "PHYSICS_DONE_PAINTING"
-                else:
-                    op = col.operator("cc3.quickset", icon="BRUSH_DATA", text="Paint Weight Map")
-                    op.param = "PHYSICS_PAINT"
-
-        if num_weight_maps > 0:
+            if wmm is None:
+                col.enabled = False
+            op = col.operator("cc3.quickset", icon="BRUSH_DATA", text="Paint Weight Map")
+            op.param = "PHYSICS_PAINT"
             split = layout.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
+            if wmm is None:
+                col_1.enabled = False
+                col_1.active = False
+                col_2.enabled = False
+                col_2.active = False
             op = col_1.operator("cc3.quickset", icon="FILE_TICK", text="Save")
             op.param = "PHYSICS_SAVE"
             op = col_2.operator("cc3.quickset", icon="ERROR", text="Delete")
