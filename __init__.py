@@ -1696,9 +1696,9 @@ def apply_cloth_settings(obj, cloth_type):
     mod.settings.time_scale = 1
     if cloth_type == "HAIR":
         mod.settings.quality = 4
-        mod.settings.pin_stiffness = 0.02
+        mod.settings.pin_stiffness = 0.2
         # physical properties
-        mod.settings.mass = 0.25
+        mod.settings.mass = 0.5
         mod.settings.air_damping = 1
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
@@ -2229,7 +2229,7 @@ def end_paint_weight_map():
         if bpy.context.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
         bpy.context.space_data.shading.type = props.paint_store_render
-        props.paint_image.save()
+        #props.paint_image.save()
     except:
         log_error("Something went wrong restoring object mode from paint mode!")
 
@@ -2266,6 +2266,63 @@ def delete_selected_weight_map(obj, mat):
                 log_error("Removing weight map file: " + image.filepath)
         log_info("Removing 'Vertex Weight Edit' modifer")
         obj.modifiers.remove(mod)
+
+
+def set_physics_bake_range(obj, start, end):
+    cloth_mod = get_cloth_physics_mod(obj)
+    if cloth_mod is not None:
+        cloth_mod.point_cache.frame_start = start
+        cloth_mod.point_cache.frame_end = end
+        return True
+    return False
+
+def prepare_physics_bake(context):
+    # Set cache bake frame range
+    #frame_count = 250
+    #if obj.parent is not None and obj.parent.animation_data is not None and \
+    #        obj.parent.animation_data.action is not None:
+    #    frame_count = math.ceil(obj.parent.animation_data.action.frame_range[1])
+    #log_info("Setting " + obj.name + " bake cache frame range to [1-" + str(frame_count) + "]")
+    #cloth_mod.point_cache.frame_start = 1
+    #cloth_mod.point_cache.frame_end = frame_count
+    props = bpy.context.scene.CC3ImportProps
+
+    if bpy.context.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+
+    bpy.ops.ptcache.free_bake_all()
+
+    baking = False
+    for p in props.import_objects:
+        if p.object is not None and p.object.type == "ARMATURE":
+            obj = p.object
+            for child in obj.children:
+                if set_physics_bake_range(child, context.scene.frame_start, context.scene.frame_end):
+                    baking = True
+
+    return baking
+
+
+def fetch_anim_range(context):
+    props = bpy.context.scene.CC3ImportProps
+
+    for p in props.import_objects:
+        if p.object is not None and p.object.type == "ARMATURE":
+            obj = p.object
+            if obj.animation_data is not None and \
+               obj.animation_data.action is not None:
+                frame_start = math.floor(obj.animation_data.action.frame_range[0])
+                frame_end = math.ceil(obj.animation_data.action.frame_range[1])
+                context.scene.frame_start = frame_start
+                context.scene.frame_end = frame_end
+
+
+def render_image(context):
+    pass
+
+
+def render_animation(context):
+    pass
 
 
 def get_node_group(name):
@@ -3715,11 +3772,18 @@ class CC3Scene(bpy.types.Operator):
         )
 
     def execute(self, context):
-        setup_scene_default(self.param)
-        if (self.param == "TEMPLATE"):
-            compositor_setup()
-            world_setup()
-            message_box("World nodes and compositor template set up.")
+        if (self.param == "RENDER_IMAGE"):
+            render_image(context)
+        elif (self.param == "RENDER_ANIMATION"):
+            render_animation(context)
+        elif (self.param == "ANIM_RANGE"):
+            fetch_anim_range(context)
+        else:
+            setup_scene_default(self.param)
+            if (self.param == "TEMPLATE"):
+                compositor_setup()
+                world_setup()
+                message_box("World nodes and compositor template set up.")
         return {"FINISHED"}
 
     @classmethod
@@ -3737,6 +3801,12 @@ class CC3Scene(bpy.types.Operator):
             return "Use rendered shading with the Courtyard HDRI and right sided 3 point lighting"
         elif properties.param == "TEMPLATE":
             return "Sets up a rendering template with rendered shading and world lighting. Sets up the Compositor and World nodes with a basic setup and adds tracking lights, a tracking camera and targetting objects"
+        elif properties.param == "RENDER_IMAGE":
+            return "Renders a single image."
+        elif properties.param == "RENDER_ANIMATION":
+            return "Renders the current animation range."
+        elif properties.param == "ANIM_RANGE":
+            return "Sets the animation range to the same range as the Action on the current character."
         return ""
 
 def context_material(context):
@@ -3851,6 +3921,8 @@ def quick_set_execute(param, context = bpy.context):
             save_dirty_weight_maps(bpy.context.selected_objects)
         elif param == "PHYSICS_DELETE":
             delete_selected_weight_map(context.object, context_material(context))
+        elif param == "PHYSICS_PREP":
+            prepare_physics_bake(context)
 
     elif param == "RESET":
         reset_parameters(context)
@@ -3952,7 +4024,9 @@ class CC3QuickSet(bpy.types.Operator):
         )
 
     def execute(self, context):
+
         quick_set_execute(self.param, context)
+
         return {"FINISHED"}
 
     @classmethod
@@ -5108,6 +5182,27 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         op = col.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
         op.param = "TEMPLATE"
 
+        box = layout.box()
+        box.label(text="Rendering", icon="INFO")
+        col = layout.column()
+
+        op = col.operator("cc3.scene", icon="RENDER_RESULT", text="Render Image")
+        op.param = "RENDER_IMAGE"
+
+        scene = context.scene
+        op = col.operator("cc3.scene", icon="RENDER_ANIMATION", text="Render Animation")
+        op.param = "RENDER_ANIMATION"
+        split = layout.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.prop(scene, "frame_start", text="Start")
+        col_2.prop(scene, "frame_end", text="End")
+        col = layout.column()
+        op = col.operator("cc3.scene", icon="SHADING_RENDERED", text="Range From Character")
+        op.param = "ANIM_RANGE"
+
+
+
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Physics_Panel"
     bl_label = "CC3 Physics Tools"
@@ -5237,6 +5332,26 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             op.param = "PHYSICS_SAVE"
             op = col_2.operator("cc3.quickset", icon="ERROR", text="Delete")
             op.param = "PHYSICS_DELETE"
+
+        box = layout.box()
+        box.label(text="Baking", icon="ARMATURE_DATA")
+        col = layout.column()
+        op = col.operator("cc3.quickset", icon="ANIM", text="Prep Physics")
+        op.param = "PHYSICS_PREP"
+        split = col.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        if not context.screen.is_animation_playing:
+            op = col_1.operator("screen.animation_manager", text="Play")
+            op.mode = "PLAY"
+            op = col_2.operator("screen.animation_manager", text="Reset")
+            op.mode = "STOP"
+        else:
+            op = col_1.operator("screen.animation_manager", text="Pause")
+            op.mode = "PLAY"
+            op = col_2.operator("screen.animation_manager", text="Stop")
+            op.mode = "STOP"
+
 
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):
