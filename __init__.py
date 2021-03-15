@@ -4019,6 +4019,15 @@ def physics_strength_update(self, context):
         s = props.physics_strength
         bpy.context.scene.tool_settings.unified_paint_settings.color = (s, s, s)
 
+def weight_strength_update(self, context):
+    props = bpy.context.scene.CC3ImportProps
+
+    strength = props.weight_map_strength
+    influence = 1 - math.pow(1 - strength, 3)
+    mod = get_weight_map_mod(context.object, context_material(context))
+    mod.mask_constant = influence
+
+
 class CC3QuickSet(bpy.types.Operator):
     """Quick Set Functions"""
     bl_idname = "cc3.quickset"
@@ -4505,6 +4514,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
     physics_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=physics_strength_update)
+    weight_map_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=weight_strength_update)
     physics_tex_size: bpy.props.EnumProperty(items=[
                         ("64","64 x 64","64 x 64 texture size"),
                         ("128","128 x 128","128 x 128 texture size"),
@@ -5294,6 +5304,9 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Weight Maps", icon="TEXTURE_DATA")
+        obj = context.object
+        mat = context_material(context)
+        wmm = get_weight_map_mod(obj, mat)
 
         split = layout.split(factor=0.5)
         col_1 = split.column()
@@ -5307,16 +5320,22 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         col = layout.column()
         if not active_has_cloth:
             col.enabled = False
-        obj = context.object
-        mat = context_material(context)
+
         if obj is not None:
             col.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
-        wmm = get_weight_map_mod(obj, mat)
+            if wmm is not None:
+                split = col.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Influence")
+                col_2.prop(wmm, "mask_constant", text="", slider=True)
         if wmm is None:
-            op = col.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
+            row = col.row()
+            op = row.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
             op.param = "PHYSICS_ADD_WEIGHTMAP"
         else:
-            op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Weight Map")
+            row = col.row()
+            op = row.operator("cc3.quickset", icon="REMOVE", text="Remove Weight Map")
             op.param = "PHYSICS_REMOVE_WEIGHTMAP"
         if bpy.context.mode == "PAINT_TEXTURE":
             split = col.split(factor=0.5)
