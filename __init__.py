@@ -1695,28 +1695,8 @@ def apply_cloth_settings(obj, cloth_type):
     mod.settings.vertex_group_mass = prefs.physics_group
     mod.settings.time_scale = 1
     if cloth_type == "HAIR":
-        mod.settings.quality = 6
-        mod.settings.pin_stiffness = 0.2
-        # physical properties
-        mod.settings.mass = 0.25
-        mod.settings.air_damping = 1
-        mod.settings.bending_model = 'ANGULAR'
-        # stiffness
-        mod.settings.tension_stiffness = 5
-        mod.settings.compression_stiffness = 5
-        mod.settings.shear_stiffness = 5
-        mod.settings.bending_stiffness = 0.01
-        # dampening
-        mod.settings.tension_damping = 0
-        mod.settings.compression_damping = 0
-        mod.settings.shear_damping = 0
-        mod.settings.bending_damping = 0.1
-        # collision
-        mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 4
-    elif cloth_type == "SILK":
-        mod.settings.quality = 6
-        mod.settings.pin_stiffness = 0.4
+        mod.settings.quality = 4
+        mod.settings.pin_stiffness = 0.5
         # physical properties
         mod.settings.mass = 0.15
         mod.settings.air_damping = 1
@@ -1730,13 +1710,33 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_damping = 0
         mod.settings.compression_damping = 0
         mod.settings.shear_damping = 0
-        mod.settings.bending_damping = 0.1
+        mod.settings.bending_damping = 0.5
         # collision
         mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 4
+        mod.collision_settings.collision_quality = 2
+    elif cloth_type == "SILK":
+        mod.settings.quality = 4
+        mod.settings.pin_stiffness = 1
+        # physical properties
+        mod.settings.mass = 0.15
+        mod.settings.air_damping = 1
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 5
+        mod.settings.compression_stiffness = 5
+        mod.settings.shear_stiffness = 5
+        mod.settings.bending_stiffness = 0.05
+        # dampening
+        mod.settings.tension_damping = 0
+        mod.settings.compression_damping = 0
+        mod.settings.shear_damping = 0
+        mod.settings.bending_damping = 0.5
+        # collision
+        mod.collision_settings.distance_min = 0.005
+        mod.collision_settings.collision_quality = 2
     elif cloth_type == "DENIM":
-        mod.settings.quality = 6
-        mod.settings.pin_stiffness = 0.4
+        mod.settings.quality = 4
+        mod.settings.pin_stiffness = 1
         # physical properties
         mod.settings.mass = 1
         mod.settings.air_damping = 1
@@ -1750,13 +1750,13 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_damping = 25
         mod.settings.compression_damping = 25
         mod.settings.shear_damping = 25
-        mod.settings.bending_damping = 0.1
+        mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 4
+        mod.collision_settings.collision_quality = 2
     elif cloth_type == "LEATHER":
-        mod.settings.quality = 6
-        mod.settings.pin_stiffness = 0.4
+        mod.settings.quality = 4
+        mod.settings.pin_stiffness = 1
         # physical properties
         mod.settings.mass = 0.4
         mod.settings.air_damping = 1
@@ -1770,13 +1770,13 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_damping = 25
         mod.settings.compression_damping = 25
         mod.settings.shear_damping = 25
-        mod.settings.bending_damping = 0.1
+        mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 4
+        mod.collision_settings.collision_quality = 2
     elif cloth_type == "RUBBER":
-        mod.settings.quality = 6
-        mod.settings.pin_stiffness = 0.4
+        mod.settings.quality = 4
+        mod.settings.pin_stiffness = 1
         # physical properties
         mod.settings.mass = 3
         mod.settings.air_damping = 1
@@ -1790,13 +1790,13 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_damping = 25
         mod.settings.compression_damping = 25
         mod.settings.shear_damping = 25
-        mod.settings.bending_damping = 0.1
+        mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 4
+        mod.collision_settings.collision_quality = 2
     else: #cotton
-        mod.settings.quality = 6
-        mod.settings.pin_stiffness = 0.4
+        mod.settings.quality = 4
+        mod.settings.pin_stiffness = 1
         # physical properties
         mod.settings.mass = 0.3
         mod.settings.air_damping = 1
@@ -1810,10 +1810,10 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_damping = 5
         mod.settings.compression_damping = 5
         mod.settings.shear_damping = 5
-        mod.settings.bending_damping = 0.1
+        mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 4
+        mod.collision_settings.collision_quality = 2
 
 
 
