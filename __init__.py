@@ -1725,7 +1725,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_stiffness = 5
         mod.settings.compression_stiffness = 5
         mod.settings.shear_stiffness = 5
-        mod.settings.bending_stiffness = 0.05
+        mod.settings.bending_stiffness = 0.05 #20 with 0.5kg weight...
         # dampening
         mod.settings.tension_damping = 0
         mod.settings.compression_damping = 0
