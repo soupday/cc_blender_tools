@@ -1701,7 +1701,7 @@ def apply_cloth_settings(obj, cloth_type):
     mod.settings.time_scale = 1
     if cloth_type == "HAIR":
         mod.settings.quality = 4
-        mod.settings.pin_stiffness = 0.5
+        mod.settings.pin_stiffness = 1
         # physical properties
         mod.settings.mass = 0.15
         mod.settings.air_damping = 1
@@ -4624,7 +4624,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     physics_mode: bpy.props.EnumProperty(items=[
                         ("OFF","No Physics","No generated physics."),
                         ("ON","Physics","Automatically generates physics vertex groups and settings."),
-                    ], default="ON")
+                    ], default="OFF")
 
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
