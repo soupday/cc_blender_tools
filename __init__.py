@@ -6,6 +6,7 @@
 #   - Alpha blend settings and back face culling settings can be applied to materials in the object now.
 #   - Option to apply alpha blend settings to whole object(s) or just active materal.
 #   - Remembers the applied alpha blend settings and re-applies when rebuilding materials.
+#   - Pick Scalp Material (Is there an eye dropper for materials?).
 #
 #   Physics:
 #   - Uses the physX weight maps to auto-generate vertex pin weights for cloth/hair physics (Optional in the preferences).
@@ -17,7 +18,7 @@
 #
 # TODO
 #   - Prefs for physics settings.
-#   - Pick Scalp Material (Is there an eye dropper for materials?).
+#   - Use scalp material prop...
 #   - Button to auto transfer skin weights to accessories.
 #
 # FUTURE PLANS
@@ -126,6 +127,8 @@ def is_skin_material(mat):
 
 def is_scalp_material(mat):
     props = bpy.context.scene.CC3ImportProps
+    if props.scalp_material is not None and mat == props.scalp_material:
+        return True
     hints = props.hair_scalp_hint.split(",")
     for hint in hints:
         h = hint.strip()
@@ -556,7 +559,7 @@ def find_image_file(dirs, mat, suffix_list):
             files = os.listdir(dir)
             for file in files:
                 file_name = file.lower()
-                if material_name in file_name:
+                if file_name.startswith(material_name):
                     for suffix in suffix_list:
                         search = "_" + suffix + "."
                         if search in file_name:
@@ -1847,7 +1850,7 @@ def get_weight_map_mods(obj):
 def get_weight_map_mod(obj, mat):
     if obj is not None and mat is not None:
         for mod in obj.modifiers:
-            if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name and (mat.name + "_WeightMix") in mod.name:
+            if mod.type == "VERTEX_WEIGHT_EDIT" and (NODE_PREFIX + mat.name + "_WeightMix") in mod.name:
                 return mod
     return None
 
@@ -2153,7 +2156,7 @@ def attach_material_weight_map(obj, mat, weight_map):
         tex_name = mat.name + "_Weight"
         tex = None
         for t in bpy.data.textures:
-            if tex_name in t.name:
+            if t.name.startswith(NODE_PREFIX + tex_name):
                 tex = t
         if tex is None:
             tex = bpy.data.textures.new(unique_name(tex_name), "IMAGE")
@@ -2318,6 +2321,52 @@ def prepare_physics_bake(context):
     return baking
 
 
+def separate_physics_materials(context):
+    if context.object is None: return
+    if context.object.type != "MESH": return
+    if context.object.data.materials is None: return
+    if context.mode != "OBJECT": return
+
+    # remember which materials have active weight maps
+    temp = []
+    for mat in context.object.data.materials:
+        if get_weight_map_mod(context.object, mat) is not None:
+            temp.append(mat)
+
+    # remove cloth physics from the object
+    disable_cloth_physics(context.object)
+
+    # split the mesh by materials
+    tag_objects()
+    context.object.tag = False
+    bpy.ops.mesh.separate(type='MATERIAL')
+    objects = untagged_objects()
+
+    # re-apply cloth physics to the materials which had weight maps
+    for obj in objects:
+        for mat in obj.data.materials:
+            if mat in temp:
+                enable_cloth_physics(obj)
+                break
+    temp = None
+
+
+def should_separate_materials(context):
+    """Check to see if the current object has a weight map for each material.
+    If not then it is advisable to separate the object by materials.
+    """
+    if context.object is None: return
+    if context.object.data.materials is None: return
+    obj = context.object
+
+    cloth_mod = get_cloth_physics_mod(obj)
+    if cloth_mod is not None:
+        mods = get_weight_map_mods(obj)
+        if len(mods) != len(obj.data.materials):
+            return True
+    return False
+
+
 def fetch_anim_range(context):
     props = bpy.context.scene.CC3ImportProps
 
@@ -2480,6 +2529,8 @@ def process_material(obj, mat):
 
     if props.hair_object is None and is_hair_object(obj, mat):
         props.hair_object = obj
+    if props.scalp_material is None and is_scalp_material(mat):
+        props.scalp_material = mat
 
     # find the Principled BSDF shader node
     for n in nodes:
@@ -2718,20 +2769,18 @@ def cache_object_materials(obj):
                             else:
                                 cache.normal = node.image
 
-def tag_objects(default = True):
+
+def tag_objects():
     for obj in bpy.data.objects:
-        obj.tag = default
+        obj.tag = True
 
 
-def untagged_objects(default = True):
-
+def untagged_objects():
     untagged = []
-
     for obj in bpy.data.objects:
-        if not obj.tag == default:
+        if obj.tag == False:
             untagged.append(obj)
-        obj.tag = default
-
+        obj.tag = False
     return untagged
 
 def reconstruct_obj_materials(obj):
@@ -3938,6 +3987,18 @@ def quick_set_execute(param, context = bpy.context):
             delete_selected_weight_map(context.object, context_material(context))
         elif param == "PHYSICS_PREP":
             prepare_physics_bake(context)
+        elif param == "PHYSICS_SEPARATE":
+            separate_physics_materials(context)
+        elif param == "PHYSICS_FIX_DEGENERATE":
+            if context.object is not None:
+                if bpy.context.object.mode != "EDIT" and bpy.context.object.mode != "OBJECT":
+                    bpy.ops.object.mode_set(mode = 'OBJECT')
+                if bpy.context.object.mode != "EDIT":
+                    bpy.ops.object.mode_set(mode = 'EDIT')
+                if bpy.context.object.mode == "EDIT":
+                    bpy.ops.mesh.select_all(action = 'SELECT')
+                    bpy.ops.mesh.dissolve_degenerate()
+                bpy.ops.object.mode_set(mode = 'OBJECT')
 
     elif param == "RESET":
         reset_parameters(context)
@@ -4553,7 +4614,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     quick_set_mode: bpy.props.EnumProperty(items=[
                         ("OBJECT","Object","Set the alpha blend mode and backface culling to all materials on the selected object(s)"),
                         ("MATERIAL","Material","Set the alpha blend mode and backface culling only to the selected material on the active object"),
-                    ], default="OBJECT")
+                    ], default="MATERIAL")
     paint_store_render: bpy.props.StringProperty(default="")
 
     lighting_mode: bpy.props.EnumProperty(items=[
@@ -4799,7 +4860,7 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         split = column.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
-        col_1.label(text="Quick Set Alpha")
+        col_1.label(text="Quick Set To:")
         col_1.prop(props, "quick_set_mode", expand=True)
         op = col_2.operator("cc3.quickset", icon="SHADING_SOLID", text="Opaque")
         op.param = "OPAQUE"
@@ -5284,9 +5345,24 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         if meshes_selected == 0:
             col.enabled = False
 
+        if should_separate_materials(context):
+            col.box().label(text="Warning:", icon="ERROR")
+            col.label(text="This object has physics and non")
+            col.label(text="physics materials. It is advisable")
+            col.label(text="to separate this object by material")
+            col.label(text="Otherwise it may not work well")
+            col.label(text="with the cloth physics simulation.")
+            op = col.operator("cc3.quickset", icon="ERROR", text="Separate Physics Materials")
+            op.param = "PHYSICS_SEPARATE"
+
+        col.separator()
+        col.label(text="Mesh Correction:")
+        op = col.operator("cc3.quickset", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh")
+        op.param = "PHYSICS_FIX_DEGENERATE"
+
         # Cloth Physics Presets
         box = layout.box()
-        box.label(text="Presets", icon="OPTIONS")
+        box.label(text="Presets", icon="PRESET")
         col = layout.column()
         if cloth_mod is None:
             col.enabled = False
