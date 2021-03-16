@@ -37,14 +37,14 @@ import math
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 2, 0),
+    "version": (0, 2, 1),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
     "description": "Automatic import and material setup of CC3 characters.",
 }
 
-VERSION_STRING = "v0.2.0"
+VERSION_STRING = "v0.2.1"
 
 # lists of the suffixes used by the input maps
 BASE_COLOR_MAP = ["diffuse", "albedo"]
