@@ -13,9 +13,9 @@
 #   - Physics cloth presets can be applied to the selected object(s) and are remembered with rebuilding materials.
 #   - Weightmaps can be added/removed to the individual materials of the objects.
 #   - Operator to setup and begin texture painting of the per material weight maps.
+#   - Operator to save any modified weight maps to disk.
 #
 # TODO
-#   - Operator to save any modified weight maps to disk.
 #   - Prefs for physics settings.
 #   - Pick Scalp Material (Is there an eye dropper for materials?).
 #   - Button to auto transfer skin weights to accessories.
@@ -1683,6 +1683,8 @@ node_groups = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "col
                "eye_occlusion_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping"]
 
 
+
+
 def apply_cloth_settings(obj, cloth_type):
     prefs = bpy.context.preferences.addons[__name__].preferences
     mod = get_cloth_physics_mod(obj)
@@ -1705,7 +1707,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_stiffness = 5
         mod.settings.compression_stiffness = 5
         mod.settings.shear_stiffness = 5
-        mod.settings.bending_stiffness = 0.05
+        mod.settings.bending_stiffness = 5
         # dampening
         mod.settings.tension_damping = 0
         mod.settings.compression_damping = 0
@@ -1715,17 +1717,17 @@ def apply_cloth_settings(obj, cloth_type):
         mod.collision_settings.distance_min = 0.005
         mod.collision_settings.collision_quality = 2
     elif cloth_type == "SILK":
-        mod.settings.quality = 4
+        mod.settings.quality = 8
         mod.settings.pin_stiffness = 1
         # physical properties
-        mod.settings.mass = 0.15
+        mod.settings.mass = 0.25
         mod.settings.air_damping = 1
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 5
         mod.settings.compression_stiffness = 5
         mod.settings.shear_stiffness = 5
-        mod.settings.bending_stiffness = 0.05 #20 with 0.5kg weight...
+        mod.settings.bending_stiffness = 20
         # dampening
         mod.settings.tension_damping = 0
         mod.settings.compression_damping = 0
@@ -1733,9 +1735,9 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.bending_damping = 0.5
         # collision
         mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 2
+        mod.collision_settings.collision_quality = 4
     elif cloth_type == "DENIM":
-        mod.settings.quality = 4
+        mod.settings.quality = 8
         mod.settings.pin_stiffness = 1
         # physical properties
         mod.settings.mass = 1
@@ -1745,7 +1747,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_stiffness = 40
         mod.settings.compression_stiffness = 40
         mod.settings.shear_stiffness = 40
-        mod.settings.bending_stiffness = 10
+        mod.settings.bending_stiffness = 40
         # dampening
         mod.settings.tension_damping = 25
         mod.settings.compression_damping = 25
@@ -1753,9 +1755,9 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 2
+        mod.collision_settings.collision_quality = 4
     elif cloth_type == "LEATHER":
-        mod.settings.quality = 4
+        mod.settings.quality = 8
         mod.settings.pin_stiffness = 1
         # physical properties
         mod.settings.mass = 0.4
@@ -1773,9 +1775,9 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 2
+        mod.collision_settings.collision_quality = 4
     elif cloth_type == "RUBBER":
-        mod.settings.quality = 4
+        mod.settings.quality = 8
         mod.settings.pin_stiffness = 1
         # physical properties
         mod.settings.mass = 3
@@ -1785,7 +1787,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_stiffness = 15
         mod.settings.compression_stiffness = 15
         mod.settings.shear_stiffness = 15
-        mod.settings.bending_stiffness = 25
+        mod.settings.bending_stiffness = 50
         # dampening
         mod.settings.tension_damping = 25
         mod.settings.compression_damping = 25
@@ -1793,9 +1795,9 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 2
+        mod.collision_settings.collision_quality = 4
     else: #cotton
-        mod.settings.quality = 4
+        mod.settings.quality = 8
         mod.settings.pin_stiffness = 1
         # physical properties
         mod.settings.mass = 0.3
@@ -1805,7 +1807,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_stiffness = 15
         mod.settings.compression_stiffness = 15
         mod.settings.shear_stiffness = 15
-        mod.settings.bending_stiffness = 0.5
+        mod.settings.bending_stiffness = 30
         # dampening
         mod.settings.tension_damping = 5
         mod.settings.compression_damping = 5
@@ -1813,37 +1815,40 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
-        mod.collision_settings.collision_quality = 2
+        mod.collision_settings.collision_quality = 4
 
 
 
 def get_cloth_physics_mod(obj):
-    for mod in obj.modifiers:
-        if mod.type == "CLOTH":
-            return mod
+    if obj is not None:
+        for mod in obj.modifiers:
+            if mod.type == "CLOTH":
+                return mod
     return None
 
 
 def get_collision_physics_mod(obj):
-    for mod in obj.modifiers:
-        if mod.type == "COLLISION":
-            return mod
+    if obj is not None:
+        for mod in obj.modifiers:
+            if mod.type == "COLLISION":
+                return mod
     return None
 
 
 def get_weight_map_mods(obj):
     mods = []
-    for mod in obj.modifiers:
-        if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
-            mods.append(mod)
+    if obj is not None:
+        for mod in obj.modifiers:
+            if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
+                mods.append(mod)
     return mods
 
 
 def get_weight_map_mod(obj, mat):
-    if obj is None or mat is None: return None
-    for mod in obj.modifiers:
-        if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name and (mat.name + "_WeightMix") in mod.name:
-            return mod
+    if obj is not None and mat is not None:
+        for mod in obj.modifiers:
+            if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name and (mat.name + "_WeightMix") in mod.name:
+                return mod
     return None
 
 
@@ -2040,7 +2045,6 @@ def add_material_weight_map(obj, mat, create = False):
             weight_map = get_weight_map_image(obj, mat, create)
         else:
             weight_map = find_material_image(mat, WEIGHT_MAP)
-        cache = get_material_cache(mat)
 
         remove_material_weight_map(obj, mat)
         if weight_map is not None:
@@ -2161,6 +2165,10 @@ def attach_material_weight_map(obj, mat, weight_map):
         # Create the physics pin vertex group if it doesn't exist
         if prefs.physics_group not in obj.vertex_groups:
             obj.vertex_groups.new(name = prefs.physics_group)
+
+        mod_cloth = get_cloth_physics_mod(obj)
+        if mod_cloth is not None:
+            mod_cloth.settings.vertex_group_mass = prefs.physics_group
 
         # (Re)Create create the Vertex Weight Edit modifier
         remove_material_weight_map(obj, mat)
@@ -4665,6 +4673,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     hair_toggle: bpy.props.BoolProperty(default=True)
     hair_hint: bpy.props.StringProperty(default="hair,beard", update=quick_set_update)
     hair_object: bpy.props.PointerProperty(type=bpy.types.Object, update=quick_set_update)
+    scalp_material: bpy.props.PointerProperty(type=bpy.types.Material)
     hair_scalp_hint: bpy.props.StringProperty(default="scalp,base", update=quick_set_update)
     hair_specular: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=quick_set_update)
     hair_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
@@ -4706,7 +4715,7 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
     bl_label = "CC3 Material Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = "CC3 Pipeline"
 
     def draw(self, context):
         layout = self.layout
@@ -4719,104 +4728,95 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
                 mesh_in_selection = True
                 break
 
-        if fake_drop_down(layout.box().row(),
-                "1. Import Details",
-                "stage1",
-                props.stage1):
+        box = layout.box()
+        #op = box.operator("cc3.importer", icon="IMPORT", text="Import Character")
+        #op.param ="IMPORT"
+        # import details
+        if props.import_file != "" or len(props.import_objects) > 0:
+            box.label(text="Name: " + props.import_name)
+            box.label(text="Type: " + props.import_type.upper())
+            if props.import_haskey:
+                box.label(text="Key File: Yes")
+            else:
+                box.label(text="Key File: No")
+
+            split = layout.split(factor=0.05)
+            col_1 = split.column()
+            col_2 = split.column()
+            box = col_2.box()
+            if fake_drop_down(box.row(), "Import Details", "stage1_details", props.stage1_details):
+                if props.import_file != "":
+                    box.prop(props, "import_file", text="")
+                if len(props.import_objects) > 0:
+                    for p in props.import_objects:
+                        if p.object is not None:
+                            box.prop(p, "object", text="")
+        else:
+            box.label(text="No Character")
+
+        # Build Settings
+        layout.box().label(text="1. Build Settings", icon="MOD_BUILD")
+        layout.prop(props, "setup_mode", expand=True)
+        layout.prop(props, "blend_mode", expand=True)
+        layout.prop(props, "build_mode", expand=True)
+        layout.separator()
+        split = layout.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="Hair Hint")
+        col_2.prop(props, "hair_hint", text="")
+        col_1.label(text="Scalp Hint")
+        col_2.prop(props, "hair_scalp_hint", text="")
+        if props.hair_object is None:
+            col_1.label(text="** Hair Object **")
+        else:
+            col_1.label(text="Hair Object")
+        col_2.prop_search(props, "hair_object",  context.scene, "objects", text="")
+        if context.object is not None and context.object.type == "MESH":
+            col_1.label(text="Scalp Material")
+            col_2.prop_search(props, "scalp_material",  context.object.data, "materials", text="")
+        else:
+            col_1.label(text="Scalp Material")
+            col_2.prop(props, "scalp_material", text="")
+        col_1.separator()
+        col_2.separator()
+        if props.import_file != "":
             box = layout.box()
-            #op = box.operator("cc3.importer", icon="IMPORT", text="Import Character")
-            #op.param ="IMPORT"
-            # import details
-            if props.import_file != "" or len(props.import_objects) > 0:
-                box.label(text="Name: " + props.import_name)
-                box.label(text="Type: " + props.import_type.upper())
-                if props.import_haskey:
-                    box.label(text="Key File: Yes")
-                else:
-                    box.label(text="Key File: No")
-
-                split = layout.split(factor=0.05)
-                col_1 = split.column()
-                col_2 = split.column()
-                box = col_2.box()
-                if fake_drop_down(box.row(), "Import Details", "stage1_details", props.stage1_details):
-                    if props.import_file != "":
-                        box.prop(props, "import_file", text="")
-                    if len(props.import_objects) > 0:
-                        for p in props.import_objects:
-                            if p.object is not None:
-                                box.prop(p, "object", text="")
+            if props.setup_mode == "ADVANCED":
+                op = box.operator("cc3.importer", icon="SHADING_TEXTURE", text="Build Advanced Materials")
             else:
-                box.label(text="No Character")
+                op = box.operator("cc3.importer", icon="NODE_MATERIAL", text="Build Basic Materials")
+            op.param ="BUILD"
 
-        layout.separator()
+        # Material Setup
+        layout.box().label(text="2. Material Setup", icon="MATERIAL")
+        column = layout.column()
+        if not mesh_in_selection:
+            column.enabled = False
+        ob = context.object
+        if ob is not None:
+            column.template_list("MATERIAL_UL_weightedmatslots", "", ob, "material_slots", ob, "active_material_index", rows=1)
+        split = column.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="Quick Set Alpha")
+        col_1.prop(props, "quick_set_mode", expand=True)
+        op = col_2.operator("cc3.quickset", icon="SHADING_SOLID", text="Opaque")
+        op.param = "OPAQUE"
+        op = col_2.operator("cc3.quickset", icon="SHADING_WIRE", text="Blend")
+        op.param = "BLEND"
+        op = col_2.operator("cc3.quickset", icon="SHADING_RENDERED", text="Hashed")
+        op.param = "HASHED"
+        col_1.separator()
+        col_2.separator()
+        op = col_1.operator("cc3.quickset", icon="NORMALS_FACE", text="Single Sided")
+        op.param = "SINGLE_SIDED"
+        op = col_2.operator("cc3.quickset", icon="XRAY", text="Double Sided")
+        op.param = "DOUBLE_SIDED"
+
+        # Parameters
         if fake_drop_down(layout.box().row(),
-                "2. Build Materials",
-                "stage2",
-                props.stage2):
-            layout.prop(props, "setup_mode", expand=True)
-            layout.prop(props, "blend_mode", expand=True)
-            layout.prop(props, "build_mode", expand=True)
-            layout.separator()
-            split = layout.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Hair Hint")
-            col_2.prop(props, "hair_hint", text="")
-            col_1.label(text="Scalp Hint")
-            col_2.prop(props, "hair_scalp_hint", text="")
-            if props.hair_object is None:
-                col_1.label(text="** Hair Object **")
-            else:
-                col_1.label(text="Hair Object")
-            col_2.prop_search(props, "hair_object",  context.scene, "objects", text="")
-            col_1.separator()
-            col_2.separator()
-            if props.import_file != "":
-                box = layout.box()
-                if props.setup_mode == "ADVANCED":
-                    text = "Build Advanced Materials"
-                elif props.setup_mode == "COMPAT":
-                    text = "Build Compatible Materials"
-                else:
-                    text = "Build Basic Materials"
-                op = box.operator("cc3.importer", icon="MATERIAL", text=text)
-                op.param ="BUILD"
-
-        layout.separator()
-        if fake_drop_down(layout.box().row(),
-                "3. Fix Alpha Blending",
-                "stage3",
-                props.stage3):
-            column = layout.column()
-            if not mesh_in_selection:
-                column.enabled = False
-
-            ob = context.object
-            if ob is not None:
-                column.template_list("MATERIAL_UL_weightedmatslots", "", ob, "material_slots", ob, "active_material_index", rows=1)
-            split = column.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Quick Set Alpha")
-            col_1.prop(props, "quick_set_mode", expand=True)
-            op = col_2.operator("cc3.quickset", icon="SHADING_SOLID", text="Opaque")
-            op.param = "OPAQUE"
-            op = col_2.operator("cc3.quickset", icon="SHADING_WIRE", text="Blend")
-            op.param = "BLEND"
-            op = col_2.operator("cc3.quickset", icon="SHADING_RENDERED", text="Hashed")
-            op.param = "HASHED"
-            col_1.separator()
-            col_2.separator()
-            op = col_1.operator("cc3.quickset", icon="NORMALS_FACE", text="Single Sided")
-            op.param = "SINGLE_SIDED"
-            op = col_2.operator("cc3.quickset", icon="XRAY", text="Double Sided")
-            op.param = "DOUBLE_SIDED"
-
-
-        layout.separator()
-        if fake_drop_down(layout.box().row(),
-                "4. Adjust Parameters",
+                "3. Adjust Parameters",
                 "stage4",
                 props.stage4):
             column = layout.column()
@@ -5142,33 +5142,28 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
                 col_1.label(text="Default Bump Height (mm)")
                 col_2.prop(props, "default_bump", text="", slider=True)
 
-        layout.separator()
+        layout.box().label(text="4. Utilities", icon="MODIFIER_DATA")
+        column = layout.column()
+        if props.import_name == "":
+            column.enabled = False
+        split = column.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="Open Mouth")
+        col_2.prop(props, "open_mouth", text="", slider=True)
 
-        if fake_drop_down(layout.box().row(),
-                "5. Utilities",
-                "stage5",
-                props.stage5):
-            column = layout.column()
-            if props.import_name == "":
-                column.enabled = False
-            split = column.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Open Mouth")
-            col_2.prop(props, "open_mouth", text="", slider=True)
-
-            column = layout.column()
-            op = column.operator("cc3.quickset", icon="DECORATE_OVERRIDE", text="Reset Parameters")
-            op.param = "RESET"
-            op = column.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
-            op.param ="REBUILD_NODE_GROUPS"
+        column = layout.column()
+        op = column.operator("cc3.quickset", icon="DECORATE_OVERRIDE", text="Reset Parameters")
+        op.param = "RESET"
+        op = column.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
+        op.param ="REBUILD_NODE_GROUPS"
 
 class CC3ToolsScenePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Scene_Panel"
     bl_label = "CC3 Scene Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = "CC3 Scene"
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
@@ -5176,7 +5171,7 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         layout = self.layout
 
         box = layout.box()
-        box.label(text="Scene Lighting", icon="INFO")
+        box.label(text="Scene Lighting", icon="LIGHT")
         col = layout.column()
 
         op = col.operator("cc3.scene", icon="SHADING_SOLID", text="Solid Matcap")
@@ -5193,19 +5188,17 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         op.param = "COURTYARD"
 
         box = layout.box()
-        box.label(text="Scene, World & Compositor", icon="INFO")
+        box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
         col = layout.column()
 
         op = col.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
         op.param = "TEMPLATE"
 
         box = layout.box()
-        box.label(text="Rendering", icon="INFO")
+        box.label(text="Rendering", icon="RENDER_RESULT")
         col = layout.column()
-
-        op = col.operator("cc3.scene", icon="RENDER_RESULT", text="Render Image")
+        op = col.operator("cc3.scene", icon="RENDER_STILL", text="Render Image")
         op.param = "RENDER_IMAGE"
-
         scene = context.scene
         op = col.operator("cc3.scene", icon="RENDER_ANIMATION", text="Render Animation")
         op.param = "RENDER_ANIMATION"
@@ -5215,8 +5208,25 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         col_1.prop(scene, "frame_start", text="Start")
         col_2.prop(scene, "frame_end", text="End")
         col = layout.column()
-        op = col.operator("cc3.scene", icon="SHADING_RENDERED", text="Range From Character")
+        op = col.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character")
         op.param = "ANIM_RANGE"
+
+        box = layout.box()
+        box.label(text="Bake Physics", icon="FORCE_MAGNETIC")
+        col = layout.column()
+        op = col.operator("cc3.quickset", icon="ANIM", text="Prep Physics")
+        op.param = "PHYSICS_PREP"
+        split = col.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        if not context.screen.is_animation_playing:
+            op = col_1.operator("screen.animation_manager", icon="PLAY", text="Play")
+            op.mode = "PLAY"
+        else:
+            op = col_1.operator("screen.animation_manager", icon="PAUSE", text="Pause")
+            op.mode = "PLAY"
+        op = col_2.operator("screen.animation_manager", icon="REW", text="Reset")
+        op.mode = "STOP"
 
 
 
@@ -5225,7 +5235,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_label = "CC3 Physics Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = "CC3 Physics"
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
@@ -5235,34 +5245,25 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         missing_cloth = False
         has_cloth = False
         missing_coll = False
-        has_coll = False
-        has_temp_weight = False
-        weight_maps = 0
-        active_has_cloth = False
+        cloth_mod = None
+        coll_mod = None
         meshes_selected = 0
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 meshes_selected += 1
-                cloth_mod = get_cloth_physics_mod(obj)
-                coll_mod = get_collision_physics_mod(obj)
-                if cloth_mod is None:
+                clm = get_cloth_physics_mod(obj)
+                com = get_collision_physics_mod(obj)
+                if clm is None:
                     missing_cloth = True
                 else:
-                    weight_mods = get_weight_map_mods(obj)
                     if context.object == obj:
-                        weight_maps = len(weight_mods)
-                        active_has_cloth = True
-                    for mod in weight_mods:
-                        if mod.mask_texture is not None and \
-                        mod.mask_texture.image is not None and \
-                        mod.mask_texture.image.packed_file is not None:
-                            has_temp_weight = True
+                        cloth_mod = clm
                     has_cloth = True
-                if coll_mod is None:
+                if com is None:
                     missing_coll = True
                 else:
-                    has_coll = True
-        num_weight_maps, num_dirty_weight_maps = count_weightmaps(bpy.context.selected_objects)
+                    if context.object == obj:
+                        coll_mod = com
 
         box = layout.box()
         box.label(text="Create / Remove", icon="PHYSICS")
@@ -5283,11 +5284,11 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         if meshes_selected == 0:
             col.enabled = False
 
+        # Cloth Physics Presets
         box = layout.box()
         box.label(text="Presets", icon="OPTIONS")
-
         col = layout.column()
-        if not has_cloth:
+        if cloth_mod is None:
             col.enabled = False
         op = col.operator("cc3.quickset", icon="USER", text="Hair")
         op.param = "PHYSICS_HAIR"
@@ -5302,12 +5303,49 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         op = col.operator("cc3.quickset", icon="MATCLOTH", text="Silk")
         op.param = "PHYSICS_SILK"
 
+        # Cloth Physics Settings
+        if cloth_mod is not None:
+            box = layout.box()
+            box.label(text="Cloth Settings", icon="OPTIONS")
+            col = layout.column()
+            split = col.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Weight")
+            col_2.prop(cloth_mod.settings, "mass", text="", slider=True)
+            col_1.label(text="Bend Resist")
+            col_2.prop(cloth_mod.settings, "bending_stiffness", text="", slider=True)
+            col_1.label(text="Pin Stiffness")
+            col_2.prop(cloth_mod.settings, "pin_stiffness", text="", slider=True)
+            col_1.label(text="Quality")
+            col_2.prop(cloth_mod.settings, "quality", text="", slider=True)
+            col_1.label(text="Collision")
+            col_2.prop(cloth_mod.collision_settings, "collision_quality", text="", slider=True)
+            col_1.label(text="Distance")
+            col_2.prop(cloth_mod.collision_settings, "distance_min", text="", slider=True)
+        # Collision Physics Settings
+        if coll_mod is not None:
+            box = layout.box()
+            box.label(text="Collision Settings", icon="OPTIONS")
+            col = layout.column()
+            split = col.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Damping")
+            col_2.prop(coll_mod.settings, "damping", text="", slider=True)
+            col_1.label(text="Outer Thickness")
+            col_2.prop(coll_mod.settings, "thickness_outer", text="", slider=True)
+            col_1.label(text="Inner Thickness")
+            col_2.prop(coll_mod.settings, "thickness_inner", text="", slider=True)
+            col_1.label(text="Friction")
+            col_2.prop(coll_mod.settings, "cloth_friction", text="", slider=True)
+
+
         box = layout.box()
         box.label(text="Weight Maps", icon="TEXTURE_DATA")
         obj = context.object
         mat = context_material(context)
         wmm = get_weight_map_mod(obj, mat)
-
         split = layout.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
@@ -5318,7 +5356,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         col_2.prop(props, "physics_tex_size", text="")
 
         col = layout.column()
-        if not active_has_cloth:
+        if cloth_mod is None:
             col.enabled = False
 
         if obj is not None:
@@ -5359,25 +5397,6 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             op = col_2.operator("cc3.quickset", icon="ERROR", text="Delete")
             op.param = "PHYSICS_DELETE"
 
-        box = layout.box()
-        box.label(text="Baking", icon="ARMATURE_DATA")
-        col = layout.column()
-        op = col.operator("cc3.quickset", icon="ANIM", text="Prep Physics")
-        op.param = "PHYSICS_PREP"
-        split = col.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        if not context.screen.is_animation_playing:
-            op = col_1.operator("screen.animation_manager", text="Play")
-            op.mode = "PLAY"
-            op = col_2.operator("screen.animation_manager", text="Reset")
-            op.mode = "STOP"
-        else:
-            op = col_1.operator("screen.animation_manager", text="Pause")
-            op.mode = "PLAY"
-            op = col_2.operator("screen.animation_manager", text="Stop")
-            op.mode = "STOP"
-
 
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):
@@ -5385,7 +5404,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
     bl_label = "CC3 Pipeline"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = "CC3 Pipeline"
 
     def draw(self, context):
         global debug_counter
@@ -5483,7 +5502,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("CC3","CC3 Default","Replica of CC3 default lighting setup"),
                         ("STUDIO","Studio Right","Right facing 3 point lighting with the studio hdri"),
                         ("COURTYARD","Courtyard Left","Left facing soft 3 point lighting with the courtyard hdri"),
-                    ], default="STUDIO", name = "Render / Quality Lighting")
+                    ], default="CC3", name = "Render / Quality Lighting")
 
     pipeline_lighting: bpy.props.EnumProperty(items=[
                         ("BLENDER","Blender Default","Blenders default lighting setup"),
