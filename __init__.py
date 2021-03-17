@@ -2257,7 +2257,8 @@ def attach_material_weight_map(obj, mat, weight_map):
         mix_mod.mix_set = 'B' #'ALL'
         mix_mod.mix_mode = 'SET'
         #mix_mod.normalize = False
-        mix_mod.invert_mask_vertex_group = True
+        # 2.92 must be False 2.83 doesn't seem to care...
+        mix_mod.invert_mask_vertex_group = False
         log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
 
 
@@ -2289,7 +2290,9 @@ def get_dirty_weightmaps(objects):
     return maps
 
 
-def begin_paint_weight_map(obj, mat):
+def begin_paint_weight_map(context):
+    obj = context.object
+    mat = context_material(context)
     props = bpy.context.scene.CC3ImportProps
     if obj is not None and mat is not None:
         props.paint_store_render = bpy.context.space_data.shading.type
@@ -2298,7 +2301,7 @@ def begin_paint_weight_map(obj, mat):
             bpy.ops.object.mode_set(mode="TEXTURE_PAINT")
 
         if bpy.context.mode == "PAINT_TEXTURE":
-            physics_strength_update(None, None)
+            physics_strength_update(None, context)
             weight_map = get_weight_map_image(obj, mat)
             props.paint_object = obj
             props.paint_material = mat
@@ -3710,6 +3713,10 @@ def setup_scene_default(scene_type):
             #set_contact_shadow(key1, 0.1, 0.001)
             #set_contact_shadow(key2, 0.1, 0.005)
 
+            bpy.context.space_data.shading.type = 'SOLID'
+            bpy.context.space_data.shading.light = 'MATCAP'
+            bpy.context.space_data.shading.studio_light = 'basic_1.exr'
+            bpy.context.space_data.shading.show_cavity = True
             bpy.context.space_data.shading.type = 'MATERIAL'
             bpy.context.space_data.shading.use_scene_lights = True
             bpy.context.space_data.shading.use_scene_world = False
@@ -4057,7 +4064,7 @@ def quick_set_execute(param, context = bpy.context):
                     apply_cloth_settings(obj, "SILK")
         elif param == "PHYSICS_PAINT":
             if context.object is not None and context.object.type == "MESH":
-                begin_paint_weight_map(context.object, context_material(context))
+                begin_paint_weight_map(context)
         elif param == "PHYSICS_DONE_PAINTING":
             end_paint_weight_map()
         elif param == "PHYSICS_SAVE":
@@ -4162,8 +4169,10 @@ def physics_strength_update(self, context):
     props = bpy.context.scene.CC3ImportProps
 
     if bpy.context.mode == "PAINT_TEXTURE":
+        ups = context.tool_settings.unified_paint_settings
+        prop_owner = ups if ups.use_unified_color else context.tool_settings.image_paint.brush
         s = props.physics_strength
-        bpy.context.scene.tool_settings.unified_paint_settings.color = (s, s, s)
+        prop_owner.color = (s, s, s)
 
 def weight_strength_update(self, context):
     props = bpy.context.scene.CC3ImportProps
