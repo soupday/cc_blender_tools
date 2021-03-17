@@ -2350,8 +2350,12 @@ def delete_selected_weight_map(obj, mat):
                     os.remove(image.filepath)
             except:
                 log_error("Removing weight map file: " + image.filepath)
-        log_info("Removing 'Vertex Weight Edit' modifer")
-        obj.modifiers.remove(edit_mod)
+        if edit_mod is not None:
+            log_info("Removing 'Vertex Weight Edit' modifer")
+            obj.modifiers.remove(edit_mod)
+        if mix_mod is not None:
+            log_info("Removing 'Vertex Weight Mix' modifer")
+            obj.modifiers.remove(mix_mod)
 
 
 def set_physics_bake_range(obj, start, end):
@@ -2373,10 +2377,10 @@ def prepare_physics_bake(context):
     #cloth_mod.point_cache.frame_end = frame_count
     props = bpy.context.scene.CC3ImportProps
 
-    if bpy.context.mode != "OBJECT":
-            bpy.ops.object.mode_set(mode="OBJECT")
+    #if bpy.context.mode != "OBJECT":
+    #        bpy.ops.object.mode_set(mode="OBJECT")
 
-    bpy.ops.ptcache.free_bake_all()
+    #bpy.ops.ptcache.free_bake_all()
 
     baking = False
     for p in props.import_objects:
@@ -3906,12 +3910,14 @@ class CC3Scene(bpy.types.Operator):
         )
 
     def execute(self, context):
-        if (self.param == "RENDER_IMAGE"):
+        if self.param == "RENDER_IMAGE":
             render_image(context)
-        elif (self.param == "RENDER_ANIMATION"):
+        elif self.param == "RENDER_ANIMATION":
             render_animation(context)
-        elif (self.param == "ANIM_RANGE"):
+        elif self.param == "ANIM_RANGE":
             fetch_anim_range(context)
+        elif self.param == "PHYSICS_PREP":
+            prepare_physics_bake(context)
         else:
             setup_scene_default(self.param)
             if (self.param == "TEMPLATE"):
@@ -3936,11 +3942,14 @@ class CC3Scene(bpy.types.Operator):
         elif properties.param == "TEMPLATE":
             return "Sets up a rendering template with rendered shading and world lighting. Sets up the Compositor and World nodes with a basic setup and adds tracking lights, a tracking camera and targetting objects"
         elif properties.param == "RENDER_IMAGE":
-            return "Renders a single image."
+            return "Renders a single image"
         elif properties.param == "RENDER_ANIMATION":
-            return "Renders the current animation range."
+            return "Renders the current animation range"
         elif properties.param == "ANIM_RANGE":
-            return "Sets the animation range to the same range as the Action on the current character."
+            return "Sets the animation range to the same range as the Action on the current character"
+        elif properties.param == "PHYSICS_PREP":
+            return "Sets all the physics bake ranges to the same as the current scene animation range."
+
         return ""
 
 def context_material(context):
@@ -4055,8 +4064,6 @@ def quick_set_execute(param, context = bpy.context):
             save_dirty_weight_maps(bpy.context.selected_objects)
         elif param == "PHYSICS_DELETE":
             delete_selected_weight_map(context.object, context_material(context))
-        elif param == "PHYSICS_PREP":
-            prepare_physics_bake(context)
         elif param == "PHYSICS_SEPARATE":
             separate_physics_materials(context)
         elif param == "PHYSICS_FIX_DEGENERATE":
@@ -5333,31 +5340,35 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         scene = context.scene
         op = col.operator("cc3.scene", icon="RENDER_ANIMATION", text="Render Animation")
         op.param = "RENDER_ANIMATION"
+        col.separator()
         split = layout.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
         col_1.prop(scene, "frame_start", text="Start")
         col_2.prop(scene, "frame_end", text="End")
         col = layout.column()
+        col.separator()
         op = col.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character")
         op.param = "ANIM_RANGE"
-
-        box = layout.box()
-        box.label(text="Bake Physics", icon="FORCE_MAGNETIC")
-        col = layout.column()
-        op = col.operator("cc3.quickset", icon="ANIM", text="Prep Physics")
+        op = col.operator("cc3.scene", icon="ANIM", text="Sync Physics Range")
         op.param = "PHYSICS_PREP"
-        split = col.split(factor=0.5)
+        col.separator()
+        split = col.split(factor=0.)
         col_1 = split.column()
         col_2 = split.column()
+        col_3 = split.column()
         if not context.screen.is_animation_playing:
-            op = col_1.operator("screen.animation_manager", icon="PLAY", text="Play")
-            op.mode = "PLAY"
+            #op = col_1.operator("screen.animation_manager", icon="PLAY", text="Play")
+            #op.mode = "PLAY"
+            col_1.operator("screen.animation_play", text="Play", icon='PLAY')
         else:
-            op = col_1.operator("screen.animation_manager", icon="PAUSE", text="Pause")
-            op.mode = "PLAY"
-        op = col_2.operator("screen.animation_manager", icon="REW", text="Reset")
-        op.mode = "STOP"
+            #op = col_1.operator("screen.animation_manager", icon="PAUSE", text="Pause")
+            #op.mode = "PLAY"
+            col_1.operator("screen.animation_play", text="Pause", icon='PAUSE')
+        #op = col_2.operator("screen.animation_manager", icon="REW", text="Reset")
+        #op.mode = "STOP"
+        col_2.operator("screen.frame_jump", text="Start", icon='REW').end = False
+        col_3.operator("screen.frame_jump", text="End", icon='FF').end = True
 
 
 
