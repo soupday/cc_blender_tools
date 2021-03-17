@@ -1685,9 +1685,6 @@ node_groups = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "col
                "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer",
                "eye_occlusion_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping"]
 
-
-
-
 def apply_cloth_settings(obj, cloth_type):
     prefs = bpy.context.preferences.addons[__name__].preferences
     mod = get_cloth_physics_mod(obj)
@@ -1697,7 +1694,7 @@ def apply_cloth_settings(obj, cloth_type):
     cache.cloth_settings = cloth_type
 
     log_info("Setting " + obj.name + " cloth settings to: " + cloth_type)
-    mod.settings.vertex_group_mass = prefs.physics_group
+    mod.settings.vertex_group_mass = prefs.physics_group + "_Pin"
     mod.settings.time_scale = 1
     if cloth_type == "HAIR":
         mod.settings.quality = 4
@@ -1839,20 +1836,27 @@ def get_collision_physics_mod(obj):
 
 
 def get_weight_map_mods(obj):
-    mods = []
+    edit_mods = []
+    mix_mods = []
     if obj is not None:
         for mod in obj.modifiers:
             if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
-                mods.append(mod)
-    return mods
+                edit_mods.append(mod)
+            if mod.type == "VERTEX_WEIGHT_MIX" and NODE_PREFIX in mod.name:
+                mix_mods.append(mod)
+    return edit_mods, mix_mods
 
 
-def get_weight_map_mod(obj, mat):
+def get_material_weight_map_mods(obj, mat):
+    edit_mod = None
+    mix_mod = None
     if obj is not None and mat is not None:
         for mod in obj.modifiers:
-            if mod.type == "VERTEX_WEIGHT_EDIT" and (NODE_PREFIX + mat.name + "_WeightMix") in mod.name:
-                return mod
-    return None
+            if mod.type == "VERTEX_WEIGHT_EDIT" and (NODE_PREFIX + mat.name + "_WeightEdit") in mod.name:
+                edit_mod = mod
+            if mod.type == "VERTEX_WEIGHT_MIX" and (NODE_PREFIX + mat.name + "_WeightMix") in mod.name:
+                mix_mod = mod
+    return edit_mod, mix_mod
 
 
 def add_collision_physics(obj):
@@ -1905,8 +1909,9 @@ def add_cloth_physics(obj):
         log_info("Cloth Modifier: " + cloth_mod.name + " applied to " + obj.name)
 
         # Create the physics pin vertex group if it doesn't exist
-        if prefs.physics_group not in obj.vertex_groups:
-            obj.vertex_groups.new(name = prefs.physics_group)
+        pin_group = prefs.physics_group + "_Pin"
+        if pin_group not in obj.vertex_groups:
+            obj.vertex_groups.new(name = pin_group)
 
         # Set cache bake frame range
         frame_count = 250
@@ -1952,16 +1957,21 @@ def remove_cloth_physics(obj):
     # Remove any weight maps
     for mat in obj.data.materials:
         if mat is not None:
-            remove_material_weight_map(obj, mat)
+            remove_material_weight_maps(obj, mat)
+            weight_group = prefs.physics_group + "_" + strip_name(mat.name)
+            if weight_group in obj.vertex_groups:
+                obj.vertex_groups.remove(obj.vertex_groups[weight_group])
 
     # If there are no weight maps left on the object, remove the vertex group
     mods = 0
     for mod in obj.modifiers:
         if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
             mods += 1
-    if mods == 0 and prefs.physics_group in obj.vertex_groups:
-        log_info("Removing vertex group: " + prefs.physics_group + " from: " + obj.name)
-        obj.vertex_groups.remove(obj.vertex_groups[prefs.physics_group])
+
+    pin_group = prefs.physics_group + "_Pin"
+    if mods == 0 and pin_group in obj.vertex_groups:
+        log_info("Removing vertex group: " + pin_group + " from: " + obj.name)
+        obj.vertex_groups.remove(obj.vertex_groups[pin_group])
 
 
 def remove_all_physics_mods(obj):
@@ -1973,6 +1983,8 @@ def remove_all_physics_mods(obj):
     log_info("Removing all related physics modifiers from: " + obj.name)
     for mod in obj.modifiers:
         if mod.type == "VERTEX_WEIGHT_EDIT" and NODE_PREFIX in mod.name:
+            obj.modifiers.remove(mod)
+        elif mod.type == "VERTEX_WEIGHT_MIX" and NODE_PREFIX in mod.name:
             obj.modifiers.remove(mod)
         elif mod.type == "CLOTH":
             obj.modifiers.remove(mod)
@@ -2049,7 +2061,7 @@ def add_material_weight_map(obj, mat, create = False):
         else:
             weight_map = find_material_image(mat, WEIGHT_MAP)
 
-        remove_material_weight_map(obj, mat)
+        remove_material_weight_maps(obj, mat)
         if weight_map is not None:
             attach_material_weight_map(obj, mat, weight_map)
     else:
@@ -2081,17 +2093,20 @@ def fix_physics_mod_order(obj):
 
 
 
-def remove_material_weight_map(obj, mat):
+def remove_material_weight_maps(obj, mat):
     """Removes the weight map 'Vertex Weight Edit' modifier for the object's material.
 
     This does not remove or delete the weight map image or temporary packed image,
     or the texture based on the weight map image, just the modifier.
     """
 
-    mod = get_weight_map_mod(obj, mat)
-    if mod is not None:
-        log_info("    Removing weight map vertex edit modifer: " + mod.name)
-        obj.modifiers.remove(mod)
+    edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
+    if edit_mod is not None:
+        log_info("    Removing weight map vertex edit modifer: " + edit_mod.name)
+        obj.modifiers.remove(edit_mod)
+    if mix_mod is not None:
+        log_info("    Removing weight map vertex mix modifer: " + mix_mod.name)
+        obj.modifiers.remove(mix_mod)
 
 
 def enable_material_weight_map(obj, mat):
@@ -2111,7 +2126,7 @@ def disable_material_weight_map(obj, mat):
 
     cache = get_material_cache(mat)
     cache.cloth_physics = "OFF"
-    remove_material_weight_map(obj, mat)
+    remove_material_weight_maps(obj, mat)
     pass
 
 
@@ -2142,6 +2157,25 @@ def cloth_physics_available(obj, mat):
     return True
 
 
+def get_material_vertices(obj, mat):
+    verts = []
+    mesh = obj.data
+    for poly in mesh.polygons:
+        poly_mat = obj.material_slots[poly.material_index].material
+        if poly_mat == mat:
+            for vert in poly.vertices:
+                if vert not in verts:
+                    verts.append(vert)
+    return verts
+
+
+def clear_vertex_group(obj, vertex_group):
+    all_verts = []
+    for v in obj.data.vertices:
+        all_verts.append(v.index)
+    vertex_group.remove(all_verts)
+
+
 def attach_material_weight_map(obj, mat, weight_map):
     """Attaches a weight map to the object's material via a 'Vertex Weight Edit' modifier.
 
@@ -2153,7 +2187,8 @@ def attach_material_weight_map(obj, mat, weight_map):
 
     if weight_map is not None:
         # Make a texture based on the weight map image
-        tex_name = mat.name + "_Weight"
+        mat_name = strip_name(mat.name)
+        tex_name = mat_name + "_Weight"
         tex = None
         for t in bpy.data.textures:
             if t.name.startswith(NODE_PREFIX + tex_name):
@@ -2166,30 +2201,55 @@ def attach_material_weight_map(obj, mat, weight_map):
         tex.image = weight_map
 
         # Create the physics pin vertex group if it doesn't exist
-        if prefs.physics_group not in obj.vertex_groups:
-            obj.vertex_groups.new(name = prefs.physics_group)
+        pin_group = prefs.physics_group + "_Pin"
+        material_group = prefs.physics_group + "_" + mat_name
+        if pin_group not in obj.vertex_groups:
+            pin_vertex_group = obj.vertex_groups.new(name = pin_group)
+        else:
+            pin_vertex_group = obj.vertex_groups[pin_group]
+        if material_group not in obj.vertex_groups:
+            weight_vertex_group = obj.vertex_groups.new(name = material_group)
+        else:
+            weight_vertex_group = obj.vertex_groups[material_group]
+        clear_vertex_group(obj, weight_vertex_group)
+        clear_vertex_group(obj, pin_vertex_group)
+        # Fill the material group with verteces from the material
+        mat_verts = get_material_vertices(obj, mat)
+        weight_vertex_group.add(mat_verts, 1.0, 'ADD')
 
         mod_cloth = get_cloth_physics_mod(obj)
         if mod_cloth is not None:
-            mod_cloth.settings.vertex_group_mass = prefs.physics_group
+            mod_cloth.settings.vertex_group_mass = pin_group
 
         # (Re)Create create the Vertex Weight Edit modifier
-        remove_material_weight_map(obj, mat)
-        mod = obj.modifiers.new(unique_name(mat.name + "_WeightMix"), "VERTEX_WEIGHT_EDIT")
+        remove_material_weight_maps(obj, mat)
+        edit_mod = obj.modifiers.new(unique_name(mat_name + "_WeightEdit"), "VERTEX_WEIGHT_EDIT")
+        mix_mod = obj.modifiers.new(unique_name(mat_name + "_WeightMix"), "VERTEX_WEIGHT_MIX")
         # Use the texture as the modifiers vertex weight source
-        mod.mask_texture = tex
+        edit_mod.mask_texture = tex
         # Setup the modifier to generate the inverse of the weight map in the vertex group
-        mod.use_add = True
-        mod.use_remove = True
-        mod.add_threshold = 0.01
-        mod.remove_threshold = 0.01
-        mod.vertex_group = prefs.physics_group
-        mod.default_weight = 1
-        mod.falloff_type = 'LINEAR'
-        mod.invert_falloff = True
-        mod.mask_constant = 1
-        mod.mask_tex_mapping = 'UV'
-        mod.mask_tex_use_channel = 'INT'
+        edit_mod.use_add = False
+        edit_mod.use_remove = False
+        edit_mod.add_threshold = 0.01
+        edit_mod.remove_threshold = 0.01
+        edit_mod.vertex_group = material_group
+        edit_mod.default_weight = 1
+        edit_mod.falloff_type = 'LINEAR'
+        edit_mod.invert_falloff = True
+        edit_mod.mask_constant = 1
+        edit_mod.mask_tex_mapping = 'UV'
+        edit_mod.mask_tex_use_channel = 'INT'
+        # mix weight modifier
+        mix_mod.vertex_group_a = pin_group
+        mix_mod.vertex_group_b = material_group
+        mix_mod.invert_vertex_group_a = True
+        mix_mod.invert_vertex_group_b = False
+        mix_mod.default_weight_a = 0
+        mix_mod.default_weight_b = 1
+        mix_mod.mix_set = 'ALL'
+        mix_mod.mix_mode = 'SET'
+        mix_mod.normalize = False
+        mix_mod.invert_mask_vertex_group = True
         log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
 
 
@@ -2273,9 +2333,9 @@ def save_dirty_weight_maps(objects):
 
 def delete_selected_weight_map(obj, mat):
     if obj is not None and obj.type == "MESH" and mat is not None:
-        mod = get_weight_map_mod(obj, mat)
-        if mod is not None and mod.mask_texture is not None and mod.mask_texture.image is not None:
-            image = mod.mask_texture.image
+        edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
+        if edit_mod is not None and edit_mod.mask_texture is not None and edit_mod.mask_texture.image is not None:
+            image = edit_mod.mask_texture.image
             try:
                 if image.filepath != "" and os.path.exists(image.filepath):
                     log_info("Removing weight map file: " + image.filepath)
@@ -2283,7 +2343,7 @@ def delete_selected_weight_map(obj, mat):
             except:
                 log_error("Removing weight map file: " + image.filepath)
         log_info("Removing 'Vertex Weight Edit' modifer")
-        obj.modifiers.remove(mod)
+        obj.modifiers.remove(edit_mod)
 
 
 def set_physics_bake_range(obj, start, end):
@@ -2330,7 +2390,8 @@ def separate_physics_materials(context):
     # remember which materials have active weight maps
     temp = []
     for mat in context.object.data.materials:
-        if get_weight_map_mod(context.object, mat) is not None:
+        edit_mod, mix_mod = get_material_weight_map_mods(context.object, mat)
+        if edit_mod is not None:
             temp.append(mat)
 
     # remove cloth physics from the object
@@ -2361,8 +2422,8 @@ def should_separate_materials(context):
 
     cloth_mod = get_cloth_physics_mod(obj)
     if cloth_mod is not None:
-        mods = get_weight_map_mods(obj)
-        if len(mods) != len(obj.data.materials):
+        edit_mods, mix_mods = get_weight_map_mods(obj)
+        if len(edit_mods) != len(obj.data.materials):
             return True
     return False
 
@@ -2629,7 +2690,8 @@ def process_object(obj, objects_processed):
         # setup default physics
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
             add_collision_physics(obj)
-            if len(get_weight_map_mods(obj)) > 0:
+            edit_mods, mix_mods = get_weight_map_mods(obj)
+            if len(edit_mods) > 0:
                 enable_cloth_physics(obj)
 
     elif obj.type == "ARMATURE":
@@ -4093,8 +4155,8 @@ def weight_strength_update(self, context):
 
     strength = props.weight_map_strength
     influence = 1 - math.pow(1 - strength, 3)
-    mod = get_weight_map_mod(context.object, context_material(context))
-    mod.mask_constant = influence
+    edit_mod, mix_mod = get_material_weight_map_mods(context.object, context_material(context))
+    mix_mod.mask_constant = influence
 
 
 class CC3QuickSet(bpy.types.Operator):
@@ -5345,20 +5407,13 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         if meshes_selected == 0:
             col.enabled = False
 
-        if should_separate_materials(context):
-            col.box().label(text="Warning:", icon="ERROR")
-            col.label(text="This object has physics and non")
-            col.label(text="physics materials. It is advisable")
-            col.label(text="to separate this object by material")
-            col.label(text="Otherwise it may not work well")
-            col.label(text="with the cloth physics simulation.")
-            op = col.operator("cc3.quickset", icon="ERROR", text="Separate Physics Materials")
-            op.param = "PHYSICS_SEPARATE"
-
-        col.separator()
-        col.label(text="Mesh Correction:")
+        box = layout.box()
+        box.label(text="Mesh Correction", icon="MESH_DATA")
+        col = layout.column()
         op = col.operator("cc3.quickset", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh")
         op.param = "PHYSICS_FIX_DEGENERATE"
+        op = col.operator("cc3.quickset", icon="FACE_MAPS", text="Separate Physics Materials")
+        op.param = "PHYSICS_SEPARATE"
 
         # Cloth Physics Presets
         box = layout.box()
@@ -5421,7 +5476,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         box.label(text="Weight Maps", icon="TEXTURE_DATA")
         obj = context.object
         mat = context_material(context)
-        wmm = get_weight_map_mod(obj, mat)
+        edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
         split = layout.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
@@ -5437,13 +5492,13 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         if obj is not None:
             col.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
-            if wmm is not None:
+            if edit_mod is not None:
                 split = col.split(factor=0.5)
                 col_1 = split.column()
                 col_2 = split.column()
                 col_1.label(text="Influence")
-                col_2.prop(wmm, "mask_constant", text="", slider=True)
-        if wmm is None:
+                col_2.prop(mix_mod, "mask_constant", text="", slider=True)
+        if edit_mod is None:
             row = col.row()
             op = row.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
             op.param = "PHYSICS_ADD_WEIGHTMAP"
@@ -5461,7 +5516,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             op.param = "PHYSICS_DONE_PAINTING"
         else:
             col = layout.column()
-            if wmm is None:
+            if edit_mod is None:
                 col.enabled = False
             op = col.operator("cc3.quickset", icon="BRUSH_DATA", text="Paint Weight Map")
             op.param = "PHYSICS_PAINT"
@@ -5620,7 +5675,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     debug_mode: bpy.props.BoolProperty(default=False)
 
-    physics_group: bpy.props.StringProperty(default="CC_Physics_Weight", name="Physics Vertex Group Name")
+    physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
     def draw(self, context):
         layout = self.layout
