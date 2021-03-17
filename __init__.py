@@ -2242,13 +2242,14 @@ def attach_material_weight_map(obj, mat, weight_map):
         # mix weight modifier
         mix_mod.vertex_group_a = pin_group
         mix_mod.vertex_group_b = material_group
-        mix_mod.invert_vertex_group_a = True
-        mix_mod.invert_vertex_group_b = False
-        mix_mod.default_weight_a = 0
+        mix_mod.invert_mask_vertex_group = True
+        #mix_mod.invert_vertex_group_a = True
+        #mix_mod.invert_vertex_group_b = False
+        mix_mod.default_weight_a = 1
         mix_mod.default_weight_b = 1
         mix_mod.mix_set = 'ALL'
         mix_mod.mix_mode = 'SET'
-        mix_mod.normalize = False
+        #mix_mod.normalize = False
         mix_mod.invert_mask_vertex_group = True
         log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
 
@@ -5388,6 +5389,10 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                     if context.object == obj:
                         coll_mod = com
 
+        obj = context.object
+        mat = context_material(context)
+        edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
+
         box = layout.box()
         box.label(text="Create / Remove", icon="PHYSICS")
 
@@ -5454,6 +5459,12 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             col_2.prop(cloth_mod.collision_settings, "collision_quality", text="", slider=True)
             col_1.label(text="Distance")
             col_2.prop(cloth_mod.collision_settings, "distance_min", text="", slider=True)
+            if edit_mod is not None:
+                split = col.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Influence")
+                col_2.prop(mix_mod, "mask_constant", text="", slider=True)
         # Collision Physics Settings
         if coll_mod is not None:
             box = layout.box()
@@ -5474,9 +5485,6 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Weight Maps", icon="TEXTURE_DATA")
-        obj = context.object
-        mat = context_material(context)
-        edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
         split = layout.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
@@ -5492,12 +5500,6 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         if obj is not None:
             col.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
-            if edit_mod is not None:
-                split = col.split(factor=0.5)
-                col_1 = split.column()
-                col_2 = split.column()
-                col_1.label(text="Influence")
-                col_2.prop(mix_mod, "mask_constant", text="", slider=True)
         if edit_mod is None:
             row = col.row()
             op = row.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
