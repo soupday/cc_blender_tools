@@ -5477,12 +5477,6 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             col_2.prop(cloth_mod.collision_settings, "collision_quality", text="", slider=True)
             col_1.label(text="Distance")
             col_2.prop(cloth_mod.collision_settings, "distance_min", text="", slider=True)
-            if edit_mod is not None:
-                split = col.split(factor=0.5)
-                col_1 = split.column()
-                col_2 = split.column()
-                col_1.label(text="Influence")
-                col_2.prop(mix_mod, "mask_constant", text="", slider=True)
         # Collision Physics Settings
         if coll_mod is not None:
             box = layout.box()
@@ -5518,6 +5512,13 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         if obj is not None:
             col.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
+        if edit_mod is not None:
+            split = col.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Influence")
+            col_2.prop(mix_mod, "mask_constant", text="", slider=True)
+        col.separator()
         if edit_mod is None:
             row = col.row()
             op = row.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
