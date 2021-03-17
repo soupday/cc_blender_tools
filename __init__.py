@@ -1,4 +1,4 @@
-# Version: 0.2.x
+# Version: 0.2.2
 #   DONE
 #   - When no texture maps are present for an advanced node group, does not generate the node group.
 #   - When exporting morph characters with .fbxkey or .objkey files, the key file is copied along with the export.
@@ -18,7 +18,6 @@
 #
 # TODO
 #   - Prefs for physics settings.
-#   - Use scalp material prop...
 #   - Button to auto transfer skin weights to accessories.
 #
 # FUTURE PLANS
@@ -38,14 +37,16 @@ import math
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 2, 1),
+    "version": (0, 2, 2),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
     "description": "Automatic import and material setup of CC3 characters.",
 }
 
-VERSION_STRING = "v0.2.1"
+VERSION_STRING = "v" + str(bl_info["version"][0]) \
+               + "." + str(bl_info["version"][1]) \
+               + "." + str(bl_info["version"][2])
 
 # lists of the suffixes used by the input maps
 BASE_COLOR_MAP = ["diffuse", "albedo"]
@@ -1818,7 +1819,6 @@ def apply_cloth_settings(obj, cloth_type):
         mod.collision_settings.collision_quality = 4
 
 
-
 def get_cloth_physics_mod(obj):
     if obj is not None:
         for mod in obj.modifiers:
@@ -2176,6 +2176,13 @@ def clear_vertex_group(obj, vertex_group):
     vertex_group.remove(all_verts)
 
 
+def set_vertex_group(obj, vertex_group, value):
+    all_verts = []
+    for v in obj.data.vertices:
+        all_verts.append(v.index)
+    vertex_group.add(all_verts, value, 'ADD')
+
+
 def attach_material_weight_map(obj, mat, weight_map):
     """Attaches a weight map to the object's material via a 'Vertex Weight Edit' modifier.
 
@@ -2212,7 +2219,7 @@ def attach_material_weight_map(obj, mat, weight_map):
         else:
             weight_vertex_group = obj.vertex_groups[material_group]
         clear_vertex_group(obj, weight_vertex_group)
-        clear_vertex_group(obj, pin_vertex_group)
+        set_vertex_group(obj, pin_vertex_group, 1.0)
         # Fill the material group with verteces from the material
         mat_verts = get_material_vertices(obj, mat)
         weight_vertex_group.add(mat_verts, 1.0, 'ADD')
@@ -2247,7 +2254,7 @@ def attach_material_weight_map(obj, mat, weight_map):
         #mix_mod.invert_vertex_group_b = False
         mix_mod.default_weight_a = 1
         mix_mod.default_weight_b = 1
-        mix_mod.mix_set = 'ALL'
+        mix_mod.mix_set = 'B' #'ALL'
         mix_mod.mix_mode = 'SET'
         #mix_mod.normalize = False
         mix_mod.invert_mask_vertex_group = True
