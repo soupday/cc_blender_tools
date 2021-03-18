@@ -7,6 +7,8 @@
 #   - Option to apply alpha blend settings to whole object(s) or just active materal.
 #   - Remembers the applied alpha blend settings and re-applies when rebuilding materials.
 #   - Pick Scalp Material (Is there an eye dropper for materials?).
+#   - Only scans once on import for hair object and scalp material, so it can be cleared if it gets it wrong and wont keep putting it back.
+#   - FBX import keeps track of the objects as well as the armature in case the armature is replaced...
 #
 #   Physics:
 #   - Uses the physX weight maps to auto-generate vertex pin weights for cloth/hair physics (Optional in the preferences).
@@ -16,12 +18,11 @@
 #   - Operator to setup and begin texture painting of the per material weight maps.
 #   - Operator to save any modified weight maps to disk.
 #
-# TODO
+# TODO (these can wait for now)
 #   - Prefs for physics settings.
 #   - Button to auto transfer skin weights to accessories.
-#   - Only scan once for hair/scalp object/material, so it can be cleared if it gets it wrong and there is no hair/scalp
 #   - limits on node group inputs in _LIB.
-#   - OBJ import rigged later: track the armature somehow? take into account on export...
+#   - OBJ import to be rigged later... do we need to keep track of any new armature?
 #
 # FUTURE PLANS
 #   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
@@ -2159,13 +2160,16 @@ def collision_physics_available(obj):
 
 
 def cloth_physics_available(obj, mat):
+    """Is cloth physics allowed on this object and material?
+    """
+
     obj_cache = get_object_cache(obj)
     mat_cache = get_material_cache(mat)
     cloth_mod = get_cloth_physics_mod(obj)
     if cloth_mod is None:
         if obj_cache.cloth_physics == "OFF":
             return False
-        if mat_cache.cloth_physics == "OFF":
+        if mat_cache is not None and mat_cache.cloth_physics == "OFF":
             return False
     else:
         # if cloth physics was disabled by the add-on,
@@ -2405,13 +2409,9 @@ def prepare_physics_bake(context):
 
     baking = False
     for p in props.import_objects:
-        if p.object is not None and p.object.type == "ARMATURE":
+        if p.object is not None and p.object.type == "MESH":
             obj = p.object
-            for child in obj.children:
-                if set_physics_bake_range(child, context.scene.frame_start, context.scene.frame_end):
-                    baking = True
-
-    return baking
+            set_physics_bake_range(obj, context.scene.frame_start, context.scene.frame_end)
 
 
 def separate_physics_materials(context):
@@ -2473,6 +2473,7 @@ def fetch_anim_range(context):
                 frame_end = math.ceil(obj.animation_data.action.frame_range[1])
                 context.scene.frame_start = frame_start
                 context.scene.frame_end = frame_end
+                return
 
 
 def render_image(context):
@@ -2552,9 +2553,6 @@ def clean_colletion(collection):
 def delete_object(obj):
     if obj is None:
         return
-
-    for child in obj.children:
-        delete_object(child)
 
     # remove any armature actions
     if obj.type == "ARMATURE":
@@ -2642,11 +2640,6 @@ def process_material(obj, mat):
     shader = None
     cache = get_material_cache(mat)
 
-    if props.hair_object is None and is_hair_object(obj, mat):
-        props.hair_object = obj
-    if props.scalp_material is None and is_scalp_material(mat):
-        props.scalp_material = mat
-
     # find the Principled BSDF shader node
     for n in nodes:
         if (n.type == "BSDF_PRINCIPLED"):
@@ -2732,8 +2725,9 @@ def process_object(obj, objects_processed):
     # when rebuilding materials remove all the physics modifiers
     # they don't seem to like having their settings changed...
     remove_all_physics_mods(obj)
-    # process any materials found in a mesh object
     if obj.type == "MESH":
+
+        # process any materials found in the mesh object
         for mat in obj.data.materials:
             if mat is not None:
                 log_info("Processing Material: " + mat.name)
@@ -2749,14 +2743,12 @@ def process_object(obj, objects_processed):
                 enable_cloth_physics(obj)
 
     elif obj.type == "ARMATURE":
+
         # set the frame range of the scene to the active action on the armature
         if obj.animation_data is not None and obj.animation_data.action is not None:
             frame_count = math.ceil(obj.animation_data.action.frame_range[1])
             bpy.context.scene.frame_end = frame_count
 
-    # process child objects
-    for child in obj.children:
-        process_object(child, objects_processed)
 
 def reset_nodes(mat):
     if not mat.use_nodes:
@@ -2839,6 +2831,14 @@ def cache_object_materials(obj):
     if obj.type == "MESH":
         for mat in obj.data.materials:
             if mat.node_tree is not None:
+
+                # firstly determine if this obj+mat combination is the hair object
+                if props.hair_object is None and is_hair_object(obj, mat):
+                    props.hair_object = obj
+                    # and if the mat is the scalp material
+                    if props.scalp_material is None and is_scalp_material(mat):
+                        props.scalp_material = mat
+
                 cache = props.material_cache.add()
                 cache.material = mat
                 cache.object = obj
@@ -3054,7 +3054,9 @@ class CC3Import(bpy.types.Operator):
                 if obj.type == "ARMATURE":
                     p = props.import_objects.add()
                     p.object = obj
-                elif obj.type == "MESH":
+                if obj.type == "MESH":
+                    p = props.import_objects.add()
+                    p.object = obj
                     cache_object_materials(obj)
             log_info("Done .Fbx Import.")
 
@@ -3145,7 +3147,7 @@ class CC3Import(bpy.types.Operator):
         self.build_materials()
         self.built = True
 
-    def run_lighting(self, context):
+    def run_finish(self, context):
         props = bpy.context.scene.CC3ImportProps
         prefs = context.preferences.addons[__name__].preferences
 
@@ -3156,6 +3158,7 @@ class CC3Import(bpy.types.Operator):
                     setup_scene_default(prefs.pipeline_lighting)
                 else:
                     setup_scene_default(prefs.morph_lighting)
+
             # for any objects with shape keys select basis and enable show in edit mode
             for p in props.import_objects:
                 init_character_for_edit(p.object)
@@ -3191,7 +3194,7 @@ class CC3Import(bpy.types.Operator):
                 self.running = False
             elif not self.lighting:
                 self.running = True
-                self.run_lighting(context)
+                self.run_finish(context)
                 self.clock = 0
                 self.running = False
 
@@ -3322,8 +3325,11 @@ class CC3Export(bpy.types.Operator):
                     bpy.ops.object.select_all(action='DESELECT')
 
                 for p in props.import_objects:
-                    if p.object is not None and p.object.type == "ARMATURE":
-                        select_all_child_objects(p.object)
+                    if p.object is not None:
+                        if p.object.type == "ARMATURE":
+                            select_all_child_objects(p.object)
+                        else:
+                            p.object.select_set(True)
 
                 bpy.ops.export_scene.fbx(filepath=self.filepath,
                         use_selection = True,
@@ -3640,10 +3646,6 @@ def init_character_for_edit(obj):
             if blocks is not None:
                 if len(blocks) > 0:
                     set_shape_key_edit(obj)
-
-    if obj.type == "ARMATURE":
-        for child in obj.children:
-            init_character_for_edit(child)
 
 
 def set_shape_key_edit(obj):
@@ -4044,10 +4046,6 @@ def quick_set_params(param, obj, context, objects_processed):
 
             for mat in obj.data.materials:
                 refresh_parameters(mat)
-
-        elif obj.type == "ARMATURE":
-            for child in obj.children:
-                quick_set_params(param, child, context, objects_processed)
 
 def quick_set_execute(param, context = bpy.context):
     objects_processed = []
@@ -5383,14 +5381,13 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         op.param = "TEMPLATE"
 
         box = layout.box()
-        box.label(text="Rendering", icon="RENDER_RESULT")
+        box.label(text="Animation", icon="RENDER_ANIMATION")
         col = layout.column()
-        op = col.operator("cc3.scene", icon="RENDER_STILL", text="Render Image")
-        op.param = "RENDER_IMAGE"
         scene = context.scene
-        op = col.operator("cc3.scene", icon="RENDER_ANIMATION", text="Render Animation")
-        op.param = "RENDER_ANIMATION"
-        col.separator()
+        #op = col.operator("cc3.scene", icon="RENDER_STILL", text="Render Image")
+        #op.param = "RENDER_IMAGE"
+        #op = col.operator("cc3.scene", icon="RENDER_ANIMATION", text="Render Animation")
+        #op.param = "RENDER_ANIMATION"
         split = layout.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
@@ -5732,12 +5729,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     pipeline_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic Materials","Build basic PBR materials for character morph / accessory editing"),
                         ("ADVANCED","Advanced Materials","Build advanced materials for character morph / accessory editing"),
-                    ], default="BASIC", name = "Accessory Material Mode")
+                    ], default="ADVANCED", name = "Accessory Material Mode")
 
     morph_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic Materials","Build basic PBR materials for character morph / accessory editing"),
                         ("ADVANCED","Advanced Materials","Build advanced materials for character morph / accessory editing"),
-                    ], default="BASIC", name = "Character Morph Material Mode")
+                    ], default="ADVANCED", name = "Character Morph Material Mode")
 
     log_level: bpy.props.EnumProperty(items=[
                         ("ALL","All","Log everything to console."),
