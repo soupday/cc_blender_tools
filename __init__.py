@@ -19,6 +19,9 @@
 # TODO
 #   - Prefs for physics settings.
 #   - Button to auto transfer skin weights to accessories.
+#   - Only scan once for hair/scalp object/material, so it can be cleared if it gets it wrong and there is no hair/scalp
+#   - limits on node group inputs in _LIB.
+#   - OBJ import rigged later: track the armature somehow? take into account on export...
 #
 # FUTURE PLANS
 #   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
@@ -83,14 +86,25 @@ UNIT_SCALE = 0.01
 IMAGE_TYPES = [".bmp", ".sgi", ".rgb", ".bw", ".png", ".jpg", ".jpeg", ".jp2", ".j2c",
                ".tga", ".cin", ".dpx", ".exr", ".hdr", ".tif", ".tiff"]
 
+# base names of all node groups in the library blend file
+NODE_GROUPS = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "color_teeth_mixer", "color_tongue_mixer", "color_head_mixer",
+               "subsurface_mixer", "subsurface_overlay_mixer",
+               "msr_mixer", "msr_overlay_mixer",
+               "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer",
+               "eye_occlusion_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping"]
+
 NODE_PREFIX = "cc3iid_"
 
 GRID_SIZE = 300
+
+
+
 cursor = mathutils.Vector((0,0))
 cursor_top = mathutils.Vector((0,0))
 max_cursor = mathutils.Vector((0,0))
 new_nodes = []
 debug_counter = 0
+
 
 def log_info(msg):
     prefs = bpy.context.preferences.addons[__name__].preferences
@@ -98,20 +112,24 @@ def log_info(msg):
     if prefs.log_level == "ALL":
         print(msg)
 
+
 def log_warn(msg):
     prefs = bpy.context.preferences.addons[__name__].preferences
     """Log a warning message to console."""
     if prefs.log_level == "ALL" or prefs.log_level == "WARN":
         print("Warning: " + msg)
 
+
 def log_error(msg):
     """Log an error message to console and raise an exception."""
     print("Error: " + msg)
+
 
 def message_box(message = "", title = "Info", icon = 'INFO'):
     def draw(self, context):
         self.layout.label(text = message)
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
+
 
 def unique_name(name):
     """Generate a unique name for the node or property to quickly
@@ -121,10 +139,12 @@ def unique_name(name):
     props.node_id = props.node_id + 1
     return name
 
+
 def is_skin_material(mat):
     if "std_skin_" in mat.name.lower():
         return True
     return False
+
 
 def is_scalp_material(mat):
     props = bpy.context.scene.CC3ImportProps
@@ -138,10 +158,12 @@ def is_scalp_material(mat):
                 return True
     return False
 
+
 def is_eyelash_material(mat):
     if "std_eyelash" in mat.name.lower():
         return True
     return False
+
 
 def is_mouth_material(mat):
     name = mat.name.lower()
@@ -153,6 +175,7 @@ def is_mouth_material(mat):
         return True
     return False
 
+
 def is_teeth_material(mat):
     name = mat.name.lower()
     if "std_upper_teeth" in name:
@@ -161,17 +184,20 @@ def is_teeth_material(mat):
         return True
     return False
 
+
 def is_tongue_material(mat):
     name = mat.name.lower()
     if "std_tongue" in name:
         return True
     return False
 
+
 def is_nails_material(mat):
     name = mat.name.lower()
     if "std_nails" in name:
         return True
     return False
+
 
 def is_hair_object(obj, mat):
     props = bpy.context.scene.CC3ImportProps
@@ -1679,13 +1705,6 @@ def connect_normal(obj, mat, shader):
     return group_node
 
 
-# base names of all node groups in the library blend file
-node_groups = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "color_teeth_mixer", "color_tongue_mixer", "color_head_mixer",
-               "subsurface_mixer", "subsurface_overlay_mixer",
-               "msr_mixer", "msr_overlay_mixer",
-               "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer",
-               "eye_occlusion_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping"]
-
 def apply_cloth_settings(obj, cloth_type):
     prefs = bpy.context.preferences.addons[__name__].preferences
     mod = get_cloth_physics_mod(obj)
@@ -2207,7 +2226,7 @@ def attach_material_weight_map(obj, mat, weight_map):
             log_info("Texture: " + tex.name + " already exists for weight map transfer")
         tex.image = weight_map
 
-        # Create the physics pin vertex group if it doesn't exist
+        # Create the physics pin vertex group and the material weightmap group if they don't exist:
         pin_group = prefs.physics_group + "_Pin"
         material_group = prefs.physics_group + "_" + mat_name
         if pin_group not in obj.vertex_groups:
@@ -2218,17 +2237,19 @@ def attach_material_weight_map(obj, mat, weight_map):
             weight_vertex_group = obj.vertex_groups.new(name = material_group)
         else:
             weight_vertex_group = obj.vertex_groups[material_group]
+        # The material weight map group should contain only those verteces affected by the material, default weight to 1.0
         clear_vertex_group(obj, weight_vertex_group)
-        set_vertex_group(obj, pin_vertex_group, 1.0)
-        # Fill the material group with verteces from the material
         mat_verts = get_material_vertices(obj, mat)
         weight_vertex_group.add(mat_verts, 1.0, 'ADD')
+        # The pin group should contain all verteces in the mesh default weighted to 1.0
+        set_vertex_group(obj, pin_vertex_group, 1.0)
 
+        # set the pin group in the cloth physics modifier
         mod_cloth = get_cloth_physics_mod(obj)
         if mod_cloth is not None:
             mod_cloth.settings.vertex_group_mass = pin_group
 
-        # (Re)Create create the Vertex Weight Edit modifier
+        # re-create create the Vertex Weight Edit modifier and the Vertex Weight Mix modifer
         remove_material_weight_maps(obj, mat)
         edit_mod = obj.modifiers.new(unique_name(mat_name + "_WeightEdit"), "VERTEX_WEIGHT_EDIT")
         mix_mod = obj.modifiers.new(unique_name(mat_name + "_WeightMix"), "VERTEX_WEIGHT_MIX")
@@ -2246,18 +2267,15 @@ def attach_material_weight_map(obj, mat, weight_map):
         edit_mod.mask_constant = 1
         edit_mod.mask_tex_mapping = 'UV'
         edit_mod.mask_tex_use_channel = 'INT'
-        # mix weight modifier
+        # The Vertex Weight Mix modifier takes the material weight map group and mixes it into the pin weight group:
+        # (this allows multiple weight maps from different materials and UV layouts to combine in the same mesh)
         mix_mod.vertex_group_a = pin_group
         mix_mod.vertex_group_b = material_group
         mix_mod.invert_mask_vertex_group = True
-        #mix_mod.invert_vertex_group_a = True
-        #mix_mod.invert_vertex_group_b = False
         mix_mod.default_weight_a = 1
         mix_mod.default_weight_b = 1
         mix_mod.mix_set = 'B' #'ALL'
         mix_mod.mix_mode = 'SET'
-        #mix_mod.normalize = False
-        # 2.92 must be False 2.83 doesn't seem to care...
         mix_mod.invert_mask_vertex_group = False
         log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
 
@@ -2429,7 +2447,7 @@ def separate_physics_materials(context):
 
 def should_separate_materials(context):
     """Check to see if the current object has a weight map for each material.
-    If not then it is advisable to separate the object by materials.
+    If not separating the mesh by material could improve performance.
     """
     if context.object is None: return
     if context.object.data.materials is None: return
@@ -2458,10 +2476,12 @@ def fetch_anim_range(context):
 
 
 def render_image(context):
+    # TODO
     pass
 
 
 def render_animation(context):
+    # TODO
     pass
 
 
@@ -2474,7 +2494,7 @@ def get_node_group(name):
 
 
 def check_node_groups():
-    for name in node_groups:
+    for name in NODE_GROUPS:
         get_node_group(name)
 
 
@@ -2559,6 +2579,20 @@ def delete_object(obj):
                         image = node.image
                         bpy.data.images.remove(image)
                     nodes.remove(node)
+
+            # remove physics weight maps and texture masks
+            edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
+            if mix_mod is not None:
+                obj.modifiers.remove(mix_mod)
+            if edit_mod is not None:
+                tex = edit_mod.mask_texture
+                obj.modifiers.remove(edit_mod)
+                if tex is not None:
+                    if tex.image is not None:
+                        image = tex.image
+                        bpy.data.images.remove(image)
+                    bpy.data.textures.remove(tex)
+
             bpy.data.materials.remove(mat)
 
     if obj.type == "ARMATURE":
@@ -2583,12 +2617,17 @@ def delete_character():
     props.import_main_tex_dir = ""
     props.import_space_in_name = False
     props.import_embedded = False
-    props.import_haskey = False
+    props.import_has_key = False
     props.import_key_file = ""
     props.material_cache.clear()
     props.object_cache.clear()
 
+    props.paint_object = None
+    props.paint_material = None
+    props.paint_image = None
+
     clean_colletion(bpy.data.materials)
+    clean_colletion(bpy.data.textures)
     clean_colletion(bpy.data.images)
     clean_colletion(bpy.data.meshes)
     clean_colletion(bpy.data.node_groups)
@@ -3088,16 +3127,16 @@ class CC3Import(bpy.types.Operator):
         # check for fbxkey
         if props.import_type == "fbx":
             props.import_key_file = os.path.join(props.import_dir, props.import_name + ".fbxkey")
-            props.import_haskey = os.path.exists(props.import_key_file)
-            if self.param == "IMPORT_MORPH" and not props.import_haskey:
+            props.import_has_key = os.path.exists(props.import_key_file)
+            if self.param == "IMPORT_MORPH" and not props.import_has_key:
                 message_box("This character export does not have an .fbxkey file, it cannot be used to create character morphs in CC3.", "FBXKey Warning")
 
 
         # check for objkey
         if props.import_type == "obj":
             props.import_key_file = os.path.join(props.import_dir, props.import_name + ".ObjKey")
-            props.import_haskey = os.path.exists(props.import_key_file)
-            if self.param == "IMPORT_MORPH" and not props.import_haskey:
+            props.import_has_key = os.path.exists(props.import_key_file)
+            if self.param == "IMPORT_MORPH" and not props.import_has_key:
                 message_box("This character export does not have an .ObjKey file, it cannot be used to create character morphs in CC3.", "OBJKey Warning")
 
         self.imported = True
@@ -3279,7 +3318,7 @@ class CC3Export(bpy.types.Operator):
             if type == "fbx":
 
                 # don't bring anything else with a morph export
-                if self.param == "EXPORT_MORPH" and props.import_haskey:
+                if self.param == "EXPORT_MORPH" and props.import_has_key:
                     bpy.ops.object.select_all(action='DESELECT')
 
                 for p in props.import_objects:
@@ -3291,7 +3330,7 @@ class CC3Export(bpy.types.Operator):
                         bake_anim = export_anim,
                         add_leaf_bones=False)
 
-                if props.import_haskey:
+                if props.import_has_key:
                     try:
                         key_dir, key_file = os.path.split(props.import_key_file)
                         old_name, key_type = os.path.splitext(key_file)
@@ -3303,7 +3342,7 @@ class CC3Export(bpy.types.Operator):
             else:
 
                 # don't bring anything else with a morph export
-                if self.param == "EXPORT_MORPH" and props.import_haskey:
+                if self.param == "EXPORT_MORPH" and props.import_has_key:
                     bpy.ops.object.select_all(action='DESELECT')
 
                 # select all the imported objects
@@ -3326,7 +3365,7 @@ class CC3Export(bpy.types.Operator):
                             keep_vertex_order = True,
                             use_vertex_groups = True)
 
-                if props.import_haskey:
+                if props.import_has_key:
                     try:
                         key_dir, key_file = os.path.split(props.import_key_file)
                         old_name, key_type = os.path.splitext(key_file)
@@ -4690,18 +4729,18 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     import_embedded: bpy.props.BoolProperty(default=False)
     import_main_tex_dir: bpy.props.StringProperty(default="")
     import_space_in_name: bpy.props.BoolProperty(default=False)
-    import_haskey: bpy.props.BoolProperty(default=False)
+    import_has_key: bpy.props.BoolProperty(default=False)
     import_key_file: bpy.props.StringProperty(default="")
 
     paint_object: bpy.props.PointerProperty(type=bpy.types.Object)
     paint_material: bpy.props.PointerProperty(type=bpy.types.Material)
     paint_image: bpy.props.PointerProperty(type=bpy.types.Image)
+    paint_store_render: bpy.props.StringProperty(default="")
 
     quick_set_mode: bpy.props.EnumProperty(items=[
                         ("OBJECT","Object","Set the alpha blend mode and backface culling to all materials on the selected object(s)"),
                         ("MATERIAL","Material","Set the alpha blend mode and backface culling only to the selected material on the active object"),
                     ], default="MATERIAL")
-    paint_store_render: bpy.props.StringProperty(default="")
 
     lighting_mode: bpy.props.EnumProperty(items=[
                         ("OFF","No Lighting","No automatic lighting and render settings."),
@@ -4859,10 +4898,11 @@ def fake_drop_down(row, label, prop_name, prop_bool_value):
 
 class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Material_Settings_Panel"
-    bl_label = "CC3 Material Settings"
+    bl_label = "Materials & Build Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3 Pipeline"
+    bl_category = "CC3"
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         layout = self.layout
@@ -4882,7 +4922,7 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         if props.import_file != "" or len(props.import_objects) > 0:
             box.label(text="Name: " + props.import_name)
             box.label(text="Type: " + props.import_type.upper())
-            if props.import_haskey:
+            if props.import_has_key:
                 box.label(text="Key File: Yes")
             else:
                 box.label(text="Key File: No")
@@ -5307,10 +5347,11 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
 
 class CC3ToolsScenePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Scene_Panel"
-    bl_label = "CC3 Scene Tools"
+    bl_label = "Scene Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3 Scene"
+    bl_category = "CC3"
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
@@ -5383,10 +5424,11 @@ class CC3ToolsScenePanel(bpy.types.Panel):
 
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Physics_Panel"
-    bl_label = "CC3 Physics Tools"
+    bl_label = "Physics Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3 Physics"
+    bl_category = "CC3"
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
@@ -5562,10 +5604,10 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Pipeline_Panel"
-    bl_label = "CC3 Pipeline"
+    bl_label = "Import / Export"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3 Pipeline"
+    bl_category = "CC3"
 
     def draw(self, context):
         global debug_counter
