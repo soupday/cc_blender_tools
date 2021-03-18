@@ -18,7 +18,9 @@
 #   - Operator to setup and begin texture painting of the per material weight maps.
 #   - Operator to save any modified weight maps to disk.
 #
-# TODO (these can wait for now)
+# TODO
+#   - FINISH THE TOOLTIPS!
+#   (these can wait for now)
 #   - Prefs for physics settings.
 #   - Button to auto transfer skin weights to accessories.
 #   - limits on node group inputs in _LIB.
