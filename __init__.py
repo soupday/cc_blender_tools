@@ -1747,10 +1747,10 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.air_damping = 1
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
-        mod.settings.tension_stiffness = 5
-        mod.settings.compression_stiffness = 5
-        mod.settings.shear_stiffness = 5
-        mod.settings.bending_stiffness = 20
+        mod.settings.tension_stiffness = 10
+        mod.settings.compression_stiffness = 10
+        mod.settings.shear_stiffness = 10
+        mod.settings.bending_stiffness = 10
         # dampening
         mod.settings.tension_damping = 0
         mod.settings.compression_damping = 0
@@ -1772,9 +1772,9 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.shear_stiffness = 40
         mod.settings.bending_stiffness = 40
         # dampening
-        mod.settings.tension_damping = 25
-        mod.settings.compression_damping = 25
-        mod.settings.shear_damping = 25
+        mod.settings.tension_damping = 0
+        mod.settings.compression_damping = 0
+        mod.settings.shear_damping = 0
         mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
@@ -1790,11 +1790,11 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_stiffness = 80
         mod.settings.compression_stiffness = 80
         mod.settings.shear_stiffness = 80
-        mod.settings.bending_stiffness = 150
+        mod.settings.bending_stiffness = 80
         # dampening
-        mod.settings.tension_damping = 25
-        mod.settings.compression_damping = 25
-        mod.settings.shear_damping = 25
+        mod.settings.tension_damping = 0
+        mod.settings.compression_damping = 0
+        mod.settings.shear_damping = 0
         mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
@@ -1807,14 +1807,14 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.air_damping = 1
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
-        mod.settings.tension_stiffness = 15
-        mod.settings.compression_stiffness = 15
-        mod.settings.shear_stiffness = 15
-        mod.settings.bending_stiffness = 50
+        mod.settings.tension_stiffness = 60
+        mod.settings.compression_stiffness = 60
+        mod.settings.shear_stiffness = 60
+        mod.settings.bending_stiffness = 60
         # dampening
-        mod.settings.tension_damping = 25
-        mod.settings.compression_damping = 25
-        mod.settings.shear_damping = 25
+        mod.settings.tension_damping = 0
+        mod.settings.compression_damping = 0
+        mod.settings.shear_damping = 0
         mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
@@ -1827,14 +1827,14 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.air_damping = 1
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
-        mod.settings.tension_stiffness = 15
-        mod.settings.compression_stiffness = 15
-        mod.settings.shear_stiffness = 15
-        mod.settings.bending_stiffness = 30
+        mod.settings.tension_stiffness = 20
+        mod.settings.compression_stiffness = 20
+        mod.settings.shear_stiffness = 20
+        mod.settings.bending_stiffness = 20
         # dampening
-        mod.settings.tension_damping = 5
-        mod.settings.compression_damping = 5
-        mod.settings.shear_damping = 5
+        mod.settings.tension_damping = 0
+        mod.settings.compression_damping = 0
+        mod.settings.shear_damping = 0
         mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
@@ -4260,6 +4260,59 @@ class CC3QuickSet(bpy.types.Operator):
             return "Set material to be single sided, only visible from front facing"
         elif properties.param == "DOUBLE_SIDED":
             return "Set material to be double sided, visible from both sides"
+
+        elif properties.param == "PHYSICS_ADD_CLOTH":
+            return "Add Cloth physics to the selected objects."
+        elif properties.param == "PHYSICS_REMOVE_CLOTH":
+            return "Remove Cloth physics from the selected objects and remove all weight map modifiers and physics vertex groups"
+        elif properties.param == "PHYSICS_ADD_COLLISION":
+            return "Add Collision physics to the selected objects"
+        elif properties.param == "PHYSICS_REMOVE_COLLISION":
+            return "Remove Collision physics from the selected objects"
+        elif properties.param == "PHYSICS_ADD_WEIGHTMAP":
+            return "Add a physics weight map to the material on the current object. " \
+                   "If there is no existing weight map, a new blank weight map will be created. " \
+                   "Modifiers to generate the physics vertex groups will be added to the object"
+        elif properties.param == "PHYSICS_REMOVE_WEIGHTMAP":
+            return "Removes the physics weight map, modifiers and physics vertex groups for this material from the object"
+        elif properties.param == "PHYSICS_HAIR":
+            return "Sets the cloth physics settings for this object to simulate Hair.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_COTTON":
+            return "Sets the cloth physics settings for this object to simulate Cotton.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_DENIM":
+            return "Sets the cloth physics settings for this object to simulate Denim.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_LEATHER":
+            return "Sets the cloth physics settings for this object to simulate Leather.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_RUBBER":
+            return "Sets the cloth physics settings for this object to simulate Rubber.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_SILK":
+            return "Sets the cloth physics settings for this object to simulate Silk.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_PAINT":
+            return "Switches to texture paint mode and begins painting the current materials PhysX weight map"
+        elif properties.param == "PHYSICS_DONE_PAINTING":
+            return "Ends painting and returns to Object mode"
+        elif properties.param == "PHYSICS_SAVE":
+            return "Saves all changes to the weight maps to the source texture files\n" \
+                   "**Warning: This will overwrite the existing weightmap files if you have altered them!**"
+        elif properties.param == "PHYSICS_DELETE":
+            return "Removes the weight map, modifiers and physics vertex groups from the objects, " \
+                   "and then deletes the weight map texture file.\n" \
+                   "**Warning: This will delete any existing weightmap file for this object and material!**"
+        elif properties.param == "PHYSICS_SEPARATE":
+            return "Separates the object by material and applies physics to the separated objects that have weight maps.\n" \
+                   "Note: Some objects with many verteces and materials but only a small amount is cloth simulated " \
+                   "may see performance benefits from being separated."
+        elif properties.param == "PHYSICS_FIX_DEGENERATE":
+            return "Removes degenerate mesh elements from the object.\n" \
+                   "Note: Meshes with degenerate elements, loose verteces, orphaned edges, zero length edges etc...\n" \
+                   "might not simulate properly. If the mesh misbehaves badly under simulation, try this."
+
         return ""
 
 
