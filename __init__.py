@@ -2301,7 +2301,7 @@ def begin_paint_weight_map(context):
             bpy.ops.object.mode_set(mode="TEXTURE_PAINT")
 
         if bpy.context.mode == "PAINT_TEXTURE":
-            physics_strength_update(None, context)
+            physics_paint_strength_update(None, context)
             weight_map = get_weight_map_image(obj, mat)
             props.paint_object = obj
             props.paint_material = mat
@@ -4165,13 +4165,13 @@ def lin2s(x):
         y = (1 + a)*pow(x, 1/2.4) - a
     return y
 
-def physics_strength_update(self, context):
+def physics_paint_strength_update(self, context):
     props = bpy.context.scene.CC3ImportProps
 
     if bpy.context.mode == "PAINT_TEXTURE":
         ups = context.tool_settings.unified_paint_settings
         prop_owner = ups if ups.use_unified_color else context.tool_settings.image_paint.brush
-        s = props.physics_strength
+        s = props.physics_paint_strength
         prop_owner.color = (s, s, s)
 
 def weight_strength_update(self, context):
@@ -4668,7 +4668,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     ], default="UPDATE_ALL")
 
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
-    physics_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=physics_strength_update)
+    physics_paint_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=physics_paint_strength_update)
     weight_map_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=weight_strength_update)
     physics_tex_size: bpy.props.EnumProperty(items=[
                         ("64","64 x 64","64 x 64 texture size"),
@@ -5541,7 +5541,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             col_1 = split.column()
             col_2 = split.column()
             col_1.label(text="Strength")
-            col_2.prop(props, "physics_strength", text="", slider=True)
+            col_2.prop(props, "physics_paint_strength", text="", slider=True)
             op = col.operator("cc3.quickset", icon="CHECKMARK", text="Done Weight Painting!")
             op.param = "PHYSICS_DONE_PAINTING"
         else:
