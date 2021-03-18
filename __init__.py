@@ -1942,7 +1942,7 @@ def add_cloth_physics(obj):
         cloth_mod.point_cache.frame_end = frame_count
 
         # Apply cloth settings
-        if cache.cloth_settings != "NONE":
+        if cache.cloth_settings != "DEFAULT":
             apply_cloth_settings(obj, cache.cloth_settings)
         elif obj == props.hair_object:
             apply_cloth_settings(obj, "HAIR")
