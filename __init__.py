@@ -1747,15 +1747,15 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.air_damping = 1
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
-        mod.settings.tension_stiffness = 10
-        mod.settings.compression_stiffness = 10
-        mod.settings.shear_stiffness = 10
+        mod.settings.tension_stiffness = 5
+        mod.settings.compression_stiffness = 5
+        mod.settings.shear_stiffness = 5
         mod.settings.bending_stiffness = 10
         # dampening
         mod.settings.tension_damping = 0
         mod.settings.compression_damping = 0
         mod.settings.shear_damping = 0
-        mod.settings.bending_damping = 0.5
+        mod.settings.bending_damping = 0
         # collision
         mod.collision_settings.distance_min = 0.005
         mod.collision_settings.collision_quality = 4
@@ -1770,12 +1770,12 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.tension_stiffness = 40
         mod.settings.compression_stiffness = 40
         mod.settings.shear_stiffness = 40
-        mod.settings.bending_stiffness = 40
+        mod.settings.bending_stiffness = 60
         # dampening
-        mod.settings.tension_damping = 20
-        mod.settings.compression_damping = 20
-        mod.settings.shear_damping = 20
-        mod.settings.bending_damping = 0
+        mod.settings.tension_damping = 25
+        mod.settings.compression_damping = 25
+        mod.settings.shear_damping = 25
+        mod.settings.bending_damping = 10
         # collision
         mod.collision_settings.distance_min = 0.005
         mod.collision_settings.collision_quality = 4
@@ -1792,10 +1792,10 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.shear_stiffness = 80
         mod.settings.bending_stiffness = 80
         # dampening
-        mod.settings.tension_damping = 80
-        mod.settings.compression_damping = 80
-        mod.settings.shear_damping = 80
-        mod.settings.bending_damping = 80
+        mod.settings.tension_damping = 25
+        mod.settings.compression_damping = 25
+        mod.settings.shear_damping = 25
+        mod.settings.bending_damping = 10
         # collision
         mod.collision_settings.distance_min = 0.005
         mod.collision_settings.collision_quality = 4
@@ -1807,10 +1807,10 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.air_damping = 1
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
-        mod.settings.tension_stiffness = 25
-        mod.settings.compression_stiffness = 25
-        mod.settings.shear_stiffness = 25
-        mod.settings.bending_stiffness = 25
+        mod.settings.tension_stiffness = 15
+        mod.settings.compression_stiffness = 15
+        mod.settings.shear_stiffness = 15
+        mod.settings.bending_stiffness = 40
         # dampening
         mod.settings.tension_damping = 25
         mod.settings.compression_damping = 25
