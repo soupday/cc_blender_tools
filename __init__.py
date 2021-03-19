@@ -641,15 +641,8 @@ def apply_alpha_override(obj, mat, method):
     cache = get_material_cache(mat)
     if cache is not None:
         cache.alpha_mode = method
-    input = get_shader_input(mat, "Alpha")
-    if input is None:
-        return
-    if is_input_connected(input):
-        set_material_alpha(mat, method)
-    elif input.default_value < 1.0:
-        set_material_alpha(mat, method)
-    else:
-        set_material_alpha(mat, "OPAQUE")
+
+    set_material_alpha(mat, method)
 
 def set_material_alpha(mat, method):
     if method == "HASHED":
