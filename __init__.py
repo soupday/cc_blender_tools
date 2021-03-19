@@ -5622,23 +5622,25 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             col_1.label(text="Influence")
             col_2.prop(mix_mod, "mask_constant", text="", slider=True)
         col.separator()
-        if edit_mod is None:
-            row = col.row()
-            op = row.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
-            op.param = "PHYSICS_ADD_WEIGHTMAP"
-        else:
-            row = col.row()
-            op = row.operator("cc3.quickset", icon="REMOVE", text="Remove Weight Map")
-            op.param = "PHYSICS_REMOVE_WEIGHTMAP"
         if bpy.context.mode == "PAINT_TEXTURE":
             split = col.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
             col_1.label(text="Strength")
             col_2.prop(props, "physics_paint_strength", text="", slider=True)
-            op = col.operator("cc3.quickset", icon="CHECKMARK", text="Done Weight Painting!")
+            row = col.row()
+            row.scale_y = 2
+            op = row.operator("cc3.quickset", icon="CHECKMARK", text="Done Weight Painting!")
             op.param = "PHYSICS_DONE_PAINTING"
         else:
+            if edit_mod is None:
+                row = col.row()
+                op = row.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
+                op.param = "PHYSICS_ADD_WEIGHTMAP"
+            else:
+                row = col.row()
+                op = row.operator("cc3.quickset", icon="REMOVE", text="Remove Weight Map")
+                op.param = "PHYSICS_REMOVE_WEIGHTMAP"
             col = layout.column()
             if edit_mod is None:
                 col.enabled = False
