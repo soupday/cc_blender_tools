@@ -6,17 +6,17 @@
 #   - Alpha blend settings and back face culling settings can be applied to materials in the object now.
 #   - Option to apply alpha blend settings to whole object(s) or just active materal.
 #   - Remembers the applied alpha blend settings and re-applies when rebuilding materials.
-#   - Pick Scalp Material (Is there an eye dropper for materials?).
+#   - Option to pick Scalp Material.
 #   - Only scans once on import for hair object and scalp material, so it can be cleared if it gets it wrong and wont keep putting it back.
-#   - FBX import keeps track of the objects as well as the armature in case the armature is replaced...
+#   - FBX import keeps track of the objects as well as the armature in case the armature is replaced.
 #
 #   Physics:
-#   - Uses the physX weight maps to auto-generate vertex pin weights for cloth/hair physics (Optional in the preferences).
-#   - Automatically sets up cloth/hair physics modifiers (Optional in the preferences)
+#   - Uses the physX weight maps to auto-generate vertex pin weights for cloth/hair physics (Optional)
+#   - Automatically sets up cloth/hair physics modifiers (Optional)
 #   - Physics cloth presets can be applied to the selected object(s) and are remembered with rebuilding materials.
 #   - Weightmaps can be added/removed to the individual materials of the objects.
-#   - Operator to setup and begin texture painting of the per material weight maps.
-#   - Operator to save any modified weight maps to disk.
+#   - Weight map painting added.
+#   - Saving of modified weight maps and Deleting weight map functions added.
 #
 # TODO
 #   - FINISH THE TOOLTIPS!
