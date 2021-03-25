@@ -1,9 +1,11 @@
-# Version: 0.3.0
+# Version: 0.3.1
+#
+#   - move hair hint and scalp hint to the prefs
 #
 # TODO
+#   - update parameters from the material cache not the import objects...
 #   - only monkey about with the animation ranges if physics enabled....
 #   - Popup panels
-#   - move hair hint and scalp hint to the prefs
 #   - Prefs for physics settings.
 #   - Button to auto transfer skin weights to accessories.
 #   - limits on node group inputs in _LIB.
@@ -26,7 +28,7 @@ import math
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 3, 0),
+    "version": (0, 3, 1),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -152,41 +154,37 @@ def detect_key_words(hints, text):
                 ends = True
             if starts and ends and text.startswith(h) and text.endswith(h):
                 if deny:
-                    print("DENY Starts and ends with " + h)
                     return "Deny"
                 else:
-                    print("Starts and ends with " + h)
                     return "True"
             elif starts and text.startswith(h):
                 if deny:
-                    print("DENY Starts with " + h)
                     return "Deny"
                 else:
-                    print("Starts with " + h)
                     return "True"
             elif ends and text.endswith(h):
                 if deny:
-                    print("DENY Ends with " + h)
                     return "Deny"
                 else:
-                    print("Ends with " + h)
                     return "True"
             elif h in text:
                 if deny:
-                    print("DENY Contains " + h)
                     return "Deny"
                 else:
-                    print("Contains " + h)
                     return "True"
     return "False"
 
 
 def detect_scalp_material(mat):
-    print("Detect Scalp: " + mat.name)
     prefs = bpy.context.preferences.addons[__name__].preferences
     material_name = mat.name.lower()
     hints = prefs.hair_scalp_hint.split(",")
-    return detect_key_words(hints, material_name)
+    detect = detect_key_words(hints, material_name)
+    if detect == "Deny":
+        log_info(mat.name + ": has deny keywords, defininately not scalp!")
+    elif detect == "True":
+        log_info(mat.name + ": has keywords, is scalp.")
+    return detect
 
 
 def detect_eyelash_material(mat):
@@ -225,7 +223,6 @@ def detect_body_object(obj):
 
 
 def detect_hair_object(obj, mat):
-    print("Detect Hair: " + obj.name + "/" + mat.name)
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__].preferences
     hints = prefs.hair_hint.split(",")
@@ -236,21 +233,21 @@ def detect_hair_object(obj, mat):
     detect_mat =  detect_key_words(hints, material_name)
 
     if detect_obj == "Deny" or detect_mat == "Deny":
+        log_info(obj.name + "/" + mat.name + ": has deny keywords, definitely not hair!")
         return "Deny"
 
     if detect_obj == "True" or detect_mat == "True":
+        log_info(obj.name + "/" + mat.name + ": has hair keywords, is hair.")
         return "True"
 
     # if none of this detects a hair mesh
     # try to find one of the new hair maps: "Flow Map" or "Root Map"
     cache = get_material_cache(mat)
-    if find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_FLOW_MAP) is not None:
-        return "True"
-    elif find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_ROOT_MAP) is not None:
-        return "True"
-    elif find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_ID_MAP) is not None:
-        return "True"
-    elif find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_BLEND_MULTIPLY) is not None:
+    if (find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_FLOW_MAP) is not None or
+        find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_ROOT_MAP) is not None or
+        find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_ID_MAP) is not None or
+        find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_BLEND_MULTIPLY) is not None):
+        log_info(obj.name + "/" + mat.name + ": has hair shader textures, is hair.")
         return "True"
 
     return "False"
@@ -2665,11 +2662,9 @@ def process_material(obj, mat):
     props = bpy.context.scene.CC3ImportProps
     mat_cache = get_material_cache(mat)
     reset_nodes(mat)
-
     node_tree = mat.node_tree
     nodes = node_tree.nodes
     shader = None
-    cache = get_material_cache(mat)
 
     # find the Principled BSDF shader node
     for n in nodes:
@@ -2723,11 +2718,11 @@ def process_material(obj, mat):
         move_new_nodes(-600, 0)
 
     # apply cached alpha settings
-    if cache is not None:
-        if cache.alpha_mode != "NONE":
-            apply_alpha_override(obj, mat, cache.alpha_mode)
-        if cache.culling_sides > 0:
-            apply_backface_culling(obj, mat, cache.culling_sides)
+    if mat_cache is not None:
+        if mat_cache.alpha_mode != "NONE":
+            apply_alpha_override(obj, mat, mat_cache.alpha_mode)
+        if mat_cache.culling_sides > 0:
+            apply_backface_culling(obj, mat, mat_cache.culling_sides)
 
 
 def process_object(obj, objects_processed):
@@ -2824,6 +2819,7 @@ def get_object_cache(obj, no_create = False):
         if cache.object == obj:
             return cache
     if not no_create:
+        log_info("Creating Object Cache for: " + obj.name)
         cache = props.object_cache.add()
         cache.object = obj
     return cache
@@ -2841,6 +2837,7 @@ def get_material_cache(mat, no_create = False):
         if cache.material == mat:
             return cache
     if not no_create:
+        log_info("Creating Material Cache for: " + mat.name)
         cache = props.material_cache.add()
         cache.material = mat
     return cache
@@ -2863,7 +2860,7 @@ def cache_object_materials(obj):
         for mat in obj.data.materials:
             if mat.node_tree is not None:
                 mat_name = mat.name.lower()
-                mat_cache = props.material_cache.add()
+                mat_cache = get_material_cache(mat)
                 mat_cache.material = mat
                 mat_cache.object = obj
                 mat_cache.dir = get_material_dir(base_dir, character_name, type, obj, mat)
@@ -4656,17 +4653,6 @@ def refresh_parameters(mat):
         if NODE_PREFIX in node.name:
             set_node_from_property(node)
 
-def reset_preferences():
-    prefs = bpy.context.preferences.addons[__name__].preferences
-    prefs.lighting = "ENABLED"
-    prefs.physics = "ENABLED"
-    prefs.quality_lighting = "STUDIO"
-    prefs.pipeline_lighting = "CC3"
-    prefs.morph_lighting = "MATCAP"
-    prefs.quality_mode = "ADVANCED"
-    prefs.pipeline_mode = "BASIC"
-    prefs.morph_mode = "COMPAT"
-    prefs.log_level = "ERRORS"
 
 def reset_parameters(context = bpy.context):
     global block_update
@@ -5902,6 +5888,22 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
 #            coords = context.active_node.location
 #            row.label(text=str(int(coords.x/10)*10) + ", " + str(int(coords.y/10)*10))
 
+
+def reset_preferences():
+    prefs = bpy.context.preferences.addons[__name__].preferences
+    prefs.lighting = "ENABLED"
+    prefs.physics = "ENABLED"
+    prefs.quality_lighting = "CC3"
+    prefs.pipeline_lighting = "CC3"
+    prefs.morph_lighting = "MATCAP"
+    prefs.quality_mode = "ADVANCED"
+    prefs.pipeline_mode = "ADVANCED"
+    prefs.morph_mode = "ADVANCED"
+    prefs.log_level = "ERRORS"
+    prefs.hair_hint = "hair,scalp,beard,mustache,sideburns,ponytail,braid,!bow,!band,!tie,!ribbon,!ring,!butterfly,!flower"
+    prefs.hair_scalp_hint = "scalp,base,skullcap"
+    prefs.debug_mode = False
+    prefs.physics_group = "CC_Physics"
 
 
 class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
