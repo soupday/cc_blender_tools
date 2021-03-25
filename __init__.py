@@ -1,9 +1,9 @@
 # Version: 0.3.1
 #
 #   - move hair hint and scalp hint to the prefs
+#   - update parameters from the material cache as well as the import objects
 #
 # TODO
-#   - update parameters from the material cache not the import objects...
 #   - only monkey about with the animation ranges if physics enabled....
 #   - Popup panels
 #   - Prefs for physics settings.
@@ -4112,19 +4112,17 @@ def quick_set_fix(param, obj, context, objects_processed):
             for child in obj.children:
                 quick_set_fix(param, child, context, objects_processed)
 
-def quick_set_params(param, obj, context, objects_processed):
-    props = bpy.context.scene.CC3ImportProps
-    ob = context.object
 
-    if obj is not None and obj not in objects_processed:
+def quick_set_params(obj, materials_processed):
+    if obj is not None:
         if obj.type == "MESH":
-            objects_processed.append(obj)
-
             for mat in obj.data.materials:
-                refresh_parameters(mat)
+                if mat not in materials_processed:
+                    materials_processed.append(mat)
+                    refresh_parameters(mat)
+
 
 def quick_set_execute(param, context = bpy.context):
-    objects_processed = []
     props = bpy.context.scene.CC3ImportProps
 
     if "PHYSICS_" in param:
@@ -4204,15 +4202,22 @@ def quick_set_execute(param, context = bpy.context):
         reset_preferences()
 
     elif param == "UPDATE_ALL":
+        materials_processed = []
         for p in props.import_objects:
             if p.object is not None:
-                quick_set_params(param, p.object, context, objects_processed)
+                quick_set_params(p.object, materials_processed)
+        for cache in props.material_cache:
+            if cache.material is not None and cache.material not in materials_processed:
+                materials_processed.append(cache.material)
+                refresh_parameters(cache.material)
 
     elif param == "UPDATE_SELECTED":
+        materials_processed = []
         for obj in bpy.context.selected_objects:
-            quick_set_params(param, obj, context, objects_processed)
+            quick_set_params(obj, materials_processed)
 
     else: # blend modes or single/double sided...
+        objects_processed = []
         if props.quick_set_mode == "OBJECT":
             for obj in bpy.context.selected_objects:
                 quick_set_fix(param, obj, context, objects_processed)
