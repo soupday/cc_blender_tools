@@ -1,26 +1,9 @@
-# Version: 0.2.2
-#   DONE
-#   - When no texture maps are present for an advanced node group, does not generate the node group.
-#   - When exporting morph characters with .fbxkey or .objkey files, the key file is copied along with the export.
-#   - Function added to reset preferences to default values.
-#   - Alpha blend settings and back face culling settings can be applied to materials in the object now.
-#   - Option to apply alpha blend settings to whole object(s) or just active materal.
-#   - Remembers the applied alpha blend settings and re-applies when rebuilding materials.
-#   - Option to pick Scalp Material.
-#   - Only scans once on import for hair object and scalp material, so it can be cleared if it gets it wrong and wont keep putting it back.
-#   - FBX import keeps track of the objects as well as the armature in case the armature is replaced.
-#
-#   Physics:
-#   - Uses the physX weight maps to auto-generate vertex pin weights for cloth/hair physics (Optional)
-#   - Automatically sets up cloth/hair physics modifiers (Optional)
-#   - Physics cloth presets can be applied to the selected object(s) and are remembered with rebuilding materials.
-#   - Weightmaps can be added/removed to the individual materials of the objects.
-#   - Weight map painting added.
-#   - Saving of modified weight maps and Deleting weight map functions added.
+# Version: 0.3.0
 #
 # TODO
-#   - FINISH THE TOOLTIPS!
-#   (these can wait for now)
+#   - only monkey about with the animation ranges if physics enabled....
+#   - Popup panels
+#   - move hair hint and scalp hint to the prefs
 #   - Prefs for physics settings.
 #   - Button to auto transfer skin weights to accessories.
 #   - limits on node group inputs in _LIB.
@@ -43,7 +26,7 @@ import math
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 2, 2),
+    "version": (0, 3, 0),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -81,6 +64,11 @@ MOD_TRANSMISSION_MAP = ["transmap", "transmissionmap"]
 MOD_NORMALBLEND_MAP = ["nbmap", "normalmapblend"]
 MOD_MICRONORMAL_MAP = ["micron", "micronormal"]
 MOD_MICRONORMALMASK_MAP = ["micronmask", "micronormalmask"]
+MOD_HAIR_BLEND_MULTIPLY = ["blend_multiply"]
+MOD_HAIR_FLOW_MAP = ["hair flow map"]
+MOD_HAIR_ID_MAP = ["hair id map"]
+MOD_HAIR_ROOT_MAP = ["hair root map"]
+MOD_HAIR_VERTEX_COLOR_MAP = ["vertexcolormap"]
 
 # blender uses metres, CC3 uses centimetres
 UNIT_SCALE = 0.01
@@ -100,14 +88,11 @@ NODE_PREFIX = "cc3iid_"
 
 GRID_SIZE = 300
 
-
-
 cursor = mathutils.Vector((0,0))
 cursor_top = mathutils.Vector((0,0))
 max_cursor = mathutils.Vector((0,0))
 new_nodes = []
 debug_counter = 0
-
 
 def log_info(msg):
     prefs = bpy.context.preferences.addons[__name__].preferences
@@ -143,43 +128,74 @@ def unique_name(name):
     return name
 
 
-def is_skin_material(mat):
+def detect_skin_material(mat):
     if "std_skin_" in mat.name.lower():
         return True
     return False
 
 
-def is_scalp_material(mat):
-    props = bpy.context.scene.CC3ImportProps
-    if props.scalp_material is not None and mat == props.scalp_material:
-        return True
-    hints = props.hair_scalp_hint.split(",")
+def detect_key_words(hints, text):
     for hint in hints:
         h = hint.strip()
+        starts = False
+        ends = False
+        deny = False
         if h != "":
-            if h in mat.name.lower():
-                return True
-    return False
+            if h[0] == "!":
+                h = h[1:]
+                deny = True
+            if h[0] == "^":
+                h = h[1:]
+                starts = True
+            if h[-1] == "$":
+                h = h[0:-1]
+                ends = True
+            if starts and ends and text.startswith(h) and text.endswith(h):
+                if deny:
+                    print("DENY Starts and ends with " + h)
+                    return "Deny"
+                else:
+                    print("Starts and ends with " + h)
+                    return "True"
+            elif starts and text.startswith(h):
+                if deny:
+                    print("DENY Starts with " + h)
+                    return "Deny"
+                else:
+                    print("Starts with " + h)
+                    return "True"
+            elif ends and text.endswith(h):
+                if deny:
+                    print("DENY Ends with " + h)
+                    return "Deny"
+                else:
+                    print("Ends with " + h)
+                    return "True"
+            elif h in text:
+                if deny:
+                    print("DENY Contains " + h)
+                    return "Deny"
+                else:
+                    print("Contains " + h)
+                    return "True"
+    return "False"
 
 
-def is_eyelash_material(mat):
+def detect_scalp_material(mat):
+    print("Detect Scalp: " + mat.name)
+    prefs = bpy.context.preferences.addons[__name__].preferences
+    material_name = mat.name.lower()
+    hints = prefs.hair_scalp_hint.split(",")
+    return detect_key_words(hints, material_name)
+
+
+def detect_eyelash_material(mat):
     if "std_eyelash" in mat.name.lower():
         return True
     return False
 
 
-def is_mouth_material(mat):
-    name = mat.name.lower()
-    if "std_upper_teeth" in name:
-        return True
-    elif "std_lower_teeth" in name:
-        return True
-    elif "std_tongue" in name:
-        return True
-    return False
-
-
-def is_teeth_material(mat):
+def detect_teeth_material(mat):
     name = mat.name.lower()
     if "std_upper_teeth" in name:
         return True
@@ -188,77 +204,81 @@ def is_teeth_material(mat):
     return False
 
 
-def is_tongue_material(mat):
+def detect_tongue_material(mat):
     name = mat.name.lower()
     if "std_tongue" in name:
         return True
     return False
 
 
-def is_nails_material(mat):
+def detect_nails_material(mat):
     name = mat.name.lower()
     if "std_nails" in name:
         return True
     return False
 
 
-def is_hair_object(obj, mat):
-    props = bpy.context.scene.CC3ImportProps
-    if props.hair_object is not None and obj == props.hair_object:
+def detect_body_object(obj):
+    if "base_body" in obj.name.lower():
         return True
-    hints = props.hair_hint.split(",")
-    object_name = obj.name.lower()
-    material_name = mat.name.lower()
-    for hint in hints:
-        h = hint.strip()
-        if h != "":
-            if h in object_name:
-                return True
-            elif h in material_name:
-                return True
     return False
 
-def is_eye_material(mat):
+
+def detect_hair_object(obj, mat):
+    print("Detect Hair: " + obj.name + "/" + mat.name)
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__].preferences
+    hints = prefs.hair_hint.split(",")
+    object_name = obj.name.lower()
+    material_name = mat.name.lower()
+
+    detect_obj = detect_key_words(hints, object_name)
+    detect_mat =  detect_key_words(hints, material_name)
+
+    if detect_obj == "Deny" or detect_mat == "Deny":
+        return "Deny"
+
+    if detect_obj == "True" or detect_mat == "True":
+        return "True"
+
+    # if none of this detects a hair mesh
+    # try to find one of the new hair maps: "Flow Map" or "Root Map"
+    cache = get_material_cache(mat)
+    if find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_FLOW_MAP) is not None:
+        return "True"
+    elif find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_ROOT_MAP) is not None:
+        return "True"
+    elif find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_ID_MAP) is not None:
+        return "True"
+    elif find_image_file([cache.dir, props.import_main_tex_dir], mat, MOD_HAIR_BLEND_MULTIPLY) is not None:
+        return "True"
+
+    return "False"
+
+
+def detect_cornea_material(mat):
     if "std_cornea_" in mat.name.lower():
         return True
     return False
 
-def is_tearline_material(mat):
+def detect_tearline_material(mat):
     if "std_tearline_" in mat.name.lower():
         return True
     return False
 
-def is_eye_occlusion_material(mat):
+def detect_eye_occlusion_material(mat):
     if "std_eye_occlusion_" in mat.name.lower():
         return True
     return False
 
-def get_material_group(obj, mat):
-    name = mat.name.lower()
-    if "std_skin_head" in name:
-        return "skin_head"
-    elif "std_skin_body" in name:
-        return "skin_body"
-    elif "std_skin_arm" in name:
-        return "skin_arm"
-    elif "std_skin_leg" in name:
-        return "skin_leg"
-    elif "std_upper_teeth" in name:
-        return "teeth_upper"
-    elif "std_lower_teeth" in name:
-        return "teeth_lower"
-    elif "std_nails" in name:
-        return "nails"
-    elif "std_tongue" in name:
-        return "tongue"
-    elif is_hair_object(obj, mat):
-        if is_scalp_material(mat):
-            return "scalp"
-        return "hair"
-    elif is_eye_material(mat):
-        return "eye"
-    else:
-        return "default"
+def get_material_group(mat_cache):
+    """Returns the lowercase material group.
+    This group is used to identify the property group the material belongs to
+    and thus which input values to change when material parameters are changed.
+    See function: set_node_from_property(node)
+    """
+    mt = mat_cache.material_type
+    return mt.lower()
 
 def get_shader_input(mat, input):
     if mat.node_tree is not None:
@@ -291,159 +311,163 @@ def get_default_shader_input(mat, input):
                     return n.inputs[input].default_value
     return 0.0
 
-def get_bump_strength(obj, mat):
+def get_bump_strength(cache):
     props = bpy.context.scene.CC3ImportProps
-    if is_hair_object(obj, mat):
+
+    if cache.is_hair():
         return "hair_bump", props.hair_bump
     return "default_bump", props.default_bump
 
-def get_micronormal_strength(obj, mat):
+def get_micronormal_strength(cache):
     props = bpy.context.scene.CC3ImportProps
-    name = mat.name.lower()
-    if "std_skin_head" in name:
+
+    if cache.is_head():
         return "skin_head_micronormal", props.skin_head_micronormal
-    elif "std_skin_body" in name:
+    elif cache.is_body():
         return "skin_body_micronormal", props.skin_body_micronormal
-    elif "std_skin_arm" in name:
+    elif cache.is_arm():
         return "skin_arm_micronormal", props.skin_arm_micronormal
-    elif "std_skin_leg" in name:
+    elif cache.is_leg():
         return "skin_leg_micronormal", props.skin_leg_micronormal
-    elif "std_upper_teeth" in name:
-        return "teeth_upper_micronormal", props.teeth_micronormal
-    elif "std_lower_teeth" in name:
-        return "teeth_lower_micronormal", props.teeth_micronormal
-    elif "std_nails" in name:
+    elif cache.is_teeth():
+        return "teeth_micronormal", props.teeth_micronormal
+    elif cache.is_nails():
         return "nails_micronormal", props.nails_micronormal
-    elif "std_tongue" in name:
+    elif cache.is_tongue():
         return "tongue_micronormal", props.tongue_micronormal
-    elif is_eye_material(mat):
+    elif cache.is_eye():
         return "eye_sclera_normal", 1 - props.eye_sclera_normal
     return "default_micronormal", props.default_micronormal
 
-def get_micronormal_tiling(obj, mat):
+def get_micronormal_tiling(cache):
     props = bpy.context.scene.CC3ImportProps
-    name = mat.name.lower()
-    if "std_skin_head" in name:
+
+    if cache.is_head():
         return "skin_head_tiling", props.skin_head_tiling
-    elif "std_skin_body" in name:
+    elif cache.is_body():
         return "skin_body_tiling", props.skin_body_tiling
-    elif "std_skin_arm" in name:
+    elif cache.is_arm():
         return "skin_arm_tiling", props.skin_arm_tiling
-    elif "std_skin_leg" in name:
+    elif cache.is_leg():
         return "skin_leg_tiling", props.skin_leg_tiling
-    elif "std_upper_teeth" in name:
-        return "teeth_upper_tiling", props.teeth_tiling
-    elif "std_lower_teeth" in name:
-        return "teeth_lower_tiling", props.teeth_tiling
-    elif "std_tongue" in name:
+    elif cache.is_teeth():
+        return "teeth_tiling", props.teeth_tiling
+    elif cache.is_tongue():
         return "tongue_tiling", props.tongue_tiling
-    elif "std_nails" in name:
+    elif cache.is_tongue():
         return "nails_tiling", props.nails_tiling
-    elif is_eye_material(mat):
+    elif cache.is_eye():
         return "eye_sclera_tiling", props.eye_sclera_tiling
     return "default_tiling", props.default_tiling
 
-def get_specular_strength(obj, mat):
+def get_specular_strength(cache, shader):
     props = bpy.context.scene.CC3ImportProps
-    if is_eye_material(mat):
+
+    if cache.is_eye():
         return "eye_specular", props.eye_specular
-    elif is_skin_material(mat):
+    elif cache.is_skin():
         if props.setup_mode == "ADVANCED":
             return "skin_specular", props.skin_specular
         else:
             return "skin_basic_specular", props.skin_basic_specular
-    elif is_hair_object(obj, mat):
-        if is_scalp_material(mat):
-            return "hair_scalp_specular", props.hair_scalp_specular
+    elif cache.is_hair():
         return "hair_specular", props.hair_specular
-    elif is_nails_material(mat):
+    elif cache.is_scalp():
+        return "hair_scalp_specular", props.hair_scalp_specular
+    elif cache.is_nails():
         return "nails_specular", props.nails_specular
-    elif is_teeth_material(mat):
+    elif cache.is_teeth():
         return "teeth_specular", props.teeth_specular
-    elif is_tongue_material(mat):
+    elif cache.is_tongue():
         return "tongue_specular", props.tongue_specular
-    return "default_specular", get_default_shader_input(mat, "Specular")
+    return "default_specular", get_node_input(shader, "Specular", 0.5)
 
-def get_roughness_strength(obj, mat):
+def get_roughness_strength(cache):
     props = bpy.context.scene.CC3ImportProps
-    if is_skin_material(mat):
+
+    if cache.is_skin():
         if props.setup_mode == "ADVANCED":
             return "skin_roughness", props.skin_roughness
         else:
             return "skin_basic_roughness", props.skin_basic_roughness
-    elif is_hair_object(obj, mat):
-        if is_scalp_material(mat):
-            return "hair_scalp_roughness", props.hair_scalp_roughness
+    elif cache.is_hair():
         return "hair_roughness", props.hair_roughness
-    elif is_nails_material(mat):
+    elif cache.is_scalp():
+        return "hair_scalp_roughness", props.hair_scalp_roughness
+    elif cache.is_nails():
         return "nails_roughness", props.nails_roughness
-    elif is_teeth_material(mat):
+    elif cache.is_teeth():
         return "teeth_roughness", props.teeth_roughness
-    elif is_tongue_material(mat):
+    elif cache.is_tongue():
         return "tongue_roughness", props.tongue_roughness
     return "default_roughness", props.default_roughness
 
-def get_ao_strength(obj, mat):
+def get_ao_strength(cache):
     props = bpy.context.scene.CC3ImportProps
-    if is_eye_material(mat):
+
+    if cache.is_eye():
         return "eye_ao", props.eye_ao
-    elif is_skin_material(mat):
+    elif cache.is_skin():
         return "skin_ao", props.skin_ao
-    elif is_hair_object(obj, mat):
+    elif cache.is_hair():
         return "hair_ao", props.hair_ao
-    elif is_nails_material(mat):
+    elif cache.is_nails():
         return "nails_ao", props.nails_ao
-    elif is_teeth_material(mat):
+    elif cache.is_teeth():
         return "teeth_ao", props.teeth_ao
-    elif is_tongue_material(mat):
+    elif cache.is_tongue():
         return "tongue_ao", props.tongue_ao
     return "default_ao", props.default_ao
 
-def get_blend_strength(obj, mat):
+def get_blend_strength(cache):
     props = bpy.context.scene.CC3ImportProps
-    if is_eye_material(mat):
+
+    if cache.is_eye():
         return "eye_blend", props.eye_blend
-    elif is_skin_material(mat):
+    elif cache.is_skin():
         return "skin_blend", props.skin_blend
-    elif is_hair_object(obj, mat):
+    elif cache.is_hair():
         return "hair_blend", props.hair_blend
     return "default_blend", props.default_blend
 
-def get_normal_blend_strength(obj, mat):
+def get_normal_blend_strength(cache):
     props = bpy.context.scene.CC3ImportProps
-    if is_skin_material(mat):
+
+    if cache.is_skin():
         return "skin_normal_blend", props.skin_normal_blend
     return "default_normal_blend", props.default_normal_blend
 
-def get_sss_radius(obj, mat):
+def get_sss_radius(cache):
     props = bpy.context.scene.CC3ImportProps
-    if is_eye_material(mat):
+
+    if cache.is_eye():
         return "eye_sss_radius", props.eye_sss_radius
-    elif is_skin_material(mat):
+    elif cache.is_skin():
         return "skin_sss_radius", props.skin_sss_radius
-    elif is_hair_object(obj, mat):
+    elif cache.is_hair():
         return "hair_sss_radius", props.hair_sss_radius
-    elif is_nails_material(mat):
+    elif cache.is_nails():
         return "nails_sss_radius", props.nails_sss_radius
-    elif is_teeth_material(mat):
+    elif cache.is_teeth():
         return "teeth_sss_radius", props.teeth_sss_radius
-    elif is_tongue_material(mat):
+    elif cache.is_tongue():
         return "tongue_sss_radius", props.tongue_sss_radius
     return "default_sss_radius", props.default_sss_radius
 
-def get_sss_falloff(obj, mat):
+def get_sss_falloff(cache):
     props = bpy.context.scene.CC3ImportProps
-    if is_eye_material(mat):
+
+    if cache.is_eye():
         return "eye_sss_falloff", props.eye_sss_falloff
-    elif is_skin_material(mat):
+    elif cache.is_skin():
         return "skin_sss_falloff", props.skin_sss_falloff
-    elif is_hair_object(obj, mat):
+    elif cache.is_hair():
         return "hair_sss_falloff", props.hair_sss_falloff
-    elif is_nails_material(mat):
+    elif cache.is_nails():
         return "nails_sss_falloff", props.nails_sss_falloff
-    elif is_teeth_material(mat):
+    elif cache.is_teeth():
         return "teeth_sss_falloff", props.teeth_sss_falloff
-    elif is_tongue_material(mat):
+    elif cache.is_tongue():
         return "tongue_sss_falloff", props.tongue_sss_falloff
     return "default_sss_falloff", props.default_sss_falloff
 
@@ -720,7 +744,8 @@ def connect_tearline_material(obj, mat, shader):
 
 def connect_eye_occlusion_material(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
-
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -744,9 +769,9 @@ def connect_eye_occlusion_material(obj, mat, shader):
 
 
 def connect_basic_eye_material(obj, mat, shader):
-
     props = bpy.context.scene.CC3ImportProps
-
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -809,9 +834,9 @@ def connect_basic_eye_material(obj, mat, shader):
 
 
 def connect_adv_eye_material(obj, mat, shader):
-
     props = bpy.context.scene.CC3ImportProps
-
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -971,9 +996,9 @@ def connect_adv_eye_material(obj, mat, shader):
 
 
 def connect_adv_mouth_material(obj, mat, shader):
-
     props = bpy.context.scene.CC3ImportProps
-
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -983,7 +1008,7 @@ def connect_adv_mouth_material(obj, mat, shader):
     # maps
     mask_image = None
     mask_node = None
-    teeth = is_teeth_material(mat)
+    teeth = mat_cache.is_teeth()
     if teeth:
         mask_image = find_material_image(mat, TEETH_GUMS_MAP)
         # if no gums mask file is found for the teeth,
@@ -1101,8 +1126,8 @@ def connect_adv_mouth_material(obj, mat, shader):
     advance_cursor(-2.7)
     # props
     metallic = 0
-    specprop, specular = get_specular_strength(obj, mat)
-    roughprop, roughness = get_roughness_strength(obj, mat)
+    specprop, specular = get_specular_strength(mat_cache, shader)
+    roughprop, roughness = get_roughness_strength(mat_cache)
     # maps
     metallic_image = find_material_image(mat, METALLIC_MAP)
     roughness_image = find_material_image(mat, ROUGHNESS_MAP)
@@ -1173,6 +1198,8 @@ def connect_advanced_material(obj, mat, shader):
 
 def connect_basic_material(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -1185,7 +1212,7 @@ def connect_basic_material(obj, mat, shader):
     if (diffuse_image is not None):
         diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
         if ao_image is not None:
-            prop, ao_strength = get_ao_strength(obj, mat)
+            prop, ao_strength = get_ao_strength(mat_cache)
             fac_node = make_value_node(nodes, "Ambient Occlusion Strength", prop, ao_strength)
             ao_node = make_image_node(nodes, ao_image, "ao_tex")
             advance_cursor(1.5)
@@ -1212,7 +1239,7 @@ def connect_basic_material(obj, mat, shader):
     reset_cursor()
     specular_image = find_material_image(mat, SPECULAR_MAP)
     mask_image = find_material_image(mat, MOD_SPECMASK_MAP)
-    prop_spec, spec = get_specular_strength(obj, mat)
+    prop_spec, spec = get_specular_strength(mat_cache, shader)
     specular_node = mask_node = mult_node = None
     if specular_image is not None:
         specular_node = make_image_node(nodes, specular_image, "specular_tex")
@@ -1242,15 +1269,15 @@ def connect_basic_material(obj, mat, shader):
     roughness_node = None
     if roughness_image is not None:
         roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
-        rprop_name, rprop_val = get_roughness_strength(obj, mat)
-        if is_skin_material(mat):
+        rprop_name, rprop_val = get_roughness_strength(mat_cache)
+        if mat_cache.material_type.startswith("SKIN"):
             advance_cursor()
             remap_node = make_shader_node(nodes, "ShaderNodeMapRange")
             remap_node.name = unique_name(rprop_name)
             set_node_input(remap_node, "To Min", rprop_val)
             link_nodes(links, roughness_node, "Color", remap_node, "Value")
             link_nodes(links, remap_node, "Result", shader, "Roughness")
-        elif is_teeth_material(mat) or is_tongue_material(mat):
+        elif mat_cache.material_type.startswith("TEETH") or mat_cache.material_type == "TONGUE":
             advance_cursor()
             rmult_node = make_math_node(nodes, "MULTIPLY", 1, rprop_val)
             rmult_node.name = unique_name(rprop_name)
@@ -1281,7 +1308,7 @@ def connect_basic_material(obj, mat, shader):
         else:
             link_nodes(links, alpha_node, "Color", shader, "Alpha")
     # material alpha blend settings
-    if is_hair_object(obj, mat) or is_eyelash_material(mat):
+    if obj_cache.is_hair() or mat_cache.is_eyelash():
         set_material_alpha(mat, "HASHED")
     elif shader.inputs["Alpha"].default_value < 1.0:
         set_material_alpha(mat, props.blend_mode)
@@ -1301,7 +1328,7 @@ def connect_basic_material(obj, mat, shader):
         link_nodes(links, normal_node, "Color", normalmap_node, "Color")
         link_nodes(links, normalmap_node, "Normal", shader, "Normal")
     if bump_image is not None:
-        prop_bump, bump_strength = get_bump_strength(obj, mat)
+        prop_bump, bump_strength = get_bump_strength(mat_cache)
         bump_strength_node = make_value_node(nodes, "Bump Strength", prop_bump, bump_strength / 1000)
         bump_node = make_image_node(nodes, bump_image, "bump_tex")
         advance_cursor()
@@ -1319,6 +1346,8 @@ def connect_basic_material(obj, mat, shader):
 # it will connect just the diffuse, metallic, specular, roughness, opacity and normal/bump
 def connect_compat_material(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -1346,9 +1375,9 @@ def connect_compat_material(obj, mat, shader):
     if specular_image is not None:
         specular_node = make_image_node(nodes, specular_image, "specular_tex")
         link_nodes(links, specular_node, "Color", shader, "Specular")
-    if is_skin_material(mat):
+    if mat_cache.is_skin():
         set_node_input(shader, "Specular", 0.2)
-    if is_eye_material(mat):
+    if mat_cache.is_eye():
         set_node_input(shader, "Specular", 0.8)
 
     # Roughness
@@ -1358,7 +1387,7 @@ def connect_compat_material(obj, mat, shader):
     if roughness_image is not None:
         roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
         link_nodes(links, roughness_node, "Color", shader, "Roughness")
-    if is_eye_material(mat):
+    if mat_cache.is_eye():
         set_node_input(shader, "Roughness", 0)
 
     # Emission
@@ -1383,9 +1412,9 @@ def connect_compat_material(obj, mat, shader):
         else:
             link_nodes(links, alpha_node, "Color", shader, "Alpha")
     # material alpha blend settings
-    if is_hair_object(obj, mat) or is_eyelash_material(mat):
+    if obj_cache.is_hair() or mat_cache.is_eyelash():
         set_material_alpha(mat, "HASHED")
-    elif is_eye_occlusion_material(mat) or is_tearline_material(mat):
+    elif mat_cache.is_eye_occlusion() or mat_cache.is_tearline():
         set_material_alpha(mat, props.blend_mode)
     elif shader.inputs["Alpha"].default_value < 1.0:
         set_material_alpha(mat, props.blend_mode)
@@ -1417,21 +1446,23 @@ def connect_compat_material(obj, mat, shader):
 
 def connect_base_color(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     diffuse_image = find_material_image(mat, BASE_COLOR_MAP)
     blend_image = find_material_image(mat, MOD_BASECOLORBLEND_MAP)
     ao_image = find_material_image(mat, MOD_AO_MAP)
     mcmao_image = find_material_image(mat, MOD_MCMAO_MAP)
-    prop_blend, blend_value = get_blend_strength(obj, mat)
-    prop_ao, ao_value = get_ao_strength(obj, mat)
-    prop_group = get_material_group(obj, mat)
+    prop_blend, blend_value = get_blend_strength(mat_cache)
+    prop_ao, ao_value = get_ao_strength(mat_cache)
+    prop_group = get_material_group(mat_cache)
 
     count = count_maps(diffuse_image, ao_image, blend_image, mcmao_image)
     if count == 0:
         return None
 
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
     reset_cursor()
     # space
     advance_cursor(-count)
@@ -1487,18 +1518,19 @@ def connect_base_color(obj, mat, shader):
 
 def connect_subsurface(obj, mat, shader, diffuse_node):
     props = bpy.context.scene.CC3ImportProps
-
-    sss_image = find_material_image(mat, SUBSURFACE_MAP)
-    trans_image = find_material_image(mat, MOD_TRANSMISSION_MAP)
-    prop_radius, sss_radius = get_sss_radius(obj, mat)
-    prop_falloff, sss_falloff = get_sss_falloff(obj, mat)
-    prop_group = get_material_group(obj, mat)
-
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
+    sss_image = find_material_image(mat, SUBSURFACE_MAP)
+    trans_image = find_material_image(mat, MOD_TRANSMISSION_MAP)
+    prop_radius, sss_radius = get_sss_radius(mat_cache)
+    prop_falloff, sss_falloff = get_sss_falloff(mat_cache)
+    prop_group = get_material_group(mat_cache)
+
     count = count_maps(trans_image, sss_image)
-    if count == 0 and not is_hair_object(obj, mat) and not is_skin_material(mat):
+    if count == 0 and not obj_cache.is_hair() and not mat_cache.is_skin():
         return None
 
     reset_cursor()
@@ -1531,7 +1563,7 @@ def connect_subsurface(obj, mat, shader, diffuse_node):
     link_nodes(links, group_node, "Subsurface Color", shader, "Subsurface Color")
 
     # subsurface translucency
-    if is_skin_material(mat) or is_hair_object(obj, mat):
+    if mat_cache.is_skin() or obj_cache.is_hair():
         mat.use_sss_translucency = True
     else:
         mat.use_sss_translucency = False
@@ -1541,17 +1573,18 @@ def connect_subsurface(obj, mat, shader, diffuse_node):
 
 def connect_msr(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     metallic_image = find_material_image(mat, METALLIC_MAP)
     specular_image = find_material_image(mat, SPECULAR_MAP)
     mask_image = find_material_image(mat, MOD_SPECMASK_MAP)
     roughness_image = find_material_image(mat, ROUGHNESS_MAP)
-    prop_spec, specular_strength = get_specular_strength(obj, mat)
-    prop_roughness, roughness_remap = get_roughness_strength(obj, mat)
-    prop_group = get_material_group(obj, mat)
-
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
+    prop_spec, specular_strength = get_specular_strength(mat_cache, shader)
+    prop_roughness, roughness_remap = get_roughness_strength(mat_cache)
+    prop_group = get_material_group(mat_cache)
 
     count = count_maps(mask_image, specular_image, roughness_image, metallic_image)
     if count == 0:
@@ -1594,12 +1627,14 @@ def connect_msr(obj, mat, shader):
 
 def connect_emission_alpha(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     emission_image = find_material_image(mat, EMISSION_MAP)
     alpha_image = find_material_image(mat, ALPHA_MAP)
 
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
     emission_node = alpha_node = None
     # emission
     reset_cursor()
@@ -1616,7 +1651,7 @@ def connect_emission_alpha(obj, mat, shader):
         else:
             link_nodes(links, alpha_node, "Color", shader, "Alpha")
     # material settings
-    if is_hair_object(obj, mat) or is_eyelash_material(mat):
+    if obj_cache.is_hair() or mat_cache.is_eyelash():
         set_material_alpha(mat, "HASHED")
     elif shader.inputs["Alpha"].default_value < 1.0:
         set_material_alpha(mat, props.blend_mode)
@@ -1626,6 +1661,10 @@ def connect_emission_alpha(obj, mat, shader):
 
 def connect_normal(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
 
     normal_node = bump_node = blend_node = micro_node = mask_node = tiling_node = None
     normal_image = find_material_image(mat, NORMAL_MAP)
@@ -1633,14 +1672,11 @@ def connect_normal(obj, mat, shader):
     blend_image = find_material_image(mat, MOD_NORMALBLEND_MAP)
     micro_image = find_material_image(mat, MOD_MICRONORMAL_MAP)
     mask_image = find_material_image(mat, MOD_MICRONORMALMASK_MAP)
-    prop_bump, bump_strength = get_bump_strength(obj, mat)
-    prop_blend, blend_strength = get_normal_blend_strength(obj, mat)
-    prop_micronormal, micronormal_strength = get_micronormal_strength(obj, mat)
-    prop_tiling, micronormal_tiling = get_micronormal_tiling(obj, mat)
-    prop_group = get_material_group(obj, mat)
-
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
+    prop_bump, bump_strength = get_bump_strength(mat_cache)
+    prop_blend, blend_strength = get_normal_blend_strength(mat_cache)
+    prop_micronormal, micronormal_strength = get_micronormal_strength(mat_cache)
+    prop_tiling, micronormal_tiling = get_micronormal_tiling(mat_cache)
+    prop_group = get_material_group(mat_cache)
 
     count = count_maps(bump_image, mask_image, micro_image, blend_image, normal_image)
     if count == 0:
@@ -1915,9 +1951,9 @@ def add_cloth_physics(obj):
     prefs = bpy.context.preferences.addons[__name__].preferences
     props = bpy.context.scene.CC3ImportProps
 
-    cache = get_object_cache(obj)
+    obj_cache = get_object_cache(obj)
 
-    if cache.cloth_physics == "ON" and get_cloth_physics_mod(obj) is None:
+    if obj_cache.cloth_physics == "ON" and get_cloth_physics_mod(obj) is None:
 
         # Create the Cloth modifier
         cloth_mod = obj.modifiers.new(unique_name("Cloth"), type="CLOTH")
@@ -1938,9 +1974,9 @@ def add_cloth_physics(obj):
         cloth_mod.point_cache.frame_end = frame_count
 
         # Apply cloth settings
-        if cache.cloth_settings != "DEFAULT":
-            apply_cloth_settings(obj, cache.cloth_settings)
-        elif obj == props.hair_object:
+        if obj_cache.cloth_settings != "DEFAULT":
+            apply_cloth_settings(obj, obj_cache.cloth_settings)
+        elif obj_cache.object_type == "HAIR":
             apply_cloth_settings(obj, "HAIR")
         else:
             apply_cloth_settings(obj, "COTTON")
@@ -1951,7 +1987,7 @@ def add_cloth_physics(obj):
 
         fix_physics_mod_order(obj)
 
-    elif cache.cloth_physics == "OFF":
+    elif obj_cache.cloth_physics == "OFF":
         log_info("Cloth Physics disabled for: " + obj.name)
 
 
@@ -2627,7 +2663,7 @@ def delete_character():
 
 def process_material(obj, mat):
     props = bpy.context.scene.CC3ImportProps
-
+    mat_cache = get_material_cache(mat)
     reset_nodes(mat)
 
     node_tree = mat.node_tree
@@ -2652,7 +2688,7 @@ def process_material(obj, mat):
 
         move_new_nodes(-600, 0)
 
-    elif is_eye_material(mat):
+    elif mat_cache.is_eye():
 
         if props.setup_mode == "BASIC":
             connect_basic_eye_material(obj, mat, shader)
@@ -2662,16 +2698,16 @@ def process_material(obj, mat):
 
         move_new_nodes(-600, 0)
 
-    elif is_tearline_material(mat):
+    elif mat_cache.is_tearline():
 
         connect_tearline_material(obj, mat, shader)
 
-    elif is_eye_occlusion_material(mat):
+    elif mat_cache.is_eye_occlusion():
 
         connect_eye_occlusion_material(obj, mat, shader)
         move_new_nodes(-600, 0)
 
-    elif is_mouth_material(mat) and props.setup_mode == "ADVANCED":
+    elif (mat_cache.is_teeth() or mat_cache.is_tongue()) and props.setup_mode == "ADVANCED":
 
         connect_adv_mouth_material(obj, mat, shader)
         move_new_nodes(-600, 0)
@@ -2693,12 +2729,6 @@ def process_material(obj, mat):
         if cache.culling_sides > 0:
             apply_backface_culling(obj, mat, cache.culling_sides)
 
-def scan_for_hair_object(obj):
-    if obj.type == "MESH":
-        for mat in obj.data.materials:
-            if is_hair_object(obj, mat):
-                return obj
-    return None
 
 def process_object(obj, objects_processed):
     props = bpy.context.scene.CC3ImportProps
@@ -2712,10 +2742,6 @@ def process_object(obj, objects_processed):
     log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
 
     cache = get_object_cache(obj)
-
-    # try to determine if this is the hair object, if not set
-    if props.hair_object is None:
-        props.hair_object = scan_for_hair_object(obj)
 
     # when rebuilding materials remove all the physics modifiers
     # they don't seem to like having their settings changed...
@@ -2786,32 +2812,39 @@ def get_material_dir(base_dir, character_name, import_type, obj, mat):
         return os.path.join(base_dir, character_name)
 
 
-def get_object_cache(obj):
+def get_object_cache(obj, no_create = False):
     """Returns the object cache for this object.
 
     Fetches or creates an object cache for the object. Always returns an object cache collection.
     """
 
+    cache = None
     props = bpy.context.scene.CC3ImportProps
     for cache in props.object_cache:
         if cache.object == obj:
             return cache
-    cache = props.object_cache.add()
-    cache.object = obj
+    if not no_create:
+        cache = props.object_cache.add()
+        cache.object = obj
     return cache
 
 
-def get_material_cache(mat):
+def get_material_cache(mat, no_create = False):
     """Returns the material cache for this material.
 
     Fetches the material cache for the material. Returns None if the material is not in the cache.
     """
 
+    cache = None
     props = bpy.context.scene.CC3ImportProps
     for cache in props.material_cache:
         if cache.material == mat:
             return cache
-    return None
+    if not no_create:
+        cache = props.material_cache.add()
+        cache.material = mat
+    return cache
+
 
 def cache_object_materials(obj):
     props = bpy.context.scene.CC3ImportProps
@@ -2823,24 +2856,59 @@ def cache_object_materials(obj):
     if obj is None:
         return
 
+    obj_cache = get_object_cache(obj)
+    obj_name = obj.name.lower()
+
     if obj.type == "MESH":
         for mat in obj.data.materials:
             if mat.node_tree is not None:
-
-                # firstly determine if this obj+mat combination is the hair object
-                if props.hair_object is None and is_hair_object(obj, mat):
-                    props.hair_object = obj
-                    # and if the mat is the scalp material
-                    if props.scalp_material is None and is_scalp_material(mat):
-                        props.scalp_material = mat
-
-                cache = props.material_cache.add()
-                cache.material = mat
-                cache.object = obj
-                cache.dir = get_material_dir(base_dir, character_name, type, obj, mat)
+                mat_name = mat.name.lower()
+                mat_cache = props.material_cache.add()
+                mat_cache.material = mat
+                mat_cache.object = obj
+                mat_cache.dir = get_material_dir(base_dir, character_name, type, obj, mat)
                 nodes = mat.node_tree.nodes
-                # weight maps
 
+                # determine object and material types:
+                if detect_hair_object(obj, mat) == "True":
+                    obj_cache.object_type = "HAIR"
+                    # hold off detecting scalp meshes as the hair mesh might not be detected
+                    # at the first material, the hair mesh needs a second material pass...
+                elif detect_body_object(obj):
+                    obj_cache.object_type = "BODY"
+                    if detect_skin_material(mat):
+                        if "head" in mat_name:
+                            mat_cache.material_type = "SKIN_HEAD"
+                        elif "body" in mat_name:
+                            mat_cache.material_type = "SKIN_BODY"
+                        elif "arm" in mat_name:
+                            mat_cache.material_type = "SKIN_ARM"
+                        elif "leg" in mat_name:
+                            mat_cache.material_type = "SKIN_LEG"
+                    elif detect_nails_material(mat):
+                        mat_cache.material_type = "NAILS"
+                    elif detect_eyelash_material(mat):
+                        mat_cache.material_type = "EYELASH"
+                elif detect_cornea_material(mat):
+                    obj_cache.object_type = "EYE"
+                    mat_cache.material_type = "EYE"
+                elif detect_eye_occlusion_material(mat):
+                    obj_cache.object_type = "OCCLUSION"
+                    mat_cache.material_type = "OCCLUSION"
+                elif detect_tearline_material(mat):
+                    obj_cache.object_type = "TEARLINE"
+                    mat_cache.material_type = "TEARLINE"
+                elif detect_teeth_material(mat):
+                    obj_cache.object_type = "TEETH"
+                    if "upper" in mat_name:
+                        mat_cache.material_type = "TEETH_UPPER"
+                    elif "lower" in mat_name:
+                        mat_cache.material_type = "TEETH_LOWER"
+                elif detect_tongue_material(mat):
+                    obj_cache.object_type = "TONGUE"
+                    mat_cache.material_type = "TONGUE"
+
+                # weight maps
                 for node in nodes:
                     if node.type == "TEX_IMAGE" and node.image is not None:
                         filepath = node.image.filepath
@@ -2855,7 +2923,7 @@ def cache_object_materials(obj):
                                     log_warn("    Correct image path found: " + correct_path)
                                     node.image.filepath = correct_path
                                 else:
-                                    correct_path = os.path.join(cache.dir, name)
+                                    correct_path = os.path.join(mat_cache.dir, name)
                                     if os.path.exists(correct_path):
                                         log_warn("    Correct image path found: " + correct_path)
                                         node.image.filepath = correct_path
@@ -2867,18 +2935,34 @@ def cache_object_materials(obj):
                         # and connects the alpha output to the socket and not the color output
                         alpha_socket = get_input_connected_to(node, "Alpha")
                         if socket == "Base Color":
-                            cache.diffuse = node.image
+                            mat_cache.diffuse = node.image
                         elif socket == "Specular":
-                            cache.specular = node.image
+                            mat_cache.specular = node.image
                         elif socket == "Alpha" or alpha_socket == "Alpha":
-                            cache.alpha = node.image
+                            mat_cache.alpha = node.image
                             if "diffuse" in name or "albedo" in name:
-                                cache.alpha_is_diffuse = True
+                                mat_cache.alpha_is_diffuse = True
                         elif socket == "Color":
                             if "bump" in name:
-                                cache.bump = node.image
+                                mat_cache.bump = node.image
                             else:
-                                cache.normal = node.image
+                                mat_cache.normal = node.image
+
+        # second material pass for hair meshes
+        if obj_cache.is_hair():
+            for mat in obj.data.materials:
+                mat_cache = get_material_cache(mat)
+                if detect_hair_object(obj, mat) == "Deny":
+                    mat_cache.material_type = "DEFAULT"
+                else:
+                    detect = detect_scalp_material(mat)
+                    if detect == "Deny":
+                        mat_cache.material_type = "DEFAULT"
+                    elif detect == "True":
+                        mat_cache.material_type = "SCALP"
+                    else:
+                        mat_cache.material_type = "HAIR"
+
 
 
 def tag_objects():
@@ -4445,16 +4529,16 @@ def set_node_from_property(node):
     #
     elif "(normal_" in name and "_mixer)" in name:
         # normal_skin_<part>_mixer
-        if "skin_head" in name:
+        if "_skin_head" in name:
             set_node_input(node, "Normal Blend Strength", props.skin_normal_blend)
             set_node_input(node, "Micro Normal Strength", props.skin_head_micronormal)
-        elif "skin_body" in name:
+        elif "_skin_body" in name:
             set_node_input(node, "Normal Blend Strength", props.skin_normal_blend)
             set_node_input(node, "Micro Normal Strength", props.skin_body_micronormal)
-        elif "skin_arm" in name:
+        elif "_skin_arm" in name:
             set_node_input(node, "Normal Blend Strength", props.skin_normal_blend)
             set_node_input(node, "Micro Normal Strength", props.skin_arm_micronormal)
-        elif "skin_leg" in name:
+        elif "_skin_leg" in name:
             set_node_input(node, "Normal Blend Strength", props.skin_normal_blend)
             set_node_input(node, "Micro Normal Strength", props.skin_leg_micronormal)
         # normal_eye_mixer
@@ -4706,6 +4790,23 @@ class CC3ObjectPointer(bpy.types.PropertyGroup):
 
 class CC3MaterialCache(bpy.types.PropertyGroup):
     material: bpy.props.PointerProperty(type=bpy.types.Material)
+    material_type: bpy.props.EnumProperty(items=[
+                        ("DEFAULT", "Default", "Default material"),
+                        ("SKIN_HEAD", "Head", "Head skin material"),
+                        ("SKIN_BODY", "Body", "Body skin material"),
+                        ("SKIN_ARM", "Arm", "Arm skin material"),
+                        ("SKIN_LEG", "Leg", "Leg skin material"),
+                        ("TEETH_UPPER", "Upper Teeth", "Upper teeth material"),
+                        ("TEETH_LOWER", "Lower Teeth", "Lower teeth material"),
+                        ("TONGUE", "Tongue", "Tongue material"),
+                        ("HAIR", "Hair", "Hair material"),
+                        ("SCALP", "Scalp", "Scalp or base hair material"),
+                        ("EYELASH", "Eyelash", "Eyelash material"),
+                        ("NAILS", "Nails", "Finger and toe nails material"),
+                        ("EYE", "Cornea", "Cornea material (not the 'eye' material)."),
+                        ("OCCLUSION", "Eye Occlusion", "Eye occlusion material"),
+                        ("TEARLINE", "Tearline", "Tear line material"),
+                    ], default="DEFAULT")
     compat: bpy.props.PointerProperty(type=bpy.types.Material)
     object: bpy.props.PointerProperty(type=bpy.types.Object)
     dir: bpy.props.StringProperty(default="")
@@ -4720,12 +4821,86 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
     culling_sides: bpy.props.IntProperty(default=0) # 0 - default, 1 - single sided, 2 - double sided
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
 
+    def is_skin(self):
+        return self.material_type.startswith("SKIN")
+
+    def is_head(self):
+        return self.material_type == "SKIN_HEAD"
+
+    def is_body(self):
+        return self.material_type == "SKIN_BODY"
+
+    def is_arm(self):
+        return self.material_type == "SKIN_ARM"
+
+    def is_leg(self):
+        return self.material_type == "SKIN_LEG"
+
+    def is_teeth(self):
+        return self.material_type.startswith("TEETH")
+
+    def is_tongue(self):
+        return self.material_type == "TONGUE"
+
+    def is_hair(self):
+        return self.material_type == "HAIR"
+
+    def is_scalp(self):
+        return self.material_type == "SCALP"
+
+    def is_eyelash(self):
+        return self.material_type == "EYELASH"
+
+    def is_nails(self):
+        return self.material_type == "NAILS"
+
+    def is_eye(self):
+        return self.material_type == "EYE"
+
+    def is_eye_occlusion(self):
+        return self.material_type == "OCCLUSION"
+
+    def is_tearline(self):
+        return self.material_type == "TEARLINE"
+
 
 class CC3ObjectCache(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
+    object_type: bpy.props.EnumProperty(items=[
+                        ("DEFAULT", "Default", "Default object type"),
+                        ("BODY", "Body", "Base character body object"),
+                        ("TEETH", "Teeth", "Teeth object"),
+                        ("TONGUE", "Tongue", "Tongue object"),
+                        ("HAIR", "Hair", "Hair object or object with hair"),
+                        ("EYE", "Eye", "Eye object"),
+                        ("OCCLUSION", "Eye Occlusion", "Eye occlusion object"),
+                        ("TEARLINE", "Tearline", "Tear line object"),
+                    ], default="DEFAULT")
     collision_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_settings: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, HAIR, COTTON, DENIM, LEATHER, RUBBER, SILK
+
+    def is_body(self):
+        return self.object_type == "BODY"
+
+    def is_teeth(self):
+        return self.object_type == "TEETH"
+
+    def is_tongue(self):
+        return self.object_type == "TONGUE"
+
+    def is_hair(self):
+        return self.object_type == "HAIR"
+
+    def is_eye(self):
+        return self.object_type == "EYE"
+
+    def is_eye_occlusion(self):
+        return self.object_type == "OCCLUSION"
+
+    def is_tearline(self):
+        return self.object_type == "TEARLINE"
+
 
 
 class CC3ImportProps(bpy.types.PropertyGroup):
@@ -4903,10 +5078,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     nails_tiling: bpy.props.FloatProperty(default=42, min=0, max=50, update=quick_set_update)
 
     hair_toggle: bpy.props.BoolProperty(default=True)
-    hair_hint: bpy.props.StringProperty(default="hair,beard", update=quick_set_update)
-    hair_object: bpy.props.PointerProperty(type=bpy.types.Object, update=quick_set_update)
-    scalp_material: bpy.props.PointerProperty(type=bpy.types.Material)
-    hair_scalp_hint: bpy.props.StringProperty(default="scalp,base", update=quick_set_update)
     hair_specular: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=quick_set_update)
     hair_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
     hair_scalp_specular: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=quick_set_update)
@@ -4993,26 +5164,6 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         layout.prop(props, "blend_mode", expand=True)
         layout.prop(props, "build_mode", expand=True)
         layout.separator()
-        split = layout.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text="Hair Hint")
-        col_2.prop(props, "hair_hint", text="")
-        col_1.label(text="Scalp Hint")
-        col_2.prop(props, "hair_scalp_hint", text="")
-        if props.hair_object is None:
-            col_1.label(text="** Hair Object **")
-        else:
-            col_1.label(text="Hair Object")
-        col_2.prop_search(props, "hair_object",  context.scene, "objects", text="")
-        if context.object is not None and context.object.type == "MESH":
-            col_1.label(text="Scalp Material")
-            col_2.prop_search(props, "scalp_material",  context.object.data, "materials", text="")
-        else:
-            col_1.label(text="Scalp Material")
-            col_2.prop(props, "scalp_material", text="")
-        col_1.separator()
-        col_2.separator()
         if props.import_file != "":
             box = layout.box()
             if props.setup_mode == "ADVANCED":
@@ -5020,6 +5171,15 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
             else:
                 op = box.operator("cc3.importer", icon="NODE_MATERIAL", text="Build Basic Materials")
             op.param ="BUILD"
+
+        obj = context.object
+        mat = context_material(context)
+        is_import_object = False
+        if obj is not None and obj.type == "MESH":
+            for p in props.import_objects:
+                if p.object == obj:
+                    is_import_object = True
+                    break
 
         # Material Setup
         layout.box().label(text="2. Material Setup", icon="MATERIAL")
@@ -5032,6 +5192,19 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         split = column.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
+
+        if is_import_object:
+            if obj is not None:
+                obj_cache = get_object_cache(obj, True)
+                if obj_cache is not None:
+                    col_1.label(text="Object Type")
+                    col_2.prop(obj_cache, "object_type", text = "")
+            if mat is not None:
+                mat_cache = get_material_cache(mat, True)
+                if mat_cache is not None:
+                    col_1.label(text="Material Type")
+                    col_2.prop(mat_cache, "material_type", text = "")
+
         col_1.label(text="Quick Set To:")
         col_1.prop(props, "quick_set_mode", expand=True)
         op = col_2.operator("cc3.quickset", icon="SHADING_SOLID", text="Opaque")
@@ -5792,6 +5965,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("ERRORS","Just Errors","Log only errors to console."),
                     ], default="ERRORS", name = "(Debug) Log Level")
 
+    hair_hint: bpy.props.StringProperty(default="hair,scalp,beard,mustache,sideburns,ponytail,braid,!bow,!band,!tie,!ribbon,!ring,!butterfly,!flower", name="Hair detection keywords")
+    hair_scalp_hint: bpy.props.StringProperty(default="scalp,base,skullcap", name="Scalp detection keywords")
+
     debug_mode: bpy.props.BoolProperty(default=False)
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
@@ -5809,6 +5985,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
             layout.prop(self, "quality_lighting")
             layout.prop(self, "pipeline_lighting")
             layout.prop(self, "morph_lighting")
+        layout.label(text="Detection:")
+        layout.prop(self, "hair_hint")
+        layout.prop(self, "hair_scalp_hint")
         layout.label(text="Physics:")
         layout.prop(self, "physics")
         layout.prop(self, "physics_group")
