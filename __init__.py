@@ -1,22 +1,26 @@
-# Version: 0.4.0
+# Version: 0.4.1
 #
-#   - move hair hint and scalp hint to the prefs
-#   - update parameters from the material cache as well as the import objects
-#   - add disable fake aniso...
-#   - only monkey about with the animation ranges if physics enabled....
-#   - don't make new hair shader group if hair maps not present.
-#   - enable material panels on valid materials even if object not in import list...
-#   - optional gamma correct or use real colours...
+# Changelog:
+#   - hair and scalp hints expanded to cover the smart hair system and moved to the preferences.
+#   - parameter changes update only that parameter in the imported or selected objects materials.
+#   - fake anisotropic highlights add to smart hair shader, can disable in the preferences.
+#   - fake bump normals can be generated from the diffuse map if there is no normal or bump map present,
+#     can disable in the preferences.
+#   - animation ranges only changed if physics enabled.
+#   - build settings and material parameters separated into their own interface panels.
+#   - build settings now applicable by material and the object and material build types as detected by the add-on are
+#     exposed and editable so you can fix them if it gets them wrong.
+#   - material parameters are context sensitive to the currently active object and material.
+#   - material parameters grouped into sections.
+#   - detects smart hair material or normal hair material and only shows relevant parameters.
+#   - option in preferences to gamma correct smart hair colours so they behave more like the colours in CC3.
 #
 # TODO
-#   - DH sample not detecting skin_head ...
-#   - update selected... by selected material.
 #
 #   - Popup panels
 #   - Prefs for physics settings.
 #   - Button to auto transfer skin weights to accessories.
 #   - limits on node group inputs in _LIB.
-#   - OBJ import to be rigged later... do we need to keep track of any new armature?
 #
 # FUTURE PLANS
 #   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
@@ -36,7 +40,7 @@ import math
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 4, 0),
+    "version": (0, 4, 1),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -5653,7 +5657,7 @@ def reset_parameters(context = bpy.context):
     props.hair_a_start = 0.1
     props.hair_a_mid = 0.2
     props.hair_a_end = 0.3
-    props.hair_a_strength = 0.543
+    props.hair_a_strength = 0
     props.hair_a_overlap = 1.0
     props.hair_a_color = (0.502886, 0.323143, 0.205079, 1.0)
     props.hair_b_start = 0.1
@@ -6024,7 +6028,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     hair_a_start: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_start"))
     hair_a_mid: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_mid"))
     hair_a_end: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_end"))
-    hair_a_strength: bpy.props.FloatProperty(default=0.543, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_strength"))
+    hair_a_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_strength"))
     hair_a_overlap: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_overlap"))
     hair_a_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.502886, 0.323143, 0.205079, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_a_color"))
