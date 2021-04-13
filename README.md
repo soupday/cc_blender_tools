@@ -5,7 +5,7 @@ Using Blender in the Character Creator 3 pipeline can often feel like hitting a 
 
 This add-on aims to reduce that time spent getting characters into Blender down to just a few seconds and make use of as many of the exported textures as possible so that character artists can work in the highest quality possible using Blender.
 
-[Online Documentation](https://soupday.github.io/cc3_blender_tools/)
+[Online Documentation](https://soupday.github.io/cc3_blender_tools/) (Still work in progess...)
 
 ## Installation, Updating, Removal
 ### To Install
