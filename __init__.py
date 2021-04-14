@@ -1,4 +1,4 @@
-# Version: 0.4.1
+# Version: 0.4.2
 #
 # Changelog:
 #   - hair and scalp hints expanded to cover the smart hair system and moved to the preferences.
@@ -14,8 +14,10 @@
 #   - material parameters grouped into sections.
 #   - detects smart hair material or normal hair material and only shows relevant parameters.
 #   - option in preferences to gamma correct smart hair colours so they behave more like the colours in CC3.
+#   - crash in 2.83 disabling hair anisotropy...
 #
 # TODO
+#   - alpha remapper for hair, esp. scalp materials
 #
 #   - Popup panels
 #   - Prefs for physics settings.
@@ -40,7 +42,7 @@ import math
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 4, 1),
+    "version": (0, 4, 2),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -2723,20 +2725,19 @@ def check_node_groups():
     adjust_groups()
 
 def adjust_groups():
+    global block_update
+
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__].preferences
 
     group = get_node_group("color_hair_mixer")
 
-    if prefs.fake_hair_anisotropy:
-        str_node = get_node_by_id(group.nodes, "aniso_strength")
-        mix_node = get_node_by_id(group.nodes, "aniso_add_mixer")
-        if str_node is not None and mix_node is not None:
-            link_nodes(group.links, str_node, "Value", mix_node, "Fac")
-    else:
-        mix_node = get_node_by_id(group.nodes, "aniso_add_mixer")
-        if mix_node is not None:
-            unlink_node(group.links, mix_node, "Fac")
+    if not prefs.fake_hair_anisotropy:
+        block_update = True
+        props.hair_aniso_strength = 0
+        block_update = False
+
+
 
 def remove_all_groups():
     for group in bpy.data.node_groups:
