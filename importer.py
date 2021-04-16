@@ -18,8 +18,10 @@
 #
 # Changelog: 0.4.3
 #   - correct an issue where the opacity maps were ignored in favour of diffuse alpha channels.
-#   - added opacity parameters for hair, scalp and eyelashes
-#   - added roughness and specular parameters for eyelashes
+#   - added opacity parameters for hair, scalp and eyelashes.
+#   - added roughness and specular parameters for eyelashes.
+#   - fixed a crash calling the import operator from from script.
+#   - Added auto update scripts.
 #
 # TODO
 #   - Popup panels
