@@ -417,6 +417,7 @@ PROP_MATRIX = [
             {   "name": "(eye_occlusion_mask)",
                 "inputs": [
                     ["Strength", "eye_occlusion"],
+                    ["Hardness", "eye_occlusion_hardness"],
                 ],
             },
         ],

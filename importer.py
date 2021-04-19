@@ -1,31 +1,4 @@
-# Version: 0.5.0
-#
-# Changelog: 0.4.2
-#   - hair and scalp hints expanded to cover the smart hair system and moved to the preferences.
-#   - parameter changes update only that parameter in the imported or selected objects materials.
-#   - fake anisotropic highlights add to smart hair shader, can disable in the preferences.
-#   - fake bump normals can be generated from the diffuse map if there is no normal or bump map present,
-#     can disable in the preferences.
-#   - animation ranges only changed if physics enabled.
-#   - build settings and material parameters separated into their own interface panels.
-#   - build settings now applicable by material and the object and material build types as detected by the add-on are
-#     exposed and editable so you can fix them if it gets them wrong.
-#   - material parameters are context sensitive to the currently active object and material.
-#   - material parameters grouped into sections.
-#   - detects smart hair material or normal hair material and only shows relevant parameters.
-#   - option in preferences to gamma correct smart hair colours so they behave more like the colours in CC3.
-#   - crash in 2.83 disabling hair anisotropy...
-#
-# Changelog: 0.4.3
-#   - correct an issue where the opacity maps were ignored in favour of diffuse alpha channels.
-#   - added opacity parameters for hair, scalp and eyelashes.
-#   - added roughness and specular parameters for eyelashes.
-#   - fixed a crash calling the import operator from from script.
-#   - Added auto update scripts.
-#
 # TODO
-#   - Refractive Eyes.
-#
 #
 #   - Popup panels
 #   - Prefs for physics settings.
@@ -825,6 +798,7 @@ def connect_eye_occlusion_material(obj, mat, shader):
     occ_node = make_node_group_node(nodes, group, "Eye Occulsion Alpha", "eye_occlusion_mask")
     # values
     set_node_input(occ_node, "Strength", props.eye_occlusion)
+    set_node_input(occ_node, "Hardness", props.eye_occlusion_hardness)
     # links
     link_nodes(links, occ_node, "Alpha", shader, "Alpha")
 
@@ -2978,7 +2952,7 @@ def remove_eye_modifiers(obj):
     if obj and obj.type == "MESH":
         for mod in obj.modifiers:
             if NODE_PREFIX in mod.name:
-                if mod.type == "DISPLACEMENT" or mod.type == "UV_WARP" or mod.type == "VERTEX_WEIGHT_EDIT":
+                if mod.type == "DISPLACE" or mod.type == "UV_WARP" or mod.type == "VERTEX_WEIGHT_EDIT":
                     obj.modifiers.remove(mod)
 
 
@@ -2993,13 +2967,13 @@ def add_eye_modifiers(obj):
             mats.append(mat)
 
     # reuse or append the eye displacement map
-    image_name = "Eye_Displacement_Map"
+    image_name = "CC3_Eye_Displacement_Map"
     image = None
     for i in bpy.data.images:
-        if i.name.startswith(NODE_PREFIX + image_name):
+        if i.name.startswith(NODE_PREFIX + image_name) and i.size[0] > 0 and i.size[1] > 0:
             image = i
     if image is None:
-        image = fetch_lib_image("CC3_Eye_Displacement_Map")
+        image = fetch_lib_image(image_name)
         log_info("Image: " + image.name + " appended from library")
     else:
         log_info("Image: " + image.name + " already exists for eye displacement")
@@ -3169,7 +3143,7 @@ def fetch_lib_image(name):
              os.path.dirname(os.path.realpath(__file__)),
              ]
     for path in paths:
-        log_info("Trying to append: " + path + " > " + name)
+        log_info("Trying to append image: " + path + " > " + name)
         if os.path.exists(path):
             image = append_lib_image(path, name)
             if image:
@@ -3360,8 +3334,7 @@ def process_object(obj, objects_processed):
         remove_all_physics_mods(obj)
 
         # remove any modifiers for refractive eyes
-        if prefs.refractive_eyes:
-            remove_eye_modifiers(obj)
+        remove_eye_modifiers(obj)
 
         # process any materials found in the mesh object
         for mat in obj.data.materials:
@@ -3379,7 +3352,7 @@ def process_object(obj, objects_processed):
                 enable_cloth_physics(obj)
 
         # setup refractive eyes
-        if prefs.refractive_eyes and cache.is_eye():
+        if props.setup_mode == "ADVANCED" and prefs.refractive_eyes and cache.is_eye():
             add_eye_modifiers(obj)
 
 
@@ -5392,6 +5365,7 @@ def reset_parameters(context = bpy.context):
     props.eye_shadow_hardness = 0.5
     props.eye_shadow_color = (1.0, 0.497, 0.445, 1.0)
     props.eye_occlusion = 0.5
+    props.eye_occlusion_hardness = 0.5
     props.eye_sclera_brightness = 0.75
     props.eye_iris_brightness = 1.0
     props.eye_sclera_hue = 0.5
@@ -5782,6 +5756,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     eye_sclera_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=lambda s,c: update_property(s,c,"eye_sclera_tiling"))
 
     eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion"))
+    eye_occlusion_hardness: bpy.props.FloatProperty(default=0.5, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_hardness"))
 
 
     eye_tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"eye_tearline_alpha"))
@@ -6295,8 +6270,10 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Eye Occlusion")
+                        col_1.label(text="Occlusion Strength")
                         col_2.prop(props, "eye_occlusion", text="", slider=True)
+                        col_1.label(text="Occlusion Hardness")
+                        col_2.prop(props, "eye_occlusion_hardness", text="", slider=True)
 
                         column.box().label(text= "Tearline", icon="MATFLUID")
                         split = column.split(factor=0.5)

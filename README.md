@@ -25,6 +25,11 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 0.5.1
+- Fixed problem appending displacment map image.
+- Fixed not removing eye displacement modifiers on rebuild.
+- Added eye occlusion hardness parameter.
+
 ### 0.5.0
 - Refractive Eyes:
     - Iris refractive transmission with depth control and pupil size parameters.

@@ -17,7 +17,7 @@ from . import params
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 5, 0),
+    "version": (0, 5, 1),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
