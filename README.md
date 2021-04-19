@@ -22,3 +22,57 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 ### To Update
 - Remove the current version of the add-on by following the remove instructions above.
 - Follow the installation instructions, above, to install the new version.
+
+## Changelog
+
+### 0.5.0
+- Refractive Eyes:
+    - Iris refractive transmission with depth control and pupil size parameters.
+    - Limbus parameters.
+    - IOR and refractive depth parameters.
+    - Blood vessel and iris bump normals.
+    - Option in preferences to generate old eyes instead.
+- Skin roughness power parameter added.
+
+### 0.4.3
+- Corrected an issue where the opacity maps were ignored in favour of diffuse alpha channels.
+- Added opacity parameters for hair, scalp and eyelashes.
+- Added roughness and specular parameters for eyelashes.
+- Fixed a crash calling the import operator from from script.
+- Added auto update scripts.
+
+### 0.4.1
+- Full smart hair support.
+- Hair and scalp hints expanded to cover the smart hair system and moved to the preferences.
+- Parameter changes update only that parameter in the imported or selected objects materials.
+- Fake anisotropic highlights add to smart hair shader. (Can disable in the preferences.)
+- Fake bump normals can be generated from the diffuse map if there is no normal or bump map present. (Can disable in the preferences.)
+- Animation ranges only changed if physics enabled.
+- Build settings and material parameters separated into their own interface panels.
+- Build settings now applicable by material and the object and material build types as detected by the add-on are exposed and editable so you can fix them if it gets them wrong.
+- Material parameters are context sensitive to the currently active object and material.
+- Material parameters grouped into sections.
+- Detects smart hair material or normal hair material and only shows relevant parameters.
+- Option in preferences to gamma correct smart hair colours so they behave more like the colours in CC3.
+
+### 0.3.0
+- Fix to hair mesh detection with new smart hair system.
+
+### 0.2.2 Alpha
+- When no texture maps are present for an advanced node group, does not generate the node group.
+- When exporting morph characters with .fbxkey or .objkey files, the key file is copied along with the export.
+- Function added to reset preferences to default values.
+- Alpha blend settings and back face culling settings can be applied to materials in the object now.
+- Option to apply alpha blend settings to whole object(s) or just active materal.
+- Remembers the applied alpha blend settings and re-applies when rebuilding materials.
+- Option to pick Scalp Material.
+- Only scans once on import for hair object and scalp material, so it can be cleared if it gets it wrong and wont keep putting it back.
+- FBX import keeps track of the objects as well as the armature in case the armature is replaced.
+- Physics support added:
+    - Uses the physX weight maps to auto-generate vertex pin weights for cloth/hair physics (Optional)
+    - Automatically sets up cloth/hair physics modifiers (Optional)
+    - Physics cloth presets can be applied to the selected object(s) and are remembered with rebuilding materials.
+    - Weightmaps can be added/removed to the individual materials of the objects.
+    - Weight map painting added.
+    - Saving of modified weight maps and Deleting weight map functions added.
+
