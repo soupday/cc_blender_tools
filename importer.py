@@ -1,4 +1,4 @@
-# Version: 0.4.3
+# Version: 0.5.0
 #
 # Changelog: 0.4.2
 #   - hair and scalp hints expanded to cover the smart hair system and moved to the preferences.
@@ -24,6 +24,9 @@
 #   - Added auto update scripts.
 #
 # TODO
+#   - Refractive Eyes.
+#
+#
 #   - Popup panels
 #   - Prefs for physics settings.
 #   - Button to auto transfer skin weights to accessories.
@@ -312,6 +315,13 @@ def get_default_shader_input(mat, input):
                     return n.inputs[input].default_value
     return 0.0
 
+def set_default_shader_input(mat, input, value):
+    if mat.node_tree is not None:
+        for n in mat.node_tree.nodes:
+            if n.type == "BSDF_PRINCIPLED":
+                if input in n.inputs:
+                    n.inputs[input].default_value = value
+
 
 def get_bump_strength(cache):
     props = bpy.context.scene.CC3ImportProps
@@ -403,7 +413,7 @@ def get_specular_strength(cache, shader):
     return "default_specular", get_node_input(shader, "Specular", 0.5)
 
 
-def get_roughness_strength(cache):
+def get_roughness_remap(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_skin():
@@ -424,6 +434,14 @@ def get_roughness_strength(cache):
     elif cache.is_tongue():
         return "tongue_roughness", props.tongue_roughness
     return "default_roughness", props.default_roughness
+
+
+def get_roughness_power(cache):
+    props = bpy.context.scene.CC3ImportProps
+
+    if cache.is_skin() and props.setup_mode == "ADVANCED":
+        return "skin_roughness_power", props.skin_roughness_power
+    return "none", 1.0
 
 
 def get_ao_strength(cache):
@@ -1041,6 +1059,237 @@ def connect_adv_eye_material(obj, mat, shader):
     return
 
 
+def get_cornea_mat(obj, eye_mat, eye_mat_cache):
+    props = bpy.context.scene.CC3ImportProps
+
+    if eye_mat_cache.is_eye("LEFT"):
+        side = "LEFT"
+    else:
+        side = "RIGHT"
+
+    # try to find the matching cornea material in the objects materials
+    #for mat in obj.data.materials:
+    #    mat_cache = get_material_cache(mat)
+    #    if mat_cache.is_cornea(side):
+    #        return mat
+
+    # then try to find in the material cache
+    for cache in props.material_cache:
+        if cache.is_cornea(side):
+            return cache.material
+
+    log_error("Unable to find the " + side + " cornea material!")
+
+    return None
+
+
+def connect_refractive_eye_material(obj, mat, shader):
+    props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    # to build eye materials we need some textures from the cornea...
+    cornea_mat = mat
+    is_cornea = True
+    is_eye = False
+    if mat_cache.is_eye():
+        is_cornea = False
+        is_eye = True
+        cornea_mat = get_cornea_mat(obj, mat, mat_cache)
+
+    # Iris Mask
+    reset_cursor()
+    # groups
+    group = get_node_group("iris_refractive_mask")
+    iris_mask_node = make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
+    # values
+    set_node_input(iris_mask_node, "Scale", 1.0 / props.eye_iris_scale)
+    set_node_input(iris_mask_node, "Radius", props.eye_iris_radius)
+    set_node_input(iris_mask_node, "Hardness", props.eye_iris_hardness * props.eye_iris_radius * 0.99)
+    set_node_input(iris_mask_node, "Limbus Radius", props.eye_limbus_radius)
+    set_node_input(iris_mask_node, "Limbus Hardness", props.eye_limbus_hardness)
+    # Links
+    if is_cornea:
+        link_nodes(links, iris_mask_node, "Mask", shader, "Transmission")
+    # move
+    move_new_nodes(-3000, 0)
+    clear_cursor()
+
+    # Base Color
+    reset_cursor()
+    # maps
+    diffuse_image = find_material_image(cornea_mat, BASE_COLOR_MAP)
+    sclera_image = find_material_image(cornea_mat, SCLERA_MAP)
+    blend_image = find_material_image(cornea_mat, MOD_BASECOLORBLEND_MAP)
+    ao_image = find_material_image(cornea_mat, MOD_AO_MAP)
+    diffuse_node = sclera_node = blend_node = ao_node = iris_tiling_node = sclera_tiling_node = None
+    advance_cursor(-count_maps(diffuse_image, sclera_image, blend_image, ao_image))
+    if diffuse_image is not None:
+        advance_cursor(-1)
+        drop_cursor(0.75)
+        group = get_node_group("tiling_pivot_mapping")
+        iris_tiling_node = make_node_group_node(nodes, group, "Iris Scaling", "tiling_color_iris_mapping")
+        set_node_input(iris_tiling_node, "Pivot", (0.5, 0.5, 0))
+        advance_cursor()
+        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
+        step_cursor()
+    if sclera_image is not None:
+        advance_cursor(-1)
+        drop_cursor(0.75)
+        group = get_node_group("tiling_pivot_mapping")
+        sclera_tiling_node = make_node_group_node(nodes, group, "Sclera Scaling", "tiling_color_sclera_mapping")
+        set_node_input(sclera_tiling_node, "Pivot", (0.5, 0.5, 0))
+        set_node_input(sclera_tiling_node, "Tiling", 1.0 / props.eye_sclera_scale)
+        advance_cursor()
+        sclera_node = make_image_node(nodes, sclera_image, "sclera_tex")
+        sclera_node.extension = "EXTEND"
+        step_cursor()
+    if ao_image is not None:
+        ao_node = make_image_node(nodes, ao_image, "ao_tex")
+        step_cursor()
+    if blend_image is not None:
+        blend_node = make_image_node(nodes, blend_image, "blend_tex")
+        step_cursor()
+    # groups
+    group = get_node_group("color_refractive_eye_mixer")
+    color_node = make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
+    # values
+    set_node_input(color_node, "Shadow Hardness", props.eye_shadow_hardness * props.eye_shadow_radius * 0.99)
+    set_node_input(color_node, "Shadow Radius", props.eye_shadow_radius)
+    set_node_input(color_node, "Blend Strength", props.eye_blend)
+    set_node_input(color_node, "AO Strength", props.eye_ao)
+    set_node_input(color_node, "Iris Brightness", props.eye_iris_brightness)
+    set_node_input(color_node, "Sclera Brightness", props.eye_sclera_brightness)
+    # links
+    link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
+    if is_eye:
+        link_nodes(links, iris_mask_node, "Limbus Mask", color_node, "Limbus Mask")
+    if diffuse_image is not None:
+        link_nodes(links, iris_mask_node, "Scale", iris_tiling_node, "Tiling")
+        link_nodes(links, iris_tiling_node, "Vector", diffuse_node, "Vector")
+        link_nodes(links, diffuse_node, "Color", color_node, "Cornea Diffuse")
+    if sclera_image is not None:
+        link_nodes(links, sclera_tiling_node, "Vector", sclera_node, "Vector")
+        link_nodes(links, sclera_node, "Color", color_node, "Sclera Diffuse")
+    else:
+        link_nodes(links, diffuse_node, "Color", color_node, "Sclera Diffuse")
+    if blend_image is not None:
+        link_nodes(links, blend_node, "Color", color_node, "Blend")
+    if ao_image is not None:
+        link_nodes(links, ao_node, "Color", color_node, "AO")
+    if is_cornea:
+        link_nodes(links, color_node, "Cornea Base Color", shader, "Base Color")
+    else:
+        link_nodes(links, color_node, "Eye Base Color", shader, "Base Color")
+
+    # SSS
+    drop_cursor(0.65)
+    reset_cursor()
+    # groups
+    group = get_node_group("subsurface_overlay_mixer")
+    sss_node = make_node_group_node(nodes, group, "Eye Subsurface", "subsurface_eye_mixer")
+    # values
+    set_node_input(sss_node, "Scatter1", 1.0)
+    set_node_input(sss_node, "Scatter2", 0.0)
+    set_node_input(sss_node, "Radius1", props.eye_sss_radius * UNIT_SCALE)
+    set_node_input(sss_node, "Radius2", props.eye_sss_radius * UNIT_SCALE)
+    set_node_input(sss_node, "Falloff1", props.eye_sss_falloff)
+    set_node_input(sss_node, "Falloff2", props.eye_sss_falloff)
+    # links
+    link_nodes(links, iris_mask_node, "Mask", sss_node, "Mask")
+    if is_cornea:
+        link_nodes(links, color_node, "Cornea Base Color", sss_node, "Diffuse")
+    else:
+        link_nodes(links, color_node, "Eye Base Color", sss_node, "Diffuse")
+    link_nodes(links, sss_node, "Subsurface", shader, "Subsurface")
+    link_nodes(links, sss_node, "Subsurface Radius", shader, "Subsurface Radius")
+    link_nodes(links, sss_node, "Subsurface Color", shader, "Subsurface Color")
+
+    # MSR
+    drop_cursor(0.1)
+    reset_cursor()
+    # groups
+    group = get_node_group("msr_overlay_mixer")
+    msr_name = "msr_eye_mixer"
+    if is_cornea:
+        msr_name = "msr_cornea_mixer"
+    msr_node = make_node_group_node(nodes, group, "Eye MSR", msr_name)
+    # values
+    set_node_input(msr_node, "Metallic1", 0)
+    set_node_input(msr_node, "Metallic2", 0)
+    set_node_input(msr_node, "Specular1", props.eye_specular)
+    set_node_input(msr_node, "Roughness1", props.eye_sclera_roughness)
+    if is_cornea:
+        set_node_input(msr_node, "Specular2", props.eye_specular)
+        set_node_input(msr_node, "Roughness2", props.eye_iris_roughness)
+    else:
+        set_node_input(msr_node, "Specular2", 0.2)
+        set_node_input(msr_node, "Roughness2", 1.0)
+    # links
+    link_nodes(links, iris_mask_node, "Mask", msr_node, "Mask")
+    link_nodes(links, msr_node, "Metallic", shader, "Metallic")
+    link_nodes(links, msr_node, "Specular", shader, "Specular")
+    link_nodes(links, msr_node, "Roughness", shader, "Roughness")
+
+    # emission and alpha
+    set_node_input(shader, "Alpha", 1.0)
+    connect_emission_alpha(obj, mat, shader)
+
+    # Normal
+    drop_cursor(0.1)
+    reset_cursor()
+    snormal_image = find_material_image(mat, SCLERA_NORMAL_MAP)
+    snormal_node = snormal_tiling_node = None
+    # space
+    advance_cursor(-count_maps(snormal_image))
+    # maps
+    if snormal_image is not None:
+        advance_cursor(-1)
+        drop_cursor(0.75)
+        group = get_node_group("tiling_mapping")
+        snormal_tiling_node = make_node_group_node(nodes, group, "Sclera Normal Tiling", "tiling_normal_sclera_mapping")
+        set_node_input(snormal_tiling_node, "Tiling", props.eye_sclera_tiling)
+        advance_cursor()
+        snormal_node = make_image_node(nodes, snormal_image, "sclera_normal_tex")
+        step_cursor()
+    # groups
+    if is_cornea:
+        group = get_node_group("normal_refractive_cornea_mixer")
+    else:
+        group = get_node_group("normal_refractive_eye_mixer")
+    nm_group = make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
+    # values
+    set_node_input(nm_group, "Sclera Normal Strength", 1 - props.eye_sclera_normal)
+    set_node_input(nm_group, "Blood Vessel Height", props.eye_blood_vessel_height/1000)
+    set_node_input(nm_group, "Iris Bump Height", props.eye_iris_bump_height/1000)
+    # links
+    link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Sclera Mask")
+    link_nodes(links, sclera_node, "Color", nm_group, "Sclera Map")
+    link_nodes(links, diffuse_node, "Color", nm_group, "Cornea Map")
+    if snormal_image is not None:
+        link_nodes(links, snormal_node, "Color", nm_group, "Sclera Normal")
+        link_nodes(links, snormal_tiling_node, "Vector", snormal_node, "Vector")
+    link_nodes(links, nm_group, "Normal", shader, "Normal")
+
+    # Clearcoat and material settings
+    if is_cornea:
+        set_node_input(shader, "Clearcoat", 1.0)
+        set_node_input(shader, "Clearcoat Roughness", 0.15)
+        mat.use_screen_refraction = True
+        mat.refraction_depth = props.eye_refraction_depth / 1000
+    else:
+        set_node_input(shader, "Clearcoat", 0.0)
+        set_node_input(shader, "Specular Tint", 1.0)
+        set_node_input(shader, "Clearcoat Roughness", 0.0)
+        mat.use_screen_refraction = False
+
+    return
+
+
+
+
 def connect_adv_mouth_material(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
     obj_cache = get_object_cache(obj)
@@ -1174,7 +1423,7 @@ def connect_adv_mouth_material(obj, mat, shader):
     # props
     metallic = 0
     specprop, specular = get_specular_strength(mat_cache, shader)
-    roughprop, roughness = get_roughness_strength(mat_cache)
+    roughprop, roughness = get_roughness_remap(mat_cache)
     # maps
     metallic_image = find_material_image(mat, METALLIC_MAP)
     roughness_image = find_material_image(mat, ROUGHNESS_MAP)
@@ -1322,7 +1571,7 @@ def connect_basic_material(obj, mat, shader):
     roughness_node = None
     if roughness_image is not None:
         roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
-        rprop_name, rprop_val = get_roughness_strength(mat_cache)
+        rprop_name, rprop_val = get_roughness_remap(mat_cache)
         if mat_cache.material_type.startswith("SKIN"):
             advance_cursor()
             remap_node = make_shader_node(nodes, "ShaderNodeMapRange")
@@ -1737,7 +1986,8 @@ def connect_msr(obj, mat, shader):
     mask_image = find_material_image(mat, MOD_SPECMASK_MAP)
     roughness_image = find_material_image(mat, ROUGHNESS_MAP)
     prop_spec, specular_strength = get_specular_strength(mat_cache, shader)
-    prop_roughness, roughness_remap = get_roughness_strength(mat_cache)
+    prop_roughness, roughness_remap = get_roughness_remap(mat_cache)
+    prop_roughness_power, roughness_power = get_roughness_power(mat_cache)
     prop_group = get_material_group(mat_cache)
 
     count = count_maps(mask_image, specular_image, roughness_image, metallic_image)
@@ -1762,11 +2012,15 @@ def connect_msr(obj, mat, shader):
         metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
         step_cursor()
     # groups
-    group = get_node_group("msr_mixer")
+    if mat_cache.is_skin():
+        group = get_node_group("msr_skin_mixer")
+    else:
+        group = get_node_group("msr_mixer")
     group_node = make_node_group_node(nodes, group, "Metallic, Specular & Roughness Mixer", "msr_" + prop_group + "_mixer")
     # values
     set_node_input(group_node, "Specular", specular_strength)
     set_node_input(group_node, "Roughness Remap", roughness_remap)
+    set_node_input(group_node, "Roughness Power", roughness_power)
     # links
     link_nodes(links, metallic_node, "Color", group_node, "Metallic")
     link_nodes(links, specular_node, "Color", group_node, "Specular")
@@ -2297,25 +2551,10 @@ def add_material_weight_map(obj, mat, create = False):
 
 def fix_physics_mod_order(obj):
     """Moves any cloth modifier to the end of the list, so it is operates
-    on all the 'Vertex Weight Edit' modifiers.
+    after all the 'Vertex Weight Edit' modifiers.
     """
-
-    try:
-        if bpy.context.view_layer.objects.active is not obj:
-            obj.select_set(True)
-            bpy.context.view_layer.objects.active = obj
-        num_mods = len(obj.modifiers)
-        cloth_mod = get_cloth_physics_mod(obj)
-        max = 50
-        if cloth_mod is not None:
-            while obj.modifiers.find(cloth_mod.name) < num_mods - 1:
-                bpy.ops.object.modifier_move_down(modifier=cloth_mod.name)
-            max -= 1
-            if max == 0:
-                return
-    except Exception as e:
-        log_error("Something went wrong fixing cloth modifier order...", e)
-
+    cloth_mod = get_cloth_physics_mod(obj)
+    move_mod_last(obj, cloth_mod)
 
 
 def remove_material_weight_maps(obj, mat):
@@ -2690,6 +2929,146 @@ def render_animation(context):
     pass
 
 
+def move_mod_last(obj, mod):
+    try:
+        if bpy.context.view_layer.objects.active is not obj:
+            obj.select_set(True)
+            bpy.context.view_layer.objects.active = obj
+        num_mods = len(obj.modifiers)
+        if mod is not None:
+            max = 50
+            while obj.modifiers.find(mod.name) < num_mods - 1:
+                bpy.ops.object.modifier_move_down(modifier=mod.name)
+            max -= 1
+            if max == 0:
+                return
+    except Exception as e:
+        log_error("Unable to move to last, modifier: " + mod.name, e)
+
+
+def move_mod_first(obj, mod):
+    print(mod)
+    try:
+        if bpy.context.view_layer.objects.active is not obj:
+            obj.select_set(True)
+            bpy.context.view_layer.objects.active = obj
+        if mod is not None:
+            max = 50
+            while obj.modifiers.find(mod.name) > 0:
+                bpy.ops.object.modifier_move_up(modifier=mod.name)
+            max -= 1
+            if max == 0:
+                return
+    except Exception as e:
+        log_error("Unable to move to first, modifier: " + mod.name, e)
+
+
+def fix_eye_mod_order(obj):
+    """Moves the armature modifier to the end of the list
+    """
+    edit_mod = get_object_modifier(obj, "VERTEX_WEIGHT_EDIT", "Eye_WeightEdit")
+    displace_mod = get_object_modifier(obj, "DISPLACE", "Eye_Displace")
+    warp_mod = get_object_modifier(obj, "UV_WARP", "Eye_UV_Warp")
+    move_mod_first(warp_mod)
+    move_mod_first(displace_mod)
+    move_mod_first(edit_mod)
+
+
+def remove_eye_modifiers(obj):
+    if obj and obj.type == "MESH":
+        for mod in obj.modifiers:
+            if NODE_PREFIX in mod.name:
+                if mod.type == "DISPLACEMENT" or mod.type == "UV_WARP" or mod.type == "VERTEX_WEIGHT_EDIT":
+                    obj.modifiers.remove(mod)
+
+
+def add_eye_modifiers(obj):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    # fetch the eye materials (not the cornea materials)
+    mats = []
+    for mat in obj.data.materials:
+        if detect_eye_material(mat):
+            mats.append(mat)
+
+    # reuse or append the eye displacement map
+    image_name = "Eye_Displacement_Map"
+    image = None
+    for i in bpy.data.images:
+        if i.name.startswith(NODE_PREFIX + image_name):
+            image = i
+    if image is None:
+        image = fetch_lib_image("CC3_Eye_Displacement_Map")
+        log_info("Image: " + image.name + " appended from library")
+    else:
+        log_info("Image: " + image.name + " already exists for eye displacement")
+
+    # reuse or create the eye displacement texture
+    tex_name = "Eye_Displacement_Texture"
+    tex = None
+    for t in bpy.data.textures:
+        if t.name.startswith(NODE_PREFIX + tex_name):
+            tex = t
+    if tex is None:
+        tex = bpy.data.textures.new(unique_name(tex_name), "IMAGE")
+        log_info("Texture: " + tex.name + " created for eye displacement")
+    else:
+        log_info("Texture: " + tex.name + " already exists for eye displacement")
+
+    tex.image = image
+
+    # Create the eye displacement group
+    displace_group = prefs.eye_displacement_group
+    if displace_group not in obj.vertex_groups:
+        displace_vertex_group = obj.vertex_groups.new(name = displace_group)
+    else:
+        displace_vertex_group = obj.vertex_groups[displace_group]
+
+    # The displacement group should contain only those verteces affected by the material, default weight to 0.0
+    clear_vertex_group(obj, displace_vertex_group)
+    for mat in mats:
+        mat_verts = get_material_vertices(obj, mat)
+        displace_vertex_group.add(mat_verts, 0.0, 'ADD')
+
+    # re-create create the Vertex Weight Edit modifier and the Vertex Weight Mix modifer
+    remove_eye_modifiers(obj)
+    edit_mod = obj.modifiers.new(unique_name("Eye_WeightEdit"), "VERTEX_WEIGHT_EDIT")
+    displace_mod = obj.modifiers.new(unique_name("Eye_Displace"), "DISPLACE")
+    warp_mod = obj.modifiers.new(unique_name("Eye_UV_Warp"), "UV_WARP")
+
+    edit_mod.mask_texture = tex
+    edit_mod.use_add = False
+    edit_mod.use_remove = False
+    edit_mod.add_threshold = 0.01
+    edit_mod.remove_threshold = 0.01
+    edit_mod.vertex_group = displace_group
+    edit_mod.default_weight = 0
+    edit_mod.falloff_type = 'LINEAR'
+    edit_mod.invert_falloff = True
+    edit_mod.mask_constant = 1
+    edit_mod.mask_tex_mapping = 'UV'
+    edit_mod.mask_tex_use_channel = 'INT'
+
+    displace_mod.vertex_group = displace_group
+    displace_mod.mid_level = 0
+    displace_mod.strength = props.eye_iris_depth
+    displace_mod.direction = "Y"
+    displace_mod.space = "LOCAL"
+
+    warp_mod.center = (0.5, 0.5)
+    warp_mod.axis_u = "X"
+    warp_mod.axis_v = "Y"
+    warp_mod.vertex_group = displace_group
+    warp_mod.scale = (1.0 / props.eye_pupil_scale, 1.0 / props.eye_pupil_scale)
+
+    move_mod_first(obj, warp_mod)
+    move_mod_first(obj, displace_mod)
+    move_mod_first(obj, edit_mod)
+
+    log_info("Eye Displacement modifiers applied to: " + obj.name)
+
+
 def get_node_group(name):
     for group in bpy.data.node_groups:
         if NODE_PREFIX in group.name and name in group.name:
@@ -2763,6 +3142,40 @@ def fetch_node_group(name):
                 return group
     log_error("Trying to append group: " + name + ", _LIB.blend library file not found?")
     raise ValueError("Unable to append node group from library file!")
+
+
+def append_lib_image(path, object_name):
+    for i in bpy.data.images:
+        i.tag = True
+
+    filename = "_LIB.blend"
+    datablock = "Image"
+    file = os.path.join(path, filename)
+    if os.path.exists(file):
+        bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=False, link=False)
+
+    appended_image = None
+    for i in bpy.data.images:
+        if not i.tag and object_name in i.name:
+            appended_image = i
+            i.name = unique_name(object_name)
+        i.tag = False
+    return appended_image
+
+
+def fetch_lib_image(name):
+
+    paths = [bpy.path.abspath("//"),
+             os.path.dirname(os.path.realpath(__file__)),
+             ]
+    for path in paths:
+        log_info("Trying to append: " + path + " > " + name)
+        if os.path.exists(path):
+            image = append_lib_image(path, name)
+            if image:
+                return image
+    log_error("Trying to append image: " + name + ", _LIB.blend library file not found?")
+    raise ValueError("Unable to append iamge from library file!")
 
 
 def clean_colletion(collection):
@@ -2884,8 +3297,16 @@ def process_material(obj, mat):
             connect_basic_eye_material(obj, mat, shader)
 
         elif props.setup_mode == "ADVANCED":
-            connect_adv_eye_material(obj, mat, shader)
+            if prefs.refractive_eyes:
+                connect_refractive_eye_material(obj, mat, shader)
+            else:
+                connect_adv_eye_material(obj, mat, shader)
 
+        move_new_nodes(-600, 0)
+
+    elif mat_cache.is_eye() and prefs.refractive_eyes:
+
+        connect_refractive_eye_material(obj, mat, shader)
         move_new_nodes(-600, 0)
 
     elif mat_cache.is_tearline():
@@ -2933,10 +3354,14 @@ def process_object(obj, objects_processed):
 
     cache = get_object_cache(obj)
 
-    # when rebuilding materials remove all the physics modifiers
-    # they don't seem to like having their settings changed...
-    remove_all_physics_mods(obj)
     if obj.type == "MESH":
+        # when rebuilding materials remove all the physics modifiers
+        # they don't seem to like having their settings changed...
+        remove_all_physics_mods(obj)
+
+        # remove any modifiers for refractive eyes
+        if prefs.refractive_eyes:
+            remove_eye_modifiers(obj)
 
         # process any materials found in the mesh object
         for mat in obj.data.materials:
@@ -2952,6 +3377,11 @@ def process_object(obj, objects_processed):
             edit_mods, mix_mods = get_weight_map_mods(obj)
             if len(edit_mods) > 0:
                 enable_cloth_physics(obj)
+
+        # setup refractive eyes
+        if prefs.refractive_eyes and cache.is_eye():
+            add_eye_modifiers(obj)
+
 
     elif obj.type == "ARMATURE":
 
@@ -2982,6 +3412,7 @@ def reset_nodes(mat):
     out.location.x += 400
 
     link_nodes(links, shader, "BSDF", out, "Surface")
+
 
 def get_material_dir(base_dir, character_name, import_type, obj, mat):
     if import_type == "fbx":
@@ -3496,8 +3927,6 @@ class CC3Import(bpy.types.Operator):
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-        print(context.window)
 
         # import character
         if "IMPORT" in self.param:
@@ -4641,6 +5070,34 @@ def update_all_properties(self, context, update_mode = None):
                                 # Update all materials in the imported objects material cache:
                                 update_advanced_material(mat, matrix)
 
+        mod_prop_names = ["eye_iris_depth", "eye_pupil_scale"]
+        for prop_name in mod_prop_names:
+            for p in props.import_objects:
+                obj = p.object
+
+                if update_mode == "UPDATE_SELECTED":
+                    # Update only materials from the cache which are present in the selected objects:
+                    if obj in context.selected_objects:
+                        update_object_modifier(obj, prop_name)
+                else:
+                    # Update all materials in the imported objects material cache:
+                    update_object_modifier(obj, prop_name)
+
+        mat_prop_names = ["eye_ior", "eye_refraction_depth"]
+        for prop_name in mat_prop_names:
+            for cache in props.material_cache:
+                mat = cache.material
+                if mat is not None:
+                    if update_mode == "UPDATE_SELECTED":
+                        # Update only materials from the cache which are present in the selected objects:
+                        if is_material_in_objects(mat, context.selected_objects):
+                            update_material_settings(mat, cache, prop_name)
+                    else:
+                        # Update all materials in the imported objects material cache:
+                        update_material_settings(mat, cache, prop_name)
+
+
+
     else: # props.setup_mode == "BASIC":
 
         for cache in props.material_cache:
@@ -4655,6 +5112,95 @@ def update_all_properties(self, context, update_mode = None):
                     update_basic_material(mat, "ALL")
 
     log_timer("update_all_properties()", "ms")
+
+
+def update_material_settings(mat, cache, prop_name):
+    props = bpy.context.scene.CC3ImportProps
+
+    if prop_name == "eye_refraction_depth":
+        if cache.is_cornea():
+            mat.refraction_depth = props.eye_refraction_depth / 1000.0
+
+    if prop_name == "eye_ior":
+        if cache.is_cornea() and mat.node_tree:
+            set_default_shader_input(mat, "IOR", props.eye_ior)
+
+
+def update_material(self, context, prop_name, update_mode = None):
+    global block_update
+    if block_update: return
+
+    props = bpy.context.scene.CC3ImportProps
+    start_timer()
+
+    if update_mode is None:
+        update_mode = props.update_mode
+
+    if props.setup_mode == "ADVANCED":
+
+        for cache in props.material_cache:
+            mat = cache.material
+            if mat is not None:
+                if update_mode == "UPDATE_SELECTED":
+                    # Update only materials from the cache which are present in the selected objects:
+                    if is_material_in_objects(mat, context.selected_objects):
+                        update_material_settings(mat, cache, prop_name)
+                else:
+                    # Update all materials in the imported objects material cache:
+                    update_material_settings(mat, cache, prop_name)
+
+    log_timer("update_material()", "ms")
+
+
+def get_object_modifier(obj, type, name = ""):
+    if obj is not None:
+        for mod in obj.modifiers:
+            if name == "":
+                if mod.type == type:
+                    return mod
+            else:
+                if mod.type == type and mod.name.startswith(NODE_PREFIX) and name in mod.name:
+                    return mod
+    return None
+
+def update_object_modifier(obj, prop_name):
+    props = bpy.context.scene.CC3ImportProps
+
+    if prop_name == "eye_iris_depth":
+        mod = get_object_modifier(obj, "DISPLACE", "Eye_Displace")
+        if mod:
+            mod.strength = props.eye_iris_depth
+
+    elif prop_name == "eye_pupil_scale":
+        mod = get_object_modifier(obj, "UV_WARP", "Eye_UV_Warp")
+        if mod:
+            uv_scale = 1.0 / props.eye_pupil_scale
+            mod.scale = (uv_scale, uv_scale)
+
+
+def update_modifier(self, context, prop_name, update_mode = None):
+    global block_update
+    if block_update: return
+
+    props = bpy.context.scene.CC3ImportProps
+    start_timer()
+
+    if update_mode is None:
+        update_mode = props.update_mode
+
+    if props.setup_mode == "ADVANCED":
+        for p in props.import_objects:
+            obj = p.object
+
+            if update_mode == "UPDATE_SELECTED":
+                # Update only materials from the cache which are present in the selected objects:
+                if obj in context.selected_objects:
+                    update_object_modifier(obj, prop_name)
+            else:
+                # Update all materials in the imported objects material cache:
+                update_object_modifier(obj, prop_name)
+
+    log_timer("update_modifier()", "ms")
 
 
 def update_property(self, context, prop_name, update_mode = None):
@@ -4719,6 +5265,7 @@ def update_advanced_material(mat, matrix):
             group = m[1]
             input = m[2]
             nodes = mat.node_tree.nodes
+
 
             try:
                 if len(input) == 3:
@@ -4804,7 +5351,8 @@ def reset_parameters(context = bpy.context):
     props.skin_ao = 1.0
     props.skin_blend = 0.0
     props.skin_normal_blend = 0.0
-    props.skin_roughness = 0.15
+    props.skin_roughness = 0.1
+    props.skin_roughness_power = 0.8
     props.skin_specular = 0.4
     props.skin_basic_specular = 0.4
     props.skin_basic_roughness = 0.15
@@ -4829,8 +5377,11 @@ def reset_parameters(context = bpy.context):
     props.eye_iris_roughness = 0.0
     props.eye_iris_scale = 1.0
     props.eye_sclera_scale = 1.0
-    props.eye_iris_radius = 0.13
+    props.eye_iris_radius = 0.14
     props.eye_iris_hardness = 0.85
+    props.eye_limbus_radius = 0.125
+    props.eye_limbus_hardness = 0.80
+    props.eye_limbus_color = (0.2, 0.2, 0.2, 1.0)
     props.eye_sss_radius = 1.0
     props.eye_sss_falloff = (1.0, 1.0, 1.0, 1.0)
     props.eye_sclera_normal = 0.9
@@ -4850,6 +5401,14 @@ def reset_parameters(context = bpy.context):
     props.eye_basic_brightness = 0.9
     props.eye_tearline_alpha = 0.05
     props.eye_tearline_roughness = 0.15
+
+    props.eye_iris_depth = 0.25
+    props.eye_pupil_scale = 1.0
+    props.eye_refraction_depth = 1.0
+    props.eye_ior = 1.38
+    props.eye_blood_vessel_height = 0.5
+    props.eye_iris_bump_height = 1
+
 
     props.teeth_ao = 1.0
     props.teeth_gums_brightness = 0.9
@@ -5022,11 +5581,21 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
     def is_nails(self):
         return self.material_type == "NAILS"
 
-    def is_eye(self):
-        return self.material_type == "EYE"
+    def is_eye(self, side = "ANY"):
+        if side == "RIGHT":
+            return self.material_type == "EYE" and self.material.name.lower().endswith("_r")
+        elif side == "LEFT":
+            return self.material_type == "EYE" and self.material.name.lower().endswith("_l")
+        else:
+            return self.material_type == "EYE"
 
-    def is_cornea(self):
-        return self.material_type == "CORNEA"
+    def is_cornea(self, side = "ANY"):
+        if side == "RIGHT":
+            return self.material_type == "CORNEA" and self.material.name.lower().endswith("_r")
+        elif side == "LEFT":
+            return self.material_type == "CORNEA" and self.material.name.lower().endswith("_l")
+        else:
+            return self.material_type == "CORNEA"
 
     def is_eye_occlusion(self):
         return self.material_type == "OCCLUSION"
@@ -5165,7 +5734,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     skin_lips_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_lips_ao"))
 
     skin_normal_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_blend"))
-    skin_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness"))
+    skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
+    skin_roughness: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness"))
     skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular"))
     skin_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=5, update=lambda s,c: update_property(s,c,"skin_sss_radius"))
     skin_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -5197,23 +5767,33 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     eye_specular: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_specular"))
     eye_sclera_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_roughness"))
     eye_iris_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_roughness"))
-    eye_iris_scale: bpy.props.FloatProperty(default=1.0, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_iris_scale"))
-    eye_iris_radius: bpy.props.FloatProperty(default=0.13, min=0.1, max=0.15, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
+    eye_iris_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_property(s,c,"eye_iris_scale"))
+    eye_iris_radius: bpy.props.FloatProperty(default=0.14, min=0.1, max=0.15, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
     eye_iris_hardness: bpy.props.FloatProperty(default=0.85, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hardness"))
     eye_sclera_scale: bpy.props.FloatProperty(default=1.0, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_sclera_scale"))
+    eye_limbus_radius: bpy.props.FloatProperty(default=0.125, min=0.1, max=0.15, update=lambda s,c: update_property(s,c,"eye_limbus_radius"))
+    eye_limbus_hardness: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_limbus_hardness"))
+    eye_limbus_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0.2, 0.2, 0.2, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_limbus_color"))
     eye_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"eye_sss_radius"))
     eye_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_sss_falloff"))
     eye_sclera_normal: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_normal"))
     eye_sclera_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=lambda s,c: update_property(s,c,"eye_sclera_tiling"))
 
-
-
     eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion"))
 
 
     eye_tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"eye_tearline_alpha"))
     eye_tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"eye_tearline_roughness"))
+
+    eye_iris_depth: bpy.props.FloatProperty(default=0.25, min=0.0, max=1.0, update=lambda s,c: update_modifier(s,c,"eye_iris_depth"))
+    eye_pupil_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_modifier(s,c,"eye_pupil_scale"))
+    eye_refraction_depth: bpy.props.FloatProperty(default=1, min=0, max=5, update=lambda s,c: update_material(s,c,"eye_refraction_depth"))
+    eye_ior: bpy.props.FloatProperty(default=1.38, min=1.01, max=2.5, update=lambda s,c: update_material(s,c,"eye_ior"))
+    eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
+    eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
+
 
     teeth_toggle: bpy.props.BoolProperty(default=True)
     teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_ao"))
@@ -5552,7 +6132,9 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_2 = split.column()
                         col_1.label(text="Skin Specular")
                         col_2.prop(props, "skin_specular", text="", slider=True)
-                        col_1.label(text="Skin Roughness")
+                        col_1.label(text="Roughness Power")
+                        col_2.prop(props, "skin_roughness_power", text="", slider=True)
+                        col_1.label(text="Roughness Remap")
                         col_2.prop(props, "skin_roughness", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
@@ -5641,6 +6223,27 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_1.label(text="Iris Mask Hardness")
                         col_2.prop(props, "eye_iris_hardness", text="", slider=True)
 
+                        if prefs.refractive_eyes:
+                            col_1.label(text="Limbus Radius")
+                            col_2.prop(props, "eye_limbus_radius", text="", slider=True)
+                            col_1.label(text="Limbus Hardness")
+                            col_2.prop(props, "eye_limbus_hardness", text="", slider=True)
+                            col_1.label(text="Limbus Color")
+                            col_2.prop(props, "eye_limbus_color", text="")
+
+                            column.box().label(text= "Depth & Refraction", icon="MOD_THICKNESS")
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Iris Depth")
+                            col_2.prop(props, "eye_iris_depth", text="", slider=True)
+                            col_1.label(text="Pupil Scale")
+                            col_2.prop(props, "eye_pupil_scale", text="", slider=True)
+                            col_1.label(text="Eye IOR")
+                            col_2.prop(props, "eye_ior", text="", slider=True)
+                            col_1.label(text="Refraction Depth")
+                            col_2.prop(props, "eye_refraction_depth", text="", slider=True)
+
                         column.box().label(text= "Corner Shadow", icon="SHADING_RENDERED")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
@@ -5680,6 +6283,13 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_2.prop(props, "eye_sclera_normal", text="", slider=True)
                         col_1.label(text="Sclera Normal Tiling")
                         col_2.prop(props, "eye_sclera_tiling", text="", slider=True)
+
+                        if prefs.refractive_eyes:
+                            col_1.label(text="Blood Vessel Height")
+                            col_2.prop(props, "eye_blood_vessel_height", text="", slider=True)
+                            col_1.label(text="Iris Bump Height")
+                            col_2.prop(props, "eye_iris_bump_height", text="", slider=True)
+
 
                         column.box().label(text= "Occlusion", icon="PROP_CON")
                         split = column.split(factor=0.5)
@@ -6367,7 +6977,6 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
     def draw(self, context):
         global debug_counter
         props = bpy.context.scene.CC3ImportProps
-        print(__name__.partition(".")[0])
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         layout = self.layout
@@ -6534,6 +7143,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     fake_hair_anisotropy: bpy.props.BoolProperty(default=False, name="Add fake anisotropic higlights to the hair in Eevee.")
     fake_hair_bump: bpy.props.BoolProperty(default=False, name="Fake hair bump map from the diffuse map if there is no normal or bump map present.")
 
+    refractive_eyes: bpy.props.BoolProperty(default=True, name="Generate refractive eyes.")
+    eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Iris displacement vertex group name")
+
     # addon updater preferences
 
     auto_check_update: bpy.props.BoolProperty(
@@ -6590,6 +7202,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "hair_gamma_correct")
         layout.prop(self, "fake_hair_anisotropy")
         layout.prop(self, "fake_hair_bump")
+        layout.label(text="Eyes:")
+        layout.prop(self, "refractive_eyes")
+        layout.prop(self, "eye_displacement_group")
         layout.label(text="Physics:")
         layout.prop(self, "physics")
         layout.prop(self, "physics_group")

@@ -1,5 +1,5 @@
 
-VERSION_STRING = "v0.4.3"
+VERSION_STRING = "v0.4.4"
 
 # lists of the suffixes used by the input maps
 BASE_COLOR_MAP = ["diffuse", "albedo"]
@@ -46,11 +46,12 @@ IMAGE_TYPES = [".bmp", ".sgi", ".rgb", ".bw", ".png", ".jpg", ".jpeg", ".jp2", "
                ".tga", ".cin", ".dpx", ".exr", ".hdr", ".tif", ".tiff"]
 
 # base names of all node groups in the library blend file
-NODE_GROUPS = ["color_ao_mixer", "color_blend_ao_mixer", "color_eye_mixer", "color_teeth_mixer", "color_tongue_mixer", "color_head_mixer",
+NODE_GROUPS = ["color_ao_mixer", "color_blend_ao_mixer", "color_refractive_eye_mixer", "color_eye_mixer", "color_teeth_mixer", "color_tongue_mixer", "color_head_mixer",
                "color_hair_mixer", "subsurface_mixer", "subsurface_overlay_mixer",
-               "msr_mixer", "msr_overlay_mixer",
+               "msr_mixer", "msr_skin_mixer", "msr_overlay_mixer",
                "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer", "fake_bump_mixer",
-               "eye_occlusion_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping"]
+               "normal_refractive_cornea_mixer", "normal_refractive_eye_mixer",
+               "eye_occlusion_mask", "iris_refractive_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping"]
 
 # material types that share parameters
 MATERIAL_PARAM_GROUPS = [

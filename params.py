@@ -29,6 +29,7 @@ PROP_MATRIX = [
                     ["Iris Hue", "eye_iris_hue"],
                     ["Sclera Saturation", "eye_sclera_saturation"],
                     ["Iris Saturation", "eye_iris_saturation"],
+                    ["Limbus Color", "eye_limbus_color"],
                 ],
             },
 
@@ -181,12 +182,20 @@ PROP_MATRIX = [
 
             {   "name": ["_skin_head_", "_skin_body_", "_skin_arm_", "_skin_leg_"],
                 "inputs": [
+                    ["Roughness Power", "skin_roughness_power"],
                     ["Roughness Remap", "skin_roughness"],
                     ["Specular", "skin_specular"],
                 ],
             },
 
             {   "name": "_eye_",
+                "inputs": [
+                    ["Specular1", "eye_specular"],
+                    ["Roughness1", "eye_sclera_roughness"],
+                ],
+            },
+
+            {   "name": "_cornea_",
                 "inputs": [
                     ["Specular1", "eye_specular"],
                     ["Specular2", "eye_specular"],
@@ -280,6 +289,9 @@ PROP_MATRIX = [
             {   "name": "_eye_",
                 "inputs": [
                     ["Micro Normal Strength", "eye_sclera_normal", "1 - props.eye_sclera_normal"],
+                    ["Sclera Normal Strength", "eye_sclera_normal", "1 - props.eye_sclera_normal"],
+                    ["Blood Vessel Height", "eye_blood_vessel_height", "props.eye_blood_vessel_height/1000"],
+                    ["Iris Bump Height", "eye_iris_bump_height", "props.eye_iris_bump_height/1000"],
                 ],
             },
 
@@ -397,6 +409,8 @@ PROP_MATRIX = [
                     ["Scale", "eye_iris_scale", "1.0 / props.eye_iris_scale"],
                     ["Radius", "eye_iris_radius"],
                     ["Hardness", "eye_iris_hardness", "props.eye_iris_radius * props.eye_iris_hardness * 0.99"],
+                    ["Limbus Radius", "eye_limbus_radius"],
+                    ["Limbus Hardness", "eye_limbus_hardness"],
                 ],
             },
 
