@@ -28,7 +28,7 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 ### 0.5.2
 - Applies IOR shader input setting when building materials.
 - Exposed some build preferences in the Build Settings panel.
-- Enables SSR and refraction when importing with refractive eyes.
+- Enabled SSR and refraction when importing with refractive eyes.
 - Auto updater now targets Main branch for current build.
 
 ### 0.5.1
