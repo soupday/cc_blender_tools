@@ -1,5 +1,5 @@
 
-VERSION_STRING = "v0.5.1"
+VERSION_STRING = "v0.5.2"
 
 # lists of the suffixes used by the input maps
 BASE_COLOR_MAP = ["diffuse", "albedo"]

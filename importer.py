@@ -867,6 +867,7 @@ def connect_basic_eye_material(obj, mat, shader):
     #
     set_node_input(shader, "Clearcoat", 1.0)
     set_node_input(shader, "Clearcoat Roughness", 0.15)
+    mat.use_screen_refraction = False
 
     return
 
@@ -1029,6 +1030,7 @@ def connect_adv_eye_material(obj, mat, shader):
     #
     set_node_input(shader, "Clearcoat", 1.0)
     set_node_input(shader, "Clearcoat Roughness", 0.15)
+    mat.use_screen_refraction = False
 
     return
 
@@ -1253,6 +1255,7 @@ def connect_refractive_eye_material(obj, mat, shader):
         set_node_input(shader, "Clearcoat Roughness", 0.15)
         mat.use_screen_refraction = True
         mat.refraction_depth = props.eye_refraction_depth / 1000
+        set_default_shader_input(mat, "IOR", props.eye_ior)
     else:
         set_node_input(shader, "Clearcoat", 0.0)
         set_node_input(shader, "Specular Tint", 1.0)
@@ -1847,6 +1850,7 @@ def connect_hair_base_color(obj, mat, shader):
     set_node_input(group_node, "Diffuse Hue", props.hair_hue)
     set_node_input(group_node, "Diffuse Saturation", props.hair_saturation)
     set_node_input(group_node, "Aniso Strength", props.hair_aniso_strength)
+    set_node_input(group_node, "Aniso Strength Cycles", props.hair_aniso_strength_cycles)
     set_node_input(group_node, "Aniso Color", props.hair_aniso_color)
     set_node_input(group_node, "Base Color Strength", props.hair_vertex_color_strength)
     set_node_input(group_node, "Base Color Map Strength", props.hair_base_color_map_strength)
@@ -1886,6 +1890,9 @@ def connect_hair_base_color(obj, mat, shader):
         link_nodes(links, diffuse_node, "Color", group_node, "Diffuse Map")
     if ao_image is not None:
         link_nodes(links, ao_node, "Color", group_node, "AO Map")
+
+    link_nodes(links, group_node, "Base Color", shader, "Base Color")
+
     link_nodes(links, group_node, "Base Color", shader, "Base Color")
     link_nodes(links, group_node, "Aniso Angle Cycles", shader, "Anisotropic Rotation")
     link_nodes(links, group_node, "Aniso Strength", shader, "Anisotropic")
@@ -3855,6 +3862,10 @@ class CC3Import(bpy.types.Operator):
             if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
                 setup_scene_default(prefs.quality_lighting)
 
+        if prefs.refractive_eyes:
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
+
         zoom_to_character()
         self.lighting = True
 
@@ -4372,6 +4383,7 @@ def set_shape_key_edit(obj):
 
 def setup_scene_default(scene_type):
     props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     # store selection and mode
     current_selected = bpy.context.selected_objects
@@ -4392,8 +4404,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bloom_knee = 0.5
             bpy.context.scene.eevee.bloom_radius = 6.5
             bpy.context.scene.eevee.bloom_intensity = 0.05
-            bpy.context.scene.eevee.use_ssr = False
-            bpy.context.scene.eevee.use_ssr_refraction = False
+            if prefs.refractive_eyes:
+                bpy.context.scene.eevee.use_ssr = True
+                bpy.context.scene.eevee.use_ssr_refraction = True
+            else:
+                bpy.context.scene.eevee.use_ssr = False
+                bpy.context.scene.eevee.use_ssr_refraction = False
             bpy.context.scene.eevee.bokeh_max_size = 32
             bpy.context.scene.view_settings.view_transform = "Filmic"
             bpy.context.scene.view_settings.look = "None"
@@ -5379,7 +5395,7 @@ def reset_parameters(context = bpy.context):
     props.eye_iris_depth = 0.25
     props.eye_pupil_scale = 1.0
     props.eye_refraction_depth = 1.0
-    props.eye_ior = 1.38
+    props.eye_ior = 1.42
     props.eye_blood_vessel_height = 0.5
     props.eye_iris_bump_height = 1
 
@@ -5437,7 +5453,8 @@ def reset_parameters(context = bpy.context):
     props.hair_contrast = 0.0
     props.hair_hue = 0.5
     props.hair_saturation = 1.0
-    props.hair_aniso_strength = 1.0
+    props.hair_aniso_strength = 0
+    props.hair_aniso_strength_cycles = 0
     props.hair_aniso_color = (0.050000, 0.038907, 0.032500, 1.000000)
     props.hair_vertex_color_strength = 0.0
     props.hair_base_color_map_strength = 1.0
@@ -5765,7 +5782,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     eye_iris_depth: bpy.props.FloatProperty(default=0.25, min=0.0, max=1.0, update=lambda s,c: update_modifier(s,c,"eye_iris_depth"))
     eye_pupil_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_modifier(s,c,"eye_pupil_scale"))
     eye_refraction_depth: bpy.props.FloatProperty(default=1, min=0, max=5, update=lambda s,c: update_material(s,c,"eye_refraction_depth"))
-    eye_ior: bpy.props.FloatProperty(default=1.38, min=1.01, max=2.5, update=lambda s,c: update_material(s,c,"eye_ior"))
+    eye_ior: bpy.props.FloatProperty(default=1.42, min=1.01, max=2.5, update=lambda s,c: update_material(s,c,"eye_ior"))
     eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
 
@@ -5839,7 +5856,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     hair_aniso_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.050000, 0.038907, 0.032500, 1.000000), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_aniso_color"))
-    hair_aniso_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_aniso_strength"))
+    hair_aniso_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_aniso_strength"))
+    hair_aniso_strength_cycles: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_aniso_strength_cycles"))
     hair_vertex_color_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_vertex_color_strength"))
     hair_base_color_map_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_base_color_map_strength"))
     hair_depth_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_depth_strength"))
@@ -5962,6 +5980,19 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         layout.prop(props, "setup_mode", expand=True)
         layout.prop(props, "blend_mode", expand=True)
         layout.prop(props, "build_mode", expand=True)
+
+        # Prefs:
+        box = layout.box()
+        split = box.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="Prefs:")
+        col_2.prop(prefs, "new_hair_shader")
+        col_1.prop(prefs, "refractive_eyes")
+        #col_1.prop(prefs, "fake_hair_anisotropy", text="Eevee Anisotropy")
+        col_2.prop(prefs, "fake_hair_bump")
+
+        # Build Button
         box = layout.box()
         box.scale_y = 2
         if props.import_file == "":
@@ -6199,25 +6230,14 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_2.prop(props, "eye_iris_hardness", text="", slider=True)
 
                         if prefs.refractive_eyes:
+                            col_1.separator()
+                            col_2.separator()
                             col_1.label(text="Limbus Radius")
                             col_2.prop(props, "eye_limbus_radius", text="", slider=True)
                             col_1.label(text="Limbus Hardness")
                             col_2.prop(props, "eye_limbus_hardness", text="", slider=True)
                             col_1.label(text="Limbus Color")
                             col_2.prop(props, "eye_limbus_color", text="")
-
-                            column.box().label(text= "Depth & Refraction", icon="MOD_THICKNESS")
-                            split = column.split(factor=0.5)
-                            col_1 = split.column()
-                            col_2 = split.column()
-                            col_1.label(text="Iris Depth")
-                            col_2.prop(props, "eye_iris_depth", text="", slider=True)
-                            col_1.label(text="Pupil Scale")
-                            col_2.prop(props, "eye_pupil_scale", text="", slider=True)
-                            col_1.label(text="Eye IOR")
-                            col_2.prop(props, "eye_ior", text="", slider=True)
-                            col_1.label(text="Refraction Depth")
-                            col_2.prop(props, "eye_refraction_depth", text="", slider=True)
 
                         column.box().label(text= "Corner Shadow", icon="SHADING_RENDERED")
                         split = column.split(factor=0.5)
@@ -6241,14 +6261,29 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_1.label(text="Sclera Roughness")
                         col_2.prop(props, "eye_sclera_roughness", text="", slider=True)
 
-                        column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="SSS Radius (cm)")
-                        col_2.prop(props, "eye_sss_radius", text="", slider=True)
-                        col_1.label(text="SSS Faloff")
-                        col_2.prop(props, "eye_sss_falloff", text="")
+                        if prefs.refractive_eyes:
+                            column.box().label(text= "Depth & Refraction", icon="MOD_THICKNESS")
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Iris Depth")
+                            col_2.prop(props, "eye_iris_depth", text="", slider=True)
+                            col_1.label(text="Pupil Scale")
+                            col_2.prop(props, "eye_pupil_scale", text="", slider=True)
+                            col_1.label(text="Eye IOR")
+                            col_2.prop(props, "eye_ior", text="", slider=True)
+                            col_1.label(text="Refraction Depth")
+                            col_2.prop(props, "eye_refraction_depth", text="", slider=True)
+
+                        if not prefs.refractive_eyes or bpy.context.scene.render.engine == "CYCLES":
+                            column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="SSS Radius (cm)")
+                            col_2.prop(props, "eye_sss_radius", text="", slider=True)
+                            col_1.label(text="SSS Faloff")
+                            col_2.prop(props, "eye_sss_falloff", text="")
 
                         column.box().label(text= "Normals", icon="NORMALS_FACE")
                         split = column.split(factor=0.5)
@@ -6543,11 +6578,14 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         if is_smart_hair:
                             col_1.separator()
                             col_2.separator()
-                            if prefs.fake_hair_anisotropy:
+                            if bpy.context.scene.render.engine == 'BLENDER_EEVEE' and prefs.fake_hair_anisotropy:
                                 col_1.label(text="Anisotropic Color")
                                 col_2.prop(props, "hair_aniso_color", text="", slider=True)
-                            col_1.label(text="Anisotropic Strength")
-                            col_2.prop(props, "hair_aniso_strength", text="", slider=True)
+                                col_1.label(text="Anisotropic Strength")
+                                col_2.prop(props, "hair_aniso_strength", text="", slider=True)
+                            elif bpy.context.scene.render.engine == "CYCLES":
+                                col_1.label(text="Anisotropic Strength")
+                                col_2.prop(props, "hair_aniso_strength_cycles", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
                         split = column.split(factor=0.5)
@@ -7043,7 +7081,14 @@ def reset_preferences():
     prefs.hair_hint = "hair,scalp,beard,mustache,sideburns,ponytail,braid,!bow,!band,!tie,!ribbon,!ring,!butterfly,!flower"
     prefs.hair_scalp_hint = "scalp,base,skullcap"
     prefs.debug_mode = False
+    prefs.compat_mode = False
     prefs.physics_group = "CC_Physics"
+    prefs.new_hair_shader = True
+    prefs.hair_gamma_correct = False
+    prefs.fake_hair_anisotropy = True
+    prefs.fake_hair_bump = True
+    prefs.refractive_eyes = True
+    prefs.eye_displacement_group = "CC_Eye_Displacement"
 
 
 class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
@@ -7115,13 +7160,13 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
-    new_hair_shader: bpy.props.BoolProperty(default=True, name="Generate materials for the new hair shader.")
-    hair_gamma_correct: bpy.props.BoolProperty(default=False, name="Correct hair shader colours to be more like CC3 colours.")
-    fake_hair_anisotropy: bpy.props.BoolProperty(default=False, name="Add fake anisotropic higlights to the hair in Eevee.")
-    fake_hair_bump: bpy.props.BoolProperty(default=False, name="Fake hair bump map from the diffuse map if there is no normal or bump map present.")
+    new_hair_shader: bpy.props.BoolProperty(default=True, name="Smart Hair", description="Generate materials for the new hair shader")
+    hair_gamma_correct: bpy.props.BoolProperty(default=False, name="Gamma Correct", description="Correct hair shader colours to be more like CC3 colours")
+    fake_hair_anisotropy: bpy.props.BoolProperty(default=True, name="Eevee Anisotropic Highlights", description="Add fake anisotropic higlights to the hair in Eevee")
+    fake_hair_bump: bpy.props.BoolProperty(default=True, name="Fake Hair Bump", description="Fake hair bump map from the diffuse map if there is no normal or bump map present")
 
-    refractive_eyes: bpy.props.BoolProperty(default=True, name="Generate refractive eyes.")
-    eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Iris displacement vertex group name")
+    refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
+    eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
 
     # addon updater preferences
 

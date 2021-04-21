@@ -25,8 +25,14 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 0.5.2
+- Applies IOR shader input setting when building materials.
+- Exposed some build preferences in the Build Settings panel.
+- Enables SSR and refraction when importing with refractive eyes.
+- Auto updater now targets Main branch for current build.
+
 ### 0.5.1
-- Fixed problem appending displacment map image.
+- Fixed problem appending duplicate displacment map images.
 - Fixed not removing eye displacement modifiers on rebuild.
 - Added eye occlusion hardness parameter.
 

@@ -43,6 +43,7 @@ PROP_MATRIX = [
                     ["Diffuse Saturation", "hair_saturation"],
                     ["Aniso Color", "hair_aniso_color"],
                     ["Aniso Strength", "hair_aniso_strength"],
+                    ["Aniso Strength Cycles", "hair_aniso_strength_cycles"],
                     ["Base Color Strength", "hair_vertex_color_strength"],
                     ["Base Color Strength", "hair_vertex_color_strength"],
                     ["Base Color Map Strength", "hair_base_color_map_strength"],
