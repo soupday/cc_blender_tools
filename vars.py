@@ -1,5 +1,5 @@
 
-VERSION_STRING = "v0.5.2"
+VERSION_STRING = "v0.6.1"
 
 # lists of the suffixes used by the input maps
 BASE_COLOR_MAP = ["diffuse", "albedo"]
@@ -63,6 +63,31 @@ MATERIAL_PARAM_GROUPS = [
     ["TONGUE"],
     ["DEFAULT"],
 ]
+
+
+MATERIAL_TYPES = [
+                        ("DEFAULT", "Default", "Default material"),
+                        ("SKIN_HEAD", "Head", "Head skin material"),
+                        ("SKIN_BODY", "Body", "Body skin material"),
+                        ("SKIN_ARM", "Arm", "Arm skin material"),
+                        ("SKIN_LEG", "Leg", "Leg skin material"),
+                        ("TEETH_UPPER", "Upper Teeth", "Upper teeth material"),
+                        ("TEETH_LOWER", "Lower Teeth", "Lower teeth material"),
+                        ("TONGUE", "Tongue", "Tongue material"),
+                        ("HAIR", "Hair", "Hair material"),
+                        ("SMART_HAIR", "Smart Hair", "Smart Hair material"),
+                        ("SCALP", "Scalp", "Scalp or base hair material"),
+                        ("EYELASH", "Eyelash", "Eyelash material"),
+                        ("NAILS", "Nails", "Finger and toe nails material"),
+                        ("CORNEA_RIGHT", "Right Cornea", "Right cornea material."),
+                        ("CORNEA_LEFT", "Left Cornea", "Left cornea material."),
+                        ("EYE_RIGHT", "Right Eye", "Basic PBR right eye material."),
+                        ("EYE_LEFT", "Left Eye", "Basic PBR left eye material."),
+                        ("OCCLUSION_RIGHT", "Right Eye Occlusion", "Right eye occlusion material"),
+                        ("OCCLUSION_LEFT", "Left Eye Occlusion", "Left eye occlusion material"),
+                        ("TEARLINE_RIGHT", "Right Tearline", "Right tear line material"),
+                        ("TEARLINE_LEFT", "Left Tearline", "Left tear line material"),
+                    ]
 
 NODE_PREFIX = "cc3iid_"
 

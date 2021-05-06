@@ -1,4 +1,35 @@
+import bpy
+from . import vars
 
+# when updating linked materials, attempt to update the properties in all the material types in the same list:
+LINKED_MATERIALS = [
+    ["SKIN_HEAD", "SKIN_BODY", "SKIN_ARM", "SKIN_LEG"],
+    ["EYE_RIGHT", "CORNEA_RIGHT", "OCCLUSION_RIGHT", "TEARLINE_RIGHT",
+     "EYE_LEFT", "CORNEA_LEFT", "OCCLUSION_LEFT", "TEARLINE_LEFT"],
+    ["TEETH_UPPER", "TEETH_LOWER"],
+    ["HAIR", "SMART_HAIR", "SCALP", "EYELASH"]
+]
+
+# These material types must be updated together as they share the same properties:
+PAIRED_MATERIALS = [
+    ["EYE_RIGHT", "CORNEA_RIGHT"],
+    ["EYE_LEFT", "CORNEA_LEFT"],
+]
+
+# These properties must be updated as linked as they are duplicated across the linked materials and must be kept in sync:
+FORCE_LINKED_PROPS = ["skin_blend", "skin_normal_blend", "skin_mouth_ao", "skin_nostril_ao", "skin_lips_ao",
+                      "skin_head_micronormal", "skin_body_micronormal", "skin_arm_micronormal", "skin_leg_micronormal",
+                      "skin_head_tiling", "skin_body_tiling", "skin_arm_tiling", "skin_leg_tiling",]
+
+# TODO will need to work something out to separate left from right eye materials...
+FORCE_LINKED_TYPES = []
+#["EYE", "CORNEA", "OCCLUSION", "TEARLINE"]
+
+
+PROP_DEPENDANTS = {
+    "eye_shadow_radius": ["eye_shadow_hardness"],
+    "eye_iris_radius": ["eye_iris_hardness"],
+}
 
 PROP_MATRIX = [
     # Base Color groups
@@ -21,7 +52,7 @@ PROP_MATRIX = [
                     ["AO Strength", "eye_ao"],
                     ["Blend Strength", "eye_blend"],
                     ["Shadow Radius", "eye_shadow_radius"],
-                    ["Shadow Hardness", "eye_shadow_hardness", "props.eye_shadow_hardness * props.eye_shadow_radius * 0.99"],
+                    ["Shadow Hardness", "eye_shadow_hardness", "parameters.eye_shadow_hardness * parameters.eye_shadow_radius * 0.99"],
                     ["Corner Shadow", "eye_shadow_color"],
                     ["Sclera Brightness", "eye_sclera_brightness"],
                     ["Iris Brightness", "eye_iris_brightness"],
@@ -50,8 +81,8 @@ PROP_MATRIX = [
                     ["Depth Blend Strength", "hair_depth_strength"],
                     ["Diffuse Strength", "hair_diffuse_strength"],
                     ["Global Strength", "hair_global_strength"],
-                    ["Root Color", "hair_root_color", "gamma_correct(props.hair_root_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
-                    ["End Color", "hair_end_color", "gamma_correct(props.hair_end_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
+                    ["Root Color", "hair_root_color", "gamma_correct(parameters.hair_root_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
+                    ["End Color", "hair_end_color", "gamma_correct(parameters.hair_end_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
                     ["Root Color Strength", "hair_root_strength"],
                     ["End Color Strength", "hair_end_strength"],
                     ["Invert Root and End Color", "hair_invert_strand"],
@@ -60,13 +91,13 @@ PROP_MATRIX = [
                     ["Highlight A End", "hair_a_end"],
                     ["Highlight A Strength", "hair_a_strength"],
                     ["Highlight A Overlap End", "hair_a_overlap"],
-                    ["Highlight Color A", "hair_a_color", "gamma_correct(props.hair_a_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
+                    ["Highlight Color A", "hair_a_color", "gamma_correct(parameters.hair_a_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
                     ["Highlight B Start", "hair_b_start"],
                     ["Highlight B Mid", "hair_b_mid"],
                     ["Highlight B End", "hair_b_end"],
                     ["Highlight B Strength", "hair_b_strength"],
                     ["Highlight B Overlap End", "hair_b_overlap"],
-                    ["Highlight Color B", "hair_b_color", "gamma_correct(props.hair_b_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
+                    ["Highlight Color B", "hair_b_color", "gamma_correct(parameters.hair_b_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
                 ],
             },
 
@@ -82,9 +113,9 @@ PROP_MATRIX = [
                     ["Front", "teeth_front"],
                     ["Rear", "teeth_rear"],
                     ["Teeth Brightness", "teeth_teeth_brightness"],
-                    ["Teeth Saturation", "teeth_teeth_desaturation", "1 - props.teeth_teeth_desaturation"],
+                    ["Teeth Saturation", "teeth_teeth_desaturation", "1 - parameters.teeth_teeth_desaturation"],
                     ["Gums Brightness", "teeth_gums_brightness"],
-                    ["Gums Saturation", "teeth_gums_desaturation", "1 - props.teeth_gums_desaturation"],
+                    ["Gums Saturation", "teeth_gums_desaturation", "1 - parameters.teeth_gums_desaturation"],
                 ],
             },
 
@@ -94,7 +125,7 @@ PROP_MATRIX = [
                     ["Front", "tongue_front"],
                     ["Rear", "tongue_rear"],
                     ["Brightness", "tongue_brightness"],
-                    ["Saturation", "tongue_desaturation", "1 - props.tongue_desaturation"],
+                    ["Saturation", "tongue_desaturation", "1 - parameters.tongue_desaturation"],
                 ],
             },
 
@@ -120,15 +151,15 @@ PROP_MATRIX = [
 
             {   "name": "_skin_",
                 "inputs": [
-                    ["Radius", "skin_sss_radius", "props.skin_sss_radius * UNIT_SCALE"],
+                    ["Radius", "skin_sss_radius", "parameters.skin_sss_radius * UNIT_SCALE"],
                     ["Falloff", "skin_sss_falloff"],
                 ],
             },
 
             {   "name": "_eye_",
                 "inputs": [
-                    ["Radius1", "eye_sss_radius", "props.eye_sss_radius * UNIT_SCALE"],
-                    ["Radius2", "eye_sss_radius", "props.eye_sss_radius * UNIT_SCALE"],
+                    ["Radius1", "eye_sss_radius", "parameters.eye_sss_radius * UNIT_SCALE"],
+                    ["Radius2", "eye_sss_radius", "parameters.eye_sss_radius * UNIT_SCALE"],
                     ["Falloff1", "eye_sss_falloff"],
                     ["Falloff2", "eye_sss_falloff"],
                 ],
@@ -136,15 +167,15 @@ PROP_MATRIX = [
 
             {   "name": "_hair_",
                 "inputs": [
-                    ["Radius", "hair_sss_radius", "props.hair_sss_radius * UNIT_SCALE"],
+                    ["Radius", "hair_sss_radius", "parameters.hair_sss_radius * UNIT_SCALE"],
                     ["Falloff", "hair_sss_falloff"],
                 ],
             },
 
             {   "name": "_teeth_",
                 "inputs": [
-                    ["Radius1", "teeth_sss_radius", "props.teeth_sss_radius * UNIT_SCALE"],
-                    ["Radius2", "teeth_sss_radius", "props.teeth_sss_radius * UNIT_SCALE"],
+                    ["Radius1", "teeth_sss_radius", "parameters.teeth_sss_radius * UNIT_SCALE"],
+                    ["Radius2", "teeth_sss_radius", "parameters.teeth_sss_radius * UNIT_SCALE"],
                     ["Falloff1", "teeth_sss_falloff"],
                     ["Falloff2", "teeth_sss_falloff"],
                     ["Scatter1", "teeth_gums_sss_scatter"],
@@ -155,21 +186,21 @@ PROP_MATRIX = [
             {   "name": "_tongue_",
                 "inputs": [
                     ["Scatter", "tongue_sss_scatter"],
-                    ["Radius", "tongue_sss_radius", "props.tongue_sss_radius * UNIT_SCALE"],
+                    ["Radius", "tongue_sss_radius", "parameters.tongue_sss_radius * UNIT_SCALE"],
                     ["Falloff", "tongue_sss_falloff"],
                 ],
             },
 
             {   "name": "_nails_",
                 "inputs": [
-                    ["Radius", "nails_sss_radius", "props.nails_sss_radius * UNIT_SCALE"],
+                    ["Radius", "nails_sss_radius", "parameters.nails_sss_radius * UNIT_SCALE"],
                     ["Falloff", "nails_sss_falloff"],
                 ],
             },
 
             {   "name": "_default_",
                 "inputs": [
-                    ["Radius", "default_sss_radius", "props.default_sss_radius * UNIT_SCALE"],
+                    ["Radius", "default_sss_radius", "parameters.default_sss_radius * UNIT_SCALE"],
                     ["Falloff", "default_sss_falloff"],
                 ],
             },
@@ -289,16 +320,16 @@ PROP_MATRIX = [
 
             {   "name": "_eye_",
                 "inputs": [
-                    ["Micro Normal Strength", "eye_sclera_normal", "1 - props.eye_sclera_normal"],
-                    ["Sclera Normal Strength", "eye_sclera_normal", "1 - props.eye_sclera_normal"],
-                    ["Blood Vessel Height", "eye_blood_vessel_height", "props.eye_blood_vessel_height/1000"],
-                    ["Iris Bump Height", "eye_iris_bump_height", "props.eye_iris_bump_height/1000"],
+                    ["Micro Normal Strength", "eye_sclera_normal", "1 - parameters.eye_sclera_normal"],
+                    ["Sclera Normal Strength", "eye_sclera_normal", "1 - parameters.eye_sclera_normal"],
+                    ["Blood Vessel Height", "eye_blood_vessel_height", "parameters.eye_blood_vessel_height/1000"],
+                    ["Iris Bump Height", "eye_iris_bump_height", "parameters.eye_iris_bump_height/1000"],
                 ],
             },
 
             {   "name": ["_hair_", "_scalp_", "_eyelash_"],
                 "inputs": [
-                    ["Bump Map Height", "hair_bump", "props.hair_bump / 1000"],
+                    ["Bump Map Height", "hair_bump", "parameters.hair_bump / 1000"],
                     ["Bump Map Midpoint", "hair_fake_bump_midpoint"],
                 ],
             },
@@ -325,7 +356,7 @@ PROP_MATRIX = [
                 "inputs": [
                     ["Normal Blend Strength", "default_normal_blend"],
                     ["Micro Normal Strength", "default_micronormal"],
-                    ["Bump Map Height", "default_bump", "props.default_bump / 1000"],
+                    ["Bump Map Height", "default_bump", "parameters.default_bump / 1000"],
                 ],
             },
         ],
@@ -370,7 +401,7 @@ PROP_MATRIX = [
             # TODO: this could be part of the iris mask group and linked...
             {   "name": "_color_sclera_",
                 "inputs": [
-                    ["Tiling", "eye_sclera_scale", "1.0 / props.eye_sclera_scale"],
+                    ["Tiling", "eye_sclera_scale", "1.0 / parameters.eye_sclera_scale"],
                 ],
             },
 
@@ -407,9 +438,9 @@ PROP_MATRIX = [
 
             {   "name": "(iris_mask)",
                 "inputs": [
-                    ["Scale", "eye_iris_scale", "1.0 / props.eye_iris_scale"],
+                    ["Scale", "eye_iris_scale", "1.0 / parameters.eye_iris_scale"],
                     ["Radius", "eye_iris_radius"],
-                    ["Hardness", "eye_iris_hardness", "props.eye_iris_radius * props.eye_iris_hardness * 0.99"],
+                    ["Hardness", "eye_iris_hardness", "parameters.eye_iris_radius * parameters.eye_iris_hardness * 0.99"],
                     ["Limbus Radius", "eye_limbus_radius"],
                     ["Limbus Hardness", "eye_limbus_hardness"],
                 ],
@@ -439,6 +470,12 @@ PROP_MATRIX = [
                 "inputs": [
                     ["Alpha", "eye_tearline_alpha"],
                     ["Roughness", "eye_tearline_roughness"],
+                ],
+            },
+
+            {   "name": "eye_occlusion_shader",
+                "inputs": [
+                    ["Base Color", "eye_occlusion_color"],
                 ],
             },
 
@@ -486,9 +523,9 @@ BASIC_PROPS = [
     ["OUT", "Value",    "", "hair_ao"],
     ["OUT", "Value",    "", "hair_specular"],
     ["OUT", "Value",    "", "hair_scalp_specular"],
-    ["OUT", "Value",    "", "hair_bump", "props.hair_bump / 1000"],
+    ["OUT", "Value",    "", "hair_bump", "parameters.hair_bump / 1000"],
     ["OUT", "Value",    "", "default_ao"],
-    ["OUT", "Value",    "", "default_bump", "props.default_bump / 1000"],
+    ["OUT", "Value",    "", "default_bump", "parameters.default_bump / 1000"],
     ["IN", "Alpha",     "eye_tearline_shader", "eye_tearline_alpha"],
     ["IN", "Roughness", "eye_tearline_shader", "eye_tearline_roughness"],
 ]

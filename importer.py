@@ -1,24 +1,10 @@
-# TODO
-#
-#   - Popup panels
-#   - Prefs for physics settings.
-#   - Button to auto transfer skin weights to accessories.
-#   - limits on node group inputs in _LIB.
-#
-# FUTURE PLANS
-#   - Get all search strings to identify material type: skin, eyelashes, body, hair etc... from preferences the user can customise.
-#       (Might help with Daz conversions and/or 3rd party characters that have non-standard or unexpected material names.)
-#   - Automatically generate full IK rig with Rigify or Auto-Rig Pro (Optional in the preferences)
-#       (Not sure if this is possible to invoke these add-ons from code...)
-#
-# --------------------------------------------------------------
-
 import bpy
 import os
 import time
 import mathutils
 import shutil
 import math
+from . import utils
 from . import params
 from . vars import *
 from . import addon_updater_ops
@@ -87,7 +73,8 @@ def unique_name(name):
 
 
 def detect_skin_material(mat):
-    if "std_skin_" in mat.name.lower():
+    name = mat.name.lower()
+    if "std_skin_" in name or "ga_skin_" in name:
         return True
     return False
 
@@ -144,7 +131,8 @@ def detect_scalp_material(mat):
 
 
 def detect_eyelash_material(mat):
-    if "std_eyelash" in mat.name.lower():
+    name = mat.name.lower()
+    if "std_eyelash" in name or "ga_eyelash" in name:
         return True
     return False
 
@@ -160,20 +148,21 @@ def detect_teeth_material(mat):
 
 def detect_tongue_material(mat):
     name = mat.name.lower()
-    if "std_tongue" in name:
+    if "std_tongue" in name or "ga_tongue" in name:
         return True
     return False
 
 
 def detect_nails_material(mat):
     name = mat.name.lower()
-    if "std_nails" in name:
+    if "std_nails" in name or "ga_nails" in name:
         return True
     return False
 
 
 def detect_body_object(obj):
-    if "base_body" in obj.name.lower():
+    name = obj.name.lower()
+    if "base_body" in name or "game_body" in name:
         return True
     return False
 
@@ -232,6 +221,18 @@ def detect_eye_material(mat):
     if "std_eye_" in mat.name.lower():
         return True
     return False
+
+
+def detect_material_side(mat, side):
+    name = mat.name.lower()
+    if side == "RIGHT":
+        return "_r" in name
+    elif side == "LEFT":
+        return "_l" in name
+    elif side == "UPPER":
+        return "upper_" in name
+    elif side == "LOWER":
+        return "lower_" in name
 
 
 def detect_tearline_material(mat):
@@ -300,20 +301,20 @@ def get_bump_strength(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_hair() or cache.is_eyelash() or cache.is_scalp():
-        return "hair_bump", props.hair_bump
-    return "default_bump", props.default_bump
+        return "hair_bump", cache.parameters.hair_bump
+    return "default_bump", cache.parameters.default_bump
 
 
 def get_alpha_strength(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_hair():
-        return "hair_opacity", props.hair_opacity
+        return "hair_opacity", cache.parameters.hair_opacity
     elif cache.is_scalp():
-        return "hair_scalp_opacity", props.hair_scalp_opacity
+        return "hair_scalp_opacity", cache.parameters.hair_scalp_opacity
     elif cache.is_eyelash():
-        return "hair_eyelash_opacity", props.hair_scalp_opacity
-    return "default_opacity", props.default_opacity
+        return "hair_eyelash_opacity", cache.parameters.hair_scalp_opacity
+    return "default_opacity", cache.parameters.default_opacity
 
 
 
@@ -321,68 +322,68 @@ def get_micronormal_strength(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_head():
-        return "skin_head_micronormal", props.skin_head_micronormal
+        return "skin_head_micronormal", cache.parameters.skin_head_micronormal
     elif cache.is_body():
-        return "skin_body_micronormal", props.skin_body_micronormal
+        return "skin_body_micronormal", cache.parameters.skin_body_micronormal
     elif cache.is_arm():
-        return "skin_arm_micronormal", props.skin_arm_micronormal
+        return "skin_arm_micronormal", cache.parameters.skin_arm_micronormal
     elif cache.is_leg():
-        return "skin_leg_micronormal", props.skin_leg_micronormal
+        return "skin_leg_micronormal", cache.parameters.skin_leg_micronormal
     elif cache.is_teeth():
-        return "teeth_micronormal", props.teeth_micronormal
+        return "teeth_micronormal", cache.parameters.teeth_micronormal
     elif cache.is_nails():
-        return "nails_micronormal", props.nails_micronormal
+        return "nails_micronormal", cache.parameters.nails_micronormal
     elif cache.is_tongue():
-        return "tongue_micronormal", props.tongue_micronormal
+        return "tongue_micronormal", cache.parameters.tongue_micronormal
     elif cache.is_cornea():
-        return "eye_sclera_normal", 1 - props.eye_sclera_normal
-    return "default_micronormal", props.default_micronormal
+        return "eye_sclera_normal", 1 - cache.parameters.eye_sclera_normal
+    return "default_micronormal", cache.parameters.default_micronormal
 
 
 def get_micronormal_tiling(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_head():
-        return "skin_head_tiling", props.skin_head_tiling
+        return "skin_head_tiling", cache.parameters.skin_head_tiling
     elif cache.is_body():
-        return "skin_body_tiling", props.skin_body_tiling
+        return "skin_body_tiling", cache.parameters.skin_body_tiling
     elif cache.is_arm():
-        return "skin_arm_tiling", props.skin_arm_tiling
+        return "skin_arm_tiling", cache.parameters.skin_arm_tiling
     elif cache.is_leg():
-        return "skin_leg_tiling", props.skin_leg_tiling
+        return "skin_leg_tiling", cache.parameters.skin_leg_tiling
     elif cache.is_teeth():
-        return "teeth_tiling", props.teeth_tiling
+        return "teeth_tiling", cache.parameters.teeth_tiling
     elif cache.is_tongue():
-        return "tongue_tiling", props.tongue_tiling
+        return "tongue_tiling", cache.parameters.tongue_tiling
     elif cache.is_tongue():
-        return "nails_tiling", props.nails_tiling
+        return "nails_tiling", cache.parameters.nails_tiling
     elif cache.is_cornea():
-        return "eye_sclera_tiling", props.eye_sclera_tiling
-    return "default_tiling", props.default_tiling
+        return "eye_sclera_tiling", cache.parameters.eye_sclera_tiling
+    return "default_tiling", cache.parameters.default_tiling
 
 
 def get_specular_strength(cache, shader):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_cornea():
-        return "eye_specular", props.eye_specular
+        return "eye_specular", cache.parameters.eye_specular
     elif cache.is_skin():
         if props.setup_mode == "ADVANCED":
-            return "skin_specular", props.skin_specular
+            return "skin_specular", cache.parameters.skin_specular
         else:
-            return "skin_basic_specular", props.skin_basic_specular
+            return "skin_basic_specular", cache.parameters.skin_basic_specular
     elif cache.is_hair():
-        return "hair_specular", props.hair_specular
+        return "hair_specular", cache.parameters.hair_specular
     elif cache.is_scalp():
-        return "hair_scalp_specular", props.hair_scalp_specular
+        return "hair_scalp_specular", cache.parameters.hair_scalp_specular
     elif cache.is_eyelash():
-        return "hair_eyelash_specular", props.hair_eyelash_specular
+        return "hair_eyelash_specular", cache.parameters.hair_eyelash_specular
     elif cache.is_nails():
-        return "nails_specular", props.nails_specular
+        return "nails_specular", cache.parameters.nails_specular
     elif cache.is_teeth():
-        return "teeth_specular", props.teeth_specular
+        return "teeth_specular", cache.parameters.teeth_specular
     elif cache.is_tongue():
-        return "tongue_specular", props.tongue_specular
+        return "tongue_specular", cache.parameters.tongue_specular
     return "default_specular", get_node_input(shader, "Specular", 0.5)
 
 
@@ -391,29 +392,29 @@ def get_roughness_remap(cache):
 
     if cache.is_skin():
         if props.setup_mode == "ADVANCED":
-            return "skin_roughness", props.skin_roughness
+            return "skin_roughness", cache.parameters.skin_roughness
         else:
-            return "skin_basic_roughness", props.skin_basic_roughness
+            return "skin_basic_roughness", cache.parameters.skin_basic_roughness
     elif cache.is_hair():
-        return "hair_roughness", props.hair_roughness
+        return "hair_roughness", cache.parameters.hair_roughness
     elif cache.is_scalp():
-        return "hair_scalp_roughness", props.hair_scalp_roughness
+        return "hair_scalp_roughness", cache.parameters.hair_scalp_roughness
     elif cache.is_eyelash():
-        return "hair_eyelash_roughness", props.hair_eyelash_roughness
+        return "hair_eyelash_roughness", cache.parameters.hair_eyelash_roughness
     elif cache.is_nails():
-        return "nails_roughness", props.nails_roughness
+        return "nails_roughness", cache.parameters.nails_roughness
     elif cache.is_teeth():
-        return "teeth_roughness", props.teeth_roughness
+        return "teeth_roughness", cache.parameters.teeth_roughness
     elif cache.is_tongue():
-        return "tongue_roughness", props.tongue_roughness
-    return "default_roughness", props.default_roughness
+        return "tongue_roughness", cache.parameters.tongue_roughness
+    return "default_roughness", cache.parameters.default_roughness
 
 
 def get_roughness_power(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_skin() and props.setup_mode == "ADVANCED":
-        return "skin_roughness_power", props.skin_roughness_power
+        return "skin_roughness_power", cache.parameters.skin_roughness_power
     return "none", 1.0
 
 
@@ -421,74 +422,74 @@ def get_ao_strength(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_cornea():
-        return "eye_ao", props.eye_ao
+        return "eye_ao", cache.parameters.eye_ao
     elif cache.is_skin():
-        return "skin_ao", props.skin_ao
+        return "skin_ao", cache.parameters.skin_ao
     elif cache.is_hair() or cache.is_scalp() or cache.is_eyelash():
-        return "hair_ao", props.hair_ao
+        return "hair_ao", cache.parameters.hair_ao
     elif cache.is_nails():
-        return "nails_ao", props.nails_ao
+        return "nails_ao", cache.parameters.nails_ao
     elif cache.is_teeth():
-        return "teeth_ao", props.teeth_ao
+        return "teeth_ao", cache.parameters.teeth_ao
     elif cache.is_tongue():
-        return "tongue_ao", props.tongue_ao
-    return "default_ao", props.default_ao
+        return "tongue_ao", cache.parameters.tongue_ao
+    return "default_ao", cache.parameters.default_ao
 
 
 def get_blend_strength(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_cornea():
-        return "eye_blend", props.eye_blend
+        return "eye_blend", cache.parameters.eye_blend
     elif cache.is_skin():
-        return "skin_blend", props.skin_blend
+        return "skin_blend", cache.parameters.skin_blend
     elif cache.is_hair() or cache.is_scalp() or cache.is_eyelash():
-        return "hair_blend", props.hair_blend
-    return "default_blend", props.default_blend
+        return "hair_blend", cache.parameters.hair_blend
+    return "default_blend", cache.parameters.default_blend
 
 
 def get_normal_blend_strength(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_skin():
-        return "skin_normal_blend", props.skin_normal_blend
-    return "default_normal_blend", props.default_normal_blend
+        return "skin_normal_blend", cache.parameters.skin_normal_blend
+    return "default_normal_blend", cache.parameters.default_normal_blend
 
 
 def get_sss_radius(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_cornea():
-        return "eye_sss_radius", props.eye_sss_radius
+        return "eye_sss_radius", cache.parameters.eye_sss_radius
     elif cache.is_skin():
-        return "skin_sss_radius", props.skin_sss_radius
+        return "skin_sss_radius", cache.parameters.skin_sss_radius
     elif cache.is_hair() or cache.is_scalp() or cache.is_eyelash():
-        return "hair_sss_radius", props.hair_sss_radius
+        return "hair_sss_radius", cache.parameters.hair_sss_radius
     elif cache.is_nails():
-        return "nails_sss_radius", props.nails_sss_radius
+        return "nails_sss_radius", cache.parameters.nails_sss_radius
     elif cache.is_teeth():
-        return "teeth_sss_radius", props.teeth_sss_radius
+        return "teeth_sss_radius", cache.parameters.teeth_sss_radius
     elif cache.is_tongue():
-        return "tongue_sss_radius", props.tongue_sss_radius
-    return "default_sss_radius", props.default_sss_radius
+        return "tongue_sss_radius", cache.parameters.tongue_sss_radius
+    return "default_sss_radius", cache.parameters.default_sss_radius
 
 
 def get_sss_falloff(cache):
     props = bpy.context.scene.CC3ImportProps
 
     if cache.is_cornea():
-        return "eye_sss_falloff", props.eye_sss_falloff
+        return "eye_sss_falloff", cache.parameters.eye_sss_falloff
     elif cache.is_skin():
-        return "skin_sss_falloff", props.skin_sss_falloff
+        return "skin_sss_falloff", cache.parameters.skin_sss_falloff
     elif cache.is_hair() or cache.is_scalp() or cache.is_eyelash():
-        return "hair_sss_falloff", props.hair_sss_falloff
+        return "hair_sss_falloff", cache.parameters.hair_sss_falloff
     elif cache.is_nails():
-        return "nails_sss_falloff", props.nails_sss_falloff
+        return "nails_sss_falloff", cache.parameters.nails_sss_falloff
     elif cache.is_teeth():
-        return "teeth_sss_falloff", props.teeth_sss_falloff
+        return "teeth_sss_falloff", cache.parameters.teeth_sss_falloff
     elif cache.is_tongue():
-        return "tongue_sss_falloff", props.tongue_sss_falloff
-    return "default_sss_falloff", props.default_sss_falloff
+        return "tongue_sss_falloff", cache.parameters.tongue_sss_falloff
+    return "default_sss_falloff", cache.parameters.default_sss_falloff
 
 
 def is_input_connected(input):
@@ -768,12 +769,13 @@ def count_maps(*maps):
     return count
 
 def connect_tearline_material(obj, mat, shader):
+    mat_cache = get_material_cache(mat)
     props = bpy.context.scene.CC3ImportProps
     set_node_input(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
     set_node_input(shader, "Metallic", 1.0)
     set_node_input(shader, "Specular", 1.0)
-    set_node_input(shader, "Roughness", props.eye_tearline_roughness)
-    set_node_input(shader, "Alpha", props.eye_tearline_alpha)
+    set_node_input(shader, "Roughness", mat_cache.parameters.eye_tearline_roughness)
+    set_node_input(shader, "Alpha", mat_cache.parameters.eye_tearline_alpha)
     shader.name = unique_name("eye_tearline_shader")
     set_material_alpha(mat, props.blend_mode)
     mat.shadow_method = "NONE"
@@ -785,8 +787,8 @@ def connect_eye_occlusion_material(obj, mat, shader):
     mat_cache = get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
-
-    set_node_input(shader, "Base Color", (0.0, 0.0, 0.0, 1.0))
+    shader.name = unique_name("eye_occlusion_shader")
+    set_node_input(shader, "Base Color", mat_cache.parameters.eye_occlusion_color)
     set_node_input(shader, "Metallic", 0.0)
     set_node_input(shader, "Specular", 0.0)
     set_node_input(shader, "Roughness", 1.0)
@@ -797,8 +799,8 @@ def connect_eye_occlusion_material(obj, mat, shader):
     group = get_node_group("eye_occlusion_mask")
     occ_node = make_node_group_node(nodes, group, "Eye Occulsion Alpha", "eye_occlusion_mask")
     # values
-    set_node_input(occ_node, "Strength", props.eye_occlusion)
-    set_node_input(occ_node, "Hardness", props.eye_occlusion_hardness)
+    set_node_input(occ_node, "Strength", mat_cache.parameters.eye_occlusion)
+    set_node_input(occ_node, "Hardness", mat_cache.parameters.eye_occlusion_hardness)
     # links
     link_nodes(links, occ_node, "Alpha", shader, "Alpha")
 
@@ -823,7 +825,7 @@ def connect_basic_eye_material(obj, mat, shader):
         hsv_node = make_shader_node(nodes, "ShaderNodeHueSaturation", 0.6)
         hsv_node.label = "HSV"
         hsv_node.name = unique_name("eye_basic_hsv")
-        set_node_input(hsv_node, "Value", props.eye_basic_brightness)
+        set_node_input(hsv_node, "Value", mat_cache.parameters.eye_basic_brightness)
         # links
         link_nodes(links, diffuse_node, "Color", hsv_node, "Color")
         link_nodes(links, hsv_node, "Color", shader, "Base Color")
@@ -837,13 +839,13 @@ def connect_basic_eye_material(obj, mat, shader):
     # Specular
     #
     reset_cursor()
-    specular_node = make_value_node(nodes, "Eye Specular", "eye_specular", props.eye_specular)
+    specular_node = make_value_node(nodes, "Eye Specular", "eye_specular", mat_cache.parameters.eye_specular)
     link_nodes(links, specular_node, "Value", shader, "Specular")
 
     # Roughness
     #
     reset_cursor()
-    roughness_node = make_value_node(nodes, "Eye Roughness", "eye_basic_roughness", props.eye_basic_roughness)
+    roughness_node = make_value_node(nodes, "Eye Roughness", "eye_basic_roughness", mat_cache.parameters.eye_basic_roughness)
     link_nodes(links, roughness_node, "Value", shader, "Roughness")
 
     # Alpha
@@ -855,7 +857,7 @@ def connect_basic_eye_material(obj, mat, shader):
     reset_cursor()
     normal_image = find_material_image(mat, SCLERA_NORMAL_MAP)
     if normal_image is not None:
-        strength_node = make_value_node(nodes, "Normal Strength", "eye_basic_normal", props.eye_basic_normal)
+        strength_node = make_value_node(nodes, "Normal Strength", "eye_basic_normal", mat_cache.parameters.eye_basic_normal)
         normal_node = make_image_node(nodes, normal_image, "normal_tex")
         advance_cursor()
         normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
@@ -885,9 +887,9 @@ def connect_adv_eye_material(obj, mat, shader):
     group = get_node_group("iris_mask")
     iris_mask_node = make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
     # values
-    set_node_input(iris_mask_node, "Scale", 1.0 / props.eye_iris_scale)
-    set_node_input(iris_mask_node, "Radius", props.eye_iris_radius)
-    set_node_input(iris_mask_node, "Hardness", props.eye_iris_hardness * props.eye_iris_radius * 0.99)
+    set_node_input(iris_mask_node, "Scale", 1.0 / mat_cache.parameters.eye_iris_scale)
+    set_node_input(iris_mask_node, "Radius", mat_cache.parameters.eye_iris_radius)
+    set_node_input(iris_mask_node, "Hardness", mat_cache.parameters.eye_iris_hardness * mat_cache.parameters.eye_iris_radius * 0.99)
     # move
     move_new_nodes(-3000, 0)
     clear_cursor()
@@ -916,7 +918,7 @@ def connect_adv_eye_material(obj, mat, shader):
         group = get_node_group("tiling_pivot_mapping")
         sclera_tiling_node = make_node_group_node(nodes, group, "Sclera Scaling", "tiling_color_sclera_mapping")
         set_node_input(sclera_tiling_node, "Pivot", (0.5, 0.5, 0))
-        set_node_input(sclera_tiling_node, "Tiling", 1.0 / props.eye_sclera_scale)
+        set_node_input(sclera_tiling_node, "Tiling", 1.0 / mat_cache.parameters.eye_sclera_scale)
         advance_cursor()
         sclera_node = make_image_node(nodes, sclera_image, "sclera_tex")
         sclera_node.extension = "EXTEND"
@@ -931,12 +933,12 @@ def connect_adv_eye_material(obj, mat, shader):
     group = get_node_group("color_eye_mixer")
     color_node = make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
     # values
-    set_node_input(color_node, "Shadow Hardness", props.eye_shadow_hardness * props.eye_shadow_radius * 0.99)
-    set_node_input(color_node, "Shadow Radius", props.eye_shadow_radius)
-    set_node_input(color_node, "Blend Strength", props.eye_blend)
-    set_node_input(color_node, "AO Strength", props.eye_ao)
-    set_node_input(color_node, "Iris Brightness", props.eye_iris_brightness)
-    set_node_input(color_node, "Sclera Brightness", props.eye_sclera_brightness)
+    set_node_input(color_node, "Shadow Hardness", mat_cache.parameters.eye_shadow_hardness * mat_cache.parameters.eye_shadow_radius * 0.99)
+    set_node_input(color_node, "Shadow Radius", mat_cache.parameters.eye_shadow_radius)
+    set_node_input(color_node, "Blend Strength", mat_cache.parameters.eye_blend)
+    set_node_input(color_node, "AO Strength", mat_cache.parameters.eye_ao)
+    set_node_input(color_node, "Iris Brightness", mat_cache.parameters.eye_iris_brightness)
+    set_node_input(color_node, "Sclera Brightness", mat_cache.parameters.eye_sclera_brightness)
     # links
     link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
     if diffuse_image is not None:
@@ -963,10 +965,10 @@ def connect_adv_eye_material(obj, mat, shader):
     # values
     set_node_input(sss_node, "Scatter1", 1.0)
     set_node_input(sss_node, "Scatter2", 0.0)
-    set_node_input(sss_node, "Radius1", props.eye_sss_radius * UNIT_SCALE)
-    set_node_input(sss_node, "Radius2", props.eye_sss_radius * UNIT_SCALE)
-    set_node_input(sss_node, "Falloff1", props.eye_sss_falloff)
-    set_node_input(sss_node, "Falloff2", props.eye_sss_falloff)
+    set_node_input(sss_node, "Radius1", mat_cache.parameters.eye_sss_radius * UNIT_SCALE)
+    set_node_input(sss_node, "Radius2", mat_cache.parameters.eye_sss_radius * UNIT_SCALE)
+    set_node_input(sss_node, "Falloff1", mat_cache.parameters.eye_sss_falloff)
+    set_node_input(sss_node, "Falloff2", mat_cache.parameters.eye_sss_falloff)
     # links
     link_nodes(links, iris_mask_node, "Mask", sss_node, "Mask")
     link_nodes(links, color_node, "Base Color", sss_node, "Diffuse")
@@ -983,10 +985,10 @@ def connect_adv_eye_material(obj, mat, shader):
     # values
     set_node_input(msr_node, "Metallic1", 0)
     set_node_input(msr_node, "Metallic2", 0)
-    set_node_input(msr_node, "Specular1", props.eye_specular)
-    set_node_input(msr_node, "Specular2", props.eye_specular)
-    set_node_input(msr_node, "Roughness1", props.eye_sclera_roughness)
-    set_node_input(msr_node, "Roughness2", props.eye_iris_roughness)
+    set_node_input(msr_node, "Specular1", mat_cache.parameters.eye_specular)
+    set_node_input(msr_node, "Specular2", mat_cache.parameters.eye_specular)
+    set_node_input(msr_node, "Roughness1", mat_cache.parameters.eye_sclera_roughness)
+    set_node_input(msr_node, "Roughness2", mat_cache.parameters.eye_iris_roughness)
     # links
     link_nodes(links, iris_mask_node, "Mask", msr_node, "Mask")
     link_nodes(links, msr_node, "Metallic", shader, "Metallic")
@@ -1010,7 +1012,7 @@ def connect_adv_eye_material(obj, mat, shader):
         drop_cursor(0.75)
         group = get_node_group("tiling_mapping")
         snormal_tiling_node = make_node_group_node(nodes, group, "Sclera Normal Tiling", "tiling_normal_sclera_mapping")
-        set_node_input(snormal_tiling_node, "Tiling", props.eye_sclera_tiling)
+        set_node_input(snormal_tiling_node, "Tiling", mat_cache.parameters.eye_sclera_tiling)
         advance_cursor()
         snormal_node = make_image_node(nodes, snormal_image, "sclera_normal_tex")
         step_cursor()
@@ -1018,7 +1020,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = get_node_group("normal_micro_mask_mixer")
     nm_group = make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
     # values
-    set_node_input(nm_group, "Micro Normal Strength", 1 - props.eye_sclera_normal)
+    set_node_input(nm_group, "Micro Normal Strength", 1 - mat_cache.parameters.eye_sclera_normal)
     # links
     link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Micro Normal Mask")
     if snormal_image is not None:
@@ -1081,11 +1083,11 @@ def connect_refractive_eye_material(obj, mat, shader):
     group = get_node_group("iris_refractive_mask")
     iris_mask_node = make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
     # values
-    set_node_input(iris_mask_node, "Scale", 1.0 / props.eye_iris_scale)
-    set_node_input(iris_mask_node, "Radius", props.eye_iris_radius)
-    set_node_input(iris_mask_node, "Hardness", props.eye_iris_hardness * props.eye_iris_radius * 0.99)
-    set_node_input(iris_mask_node, "Limbus Radius", props.eye_limbus_radius)
-    set_node_input(iris_mask_node, "Limbus Hardness", props.eye_limbus_hardness)
+    set_node_input(iris_mask_node, "Scale", 1.0 / mat_cache.parameters.eye_iris_scale)
+    set_node_input(iris_mask_node, "Radius", mat_cache.parameters.eye_iris_radius)
+    set_node_input(iris_mask_node, "Hardness", mat_cache.parameters.eye_iris_hardness * mat_cache.parameters.eye_iris_radius * 0.99)
+    set_node_input(iris_mask_node, "Limbus Radius", mat_cache.parameters.eye_limbus_radius)
+    set_node_input(iris_mask_node, "Limbus Hardness", mat_cache.parameters.eye_limbus_hardness)
     # Links
     if is_cornea:
         link_nodes(links, iris_mask_node, "Mask", shader, "Transmission")
@@ -1117,7 +1119,7 @@ def connect_refractive_eye_material(obj, mat, shader):
         group = get_node_group("tiling_pivot_mapping")
         sclera_tiling_node = make_node_group_node(nodes, group, "Sclera Scaling", "tiling_color_sclera_mapping")
         set_node_input(sclera_tiling_node, "Pivot", (0.5, 0.5, 0))
-        set_node_input(sclera_tiling_node, "Tiling", 1.0 / props.eye_sclera_scale)
+        set_node_input(sclera_tiling_node, "Tiling", 1.0 / mat_cache.parameters.eye_sclera_scale)
         advance_cursor()
         sclera_node = make_image_node(nodes, sclera_image, "sclera_tex")
         sclera_node.extension = "EXTEND"
@@ -1132,12 +1134,12 @@ def connect_refractive_eye_material(obj, mat, shader):
     group = get_node_group("color_refractive_eye_mixer")
     color_node = make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
     # values
-    set_node_input(color_node, "Shadow Hardness", props.eye_shadow_hardness * props.eye_shadow_radius * 0.99)
-    set_node_input(color_node, "Shadow Radius", props.eye_shadow_radius)
-    set_node_input(color_node, "Blend Strength", props.eye_blend)
-    set_node_input(color_node, "AO Strength", props.eye_ao)
-    set_node_input(color_node, "Iris Brightness", props.eye_iris_brightness)
-    set_node_input(color_node, "Sclera Brightness", props.eye_sclera_brightness)
+    set_node_input(color_node, "Shadow Hardness", mat_cache.parameters.eye_shadow_hardness * mat_cache.parameters.eye_shadow_radius * 0.99)
+    set_node_input(color_node, "Shadow Radius", mat_cache.parameters.eye_shadow_radius)
+    set_node_input(color_node, "Blend Strength", mat_cache.parameters.eye_blend)
+    set_node_input(color_node, "AO Strength", mat_cache.parameters.eye_ao)
+    set_node_input(color_node, "Iris Brightness", mat_cache.parameters.eye_iris_brightness)
+    set_node_input(color_node, "Sclera Brightness", mat_cache.parameters.eye_sclera_brightness)
     # links
     link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
     if is_eye:
@@ -1169,10 +1171,10 @@ def connect_refractive_eye_material(obj, mat, shader):
     # values
     set_node_input(sss_node, "Scatter1", 1.0)
     set_node_input(sss_node, "Scatter2", 0.0)
-    set_node_input(sss_node, "Radius1", props.eye_sss_radius * UNIT_SCALE)
-    set_node_input(sss_node, "Radius2", props.eye_sss_radius * UNIT_SCALE)
-    set_node_input(sss_node, "Falloff1", props.eye_sss_falloff)
-    set_node_input(sss_node, "Falloff2", props.eye_sss_falloff)
+    set_node_input(sss_node, "Radius1", mat_cache.parameters.eye_sss_radius * UNIT_SCALE)
+    set_node_input(sss_node, "Radius2", mat_cache.parameters.eye_sss_radius * UNIT_SCALE)
+    set_node_input(sss_node, "Falloff1", mat_cache.parameters.eye_sss_falloff)
+    set_node_input(sss_node, "Falloff2", mat_cache.parameters.eye_sss_falloff)
     # links
     link_nodes(links, iris_mask_node, "Mask", sss_node, "Mask")
     if is_cornea:
@@ -1195,11 +1197,11 @@ def connect_refractive_eye_material(obj, mat, shader):
     # values
     set_node_input(msr_node, "Metallic1", 0)
     set_node_input(msr_node, "Metallic2", 0)
-    set_node_input(msr_node, "Specular1", props.eye_specular)
-    set_node_input(msr_node, "Roughness1", props.eye_sclera_roughness)
+    set_node_input(msr_node, "Specular1", mat_cache.parameters.eye_specular)
+    set_node_input(msr_node, "Roughness1", mat_cache.parameters.eye_sclera_roughness)
     if is_cornea:
-        set_node_input(msr_node, "Specular2", props.eye_specular)
-        set_node_input(msr_node, "Roughness2", props.eye_iris_roughness)
+        set_node_input(msr_node, "Specular2", mat_cache.parameters.eye_specular)
+        set_node_input(msr_node, "Roughness2", mat_cache.parameters.eye_iris_roughness)
     else:
         set_node_input(msr_node, "Specular2", 0.2)
         set_node_input(msr_node, "Roughness2", 1.0)
@@ -1226,7 +1228,7 @@ def connect_refractive_eye_material(obj, mat, shader):
         drop_cursor(0.75)
         group = get_node_group("tiling_mapping")
         snormal_tiling_node = make_node_group_node(nodes, group, "Sclera Normal Tiling", "tiling_normal_sclera_mapping")
-        set_node_input(snormal_tiling_node, "Tiling", props.eye_sclera_tiling)
+        set_node_input(snormal_tiling_node, "Tiling", mat_cache.parameters.eye_sclera_tiling)
         advance_cursor()
         snormal_node = make_image_node(nodes, snormal_image, "sclera_normal_tex")
         step_cursor()
@@ -1237,9 +1239,9 @@ def connect_refractive_eye_material(obj, mat, shader):
         group = get_node_group("normal_refractive_eye_mixer")
     nm_group = make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
     # values
-    set_node_input(nm_group, "Sclera Normal Strength", 1 - props.eye_sclera_normal)
-    set_node_input(nm_group, "Blood Vessel Height", props.eye_blood_vessel_height/1000)
-    set_node_input(nm_group, "Iris Bump Height", props.eye_iris_bump_height/1000)
+    set_node_input(nm_group, "Sclera Normal Strength", 1 - mat_cache.parameters.eye_sclera_normal)
+    set_node_input(nm_group, "Blood Vessel Height", mat_cache.parameters.eye_blood_vessel_height/1000)
+    set_node_input(nm_group, "Iris Bump Height", mat_cache.parameters.eye_iris_bump_height/1000)
     # links
     link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Sclera Mask")
     link_nodes(links, sclera_node, "Color", nm_group, "Sclera Map")
@@ -1254,8 +1256,8 @@ def connect_refractive_eye_material(obj, mat, shader):
         set_node_input(shader, "Clearcoat", 1.0)
         set_node_input(shader, "Clearcoat Roughness", 0.15)
         mat.use_screen_refraction = True
-        mat.refraction_depth = props.eye_refraction_depth / 1000
-        set_default_shader_input(mat, "IOR", props.eye_ior)
+        mat.refraction_depth = mat_cache.parameters.eye_refraction_depth / 1000
+        set_default_shader_input(mat, "IOR", mat_cache.parameters.eye_ior)
     else:
         set_node_input(shader, "Clearcoat", 0.0)
         set_node_input(shader, "Specular Tint", 1.0)
@@ -1334,19 +1336,19 @@ def connect_adv_mouth_material(obj, mat, shader):
     base_colour_node = group
     # values
     if teeth:
-        set_node_input(color_node, "AO Strength", props.teeth_ao)
-        set_node_input(color_node, "Front", props.teeth_front)
-        set_node_input(color_node, "Rear", props.teeth_rear)
-        set_node_input(color_node, "Gums Brightness", props.teeth_gums_brightness)
-        set_node_input(color_node, "Teeth Brightness", props.teeth_teeth_brightness)
-        set_node_input(color_node, "Gums Saturation", 1 - props.teeth_gums_desaturation)
-        set_node_input(color_node, "Teeth Saturation", 1 - props.teeth_teeth_desaturation)
+        set_node_input(color_node, "AO Strength", mat_cache.parameters.teeth_ao)
+        set_node_input(color_node, "Front", mat_cache.parameters.teeth_front)
+        set_node_input(color_node, "Rear", mat_cache.parameters.teeth_rear)
+        set_node_input(color_node, "Gums Brightness", mat_cache.parameters.teeth_gums_brightness)
+        set_node_input(color_node, "Teeth Brightness", mat_cache.parameters.teeth_teeth_brightness)
+        set_node_input(color_node, "Gums Saturation", 1 - mat_cache.parameters.teeth_gums_desaturation)
+        set_node_input(color_node, "Teeth Saturation", 1 - mat_cache.parameters.teeth_teeth_desaturation)
     else:
-        set_node_input(color_node, "AO Strength", props.tongue_ao)
-        set_node_input(color_node, "Front", props.tongue_front)
-        set_node_input(color_node, "Rear", props.tongue_rear)
-        set_node_input(color_node, "Brightness", props.tongue_brightness)
-        set_node_input(color_node, "Saturation", 1 - props.tongue_desaturation)
+        set_node_input(color_node, "AO Strength", mat_cache.parameters.tongue_ao)
+        set_node_input(color_node, "Front", mat_cache.parameters.tongue_front)
+        set_node_input(color_node, "Rear", mat_cache.parameters.tongue_rear)
+        set_node_input(color_node, "Brightness", mat_cache.parameters.tongue_brightness)
+        set_node_input(color_node, "Saturation", 1 - mat_cache.parameters.tongue_desaturation)
     # links
     if teeth:
         gao_socket = "G"
@@ -1376,16 +1378,16 @@ def connect_adv_mouth_material(obj, mat, shader):
         sss_node = make_node_group_node(nodes, group, "Tongue Subsurface", "subsurface_tongue_mixer")
     # values
     if teeth:
-        set_node_input(sss_node, "Scatter1", props.teeth_gums_sss_scatter)
-        set_node_input(sss_node, "Radius1", props.teeth_sss_radius * UNIT_SCALE * 3)
-        set_node_input(sss_node, "Falloff1", props.teeth_sss_falloff)
-        set_node_input(sss_node, "Scatter2", props.teeth_teeth_sss_scatter)
-        set_node_input(sss_node, "Radius2", props.teeth_sss_radius * UNIT_SCALE * 3)
-        set_node_input(sss_node, "Falloff2", props.teeth_sss_falloff)
+        set_node_input(sss_node, "Scatter1", mat_cache.parameters.teeth_gums_sss_scatter)
+        set_node_input(sss_node, "Radius1", mat_cache.parameters.teeth_sss_radius * UNIT_SCALE * 3)
+        set_node_input(sss_node, "Falloff1", mat_cache.parameters.teeth_sss_falloff)
+        set_node_input(sss_node, "Scatter2", mat_cache.parameters.teeth_teeth_sss_scatter)
+        set_node_input(sss_node, "Radius2", mat_cache.parameters.teeth_sss_radius * UNIT_SCALE * 3)
+        set_node_input(sss_node, "Falloff2", mat_cache.parameters.teeth_sss_falloff)
     else:
-        set_node_input(sss_node, "Scatter", props.tongue_sss_scatter)
-        set_node_input(sss_node, "Radius", props.tongue_sss_radius * UNIT_SCALE * 3)
-        set_node_input(sss_node, "Falloff", props.tongue_sss_falloff)
+        set_node_input(sss_node, "Scatter", mat_cache.parameters.tongue_sss_scatter)
+        set_node_input(sss_node, "Radius", mat_cache.parameters.tongue_sss_radius * UNIT_SCALE * 3)
+        set_node_input(sss_node, "Falloff", mat_cache.parameters.tongue_sss_falloff)
     # links
     link_nodes(links, mask_node, "Color", sss_node, "Mask")
     link_nodes(links, color_node, "Base Color", sss_node, "Diffuse")
@@ -1774,9 +1776,9 @@ def connect_base_color(obj, mat, shader):
     if blend_image is not None:
         set_node_input(group_node, "Blend Strength", blend_value)
     if mcmao_image is not None:
-        set_node_input(group_node, "Mouth AO", props.skin_mouth_ao)
-        set_node_input(group_node, "Nostril AO", props.skin_nostril_ao)
-        set_node_input(group_node, "Lips AO", props.skin_lips_ao)
+        set_node_input(group_node, "Mouth AO", mat_cache.parameters.skin_mouth_ao)
+        set_node_input(group_node, "Nostril AO", mat_cache.parameters.skin_nostril_ao)
+        set_node_input(group_node, "Lips AO", mat_cache.parameters.skin_lips_ao)
     set_node_input(group_node, "AO Strength", ao_value)
     # links
     if mcmao_image is not None:
@@ -1845,36 +1847,36 @@ def connect_hair_base_color(obj, mat, shader):
     # values
     if diffuse_image is None:
         set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
-    set_node_input(group_node, "Diffuse Bright", props.hair_brightness)
-    set_node_input(group_node, "Diffuse Contrast", props.hair_contrast)
-    set_node_input(group_node, "Diffuse Hue", props.hair_hue)
-    set_node_input(group_node, "Diffuse Saturation", props.hair_saturation)
-    set_node_input(group_node, "Aniso Strength", props.hair_aniso_strength)
-    set_node_input(group_node, "Aniso Strength Cycles", props.hair_aniso_strength_cycles)
-    set_node_input(group_node, "Aniso Color", props.hair_aniso_color)
-    set_node_input(group_node, "Base Color Strength", props.hair_vertex_color_strength)
-    set_node_input(group_node, "Base Color Map Strength", props.hair_base_color_map_strength)
-    set_node_input(group_node, "AO Strength", props.hair_ao)
-    set_node_input(group_node, "Depth Blend Strength", props.hair_depth_strength)
-    set_node_input(group_node, "Diffuse Strength", props.hair_diffuse_strength)
-    set_node_input(group_node, "Global Strength", props.hair_global_strength)
-    set_node_input(group_node, "Root Color", gamma_correct(props.hair_root_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL))
-    set_node_input(group_node, "End Color", gamma_correct(props.hair_end_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL))
-    set_node_input(group_node, "Root Color Strength", props.hair_root_strength)
-    set_node_input(group_node, "End Color Strength", props.hair_end_strength)
-    set_node_input(group_node, "Invert Root and End Color", props.hair_invert_strand)
-    set_node_input(group_node, "Highlight A Start", props.hair_a_start)
-    set_node_input(group_node, "Highlight A Mid", props.hair_a_mid)
-    set_node_input(group_node, "Highlight A End", props.hair_a_end)
-    set_node_input(group_node, "Highlight A Strength", props.hair_a_strength)
-    set_node_input(group_node, "Highlight A Overlap End", props.hair_a_overlap)
-    set_node_input(group_node, "Highlight Color A", gamma_correct(props.hair_a_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL))
-    set_node_input(group_node, "Highlight B Start", props.hair_b_start)
-    set_node_input(group_node, "Highlight B Mid", props.hair_b_mid)
-    set_node_input(group_node, "Highlight B End", props.hair_b_end)
-    set_node_input(group_node, "Highlight B Strength", props.hair_b_strength)
-    set_node_input(group_node, "Highlight B Overlap End", props.hair_b_overlap)
-    set_node_input(group_node, "Highlight Color B", gamma_correct(props.hair_b_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL))
+    set_node_input(group_node, "Diffuse Bright", mat_cache.parameters.hair_brightness)
+    set_node_input(group_node, "Diffuse Contrast", mat_cache.parameters.hair_contrast)
+    set_node_input(group_node, "Diffuse Hue", mat_cache.parameters.hair_hue)
+    set_node_input(group_node, "Diffuse Saturation", mat_cache.parameters.hair_saturation)
+    set_node_input(group_node, "Aniso Strength", mat_cache.parameters.hair_aniso_strength)
+    set_node_input(group_node, "Aniso Strength Cycles", mat_cache.parameters.hair_aniso_strength_cycles)
+    set_node_input(group_node, "Aniso Color", mat_cache.parameters.hair_aniso_color)
+    set_node_input(group_node, "Base Color Strength", mat_cache.parameters.hair_vertex_color_strength)
+    set_node_input(group_node, "Base Color Map Strength", mat_cache.parameters.hair_base_color_map_strength)
+    set_node_input(group_node, "AO Strength", mat_cache.parameters.hair_ao)
+    set_node_input(group_node, "Depth Blend Strength", mat_cache.parameters.hair_depth_strength)
+    set_node_input(group_node, "Diffuse Strength", mat_cache.parameters.hair_diffuse_strength)
+    set_node_input(group_node, "Global Strength", mat_cache.parameters.hair_global_strength)
+    set_node_input(group_node, "Root Color", gamma_correct(mat_cache.parameters.hair_root_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL))
+    set_node_input(group_node, "End Color", gamma_correct(mat_cache.parameters.hair_end_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL))
+    set_node_input(group_node, "Root Color Strength", mat_cache.parameters.hair_root_strength)
+    set_node_input(group_node, "End Color Strength", mat_cache.parameters.hair_end_strength)
+    set_node_input(group_node, "Invert Root and End Color", mat_cache.parameters.hair_invert_strand)
+    set_node_input(group_node, "Highlight A Start", mat_cache.parameters.hair_a_start)
+    set_node_input(group_node, "Highlight A Mid", mat_cache.parameters.hair_a_mid)
+    set_node_input(group_node, "Highlight A End", mat_cache.parameters.hair_a_end)
+    set_node_input(group_node, "Highlight A Strength", mat_cache.parameters.hair_a_strength)
+    set_node_input(group_node, "Highlight A Overlap End", mat_cache.parameters.hair_a_overlap)
+    set_node_input(group_node, "Highlight Color A", gamma_correct(mat_cache.parameters.hair_a_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL))
+    set_node_input(group_node, "Highlight B Start", mat_cache.parameters.hair_b_start)
+    set_node_input(group_node, "Highlight B Mid", mat_cache.parameters.hair_b_mid)
+    set_node_input(group_node, "Highlight B End", mat_cache.parameters.hair_b_end)
+    set_node_input(group_node, "Highlight B Strength", mat_cache.parameters.hair_b_strength)
+    set_node_input(group_node, "Highlight B Overlap End", mat_cache.parameters.hair_b_overlap)
+    set_node_input(group_node, "Highlight Color B", gamma_correct(mat_cache.parameters.hair_b_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL))
     # links
     if flow_image is not None:
         link_nodes(links, flow_node, "Color", group_node, "Flow Map")
@@ -2127,7 +2129,7 @@ def connect_normal(obj, mat, shader, base_color_node):
     else:
         group =  get_node_group("normal_micro_mask_mixer")
     group_node = make_node_group_node(nodes, group, "Normal Mixer", "normal_" + prop_group + "_mixer")
-    set_node_input(group, "Bump Map Midpoint", props.hair_fake_bump_midpoint)
+    set_node_input(group, "Bump Map Midpoint", mat_cache.parameters.hair_fake_bump_midpoint)
     # values
     set_node_input(group_node, "Normal Blend Strength", blend_strength)
     set_node_input(group_node, "Micro Normal Strength", micronormal_strength)
@@ -3072,10 +3074,7 @@ def adjust_groups():
 
     group = get_node_group("color_hair_mixer")
 
-    if not prefs.fake_hair_anisotropy:
-        block_update = True
-        props.hair_aniso_strength = 0
-        block_update = False
+    # does nothing yet...
 
 
 
@@ -3493,21 +3492,33 @@ def cache_object_materials(obj):
                         mat_cache.material_type = "EYELASH"
                 elif detect_cornea_material(mat):
                     obj_cache.object_type = "EYE"
-                    mat_cache.material_type = "CORNEA"
+                    if detect_material_side(mat, "LEFT"):
+                        mat_cache.material_type = "CORNEA_LEFT"
+                    else:
+                        mat_cache.material_type = "CORNEA_RIGHT"
                 elif detect_eye_occlusion_material(mat): # detect occlusion before eye
                     obj_cache.object_type = "OCCLUSION"
-                    mat_cache.material_type = "OCCLUSION"
+                    if detect_material_side(mat, "LEFT"):
+                        mat_cache.material_type = "OCCLUSION_LEFT"
+                    else:
+                        mat_cache.material_type = "OCCLUSION_RIGHT"
                 elif detect_eye_material(mat):
                     obj_cache.object_type = "EYE"
-                    mat_cache.material_type = "EYE"
+                    if detect_material_side(mat, "LEFT"):
+                        mat_cache.material_type = "EYE_LEFT"
+                    else:
+                        mat_cache.material_type = "EYE_RIGHT"
                 elif detect_tearline_material(mat):
                     obj_cache.object_type = "TEARLINE"
-                    mat_cache.material_type = "TEARLINE"
+                    if detect_material_side(mat, "LEFT"):
+                        mat_cache.material_type = "TEARLINE_LEFT"
+                    else:
+                        mat_cache.material_type = "TEARLINE_RIGHT"
                 elif detect_teeth_material(mat):
                     obj_cache.object_type = "TEETH"
-                    if "upper" in mat_name:
+                    if detect_material_side(mat, "UPPER"):
                         mat_cache.material_type = "TEETH_UPPER"
-                    elif "lower" in mat_name:
+                    else:
                         mat_cache.material_type = "TEETH_LOWER"
                 elif detect_tongue_material(mat):
                     obj_cache.object_type = "TONGUE"
@@ -3583,12 +3594,12 @@ def untagged_objects():
         obj.tag = False
     return untagged
 
+
 def reconstruct_obj_materials(obj):
     mesh = obj.data
     # remove all materials
     mesh.materials.clear()
     # add new materials
-    #  head/body/arm/leg/nails/eyelash/teeth/tongue
     mat_head = bpy.data.materials.new("Std_Skin_Head") #0
     mat_body = bpy.data.materials.new("Std_Skin_Body") #1
     mat_arm = bpy.data.materials.new("Std_Skin_Arm") #2
@@ -3616,7 +3627,7 @@ def reconstruct_obj_materials(obj):
     mesh.materials.append(mat_rcornea)
     mesh.materials.append(mat_lcornea)
     ul = mesh.uv_layers[0]
-    # figure out which polygon belongs to which material from the vertex groups, uv coords and polygon indices
+    # figure out which polygon belongs to which material from the vertex groups and uv coords
     for poly in mesh.polygons:
         loop_index = poly.loop_indices[0]
         loop_entry = mesh.loops[loop_index]
@@ -3635,33 +3646,17 @@ def reconstruct_obj_materials(obj):
         elif x > 1:
             poly.material_index = 1 # body
         else:
-            # head/eyes/tongue/teeth
-            # vertex groups: 0 - tongue, 1 - body(head), 2 - eye, 3 - teeth
-            if group == 0:
+            # head/eyes/tongue/teeth - determine from vertex group
+            if group == 0: # tongue
                 poly.material_index = 8
-            elif group == 1:
+            elif group == 1: # body (head)
                 poly.material_index = 0
-            elif group == 2:
-                # assign by polygon index (and hope these stay the same across exports)
-                # eye_r: 14342-14501
-                # cornea_r: 14502-14661
-                # eye_l: 14662-14821
-                # cornea_l: 14822-14981
-                if poly.index >= 14822:
-                    poly.material_index = 12
-                elif poly.index >= 14662:
-                    poly.material_index = 10
-                elif poly.index >= 14502:
-                    poly.material_index = 11
-                else:
-                    poly.material_index = 9
-            else: #3
-                # upper teeth: 14982-16162
-                # lower teeth: 16163-17402
-                if poly.index >= 16163:
-                    poly.material_index = 7
-                else:
-                    poly.material_index = 6
+            elif group == 2: # eye
+                # can't easily differentiate between the eye parts, set all to right cornea
+                poly.material_index = 11
+            elif group == 3: # teeth
+                # same with the teeth, set both to upper teeth
+                poly.material_index = 6
 
 def select_all_child_objects(obj):
     if obj.type == "ARMATURE" or obj.type == "MESH":
@@ -4048,7 +4043,8 @@ class CC3Export(bpy.types.Operator):
                         key_dir, key_file = os.path.split(props.import_key_file)
                         old_name, key_type = os.path.splitext(key_file)
                         new_key_path = os.path.join(dir, name + key_type)
-                        shutil.copyfile(props.import_key_file, new_key_path)
+                        if not utils.is_same_path(new_key_path, props.import_key_file):
+                            shutil.copyfile(props.import_key_file, new_key_path)
                     except Exception as e:
                         log_error("Unable to copy keyfile: " + props.import_key_file + " to: " + new_key_path, e)
 
@@ -4083,7 +4079,8 @@ class CC3Export(bpy.types.Operator):
                         key_dir, key_file = os.path.split(props.import_key_file)
                         old_name, key_type = os.path.splitext(key_file)
                         new_key_path = os.path.join(dir, name + key_type)
-                        shutil.copyfile(props.import_key_file, new_key_path)
+                        if not utils.is_same_path(new_key_path, props.import_key_file):
+                            shutil.copyfile(props.import_key_file, new_key_path)
                     except Exception as e:
                         log_error("Unable to copy keyfile: " + props.import_key_file + "\n    to: " + new_key_path, e)
 
@@ -4841,8 +4838,8 @@ def quick_set_execute(param, context = bpy.context):
     elif param == "RESET_PREFS":
         reset_preferences()
 
-    elif param == "UPDATE_ALL" or param == "UPDATE_SELECTED":
-        update_all_properties(None, context, param)
+    elif param == "UPDATE_LINKED" or param == "UPDATE_SELECTED":
+        update_all_properties(context, param)
 
     else: # blend modes or single/double sided...
         objects_processed = []
@@ -4944,7 +4941,7 @@ class CC3QuickSet(bpy.types.Operator):
     @classmethod
     def description(cls, context, properties):
 
-        if properties.param == "UPDATE_ALL":
+        if properties.param == "UPDATE_LINKED":
             return "Update all objects from the last import, with the current parameters"
         elif properties.param == "UPDATE_SELECTED":
             return "Update the currently selected objects, with the current parameters"
@@ -5032,7 +5029,7 @@ def gamma_correct(color, gamma, sat, val):
     else:
         return color
 
-def update_all_properties(self, context, update_mode = None):
+def update_all_properties(context, update_mode = None):
     global block_update
     if block_update: return
 
@@ -5051,68 +5048,43 @@ def update_all_properties(self, context, update_mode = None):
                     for cache in props.material_cache:
                         mat = cache.material
                         if mat is not None:
-                            if update_mode == "UPDATE_SELECTED":
-                                # Update only materials from the cache which are present in the selected objects:
-                                if is_material_in_objects(mat, context.selected_objects):
-                                    update_advanced_material(mat, matrix)
-                            else:
-                                # Update all materials in the imported objects material cache:
-                                update_advanced_material(mat, matrix)
+                            update_advanced_material(mat, cache, matrix)
 
         mod_prop_names = ["eye_iris_depth", "eye_pupil_scale"]
         for prop_name in mod_prop_names:
             for p in props.import_objects:
                 obj = p.object
-
-                if update_mode == "UPDATE_SELECTED":
-                    # Update only materials from the cache which are present in the selected objects:
-                    if obj in context.selected_objects:
-                        update_object_modifier(obj, prop_name)
-                else:
-                    # Update all materials in the imported objects material cache:
-                    update_object_modifier(obj, prop_name)
+                update_object_modifier(obj, prop_name)
 
         mat_prop_names = ["eye_ior", "eye_refraction_depth"]
         for prop_name in mat_prop_names:
             for cache in props.material_cache:
                 mat = cache.material
                 if mat is not None:
-                    if update_mode == "UPDATE_SELECTED":
-                        # Update only materials from the cache which are present in the selected objects:
-                        if is_material_in_objects(mat, context.selected_objects):
-                            update_material_settings(mat, cache, prop_name)
-                    else:
-                        # Update all materials in the imported objects material cache:
-                        update_material_settings(mat, cache, prop_name)
+                    update_material_settings(mat, cache, prop_name)
 
 
-
-    else: # props.setup_mode == "BASIC":
+    elif props.setup_mode == "BASIC":
 
         for cache in props.material_cache:
             mat = cache.material
             if mat is not None:
-                if update_mode == "UPDATE_SELECTED":
-                    # Update only materials from the cache which are present in the selected objects:
-                    if is_material_in_objects(mat, context.selected_objects):
-                        update_basic_material(mat, "ALL")
-                else:
-                    # Update all materials in the imported objects material cache:
-                    update_basic_material(mat, "ALL")
+                update_basic_material(mat, cache, "ALL")
 
     log_timer("update_all_properties()", "ms")
 
 
 def update_material_settings(mat, cache, prop_name):
     props = bpy.context.scene.CC3ImportProps
+    params = cache.parameters
 
     if prop_name == "eye_refraction_depth":
         if cache.is_cornea():
-            mat.refraction_depth = props.eye_refraction_depth / 1000.0
+            mat.refraction_depth = params.eye_refraction_depth / 1000.0
 
     if prop_name == "eye_ior":
         if cache.is_cornea() and mat.node_tree:
-            set_default_shader_input(mat, "IOR", props.eye_ior)
+            set_default_shader_input(mat, "IOR", params.eye_ior)
 
 
 def update_material(self, context, prop_name, update_mode = None):
@@ -5120,6 +5092,17 @@ def update_material(self, context, prop_name, update_mode = None):
     if block_update: return
 
     props = bpy.context.scene.CC3ImportProps
+    active_mat = context_material(context)
+    active_cache = get_material_cache(active_mat)
+    if not active_mat or not active_cache: return
+    linked = get_linked_material_types(active_cache)
+    paired = get_paired_material_types(active_cache)
+    print(paired)
+    if prop_name in params.FORCE_LINKED_PROPS:
+        update_mode = "UPDATE_LINKED"
+    if active_cache and active_cache.material_type in params.FORCE_LINKED_TYPES:
+        update_mode = "UPDATE_LINKED"
+
     start_timer()
 
     if update_mode is None:
@@ -5129,14 +5112,27 @@ def update_material(self, context, prop_name, update_mode = None):
 
         for cache in props.material_cache:
             mat = cache.material
-            if mat is not None:
-                if update_mode == "UPDATE_SELECTED":
-                    # Update only materials from the cache which are present in the selected objects:
-                    if is_material_in_objects(mat, context.selected_objects):
-                        update_material_settings(mat, cache, prop_name)
-                else:
-                    # Update all materials in the imported objects material cache:
+
+            if mat:
+
+                if mat == active_mat:
                     update_material_settings(mat, cache, prop_name)
+
+                elif cache.material_type in paired:
+                    set_linked_property(prop_name, active_cache, cache)
+                    update_material_settings(mat, cache, prop_name)
+
+                elif update_mode == "UPDATE_LINKED":
+                    # Update all other linked materials in the imported objects material cache:
+                    for linked_type in linked:
+                        if cache.material_type == linked_type:
+                            set_linked_property(prop_name, active_cache, cache)
+                            update_material_settings(mat, cache, prop_name)
+
+    if prop_name in params.PROP_DEPENDANTS:
+        deps = params.PROP_DEPENDANTS[prop_name]
+        for dep_name in deps:
+            update_material(self, context, dep_name, update_mode)
 
     log_timer("update_material()", "ms")
 
@@ -5189,6 +5185,11 @@ def update_modifier(self, context, prop_name, update_mode = None):
                 # Update all materials in the imported objects material cache:
                 update_object_modifier(obj, prop_name)
 
+    if prop_name in params.PROP_DEPENDANTS:
+        deps = params.PROP_DEPENDANTS[prop_name]
+        for dep_name in deps:
+            update_modifier(self, context, dep_name, update_mode)
+
     log_timer("update_modifier()", "ms")
 
 
@@ -5197,6 +5198,16 @@ def update_property(self, context, prop_name, update_mode = None):
     if block_update: return
 
     props = bpy.context.scene.CC3ImportProps
+    active_mat = context_material(context)
+    active_cache = get_material_cache(active_mat)
+    if not active_mat or not active_cache: return
+    linked = get_linked_material_types(active_cache)
+    paired = get_paired_material_types(active_cache)
+    if prop_name in params.FORCE_LINKED_PROPS:
+        update_mode = "UPDATE_LINKED"
+    if active_cache and active_cache.material_type in params.FORCE_LINKED_TYPES:
+        update_mode = "UPDATE_LINKED"
+
     start_timer()
 
     if update_mode is None:
@@ -5210,29 +5221,71 @@ def update_property(self, context, prop_name, update_mode = None):
 
             for cache in props.material_cache:
                 mat = cache.material
-                if mat is not None:
-                    if update_mode == "UPDATE_SELECTED":
-                        # Update only materials from the cache which are present in the selected objects:
-                        if is_material_in_objects(mat, context.selected_objects):
-                            update_advanced_material(mat, matrix)
-                    else:
-                        # Update all materials in the imported objects material cache:
-                        update_advanced_material(mat, matrix)
 
-    else: # props.setup_mode == "BASIC":
+                if mat:
+
+                    if mat == active_mat:
+                        # Always update the currently active material
+                        update_advanced_material(mat, cache, matrix)
+
+                    elif cache.material_type in paired:
+                        # Update paired materials
+                        set_linked_property(prop_name, active_cache, cache)
+                        update_advanced_material(mat, cache, matrix)
+
+                    elif update_mode == "UPDATE_LINKED":
+                        # Update all other linked materials in the imported objects material cache:
+                        for linked_type in linked:
+                            if cache.material_type == linked_type:
+                                set_linked_property(prop_name, active_cache, cache)
+                                update_advanced_material(mat, cache, matrix)
+
+    elif props.setup_mode == "BASIC":
 
         for cache in props.material_cache:
             mat = cache.material
-            if mat is not None:
-                if update_mode == "UPDATE_SELECTED":
-                    # Update only materials from the cache which are present in the selected objects:
-                    if is_material_in_objects(mat, context.selected_objects):
-                        update_basic_material(mat, prop_name)
-                else:
-                    # Update all materials in the imported objects material cache:
-                    update_basic_material(mat, prop_name)
+
+            if mat:
+
+                if mat == active_mat:
+                    # Always update the currently active material
+                    update_basic_material(mat, cache, prop_name)
+
+                elif cache.material_type in paired:
+                    # Update paired materials
+                    set_linked_property(prop_name, active_cache, cache)
+                    update_basic_material(mat, cache, prop_name)
+
+                elif linked and update_mode == "UPDATE_LINKED":
+                    # Update all other linked materials in the imported objects material cache:
+                    for linked_type in linked:
+                        if cache.material_type == linked_type:
+                            set_linked_property(prop_name, active_cache, cache)
+                            update_basic_material(mat, cache, prop_name)
+
+    if prop_name in params.PROP_DEPENDANTS:
+        deps = params.PROP_DEPENDANTS[prop_name]
+        for dep_name in deps:
+            update_property(self, context, dep_name, update_mode)
 
     log_timer("update_property_matrix()", "ms")
+
+
+def get_linked_material_types(cache):
+    if cache:
+        for linked in params.LINKED_MATERIALS:
+            if cache.material_type in linked:
+                return linked
+        return [cache.material_type]
+    return []
+
+
+def get_paired_material_types(cache):
+    if cache:
+        for paired in params.PAIRED_MATERIALS:
+            if cache.material_type in paired:
+                return paired
+    return []
 
 
 def get_prop_matrix(prop_name):
@@ -5245,8 +5298,23 @@ def get_prop_matrix(prop_name):
     return matrix
 
 
-def update_advanced_material(mat, matrix):
+def set_linked_property(prop_name, active_cache, cache):
+    global block_update
+    block_update = True
+    code = ""
+
+    try:
+        code = "cache.parameters." + prop_name + " = active_cache.parameters." + prop_name
+        exec(code, None, locals())
+    except Exception as e:
+        log_error("set_linked_property(): Unable to evaluate: " + code, e)
+
+    block_update = False
+
+
+def update_advanced_material(mat, cache, matrix):
     props = bpy.context.scene.CC3ImportProps
+    parameters = cache.parameters
     scope = locals()
     if mat is not None and mat.node_tree is not None and len(matrix) > 0:
         for m in matrix:
@@ -5255,12 +5323,11 @@ def update_advanced_material(mat, matrix):
             input = m[2]
             nodes = mat.node_tree.nodes
 
-
             try:
                 if len(input) == 3:
                     prop_eval = input[2]
                 else:
-                    prop_eval = "props." + input[1]
+                    prop_eval = "parameters." + input[1]
 
                 prop_value = eval(prop_eval, None, scope)
 
@@ -5279,8 +5346,9 @@ def update_advanced_material(mat, matrix):
                 log_error("update_advanced_materials(): Unable to evaluate or set: " + prop_eval, e)
 
 
-def update_basic_material(mat, prop):
+def update_basic_material(mat, cache, prop):
     props = bpy.context.scene.CC3ImportProps
+    parameters = cache.parameters
     scope = locals()
 
     if mat is not None and mat.node_tree is not None:
@@ -5303,7 +5371,7 @@ def update_basic_material(mat, prop):
                         if len(prop_info) == 5:
                             prop_eval = prop_info[4]
                         else:
-                            prop_eval = "props." + prop_name
+                            prop_eval = "parameters." + prop_name
 
                         prop_value = eval(prop_eval, None, scope)
 
@@ -5331,172 +5399,199 @@ def is_material_in_objects(mat, objects):
     return False
 
 
+def reset_material_parameters(cache):
+    props = bpy.context.scene.CC3ImportProps
+    params = cache.parameters
+
+    params.skin_ao = 1.0
+    params.skin_blend = 0.0
+    params.skin_normal_blend = 0.0
+    params.skin_roughness = 0.1
+    params.skin_roughness_power = 0.8
+    params.skin_specular = 0.4
+    params.skin_basic_specular = 0.4
+    params.skin_basic_roughness = 0.15
+    params.skin_sss_radius = 1.5
+    params.skin_sss_falloff = (1.0, 0.112, 0.072, 1.0)
+    params.skin_head_micronormal = 0.5
+    params.skin_body_micronormal = 0.8
+    params.skin_arm_micronormal = 1.0
+    params.skin_leg_micronormal = 1.0
+    params.skin_head_tiling = 25
+    params.skin_body_tiling = 20
+    params.skin_arm_tiling = 20
+    params.skin_leg_tiling = 20
+    params.skin_mouth_ao = 2.5
+    params.skin_nostril_ao = 2.5
+    params.skin_lips_ao = 2.5
+
+    params.eye_ao = 0.2
+    params.eye_blend = 0.0
+    params.eye_specular = 0.8
+    params.eye_sclera_roughness = 0.2
+    params.eye_iris_roughness = 0.0
+    params.eye_iris_scale = 1.0
+    params.eye_sclera_scale = 1.0
+    params.eye_iris_radius = 0.14
+    params.eye_iris_hardness = 0.85
+    params.eye_limbus_radius = 0.125
+    params.eye_limbus_hardness = 0.80
+    params.eye_limbus_color = (0.2, 0.2, 0.2, 1.0)
+    params.eye_sss_radius = 1.0
+    params.eye_sss_falloff = (1.0, 1.0, 1.0, 1.0)
+    params.eye_sclera_normal = 0.9
+    params.eye_sclera_tiling = 2.0
+    params.eye_basic_roughness = 0.05
+    params.eye_basic_normal = 0.1
+    params.eye_shadow_radius = 0.3
+    params.eye_shadow_hardness = 0.5
+    params.eye_shadow_color = (1.0, 0.497, 0.445, 1.0)
+    params.eye_occlusion = 0.5
+    params.eye_occlusion_color = (0, 0, 0, 1.0)
+    params.eye_occlusion_hardness = 0.5
+    params.eye_sclera_brightness = 0.75
+    params.eye_iris_brightness = 1.0
+    params.eye_sclera_hue = 0.5
+    params.eye_iris_hue = 0.5
+    params.eye_sclera_saturation = 1.0
+    params.eye_iris_saturation = 1.0
+    params.eye_basic_brightness = 0.9
+    params.eye_tearline_alpha = 0.05
+    params.eye_tearline_roughness = 0.15
+    if cache.is_eye() or cache.is_cornea():
+        props.eye_iris_depth = 0.25
+        props.eye_pupil_scale = 1.0
+
+    params.eye_refraction_depth = 1.0
+    params.eye_ior = 1.42
+    params.eye_blood_vessel_height = 0.5
+    params.eye_iris_bump_height = 1
+
+
+    params.teeth_ao = 1.0
+    params.teeth_gums_brightness = 0.9
+    params.teeth_teeth_brightness = 0.7
+    params.teeth_gums_desaturation = 0.0
+    params.teeth_teeth_desaturation = 0.1
+    params.teeth_front = 1.0
+    params.teeth_rear = 0.0
+    params.teeth_specular = 0.25
+    params.teeth_roughness = 0.4
+    params.teeth_gums_sss_scatter = 1.0
+    params.teeth_teeth_sss_scatter = 0.5
+    params.teeth_sss_radius = 1.0
+    params.teeth_sss_falloff = (0.381, 0.198, 0.13, 1.0)
+    params.teeth_micronormal = 0.3
+    params.teeth_tiling = 10
+
+    params.tongue_ao = 1.0
+    params.tongue_brightness = 1.0
+    params.tongue_desaturation = 0.05
+    params.tongue_front = 1.0
+    params.tongue_rear = 0.0
+    params.tongue_specular = 0.259
+    params.tongue_roughness = 1.0
+    params.tongue_sss_scatter = 1.0
+    params.tongue_sss_radius = 1.0
+    params.tongue_sss_falloff = (1,1,1, 1.0)
+    params.tongue_micronormal = 0.5
+    params.tongue_tiling = 4
+
+    params.nails_ao = 1.0
+    params.nails_specular = 0.4
+    params.nails_roughness = 0.0
+    params.nails_sss_radius = 1.5
+    params.nails_sss_falloff = (1.0, 0.112, 0.072, 1.0)
+    params.nails_micronormal = 1.0
+    params.nails_tiling = 42
+
+    params.hair_ao = 1.0
+    params.hair_blend = 0.0
+    params.hair_specular = 0.5
+    params.hair_roughness = 0.0
+    params.hair_scalp_specular = 0.0
+    params.hair_scalp_roughness = 0.0
+    params.hair_eyelash_specular = 0.0
+    params.hair_eyelash_roughness = 0.0
+    params.hair_sss_radius = 1.0
+    params.hair_sss_falloff = (1.0, 1.0, 1.0, 1.0)
+    params.hair_bump = 1
+
+    params.hair_brightness = 0.0
+    params.hair_contrast = 0.0
+    params.hair_hue = 0.5
+    params.hair_saturation = 1.0
+    params.hair_aniso_strength = 0
+    params.hair_aniso_strength_cycles = 0
+    params.hair_aniso_color = (0.050000, 0.038907, 0.032500, 1.000000)
+    params.hair_vertex_color_strength = 0.0
+    params.hair_base_color_map_strength = 1.0
+    params.hair_depth_strength = 1.0
+    params.hair_diffuse_strength = 1.0
+    params.hair_global_strength = 0.0
+    params.hair_root_color = (0.144129, 0.072272, 0.046665, 1.0)
+    params.hair_end_color = (0.332452, 0.184475, 0.122139, 1.0)
+    params.hair_root_strength = 1.0
+    params.hair_end_strength = 1.0
+    params.hair_invert_strand = 0.0
+    params.hair_a_start = 0.1
+    params.hair_a_mid = 0.2
+    params.hair_a_end = 0.3
+    params.hair_a_strength = 0
+    params.hair_a_overlap = 1.0
+    params.hair_a_color = (0.502886, 0.323143, 0.205079, 1.0)
+    params.hair_b_start = 0.1
+    params.hair_b_mid = 0.2
+    params.hair_b_end = 0.3
+    params.hair_b_strength = 0.0
+    params.hair_b_overlap = 1.0
+    params.hair_b_color = (1.000000, 1.000000, 1.000000, 1.000000)
+    params.hair_fake_bump_midpoint = 0.5
+    params.hair_opacity = 1
+    params.hair_scalp_opacity = 1
+    params.hair_eyelash_opacity = 1
+
+    params.default_ao = 1.0
+    params.default_blend = 0.0
+    params.default_roughness = 0.0
+    params.default_normal_blend = 0.0
+    params.default_sss_radius = 1.0
+    params.default_sss_falloff = (1.0, 1.0, 1.0, 1.0)
+
+    params.default_micronormal = 0.5
+    params.default_tiling = 10
+    params.default_bump = 5
+    params.default_opacity = 1
+
+
 def reset_parameters(context = bpy.context):
     global block_update
+
     props = bpy.context.scene.CC3ImportProps
 
     block_update = True
 
-    props.skin_ao = 1.0
-    props.skin_blend = 0.0
-    props.skin_normal_blend = 0.0
-    props.skin_roughness = 0.1
-    props.skin_roughness_power = 0.8
-    props.skin_specular = 0.4
-    props.skin_basic_specular = 0.4
-    props.skin_basic_roughness = 0.15
-    props.skin_sss_radius = 1.5
-    props.skin_sss_falloff = (1.0, 0.112, 0.072, 1.0)
-    props.skin_head_micronormal = 0.5
-    props.skin_body_micronormal = 0.8
-    props.skin_arm_micronormal = 1.0
-    props.skin_leg_micronormal = 1.0
-    props.skin_head_tiling = 25
-    props.skin_body_tiling = 20
-    props.skin_arm_tiling = 20
-    props.skin_leg_tiling = 20
-    props.skin_mouth_ao = 2.5
-    props.skin_nostril_ao = 2.5
-    props.skin_lips_ao = 2.5
+    active_mat = context_material(context)
+    active_cache = get_material_cache(active_mat)
+    linked = get_linked_material_types(active_cache)
+    paired = get_paired_material_types(active_cache)
 
-    props.eye_ao = 0.2
-    props.eye_blend = 0.0
-    props.eye_specular = 0.8
-    props.eye_sclera_roughness = 0.2
-    props.eye_iris_roughness = 0.0
-    props.eye_iris_scale = 1.0
-    props.eye_sclera_scale = 1.0
-    props.eye_iris_radius = 0.14
-    props.eye_iris_hardness = 0.85
-    props.eye_limbus_radius = 0.125
-    props.eye_limbus_hardness = 0.80
-    props.eye_limbus_color = (0.2, 0.2, 0.2, 1.0)
-    props.eye_sss_radius = 1.0
-    props.eye_sss_falloff = (1.0, 1.0, 1.0, 1.0)
-    props.eye_sclera_normal = 0.9
-    props.eye_sclera_tiling = 2.0
-    props.eye_basic_roughness = 0.05
-    props.eye_basic_normal = 0.1
-    props.eye_shadow_radius = 0.3
-    props.eye_shadow_hardness = 0.5
-    props.eye_shadow_color = (1.0, 0.497, 0.445, 1.0)
-    props.eye_occlusion = 0.5
-    props.eye_occlusion_hardness = 0.5
-    props.eye_sclera_brightness = 0.75
-    props.eye_iris_brightness = 1.0
-    props.eye_sclera_hue = 0.5
-    props.eye_iris_hue = 0.5
-    props.eye_sclera_saturation = 1.0
-    props.eye_iris_saturation = 1.0
-    props.eye_basic_brightness = 0.9
-    props.eye_tearline_alpha = 0.05
-    props.eye_tearline_roughness = 0.15
+    for mat_cache in props.material_cache:
 
-    props.eye_iris_depth = 0.25
-    props.eye_pupil_scale = 1.0
-    props.eye_refraction_depth = 1.0
-    props.eye_ior = 1.42
-    props.eye_blood_vessel_height = 0.5
-    props.eye_iris_bump_height = 1
+        if mat_cache.material == active_mat:
+            reset_material_parameters(mat_cache)
 
+        elif mat_cache.material_type in paired:
+            reset_material_parameters(mat_cache)
 
-    props.teeth_ao = 1.0
-    props.teeth_gums_brightness = 0.9
-    props.teeth_teeth_brightness = 0.7
-    props.teeth_gums_desaturation = 0.0
-    props.teeth_teeth_desaturation = 0.1
-    props.teeth_front = 1.0
-    props.teeth_rear = 0.0
-    props.teeth_specular = 0.25
-    props.teeth_roughness = 0.4
-    props.teeth_gums_sss_scatter = 1.0
-    props.teeth_teeth_sss_scatter = 0.5
-    props.teeth_sss_radius = 1.0
-    props.teeth_sss_falloff = (0.381, 0.198, 0.13, 1.0)
-    props.teeth_micronormal = 0.3
-    props.teeth_tiling = 10
-
-    props.tongue_ao = 1.0
-    props.tongue_brightness = 1.0
-    props.tongue_desaturation = 0.05
-    props.tongue_front = 1.0
-    props.tongue_rear = 0.0
-    props.tongue_specular = 0.259
-    props.tongue_roughness = 1.0
-    props.tongue_sss_scatter = 1.0
-    props.tongue_sss_radius = 1.0
-    props.tongue_sss_falloff = (1,1,1, 1.0)
-    props.tongue_micronormal = 0.5
-    props.tongue_tiling = 4
-
-    props.nails_ao = 1.0
-    props.nails_specular = 0.4
-    props.nails_roughness = 0.0
-    props.nails_sss_radius = 1.5
-    props.nails_sss_falloff = (1.0, 0.112, 0.072, 1.0)
-    props.nails_micronormal = 1.0
-    props.nails_tiling = 42
-
-    props.hair_ao = 1.0
-    props.hair_blend = 0.0
-    props.hair_specular = 0.5
-    props.hair_roughness = 0.0
-    props.hair_scalp_specular = 0.0
-    props.hair_scalp_roughness = 0.0
-    props.hair_eyelash_specular = 0.0
-    props.hair_eyelash_roughness = 0.0
-    props.hair_sss_radius = 1.0
-    props.hair_sss_falloff = (1.0, 1.0, 1.0, 1.0)
-    props.hair_bump = 1
-
-    props.hair_brightness = 0.0
-    props.hair_contrast = 0.0
-    props.hair_hue = 0.5
-    props.hair_saturation = 1.0
-    props.hair_aniso_strength = 0
-    props.hair_aniso_strength_cycles = 0
-    props.hair_aniso_color = (0.050000, 0.038907, 0.032500, 1.000000)
-    props.hair_vertex_color_strength = 0.0
-    props.hair_base_color_map_strength = 1.0
-    props.hair_depth_strength = 1.0
-    props.hair_diffuse_strength = 1.0
-    props.hair_global_strength = 0.0
-    props.hair_root_color = (0.144129, 0.072272, 0.046665, 1.0)
-    props.hair_end_color = (0.332452, 0.184475, 0.122139, 1.0)
-    props.hair_root_strength = 1.0
-    props.hair_end_strength = 1.0
-    props.hair_invert_strand = 0.0
-    props.hair_a_start = 0.1
-    props.hair_a_mid = 0.2
-    props.hair_a_end = 0.3
-    props.hair_a_strength = 0
-    props.hair_a_overlap = 1.0
-    props.hair_a_color = (0.502886, 0.323143, 0.205079, 1.0)
-    props.hair_b_start = 0.1
-    props.hair_b_mid = 0.2
-    props.hair_b_end = 0.3
-    props.hair_b_strength = 0.0
-    props.hair_b_overlap = 1.0
-    props.hair_b_color = (1.000000, 1.000000, 1.000000, 1.000000)
-    props.hair_fake_bump_midpoint = 0.5
-    props.hair_opacity = 1
-    props.hair_scalp_opacity = 1
-    props.hair_eyelash_opacity = 1
-
-    props.default_ao = 1.0
-    props.default_blend = 0.0
-    props.default_roughness = 0.0
-    props.default_normal_blend = 0.0
-    props.default_sss_radius = 1.0
-    props.default_sss_falloff = (1.0, 1.0, 1.0, 1.0)
-
-    props.default_micronormal = 0.5
-    props.default_tiling = 10
-    props.default_bump = 5
-    props.default_opacity = 1
+        elif props.update_mode == "UPDATE_LINKED":
+            for linked_type in linked:
+                if mat_cache.material_type == linked_type:
+                    reset_material_parameters(mat_cache)
 
     block_update = False
-    quick_set_execute("UPDATE_ALL", context)
+
+    update_all_properties(context)
 
     return
 
@@ -5505,26 +5600,198 @@ class CC3ObjectPointer(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
 
 
+
+class CC3MaterialParameters(bpy.types.PropertyGroup):
+    # Basic
+    skin_basic_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_basic_specular"))
+    skin_basic_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_basic_roughness"))
+    eye_basic_roughness: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_basic_roughness"))
+    eye_basic_normal: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_basic_normal"))
+    eye_basic_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_basic_brightness"))
+
+
+    # Skin
+    skin_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao"))
+    skin_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_blend"))
+    skin_mouth_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_mouth_ao"))
+    skin_nostril_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_nostril_ao"))
+    skin_lips_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_lips_ao"))
+    skin_normal_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_blend"))
+    skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
+    skin_roughness: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness"))
+    skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular"))
+    skin_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=5, update=lambda s,c: update_property(s,c,"skin_sss_radius"))
+    skin_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"skin_sss_falloff"))
+    skin_head_micronormal: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_head_micronormal"))
+    skin_body_micronormal: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_body_micronormal"))
+    skin_arm_micronormal: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_arm_micronormal"))
+    skin_leg_micronormal: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_leg_micronormal"))
+    skin_head_tiling: bpy.props.FloatProperty(default=25, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_head_tiling"))
+    skin_body_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_body_tiling"))
+    skin_arm_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_arm_tiling"))
+    skin_leg_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_leg_tiling"))
+
+
+    # Eye
+    eye_ao: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_ao"))
+    eye_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_blend"))
+    eye_shadow_radius: bpy.props.FloatProperty(default=0.3, min=0, max=0.5, update=lambda s,c: update_property(s,c,"eye_shadow_radius"))
+    eye_shadow_hardness: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_shadow_hardness"))
+    eye_shadow_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 0.497, 0.445, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_shadow_color"))
+    eye_sclera_brightness: bpy.props.FloatProperty(default=0.75, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_sclera_brightness"))
+    eye_iris_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_iris_brightness"))
+    eye_sclera_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_hue"))
+    eye_iris_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hue"))
+    eye_sclera_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_sclera_saturation"))
+    eye_iris_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_saturation"))
+    eye_specular: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_specular"))
+    eye_sclera_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_roughness"))
+    eye_iris_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_roughness"))
+    eye_iris_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_property(s,c,"eye_iris_scale"))
+    eye_iris_radius: bpy.props.FloatProperty(default=0.14, min=0.1, max=0.15, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
+    eye_iris_hardness: bpy.props.FloatProperty(default=0.85, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hardness"))
+    eye_sclera_scale: bpy.props.FloatProperty(default=1.0, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_sclera_scale"))
+    eye_limbus_radius: bpy.props.FloatProperty(default=0.125, min=0.1, max=0.15, update=lambda s,c: update_property(s,c,"eye_limbus_radius"))
+    eye_limbus_hardness: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_limbus_hardness"))
+    eye_limbus_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0.2, 0.2, 0.2, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_limbus_color"))
+    eye_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"eye_sss_radius"))
+    eye_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_sss_falloff"))
+    eye_sclera_normal: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_normal"))
+    eye_sclera_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=lambda s,c: update_property(s,c,"eye_sclera_tiling"))
+    eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion"))
+    eye_occlusion_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0.0, 0.0, 0.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_occlusion_color"))
+    eye_occlusion_hardness: bpy.props.FloatProperty(default=0.5, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_hardness"))
+    eye_tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"eye_tearline_alpha"))
+    eye_tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"eye_tearline_roughness"))
+    eye_refraction_depth: bpy.props.FloatProperty(default=1, min=0, max=5, update=lambda s,c: update_material(s,c,"eye_refraction_depth"))
+    eye_ior: bpy.props.FloatProperty(default=1.42, min=1.01, max=2.5, update=lambda s,c: update_material(s,c,"eye_ior"))
+    eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
+    eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
+
+
+    # Teeth
+    teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_ao"))
+    teeth_gums_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_gums_brightness"))
+    teeth_teeth_brightness: bpy.props.FloatProperty(default=0.7, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_teeth_brightness"))
+    teeth_gums_desaturation: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_gums_desaturation"))
+    teeth_teeth_desaturation: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_teeth_desaturation"))
+    teeth_front: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_front"))
+    teeth_rear: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_rear"))
+    teeth_specular: bpy.props.FloatProperty(default=0.25, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_specular"))
+    teeth_roughness: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_roughness"))
+    teeth_gums_sss_scatter: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_gums_sss_scatter"))
+    teeth_teeth_sss_scatter: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_teeth_sss_scatter"))
+    teeth_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"teeth_sss_radius"))
+    teeth_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                            default=(0.381, 0.198, 0.13, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"teeth_sss_falloff"))
+    teeth_micronormal: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_micronormal"))
+    teeth_tiling: bpy.props.FloatProperty(default=10, min=0, max=50, update=lambda s,c: update_property(s,c,"teeth_tiling"))
+
+
+    # Tongue
+    tongue_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_ao"))
+    tongue_brightness: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_brightness"))
+    tongue_desaturation: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_desaturation"))
+    tongue_front: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_front"))
+    tongue_rear: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_rear"))
+    tongue_specular: bpy.props.FloatProperty(default=0.259, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_specular"))
+    tongue_roughness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_roughness"))
+    tongue_sss_scatter: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_sss_scatter"))
+    tongue_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"tongue_sss_radius"))
+    tongue_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                            default=(1, 1, 1, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"tongue_sss_falloff"))
+    tongue_micronormal: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_micronormal"))
+    tongue_tiling: bpy.props.FloatProperty(default=4, min=0, max=50, update=lambda s,c: update_property(s,c,"tongue_tiling"))
+
+
+    # Nails
+    nails_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"nails_ao"))
+    nails_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"nails_specular"))
+    nails_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"nails_roughness"))
+    nails_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=3, update=lambda s,c: update_property(s,c,"nails_sss_radius"))
+    nails_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                            default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"nails_sss_falloff"))
+    nails_micronormal: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"nails_micronormal"))
+    nails_tiling: bpy.props.FloatProperty(default=42, min=0, max=50, update=lambda s,c: update_property(s,c,"nails_tiling"))
+
+
+    # Hair
+    hair_specular: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_specular"))
+    hair_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_roughness"))
+    hair_scalp_specular: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_scalp_specular"))
+    hair_scalp_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_scalp_roughness"))
+    hair_eyelash_specular: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_eyelash_specular"))
+    hair_eyelash_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_eyelash_roughness"))
+    hair_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_ao"))
+    hair_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_blend"))
+    hair_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_specular"))
+    hair_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"hair_sss_radius"))
+    hair_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_sss_falloff"))
+    hair_bump: bpy.props.FloatProperty(default=1, min=0, max=10, update=lambda s,c: update_property(s,c,"hair_bump"))
+    hair_opacity: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_opacity"))
+    hair_scalp_opacity: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_scalp_opacity"))
+    hair_eyelash_opacity: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_eyelash_opacity"))
+    hair_brightness: bpy.props.FloatProperty(default=0, min=-2, max=2, update=lambda s,c: update_property(s,c,"hair_brightness"))
+    hair_contrast: bpy.props.FloatProperty(default=0, min=-2, max=2, update=lambda s,c: update_property(s,c,"hair_contrast"))
+    hair_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_hue"))
+    hair_saturation: bpy.props.FloatProperty(default=1, min=0, max=4, update=lambda s,c: update_property(s,c,"hair_saturation"))
+    hair_diffuse_strength: bpy.props.FloatProperty(default=1.0, min=0, max=4, update=lambda s,c: update_property(s,c,"hair_diffuse_strength"))
+    hair_aniso_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0.050000, 0.038907, 0.032500, 1.000000), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_aniso_color"))
+    hair_aniso_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_aniso_strength"))
+    hair_aniso_strength_cycles: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_aniso_strength_cycles"))
+    hair_vertex_color_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_vertex_color_strength"))
+    hair_base_color_map_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_base_color_map_strength"))
+    hair_depth_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_depth_strength"))
+    hair_global_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_global_strength"))
+    hair_root_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0.144129, 0.072272, 0.046665, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_root_color"))
+    hair_end_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0.332452, 0.184475, 0.122139, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_end_color"))
+    hair_root_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_root_strength"))
+    hair_end_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_end_strength"))
+    hair_invert_strand: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_invert_strand"))
+    hair_a_start: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_start"))
+    hair_a_mid: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_mid"))
+    hair_a_end: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_end"))
+    hair_a_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_strength"))
+    hair_a_overlap: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_overlap"))
+    hair_a_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0.502886, 0.323143, 0.205079, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_a_color"))
+    hair_b_start: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_b_start"))
+    hair_b_mid: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_b_mid"))
+    hair_b_end: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_b_end"))
+    hair_b_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_b_strength"))
+    hair_b_overlap: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_b_overlap"))
+    hair_b_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.000000, 1.000000, 1.000000, 1.000000), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_b_color"))
+    hair_fake_bump_midpoint: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_fake_bump_midpoint"))
+
+
+    # Default
+    default_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_ao"))
+    default_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_blend"))
+    default_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness"))
+    default_normal_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_normal_blend"))
+    default_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=3, update=lambda s,c: update_property(s,c,"default_sss_radius"))
+    default_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"default_sss_falloff"))
+    default_micronormal: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_micronormal"))
+    default_tiling: bpy.props.FloatProperty(default=10, min=0, max=100, update=lambda s,c: update_property(s,c,"default_tiling"))
+    default_bump: bpy.props.FloatProperty(default=5, min=0, max=10, update=lambda s,c: update_property(s,c,"default_bump"))
+    default_opacity: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_opacity"))
+
+
 class CC3MaterialCache(bpy.types.PropertyGroup):
     material: bpy.props.PointerProperty(type=bpy.types.Material)
-    material_type: bpy.props.EnumProperty(items=[
-                        ("DEFAULT", "Default", "Default material"),
-                        ("SKIN_HEAD", "Head", "Head skin material"),
-                        ("SKIN_BODY", "Body", "Body skin material"),
-                        ("SKIN_ARM", "Arm", "Arm skin material"),
-                        ("SKIN_LEG", "Leg", "Leg skin material"),
-                        ("TEETH_UPPER", "Upper Teeth", "Upper teeth material"),
-                        ("TEETH_LOWER", "Lower Teeth", "Lower teeth material"),
-                        ("TONGUE", "Tongue", "Tongue material"),
-                        ("HAIR", "Hair", "Hair material"),
-                        ("SCALP", "Scalp", "Scalp or base hair material"),
-                        ("EYELASH", "Eyelash", "Eyelash material"),
-                        ("NAILS", "Nails", "Finger and toe nails material"),
-                        ("CORNEA", "Cornea", "Cornea material."),
-                        ("EYE", "Eye", "Basic PBR eye material."),
-                        ("OCCLUSION", "Eye Occlusion", "Eye occlusion material"),
-                        ("TEARLINE", "Tearline", "Tear line material"),
-                    ], default="DEFAULT")
+    material_type: bpy.props.EnumProperty(items=MATERIAL_TYPES, default="DEFAULT")
+    parameters: bpy.props.PointerProperty(type=CC3MaterialParameters)
     smart_hair: bpy.props.BoolProperty(default=False)
     compat: bpy.props.PointerProperty(type=bpy.types.Material)
     dir: bpy.props.StringProperty(default="")
@@ -5540,7 +5807,10 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
 
     def is_skin(self):
-        return self.material_type.startswith("SKIN")
+        return (self.material_type == "SKIN_HEAD"
+                or self.material_type == "SKIN_BODY"
+                or self.material_type == "SKIN_ARM"
+                or self.material_type == "SKIN_LEG")
 
     def is_head(self):
         return self.material_type == "SKIN_HEAD"
@@ -5555,7 +5825,8 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
         return self.material_type == "SKIN_LEG"
 
     def is_teeth(self):
-        return self.material_type.startswith("TEETH")
+        return (self.material_type == "TEETH_UPPER"
+                or self.material_type == "TEETH_LOWER")
 
     def is_tongue(self):
         return self.material_type == "TONGUE"
@@ -5574,25 +5845,29 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
 
     def is_eye(self, side = "ANY"):
         if side == "RIGHT":
-            return self.material_type == "EYE" and self.material.name.lower().endswith("_r")
+            return self.material_type == "EYE_RIGHT"
         elif side == "LEFT":
-            return self.material_type == "EYE" and self.material.name.lower().endswith("_l")
+            return self.material_type == "EYE_LEFT"
         else:
-            return self.material_type == "EYE"
+            return (self.material_type == "EYE_RIGHT"
+                    or self.material_type == "EYE_LEFT")
 
     def is_cornea(self, side = "ANY"):
         if side == "RIGHT":
-            return self.material_type == "CORNEA" and self.material.name.lower().endswith("_r")
+            return self.material_type == "CORNEA_RIGHT"
         elif side == "LEFT":
-            return self.material_type == "CORNEA" and self.material.name.lower().endswith("_l")
+            return self.material_type == "CORNEA_LEFT"
         else:
-            return self.material_type == "CORNEA"
+            return (self.material_type == "CORNEA_RIGHT"
+                    or self.material_type == "CORNEA_LEFT")
 
     def is_eye_occlusion(self):
-        return self.material_type == "OCCLUSION"
+        return (self.material_type == "OCCLUSION_RIGHT"
+                or self.material_type == "OCCLUSION_LEFT")
 
     def is_tearline(self):
-        return self.material_type == "TEARLINE"
+        return (self.material_type == "TEARLINE_RIGHT"
+                or self.material_type == "TEARLINE_LEFT")
 
 
 class CC3ObjectCache(bpy.types.PropertyGroup):
@@ -5653,9 +5928,9 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     ], default="BLEND")
 
     update_mode: bpy.props.EnumProperty(items=[
-                        ("UPDATE_ALL","All Imported","Update the shader parameters for all objects from the last import"),
-                        ("UPDATE_SELECTED","Selected Only","Update the shader parameters only in the selected objects")
-                    ], default="UPDATE_ALL")
+                        ("UPDATE_LINKED","Linked","Update the shader parameters for all materials of the same type in all the objects from the last import"),
+                        ("UPDATE_SELECTED","Selected","Update the shader parameters only in the selected object and material")
+                    ], default="UPDATE_LINKED")
 
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
     physics_paint_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=physics_paint_strength_update)
@@ -5704,199 +5979,19 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
-    stage2: bpy.props.BoolProperty(default=True)
-    stage3: bpy.props.BoolProperty(default=True)
     stage4: bpy.props.BoolProperty(default=True)
-    stage5: bpy.props.BoolProperty(default=True)
-    stage6: bpy.props.BoolProperty(default=True)
-
-
-    skin_basic_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_basic_specular"))
-    skin_basic_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_basic_roughness"))
-    eye_basic_roughness: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_basic_roughness"))
-    eye_basic_normal: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_basic_normal"))
-    eye_basic_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_basic_brightness"))
 
     skin_toggle: bpy.props.BoolProperty(default=True)
-    skin_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao"))
-    skin_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_blend"))
-    skin_mouth_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_mouth_ao"))
-    skin_nostril_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_nostril_ao"))
-    skin_lips_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_lips_ao"))
-
-    skin_normal_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_blend"))
-    skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
-    skin_roughness: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness"))
-    skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular"))
-    skin_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=5, update=lambda s,c: update_property(s,c,"skin_sss_radius"))
-    skin_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"skin_sss_falloff"))
-    skin_head_micronormal: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_head_micronormal"))
-    skin_body_micronormal: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_body_micronormal"))
-    skin_arm_micronormal: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_arm_micronormal"))
-    skin_leg_micronormal: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_leg_micronormal"))
-    skin_head_tiling: bpy.props.FloatProperty(default=25, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_head_tiling"))
-    skin_body_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_body_tiling"))
-    skin_arm_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_arm_tiling"))
-    skin_leg_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_leg_tiling"))
-
     eye_toggle: bpy.props.BoolProperty(default=True)
-    eye_ao: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_ao"))
-    eye_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_blend"))
-    eye_shadow_radius: bpy.props.FloatProperty(default=0.3, min=0, max=0.5, update=lambda s,c: update_property(s,c,"eye_shadow_radius"))
-    eye_shadow_hardness: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_shadow_hardness"))
-    eye_shadow_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(1.0, 0.497, 0.445, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_shadow_color"))
-    eye_sclera_brightness: bpy.props.FloatProperty(default=0.75, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_sclera_brightness"))
-    eye_iris_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_iris_brightness"))
-    eye_sclera_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_hue"))
-    eye_iris_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hue"))
-    eye_sclera_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_sclera_saturation"))
-    eye_iris_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_saturation"))
+    teeth_toggle: bpy.props.BoolProperty(default=True)
+    tongue_toggle: bpy.props.BoolProperty(default=True)
+    nails_toggle: bpy.props.BoolProperty(default=True)
+    hair_toggle: bpy.props.BoolProperty(default=True)
+    default_toggle: bpy.props.BoolProperty(default=True)
 
-
-    eye_specular: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_specular"))
-    eye_sclera_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_roughness"))
-    eye_iris_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_roughness"))
-    eye_iris_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_property(s,c,"eye_iris_scale"))
-    eye_iris_radius: bpy.props.FloatProperty(default=0.14, min=0.1, max=0.15, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
-    eye_iris_hardness: bpy.props.FloatProperty(default=0.85, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hardness"))
-    eye_sclera_scale: bpy.props.FloatProperty(default=1.0, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_sclera_scale"))
-    eye_limbus_radius: bpy.props.FloatProperty(default=0.125, min=0.1, max=0.15, update=lambda s,c: update_property(s,c,"eye_limbus_radius"))
-    eye_limbus_hardness: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_limbus_hardness"))
-    eye_limbus_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0.2, 0.2, 0.2, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_limbus_color"))
-    eye_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"eye_sss_radius"))
-    eye_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_sss_falloff"))
-    eye_sclera_normal: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_normal"))
-    eye_sclera_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=lambda s,c: update_property(s,c,"eye_sclera_tiling"))
-
-    eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion"))
-    eye_occlusion_hardness: bpy.props.FloatProperty(default=0.5, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_hardness"))
-
-
-    eye_tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"eye_tearline_alpha"))
-    eye_tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"eye_tearline_roughness"))
-
+    # TODO object modifier properties, should be in the mat_cache.parameters and could work independantly...
     eye_iris_depth: bpy.props.FloatProperty(default=0.25, min=0.0, max=1.0, update=lambda s,c: update_modifier(s,c,"eye_iris_depth"))
     eye_pupil_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_modifier(s,c,"eye_pupil_scale"))
-    eye_refraction_depth: bpy.props.FloatProperty(default=1, min=0, max=5, update=lambda s,c: update_material(s,c,"eye_refraction_depth"))
-    eye_ior: bpy.props.FloatProperty(default=1.42, min=1.01, max=2.5, update=lambda s,c: update_material(s,c,"eye_ior"))
-    eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
-    eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
-
-
-    teeth_toggle: bpy.props.BoolProperty(default=True)
-    teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_ao"))
-    teeth_gums_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_gums_brightness"))
-    teeth_teeth_brightness: bpy.props.FloatProperty(default=0.7, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_teeth_brightness"))
-    teeth_gums_desaturation: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_gums_desaturation"))
-    teeth_teeth_desaturation: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_teeth_desaturation"))
-    teeth_front: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_front"))
-    teeth_rear: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_rear"))
-    teeth_specular: bpy.props.FloatProperty(default=0.25, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_specular"))
-    teeth_roughness: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_roughness"))
-    teeth_gums_sss_scatter: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_gums_sss_scatter"))
-    teeth_teeth_sss_scatter: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_teeth_sss_scatter"))
-    teeth_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"teeth_sss_radius"))
-    teeth_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                            default=(0.381, 0.198, 0.13, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"teeth_sss_falloff"))
-    teeth_micronormal: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_micronormal"))
-    teeth_tiling: bpy.props.FloatProperty(default=10, min=0, max=50, update=lambda s,c: update_property(s,c,"teeth_tiling"))
-
-    tongue_toggle: bpy.props.BoolProperty(default=True)
-    tongue_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_ao"))
-    tongue_brightness: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_brightness"))
-    tongue_desaturation: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_desaturation"))
-    tongue_front: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_front"))
-    tongue_rear: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_rear"))
-    tongue_specular: bpy.props.FloatProperty(default=0.259, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_specular"))
-    tongue_roughness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_roughness"))
-    tongue_sss_scatter: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_sss_scatter"))
-    tongue_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"tongue_sss_radius"))
-    tongue_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                            default=(1, 1, 1, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"tongue_sss_falloff"))
-    tongue_micronormal: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_micronormal"))
-    tongue_tiling: bpy.props.FloatProperty(default=4, min=0, max=50, update=lambda s,c: update_property(s,c,"tongue_tiling"))
-
-    nails_toggle: bpy.props.BoolProperty(default=True)
-    nails_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"nails_ao"))
-    nails_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"nails_specular"))
-    nails_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"nails_roughness"))
-    nails_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=3, update=lambda s,c: update_property(s,c,"nails_sss_radius"))
-    nails_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                            default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"nails_sss_falloff"))
-    nails_micronormal: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"nails_micronormal"))
-    nails_tiling: bpy.props.FloatProperty(default=42, min=0, max=50, update=lambda s,c: update_property(s,c,"nails_tiling"))
-
-    hair_toggle: bpy.props.BoolProperty(default=True)
-    hair_specular: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_specular"))
-    hair_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_roughness"))
-    hair_scalp_specular: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_scalp_specular"))
-    hair_scalp_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_scalp_roughness"))
-    hair_eyelash_specular: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_eyelash_specular"))
-    hair_eyelash_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_eyelash_roughness"))
-    hair_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_ao"))
-    hair_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_blend"))
-    hair_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_specular"))
-    hair_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"hair_sss_radius"))
-    hair_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_sss_falloff"))
-    hair_bump: bpy.props.FloatProperty(default=1, min=0, max=10, update=lambda s,c: update_property(s,c,"hair_bump"))
-    hair_opacity: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_opacity"))
-    hair_scalp_opacity: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_scalp_opacity"))
-    hair_eyelash_opacity: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_eyelash_opacity"))
-
-    hair_brightness: bpy.props.FloatProperty(default=0, min=-2, max=2, update=lambda s,c: update_property(s,c,"hair_brightness"))
-    hair_contrast: bpy.props.FloatProperty(default=0, min=-2, max=2, update=lambda s,c: update_property(s,c,"hair_contrast"))
-    hair_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_hue"))
-    hair_saturation: bpy.props.FloatProperty(default=1, min=0, max=4, update=lambda s,c: update_property(s,c,"hair_saturation"))
-    hair_diffuse_strength: bpy.props.FloatProperty(default=1.0, min=0, max=4, update=lambda s,c: update_property(s,c,"hair_diffuse_strength"))
-
-    hair_aniso_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0.050000, 0.038907, 0.032500, 1.000000), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_aniso_color"))
-    hair_aniso_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_aniso_strength"))
-    hair_aniso_strength_cycles: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_aniso_strength_cycles"))
-    hair_vertex_color_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_vertex_color_strength"))
-    hair_base_color_map_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_base_color_map_strength"))
-    hair_depth_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_depth_strength"))
-    hair_global_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_global_strength"))
-    hair_root_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0.144129, 0.072272, 0.046665, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_root_color"))
-    hair_end_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0.332452, 0.184475, 0.122139, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_end_color"))
-    hair_root_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_root_strength"))
-    hair_end_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_end_strength"))
-    hair_invert_strand: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_invert_strand"))
-    hair_a_start: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_start"))
-    hair_a_mid: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_mid"))
-    hair_a_end: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_end"))
-    hair_a_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_strength"))
-    hair_a_overlap: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_a_overlap"))
-    hair_a_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0.502886, 0.323143, 0.205079, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_a_color"))
-    hair_b_start: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_b_start"))
-    hair_b_mid: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_b_mid"))
-    hair_b_end: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_b_end"))
-    hair_b_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_b_strength"))
-    hair_b_overlap: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_b_overlap"))
-    hair_b_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(1.000000, 1.000000, 1.000000, 1.000000), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_b_color"))
-    hair_fake_bump_midpoint: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_fake_bump_midpoint"))
-
-    default_toggle: bpy.props.BoolProperty(default=True)
-    default_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_ao"))
-    default_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_blend"))
-    default_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness"))
-    default_normal_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_normal_blend"))
-    default_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=3, update=lambda s,c: update_property(s,c,"default_sss_radius"))
-    default_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"default_sss_falloff"))
-    default_micronormal: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_micronormal"))
-    default_tiling: bpy.props.FloatProperty(default=10, min=0, max=100, update=lambda s,c: update_property(s,c,"default_tiling"))
-    default_bump: bpy.props.FloatProperty(default=5, min=0, max=10, update=lambda s,c: update_property(s,c,"default_bump"))
-    default_opacity: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_opacity"))
 
 
 def fake_drop_down(row, label, prop_name, prop_bool_value):
@@ -6061,10 +6156,12 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
         mat_cache = get_material_cache(mat, True)
         mat_type = "NONE"
         obj_type = "NONE"
+        params = None
         if obj_cache is not None:
             obj_type = obj_cache.object_type
         if mat_cache is not None:
             mat_type = mat_cache.material_type
+            params = mat_cache.parameters
         is_import_object = False
         is_import_material = mat_cache is not None
         if obj is not None and obj.type == "MESH":
@@ -6077,7 +6174,7 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
             layout.enabled = False
 
         # Parameters
-        if fake_drop_down(layout.box().row(),
+        if params and fake_drop_down(layout.box().row(),
                 "Adjust Parameters",
                 "stage4",
                 props.stage4):
@@ -6096,16 +6193,18 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
             row = column.row()
             row.prop(props, "update_mode", expand=True)
 
-            column.separator()
-            split = column.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            if props.update_mode == "UPDATE_ALL":
-                col_1.label(text="Update All")
-            else:
-                col_1.label(text="Update Selected")
-            op = col_2.operator("cc3.quickset", icon="FILE_REFRESH", text="Update")
-            op.param = props.update_mode
+            linked = props.update_mode == "UPDATE_LINKED"
+
+            #column.separator()
+            #split = column.split(factor=0.5)
+            #col_1 = split.column()
+            #col_2 = split.column()
+            #if props.update_mode == "UPDATE_LINKED":
+            #    col_1.label(text="Update Linked")
+            #else:
+            #    col_1.label(text="Update Selected")
+            #op = col_2.operator("cc3.quickset", icon="FILE_REFRESH", text="Update")
+            #op.param = props.update_mode
 
             if props.setup_mode == "ADVANCED":
 
@@ -6122,205 +6221,219 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Skin AO")
-                        col_2.prop(props, "skin_ao", text="", slider=True)
-                        col_1.label(text="Mouth AO")
-                        col_2.prop(props, "skin_mouth_ao", text="", slider=True)
-                        col_1.label(text="Nostril AO")
-                        col_2.prop(props, "skin_nostril_ao", text="", slider=True)
-                        col_1.label(text="Lips AO")
-                        col_2.prop(props, "skin_lips_ao", text="", slider=True)
-                        col_1.label(text="Skin Color Blend")
-                        col_2.prop(props, "skin_blend", text="", slider=True)
+                        col_2.prop(params, "skin_ao", text="", slider=True)
+                        if linked or mat_cache.is_head():
+                            col_1.label(text="Mouth AO")
+                            col_2.prop(params, "skin_mouth_ao", text="", slider=True)
+                            col_1.label(text="Nostril AO")
+                            col_2.prop(params, "skin_nostril_ao", text="", slider=True)
+                            col_1.label(text="Lips AO")
+                            col_2.prop(params, "skin_lips_ao", text="", slider=True)
+                            col_1.label(text="Skin Color Blend")
+                            col_2.prop(params, "skin_blend", text="", slider=True)
 
                         column.box().label(text= "Surface", icon="SURFACE_DATA")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Skin Specular")
-                        col_2.prop(props, "skin_specular", text="", slider=True)
+                        col_2.prop(params, "skin_specular", text="", slider=True)
                         col_1.label(text="Roughness Power")
-                        col_2.prop(props, "skin_roughness_power", text="", slider=True)
+                        col_2.prop(params, "skin_roughness_power", text="", slider=True)
                         col_1.label(text="Roughness Remap")
-                        col_2.prop(props, "skin_roughness", text="", slider=True)
+                        col_2.prop(params, "skin_roughness", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Skin SSS Radius")
-                        col_2.prop(props, "skin_sss_radius", text="", slider=True)
+                        col_2.prop(params, "skin_sss_radius", text="", slider=True)
                         col_1.label(text="Skin SSS Faloff")
-                        col_2.prop(props, "skin_sss_falloff", text="")
+                        col_2.prop(params, "skin_sss_falloff", text="")
 
-                        column.box().label(text= "Normals", icon="NORMALS_FACE")
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Skin Normal Blend")
-                        col_2.prop(props, "skin_normal_blend", text="", slider=True)
+                        if linked or mat_cache.is_head():
+                            column.box().label(text= "Normals", icon="NORMALS_FACE")
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Skin Normal Blend")
+                            col_2.prop(params, "skin_normal_blend", text="", slider=True)
 
                         column.box().label(text= "Micro-normals", icon="MOD_NORMALEDIT")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Head Micro Normal")
-                        col_2.prop(props, "skin_head_micronormal", text="", slider=True)
-                        col_1.label(text="Body Micro Normal")
-                        col_2.prop(props, "skin_body_micronormal", text="", slider=True)
-                        col_1.label(text="Arm Micro Normal")
-                        col_2.prop(props, "skin_arm_micronormal", text="", slider=True)
-                        col_1.label(text="Leg Micro Normal")
-                        col_2.prop(props, "skin_leg_micronormal", text="", slider=True)
-                        col_1.label(text="Head MNormal Tiling")
-                        col_2.prop(props, "skin_head_tiling", text="", slider=True)
-                        col_1.label(text="Body MNormal Tiling")
-                        col_2.prop(props, "skin_body_tiling", text="", slider=True)
-                        col_1.label(text="Arm MNormal Tiling")
-                        col_2.prop(props, "skin_arm_tiling", text="", slider=True)
-                        col_1.label(text="Leg MNormal Tiling")
-                        col_2.prop(props, "skin_leg_tiling", text="", slider=True)
+                        if linked or mat_cache.is_head():
+                            col_1.label(text="Head Micro Normal")
+                            col_2.prop(params, "skin_head_micronormal", text="", slider=True)
+                        if linked or mat_cache.is_body():
+                            col_1.label(text="Body Micro Normal")
+                            col_2.prop(params, "skin_body_micronormal", text="", slider=True)
+                        if linked or mat_cache.is_arm():
+                            col_1.label(text="Arm Micro Normal")
+                            col_2.prop(params, "skin_arm_micronormal", text="", slider=True)
+                        if linked or mat_cache.is_leg():
+                            col_1.label(text="Leg Micro Normal")
+                            col_2.prop(params, "skin_leg_micronormal", text="", slider=True)
+                        if linked or mat_cache.is_head():
+                            col_1.label(text="Head MNormal Tiling")
+                            col_2.prop(params, "skin_head_tiling", text="", slider=True)
+                        if linked or mat_cache.is_body():
+                            col_1.label(text="Body MNormal Tiling")
+                            col_2.prop(params, "skin_body_tiling", text="", slider=True)
+                        if linked or mat_cache.is_arm():
+                            col_1.label(text="Arm MNormal Tiling")
+                            col_2.prop(params, "skin_arm_tiling", text="", slider=True)
+                        if linked or mat_cache.is_leg():
+                            col_1.label(text="Leg MNormal Tiling")
+                            col_2.prop(params, "skin_leg_tiling", text="", slider=True)
 
 
                 # Eye settings
-                elif mat_type == "EYE" or mat_type == "CORNEA" or mat_type == "TEARLINE" or mat_type == "OCCLUSION":
+                elif mat_cache.is_eye() or mat_cache.is_cornea() or mat_cache.is_tearline() or mat_cache.is_eye_occlusion():
                     column.separator()
                     if fake_drop_down(column.row(),
                             "Eye Parameters",
                             "eye_toggle",
                             props.eye_toggle):
-                        column.box().label(text= "Base Color", icon="COLOR")
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Eye AO")
-                        col_2.prop(props, "eye_ao", text="", slider=True)
-                        col_1.label(text="Eye Color Blend")
-                        col_2.prop(props, "eye_blend", text="", slider=True)
+                        if linked or (mat_cache.is_eye() or mat_cache.is_cornea()):
+                            column.box().label(text= "Base Color", icon="COLOR")
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Eye AO")
+                            col_2.prop(params, "eye_ao", text="", slider=True)
+                            col_1.label(text="Eye Color Blend")
+                            col_2.prop(params, "eye_blend", text="", slider=True)
 
-                        col_1.separator()
-                        col_2.separator()
-
-                        col_1.label(text="Sclera Hue")
-                        col_2.prop(props, "eye_sclera_hue", text="", slider=True)
-                        col_1.label(text="Sclera Saturation")
-                        col_2.prop(props, "eye_sclera_saturation", text="", slider=True)
-                        col_1.label(text="Sclera Brightness")
-                        col_2.prop(props, "eye_sclera_brightness", text="", slider=True)
-                        col_1.label(text="Sclera Scale")
-                        col_2.prop(props, "eye_sclera_scale", text="", slider=True)
-
-                        col_1.separator()
-                        col_2.separator()
-
-                        col_1.label(text="Iris Hue")
-                        col_2.prop(props, "eye_iris_hue", text="", slider=True)
-                        col_1.label(text="Iris Saturation")
-                        col_2.prop(props, "eye_iris_saturation", text="", slider=True)
-                        col_1.label(text="Iris Brightness")
-                        col_2.prop(props, "eye_iris_brightness", text="", slider=True)
-                        col_1.label(text="Iris Scale")
-                        col_2.prop(props, "eye_iris_scale", text="", slider=True)
-
-                        col_1.separator()
-                        col_2.separator()
-
-                        col_1.label(text="Iris Mask Radius")
-                        col_2.prop(props, "eye_iris_radius", text="", slider=True)
-                        col_1.label(text="Iris Mask Hardness")
-                        col_2.prop(props, "eye_iris_hardness", text="", slider=True)
-
-                        if prefs.refractive_eyes:
                             col_1.separator()
                             col_2.separator()
-                            col_1.label(text="Limbus Radius")
-                            col_2.prop(props, "eye_limbus_radius", text="", slider=True)
-                            col_1.label(text="Limbus Hardness")
-                            col_2.prop(props, "eye_limbus_hardness", text="", slider=True)
-                            col_1.label(text="Limbus Color")
-                            col_2.prop(props, "eye_limbus_color", text="")
 
-                        column.box().label(text= "Corner Shadow", icon="SHADING_RENDERED")
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Shadow Radius")
-                        col_2.prop(props, "eye_shadow_radius", text="", slider=True)
-                        col_1.label(text="Shadow Hardness")
-                        col_2.prop(props, "eye_shadow_hardness", text="", slider=True)
-                        col_1.label(text="Shadow Color")
-                        col_2.prop(props, "eye_shadow_color", text="")
+                            col_1.label(text="Sclera Hue")
+                            col_2.prop(params, "eye_sclera_hue", text="", slider=True)
+                            col_1.label(text="Sclera Saturation")
+                            col_2.prop(params, "eye_sclera_saturation", text="", slider=True)
+                            col_1.label(text="Sclera Brightness")
+                            col_2.prop(params, "eye_sclera_brightness", text="", slider=True)
+                            col_1.label(text="Sclera Scale")
+                            col_2.prop(params, "eye_sclera_scale", text="", slider=True)
 
-                        column.box().label(text= "Surface", icon="SURFACE_DATA")
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Eye Specular")
-                        col_2.prop(props, "eye_specular", text="", slider=True)
-                        col_1.label(text="Iris Roughness")
-                        col_2.prop(props, "eye_iris_roughness", text="", slider=True)
-                        col_1.label(text="Sclera Roughness")
-                        col_2.prop(props, "eye_sclera_roughness", text="", slider=True)
+                            col_1.separator()
+                            col_2.separator()
 
-                        if prefs.refractive_eyes:
-                            column.box().label(text= "Depth & Refraction", icon="MOD_THICKNESS")
+                            col_1.label(text="Iris Hue")
+                            col_2.prop(params, "eye_iris_hue", text="", slider=True)
+                            col_1.label(text="Iris Saturation")
+                            col_2.prop(params, "eye_iris_saturation", text="", slider=True)
+                            col_1.label(text="Iris Brightness")
+                            col_2.prop(params, "eye_iris_brightness", text="", slider=True)
+                            col_1.label(text="Iris Scale")
+                            col_2.prop(params, "eye_iris_scale", text="", slider=True)
+
+                            col_1.separator()
+                            col_2.separator()
+
+                            col_1.label(text="Iris Mask Radius")
+                            col_2.prop(params, "eye_iris_radius", text="", slider=True)
+                            col_1.label(text="Iris Mask Hardness")
+                            col_2.prop(params, "eye_iris_hardness", text="", slider=True)
+
+                            if prefs.refractive_eyes:
+                                col_1.separator()
+                                col_2.separator()
+                                col_1.label(text="Limbus Radius")
+                                col_2.prop(params, "eye_limbus_radius", text="", slider=True)
+                                col_1.label(text="Limbus Hardness")
+                                col_2.prop(params, "eye_limbus_hardness", text="", slider=True)
+                                col_1.label(text="Limbus Color")
+                                col_2.prop(params, "eye_limbus_color", text="")
+
+                            column.box().label(text= "Corner Shadow", icon="SHADING_RENDERED")
                             split = column.split(factor=0.5)
                             col_1 = split.column()
                             col_2 = split.column()
-                            col_1.label(text="Iris Depth")
-                            col_2.prop(props, "eye_iris_depth", text="", slider=True)
-                            col_1.label(text="Pupil Scale")
-                            col_2.prop(props, "eye_pupil_scale", text="", slider=True)
-                            col_1.label(text="Eye IOR")
-                            col_2.prop(props, "eye_ior", text="", slider=True)
-                            col_1.label(text="Refraction Depth")
-                            col_2.prop(props, "eye_refraction_depth", text="", slider=True)
+                            col_1.label(text="Shadow Radius")
+                            col_2.prop(params, "eye_shadow_radius", text="", slider=True)
+                            col_1.label(text="Shadow Hardness")
+                            col_2.prop(params, "eye_shadow_hardness", text="", slider=True)
+                            col_1.label(text="Shadow Color")
+                            col_2.prop(params, "eye_shadow_color", text="")
 
-                        if not prefs.refractive_eyes or bpy.context.scene.render.engine == "CYCLES":
-                            column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
+                            column.box().label(text= "Surface", icon="SURFACE_DATA")
                             split = column.split(factor=0.5)
                             col_1 = split.column()
                             col_2 = split.column()
-                            col_1.label(text="SSS Radius (cm)")
-                            col_2.prop(props, "eye_sss_radius", text="", slider=True)
-                            col_1.label(text="SSS Faloff")
-                            col_2.prop(props, "eye_sss_falloff", text="")
+                            col_1.label(text="Eye Specular")
+                            col_2.prop(params, "eye_specular", text="", slider=True)
+                            col_1.label(text="Iris Roughness")
+                            col_2.prop(params, "eye_iris_roughness", text="", slider=True)
+                            col_1.label(text="Sclera Roughness")
+                            col_2.prop(params, "eye_sclera_roughness", text="", slider=True)
 
-                        column.box().label(text= "Normals", icon="NORMALS_FACE")
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Sclera Normal Flatten")
-                        col_2.prop(props, "eye_sclera_normal", text="", slider=True)
-                        col_1.label(text="Sclera Normal Tiling")
-                        col_2.prop(props, "eye_sclera_tiling", text="", slider=True)
+                            if prefs.refractive_eyes:
+                                column.box().label(text= "Depth & Refraction", icon="MOD_THICKNESS")
+                                split = column.split(factor=0.5)
+                                col_1 = split.column()
+                                col_2 = split.column()
+                                col_1.label(text="Iris Depth")
+                                col_2.prop(props, "eye_iris_depth", text="", slider=True)
+                                col_1.label(text="Pupil Scale")
+                                col_2.prop(props, "eye_pupil_scale", text="", slider=True)
+                                col_1.label(text="Eye IOR")
+                                col_2.prop(params, "eye_ior", text="", slider=True)
+                                col_1.label(text="Refraction Depth")
+                                col_2.prop(params, "eye_refraction_depth", text="", slider=True)
 
-                        if prefs.refractive_eyes:
-                            col_1.label(text="Blood Vessel Height")
-                            col_2.prop(props, "eye_blood_vessel_height", text="", slider=True)
-                            col_1.label(text="Iris Bump Height")
-                            col_2.prop(props, "eye_iris_bump_height", text="", slider=True)
+                            if not prefs.refractive_eyes or bpy.context.scene.render.engine == "CYCLES":
+                                column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
+                                split = column.split(factor=0.5)
+                                col_1 = split.column()
+                                col_2 = split.column()
+                                col_1.label(text="SSS Radius (cm)")
+                                col_2.prop(params, "eye_sss_radius", text="", slider=True)
+                                col_1.label(text="SSS Faloff")
+                                col_2.prop(params, "eye_sss_falloff", text="")
 
+                            column.box().label(text= "Normals", icon="NORMALS_FACE")
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Sclera Normal Flatten")
+                            col_2.prop(params, "eye_sclera_normal", text="", slider=True)
+                            col_1.label(text="Sclera Normal Tiling")
+                            col_2.prop(params, "eye_sclera_tiling", text="", slider=True)
 
-                        column.box().label(text= "Occlusion", icon="PROP_CON")
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Occlusion Strength")
-                        col_2.prop(props, "eye_occlusion", text="", slider=True)
-                        col_1.label(text="Occlusion Hardness")
-                        col_2.prop(props, "eye_occlusion_hardness", text="", slider=True)
+                            if prefs.refractive_eyes:
+                                col_1.label(text="Blood Vessel Height")
+                                col_2.prop(params, "eye_blood_vessel_height", text="", slider=True)
+                                col_1.label(text="Iris Bump Height")
+                                col_2.prop(params, "eye_iris_bump_height", text="", slider=True)
 
-                        column.box().label(text= "Tearline", icon="MATFLUID")
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Tearline Alpha")
-                        col_2.prop(props, "eye_tearline_alpha", text="", slider=True)
-                        col_1.label(text="Tearline Roughness")
-                        col_2.prop(props, "eye_tearline_roughness", text="", slider=True)
+                        if linked or mat_cache.is_eye_occlusion():
+                            column.box().label(text= "Occlusion", icon="PROP_CON")
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Occlusion Strength")
+                            col_2.prop(params, "eye_occlusion", text="", slider=True)
+                            col_1.label(text="Occlusion Color")
+                            col_2.prop(params, "eye_occlusion_color", text="", slider=True)
+                            col_1.label(text="Occlusion Hardness")
+                            col_2.prop(params, "eye_occlusion_hardness", text="", slider=True)
+
+                        if linked or mat_cache.is_tearline():
+                            column.box().label(text= "Tearline", icon="MATFLUID")
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Tearline Alpha")
+                            col_2.prop(params, "eye_tearline_alpha", text="", slider=True)
+                            col_1.label(text="Tearline Roughness")
+                            col_2.prop(params, "eye_tearline_roughness", text="", slider=True)
 
                 # Teeth settings
-                elif "TEETH" in mat_type:
+                elif mat_cache.is_teeth():
                     column.separator()
                     if fake_drop_down(column.row(),
                             "Teeth Parameters",
@@ -6331,53 +6444,53 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Teeth AO")
-                        col_2.prop(props, "teeth_ao", text="", slider=True)
+                        col_2.prop(params, "teeth_ao", text="", slider=True)
                         col_1.label(text="Gums Brightness")
-                        col_2.prop(props, "teeth_gums_brightness", text="", slider=True)
+                        col_2.prop(params, "teeth_gums_brightness", text="", slider=True)
                         col_1.label(text="Gums Desaturation")
-                        col_2.prop(props, "teeth_gums_desaturation", text="", slider=True)
+                        col_2.prop(params, "teeth_gums_desaturation", text="", slider=True)
                         col_1.label(text="Teeth Brightness")
-                        col_2.prop(props, "teeth_teeth_brightness", text="", slider=True)
+                        col_2.prop(params, "teeth_teeth_brightness", text="", slider=True)
                         col_1.label(text="Teeth Desaturation")
-                        col_2.prop(props, "teeth_teeth_desaturation", text="", slider=True)
+                        col_2.prop(params, "teeth_teeth_desaturation", text="", slider=True)
                         col_1.label(text="Front AO")
-                        col_2.prop(props, "teeth_front", text="", slider=True)
+                        col_2.prop(params, "teeth_front", text="", slider=True)
                         col_1.label(text="Rear AO")
-                        col_2.prop(props, "teeth_rear", text="", slider=True)
+                        col_2.prop(params, "teeth_rear", text="", slider=True)
 
                         column.box().label(text= "Surface", icon="SURFACE_DATA")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Teeth Specular")
-                        col_2.prop(props, "teeth_specular", text="", slider=True)
+                        col_2.prop(params, "teeth_specular", text="", slider=True)
                         col_1.label(text="Teeth Roughness")
-                        col_2.prop(props, "teeth_roughness", text="", slider=True)
+                        col_2.prop(params, "teeth_roughness", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Gums SSS Scatter")
-                        col_2.prop(props, "teeth_gums_sss_scatter", text="", slider=True)
+                        col_2.prop(params, "teeth_gums_sss_scatter", text="", slider=True)
                         col_1.label(text="Teeth SSS Scatter")
-                        col_2.prop(props, "teeth_teeth_sss_scatter", text="", slider=True)
+                        col_2.prop(params, "teeth_teeth_sss_scatter", text="", slider=True)
                         col_1.label(text="SSS Radius (cm)")
-                        col_2.prop(props, "teeth_sss_radius", text="", slider=True)
+                        col_2.prop(params, "teeth_sss_radius", text="", slider=True)
                         col_1.label(text="SSS Falloff")
-                        col_2.prop(props, "teeth_sss_falloff", text="", slider=True)
+                        col_2.prop(params, "teeth_sss_falloff", text="", slider=True)
 
                         column.box().label(text= "Micro-normals", icon="MOD_NORMALEDIT")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Micro Normal")
-                        col_2.prop(props, "teeth_micronormal", text="", slider=True)
+                        col_2.prop(params, "teeth_micronormal", text="", slider=True)
                         col_1.label(text="Micro Normal Tiling")
-                        col_2.prop(props, "teeth_tiling", text="", slider=True)
+                        col_2.prop(params, "teeth_tiling", text="", slider=True)
 
                 # Tongue settings
-                elif mat_type == "TONGUE":
+                elif mat_cache.is_tongue():
                     column.separator()
                     if fake_drop_down(column.row(),
                             "Tongue Parameters",
@@ -6388,47 +6501,47 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Tongue AO")
-                        col_2.prop(props, "tongue_ao", text="", slider=True)
+                        col_2.prop(params, "tongue_ao", text="", slider=True)
                         col_1.label(text="Tongue Brightness")
-                        col_2.prop(props, "tongue_brightness", text="", slider=True)
+                        col_2.prop(params, "tongue_brightness", text="", slider=True)
                         col_1.label(text="Tongue Desaturation")
-                        col_2.prop(props, "tongue_desaturation", text="", slider=True)
+                        col_2.prop(params, "tongue_desaturation", text="", slider=True)
                         col_1.label(text="Front AO")
-                        col_2.prop(props, "tongue_front", text="", slider=True)
+                        col_2.prop(params, "tongue_front", text="", slider=True)
                         col_1.label(text="Rear AO")
-                        col_2.prop(props, "tongue_rear", text="", slider=True)
+                        col_2.prop(params, "tongue_rear", text="", slider=True)
 
                         column.box().label(text= "Surface", icon="SURFACE_DATA")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Tongue Specular")
-                        col_2.prop(props, "tongue_specular", text="", slider=True)
+                        col_2.prop(params, "tongue_specular", text="", slider=True)
                         col_1.label(text="Tongue Roughness")
-                        col_2.prop(props, "tongue_roughness", text="", slider=True)
+                        col_2.prop(params, "tongue_roughness", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="SSS Scatter")
-                        col_2.prop(props, "tongue_sss_scatter", text="", slider=True)
+                        col_2.prop(params, "tongue_sss_scatter", text="", slider=True)
                         col_1.label(text="SSS Radius (cm)")
-                        col_2.prop(props, "tongue_sss_radius", text="", slider=True)
+                        col_2.prop(params, "tongue_sss_radius", text="", slider=True)
                         col_1.label(text="SSS Falloff")
-                        col_2.prop(props, "tongue_sss_falloff", text="", slider=True)
+                        col_2.prop(params, "tongue_sss_falloff", text="", slider=True)
 
                         column.box().label(text= "Micro-normals", icon="MOD_NORMALEDIT")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Micro Normal")
-                        col_2.prop(props, "tongue_micronormal", text="", slider=True)
+                        col_2.prop(params, "tongue_micronormal", text="", slider=True)
                         col_1.label(text="Micro Normal Tiling")
-                        col_2.prop(props, "tongue_tiling", text="", slider=True)
+                        col_2.prop(params, "tongue_tiling", text="", slider=True)
 
                 # Nails settings
-                elif mat_type == "NAILS":
+                elif mat_cache.is_nails():
                     column.separator()
                     if fake_drop_down(column.row(),
                             "Nails Parameters",
@@ -6439,41 +6552,37 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Nails AO")
-                        col_2.prop(props, "nails_ao", text="", slider=True)
+                        col_2.prop(params, "nails_ao", text="", slider=True)
 
                         column.box().label(text= "Surface", icon="SURFACE_DATA")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Nails Specular")
-                        col_2.prop(props, "nails_specular", text="", slider=True)
+                        col_2.prop(params, "nails_specular", text="", slider=True)
                         col_1.label(text="Nails Roughness")
-                        col_2.prop(props, "nails_roughness", text="", slider=True)
+                        col_2.prop(params, "nails_roughness", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="SSS Radius (cm)")
-                        col_2.prop(props, "nails_sss_radius", text="", slider=True)
+                        col_2.prop(params, "nails_sss_radius", text="", slider=True)
                         col_1.label(text="SSS Falloff")
-                        col_2.prop(props, "nails_sss_falloff", text="", slider=True)
+                        col_2.prop(params, "nails_sss_falloff", text="", slider=True)
 
                         column.box().label(text= "Micro-normals", icon="MOD_NORMALEDIT")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Micro Normal")
-                        col_2.prop(props, "nails_micronormal", text="", slider=True)
+                        col_2.prop(params, "nails_micronormal", text="", slider=True)
                         col_1.label(text="Micro Normal Tiling")
-                        col_2.prop(props, "nails_tiling", text="", slider=True)
+                        col_2.prop(params, "nails_tiling", text="", slider=True)
 
                 # Hair settings
-                elif mat_type == "HAIR" or mat_type == "SCALP" or mat_type == "EYELASH":
-                    if mat_cache.smart_hair:
-                        is_smart_hair = True
-                    else:
-                        is_smart_hair = False
+                elif mat_cache.is_hair() or mat_cache.is_scalp() or mat_cache.is_eyelash():
                     column.separator()
                     if fake_drop_down(column.row(),
                             "Hair Parameters",
@@ -6484,140 +6593,146 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Hair AO")
-                        col_2.prop(props, "hair_ao", text="", slider=True)
-                        if is_smart_hair:
+                        col_2.prop(params, "hair_ao", text="", slider=True)
+                        if mat_cache.smart_hair:
                             col_1.separator()
                             col_2.separator()
                             col_1.label(text="Diffuse Hue")
-                            col_2.prop(props, "hair_hue", text="", slider=True)
+                            col_2.prop(params, "hair_hue", text="", slider=True)
                             col_1.label(text="Diffuse Saturation")
-                            col_2.prop(props, "hair_saturation", text="", slider=True)
+                            col_2.prop(params, "hair_saturation", text="", slider=True)
                             col_1.label(text="Diffuse Strength")
-                            col_2.prop(props, "hair_diffuse_strength", text="", slider=True)
+                            col_2.prop(params, "hair_diffuse_strength", text="", slider=True)
                             col_1.label(text="Diffuse Brightness")
-                            col_2.prop(props, "hair_brightness", text="", slider=True)
+                            col_2.prop(params, "hair_brightness", text="", slider=True)
                             col_1.label(text="Diffuse Contrast")
-                            col_2.prop(props, "hair_contrast", text="", slider=True)
+                            col_2.prop(params, "hair_contrast", text="", slider=True)
                             col_1.separator()
                             col_2.separator()
                             col_1.label(text="Vertex Color Strength")
-                            col_2.prop(props, "hair_vertex_color_strength", text="", slider=True)
+                            col_2.prop(params, "hair_vertex_color_strength", text="", slider=True)
                             col_1.label(text="Base Color Strength")
-                            col_2.prop(props, "hair_base_color_map_strength", text="", slider=True)
+                            col_2.prop(params, "hair_base_color_map_strength", text="", slider=True)
                             col_1.label(text="Depth Strength")
-                            col_2.prop(props, "hair_depth_strength", text="", slider=True)
+                            col_2.prop(params, "hair_depth_strength", text="", slider=True)
 
-                        if is_smart_hair:
+                        if mat_cache.smart_hair:
                             column.box().label(text= "Hair Strands", icon="OUTLINER_OB_HAIR")
                             split = column.split(factor=0.5)
                             col_1 = split.column()
                             col_2 = split.column()
 
                             col_1.label(text="Strand Global Strength")
-                            col_2.prop(props, "hair_global_strength", text="", slider=True)
+                            col_2.prop(params, "hair_global_strength", text="", slider=True)
                             col_1.label(text="Root Color")
-                            col_2.prop(props, "hair_root_color", text="")
+                            col_2.prop(params, "hair_root_color", text="")
                             col_1.label(text="End Color")
-                            col_2.prop(props, "hair_end_color", text="")
+                            col_2.prop(params, "hair_end_color", text="")
                             col_1.label(text="Root Strength")
-                            col_2.prop(props, "hair_root_strength", text="", slider=True)
+                            col_2.prop(params, "hair_root_strength", text="", slider=True)
                             col_1.label(text="End Strength")
-                            col_2.prop(props, "hair_end_strength", text="", slider=True)
+                            col_2.prop(params, "hair_end_strength", text="", slider=True)
                             col_1.label(text="Strand Invert")
-                            col_2.prop(props, "hair_invert_strand", text="", slider=True)
+                            col_2.prop(params, "hair_invert_strand", text="", slider=True)
 
-                        if is_smart_hair:
+                        if mat_cache.smart_hair:
                             column.box().label(text= "Highlights", icon="HAIR")
                             split = column.split(factor=0.5)
                             col_1 = split.column()
                             col_2 = split.column()
 
                             col_1.label(text="Highlight A Start")
-                            col_2.prop(props, "hair_a_start", text="", slider=True)
+                            col_2.prop(params, "hair_a_start", text="", slider=True)
                             col_1.label(text="Highlight A Mid")
-                            col_2.prop(props, "hair_a_mid", text="", slider=True)
+                            col_2.prop(params, "hair_a_mid", text="", slider=True)
                             col_1.label(text="Highlight A End")
-                            col_2.prop(props, "hair_a_end", text="", slider=True)
+                            col_2.prop(params, "hair_a_end", text="", slider=True)
                             col_1.label(text="Highlight A Strength")
-                            col_2.prop(props, "hair_a_strength", text="", slider=True)
+                            col_2.prop(params, "hair_a_strength", text="", slider=True)
                             col_1.label(text="Highlight A Overlap")
-                            col_2.prop(props, "hair_a_overlap", text="", slider=True)
+                            col_2.prop(params, "hair_a_overlap", text="", slider=True)
                             col_1.label(text="Highlight A Color")
-                            col_2.prop(props, "hair_a_color", text="")
+                            col_2.prop(params, "hair_a_color", text="")
                             col_1.separator()
                             col_2.separator()
                             col_1.label(text="Highlight B Start")
-                            col_2.prop(props, "hair_b_start", text="", slider=True)
+                            col_2.prop(params, "hair_b_start", text="", slider=True)
                             col_1.label(text="Highlight B Mid")
-                            col_2.prop(props, "hair_b_mid", text="", slider=True)
+                            col_2.prop(params, "hair_b_mid", text="", slider=True)
                             col_1.label(text="Highlight B End")
-                            col_2.prop(props, "hair_b_end", text="", slider=True)
+                            col_2.prop(params, "hair_b_end", text="", slider=True)
                             col_1.label(text="Highlight B Strength")
-                            col_2.prop(props, "hair_b_strength", text="", slider=True)
+                            col_2.prop(params, "hair_b_strength", text="", slider=True)
                             col_1.label(text="Highlight B Overlap")
-                            col_2.prop(props, "hair_b_overlap", text="", slider=True)
+                            col_2.prop(params, "hair_b_overlap", text="", slider=True)
                             col_1.label(text="Highlight B Color")
-                            col_2.prop(props, "hair_b_color", text="")
+                            col_2.prop(params, "hair_b_color", text="")
 
                         column.box().label(text= "Surface", icon="SURFACE_DATA")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Hair Specular")
-                        col_2.prop(props, "hair_specular", text="", slider=True)
-                        col_1.label(text="Hair Roughness")
-                        col_2.prop(props, "hair_roughness", text="", slider=True)
-                        col_1.label(text="Base Specular")
-                        col_2.prop(props, "hair_scalp_specular", text="", slider=True)
-                        col_1.label(text="Base Roughness")
-                        col_2.prop(props, "hair_scalp_roughness", text="", slider=True)
-                        col_1.label(text="Eyelash Specular")
-                        col_2.prop(props, "hair_eyelash_specular", text="", slider=True)
-                        col_1.label(text="Eyelash Roughness")
-                        col_2.prop(props, "hair_eyelash_roughness", text="", slider=True)
-                        if is_smart_hair:
+                        if linked or mat_cache.is_hair():
+                            col_1.label(text="Hair Specular")
+                            col_2.prop(params, "hair_specular", text="", slider=True)
+                            col_1.label(text="Hair Roughness")
+                            col_2.prop(params, "hair_roughness", text="", slider=True)
+                        if linked or mat_cache.is_scalp():
+                            col_1.label(text="Base Specular")
+                            col_2.prop(params, "hair_scalp_specular", text="", slider=True)
+                            col_1.label(text="Base Roughness")
+                            col_2.prop(params, "hair_scalp_roughness", text="", slider=True)
+                        if linked or mat_cache.is_eyelash():
+                            col_1.label(text="Eyelash Specular")
+                            col_2.prop(params, "hair_eyelash_specular", text="", slider=True)
+                            col_1.label(text="Eyelash Roughness")
+                            col_2.prop(params, "hair_eyelash_roughness", text="", slider=True)
+                        if mat_cache.smart_hair:
                             col_1.separator()
                             col_2.separator()
                             if bpy.context.scene.render.engine == 'BLENDER_EEVEE' and prefs.fake_hair_anisotropy:
                                 col_1.label(text="Anisotropic Color")
-                                col_2.prop(props, "hair_aniso_color", text="", slider=True)
+                                col_2.prop(params, "hair_aniso_color", text="", slider=True)
                                 col_1.label(text="Anisotropic Strength")
-                                col_2.prop(props, "hair_aniso_strength", text="", slider=True)
+                                col_2.prop(params, "hair_aniso_strength", text="", slider=True)
                             elif bpy.context.scene.render.engine == "CYCLES":
                                 col_1.label(text="Anisotropic Strength")
-                                col_2.prop(props, "hair_aniso_strength_cycles", text="", slider=True)
+                                col_2.prop(params, "hair_aniso_strength_cycles", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="SSS Radius (cm)")
-                        col_2.prop(props, "hair_sss_radius", text="", slider=True)
+                        col_2.prop(params, "hair_sss_radius", text="", slider=True)
                         col_1.label(text="SSS Falloff")
-                        col_2.prop(props, "hair_sss_falloff", text="")
+                        col_2.prop(params, "hair_sss_falloff", text="")
 
                         column.box().label(text= "Opacity", icon="IMAGE_ALPHA")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Hair Opacity")
-                        col_2.prop(props, "hair_opacity", text="", slider=True)
-                        col_1.label(text="Base Opacity")
-                        col_2.prop(props, "hair_scalp_opacity", text="", slider=True)
-                        col_1.label(text="Eyelash Opacity")
-                        col_2.prop(props, "hair_eyelash_opacity", text="", slider=True)
+                        if linked or mat_cache.is_hair():
+                            col_1.label(text="Hair Opacity")
+                            col_2.prop(params, "hair_opacity", text="", slider=True)
+                        if linked or mat_cache.is_scalp():
+                            col_1.label(text="Base Opacity")
+                            col_2.prop(params, "hair_scalp_opacity", text="", slider=True)
+                        if linked or mat_cache.is_eyelash():
+                            col_1.label(text="Eyelash Opacity")
+                            col_2.prop(params, "hair_eyelash_opacity", text="", slider=True)
 
                         column.box().label(text= "Normals", icon="NORMALS_FACE")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Bump Height (mm)")
-                        col_2.prop(props, "hair_bump", text="", slider=True)
+                        col_2.prop(params, "hair_bump", text="", slider=True)
 
-                        if is_smart_hair:
+                        if mat_cache.smart_hair:
                             if prefs.fake_hair_bump:
                                 col_1.label(text="Fake Bump Midpoint")
-                                col_2.prop(props, "hair_fake_bump_midpoint", text="", slider=True)
+                                col_2.prop(params, "hair_fake_bump_midpoint", text="", slider=True)
 
                 # Defauls settings
                 else: # mat_type == "DEFAULT":
@@ -6631,36 +6746,36 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Default AO")
-                        col_2.prop(props, "default_ao", text="", slider=True)
+                        col_2.prop(params, "default_ao", text="", slider=True)
                         col_1.label(text="Default Color Blend")
-                        col_2.prop(props, "default_blend", text="", slider=True)
+                        col_2.prop(params, "default_blend", text="", slider=True)
 
                         column.box().label(text= "Surface", icon="SURFACE_DATA")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Default Roughness")
-                        col_2.prop(props, "default_roughness", text="", slider=True)
+                        col_2.prop(params, "default_roughness", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="SSS Radius (cm)")
-                        col_2.prop(props, "default_sss_radius", text="", slider=True)
+                        col_2.prop(params, "default_sss_radius", text="", slider=True)
                         col_1.label(text="SSS Falloff")
-                        col_2.prop(props, "default_sss_falloff", text="")
+                        col_2.prop(params, "default_sss_falloff", text="")
 
                         column.box().label(text= "Normals", icon="NORMALS_FACE")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_1.label(text="Micro Normal")
-                        col_2.prop(props, "default_micronormal", text="", slider=True)
+                        col_2.prop(params, "default_micronormal", text="", slider=True)
                         col_1.label(text="Micro Normal Tiling")
-                        col_2.prop(props, "default_tiling", text="", slider=True)
+                        col_2.prop(params, "default_tiling", text="", slider=True)
                         col_1.label(text="Bump Height (mm)")
-                        col_2.prop(props, "default_bump", text="", slider=True)
+                        col_2.prop(params, "default_bump", text="", slider=True)
 
             else: # BASIC material
                 column.separator()
@@ -6668,47 +6783,63 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                 col_1 = split.column()
                 col_2 = split.column()
                 col_1.label(text="Skin AO")
-                col_2.prop(props, "skin_ao", text="", slider=True)
+                col_2.prop(params, "skin_ao", text="", slider=True)
                 col_1.label(text="Skin Specular")
-                col_2.prop(props, "skin_basic_specular", text="", slider=True)
+                col_2.prop(params, "skin_basic_specular", text="", slider=True)
                 col_1.label(text="Skin Roughness")
-                col_2.prop(props, "skin_basic_roughness", text="", slider=True)
+                col_2.prop(params, "skin_basic_roughness", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
                 col_1.label(text="Eye Specular")
-                col_2.prop(props, "eye_specular", text="", slider=True)
+                col_2.prop(params, "eye_specular", text="", slider=True)
                 col_1.label(text="Eye Roughness")
-                col_2.prop(props, "eye_basic_roughness", text="", slider=True)
+                col_2.prop(params, "eye_basic_roughness", text="", slider=True)
                 col_1.label(text="Eye Normal")
-                col_2.prop(props, "eye_basic_normal", text="", slider=True)
+                col_2.prop(params, "eye_basic_normal", text="", slider=True)
                 col_1.label(text="Eye Occlusion")
-                col_2.prop(props, "eye_occlusion", text="", slider=True)
+                col_2.prop(params, "eye_occlusion", text="", slider=True)
+                col_1.label(text="Eye Occlusion Color")
+                col_2.prop(params, "eye_occlusion_color", text="", slider=True)
+                col_1.label(text="Eye Occlusion Hardness")
+                col_2.prop(params, "eye_occlusion_hardness", text="", slider=True)
                 col_1.label(text="Eye Brightness")
-                col_2.prop(props, "eye_basic_brightness", text="", slider=True)
+                col_2.prop(params, "eye_basic_brightness", text="", slider=True)
                 col_1.label(text="Tearline Alpha")
-                col_2.prop(props, "eye_tearline_alpha", text="", slider=True)
+                col_2.prop(params, "eye_tearline_alpha", text="", slider=True)
                 col_1.label(text="Tearline Roughness")
-                col_2.prop(props, "eye_tearline_roughness", text="", slider=True)
+                col_2.prop(params, "eye_tearline_roughness", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
                 col_1.label(text="Teeth Specular")
-                col_2.prop(props, "teeth_specular", text="", slider=True)
+                col_2.prop(params, "teeth_specular", text="", slider=True)
                 col_1.label(text="Teeth Roughness")
-                col_2.prop(props, "teeth_roughness", text="", slider=True)
+                col_2.prop(params, "teeth_roughness", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
                 col_1.label(text="Tongue Specular")
-                col_2.prop(props, "tongue_specular", text="", slider=True)
+                col_2.prop(params, "tongue_specular", text="", slider=True)
                 col_1.label(text="Tongue Roughness")
-                col_2.prop(props, "tongue_roughness", text="", slider=True)
+                col_2.prop(params, "tongue_roughness", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
                 col_1.label(text="Nails Specular")
-                col_2.prop(props, "nails_specular", text="", slider=True)
+                col_2.prop(params, "nails_specular", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
                 col_1.label(text="Hair AO")
-                col_2.prop(props, "hair_ao", text="", slider=True)
+                col_2.prop(params, "hair_ao", text="", slider=True)
                 col_1.label(text="Hair Specular")
-                col_2.prop(props, "hair_specular", text="", slider=True)
+                col_2.prop(params, "hair_specular", text="", slider=True)
                 col_1.label(text="Scalp Specular")
-                col_2.prop(props, "hair_scalp_specular", text="", slider=True)
+                col_2.prop(params, "hair_scalp_specular", text="", slider=True)
                 col_1.label(text="Hair Bump Height (mm)")
-                col_2.prop(props, "hair_bump", text="", slider=True)
+                col_2.prop(params, "hair_bump", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
                 col_1.label(text="Default AO")
-                col_2.prop(props, "default_ao", text="", slider=True)
+                col_2.prop(params, "default_ao", text="", slider=True)
                 col_1.label(text="Default Bump Height (mm)")
-                col_2.prop(props, "default_bump", text="", slider=True)
+                col_2.prop(params, "default_bump", text="", slider=True)
 
         layout.box().label(text="Utilities", icon="MODIFIER_DATA")
         column = layout.column()
