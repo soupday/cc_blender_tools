@@ -25,6 +25,14 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 0.6.2
+- Lighting setups set Cycles transparent bounces set to 50 to accomodate Smart Hair mesh density.
+- Lighting setups do not delete existing lights or camera, but they will hide them.
+- Material setup now properly detects Game Base objects (i.e. Converted to Game Base in CC3 before exporting to Blender).
+- Each material now maintains it's own set of parameters.
+    - Updating material parameters in **linked** mode will change the same parameters on all materials of the same type.
+    - Updating parameters in **selected** only mode will only change the parameter for that one material.
+
 ### 0.5.2
 - Applies IOR shader input setting when building materials.
 - Exposed some build preferences in the Build Settings panel.

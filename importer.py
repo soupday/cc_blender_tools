@@ -63,11 +63,14 @@ def message_box(message = "", title = "Info", icon = 'INFO'):
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
 
 
-def unique_name(name):
+def unique_name(name, no_version = False):
     """Generate a unique name for the node or property to quickly
        identify texture nodes or nodes with parameters."""
     props = bpy.context.scene.CC3ImportProps
-    name = NODE_PREFIX + name + "_" + VERSION_STRING + "_" + str(props.node_id)
+    if no_version:
+        name = name + "_" + NODE_PREFIX + str(props.node_id)
+    else:
+        name = NODE_PREFIX + name + "_" + VERSION_STRING + "_" + str(props.node_id)
     props.node_id = props.node_id + 1
     return name
 
@@ -4168,7 +4171,7 @@ def add_target(name, location):
     bpy.ops.object.empty_add(type="PLAIN_AXES", radius = 0.1,
         location = location)
     target = bpy.context.active_object
-    target.name = name
+    target.name = unique_name(name, True)
     return target
 
 def set_contact_shadow(light, distance, thickness):
@@ -4186,7 +4189,7 @@ def add_spot_light(name, location, rotation, energy, blend, size, distance, radi
     bpy.ops.object.light_add(type="SPOT",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
-    light.name = name
+    light.name = unique_name(name, True)
     light.data.energy = energy
     light.data.shadow_soft_size = radius
     light.data.spot_blend = blend
@@ -4199,7 +4202,7 @@ def add_area_light(name, location, rotation, energy, size):
     bpy.ops.object.light_add(type="AREA",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
-    light.name = name
+    light.name = unique_name(name, True)
     light.data.shape = "DISK"
     light.data.size = size
     light.data.energy = energy
@@ -4209,28 +4212,52 @@ def add_point_light(name, location, rotation, energy, size):
     bpy.ops.object.light_add(type="POINT",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
-    light.name = name
+    light.name = unique_name(name, True)
     light.data.shadow_soft_size = size
     light.data.energy = energy
     return light
 
 def remove_all_lights(inc_camera = False):
     for obj in bpy.data.objects:
-        if obj.type == "LIGHT" and not obj.hide_viewport:
-            bpy.data.objects.remove(obj)
+        if NODE_PREFIX in obj.name:
+            if obj.type == "LIGHT":
+                bpy.data.objects.remove(obj)
 
-        elif inc_camera and obj.type == "EMPTY" and "CameraTarget" in obj.name:
-            bpy.data.objects.remove(obj)
+            elif inc_camera and obj.type == "EMPTY" and "CameraTarget" in obj.name:
+                bpy.data.objects.remove(obj)
 
-        elif obj.type == "EMPTY" and \
-            ("KeyTarget" in obj.name or \
-             "FillTarget" in obj.name or \
-             "BackTarget" in obj.name):
-            bpy.data.objects.remove(obj)
+            elif obj.type == "EMPTY" and \
+                ("KeyTarget" in obj.name or \
+                "FillTarget" in obj.name or \
+                "BackTarget" in obj.name):
+                bpy.data.objects.remove(obj)
 
-        elif inc_camera and obj.type == "CAMERA":
-            bpy.data.objects.remove(obj)
+            elif inc_camera and obj.type == "CAMERA":
+                bpy.data.objects.remove(obj)
+        else:
+            if obj.type == "LIGHT":
+                obj.hide_set(True)
 
+            elif inc_camera and obj.type == "EMPTY" and "CameraTarget" in obj.name:
+                obj.hide_set(True)
+
+            elif obj.type == "EMPTY" and \
+                ("KeyTarget" in obj.name or \
+                "FillTarget" in obj.name or \
+                "BackTarget" in obj.name):
+                obj.hide_set(True)
+
+            elif inc_camera and obj.type == "CAMERA":
+                obj.hide_set(True)
+
+
+def restore_hidden_camera():
+    # enable the first hidden camera
+    for obj in bpy.data.objects:
+        if obj.type == "CAMERA" and not obj.visible_get():
+            obj.hide_set(False)
+            bpy.context.scene.camera = obj
+            return
 
 
 def camera_setup(camera_loc, target_loc):
@@ -4238,15 +4265,16 @@ def camera_setup(camera_loc, target_loc):
     camera = None
     target = None
     for obj in bpy.data.objects:
-        if camera is None and obj.type == "CAMERA" and obj.visible_get():
+        if camera is None and NODE_PREFIX in obj.name and obj.type == "CAMERA" and obj.visible_get():
             camera = obj
             camera.location = camera_loc
-        if target is None and obj.type == "EMPTY" and obj.visible_get() and "CameraTarget" in obj.name:
+        if target is None and NODE_PREFIX in obj.name and obj.type == "EMPTY" and obj.visible_get() and "CameraTarget" in obj.name:
             target = obj
             target.location = target_loc
     if camera is None:
         bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=camera_loc)
         camera = bpy.context.active_object
+        camera.name = unique_name("Camera", True)
     if target is None:
         target = add_target("CameraTarget", target_loc)
 
@@ -4412,8 +4440,11 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.look = "None"
             bpy.context.scene.view_settings.exposure = 0.0
             bpy.context.scene.view_settings.gamma = 1.0
+            bpy.context.scene.cycles.transparent_max_bounces = 12
+
 
             remove_all_lights(True)
+            restore_hidden_camera()
 
             key1 = add_point_light("Light",
                     (4.076245307922363, 1.0054539442062378, 5.903861999511719),
@@ -4433,6 +4464,7 @@ def setup_scene_default(scene_type):
         elif scene_type == "MATCAP":
 
             remove_all_lights(True)
+            restore_hidden_camera()
 
             bpy.context.space_data.shading.type = 'SOLID'
             bpy.context.space_data.shading.light = 'MATCAP'
@@ -4455,8 +4487,11 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.look = "Medium Contrast"
             bpy.context.scene.view_settings.exposure = 0.5
             bpy.context.scene.view_settings.gamma = 0.5
+            bpy.context.scene.cycles.transparent_max_bounces = 50
+
 
             remove_all_lights(True)
+            restore_hidden_camera()
 
             key1 = add_spot_light("Key1",
                     (0.71149, -1.49019, 2.04134),
@@ -4507,8 +4542,11 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.look = "High Contrast"
             bpy.context.scene.view_settings.exposure = 0.5
             bpy.context.scene.view_settings.gamma = 1.0
+            bpy.context.scene.cycles.transparent_max_bounces = 50
+
 
             remove_all_lights(True)
+            restore_hidden_camera()
 
             key = add_spot_light("Key",
                     (0.3088499903678894, -4.569439888000488, 2.574970006942749),
@@ -4555,8 +4593,11 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.look = "Medium High Contrast"
             bpy.context.scene.view_settings.exposure = 0.5
             bpy.context.scene.view_settings.gamma = 0.6
+            bpy.context.scene.cycles.transparent_max_bounces = 50
+
 
             remove_all_lights(True)
+            restore_hidden_camera()
 
             key = add_area_light("Key",
                     (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
@@ -4604,9 +4645,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.look = "Medium High Contrast"
             bpy.context.scene.view_settings.exposure = 0.6
             bpy.context.scene.view_settings.gamma = 0.6
+            bpy.context.scene.cycles.transparent_max_bounces = 50
 
-            remove_all_lights()
-            camera_setup((0.1, -0.75, 1.6), (0, 0, 1.5))
+
+            remove_all_lights(True)
+            camera, camera_target = camera_setup((0.1, -0.75, 1.6), (0, 0, 1.5))
+            bpy.context.scene.camera = camera
 
             key = add_area_light("Key",
                     (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),

@@ -15,11 +15,13 @@ from . import vars
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 6, 1),
+    "version": (0, 6, 2),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
     "description": "Automatic import and material setup of CC3 characters.",
+    "wiki_url": "https://soupday.github.io/cc3_blender_tools/index.html",
+    "tracker_url": "https://github.com/soupday/cc3_blender_tools/issues",
 }
 
 classes = (
