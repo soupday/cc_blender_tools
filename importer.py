@@ -4103,10 +4103,16 @@ class CC3Export(bpy.types.Operator):
             old_selection = bpy.context.selected_objects
             old_active = bpy.context.active_object
 
-            bpy.ops.export_scene.fbx(filepath=self.filepath,
+            if props.import_type == "fbx":
+                bpy.ops.export_scene.fbx(filepath=self.filepath,
                         use_selection = True,
                         bake_anim = False,
                         add_leaf_bones=False)
+            else:
+                bpy.ops.export_scene.obj(filepath=self.filepath,
+                        use_selection=True,
+                        use_animation=False,
+                        use_materials=True)
 
             # restore selection
             bpy.ops.object.select_all(action='DESELECT')
@@ -4152,7 +4158,11 @@ class CC3Export(bpy.types.Operator):
         change_ext = False
         filepath = self.filepath
         if os.path.basename(filepath):
-            filepath = bpy.path.ensure_ext(filepath, self.filename_ext)
+            base, ext = os.path.splitext(filepath)
+            if ext != self.filename_ext:
+                filepath = bpy.path.ensure_ext(base, self.filename_ext)
+            else:
+                filepath = bpy.path.ensure_ext(filepath, self.filename_ext)
             if filepath != self.filepath:
                 self.filepath = filepath
                 change_ext = True
