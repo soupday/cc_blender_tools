@@ -25,6 +25,10 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 0.6.3
+- Fixed 'Export as accessory' correctly exporting as .obj when character was imported from an .obj file.
+  (And not exporting as .fbx with the wrong file extension)
+
 ### 0.6.2
 - Lighting setups set Cycles transparent bounces set to 50 to accomodate Smart Hair mesh density.
 - Lighting setups do not delete existing lights or camera, but they will hide them.

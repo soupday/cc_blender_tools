@@ -4110,9 +4110,12 @@ class CC3Export(bpy.types.Operator):
                         add_leaf_bones=False)
             else:
                 bpy.ops.export_scene.obj(filepath=self.filepath,
+                        global_scale=100,
                         use_selection=True,
                         use_animation=False,
-                        use_materials=True)
+                        use_materials=True,
+                        use_mesh_modifiers=True,
+                        keep_vertex_order=True)
 
             # restore selection
             bpy.ops.object.select_all(action='DESELECT')
