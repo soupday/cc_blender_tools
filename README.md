@@ -7,6 +7,8 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 [Online Documentation](https://soupday.github.io/cc3_blender_tools/index.html) (Work in progress...)
 
+[Reallusion Forum Thread](https://forum.reallusion.com/475005/Blender-Auto-Setup)
+
 ## Installation, Updating, Removal
 ### To Install
 - Download the [latest release](https://github.com/soupday/cc3_blender_tools/releases).
