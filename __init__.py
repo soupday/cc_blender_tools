@@ -1,3 +1,19 @@
+# Copyright (C) 2021 Victor Soupday
+# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+#
+# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+
 if "bpy" in locals():
     import importlib
     importlib.reload(vars)
@@ -15,7 +31,7 @@ from . import vars
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 6, 2),
+    "version": (0, 6, 3),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -23,6 +39,8 @@ bl_info = {
     "wiki_url": "https://soupday.github.io/cc3_blender_tools/index.html",
     "tracker_url": "https://github.com/soupday/cc3_blender_tools/issues",
 }
+
+vars.set_version_string(bl_info)
 
 classes = (
     importer.CC3MaterialParameters,

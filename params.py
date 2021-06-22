@@ -1,3 +1,19 @@
+# Copyright (C) 2021 Victor Soupday
+# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+#
+# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+
 import bpy
 from . import vars
 
@@ -81,8 +97,8 @@ PROP_MATRIX = [
                     ["Depth Blend Strength", "hair_depth_strength"],
                     ["Diffuse Strength", "hair_diffuse_strength"],
                     ["Global Strength", "hair_global_strength"],
-                    ["Root Color", "hair_root_color", "gamma_correct(parameters.hair_root_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
-                    ["End Color", "hair_end_color", "gamma_correct(parameters.hair_end_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
+                    ["Root Color", "hair_root_color", "gamma_correct(parameters.hair_root_color)"],
+                    ["End Color", "hair_end_color", "gamma_correct(parameters.hair_end_color)"],
                     ["Root Color Strength", "hair_root_strength"],
                     ["End Color Strength", "hair_end_strength"],
                     ["Invert Root and End Color", "hair_invert_strand"],
@@ -91,13 +107,13 @@ PROP_MATRIX = [
                     ["Highlight A End", "hair_a_end"],
                     ["Highlight A Strength", "hair_a_strength"],
                     ["Highlight A Overlap End", "hair_a_overlap"],
-                    ["Highlight Color A", "hair_a_color", "gamma_correct(parameters.hair_a_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
+                    ["Highlight Color A", "hair_a_color", "gamma_correct(parameters.hair_a_color)"],
                     ["Highlight B Start", "hair_b_start"],
                     ["Highlight B Mid", "hair_b_mid"],
                     ["Highlight B End", "hair_b_end"],
                     ["Highlight B Strength", "hair_b_strength"],
                     ["Highlight B Overlap End", "hair_b_overlap"],
-                    ["Highlight Color B", "hair_b_color", "gamma_correct(parameters.hair_b_color, HAIR_GAMMA, HAIR_SAT, HAIR_VAL)"],
+                    ["Highlight Color B", "hair_b_color", "gamma_correct(parameters.hair_b_color)"],
                 ],
             },
 
@@ -151,15 +167,15 @@ PROP_MATRIX = [
 
             {   "name": "_skin_",
                 "inputs": [
-                    ["Radius", "skin_sss_radius", "parameters.skin_sss_radius * UNIT_SCALE"],
+                    ["Radius", "skin_sss_radius", "parameters.skin_sss_radius * vars.UNIT_SCALE"],
                     ["Falloff", "skin_sss_falloff"],
                 ],
             },
 
             {   "name": "_eye_",
                 "inputs": [
-                    ["Radius1", "eye_sss_radius", "parameters.eye_sss_radius * UNIT_SCALE"],
-                    ["Radius2", "eye_sss_radius", "parameters.eye_sss_radius * UNIT_SCALE"],
+                    ["Radius1", "eye_sss_radius", "parameters.eye_sss_radius * vars.UNIT_SCALE"],
+                    ["Radius2", "eye_sss_radius", "parameters.eye_sss_radius * vars.UNIT_SCALE"],
                     ["Falloff1", "eye_sss_falloff"],
                     ["Falloff2", "eye_sss_falloff"],
                 ],
@@ -167,15 +183,15 @@ PROP_MATRIX = [
 
             {   "name": "_hair_",
                 "inputs": [
-                    ["Radius", "hair_sss_radius", "parameters.hair_sss_radius * UNIT_SCALE"],
+                    ["Radius", "hair_sss_radius", "parameters.hair_sss_radius * vars.UNIT_SCALE"],
                     ["Falloff", "hair_sss_falloff"],
                 ],
             },
 
             {   "name": "_teeth_",
                 "inputs": [
-                    ["Radius1", "teeth_sss_radius", "parameters.teeth_sss_radius * UNIT_SCALE"],
-                    ["Radius2", "teeth_sss_radius", "parameters.teeth_sss_radius * UNIT_SCALE"],
+                    ["Radius1", "teeth_sss_radius", "parameters.teeth_sss_radius * vars.UNIT_SCALE"],
+                    ["Radius2", "teeth_sss_radius", "parameters.teeth_sss_radius * vars.UNIT_SCALE"],
                     ["Falloff1", "teeth_sss_falloff"],
                     ["Falloff2", "teeth_sss_falloff"],
                     ["Scatter1", "teeth_gums_sss_scatter"],
@@ -186,21 +202,21 @@ PROP_MATRIX = [
             {   "name": "_tongue_",
                 "inputs": [
                     ["Scatter", "tongue_sss_scatter"],
-                    ["Radius", "tongue_sss_radius", "parameters.tongue_sss_radius * UNIT_SCALE"],
+                    ["Radius", "tongue_sss_radius", "parameters.tongue_sss_radius * vars.UNIT_SCALE"],
                     ["Falloff", "tongue_sss_falloff"],
                 ],
             },
 
             {   "name": "_nails_",
                 "inputs": [
-                    ["Radius", "nails_sss_radius", "parameters.nails_sss_radius * UNIT_SCALE"],
+                    ["Radius", "nails_sss_radius", "parameters.nails_sss_radius * vars.UNIT_SCALE"],
                     ["Falloff", "nails_sss_falloff"],
                 ],
             },
 
             {   "name": "_default_",
                 "inputs": [
-                    ["Radius", "default_sss_radius", "parameters.default_sss_radius * UNIT_SCALE"],
+                    ["Radius", "default_sss_radius", "parameters.default_sss_radius * vars.UNIT_SCALE"],
                     ["Falloff", "default_sss_falloff"],
                 ],
             },
