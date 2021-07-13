@@ -5741,7 +5741,7 @@ def detect_generation(objects):
                     return "GAMEBASE"
                 elif utils.object_has_material(obj, "std_skin_body"):
                     return "G3"
-                if utils.object_has_material(obj, "skin_body"):
+                elif utils.object_has_material(obj, "skin_body"):
                     return "G1"
                 elif utils.object_has_material(obj, "character"):
                     return "ACTORCORE"
