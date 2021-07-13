@@ -727,6 +727,11 @@ def set_material_alpha(mat, method):
         mat.use_backface_culling = True
         mat.show_transparent_back = True
         mat.alpha_threshold = 0.5
+    elif method == "CLIP":
+        mat.blend_method = "CLIP"
+        mat.shadow_method = "CLIP"
+        mat.use_backface_culling = False
+        mat.alpha_threshold = 0.5
     else:
         mat.blend_method = "OPAQUE"
         mat.shadow_method = "OPAQUE"
@@ -3334,7 +3339,9 @@ def process_material(obj, mat):
         move_new_nodes(-600, 0)
 
     # apply cached alpha settings
-    if mat_cache is not None:
+    if props.generation == "ACTORCORE":
+        set_material_alpha(mat, "CLIP")
+    elif mat_cache is not None:
         if mat_cache.alpha_mode != "NONE":
             apply_alpha_override(obj, mat, mat_cache.alpha_mode)
         if mat_cache.culling_sides > 0:
@@ -3414,11 +3421,13 @@ def reset_nodes(mat):
 
 
 def get_material_dir(base_dir, character_name, import_type, obj, mat):
+    props = bpy.context.scene.CC3ImportProps
+
     if import_type == "fbx":
         object_name = strip_name(obj.name)
         mesh_name = strip_name(obj.data.name)
         material_name = strip_name(mat.name)
-        if "cc_base_" in object_name.lower():
+        if "cc_base_" in object_name.lower() or props.generation == "ACTORCORE":
             path = os.path.join(base_dir, "textures", character_name, character_name, mesh_name, material_name)
             if os.path.exists(path):
                 return path
@@ -3491,7 +3500,11 @@ def cache_object_materials(obj):
                 nodes = mat.node_tree.nodes
 
                 # determine object and material types:
-                if detect_hair_object(obj, mat) == "True":
+                if props.generation == "ACTORCORE":
+                    obj_cache.object_type = "DEFAULT"
+                    mat_cache.material_type = "DEFAULT"
+                    mat_cache.parameters.default_roughness = 0.1
+                elif detect_hair_object(obj, mat) == "True":
                     obj_cache.object_type = "HAIR"
                     # hold off detecting scalp meshes as the hair mesh might not be detected
                     # at the first material, the hair mesh needs a second material pass...
@@ -3752,6 +3765,11 @@ class CC3Import(bpy.types.Operator):
 
             # process imported objects
             imported = untagged_objects()
+
+            # detect generation
+            props.generation = detect_generation(imported)
+            log_info("Generation: " + props.generation)
+
             for obj in imported:
                 if obj.type == "ARMATURE":
                     p = props.import_objects.add()
@@ -3760,6 +3778,7 @@ class CC3Import(bpy.types.Operator):
                     p = props.import_objects.add()
                     p.object = obj
                     cache_object_materials(obj)
+
             log_timer("Done .Fbx Import.")
 
         elif type == "obj":
@@ -3782,6 +3801,11 @@ class CC3Import(bpy.types.Operator):
 
             # process imported objects
             imported = untagged_objects()
+
+            # detect generation
+            props.generation = detect_generation(imported)
+            log_info("Generation: " + props.generation)
+
             for obj in imported:
                 # scale obj import by 1/100
                 obj.scale = (0.01, 0.01, 0.01)
@@ -3794,6 +3818,7 @@ class CC3Import(bpy.types.Operator):
                             pass
                     else:
                         cache_object_materials(obj)
+
             log_timer("Done .Obj Import.")
 
     def build_materials(self):
@@ -5682,6 +5707,48 @@ def reset_parameters(context = bpy.context):
     return
 
 
+def detect_bone(armature, *name):
+    if (armature.type == "ARMATURE"):
+        for n in name:
+            if n in armature.pose.bones:
+                return True
+    return False
+
+
+def detect_generation(objects):
+
+    for arm in objects:
+        if arm.type == "ARMATURE":
+            if find_pose_bone(arm, "RootNode_0_", "RL_BoneRoot"):
+                return "ACTORCORE"
+            elif find_pose_bone(arm, "CC_Base_L_Pinky3"):
+                return "G3"
+            elif find_pose_bone(arm, "pinky_03_l"):
+                return "GAMEBASE"
+            elif find_pose_bone(arm, "CC_Base_L_Finger42"):
+                return "G1"
+
+    for obj in objects:
+        if (obj.type == "MESH"):
+            name = obj.name.lower()
+            if "cc_game_body" in name or "cc_game_tongue" in name:
+                if utils.object_has_material(obj, "character"):
+                    return "ACTORCORE"
+                else:
+                    return "GAMEBASE"
+            elif "cc_base_body" in name:
+                if utils.object_has_material(obj, "skin_body"):
+                    return "G1"
+                elif utils.object_has_material(obj, "ga_skin_body"):
+                    return "GAMEBASE"
+                elif utils.object_has_material(obj, "std_skin_body"):
+                    return "G3"
+                elif utils.object_has_material(obj, "character"):
+                    return "ACTORCORE"
+
+    return "UNKNOWN"
+
+
 class CC3ObjectPointer(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
 
@@ -6069,6 +6136,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     # TODO object modifier properties, should be in the mat_cache.parameters and could work independantly...
     eye_iris_depth: bpy.props.FloatProperty(default=0.25, min=0.0, max=1.0, update=lambda s,c: update_modifier(s,c,"eye_iris_depth"))
     eye_pupil_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_modifier(s,c,"eye_pupil_scale"))
+
+    generation: bpy.props.StringProperty(default="None")
 
 
 def fake_drop_down(row, label, prop_name, prop_bool_value):

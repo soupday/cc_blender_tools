@@ -21,3 +21,11 @@ def is_same_path(pa, pb):
 
 def is_in_path(pa, pb):
     return os.path.normcase(os.path.realpath(pa)) in os.path.normcase(os.path.realpath(pb))
+
+def object_has_material(obj, name):
+    name = name.lower()
+    if obj.type == "MESH":
+        for mat in obj.data.materials:
+            if name in mat.name.lower():
+                return True
+    return False
