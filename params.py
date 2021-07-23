@@ -15,6 +15,8 @@
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
+from . import nodeutils
+from . import utils
 from . import vars
 
 # when updating linked materials, attempt to update the properties in all the material types in the same list:
@@ -468,6 +470,58 @@ PROP_MATRIX = [
                     ["Hardness", "eye_occlusion_hardness"],
                 ],
             },
+
+            {   "name": "(eye_occlusion_adv_mask)",
+                "inputs": [
+                    ["Strength", "eye_occlusion_strength"],
+                    ["Strength2", "eye_occlusion_2nd_strength"],
+                    ["Power", "eye_occlusion_power"],
+                    ["Top Min", "eye_occlusion_top_min"],
+                    ["Top Max", "eye_occlusion_top_max"],
+                    ["Top Curve", "eye_occlusion_top_curve"],
+                    ["Bottom Min", "eye_occlusion_bottom_min"],
+                    ["Bottom Max", "eye_occlusion_bottom_max"],
+                    ["Bottom Curve", "eye_occlusion_bottom_curve"],
+                    ["Inner Min", "eye_occlusion_inner_min"],
+                    ["Inner Max", "eye_occlusion_inner_max"],
+                    ["Outer Min", "eye_occlusion_outer_min"],
+                    ["Outer Max", "eye_occlusion_outer_max"],
+                    ["Top2 Min", "eye_occlusion_2nd_top_min"],
+                    ["Top2 Max", "eye_occlusion_2nd_top_max"],
+                    ["Tear Duct Position", "eye_occlusion_tear_duct_position"],
+                    ["Tear Duct Width", "eye_occlusion_tear_duct_width"],
+                ],
+            },
+        ],
+    },
+
+    # Shaders
+    {   "start": "(rl_",
+        "end": "_shader)",
+        "groups": [
+
+            {   "name": "eye_occlusion_shader",
+                "inputs": [
+                    ["Color", "eye_occlusion_color"],
+                    ["Strength", "eye_occlusion_strength"],
+                    ["Strength2", "eye_occlusion_2nd_strength"],
+                    ["Power", "eye_occlusion_power"],
+                    ["Top Min", "eye_occlusion_top_min"],
+                    ["Top Max", "eye_occlusion_top_max"],
+                    ["Top Curve", "eye_occlusion_top_curve"],
+                    ["Bottom Min", "eye_occlusion_bottom_min"],
+                    ["Bottom Max", "eye_occlusion_bottom_max"],
+                    ["Bottom Curve", "eye_occlusion_bottom_curve"],
+                    ["Inner Min", "eye_occlusion_inner_min"],
+                    ["Inner Max", "eye_occlusion_inner_max"],
+                    ["Outer Min", "eye_occlusion_outer_min"],
+                    ["Outer Max", "eye_occlusion_outer_max"],
+                    ["Top2 Min", "eye_occlusion_2nd_top_min"],
+                    ["Top2 Max", "eye_occlusion_2nd_top_max"],
+                    ["Tear Duct Position", "eye_occlusion_tear_duct_position"],
+                    ["Tear Duct Width", "eye_occlusion_tear_duct_width"],
+                ],
+            },
         ],
     },
 
@@ -490,6 +544,12 @@ PROP_MATRIX = [
             },
 
             {   "name": "eye_occlusion_shader",
+                "inputs": [
+                    ["Base Color", "eye_occlusion_color"],
+                ],
+            },
+
+            {   "name": "eye_occlusion_adv_shader",
                 "inputs": [
                     ["Base Color", "eye_occlusion_color"],
                 ],
@@ -545,3 +605,51 @@ BASIC_PROPS = [
     ["IN", "Alpha",     "eye_tearline_shader", "eye_tearline_alpha"],
     ["IN", "Roughness", "eye_tearline_shader", "eye_tearline_roughness"],
 ]
+
+
+def get_prop_matrix(prop_name):
+    matrix = []
+    for mixer in PROP_MATRIX:
+        for group in mixer["groups"]:
+            for input in group["inputs"]:
+                if input[1] == prop_name:
+                    matrix.append([mixer, group, input])
+    return matrix
+
+
+def get_prop_matrix_group(group_name):
+    group_name = "(" + group_name + ")"
+    for mixer in PROP_MATRIX:
+        if mixer["start"] in group_name:
+            if mixer["end"] in group_name:
+                for group in mixer["groups"]:
+                    if type(group["name"]) is list:
+                        for name in group["name"]:
+                            if name in group_name:
+                                return group
+                    else:
+                        if group["name"] in group_name:
+                            return group
+    return None
+
+
+def set_from_prop_matrix(node, cache, group_name):
+    props = bpy.context.scene.CC3ImportProps
+    parameters = cache.parameters
+    scope = locals()
+
+    group = get_prop_matrix_group(group_name)
+
+    for input in group["inputs"]:
+        try:
+            if len(input) == 3:
+                prop_eval = input[2]
+            else:
+                prop_eval = "parameters." + input[1]
+
+            prop_value = eval(prop_eval, None, scope)
+
+            nodeutils.set_node_input(node, input[0], prop_value)
+
+        except Exception as e:
+                utils.log_error("set_from_prop_matrix(): Unable to evaluate or set: " + prop_eval, e)

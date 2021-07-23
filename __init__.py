@@ -19,11 +19,19 @@ if "bpy" in locals():
     importlib.reload(vars)
     importlib.reload(utils)
     importlib.reload(params)
+    importlib.reload(linkutils)
+    importlib.reload(modutils)
+    importlib.reload(meshutils)
+    importlib.reload(nodeutils)
     importlib.reload(importer)
 
 import bpy
 from . import addon_updater_ops
 from . import importer
+from . import nodeutils
+from . import meshutils
+from . import modutils
+from . import linkutils
 from . import params
 from . import utils
 from . import vars

@@ -1,5 +1,6 @@
 # Changed
-- support for actor models
+- Back ported advanced eye occlusion shader from Unity.
+- Support for actor core models type C/D/D+.
 
 # TODO
 - Popup panels

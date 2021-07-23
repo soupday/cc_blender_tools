@@ -16,80 +16,20 @@
 
 import bpy
 import os
-import time
-import mathutils
 import shutil
 import math
+from . import nodeutils
+from . import meshutils
+from . import modutils
+from . import linkutils
 from . import utils
 from . import params
 from . import vars
 from . import addon_updater_ops
 
-cursor = mathutils.Vector((0,0))
-cursor_top = mathutils.Vector((0,0))
-max_cursor = mathutils.Vector((0,0))
-new_nodes = []
+
 debug_counter = 0
-timer = 0
 block_update = False
-
-def log_info(msg):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    """Log an info message to console."""
-    if prefs.log_level == "ALL":
-        print(msg)
-
-
-def log_warn(msg):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    """Log a warning message to console."""
-    if prefs.log_level == "ALL" or prefs.log_level == "WARN":
-        print("Warning: " + msg)
-
-
-def log_error(msg, e = None):
-    """Log an error message to console and raise an exception."""
-    print("Error: " + msg)
-    if e is not None:
-        print("    -> " + getattr(e, 'message', repr(e)))
-
-
-def start_timer():
-    global timer
-    timer = time.perf_counter()
-
-
-def log_timer(msg, unit = "s"):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    global timer
-    if prefs.log_level == "ALL":
-        duration = time.perf_counter() - timer
-        if unit == "ms":
-            duration *= 1000
-        elif unit == "us":
-            duration *= 1000000
-        elif unit == "ns":
-            duration *= 1000000000
-        print(msg + ": " + str(duration) + " " + unit)
-
-
-def message_box(message = "", title = "Info", icon = 'INFO'):
-    def draw(self, context):
-        self.layout.label(text = message)
-    bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
-
-
-def unique_name(name, no_version = False):
-    """Generate a unique name for the node or property to quickly
-       identify texture nodes or nodes with parameters."""
-
-    props = bpy.context.scene.CC3ImportProps
-    if no_version:
-        name = name + "_" + vars.NODE_PREFIX + str(props.node_id)
-    else:
-        name = vars.NODE_PREFIX + name + "_" + vars.VERSION_STRING + "_" + str(props.node_id)
-    props.node_id = props.node_id + 1
-    return name
 
 
 def detect_skin_material(mat):
@@ -144,9 +84,9 @@ def detect_scalp_material(mat):
     hints = prefs.hair_scalp_hint.split(",")
     detect = detect_key_words(hints, material_name)
     if detect == "Deny":
-        log_info(mat.name + ": has deny keywords, defininately not scalp!")
+        utils.log_info(mat.name + ": has deny keywords, defininately not scalp!")
     elif detect == "True":
-        log_info(mat.name + ": has keywords, is scalp.")
+        utils.log_info(mat.name + ": has keywords, is scalp.")
     return detect
 
 
@@ -212,7 +152,7 @@ def detect_hair_object(obj, mat):
     cache = get_material_cache(mat)
     if detect_smart_hair_maps(cache):
         cache.smart_hair = True
-        log_info(obj.name + "/" + mat.name + ": has hair shader textures, is hair.")
+        utils.log_info(obj.name + "/" + mat.name + ": has hair shader textures, is hair.")
         return "True"
     else:
         cache.smart_hair = False
@@ -221,11 +161,11 @@ def detect_hair_object(obj, mat):
     detect_mat =  detect_key_words(hints, material_name)
 
     if detect_obj == "Deny" or detect_mat == "Deny":
-        log_info(obj.name + "/" + mat.name + ": has deny keywords, definitely not hair!")
+        utils.log_info(obj.name + "/" + mat.name + ": has deny keywords, definitely not hair!")
         return "Deny"
 
     if detect_obj == "True" or detect_mat == "True":
-        log_info(obj.name + "/" + mat.name + ": has hair keywords, is hair.")
+        utils.log_info(obj.name + "/" + mat.name + ": has hair keywords, is hair.")
         return "True"
 
     return "False"
@@ -275,46 +215,6 @@ def get_material_group(mat_cache):
     """
     mt = mat_cache.material_type
     return mt.lower()
-
-
-def get_shader_input(mat, input):
-    if mat.node_tree is not None:
-        for n in mat.node_tree.nodes:
-            if n.type == "BSDF_PRINCIPLED":
-                if input in n.inputs:
-                    return n.inputs[input]
-    return None
-
-
-def get_input_connected_to(node, socket):
-    try:
-        return node.outputs[socket].links[0].to_socket.name
-    except:
-        return None
-
-
-def get_node_by_id(nodes, id):
-    id = vars.NODE_PREFIX + id
-    for node in nodes:
-        if id in node.name:
-            return node
-    return None
-
-
-def get_default_shader_input(mat, input):
-    if mat.node_tree is not None:
-        for n in mat.node_tree.nodes:
-            if n.type == "BSDF_PRINCIPLED":
-                if input in n.inputs:
-                    return n.inputs[input].default_value
-    return 0.0
-
-def set_default_shader_input(mat, input, value):
-    if mat.node_tree is not None:
-        for n in mat.node_tree.nodes:
-            if n.type == "BSDF_PRINCIPLED":
-                if input in n.inputs:
-                    n.inputs[input].default_value = value
 
 
 def get_bump_strength(cache):
@@ -404,7 +304,7 @@ def get_specular_strength(cache, shader):
         return "teeth_specular", cache.parameters.teeth_specular
     elif cache.is_tongue():
         return "tongue_specular", cache.parameters.tongue_specular
-    return "default_specular", get_node_input(shader, "Specular", 0.5)
+    return "default_specular", nodeutils.get_node_input(shader, "Specular", 0.5)
 
 
 def get_roughness_remap(cache):
@@ -512,11 +412,6 @@ def get_sss_falloff(cache):
     return "default_sss_falloff", cache.parameters.default_sss_falloff
 
 
-def is_input_connected(input):
-    if len(input.links) > 0:
-        return True
-    return False
-
 
 # load an image from a file, but try to find it in the existing images first
 def load_image(filename, color_space):
@@ -525,122 +420,20 @@ def load_image(filename, color_space):
         if (i.type == "IMAGE" and i.filepath != ""):
             try:
                 if os.path.normcase(i.filepath) == os.path.normcase(filename):
-                    log_info("    Using existing image: " + i.filepath)
+                    utils.log_info("    Using existing image: " + i.filepath)
                     return i
             except:
                 pass
 
     try:
-        log_info("    Loading new image: " + filename)
+        utils.log_info("    Loading new image: " + filename)
         image = bpy.data.images.load(filename)
         image.colorspace_settings.name = color_space
         return image
     except Exception as e:
-        log_error("Unable to load image: " + filename, e)
+        utils.log_error("Unable to load image: " + filename, e)
         return None
 
-def clear_cursor():
-    cursor_top.x = 0
-    cursor_top.y = 0
-    cursor.x = 0
-    cursor.y = 0
-    max_cursor.x = 0
-    max_cursor.y = 0
-    new_nodes.clear()
-
-def reset_cursor():
-    cursor_top.y = max_cursor.y
-    cursor_top.x = 0
-    cursor.x = 0
-    cursor.y = cursor_top.y
-
-def advance_cursor(scale = 1.0):
-    cursor.y = cursor_top.y - cursor_top.x
-    cursor.x += vars.GRID_SIZE * scale
-    if (cursor.x > max_cursor.x):
-        max_cursor.x = cursor.x
-
-def drop_cursor(scale = 1.0):
-    cursor.y -= vars.GRID_SIZE * scale
-    if cursor.y < max_cursor.y:
-        max_cursor.y = cursor.y
-
-def step_cursor(scale = 1.0, drop = 0.25):
-    cursor_top.x += vars.GRID_SIZE * drop
-    cursor.y = cursor_top.y - cursor_top.x
-    cursor.x += vars.GRID_SIZE * scale
-    if (cursor.x > max_cursor.x):
-        max_cursor.x = cursor.x
-
-def step_cursor_if(thing, scale = 1.0, drop = 0.25):
-    if thing is not None:
-        step_cursor(scale, drop)
-
-def move_new_nodes(dx, dy):
-
-    width = max_cursor.x
-    height = -max_cursor.y - vars.GRID_SIZE
-
-    for node in new_nodes:
-        node.location.x += (dx) - width
-        node.location.y += (dy) + (height / 2)
-
-    clear_cursor()
-
-def make_shader_node(nodes, type, scale = 1.0):
-    shader_node = nodes.new(type)
-    shader_node.location = cursor
-    new_nodes.append(shader_node)
-    drop_cursor(scale)
-    return shader_node
-
-## color_space: Non-Color, sRGB
-def make_image_node(nodes, image, prop, scale = 1.0):
-    if image is None:
-        return None
-    image_node = make_shader_node(nodes, "ShaderNodeTexImage", scale)
-    image_node.image = image
-    image_node.name = unique_name(prop)
-    return image_node
-
-
-def make_value_node(nodes, label, prop, value = 0.0):
-    value_node = make_shader_node(nodes, "ShaderNodeValue", 0.4)
-    value_node.label = label
-    value_node.name = unique_name(prop)
-    value_node.outputs["Value"].default_value = value
-    return value_node
-
-def make_mixrgb_node(nodes, blend_type):
-    mix_node = make_shader_node(nodes, "ShaderNodeMixRGB", 0.8)
-    mix_node.blend_type = blend_type
-    return mix_node
-
-def make_math_node(nodes, operation, value1 = 0.5, value2 = 0.5):
-    math_node = make_shader_node(nodes, "ShaderNodeMath", 0.6)
-    math_node.operation = operation
-    math_node.inputs[0].default_value = value1
-    math_node.inputs[1].default_value = value2
-    return math_node
-
-def make_rgb_node(nodes, label, value = [1.0, 1.0, 1.0, 1.0]):
-    rgb_node = make_shader_node(nodes, "ShaderNodeRGB", 0.8)
-    rgb_node.label = label
-    rgb_node.outputs["Color"].default_value = value
-    return rgb_node
-
-def make_vectormath_node(nodes, operation):
-    vm_node = make_shader_node(nodes, "ShaderNodeVectorMath", 0.6)
-    vm_node.operation = operation
-    return vm_node
-
-def make_node_group_node(nodes, group, label, name):
-    group_node = make_shader_node(nodes, "ShaderNodeGroup")
-    group_node.node_tree = group
-    group_node.label = label
-    group_node.width = 240
-    group_node.name = unique_name("(" + name + ")")
-    return group_node
 
 # remove any .001 from the material name
 def strip_name(name):
@@ -738,70 +531,15 @@ def set_material_alpha(mat, method):
         mat.use_backface_culling = False
 
 
-def get_node_input(node, input, default):
-    if node is not None:
-        try:
-            return node.inputs[input].default_value
-        except:
-            return default
-    return default
-
-def get_node_output(node, output, default):
-    if node is not None:
-        try:
-            return node.outputs[output].default_value
-        except:
-            return default
-    return default
-
-def set_node_input(node, socket, value):
-    if node is not None:
-        try:
-            node.inputs[socket].default_value = value
-        except:
-            log_info("Unable to set input: " + node.name + "[" + str(socket) + "]")
-
-def set_node_output(node, socket, value):
-    if node is not None:
-        try:
-            node.outputs[socket].default_value = value
-        except:
-            log_info("Unable to set output: " + node.name + "[" + str(socket) + "]")
-
-def link_nodes(links, from_node, from_socket, to_node, to_socket):
-    if from_node is not None and to_node is not None:
-        try:
-            links.new(from_node.outputs[from_socket], to_node.inputs[to_socket])
-        except:
-            log_info("Unable to link: " + from_node.name + "[" + str(from_socket) + "] to " +
-                  to_node.name + "[" + str(to_socket) + "]")
-
-def unlink_node(links, node, socket):
-    if node is not None:
-        try:
-            socket_links = node.inputs[socket].links
-            for link in socket_links:
-                if link is not None:
-                    links.remove(link)
-        except:
-            log_info("Unable to remove links from: " + node.name + "[" + str(socket) + "]")
-
-def count_maps(*maps):
-    count = 0
-    for map in maps:
-        if map is not None:
-            count += 1
-    return count
-
 def connect_tearline_material(obj, mat, shader):
     mat_cache = get_material_cache(mat)
     props = bpy.context.scene.CC3ImportProps
-    set_node_input(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
-    set_node_input(shader, "Metallic", 1.0)
-    set_node_input(shader, "Specular", 1.0)
-    set_node_input(shader, "Roughness", mat_cache.parameters.eye_tearline_roughness)
-    set_node_input(shader, "Alpha", mat_cache.parameters.eye_tearline_alpha)
-    shader.name = unique_name("eye_tearline_shader")
+    nodeutils.set_node_input(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
+    nodeutils.set_node_input(shader, "Metallic", 1.0)
+    nodeutils.set_node_input(shader, "Specular", 1.0)
+    nodeutils.set_node_input(shader, "Roughness", mat_cache.parameters.eye_tearline_roughness)
+    nodeutils.set_node_input(shader, "Alpha", mat_cache.parameters.eye_tearline_alpha)
+    shader.name = utils.unique_name("eye_tearline_shader")
     set_material_alpha(mat, props.blend_mode)
     mat.shadow_method = "NONE"
 
@@ -812,22 +550,38 @@ def connect_eye_occlusion_material(obj, mat, shader):
     mat_cache = get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
-    shader.name = unique_name("eye_occlusion_shader")
-    set_node_input(shader, "Base Color", mat_cache.parameters.eye_occlusion_color)
-    set_node_input(shader, "Metallic", 0.0)
-    set_node_input(shader, "Specular", 0.0)
-    set_node_input(shader, "Roughness", 1.0)
+    shader.name = utils.unique_name("eye_occlusion_shader")
+    nodeutils.set_node_input(shader, "Base Color", mat_cache.parameters.eye_occlusion_color)
+    nodeutils.set_node_input(shader, "Metallic", 0.0)
+    nodeutils.set_node_input(shader, "Specular", 0.0)
+    nodeutils.set_node_input(shader, "Roughness", 1.0)
 
-    reset_cursor()
+    nodeutils.reset_cursor()
 
     # groups
-    group = get_node_group("eye_occlusion_mask")
-    occ_node = make_node_group_node(nodes, group, "Eye Occulsion Alpha", "eye_occlusion_mask")
+    group = nodeutils.get_node_group("eye_occlusion_mask")
+    occ_node = nodeutils.make_node_group_node(nodes, group, "Eye Occulsion Alpha", "eye_occlusion_mask")
     # values
-    set_node_input(occ_node, "Strength", mat_cache.parameters.eye_occlusion)
-    set_node_input(occ_node, "Hardness", mat_cache.parameters.eye_occlusion_hardness)
+    params.set_from_prop_matrix(occ_node, mat_cache, "eye_occlusion_mask")
     # links
-    link_nodes(links, occ_node, "Alpha", shader, "Alpha")
+    nodeutils.link_nodes(links, occ_node, "Alpha", shader, "Alpha")
+
+    set_material_alpha(mat, props.blend_mode)
+    mat.shadow_method = "NONE"
+
+
+def connect_eye_occlusion_shader(obj, mat, shader):
+    props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    shader = nodeutils.replace_shader_node(nodes, links, shader, "Eye Occlusion Shader", "rl_eye_occlusion_shader")
+
+    nodeutils.reset_cursor()
+
+    params.set_from_prop_matrix(shader, mat_cache, "rl_eye_occlusion_shader")
 
     set_material_alpha(mat, props.blend_mode)
     mat.shadow_method = "NONE"
@@ -842,58 +596,58 @@ def connect_basic_eye_material(obj, mat, shader):
 
     # Base Color
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     diffuse_image =  find_material_image(mat, vars.BASE_COLOR_MAP)
     if diffuse_image is not None:
-        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
-        advance_cursor(1.0)
-        hsv_node = make_shader_node(nodes, "ShaderNodeHueSaturation", 0.6)
+        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
+        nodeutils.advance_cursor(1.0)
+        hsv_node = nodeutils.make_shader_node(nodes, "ShaderNodeHueSaturation", 0.6)
         hsv_node.label = "HSV"
-        hsv_node.name = unique_name("eye_basic_hsv")
-        set_node_input(hsv_node, "Value", mat_cache.parameters.eye_basic_brightness)
+        hsv_node.name = utils.unique_name("eye_basic_hsv")
+        nodeutils.set_node_input(hsv_node, "Value", mat_cache.parameters.eye_basic_brightness)
         # links
-        link_nodes(links, diffuse_node, "Color", hsv_node, "Color")
-        link_nodes(links, hsv_node, "Color", shader, "Base Color")
+        nodeutils.link_nodes(links, diffuse_node, "Color", hsv_node, "Color")
+        nodeutils.link_nodes(links, hsv_node, "Color", shader, "Base Color")
 
     # Metallic
     #
-    reset_cursor()
-    metallic_node = make_value_node(nodes, "Eye Metallic", "eye_metallic", 0.0)
-    link_nodes(links, metallic_node, "Value", shader, "Metallic")
+    nodeutils.reset_cursor()
+    metallic_node = nodeutils.make_value_node(nodes, "Eye Metallic", "eye_metallic", 0.0)
+    nodeutils.link_nodes(links, metallic_node, "Value", shader, "Metallic")
 
     # Specular
     #
-    reset_cursor()
-    specular_node = make_value_node(nodes, "Eye Specular", "eye_specular", mat_cache.parameters.eye_specular)
-    link_nodes(links, specular_node, "Value", shader, "Specular")
+    nodeutils.reset_cursor()
+    specular_node = nodeutils.make_value_node(nodes, "Eye Specular", "eye_specular", mat_cache.parameters.eye_specular)
+    nodeutils.link_nodes(links, specular_node, "Value", shader, "Specular")
 
     # Roughness
     #
-    reset_cursor()
-    roughness_node = make_value_node(nodes, "Eye Roughness", "eye_basic_roughness", mat_cache.parameters.eye_basic_roughness)
-    link_nodes(links, roughness_node, "Value", shader, "Roughness")
+    nodeutils.reset_cursor()
+    roughness_node = nodeutils.make_value_node(nodes, "Eye Roughness", "eye_basic_roughness", mat_cache.parameters.eye_basic_roughness)
+    nodeutils.link_nodes(links, roughness_node, "Value", shader, "Roughness")
 
     # Alpha
     #
-    set_node_input(shader, "Alpha", 1.0)
+    nodeutils.set_node_input(shader, "Alpha", 1.0)
 
     # Normal
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     normal_image = find_material_image(mat, vars.SCLERA_NORMAL_MAP)
     if normal_image is not None:
-        strength_node = make_value_node(nodes, "Normal Strength", "eye_basic_normal", mat_cache.parameters.eye_basic_normal)
-        normal_node = make_image_node(nodes, normal_image, "normal_tex")
-        advance_cursor()
-        normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
-        link_nodes(links, strength_node, "Value", normalmap_node, "Strength")
-        link_nodes(links, normal_node, "Color", normalmap_node, "Color")
-        link_nodes(links, normalmap_node, "Normal", shader, "Normal")
+        strength_node = nodeutils.make_value_node(nodes, "Normal Strength", "eye_basic_normal", mat_cache.parameters.eye_basic_normal)
+        normal_node = nodeutils.make_image_node(nodes, normal_image, "normal_tex")
+        nodeutils.advance_cursor()
+        normalmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
+        nodeutils.link_nodes(links, strength_node, "Value", normalmap_node, "Strength")
+        nodeutils.link_nodes(links, normal_node, "Color", normalmap_node, "Color")
+        nodeutils.link_nodes(links, normalmap_node, "Normal", shader, "Normal")
 
     # Clearcoat
     #
-    set_node_input(shader, "Clearcoat", 1.0)
-    set_node_input(shader, "Clearcoat Roughness", 0.15)
+    nodeutils.set_node_input(shader, "Clearcoat", 1.0)
+    nodeutils.set_node_input(shader, "Clearcoat Roughness", 0.15)
     mat.use_screen_refraction = False
 
     return
@@ -907,156 +661,143 @@ def connect_adv_eye_material(obj, mat, shader):
     links = mat.node_tree.links
 
     # Iris Mask
-    reset_cursor()
+    nodeutils.reset_cursor()
     # groups
-    group = get_node_group("iris_mask")
-    iris_mask_node = make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
+    group = nodeutils.get_node_group("iris_mask")
+    iris_mask_node = nodeutils.make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
     # values
-    set_node_input(iris_mask_node, "Scale", 1.0 / mat_cache.parameters.eye_iris_scale)
-    set_node_input(iris_mask_node, "Radius", mat_cache.parameters.eye_iris_radius)
-    set_node_input(iris_mask_node, "Hardness", mat_cache.parameters.eye_iris_hardness * mat_cache.parameters.eye_iris_radius * 0.99)
+    params.set_from_prop_matrix(iris_mask_node, mat_cache, "iris_mask")
     # move
-    move_new_nodes(-3000, 0)
-    clear_cursor()
+    nodeutils.move_new_nodes(-3000, 0)
+    nodeutils.clear_cursor()
 
     # Base Color
-    reset_cursor()
+    nodeutils.reset_cursor()
     # maps
     diffuse_image = find_material_image(mat, vars.BASE_COLOR_MAP)
     sclera_image = find_material_image(mat, vars.SCLERA_MAP)
     blend_image = find_material_image(mat, vars.MOD_BASECOLORBLEND_MAP)
     ao_image = find_material_image(mat, vars.MOD_AO_MAP)
     diffuse_node = sclera_node = blend_node = ao_node = iris_tiling_node = sclera_tiling_node = None
-    advance_cursor(-count_maps(diffuse_image, sclera_image, blend_image, ao_image))
+    nodeutils.advance_cursor(-utils.count_maps(diffuse_image, sclera_image, blend_image, ao_image))
     if diffuse_image is not None:
-        advance_cursor(-1)
-        drop_cursor(0.75)
-        group = get_node_group("tiling_pivot_mapping")
-        iris_tiling_node = make_node_group_node(nodes, group, "Iris Scaling", "tiling_color_iris_mapping")
-        set_node_input(iris_tiling_node, "Pivot", (0.5, 0.5, 0))
-        advance_cursor()
-        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
-        step_cursor()
+        nodeutils.advance_cursor(-1)
+        nodeutils.drop_cursor(0.75)
+        group = nodeutils.get_node_group("tiling_pivot_mapping")
+        iris_tiling_node = nodeutils.make_node_group_node(nodes, group, "Iris Scaling", "tiling_color_iris_mapping")
+        nodeutils.set_node_input(iris_tiling_node, "Pivot", (0.5, 0.5, 0))
+        nodeutils.advance_cursor()
+        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
+        nodeutils.step_cursor()
     if sclera_image is not None:
-        advance_cursor(-1)
-        drop_cursor(0.75)
-        group = get_node_group("tiling_pivot_mapping")
-        sclera_tiling_node = make_node_group_node(nodes, group, "Sclera Scaling", "tiling_color_sclera_mapping")
-        set_node_input(sclera_tiling_node, "Pivot", (0.5, 0.5, 0))
-        set_node_input(sclera_tiling_node, "Tiling", 1.0 / mat_cache.parameters.eye_sclera_scale)
-        advance_cursor()
-        sclera_node = make_image_node(nodes, sclera_image, "sclera_tex")
+        nodeutils.advance_cursor(-1)
+        nodeutils.drop_cursor(0.75)
+        group = nodeutils.get_node_group("tiling_pivot_mapping")
+        sclera_tiling_node = nodeutils.make_node_group_node(nodes, group, "Sclera Scaling", "tiling_color_sclera_mapping")
+        nodeutils.set_node_input(sclera_tiling_node, "Pivot", (0.5, 0.5, 0))
+        nodeutils.set_node_input(sclera_tiling_node, "Tiling", 1.0 / mat_cache.parameters.eye_sclera_scale)
+        nodeutils.advance_cursor()
+        sclera_node = nodeutils.make_image_node(nodes, sclera_image, "sclera_tex")
         sclera_node.extension = "EXTEND"
-        step_cursor()
+        nodeutils.step_cursor()
     if ao_image is not None:
-        ao_node = make_image_node(nodes, ao_image, "ao_tex")
-        step_cursor()
+        ao_node = nodeutils.make_image_node(nodes, ao_image, "ao_tex")
+        nodeutils.step_cursor()
     if blend_image is not None:
-        blend_node = make_image_node(nodes, blend_image, "blend_tex")
-        step_cursor()
+        blend_node = nodeutils.make_image_node(nodes, blend_image, "blend_tex")
+        nodeutils.step_cursor()
     # groups
-    group = get_node_group("color_eye_mixer")
-    color_node = make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
+    group = nodeutils.get_node_group("color_eye_mixer")
+    color_node = nodeutils.make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
     # values
-    set_node_input(color_node, "Shadow Hardness", mat_cache.parameters.eye_shadow_hardness * mat_cache.parameters.eye_shadow_radius * 0.99)
-    set_node_input(color_node, "Shadow Radius", mat_cache.parameters.eye_shadow_radius)
-    set_node_input(color_node, "Blend Strength", mat_cache.parameters.eye_blend)
-    set_node_input(color_node, "AO Strength", mat_cache.parameters.eye_ao)
-    set_node_input(color_node, "Iris Brightness", mat_cache.parameters.eye_iris_brightness)
-    set_node_input(color_node, "Sclera Brightness", mat_cache.parameters.eye_sclera_brightness)
+    params.set_from_prop_matrix(color_node, mat_cache, "color_eye_mixer")
     # links
-    link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
+    nodeutils.link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
     if diffuse_image is not None:
-        link_nodes(links, iris_mask_node, "Scale", iris_tiling_node, "Tiling")
-        link_nodes(links, iris_tiling_node, "Vector", diffuse_node, "Vector")
-        link_nodes(links, diffuse_node, "Color", color_node, "Cornea Diffuse")
+        nodeutils.link_nodes(links, iris_mask_node, "Scale", iris_tiling_node, "Tiling")
+        nodeutils.link_nodes(links, iris_tiling_node, "Vector", diffuse_node, "Vector")
+        nodeutils.link_nodes(links, diffuse_node, "Color", color_node, "Cornea Diffuse")
     if sclera_image is not None:
-        link_nodes(links, sclera_tiling_node, "Vector", sclera_node, "Vector")
-        link_nodes(links, sclera_node, "Color", color_node, "Sclera Diffuse")
+        nodeutils.link_nodes(links, sclera_tiling_node, "Vector", sclera_node, "Vector")
+        nodeutils.link_nodes(links, sclera_node, "Color", color_node, "Sclera Diffuse")
     else:
-        link_nodes(links, diffuse_node, "Color", color_node, "Sclera Diffuse")
+        nodeutils.link_nodes(links, diffuse_node, "Color", color_node, "Sclera Diffuse")
     if blend_image is not None:
-        link_nodes(links, blend_node, "Color", color_node, "Blend")
+        nodeutils.link_nodes(links, blend_node, "Color", color_node, "Blend")
     if ao_image is not None:
-        link_nodes(links, ao_node, "Color", color_node, "AO")
-    link_nodes(links, color_node, "Base Color", shader, "Base Color")
+        nodeutils.link_nodes(links, ao_node, "Color", color_node, "AO")
+    nodeutils.link_nodes(links, color_node, "Base Color", shader, "Base Color")
 
     # SSS
-    drop_cursor(0.65)
-    reset_cursor()
+    nodeutils.drop_cursor(0.65)
+    nodeutils.reset_cursor()
     # groups
-    group = get_node_group("subsurface_overlay_mixer")
-    sss_node = make_node_group_node(nodes, group, "Eye Subsurface", "subsurface_eye_mixer")
+    group = nodeutils.get_node_group("subsurface_overlay_mixer")
+    sss_node = nodeutils.make_node_group_node(nodes, group, "Eye Subsurface", "subsurface_eye_mixer")
     # values
-    set_node_input(sss_node, "Scatter1", 1.0)
-    set_node_input(sss_node, "Scatter2", 0.0)
-    set_node_input(sss_node, "Radius1", mat_cache.parameters.eye_sss_radius * vars.UNIT_SCALE)
-    set_node_input(sss_node, "Radius2", mat_cache.parameters.eye_sss_radius * vars.UNIT_SCALE)
-    set_node_input(sss_node, "Falloff1", mat_cache.parameters.eye_sss_falloff)
-    set_node_input(sss_node, "Falloff2", mat_cache.parameters.eye_sss_falloff)
+    params.set_from_prop_matrix(sss_node, mat_cache, "subsurface_eye_mixer")
+    nodeutils.set_node_input(sss_node, "Scatter1", 1.0)
+    nodeutils.set_node_input(sss_node, "Scatter2", 0.0)
     # links
-    link_nodes(links, iris_mask_node, "Mask", sss_node, "Mask")
-    link_nodes(links, color_node, "Base Color", sss_node, "Diffuse")
-    link_nodes(links, sss_node, "Subsurface", shader, "Subsurface")
-    link_nodes(links, sss_node, "Subsurface Radius", shader, "Subsurface Radius")
-    link_nodes(links, sss_node, "Subsurface Color", shader, "Subsurface Color")
+    nodeutils.link_nodes(links, iris_mask_node, "Mask", sss_node, "Mask")
+    nodeutils.link_nodes(links, color_node, "Base Color", sss_node, "Diffuse")
+    nodeutils.link_nodes(links, sss_node, "Subsurface", shader, "Subsurface")
+    nodeutils.link_nodes(links, sss_node, "Subsurface Radius", shader, "Subsurface Radius")
+    nodeutils.link_nodes(links, sss_node, "Subsurface Color", shader, "Subsurface Color")
 
     # MSR
-    drop_cursor(0.1)
-    reset_cursor()
+    nodeutils.drop_cursor(0.1)
+    nodeutils.reset_cursor()
     # groups
-    group = get_node_group("msr_overlay_mixer")
-    msr_node = make_node_group_node(nodes, group, "Eye MSR", "msr_eye_mixer")
+    group = nodeutils.get_node_group("msr_overlay_mixer")
+    msr_node = nodeutils.make_node_group_node(nodes, group, "Eye MSR", "msr_cornea_mixer")
     # values
-    set_node_input(msr_node, "Metallic1", 0)
-    set_node_input(msr_node, "Metallic2", 0)
-    set_node_input(msr_node, "Specular1", mat_cache.parameters.eye_specular)
-    set_node_input(msr_node, "Specular2", mat_cache.parameters.eye_specular)
-    set_node_input(msr_node, "Roughness1", mat_cache.parameters.eye_sclera_roughness)
-    set_node_input(msr_node, "Roughness2", mat_cache.parameters.eye_iris_roughness)
+    params.set_from_prop_matrix(msr_node, mat_cache, "msr_cornea_mixer")
+    nodeutils.set_node_input(msr_node, "Metallic1", 0)
+    nodeutils.set_node_input(msr_node, "Metallic2", 0)
     # links
-    link_nodes(links, iris_mask_node, "Mask", msr_node, "Mask")
-    link_nodes(links, msr_node, "Metallic", shader, "Metallic")
-    link_nodes(links, msr_node, "Specular", shader, "Specular")
-    link_nodes(links, msr_node, "Roughness", shader, "Roughness")
+    nodeutils.link_nodes(links, iris_mask_node, "Mask", msr_node, "Mask")
+    nodeutils.link_nodes(links, msr_node, "Metallic", shader, "Metallic")
+    nodeutils.link_nodes(links, msr_node, "Specular", shader, "Specular")
+    nodeutils.link_nodes(links, msr_node, "Roughness", shader, "Roughness")
 
     # emission and alpha
-    set_node_input(shader, "Alpha", 1.0)
+    nodeutils.set_node_input(shader, "Alpha", 1.0)
     connect_emission_alpha(obj, mat, shader)
 
     # Normal
-    drop_cursor(0.1)
-    reset_cursor()
+    nodeutils.drop_cursor(0.1)
+    nodeutils.reset_cursor()
     snormal_image = find_material_image(mat, vars.SCLERA_NORMAL_MAP)
     snormal_node = snormal_tiling_node = None
     # space
-    advance_cursor(-count_maps(snormal_image))
+    nodeutils.advance_cursor(-utils.count_maps(snormal_image))
     # maps
     if snormal_image is not None:
-        advance_cursor(-1)
-        drop_cursor(0.75)
-        group = get_node_group("tiling_mapping")
-        snormal_tiling_node = make_node_group_node(nodes, group, "Sclera Normal Tiling", "tiling_normal_sclera_mapping")
-        set_node_input(snormal_tiling_node, "Tiling", mat_cache.parameters.eye_sclera_tiling)
-        advance_cursor()
-        snormal_node = make_image_node(nodes, snormal_image, "sclera_normal_tex")
-        step_cursor()
+        nodeutils.advance_cursor(-1)
+        nodeutils.drop_cursor(0.75)
+        group = nodeutils.get_node_group("tiling_mapping")
+        snormal_tiling_node = nodeutils.make_node_group_node(nodes, group, "Sclera Normal Tiling", "tiling_normal_sclera_mapping")
+        nodeutils.set_node_input(snormal_tiling_node, "Tiling", mat_cache.parameters.eye_sclera_tiling)
+        nodeutils.advance_cursor()
+        snormal_node = nodeutils.make_image_node(nodes, snormal_image, "sclera_normal_tex")
+        nodeutils.step_cursor()
     # groups
-    group = get_node_group("normal_micro_mask_mixer")
-    nm_group = make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
+    group = nodeutils.get_node_group("normal_micro_mask_mixer")
+    nm_group = nodeutils.make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
     # values
-    set_node_input(nm_group, "Micro Normal Strength", 1 - mat_cache.parameters.eye_sclera_normal)
+    params.set_from_prop_matrix(nm_group, mat_cache, "normal_eye_mixer")
     # links
-    link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Micro Normal Mask")
+    nodeutils.link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Micro Normal Mask")
     if snormal_image is not None:
-        link_nodes(links, snormal_node, "Color", nm_group, "Micro Normal")
-        link_nodes(links, snormal_tiling_node, "Vector", snormal_node, "Vector")
-    link_nodes(links, nm_group, "Normal", shader, "Normal")
+        nodeutils.link_nodes(links, snormal_node, "Color", nm_group, "Micro Normal")
+        nodeutils.link_nodes(links, snormal_tiling_node, "Vector", snormal_node, "Vector")
+    nodeutils.link_nodes(links, nm_group, "Normal", shader, "Normal")
 
     # Clearcoat
     #
-    set_node_input(shader, "Clearcoat", 1.0)
-    set_node_input(shader, "Clearcoat Roughness", 0.15)
+    nodeutils.set_node_input(shader, "Clearcoat", 1.0)
+    nodeutils.set_node_input(shader, "Clearcoat Roughness", 0.15)
     mat.use_screen_refraction = False
 
     return
@@ -1081,7 +822,7 @@ def get_cornea_mat(obj, eye_mat, eye_mat_cache):
         if cache.is_cornea(side):
             return cache.material
 
-    log_error("Unable to find the " + side + " cornea material!")
+    utils.log_error("Unable to find the " + side + " cornea material!")
 
     return None
 
@@ -1103,190 +844,172 @@ def connect_refractive_eye_material(obj, mat, shader):
         cornea_mat = get_cornea_mat(obj, mat, mat_cache)
 
     # Iris Mask
-    reset_cursor()
+    nodeutils.reset_cursor()
     # groups
-    group = get_node_group("iris_refractive_mask")
-    iris_mask_node = make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
+    group = nodeutils.get_node_group("iris_refractive_mask")
+    iris_mask_node = nodeutils.make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
     # values
-    set_node_input(iris_mask_node, "Scale", 1.0 / mat_cache.parameters.eye_iris_scale)
-    set_node_input(iris_mask_node, "Radius", mat_cache.parameters.eye_iris_radius)
-    set_node_input(iris_mask_node, "Hardness", mat_cache.parameters.eye_iris_hardness * mat_cache.parameters.eye_iris_radius * 0.99)
-    set_node_input(iris_mask_node, "Limbus Radius", mat_cache.parameters.eye_limbus_radius)
-    set_node_input(iris_mask_node, "Limbus Hardness", mat_cache.parameters.eye_limbus_hardness)
+    params.set_from_prop_matrix(iris_mask_node, mat_cache, "iris_mask")
     # Links
     if is_cornea:
-        link_nodes(links, iris_mask_node, "Mask", shader, "Transmission")
+        nodeutils.link_nodes(links, iris_mask_node, "Mask", shader, "Transmission")
     # move
-    move_new_nodes(-3000, 0)
-    clear_cursor()
+    nodeutils.move_new_nodes(-3000, 0)
+    nodeutils.clear_cursor()
 
     # Base Color
-    reset_cursor()
+    nodeutils.reset_cursor()
     # maps
     diffuse_image = find_material_image(cornea_mat, vars.BASE_COLOR_MAP)
     sclera_image = find_material_image(cornea_mat, vars.SCLERA_MAP)
     blend_image = find_material_image(cornea_mat, vars.MOD_BASECOLORBLEND_MAP)
     ao_image = find_material_image(cornea_mat, vars.MOD_AO_MAP)
     diffuse_node = sclera_node = blend_node = ao_node = iris_tiling_node = sclera_tiling_node = None
-    advance_cursor(-count_maps(diffuse_image, sclera_image, blend_image, ao_image))
+    nodeutils.advance_cursor(-utils.count_maps(diffuse_image, sclera_image, blend_image, ao_image))
     if diffuse_image is not None:
-        advance_cursor(-1)
-        drop_cursor(0.75)
-        group = get_node_group("tiling_pivot_mapping")
-        iris_tiling_node = make_node_group_node(nodes, group, "Iris Scaling", "tiling_color_iris_mapping")
-        set_node_input(iris_tiling_node, "Pivot", (0.5, 0.5, 0))
-        advance_cursor()
-        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
-        step_cursor()
+        nodeutils.advance_cursor(-1)
+        nodeutils.drop_cursor(0.75)
+        group = nodeutils.get_node_group("tiling_pivot_mapping")
+        iris_tiling_node = nodeutils.make_node_group_node(nodes, group, "Iris Scaling", "tiling_color_iris_mapping")
+        nodeutils.set_node_input(iris_tiling_node, "Pivot", (0.5, 0.5, 0))
+        nodeutils.advance_cursor()
+        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
+        nodeutils.step_cursor()
     if sclera_image is not None:
-        advance_cursor(-1)
-        drop_cursor(0.75)
-        group = get_node_group("tiling_pivot_mapping")
-        sclera_tiling_node = make_node_group_node(nodes, group, "Sclera Scaling", "tiling_color_sclera_mapping")
-        set_node_input(sclera_tiling_node, "Pivot", (0.5, 0.5, 0))
-        set_node_input(sclera_tiling_node, "Tiling", 1.0 / mat_cache.parameters.eye_sclera_scale)
-        advance_cursor()
-        sclera_node = make_image_node(nodes, sclera_image, "sclera_tex")
+        nodeutils.advance_cursor(-1)
+        nodeutils.drop_cursor(0.75)
+        group = nodeutils.get_node_group("tiling_pivot_mapping")
+        sclera_tiling_node = nodeutils.make_node_group_node(nodes, group, "Sclera Scaling", "tiling_color_sclera_mapping")
+        nodeutils.set_node_input(sclera_tiling_node, "Pivot", (0.5, 0.5, 0))
+        nodeutils.set_node_input(sclera_tiling_node, "Tiling", 1.0 / mat_cache.parameters.eye_sclera_scale)
+        nodeutils.advance_cursor()
+        sclera_node = nodeutils.make_image_node(nodes, sclera_image, "sclera_tex")
         sclera_node.extension = "EXTEND"
-        step_cursor()
+        nodeutils.step_cursor()
     if ao_image is not None:
-        ao_node = make_image_node(nodes, ao_image, "ao_tex")
-        step_cursor()
+        ao_node = nodeutils.make_image_node(nodes, ao_image, "ao_tex")
+        nodeutils.step_cursor()
     if blend_image is not None:
-        blend_node = make_image_node(nodes, blend_image, "blend_tex")
-        step_cursor()
+        blend_node = nodeutils.make_image_node(nodes, blend_image, "blend_tex")
+        nodeutils.step_cursor()
     # groups
-    group = get_node_group("color_refractive_eye_mixer")
-    color_node = make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
+    group = nodeutils.get_node_group("color_refractive_eye_mixer")
+    color_node = nodeutils.make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
     # values
-    set_node_input(color_node, "Shadow Hardness", mat_cache.parameters.eye_shadow_hardness * mat_cache.parameters.eye_shadow_radius * 0.99)
-    set_node_input(color_node, "Shadow Radius", mat_cache.parameters.eye_shadow_radius)
-    set_node_input(color_node, "Blend Strength", mat_cache.parameters.eye_blend)
-    set_node_input(color_node, "AO Strength", mat_cache.parameters.eye_ao)
-    set_node_input(color_node, "Iris Brightness", mat_cache.parameters.eye_iris_brightness)
-    set_node_input(color_node, "Sclera Brightness", mat_cache.parameters.eye_sclera_brightness)
+    params.set_from_prop_matrix(color_node, mat_cache, "color_eye_mixer")
     # links
-    link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
+    nodeutils.link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
     if is_eye:
-        link_nodes(links, iris_mask_node, "Limbus Mask", color_node, "Limbus Mask")
+        nodeutils.link_nodes(links, iris_mask_node, "Limbus Mask", color_node, "Limbus Mask")
     if diffuse_image is not None:
-        link_nodes(links, iris_mask_node, "Scale", iris_tiling_node, "Tiling")
-        link_nodes(links, iris_tiling_node, "Vector", diffuse_node, "Vector")
-        link_nodes(links, diffuse_node, "Color", color_node, "Cornea Diffuse")
+        nodeutils.link_nodes(links, iris_mask_node, "Scale", iris_tiling_node, "Tiling")
+        nodeutils.link_nodes(links, iris_tiling_node, "Vector", diffuse_node, "Vector")
+        nodeutils.link_nodes(links, diffuse_node, "Color", color_node, "Cornea Diffuse")
     if sclera_image is not None:
-        link_nodes(links, sclera_tiling_node, "Vector", sclera_node, "Vector")
-        link_nodes(links, sclera_node, "Color", color_node, "Sclera Diffuse")
+        nodeutils.link_nodes(links, sclera_tiling_node, "Vector", sclera_node, "Vector")
+        nodeutils.link_nodes(links, sclera_node, "Color", color_node, "Sclera Diffuse")
     else:
-        link_nodes(links, diffuse_node, "Color", color_node, "Sclera Diffuse")
+        nodeutils.link_nodes(links, diffuse_node, "Color", color_node, "Sclera Diffuse")
     if blend_image is not None:
-        link_nodes(links, blend_node, "Color", color_node, "Blend")
+        nodeutils.link_nodes(links, blend_node, "Color", color_node, "Blend")
     if ao_image is not None:
-        link_nodes(links, ao_node, "Color", color_node, "AO")
+        nodeutils.link_nodes(links, ao_node, "Color", color_node, "AO")
     if is_cornea:
-        link_nodes(links, color_node, "Cornea Base Color", shader, "Base Color")
+        nodeutils.link_nodes(links, color_node, "Cornea Base Color", shader, "Base Color")
     else:
-        link_nodes(links, color_node, "Eye Base Color", shader, "Base Color")
+        nodeutils.link_nodes(links, color_node, "Eye Base Color", shader, "Base Color")
 
     # SSS
-    drop_cursor(0.65)
-    reset_cursor()
+    nodeutils.drop_cursor(0.65)
+    nodeutils.reset_cursor()
     # groups
-    group = get_node_group("subsurface_overlay_mixer")
-    sss_node = make_node_group_node(nodes, group, "Eye Subsurface", "subsurface_eye_mixer")
+    group = nodeutils.get_node_group("subsurface_overlay_mixer")
+    sss_node = nodeutils.make_node_group_node(nodes, group, "Eye Subsurface", "subsurface_eye_mixer")
     # values
-    set_node_input(sss_node, "Scatter1", 1.0)
-    set_node_input(sss_node, "Scatter2", 0.0)
-    set_node_input(sss_node, "Radius1", mat_cache.parameters.eye_sss_radius * vars.UNIT_SCALE)
-    set_node_input(sss_node, "Radius2", mat_cache.parameters.eye_sss_radius * vars.UNIT_SCALE)
-    set_node_input(sss_node, "Falloff1", mat_cache.parameters.eye_sss_falloff)
-    set_node_input(sss_node, "Falloff2", mat_cache.parameters.eye_sss_falloff)
+    params.set_from_prop_matrix(sss_node, mat_cache, "subsurface_eye_mixer")
+    nodeutils.set_node_input(sss_node, "Scatter1", 1.0)
+    nodeutils.set_node_input(sss_node, "Scatter2", 0.0)
     # links
-    link_nodes(links, iris_mask_node, "Mask", sss_node, "Mask")
+    nodeutils.link_nodes(links, iris_mask_node, "Mask", sss_node, "Mask")
     if is_cornea:
-        link_nodes(links, color_node, "Cornea Base Color", sss_node, "Diffuse")
+        nodeutils.link_nodes(links, color_node, "Cornea Base Color", sss_node, "Diffuse")
     else:
-        link_nodes(links, color_node, "Eye Base Color", sss_node, "Diffuse")
-    link_nodes(links, sss_node, "Subsurface", shader, "Subsurface")
-    link_nodes(links, sss_node, "Subsurface Radius", shader, "Subsurface Radius")
-    link_nodes(links, sss_node, "Subsurface Color", shader, "Subsurface Color")
+        nodeutils.link_nodes(links, color_node, "Eye Base Color", sss_node, "Diffuse")
+    nodeutils.link_nodes(links, sss_node, "Subsurface", shader, "Subsurface")
+    nodeutils.link_nodes(links, sss_node, "Subsurface Radius", shader, "Subsurface Radius")
+    nodeutils.link_nodes(links, sss_node, "Subsurface Color", shader, "Subsurface Color")
 
     # MSR
-    drop_cursor(0.1)
-    reset_cursor()
+    nodeutils.drop_cursor(0.1)
+    nodeutils.reset_cursor()
     # groups
-    group = get_node_group("msr_overlay_mixer")
+    group = nodeutils.get_node_group("msr_overlay_mixer")
     msr_name = "msr_eye_mixer"
     if is_cornea:
         msr_name = "msr_cornea_mixer"
-    msr_node = make_node_group_node(nodes, group, "Eye MSR", msr_name)
+    msr_node = nodeutils.make_node_group_node(nodes, group, "Eye MSR", msr_name)
     # values
-    set_node_input(msr_node, "Metallic1", 0)
-    set_node_input(msr_node, "Metallic2", 0)
-    set_node_input(msr_node, "Specular1", mat_cache.parameters.eye_specular)
-    set_node_input(msr_node, "Roughness1", mat_cache.parameters.eye_sclera_roughness)
-    if is_cornea:
-        set_node_input(msr_node, "Specular2", mat_cache.parameters.eye_specular)
-        set_node_input(msr_node, "Roughness2", mat_cache.parameters.eye_iris_roughness)
-    else:
-        set_node_input(msr_node, "Specular2", 0.2)
-        set_node_input(msr_node, "Roughness2", 1.0)
+    params.set_from_prop_matrix(msr_node, mat_cache, msr_name)
+    nodeutils.set_node_input(msr_node, "Metallic1", 0)
+    nodeutils.set_node_input(msr_node, "Metallic2", 0)
+    if not is_cornea:
+        nodeutils.set_node_input(msr_node, "Specular2", 0.2)
+        nodeutils.set_node_input(msr_node, "Roughness2", 1.0)
     # links
-    link_nodes(links, iris_mask_node, "Mask", msr_node, "Mask")
-    link_nodes(links, msr_node, "Metallic", shader, "Metallic")
-    link_nodes(links, msr_node, "Specular", shader, "Specular")
-    link_nodes(links, msr_node, "Roughness", shader, "Roughness")
+    nodeutils.link_nodes(links, iris_mask_node, "Mask", msr_node, "Mask")
+    nodeutils.link_nodes(links, msr_node, "Metallic", shader, "Metallic")
+    nodeutils.link_nodes(links, msr_node, "Specular", shader, "Specular")
+    nodeutils.link_nodes(links, msr_node, "Roughness", shader, "Roughness")
 
     # emission and alpha
-    set_node_input(shader, "Alpha", 1.0)
+    nodeutils.set_node_input(shader, "Alpha", 1.0)
     connect_emission_alpha(obj, mat, shader)
 
     # Normal
-    drop_cursor(0.1)
-    reset_cursor()
+    nodeutils.drop_cursor(0.1)
+    nodeutils.reset_cursor()
     snormal_image = find_material_image(mat, vars.SCLERA_NORMAL_MAP)
     snormal_node = snormal_tiling_node = None
     # space
-    advance_cursor(-count_maps(snormal_image))
+    nodeutils.advance_cursor(-utils.count_maps(snormal_image))
     # maps
     if snormal_image is not None:
-        advance_cursor(-1)
-        drop_cursor(0.75)
-        group = get_node_group("tiling_mapping")
-        snormal_tiling_node = make_node_group_node(nodes, group, "Sclera Normal Tiling", "tiling_normal_sclera_mapping")
-        set_node_input(snormal_tiling_node, "Tiling", mat_cache.parameters.eye_sclera_tiling)
-        advance_cursor()
-        snormal_node = make_image_node(nodes, snormal_image, "sclera_normal_tex")
-        step_cursor()
+        nodeutils.advance_cursor(-1)
+        nodeutils.drop_cursor(0.75)
+        group = nodeutils.get_node_group("tiling_mapping")
+        snormal_tiling_node = nodeutils.make_node_group_node(nodes, group, "Sclera Normal Tiling", "tiling_normal_sclera_mapping")
+        nodeutils.set_node_input(snormal_tiling_node, "Tiling", mat_cache.parameters.eye_sclera_tiling)
+        nodeutils.advance_cursor()
+        snormal_node = nodeutils.make_image_node(nodes, snormal_image, "sclera_normal_tex")
+        nodeutils.step_cursor()
     # groups
     if is_cornea:
-        group = get_node_group("normal_refractive_cornea_mixer")
+        group = nodeutils.get_node_group("normal_refractive_cornea_mixer")
     else:
-        group = get_node_group("normal_refractive_eye_mixer")
-    nm_group = make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
+        group = nodeutils.get_node_group("normal_refractive_eye_mixer")
+    nm_group = nodeutils.make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
     # values
-    set_node_input(nm_group, "Sclera Normal Strength", 1 - mat_cache.parameters.eye_sclera_normal)
-    set_node_input(nm_group, "Blood Vessel Height", mat_cache.parameters.eye_blood_vessel_height/1000)
-    set_node_input(nm_group, "Iris Bump Height", mat_cache.parameters.eye_iris_bump_height/1000)
+    params.set_from_prop_matrix(nm_group, mat_cache, "normal_eye_mixer")
     # links
-    link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Sclera Mask")
-    link_nodes(links, sclera_node, "Color", nm_group, "Sclera Map")
-    link_nodes(links, diffuse_node, "Color", nm_group, "Cornea Map")
+    nodeutils.link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Sclera Mask")
+    nodeutils.link_nodes(links, sclera_node, "Color", nm_group, "Sclera Map")
+    nodeutils.link_nodes(links, diffuse_node, "Color", nm_group, "Cornea Map")
     if snormal_image is not None:
-        link_nodes(links, snormal_node, "Color", nm_group, "Sclera Normal")
-        link_nodes(links, snormal_tiling_node, "Vector", snormal_node, "Vector")
-    link_nodes(links, nm_group, "Normal", shader, "Normal")
+        nodeutils.link_nodes(links, snormal_node, "Color", nm_group, "Sclera Normal")
+        nodeutils.link_nodes(links, snormal_tiling_node, "Vector", snormal_node, "Vector")
+    nodeutils.link_nodes(links, nm_group, "Normal", shader, "Normal")
 
     # Clearcoat and material settings
     if is_cornea:
-        set_node_input(shader, "Clearcoat", 1.0)
-        set_node_input(shader, "Clearcoat Roughness", 0.15)
+        nodeutils.set_node_input(shader, "Clearcoat", 1.0)
+        nodeutils.set_node_input(shader, "Clearcoat Roughness", 0.15)
         mat.use_screen_refraction = True
         mat.refraction_depth = mat_cache.parameters.eye_refraction_depth / 1000
-        set_default_shader_input(mat, "IOR", mat_cache.parameters.eye_ior)
+        nodeutils.set_default_shader_input(mat, "IOR", mat_cache.parameters.eye_ior)
     else:
-        set_node_input(shader, "Clearcoat", 0.0)
-        set_node_input(shader, "Specular Tint", 1.0)
-        set_node_input(shader, "Clearcoat Roughness", 0.0)
+        nodeutils.set_node_input(shader, "Clearcoat", 0.0)
+        nodeutils.set_node_input(shader, "Specular Tint", 1.0)
+        nodeutils.set_node_input(shader, "Clearcoat Roughness", 0.0)
         mat.use_screen_refraction = False
 
     return
@@ -1302,8 +1025,8 @@ def connect_adv_mouth_material(obj, mat, shader):
     links = mat.node_tree.links
 
     # Gums Mask and Gradient AO
-    reset_cursor()
-    advance_cursor(-2)
+    nodeutils.reset_cursor()
+    nodeutils.advance_cursor(-2)
     # maps
     mask_image = None
     mask_node = None
@@ -1322,108 +1045,108 @@ def connect_adv_mouth_material(obj, mat, shader):
     if gradient_image is None:
         connect_advanced_material(obj, mat, shader, mat_cache)
         return
-    advance_cursor(2 - count_maps(mask_image, gradient_image))
+    nodeutils.advance_cursor(2 - utils.count_maps(mask_image, gradient_image))
     if mask_image is not None:
-        mask_node = make_image_node(nodes, mask_image, "gums_mask_tex")
-        step_cursor()
+        mask_node = nodeutils.make_image_node(nodes, mask_image, "gums_mask_tex")
+        nodeutils.step_cursor()
     if gradient_image is not None:
-        gradient_node = make_image_node(nodes, gradient_image, "gradient_ao_tex")
-        step_cursor()
+        gradient_node = nodeutils.make_image_node(nodes, gradient_image, "gradient_ao_tex")
+        nodeutils.step_cursor()
         # nodes
-        gradientrgb_node = make_shader_node(nodes, "ShaderNodeSeparateRGB")
+        gradientrgb_node = nodeutils.make_shader_node(nodes, "ShaderNodeSeparateRGB")
         # links
-        link_nodes(links, gradient_node, "Color", gradientrgb_node, "Image")
+        nodeutils.link_nodes(links, gradient_node, "Color", gradientrgb_node, "Image")
     # move
-    move_new_nodes(-2000, 0)
-    clear_cursor()
+    nodeutils.move_new_nodes(-2000, 0)
+    nodeutils.clear_cursor()
 
     # Base Color
-    reset_cursor()
-    advance_cursor(-2)
+    nodeutils.reset_cursor()
+    nodeutils.advance_cursor(-2)
     # maps
     diffuse_image = find_material_image(mat, vars.BASE_COLOR_MAP)
     ao_image = find_material_image(mat, vars.MOD_AO_MAP)
     diffuse_node = ao_node = None
-    advance_cursor(2 - count_maps(diffuse_image, ao_image))
+    nodeutils.advance_cursor(2 - utils.count_maps(diffuse_image, ao_image))
     if diffuse_image is not None:
-        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
-        step_cursor()
+        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
+        nodeutils.step_cursor()
     if ao_image is not None:
-        ao_node = make_image_node(nodes, ao_image, "ao_tex")
-        step_cursor()
+        ao_node = nodeutils.make_image_node(nodes, ao_image, "ao_tex")
+        nodeutils.step_cursor()
     # groups
     if teeth:
-        group = get_node_group("color_teeth_mixer")
-        color_node = make_node_group_node(nodes, group, "Teeth Base Color", "color_teeth_mixer")
+        group = nodeutils.get_node_group("color_teeth_mixer")
+        color_node = nodeutils.make_node_group_node(nodes, group, "Teeth Base Color", "color_teeth_mixer")
     else:
-        group = get_node_group("color_tongue_mixer")
-        color_node = make_node_group_node(nodes, group, "Tongue Base Color", "color_tongue_mixer")
+        group = nodeutils.get_node_group("color_tongue_mixer")
+        color_node = nodeutils.make_node_group_node(nodes, group, "Tongue Base Color", "color_tongue_mixer")
     base_colour_node = group
     # values
     if teeth:
-        set_node_input(color_node, "AO Strength", mat_cache.parameters.teeth_ao)
-        set_node_input(color_node, "Front", mat_cache.parameters.teeth_front)
-        set_node_input(color_node, "Rear", mat_cache.parameters.teeth_rear)
-        set_node_input(color_node, "Gums Brightness", mat_cache.parameters.teeth_gums_brightness)
-        set_node_input(color_node, "Teeth Brightness", mat_cache.parameters.teeth_teeth_brightness)
-        set_node_input(color_node, "Gums Saturation", 1 - mat_cache.parameters.teeth_gums_desaturation)
-        set_node_input(color_node, "Teeth Saturation", 1 - mat_cache.parameters.teeth_teeth_desaturation)
+        nodeutils.set_node_input(color_node, "AO Strength", mat_cache.parameters.teeth_ao)
+        nodeutils.set_node_input(color_node, "Front", mat_cache.parameters.teeth_front)
+        nodeutils.set_node_input(color_node, "Rear", mat_cache.parameters.teeth_rear)
+        nodeutils.set_node_input(color_node, "Gums Brightness", mat_cache.parameters.teeth_gums_brightness)
+        nodeutils.set_node_input(color_node, "Teeth Brightness", mat_cache.parameters.teeth_teeth_brightness)
+        nodeutils.set_node_input(color_node, "Gums Saturation", 1 - mat_cache.parameters.teeth_gums_desaturation)
+        nodeutils.set_node_input(color_node, "Teeth Saturation", 1 - mat_cache.parameters.teeth_teeth_desaturation)
     else:
-        set_node_input(color_node, "AO Strength", mat_cache.parameters.tongue_ao)
-        set_node_input(color_node, "Front", mat_cache.parameters.tongue_front)
-        set_node_input(color_node, "Rear", mat_cache.parameters.tongue_rear)
-        set_node_input(color_node, "Brightness", mat_cache.parameters.tongue_brightness)
-        set_node_input(color_node, "Saturation", 1 - mat_cache.parameters.tongue_desaturation)
+        nodeutils.set_node_input(color_node, "AO Strength", mat_cache.parameters.tongue_ao)
+        nodeutils.set_node_input(color_node, "Front", mat_cache.parameters.tongue_front)
+        nodeutils.set_node_input(color_node, "Rear", mat_cache.parameters.tongue_rear)
+        nodeutils.set_node_input(color_node, "Brightness", mat_cache.parameters.tongue_brightness)
+        nodeutils.set_node_input(color_node, "Saturation", 1 - mat_cache.parameters.tongue_desaturation)
     # links
     if teeth:
         gao_socket = "G"
         if "std_lower_teeth" in mat.name.lower():
             gao_socket = "R"
-        link_nodes(links, mask_node, "Color", color_node, "Gums Mask")
-        link_nodes(links, gradientrgb_node, gao_socket, color_node, "Gradient AO")
-        link_nodes(links, diffuse_node, "Color", color_node, "Diffuse")
-        link_nodes(links, ao_node, "Color", color_node, "AO")
-        link_nodes(links, color_node, "Base Color", shader, "Base Color")
+        nodeutils.link_nodes(links, mask_node, "Color", color_node, "Gums Mask")
+        nodeutils.link_nodes(links, gradientrgb_node, gao_socket, color_node, "Gradient AO")
+        nodeutils.link_nodes(links, diffuse_node, "Color", color_node, "Diffuse")
+        nodeutils.link_nodes(links, ao_node, "Color", color_node, "AO")
+        nodeutils.link_nodes(links, color_node, "Base Color", shader, "Base Color")
     else:
         gao_socket = "B"
-        link_nodes(links, gradientrgb_node, gao_socket, color_node, "Gradient AO")
-        link_nodes(links, diffuse_node, "Color", color_node, "Diffuse")
-        link_nodes(links, ao_node, "Color", color_node, "AO")
-        link_nodes(links, color_node, "Base Color", shader, "Base Color")
+        nodeutils.link_nodes(links, gradientrgb_node, gao_socket, color_node, "Gradient AO")
+        nodeutils.link_nodes(links, diffuse_node, "Color", color_node, "Diffuse")
+        nodeutils.link_nodes(links, ao_node, "Color", color_node, "AO")
+        nodeutils.link_nodes(links, color_node, "Base Color", shader, "Base Color")
 
     # SSS
-    drop_cursor(0.35)
-    reset_cursor()
+    nodeutils.drop_cursor(0.35)
+    nodeutils.reset_cursor()
     # groups
     if teeth:
-        group = get_node_group("subsurface_overlay_mixer")
-        sss_node = make_node_group_node(nodes, group, "Teeth Subsurface", "subsurface_teeth_mixer")
+        group = nodeutils.get_node_group("subsurface_overlay_mixer")
+        sss_node = nodeutils.make_node_group_node(nodes, group, "Teeth Subsurface", "subsurface_teeth_mixer")
     else:
-        group = get_node_group("subsurface_mixer")
-        sss_node = make_node_group_node(nodes, group, "Tongue Subsurface", "subsurface_tongue_mixer")
+        group = nodeutils.get_node_group("subsurface_mixer")
+        sss_node = nodeutils.make_node_group_node(nodes, group, "Tongue Subsurface", "subsurface_tongue_mixer")
     # values
     if teeth:
-        set_node_input(sss_node, "Scatter1", mat_cache.parameters.teeth_gums_sss_scatter)
-        set_node_input(sss_node, "Radius1", mat_cache.parameters.teeth_sss_radius * vars.UNIT_SCALE * 3)
-        set_node_input(sss_node, "Falloff1", mat_cache.parameters.teeth_sss_falloff)
-        set_node_input(sss_node, "Scatter2", mat_cache.parameters.teeth_teeth_sss_scatter)
-        set_node_input(sss_node, "Radius2", mat_cache.parameters.teeth_sss_radius * vars.UNIT_SCALE * 3)
-        set_node_input(sss_node, "Falloff2", mat_cache.parameters.teeth_sss_falloff)
+        nodeutils.set_node_input(sss_node, "Scatter1", mat_cache.parameters.teeth_gums_sss_scatter)
+        nodeutils.set_node_input(sss_node, "Radius1", mat_cache.parameters.teeth_sss_radius * vars.UNIT_SCALE * 3)
+        nodeutils.set_node_input(sss_node, "Falloff1", mat_cache.parameters.teeth_sss_falloff)
+        nodeutils.set_node_input(sss_node, "Scatter2", mat_cache.parameters.teeth_teeth_sss_scatter)
+        nodeutils.set_node_input(sss_node, "Radius2", mat_cache.parameters.teeth_sss_radius * vars.UNIT_SCALE * 3)
+        nodeutils.set_node_input(sss_node, "Falloff2", mat_cache.parameters.teeth_sss_falloff)
     else:
-        set_node_input(sss_node, "Scatter", mat_cache.parameters.tongue_sss_scatter)
-        set_node_input(sss_node, "Radius", mat_cache.parameters.tongue_sss_radius * vars.UNIT_SCALE * 3)
-        set_node_input(sss_node, "Falloff", mat_cache.parameters.tongue_sss_falloff)
+        nodeutils.set_node_input(sss_node, "Scatter", mat_cache.parameters.tongue_sss_scatter)
+        nodeutils.set_node_input(sss_node, "Radius", mat_cache.parameters.tongue_sss_radius * vars.UNIT_SCALE * 3)
+        nodeutils.set_node_input(sss_node, "Falloff", mat_cache.parameters.tongue_sss_falloff)
     # links
-    link_nodes(links, mask_node, "Color", sss_node, "Mask")
-    link_nodes(links, color_node, "Base Color", sss_node, "Diffuse")
-    link_nodes(links, sss_node, "Subsurface", shader, "Subsurface")
-    link_nodes(links, sss_node, "Subsurface Radius", shader, "Subsurface Radius")
-    link_nodes(links, sss_node, "Subsurface Color", shader, "Subsurface Color")
+    nodeutils.link_nodes(links, mask_node, "Color", sss_node, "Mask")
+    nodeutils.link_nodes(links, color_node, "Base Color", sss_node, "Diffuse")
+    nodeutils.link_nodes(links, sss_node, "Subsurface", shader, "Subsurface")
+    nodeutils.link_nodes(links, sss_node, "Subsurface Radius", shader, "Subsurface Radius")
+    nodeutils.link_nodes(links, sss_node, "Subsurface Color", shader, "Subsurface Color")
 
     # MSR
-    drop_cursor(0.1)
-    reset_cursor()
-    advance_cursor(-2.7)
+    nodeutils.drop_cursor(0.1)
+    nodeutils.reset_cursor()
+    nodeutils.advance_cursor(-2.7)
     # props
     metallic = 0
     specprop, specular = get_specular_strength(mat_cache, shader)
@@ -1433,47 +1156,47 @@ def connect_adv_mouth_material(obj, mat, shader):
     roughness_image = find_material_image(mat, vars.ROUGHNESS_MAP)
     metallic_node = roughness_node = roughness_mult_node = None
     if metallic_image is not None:
-        metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
-        step_cursor()
+        metallic_node = nodeutils.make_image_node(nodes, metallic_image, "metallic_tex")
+        nodeutils.step_cursor()
     else:
-        advance_cursor()
+        nodeutils.advance_cursor()
     if roughness_image is not None:
-        roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
-        advance_cursor()
-        roughness_mult_node = make_math_node(nodes, "MULTIPLY", 1, roughness)
+        roughness_node = nodeutils.make_image_node(nodes, roughness_image, "roughness_tex")
+        nodeutils.advance_cursor()
+        roughness_mult_node = nodeutils.make_math_node(nodes, "MULTIPLY", 1, roughness)
         if teeth:
-            roughness_mult_node.name = unique_name("teeth_roughness")
+            roughness_mult_node.name = utils.unique_name("teeth_roughness")
         else:
-            roughness_mult_node.name = unique_name("tongue_roughness")
-        step_cursor(0.7)
+            roughness_mult_node.name = utils.unique_name("tongue_roughness")
+        nodeutils.step_cursor(0.7)
     else:
-        advance_cursor(1.7)
+        nodeutils.advance_cursor(1.7)
     # groups
-    group = get_node_group("msr_overlay_mixer")
+    group = nodeutils.get_node_group("msr_overlay_mixer")
     if teeth:
-        msr_node = make_node_group_node(nodes, group, "Teeth MSR", "msr_teeth_mixer")
+        msr_node = nodeutils.make_node_group_node(nodes, group, "Teeth MSR", "msr_teeth_mixer")
     else:
-        msr_node = make_node_group_node(nodes, group, "Tongue MSR", "msr_tongue_mixer")
+        msr_node = nodeutils.make_node_group_node(nodes, group, "Tongue MSR", "msr_tongue_mixer")
     # values
-    set_node_input(msr_node, "Metallic1", metallic)
-    set_node_input(msr_node, "Metallic2", metallic)
-    set_node_input(msr_node, "Roughness1", 1)
-    set_node_input(msr_node, "Roughness2", roughness)
-    set_node_input(msr_node, "Specular1", 0)
-    set_node_input(msr_node, "Specular2", specular)
+    nodeutils.set_node_input(msr_node, "Metallic1", metallic)
+    nodeutils.set_node_input(msr_node, "Metallic2", metallic)
+    nodeutils.set_node_input(msr_node, "Roughness1", 1)
+    nodeutils.set_node_input(msr_node, "Roughness2", roughness)
+    nodeutils.set_node_input(msr_node, "Specular1", 0)
+    nodeutils.set_node_input(msr_node, "Specular2", specular)
     # links
-    link_nodes(links, gradientrgb_node, gao_socket, msr_node, "Mask")
-    link_nodes(links, metallic_node, "Color", msr_node, "Metallic1")
-    link_nodes(links, metallic_node, "Color", msr_node, "Metallic2")
-    link_nodes(links, roughness_node, "Color", roughness_mult_node, 0)
-    link_nodes(links, roughness_mult_node, "Value", msr_node, "Roughness2")
-    link_nodes(links, gradientrgb_node, gao_socket, msr_node, "Mask")
-    link_nodes(links, msr_node, "Metallic", shader, "Metallic")
-    link_nodes(links, msr_node, "Specular", shader, "Specular")
-    link_nodes(links, msr_node, "Roughness", shader, "Roughness")
+    nodeutils.link_nodes(links, gradientrgb_node, gao_socket, msr_node, "Mask")
+    nodeutils.link_nodes(links, metallic_node, "Color", msr_node, "Metallic1")
+    nodeutils.link_nodes(links, metallic_node, "Color", msr_node, "Metallic2")
+    nodeutils.link_nodes(links, roughness_node, "Color", roughness_mult_node, 0)
+    nodeutils.link_nodes(links, roughness_mult_node, "Value", msr_node, "Roughness2")
+    nodeutils.link_nodes(links, gradientrgb_node, gao_socket, msr_node, "Mask")
+    nodeutils.link_nodes(links, msr_node, "Metallic", shader, "Metallic")
+    nodeutils.link_nodes(links, msr_node, "Specular", shader, "Specular")
+    nodeutils.link_nodes(links, msr_node, "Roughness", shader, "Roughness")
 
     # emission and alpha
-    set_node_input(shader, "Alpha", 1.0)
+    nodeutils.set_node_input(shader, "Alpha", 1.0)
     connect_emission_alpha(obj, mat, shader)
 
     # Normal
@@ -1481,8 +1204,8 @@ def connect_adv_mouth_material(obj, mat, shader):
 
     # Clearcoat
     #
-    set_node_input(shader, "Clearcoat", 0)
-    set_node_input(shader, "Clearcoat Roughness", 0)
+    nodeutils.set_node_input(shader, "Clearcoat", 0)
+    nodeutils.set_node_input(shader, "Clearcoat Roughness", 0)
 
     return
 
@@ -1511,108 +1234,108 @@ def connect_basic_material(obj, mat, shader):
 
     # Base Color
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     diffuse_image = find_material_image(mat, vars.BASE_COLOR_MAP)
     ao_image = find_material_image(mat, vars.MOD_AO_MAP)
     diffuse_node = ao_node = None
     if (diffuse_image is not None):
-        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
+        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
         if ao_image is not None:
             prop, ao_strength = get_ao_strength(mat_cache)
-            fac_node = make_value_node(nodes, "Ambient Occlusion Strength", prop, ao_strength)
-            ao_node = make_image_node(nodes, ao_image, "ao_tex")
-            advance_cursor(1.5)
-            drop_cursor(0.75)
-            mix_node = make_mixrgb_node(nodes, "MULTIPLY")
-            link_nodes(links, diffuse_node, "Color", mix_node, "Color1")
-            link_nodes(links, ao_node, "Color", mix_node, "Color2")
-            link_nodes(links, fac_node, "Value", mix_node, "Fac")
-            link_nodes(links, mix_node, "Color", shader, "Base Color")
+            fac_node = nodeutils.make_value_node(nodes, "Ambient Occlusion Strength", prop, ao_strength)
+            ao_node = nodeutils.make_image_node(nodes, ao_image, "ao_tex")
+            nodeutils.advance_cursor(1.5)
+            nodeutils.drop_cursor(0.75)
+            mix_node = nodeutils.make_mixrgb_node(nodes, "MULTIPLY")
+            nodeutils.link_nodes(links, diffuse_node, "Color", mix_node, "Color1")
+            nodeutils.link_nodes(links, ao_node, "Color", mix_node, "Color2")
+            nodeutils.link_nodes(links, fac_node, "Value", mix_node, "Fac")
+            nodeutils.link_nodes(links, mix_node, "Color", shader, "Base Color")
         else:
-            link_nodes(links, diffuse_node, "Color", shader, "Base Color")
+            nodeutils.link_nodes(links, diffuse_node, "Color", shader, "Base Color")
 
     # Metallic
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     metallic_image = find_material_image(mat, vars.METALLIC_MAP)
     metallic_node = None
     if metallic_image is not None:
-        metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
-        link_nodes(links, metallic_node, "Color", shader, "Metallic")
+        metallic_node = nodeutils.make_image_node(nodes, metallic_image, "metallic_tex")
+        nodeutils.link_nodes(links, metallic_node, "Color", shader, "Metallic")
 
     # Specular
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     specular_image = find_material_image(mat, vars.SPECULAR_MAP)
     mask_image = find_material_image(mat, vars.MOD_SPECMASK_MAP)
     prop_spec, spec = get_specular_strength(mat_cache, shader)
     specular_node = mask_node = mult_node = None
     if specular_image is not None:
-        specular_node = make_image_node(nodes, specular_image, "specular_tex")
-        link_nodes(links, specular_node, "Color", shader, "Specular")
+        specular_node = nodeutils.make_image_node(nodes, specular_image, "specular_tex")
+        nodeutils.link_nodes(links, specular_node, "Color", shader, "Specular")
     # always make a specular value node for skin or if there is a mask (but no map)
     elif prop_spec != "default_specular":
-        specular_node = make_value_node(nodes, "Specular Strength", prop_spec, spec)
-        link_nodes(links, specular_node, "Value", shader, "Specular")
+        specular_node = nodeutils.make_value_node(nodes, "Specular Strength", prop_spec, spec)
+        nodeutils.link_nodes(links, specular_node, "Value", shader, "Specular")
     elif mask_image is not None:
-        specular_node = make_value_node(nodes, "Specular Strength", "default_basic_specular", shader.inputs["Specular"].default_value)
-        link_nodes(links, specular_node, "Value", shader, "Specular")
+        specular_node = nodeutils.make_value_node(nodes, "Specular Strength", "default_basic_specular", shader.inputs["Specular"].default_value)
+        nodeutils.link_nodes(links, specular_node, "Value", shader, "Specular")
     if mask_image is not None:
-        mask_node = make_image_node(nodes, mask_image, "specular_mask_tex")
-        advance_cursor()
-        mult_node = make_math_node(nodes, "MULTIPLY")
+        mask_node = nodeutils.make_image_node(nodes, mask_image, "specular_mask_tex")
+        nodeutils.advance_cursor()
+        mult_node = nodeutils.make_math_node(nodes, "MULTIPLY")
         if specular_node.type == "VALUE":
-            link_nodes(links, specular_node, "Value", mult_node, 0)
+            nodeutils.link_nodes(links, specular_node, "Value", mult_node, 0)
         else:
-            link_nodes(links, specular_node, "Color", mult_node, 0)
-        link_nodes(links, mask_node, "Color", mult_node, 1)
-        link_nodes(links, mult_node, "Value", shader, "Specular")
+            nodeutils.link_nodes(links, specular_node, "Color", mult_node, 0)
+        nodeutils.link_nodes(links, mask_node, "Color", mult_node, 1)
+        nodeutils.link_nodes(links, mult_node, "Value", shader, "Specular")
 
     # Roughness
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     roughness_image = find_material_image(mat, vars.ROUGHNESS_MAP)
     roughness_node = None
     if roughness_image is not None:
-        roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
+        roughness_node = nodeutils.make_image_node(nodes, roughness_image, "roughness_tex")
         rprop_name, rprop_val = get_roughness_remap(mat_cache)
         if mat_cache.material_type.startswith("SKIN"):
-            advance_cursor()
-            remap_node = make_shader_node(nodes, "ShaderNodeMapRange")
-            remap_node.name = unique_name(rprop_name)
-            set_node_input(remap_node, "To Min", rprop_val)
-            link_nodes(links, roughness_node, "Color", remap_node, "Value")
-            link_nodes(links, remap_node, "Result", shader, "Roughness")
+            nodeutils.advance_cursor()
+            remap_node = nodeutils.make_shader_node(nodes, "ShaderNodeMapRange")
+            remap_node.name = utils.unique_name(rprop_name)
+            nodeutils.set_node_input(remap_node, "To Min", rprop_val)
+            nodeutils.make_shader_node(links, roughness_node, "Color", remap_node, "Value")
+            nodeutils.link_nodes(links, remap_node, "Result", shader, "Roughness")
         elif mat_cache.material_type.startswith("TEETH") or mat_cache.material_type == "TONGUE":
-            advance_cursor()
-            rmult_node = make_math_node(nodes, "MULTIPLY", 1, rprop_val)
-            rmult_node.name = unique_name(rprop_name)
-            link_nodes(links, roughness_node, "Color", rmult_node, 0)
-            link_nodes(links, rmult_node, "Value", shader, "Roughness")
+            nodeutils.advance_cursor()
+            rmult_node = nodeutils.make_math_node(nodes, "MULTIPLY", 1, rprop_val)
+            rmult_node.name = utils.unique_name(rprop_name)
+            nodeutils.link_nodes(links, roughness_node, "Color", rmult_node, 0)
+            nodeutils.link_nodes(links, rmult_node, "Value", shader, "Roughness")
         else:
-            link_nodes(links, roughness_node, "Color", shader, "Roughness")
+            nodeutils.link_nodes(links, roughness_node, "Color", shader, "Roughness")
 
     # Emission
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     emission_image = find_material_image(mat, vars.EMISSION_MAP)
     emission_node = None
     if emission_image is not None:
-        emission_node = make_image_node(nodes, emission_image, "emission_tex")
-        link_nodes(links, emission_node, "Color", shader, "Emission")
+        emission_node = nodeutils.make_image_node(nodes, emission_image, "emission_tex")
+        nodeutils.link_nodes(links, emission_node, "Color", shader, "Emission")
 
     # Alpha
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     alpha_image = find_material_image(mat, vars.ALPHA_MAP)
     alpha_node = None
     if alpha_image is not None:
-        alpha_node = make_image_node(nodes, alpha_image, "opacity_tex")
+        alpha_node = nodeutils.make_image_node(nodes, alpha_image, "opacity_tex")
         dir,file = os.path.split(alpha_image.filepath)
         if "_diffuse." in file.lower() or "_albedo." in file.lower():
-            link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
+            nodeutils.link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
         else:
-            link_nodes(links, alpha_node, "Color", shader, "Alpha")
+            nodeutils.link_nodes(links, alpha_node, "Color", shader, "Alpha")
     # material alpha blend settings
     if obj_cache.is_hair() or mat_cache.is_eyelash():
         set_material_alpha(mat, "HASHED")
@@ -1623,28 +1346,28 @@ def connect_basic_material(obj, mat, shader):
 
     # Normal
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     normal_image = find_material_image(mat, vars.NORMAL_MAP)
     bump_image = find_material_image(mat, vars.BUMP_MAP)
     normal_node = bump_node = normalmap_node = bumpmap_node = None
     if normal_image is not None:
-        normal_node = make_image_node(nodes, normal_image, "normal_tex")
-        advance_cursor()
-        normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
-        link_nodes(links, normal_node, "Color", normalmap_node, "Color")
-        link_nodes(links, normalmap_node, "Normal", shader, "Normal")
+        normal_node = nodeutils.make_image_node(nodes, normal_image, "normal_tex")
+        nodeutils.advance_cursor()
+        normalmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
+        nodeutils.link_nodes(links, normal_node, "Color", normalmap_node, "Color")
+        nodeutils.link_nodes(links, normalmap_node, "Normal", shader, "Normal")
     if bump_image is not None:
         prop_bump, bump_strength = get_bump_strength(mat_cache)
-        bump_strength_node = make_value_node(nodes, "Bump Strength", prop_bump, bump_strength / 1000)
-        bump_node = make_image_node(nodes, bump_image, "bump_tex")
-        advance_cursor()
-        bumpmap_node = make_shader_node(nodes, "ShaderNodeBump", 0.7)
-        advance_cursor()
-        link_nodes(links, bump_strength_node, "Value", bumpmap_node, "Distance")
-        link_nodes(links, bump_node, "Color", bumpmap_node, "Height")
+        bump_strength_node = nodeutils.make_value_node(nodes, "Bump Strength", prop_bump, bump_strength / 1000)
+        bump_node = nodeutils.make_image_node(nodes, bump_image, "bump_tex")
+        nodeutils.advance_cursor()
+        bumpmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeBump", 0.7)
+        nodeutils.advance_cursor()
+        nodeutils.link_nodes(links, bump_strength_node, "Value", bumpmap_node, "Distance")
+        nodeutils.link_nodes(links, bump_node, "Color", bumpmap_node, "Height")
         if normal_image is not None:
-            link_nodes(links, normalmap_node, "Normal", bumpmap_node, "Normal")
-        link_nodes(links, bumpmap_node, "Normal", shader, "Normal")
+            nodeutils.link_nodes(links, normalmap_node, "Normal", bumpmap_node, "Normal")
+        nodeutils.link_nodes(links, bumpmap_node, "Normal", shader, "Normal")
 
     return
 
@@ -1659,64 +1382,64 @@ def connect_compat_material(obj, mat, shader):
 
     # Base Color
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     diffuse_image = find_material_image(mat, vars.BASE_COLOR_MAP)
     if (diffuse_image is not None):
-        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
-        link_nodes(links, diffuse_node, "Color", shader, "Base Color")
+        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
+        nodeutils.link_nodes(links, diffuse_node, "Color", shader, "Base Color")
 
     # Metallic
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     metallic_image = find_material_image(mat, vars.METALLIC_MAP)
     metallic_node = None
     if metallic_image is not None:
-        metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
-        link_nodes(links, metallic_node, "Color", shader, "Metallic")
+        metallic_node = nodeutils.make_image_node(nodes, metallic_image, "metallic_tex")
+        nodeutils.link_nodes(links, metallic_node, "Color", shader, "Metallic")
 
     # Specular
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     specular_image = find_material_image(mat, vars.SPECULAR_MAP)
     if specular_image is not None:
-        specular_node = make_image_node(nodes, specular_image, "specular_tex")
-        link_nodes(links, specular_node, "Color", shader, "Specular")
+        specular_node = nodeutils.make_image_node(nodes, specular_image, "specular_tex")
+        nodeutils.link_nodes(links, specular_node, "Color", shader, "Specular")
     if mat_cache.is_skin():
-        set_node_input(shader, "Specular", 0.2)
+        nodeutils.set_node_input(shader, "Specular", 0.2)
     if mat_cache.is_cornea():
-        set_node_input(shader, "Specular", 0.8)
+        nodeutils.set_node_input(shader, "Specular", 0.8)
 
     # Roughness
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     roughness_image = find_material_image(mat, vars.ROUGHNESS_MAP)
     if roughness_image is not None:
-        roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
-        link_nodes(links, roughness_node, "Color", shader, "Roughness")
+        roughness_node = nodeutils.make_image_node(nodes, roughness_image, "roughness_tex")
+        nodeutils.link_nodes(links, roughness_node, "Color", shader, "Roughness")
     if mat_cache.is_cornea():
-        set_node_input(shader, "Roughness", 0)
+        nodeutils.set_node_input(shader, "Roughness", 0)
 
     # Emission
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     emission_image = find_material_image(mat, vars.EMISSION_MAP)
     emission_node = None
     if emission_image is not None:
-        emission_node = make_image_node(nodes, emission_image, "emission_tex")
-        link_nodes(links, emission_node, "Color", shader, "Emission")
+        emission_node = nodeutils.make_image_node(nodes, emission_image, "emission_tex")
+        nodeutils.link_nodes(links, emission_node, "Color", shader, "Emission")
 
     # Alpha
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     alpha_image = find_material_image(mat, vars.ALPHA_MAP)
     alpha_node = None
     if alpha_image is not None:
-        alpha_node = make_image_node(nodes, alpha_image, "opacity_tex")
+        alpha_node = nodeutils.make_image_node(nodes, alpha_image, "opacity_tex")
         file = os.path.split(alpha_image.filepath)[1]
         if "_diffuse." in file.lower() or "_albedo." in file.lower():
-            link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
+            nodeutils.link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
         else:
-            link_nodes(links, alpha_node, "Color", shader, "Alpha")
+            nodeutils.link_nodes(links, alpha_node, "Color", shader, "Alpha")
     # material alpha blend settings
     if obj_cache.is_hair() or mat_cache.is_eyelash():
         set_material_alpha(mat, "HASHED")
@@ -1729,22 +1452,22 @@ def connect_compat_material(obj, mat, shader):
 
     # Normal
     #
-    reset_cursor()
+    nodeutils.reset_cursor()
     normal_image = find_material_image(mat, vars.NORMAL_MAP)
     bump_image = find_material_image(mat, vars.BUMP_MAP)
     normal_node = bump_node = normalmap_node = bumpmap_node = None
     if normal_image is not None:
-        normal_node = make_image_node(nodes, normal_image, "normal_tex")
-        advance_cursor()
-        normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
-        link_nodes(links, normal_node, "Color", normalmap_node, "Color")
-        link_nodes(links, normalmap_node, "Normal", shader, "Normal")
+        normal_node = nodeutils.make_image_node(nodes, normal_image, "normal_tex")
+        nodeutils.advance_cursor()
+        normalmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
+        nodeutils.link_nodes(links, normal_node, "Color", normalmap_node, "Color")
+        nodeutils.link_nodes(links, normalmap_node, "Normal", shader, "Normal")
     elif bump_image is not None:
-        bump_node = make_image_node(nodes, bump_image, "bump_tex")
-        advance_cursor()
-        normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
-        link_nodes(links, bump_node, "Color", normalmap_node, "Color")
-        link_nodes(links, normalmap_node, "Normal", shader, "Normal")
+        bump_node = nodeutils.make_image_node(nodes, bump_image, "bump_tex")
+        nodeutils.advance_cursor()
+        normalmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
+        nodeutils.link_nodes(links, bump_node, "Color", normalmap_node, "Color")
+        nodeutils.link_nodes(links, normalmap_node, "Normal", shader, "Normal")
 
     return
 
@@ -1763,59 +1486,59 @@ def connect_base_color(obj, mat, shader):
     prop_ao, ao_value = get_ao_strength(mat_cache)
     prop_group = get_material_group(mat_cache)
 
-    count = count_maps(diffuse_image, ao_image, blend_image, mcmao_image)
+    count = utils.count_maps(diffuse_image, ao_image, blend_image, mcmao_image)
     if count == 0:
         return None
 
-    reset_cursor()
+    nodeutils.reset_cursor()
     # space
-    advance_cursor(-count)
+    nodeutils.advance_cursor(-count)
     # maps
     ao_node = blend_node = diffuse_node = mcmao_node = None
     if mcmao_image is not None:
-        mcmao_node = make_image_node(nodes, mcmao_image, "mcmao_tex")
-        step_cursor()
+        mcmao_node = nodeutils.make_image_node(nodes, mcmao_image, "mcmao_tex")
+        nodeutils.step_cursor()
     if ao_image is not None:
-        ao_node = make_image_node(nodes, ao_image, "ao_tex")
-        step_cursor()
+        ao_node = nodeutils.make_image_node(nodes, ao_image, "ao_tex")
+        nodeutils.step_cursor()
     if blend_image is not None:
-        blend_node = make_image_node(nodes, blend_image, "blend_tex")
-        step_cursor()
+        blend_node = nodeutils.make_image_node(nodes, blend_image, "blend_tex")
+        nodeutils.step_cursor()
     if diffuse_image is not None:
-        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
-        step_cursor()
+        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
+        nodeutils.step_cursor()
     # groups
     if mcmao_image is not None:
-        group = get_node_group("color_head_mixer")
-        group_node = make_node_group_node(nodes, group, "Base Color Head Mixer", "color_" + prop_group + "_mixer")
-        drop_cursor(0.3)
+        group = nodeutils.get_node_group("color_head_mixer")
+        group_node = nodeutils.make_node_group_node(nodes, group, "Base Color Head Mixer", "color_" + prop_group + "_mixer")
+        nodeutils.drop_cursor(0.3)
     elif blend_image is not None:
-        group = get_node_group("color_blend_ao_mixer")
-        group_node = make_node_group_node(nodes, group, "Base Color Mixer", "color_" + prop_group + "_mixer")
+        group = nodeutils.get_node_group("color_blend_ao_mixer")
+        group_node = nodeutils.make_node_group_node(nodes, group, "Base Color Mixer", "color_" + prop_group + "_mixer")
     else:
-        group = get_node_group("color_ao_mixer")
-        group_node = make_node_group_node(nodes, group, "Base Color Mixer", "color_" + prop_group + "_mixer")
+        group = nodeutils.get_node_group("color_ao_mixer")
+        group_node = nodeutils.make_node_group_node(nodes, group, "Base Color Mixer", "color_" + prop_group + "_mixer")
     # values
     if diffuse_image is None:
-        set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
+        nodeutils.set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
     if blend_image is not None:
-        set_node_input(group_node, "Blend Strength", blend_value)
+        nodeutils.set_node_input(group_node, "Blend Strength", blend_value)
     if mcmao_image is not None:
-        set_node_input(group_node, "Mouth AO", mat_cache.parameters.skin_mouth_ao)
-        set_node_input(group_node, "Nostril AO", mat_cache.parameters.skin_nostril_ao)
-        set_node_input(group_node, "Lips AO", mat_cache.parameters.skin_lips_ao)
-    set_node_input(group_node, "AO Strength", ao_value)
+        nodeutils.set_node_input(group_node, "Mouth AO", mat_cache.parameters.skin_mouth_ao)
+        nodeutils.set_node_input(group_node, "Nostril AO", mat_cache.parameters.skin_nostril_ao)
+        nodeutils.set_node_input(group_node, "Lips AO", mat_cache.parameters.skin_lips_ao)
+    nodeutils.set_node_input(group_node, "AO Strength", ao_value)
     # links
     if mcmao_image is not None:
-        link_nodes(links, mcmao_node, "Color", group_node, "MCMAO")
-        link_nodes(links, mcmao_node, "Alpha", group_node, "LLAO")
+        nodeutils.link_nodes(links, mcmao_node, "Color", group_node, "MCMAO")
+        nodeutils.link_nodes(links, mcmao_node, "Alpha", group_node, "LLAO")
     if diffuse_image is not None:
-        link_nodes(links, diffuse_node, "Color", group_node, "Diffuse")
+        nodeutils.link_nodes(links, diffuse_node, "Color", group_node, "Diffuse")
     if blend_image is not None:
-        link_nodes(links, blend_node, "Color", group_node, "Blend")
+        nodeutils.link_nodes(links, blend_node, "Color", group_node, "Blend")
     if ao_image is not None:
-        link_nodes(links, ao_node, "Color", group_node, "AO")
-    link_nodes(links, group_node, "Base Color", shader, "Base Color")
+        nodeutils.link_nodes(links, ao_node, "Color", group_node, "AO")
+    nodeutils.link_nodes(links, group_node, "Base Color", shader, "Base Color")
 
     return group_node
 
@@ -1835,94 +1558,94 @@ def connect_hair_base_color(obj, mat, shader):
     flow_image = find_material_image(mat, vars.MOD_HAIR_FLOW_MAP)
     depth_image = find_material_image(mat, vars.MOD_HAIR_BLEND_MULTIPLY)
 
-    count = count_maps(diffuse_image, ao_image, root_image, id_image, vcol_image, flow_image, depth_image)
+    count = utils.count_maps(diffuse_image, ao_image, root_image, id_image, vcol_image, flow_image, depth_image)
     if count == 0:
         return None
 
-    reset_cursor()
+    nodeutils.reset_cursor()
     # space
-    advance_cursor(-count)
+    nodeutils.advance_cursor(-count)
     # maps
     ao_node = diffuse_node = depth_node = flow_node = vcol_node = id_node = root_node = None
     if depth_image is not None:
-        depth_node = make_image_node(nodes, depth_image, "depth_tex")
-        step_cursor()
+        depth_node = nodeutils.make_image_node(nodes, depth_image, "depth_tex")
+        nodeutils.step_cursor()
     if flow_image is not None:
-        flow_node = make_image_node(nodes, flow_image, "flow_tex")
-        step_cursor()
+        flow_node = nodeutils.make_image_node(nodes, flow_image, "flow_tex")
+        nodeutils.step_cursor()
     if vcol_image is not None:
-        vcol_node = make_image_node(nodes, vcol_image, "vcol_tex")
-        step_cursor()
+        vcol_node = nodeutils.make_image_node(nodes, vcol_image, "vcol_tex")
+        nodeutils.step_cursor()
     if id_image is not None:
-        id_node = make_image_node(nodes, id_image, "id_tex")
-        step_cursor()
+        id_node = nodeutils.make_image_node(nodes, id_image, "id_tex")
+        nodeutils.step_cursor()
     if root_image is not None:
-        root_node = make_image_node(nodes, root_image, "root_tex")
-        step_cursor()
+        root_node = nodeutils.make_image_node(nodes, root_image, "root_tex")
+        nodeutils.step_cursor()
     if ao_image is not None:
-        ao_node = make_image_node(nodes, ao_image, "ao_tex")
-        step_cursor()
+        ao_node = nodeutils.make_image_node(nodes, ao_image, "ao_tex")
+        nodeutils.step_cursor()
     if diffuse_image is not None:
-        diffuse_node = make_image_node(nodes, diffuse_image, "diffuse_tex")
-        step_cursor()
+        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
+        nodeutils.step_cursor()
     # groups
-    group = get_node_group("color_hair_mixer")
-    group_node = make_node_group_node(nodes, group, "Base Color Head Mixer", "color_hair_mixer")
-    drop_cursor(2.3)
+    group = nodeutils.get_node_group("color_hair_mixer")
+    group_node = nodeutils.make_node_group_node(nodes, group, "Base Color Head Mixer", "color_hair_mixer")
+    nodeutils.drop_cursor(2.3)
     # values
     if diffuse_image is None:
-        set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
-    set_node_input(group_node, "Diffuse Bright", mat_cache.parameters.hair_brightness)
-    set_node_input(group_node, "Diffuse Contrast", mat_cache.parameters.hair_contrast)
-    set_node_input(group_node, "Diffuse Hue", mat_cache.parameters.hair_hue)
-    set_node_input(group_node, "Diffuse Saturation", mat_cache.parameters.hair_saturation)
-    set_node_input(group_node, "Aniso Strength", mat_cache.parameters.hair_aniso_strength)
-    set_node_input(group_node, "Aniso Strength Cycles", mat_cache.parameters.hair_aniso_strength_cycles)
-    set_node_input(group_node, "Aniso Color", mat_cache.parameters.hair_aniso_color)
-    set_node_input(group_node, "Base Color Strength", mat_cache.parameters.hair_vertex_color_strength)
-    set_node_input(group_node, "Base Color Map Strength", mat_cache.parameters.hair_base_color_map_strength)
-    set_node_input(group_node, "AO Strength", mat_cache.parameters.hair_ao)
-    set_node_input(group_node, "Depth Blend Strength", mat_cache.parameters.hair_depth_strength)
-    set_node_input(group_node, "Diffuse Strength", mat_cache.parameters.hair_diffuse_strength)
-    set_node_input(group_node, "Global Strength", mat_cache.parameters.hair_global_strength)
-    set_node_input(group_node, "Root Color", gamma_correct(mat_cache.parameters.hair_root_color))
-    set_node_input(group_node, "End Color", gamma_correct(mat_cache.parameters.hair_end_color))
-    set_node_input(group_node, "Root Color Strength", mat_cache.parameters.hair_root_strength)
-    set_node_input(group_node, "End Color Strength", mat_cache.parameters.hair_end_strength)
-    set_node_input(group_node, "Invert Root and End Color", mat_cache.parameters.hair_invert_strand)
-    set_node_input(group_node, "Highlight A Start", mat_cache.parameters.hair_a_start)
-    set_node_input(group_node, "Highlight A Mid", mat_cache.parameters.hair_a_mid)
-    set_node_input(group_node, "Highlight A End", mat_cache.parameters.hair_a_end)
-    set_node_input(group_node, "Highlight A Strength", mat_cache.parameters.hair_a_strength)
-    set_node_input(group_node, "Highlight A Overlap End", mat_cache.parameters.hair_a_overlap)
-    set_node_input(group_node, "Highlight Color A", gamma_correct(mat_cache.parameters.hair_a_color))
-    set_node_input(group_node, "Highlight B Start", mat_cache.parameters.hair_b_start)
-    set_node_input(group_node, "Highlight B Mid", mat_cache.parameters.hair_b_mid)
-    set_node_input(group_node, "Highlight B End", mat_cache.parameters.hair_b_end)
-    set_node_input(group_node, "Highlight B Strength", mat_cache.parameters.hair_b_strength)
-    set_node_input(group_node, "Highlight B Overlap End", mat_cache.parameters.hair_b_overlap)
-    set_node_input(group_node, "Highlight Color B", gamma_correct(mat_cache.parameters.hair_b_color))
+        nodeutils.set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
+    nodeutils.set_node_input(group_node, "Diffuse Bright", mat_cache.parameters.hair_brightness)
+    nodeutils.set_node_input(group_node, "Diffuse Contrast", mat_cache.parameters.hair_contrast)
+    nodeutils.set_node_input(group_node, "Diffuse Hue", mat_cache.parameters.hair_hue)
+    nodeutils.set_node_input(group_node, "Diffuse Saturation", mat_cache.parameters.hair_saturation)
+    nodeutils.set_node_input(group_node, "Aniso Strength", mat_cache.parameters.hair_aniso_strength)
+    nodeutils.set_node_input(group_node, "Aniso Strength Cycles", mat_cache.parameters.hair_aniso_strength_cycles)
+    nodeutils.set_node_input(group_node, "Aniso Color", mat_cache.parameters.hair_aniso_color)
+    nodeutils.set_node_input(group_node, "Base Color Strength", mat_cache.parameters.hair_vertex_color_strength)
+    nodeutils.set_node_input(group_node, "Base Color Map Strength", mat_cache.parameters.hair_base_color_map_strength)
+    nodeutils.set_node_input(group_node, "AO Strength", mat_cache.parameters.hair_ao)
+    nodeutils.set_node_input(group_node, "Depth Blend Strength", mat_cache.parameters.hair_depth_strength)
+    nodeutils.set_node_input(group_node, "Diffuse Strength", mat_cache.parameters.hair_diffuse_strength)
+    nodeutils.set_node_input(group_node, "Global Strength", mat_cache.parameters.hair_global_strength)
+    nodeutils.set_node_input(group_node, "Root Color", gamma_correct(mat_cache.parameters.hair_root_color))
+    nodeutils.set_node_input(group_node, "End Color", gamma_correct(mat_cache.parameters.hair_end_color))
+    nodeutils.set_node_input(group_node, "Root Color Strength", mat_cache.parameters.hair_root_strength)
+    nodeutils.set_node_input(group_node, "End Color Strength", mat_cache.parameters.hair_end_strength)
+    nodeutils.set_node_input(group_node, "Invert Root and End Color", mat_cache.parameters.hair_invert_strand)
+    nodeutils.set_node_input(group_node, "Highlight A Start", mat_cache.parameters.hair_a_start)
+    nodeutils.set_node_input(group_node, "Highlight A Mid", mat_cache.parameters.hair_a_mid)
+    nodeutils.set_node_input(group_node, "Highlight A End", mat_cache.parameters.hair_a_end)
+    nodeutils.set_node_input(group_node, "Highlight A Strength", mat_cache.parameters.hair_a_strength)
+    nodeutils.set_node_input(group_node, "Highlight A Overlap End", mat_cache.parameters.hair_a_overlap)
+    nodeutils.set_node_input(group_node, "Highlight Color A", gamma_correct(mat_cache.parameters.hair_a_color))
+    nodeutils.set_node_input(group_node, "Highlight B Start", mat_cache.parameters.hair_b_start)
+    nodeutils.set_node_input(group_node, "Highlight B Mid", mat_cache.parameters.hair_b_mid)
+    nodeutils.set_node_input(group_node, "Highlight B End", mat_cache.parameters.hair_b_end)
+    nodeutils.set_node_input(group_node, "Highlight B Strength", mat_cache.parameters.hair_b_strength)
+    nodeutils.set_node_input(group_node, "Highlight B Overlap End", mat_cache.parameters.hair_b_overlap)
+    nodeutils.set_node_input(group_node, "Highlight Color B", gamma_correct(mat_cache.parameters.hair_b_color))
     # links
     if flow_image is not None:
-        link_nodes(links, flow_node, "Color", group_node, "Flow Map")
+        nodeutils.link_nodes(links, flow_node, "Color", group_node, "Flow Map")
     if root_image is not None:
-        link_nodes(links, root_node, "Color", group_node, "Root Map")
+        nodeutils.link_nodes(links, root_node, "Color", group_node, "Root Map")
     if id_image is not None:
-        link_nodes(links, id_node, "Color", group_node, "ID Map")
+        nodeutils.link_nodes(links, id_node, "Color", group_node, "ID Map")
     if depth_image is not None:
-        link_nodes(links, depth_node, "Color", group_node, "Depth Map")
+        nodeutils.link_nodes(links, depth_node, "Color", group_node, "Depth Map")
     if vcol_image is not None:
-        link_nodes(links, vcol_node, "Color", group_node, "Vertex Color Base")
+        nodeutils.link_nodes(links, vcol_node, "Color", group_node, "Vertex Color Base")
     if diffuse_image is not None:
-        link_nodes(links, diffuse_node, "Color", group_node, "Diffuse Map")
+        nodeutils.link_nodes(links, diffuse_node, "Color", group_node, "Diffuse Map")
     if ao_image is not None:
-        link_nodes(links, ao_node, "Color", group_node, "AO Map")
+        nodeutils.link_nodes(links, ao_node, "Color", group_node, "AO Map")
 
-    link_nodes(links, group_node, "Base Color", shader, "Base Color")
+    nodeutils.link_nodes(links, group_node, "Base Color", shader, "Base Color")
 
-    link_nodes(links, group_node, "Base Color", shader, "Base Color")
-    link_nodes(links, group_node, "Aniso Angle Cycles", shader, "Anisotropic Rotation")
-    link_nodes(links, group_node, "Aniso Strength", shader, "Anisotropic")
+    nodeutils.link_nodes(links, group_node, "Base Color", shader, "Base Color")
+    nodeutils.link_nodes(links, group_node, "Aniso Angle Cycles", shader, "Anisotropic Rotation")
+    nodeutils.link_nodes(links, group_node, "Aniso Strength", shader, "Anisotropic")
 
     return group_node
 
@@ -1940,38 +1663,38 @@ def connect_subsurface(obj, mat, shader, diffuse_node):
     prop_falloff, sss_falloff = get_sss_falloff(mat_cache)
     prop_group = get_material_group(mat_cache)
 
-    count = count_maps(trans_image, sss_image)
+    count = utils.count_maps(trans_image, sss_image)
     if count == 0 and not mat_cache.is_hair() and not mat_cache.is_skin():
         return None
 
-    reset_cursor()
+    nodeutils.reset_cursor()
     # space
-    advance_cursor(-count)
+    nodeutils.advance_cursor(-count)
     # maps
     sss_node = trans_node = None
     if trans_image is not None:
-        trans_node = make_image_node(nodes, trans_image, "transmission_tex")
-        step_cursor()
+        trans_node = nodeutils.make_image_node(nodes, trans_image, "transmission_tex")
+        nodeutils.step_cursor()
     if sss_image is not None:
-        sss_node = make_image_node(nodes, sss_image, "sss_tex")
-        step_cursor()
+        sss_node = nodeutils.make_image_node(nodes, sss_image, "sss_tex")
+        nodeutils.step_cursor()
     # group
-    group = get_node_group("subsurface_mixer")
-    group_node = make_node_group_node(nodes, group, "Subsurface Mixer", "subsurface_" + prop_group + "_mixer")
+    group = nodeutils.get_node_group("subsurface_mixer")
+    group_node = nodeutils.make_node_group_node(nodes, group, "Subsurface Mixer", "subsurface_" + prop_group + "_mixer")
     # values
-    set_node_input(group_node, "Radius", sss_radius * vars.UNIT_SCALE)
-    set_node_input(group_node, "Falloff", sss_falloff)
+    nodeutils.set_node_input(group_node, "Radius", sss_radius * vars.UNIT_SCALE)
+    nodeutils.set_node_input(group_node, "Falloff", sss_falloff)
     if diffuse_node is None:
-        set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
+        nodeutils.set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
     # links
     else:
-        link_nodes(links, diffuse_node, "Base Color", group_node, "Diffuse")
-        link_nodes(links, diffuse_node, "Color", group_node, "Diffuse")
-    link_nodes(links, sss_node, "Color", group_node, "Scatter")
-    link_nodes(links, trans_node, "Color", group_node, "Transmission")
-    link_nodes(links, group_node, "Subsurface", shader, "Subsurface")
-    link_nodes(links, group_node, "Subsurface Radius", shader, "Subsurface Radius")
-    link_nodes(links, group_node, "Subsurface Color", shader, "Subsurface Color")
+        nodeutils.link_nodes(links, diffuse_node, "Base Color", group_node, "Diffuse")
+        nodeutils.link_nodes(links, diffuse_node, "Color", group_node, "Diffuse")
+    nodeutils.link_nodes(links, sss_node, "Color", group_node, "Scatter")
+    nodeutils.link_nodes(links, trans_node, "Color", group_node, "Transmission")
+    nodeutils.link_nodes(links, group_node, "Subsurface", shader, "Subsurface")
+    nodeutils.link_nodes(links, group_node, "Subsurface Radius", shader, "Subsurface Radius")
+    nodeutils.link_nodes(links, group_node, "Subsurface Color", shader, "Subsurface Color")
 
     # subsurface translucency
     if mat_cache.is_skin() or mat_cache.is_hair():
@@ -1998,45 +1721,45 @@ def connect_msr(obj, mat, shader):
     prop_roughness_power, roughness_power = get_roughness_power(mat_cache)
     prop_group = get_material_group(mat_cache)
 
-    count = count_maps(mask_image, specular_image, roughness_image, metallic_image)
+    count = utils.count_maps(mask_image, specular_image, roughness_image, metallic_image)
     if count == 0:
         return None
 
-    reset_cursor()
+    nodeutils.reset_cursor()
     # space
-    advance_cursor(-count)
+    nodeutils.advance_cursor(-count)
     # maps
     metallic_node = specular_node = roughness_node = mask_node = None
     if roughness_image is not None:
-        roughness_node = make_image_node(nodes, roughness_image, "roughness_tex")
-        step_cursor()
+        roughness_node = nodeutils.make_image_node(nodes, roughness_image, "roughness_tex")
+        nodeutils.step_cursor()
     if mask_image is not None:
-        mask_node = make_image_node(nodes, mask_image, "specular_mask_tex")
-        step_cursor()
+        mask_node = nodeutils.make_image_node(nodes, mask_image, "specular_mask_tex")
+        nodeutils.step_cursor()
     if specular_image is not None:
-        specular_node = make_image_node(nodes, specular_image, "specular_tex")
-        step_cursor()
+        specular_node = nodeutils.make_image_node(nodes, specular_image, "specular_tex")
+        nodeutils.step_cursor()
     if metallic_image is not None:
-        metallic_node = make_image_node(nodes, metallic_image, "metallic_tex")
-        step_cursor()
+        metallic_node = nodeutils.make_image_node(nodes, metallic_image, "metallic_tex")
+        nodeutils.step_cursor()
     # groups
     if mat_cache.is_skin():
-        group = get_node_group("msr_skin_mixer")
+        group = nodeutils.get_node_group("msr_skin_mixer")
     else:
-        group = get_node_group("msr_mixer")
-    group_node = make_node_group_node(nodes, group, "Metallic, Specular & Roughness Mixer", "msr_" + prop_group + "_mixer")
+        group = nodeutils.get_node_group("msr_mixer")
+    group_node = nodeutils.make_node_group_node(nodes, group, "Metallic, Specular & Roughness Mixer", "msr_" + prop_group + "_mixer")
     # values
-    set_node_input(group_node, "Specular", specular_strength)
-    set_node_input(group_node, "Roughness Remap", roughness_remap)
-    set_node_input(group_node, "Roughness Power", roughness_power)
+    nodeutils.set_node_input(group_node, "Specular", specular_strength)
+    nodeutils.set_node_input(group_node, "Roughness Remap", roughness_remap)
+    nodeutils.set_node_input(group_node, "Roughness Power", roughness_power)
     # links
-    link_nodes(links, metallic_node, "Color", group_node, "Metallic")
-    link_nodes(links, specular_node, "Color", group_node, "Specular")
-    link_nodes(links, mask_node, "Color", group_node, "Specular Mask")
-    link_nodes(links, roughness_node, "Color", group_node, "Roughness")
-    link_nodes(links, group_node, "Metallic", shader, "Metallic")
-    link_nodes(links, group_node, "Specular", shader, "Specular")
-    link_nodes(links, group_node, "Roughness", shader, "Roughness")
+    nodeutils.link_nodes(links, metallic_node, "Color", group_node, "Metallic")
+    nodeutils.link_nodes(links, specular_node, "Color", group_node, "Specular")
+    nodeutils.link_nodes(links, mask_node, "Color", group_node, "Specular Mask")
+    nodeutils.link_nodes(links, roughness_node, "Color", group_node, "Roughness")
+    nodeutils.link_nodes(links, group_node, "Metallic", shader, "Metallic")
+    nodeutils.link_nodes(links, group_node, "Specular", shader, "Specular")
+    nodeutils.link_nodes(links, group_node, "Roughness", shader, "Roughness")
 
     return group_node
 
@@ -2054,31 +1777,31 @@ def connect_emission_alpha(obj, mat, shader):
 
     emission_node = alpha_node = None
     # emission
-    reset_cursor()
+    nodeutils.reset_cursor()
     if emission_image is not None:
-        emission_node = make_image_node(nodes, emission_image, "emission_tex")
-        link_nodes(links, emission_node, "Color", shader, "Emission")
+        emission_node = nodeutils.make_image_node(nodes, emission_image, "emission_tex")
+        nodeutils.link_nodes(links, emission_node, "Color", shader, "Emission")
     # alpha
-    reset_cursor()
+    nodeutils.reset_cursor()
     if alpha_image is not None:
         has_opacity_control = False
         if mat_cache.is_hair() or mat_cache.is_scalp() or mat_cache.is_eyelash():
             has_opacity_control = True
-            advance_cursor(-0.6)
-        alpha_node = make_image_node(nodes, alpha_image, "opacity_tex")
+            nodeutils.advance_cursor(-0.6)
+        alpha_node = nodeutils.make_image_node(nodes, alpha_image, "opacity_tex")
         dir,file = os.path.split(alpha_image.filepath)
         if "_diffuse." in file.lower() or "_albedo." in file.lower():
             alpha_socket = "Alpha"
         else:
             alpha_socket = "Color"
         if has_opacity_control:
-            advance_cursor()
-            mm_node = make_math_node(nodes, "MULTIPLY", 1, alpha_strength)
-            mm_node.name = unique_name(prop_alpha)
-            link_nodes(links, alpha_node, alpha_socket, mm_node, 0)
-            link_nodes(links, mm_node, "Value", shader, "Alpha")
+            nodeutils.advance_cursor()
+            mm_node = nodeutils.make_math_node(nodes, "MULTIPLY", 1, alpha_strength)
+            mm_node.name = utils.unique_name(prop_alpha)
+            nodeutils.link_nodes(links, alpha_node, alpha_socket, mm_node, 0)
+            nodeutils.link_nodes(links, mm_node, "Value", shader, "Alpha")
         else:
-            link_nodes(links, alpha_node, alpha_socket, shader, "Alpha")
+            nodeutils.link_nodes(links, alpha_node, alpha_socket, shader, "Alpha")
     # material settings
     if mat_cache.is_hair() or mat_cache.is_scalp() or mat_cache.is_eyelash():
         set_material_alpha(mat, "HASHED")
@@ -2108,68 +1831,68 @@ def connect_normal(obj, mat, shader, base_color_node):
     prop_tiling, micronormal_tiling = get_micronormal_tiling(mat_cache)
     prop_group = get_material_group(mat_cache)
 
-    count = count_maps(bump_image, mask_image, micro_image, blend_image, normal_image)
+    count = utils.count_maps(bump_image, mask_image, micro_image, blend_image, normal_image)
     if count == 0 and not (mat_cache.is_hair() and prefs.fake_hair_bump == True):
         return None
 
-    reset_cursor()
+    nodeutils.reset_cursor()
     # space
-    advance_cursor(-count)
+    nodeutils.advance_cursor(-count)
     # maps
     if bump_image is not None:
-        bump_node = make_image_node(nodes, bump_image, "bump_tex")
-        step_cursor()
+        bump_node = nodeutils.make_image_node(nodes, bump_image, "bump_tex")
+        nodeutils.step_cursor()
     if mask_image is not None:
-        mask_node = make_image_node(nodes, mask_image, "micro_normal_mask_tex")
-        step_cursor()
+        mask_node = nodeutils.make_image_node(nodes, mask_image, "micro_normal_mask_tex")
+        nodeutils.step_cursor()
     if micro_image is not None:
-        advance_cursor(-1)
-        drop_cursor(0.75)
-        group = get_node_group("tiling_mapping")
-        tiling_node = make_node_group_node(nodes, group, "Micro Normal Tiling", "tiling_" + prop_group + "_mapping")
-        advance_cursor()
-        micro_node = make_image_node(nodes, micro_image, "micro_normal_tex")
-        step_cursor()
+        nodeutils.advance_cursor(-1)
+        nodeutils.drop_cursor(0.75)
+        group = nodeutils.get_node_group("tiling_mapping")
+        tiling_node = nodeutils.make_node_group_node(nodes, group, "Micro Normal Tiling", "tiling_" + prop_group + "_mapping")
+        nodeutils.advance_cursor()
+        micro_node = nodeutils.make_image_node(nodes, micro_image, "micro_normal_tex")
+        nodeutils.step_cursor()
     if blend_image is not None:
-        blend_node = make_image_node(nodes, blend_image, "normal_blend_tex")
-        step_cursor()
+        blend_node = nodeutils.make_image_node(nodes, blend_image, "normal_blend_tex")
+        nodeutils.step_cursor()
     if normal_image is not None:
-        normal_node = make_image_node(nodes, normal_image, "normal_tex")
-        step_cursor()
+        normal_node = nodeutils.make_image_node(nodes, normal_image, "normal_tex")
+        nodeutils.step_cursor()
     # groups
     if (mat_cache.is_hair() and bump_image is None
         and normal_image is None and prefs.fake_hair_bump == True):
         # fake the normal with a b&w diffuse...
-        group = get_node_group("fake_bump_mixer")
+        group = nodeutils.get_node_group("fake_bump_mixer")
     elif bump_image is not None:
-        group = get_node_group("bump_mixer")
+        group = nodeutils.get_node_group("bump_mixer")
     elif normal_image is not None and bump_image is None and mask_image is None and \
             micro_image is None and blend_image is None:
-        normalmap_node = make_shader_node(nodes, "ShaderNodeNormalMap")
-        link_nodes(links, normal_node, "Color", normalmap_node, "Color")
-        link_nodes(links, normalmap_node, "Normal", shader, "Normal")
+        normalmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap")
+        nodeutils.link_nodes(links, normal_node, "Color", normalmap_node, "Color")
+        nodeutils.link_nodes(links, normalmap_node, "Normal", shader, "Normal")
         return normalmap_node
     elif blend_image is not None:
-        group = get_node_group("normal_micro_mask_blend_mixer")
+        group = nodeutils.get_node_group("normal_micro_mask_blend_mixer")
     else:
-        group =  get_node_group("normal_micro_mask_mixer")
-    group_node = make_node_group_node(nodes, group, "Normal Mixer", "normal_" + prop_group + "_mixer")
-    set_node_input(group, "Bump Map Midpoint", mat_cache.parameters.hair_fake_bump_midpoint)
+        group =  nodeutils.get_node_group("normal_micro_mask_mixer")
+    group_node = nodeutils.make_node_group_node(nodes, group, "Normal Mixer", "normal_" + prop_group + "_mixer")
+    nodeutils.set_node_input(group, "Bump Map Midpoint", mat_cache.parameters.hair_fake_bump_midpoint)
     # values
-    set_node_input(group_node, "Normal Blend Strength", blend_strength)
-    set_node_input(group_node, "Micro Normal Strength", micronormal_strength)
-    set_node_input(group_node, "Bump Map Height", bump_strength / 1000)
-    set_node_input(tiling_node, "Tiling", micronormal_tiling)
+    nodeutils.set_node_input(group_node, "Normal Blend Strength", blend_strength)
+    nodeutils.set_node_input(group_node, "Micro Normal Strength", micronormal_strength)
+    nodeutils.set_node_input(group_node, "Bump Map Height", bump_strength / 1000)
+    nodeutils.set_node_input(tiling_node, "Tiling", micronormal_tiling)
     # links
-    link_nodes(links, group_node, "Normal", shader, "Normal")
-    link_nodes(links, normal_node, "Color", group_node, "Normal")
-    link_nodes(links, bump_node, "Color", group_node, "Bump Map")
-    link_nodes(links, blend_node, "Color", group_node, "Normal Blend")
-    link_nodes(links, micro_node, "Color", group_node, "Micro Normal")
-    link_nodes(links, tiling_node, "Vector", micro_node, "Vector")
-    link_nodes(links, mask_node, "Color", group_node, "Micro Normal Mask")
-    link_nodes(links, base_color_node, "Color", group_node, "Fake Map")
-    link_nodes(links, base_color_node, "Diffuse", group_node, "Fake Map")
+    nodeutils.link_nodes(links, group_node, "Normal", shader, "Normal")
+    nodeutils.link_nodes(links, normal_node, "Color", group_node, "Normal")
+    nodeutils.link_nodes(links, bump_node, "Color", group_node, "Bump Map")
+    nodeutils.link_nodes(links, blend_node, "Color", group_node, "Normal Blend")
+    nodeutils.link_nodes(links, micro_node, "Color", group_node, "Micro Normal")
+    nodeutils.link_nodes(links, tiling_node, "Vector", micro_node, "Vector")
+    nodeutils.link_nodes(links, mask_node, "Color", group_node, "Micro Normal Mask")
+    nodeutils.link_nodes(links, base_color_node, "Color", group_node, "Fake Map")
+    nodeutils.link_nodes(links, base_color_node, "Diffuse", group_node, "Fake Map")
     return group_node
 
 
@@ -2181,7 +1904,7 @@ def apply_cloth_settings(obj, cloth_type):
     cache = get_object_cache(obj)
     cache.cloth_settings = cloth_type
 
-    log_info("Setting " + obj.name + " cloth settings to: " + cloth_type)
+    utils.log_info("Setting " + obj.name + " cloth settings to: " + cloth_type)
     mod.settings.vertex_group_mass = prefs.physics_group + "_Pin"
     mod.settings.time_scale = 1
     if cloth_type == "HAIR":
@@ -2358,11 +2081,11 @@ def add_collision_physics(obj):
             and "Base_Body" in obj.name)):
 
         if get_collision_physics_mod(obj) is None:
-            collision_mod = obj.modifiers.new(unique_name("Collision"), type="COLLISION")
+            collision_mod = obj.modifiers.new(utils.unique_name("Collision"), type="COLLISION")
             collision_mod.settings.thickness_outer = 0.005
-            log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
+            utils.log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
     elif cache.collision_physics == "OFF":
-        log_info("Collision Physics disabled for: " + obj.name)
+        utils.log_info("Collision Physics disabled for: " + obj.name)
 
 
 def remove_collision_physics(obj):
@@ -2371,7 +2094,7 @@ def remove_collision_physics(obj):
 
     for mod in obj.modifiers:
         if mod.type == "COLLISION":
-            log_info("Removing Collision modifer: " + mod.name + " from: " + obj.name)
+            utils.log_info("Removing Collision modifer: " + mod.name + " from: " + obj.name)
             obj.modifiers.remove(mod)
 
 
@@ -2392,8 +2115,8 @@ def add_cloth_physics(obj):
     if obj_cache.cloth_physics == "ON" and get_cloth_physics_mod(obj) is None:
 
         # Create the Cloth modifier
-        cloth_mod = obj.modifiers.new(unique_name("Cloth"), type="CLOTH")
-        log_info("Cloth Modifier: " + cloth_mod.name + " applied to " + obj.name)
+        cloth_mod = obj.modifiers.new(utils.unique_name("Cloth"), type="CLOTH")
+        utils.log_info("Cloth Modifier: " + cloth_mod.name + " applied to " + obj.name)
 
         # Create the physics pin vertex group if it doesn't exist
         pin_group = prefs.physics_group + "_Pin"
@@ -2406,7 +2129,7 @@ def add_cloth_physics(obj):
                 obj.parent.animation_data.action is not None:
             frame_start = math.floor(obj.parent.animation_data.action.frame_range[0])
             frame_count = math.ceil(obj.parent.animation_data.action.frame_range[1])
-        log_info("Setting " + obj.name + " bake cache frame range to [1-" + str(frame_count) + "]")
+        utils.log_info("Setting " + obj.name + " bake cache frame range to [1-" + str(frame_count) + "]")
         cloth_mod.point_cache.frame_start = frame_start
         cloth_mod.point_cache.frame_end = frame_count
 
@@ -2425,7 +2148,7 @@ def add_cloth_physics(obj):
         fix_physics_mod_order(obj)
 
     elif obj_cache.cloth_physics == "OFF":
-        log_info("Cloth Physics disabled for: " + obj.name)
+        utils.log_info("Cloth Physics disabled for: " + obj.name)
 
 
 def remove_cloth_physics(obj):
@@ -2439,7 +2162,7 @@ def remove_cloth_physics(obj):
     # Remove the Cloth modifier
     for mod in obj.modifiers:
         if mod.type == "CLOTH":
-            log_info("Removing Cloth modifer: " + mod.name + " from: " + obj.name)
+            utils.log_info("Removing Cloth modifer: " + mod.name + " from: " + obj.name)
             obj.modifiers.remove(mod)
 
     # Remove any weight maps
@@ -2458,7 +2181,7 @@ def remove_cloth_physics(obj):
 
     pin_group = prefs.physics_group + "_Pin"
     if mods == 0 and pin_group in obj.vertex_groups:
-        log_info("Removing vertex group: " + pin_group + " from: " + obj.name)
+        utils.log_info("Removing vertex group: " + pin_group + " from: " + obj.name)
         obj.vertex_groups.remove(obj.vertex_groups[pin_group])
 
 
@@ -2468,7 +2191,7 @@ def remove_all_physics_mods(obj):
     Used when (re)building the character materials.
     """
 
-    log_info("Removing all related physics modifiers from: " + obj.name)
+    utils.log_info("Removing all related physics modifiers from: " + obj.name)
     for mod in obj.modifiers:
         if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name:
             obj.modifiers.remove(mod)
@@ -2483,28 +2206,28 @@ def remove_all_physics_mods(obj):
 def enable_collision_physics(obj):
     cache = get_object_cache(obj)
     cache.collision_physics = "ON"
-    log_info("Enabling Collision physics for: " + obj.name)
+    utils.log_info("Enabling Collision physics for: " + obj.name)
     add_collision_physics(obj)
 
 
 def disable_collision_physics(obj):
     cache = get_object_cache(obj)
     cache.collision_physics = "OFF"
-    log_info("Disabling Collision physics for: " + obj.name)
+    utils.log_info("Disabling Collision physics for: " + obj.name)
     remove_collision_physics(obj)
 
 
 def enable_cloth_physics(obj):
     cache = get_object_cache(obj)
     cache.cloth_physics = "ON"
-    log_info("Enabling Cloth physics for: " + obj.name)
+    utils.log_info("Enabling Cloth physics for: " + obj.name)
     add_cloth_physics(obj)
 
 
 def disable_cloth_physics(obj):
     cache = get_object_cache(obj)
     cache.cloth_physics = "OFF"
-    log_info("Removing cloth physics for: " + obj.name)
+    utils.log_info("Removing cloth physics for: " + obj.name)
     remove_cloth_physics(obj)
 
 
@@ -2531,7 +2254,7 @@ def get_weight_map_image(obj, mat, create = False):
         weight_map.save()
         # keep track of which weight maps we created:
         cache.temp_weight_map = weight_map
-        log_info("Weight-map image: " + weight_map.name + " created and saved.")
+        utils.log_info("Weight-map image: " + weight_map.name + " created and saved.")
 
     return weight_map
 
@@ -2553,7 +2276,7 @@ def add_material_weight_map(obj, mat, create = False):
         if weight_map is not None:
             attach_material_weight_map(obj, mat, weight_map)
     else:
-        log_info("Cloth Physics has been disabled for: " + obj.name)
+        utils.log_info("Cloth Physics has been disabled for: " + obj.name)
         return
 
 
@@ -2562,7 +2285,7 @@ def fix_physics_mod_order(obj):
     after all the 'Vertex Weight Edit' modifiers.
     """
     cloth_mod = get_cloth_physics_mod(obj)
-    move_mod_last(obj, cloth_mod)
+    modutils.move_mod_last(obj, cloth_mod)
 
 
 def remove_material_weight_maps(obj, mat):
@@ -2574,10 +2297,10 @@ def remove_material_weight_maps(obj, mat):
 
     edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
     if edit_mod is not None:
-        log_info("    Removing weight map vertex edit modifer: " + edit_mod.name)
+        utils.log_info("    Removing weight map vertex edit modifer: " + edit_mod.name)
         obj.modifiers.remove(edit_mod)
     if mix_mod is not None:
-        log_info("    Removing weight map vertex mix modifer: " + mix_mod.name)
+        utils.log_info("    Removing weight map vertex mix modifer: " + mix_mod.name)
         obj.modifiers.remove(mix_mod)
 
 
@@ -2676,10 +2399,10 @@ def attach_material_weight_map(obj, mat, weight_map):
             if t.name.startswith(vars.NODE_PREFIX + tex_name):
                 tex = t
         if tex is None:
-            tex = bpy.data.textures.new(unique_name(tex_name), "IMAGE")
-            log_info("Texture: " + tex.name + " created for weight map transfer")
+            tex = bpy.data.textures.new(utils.unique_name(tex_name), "IMAGE")
+            utils.log_info("Texture: " + tex.name + " created for weight map transfer")
         else:
-            log_info("Texture: " + tex.name + " already exists for weight map transfer")
+            utils.log_info("Texture: " + tex.name + " already exists for weight map transfer")
         tex.image = weight_map
 
         # Create the physics pin vertex group and the material weightmap group if they don't exist:
@@ -2707,8 +2430,8 @@ def attach_material_weight_map(obj, mat, weight_map):
 
         # re-create create the Vertex Weight Edit modifier and the Vertex Weight Mix modifer
         remove_material_weight_maps(obj, mat)
-        edit_mod = obj.modifiers.new(unique_name(mat_name + "_WeightEdit"), "VERTEX_WEIGHT_EDIT")
-        mix_mod = obj.modifiers.new(unique_name(mat_name + "_WeightMix"), "VERTEX_WEIGHT_MIX")
+        edit_mod = obj.modifiers.new(utils.unique_name(mat_name + "_WeightEdit"), "VERTEX_WEIGHT_EDIT")
+        mix_mod = obj.modifiers.new(utils.unique_name(mat_name + "_WeightMix"), "VERTEX_WEIGHT_MIX")
         # Use the texture as the modifiers vertex weight source
         edit_mod.mask_texture = tex
         # Setup the modifier to generate the inverse of the weight map in the vertex group
@@ -2733,7 +2456,7 @@ def attach_material_weight_map(obj, mat, weight_map):
         mix_mod.mix_set = 'B' #'ALL'
         mix_mod.mix_mode = 'SET'
         mix_mod.invert_mask_vertex_group = False
-        log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
+        utils.log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
 
 
 def count_weightmaps(objects):
@@ -2794,7 +2517,7 @@ def end_paint_weight_map():
         bpy.context.space_data.shading.type = props.paint_store_render
         #props.paint_image.save()
     except Exception as e:
-        log_error("Something went wrong restoring object mode from paint mode!", e)
+        utils.log_error("Something went wrong restoring object mode from paint mode!", e)
 
 
 def save_dirty_weight_maps(objects):
@@ -2807,13 +2530,13 @@ def save_dirty_weight_maps(objects):
 
     for weight_map in maps:
         if weight_map.is_dirty:
-            log_info("Dirty weight map: " + weight_map.name + " : " + weight_map.filepath)
+            utils.log_info("Dirty weight map: " + weight_map.name + " : " + weight_map.filepath)
             weight_map.save()
-            log_info("Weight Map: " + weight_map.name + " saved to: " + weight_map.filepath)
+            utils.log_info("Weight Map: " + weight_map.name + " saved to: " + weight_map.filepath)
         if not os.path.exists(weight_map.filepath):
-            log_info("Missing weight map: " + weight_map.name + " : " + weight_map.filepath)
+            utils.log_info("Missing weight map: " + weight_map.name + " : " + weight_map.filepath)
             weight_map.save()
-            log_info("Weight Map: " + weight_map.name + " saved to: " + weight_map.filepath)
+            utils.log_info("Weight Map: " + weight_map.name + " saved to: " + weight_map.filepath)
 
 
 def delete_selected_weight_map(obj, mat):
@@ -2823,15 +2546,15 @@ def delete_selected_weight_map(obj, mat):
             image = edit_mod.mask_texture.image
             try:
                 if image.filepath != "" and os.path.exists(image.filepath):
-                    log_info("Removing weight map file: " + image.filepath)
+                    utils.log_info("Removing weight map file: " + image.filepath)
                     os.remove(image.filepath)
             except Exception as e:
-                log_error("Removing weight map file: " + image.filepath, e)
+                utils.log_error("Removing weight map file: " + image.filepath, e)
         if edit_mod is not None:
-            log_info("Removing 'Vertex Weight Edit' modifer")
+            utils.log_info("Removing 'Vertex Weight Edit' modifer")
             obj.modifiers.remove(edit_mod)
         if mix_mod is not None:
-            log_info("Removing 'Vertex Weight Mix' modifer")
+            utils.log_info("Removing 'Vertex Weight Mix' modifer")
             obj.modifiers.remove(mix_mod)
 
 
@@ -2849,7 +2572,7 @@ def set_physics_bake_range(obj, start, end):
                 if frame_end > end:
                     end = frame_end
 
-            log_info("Setting " + obj.name + " bake cache frame range to [" + str(start) + " -" + str(end) + "]")
+            utils.log_info("Setting " + obj.name + " bake cache frame range to [" + str(start) + " -" + str(end) + "]")
             cloth_mod.point_cache.frame_start = start
             cloth_mod.point_cache.frame_end = end
             return True
@@ -2937,49 +2660,15 @@ def render_animation(context):
     pass
 
 
-def move_mod_last(obj, mod):
-    try:
-        if bpy.context.view_layer.objects.active is not obj:
-            obj.select_set(True)
-            bpy.context.view_layer.objects.active = obj
-        num_mods = len(obj.modifiers)
-        if mod is not None:
-            max = 50
-            while obj.modifiers.find(mod.name) < num_mods - 1:
-                bpy.ops.object.modifier_move_down(modifier=mod.name)
-            max -= 1
-            if max == 0:
-                return
-    except Exception as e:
-        log_error("Unable to move to last, modifier: " + mod.name, e)
-
-
-def move_mod_first(obj, mod):
-    print(mod)
-    try:
-        if bpy.context.view_layer.objects.active is not obj:
-            obj.select_set(True)
-            bpy.context.view_layer.objects.active = obj
-        if mod is not None:
-            max = 50
-            while obj.modifiers.find(mod.name) > 0:
-                bpy.ops.object.modifier_move_up(modifier=mod.name)
-            max -= 1
-            if max == 0:
-                return
-    except Exception as e:
-        log_error("Unable to move to first, modifier: " + mod.name, e)
-
-
 def fix_eye_mod_order(obj):
     """Moves the armature modifier to the end of the list
     """
     edit_mod = get_object_modifier(obj, "VERTEX_WEIGHT_EDIT", "Eye_WeightEdit")
     displace_mod = get_object_modifier(obj, "DISPLACE", "Eye_Displace")
     warp_mod = get_object_modifier(obj, "UV_WARP", "Eye_UV_Warp")
-    move_mod_first(warp_mod)
-    move_mod_first(displace_mod)
-    move_mod_first(edit_mod)
+    modutils.move_mod_first(warp_mod)
+    modutils.move_mod_first(displace_mod)
+    modutils.move_mod_first(edit_mod)
 
 
 def remove_eye_modifiers(obj):
@@ -3007,10 +2696,10 @@ def add_eye_modifiers(obj):
         if i.name.startswith(vars.NODE_PREFIX + image_name) and i.size[0] > 0 and i.size[1] > 0:
             image = i
     if image is None:
-        image = fetch_lib_image(image_name)
-        log_info("Image: " + image.name + " appended from library")
+        image = linkutils.fetch_lib_image(image_name)
+        utils.log_info("Image: " + image.name + " appended from library")
     else:
-        log_info("Image: " + image.name + " already exists for eye displacement")
+        utils.log_info("Image: " + image.name + " already exists for eye displacement")
 
     # reuse or create the eye displacement texture
     tex_name = "Eye_Displacement_Texture"
@@ -3019,10 +2708,10 @@ def add_eye_modifiers(obj):
         if t.name.startswith(vars.NODE_PREFIX + tex_name):
             tex = t
     if tex is None:
-        tex = bpy.data.textures.new(unique_name(tex_name), "IMAGE")
-        log_info("Texture: " + tex.name + " created for eye displacement")
+        tex = bpy.data.textures.new(utils.unique_name(tex_name), "IMAGE")
+        utils.log_info("Texture: " + tex.name + " created for eye displacement")
     else:
-        log_info("Texture: " + tex.name + " already exists for eye displacement")
+        utils.log_info("Texture: " + tex.name + " already exists for eye displacement")
 
     tex.image = image
 
@@ -3041,9 +2730,9 @@ def add_eye_modifiers(obj):
 
     # re-create create the Vertex Weight Edit modifier and the Vertex Weight Mix modifer
     remove_eye_modifiers(obj)
-    edit_mod = obj.modifiers.new(unique_name("Eye_WeightEdit"), "VERTEX_WEIGHT_EDIT")
-    displace_mod = obj.modifiers.new(unique_name("Eye_Displace"), "DISPLACE")
-    warp_mod = obj.modifiers.new(unique_name("Eye_UV_Warp"), "UV_WARP")
+    edit_mod = obj.modifiers.new(utils.unique_name("Eye_WeightEdit"), "VERTEX_WEIGHT_EDIT")
+    displace_mod = obj.modifiers.new(utils.unique_name("Eye_Displace"), "DISPLACE")
+    warp_mod = obj.modifiers.new(utils.unique_name("Eye_UV_Warp"), "UV_WARP")
 
     edit_mod.mask_texture = tex
     edit_mod.use_add = False
@@ -3070,117 +2759,12 @@ def add_eye_modifiers(obj):
     warp_mod.vertex_group = displace_group
     warp_mod.scale = (1.0 / props.eye_pupil_scale, 1.0 / props.eye_pupil_scale)
 
-    move_mod_first(obj, warp_mod)
-    move_mod_first(obj, displace_mod)
-    move_mod_first(obj, edit_mod)
+    modutils.move_mod_first(obj, warp_mod)
+    modutils.move_mod_first(obj, displace_mod)
+    modutils.move_mod_first(obj, edit_mod)
 
-    log_info("Eye Displacement modifiers applied to: " + obj.name)
+    utils.log_info("Eye Displacement modifiers applied to: " + obj.name)
 
-
-def get_node_group(name):
-    for group in bpy.data.node_groups:
-        if vars.NODE_PREFIX in group.name and name in group.name:
-            if vars.VERSION_STRING in group.name:
-                return group
-    return fetch_node_group(name)
-
-
-def check_node_groups():
-    for name in vars.NODE_GROUPS:
-        get_node_group(name)
-
-    adjust_groups()
-
-def adjust_groups():
-    global block_update
-
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-    group = get_node_group("color_hair_mixer")
-
-    # does nothing yet...
-
-
-
-def remove_all_groups():
-    for group in bpy.data.node_groups:
-        if vars.NODE_PREFIX in group.name:
-            bpy.data.node_groups.remove(group)
-
-
-def rebuild_node_groups():
-    remove_all_groups()
-    check_node_groups()
-    return
-
-
-def append_node_group(path, object_name):
-    for g in bpy.data.node_groups:
-        g.tag = True
-
-    filename = "_LIB.blend"
-    datablock = "NodeTree"
-    file = os.path.join(path, filename)
-    if os.path.exists(file):
-        bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=False, link=False)
-
-    appended_group = None
-    for g in bpy.data.node_groups:
-        if not g.tag and object_name in g.name:
-            appended_group = g
-            g.name = unique_name(object_name)
-        g.tag = False
-    return appended_group
-
-
-def fetch_node_group(name):
-
-    paths = [bpy.path.abspath("//"),
-             os.path.dirname(os.path.realpath(__file__)),
-             ]
-    for path in paths:
-        log_info("Trying to append: " + path + " > " + name)
-        if os.path.exists(path):
-            group = append_node_group(path, name)
-            if group is not None:
-                return group
-    log_error("Trying to append group: " + name + ", _LIB.blend library file not found?")
-    raise ValueError("Unable to append node group from library file!")
-
-
-def append_lib_image(path, object_name):
-    for i in bpy.data.images:
-        i.tag = True
-
-    filename = "_LIB.blend"
-    datablock = "Image"
-    file = os.path.join(path, filename)
-    if os.path.exists(file):
-        bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=False, link=False)
-
-    appended_image = None
-    for i in bpy.data.images:
-        if not i.tag and object_name in i.name:
-            appended_image = i
-            i.name = unique_name(object_name)
-        i.tag = False
-    return appended_image
-
-
-def fetch_lib_image(name):
-
-    paths = [bpy.path.abspath("//"),
-             os.path.dirname(os.path.realpath(__file__)),
-             ]
-    for path in paths:
-        log_info("Trying to append image: " + path + " > " + name)
-        if os.path.exists(path):
-            image = append_lib_image(path, name)
-            if image:
-                return image
-    log_error("Trying to append image: " + name + ", _LIB.blend library file not found?")
-    raise ValueError("Unable to append iamge from library file!")
 
 
 def clean_colletion(collection):
@@ -3237,7 +2821,7 @@ def delete_object(obj):
         bpy.data.objects.remove(obj)
 
     #except:
-    #    log_error("Something went wrong deleting object...")
+    #    utils.log_error("Something went wrong deleting object...")
 
 
 def delete_character():
@@ -3274,7 +2858,7 @@ def process_material(obj, mat):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     mat_cache = get_material_cache(mat)
-    reset_nodes(mat)
+    nodeutils.reset_nodes(mat)
     node_tree = mat.node_tree
     nodes = node_tree.nodes
     shader = None
@@ -3289,12 +2873,12 @@ def process_material(obj, mat):
     if shader is None:
         shader = nodes.new("ShaderNodeBsdfPrincipled")
 
-    clear_cursor()
+    nodeutils.clear_cursor()
 
     if prefs.compat_mode:
         connect_compat_material(obj, mat, shader)
 
-        move_new_nodes(-600, 0)
+        nodeutils.move_new_nodes(-600, 0)
 
     elif mat_cache.is_cornea():
 
@@ -3307,12 +2891,12 @@ def process_material(obj, mat):
             else:
                 connect_adv_eye_material(obj, mat, shader)
 
-        move_new_nodes(-600, 0)
+        nodeutils.move_new_nodes(-600, 0)
 
     elif mat_cache.is_eye() and prefs.refractive_eyes:
 
         connect_refractive_eye_material(obj, mat, shader)
-        move_new_nodes(-600, 0)
+        nodeutils.move_new_nodes(-600, 0)
 
     elif mat_cache.is_tearline():
 
@@ -3320,13 +2904,17 @@ def process_material(obj, mat):
 
     elif mat_cache.is_eye_occlusion():
 
-        connect_eye_occlusion_material(obj, mat, shader)
-        move_new_nodes(-600, 0)
+        if props.setup_mode == "ADVANCED" and prefs.use_advanced_eye_occlusion:
+            connect_eye_occlusion_shader(obj, mat, shader)
+        else:
+            connect_eye_occlusion_material(obj, mat, shader)
+
+        nodeutils.move_new_nodes(-600, 0)
 
     elif (mat_cache.is_teeth() or mat_cache.is_tongue()) and props.setup_mode == "ADVANCED":
 
         connect_adv_mouth_material(obj, mat, shader)
-        move_new_nodes(-600, 0)
+        nodeutils.move_new_nodes(-600, 0)
 
     else:
 
@@ -3336,7 +2924,7 @@ def process_material(obj, mat):
         elif props.setup_mode == "ADVANCED":
             connect_advanced_material(obj, mat, shader, mat_cache)
 
-        move_new_nodes(-600, 0)
+        nodeutils.move_new_nodes(-600, 0)
 
     # apply cached alpha settings
     if props.generation == "ACTORCORE":
@@ -3357,7 +2945,7 @@ def process_object(obj, objects_processed):
 
     objects_processed.append(obj)
 
-    log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
+    utils.log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
 
     cache = get_object_cache(obj)
 
@@ -3372,7 +2960,7 @@ def process_object(obj, objects_processed):
         # process any materials found in the mesh object
         for mat in obj.data.materials:
             if mat is not None:
-                log_info("Processing Material: " + mat.name)
+                utils.log_info("Processing Material: " + mat.name)
                 process_material(obj, mat)
                 if prefs.physics == "ENABLED" and props.physics_mode == "ON":
                     add_material_weight_map(obj, mat, create = False)
@@ -3388,36 +2976,18 @@ def process_object(obj, objects_processed):
         if props.setup_mode == "ADVANCED" and prefs.refractive_eyes and cache.is_eye():
             add_eye_modifiers(obj)
 
+        if prefs.use_advanced_eye_occlusion and cache.is_eye_occlusion():
+            meshutils.generate_eye_occlusion_vertex_groups(obj)
+
+        if cache.is_tearline():
+            meshutils.generate_tearline_vertex_groups(obj)
+
 
     elif obj.type == "ARMATURE":
 
         # set the frame range of the scene to the active action on the armature
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
             fetch_anim_range(bpy.context)
-
-
-def reset_nodes(mat):
-    if not mat.use_nodes:
-        mat.use_nodes = True
-
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
-
-    links.clear()
-
-    for n in nodes:
-        if n.type != "BSDF_PRINCIPLED":
-            nodes.remove(n)
-
-    if len(nodes) == 0:
-        shader = nodes.new("ShaderNodeBsdfPrincipled")
-    else:
-        shader = nodes[0]
-
-    out = nodes.new("ShaderNodeOutputMaterial")
-    out.location.x += 400
-
-    link_nodes(links, shader, "BSDF", out, "Surface")
 
 
 def get_material_dir(base_dir, character_name, import_type, obj, mat):
@@ -3453,7 +3023,7 @@ def get_object_cache(obj, no_create = False):
             if cache.object == obj:
                 return cache
         if not no_create:
-            log_info("Creating Object Cache for: " + obj.name)
+            utils.log_info("Creating Object Cache for: " + obj.name)
             cache = props.object_cache.add()
             cache.object = obj
     return cache
@@ -3472,7 +3042,7 @@ def get_material_cache(mat, no_create = False):
             if cache.material == mat:
                 return cache
         if not no_create:
-            log_info("Creating Material Cache for: " + mat.name)
+            utils.log_info("Creating Material Cache for: " + mat.name)
             cache = props.material_cache.add()
             cache.material = mat
     return cache
@@ -3565,24 +3135,24 @@ def cache_object_materials(obj):
                         # detect incorrect image paths for non packed (not embedded) images and attempt to correct...
                         if node.image.packed_file is None:
                             if os.path.normcase(dir) != os.path.normcase(main_tex_dir):
-                                log_warn("Import bug! Wrong image path detected: " + dir)
-                                log_warn("    Attempting to correct...")
+                                utils.log_warn("Import bug! Wrong image path detected: " + dir)
+                                utils.log_warn("    Attempting to correct...")
                                 correct_path = os.path.join(main_tex_dir, name)
                                 if os.path.exists(correct_path):
-                                    log_warn("    Correct image path found: " + correct_path)
+                                    utils.log_warn("    Correct image path found: " + correct_path)
                                     node.image.filepath = correct_path
                                 else:
                                     correct_path = os.path.join(mat_cache.dir, name)
                                     if os.path.exists(correct_path):
-                                        log_warn("    Correct image path found: " + correct_path)
+                                        utils.log_warn("    Correct image path found: " + correct_path)
                                         node.image.filepath = correct_path
                                     else:
-                                        log_error("    Unable to find correct image!")
+                                        utils.log_error("    Unable to find correct image!")
                         name = name.lower()
-                        socket = get_input_connected_to(node, "Color")
+                        socket = nodeutils.get_input_connected_to(node, "Color")
                         # the fbx importer in 2.91 makes a total balls up of the opacity
                         # and connects the alpha output to the socket and not the color output
-                        alpha_socket = get_input_connected_to(node, "Alpha")
+                        alpha_socket = nodeutils.get_input_connected_to(node, "Alpha")
                         if socket == "Base Color":
                             mat_cache.diffuse = node.image
                         elif socket == "Specular":
@@ -3733,7 +3303,7 @@ class CC3Import(bpy.types.Operator):
     def import_character(self):
         props = bpy.context.scene.CC3ImportProps
 
-        start_timer()
+        utils.start_timer()
 
         import_anim = self.use_anim
         # don't import animation data if importing for morph/accessory
@@ -3768,7 +3338,7 @@ class CC3Import(bpy.types.Operator):
 
             # detect generation
             props.generation = detect_generation(imported)
-            log_info("Generation: " + props.generation)
+            utils.log_info("Generation: " + props.generation)
 
             for obj in imported:
                 if obj.type == "ARMATURE":
@@ -3779,7 +3349,7 @@ class CC3Import(bpy.types.Operator):
                     p.object = obj
                     cache_object_materials(obj)
 
-            log_timer("Done .Fbx Import.")
+            utils.log_timer("Done .Fbx Import.")
 
         elif type == "obj":
             # determine the main texture dir
@@ -3804,7 +3374,7 @@ class CC3Import(bpy.types.Operator):
 
             # detect generation
             props.generation = detect_generation(imported)
-            log_info("Generation: " + props.generation)
+            utils.log_info("Generation: " + props.generation)
 
             for obj in imported:
                 # scale obj import by 1/100
@@ -3819,15 +3389,15 @@ class CC3Import(bpy.types.Operator):
                     else:
                         cache_object_materials(obj)
 
-            log_timer("Done .Obj Import.")
+            utils.log_timer("Done .Obj Import.")
 
     def build_materials(self):
         objects_processed = []
         props = bpy.context.scene.CC3ImportProps
 
-        start_timer()
+        utils.start_timer()
 
-        check_node_groups()
+        nodeutils.check_node_groups()
 
         if props.build_mode == "IMPORTED":
             for p in props.import_objects:
@@ -3838,7 +3408,7 @@ class CC3Import(bpy.types.Operator):
             for obj in bpy.context.selected_objects:
                 process_object(obj, objects_processed)
 
-        log_timer("Done Build.", "s")
+        utils.log_timer("Done Build.", "s")
 
     def run_import(self, context):
         props = bpy.context.scene.CC3ImportProps
@@ -3860,7 +3430,7 @@ class CC3Import(bpy.types.Operator):
             props.import_key_file = os.path.join(props.import_dir, props.import_name + ".fbxkey")
             props.import_has_key = os.path.exists(props.import_key_file)
             if self.param == "IMPORT_MORPH" and not props.import_has_key:
-                message_box("This character export does not have an .fbxkey file, it cannot be used to create character morphs in CC3.", "FBXKey Warning")
+                utils.message_box("This character export does not have an .fbxkey file, it cannot be used to create character morphs in CC3.", "FBXKey Warning")
 
 
         # check for objkey
@@ -3868,7 +3438,7 @@ class CC3Import(bpy.types.Operator):
             props.import_key_file = os.path.join(props.import_dir, props.import_name + ".ObjKey")
             props.import_has_key = os.path.exists(props.import_key_file)
             if self.param == "IMPORT_MORPH" and not props.import_has_key:
-                message_box("This character export does not have an .ObjKey file, it cannot be used to create character morphs in CC3.", "OBJKey Warning")
+                utils.message_box("This character export does not have an .ObjKey file, it cannot be used to create character morphs in CC3.", "OBJKey Warning")
 
         self.imported = True
 
@@ -3971,7 +3541,7 @@ class CC3Import(bpy.types.Operator):
                     self.run_finish(context)
                     return {'FINISHED'}
             else:
-                log_error("No valid filepath to import!")
+                utils.log_error("No valid filepath to import!")
 
         # build materials
         elif self.param == "BUILD":
@@ -3979,7 +3549,7 @@ class CC3Import(bpy.types.Operator):
 
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
-            rebuild_node_groups()
+            nodeutils.rebuild_node_groups()
 
         elif self.param == "DELETE_CHARACTER":
             delete_character()
@@ -4091,7 +3661,7 @@ class CC3Export(bpy.types.Operator):
                         if not utils.is_same_path(new_key_path, props.import_key_file):
                             shutil.copyfile(props.import_key_file, new_key_path)
                     except Exception as e:
-                        log_error("Unable to copy keyfile: " + props.import_key_file + " to: " + new_key_path, e)
+                        utils.log_error("Unable to copy keyfile: " + props.import_key_file + " to: " + new_key_path, e)
 
             else:
 
@@ -4127,7 +3697,7 @@ class CC3Export(bpy.types.Operator):
                         if not utils.is_same_path(new_key_path, props.import_key_file):
                             shutil.copyfile(props.import_key_file, new_key_path)
                     except Exception as e:
-                        log_error("Unable to copy keyfile: " + props.import_key_file + "\n    to: " + new_key_path, e)
+                        utils.log_error("Unable to copy keyfile: " + props.import_key_file + "\n    to: " + new_key_path, e)
 
             # restore selection
             #bpy.ops.object.select_all(action='DESELECT')
@@ -4226,7 +3796,7 @@ def add_target(name, location):
     bpy.ops.object.empty_add(type="PLAIN_AXES", radius = 0.1,
         location = location)
     target = bpy.context.active_object
-    target.name = unique_name(name, True)
+    target.name = utils.unique_name(name, True)
     return target
 
 def set_contact_shadow(light, distance, thickness):
@@ -4244,7 +3814,7 @@ def add_spot_light(name, location, rotation, energy, blend, size, distance, radi
     bpy.ops.object.light_add(type="SPOT",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
-    light.name = unique_name(name, True)
+    light.name = utils.unique_name(name, True)
     light.data.energy = energy
     light.data.shadow_soft_size = radius
     light.data.spot_blend = blend
@@ -4257,7 +3827,7 @@ def add_area_light(name, location, rotation, energy, size):
     bpy.ops.object.light_add(type="AREA",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
-    light.name = unique_name(name, True)
+    light.name = utils.unique_name(name, True)
     light.data.shape = "DISK"
     light.data.size = size
     light.data.energy = energy
@@ -4267,7 +3837,7 @@ def add_point_light(name, location, rotation, energy, size):
     bpy.ops.object.light_add(type="POINT",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
-    light.name = unique_name(name, True)
+    light.name = utils.unique_name(name, True)
     light.data.shadow_soft_size = size
     light.data.energy = energy
     return light
@@ -4329,7 +3899,7 @@ def camera_setup(camera_loc, target_loc):
     if camera is None:
         bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=camera_loc)
         camera = bpy.context.active_object
-        camera.name = unique_name("Camera", True)
+        camera.name = utils.unique_name("Camera", True)
     if target is None:
         target = add_target("CameraTarget", target_loc)
 
@@ -4380,10 +3950,10 @@ def compositor_setup():
     nodes = bpy.context.scene.node_tree.nodes
     links = bpy.context.scene.node_tree.links
     nodes.clear()
-    rlayers_node = make_shader_node(nodes, "CompositorNodeRLayers")
-    c_node = make_shader_node(nodes, "CompositorNodeComposite")
-    glare_node = make_shader_node(nodes, "CompositorNodeGlare")
-    lens_node = make_shader_node(nodes, "CompositorNodeLensdist")
+    rlayers_node = nodeutils.make_shader_node(nodes, "CompositorNodeRLayers")
+    c_node = nodeutils.make_shader_node(nodes, "CompositorNodeComposite")
+    glare_node = nodeutils.make_shader_node(nodes, "CompositorNodeGlare")
+    lens_node = nodeutils.make_shader_node(nodes, "CompositorNodeLensdist")
     rlayers_node.location = (-780,260)
     c_node.location = (150,140)
     glare_node.location = (-430,230)
@@ -4393,30 +3963,30 @@ def compositor_setup():
     glare_node.threshold = 0.85
     lens_node.use_fit = True
     lens_node.inputs["Dispersion"].default_value = 0.025
-    link_nodes(links, rlayers_node, "Image", glare_node, "Image")
-    link_nodes(links, glare_node, "Image", lens_node, "Image")
-    link_nodes(links, lens_node, "Image", c_node, "Image")
+    nodeutils.link_nodes(links, rlayers_node, "Image", glare_node, "Image")
+    nodeutils.link_nodes(links, glare_node, "Image", lens_node, "Image")
+    nodeutils.link_nodes(links, lens_node, "Image", c_node, "Image")
 
 def world_setup():
     bpy.context.scene.world.use_nodes = True
     nodes = bpy.context.scene.world.node_tree.nodes
     links = bpy.context.scene.world.node_tree.links
     nodes.clear()
-    tc_node = make_shader_node(nodes, "ShaderNodeTexCoord")
-    mp_node = make_shader_node(nodes, "ShaderNodeMapping")
-    et_node = make_shader_node(nodes, "ShaderNodeTexEnvironment")
-    bg_node = make_shader_node(nodes, "ShaderNodeBackground")
-    wo_node = make_shader_node(nodes, "ShaderNodeOutputWorld")
+    tc_node = nodeutils.make_shader_node(nodes, "ShaderNodeTexCoord")
+    mp_node = nodeutils.make_shader_node(nodes, "ShaderNodeMapping")
+    et_node = nodeutils.make_shader_node(nodes, "ShaderNodeTexEnvironment")
+    bg_node = nodeutils.make_shader_node(nodes, "ShaderNodeBackground")
+    wo_node = nodeutils.make_shader_node(nodes, "ShaderNodeOutputWorld")
     tc_node.location = (-820,350)
     mp_node.location = (-610,370)
     et_node.location = (-300,320)
     bg_node.location = (10,300)
     wo_node.location = (300,300)
-    set_node_input(bg_node, "Strength", 0.5)
-    link_nodes(links, tc_node, "Generated", mp_node, "Vector")
-    link_nodes(links, mp_node, "Vector", et_node, "Vector")
-    link_nodes(links, et_node, "Color", bg_node, "Color")
-    link_nodes(links, bg_node, "Background", wo_node, "Surface")
+    nodeutils.set_node_input(bg_node, "Strength", 0.5)
+    nodeutils.link_nodes(links, tc_node, "Generated", mp_node, "Vector")
+    nodeutils.link_nodes(links, mp_node, "Vector", et_node, "Vector")
+    nodeutils.link_nodes(links, et_node, "Color", bg_node, "Color")
+    nodeutils.link_nodes(links, bg_node, "Background", wo_node, "Surface")
     bin_dir, bin_file = os.path.split(bpy.app.binary_path)
     version = bpy.app.version_string[:4]
     hdri_path = os.path.join(bin_dir, version, "datafiles", "studiolights", "world", "forest.exr")
@@ -4458,7 +4028,7 @@ def set_shape_key_edit(obj):
         obj.use_shape_key_edit_mode = True
 
     except Exception as e:
-        log_error("Unable to set shape key edit mode!", e)
+        utils.log_error("Unable to set shape key edit mode!", e)
 
 
 def setup_scene_default(scene_type):
@@ -4738,7 +4308,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.clip_start = 0.01
 
     except Exception as e:
-        log_error("Something went wrong adding lights...", e)
+        utils.log_error("Something went wrong adding lights...", e)
 
     # restore selection
     bpy.ops.object.select_all(action='DESELECT')
@@ -4790,7 +4360,7 @@ class CC3Scene(bpy.types.Operator):
             if (self.param == "TEMPLATE"):
                 compositor_setup()
                 world_setup()
-                message_box("World nodes and compositor template set up.")
+                utils.message_box("World nodes and compositor template set up.")
         return {"FINISHED"}
 
     @classmethod
@@ -5145,7 +4715,7 @@ def update_all_properties(context, update_mode = None):
     if block_update: return
 
     props = bpy.context.scene.CC3ImportProps
-    start_timer()
+    utils.start_timer()
 
     if update_mode is None:
         update_mode = props.update_mode
@@ -5182,7 +4752,7 @@ def update_all_properties(context, update_mode = None):
             if mat is not None:
                 update_basic_material(mat, cache, "ALL")
 
-    log_timer("update_all_properties()", "ms")
+    utils.log_timer("update_all_properties()", "ms")
 
 
 def update_material_settings(mat, cache, prop_name):
@@ -5195,7 +4765,7 @@ def update_material_settings(mat, cache, prop_name):
 
     if prop_name == "eye_ior":
         if cache.is_cornea() and mat.node_tree:
-            set_default_shader_input(mat, "IOR", params.eye_ior)
+            nodeutils.set_default_shader_input(mat, "IOR", params.eye_ior)
 
 
 def update_material(self, context, prop_name, update_mode = None):
@@ -5214,7 +4784,7 @@ def update_material(self, context, prop_name, update_mode = None):
     if active_cache and active_cache.material_type in params.FORCE_LINKED_TYPES:
         update_mode = "UPDATE_LINKED"
 
-    start_timer()
+    utils.start_timer()
 
     if update_mode is None:
         update_mode = props.update_mode
@@ -5245,7 +4815,7 @@ def update_material(self, context, prop_name, update_mode = None):
         for dep_name in deps:
             update_material(self, context, dep_name, update_mode)
 
-    log_timer("update_material()", "ms")
+    utils.log_timer("update_material()", "ms")
 
 
 def get_object_modifier(obj, type, name = ""):
@@ -5279,7 +4849,7 @@ def update_modifier(self, context, prop_name, update_mode = None):
     if block_update: return
 
     props = bpy.context.scene.CC3ImportProps
-    start_timer()
+    utils.start_timer()
 
     if update_mode is None:
         update_mode = props.update_mode
@@ -5301,7 +4871,7 @@ def update_modifier(self, context, prop_name, update_mode = None):
         for dep_name in deps:
             update_modifier(self, context, dep_name, update_mode)
 
-    log_timer("update_modifier()", "ms")
+    utils.log_timer("update_modifier()", "ms")
 
 
 def update_property(self, context, prop_name, update_mode = None):
@@ -5319,14 +4889,14 @@ def update_property(self, context, prop_name, update_mode = None):
     if active_cache and active_cache.material_type in params.FORCE_LINKED_TYPES:
         update_mode = "UPDATE_LINKED"
 
-    start_timer()
+    utils.start_timer()
 
     if update_mode is None:
         update_mode = props.update_mode
 
     if props.setup_mode == "ADVANCED":
 
-        matrix = get_prop_matrix(prop_name)
+        matrix = params.get_prop_matrix(prop_name)
 
         if len(matrix) > 0:
 
@@ -5379,7 +4949,7 @@ def update_property(self, context, prop_name, update_mode = None):
         for dep_name in deps:
             update_property(self, context, dep_name, update_mode)
 
-    log_timer("update_property_matrix()", "ms")
+    utils.log_timer("update_property_matrix()", "ms")
 
 
 def get_linked_material_types(cache):
@@ -5399,16 +4969,6 @@ def get_paired_material_types(cache):
     return []
 
 
-def get_prop_matrix(prop_name):
-    matrix = []
-    for mixer in params.PROP_MATRIX:
-        for group in mixer["groups"]:
-            for input in group["inputs"]:
-                if input[1] == prop_name:
-                    matrix.append([mixer, group, input])
-    return matrix
-
-
 def set_linked_property(prop_name, active_cache, cache):
     global block_update
     block_update = True
@@ -5418,7 +4978,7 @@ def set_linked_property(prop_name, active_cache, cache):
         code = "cache.parameters." + prop_name + " = active_cache.parameters." + prop_name
         exec(code, None, locals())
     except Exception as e:
-        log_error("set_linked_property(): Unable to evaluate: " + code, e)
+        utils.log_error("set_linked_property(): Unable to evaluate: " + code, e)
 
     block_update = False
 
@@ -5449,12 +5009,12 @@ def update_advanced_material(mat, cache, matrix):
                         if type(group["name"]) is list:
                             for name in group["name"]:
                                 if name in node.name:
-                                    set_node_input(node, input[0], prop_value)
+                                    nodeutils.set_node_input(node, input[0], prop_value)
                         else:
                             if group["name"] in node.name:
-                                set_node_input(node, input[0], prop_value)
+                                nodeutils.set_node_input(node, input[0], prop_value)
             except Exception as e:
-                log_error("update_advanced_materials(): Unable to evaluate or set: " + prop_eval, e)
+                utils.log_error("update_advanced_materials(): Unable to evaluate or set: " + prop_eval, e)
 
 
 def update_basic_material(mat, cache, prop):
@@ -5487,11 +5047,11 @@ def update_basic_material(mat, cache, prop):
                         prop_value = eval(prop_eval, None, scope)
 
                         if prop_dir == "IN":
-                            set_node_input(node, prop_socket, prop_value)
+                            nodeutils.set_node_input(node, prop_socket, prop_value)
                         elif prop_dir == "OUT":
-                            set_node_output(node, prop_socket, prop_value)
+                            nodeutils.set_node_output(node, prop_socket, prop_value)
                     except Exception as e:
-                        log_error("update_basic_materials(): Unable to evaluate or set: " + prop_eval, e)
+                        utils.log_error("update_basic_materials(): Unable to evaluate or set: " + prop_eval, e)
 
 
 def get_param_groups(mat_cache):
@@ -5815,16 +5375,38 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_sss_falloff"))
     eye_sclera_normal: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_normal"))
     eye_sclera_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=lambda s,c: update_property(s,c,"eye_sclera_tiling"))
-    eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion"))
-    eye_occlusion_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0.0, 0.0, 0.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_occlusion_color"))
-    eye_occlusion_hardness: bpy.props.FloatProperty(default=0.5, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_hardness"))
     eye_tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"eye_tearline_alpha"))
     eye_tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"eye_tearline_roughness"))
     eye_refraction_depth: bpy.props.FloatProperty(default=1, min=0, max=5, update=lambda s,c: update_material(s,c,"eye_refraction_depth"))
     eye_ior: bpy.props.FloatProperty(default=1.42, min=1.01, max=2.5, update=lambda s,c: update_material(s,c,"eye_ior"))
     eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
+
+
+    # Eye Occlusion Basic
+    eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion"))
+    eye_occlusion_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0.057805, 0.006512, 0.003347, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_occlusion_color"))
+    eye_occlusion_hardness: bpy.props.FloatProperty(default=0.5, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_hardness"))
+
+    # Eye Occlusion Advanced
+    eye_occlusion_strength: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_occlusion_strength"))
+    eye_occlusion_power: bpy.props.FloatProperty(default=1.5, min=0.1, max=4, update=lambda s,c: update_property(s,c,"eye_occlusion_power"))
+    eye_occlusion_top_min: bpy.props.FloatProperty(default=0.215, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_top_min"))
+    eye_occlusion_top_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_top_max"))
+    eye_occlusion_top_curve: bpy.props.FloatProperty(default=0.7, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_occlusion_top_curve"))
+    eye_occlusion_bottom_min: bpy.props.FloatProperty(default=0.04, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom_min"))
+    eye_occlusion_bottom_max: bpy.props.FloatProperty(default=0.335, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom_max"))
+    eye_occlusion_bottom_curve: bpy.props.FloatProperty(default=2.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_occlusion_bottom_curve"))
+    eye_occlusion_inner_min: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_inner_min"))
+    eye_occlusion_inner_max: bpy.props.FloatProperty(default=0.625, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_inner_max"))
+    eye_occlusion_outer_min: bpy.props.FloatProperty(default=0.16, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_outer_min"))
+    eye_occlusion_outer_max: bpy.props.FloatProperty(default=0.6, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_outer_max"))
+    eye_occlusion_2nd_strength: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_occlusion_2nd_strength"))
+    eye_occlusion_2nd_top_min: bpy.props.FloatProperty(default=0.12, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_2nd_top_min"))
+    eye_occlusion_2nd_top_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_2nd_top_max"))
+    eye_occlusion_tear_duct_position: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_tear_duct_position"))
+    eye_occlusion_tear_duct_width: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_tear_duct_width"))
 
 
     # Teeth
@@ -6561,12 +6143,51 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                             split = column.split(factor=0.5)
                             col_1 = split.column()
                             col_2 = split.column()
-                            col_1.label(text="Occlusion Strength")
-                            col_2.prop(params, "eye_occlusion", text="", slider=True)
-                            col_1.label(text="Occlusion Color")
-                            col_2.prop(params, "eye_occlusion_color", text="", slider=True)
-                            col_1.label(text="Occlusion Hardness")
-                            col_2.prop(params, "eye_occlusion_hardness", text="", slider=True)
+
+                            if (prefs.use_advanced_eye_occlusion):
+                                col_1.label(text="Strength")
+                                col_2.prop(params, "eye_occlusion_strength", text="", slider=True)
+                                col_1.label(text="Strength Secondary")
+                                col_2.prop(params, "eye_occlusion_2nd_strength", text="", slider=True)
+                                col_1.label(text="Color")
+                                col_2.prop(params, "eye_occlusion_color", text="", slider=True)
+                                col_1.label(text="Power")
+                                col_2.prop(params, "eye_occlusion_power", text="", slider=True)
+                                col_1.label(text="Top Min")
+                                col_2.prop(params, "eye_occlusion_top_min", text="", slider=True)
+                                col_1.label(text="Top Max")
+                                col_2.prop(params, "eye_occlusion_top_max", text="", slider=True)
+                                col_1.label(text="Top Curve")
+                                col_2.prop(params, "eye_occlusion_top_curve", text="", slider=True)
+                                col_1.label(text="Bottom Min")
+                                col_2.prop(params, "eye_occlusion_bottom_min", text="", slider=True)
+                                col_1.label(text="Bottom Max")
+                                col_2.prop(params, "eye_occlusion_bottom_max", text="", slider=True)
+                                col_1.label(text="Bottom Curve")
+                                col_2.prop(params, "eye_occlusion_bottom_curve", text="", slider=True)
+                                col_1.label(text="Inner Min")
+                                col_2.prop(params, "eye_occlusion_inner_min", text="", slider=True)
+                                col_1.label(text="Inner Max")
+                                col_2.prop(params, "eye_occlusion_inner_max", text="", slider=True)
+                                col_1.label(text="Outer Min")
+                                col_2.prop(params, "eye_occlusion_outer_min", text="", slider=True)
+                                col_1.label(text="Outer Max")
+                                col_2.prop(params, "eye_occlusion_outer_max", text="", slider=True)
+                                col_1.label(text="2nd Top Min")
+                                col_2.prop(params, "eye_occlusion_2nd_top_min", text="", slider=True)
+                                col_1.label(text="2nd Top Max")
+                                col_2.prop(params, "eye_occlusion_2nd_top_max", text="", slider=True)
+                                col_1.label(text="Tear Duct Position")
+                                col_2.prop(params, "eye_occlusion_tear_duct_position", text="", slider=True)
+                                col_1.label(text="Tear Duct Width")
+                                col_2.prop(params, "eye_occlusion_tear_duct_width", text="", slider=True)
+                            else:
+                                col_1.label(text="Occlusion Strength")
+                                col_2.prop(params, "eye_occlusion", text="", slider=True)
+                                col_1.label(text="Occlusion Color")
+                                col_2.prop(params, "eye_occlusion_color", text="", slider=True)
+                                col_1.label(text="Occlusion Hardness")
+                                col_2.prop(params, "eye_occlusion_hardness", text="", slider=True)
 
                         if linked or mat_cache.is_tearline():
                             column.box().label(text= "Tearline", icon="MATFLUID")
@@ -7366,6 +6987,7 @@ def reset_preferences():
     prefs.fake_hair_bump = True
     prefs.refractive_eyes = True
     prefs.eye_displacement_group = "CC_Eye_Displacement"
+    prefs.use_advanced_eye_occlusion = True
 
 
 class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
@@ -7444,6 +7066,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
+    use_advanced_eye_occlusion: bpy.props.BoolProperty(default=True, name="Use Advanced Eye Occlusion Shader")
 
     # addon updater preferences
 
@@ -7504,6 +7127,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Eyes:")
         layout.prop(self, "refractive_eyes")
         layout.prop(self, "eye_displacement_group")
+        layout.prop(self, "use_advanced_eye_occlusion")
         layout.label(text="Physics:")
         layout.prop(self, "physics")
         layout.prop(self, "physics_group")

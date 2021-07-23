@@ -67,7 +67,8 @@ NODE_GROUPS = ["color_ao_mixer", "color_blend_ao_mixer", "color_refractive_eye_m
                "msr_mixer", "msr_skin_mixer", "msr_overlay_mixer",
                "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer", "fake_bump_mixer",
                "normal_refractive_cornea_mixer", "normal_refractive_eye_mixer",
-               "eye_occlusion_mask", "iris_refractive_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping"]
+               "eye_occlusion_mask", "iris_refractive_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping",
+               "rl_eye_occlusion_shader"]
 
 # material types that share parameters
 MATERIAL_PARAM_GROUPS = [
