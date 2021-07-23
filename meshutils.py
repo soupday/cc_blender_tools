@@ -56,7 +56,6 @@ def generate_eye_occlusion_vertex_groups(obj):
             vertex = mesh.vertices[loop_entry.vertex_index]
             uv = ul.data[loop_entry.index].uv
             index[0] = vertex.index
-            print(uv)
             vertex_group_inner.add(index, uv.x, 'REPLACE')
             vertex_group_outer.add(index, 1.0 - uv.x, 'REPLACE')
             vertex_group_top.add(index, uv.y, 'REPLACE')
