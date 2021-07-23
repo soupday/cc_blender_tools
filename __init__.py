@@ -39,7 +39,7 @@ from . import vars
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 6, 5),
+    "version": (0, 7, 0),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
