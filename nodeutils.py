@@ -300,14 +300,3 @@ def find_node_by_type(nodes, type):
     for n in nodes:
         if n.type == type:
             return n
-
-
-def replace_shader_node(nodes, links, shader_node, label, group_name):
-    location = shader_node.location
-    nodes.remove(shader_node)
-    group = get_node_group(group_name)
-    shader_node = make_node_group_node(nodes, group, label, group_name)
-    shader_node.location = location
-    output_node = find_node_by_type(nodes, "OUTPUT_MATERIAL")
-    link_nodes(links, shader_node, "BSDF", output_node, "Surface")
-    return shader_node

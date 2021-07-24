@@ -14,13 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy
-import mathutils
 from . import nodeutils
-from . import linkutils
-from . import utils
-from . import vars
-
 
 def replace_shader_node(nodes, links, shader_node, label, group_name):
     location = shader_node.location
@@ -34,18 +28,3 @@ def replace_shader_node(nodes, links, shader_node, label, group_name):
 
 
 
-def connect_eye_occlusion_shader(obj, mat, shader):
-    props = bpy.context.scene.CC3ImportProps
-    obj_cache = get_object_cache(obj)
-    mat_cache = get_material_cache(mat)
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
-
-    shader = nodeutils.replace_shader_node(nodes, links, shader, "Eye Occlusion Shader", "rl_eye_occlusion_shader")
-
-    nodeutils.reset_cursor()
-
-    params.set_from_prop_matrix(shader, mat_cache, "rl_eye_occlusion_shader")
-
-    set_material_alpha(mat, props.blend_mode)
-    mat.shadow_method = "NONE"

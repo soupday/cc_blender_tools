@@ -70,17 +70,6 @@ NODE_GROUPS = ["color_ao_mixer", "color_blend_ao_mixer", "color_refractive_eye_m
                "eye_occlusion_mask", "iris_refractive_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping",
                "rl_eye_occlusion_shader"]
 
-# material types that share parameters
-MATERIAL_PARAM_GROUPS = [
-    ["SKIN_HEAD", "SKIN_BODY", "SKIN_ARM", "SKIN_LEG"],
-    ["TEETH_UPPER", "TEETH_LOWER"],
-    ["HAIR", "SCALP", "EYELASH"],
-    ["CORNEA", "EYE", "TEARLINE", "OCCLUSION"],
-    ["NAILS"],
-    ["TONGUE"],
-    ["DEFAULT"],
-]
-
 
 MATERIAL_TYPES = [
                         ("DEFAULT", "Default", "Default material"),
@@ -120,3 +109,12 @@ OBJECT_TYPES = [
 NODE_PREFIX = "cc3iid_"
 
 GRID_SIZE = 300
+
+OCCLUSION_GROUP_INNER = "CC_EyeOcclusion_Inner"
+OCCLUSION_GROUP_OUTER = "CC_EyeOcclusion_Outer"
+OCCLUSION_GROUP_TOP = "CC_EyeOcclusion_Top"
+OCCLUSION_GROUP_BOTTOM = "CC_EyeOcclusion_Bottom"
+OCCLUSION_GROUP_ALL = "CC_EyeOcclusion_All"
+
+TEARLINE_GROUP_INNER = "CC_Tearline_Inner"
+TEARLINE_GROUP_ALL = "CC_Tearline_All"

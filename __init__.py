@@ -23,11 +23,15 @@ if "bpy" in locals():
     importlib.reload(modutils)
     importlib.reload(meshutils)
     importlib.reload(nodeutils)
+    importlib.reload(shaderutils)
+    importlib.reload(materials)
     importlib.reload(importer)
 
 import bpy
 from . import addon_updater_ops
 from . import importer
+from . import materials
+from . import shaderutils
 from . import nodeutils
 from . import meshutils
 from . import modutils

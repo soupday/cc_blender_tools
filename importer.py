@@ -18,6 +18,8 @@ import bpy
 import os
 import shutil
 import math
+from . import materials
+from . import shaderutils
 from . import nodeutils
 from . import meshutils
 from . import modutils
@@ -537,8 +539,8 @@ def connect_tearline_material(obj, mat, shader):
     nodeutils.set_node_input(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
     nodeutils.set_node_input(shader, "Metallic", 1.0)
     nodeutils.set_node_input(shader, "Specular", 1.0)
-    nodeutils.set_node_input(shader, "Roughness", mat_cache.parameters.eye_tearline_roughness)
-    nodeutils.set_node_input(shader, "Alpha", mat_cache.parameters.eye_tearline_alpha)
+    nodeutils.set_node_input(shader, "Roughness", mat_cache.parameters.tearline_roughness)
+    nodeutils.set_node_input(shader, "Alpha", mat_cache.parameters.tearline_alpha)
     shader.name = utils.unique_name("eye_tearline_shader")
     set_material_alpha(mat, props.blend_mode)
     mat.shadow_method = "NONE"
@@ -577,7 +579,7 @@ def connect_eye_occlusion_shader(obj, mat, shader):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    shader = nodeutils.replace_shader_node(nodes, links, shader, "Eye Occlusion Shader", "rl_eye_occlusion_shader")
+    shader = shaderutils.replace_shader_node(nodes, links, shader, "Eye Occlusion Shader", "rl_eye_occlusion_shader")
 
     nodeutils.reset_cursor()
 
@@ -1898,7 +1900,7 @@ def connect_normal(obj, mat, shader, base_color_node):
 
 def apply_cloth_settings(obj, cloth_type):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    mod = get_cloth_physics_mod(obj)
+    mod = modutils.get_cloth_physics_mod(obj)
     if mod is None:
         return
     cache = get_object_cache(obj)
@@ -2029,46 +2031,6 @@ def apply_cloth_settings(obj, cloth_type):
         mod.collision_settings.collision_quality = 4
 
 
-def get_cloth_physics_mod(obj):
-    if obj is not None:
-        for mod in obj.modifiers:
-            if mod.type == "CLOTH":
-                return mod
-    return None
-
-
-def get_collision_physics_mod(obj):
-    if obj is not None:
-        for mod in obj.modifiers:
-            if mod.type == "COLLISION":
-                return mod
-    return None
-
-
-def get_weight_map_mods(obj):
-    edit_mods = []
-    mix_mods = []
-    if obj is not None:
-        for mod in obj.modifiers:
-            if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name:
-                edit_mods.append(mod)
-            if mod.type == "VERTEX_WEIGHT_MIX" and vars.NODE_PREFIX in mod.name:
-                mix_mods.append(mod)
-    return edit_mods, mix_mods
-
-
-def get_material_weight_map_mods(obj, mat):
-    edit_mod = None
-    mix_mod = None
-    if obj is not None and mat is not None:
-        for mod in obj.modifiers:
-            if mod.type == "VERTEX_WEIGHT_EDIT" and (vars.NODE_PREFIX + mat.name + "_WeightEdit") in mod.name:
-                edit_mod = mod
-            if mod.type == "VERTEX_WEIGHT_MIX" and (vars.NODE_PREFIX + mat.name + "_WeightMix") in mod.name:
-                mix_mod = mod
-    return edit_mod, mix_mod
-
-
 def add_collision_physics(obj):
     """Adds a Collision modifier to the object, depending on the object cache settings.
 
@@ -2080,7 +2042,7 @@ def add_collision_physics(obj):
         or (cache.collision_physics == "DEFAULT"
             and "Base_Body" in obj.name)):
 
-        if get_collision_physics_mod(obj) is None:
+        if modutils.get_collision_physics_mod(obj) is None:
             collision_mod = obj.modifiers.new(utils.unique_name("Collision"), type="COLLISION")
             collision_mod.settings.thickness_outer = 0.005
             utils.log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
@@ -2112,7 +2074,7 @@ def add_cloth_physics(obj):
 
     obj_cache = get_object_cache(obj)
 
-    if obj_cache.cloth_physics == "ON" and get_cloth_physics_mod(obj) is None:
+    if obj_cache.cloth_physics == "ON" and modutils.get_cloth_physics_mod(obj) is None:
 
         # Create the Cloth modifier
         cloth_mod = obj.modifiers.new(utils.unique_name("Cloth"), type="CLOTH")
@@ -2145,7 +2107,8 @@ def add_cloth_physics(obj):
         for mat in obj.data.materials:
             add_material_weight_map(obj, mat, create = False)
 
-        fix_physics_mod_order(obj)
+        # fix mod order
+        modutils.move_mod_last(obj, cloth_mod)
 
     elif obj_cache.cloth_physics == "OFF":
         utils.log_info("Cloth Physics disabled for: " + obj.name)
@@ -2280,14 +2243,6 @@ def add_material_weight_map(obj, mat, create = False):
         return
 
 
-def fix_physics_mod_order(obj):
-    """Moves any cloth modifier to the end of the list, so it is operates
-    after all the 'Vertex Weight Edit' modifiers.
-    """
-    cloth_mod = get_cloth_physics_mod(obj)
-    modutils.move_mod_last(obj, cloth_mod)
-
-
 def remove_material_weight_maps(obj, mat):
     """Removes the weight map 'Vertex Weight Edit' modifier for the object's material.
 
@@ -2295,7 +2250,7 @@ def remove_material_weight_maps(obj, mat):
     or the texture based on the weight map image, just the modifier.
     """
 
-    edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
+    edit_mod, mix_mod = modutils.get_material_weight_map_mods(obj, mat)
     if edit_mod is not None:
         utils.log_info("    Removing weight map vertex edit modifer: " + edit_mod.name)
         obj.modifiers.remove(edit_mod)
@@ -2312,7 +2267,9 @@ def enable_material_weight_map(obj, mat):
     if cache.cloth_physics == "OFF":
         cache.cloth_physics = "ON"
     add_material_weight_map(obj, mat, True)
-    fix_physics_mod_order(obj)
+    # fix mod order
+    cloth_mod = modutils.get_cloth_physics_mod(obj)
+    modutils.move_mod_last(obj, cloth_mod)
 
 
 def disable_material_weight_map(obj, mat):
@@ -2327,7 +2284,7 @@ def disable_material_weight_map(obj, mat):
 
 def collision_physics_available(obj):
     obj_cache = get_object_cache(obj)
-    collision_mod = get_collision_physics_mod(obj)
+    collision_mod = modutils.get_collision_physics_mod(obj)
     if collision_mod is None:
         if obj_cache.collision_physics == "OFF":
             return False
@@ -2340,7 +2297,7 @@ def cloth_physics_available(obj, mat):
 
     obj_cache = get_object_cache(obj)
     mat_cache = get_material_cache(mat)
-    cloth_mod = get_cloth_physics_mod(obj)
+    cloth_mod = modutils.get_cloth_physics_mod(obj)
     if cloth_mod is None:
         if obj_cache.cloth_physics == "OFF":
             return False
@@ -2365,20 +2322,6 @@ def get_material_vertices(obj, mat):
                 if vert not in verts:
                     verts.append(vert)
     return verts
-
-
-def clear_vertex_group(obj, vertex_group):
-    all_verts = []
-    for v in obj.data.vertices:
-        all_verts.append(v.index)
-    vertex_group.remove(all_verts)
-
-
-def set_vertex_group(obj, vertex_group, value):
-    all_verts = []
-    for v in obj.data.vertices:
-        all_verts.append(v.index)
-    vertex_group.add(all_verts, value, 'ADD')
 
 
 def attach_material_weight_map(obj, mat, weight_map):
@@ -2417,14 +2360,14 @@ def attach_material_weight_map(obj, mat, weight_map):
         else:
             weight_vertex_group = obj.vertex_groups[material_group]
         # The material weight map group should contain only those verteces affected by the material, default weight to 1.0
-        clear_vertex_group(obj, weight_vertex_group)
+        meshutils.clear_vertex_group(obj, weight_vertex_group)
         mat_verts = get_material_vertices(obj, mat)
         weight_vertex_group.add(mat_verts, 1.0, 'ADD')
         # The pin group should contain all verteces in the mesh default weighted to 1.0
-        set_vertex_group(obj, pin_vertex_group, 1.0)
+        meshutils.set_vertex_group(obj, pin_vertex_group, 1.0)
 
         # set the pin group in the cloth physics modifier
-        mod_cloth = get_cloth_physics_mod(obj)
+        mod_cloth = modutils.get_cloth_physics_mod(obj)
         if mod_cloth is not None:
             mod_cloth.settings.vertex_group_mass = pin_group
 
@@ -2541,7 +2484,7 @@ def save_dirty_weight_maps(objects):
 
 def delete_selected_weight_map(obj, mat):
     if obj is not None and obj.type == "MESH" and mat is not None:
-        edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
+        edit_mod, mix_mod = modutils.get_material_weight_map_mods(obj, mat)
         if edit_mod is not None and edit_mod.mask_texture is not None and edit_mod.mask_texture.image is not None:
             image = edit_mod.mask_texture.image
             try:
@@ -2559,7 +2502,7 @@ def delete_selected_weight_map(obj, mat):
 
 
 def set_physics_bake_range(obj, start, end):
-    cloth_mod = get_cloth_physics_mod(obj)
+    cloth_mod = modutils.get_cloth_physics_mod(obj)
 
     if cloth_mod is not None:
         if obj.parent is not None and obj.parent.type == "ARMATURE":
@@ -2596,7 +2539,7 @@ def separate_physics_materials(context):
         # remember which materials have active weight maps
         temp = []
         for mat in obj.data.materials:
-            edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
+            edit_mod, mix_mod = modutils.get_material_weight_map_mods(obj, mat)
             if edit_mod is not None:
                 temp.append(mat)
 
@@ -2625,9 +2568,9 @@ def should_separate_materials(context):
     obj = context.object
     if obj is not None and obj.type == "MESH":
 
-        cloth_mod = get_cloth_physics_mod(obj)
+        cloth_mod = modutils.get_cloth_physics_mod(obj)
         if cloth_mod is not None:
-            edit_mods, mix_mods = get_weight_map_mods(obj)
+            edit_mods, mix_mods = modutils.get_weight_map_mods(obj)
             if len(edit_mods) != len(obj.data.materials):
                 return True
         return False
@@ -2723,7 +2666,7 @@ def add_eye_modifiers(obj):
         displace_vertex_group = obj.vertex_groups[displace_group]
 
     # The displacement group should contain only those verteces affected by the material, default weight to 0.0
-    clear_vertex_group(obj, displace_vertex_group)
+    meshutils.clear_vertex_group(obj, displace_vertex_group)
     for mat in mats:
         mat_verts = get_material_vertices(obj, mat)
         displace_vertex_group.add(mat_verts, 0.0, 'ADD')
@@ -2747,23 +2690,111 @@ def add_eye_modifiers(obj):
     edit_mod.mask_tex_mapping = 'UV'
     edit_mod.mask_tex_use_channel = 'INT'
 
-    displace_mod.vertex_group = displace_group
-    displace_mod.mid_level = 0
-    displace_mod.strength = props.eye_iris_depth
-    displace_mod.direction = "Y"
-    displace_mod.space = "LOCAL"
+    modutils.init_displacement_mod(obj, displace_mod, displace_group, "Y", 0.0)
 
     warp_mod.center = (0.5, 0.5)
     warp_mod.axis_u = "X"
     warp_mod.axis_v = "Y"
     warp_mod.vertex_group = displace_group
-    warp_mod.scale = (1.0 / props.eye_pupil_scale, 1.0 / props.eye_pupil_scale)
+    warp_mod.scale = (1.0 / 1.0, 1.0 / 1.0)
 
     modutils.move_mod_first(obj, warp_mod)
     modutils.move_mod_first(obj, displace_mod)
     modutils.move_mod_first(obj, edit_mod)
 
     utils.log_info("Eye Displacement modifiers applied to: " + obj.name)
+
+
+def add_eye_occlusion_modifiers(obj):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    mat_left, mat_right = materials.get_left_right_materials(obj)
+    cache_left = get_material_cache(mat_left)
+    cache_right = get_material_cache(mat_right)
+
+    if cache_left is None or cache_right is None:
+        return
+
+    # generate the vertex groups for occlusion displacement
+    meshutils.generate_eye_occlusion_vertex_groups(obj, mat_left, mat_right)
+
+    # re-create create the displacement modifiers
+    remove_eye_modifiers(obj)
+    displace_mod_inner_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Inner_L"), "DISPLACE")
+    displace_mod_outer_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Outer_L"), "DISPLACE")
+    displace_mod_top_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Top_L"), "DISPLACE")
+    displace_mod_bottom_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Bottom_L"), "DISPLACE")
+    displace_mod_all_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_All_L"), "DISPLACE")
+
+    displace_mod_inner_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Inner_R"), "DISPLACE")
+    displace_mod_outer_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Outer_R"), "DISPLACE")
+    displace_mod_top_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Top_R"), "DISPLACE")
+    displace_mod_bottom_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Bottom_R"), "DISPLACE")
+    displace_mod_all_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_All_R"), "DISPLACE")
+
+    # initialise displacement mods
+    modutils.init_displacement_mod(obj, displace_mod_inner_l, vars.OCCLUSION_GROUP_INNER + "_L", "NORMAL", cache_left.parameters.eye_occlusion_inner)
+    modutils.init_displacement_mod(obj, displace_mod_outer_l, vars.OCCLUSION_GROUP_OUTER + "_L", "NORMAL", cache_left.parameters.eye_occlusion_outer)
+    modutils.init_displacement_mod(obj, displace_mod_top_l, vars.OCCLUSION_GROUP_TOP + "_L", "NORMAL", cache_left.parameters.eye_occlusion_top)
+    modutils.init_displacement_mod(obj, displace_mod_bottom_l, vars.OCCLUSION_GROUP_BOTTOM + "_L", "NORMAL", cache_left.parameters.eye_occlusion_bottom)
+    modutils.init_displacement_mod(obj, displace_mod_all_l, vars.OCCLUSION_GROUP_ALL + "_L", "NORMAL", cache_left.parameters.eye_occlusion_displace)
+
+    modutils.init_displacement_mod(obj, displace_mod_inner_r, vars.OCCLUSION_GROUP_INNER + "_R", "NORMAL", cache_right.parameters.eye_occlusion_inner)
+    modutils.init_displacement_mod(obj, displace_mod_outer_r, vars.OCCLUSION_GROUP_OUTER + "_R", "NORMAL", cache_right.parameters.eye_occlusion_outer)
+    modutils.init_displacement_mod(obj, displace_mod_top_r, vars.OCCLUSION_GROUP_TOP + "_R", "NORMAL", cache_right.parameters.eye_occlusion_top)
+    modutils.init_displacement_mod(obj, displace_mod_bottom_r, vars.OCCLUSION_GROUP_BOTTOM + "_R", "NORMAL", cache_right.parameters.eye_occlusion_bottom)
+    modutils.init_displacement_mod(obj, displace_mod_all_r, vars.OCCLUSION_GROUP_ALL + "_R", "NORMAL", cache_right.parameters.eye_occlusion_displace)
+
+    # fix mod order
+    modutils.move_mod_first(obj, displace_mod_inner_l)
+    modutils.move_mod_first(obj, displace_mod_outer_l)
+    modutils.move_mod_first(obj, displace_mod_top_l)
+    modutils.move_mod_first(obj, displace_mod_bottom_l)
+    modutils.move_mod_first(obj, displace_mod_all_l)
+    modutils.move_mod_first(obj, displace_mod_inner_r)
+    modutils.move_mod_first(obj, displace_mod_outer_r)
+    modutils.move_mod_first(obj, displace_mod_top_r)
+    modutils.move_mod_first(obj, displace_mod_bottom_r)
+    modutils.move_mod_first(obj, displace_mod_all_r)
+
+    utils.log_info("Eye Occlusion Displacement modifiers applied to: " + obj.name)
+
+
+def add_tearline_modifiers(obj):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    mat_left, mat_right = materials.get_left_right_materials(obj)
+    cache_left = get_material_cache(mat_left)
+    cache_right = get_material_cache(mat_right)
+
+    if cache_left is None or cache_right is None:
+        return
+
+    # generate the vertex groups for tearline displacement
+    meshutils.generate_tearline_vertex_groups(obj, mat_left, mat_right)
+
+    # re-create create the displacement modifiers
+    remove_eye_modifiers(obj)
+    displace_mod_inner_l = obj.modifiers.new(utils.unique_name("Tearline_Displace_Inner_L"), "DISPLACE")
+    displace_mod_all_l = obj.modifiers.new(utils.unique_name("Tearline_Displace_All_L"), "DISPLACE")
+    displace_mod_inner_r = obj.modifiers.new(utils.unique_name("Tearline_Displace_Inner_R"), "DISPLACE")
+    displace_mod_all_r = obj.modifiers.new(utils.unique_name("Tearline_Displace_All_R"), "DISPLACE")
+
+    # initialise displacement mods
+    modutils.init_displacement_mod(obj, displace_mod_inner_l, vars.TEARLINE_GROUP_INNER + "_L", "Y", -cache_left.parameters.tearline_inner)
+    modutils.init_displacement_mod(obj, displace_mod_all_l, vars.TEARLINE_GROUP_ALL + "_L", "Y", -cache_left.parameters.tearline_displace)
+    modutils.init_displacement_mod(obj, displace_mod_inner_r, vars.TEARLINE_GROUP_INNER + "_R", "Y", -cache_right.parameters.tearline_inner)
+    modutils.init_displacement_mod(obj, displace_mod_all_r, vars.TEARLINE_GROUP_ALL + "_R", "Y", -cache_right.parameters.tearline_displace)
+
+    # fix mod order
+    modutils.move_mod_first(obj, displace_mod_inner_l)
+    modutils.move_mod_first(obj, displace_mod_all_l)
+    modutils.move_mod_first(obj, displace_mod_inner_r)
+    modutils.move_mod_first(obj, displace_mod_all_r)
+
+    utils.log_info("Tearline Displacement modifiers applied to: " + obj.name)
 
 
 
@@ -2801,7 +2832,7 @@ def delete_object(obj):
                     nodes.remove(node)
 
             # remove physics weight maps and texture masks
-            edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
+            edit_mod, mix_mod = modutils.get_material_weight_map_mods(obj, mat)
             if mix_mod is not None:
                 obj.modifiers.remove(mix_mod)
             if edit_mod is not None:
@@ -2968,19 +2999,18 @@ def process_object(obj, objects_processed):
         # setup default physics
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
             add_collision_physics(obj)
-            edit_mods, mix_mods = get_weight_map_mods(obj)
+            edit_mods, mix_mods = modutils.get_weight_map_mods(obj)
             if len(edit_mods) > 0:
                 enable_cloth_physics(obj)
 
-        # setup refractive eyes
-        if props.setup_mode == "ADVANCED" and prefs.refractive_eyes and cache.is_eye():
-            add_eye_modifiers(obj)
-
-        if prefs.use_advanced_eye_occlusion and cache.is_eye_occlusion():
-            meshutils.generate_eye_occlusion_vertex_groups(obj)
-
-        if cache.is_tearline():
-            meshutils.generate_tearline_vertex_groups(obj)
+        # setup special modifiers for displacement, UV warp, etc...
+        if props.setup_mode == "ADVANCED":
+            if prefs.refractive_eyes and cache.is_eye():
+                add_eye_modifiers(obj)
+            elif prefs.use_advanced_eye_occlusion and cache.is_eye_occlusion():
+                add_eye_occlusion_modifiers(obj)
+            elif cache.is_tearline():
+                add_tearline_modifiers(obj)
 
 
     elif obj.type == "ARMATURE":
@@ -4586,7 +4616,7 @@ def weight_strength_update(self, context):
 
     strength = props.weight_map_strength
     influence = 1 - math.pow(1 - strength, 3)
-    edit_mod, mix_mod = get_material_weight_map_mods(context.object, context_material(context))
+    edit_mod, mix_mod = modutils.get_material_weight_map_mods(context.object, context_material(context))
     mix_mod.mask_constant = influence
 
 
@@ -4722,6 +4752,7 @@ def update_all_properties(context, update_mode = None):
 
     if props.setup_mode == "ADVANCED":
 
+        # update all property matrix properties
         for mixer in params.PROP_MATRIX:
             for group in mixer["groups"]:
                 for input in group["inputs"]:
@@ -4731,12 +4762,19 @@ def update_all_properties(context, update_mode = None):
                         if mat is not None:
                             update_advanced_material(mat, cache, matrix)
 
-        mod_prop_names = ["eye_iris_depth", "eye_pupil_scale"]
-        for prop_name in mod_prop_names:
+        # update all modifier matrix properties
+        for matrix in params.MODIFIER_MATRIX:
+            prop_name = matrix[0]
+            material_type = matrix[1]
             for p in props.import_objects:
                 obj = p.object
-                update_object_modifier(obj, prop_name)
+                if obj.type == "MESH":
+                    for mat in obj.data.materials:
+                        cache = get_material_cache(mat)
+                        if cache.material_type == material_type:
+                            update_object_modifier(obj, cache, prop_name)
 
+        # update all material properies
         mat_prop_names = ["eye_ior", "eye_refraction_depth"]
         for prop_name in mat_prop_names:
             for cache in props.material_cache:
@@ -4829,19 +4867,22 @@ def get_object_modifier(obj, type, name = ""):
                     return mod
     return None
 
-def update_object_modifier(obj, prop_name):
+
+def update_object_modifier(obj, cache, prop_name):
     props = bpy.context.scene.CC3ImportProps
 
-    if prop_name == "eye_iris_depth":
-        mod = get_object_modifier(obj, "DISPLACE", "Eye_Displace")
-        if mod:
-            mod.strength = props.eye_iris_depth
+    for matrix in params.MODIFIER_MATRIX:
+        if matrix[0] == prop_name:
+            material_type = matrix[1]
+            mod_type = matrix[2]
+            mod_name = matrix[3]
+            code = matrix[4]
 
-    elif prop_name == "eye_pupil_scale":
-        mod = get_object_modifier(obj, "UV_WARP", "Eye_UV_Warp")
-        if mod:
-            uv_scale = 1.0 / props.eye_pupil_scale
-            mod.scale = (uv_scale, uv_scale)
+            if cache.material_type == material_type:
+                mod = get_object_modifier(obj, mod_type, mod_name)
+                if mod:
+                    parameters = cache.parameters
+                    exec(code, None, locals())
 
 
 def update_modifier(self, context, prop_name, update_mode = None):
@@ -4849,22 +4890,45 @@ def update_modifier(self, context, prop_name, update_mode = None):
     if block_update: return
 
     props = bpy.context.scene.CC3ImportProps
+    active_mat = context_material(context)
+    active_cache = get_material_cache(active_mat)
+    if not active_mat or not active_cache: return
+    linked = get_linked_material_types(active_cache)
+    paired = get_paired_material_types(active_cache)
+    if prop_name in params.FORCE_LINKED_PROPS:
+        update_mode = "UPDATE_LINKED"
+    if active_cache and active_cache.material_type in params.FORCE_LINKED_TYPES:
+        update_mode = "UPDATE_LINKED"
+
     utils.start_timer()
 
     if update_mode is None:
         update_mode = props.update_mode
 
     if props.setup_mode == "ADVANCED":
+
         for p in props.import_objects:
             obj = p.object
 
-            if update_mode == "UPDATE_SELECTED":
-                # Update only materials from the cache which are present in the selected objects:
-                if obj in context.selected_objects:
-                    update_object_modifier(obj, prop_name)
-            else:
-                # Update all materials in the imported objects material cache:
-                update_object_modifier(obj, prop_name)
+            if obj.type == "MESH":
+                for mat in obj.data.materials:
+                    cache = get_material_cache(mat)
+
+                    if mat == active_mat:
+                            # Always update the currently active material
+                            update_object_modifier(obj, cache, prop_name)
+
+                    elif cache.material_type in paired:
+                        # Update paired materials
+                        set_linked_property(prop_name, active_cache, cache)
+                        update_object_modifier(obj, cache, prop_name)
+
+                    elif update_mode == "UPDATE_LINKED":
+                        # Update all other linked materials in the imported objects material cache:
+                        for linked_type in linked:
+                            if cache.material_type == linked_type:
+                                set_linked_property(prop_name, active_cache, cache)
+                                update_object_modifier(obj, cache, prop_name)
 
     if prop_name in params.PROP_DEPENDANTS:
         deps = params.PROP_DEPENDANTS[prop_name]
@@ -5054,22 +5118,6 @@ def update_basic_material(mat, cache, prop):
                         utils.log_error("update_basic_materials(): Unable to evaluate or set: " + prop_eval, e)
 
 
-def get_param_groups(mat_cache):
-    for group in vars.MATERIAL_PARAM_GROUPS:
-        if mat_cache.material_type in group:
-            return group
-    return [mat_cache.material_type]
-
-
-def is_material_in_objects(mat, objects):
-    if mat is not None:
-        for obj in objects:
-            if obj.type == "MESH":
-                if mat.name in obj.data.materials:
-                    return True
-    return False
-
-
 def reset_material_parameters(cache):
     props = bpy.context.scene.CC3ImportProps
     params = cache.parameters
@@ -5127,16 +5175,40 @@ def reset_material_parameters(cache):
     params.eye_sclera_saturation = 1.0
     params.eye_iris_saturation = 1.0
     params.eye_basic_brightness = 0.9
-    params.eye_tearline_alpha = 0.05
-    params.eye_tearline_roughness = 0.15
-    if cache.is_eye() or cache.is_cornea():
-        props.eye_iris_depth = 0.25
-        props.eye_pupil_scale = 1.0
-
+    params.eye_iris_depth = 0.25
+    params.eye_pupil_scale = 1.0
     params.eye_refraction_depth = 1.0
     params.eye_ior = 1.42
     params.eye_blood_vessel_height = 0.5
     params.eye_iris_bump_height = 1
+
+    params.eye_occlusion_strength = 0.4
+    params.eye_occlusion_power = 1.5
+    params.eye_occlusion_top_min = 0.215
+    params.eye_occlusion_top_max = 1.0
+    params.eye_occlusion_top_curve = 0.7
+    params.eye_occlusion_bottom_min = 0.04
+    params.eye_occlusion_bottom_max = 0.335
+    params.eye_occlusion_bottom_curve = 2.0
+    params.eye_occlusion_inner_min = 0.25
+    params.eye_occlusion_inner_max = 0.625
+    params.eye_occlusion_outer_min = 0.16
+    params.eye_occlusion_outer_max = 0.6
+    params.eye_occlusion_2nd_strength = 0.9
+    params.eye_occlusion_2nd_top_min = 0.12
+    params.eye_occlusion_2nd_top_max = 1.0
+    params.eye_occlusion_tear_duct_position = 0.8
+    params.eye_occlusion_tear_duct_width = 0.5
+    params.eye_occlusion_inner = 0
+    params.eye_occlusion_outer = 0
+    params.eye_occlusion_top = 0
+    params.eye_occlusion_bottom = 0
+    params.eye_occlusion_displace = 0.02
+
+    params.tearline_alpha = 0.05
+    params.tearline_roughness = 0.15
+    params.tearline_displace = 0
+    params.tearline_inner = 0.02
 
 
     params.teeth_ao = 1.0
@@ -5375,13 +5447,13 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_sss_falloff"))
     eye_sclera_normal: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_normal"))
     eye_sclera_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=lambda s,c: update_property(s,c,"eye_sclera_tiling"))
-    eye_tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"eye_tearline_alpha"))
-    eye_tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"eye_tearline_roughness"))
     eye_refraction_depth: bpy.props.FloatProperty(default=1, min=0, max=5, update=lambda s,c: update_material(s,c,"eye_refraction_depth"))
     eye_ior: bpy.props.FloatProperty(default=1.42, min=1.01, max=2.5, update=lambda s,c: update_material(s,c,"eye_ior"))
     eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
 
+    eye_iris_depth: bpy.props.FloatProperty(default=0.25, min=0.0, max=1.0, update=lambda s,c: update_modifier(s,c,"eye_iris_depth"))
+    eye_pupil_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_modifier(s,c,"eye_pupil_scale"))
 
     # Eye Occlusion Basic
     eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion"))
@@ -5407,7 +5479,17 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     eye_occlusion_2nd_top_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_2nd_top_max"))
     eye_occlusion_tear_duct_position: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_tear_duct_position"))
     eye_occlusion_tear_duct_width: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_tear_duct_width"))
+    eye_occlusion_inner: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"eye_occlusion_inner"))
+    eye_occlusion_outer: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"eye_occlusion_outer"))
+    eye_occlusion_top: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"eye_occlusion_top"))
+    eye_occlusion_bottom: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"eye_occlusion_bottom"))
+    eye_occlusion_displace: bpy.props.FloatProperty(default=0.02, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"eye_occlusion_displace"))
 
+    # Tearline
+    tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"tearline_alpha"))
+    tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"tearline_roughness"))
+    tearline_inner: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"tearline_inner"))
+    tearline_displace: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"tearline_displace"))
 
     # Teeth
     teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_ao"))
@@ -5714,10 +5796,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     nails_toggle: bpy.props.BoolProperty(default=True)
     hair_toggle: bpy.props.BoolProperty(default=True)
     default_toggle: bpy.props.BoolProperty(default=True)
-
-    # TODO object modifier properties, should be in the mat_cache.parameters and could work independantly...
-    eye_iris_depth: bpy.props.FloatProperty(default=0.25, min=0.0, max=1.0, update=lambda s,c: update_modifier(s,c,"eye_iris_depth"))
-    eye_pupil_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_modifier(s,c,"eye_pupil_scale"))
 
     generation: bpy.props.StringProperty(default="None")
 
@@ -6105,9 +6183,9 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                                 col_1 = split.column()
                                 col_2 = split.column()
                                 col_1.label(text="Iris Depth")
-                                col_2.prop(props, "eye_iris_depth", text="", slider=True)
+                                col_2.prop(params, "eye_iris_depth", text="", slider=True)
                                 col_1.label(text="Pupil Scale")
-                                col_2.prop(props, "eye_pupil_scale", text="", slider=True)
+                                col_2.prop(params, "eye_pupil_scale", text="", slider=True)
                                 col_1.label(text="Eye IOR")
                                 col_2.prop(params, "eye_ior", text="", slider=True)
                                 col_1.label(text="Refraction Depth")
@@ -6181,6 +6259,16 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                                 col_2.prop(params, "eye_occlusion_tear_duct_position", text="", slider=True)
                                 col_1.label(text="Tear Duct Width")
                                 col_2.prop(params, "eye_occlusion_tear_duct_width", text="", slider=True)
+                                col_1.label(text="Displace")
+                                col_2.prop(params, "eye_occlusion_displace", text="", slider=True)
+                                col_1.label(text="Inner")
+                                col_2.prop(params, "eye_occlusion_inner", text="", slider=True)
+                                col_1.label(text="Outer")
+                                col_2.prop(params, "eye_occlusion_outer", text="", slider=True)
+                                col_1.label(text="Top")
+                                col_2.prop(params, "eye_occlusion_top", text="", slider=True)
+                                col_1.label(text="Bottom")
+                                col_2.prop(params, "eye_occlusion_bottom", text="", slider=True)
                             else:
                                 col_1.label(text="Occlusion Strength")
                                 col_2.prop(params, "eye_occlusion", text="", slider=True)
@@ -6195,9 +6283,14 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                             col_1 = split.column()
                             col_2 = split.column()
                             col_1.label(text="Tearline Alpha")
-                            col_2.prop(params, "eye_tearline_alpha", text="", slider=True)
+                            col_2.prop(params, "tearline_alpha", text="", slider=True)
                             col_1.label(text="Tearline Roughness")
-                            col_2.prop(params, "eye_tearline_roughness", text="", slider=True)
+                            col_2.prop(params, "tearline_roughness", text="", slider=True)
+                            col_1.label(text="Displace")
+                            col_2.prop(params, "tearline_displace", text="", slider=True)
+                            col_1.label(text="Inner")
+                            col_2.prop(params, "tearline_inner", text="", slider=True)
+
 
                 # Teeth settings
                 elif mat_cache.is_teeth():
@@ -6572,9 +6665,9 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                 col_1.label(text="Eye Brightness")
                 col_2.prop(params, "eye_basic_brightness", text="", slider=True)
                 col_1.label(text="Tearline Alpha")
-                col_2.prop(params, "eye_tearline_alpha", text="", slider=True)
+                col_2.prop(params, "tearline_alpha", text="", slider=True)
                 col_1.label(text="Tearline Roughness")
-                col_2.prop(params, "eye_tearline_roughness", text="", slider=True)
+                col_2.prop(params, "tearline_roughness", text="", slider=True)
                 col_1.separator()
                 col_2.separator()
                 col_1.label(text="Teeth Specular")
@@ -6722,8 +6815,8 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 meshes_selected += 1
-                clm = get_cloth_physics_mod(obj)
-                com = get_collision_physics_mod(obj)
+                clm = modutils.get_cloth_physics_mod(obj)
+                com = modutils.get_collision_physics_mod(obj)
                 if clm is None:
                     missing_cloth = True
                 else:
@@ -6738,7 +6831,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         obj = context.object
         mat = context_material(context)
-        edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
+        edit_mod, mix_mod = modutils.get_material_weight_map_mods(obj, mat)
 
         box = layout.box()
         box.label(text="Create / Remove", icon="PHYSICS")
