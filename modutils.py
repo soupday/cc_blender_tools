@@ -39,7 +39,6 @@ def move_mod_last(obj, mod):
 
 
 def move_mod_first(obj, mod):
-    print(mod)
     try:
         if bpy.context.view_layer.objects.active is not obj:
             obj.select_set(True)

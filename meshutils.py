@@ -15,6 +15,7 @@
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
+import math
 from . import utils
 from . import vars
 
@@ -23,8 +24,8 @@ def add_vertex_group(obj, name):
     if name not in obj.vertex_groups:
         return obj.vertex_groups.new(name = name)
     else:
-        group = obj.vertex_groups[name]
-        clear_vertex_group(group)
+        #group = obj.vertex_groups[name]
+        #clear_vertex_group(obj, group)
         return obj.vertex_groups[name]
 
 
@@ -101,8 +102,46 @@ def generate_tearline_vertex_groups(obj, mat_left, mat_right):
             if slot.material == mat_left:
                 vertex_group_inner_l.add([vertex.index], weight, 'REPLACE')
                 vertex_group_all_l.add([vertex.index], 1.0, 'REPLACE')
+
             elif slot.material == mat_right:
                 vertex_group_inner_r.add([vertex.index], weight, 'REPLACE')
                 vertex_group_all_r.add([vertex.index], 1.0, 'REPLACE')
+
+
+def generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    vertex_group_l = add_vertex_group(obj, prefs.eye_displacement_group + "_L")
+    vertex_group_r = add_vertex_group(obj, prefs.eye_displacement_group + "_R")
+
+    mesh = obj.data
+    ul = mesh.uv_layers[0]
+    for poly in mesh.polygons:
+        for loop_index in poly.loop_indices:
+            loop_entry = mesh.loops[loop_index]
+            vertex = mesh.vertices[loop_entry.vertex_index]
+            uv = ul.data[loop_entry.index].uv
+            x = uv.x - 0.5
+            y = uv.y - 0.5
+            radial = math.sqrt(x * x + y * y)
+
+            slot = obj.material_slots[poly.material_index]
+            if slot.material == mat_left:
+                iris_scale = cache_left.parameters.eye_iris_scale
+                iris_radius = cache_left.parameters.eye_iris_radius
+                depth_radius = cache_left.parameters.eye_iris_depth_radius
+                radius = iris_scale * iris_radius * depth_radius
+                #weight = 1.0 - utils.saturate(utils.smoothstep(0, radius, radial))
+                weight = utils.saturate(utils.remap(0, radius, 1.0, 0.0, radial))
+                vertex_group_l.add([vertex.index], weight, 'REPLACE')
+
+            elif slot.material == mat_right:
+                iris_scale = cache_right.parameters.eye_iris_scale
+                iris_radius = cache_right.parameters.eye_iris_radius
+                depth_radius = cache_right.parameters.eye_iris_depth_radius
+                radius = iris_scale * iris_radius * depth_radius
+                #weight = 1.0 - utils.saturate(utils.smoothstep(0, radius, radial))
+                weight = utils.saturate(utils.remap(0, radius, 1.0, 0.0, radial))
+                vertex_group_r.add([vertex.index], weight, 'REPLACE')
 
 

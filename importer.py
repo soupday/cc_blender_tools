@@ -2622,85 +2622,63 @@ def remove_eye_modifiers(obj):
                     obj.modifiers.remove(mod)
 
 
+def rebuild_eye_vertex_groups():
+    props = bpy.context.scene.CC3ImportProps
+
+    for cache in props.object_cache:
+        obj = cache.object
+        if cache.is_eye():
+            mat_left, mat_right = materials.get_left_right_eye_materials(obj)
+            cache_left = get_material_cache(mat_left)
+            cache_right = get_material_cache(mat_right)
+
+            print(mat_left.name + ":" + mat_right.name)
+
+            if cache_left and cache_right:
+                # Re-create the eye displacement group
+                meshutils.generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right)
+
+
 def add_eye_modifiers(obj):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     # fetch the eye materials (not the cornea materials)
-    mats = []
-    for mat in obj.data.materials:
-        if detect_eye_material(mat):
-            mats.append(mat)
+    mat_left, mat_right = materials.get_left_right_eye_materials(obj)
+    cache_left = get_material_cache(mat_left)
+    cache_right = get_material_cache(mat_right)
 
-    # reuse or append the eye displacement map
-    image_name = "CC3_Eye_Displacement_Map"
-    image = None
-    for i in bpy.data.images:
-        if i.name.startswith(vars.NODE_PREFIX + image_name) and i.size[0] > 0 and i.size[1] > 0:
-            image = i
-    if image is None:
-        image = linkutils.fetch_lib_image(image_name)
-        utils.log_info("Image: " + image.name + " appended from library")
-    else:
-        utils.log_info("Image: " + image.name + " already exists for eye displacement")
-
-    # reuse or create the eye displacement texture
-    tex_name = "Eye_Displacement_Texture"
-    tex = None
-    for t in bpy.data.textures:
-        if t.name.startswith(vars.NODE_PREFIX + tex_name):
-            tex = t
-    if tex is None:
-        tex = bpy.data.textures.new(utils.unique_name(tex_name), "IMAGE")
-        utils.log_info("Texture: " + tex.name + " created for eye displacement")
-    else:
-        utils.log_info("Texture: " + tex.name + " already exists for eye displacement")
-
-    tex.image = image
+    if cache_left is None or cache_right is None:
+        return
 
     # Create the eye displacement group
-    displace_group = prefs.eye_displacement_group
-    if displace_group not in obj.vertex_groups:
-        displace_vertex_group = obj.vertex_groups.new(name = displace_group)
-    else:
-        displace_vertex_group = obj.vertex_groups[displace_group]
+    meshutils.generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right)
 
-    # The displacement group should contain only those verteces affected by the material, default weight to 0.0
-    meshutils.clear_vertex_group(obj, displace_vertex_group)
-    for mat in mats:
-        mat_verts = get_material_vertices(obj, mat)
-        displace_vertex_group.add(mat_verts, 0.0, 'ADD')
-
-    # re-create create the Vertex Weight Edit modifier and the Vertex Weight Mix modifer
     remove_eye_modifiers(obj)
-    edit_mod = obj.modifiers.new(utils.unique_name("Eye_WeightEdit"), "VERTEX_WEIGHT_EDIT")
-    displace_mod = obj.modifiers.new(utils.unique_name("Eye_Displace"), "DISPLACE")
-    warp_mod = obj.modifiers.new(utils.unique_name("Eye_UV_Warp"), "UV_WARP")
+    displace_mod_l = obj.modifiers.new(utils.unique_name("Eye_Displace_L"), "DISPLACE")
+    displace_mod_r = obj.modifiers.new(utils.unique_name("Eye_Displace_R"), "DISPLACE")
+    warp_mod_l = obj.modifiers.new(utils.unique_name("Eye_UV_Warp_L"), "UV_WARP")
+    warp_mod_r = obj.modifiers.new(utils.unique_name("Eye_UV_Warp_R"), "UV_WARP")
 
-    edit_mod.mask_texture = tex
-    edit_mod.use_add = False
-    edit_mod.use_remove = False
-    edit_mod.add_threshold = 0.01
-    edit_mod.remove_threshold = 0.01
-    edit_mod.vertex_group = displace_group
-    edit_mod.default_weight = 0
-    edit_mod.falloff_type = 'LINEAR'
-    edit_mod.invert_falloff = True
-    edit_mod.mask_constant = 1
-    edit_mod.mask_tex_mapping = 'UV'
-    edit_mod.mask_tex_use_channel = 'INT'
+    modutils.init_displacement_mod(obj, displace_mod_l, prefs.eye_displacement_group + "_L", "Y", cache_left.parameters.eye_iris_depth)
+    modutils.init_displacement_mod(obj, displace_mod_r, prefs.eye_displacement_group + "_R", "Y", cache_right.parameters.eye_iris_depth)
 
-    modutils.init_displacement_mod(obj, displace_mod, displace_group, "Y", 0.0)
+    warp_mod_l.center = (0.5, 0.5)
+    warp_mod_l.axis_u = "X"
+    warp_mod_l.axis_v = "Y"
+    warp_mod_l.vertex_group = prefs.eye_displacement_group + "_L"
+    warp_mod_l.scale = (1.0 / cache_left.parameters.eye_pupil_scale, 1.0 / cache_left.parameters.eye_pupil_scale)
 
-    warp_mod.center = (0.5, 0.5)
-    warp_mod.axis_u = "X"
-    warp_mod.axis_v = "Y"
-    warp_mod.vertex_group = displace_group
-    warp_mod.scale = (1.0 / 1.0, 1.0 / 1.0)
+    warp_mod_r.center = (0.5, 0.5)
+    warp_mod_r.axis_u = "X"
+    warp_mod_r.axis_v = "Y"
+    warp_mod_r.vertex_group = prefs.eye_displacement_group + "_R"
+    warp_mod_r.scale = (1.0 / cache_right.parameters.eye_pupil_scale, 1.0 / cache_right.parameters.eye_pupil_scale)
 
-    modutils.move_mod_first(obj, warp_mod)
-    modutils.move_mod_first(obj, displace_mod)
-    modutils.move_mod_first(obj, edit_mod)
+    modutils.move_mod_first(obj, warp_mod_l)
+    modutils.move_mod_first(obj, displace_mod_l)
+    modutils.move_mod_first(obj, warp_mod_r)
+    modutils.move_mod_first(obj, displace_mod_r)
 
     utils.log_info("Eye Displacement modifiers applied to: " + obj.name)
 
@@ -4985,6 +4963,11 @@ def update_property(self, context, prop_name, update_mode = None):
                                 set_linked_property(prop_name, active_cache, cache)
                                 update_advanced_material(mat, cache, matrix)
 
+        # these properties will cause the eye displacement vertex group to change...
+        if prop_name in ["eye_iris_depth_radius", "eye_iris_scale", "eye_iris_radius"]:
+            # eye_iris_depth_radius has no material node property, but it needs a prop_matric entry so it fires set_linked_property above...
+            rebuild_eye_vertex_groups()
+
     elif props.setup_mode == "BASIC":
 
         for cache in props.material_cache:
@@ -5453,6 +5436,7 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
 
     eye_iris_depth: bpy.props.FloatProperty(default=0.25, min=0.0, max=1.0, update=lambda s,c: update_modifier(s,c,"eye_iris_depth"))
+    eye_iris_depth_radius: bpy.props.FloatProperty(default=0.8, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_depth_radius"))
     eye_pupil_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_modifier(s,c,"eye_pupil_scale"))
 
     # Eye Occlusion Basic
@@ -6184,6 +6168,8 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                                 col_2 = split.column()
                                 col_1.label(text="Iris Depth")
                                 col_2.prop(params, "eye_iris_depth", text="", slider=True)
+                                col_1.label(text="Iris Depth Radius")
+                                col_2.prop(params, "eye_iris_depth_radius", text="", slider=True)
                                 col_1.label(text="Pupil Scale")
                                 col_2.prop(params, "eye_pupil_scale", text="", slider=True)
                                 col_1.label(text="Eye IOR")

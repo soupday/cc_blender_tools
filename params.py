@@ -578,6 +578,13 @@ PROP_MATRIX = [
                     [1, "default_opacity"],
                 ],
             },
+
+            # dummy entry so that 'eye_iris_depth_radius' wil update linked materials...
+            {   "name": "_CC3IID_DO_NOT_MATCH_",
+                "inputs": [
+                    [0, "eye_iris_depth_radius"],
+                ],
+            },
         ],
     },
 ]
@@ -587,8 +594,8 @@ MODIFIER_MATRIX = [
     [ "eye_iris_depth", "EYE_RIGHT", "DISPLACE", "Eye_Displace_R", "mod.strength = parameters.eye_iris_depth"],
     [ "eye_pupil_scale", "EYE_RIGHT", "UV_WARP", "Eye_UV_Warp_R", "mod.scale = (1.0 / parameters.eye_pupil_scale, 1.0 / parameters.eye_pupil_scale)" ],
 
-    [ "eye_iris_depth", "EYE_LEFT", "DISPLACE", "Eye_Displace_L", "LR", "mod.strength = parameters.eye_iris_depth"],
-    [ "eye_pupil_scale", "EYE_LEFT", "UV_WARP", "Eye_UV_Warp_L", "LR", "mod.scale = (1.0 / parameters.eye_pupil_scale, 1.0 / parameters.eye_pupil_scale)" ],
+    [ "eye_iris_depth", "EYE_LEFT", "DISPLACE", "Eye_Displace_L", "mod.strength = parameters.eye_iris_depth"],
+    [ "eye_pupil_scale", "EYE_LEFT", "UV_WARP", "Eye_UV_Warp_L", "mod.scale = (1.0 / parameters.eye_pupil_scale, 1.0 / parameters.eye_pupil_scale)" ],
 
     [ "eye_occlusion_displace", "OCCLUSION_RIGHT", "DISPLACE", "Occlusion_Displace_All_R", "mod.strength = parameters.eye_occlusion_displace"],
     [ "eye_occlusion_inner", "OCCLUSION_RIGHT", "DISPLACE", "Occlusion_Displace_Inner_R", "mod.strength = parameters.eye_occlusion_inner"],

@@ -35,6 +35,22 @@ def get_left_right_materials(obj):
 
     return left, right
 
+
+def get_left_right_eye_materials(obj):
+    """Eye, (not cornea)"""
+    left = None
+    right = None
+
+    for idx in range(0, len(obj.material_slots)):
+        slot = obj.material_slots[idx]
+        name = slot.name.lower()
+        if "std_eye_l" in name:
+            left = slot.material
+        elif "std_eye_r" in name:
+            right = slot.material
+
+    return left, right
+
 def is_left_material(mat):
     if "_l" in mat.name.lower():
         return True

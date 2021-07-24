@@ -97,7 +97,7 @@ def object_has_material(obj, name):
     return False
 
 
-def clamp(x, min, max):
+def clamp(x, min = 0.0, max = 1.0):
     if x < min:
         x = min
     if x > max:
@@ -108,6 +108,14 @@ def clamp(x, min, max):
 def smoothstep(edge0, edge1, x):
     x = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0)
     return x * x * (3 - 2 * x)
+
+
+def saturate(x):
+    return clamp(x)
+
+
+def remap(edge0, edge1, min, max, x):
+    return min + ((x - edge0) * (max - min) / (edge1 - edge0))
 
 
 def count_maps(*maps):
