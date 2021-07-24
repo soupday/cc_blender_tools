@@ -96,7 +96,7 @@ def generate_tearline_vertex_groups(obj, mat_left, mat_right):
             loop_entry = mesh.loops[loop_index]
             vertex = mesh.vertices[loop_entry.vertex_index]
             uv = ul.data[loop_entry.index].uv
-            weight = 1.0 - utils.smoothstep(0, 0.05, abs(uv.x - 0.5))
+            weight = 1.0 - utils.smoothstep(0, 0.1, abs(uv.x - 0.5))
 
             slot = obj.material_slots[poly.material_index]
             if slot.material == mat_left:

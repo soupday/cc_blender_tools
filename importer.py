@@ -5190,8 +5190,8 @@ def reset_material_parameters(cache):
 
     params.tearline_alpha = 0.05
     params.tearline_roughness = 0.15
-    params.tearline_displace = 0
-    params.tearline_inner = 0.02
+    params.tearline_displace = 0.1
+    params.tearline_inner = 0.0
 
 
     params.teeth_ao = 1.0
@@ -5463,17 +5463,17 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     eye_occlusion_2nd_top_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_2nd_top_max"))
     eye_occlusion_tear_duct_position: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_tear_duct_position"))
     eye_occlusion_tear_duct_width: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion_tear_duct_width"))
-    eye_occlusion_inner: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"eye_occlusion_inner"))
-    eye_occlusion_outer: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"eye_occlusion_outer"))
-    eye_occlusion_top: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"eye_occlusion_top"))
-    eye_occlusion_bottom: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"eye_occlusion_bottom"))
-    eye_occlusion_displace: bpy.props.FloatProperty(default=0.02, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"eye_occlusion_displace"))
+    eye_occlusion_inner: bpy.props.FloatProperty(default=0, min=-0.1, max=0.1, update=lambda s,c: update_modifier(s,c,"eye_occlusion_inner"))
+    eye_occlusion_outer: bpy.props.FloatProperty(default=0, min=-0.1, max=0.1, update=lambda s,c: update_modifier(s,c,"eye_occlusion_outer"))
+    eye_occlusion_top: bpy.props.FloatProperty(default=0, min=-0.1, max=0.1, update=lambda s,c: update_modifier(s,c,"eye_occlusion_top"))
+    eye_occlusion_bottom: bpy.props.FloatProperty(default=0, min=-0.1, max=0.1, update=lambda s,c: update_modifier(s,c,"eye_occlusion_bottom"))
+    eye_occlusion_displace: bpy.props.FloatProperty(default=0.02, min=-0.1, max=0.1, update=lambda s,c: update_modifier(s,c,"eye_occlusion_displace"))
 
     # Tearline
     tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"tearline_alpha"))
     tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"tearline_roughness"))
     tearline_inner: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"tearline_inner"))
-    tearline_displace: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"tearline_displace"))
+    tearline_displace: bpy.props.FloatProperty(default=0.1, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"tearline_displace"))
 
     # Teeth
     teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_ao"))
@@ -6209,14 +6209,17 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                             col_2 = split.column()
 
                             if (prefs.use_advanced_eye_occlusion):
-                                col_1.label(text="Strength")
-                                col_2.prop(params, "eye_occlusion_strength", text="", slider=True)
-                                col_1.label(text="Strength Secondary")
-                                col_2.prop(params, "eye_occlusion_2nd_strength", text="", slider=True)
+
                                 col_1.label(text="Color")
                                 col_2.prop(params, "eye_occlusion_color", text="", slider=True)
                                 col_1.label(text="Power")
                                 col_2.prop(params, "eye_occlusion_power", text="", slider=True)
+
+                                col_1.separator()
+                                col_2.separator()
+
+                                col_1.label(text="Strength")
+                                col_2.prop(params, "eye_occlusion_strength", text="", slider=True)
                                 col_1.label(text="Top Min")
                                 col_2.prop(params, "eye_occlusion_top_min", text="", slider=True)
                                 col_1.label(text="Top Max")
@@ -6237,14 +6240,28 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                                 col_2.prop(params, "eye_occlusion_outer_min", text="", slider=True)
                                 col_1.label(text="Outer Max")
                                 col_2.prop(params, "eye_occlusion_outer_max", text="", slider=True)
+
+                                col_1.separator()
+                                col_2.separator()
+
+                                col_1.label(text="Strength Secondary")
+                                col_2.prop(params, "eye_occlusion_2nd_strength", text="", slider=True)
                                 col_1.label(text="2nd Top Min")
                                 col_2.prop(params, "eye_occlusion_2nd_top_min", text="", slider=True)
                                 col_1.label(text="2nd Top Max")
                                 col_2.prop(params, "eye_occlusion_2nd_top_max", text="", slider=True)
+
+                                col_1.separator()
+                                col_2.separator()
+
                                 col_1.label(text="Tear Duct Position")
                                 col_2.prop(params, "eye_occlusion_tear_duct_position", text="", slider=True)
                                 col_1.label(text="Tear Duct Width")
                                 col_2.prop(params, "eye_occlusion_tear_duct_width", text="", slider=True)
+
+                                col_1.separator()
+                                col_2.separator()
+
                                 col_1.label(text="Displace")
                                 col_2.prop(params, "eye_occlusion_displace", text="", slider=True)
                                 col_1.label(text="Inner")
