@@ -5822,6 +5822,7 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
             if fake_drop_down(box.row(), "Import Details", "stage1_details", props.stage1_details):
                 box.label(text="Name: " + props.import_name)
                 box.label(text="Type: " + props.import_type.upper())
+                box.label(text="Generation: " + props.generation)
                 if props.import_has_key:
                     box.label(text="Key File: Yes")
                 else:
