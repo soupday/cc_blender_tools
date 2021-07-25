@@ -15,37 +15,47 @@
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
+import math
 from . import utils
-
-OCCLUSION_GROUP_INNER = "CC_EyeOcclusion_Inner"
-OCCLUSION_GROUP_OUTER = "CC_EyeOcclusion_Outer"
-OCCLUSION_GROUP_TOP = "CC_EyeOcclusion_Top"
-OCCLUSION_GROUP_BOTTOM = "CC_EyeOcclusion_Bottom"
-
-TEARLINE_GROUP_INNER = "CC_Tearline_Inner"
+from . import vars
 
 
-def generate_eye_occlusion_vertex_groups(obj):
-
-    if OCCLUSION_GROUP_INNER not in obj.vertex_groups:
-        vertex_group_inner = obj.vertex_groups.new(name = OCCLUSION_GROUP_INNER)
+def add_vertex_group(obj, name):
+    if name not in obj.vertex_groups:
+        return obj.vertex_groups.new(name = name)
     else:
-        vertex_group_inner = obj.vertex_groups[OCCLUSION_GROUP_INNER]
+        #group = obj.vertex_groups[name]
+        #clear_vertex_group(obj, group)
+        return obj.vertex_groups[name]
 
-    if OCCLUSION_GROUP_OUTER not in obj.vertex_groups:
-        vertex_group_outer = obj.vertex_groups.new(name = OCCLUSION_GROUP_OUTER)
-    else:
-        vertex_group_outer = obj.vertex_groups[OCCLUSION_GROUP_OUTER]
 
-    if OCCLUSION_GROUP_TOP not in obj.vertex_groups:
-        vertex_group_top = obj.vertex_groups.new(name = OCCLUSION_GROUP_TOP)
-    else:
-        vertex_group_top = obj.vertex_groups[OCCLUSION_GROUP_TOP]
+def clear_vertex_group(obj, vertex_group):
+    all_verts = []
+    for v in obj.data.vertices:
+        all_verts.append(v.index)
+    vertex_group.remove(all_verts)
 
-    if OCCLUSION_GROUP_BOTTOM not in obj.vertex_groups:
-        vertex_group_bottom = obj.vertex_groups.new(name = OCCLUSION_GROUP_BOTTOM)
-    else:
-        vertex_group_bottom = obj.vertex_groups[OCCLUSION_GROUP_BOTTOM]
+
+def set_vertex_group(obj, vertex_group, value):
+    all_verts = []
+    for v in obj.data.vertices:
+        all_verts.append(v.index)
+    vertex_group.add(all_verts, value, 'ADD')
+
+
+def generate_eye_occlusion_vertex_groups(obj, mat_left, mat_right):
+
+    vertex_group_inner_l = add_vertex_group(obj, vars.OCCLUSION_GROUP_INNER + "_L")
+    vertex_group_outer_l = add_vertex_group(obj, vars.OCCLUSION_GROUP_OUTER + "_L")
+    vertex_group_top_l = add_vertex_group(obj, vars.OCCLUSION_GROUP_TOP + "_L")
+    vertex_group_bottom_l = add_vertex_group(obj, vars.OCCLUSION_GROUP_BOTTOM + "_L")
+    vertex_group_all_l = add_vertex_group(obj, vars.OCCLUSION_GROUP_ALL + "_L")
+
+    vertex_group_inner_r = add_vertex_group(obj, vars.OCCLUSION_GROUP_INNER + "_R")
+    vertex_group_outer_r = add_vertex_group(obj, vars.OCCLUSION_GROUP_OUTER + "_R")
+    vertex_group_top_r = add_vertex_group(obj, vars.OCCLUSION_GROUP_TOP + "_R")
+    vertex_group_bottom_r = add_vertex_group(obj, vars.OCCLUSION_GROUP_BOTTOM + "_R")
+    vertex_group_all_r = add_vertex_group(obj, vars.OCCLUSION_GROUP_ALL + "_R")
 
     mesh = obj.data
     ul = mesh.uv_layers[0]
@@ -56,18 +66,28 @@ def generate_eye_occlusion_vertex_groups(obj):
             vertex = mesh.vertices[loop_entry.vertex_index]
             uv = ul.data[loop_entry.index].uv
             index[0] = vertex.index
-            vertex_group_inner.add(index, uv.x, 'REPLACE')
-            vertex_group_outer.add(index, 1.0 - uv.x, 'REPLACE')
-            vertex_group_top.add(index, uv.y, 'REPLACE')
-            vertex_group_bottom.add(index, 1.0 - uv.y, 'REPLACE')
+
+            slot = obj.material_slots[poly.material_index]
+            if slot.material == mat_left:
+                vertex_group_inner_l.add(index, uv.x, 'REPLACE')
+                vertex_group_outer_l.add(index, 1.0 - uv.x, 'REPLACE')
+                vertex_group_top_l.add(index, uv.y, 'REPLACE')
+                vertex_group_bottom_l.add(index, 1.0 - uv.y, 'REPLACE')
+                vertex_group_all_l.add([vertex.index], 1.0, 'REPLACE')
+            elif slot.material == mat_right:
+                vertex_group_inner_r.add(index, uv.x, 'REPLACE')
+                vertex_group_outer_r.add(index, 1.0 - uv.x, 'REPLACE')
+                vertex_group_top_r.add(index, uv.y, 'REPLACE')
+                vertex_group_bottom_r.add(index, 1.0 - uv.y, 'REPLACE')
+                vertex_group_all_r.add([vertex.index], 1.0, 'REPLACE')
 
 
-def generate_tearline_vertex_groups(obj):
+def generate_tearline_vertex_groups(obj, mat_left, mat_right):
 
-    if TEARLINE_GROUP_INNER not in obj.vertex_groups:
-        vertex_group_inner = obj.vertex_groups.new(name = TEARLINE_GROUP_INNER)
-    else:
-        vertex_group_inner = obj.vertex_groups[TEARLINE_GROUP_INNER]
+    vertex_group_inner_l = add_vertex_group(obj, vars.TEARLINE_GROUP_INNER + "_L")
+    vertex_group_all_l = add_vertex_group(obj, vars.TEARLINE_GROUP_ALL + "_L")
+    vertex_group_inner_r = add_vertex_group(obj, vars.TEARLINE_GROUP_INNER + "_R")
+    vertex_group_all_r = add_vertex_group(obj, vars.TEARLINE_GROUP_ALL + "_R")
 
     mesh = obj.data
     ul = mesh.uv_layers[0]
@@ -76,5 +96,52 @@ def generate_tearline_vertex_groups(obj):
             loop_entry = mesh.loops[loop_index]
             vertex = mesh.vertices[loop_entry.vertex_index]
             uv = ul.data[loop_entry.index].uv
-            weight = utils.smoothstep(0, 0.05, abs(uv.x - 0.5))
-            vertex_group_inner.add([vertex.index], weight, 'REPLACE')
+            weight = 1.0 - utils.smoothstep(0, 0.1, abs(uv.x - 0.5))
+
+            slot = obj.material_slots[poly.material_index]
+            if slot.material == mat_left:
+                vertex_group_inner_l.add([vertex.index], weight, 'REPLACE')
+                vertex_group_all_l.add([vertex.index], 1.0, 'REPLACE')
+
+            elif slot.material == mat_right:
+                vertex_group_inner_r.add([vertex.index], weight, 'REPLACE')
+                vertex_group_all_r.add([vertex.index], 1.0, 'REPLACE')
+
+
+def generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    vertex_group_l = add_vertex_group(obj, prefs.eye_displacement_group + "_L")
+    vertex_group_r = add_vertex_group(obj, prefs.eye_displacement_group + "_R")
+
+    mesh = obj.data
+    ul = mesh.uv_layers[0]
+    for poly in mesh.polygons:
+        for loop_index in poly.loop_indices:
+            loop_entry = mesh.loops[loop_index]
+            vertex = mesh.vertices[loop_entry.vertex_index]
+            uv = ul.data[loop_entry.index].uv
+            x = uv.x - 0.5
+            y = uv.y - 0.5
+            radial = math.sqrt(x * x + y * y)
+
+            slot = obj.material_slots[poly.material_index]
+            if slot.material == mat_left:
+                iris_scale = cache_left.parameters.eye_iris_scale
+                iris_radius = cache_left.parameters.eye_iris_radius
+                depth_radius = cache_left.parameters.eye_iris_depth_radius
+                radius = iris_scale * iris_radius * depth_radius
+                #weight = 1.0 - utils.saturate(utils.smoothstep(0, radius, radial))
+                weight = utils.saturate(utils.remap(0, radius, 1.0, 0.0, radial))
+                vertex_group_l.add([vertex.index], weight, 'REPLACE')
+
+            elif slot.material == mat_right:
+                iris_scale = cache_right.parameters.eye_iris_scale
+                iris_radius = cache_right.parameters.eye_iris_radius
+                depth_radius = cache_right.parameters.eye_iris_depth_radius
+                radius = iris_scale * iris_radius * depth_radius
+                #weight = 1.0 - utils.saturate(utils.smoothstep(0, radius, radial))
+                weight = utils.saturate(utils.remap(0, radius, 1.0, 0.0, radial))
+                vertex_group_r.add([vertex.index], weight, 'REPLACE')
+
+

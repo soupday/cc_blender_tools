@@ -18,6 +18,8 @@ import bpy
 from . import utils
 
 
+# Modifier order
+#
 
 def move_mod_last(obj, mod):
     try:
@@ -37,7 +39,6 @@ def move_mod_last(obj, mod):
 
 
 def move_mod_first(obj, mod):
-    print(mod)
     try:
         if bpy.context.view_layer.objects.active is not obj:
             obj.select_set(True)
@@ -51,3 +52,59 @@ def move_mod_first(obj, mod):
                 return
     except Exception as e:
         utils.log_error("Unable to move to first, modifier: " + mod.name, e)
+
+
+# Physics modifiers
+#
+
+def get_cloth_physics_mod(obj):
+    if obj is not None:
+        for mod in obj.modifiers:
+            if mod.type == "CLOTH":
+                return mod
+    return None
+
+
+def get_collision_physics_mod(obj):
+    if obj is not None:
+        for mod in obj.modifiers:
+            if mod.type == "COLLISION":
+                return mod
+    return None
+
+
+def get_weight_map_mods(obj):
+    edit_mods = []
+    mix_mods = []
+    if obj is not None:
+        for mod in obj.modifiers:
+            if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name:
+                edit_mods.append(mod)
+            if mod.type == "VERTEX_WEIGHT_MIX" and vars.NODE_PREFIX in mod.name:
+                mix_mods.append(mod)
+    return edit_mods, mix_mods
+
+
+def get_material_weight_map_mods(obj, mat):
+    edit_mod = None
+    mix_mod = None
+    if obj is not None and mat is not None:
+        for mod in obj.modifiers:
+            if mod.type == "VERTEX_WEIGHT_EDIT" and (vars.NODE_PREFIX + mat.name + "_WeightEdit") in mod.name:
+                edit_mod = mod
+            if mod.type == "VERTEX_WEIGHT_MIX" and (vars.NODE_PREFIX + mat.name + "_WeightMix") in mod.name:
+                mix_mod = mod
+    return edit_mod, mix_mod
+
+
+# Displacement mods
+#
+
+def init_displacement_mod(obj, mod, group_name, direction, strength):
+    if mod and obj:
+        if group_name is not None:
+            mod.vertex_group = group_name
+        mod.mid_level = 0
+        mod.strength = strength
+        mod.direction = direction
+        mod.space = "LOCAL"

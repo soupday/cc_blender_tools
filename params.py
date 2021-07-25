@@ -538,8 +538,8 @@ PROP_MATRIX = [
 
             {   "name": "eye_tearline_shader",
                 "inputs": [
-                    ["Alpha", "eye_tearline_alpha"],
-                    ["Roughness", "eye_tearline_roughness"],
+                    ["Alpha", "tearline_alpha"],
+                    ["Roughness", "tearline_roughness"],
                 ],
             },
 
@@ -578,8 +578,43 @@ PROP_MATRIX = [
                     [1, "default_opacity"],
                 ],
             },
+
+            # dummy entry so that 'eye_iris_depth_radius' wil update linked materials...
+            {   "name": "_CC3IID_DO_NOT_MATCH_",
+                "inputs": [
+                    [0, "eye_iris_depth_radius"],
+                ],
+            },
         ],
     },
+]
+
+# property_name, material_type, modifer_type, modifer_name, eval_code
+MODIFIER_MATRIX = [
+    [ "eye_iris_depth", "EYE_RIGHT", "DISPLACE", "Eye_Displace_R", "mod.strength = parameters.eye_iris_depth"],
+    [ "eye_pupil_scale", "EYE_RIGHT", "UV_WARP", "Eye_UV_Warp_R", "mod.scale = (1.0 / parameters.eye_pupil_scale, 1.0 / parameters.eye_pupil_scale)" ],
+
+    [ "eye_iris_depth", "EYE_LEFT", "DISPLACE", "Eye_Displace_L", "mod.strength = parameters.eye_iris_depth"],
+    [ "eye_pupil_scale", "EYE_LEFT", "UV_WARP", "Eye_UV_Warp_L", "mod.scale = (1.0 / parameters.eye_pupil_scale, 1.0 / parameters.eye_pupil_scale)" ],
+
+    [ "eye_occlusion_displace", "OCCLUSION_RIGHT", "DISPLACE", "Occlusion_Displace_All_R", "mod.strength = parameters.eye_occlusion_displace"],
+    [ "eye_occlusion_inner", "OCCLUSION_RIGHT", "DISPLACE", "Occlusion_Displace_Inner_R", "mod.strength = parameters.eye_occlusion_inner"],
+    [ "eye_occlusion_outer", "OCCLUSION_RIGHT", "DISPLACE", "Occlusion_Displace_Outer_R", "mod.strength = parameters.eye_occlusion_outer"],
+    [ "eye_occlusion_top", "OCCLUSION_RIGHT", "DISPLACE", "Occlusion_Displace_Top_R", "mod.strength = parameters.eye_occlusion_top"],
+    [ "eye_occlusion_bottom", "OCCLUSION_RIGHT", "DISPLACE", "Occlusion_Displace_Bottom_R", "mod.strength = parameters.eye_occlusion_bottom"],
+
+    [ "eye_occlusion_displace", "OCCLUSION_LEFT", "DISPLACE", "Occlusion_Displace_All_L", "mod.strength = parameters.eye_occlusion_displace"],
+    [ "eye_occlusion_inner", "OCCLUSION_LEFT", "DISPLACE", "Occlusion_Displace_Inner_L", "mod.strength = parameters.eye_occlusion_inner"],
+    [ "eye_occlusion_outer", "OCCLUSION_LEFT", "DISPLACE", "Occlusion_Displace_Outer_L", "mod.strength = parameters.eye_occlusion_outer"],
+    [ "eye_occlusion_top", "OCCLUSION_LEFT", "DISPLACE", "Occlusion_Displace_Top_L", "mod.strength = parameters.eye_occlusion_top"],
+    [ "eye_occlusion_bottom", "OCCLUSION_LEFT", "DISPLACE", "Occlusion_Displace_Bottom_L", "mod.strength = parameters.eye_occlusion_bottom"],
+
+    [ "tearline_displace", "TEARLINE_RIGHT", "DISPLACE", "Tearline_Displace_All_R", "mod.strength = -parameters.tearline_displace"],
+    [ "tearline_inner", "TEARLINE_RIGHT", "DISPLACE", "Tearline_Displace_Inner_R", "mod.strength = -parameters.tearline_inner"],
+
+    [ "tearline_displace", "TEARLINE_LEFT", "DISPLACE", "Tearline_Displace_All_L", "mod.strength = -parameters.tearline_displace"],
+    [ "tearline_inner", "TEARLINE_LEFT", "DISPLACE", "Tearline_Displace_Inner_L", "mod.strength = -parameters.tearline_inner"],
+
 ]
 
 BASIC_PROPS = [
@@ -602,8 +637,8 @@ BASIC_PROPS = [
     ["OUT", "Value",    "", "hair_bump", "parameters.hair_bump / 1000"],
     ["OUT", "Value",    "", "default_ao"],
     ["OUT", "Value",    "", "default_bump", "parameters.default_bump / 1000"],
-    ["IN", "Alpha",     "eye_tearline_shader", "eye_tearline_alpha"],
-    ["IN", "Roughness", "eye_tearline_shader", "eye_tearline_roughness"],
+    ["IN", "Alpha",     "eye_tearline_shader", "tearline_alpha"],
+    ["IN", "Roughness", "eye_tearline_shader", "tearline_roughness"],
 ]
 
 

@@ -17,6 +17,8 @@
 import bpy
 import os
 import time
+
+from bpy.types import XrSessionSettings
 from . import vars
 
 timer = 0
@@ -97,7 +99,15 @@ def object_has_material(obj, name):
     return False
 
 
-def clamp(x, min, max):
+def obj_exists(obj):
+    try:
+        name = obj.name
+        return True
+    except:
+        return False
+
+
+def clamp(x, min = 0.0, max = 1.0):
     if x < min:
         x = min
     if x > max:
@@ -108,6 +118,67 @@ def clamp(x, min, max):
 def smoothstep(edge0, edge1, x):
     x = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0)
     return x * x * (3 - 2 * x)
+
+
+def saturate(x):
+    if x < 0.0:
+        x = 0.0
+    if x > 1.0:
+        x = 1.0
+    return x
+
+
+def remap(edge0, edge1, min, max, x):
+    return min + ((x - edge0) * (max - min) / (edge1 - edge0))
+
+
+def lerp(min, max, t):
+    return min + (max - min) * t
+
+
+def inverse_lerp(min, max, value):
+    return (value - min) / (max - min)
+
+
+def lerp_color(c0, c1, t):
+    return (lerp(c0[0], c1[0], t),
+            lerp(c0[1], c1[1], t),
+            lerp(c0[2], c1[2], t),
+            lerp(c0[3], c1[3], t))
+
+
+def linear_to_srgbx(x):
+    if x < 0.0:
+        return 0.0
+    elif x < 0.0031308:
+        return x * 12.92
+    elif x < 1.0:
+        return 1.055 * pow(x, 1.0 / 2.4) - 0.055
+    else:
+        return pow(x, 5.0 / 11.0)
+
+
+def linear_to_srgb(color):
+    return (linear_to_srgbx(color[0]),
+            linear_to_srgbx(color[1]),
+            linear_to_srgbx(color[2]),
+            color[3])
+
+
+def srgb_to_linearx(x):
+    if x <= 0.04045:
+        return x / 12.95
+    elif x < 1.0:
+        return pow((x + 0.055) / 1.055, 2.4)
+    else:
+        return pow(x, 2.2)
+
+
+def srgb_to_linear(color):
+    return (srgb_to_linearx(color[0]),
+            srgb_to_linearx(color[1]),
+            srgb_to_linearx(color[2]),
+            color[3])
 
 
 def count_maps(*maps):
