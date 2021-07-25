@@ -4554,6 +4554,14 @@ def find_pose_bone(*name):
     return None
 
 
+def find_pose_bone_in_armature(arm, *name):
+    if (arm.type == "ARMATURE"):
+        for n in name:
+            if n in arm.pose.bones:
+                return arm.pose.bones[n]
+    return None
+
+
 def open_mouth_update(self, context):
     props = bpy.context.scene.CC3ImportProps
 
@@ -5332,22 +5340,19 @@ def detect_generation(objects):
 
     for arm in objects:
         if arm.type == "ARMATURE":
-            if find_pose_bone(arm, "RootNode_0_", "RL_BoneRoot"):
+            if find_pose_bone_in_armature(arm, "RootNode_0_", "RL_BoneRoot"):
                 return "ACTORCORE"
-            elif find_pose_bone(arm, "CC_Base_L_Pinky3"):
+            elif find_pose_bone_in_armature(arm, "CC_Base_L_Pinky3"):
                 return "G3"
-            elif find_pose_bone(arm, "pinky_03_l"):
+            elif find_pose_bone_in_armature(arm, "pinky_03_l"):
                 return "GAMEBASE"
-            elif find_pose_bone(arm, "CC_Base_L_Finger42"):
+            elif find_pose_bone_in_armature(arm, "CC_Base_L_Finger42"):
                 return "G1"
 
     for obj in objects:
         if (obj.type == "MESH"):
             name = obj.name.lower()
             if "cc_game_body" in name or "cc_game_tongue" in name:
-                if utils.object_has_material(obj, "character"):
-                    return "ACTORCORE"
-                else:
                     return "GAMEBASE"
             elif "cc_base_body" in name:
                 if utils.object_has_material(obj, "ga_skin_body"):
@@ -5356,8 +5361,6 @@ def detect_generation(objects):
                     return "G3"
                 elif utils.object_has_material(obj, "skin_body"):
                     return "G1"
-                elif utils.object_has_material(obj, "character"):
-                    return "ACTORCORE"
 
     return "UNKNOWN"
 
