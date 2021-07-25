@@ -27,6 +27,11 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 0.7.1
+- Back ported the more advanced Eye Occlusion shader from the Unity HDRP setup.
+- Added displacement modifiers & parameters to Eye Occlusion and Tearline objects.
+- Initial support for ActorCore models type C/D/D+.
+
 ### 0.6.3
 - Fixed 'Export as accessory' correctly exporting as .obj when character was imported from an .obj file.
   (And not exporting as .fbx with the wrong file extension)
