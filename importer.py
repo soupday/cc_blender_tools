@@ -2632,8 +2632,6 @@ def rebuild_eye_vertex_groups():
             cache_left = get_material_cache(mat_left)
             cache_right = get_material_cache(mat_right)
 
-            print(mat_left.name + ":" + mat_right.name)
-
             if cache_left and cache_right:
                 # Re-create the eye displacement group
                 meshutils.generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right)
@@ -2781,56 +2779,73 @@ def clean_colletion(collection):
         if (item.use_fake_user and item.users == 1) or item.users == 0:
             collection.remove(item)
 
+
 def delete_object(obj):
-    if obj is None:
+    if obj is None or not utils.obj_exists(obj):
         return
 
     # remove any armature actions
-    if obj.type == "ARMATURE":
-        if obj.animation_data is not None:
-            if obj.animation_data.action is not None:
-                bpy.data.actions.remove(obj.animation_data.action)
+    try:
+        if obj.type == "ARMATURE":
+            if obj.animation_data is not None:
+                if obj.animation_data.action is not None:
+                    bpy.data.actions.remove(obj.animation_data.action)
+    except:
+        utils.log_warn("Something went wrong removing armature actions...")
 
     # remove any shape key actions and remove the shape keys
-    if obj.type == "MESH":
-        if obj.data.shape_keys is not None:
-            if obj.data.shape_keys.animation_data is not None:
-                if obj.data.shape_keys.animation_data.action is not None:
-                    bpy.data.actions.remove(obj.data.shape_keys.animation_data.action)
-        obj.shape_key_clear()
+    try:
+        if obj.type == "MESH":
+            if obj.data.shape_keys is not None:
+                if obj.data.shape_keys.animation_data is not None:
+                    if obj.data.shape_keys.animation_data.action is not None:
+                        bpy.data.actions.remove(obj.data.shape_keys.animation_data.action)
+            obj.shape_key_clear()
+    except:
+        utils.log_warn("Something went wrong removing shape keys...")
 
-        # remove materials->nodes->images
-        for mat in obj.data.materials:
-            if mat.node_tree is not None:
-                nodes = mat.node_tree.nodes
-                for node in nodes:
-                    if node.type == "TEX_IMAGE" and node.image is not None:
-                        image = node.image
-                        bpy.data.images.remove(image)
-                    nodes.remove(node)
+    # remove materials->nodes->images
+    try:
+        if obj.type == "MESH":
+            for mat in obj.data.materials:
+                if mat and mat.node_tree is not None:
+                    nodes = mat.node_tree.nodes
+                    for node in nodes:
+                        if node.type == "TEX_IMAGE" and node.image is not None:
+                            image = node.image
+                            bpy.data.images.remove(image)
+                        nodes.remove(node)
+                bpy.data.materials.remove(mat)
+    except:
+        utils.log_warn("Something went wrong removing material nodes...")
 
-            # remove physics weight maps and texture masks
-            edit_mod, mix_mod = modutils.get_material_weight_map_mods(obj, mat)
-            if mix_mod is not None:
-                obj.modifiers.remove(mix_mod)
-            if edit_mod is not None:
-                tex = edit_mod.mask_texture
-                obj.modifiers.remove(edit_mod)
-                if tex is not None:
-                    if tex.image is not None:
-                        image = tex.image
-                        bpy.data.images.remove(image)
-                    bpy.data.textures.remove(tex)
+    # remove physics weight maps and texture masks
+    try:
+        if obj.type == "MESH":
+            for mat in obj.data.materials:
+                if mat:
+                    edit_mod, mix_mod = modutils.get_material_weight_map_mods(obj, mat)
+                    if mix_mod is not None:
+                        obj.modifiers.remove(mix_mod)
+                    if edit_mod is not None:
+                        tex = edit_mod.mask_texture
+                        obj.modifiers.remove(edit_mod)
+                        if tex is not None:
+                            if tex.image is not None:
+                                image = tex.image
+                                bpy.data.images.remove(image)
+                            bpy.data.textures.remove(tex)
+    except:
+        utils.log_warn("Something went wrong removing physics modifiers...")
 
-            bpy.data.materials.remove(mat)
-
-    if obj.type == "ARMATURE":
-        bpy.data.armatures.remove(obj.data)
-    else:
-        bpy.data.objects.remove(obj)
-
-    #except:
-    #    utils.log_error("Something went wrong deleting object...")
+    # finally remove the object itself
+    try:
+        if obj.type == "ARMATURE":
+            bpy.data.armatures.remove(obj.data)
+        else:
+            bpy.data.objects.remove(obj)
+    except:
+        utils.log_warn("Something went wrong deleting object...")
 
 
 def delete_character():
@@ -4694,29 +4709,11 @@ class CC3QuickSet(bpy.types.Operator):
 
 def gamma_correct(color):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
     if prefs.hair_gamma_correct:
-
-        # this is in fact a linear to sRGB color space conversion
-        # the hair shader material parameters in CC3 are in linear color space
-        # this is an optional way to correct the colours if copying directly from CC3 settings.
-
-        r = color[0]
-        g = color[1]
-        b = color[2]
-
-        if r < 0: r = 0
-        if g < 0: g = 0
-        if b < 0: b = 0
-
-        r = max(1.055 * pow(r, 0.416666667) - 0.055, 0)
-        g = max(1.055 * pow(g, 0.416666667) - 0.055, 0)
-        b = max(1.055 * pow(b, 0.416666667) - 0.055, 0)
-
-        return (r, g, b, 1)
-
+        return utils.linear_to_srgb(color)
     else:
         return color
+
 
 def update_all_properties(context, update_mode = None):
     global block_update
@@ -4794,7 +4791,7 @@ def update_material(self, context, prop_name, update_mode = None):
     if not active_mat or not active_cache: return
     linked = get_linked_material_types(active_cache)
     paired = get_paired_material_types(active_cache)
-    print(paired)
+
     if prop_name in params.FORCE_LINKED_PROPS:
         update_mode = "UPDATE_LINKED"
     if active_cache and active_cache.material_type in params.FORCE_LINKED_TYPES:
@@ -5148,9 +5145,6 @@ def reset_material_parameters(cache):
     params.eye_shadow_radius = 0.3
     params.eye_shadow_hardness = 0.5
     params.eye_shadow_color = (1.0, 0.497, 0.445, 1.0)
-    params.eye_occlusion = 0.5
-    params.eye_occlusion_color = (0, 0, 0, 1.0)
-    params.eye_occlusion_hardness = 0.5
     params.eye_sclera_brightness = 0.75
     params.eye_iris_brightness = 1.0
     params.eye_sclera_hue = 0.5
@@ -5164,6 +5158,10 @@ def reset_material_parameters(cache):
     params.eye_ior = 1.42
     params.eye_blood_vessel_height = 0.5
     params.eye_iris_bump_height = 1
+
+    params.eye_occlusion = 0.5
+    params.eye_occlusion_color = (0.014451, 0.001628, 0.000837, 1.0)
+    params.eye_occlusion_hardness = 0.5
 
     params.eye_occlusion_strength = 0.4
     params.eye_occlusion_power = 1.5
@@ -5442,7 +5440,7 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     # Eye Occlusion Basic
     eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion"))
     eye_occlusion_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0.057805, 0.006512, 0.003347, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_occlusion_color"))
+                        default=(0.014451, 0.001628, 0.000837, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_occlusion_color"))
     eye_occlusion_hardness: bpy.props.FloatProperty(default=0.5, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_occlusion_hardness"))
 
     # Eye Occlusion Advanced
