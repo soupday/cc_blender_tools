@@ -1200,6 +1200,7 @@ def connect_adv_mouth_material(obj, mat, shader):
     # emission and alpha
     nodeutils.set_node_input(shader, "Alpha", 1.0)
     connect_emission_alpha(obj, mat, shader)
+    set_material_alpha(mat, "OPAQUE")
 
     # Normal
     connect_normal(obj, mat, shader, base_colour_node)
