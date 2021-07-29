@@ -195,6 +195,7 @@ def dimensions(x):
         return l
     except:
         return 1
+    return 1
 
 
 def match_dimensions(socket, value):
@@ -204,6 +205,7 @@ def match_dimensions(socket, value):
         return (value, value, value)
     elif socket_dimensions == 2 and value_dimensions == 1:
         return (value, value)
-    return value
+    else:
+        return value
 
 

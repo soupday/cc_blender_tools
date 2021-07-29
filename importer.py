@@ -604,14 +604,14 @@ def set_image_node_tiling(nodes, links, node, tiling_prop, offset_prop, pivot_pr
         tiling_node.location = location
         nodeutils.set_node_input(tiling_node, "Tiling", tiling)
         nodeutils.set_node_input(tiling_node, "Pivot", pivot)
-        nodeutils.link_nodes(tiling_node, "Vector", node, "Vector")
+        nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
     else:
         group = nodeutils.get_node_group("tiling_offset_mapping")
         tiling_node = nodeutils.make_node_group_node(nodes, group, label, mapping_name)
         tiling_node.location = location
         nodeutils.set_node_input(tiling_node, "Tiling", tiling)
         nodeutils.set_node_input(tiling_node, "Offset", offset)
-        nodeutils.link_nodes(tiling_node, "Vector", node, "Vector")
+        nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
 
 
 def set_from_texture_matrix(nodes, links, node, mat, cache, group_name):
@@ -645,9 +645,6 @@ def set_from_texture_matrix(nodes, links, node, mat, cache, group_name):
                 nodeutils.link_nodes(links, image_node, "Alpha", node, alpha_socket_name)
 
 
-
-
-
 def connect_tearline_material(obj, mat, shader):
     mat_cache = get_material_cache(mat)
     props = bpy.context.scene.CC3ImportProps
@@ -679,7 +676,7 @@ def connect_eye_occlusion_material(obj, mat, shader):
     group = nodeutils.get_node_group("eye_occlusion_mask")
     occ_node = nodeutils.make_node_group_node(nodes, group, "Eye Occulsion Alpha", "eye_occlusion_mask")
     # values
-    params.set_from_prop_matrix(occ_node, mat_cache, "eye_occlusion_mask")
+    set_from_prop_matrix(occ_node, mat_cache, "eye_occlusion_mask")
     # links
     nodeutils.link_nodes(links, occ_node, "Alpha", shader, "Alpha")
 
@@ -822,7 +819,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("iris_mask")
     iris_mask_node = nodeutils.make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
     # values
-    params.set_from_prop_matrix(iris_mask_node, mat_cache, "iris_mask")
+    set_from_prop_matrix(iris_mask_node, mat_cache, "iris_mask")
     # move
     nodeutils.move_new_nodes(-3000, 0)
     nodeutils.clear_cursor()
@@ -866,7 +863,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("color_eye_mixer")
     color_node = nodeutils.make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
     # values
-    params.set_from_prop_matrix(color_node, mat_cache, "color_eye_mixer")
+    set_from_prop_matrix(color_node, mat_cache, "color_eye_mixer")
     # links
     nodeutils.link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
     if diffuse_image is not None:
@@ -891,7 +888,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("subsurface_overlay_mixer")
     sss_node = nodeutils.make_node_group_node(nodes, group, "Eye Subsurface", "subsurface_eye_mixer")
     # values
-    params.set_from_prop_matrix(sss_node, mat_cache, "subsurface_eye_mixer")
+    set_from_prop_matrix(sss_node, mat_cache, "subsurface_eye_mixer")
     nodeutils.set_node_input(sss_node, "Scatter1", 1.0)
     nodeutils.set_node_input(sss_node, "Scatter2", 0.0)
     # links
@@ -908,7 +905,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("msr_overlay_mixer")
     msr_node = nodeutils.make_node_group_node(nodes, group, "Eye MSR", "msr_cornea_mixer")
     # values
-    params.set_from_prop_matrix(msr_node, mat_cache, "msr_cornea_mixer")
+    set_from_prop_matrix(msr_node, mat_cache, "msr_cornea_mixer")
     nodeutils.set_node_input(msr_node, "Metallic1", 0)
     nodeutils.set_node_input(msr_node, "Metallic2", 0)
     # links
@@ -942,7 +939,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("normal_micro_mask_mixer")
     nm_group = nodeutils.make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
     # values
-    params.set_from_prop_matrix(nm_group, mat_cache, "normal_eye_mixer")
+    set_from_prop_matrix(nm_group, mat_cache, "normal_eye_mixer")
     # links
     nodeutils.link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Micro Normal Mask")
     if snormal_image is not None:
@@ -1005,7 +1002,7 @@ def connect_refractive_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("iris_refractive_mask")
     iris_mask_node = nodeutils.make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
     # values
-    params.set_from_prop_matrix(iris_mask_node, mat_cache, "iris_mask")
+    set_from_prop_matrix(iris_mask_node, mat_cache, "iris_mask")
     # Links
     if is_cornea:
         nodeutils.link_nodes(links, iris_mask_node, "Mask", shader, "Transmission")
@@ -1052,7 +1049,7 @@ def connect_refractive_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("color_refractive_eye_mixer")
     color_node = nodeutils.make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
     # values
-    params.set_from_prop_matrix(color_node, mat_cache, "color_eye_mixer")
+    set_from_prop_matrix(color_node, mat_cache, "color_eye_mixer")
     # links
     nodeutils.link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
     if is_eye:
@@ -1082,7 +1079,7 @@ def connect_refractive_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("subsurface_overlay_mixer")
     sss_node = nodeutils.make_node_group_node(nodes, group, "Eye Subsurface", "subsurface_eye_mixer")
     # values
-    params.set_from_prop_matrix(sss_node, mat_cache, "subsurface_eye_mixer")
+    set_from_prop_matrix(sss_node, mat_cache, "subsurface_eye_mixer")
     nodeutils.set_node_input(sss_node, "Scatter1", 1.0)
     nodeutils.set_node_input(sss_node, "Scatter2", 0.0)
     # links
@@ -1105,7 +1102,7 @@ def connect_refractive_eye_material(obj, mat, shader):
         msr_name = "msr_cornea_mixer"
     msr_node = nodeutils.make_node_group_node(nodes, group, "Eye MSR", msr_name)
     # values
-    params.set_from_prop_matrix(msr_node, mat_cache, msr_name)
+    set_from_prop_matrix(msr_node, mat_cache, msr_name)
     nodeutils.set_node_input(msr_node, "Metallic1", 0)
     nodeutils.set_node_input(msr_node, "Metallic2", 0)
     if not is_cornea:
@@ -1145,7 +1142,7 @@ def connect_refractive_eye_material(obj, mat, shader):
         group = nodeutils.get_node_group("normal_refractive_eye_mixer")
     nm_group = nodeutils.make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
     # values
-    params.set_from_prop_matrix(nm_group, mat_cache, "normal_eye_mixer")
+    set_from_prop_matrix(nm_group, mat_cache, "normal_eye_mixer")
     # links
     nodeutils.link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Sclera Mask")
     nodeutils.link_nodes(links, sclera_node, "Color", nm_group, "Sclera Map")
