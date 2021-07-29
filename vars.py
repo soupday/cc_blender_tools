@@ -53,6 +53,10 @@ MOD_HAIR_FLOW_MAP = ["hair flow map"]
 MOD_HAIR_ID_MAP = ["hair id map"]
 MOD_HAIR_ROOT_MAP = ["hair root map"]
 MOD_HAIR_VERTEX_COLOR_MAP = ["vertexcolormap"]
+MOD_RGBA_MAP = ["rgbamask"]
+MOD_NMUIL_MAP = ["nmuilmask"]
+MOD_CFULC_MAP = ["cfulcmask"]
+MOD_EN_MAP = ["enmask"]
 
 # blender uses metres, CC3 uses centimetres
 UNIT_SCALE = 0.01

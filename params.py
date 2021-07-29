@@ -522,6 +522,133 @@ PROP_MATRIX = [
                     ["Tear Duct Width", "eye_occlusion_tear_duct_width"],
                 ],
             },
+
+            {   "name": "skin_body_shader",
+                "inputs": [
+                    ["AO Strength", "skin_ao"],
+                    ["Subsurface Falloff", "skin_sss_falloff"],
+                    ["Subsurface Radius", "skin_sss_radius"],
+                    ["Roughness Power", "skin_roughness_power"],
+                    ["Roughness Min", "skin_roughness"],
+                    ["Roughness Max", "skin_roughness_max"],
+                    ["Normal Strength", "skin_normal_strength"],
+                    ["Micro Normal Strength", "skin_body_micronormal"],
+                    ["Subsurface Scale", "skin_sss_scale"],
+                    ["Unmasked Scatter Scale", "skin_unmasked_sss_scale"],
+                    ["R Scatter Scale", "skin_r_sss_scale"],
+                    ["G Scatter Scale", "skin_g_sss_scale"],
+                    ["B Scatter Scale", "skin_b_sss_scale"],
+                    ["A Scatter Scale", "skin_a_sss_scale"],
+                    ["Micro Roughness Mod", "skin_micro_roughness_mod"],
+                    ["Unmasked Roughness Mod", "skin_unmasked_roughness_mod"],
+                    ["R Roughness Mod", "skin_r_roughness_mod"],
+                    ["G Roughness Mod", "skin_g_roughness_mod"],
+                    ["B Roughness Mod", "skin_b_roughness_mod"],
+                    ["A Roughness Mod", "skin_a_roughness_mod"],
+                    ["Emissive Color", "skin_emissive_color"],
+                    ["Emission Strength", "skin_emission_strength"],
+                ],
+            },
+
+            {   "name": "skin_arm_shader",
+                "inputs": [
+                    ["AO Strength", "skin_ao"],
+                    ["Subsurface Falloff", "skin_sss_falloff"],
+                    ["Subsurface Radius", "skin_sss_radius"],
+                    ["Roughness Power", "skin_roughness_power"],
+                    ["Roughness Min", "skin_roughness"],
+                    ["Roughness Max", "skin_roughness_max"],
+                    ["Normal Strength", "skin_normal_strength"],
+                    ["Micro Normal Strength", "skin_arm_micronormal"],
+                    ["Subsurface Scale", "skin_sss_scale"],
+                    ["Unmasked Scatter Scale", "skin_unmasked_sss_scale"],
+                    ["R Scatter Scale", "skin_r_sss_scale"],
+                    ["G Scatter Scale", "skin_g_sss_scale"],
+                    ["B Scatter Scale", "skin_b_sss_scale"],
+                    ["A Scatter Scale", "skin_a_sss_scale"],
+                    ["Micro Roughness Mod", "skin_micro_roughness_mod"],
+                    ["Unmasked Roughness Mod", "skin_unmasked_roughness_mod"],
+                    ["R Roughness Mod", "skin_r_roughness_mod"],
+                    ["G Roughness Mod", "skin_g_roughness_mod"],
+                    ["B Roughness Mod", "skin_b_roughness_mod"],
+                    ["A Roughness Mod", "skin_a_roughness_mod"],
+                    ["Emissive Color", "skin_emissive_color"],
+                    ["Emission Strength", "skin_emission_strength"],
+                ],
+            },
+
+            {   "name": "skin_leg_shader",
+                "inputs": [
+                    ["AO Strength", "skin_ao"],
+                    ["Subsurface Falloff", "skin_sss_falloff"],
+                    ["Subsurface Radius", "skin_sss_radius"],
+                    ["Roughness Power", "skin_roughness_power"],
+                    ["Roughness Min", "skin_roughness"],
+                    ["Roughness Max", "skin_roughness_max"],
+                    ["Normal Strength", "skin_normal_strength"],
+                    ["Micro Normal Strength", "skin_leg_micronormal"],
+                    ["Subsurface Scale", "skin_sss_scale"],
+                    ["Unmasked Scatter Scale", "skin_unmasked_sss_scale"],
+                    ["R Scatter Scale", "skin_r_sss_scale"],
+                    ["G Scatter Scale", "skin_g_sss_scale"],
+                    ["B Scatter Scale", "skin_b_sss_scale"],
+                    ["A Scatter Scale", "skin_a_sss_scale"],
+                    ["Micro Roughness Mod", "skin_micro_roughness_mod"],
+                    ["Unmasked Roughness Mod", "skin_unmasked_roughness_mod"],
+                    ["R Roughness Mod", "skin_r_roughness_mod"],
+                    ["G Roughness Mod", "skin_g_roughness_mod"],
+                    ["B Roughness Mod", "skin_b_roughness_mod"],
+                    ["A Roughness Mod", "skin_a_roughness_mod"],
+                    ["Emissive Color", "skin_emissive_color"],
+                    ["Emission Strength", "skin_emission_strength"],
+                ],
+            },
+
+            {   "name": "skin_head_shader",
+                "inputs": [
+                    ["Cavity AO Strength", "skin_cavity_ao_strength"],
+                    ["Blend Strength", "skin_blend"],
+                    ["AO Strength", "skin_ao"],
+                    ["Mouth AO", "skin_mouth_ao"],
+                    ["Nostril AO", "skin_nostril_ao"],
+                    ["Lip AO", "skin_lips_ao"],
+                    ["Subsurface Falloff", "skin_sss_falloff"],
+                    ["Subsurface Radius", "skin_sss_radius"],
+                    ["Roughness Power", "skin_roughness_power"],
+                    ["Roughness Min", "skin_roughness"],
+                    ["Roughness Max", "skin_roughness_max"],
+                    ["Normal Strength", "skin_normal_strength"],
+                    ["Micro Normal Strength", "skin_head_micronormal"],
+                    ["Normal Blend Strength", "skin_normal_blend"],
+                    ["Subsurface Scale", "skin_sss_scale"],
+                    ["Unmasked Scatter Scale", "skin_unmasked_sss_scale"],
+                    ["Nose Scatter Scale", "skin_nose_sss_scale"],
+                    ["Mouth Scatter Scale", "skin_mouth_sss_scale"],
+                    ["Upper Lid Scatter Scale", "skin_upperlid_sss_scale"],
+                    ["Inner Lid Scatter Scale", "skin_innerlid_sss_scale"],
+                    ["Cheek Scatter Scale", "skin_cheek_sss_scale"],
+                    ["Forehead Scatter Scale", "skin_forehead_sss_scale"],
+                    ["Upper Lip Scatter Scale", "skin_upperlip_sss_scale"],
+                    ["Chin Scatter Scale", "skin_chin_sss_scale"],
+                    ["Ear Scatter Scale", "skin_ear_sss_scale"],
+                    ["Neck Scatter Scale", "skin_neck_sss_scale"],
+                    ["Micro Roughness Mod", "skin_micro_roughness_mod"],
+                    ["Unmasked Roughness Mod", "skin_unmasked_roughness_mod"],
+                    ["Nose Roughness Mod", "skin_nose_roughness_mod"],
+                    ["Mouth Roughness Mod", "skin_mouth_roughness_mod"],
+                    ["Upper Lid Roughness Mod", "skin_upperlid_roughness_mod"],
+                    ["Inner Lid Roughness Mod", "skin_innerlid_roughness_mod"],
+                    ["Cheek Roughness Mod", "skin_cheek_roughness_mod"],
+                    ["Forehead Roughness Mod", "skin_forehead_roughness_mod"],
+                    ["Upper Lip Roughness Mod", "skin_upperlip_roughness_mod"],
+                    ["Chin Roughness Mod", "skin_chin_roughness_mod"],
+                    ["Ear Roughness Mod", "skin_ear_roughness_mod"],
+                    ["Neck Roughness Mod", "skin_neck_roughness_mod"],
+                    ["Emissive Color", "skin_emissive_color"],
+                    ["Emission Strength", "skin_emission_strength"],
+                ],
+            },
+
         ],
     },
 
@@ -617,6 +744,88 @@ MODIFIER_MATRIX = [
 
 ]
 
+TEXTURE_MATRIX = [
+    # Shaders
+    {   "start": "(rl_",
+        "end": "_shader)",
+        "groups": [
+
+            {   "name": "skin_head_shader",
+                "inputs": [
+                    ["Diffuse Map", "", vars.BASE_COLOR_MAP, "diffuse"],
+                    ["Blend Map", "", vars.MOD_BASECOLORBLEND_MAP, "color_blend"],
+                    ["AO Mask", "", vars.MOD_AO_MAP, "ao"],
+                    ["MCMAO Map", "MCMAO Alpha", vars.MOD_MCMAO_MAP, "mcmao"],
+                    ["Subsurface Mask", "", vars.SUBSURFACE_MAP, "sss"],
+                    ["Transmission Mask", "", vars.MOD_TRANSMISSION_MAP, "transmision"],
+                    ["Metallic Map", "", vars.METALLIC_MAP, "metallic"],
+                    ["Specular Map", "", vars.SPECULAR_MAP, "specular"],
+                    ["Specular Mask", "", vars.MOD_SPECMASK_MAP, "specular_mask"],
+                    ["Roughness Map", "", vars.ROUGHNESS_MAP, "roughness"],
+                    ["Normal Map", "", vars.NORMAL_MAP, "normal"],
+                    ["Micro Normal Map", "", vars.MOD_MICRONORMAL_MAP, "micro_normal", "skin_head_tiling"],
+                    ["NMUIL Map", "NMUIL Alpha", vars.MOD_NMUIL_MAP, "nmuil_mask"],
+                    ["CFULC Map", "CFULC Alpha", vars.MOD_CFULC_MAP, "cfulc_mask"],
+                    ["EN Map", "", vars.MOD_EN_MAP, "en_mask"],
+                    ["Emission Map", "", vars.EMISSION_MAP, "emission"],
+                ],
+            },
+
+            {   "name": "skin_body_shader",
+                "inputs": [
+                    ["Diffuse Map", "", vars.BASE_COLOR_MAP, "diffuse"],
+                    ["AO Mask", "", vars.MOD_AO_MAP, "ao"],
+                    ["Subsurface Mask", "", vars.SUBSURFACE_MAP, "sss"],
+                    ["Transmission Mask", "", vars.MOD_TRANSMISSION_MAP, "transmision"],
+                    ["Metallic Map", "", vars.METALLIC_MAP, "metallic"],
+                    ["Specular Map", "", vars.SPECULAR_MAP, "specular"],
+                    ["Specular Mask", "", vars.MOD_SPECMASK_MAP, "specular_mask"],
+                    ["Roughness Map", "", vars.ROUGHNESS_MAP, "roughness"],
+                    ["Normal Map", "", vars.NORMAL_MAP, "normal"],
+                    ["Micro Normal Map", "", vars.MOD_MICRONORMAL_MAP, "micro_normal", "skin_body_tiling"],
+                    ["RGBA Map", "RGBA Alpha", vars.MOD_RGBA_MAP, "rgba_mask"],
+                    ["Emission Map", "", vars.EMISSION_MAP, "emission"],
+                ],
+            },
+
+            {   "name": "skin_arm_shader",
+                "inputs": [
+                    ["Diffuse Map", "", vars.BASE_COLOR_MAP, "diffuse"],
+                    ["AO Mask", "", vars.MOD_AO_MAP, "ao"],
+                    ["Subsurface Mask", "", vars.SUBSURFACE_MAP, "sss"],
+                    ["Transmission Mask", "", vars.MOD_TRANSMISSION_MAP, "transmision"],
+                    ["Metallic Map", "", vars.METALLIC_MAP, "metallic"],
+                    ["Specular Map", "", vars.SPECULAR_MAP, "specular"],
+                    ["Specular Mask", "", vars.MOD_SPECMASK_MAP, "specular_mask"],
+                    ["Roughness Map", "", vars.ROUGHNESS_MAP, "roughness"],
+                    ["Normal Map", "", vars.NORMAL_MAP, "normal"],
+                    ["Micro Normal Map", "", vars.MOD_MICRONORMAL_MAP, "micro_normal", "skin_arm_tiling", ""],
+                    ["RGBA Map", "RGBA Alpha", vars.MOD_RGBA_MAP, "rgba_mask"],
+                    ["Emission Map", "", vars.EMISSION_MAP, "emission"],
+                ],
+            },
+
+            {   "name": "skin_leg_shader",
+                "inputs": [
+                    ["Diffuse Map", "", vars.BASE_COLOR_MAP, "diffuse"],
+                    ["AO Mask", "", vars.MOD_AO_MAP, "ao"],
+                    ["Subsurface Mask", "", vars.SUBSURFACE_MAP, "sss"],
+                    ["Transmission Mask", "", vars.MOD_TRANSMISSION_MAP, "transmision"],
+                    ["Metallic Map", "", vars.METALLIC_MAP, "metallic"],
+                    ["Specular Map", "", vars.SPECULAR_MAP, "specular"],
+                    ["Specular Mask", "", vars.MOD_SPECMASK_MAP, "specular_mask"],
+                    ["Roughness Map", "", vars.ROUGHNESS_MAP, "roughness"],
+                    ["Normal Map", "", vars.NORMAL_MAP, "normal"],
+                    ["Micro Normal Map", "", vars.MOD_MICRONORMAL_MAP, "micro_normal", "skin_leg_tiling"],
+                    ["RGBA Map", "RGBA Alpha", vars.MOD_RGBA_MAP, "rgba_mask"],
+                    ["Emission Map", "", vars.EMISSION_MAP, "emission"],
+                ],
+            },
+
+        ],
+    },
+]
+
 BASIC_PROPS = [
     ["OUT", "Value",    "", "skin_ao"],
     ["OUT", "Value",    "", "skin_basic_specular"],
@@ -668,23 +877,17 @@ def get_prop_matrix_group(group_name):
     return None
 
 
-def set_from_prop_matrix(node, cache, group_name):
-    props = bpy.context.scene.CC3ImportProps
-    parameters = cache.parameters
-    scope = locals()
-
-    group = get_prop_matrix_group(group_name)
-
-    for input in group["inputs"]:
-        try:
-            if len(input) == 3:
-                prop_eval = input[2]
-            else:
-                prop_eval = "parameters." + input[1]
-
-            prop_value = eval(prop_eval, None, scope)
-
-            nodeutils.set_node_input(node, input[0], prop_value)
-
-        except Exception as e:
-                utils.log_error("set_from_prop_matrix(): Unable to evaluate or set: " + prop_eval, e)
+def get_texture_matrix_group(group_name):
+    group_name = "(" + group_name + ")"
+    for mixer in PROP_MATRIX:
+        if mixer["start"] in group_name:
+            if mixer["end"] in group_name:
+                for group in mixer["groups"]:
+                    if type(group["name"]) is list:
+                        for name in group["name"]:
+                            if name in group_name:
+                                return group
+                    else:
+                        if group["name"] in group_name:
+                            return group
+    return None

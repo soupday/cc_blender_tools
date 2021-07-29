@@ -187,3 +187,23 @@ def count_maps(*maps):
         if map is not None:
             count += 1
     return count
+
+
+def dimensions(x):
+    try:
+        l = len(x)
+        return l
+    except:
+        return 1
+
+
+def match_dimensions(socket, value):
+    socket_dimensions = dimensions(socket)
+    value_dimensions = dimensions(value)
+    if socket_dimensions == 3 and value_dimensions == 1:
+        return (value, value, value)
+    elif socket_dimensions == 2 and value_dimensions == 1:
+        return (value, value)
+    return value
+
+

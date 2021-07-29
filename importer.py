@@ -533,6 +533,121 @@ def set_material_alpha(mat, method):
         mat.use_backface_culling = False
 
 
+def set_from_prop_matrix(node, cache, group_name):
+    props = bpy.context.scene.CC3ImportProps
+    parameters = cache.parameters
+    scope = locals()
+
+    matrix_group = params.get_prop_matrix_group(group_name)
+
+    for input in matrix_group["inputs"]:
+        try:
+            if len(input) == 3:
+                prop_eval = input[2]
+            else:
+                prop_eval = "parameters." + input[1]
+
+            prop_value = eval(prop_eval, None, scope)
+
+            nodeutils.set_node_input(node, input[0], prop_value)
+
+        except Exception as e:
+                utils.log_error("set_from_prop_matrix(): Unable to evaluate or set: " + prop_eval, e)
+
+
+def set_image_node_tiling(nodes, links, node, tiling_prop, offset_prop, pivot_prop, label, group_name, tex_name):
+    tiling = (1, 1, 1)
+    offset = (0, 0, 0)
+    pivot = None
+
+    mapping_name = "tiling_" + group_name + "_" + tex_name + "_mapping"
+
+    if tiling_prop is not None and tiling_prop != "":
+        try:
+            tiling = eval("parameters." + tiling_prop, None, locals())
+            if type(tiling) is list:
+                if len(tiling) == 2:
+                    tiling.append(1)
+            else:
+                tiling = (tiling, tiling, 1)
+        except:
+            tiling = (1, 1, 1)
+
+    if offset_prop is not None and offset_prop != "":
+        try:
+            offset = eval("parameters." + offset_prop, None, locals())
+            if type(offset) is list:
+                if len(offset) == 2:
+                    offset.append(1)
+            else:
+                offset = (offset, offset, 1)
+        except:
+            offset = (0, 0, 0)
+
+    if pivot_prop is not None and pivot_prop != "":
+        try:
+            pivot = eval("parameters." + pivot_prop, None, locals())
+            if type(pivot) is list:
+                if len(pivot) == 2:
+                    pivot.append(1)
+            else:
+                pivot = (pivot, pivot, 1)
+        except:
+            pivot = (0, 0, 0)
+
+    location = node.location
+    location = (location[0] - 300, location[1])
+
+    if pivot:
+        group = nodeutils.get_node_group("tiling_pivot_mapping")
+        tiling_node = nodeutils.make_node_group_node(nodes, group, label, mapping_name)
+        tiling_node.location = location
+        nodeutils.set_node_input(tiling_node, "Tiling", tiling)
+        nodeutils.set_node_input(tiling_node, "Pivot", pivot)
+        nodeutils.link_nodes(tiling_node, "Vector", node, "Vector")
+    else:
+        group = nodeutils.get_node_group("tiling_offset_mapping")
+        tiling_node = nodeutils.make_node_group_node(nodes, group, label, mapping_name)
+        tiling_node.location = location
+        nodeutils.set_node_input(tiling_node, "Tiling", tiling)
+        nodeutils.set_node_input(tiling_node, "Offset", offset)
+        nodeutils.link_nodes(tiling_node, "Vector", node, "Vector")
+
+
+def set_from_texture_matrix(nodes, links, node, mat, cache, group_name):
+    props = bpy.context.scene.CC3ImportProps
+    parameters = cache.parameters
+
+    matrix_group = params.get_texture_matrix_group(group_name)
+    location = node.location
+    x = location[0] - 1000
+    y = location[1] - 1000
+
+    for input in matrix_group["inputs"]:
+        socket_name = input[0]
+        alpha_socket_name = input[1]
+        tex_list = input[2]
+        tex_name = input[3]
+        tiling_prop = input[4]
+        offset_prop = input[5]
+        pivot_prop = input[6]
+
+        image =  find_material_image(mat, vars.BASE_COLOR_MAP)
+        if image is not None:
+            image_node = nodeutils.make_image_node(nodes, image, tex_name)
+            image_node.location = (x, y)
+            y = y + 400
+            set_image_node_tiling(nodes, links, image_node, tiling_prop, offset_prop, pivot_prop,
+                                  tex_name + " Mapping", group_name, tex_name)
+            # here we would add any tiling and mapping nodes (if we had that information...)
+            nodeutils.link_nodes(links, image_node, "Color", node, socket_name)
+            if alpha_socket_name is not None and alpha_socket_name != "":
+                nodeutils.link_nodes(links, image_node, "Alpha", node, alpha_socket_name)
+
+
+
+
+
 def connect_tearline_material(obj, mat, shader):
     mat_cache = get_material_cache(mat)
     props = bpy.context.scene.CC3ImportProps
@@ -579,13 +694,52 @@ def connect_eye_occlusion_shader(obj, mat, shader):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    shader = shaderutils.replace_shader_node(nodes, links, shader, "Eye Occlusion Shader", "rl_eye_occlusion_shader")
+    shader_label = "Eye Occlusion Shader"
+    shader_name = "rl_eye_occlusion_shader"
+    shader_group = "rl_eye_occlusion_shader"
+
+    shader = shaderutils.replace_shader_node(nodes, links, shader, shader_label, shader_name, shader_group)
 
     nodeutils.reset_cursor()
 
-    params.set_from_prop_matrix(shader, mat_cache, "rl_eye_occlusion_shader")
+    set_from_prop_matrix(shader, mat_cache, shader_name)
 
     set_material_alpha(mat, props.blend_mode)
+    mat.shadow_method = "NONE"
+
+
+def connect_skin_shader(obj, mat, shader):
+    props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    if mat_cache.is_head():
+        shader_label = "Skin Head Shader"
+        shader_name = "rl_skin_head_shader"
+        shader_group = "rl_head_shader"
+    elif mat_cache.is_body():
+        shader_label = "Skin Body Shader"
+        shader_name = "rl_skin_body_shader"
+        shader_group = "rl_skin_shader"
+    elif mat_cache.is_arm():
+        shader_label = "Skin Arm Shader"
+        shader_name = "rl_skin_arm_shader"
+        shader_group = "rl_skin_shader"
+    else: #if mat_cache.is_leg():
+        shader_label = "Skin Leg Shader"
+        shader_name = "rl_skin_leg_shader"
+        shader_group = "rl_skin_shader"
+
+    shader = shaderutils.replace_shader_node(nodes, links, shader, shader_label, shader_name, shader_group)
+
+    nodeutils.reset_cursor()
+
+    set_from_prop_matrix(shader, mat_cache, shader_name)
+    set_from_texture_matrix(shader, mat_cache, shader_name)
+
+    set_material_alpha(mat, "OPAQUE")
     mat.shadow_method = "NONE"
 
 
@@ -5133,6 +5287,45 @@ def reset_material_parameters(cache):
     params.skin_nostril_ao = 2.5
     params.skin_lips_ao = 2.5
 
+    params.skin_cavity_ao_strength = 1
+    params.skin_normal_strength = 1.0
+    params.skin_roughness_max = 1.0
+    params.skin_sss_scale = 1.0
+    params.skin_emissive_color = (0, 0, 0, 1.0)
+    params.skin_emission_strength = 0.4
+    params.skin_unmasked_sss_scale = 1.0
+    params.skin_r_sss_scale = 1.0
+    params.skin_g_sss_scale = 1.0
+    params.skin_b_sss_scale = 1.0
+    params.skin_a_sss_scale = 1.0
+    params.skin_nose_sss_scale = 1.0
+    params.skin_mouth_sss_scale = 1.0
+    params.skin_upperlid_sss_scale = 1.0
+    params.skin_innerlid_sss_scale = 1.0
+    params.skin_cheek_sss_scale = 1.0
+    params.skin_forehead_sss_scale = 1.0
+    params.skin_upperlip_sss_scale = 1.0
+    params.skin_chin_sss_scale = 1.0
+    params.skin_ear_sss_scale = 1.0
+    params.skin_neck_sss_scale = 1.0
+    params.skin_micro_roughness_mod = 0
+    params.skin_unmasked_roughness_mod = 0
+    params.skin_r_roughness_mod = 0
+    params.skin_g_roughness_mod = 0
+    params.skin_b_roughness_mod = 0
+    params.skin_a_roughness_mod = 0
+    params.skin_nose_roughness_mod = 0
+    params.skin_mouth_roughness_mod = 0
+    params.skin_upperlid_roughness_mod = 0
+    params.skin_innerlid_roughness_mod = 0
+    params.skin_cheek_roughness_mod = 0
+    params.skin_forehead_roughness_mod = 0
+    params.skin_upperlip_roughness_mod = 0
+    params.skin_chin_roughness_mod = 0
+    params.skin_ear_roughness_mod = 0
+    params.skin_neck_roughness_mod = 0
+
+
     params.eye_ao = 0.2
     params.eye_blend = 0.0
     params.eye_specular = 0.8
@@ -5390,6 +5583,7 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
     skin_roughness: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness"))
     skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular"))
+
     skin_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=5, update=lambda s,c: update_property(s,c,"skin_sss_radius"))
     skin_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"skin_sss_falloff"))
@@ -5401,7 +5595,45 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     skin_body_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_body_tiling"))
     skin_arm_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_arm_tiling"))
     skin_leg_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_leg_tiling"))
-
+    # Skin Shader
+    skin_cavity_ao_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_cavity_ao_strength"))
+    skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
+    skin_roughness_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_max"))
+    skin_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_sss_scale"))
+    skin_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"skin_emissive_color"))
+    skin_emission_strength: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
+    skin_unmasked_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_unmasked_sss_scale"))
+    skin_r_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_r_sss_scale"))
+    skin_g_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_g_sss_scale"))
+    skin_b_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_b_sss_scale"))
+    skin_a_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_a_sss_scale"))
+    skin_nose_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_nose_sss_scale"))
+    skin_mouth_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_mouth_sss_scale"))
+    skin_upperlid_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_upperlid_sss_scale"))
+    skin_innerlid_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_innerlid_sss_scale"))
+    skin_cheek_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_cheek_sss_scale"))
+    skin_forehead_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_forehead_sss_scale"))
+    skin_upperlip_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_upperlip_sss_scale"))
+    skin_chin_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_chin_sss_scale"))
+    skin_ear_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_ear_sss_scale"))
+    skin_neck_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_neck_sss_scale"))
+    skin_micro_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_micro_roughness_mod"))
+    skin_unmasked_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_unmasked_roughness_mod"))
+    skin_r_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_r_roughness_mod"))
+    skin_g_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_g_roughness_mod"))
+    skin_b_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_b_roughness_mod"))
+    skin_a_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_a_roughness_mod"))
+    skin_nose_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_nose_roughness_mod"))
+    skin_mouth_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_mouth_roughness_mod"))
+    skin_upperlid_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_upperlid_roughness_mod"))
+    skin_innerlid_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_innerlid_roughness_mod"))
+    skin_cheek_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_cheek_roughness_mod"))
+    skin_forehead_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_forehead_roughness_mod"))
+    skin_upperlip_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_upperlip_roughness_mod"))
+    skin_chin_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_chin_roughness_mod"))
+    skin_ear_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_ear_roughness_mod"))
+    skin_neck_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_neck_roughness_mod"))
 
     # Eye
     eye_ao: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_ao"))

@@ -192,16 +192,17 @@ def get_node_output(node, output, default):
     return default
 
 def set_node_input(node, socket, value):
+
     if node is not None:
         try:
-            node.inputs[socket].default_value = value
+            node.inputs[socket].default_value = utils.match_dimensions(node.inputs[socket].default_value, value)
         except:
             utils.log_info("Unable to set input: " + node.name + "[" + str(socket) + "]")
 
 def set_node_output(node, socket, value):
     if node is not None:
         try:
-            node.outputs[socket].default_value = value
+            node.outputs[socket].default_value = utils.match_dimensions(node.outputs[socket].default_value, value)
         except:
             utils.log_info("Unable to set output: " + node.name + "[" + str(socket) + "]")
 

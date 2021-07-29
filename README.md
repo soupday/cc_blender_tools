@@ -28,7 +28,7 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 ## Changelog
 
 ### 0.7.2
-- TODO
+- New skin and head shader model.
 
 ### 0.7.1
 - Back ported the more advanced Eye Occlusion shader from the Unity HDRP setup.
