@@ -533,7 +533,7 @@ def set_material_alpha(mat, method):
         mat.use_backface_culling = False
 
 
-def set_from_prop_matrix(node, cache, group_name):
+def apply_prop_matrix(node, cache, group_name):
     props = bpy.context.scene.CC3ImportProps
     parameters = cache.parameters
     scope = locals()
@@ -601,7 +601,7 @@ def set_image_node_tiling(nodes, links, node, cache, tiling_prop, offset_prop, p
             pivot = (0, 0, 0)
 
     location = node.location
-    location = (location[0] - 300, location[1])
+    location = (location[0] - 900, location[1] - 100)
 
     if pivot:
         group = nodeutils.get_node_group("tiling_pivot_mapping")
@@ -619,11 +619,12 @@ def set_image_node_tiling(nodes, links, node, cache, tiling_prop, offset_prop, p
         nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
 
 
-def set_from_texture_matrix(nodes, links, node, mat, cache, group_name):
+def apply_texture_matrix(nodes, links, node, mat, cache, group_name):
     matrix_group = params.get_texture_matrix_group(group_name)
     location = node.location
-    x = location[0] - 1000
-    y = location[1] + 1000
+    x = location[0] - 600
+    y = location[1] + 300
+    c = 0
 
     print(matrix_group["name"])
 
@@ -649,7 +650,13 @@ def set_from_texture_matrix(nodes, links, node, mat, cache, group_name):
                 if image is not None:
                     image_node = nodeutils.make_image_node(nodes, image, tex_name)
                     image_node.location = (x, y)
-                    y = y - 300
+                    y += 100
+                    x -= 300
+                    c += 1
+                    if c == 3:
+                        c = 0
+                        x += 900
+                        y -= 700
                     if tiling_prop or offset_prop or pivot_prop:
                         set_image_node_tiling(nodes, links, image_node, cache, tiling_prop, offset_prop, pivot_prop,
                                             tex_name + " Mapping", group_name, tex_name)
@@ -690,7 +697,7 @@ def connect_eye_occlusion_material(obj, mat, shader):
     group = nodeutils.get_node_group("eye_occlusion_mask")
     occ_node = nodeutils.make_node_group_node(nodes, group, "Eye Occulsion Alpha", "eye_occlusion_mask")
     # values
-    set_from_prop_matrix(occ_node, mat_cache, "eye_occlusion_mask")
+    apply_prop_matrix(occ_node, mat_cache, "eye_occlusion_mask")
     # links
     nodeutils.link_nodes(links, occ_node, "Alpha", shader, "Alpha")
 
@@ -713,7 +720,7 @@ def connect_eye_occlusion_shader(obj, mat, shader):
 
     nodeutils.reset_cursor()
 
-    set_from_prop_matrix(shader, mat_cache, shader_name)
+    apply_prop_matrix(shader, mat_cache, shader_name)
 
     set_material_alpha(mat, props.blend_mode)
     mat.shadow_method = "NONE"
@@ -747,8 +754,8 @@ def connect_skin_shader(obj, mat, shader):
 
     nodeutils.reset_cursor()
 
-    set_from_prop_matrix(shader, mat_cache, shader_name)
-    set_from_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name)
+    apply_prop_matrix(shader, mat_cache, shader_name)
+    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name)
 
     set_material_alpha(mat, "OPAQUE")
     mat.shadow_method = "NONE"
@@ -833,7 +840,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("iris_mask")
     iris_mask_node = nodeutils.make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
     # values
-    set_from_prop_matrix(iris_mask_node, mat_cache, "iris_mask")
+    apply_prop_matrix(iris_mask_node, mat_cache, "iris_mask")
     # move
     nodeutils.move_new_nodes(-3000, 0)
     nodeutils.clear_cursor()
@@ -877,7 +884,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("color_eye_mixer")
     color_node = nodeutils.make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
     # values
-    set_from_prop_matrix(color_node, mat_cache, "color_eye_mixer")
+    apply_prop_matrix(color_node, mat_cache, "color_eye_mixer")
     # links
     nodeutils.link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
     if diffuse_image is not None:
@@ -902,7 +909,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("subsurface_overlay_mixer")
     sss_node = nodeutils.make_node_group_node(nodes, group, "Eye Subsurface", "subsurface_eye_mixer")
     # values
-    set_from_prop_matrix(sss_node, mat_cache, "subsurface_eye_mixer")
+    apply_prop_matrix(sss_node, mat_cache, "subsurface_eye_mixer")
     nodeutils.set_node_input(sss_node, "Scatter1", 1.0)
     nodeutils.set_node_input(sss_node, "Scatter2", 0.0)
     # links
@@ -919,7 +926,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("msr_overlay_mixer")
     msr_node = nodeutils.make_node_group_node(nodes, group, "Eye MSR", "msr_cornea_mixer")
     # values
-    set_from_prop_matrix(msr_node, mat_cache, "msr_cornea_mixer")
+    apply_prop_matrix(msr_node, mat_cache, "msr_cornea_mixer")
     nodeutils.set_node_input(msr_node, "Metallic1", 0)
     nodeutils.set_node_input(msr_node, "Metallic2", 0)
     # links
@@ -953,7 +960,7 @@ def connect_adv_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("normal_micro_mask_mixer")
     nm_group = nodeutils.make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
     # values
-    set_from_prop_matrix(nm_group, mat_cache, "normal_eye_mixer")
+    apply_prop_matrix(nm_group, mat_cache, "normal_eye_mixer")
     # links
     nodeutils.link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Micro Normal Mask")
     if snormal_image is not None:
@@ -1016,7 +1023,7 @@ def connect_refractive_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("iris_refractive_mask")
     iris_mask_node = nodeutils.make_node_group_node(nodes, group, "Iris Mask", "iris_mask")
     # values
-    set_from_prop_matrix(iris_mask_node, mat_cache, "iris_mask")
+    apply_prop_matrix(iris_mask_node, mat_cache, "iris_mask")
     # Links
     if is_cornea:
         nodeutils.link_nodes(links, iris_mask_node, "Mask", shader, "Transmission")
@@ -1063,7 +1070,7 @@ def connect_refractive_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("color_refractive_eye_mixer")
     color_node = nodeutils.make_node_group_node(nodes, group, "Eye Base Color", "color_eye_mixer")
     # values
-    set_from_prop_matrix(color_node, mat_cache, "color_eye_mixer")
+    apply_prop_matrix(color_node, mat_cache, "color_eye_mixer")
     # links
     nodeutils.link_nodes(links, iris_mask_node, "Mask", color_node, "Iris Mask")
     if is_eye:
@@ -1093,7 +1100,7 @@ def connect_refractive_eye_material(obj, mat, shader):
     group = nodeutils.get_node_group("subsurface_overlay_mixer")
     sss_node = nodeutils.make_node_group_node(nodes, group, "Eye Subsurface", "subsurface_eye_mixer")
     # values
-    set_from_prop_matrix(sss_node, mat_cache, "subsurface_eye_mixer")
+    apply_prop_matrix(sss_node, mat_cache, "subsurface_eye_mixer")
     nodeutils.set_node_input(sss_node, "Scatter1", 1.0)
     nodeutils.set_node_input(sss_node, "Scatter2", 0.0)
     # links
@@ -1116,7 +1123,7 @@ def connect_refractive_eye_material(obj, mat, shader):
         msr_name = "msr_cornea_mixer"
     msr_node = nodeutils.make_node_group_node(nodes, group, "Eye MSR", msr_name)
     # values
-    set_from_prop_matrix(msr_node, mat_cache, msr_name)
+    apply_prop_matrix(msr_node, mat_cache, msr_name)
     nodeutils.set_node_input(msr_node, "Metallic1", 0)
     nodeutils.set_node_input(msr_node, "Metallic2", 0)
     if not is_cornea:
@@ -1156,7 +1163,7 @@ def connect_refractive_eye_material(obj, mat, shader):
         group = nodeutils.get_node_group("normal_refractive_eye_mixer")
     nm_group = nodeutils.make_node_group_node(nodes, group, "Eye Normals", "normal_eye_mixer")
     # values
-    set_from_prop_matrix(nm_group, mat_cache, "normal_eye_mixer")
+    apply_prop_matrix(nm_group, mat_cache, "normal_eye_mixer")
     # links
     nodeutils.link_nodes(links, iris_mask_node, "Inverted Mask", nm_group, "Sclera Mask")
     nodeutils.link_nodes(links, sclera_node, "Color", nm_group, "Sclera Map")
@@ -3098,13 +3105,13 @@ def process_material(obj, mat):
             connect_eye_occlusion_shader(obj, mat, shader)
         else:
             connect_eye_occlusion_material(obj, mat, shader)
+            nodeutils.move_new_nodes(-600, 0)
 
-        nodeutils.move_new_nodes(-600, 0)
+
 
     elif mat_cache.is_skin() and props.setup_mode == "ADVANCED" and prefs.use_new_shaders:
 
         connect_skin_shader(obj, mat, shader)
-        nodeutils.move_new_nodes(-600, 0)
 
     elif (mat_cache.is_teeth() or mat_cache.is_tongue()) and props.setup_mode == "ADVANCED":
 
@@ -5284,8 +5291,8 @@ def reset_material_parameters(cache):
     params.skin_ao = 1.0
     params.skin_blend = 0.0
     params.skin_normal_blend = 0.0
-    params.skin_roughness = 0.1
-    params.skin_roughness_power = 0.8
+    params.skin_roughness = 0.12
+    params.skin_roughness_power = 1.0
     params.skin_specular = 0.4
     params.skin_basic_specular = 0.4
     params.skin_basic_roughness = 0.15
@@ -5324,16 +5331,16 @@ def reset_material_parameters(cache):
     params.skin_chin_sss_scale = 1.0
     params.skin_ear_sss_scale = 1.0
     params.skin_neck_sss_scale = 1.0
-    params.skin_micro_roughness_mod = 0
+    params.skin_micro_roughness_mod = 0.05
     params.skin_unmasked_roughness_mod = 0
     params.skin_r_roughness_mod = 0
     params.skin_g_roughness_mod = 0
     params.skin_b_roughness_mod = 0
     params.skin_a_roughness_mod = 0
-    params.skin_nose_roughness_mod = 0
-    params.skin_mouth_roughness_mod = 0
-    params.skin_upperlid_roughness_mod = 0
-    params.skin_innerlid_roughness_mod = 0
+    params.skin_nose_roughness_mod = 0.119
+    params.skin_mouth_roughness_mod = 0.034
+    params.skin_upperlid_roughness_mod = -0.3
+    params.skin_innerlid_roughness_mod = -0.574
     params.skin_cheek_roughness_mod = 0
     params.skin_forehead_roughness_mod = 0
     params.skin_upperlip_roughness_mod = 0
@@ -5596,8 +5603,8 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     skin_nostril_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_nostril_ao"))
     skin_lips_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_lips_ao"))
     skin_normal_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_blend"))
-    skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
-    skin_roughness: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness"))
+    skin_roughness_power: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
+    skin_roughness: bpy.props.FloatProperty(default=0.12, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness"))
     skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular"))
 
     skin_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=5, update=lambda s,c: update_property(s,c,"skin_sss_radius"))
@@ -5618,7 +5625,7 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     skin_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_sss_scale"))
     skin_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"skin_emissive_color"))
-    skin_emission_strength: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
+    skin_emission_strength: bpy.props.FloatProperty(default=0.4, min=0, max=500, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     skin_unmasked_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_unmasked_sss_scale"))
     skin_r_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_r_sss_scale"))
     skin_g_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_g_sss_scale"))
@@ -5634,16 +5641,16 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     skin_chin_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_chin_sss_scale"))
     skin_ear_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_ear_sss_scale"))
     skin_neck_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_neck_sss_scale"))
-    skin_micro_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_micro_roughness_mod"))
+    skin_micro_roughness_mod: bpy.props.FloatProperty(default=0.05, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_micro_roughness_mod"))
     skin_unmasked_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_unmasked_roughness_mod"))
     skin_r_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_r_roughness_mod"))
     skin_g_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_g_roughness_mod"))
     skin_b_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_b_roughness_mod"))
     skin_a_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_a_roughness_mod"))
-    skin_nose_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_nose_roughness_mod"))
-    skin_mouth_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_mouth_roughness_mod"))
-    skin_upperlid_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_upperlid_roughness_mod"))
-    skin_innerlid_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_innerlid_roughness_mod"))
+    skin_nose_roughness_mod: bpy.props.FloatProperty(default=0.119, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_nose_roughness_mod"))
+    skin_mouth_roughness_mod: bpy.props.FloatProperty(default=0.034, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_mouth_roughness_mod"))
+    skin_upperlid_roughness_mod: bpy.props.FloatProperty(default=-0.3, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_upperlid_roughness_mod"))
+    skin_innerlid_roughness_mod: bpy.props.FloatProperty(default=-0.574, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_innerlid_roughness_mod"))
     skin_cheek_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_cheek_roughness_mod"))
     skin_forehead_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_forehead_roughness_mod"))
     skin_upperlip_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_upperlip_roughness_mod"))
@@ -6270,6 +6277,8 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                             col_2.prop(params, "skin_nostril_ao", text="", slider=True)
                             col_1.label(text="Lips AO")
                             col_2.prop(params, "skin_lips_ao", text="", slider=True)
+                            col_1.label(text="Cavity AO Strength")
+                            col_2.prop(params, "skin_cavity_ao_strength", text="", slider=True)
                             col_1.label(text="Skin Color Blend")
                             col_2.prop(params, "skin_blend", text="", slider=True)
 
@@ -6277,28 +6286,108 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Skin Specular")
+                        col_1.label(text="Specular")
                         col_2.prop(params, "skin_specular", text="", slider=True)
                         col_1.label(text="Roughness Power")
                         col_2.prop(params, "skin_roughness_power", text="", slider=True)
-                        col_1.label(text="Roughness Remap")
+                        col_1.label(text="Roughness Min")
                         col_2.prop(params, "skin_roughness", text="", slider=True)
+                        col_1.label(text="Roughness Max")
+                        col_2.prop(params, "skin_roughness_max", text="", slider=True)
+
+                        col_1.separator()
+                        col_2.separator()
+
+                        col_1.label(text="Micro Roughness Mod")
+                        col_2.prop(params, "skin_micro_roughness_mod", text="", slider=True)
+                        col_1.label(text="Unmasked Roughness Mod")
+                        col_2.prop(params, "skin_unmasked_roughness_mod", text="", slider=True)
+                        if mat_cache.is_head():
+                            col_1.label(text="Nose Roughness Mod")
+                            col_2.prop(params, "skin_nose_roughness_mod", text="", slider=True)
+                            col_1.label(text="Mouth Roughness Mod")
+                            col_2.prop(params, "skin_mouth_roughness_mod", text="", slider=True)
+                            col_1.label(text="Upper Lid Roughness Mod")
+                            col_2.prop(params, "skin_upperlid_roughness_mod", text="", slider=True)
+                            col_1.label(text="Inner Lid Roughness Mod")
+                            col_2.prop(params, "skin_innerlid_roughness_mod", text="", slider=True)
+                            col_1.label(text="Cheek Roughness Mod")
+                            col_2.prop(params, "skin_cheek_roughness_mod", text="", slider=True)
+                            col_1.label(text="Forehead Roughness Mod")
+                            col_2.prop(params, "skin_forehead_roughness_mod", text="", slider=True)
+                            col_1.label(text="Upper Lip Roughness Mod")
+                            col_2.prop(params, "skin_upperlip_roughness_mod", text="", slider=True)
+                            col_1.label(text="Chin Roughness Mod")
+                            col_2.prop(params, "skin_chin_roughness_mod", text="", slider=True)
+                            col_1.label(text="Ear Roughness Mod")
+                            col_2.prop(params, "skin_ear_roughness_mod", text="", slider=True)
+                            col_1.label(text="Neck Roughness Mod")
+                            col_2.prop(params, "skin_neck_roughness_mod", text="", slider=True)
+                        else:
+                            col_1.label(text="R Roughness Mod")
+                            col_2.prop(params, "skin_r_roughness_mod", text="", slider=True)
+                            col_1.label(text="G Roughness Mod")
+                            col_2.prop(params, "skin_g_roughness_mod", text="", slider=True)
+                            col_1.label(text="B Roughness Mod")
+                            col_2.prop(params, "skin_b_roughness_mod", text="", slider=True)
+                            col_1.label(text="A Roughness Mod")
+                            col_2.prop(params, "skin_a_roughness_mod", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Skin SSS Radius")
+                        col_1.label(text="SSS Scale")
+                        col_2.prop(params, "skin_sss_scale", text="", slider=True)
+                        col_1.label(text="SSS Radius")
                         col_2.prop(params, "skin_sss_radius", text="", slider=True)
-                        col_1.label(text="Skin SSS Faloff")
+                        col_1.label(text="SSS Faloff")
                         col_2.prop(params, "skin_sss_falloff", text="")
+
+                        col_1.separator()
+                        col_2.separator()
+
+                        col_1.label(text="Unmasked SSS Scale")
+                        col_2.prop(params, "skin_unmasked_sss_scale", text="", slider=True)
+                        if mat_cache.is_head():
+                            col_1.label(text="Nose SSS Scale")
+                            col_2.prop(params, "skin_nose_sss_scale", text="", slider=True)
+                            col_1.label(text="Mouth SSS Scale")
+                            col_2.prop(params, "skin_mouth_sss_scale", text="", slider=True)
+                            col_1.label(text="Upper Lid SSS Scale")
+                            col_2.prop(params, "skin_upperlid_sss_scale", text="", slider=True)
+                            col_1.label(text="Inner Lid SSS Scale")
+                            col_2.prop(params, "skin_innerlid_sss_scale", text="", slider=True)
+                            col_1.label(text="Cheek SSS Scale")
+                            col_2.prop(params, "skin_cheek_sss_scale", text="", slider=True)
+                            col_1.label(text="Forehead SSS Scale")
+                            col_2.prop(params, "skin_forehead_sss_scale", text="", slider=True)
+                            col_1.label(text="Upper Lip SSS Scale")
+                            col_2.prop(params, "skin_upperlip_sss_scale", text="", slider=True)
+                            col_1.label(text="Chin SSS Scale")
+                            col_2.prop(params, "skin_chin_sss_scale", text="", slider=True)
+                            col_1.label(text="Ear SSS Scale")
+                            col_2.prop(params, "skin_ear_sss_scale", text="", slider=True)
+                            col_1.label(text="Neck SSS Scale")
+                            col_2.prop(params, "skin_neck_sss_scale", text="", slider=True)
+                        else:
+                            col_1.label(text="R SSS Scale")
+                            col_2.prop(params, "skin_r_sss_scale", text="", slider=True)
+                            col_1.label(text="G SSS Scale")
+                            col_2.prop(params, "skin_g_sss_scale", text="", slider=True)
+                            col_1.label(text="B SSS Scale")
+                            col_2.prop(params, "skin_b_sss_scale", text="", slider=True)
+                            col_1.label(text="A SSS Scale")
+                            col_2.prop(params, "skin_a_sss_scale", text="", slider=True)
 
                         if linked or mat_cache.is_head():
                             column.box().label(text= "Normals", icon="NORMALS_FACE")
                             split = column.split(factor=0.5)
                             col_1 = split.column()
                             col_2 = split.column()
-                            col_1.label(text="Skin Normal Blend")
+                            col_1.label(text="Normal Strength")
+                            col_2.prop(params, "skin_normal_strength", text="", slider=True)
+                            col_1.label(text="Normal Blend")
                             col_2.prop(params, "skin_normal_blend", text="", slider=True)
 
                         column.box().label(text= "Micro-normals", icon="MOD_NORMALEDIT")
@@ -6329,6 +6418,15 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         if linked or mat_cache.is_leg():
                             col_1.label(text="Leg MNormal Tiling")
                             col_2.prop(params, "skin_leg_tiling", text="", slider=True)
+
+                        column.box().label(text= "Emission", icon="LIGHT")
+                        split = column.split(factor=0.5)
+                        col_1 = split.column()
+                        col_2 = split.column()
+                        col_1.label(text="Emissive Color")
+                        col_2.prop(params, "skin_emissive_color", text="", slider=True)
+                        col_1.label(text="Emission Strength")
+                        col_2.prop(params, "skin_emission_strength", text="", slider=True)
 
 
                 # Eye settings
