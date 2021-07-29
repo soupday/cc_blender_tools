@@ -527,7 +527,7 @@ PROP_MATRIX = [
                 "inputs": [
                     ["AO Strength", "skin_ao"],
                     ["Subsurface Falloff", "skin_sss_falloff"],
-                    ["Subsurface Radius", "skin_sss_radius"],
+                    ["Subsurface Radius", "skin_sss_radius", "parameters.skin_sss_radius * vars.UNIT_SCALE"],
                     ["Roughness Power", "skin_roughness_power"],
                     ["Roughness Min", "skin_roughness"],
                     ["Roughness Max", "skin_roughness_max"],
@@ -554,7 +554,7 @@ PROP_MATRIX = [
                 "inputs": [
                     ["AO Strength", "skin_ao"],
                     ["Subsurface Falloff", "skin_sss_falloff"],
-                    ["Subsurface Radius", "skin_sss_radius"],
+                    ["Subsurface Radius", "skin_sss_radius", "parameters.skin_sss_radius * vars.UNIT_SCALE"],
                     ["Roughness Power", "skin_roughness_power"],
                     ["Roughness Min", "skin_roughness"],
                     ["Roughness Max", "skin_roughness_max"],
@@ -581,7 +581,7 @@ PROP_MATRIX = [
                 "inputs": [
                     ["AO Strength", "skin_ao"],
                     ["Subsurface Falloff", "skin_sss_falloff"],
-                    ["Subsurface Radius", "skin_sss_radius"],
+                    ["Subsurface Radius", "skin_sss_radius", "parameters.skin_sss_radius * vars.UNIT_SCALE"],
                     ["Roughness Power", "skin_roughness_power"],
                     ["Roughness Min", "skin_roughness"],
                     ["Roughness Max", "skin_roughness_max"],
@@ -613,7 +613,7 @@ PROP_MATRIX = [
                     ["Nostril AO", "skin_nostril_ao"],
                     ["Lip AO", "skin_lips_ao"],
                     ["Subsurface Falloff", "skin_sss_falloff"],
-                    ["Subsurface Radius", "skin_sss_radius"],
+                    ["Subsurface Radius", "skin_sss_radius", "parameters.skin_sss_radius * vars.UNIT_SCALE"],
                     ["Roughness Power", "skin_roughness_power"],
                     ["Roughness Min", "skin_roughness"],
                     ["Roughness Max", "skin_roughness_max"],
@@ -763,7 +763,9 @@ TEXTURE_MATRIX = [
                     ["Specular Mask", "", vars.MOD_SPECMASK_MAP, "specular_mask"],
                     ["Roughness Map", "", vars.ROUGHNESS_MAP, "roughness"],
                     ["Normal Map", "", vars.NORMAL_MAP, "normal"],
+                    ["Normal Blend Map", "", vars.MOD_NORMALBLEND_MAP, "normal_blend"],
                     ["Micro Normal Map", "", vars.MOD_MICRONORMAL_MAP, "micro_normal", "skin_head_tiling"],
+                    ["Micro Normal Mask", "", vars.MOD_MICRONORMALMASK_MAP, "micro_normal_mask"],
                     ["NMUIL Map", "NMUIL Alpha", vars.MOD_NMUIL_MAP, "nmuil_mask"],
                     ["CFULC Map", "CFULC Alpha", vars.MOD_CFULC_MAP, "cfulc_mask"],
                     ["EN Map", "", vars.MOD_EN_MAP, "en_mask"],
@@ -782,7 +784,9 @@ TEXTURE_MATRIX = [
                     ["Specular Mask", "", vars.MOD_SPECMASK_MAP, "specular_mask"],
                     ["Roughness Map", "", vars.ROUGHNESS_MAP, "roughness"],
                     ["Normal Map", "", vars.NORMAL_MAP, "normal"],
+                    ["Normal Blend Map", "", vars.MOD_NORMALBLEND_MAP, "normal_blend"],
                     ["Micro Normal Map", "", vars.MOD_MICRONORMAL_MAP, "micro_normal", "skin_body_tiling"],
+                    ["Micro Normal Mask", "", vars.MOD_MICRONORMALMASK_MAP, "micro_normal_mask"],
                     ["RGBA Map", "RGBA Alpha", vars.MOD_RGBA_MAP, "rgba_mask"],
                     ["Emission Map", "", vars.EMISSION_MAP, "emission"],
                 ],
@@ -799,7 +803,9 @@ TEXTURE_MATRIX = [
                     ["Specular Mask", "", vars.MOD_SPECMASK_MAP, "specular_mask"],
                     ["Roughness Map", "", vars.ROUGHNESS_MAP, "roughness"],
                     ["Normal Map", "", vars.NORMAL_MAP, "normal"],
+                    ["Normal Blend Map", "", vars.MOD_NORMALBLEND_MAP, "normal_blend"],
                     ["Micro Normal Map", "", vars.MOD_MICRONORMAL_MAP, "micro_normal", "skin_arm_tiling", ""],
+                    ["Micro Normal Mask", "", vars.MOD_MICRONORMALMASK_MAP, "micro_normal_mask"],
                     ["RGBA Map", "RGBA Alpha", vars.MOD_RGBA_MAP, "rgba_mask"],
                     ["Emission Map", "", vars.EMISSION_MAP, "emission"],
                 ],
@@ -816,7 +822,9 @@ TEXTURE_MATRIX = [
                     ["Specular Mask", "", vars.MOD_SPECMASK_MAP, "specular_mask"],
                     ["Roughness Map", "", vars.ROUGHNESS_MAP, "roughness"],
                     ["Normal Map", "", vars.NORMAL_MAP, "normal"],
+                    ["Normal Blend Map", "", vars.MOD_NORMALBLEND_MAP, "normal_blend"],
                     ["Micro Normal Map", "", vars.MOD_MICRONORMAL_MAP, "micro_normal", "skin_leg_tiling"],
+                    ["Micro Normal Mask", "", vars.MOD_MICRONORMALMASK_MAP, "micro_normal_mask"],
                     ["RGBA Map", "RGBA Alpha", vars.MOD_RGBA_MAP, "rgba_mask"],
                     ["Emission Map", "", vars.EMISSION_MAP, "emission"],
                 ],
@@ -879,7 +887,7 @@ def get_prop_matrix_group(group_name):
 
 def get_texture_matrix_group(group_name):
     group_name = "(" + group_name + ")"
-    for mixer in PROP_MATRIX:
+    for mixer in TEXTURE_MATRIX:
         if mixer["start"] in group_name:
             if mixer["end"] in group_name:
                 for group in mixer["groups"]:

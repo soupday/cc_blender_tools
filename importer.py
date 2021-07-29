@@ -555,10 +555,15 @@ def set_from_prop_matrix(node, cache, group_name):
                 utils.log_error("set_from_prop_matrix(): Unable to evaluate or set: " + prop_eval, e)
 
 
-def set_image_node_tiling(nodes, links, node, tiling_prop, offset_prop, pivot_prop, label, group_name, tex_name):
+def set_image_node_tiling(nodes, links, node, cache, tiling_prop, offset_prop, pivot_prop, label, group_name, tex_name):
+    props = bpy.context.scene.CC3ImportProps
+    parameters = cache.parameters
+
     tiling = (1, 1, 1)
     offset = (0, 0, 0)
     pivot = None
+
+    print(tiling_prop)
 
     mapping_name = "tiling_" + group_name + "_" + tex_name + "_mapping"
 
@@ -615,34 +620,43 @@ def set_image_node_tiling(nodes, links, node, tiling_prop, offset_prop, pivot_pr
 
 
 def set_from_texture_matrix(nodes, links, node, mat, cache, group_name):
-    props = bpy.context.scene.CC3ImportProps
-    parameters = cache.parameters
-
     matrix_group = params.get_texture_matrix_group(group_name)
     location = node.location
     x = location[0] - 1000
-    y = location[1] - 1000
+    y = location[1] + 1000
 
-    for input in matrix_group["inputs"]:
-        socket_name = input[0]
-        alpha_socket_name = input[1]
-        tex_list = input[2]
-        tex_name = input[3]
-        tiling_prop = input[4]
-        offset_prop = input[5]
-        pivot_prop = input[6]
+    print(matrix_group["name"])
 
-        image =  find_material_image(mat, vars.BASE_COLOR_MAP)
-        if image is not None:
-            image_node = nodeutils.make_image_node(nodes, image, tex_name)
-            image_node.location = (x, y)
-            y = y + 400
-            set_image_node_tiling(nodes, links, image_node, tiling_prop, offset_prop, pivot_prop,
-                                  tex_name + " Mapping", group_name, tex_name)
-            # here we would add any tiling and mapping nodes (if we had that information...)
-            nodeutils.link_nodes(links, image_node, "Color", node, socket_name)
-            if alpha_socket_name is not None and alpha_socket_name != "":
-                nodeutils.link_nodes(links, image_node, "Alpha", node, alpha_socket_name)
+    for shader_input in node.inputs:
+        print (shader_input.name)
+        for input in matrix_group["inputs"]:
+            socket_name = input[0]
+            if socket_name == shader_input.name:
+                alpha_socket_name = input[1]
+                tex_list = input[2]
+                tex_name = input[3]
+                tiling_prop = None
+                offset_prop = None
+                pivot_prop = None
+                if len(input) > 4:
+                    tiling_prop = input[4]
+                if len(input) > 5:
+                    offset_prop = input[5]
+                if len(input) > 6:
+                    pivot_prop = input[6]
+
+                image =  find_material_image(mat, tex_list)
+                if image is not None:
+                    image_node = nodeutils.make_image_node(nodes, image, tex_name)
+                    image_node.location = (x, y)
+                    y = y - 300
+                    if tiling_prop or offset_prop or pivot_prop:
+                        set_image_node_tiling(nodes, links, image_node, cache, tiling_prop, offset_prop, pivot_prop,
+                                            tex_name + " Mapping", group_name, tex_name)
+                    # here we would add any tiling and mapping nodes (if we had that information...)
+                    nodeutils.link_nodes(links, image_node, "Color", node, socket_name)
+                    if alpha_socket_name is not None and alpha_socket_name != "":
+                        nodeutils.link_nodes(links, image_node, "Alpha", node, alpha_socket_name)
 
 
 def connect_tearline_material(obj, mat, shader):
@@ -734,7 +748,7 @@ def connect_skin_shader(obj, mat, shader):
     nodeutils.reset_cursor()
 
     set_from_prop_matrix(shader, mat_cache, shader_name)
-    set_from_texture_matrix(shader, mat_cache, shader_name)
+    set_from_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name)
 
     set_material_alpha(mat, "OPAQUE")
     mat.shadow_method = "NONE"
@@ -3080,11 +3094,16 @@ def process_material(obj, mat):
 
     elif mat_cache.is_eye_occlusion():
 
-        if props.setup_mode == "ADVANCED" and prefs.use_advanced_eye_occlusion:
+        if props.setup_mode == "ADVANCED" and prefs.use_new_shaders:
             connect_eye_occlusion_shader(obj, mat, shader)
         else:
             connect_eye_occlusion_material(obj, mat, shader)
 
+        nodeutils.move_new_nodes(-600, 0)
+
+    elif mat_cache.is_skin() and props.setup_mode == "ADVANCED" and prefs.use_new_shaders:
+
+        connect_skin_shader(obj, mat, shader)
         nodeutils.move_new_nodes(-600, 0)
 
     elif (mat_cache.is_teeth() or mat_cache.is_tongue()) and props.setup_mode == "ADVANCED":
@@ -3152,7 +3171,7 @@ def process_object(obj, objects_processed):
         if props.setup_mode == "ADVANCED":
             if prefs.refractive_eyes and cache.is_eye():
                 add_eye_modifiers(obj)
-            elif prefs.use_advanced_eye_occlusion and cache.is_eye_occlusion():
+            elif prefs.use_new_shaders and cache.is_eye_occlusion():
                 add_eye_occlusion_modifiers(obj)
             elif cache.is_tearline():
                 add_tearline_modifiers(obj)
@@ -6440,7 +6459,7 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                             col_1 = split.column()
                             col_2 = split.column()
 
-                            if (prefs.use_advanced_eye_occlusion):
+                            if (prefs.use_new_shaders):
 
                                 col_1.label(text="Color")
                                 col_2.prop(params, "eye_occlusion_color", text="", slider=True)
@@ -7315,7 +7334,7 @@ def reset_preferences():
     prefs.fake_hair_bump = True
     prefs.refractive_eyes = True
     prefs.eye_displacement_group = "CC_Eye_Displacement"
-    prefs.use_advanced_eye_occlusion = True
+    prefs.use_new_shaders = True
 
 
 class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
@@ -7394,7 +7413,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
-    use_advanced_eye_occlusion: bpy.props.BoolProperty(default=True, name="Use Advanced Eye Occlusion Shader")
+    use_new_shaders: bpy.props.BoolProperty(default=True, name="Use Advanced Eye Occlusion Shader")
 
     # addon updater preferences
 
@@ -7455,7 +7474,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Eyes:")
         layout.prop(self, "refractive_eyes")
         layout.prop(self, "eye_displacement_group")
-        layout.prop(self, "use_advanced_eye_occlusion")
+        layout.prop(self, "use_new_shaders")
         layout.label(text="Physics:")
         layout.prop(self, "physics")
         layout.prop(self, "physics_group")
