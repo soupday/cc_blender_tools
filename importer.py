@@ -5291,8 +5291,8 @@ def reset_material_parameters(cache):
     params.skin_ao = 1.0
     params.skin_blend = 0.0
     params.skin_normal_blend = 0.0
-    params.skin_roughness = 0.12
-    params.skin_roughness_power = 1.0
+    params.skin_roughness = 0.0
+    params.skin_roughness_power = 0.8
     params.skin_specular = 0.4
     params.skin_basic_specular = 0.4
     params.skin_basic_roughness = 0.15
@@ -5603,8 +5603,8 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     skin_nostril_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_nostril_ao"))
     skin_lips_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_lips_ao"))
     skin_normal_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_blend"))
-    skin_roughness_power: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
-    skin_roughness: bpy.props.FloatProperty(default=0.12, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness"))
+    skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
+    skin_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness"))
     skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular"))
 
     skin_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=5, update=lambda s,c: update_property(s,c,"skin_sss_radius"))
