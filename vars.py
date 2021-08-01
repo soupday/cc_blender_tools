@@ -60,6 +60,7 @@ MOD_EN_MAP = ["enmask"]
 
 # blender uses metres, CC3 uses centimetres
 UNIT_SCALE = 0.01
+SSRADIUS_SCALE = 0.02
 
 # https://docs.blender.org/manual/en/latest/files/media/image_formats.html
 IMAGE_TYPES = [".bmp", ".sgi", ".rgb", ".bw", ".png", ".jpg", ".jpeg", ".jp2", ".j2c",
@@ -72,7 +73,7 @@ NODE_GROUPS = ["color_ao_mixer", "color_blend_ao_mixer", "color_refractive_eye_m
                "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer", "fake_bump_mixer",
                "normal_refractive_cornea_mixer", "normal_refractive_eye_mixer",
                "eye_occlusion_mask", "iris_refractive_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping",
-               "rl_eye_occlusion_shader"]
+               "rl_eye_occlusion_shader", "rl_skin_shader", "rl_head_shader", "rl_tongue_shader", "rl_teeth_shader"]
 
 
 MATERIAL_TYPES = [

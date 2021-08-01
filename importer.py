@@ -679,7 +679,7 @@ def connect_tearline_material(obj, mat, shader):
     mat.shadow_method = "NONE"
 
 
-def connect_eye_occlusion_material(obj, mat, shader):
+def connect_basic_occlusion_material(obj, mat, shader):
     props = bpy.context.scene.CC3ImportProps
     obj_cache = get_object_cache(obj)
     mat_cache = get_material_cache(mat)
@@ -758,7 +758,53 @@ def connect_skin_shader(obj, mat, shader):
     apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name)
 
     set_material_alpha(mat, "OPAQUE")
-    mat.shadow_method = "NONE"
+
+
+def connect_tongue_shader(obj, mat, shader):
+    props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    shader_label = "Tongue Shader"
+    shader_name = "rl_tongue_shader"
+    shader_group = "rl_tongue_shader"
+
+    shader = shaderutils.replace_shader_node(nodes, links, shader, shader_label, shader_name, shader_group)
+
+    nodeutils.reset_cursor()
+
+    apply_prop_matrix(shader, mat_cache, shader_name)
+    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name)
+
+    set_material_alpha(mat, "OPAQUE")
+
+
+def connect_teeth_shader(obj, mat, shader):
+    props = bpy.context.scene.CC3ImportProps
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    shader_label = "Teeth Shader"
+    shader_name = "rl_teeth_shader"
+    shader_group = "rl_teeth_shader"
+
+    shader = shaderutils.replace_shader_node(nodes, links, shader, shader_label, shader_name, shader_group)
+
+    nodeutils.reset_cursor()
+
+    apply_prop_matrix(shader, mat_cache, shader_name)
+    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name)
+
+    if mat_cache.is_upper_teeth():
+        nodeutils.set_node_input(shader, "Is Upper Teeth", 1.0)
+    else:
+        nodeutils.set_node_input(shader, "Is Upper Teeth", 0.0)
+
+    set_material_alpha(mat, "OPAQUE")
 
 
 def connect_basic_eye_material(obj, mat, shader):
@@ -1185,202 +1231,6 @@ def connect_refractive_eye_material(obj, mat, shader):
         nodeutils.set_node_input(shader, "Specular Tint", 1.0)
         nodeutils.set_node_input(shader, "Clearcoat Roughness", 0.0)
         mat.use_screen_refraction = False
-
-    return
-
-
-
-
-def connect_adv_mouth_material(obj, mat, shader):
-    props = bpy.context.scene.CC3ImportProps
-    obj_cache = get_object_cache(obj)
-    mat_cache = get_material_cache(mat)
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
-
-    # Gums Mask and Gradient AO
-    nodeutils.reset_cursor()
-    nodeutils.advance_cursor(-2)
-    # maps
-    mask_image = None
-    mask_node = None
-    teeth = mat_cache.is_teeth()
-    if teeth:
-        mask_image = find_material_image(mat, vars.TEETH_GUMS_MAP)
-        # if no gums mask file is found for the teeth,
-        # just connect as default advanced material
-        if mask_image is None:
-            connect_advanced_material(obj, mat, shader, mat_cache)
-            return
-    # if no gradient ao file is found for the teeth or tongue
-    # just connect as default advanced material
-    gradient_image = find_material_image(mat, vars.MOUTH_GRADIENT_MAP)
-    gradient_node = None
-    if gradient_image is None:
-        connect_advanced_material(obj, mat, shader, mat_cache)
-        return
-    nodeutils.advance_cursor(2 - utils.count_maps(mask_image, gradient_image))
-    if mask_image is not None:
-        mask_node = nodeutils.make_image_node(nodes, mask_image, "gums_mask_tex")
-        nodeutils.step_cursor()
-    if gradient_image is not None:
-        gradient_node = nodeutils.make_image_node(nodes, gradient_image, "gradient_ao_tex")
-        nodeutils.step_cursor()
-        # nodes
-        gradientrgb_node = nodeutils.make_shader_node(nodes, "ShaderNodeSeparateRGB")
-        # links
-        nodeutils.link_nodes(links, gradient_node, "Color", gradientrgb_node, "Image")
-    # move
-    nodeutils.move_new_nodes(-2000, 0)
-    nodeutils.clear_cursor()
-
-    # Base Color
-    nodeutils.reset_cursor()
-    nodeutils.advance_cursor(-2)
-    # maps
-    diffuse_image = find_material_image(mat, vars.BASE_COLOR_MAP)
-    ao_image = find_material_image(mat, vars.MOD_AO_MAP)
-    diffuse_node = ao_node = None
-    nodeutils.advance_cursor(2 - utils.count_maps(diffuse_image, ao_image))
-    if diffuse_image is not None:
-        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
-        nodeutils.step_cursor()
-    if ao_image is not None:
-        ao_node = nodeutils.make_image_node(nodes, ao_image, "ao_tex")
-        nodeutils.step_cursor()
-    # groups
-    if teeth:
-        group = nodeutils.get_node_group("color_teeth_mixer")
-        color_node = nodeutils.make_node_group_node(nodes, group, "Teeth Base Color", "color_teeth_mixer")
-    else:
-        group = nodeutils.get_node_group("color_tongue_mixer")
-        color_node = nodeutils.make_node_group_node(nodes, group, "Tongue Base Color", "color_tongue_mixer")
-    base_colour_node = group
-    # values
-    if teeth:
-        nodeutils.set_node_input(color_node, "AO Strength", mat_cache.parameters.teeth_ao)
-        nodeutils.set_node_input(color_node, "Front", mat_cache.parameters.teeth_front)
-        nodeutils.set_node_input(color_node, "Rear", mat_cache.parameters.teeth_rear)
-        nodeutils.set_node_input(color_node, "Gums Brightness", mat_cache.parameters.teeth_gums_brightness)
-        nodeutils.set_node_input(color_node, "Teeth Brightness", mat_cache.parameters.teeth_teeth_brightness)
-        nodeutils.set_node_input(color_node, "Gums Saturation", 1 - mat_cache.parameters.teeth_gums_desaturation)
-        nodeutils.set_node_input(color_node, "Teeth Saturation", 1 - mat_cache.parameters.teeth_teeth_desaturation)
-    else:
-        nodeutils.set_node_input(color_node, "AO Strength", mat_cache.parameters.tongue_ao)
-        nodeutils.set_node_input(color_node, "Front", mat_cache.parameters.tongue_front)
-        nodeutils.set_node_input(color_node, "Rear", mat_cache.parameters.tongue_rear)
-        nodeutils.set_node_input(color_node, "Brightness", mat_cache.parameters.tongue_brightness)
-        nodeutils.set_node_input(color_node, "Saturation", 1 - mat_cache.parameters.tongue_desaturation)
-    # links
-    if teeth:
-        gao_socket = "G"
-        if "std_lower_teeth" in mat.name.lower():
-            gao_socket = "R"
-        nodeutils.link_nodes(links, mask_node, "Color", color_node, "Gums Mask")
-        nodeutils.link_nodes(links, gradientrgb_node, gao_socket, color_node, "Gradient AO")
-        nodeutils.link_nodes(links, diffuse_node, "Color", color_node, "Diffuse")
-        nodeutils.link_nodes(links, ao_node, "Color", color_node, "AO")
-        nodeutils.link_nodes(links, color_node, "Base Color", shader, "Base Color")
-    else:
-        gao_socket = "B"
-        nodeutils.link_nodes(links, gradientrgb_node, gao_socket, color_node, "Gradient AO")
-        nodeutils.link_nodes(links, diffuse_node, "Color", color_node, "Diffuse")
-        nodeutils.link_nodes(links, ao_node, "Color", color_node, "AO")
-        nodeutils.link_nodes(links, color_node, "Base Color", shader, "Base Color")
-
-    # SSS
-    nodeutils.drop_cursor(0.35)
-    nodeutils.reset_cursor()
-    # groups
-    if teeth:
-        group = nodeutils.get_node_group("subsurface_overlay_mixer")
-        sss_node = nodeutils.make_node_group_node(nodes, group, "Teeth Subsurface", "subsurface_teeth_mixer")
-    else:
-        group = nodeutils.get_node_group("subsurface_mixer")
-        sss_node = nodeutils.make_node_group_node(nodes, group, "Tongue Subsurface", "subsurface_tongue_mixer")
-    # values
-    if teeth:
-        nodeutils.set_node_input(sss_node, "Scatter1", mat_cache.parameters.teeth_gums_sss_scatter)
-        nodeutils.set_node_input(sss_node, "Radius1", mat_cache.parameters.teeth_sss_radius * vars.UNIT_SCALE * 3)
-        nodeutils.set_node_input(sss_node, "Falloff1", mat_cache.parameters.teeth_sss_falloff)
-        nodeutils.set_node_input(sss_node, "Scatter2", mat_cache.parameters.teeth_teeth_sss_scatter)
-        nodeutils.set_node_input(sss_node, "Radius2", mat_cache.parameters.teeth_sss_radius * vars.UNIT_SCALE * 3)
-        nodeutils.set_node_input(sss_node, "Falloff2", mat_cache.parameters.teeth_sss_falloff)
-    else:
-        nodeutils.set_node_input(sss_node, "Scatter", mat_cache.parameters.tongue_sss_scatter)
-        nodeutils.set_node_input(sss_node, "Radius", mat_cache.parameters.tongue_sss_radius * vars.UNIT_SCALE * 3)
-        nodeutils.set_node_input(sss_node, "Falloff", mat_cache.parameters.tongue_sss_falloff)
-    # links
-    nodeutils.link_nodes(links, mask_node, "Color", sss_node, "Mask")
-    nodeutils.link_nodes(links, color_node, "Base Color", sss_node, "Diffuse")
-    nodeutils.link_nodes(links, sss_node, "Subsurface", shader, "Subsurface")
-    nodeutils.link_nodes(links, sss_node, "Subsurface Radius", shader, "Subsurface Radius")
-    nodeutils.link_nodes(links, sss_node, "Subsurface Color", shader, "Subsurface Color")
-
-    # MSR
-    nodeutils.drop_cursor(0.1)
-    nodeutils.reset_cursor()
-    nodeutils.advance_cursor(-2.7)
-    # props
-    metallic = 0
-    specprop, specular = get_specular_strength(mat_cache, shader)
-    roughprop, roughness = get_roughness_remap(mat_cache)
-    # maps
-    metallic_image = find_material_image(mat, vars.METALLIC_MAP)
-    roughness_image = find_material_image(mat, vars.ROUGHNESS_MAP)
-    metallic_node = roughness_node = roughness_mult_node = None
-    if metallic_image is not None:
-        metallic_node = nodeutils.make_image_node(nodes, metallic_image, "metallic_tex")
-        nodeutils.step_cursor()
-    else:
-        nodeutils.advance_cursor()
-    if roughness_image is not None:
-        roughness_node = nodeutils.make_image_node(nodes, roughness_image, "roughness_tex")
-        nodeutils.advance_cursor()
-        roughness_mult_node = nodeutils.make_math_node(nodes, "MULTIPLY", 1, roughness)
-        if teeth:
-            roughness_mult_node.name = utils.unique_name("teeth_roughness")
-        else:
-            roughness_mult_node.name = utils.unique_name("tongue_roughness")
-        nodeutils.step_cursor(0.7)
-    else:
-        nodeutils.advance_cursor(1.7)
-    # groups
-    group = nodeutils.get_node_group("msr_overlay_mixer")
-    if teeth:
-        msr_node = nodeutils.make_node_group_node(nodes, group, "Teeth MSR", "msr_teeth_mixer")
-    else:
-        msr_node = nodeutils.make_node_group_node(nodes, group, "Tongue MSR", "msr_tongue_mixer")
-    # values
-    nodeutils.set_node_input(msr_node, "Metallic1", metallic)
-    nodeutils.set_node_input(msr_node, "Metallic2", metallic)
-    nodeutils.set_node_input(msr_node, "Roughness1", 1)
-    nodeutils.set_node_input(msr_node, "Roughness2", roughness)
-    nodeutils.set_node_input(msr_node, "Specular1", 0)
-    nodeutils.set_node_input(msr_node, "Specular2", specular)
-    # links
-    nodeutils.link_nodes(links, gradientrgb_node, gao_socket, msr_node, "Mask")
-    nodeutils.link_nodes(links, metallic_node, "Color", msr_node, "Metallic1")
-    nodeutils.link_nodes(links, metallic_node, "Color", msr_node, "Metallic2")
-    nodeutils.link_nodes(links, roughness_node, "Color", roughness_mult_node, 0)
-    nodeutils.link_nodes(links, roughness_mult_node, "Value", msr_node, "Roughness2")
-    nodeutils.link_nodes(links, gradientrgb_node, gao_socket, msr_node, "Mask")
-    nodeutils.link_nodes(links, msr_node, "Metallic", shader, "Metallic")
-    nodeutils.link_nodes(links, msr_node, "Specular", shader, "Specular")
-    nodeutils.link_nodes(links, msr_node, "Roughness", shader, "Roughness")
-
-    # emission and alpha
-    nodeutils.set_node_input(shader, "Alpha", 1.0)
-    connect_emission_alpha(obj, mat, shader)
-    set_material_alpha(mat, "OPAQUE")
-
-    # Normal
-    connect_normal(obj, mat, shader, base_colour_node)
-
-    # Clearcoat
-    #
-    nodeutils.set_node_input(shader, "Clearcoat", 0)
-    nodeutils.set_node_input(shader, "Clearcoat Roughness", 0)
 
     return
 
@@ -1857,7 +1707,7 @@ def connect_subsurface(obj, mat, shader, diffuse_node):
     group = nodeutils.get_node_group("subsurface_mixer")
     group_node = nodeutils.make_node_group_node(nodes, group, "Subsurface Mixer", "subsurface_" + prop_group + "_mixer")
     # values
-    nodeutils.set_node_input(group_node, "Radius", sss_radius * vars.UNIT_SCALE)
+    nodeutils.set_node_input(group_node, "Radius", sss_radius * vars.SSRADIUS_SCALE)
     nodeutils.set_node_input(group_node, "Falloff", sss_falloff)
     if diffuse_node is None:
         nodeutils.set_node_input(group_node, "Diffuse", shader.inputs["Base Color"].default_value)
@@ -3101,22 +2951,23 @@ def process_material(obj, mat):
 
     elif mat_cache.is_eye_occlusion():
 
-        if props.setup_mode == "ADVANCED" and prefs.use_new_shaders:
+        if props.setup_mode == "ADVANCED":
             connect_eye_occlusion_shader(obj, mat, shader)
         else:
-            connect_eye_occlusion_material(obj, mat, shader)
+            connect_basic_occlusion_material(obj, mat, shader)
             nodeutils.move_new_nodes(-600, 0)
 
-
-
-    elif mat_cache.is_skin() and props.setup_mode == "ADVANCED" and prefs.use_new_shaders:
+    elif mat_cache.is_skin() and props.setup_mode == "ADVANCED":
 
         connect_skin_shader(obj, mat, shader)
 
-    elif (mat_cache.is_teeth() or mat_cache.is_tongue()) and props.setup_mode == "ADVANCED":
+    elif mat_cache.is_teeth() and props.setup_mode == "ADVANCED":
 
-        connect_adv_mouth_material(obj, mat, shader)
-        nodeutils.move_new_nodes(-600, 0)
+        connect_teeth_shader(obj, mat, shader)
+
+    elif mat_cache.is_tongue() and props.setup_mode == "ADVANCED":
+
+        connect_tongue_shader(obj, mat, shader)
 
     else:
 
@@ -5607,7 +5458,7 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     skin_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness"))
     skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular"))
 
-    skin_sss_radius: bpy.props.FloatProperty(default=1.5, min=0.1, max=5, update=lambda s,c: update_property(s,c,"skin_sss_radius"))
+    skin_sss_radius: bpy.props.FloatProperty(default=1.5, min=0, max=3, update=lambda s,c: update_property(s,c,"skin_sss_radius"))
     skin_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"skin_sss_falloff"))
     skin_head_micronormal: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_head_micronormal"))
@@ -5733,38 +5584,56 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     tearline_displace: bpy.props.FloatProperty(default=0.1, min=-0.2, max=0.2, update=lambda s,c: update_modifier(s,c,"tearline_displace"))
 
     # Teeth
-    teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_ao"))
+    teeth_gums_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_gums_hue"))
     teeth_gums_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_gums_brightness"))
+    teeth_gums_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_gums_saturation"))
+    teeth_gums_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_gums_hsv_strength"))
+    teeth_teeth_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_teeth_hue"))
     teeth_teeth_brightness: bpy.props.FloatProperty(default=0.7, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_teeth_brightness"))
-    teeth_gums_desaturation: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_gums_desaturation"))
-    teeth_teeth_desaturation: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_teeth_desaturation"))
-    teeth_front: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_front"))
-    teeth_rear: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_rear"))
-    teeth_specular: bpy.props.FloatProperty(default=0.25, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_specular"))
-    teeth_roughness: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_roughness"))
+    teeth_teeth_saturation: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_teeth_saturation"))
+    teeth_teeth_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_teeth_hsv_strength"))
+    teeth_front_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1.5, update=lambda s,c: update_property(s,c,"teeth_front_ao"))
+    teeth_rear_ao: bpy.props.FloatProperty(default=0.0, min=0, max=1.5, update=lambda s,c: update_property(s,c,"teeth_rear_ao"))
+    teeth_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_ao"))
     teeth_gums_sss_scatter: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_gums_sss_scatter"))
-    teeth_teeth_sss_scatter: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_teeth_sss_scatter"))
+    teeth_teeth_sss_scatter: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"teeth_teeth_sss_scatter"))
     teeth_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"teeth_sss_radius"))
     teeth_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                             default=(0.381, 0.198, 0.13, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"teeth_sss_falloff"))
+    teeth_specular_front: bpy.props.FloatProperty(default=0.25, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_specular_front"))
+    teeth_specular_rear: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_specular_rear"))
+    teeth_roughness_front: bpy.props.FloatProperty(default=0.4, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_roughness_front"))
+    teeth_roughness_rear: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_roughness_rear"))
+    teeth_normal: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_normal"))
     teeth_micronormal: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_micronormal"))
     teeth_tiling: bpy.props.FloatProperty(default=10, min=0, max=50, update=lambda s,c: update_property(s,c,"teeth_tiling"))
+    teeth_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"teeth_emissive_color"))
+    teeth_emission_strength: bpy.props.FloatProperty(default=0.4, min=0, max=500, update=lambda s,c: update_property(s,c,"teeth_emission_strength"))
 
 
     # Tongue
-    tongue_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_ao"))
+    tongue_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_hue"))
     tongue_brightness: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_brightness"))
-    tongue_desaturation: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_desaturation"))
-    tongue_front: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_front"))
-    tongue_rear: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_rear"))
-    tongue_specular: bpy.props.FloatProperty(default=0.259, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_specular"))
-    tongue_roughness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_roughness"))
+    tongue_saturation: bpy.props.FloatProperty(default=0.95, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_saturation"))
+    tongue_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_hsv_strength"))
+    tongue_front_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1.5, update=lambda s,c: update_property(s,c,"tongue_front_ao"))
+    tongue_rear_ao: bpy.props.FloatProperty(default=0.0, min=0, max=1.5, update=lambda s,c: update_property(s,c,"tongue_rear_ao"))
+    tongue_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_ao"))
     tongue_sss_scatter: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_sss_scatter"))
     tongue_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"tongue_sss_radius"))
     tongue_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                            default=(1, 1, 1, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"tongue_sss_falloff"))
+                            default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"tongue_sss_falloff"))
+    tongue_specular_front: bpy.props.FloatProperty(default=0.259, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_specular_front"))
+    tongue_specular_rear: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_specular_rear"))
+    tongue_roughness_front: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_roughness_front"))
+    tongue_roughness_rear: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_roughness_rear"))
+    tongue_normal: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_normal"))
     tongue_micronormal: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_micronormal"))
     tongue_tiling: bpy.props.FloatProperty(default=4, min=0, max=50, update=lambda s,c: update_property(s,c,"tongue_tiling"))
+    tongue_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"tongue_emissive_color"))
+    tongue_emission_strength: bpy.props.FloatProperty(default=0.4, min=0, max=500, update=lambda s,c: update_property(s,c,"tongue_emission_strength"))
 
 
     # Nails
@@ -5885,6 +5754,9 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
     def is_teeth(self):
         return (self.material_type == "TEETH_UPPER"
                 or self.material_type == "TEETH_LOWER")
+
+    def is_upper_teeth(self):
+        return self.material_type == "TEETH_UPPER"
 
     def is_tongue(self):
         return self.material_type == "TONGUE"
@@ -6655,29 +6527,41 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Teeth AO")
+                        col_1.label(text="Ambient Occlusion")
                         col_2.prop(params, "teeth_ao", text="", slider=True)
+                        col_1.label(text="Gums Hue")
+                        col_2.prop(params, "teeth_gums_hue", text="", slider=True)
                         col_1.label(text="Gums Brightness")
                         col_2.prop(params, "teeth_gums_brightness", text="", slider=True)
-                        col_1.label(text="Gums Desaturation")
-                        col_2.prop(params, "teeth_gums_desaturation", text="", slider=True)
+                        col_1.label(text="Gums Saturation")
+                        col_2.prop(params, "teeth_gums_saturation", text="", slider=True)
+                        col_1.label(text="Gums HSV Strength")
+                        col_2.prop(params, "teeth_gums_hsv_strength", text="", slider=True)
+                        col_1.label(text="Teeth Hue")
+                        col_2.prop(params, "teeth_teeth_hue", text="", slider=True)
                         col_1.label(text="Teeth Brightness")
                         col_2.prop(params, "teeth_teeth_brightness", text="", slider=True)
-                        col_1.label(text="Teeth Desaturation")
-                        col_2.prop(params, "teeth_teeth_desaturation", text="", slider=True)
+                        col_1.label(text="Teeth Saturation")
+                        col_2.prop(params, "teeth_teeth_saturation", text="", slider=True)
+                        col_1.label(text="Teeth HSV Strength")
+                        col_2.prop(params, "teeth_teeth_hsv_strength", text="", slider=True)
                         col_1.label(text="Front AO")
-                        col_2.prop(params, "teeth_front", text="", slider=True)
+                        col_2.prop(params, "teeth_front_ao", text="", slider=True)
                         col_1.label(text="Rear AO")
-                        col_2.prop(params, "teeth_rear", text="", slider=True)
+                        col_2.prop(params, "teeth_rear_ao", text="", slider=True)
 
                         column.box().label(text= "Surface", icon="SURFACE_DATA")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Teeth Specular")
-                        col_2.prop(params, "teeth_specular", text="", slider=True)
-                        col_1.label(text="Teeth Roughness")
-                        col_2.prop(params, "teeth_roughness", text="", slider=True)
+                        col_1.label(text="Front Specular")
+                        col_2.prop(params, "teeth_specular_front", text="", slider=True)
+                        col_1.label(text="Rear Specular")
+                        col_2.prop(params, "teeth_specular_rear", text="", slider=True)
+                        col_1.label(text="Front Roughness")
+                        col_2.prop(params, "teeth_roughness_front", text="", slider=True)
+                        col_1.label(text="Rear Roughness")
+                        col_2.prop(params, "teeth_roughness_rear", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
                         split = column.split(factor=0.5)
@@ -6692,14 +6576,25 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         col_1.label(text="SSS Falloff")
                         col_2.prop(params, "teeth_sss_falloff", text="", slider=True)
 
-                        column.box().label(text= "Micro-normals", icon="MOD_NORMALEDIT")
+                        column.box().label(text= "Normals", icon="MOD_NORMALEDIT")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
+                        col_1.label(text="Normal Strength")
+                        col_2.prop(params, "teeth_normal", text="", slider=True)
                         col_1.label(text="Micro Normal")
                         col_2.prop(params, "teeth_micronormal", text="", slider=True)
                         col_1.label(text="Micro Normal Tiling")
                         col_2.prop(params, "teeth_tiling", text="", slider=True)
+
+                        column.box().label(text= "Emission", icon="LIGHT")
+                        split = column.split(factor=0.5)
+                        col_1 = split.column()
+                        col_2 = split.column()
+                        col_1.label(text="Emissive Color")
+                        col_2.prop(params, "teeth_emissive_color", text="", slider=True)
+                        col_1.label(text="Emission Strength")
+                        col_2.prop(params, "teeth_emission_strength", text="", slider=True)
 
                 # Tongue settings
                 elif mat_cache.is_tongue():
@@ -6712,45 +6607,64 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Tongue AO")
+                        col_1.label(text="Ambient Occlusion")
                         col_2.prop(params, "tongue_ao", text="", slider=True)
-                        col_1.label(text="Tongue Brightness")
+                        col_1.label(text="Hue")
+                        col_2.prop(params, "tongue_hue", text="", slider=True)
+                        col_1.label(text="Brightness")
                         col_2.prop(params, "tongue_brightness", text="", slider=True)
-                        col_1.label(text="Tongue Desaturation")
-                        col_2.prop(params, "tongue_desaturation", text="", slider=True)
+                        col_1.label(text="Saturation")
+                        col_2.prop(params, "tongue_saturation", text="", slider=True)
+                        col_1.label(text="HSV Strengh")
+                        col_2.prop(params, "tongue_hsv_strength", text="", slider=True)
                         col_1.label(text="Front AO")
-                        col_2.prop(params, "tongue_front", text="", slider=True)
+                        col_2.prop(params, "tongue_front_ao", text="", slider=True)
                         col_1.label(text="Rear AO")
-                        col_2.prop(params, "tongue_rear", text="", slider=True)
+                        col_2.prop(params, "tongue_rear_ao", text="", slider=True)
 
                         column.box().label(text= "Surface", icon="SURFACE_DATA")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Tongue Specular")
-                        col_2.prop(params, "tongue_specular", text="", slider=True)
-                        col_1.label(text="Tongue Roughness")
-                        col_2.prop(params, "tongue_roughness", text="", slider=True)
+                        col_1.label(text="Front Specular")
+                        col_2.prop(params, "tongue_specular_front", text="", slider=True)
+                        col_1.label(text="Rear Specular")
+                        col_2.prop(params, "tongue_specular_rear", text="", slider=True)
+                        col_1.label(text="Front Roughness")
+                        col_2.prop(params, "tongue_roughness_front", text="", slider=True)
+                        col_1.label(text="Rear Roughness")
+                        col_2.prop(params, "tongue_roughness_rear", text="", slider=True)
 
                         column.box().label(text= "Sub-surface", icon="SURFACE_NSURFACE")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="SSS Scatter")
+                        col_1.label(text="Subsurface Scatter")
                         col_2.prop(params, "tongue_sss_scatter", text="", slider=True)
                         col_1.label(text="SSS Radius (cm)")
                         col_2.prop(params, "tongue_sss_radius", text="", slider=True)
                         col_1.label(text="SSS Falloff")
                         col_2.prop(params, "tongue_sss_falloff", text="", slider=True)
 
-                        column.box().label(text= "Micro-normals", icon="MOD_NORMALEDIT")
+                        column.box().label(text= "Normals", icon="MOD_NORMALEDIT")
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
+                        col_1.label(text="Normal Strength")
+                        col_2.prop(params, "tongue_normal", text="", slider=True)
                         col_1.label(text="Micro Normal")
                         col_2.prop(params, "tongue_micronormal", text="", slider=True)
                         col_1.label(text="Micro Normal Tiling")
                         col_2.prop(params, "tongue_tiling", text="", slider=True)
+
+                        column.box().label(text= "Emission", icon="LIGHT")
+                        split = column.split(factor=0.5)
+                        col_1 = split.column()
+                        col_2 = split.column()
+                        col_1.label(text="Emissive Color")
+                        col_2.prop(params, "tongue_emissive_color", text="", slider=True)
+                        col_1.label(text="Emission Strength")
+                        col_2.prop(params, "tongue_emission_strength", text="", slider=True)
 
                 # Nails settings
                 elif mat_cache.is_nails():
