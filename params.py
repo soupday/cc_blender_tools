@@ -748,6 +748,8 @@ PROP_MATRIX = [
                     ["Iris Emissive Color", "eye_iris_emissive_color"],
                     ["Iris Emission Strength", "eye_iris_emission_strength"],
                     ["Sclera Normal Strength", "eye_sclera_normal"],
+                    ["Blood Vessel Height", "eye_blood_vessel_height", "parameters.eye_blood_vessel_height/1000"],
+                    ["Iris Bump Height", "eye_iris_bump_height", "parameters.eye_iris_bump_height/1000"],
                 ],
             },
 
