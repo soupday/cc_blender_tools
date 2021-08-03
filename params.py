@@ -417,9 +417,15 @@ PROP_MATRIX = [
             },
 
             # TODO: this could be part of the iris mask group and linked...
-            {   "name": "_color_sclera_",
+            {   "name": "_SCLERA_DIFFUSE_",
                 "inputs": [
                     ["Tiling", "eye_sclera_scale", "1.0 / parameters.eye_sclera_scale"],
+                ],
+            },
+
+            {   "name": "_CORNEA_DIFFUSE_",
+                "inputs": [
+                    ["Tiling", "eye_iris_scale", "1.0 / parameters.eye_iris_scale"],
                 ],
             },
 
@@ -706,6 +712,45 @@ PROP_MATRIX = [
                 ],
             },
 
+            {   "name": ["cornea_shader", "eye_shader"],
+                "inputs": [
+                    ["Subsurface Scale", "eye_sss_scatter"],
+                    ["Subsurface Radius", "eye_sss_radius", "parameters.eye_sss_radius * vars.SSRADIUS_SCALE"],
+                    ["Subsurface Falloff", "eye_sss_falloff"],
+                    ["Cornea Specular", "eye_cornea_specular"],
+                    ["Iris Specular", "eye_iris_specular"],
+                    ["Cornea Roughness", "eye_cornea_roughness"],
+                    ["Iris Roughness", "eye_iris_roughness"],
+                    ["Sclera Roughness", "eye_sclera_roughness"],
+                    ["AO Strength", "eye_ao"],
+                    ["Sclera Scale", "eye_sclera_scale"],
+                    ["Sclera Hue", "eye_sclera_hue"],
+                    ["Sclera Saturation", "eye_sclera_saturation"],
+                    ["Sclera Brightness", "eye_sclera_brightness"],
+                    ["Sclera HSV Strength", "eye_sclera_hsv"],
+                    ["Iris Scale", "eye_iris_scale"],
+                    ["Iris Hue", "eye_iris_hue"],
+                    ["Iris Saturation", "eye_iris_saturation"],
+                    ["Iris Brightness", "eye_iris_brightness"],
+                    ["Iris HSV Strength", "eye_iris_hsv"],
+                    ["Iris Radius", "eye_iris_radius"],
+                    ["Limbus Width", "eye_limbus_width"],
+                    ["Limbus Dark Radius", "eye_limbus_dark_radius"],
+                    ["Limbus Dark Width", "eye_limbus_dark_width"],
+                    ["Limbus Color", "eye_limbus_color"],
+                    ["IOR", "eye_ior"],
+                    ["Shadow Radius", "eye_shadow_radius"],
+                    ["Shadow Hardness", "eye_shadow_hardness"],
+                    ["Corner Shadow Color", "eye_shadow_color"],
+                    ["Color Blend Strength", "eye_blend"],
+                    ["Sclera Emissive Color", "eye_sclera_emissive_color"],
+                    ["Sclera Emission Strength", "eye_sclera_emission_strength"],
+                    ["Iris Emissive Color", "eye_iris_emissive_color"],
+                    ["Iris Emission Strength", "eye_iris_emission_strength"],
+                    ["Sclera Normal Strength", "eye_sclera_normal"],
+                ],
+            },
+
         ],
     },
 
@@ -807,9 +852,9 @@ TEXTURE_MATRIX = [
         "end": "_shader)",
         "groups": [
 
-            {   "name": "skin_head_shader",
+            {   "name": "skin_head_shader",                 #TODO texture name should be texture_type
                 "inputs": [
-                    ["Diffuse Map", "", vars.BASE_COLOR_MAP, "diffuse"],
+                    ["Diffuse Map", "", vars.BASE_COLOR_MAP, "DIFFUSE"],
                     ["Blend Map", "", vars.MOD_BASECOLORBLEND_MAP, "color_blend"],
                     ["AO Mask", "", vars.MOD_AO_MAP, "ao"],
                     ["MCMAO Map", "MCMAO Alpha", vars.MOD_MCMAO_MAP, "mcmao"],
@@ -911,6 +956,19 @@ TEXTURE_MATRIX = [
                     ["Normal Map", "", vars.NORMAL_MAP, "normal"],
                     ["Micro Normal Map", "", vars.MOD_MICRONORMAL_MAP, "micro_normal", "teeth_tiling"],
                     ["Emission Map", "", vars.EMISSION_MAP, "emission"],
+                ],
+            },
+
+            {   "name": ["eye_shader", "cornea_shader"],
+                "inputs": [
+                    ["Sclera Diffuse Map", "", vars.SCLERA_MAP, "SCLERA_DIFFUSE", "eye_sclera_scale", None, (0.5, 0.5, 0.0)],
+                    ["Cornea Diffuse Map", "", vars.BASE_COLOR_MAP, "CORNEA_DIFFUSE", "eye_iris_scale", None, (0.5, 0.5, 0.0)],
+                    ["Color Blend Map", "", vars.MOD_BASECOLORBLEND_MAP, "BLEND"],
+                    ["AO Map", "", vars.MOD_AO_MAP, "AO"],
+                    ["Metallic Map", "", vars.METALLIC_MAP, "METALLIC"],
+                    ["Sclera Normal Map", "", vars.SCLERA_NORMAL_MAP, "NORMAL"],
+                    ["Sclera Emission Map", "", vars.EMISSION_MAP, "EMISSION"],
+                    ["Iris Emission Map", "", vars.EMISSION_MAP, "EMISSION"],
                 ],
             },
 

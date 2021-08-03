@@ -73,7 +73,8 @@ NODE_GROUPS = ["color_ao_mixer", "color_blend_ao_mixer", "color_refractive_eye_m
                "normal_micro_mask_blend_mixer", "normal_micro_mask_mixer", "bump_mixer", "fake_bump_mixer",
                "normal_refractive_cornea_mixer", "normal_refractive_eye_mixer",
                "eye_occlusion_mask", "iris_refractive_mask", "iris_mask", "tiling_pivot_mapping", "tiling_mapping",
-               "rl_eye_occlusion_shader", "rl_skin_shader", "rl_head_shader", "rl_tongue_shader", "rl_teeth_shader"]
+               "rl_eye_occlusion_shader", "rl_skin_shader", "rl_head_shader", "rl_tongue_shader", "rl_teeth_shader",
+               "rl_cornea_shader", "rl_cornea_refractive_shader", "rl_eye_shader"]
 
 
 MATERIAL_TYPES = [
@@ -110,6 +111,17 @@ OBJECT_TYPES = [
                         ("OCCLUSION", "Eye Occlusion", "Eye occlusion object"),
                         ("TEARLINE", "Tearline", "Tear line object"),
                     ]
+
+TEXTURE_TYPES = [
+    ("DIFFUSE", "Diffuse", "Diffuse Texture"),
+    ("SPECULAR", "Specular", "Specular Texture"),
+    ("METALLIC", "Metallic", "Metallic Texture"),
+    ("ROUGHNESS", "Roughness", "Roughness Texture"),
+    ("EMISSION", "Emission", "Emission Texture"),
+    ("ALPHA", "Alpha", "Alpha Texture"),
+    ("NORMAL", "Normal", "Normal Map Texture"),
+    ("BUMP", "Bump", "Height Map Texture"),
+]
 
 NODE_PREFIX = "cc3iid_"
 

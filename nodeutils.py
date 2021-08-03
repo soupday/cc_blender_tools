@@ -35,9 +35,30 @@ def get_shader_input(mat, input):
     return None
 
 
-def get_input_connected_to(node, socket):
+def get_socket_connected_to_output(node, socket):
     try:
         return node.outputs[socket].links[0].to_socket.name
+    except:
+        return None
+
+
+def get_socket_connected_to_input(node, socket):
+    try:
+        return node.inputs[socket].links[0].from_socket.name
+    except:
+        return None
+
+
+def get_node_connected_to_output(node, socket):
+    try:
+        return node.outputs[socket].links[0].to_node
+    except:
+        return None
+
+
+def get_node_connected_to_input(node, socket):
+    try:
+        return node.inputs[socket].links[0].from_node
     except:
         return None
 

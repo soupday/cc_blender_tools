@@ -563,11 +563,11 @@ def set_image_node_tiling(nodes, links, node, cache, tiling_prop, offset_prop, p
     offset = (0, 0, 0)
     pivot = None
 
-    print(tiling_prop)
-
     mapping_name = "tiling_" + group_name + "_" + tex_name + "_mapping"
 
-    if tiling_prop is not None and tiling_prop != "":
+    if type(tiling_prop) == tuple:
+        tiling = tiling_prop
+    elif tiling_prop is not None and tiling_prop != "":
         try:
             tiling = eval("parameters." + tiling_prop, None, locals())
             if type(tiling) is list:
@@ -578,7 +578,9 @@ def set_image_node_tiling(nodes, links, node, cache, tiling_prop, offset_prop, p
         except:
             tiling = (1, 1, 1)
 
-    if offset_prop is not None and offset_prop != "":
+    if type(offset_prop) == tuple:
+        offset = offset_prop
+    elif offset_prop is not None and offset_prop != "":
         try:
             offset = eval("parameters." + offset_prop, None, locals())
             if type(offset) is list:
@@ -589,7 +591,10 @@ def set_image_node_tiling(nodes, links, node, cache, tiling_prop, offset_prop, p
         except:
             offset = (0, 0, 0)
 
-    if pivot_prop is not None and pivot_prop != "":
+
+    if type(pivot_prop) == tuple:
+        pivot = pivot_prop
+    elif pivot_prop is not None and pivot_prop != "":
         try:
             pivot = eval("parameters." + pivot_prop, None, locals())
             if type(pivot) is list:
@@ -626,10 +631,7 @@ def apply_texture_matrix(nodes, links, node, mat, cache, group_name):
     y = location[1] + 300
     c = 0
 
-    print(matrix_group["name"])
-
     for shader_input in node.inputs:
-        print (shader_input.name)
         for input in matrix_group["inputs"]:
             socket_name = input[0]
             if socket_name == shader_input.name:
@@ -805,6 +807,53 @@ def connect_teeth_shader(obj, mat, shader):
         nodeutils.set_node_input(shader, "Is Upper Teeth", 0.0)
 
     set_material_alpha(mat, "OPAQUE")
+
+
+def connect_eye_shader(obj, mat, shader):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    obj_cache = get_object_cache(obj)
+    mat_cache = get_material_cache(mat)
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    # to build eye materials we need some textures from the cornea...
+    cornea_mat = mat
+    cornea_mat_cache = mat_cache
+    if mat_cache.is_eye():
+        cornea_mat, cornea_mat_cache = get_cornea_mat(obj, mat, mat_cache)
+
+    if mat_cache.is_cornea():
+        if prefs.refractive_eyes:
+            shader_label = "Cornea Shader"
+            shader_name = "rl_cornea_shader"
+            shader_group = "rl_cornea_refractive_shader"
+        else:
+            shader_label = "Cornea Shader"
+            shader_name = "rl_cornea_shader"
+            shader_group = "rl_cornea_shader"
+    else:
+        shader_label = "Eye Shader"
+        shader_name = "rl_eye_shader"
+        shader_group = "rl_eye_shader"
+
+    shader = shaderutils.replace_shader_node(nodes, links, shader, shader_label, shader_name, shader_group)
+
+    nodeutils.reset_cursor()
+
+    apply_prop_matrix(shader, mat_cache, shader_name)
+    apply_texture_matrix(nodes, links, shader, cornea_mat, cornea_mat_cache, shader_name)
+
+    if mat_cache.is_cornea():
+        if prefs.refractive_eyes:
+            set_material_alpha(mat, "OPAQUE")
+            mat.use_screen_refraction = True
+            mat.refraction_depth = mat_cache.parameters.eye_refraction_depth / 1000
+        else:
+            set_material_alpha(mat, "BLEND")
+            mat.use_screen_refraction = False
+    else:
+        set_material_alpha(mat, "OPAQUE")
 
 
 def connect_basic_eye_material(obj, mat, shader):
@@ -1040,7 +1089,7 @@ def get_cornea_mat(obj, eye_mat, eye_mat_cache):
     # then try to find in the material cache
     for cache in props.material_cache:
         if cache.is_cornea(side):
-            return cache.material
+            return cache.material, cache
 
     utils.log_error("Unable to find the " + side + " cornea material!")
 
@@ -2931,19 +2980,14 @@ def process_material(obj, mat):
 
         if props.setup_mode == "BASIC":
             connect_basic_eye_material(obj, mat, shader)
+            nodeutils.move_new_nodes(-600, 0)
 
         elif props.setup_mode == "ADVANCED":
-            if prefs.refractive_eyes:
-                connect_refractive_eye_material(obj, mat, shader)
-            else:
-                connect_adv_eye_material(obj, mat, shader)
+            connect_eye_shader(obj, mat, shader)
 
-        nodeutils.move_new_nodes(-600, 0)
+    elif mat_cache.is_eye() and props.setup_mode == "ADVANCED":
 
-    elif mat_cache.is_eye() and prefs.refractive_eyes:
-
-        connect_refractive_eye_material(obj, mat, shader)
-        nodeutils.move_new_nodes(-600, 0)
+        connect_eye_shader(obj, mat, shader)
 
     elif mat_cache.is_tearline():
 
@@ -3100,6 +3144,17 @@ def get_material_cache(mat, no_create = False):
     return cache
 
 
+def store_texture_mapping(image_node, mat_cache, texture_type):
+    if image_node and image_node.type == "TEX_IMAGE":
+        mapping_node = nodeutils.get_node_connected_to_input(image_node, "Vector")
+        if mapping_node and mapping_node.type == "MAPPING":
+            location = nodeutils.get_node_input(mapping_node, "Location", (0,0,0))
+            rotation = nodeutils.get_node_input(mapping_node, "Rotation", (0,0,0))
+            scale = nodeutils.get_node_input(mapping_node, "Scale", (1,1,1))
+            mat_cache.set_texture_mapping(texture_type, location, rotation, scale)
+            utils.log_info("Storing texture Mapping for: " + mat_cache.material.name + " texture: " + texture_type)
+
+
 def cache_object_materials(obj):
     props = bpy.context.scene.CC3ImportProps
     main_tex_dir = props.import_main_tex_dir
@@ -3201,23 +3256,32 @@ def cache_object_materials(obj):
                                     else:
                                         utils.log_error("    Unable to find correct image!")
                         name = name.lower()
-                        socket = nodeutils.get_input_connected_to(node, "Color")
+                        socket = nodeutils.get_socket_connected_to_output(node, "Color")
                         # the fbx importer in 2.91 makes a total balls up of the opacity
                         # and connects the alpha output to the socket and not the color output
-                        alpha_socket = nodeutils.get_input_connected_to(node, "Alpha")
+                        alpha_socket = nodeutils.get_socket_connected_to_output(node, "Alpha")
+
                         if socket == "Base Color":
                             mat_cache.diffuse = node.image
+                            store_texture_mapping(node, mat_cache, "DIFFUSE")
+
                         elif socket == "Specular":
                             mat_cache.specular = node.image
+                            store_texture_mapping(node, mat_cache, "SPECULAR")
+
                         elif socket == "Alpha" or alpha_socket == "Alpha":
                             mat_cache.alpha = node.image
+                            store_texture_mapping(node, mat_cache, "ALPHA")
                             if "diffuse" in name or "albedo" in name:
                                 mat_cache.alpha_is_diffuse = True
+
                         elif socket == "Color":
-                            if "bump" in name:
+                            if "_bump" in name:
                                 mat_cache.bump = node.image
+                                store_texture_mapping(node, mat_cache, "BUMP")
                             else:
                                 mat_cache.normal = node.image
+                                store_texture_mapping(node, mat_cache, "NORMAL")
 
         # second material pass for hair meshes
         if obj_cache.is_hair():
@@ -4813,10 +4877,6 @@ def update_material_settings(mat, cache, prop_name):
         if cache.is_cornea():
             mat.refraction_depth = params.eye_refraction_depth / 1000.0
 
-    if prop_name == "eye_ior":
-        if cache.is_cornea() and mat.node_tree:
-            nodeutils.set_default_shader_input(mat, "IOR", params.eye_ior)
-
 
 def update_material(self, context, prop_name, update_mode = None):
     global block_update
@@ -5510,42 +5570,53 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     skin_neck_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_neck_roughness_mod"))
 
     # Eye
-    eye_ao: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_ao"))
-    eye_blend: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_blend"))
-    eye_shadow_radius: bpy.props.FloatProperty(default=0.3, min=0, max=0.5, update=lambda s,c: update_property(s,c,"eye_shadow_radius"))
-    eye_shadow_hardness: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_shadow_hardness"))
-    eye_shadow_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(1.0, 0.497, 0.445, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_shadow_color"))
-    eye_sclera_brightness: bpy.props.FloatProperty(default=0.75, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_sclera_brightness"))
-    eye_iris_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_iris_brightness"))
-    eye_sclera_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_hue"))
-    eye_iris_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hue"))
-    eye_sclera_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_sclera_saturation"))
-    eye_iris_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_saturation"))
-    eye_specular: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_specular"))
-    eye_sclera_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_roughness"))
-    eye_iris_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_roughness"))
-    eye_iris_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_property(s,c,"eye_iris_scale"))
-    eye_iris_radius: bpy.props.FloatProperty(default=0.14, min=0.1, max=0.15, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
-    eye_iris_hardness: bpy.props.FloatProperty(default=0.85, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hardness"))
-    eye_sclera_scale: bpy.props.FloatProperty(default=1.0, min=0.5, max=1.5, update=lambda s,c: update_property(s,c,"eye_sclera_scale"))
-    eye_limbus_radius: bpy.props.FloatProperty(default=0.125, min=0.1, max=0.15, update=lambda s,c: update_property(s,c,"eye_limbus_radius"))
-    eye_limbus_hardness: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_limbus_hardness"))
-    eye_limbus_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0.2, 0.2, 0.2, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_limbus_color"))
-    eye_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"eye_sss_radius"))
+    eye_sss_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_sss_scale"))
+    eye_sss_radius: bpy.props.FloatProperty(default=1.0, min=0.0, max=5, update=lambda s,c: update_property(s,c,"eye_sss_radius"))
     eye_sss_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_sss_falloff"))
-    eye_sclera_normal: bpy.props.FloatProperty(default=0.9, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_normal"))
+    eye_cornea_specular: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_cornea_specular"))
+    eye_iris_specular: bpy.props.FloatProperty(default=0.2, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_specular"))
+    eye_sclera_roughness: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_roughness"))
+    eye_iris_roughness: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_roughness"))
+    eye_cornea_roughness: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_cornea_roughness"))
+    eye_ao: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_ao"))
+    eye_sclera_scale: bpy.props.FloatProperty(default=1.0, min=0.25, max=2.0, update=lambda s,c: update_property(s,c,"eye_sclera_scale"))
+    eye_sclera_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_hue"))
+    eye_sclera_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_sclera_saturation"))
+    eye_sclera_brightness: bpy.props.FloatProperty(default=0.75, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_sclera_brightness"))
+    eye_sclera_hsv: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_hsv"))
+    eye_iris_scale: bpy.props.FloatProperty(default=1.0, min=0.25, max=2.0, update=lambda s,c: update_property(s,c,"eye_iris_scale"))
+    eye_iris_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hue"))
+    eye_iris_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_saturation"))
+    eye_iris_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_iris_brightness"))
+    eye_iris_hsv: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hsv"))
+    eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.1, max=0.2, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
+    eye_limbus_width: bpy.props.FloatProperty(default=0.055, min=0.01, max=0.1, update=lambda s,c: update_property(s,c,"eye_limbus_width"))
+    eye_limbus_dark_radius: bpy.props.FloatProperty(default=0.1, min=0.01, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_dark_radius"))
+    eye_limbus_dark_width: bpy.props.FloatProperty(default=0.025, min=0.01, max=0.1, update=lambda s,c: update_property(s,c,"eye_limbus_dark_width"))
+    eye_limbus_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0.0, 0.0, 0.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_limbus_color"))
+    eye_shadow_radius: bpy.props.FloatProperty(default=0.275, min=0.01, max=0.5, update=lambda s,c: update_property(s,c,"eye_shadow_radius"))
+    eye_shadow_hardness: bpy.props.FloatProperty(default=0.5, min=0.01, max=0.99, update=lambda s,c: update_property(s,c,"eye_shadow_hardness"))
+    eye_shadow_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 0.497, 0.445, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_shadow_color"))
+    eye_blend: bpy.props.FloatProperty(default=0.2, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_blend"))
+    eye_sclera_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0, 0, 0, 1.0), min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_sclera_emissive_color"))
+    eye_sclera_emission_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1000, update=lambda s,c: update_property(s,c,"eye_sclera_emission_strength"))
+    eye_iris_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0, 0, 0, 1.0), min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_emissive_color"))
+    eye_iris_emission_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1000, update=lambda s,c: update_property(s,c,"eye_iris_emission_strength"))
+    eye_sclera_normal: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_normal"))
     eye_sclera_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=lambda s,c: update_property(s,c,"eye_sclera_tiling"))
+    # non shader properties
     eye_refraction_depth: bpy.props.FloatProperty(default=1, min=0, max=5, update=lambda s,c: update_material(s,c,"eye_refraction_depth"))
-    eye_ior: bpy.props.FloatProperty(default=1.42, min=1.01, max=2.5, update=lambda s,c: update_material(s,c,"eye_ior"))
+    eye_ior: bpy.props.FloatProperty(default=1.42, min=1.01, max=2.5, update=lambda s,c: update_property(s,c,"eye_ior"))
     eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
-
     eye_iris_depth: bpy.props.FloatProperty(default=0.25, min=0.0, max=1.0, update=lambda s,c: update_modifier(s,c,"eye_iris_depth"))
     eye_iris_depth_radius: bpy.props.FloatProperty(default=0.8, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_depth_radius"))
-    eye_pupil_scale: bpy.props.FloatProperty(default=1.0, min=0.65, max=2.0, update=lambda s,c: update_modifier(s,c,"eye_pupil_scale"))
+    eye_pupil_scale: bpy.props.FloatProperty(default=0.8, min=0.25, max=2.0, update=lambda s,c: update_modifier(s,c,"eye_pupil_scale"))
 
     # Eye Occlusion Basic
     eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_occlusion"))
@@ -5715,9 +5786,16 @@ class CC3MaterialParameters(bpy.types.PropertyGroup):
     default_opacity: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_opacity"))
 
 
+class CC3TextureMapping(bpy.types.PropertyGroup):
+    texture_type: bpy.props.EnumProperty(items=vars.TEXTURE_TYPES, default="DIFFUSE")
+    location: bpy.props.FloatVectorProperty(subtype="TRANSLATION", size=3, default=(0.0, 0.0, 0.0))
+    rotation: bpy.props.FloatVectorProperty(subtype="EULER", size=3, default=(0.0, 0.0, 0.0))
+    scale: bpy.props.FloatVectorProperty(subtype="XYZ", size=3, default=(1.0, 1.0, 1.0))
+
 class CC3MaterialCache(bpy.types.PropertyGroup):
     material: bpy.props.PointerProperty(type=bpy.types.Material)
     material_type: bpy.props.EnumProperty(items=vars.MATERIAL_TYPES, default="DEFAULT")
+    texture_mappings: bpy.props.CollectionProperty(type=CC3TextureMapping)
     parameters: bpy.props.PointerProperty(type=CC3MaterialParameters)
     smart_hair: bpy.props.BoolProperty(default=False)
     compat: bpy.props.PointerProperty(type=bpy.types.Material)
@@ -5732,6 +5810,21 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
     alpha_mode: bpy.props.StringProperty(default="NONE") # NONE, BLEND, HASHED, OPAQUE
     culling_sides: bpy.props.IntProperty(default=0) # 0 - default, 1 - single sided, 2 - double sided
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
+
+    def set_texture_mapping(self, texture_type, location, rotation, scale):
+        mapping = self.get_texture_mapping(texture_type)
+        if mapping is None:
+            mapping = self.texture_mappings.add()
+        mapping.texture_type = texture_type
+        mapping.location = location
+        mapping.rotation = rotation
+        mapping.scale = scale
+
+    def get_texture_mapping(self, texture_type):
+        for mapping in self.texture_mappings:
+            if mapping.texture_type == texture_type:
+                return mapping
+        return None
 
     def is_skin(self):
         return (self.material_type == "SKIN_HEAD"
@@ -6327,8 +6420,8 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                             col_2.prop(params, "eye_sclera_saturation", text="", slider=True)
                             col_1.label(text="Sclera Brightness")
                             col_2.prop(params, "eye_sclera_brightness", text="", slider=True)
-                            col_1.label(text="Sclera Scale")
-                            col_2.prop(params, "eye_sclera_scale", text="", slider=True)
+                            col_1.label(text="Sclera HSV Strength")
+                            col_2.prop(params, "eye_sclera_hsv", text="", slider=True)
 
                             col_1.separator()
                             col_2.separator()
@@ -6339,26 +6432,32 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                             col_2.prop(params, "eye_iris_saturation", text="", slider=True)
                             col_1.label(text="Iris Brightness")
                             col_2.prop(params, "eye_iris_brightness", text="", slider=True)
+                            col_1.label(text="Iris HSV Strength")
+                            col_2.prop(params, "eye_iris_hsv", text="", slider=True)
+
+                            column.box().label(text= "Eye Shape", icon="SPHERE")
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+
+                            col_1.label(text="Sclera Scale")
+                            col_2.prop(params, "eye_sclera_scale", text="", slider=True)
                             col_1.label(text="Iris Scale")
                             col_2.prop(params, "eye_iris_scale", text="", slider=True)
 
                             col_1.separator()
                             col_2.separator()
 
-                            col_1.label(text="Iris Mask Radius")
+                            col_1.label(text="Iris Radius")
                             col_2.prop(params, "eye_iris_radius", text="", slider=True)
-                            col_1.label(text="Iris Mask Hardness")
-                            col_2.prop(params, "eye_iris_hardness", text="", slider=True)
-
-                            if prefs.refractive_eyes:
-                                col_1.separator()
-                                col_2.separator()
-                                col_1.label(text="Limbus Radius")
-                                col_2.prop(params, "eye_limbus_radius", text="", slider=True)
-                                col_1.label(text="Limbus Hardness")
-                                col_2.prop(params, "eye_limbus_hardness", text="", slider=True)
-                                col_1.label(text="Limbus Color")
-                                col_2.prop(params, "eye_limbus_color", text="")
+                            col_1.label(text="Limbus Width")
+                            col_2.prop(params, "eye_limbus_width", text="", slider=True)
+                            col_1.label(text="Limbus Dark Radius")
+                            col_2.prop(params, "eye_limbus_dark_radius", text="", slider=True)
+                            col_1.label(text="Limbus Dark Width")
+                            col_2.prop(params, "eye_limbus_dark_width", text="", slider=True)
+                            col_1.label(text="Limbus Color")
+                            col_2.prop(params, "eye_limbus_color", text="")
 
                             column.box().label(text= "Corner Shadow", icon="SHADING_RENDERED")
                             split = column.split(factor=0.5)
@@ -6375,12 +6474,29 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                             split = column.split(factor=0.5)
                             col_1 = split.column()
                             col_2 = split.column()
-                            col_1.label(text="Eye Specular")
-                            col_2.prop(params, "eye_specular", text="", slider=True)
+                            col_1.label(text="Cornea Specular")
+                            col_2.prop(params, "eye_cornea_specular", text="", slider=True)
+                            col_1.label(text="Iris Specular")
+                            col_2.prop(params, "eye_iris_specular", text="", slider=True)
                             col_1.label(text="Iris Roughness")
                             col_2.prop(params, "eye_iris_roughness", text="", slider=True)
                             col_1.label(text="Sclera Roughness")
                             col_2.prop(params, "eye_sclera_roughness", text="", slider=True)
+                            col_1.label(text="Cornea Roughness")
+                            col_2.prop(params, "eye_cornea_roughness", text="", slider=True)
+
+                            column.box().label(text= "Emission", icon="LIGHT")
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Sclera Emissive Color")
+                            col_2.prop(params, "eye_sclera_emissive_color", text="", slider=True)
+                            col_1.label(text="Sclera Emission Strength")
+                            col_2.prop(params, "eye_sclera_emission_strength", text="", slider=True)
+                            col_1.label(text="Iris Emissive Color")
+                            col_2.prop(params, "eye_iris_emissive_color", text="", slider=True)
+                            col_1.label(text="Iris Emission Strength")
+                            col_2.prop(params, "eye_iris_emission_strength", text="", slider=True)
 
                             if prefs.refractive_eyes:
                                 column.box().label(text= "Depth & Refraction", icon="MOD_THICKNESS")
@@ -6403,6 +6519,8 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                                 split = column.split(factor=0.5)
                                 col_1 = split.column()
                                 col_2 = split.column()
+                                col_1.label(text="SSS Scale")
+                                col_2.prop(params, "eye_sss_scale", text="", slider=True)
                                 col_1.label(text="SSS Radius (cm)")
                                 col_2.prop(params, "eye_sss_radius", text="", slider=True)
                                 col_1.label(text="SSS Faloff")
@@ -6412,7 +6530,7 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                             split = column.split(factor=0.5)
                             col_1 = split.column()
                             col_2 = split.column()
-                            col_1.label(text="Sclera Normal Flatten")
+                            col_1.label(text="Sclera Normal")
                             col_2.prop(params, "eye_sclera_normal", text="", slider=True)
                             col_1.label(text="Sclera Normal Tiling")
                             col_2.prop(params, "eye_sclera_tiling", text="", slider=True)

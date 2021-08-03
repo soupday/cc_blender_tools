@@ -27,6 +27,9 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 0.7.4
+- New eye shader model.
+
 ### 0.7.3
 - New teeth and tongue shader model.
 

@@ -43,7 +43,7 @@ from . import vars
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 7, 3),
+    "version": (0, 7, 4),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -55,7 +55,7 @@ bl_info = {
 vars.set_version_string(bl_info)
 
 classes = (
-    importer.CC3MaterialParameters,
+    importer.CC3MaterialParameters, importer.CC3TextureMapping,
     importer.CC3ObjectPointer, importer.CC3MaterialCache, importer.CC3ObjectCache, importer.CC3ImportProps,
            importer.CC3ToolsPipelinePanel, importer.CC3ToolsMaterialSettingsPanel,
            importer.CC3ToolsParametersPanel, importer.CC3ToolsPhysicsPanel,
