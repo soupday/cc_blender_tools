@@ -73,15 +73,18 @@ def bake_flow_to_normal(mat_cache):
                     bpy.data.images.remove(normal_image)
 
         # if no existing normal image, create one and link it to the shader
+        if not normal_image:
+            utils.log_info("Creating new normal image.")
+            normal_image = make_new_image(mat_name + "_Normal", width, height, "PNG", ".png", mat_cache.dir, True, False)
         if not normal_node:
+            utils.log_info("Creating new normal image node.")
             normal_node = nodeutils.make_image_node(nodes, normal_image, "Generated Normal Map")
             nodeutils.link_nodes(links, normal_node, "Color", shader_node, "Normal Map")
-        if not normal_image:
-            normal_image = make_new_image(mat_name + "_Normal", width, height, "PNG", ".png", mat_cache.dir, True, False)
 
         # convert the flow map to a normal map
         tangent = mat_cache.parameters.hair_tangent_vector
         flip_y = mat_cache.parameters.hair_tangent_flip_green > 0
+        utils.log_info("Converting Flow Map to Normal Map...")
         convert_flow_to_normal(flow_image, normal_image, tangent, flip_y)
 
 

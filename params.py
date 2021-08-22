@@ -287,7 +287,7 @@ SHADER_MATRIX = [
             # non json properties (just defaults)
             ["skin_roughness_power", 0.8, "DEF"],
             ["skin_roughness_min", 0.1, "DEF"],
-            ["skin_roughness_max", 1.0, "DEF"],
+            ["skin_roughness_max", 1, "DEF"],
             ["skin_subsurface_scale", 1, "DEF"],
             ["skin_emissive_color", (0,0,0,1), "DEF"],
         ],
@@ -440,7 +440,7 @@ SHADER_MATRIX = [
             # non json properties (just defaults)
             ["skin_roughness_power", 0.8, "DEF"],
             ["skin_roughness_min", 0.1, "DEF"],
-            ["skin_roughness_max", 1.0, "DEF"],
+            ["skin_roughness_max", 1, "DEF"],
             ["skin_subsurface_scale", 1, "DEF"],
             ["skin_emissive_color", (0,0,0,1), "DEF"],
         ],
@@ -1181,7 +1181,7 @@ SHADER_MATRIX = [
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
-            ["hair_tangent_vector", (0, 1, 0), "func_color_vector", "Custom/TangentVectorColor"],
+            ["hair_tangent_vector", (1, 0, 0), "func_color_vector", "Custom/TangentVectorColor"],
             ["hair_tangent_flip_green", 1, "", "Custom/TangentMapFlipGreen"],
             ["hair_diffuse_strength", 1, "", "Custom/Diffuse Strength"],
             ["hair_roughness_strength", 0.724, "func_sqrt", "Custom/Hair Roughness Map Strength"],
@@ -1281,6 +1281,7 @@ SHADER_MATRIX = [
             ["PROP", "Bump Strength", "hair_bump_strength", True, "Bump Map"],
             ["PROP", "Displacement", "hair_displacement_strength", True, "Displacement Map"],
             ["OP", "Generate Normal Map", "cc3.bake", "PLAY", "BAKE_FLOW_NORMAL", "Flow Map"], #, "!Normal Map"],
+            ["PROP", "Tangent Vector", "hair_tangent_vector", False, "Flow Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "Emissive Color", "hair_emissive_color", False],
             ["PROP", "Emission Strength", "hair_emission_strength", True],
