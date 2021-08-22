@@ -14,12 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
+
 import bpy
 import mathutils
-from . import linkutils
-from . import utils
-from . import vars
 
+from . import utils, vars
 
 cursor = mathutils.Vector((0,0))
 cursor_top = mathutils.Vector((0,0))
@@ -63,10 +63,18 @@ def get_node_connected_to_input(node, socket):
         return None
 
 
+def has_connected_input(node, socket):
+    try:
+        if len(node.inputs[socket].links) > 0:
+            return True
+    except:
+        pass
+    return False
+
+
 def get_node_by_id(nodes, id):
-    id = vars.NODE_PREFIX + id
     for node in nodes:
-        if id in node.name:
+        if vars.NODE_PREFIX in node.name and id in node.name:
             return node
     return None
 
@@ -275,7 +283,7 @@ def get_node_group(name):
         if vars.NODE_PREFIX in group.name and name in group.name:
             if vars.VERSION_STRING in group.name:
                 return group
-    return linkutils.fetch_node_group(name)
+    return fetch_node_group(name)
 
 
 def check_node_groups():
@@ -285,8 +293,6 @@ def check_node_groups():
 
 
 def adjust_groups():
-    global block_update
-
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -322,3 +328,108 @@ def find_node_by_type(nodes, type):
     for n in nodes:
         if n.type == type:
             return n
+
+
+def store_texture_mapping(image_node, mat_cache, texture_type):
+    if image_node and image_node.type == "TEX_IMAGE":
+        mapping_node = get_node_connected_to_input(image_node, "Vector")
+        if mapping_node and mapping_node.type == "MAPPING":
+            location = get_node_input(mapping_node, "Location", (0,0,0))
+            rotation = get_node_input(mapping_node, "Rotation", (0,0,0))
+            scale = get_node_input(mapping_node, "Scale", (1,1,1))
+        else:
+            location = (0,0,0)
+            rotation = (0,0,0)
+            scale = (1,1,1)
+        texture_path = image_node.image.filepath
+        embedded = image_node.image.packed_file is not None
+        image = image_node.image
+        mat_cache.set_texture_mapping(texture_type, texture_path, embedded, image, location, rotation, scale)
+        utils.log_info("Storing texture Mapping for: " + mat_cache.material.name + " texture: " + texture_type)
+
+
+
+# link utils
+
+def append_node_group(path, object_name):
+    for g in bpy.data.node_groups:
+        g.tag = True
+
+    filename = "_LIB.blend"
+    datablock = "NodeTree"
+    file = os.path.join(path, filename)
+    if os.path.exists(file):
+        bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=False, link=False)
+
+    appended_group = None
+    for g in bpy.data.node_groups:
+        if not g.tag and object_name in g.name:
+            appended_group = g
+            g.name = utils.unique_name(object_name)
+        g.tag = False
+    return appended_group
+
+
+def fetch_node_group(name):
+
+    paths = [bpy.path.abspath("//"),
+             os.path.dirname(os.path.realpath(__file__)),
+             ]
+    for path in paths:
+        utils.log_info("Trying to append: " + path + " > " + name)
+        if os.path.exists(path):
+            group = append_node_group(path, name)
+            if group is not None:
+                return group
+    utils.log_error("Trying to append group: " + name + ", _LIB.blend library file not found?")
+    raise ValueError("Unable to append node group from library file!")
+
+
+def append_lib_image(path, object_name):
+    for i in bpy.data.images:
+        i.tag = True
+
+    filename = "_LIB.blend"
+    datablock = "Image"
+    file = os.path.join(path, filename)
+    if os.path.exists(file):
+        bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=False, link=False)
+
+    appended_image = None
+    for i in bpy.data.images:
+        if not i.tag and object_name in i.name:
+            appended_image = i
+            i.name = utils.unique_name(object_name)
+        i.tag = False
+    return appended_image
+
+
+def fetch_lib_image(name):
+
+    paths = [bpy.path.abspath("//"),
+             os.path.dirname(os.path.realpath(__file__)),
+             ]
+    for path in paths:
+        utils.log_info("Trying to append image: " + path + " > " + name)
+        if os.path.exists(path):
+            image = append_lib_image(path, name)
+            if image:
+                return image
+    utils.log_error("Trying to append image: " + name + ", _LIB.blend library file not found?")
+    raise ValueError("Unable to append iamge from library file!")
+
+
+def get_shader_node(mat, shader_name):
+    if mat and mat.node_tree:
+        nodes = mat.node_tree.nodes
+        shader_id = "(" + shader_name + ")"
+        return get_node_by_id(nodes, shader_id)
+    return None
+
+
+def get_tiling_node(mat, shader_name, texture_type):
+    if mat and mat.node_tree:
+        nodes = mat.node_tree.nodes
+        shader_id = "(tiling_" + shader_name + "_" + texture_type + "_mapping)"
+        return get_node_by_id(nodes, shader_id)
+    return None

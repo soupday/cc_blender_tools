@@ -14,11 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy
 import os
 import time
 
-from bpy.types import XrSessionSettings
+import bpy
+
 from . import vars
 
 timer = 0
@@ -99,12 +99,72 @@ def object_has_material(obj, name):
     return False
 
 
-def obj_exists(obj):
+def still_exists(obj):
     try:
         name = obj.name
         return True
     except:
         return False
+
+
+def try_remove(item, force = False):
+
+    if still_exists(item):
+
+        if type(item) == bpy.types.Armature:
+            if (item.use_fake_user and item.users == 1) or item.users == 0 or force:
+                log_info("Removing Armature: " + item.name)
+                bpy.data.armatures.remove(item)
+            else:
+                log_info("Armature: " + item.name + " still in use!")
+
+        elif type(item) == bpy.types.Mesh:
+            if (item.use_fake_user and item.users == 1) or item.users == 0 or force:
+                log_info("Removing Mesh: " + item.name)
+                bpy.data.meshes.remove(item)
+            else:
+                log_info("Mesh: " + item.name + " still in use!")
+
+        elif type(item) == bpy.types.Object:
+            if (item.use_fake_user and item.users == 1) or item.users == 0 or force:
+                log_info("Removing Object: " + item.name)
+                bpy.data.objects.remove(item)
+            else:
+                log_info("Object: " + item.name + " still in use!")
+
+        elif type(item) == bpy.types.Material:
+            if (item.use_fake_user and item.users == 1) or item.users == 0 or force:
+                log_info("Removing Material: " + item.name)
+                bpy.data.materials.remove(item)
+            else:
+                log_info("Material: " + item.name + " still in use!")
+
+        elif type(item) == bpy.types.Image:
+            if (item.use_fake_user and item.users == 1) or item.users == 0 or force:
+                log_info("Removing Image: " + item.name)
+                bpy.data.images.remove(item)
+            else:
+                log_info("Image: " + item.name + " still in use!")
+
+        elif type(item) == bpy.types.Texture:
+            if (item.use_fake_user and item.users == 1) or item.users == 0 or force:
+                log_info("Removing Texture: " + item.name)
+                bpy.data.textures.remove(item)
+            else:
+                log_info("Texture: " + item.name + " still in use!")
+
+        elif type(item) == bpy.types.Action:
+            if (item.use_fake_user and item.users == 1) or item.users == 0 or force:
+                log_info("Removing Action: " + item.name)
+                bpy.data.textures.remove(item)
+            else:
+                log_info("Action: " + item.name + " still in use!")
+
+
+def clean_collection(collection, include_fake = False):
+    for item in collection:
+        if (include_fake and item.use_fake_user and item.users == 1) or item.users == 0:
+            collection.remove(item)
 
 
 def clamp(x, min = 0.0, max = 1.0):
@@ -208,4 +268,111 @@ def match_dimensions(socket, value):
     else:
         return value
 
+
+def context_material(context):
+    try:
+        return context.object.material_slots[context.object.active_material_index].material
+    except:
+        return None
+
+
+def find_pose_bone(chr_cache, *name):
+    props = bpy.context.scene.CC3ImportProps
+
+    for obj_cache in chr_cache.object_cache:
+        obj = obj_cache.object
+        print(obj.name)
+        if (obj.type == "ARMATURE"):
+            for n in name:
+                if n in obj.pose.bones:
+                    return obj.pose.bones[n]
+    return None
+
+
+def find_pose_bone_in_armature(arm, *name):
+    if (arm.type == "ARMATURE"):
+        for n in name:
+            if n in arm.pose.bones:
+                return arm.pose.bones[n]
+    return None
+
+
+def s2lin(x):
+    a = 0.055
+    if x <= 0.04045:
+        y = x * (1.0/12.92)
+    else:
+        y = pow((x + a)*(1.0/(1 + a)), 2.4)
+    return y
+
+def lin2s(x):
+    a = 0.055
+    if x <= 0.0031308:
+        y = x * 12.92
+    else:
+        y = (1 + a)*pow(x, 1/2.4) - a
+    return y
+
+
+# remove any .001 from the material name
+def strip_name(name):
+    if name[-3:].isdigit() and name[-4] == ".":
+        name = name[:-4]
+    return name
+
+
+def tag_objects():
+    for obj in bpy.data.objects:
+        obj.tag = True
+
+
+def untagged_objects():
+    untagged = []
+    for obj in bpy.data.objects:
+        if obj.tag == False:
+            untagged.append(obj)
+        obj.tag = False
+    return untagged
+
+
+def tag_materials():
+    for mat in bpy.data.materials:
+        mat.tag = True
+
+
+def untagged_materials():
+    untagged = []
+    for mat in bpy.data.materials:
+        if mat.tag == False:
+            untagged.append(mat)
+        mat.tag = False
+    return untagged
+
+
+def tag_images():
+    for img in bpy.data.images:
+        img.tag = True
+
+
+def untagged_images():
+    untagged = []
+    for img in bpy.data.images:
+        if img.tag == False:
+            untagged.append(img)
+        img.tag = False
+    return untagged
+
+
+def select_all_child_objects(obj):
+    if obj.type == "ARMATURE" or obj.type == "MESH":
+        obj.select_set(True)
+    for child in obj.children:
+        select_all_child_objects(child)
+
+
+def remove_from_collection(coll, item):
+    for i in range(0, len(coll)):
+        if coll[i] == item:
+            coll.remove(i)
+            return
 

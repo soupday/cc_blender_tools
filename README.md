@@ -27,6 +27,12 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 1.0.0
+- Moved all shaders over to new shader model.
+- Streamlined parameter and shader code to be data driven, rather than hard coded.
+- Character, Object and Material parameters now stored independantly for each character import.
+- Json data parser to automatically set up all shader parameters.
+
 ### 0.7.4
 - New eye shader model.
 

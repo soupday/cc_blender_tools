@@ -16,34 +16,54 @@
 
 if "bpy" in locals():
     import importlib
+    importlib.reload(addon_updater_ops)
+    importlib.reload(preferences)
     importlib.reload(vars)
-    importlib.reload(utils)
     importlib.reload(params)
-    importlib.reload(linkutils)
-    importlib.reload(modutils)
-    importlib.reload(meshutils)
+    importlib.reload(utils)
+    importlib.reload(jsonutils)
     importlib.reload(nodeutils)
-    importlib.reload(shaderutils)
+    importlib.reload(imageutils)
     importlib.reload(materials)
+    importlib.reload(meshutils)
+    importlib.reload(modifiers)
+    importlib.reload(shaders)
+    importlib.reload(physics)
+    importlib.reload(bake)
+    importlib.reload(panels)
+    importlib.reload(properties)
+    importlib.reload(scene)
+    importlib.reload(exporter)
     importlib.reload(importer)
 
 import bpy
+
 from . import addon_updater_ops
-from . import importer
-from . import materials
-from . import shaderutils
-from . import nodeutils
-from . import meshutils
-from . import modutils
-from . import linkutils
+from . import preferences
+from . import vars
 from . import params
 from . import utils
-from . import vars
+from . import jsonutils
+from . import nodeutils
+from . import imageutils
+from . import materials
+from . import meshutils
+from . import modifiers
+from . import shaders
+from . import physics
+from . import bake
+from . import panels
+from . import properties
+from . import scene
+from . import exporter
+from . import importer
+
+
 
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (0, 7, 4),
+    "version": (1, 0, 0),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -55,13 +75,48 @@ bl_info = {
 vars.set_version_string(bl_info)
 
 classes = (
-    importer.CC3MaterialParameters, importer.CC3TextureMapping,
-    importer.CC3ObjectPointer, importer.CC3MaterialCache, importer.CC3ObjectCache, importer.CC3ImportProps,
-           importer.CC3ToolsPipelinePanel, importer.CC3ToolsMaterialSettingsPanel,
-           importer.CC3ToolsParametersPanel, importer.CC3ToolsPhysicsPanel,
-           importer.CC3ToolsScenePanel, importer.MATERIAL_UL_weightedmatslots,
-           importer.CC3Import, importer.CC3Export, importer.CC3Scene, importer.CC3QuickSet,
-           importer.CC3ToolsAddonPreferences)
+    properties.CC3HeadParameters,
+    properties.CC3SkinParameters,
+    properties.CC3EyeParameters,
+    properties.CC3EyeOcclusionParameters,
+    properties.CC3TearlineParameters,
+    properties.CC3TeethParameters,
+    properties.CC3TongueParameters,
+    properties.CC3HairParameters,
+    properties.CC3PBRParameters,
+    properties.CC3SSSParameters,
+    properties.CC3TextureMapping,
+    properties.CC3MaterialCache,
+    properties.CC3EyeMaterialCache,
+    properties.CC3EyeOcclusionMaterialCache,
+    properties.CC3TearlineMaterialCache,
+    properties.CC3TeethMaterialCache,
+    properties.CC3TongueMaterialCache,
+    properties.CC3HairMaterialCache,
+    properties.CC3HeadMaterialCache,
+    properties.CC3SkinMaterialCache,
+    properties.CC3PBRMaterialCache,
+    properties.CC3SSSMaterialCache,
+    properties.CC3ObjectCache,
+    properties.CC3CharacterCache,
+    properties.CC3ImportProps,
+
+    importer.CC3Import,
+    exporter.CC3Export,
+    scene.CC3Scene,
+    bake.CC3BakeOperator,
+
+    panels.CC3QuickSet,
+    panels.CC3ToolsPipelinePanel,
+    panels.CC3ToolsMaterialSettingsPanel,
+    panels.CC3ToolsParametersPanel,
+    panels.CC3ToolsPhysicsPanel,
+    panels.CC3ToolsScenePanel,
+
+    preferences.CC3ToolsAddonPreferences,
+    preferences.MATERIAL_UL_weightedmatslots,
+
+)
 
 def register():
 
@@ -70,8 +125,7 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    #bpy.types.Material.cc3_params = bpy.props.CollectionProperty(type=params.CC3MaterialParameters)
-    bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=importer.CC3ImportProps)
+    bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
 
 def unregister():
 
@@ -80,5 +134,4 @@ def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
 
-    #del bpy.types.Material.cc3_params
     del(bpy.types.Scene.CC3ImportProps)
