@@ -285,7 +285,7 @@ SHADER_MATRIX = [
             ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_srgb", "SSS/Falloff"],
             ["skin_suburface_radius", 1.5, "", "SSS/Radius"],
             # non json properties (just defaults)
-            ["skin_roughness_power", 0.8, "DEF"],
+            ["skin_roughness_power", 0.9, "DEF"],
             ["skin_roughness_min", 0.1, "DEF"],
             ["skin_roughness_max", 1, "DEF"],
             ["skin_subsurface_scale", 1, "DEF"],
@@ -438,7 +438,7 @@ SHADER_MATRIX = [
             ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_srgb", "SSS/Falloff"],
             ["skin_suburface_radius", 1.5, "", "SSS/Radius"],
             # non json properties (just defaults)
-            ["skin_roughness_power", 0.8, "DEF"],
+            ["skin_roughness_power", 0.9, "DEF"],
             ["skin_roughness_min", 0.1, "DEF"],
             ["skin_roughness_max", 1, "DEF"],
             ["skin_subsurface_scale", 1, "DEF"],
@@ -1236,8 +1236,8 @@ SHADER_MATRIX = [
             ["PROP", "Enable Color", "hair_enable_color", True, "Root Map"],
             ["SPACER"],
             ["PROP", "Diffuse Strength", "hair_diffuse_strength", True, "Diffuse Map"],
-            ["PROP", "Vertex Color Strength", "hair_vertex_color_strength", True, "HAS_VERTEX_COLORS"],
-            ["PROP", "Vertex Color", "hair_vertex_color", False, "HAS_VERTEX_COLORS"],
+            ["PROP", "Vertex Color Strength", "hair_vertex_color_strength", True],
+            ["PROP", "Vertex Color", "hair_vertex_color", False],
             ["PROP", "Base Color Strength", "hair_base_color_strength", True, "Root Map"],
             ["HEADER",  "Hair Strands", "OUTLINER_OB_HAIR"],
             ["PROP", "Global Strength", "hair_global_strength", True, "Root Map"],

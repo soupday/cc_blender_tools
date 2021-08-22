@@ -353,7 +353,7 @@ def set_shader_input_props(shader_def, mat_cache, socket, value):
                 vars.block_property_update = False
 
 
-def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_json):
+def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_json, obj):
     shader_def = params.get_shader_def(shader_name)
     location = node.location
     x = location[0] - 600
@@ -377,7 +377,14 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                         # SAMPLE is a special case where the texture is sampled into a color value property:
                         # e.g Vertex Color sampled into hair_vertex_color
 
-                        if image:
+                        if image == None or len(obj.data.vertex_colors) == 0:
+                            # if there is no sample map, set it's corresponding strength properties to zero:
+                            # e.g. Vertex Color uses Vertex Color Strength with props: hair_vertex_color_strength
+                            strength_socket_name = socket_name + " Strength"
+                            nodeutils.set_node_input(node, strength_socket_name, 0.0)
+                            set_shader_input_props(shader_def, mat_cache, strength_socket_name, 0.0)
+
+                        else:
                             vars.block_property_update = True
                             sample_prop = texture_def[4]
                             sample_color = [image.pixels[0], image.pixels[1], image.pixels[2], 1.0]
@@ -385,13 +392,6 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                             nodeutils.set_node_input(node, socket_name, sample_color)
                             bpy.data.images.remove(image)
                             vars.block_property_update = False
-
-                        else:
-                            # if there is no sample map, set it's corresponding strength properties to zero:
-                            # e.g. Vertex Color uses Vertex Color Strength with props: hair_vertex_color_strength
-                            strength_socket_name = socket_name + " Strength"
-                            nodeutils.set_node_input(node, strength_socket_name, 0.0)
-                            set_shader_input_props(shader_def, mat_cache, strength_socket_name, 0.0)
 
                     elif image:
 
@@ -516,7 +516,7 @@ def connect_skin_shader(obj, mat, shader, mat_json):
 
     # use shader_group here instead of shader_name
     apply_prop_matrix(shader, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json)
+    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json, obj)
 
     materials.set_material_alpha(mat, "OPAQUE")
 
@@ -537,7 +537,7 @@ def connect_tongue_shader(obj, mat, shader, mat_json):
     nodeutils.reset_cursor()
 
     apply_prop_matrix(shader, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json)
+    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json, obj)
 
     materials.set_material_alpha(mat, "OPAQUE")
 
@@ -558,7 +558,7 @@ def connect_teeth_shader(obj, mat, shader, mat_json):
     nodeutils.reset_cursor()
 
     apply_prop_matrix(shader, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json)
+    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json, obj)
 
     if mat_cache.is_upper_teeth():
         nodeutils.set_node_input(shader, "Is Upper Teeth", 1.0)
@@ -604,7 +604,7 @@ def connect_eye_shader(obj, mat, shader, obj_json, mat_json):
     nodeutils.reset_cursor()
 
     apply_prop_matrix(shader, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, shader, cornea_mat, cornea_mat_cache, shader_name, cornea_json)
+    apply_texture_matrix(nodes, links, shader, cornea_mat, cornea_mat_cache, shader_name, cornea_json, obj)
 
     if mat_cache.is_cornea():
         if prefs.refractive_eyes:
@@ -634,7 +634,7 @@ def connect_hair_shader(obj, mat, shader, mat_json):
     nodeutils.reset_cursor()
 
     apply_prop_matrix(shader, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json)
+    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json, obj)
 
     materials.set_material_alpha(mat, "HASHED")
     mat.use_sss_translucency = True
@@ -657,7 +657,7 @@ def connect_pbr_shader(obj, mat, shader, mat_json):
     nodeutils.reset_cursor()
 
     apply_prop_matrix(shader, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json)
+    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json, obj)
 
     if mat_cache.is_eyelash():
         materials.set_material_alpha(mat, "HASHED")
@@ -687,7 +687,7 @@ def connect_sss_shader(obj, mat, shader, mat_json):
     nodeutils.reset_cursor()
 
     apply_prop_matrix(shader, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json)
+    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json, obj)
 
     if nodeutils.has_connected_input(shader, "Alpha Map"):
         materials.set_material_alpha(mat, "HASHED")
@@ -710,7 +710,7 @@ def connect_basic_shader(obj, mat, shader, mat_json):
 
     source_shader_name = params.get_shader_lookup(mat_cache)
     apply_basic_prop_matrix(shader, mat_cache, source_shader_name)
-    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json)
+    apply_texture_matrix(nodes, links, shader, mat, mat_cache, shader_name, mat_json, obj)
 
     if mat_cache.is_eyelash():
         materials.set_material_alpha(mat, "HASHED")

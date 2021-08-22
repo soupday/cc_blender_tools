@@ -319,20 +319,22 @@ def setup_scene_default(scene_type):
             remove_all_lights(True)
             restore_hidden_camera()
 
+            strength = 50
+
             key1 = add_spot_light("Key1",
                     (0.71149, -1.49019, 2.04134),
                     (1.2280241250991821, 0.4846124053001404, 0.3449903726577759),
-                    2.5 * 50, 0.5, 2.095, 9.7, 0.225)
+                    2.5 * strength, 0.5, 2.095, 9.7, 0.225)
 
             key2 = add_spot_light("Key2",
                     (0.63999, -1.3600, 0.1199),
                     (1.8845493793487549, 0.50091552734375, 0.6768553256988525),
-                    2.5 * 50, 0.5, 2.095, 9.7, 1.0)
+                    2.5 * strength, 0.5, 2.095, 9.7, 1.0)
 
             back = add_spot_light("Back",
                     (0.0, 2.0199, 1.69),
                     (-1.3045594692230225, 0.11467886716127396, 0.03684665635228157),
-                    3 * 50, 0.5, 1.448, 9.14, 1.0)
+                    3 * strength, 0.5, 1.448, 9.14, 1.0)
             back.data.color = utils.linear_to_srgb([213.0/155.0, 150.0/255.0, 120.0/255.0, 1.0])[0:3]
 
             #set_contact_shadow(key1, 0.1, 0.001)
@@ -347,7 +349,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_world = False
             bpy.context.space_data.shading.studio_light = 'studio.exr'
             bpy.context.space_data.shading.studiolight_rotate_z = 0
-            bpy.context.space_data.shading.studiolight_intensity = 1
+            bpy.context.space_data.shading.studiolight_intensity = 0.6
             bpy.context.space_data.shading.studiolight_background_alpha = 0
             bpy.context.space_data.shading.studiolight_background_blur = 0
             bpy.context.space_data.clip_start = 0.01

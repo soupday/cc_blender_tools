@@ -275,7 +275,7 @@ def init_character_for_edit(obj):
 def init_shape_key_range(obj):
     #bpy.context.active_object.data.shape_keys.key_blocks['Basis']
     if obj.type == "MESH":
-        shape_keys = obj.data.shape_keys
+        shape_keys: bpy.types.Key = obj.data.shape_keys
         if shape_keys is not None:
             blocks = shape_keys.key_blocks
             if blocks is not None:
@@ -283,6 +283,13 @@ def init_shape_key_range(obj):
                     for block in blocks:
                         # expand the range of the shape key slider to include negative values...
                         block.slider_min = -1.0
+
+            # set a value in the action keyframes to force the shapekey action to update to the new ranges:
+            try:
+                co = shape_keys.animation_data.action.fcurves[0].keyframe_points[0].co
+                shape_keys.animation_data.action.fcurves[0].keyframe_points[0].co = co
+            except:
+                pass
 
 
 def set_shape_key_edit(obj):
