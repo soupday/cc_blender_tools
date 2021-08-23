@@ -254,6 +254,12 @@ def update_all_properties(context, update_mode = None):
 
                             shaders.apply_prop_matrix(shader_node, mat_cache, shader_name)
 
+                            if "textures" in shader_def.keys():
+                                for tex_def in shader_def["textures"]:
+                                    tiling_props = tex_def[5:]
+                                    for prop_name in tiling_props:
+                                        update_shader_property(obj, mat, mat_cache, prop_name)
+
                             if "modifiers" in shader_def.keys():
                                 for mod_def in shader_def["modifiers"]:
                                     prop_name = mod_def[0]
