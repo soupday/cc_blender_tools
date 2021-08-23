@@ -133,9 +133,6 @@ def quick_set_execute(param, context = bpy.context):
     elif param == "RESET_PREFS":
         preferences.reset_preferences()
 
-    elif param == "UPDATE_LINKED" or param == "UPDATE_SELECTED":
-        properties.update_all_properties(context, param)
-
     else: # blend modes or single/double sided...
         objects_processed = []
         if props.quick_set_mode == "OBJECT":
@@ -165,11 +162,7 @@ class CC3QuickSet(bpy.types.Operator):
     @classmethod
     def description(cls, context, properties):
 
-        if properties.param == "UPDATE_LINKED":
-            return "Update all objects from the last import, with the current parameters"
-        elif properties.param == "UPDATE_SELECTED":
-            return "Update the currently selected objects, with the current parameters"
-        elif properties.param == "OPAQUE":
+        if properties.param == "OPAQUE":
             return "Set blend mode of all selected objects with alpha channels to opaque"
         elif properties.param == "BLEND":
             return "Set blend mode of all selected objects with alpha channels to alpha blend"

@@ -19,7 +19,7 @@ import os
 import bpy
 
 from . import (imageutils, jsonutils, materials, modifiers, nodeutils, physics,
-               scene, shaders, utils, vars)
+               scene, shaders, properties, utils, vars)
 
 debug_counter = 0
 
@@ -198,44 +198,6 @@ def process_object(character_cache, obj, objects_processed, character_json):
             scene.fetch_anim_range(bpy.context)
 
 
-def init_character_material_properties(chr_cache, chr_json):
-    props = bpy.context.scene.CC3ImportProps
-
-    processed = []
-
-    utils.log_info("")
-    utils.log_info("Initializing Material Properties:")
-    utils.log_info("---------------------------------")
-    if chr_json:
-        utils.log_info("(Using Json Data)")
-    else:
-        utils.log_info("(No Json Data)")
-
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if obj.type == "MESH" and obj not in processed:
-            processed.append(obj)
-
-            obj_json = jsonutils.get_object_json(chr_json, obj)
-            utils.log_info("Object: " + obj.name + " (" + obj_cache.object_type + ")")
-
-            for mat in obj.data.materials:
-                if mat not in processed:
-                    processed.append(mat)
-
-                    mat_cache = chr_cache.get_material_cache(mat)
-                    if mat_cache:
-
-                        mat_json = jsonutils.get_material_json(obj_json, mat)
-                        utils.log_info("  Material: " + mat.name + " (" + mat_cache.material_type + ")")
-
-                        if mat_cache.is_eye():
-                            cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
-                            mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
-
-                        shaders.fetch_prop_defaults(mat_cache, mat_json)
-
-
 def cache_object_materials(character_cache, obj, character_json, processed):
     props = bpy.context.scene.CC3ImportProps
 
@@ -258,7 +220,6 @@ def cache_object_materials(character_cache, obj, character_json, processed):
                 processed.append(mat)
 
     processed.append(obj)
-
 
 
 def init_character_for_edit(obj):
@@ -484,7 +445,7 @@ class CC3Import(bpy.types.Operator):
                     if obj.type == "MESH":
                         cache_object_materials(chr_cache, obj, chr_json, processed)
 
-                init_character_material_properties(chr_cache, chr_json)
+                properties.init_material_property_defaults(chr_cache, chr_json)
 
             utils.log_timer("Done .Fbx Import.")
 
@@ -522,7 +483,7 @@ class CC3Import(bpy.types.Operator):
                         else:
                             cache_object_materials(chr_cache, obj, json_data, processed)
 
-                init_character_material_properties(chr_cache, chr_json)
+                properties.init_material_property_defaults(chr_cache, chr_json)
 
             utils.log_timer("Done .Obj Import.")
 

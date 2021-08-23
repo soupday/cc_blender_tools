@@ -911,7 +911,7 @@ SHADER_MATRIX = [
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
             ["default_ao_strength", 1, "", "Pbr/AO"],
-            ["default_diffuse_color", (1,1,1,1), "func_color", "/Diffuse Color"],
+            ["default_diffuse_color", (1,1,1,1), "func_color_linear", "/Diffuse Color"],
             ["default_blend_multiply_strength", 0, "", "Pbr/Blend"],
             ["default_alpha_strength", 1, "", "Pbr/Opacity"],
             ["default_opacity", 1, "", "Base/Opacity"],
@@ -1017,7 +1017,7 @@ SHADER_MATRIX = [
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
-            ["default_diffuse_color", (1,1,1,1), "func_color", "/Diffuse Color"],
+            ["default_diffuse_color", (1,1,1,1), "func_color_linear", "/Diffuse Color"],
             ["default_specular_scale", 1.0, "", "Custom/_Specular"],
             ["default_brightness", 1, "", "Custom/_BaseColorMap Brightness"],
             ["default_saturation", 1, "", "Custom/_BaseColorMap Saturation"],
@@ -1147,8 +1147,6 @@ SHADER_MATRIX = [
             ["AO Strength", "", "hair_ao_strength"],
             ["Blend Multiply Strength", "", "hair_blend_multiply_strength"],
             ["Specular Scale", "", "hair_specular_scale"],
-            ["Specular Map", "", "hair_specular_map"],
-            ["Specular Mask", "", "hair_specular_mask"],
             ["Roughness Strength", "", "hair_roughness_strength"],
             ["Alpha Strength", "", "hair_alpha_strength"],
             ["Opacity", "", "hair_opacity"],
@@ -1222,7 +1220,6 @@ SHADER_MATRIX = [
             ["hair_displacement_strength", 1, "", "Pbr/Displacement"],
             # non json properties (just defaults)
             ["hair_bump_strength", 1.0, "DEF"],
-            ["hair_specular_mask", 1.0, "DEF"],
             ["hair_anisotropic_roughness", 1.15, "DEF"],
             ["hair_anisotropic_color", (1.000000, 0.798989, 0.689939, 1.000000), "DEF"],
         ],

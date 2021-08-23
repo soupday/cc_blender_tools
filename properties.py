@@ -16,7 +16,7 @@
 
 import bpy
 
-from . import meshutils, modifiers, nodeutils, shaders, params, physics, utils, vars
+from . import meshutils, materials, modifiers, nodeutils, shaders, params, physics, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -49,56 +49,6 @@ def open_mouth_update(self, context):
 def reset_material_parameters(cache):
     props: CC3ImportProps = bpy.context.scene.CC3ImportProps
     params = cache.parameters
-
-
-def update_all_properties(context, update_mode = None):
-    if vars.block_property_update: return
-
-    utils.start_timer()
-
-    props = bpy.context.scene.CC3ImportProps
-    chr_cache = props.get_context_character_cache(context)
-
-    if chr_cache:
-
-        all_materials_cache = chr_cache.get_all_materials_cache()
-
-        if update_mode is None:
-            update_mode = props.update_mode
-
-        if props.setup_mode == "ADVANCED":
-
-            # update all property matrix properties
-            for mixer in params.SHADER_MATRIX:
-                for group in mixer["groups"]:
-                    for input in group["inputs"]:
-                        matrix = [[mixer, group, input]]
-                        for mat_cache in all_materials_cache:
-                            mat = mat_cache.material
-                            if mat is not None:
-                                update_shader_property(mat, mat_cache, matrix)
-
-            # update all modifier matrix properties
-            for matrix in params.MODIFIER_MATRIX:
-                prop_name = matrix[0]
-                material_type = matrix[1]
-                for obj_cache in chr_cache.object_cache:
-                    obj = obj_cache.object
-                    if obj.type == "MESH":
-                        for mat in obj.data.materials:
-                            mat_cache = chr_cache.get_material_cache(mat)
-                            if mat_cache.material_type == material_type:
-                                update_object_modifier(obj, mat_cache, prop_name)
-
-            # update all material properies
-            mat_prop_names = ["eye_ior", "eye_refraction_depth"]
-            for prop_name in mat_prop_names:
-                for mat_cache in all_materials_cache:
-                    mat = mat_cache.material
-                    if mat is not None:
-                        update_material_setting(mat, mat_cache, prop_name)
-
-    utils.log_timer("update_all_properties()", "ms")
 
 
 def update_property(self, context, prop_name, update_mode = None):
@@ -262,34 +212,98 @@ def reset_parameters(context = bpy.context):
 
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
+    chr_json = chr_cache.get_character_json()
 
     if chr_cache:
 
         vars.block_property_update = True
 
-        active_mat = utils.context_material(context)
-        active_cache = chr_cache.get_material_cache(active_mat)
-        linked = get_linked_material_types(active_cache)
-        paired = get_paired_material_types(active_cache)
-
-        for mat_cache in chr_cache.get_all_materials_cache():
-
-            if mat_cache.material == active_mat:
-                reset_material_parameters(mat_cache)
-
-            elif mat_cache.material_type in paired:
-                reset_material_parameters(mat_cache)
-
-            elif props.update_mode == "UPDATE_LINKED":
-                for linked_type in linked:
-                    if mat_cache.material_type == linked_type:
-                        reset_material_parameters(mat_cache)
+        init_material_property_defaults(chr_cache, chr_json)
 
         vars.block_property_update = False
 
         update_all_properties(context)
 
     return
+
+
+def update_all_properties(context, update_mode = None):
+    if vars.block_property_update: return
+
+    utils.start_timer()
+
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
+
+    if chr_cache:
+
+        processed = []
+
+        for obj_cache in chr_cache.object_cache:
+            obj = obj_cache.object
+            if obj not in processed:
+                processed.append(obj)
+                if obj.type == "MESH":
+                    for mat in obj.data.materials:
+                        if mat not in processed:
+                            processed.append(mat)
+                            mat_cache = chr_cache.get_material_cache(mat)
+                            shader_name = params.get_shader_lookup(mat_cache)
+                            shader_node = nodeutils.get_shader_node(mat, shader_name)
+                            shader_def = params.get_shader_def(shader_name)
+
+                            shaders.apply_prop_matrix(shader_node, mat_cache, shader_name)
+
+                            if "modifiers" in shader_def.keys():
+                                for mod_def in shader_def["modifiers"]:
+                                    prop_name = mod_def[0]
+                                    update_shader_property(obj, mat, mat_cache, prop_name)
+
+                            if "settings" in shader_def.keys():
+                                for mat_def in shader_def["settings"]:
+                                    prop_name = mat_def[0]
+                                    update_shader_property(obj, mat, mat_cache, prop_name)
+
+                    if obj_cache.is_eye():
+                        meshutils.rebuild_eye_vertex_groups(chr_cache)
+
+    utils.log_timer("update_all_properties()", "ms")
+
+
+def init_material_property_defaults(chr_cache, chr_json):
+    processed = []
+
+    utils.log_info("")
+    utils.log_info("Initializing Material Property Defaults:")
+    utils.log_info("----------------------------------------")
+    if chr_json:
+        utils.log_info("(Using Json Data)")
+    else:
+        utils.log_info("(No Json Data)")
+
+    for obj_cache in chr_cache.object_cache:
+        obj = obj_cache.object
+        if obj.type == "MESH" and obj not in processed:
+            processed.append(obj)
+
+            obj_json = jsonutils.get_object_json(chr_json, obj)
+            utils.log_info("Object: " + obj.name + " (" + obj_cache.object_type + ")")
+
+            for mat in obj.data.materials:
+                if mat not in processed:
+                    processed.append(mat)
+
+                    mat_cache = chr_cache.get_material_cache(mat)
+                    if mat_cache:
+
+                        mat_json = jsonutils.get_material_json(obj_json, mat)
+                        utils.log_info("  Material: " + mat.name + " (" + mat_cache.material_type + ")")
+
+                        if mat_cache.is_eye():
+                            cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
+                            mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
+
+                        shaders.fetch_prop_defaults(mat_cache, mat_json)
 
 
 class CC3HeadParameters(bpy.types.PropertyGroup):
@@ -985,6 +999,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             cache.material = mat
             cache.material_type = create_type
         return cache
+
+    def get_character_json(self):
+        json_data = jsonutils.read_json(self.import_file)
+        return jsonutils.get_character_json(json_data, self.import_name, self.character_name)
 
 
 class CC3ImportProps(bpy.types.PropertyGroup):
