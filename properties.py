@@ -16,7 +16,7 @@
 
 import bpy
 
-from . import meshutils, materials, modifiers, nodeutils, shaders, params, physics, jsonutils, utils, vars
+from . import meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -98,6 +98,23 @@ def update_property(self, context, prop_name, update_mode = None):
             # these properties will cause the eye displacement vertex group to change...
             if prop_name in ["eye_iris_depth_radius", "eye_iris_scale", "eye_iris_radius"]:
                 meshutils.rebuild_eye_vertex_groups(chr_cache)
+
+    utils.log_timer("update_property()", "ms")
+
+
+def update_basic_property(self, context, prop_name, update_mode = None):
+    if vars.block_property_update: return
+
+    utils.start_timer()
+
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
+    if chr_cache:
+        all_materials_cache = chr_cache.get_all_materials_cache()
+        for mat_cache in all_materials_cache:
+            mat = mat_cache.material
+            if mat:
+                basic.update_basic_material(mat, mat_cache, prop_name)
 
     utils.log_timer("update_property()", "ms")
 
@@ -673,6 +690,29 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_micro_normal_tiling: bpy.props.FloatProperty(default=5, min=0, max=50, update=lambda s,c: update_property(s,c,"default_micro_normal_tiling"))
 
 
+class CC3BasicParameters(bpy.types.PropertyGroup):
+    eye_occlusion: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"eye_occlusion"))
+    eye_occlusion_power: bpy.props.FloatProperty(default=0.5, min=0.5, max=1.5, update=lambda s,c: update_basic_property(s,c,"eye_occlusion_power"))
+    eye_brightness: bpy.props.FloatProperty(default=0.9, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"eye_brightness"))
+    eye_specular: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"eye_specular"))
+    eye_roughness: bpy.props.FloatProperty(default=0.05, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"eye_roughness"))
+    eye_normal: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"eye_normal"))
+    skin_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"skin_ao"))
+    hair_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"hair_ao"))
+    default_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"default_ao"))
+    skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"skin_specular"))
+    hair_specular: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"hair_specular"))
+    scalp_specular: bpy.props.FloatProperty(default=0.0, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"scalp_specular"))
+    teeth_specular: bpy.props.FloatProperty(default=0.25, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"teeth_specular"))
+    tongue_specular: bpy.props.FloatProperty(default=0.259, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"tongue_specular"))
+    skin_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"skin_roughness"))
+    teeth_roughness: bpy.props.FloatProperty(default=0.4, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"teeth_roughness"))
+    tongue_roughness: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"tongue_roughness"))
+    hair_bump: bpy.props.FloatProperty(default=1, min=0, max=10, update=lambda s,c: update_basic_property(s,c,"hair_bump"))
+    default_bump: bpy.props.FloatProperty(default=5, min=0, max=10, update=lambda s,c: update_basic_property(s,c,"default_bump"))
+    tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_basic_property(s,c,"tearline_alpha"))
+    tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_basic_property(s,c,"tearline_roughness"))
+
 
 class CC3TextureMapping(bpy.types.PropertyGroup):
     texture_type: bpy.props.StringProperty(default="Diffuse")
@@ -860,6 +900,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     hair_material_cache: bpy.props.CollectionProperty(type=CC3HairMaterialCache)
     pbr_material_cache: bpy.props.CollectionProperty(type=CC3PBRMaterialCache)
     sss_material_cache: bpy.props.CollectionProperty(type=CC3SSSMaterialCache)
+    #
+    basic_parameters: bpy.props.PointerProperty(type=CC3BasicParameters)
     #
     object_cache: bpy.props.CollectionProperty(type=CC3ObjectCache)
     import_type: bpy.props.StringProperty(default="")

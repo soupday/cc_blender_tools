@@ -19,7 +19,7 @@ import os
 import bpy
 
 from . import (imageutils, jsonutils, materials, modifiers, nodeutils, physics,
-               scene, shaders, properties, utils, vars)
+               scene, shaders, basic, properties, utils, vars)
 
 debug_counter = 0
 
@@ -124,13 +124,18 @@ def process_material(character_cache, obj, mat, object_json):
     else:
 
         if mat_cache.is_eye_occlusion():
-            shaders.connect_eye_occlusion_shader(obj, mat, shader, mat_json)
+            basic.connect_eye_occlusion_material(obj, mat, shader)
 
         elif mat_cache.is_tearline():
-            shaders.connect_tearline_shader(obj, mat, shader, mat_json)
+            basic.connect_tearline_material(obj, mat, shader)
+
+        elif mat_cache.is_cornea():
+            basic.connect_basic_eye_material(obj, mat, shader)
 
         else:
-            shaders.connect_basic_shader(obj, mat, shader, mat_json)
+            basic.connect_basic_material(obj, mat, shader)
+
+        nodeutils.move_new_nodes(-600, 0)
 
     # apply cached alpha settings
     #if character_cache.generation == "ActorCore":

@@ -1284,7 +1284,7 @@ SHADER_MATRIX = [
             ["PROP", "Emission Strength", "hair_emission_strength", True],
         ],
         "basic": [
-            ["Roughness Strengh", "Roughness Max"],
+            ["Roughness Strength", "Roughness Max"],
         ],
     },
 ]
@@ -1356,3 +1356,35 @@ def get_rl_shader_def(rl_shader_name):
         if shader_def["rl_shader"] == rl_shader_name:
             return shader_def
     return None
+
+
+BASIC_PROPS = [
+
+    ["IN", "Strength",  "", "eye_occlusion"],
+    ["IN", "Hardness",  "", "eye_occlusion_power"],
+
+    ["IN", "Value",     "eye_basic_hsv", "eye_brightness"],
+    ["OUT", "Value",    "", "eye_specular"],
+    ["OUT", "Value",    "", "eye_roughness"],
+    ["OUT", "Value",    "", "eye_normal"],
+
+    ["OUT", "Value",    "", "skin_ao"],
+    ["OUT", "Value",    "", "hair_ao"],
+    ["OUT", "Value",    "", "default_ao"],
+
+    ["OUT", "Value",    "", "skin_specular"],
+    ["OUT", "Value",    "", "hair_specular"],
+    ["OUT", "Value",    "", "scalp_specular"],
+    ["OUT", "Value",    "", "teeth_specular"],
+    ["OUT", "Value",    "", "tongue_specular"],
+
+    ["IN", "To Min",    "", "skin_roughness"],
+    ["IN", 1,           "", "teeth_roughness"],
+    ["IN", 1,           "", "tongue_roughness"],
+
+    ["OUT", "Value",    "", "hair_bump", "parameters.hair_bump / 1000"],
+    ["OUT", "Value",    "", "default_bump", "parameters.default_bump / 1000"],
+
+    ["IN", "Alpha",     "eye_tearline_shader", "tearline_alpha"],
+    ["IN", "Roughness", "eye_tearline_shader", "tearline_roughness"],
+]

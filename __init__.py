@@ -28,6 +28,7 @@ if "bpy" in locals():
     importlib.reload(meshutils)
     importlib.reload(modifiers)
     importlib.reload(shaders)
+    importlib.reload(basic)
     importlib.reload(physics)
     importlib.reload(bake)
     importlib.reload(panels)
@@ -50,6 +51,7 @@ from . import materials
 from . import meshutils
 from . import modifiers
 from . import shaders
+from . import basic
 from . import physics
 from . import bake
 from . import panels
@@ -85,6 +87,7 @@ classes = (
     properties.CC3HairParameters,
     properties.CC3PBRParameters,
     properties.CC3SSSParameters,
+    properties.CC3BasicParameters,
     properties.CC3TextureMapping,
     properties.CC3MaterialCache,
     properties.CC3EyeMaterialCache,

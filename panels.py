@@ -424,92 +424,157 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
 
             linked = props.update_mode == "UPDATE_LINKED"
 
-            shader = params.get_shader_lookup(mat_cache)
-            shader_node = nodeutils.get_shader_node(mat, shader)
-            matrix = params.get_shader_def(shader)
+            if props.setup_mode == "ADVANCED":
 
-            if matrix and "ui" in matrix.keys():
+                shader = params.get_shader_lookup(mat_cache)
+                shader_node = nodeutils.get_shader_node(mat, shader)
+                matrix = params.get_shader_def(shader)
 
-                ui_matrix = matrix["ui"]
+                if matrix and "ui" in matrix.keys():
 
-                column.separator()
+                    ui_matrix = matrix["ui"]
 
-                column.box().label(text = matrix["label"] + " Parameters:", icon="MOD_HUE_SATURATION")
+                    column.separator()
 
-                for ui_row in ui_matrix:
+                    column.box().label(text = matrix["label"] + " Parameters:", icon="MOD_HUE_SATURATION")
 
-                    split = False
-                    col_1 = None
-                    col_2 = None
+                    for ui_row in ui_matrix:
 
-                    if ui_row[0] == "HEADER":
-                        column.box().label(text= ui_row[1], icon=ui_row[2])
+                        split = False
+                        col_1 = None
+                        col_2 = None
 
-                    elif ui_row[0] == "PROP":
+                        if ui_row[0] == "HEADER":
+                            column.box().label(text= ui_row[1], icon=ui_row[2])
 
-                        show_prop = True
-                        label = ui_row[1]
-                        prop = ui_row[2]
-                        is_slider = ui_row[3]
-                        conditions = ui_row[4:]
+                        elif ui_row[0] == "PROP":
 
-                        if shader:
-                            for condition in conditions:
-                                if condition == "HAS_VERTEX_COLORS":
-                                    cond_res = len(obj.data.vertex_colors) > 0
-                                elif condition[0] == '!':
-                                    condition = condition[1:]
-                                    cond_res = not nodeutils.has_connected_input(shader_node, condition)
-                                else:
-                                    cond_res = nodeutils.has_connected_input(shader_node, condition)
+                            show_prop = True
+                            label = ui_row[1]
+                            prop = ui_row[2]
+                            is_slider = ui_row[3]
+                            conditions = ui_row[4:]
 
-                                if not cond_res:
-                                    show_prop = False
+                            if shader:
+                                for condition in conditions:
+                                    if condition == "HAS_VERTEX_COLORS":
+                                        cond_res = len(obj.data.vertex_colors) > 0
+                                    elif condition[0] == '!':
+                                        condition = condition[1:]
+                                        cond_res = not nodeutils.has_connected_input(shader_node, condition)
+                                    else:
+                                        cond_res = nodeutils.has_connected_input(shader_node, condition)
 
-                        if show_prop:
+                                    if not cond_res:
+                                        show_prop = False
+
+                            if show_prop:
+                                if not split:
+                                    row = column.row()
+                                    split = row.split(factor=0.5)
+                                    col_1 = row.column()
+                                    col_2 = row.column()
+                                    split = True
+                                col_1.label(text=label)
+                                col_2.prop(parameters, prop, text="", slider=is_slider)
+
+                        elif ui_row[0] == "OP":
+
+                            show_op = True
+                            label = ui_row[1]
+                            op_id = ui_row[2]
+                            icon = ui_row[3]
+                            param = ui_row[4]
+                            conditions = ui_row[5:]
+
+                            if shader:
+                                for condition in conditions:
+                                    if condition[0] == '!':
+                                        condition = condition[1:]
+                                        cond_res = not nodeutils.has_connected_input(shader_node, condition)
+                                    else:
+                                        cond_res = nodeutils.has_connected_input(shader_node, condition)
+
+                                    if not cond_res:
+                                        show_op = False
+
+                            if show_op:
+                                row = column.row()
+                                row.operator(op_id, icon=icon, text=label).param = param
+                                split = False
+
+                        elif ui_row[0] == "SPACER":
                             if not split:
                                 row = column.row()
                                 split = row.split(factor=0.5)
                                 col_1 = row.column()
                                 col_2 = row.column()
                                 split = True
-                            col_1.label(text=label)
-                            col_2.prop(parameters, prop, text="", slider=is_slider)
+                            col_1.separator()
+                            col_2.separator()
 
-                    elif ui_row[0] == "OP":
+            else:
 
-                        show_op = True
-                        label = ui_row[1]
-                        op_id = ui_row[2]
-                        icon = ui_row[3]
-                        param = ui_row[4]
-                        conditions = ui_row[5:]
-
-                        if shader:
-                            for condition in conditions:
-                                if condition[0] == '!':
-                                    condition = condition[1:]
-                                    cond_res = not nodeutils.has_connected_input(shader_node, condition)
-                                else:
-                                    cond_res = nodeutils.has_connected_input(shader_node, condition)
-
-                                if not cond_res:
-                                    show_op = False
-
-                        if show_op:
-                            row = column.row()
-                            row.operator(op_id, icon=icon, text=label).param = param
-                            split = False
-
-                    elif ui_row[0] == "SPACER":
-                        if not split:
-                            row = column.row()
-                            split = row.split(factor=0.5)
-                            col_1 = row.column()
-                            col_2 = row.column()
-                            split = True
-                        col_1.separator()
-                        col_2.separator()
+                basic_params = chr_cache.basic_parameters
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Skin AO")
+                col_2.prop(basic_params, "skin_ao", text="", slider=True)
+                col_1.label(text="Skin Specular")
+                col_2.prop(basic_params, "skin_specular", text="", slider=True)
+                col_1.label(text="Skin Roughness")
+                col_2.prop(basic_params, "skin_roughness", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
+                col_1.label(text="Eye Brightness")
+                col_2.prop(basic_params, "eye_brightness", text="", slider=True)
+                col_1.label(text="Eye Specular")
+                col_2.prop(basic_params, "eye_specular", text="", slider=True)
+                col_1.label(text="Eye Roughness")
+                col_2.prop(basic_params, "eye_roughness", text="", slider=True)
+                col_1.label(text="Eye Normal")
+                col_2.prop(basic_params, "eye_normal", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
+                col_1.label(text="Eye Occlusion")
+                col_2.prop(basic_params, "eye_occlusion", text="", slider=True)
+                col_1.label(text="Eye Occlusion Hardness")
+                col_2.prop(basic_params, "eye_occlusion_power", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
+                col_1.label(text="Tearline Alpha")
+                col_2.prop(basic_params, "tearline_alpha", text="", slider=True)
+                col_1.label(text="Tearline Roughness")
+                col_2.prop(basic_params, "tearline_roughness", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
+                col_1.label(text="Teeth Specular")
+                col_2.prop(basic_params, "teeth_specular", text="", slider=True)
+                col_1.label(text="Teeth Roughness")
+                col_2.prop(basic_params, "teeth_roughness", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
+                col_1.label(text="Tongue Specular")
+                col_2.prop(basic_params, "tongue_specular", text="", slider=True)
+                col_1.label(text="Tongue Roughness")
+                col_2.prop(basic_params, "tongue_roughness", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
+                col_1.label(text="Hair AO")
+                col_2.prop(basic_params, "hair_ao", text="", slider=True)
+                col_1.label(text="Hair Specular")
+                col_2.prop(basic_params, "hair_specular", text="", slider=True)
+                col_1.label(text="Scalp Specular")
+                col_2.prop(basic_params, "scalp_specular", text="", slider=True)
+                col_1.label(text="Hair Bump Height (mm)")
+                col_2.prop(basic_params, "hair_bump", text="", slider=True)
+                col_1.separator()
+                col_2.separator()
+                col_1.label(text="Default AO")
+                col_2.prop(basic_params, "default_ao", text="", slider=True)
+                col_1.label(text="Default Bump Height (mm)")
+                col_2.prop(basic_params, "default_bump", text="", slider=True)
 
         # Utilities
 
