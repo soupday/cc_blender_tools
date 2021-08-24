@@ -235,7 +235,7 @@ def reset_parameters(context = bpy.context):
 
         vars.block_property_update = True
 
-        init_material_property_defaults(chr_cache, chr_json)
+        init_character_property_defaults(chr_cache, chr_json)
 
         vars.block_property_update = False
 
@@ -293,7 +293,7 @@ def update_all_properties(context, update_mode = None):
     utils.log_timer("update_all_properties()", "ms")
 
 
-def init_material_property_defaults(chr_cache, chr_json):
+def init_character_property_defaults(chr_cache, chr_json):
     processed = []
 
     utils.log_info("")
@@ -327,6 +327,15 @@ def init_material_property_defaults(chr_cache, chr_json):
                             mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
 
                         shaders.fetch_prop_defaults(mat_cache, mat_json)
+
+
+def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, mat_json):
+    if obj and obj_cache and mat and mat_cache:
+        utils.log_info("Re-Initializing Material Propeerty Defaults: " + mat.name + " (" + mat_cache.material_type + ")")
+        if mat_cache.is_eye():
+            cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
+            mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
+        shaders.fetch_prop_defaults(mat_cache, mat_json)
 
 
 class CC3HeadParameters(bpy.types.PropertyGroup):
@@ -1051,6 +1060,43 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_character_json(self):
         json_data = jsonutils.read_json(self.import_file)
         return jsonutils.get_character_json(json_data, self.import_name, self.character_name)
+
+    def recast_type(self, mat_cache, collection, chr_json):
+        mat = mat_cache.material
+        material_type = mat_cache.material_type
+        utils.remove_from_collection(collection, mat_cache)
+        mat_cache = self.add_material_cache(mat, material_type)
+        if not chr_json:
+            chr_json = self.get_character_json()
+        for obj_cache in self.object_cache:
+            obj = obj_cache.object
+            if obj.type == "MESH":
+                for m in obj.data.materials:
+                    if m == mat:
+                        obj_json = jsonutils.get_object_json(chr_json, obj)
+                        mat_json = jsonutils.get_material_json(obj_json, mat)
+                        init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, mat_json)
+                        return
+
+    def check_type(self, collection, chr_json, *types):
+        to_change = []
+        for mat_cache in collection:
+            if mat_cache.material_type not in types:
+                to_change.append(mat_cache)
+        for mat_cache in to_change:
+            self.recast_type(mat_cache, collection, chr_json)
+
+    def check_material_types(self, chr_json):
+        self.check_type(self.tongue_material_cache, chr_json, "TONGUE")
+        self.check_type(self.teeth_material_cache, chr_json, "TEETH_LOWER", "TEETH_UPPER")
+        self.check_type(self.head_material_cache, chr_json, "SKIN_HEAD")
+        self.check_type(self.skin_material_cache, chr_json, "SKIN_BODY", "SKIN_ARM", "SKIN_LEG", "NAILS")
+        self.check_type(self.tearline_material_cache, chr_json, "TEARLINE_LEFT", "TEARLINE_RIGHT")
+        self.check_type(self.eye_occlusion_material_cache, chr_json, "OCCLUSION_RIGHT", "OCCLUSION_LEFT")
+        self.check_type(self.eye_material_cache, chr_json, "CORNEA_RIGHT", "CORNEA_LEFT", "EYE_RIGHT", "EYE_LEFT")
+        self.check_type(self.hair_material_cache, chr_json, "HAIR")
+        self.check_type(self.pbr_material_cache, chr_json, "DEFAULT", "SCALP", "EYELASH")
+        self.check_type(self.sss_material_cache, chr_json, "SSS")
 
 
 class CC3ImportProps(bpy.types.PropertyGroup):

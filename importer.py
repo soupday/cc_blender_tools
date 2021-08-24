@@ -450,7 +450,7 @@ class CC3Import(bpy.types.Operator):
                     if obj.type == "MESH":
                         cache_object_materials(chr_cache, obj, chr_json, processed)
 
-                properties.init_material_property_defaults(chr_cache, chr_json)
+                properties.init_character_property_defaults(chr_cache, chr_json)
 
             utils.log_timer("Done .Fbx Import.")
 
@@ -488,7 +488,7 @@ class CC3Import(bpy.types.Operator):
                         else:
                             cache_object_materials(chr_cache, obj, json_data, processed)
 
-                properties.init_material_property_defaults(chr_cache, chr_json)
+                properties.init_character_property_defaults(chr_cache, chr_json)
 
             utils.log_timer("Done .Obj Import.")
 
@@ -515,6 +515,9 @@ class CC3Import(bpy.types.Operator):
         for chr_cache in self.import_characters:
 
             chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_name)
+
+            if self.param == "BUILD":
+                chr_cache.check_material_types(chr_json)
 
             if props.build_mode == "IMPORTED":
                 for cache in chr_cache.object_cache:
