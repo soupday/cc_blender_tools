@@ -16,7 +16,7 @@
 
 import bpy
 
-from . import meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
+from . import imageutils, meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -1073,6 +1073,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             if obj.type == "MESH":
                 for m in obj.data.materials:
                     if m == mat:
+                        mat_cache.dir = imageutils.get_material_tex_dir(self, obj, mat)
                         obj_json = jsonutils.get_object_json(chr_json, obj)
                         mat_json = jsonutils.get_material_json(obj_json, mat)
                         init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, mat_json)

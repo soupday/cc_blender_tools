@@ -378,6 +378,7 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                         # e.g Vertex Color sampled into hair_vertex_color
 
                         if image == None or len(obj.data.vertex_colors) == 0:
+                            utils.log_info("*****ZERO***** " + str(tex_type) + " " + str(json_id))
                             # if there is no sample map, set it's corresponding strength properties to zero:
                             # e.g. Vertex Color uses Vertex Color Strength with props: hair_vertex_color_strength
                             strength_socket_name = socket_name + " Strength"
