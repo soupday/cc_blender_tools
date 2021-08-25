@@ -622,6 +622,7 @@ class CC3Import(bpy.types.Operator):
                 if (img.use_fake_user and img.users == 1) or img.users == 0:
                     utils.log_info("Removing Image: " + img.name)
                     bpy.data.images.remove(img)
+        utils.clean_collection(bpy.data.images)
 
         self.import_characters = []
         self.imported_materials = []
@@ -703,6 +704,7 @@ class CC3Import(bpy.types.Operator):
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
             nodeutils.rebuild_node_groups()
+            utils.clean_collection(bpy.data.images)
 
         elif self.param == "DELETE_CHARACTER":
             chr_cache = props.get_context_character_cache(context)

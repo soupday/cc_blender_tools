@@ -41,6 +41,7 @@ def reset_preferences():
     prefs.refractive_eyes = True
     prefs.eye_displacement_group = "CC_Eye_Displacement"
     prefs.use_new_shaders = True
+    prefs.max_texture_size = 2048
 
 
 class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
@@ -119,6 +120,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
     use_new_shaders: bpy.props.BoolProperty(default=True, name="Use Advanced Eye Occlusion Shader")
+
+    max_texture_size: bpy.props.FloatProperty(default=2048, min=512, max=4096)
 
     # addon updater preferences
 

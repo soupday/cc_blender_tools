@@ -21,6 +21,16 @@ import bpy
 from . import params, utils
 
 
+def check_max_size(image):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    width = image.size[0]
+    height = image.size[1]
+
+    if width > prefs.max_texture_size or height > prefs.max_texture_size:
+        image.scale(min(width, prefs.max_texture_size), min(height, prefs.max_texture_size))
+
+
 # load an image from a file, but try to find it in the existing images first
 def load_image(filename, color_space):
 
@@ -30,6 +40,7 @@ def load_image(filename, color_space):
                 if os.path.normcase(os.path.abspath(i.filepath)) == os.path.normcase(os.path.abspath(filename)):
                     utils.log_info("    Using existing image: " + i.filepath)
                     i.alpha_mode = "CHANNEL_PACKED"
+                    #check_max_size(i)
                     return i
             except:
                 pass
@@ -39,6 +50,7 @@ def load_image(filename, color_space):
         image = bpy.data.images.load(filename)
         image.colorspace_settings.name = color_space
         image.alpha_mode = "CHANNEL_PACKED"
+        #check_max_size(image)
         return image
     except Exception as e:
         utils.log_error("Unable to load image: " + filename, e)

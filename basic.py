@@ -71,7 +71,7 @@ def connect_basic_eye_material(obj, mat):
     nodeutils.reset_cursor()
     diffuse_image =  imageutils.find_material_image(mat, "DIFFUSE")
     if diffuse_image is not None:
-        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
+        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "(DIFFUSE)")
         nodeutils.advance_cursor(1.0)
         hsv_node = nodeutils.make_shader_node(nodes, "ShaderNodeHueSaturation", 0.6)
         hsv_node.label = "HSV"
@@ -109,7 +109,7 @@ def connect_basic_eye_material(obj, mat):
     normal_image = imageutils.find_material_image(mat, "SCLERANORMAL")
     if normal_image is not None:
         strength_node = nodeutils.make_value_node(nodes, "Normal Strength", "eye_normal", parameters.eye_normal)
-        normal_node = nodeutils.make_image_node(nodes, normal_image, "normal_tex")
+        normal_node = nodeutils.make_image_node(nodes, normal_image, "(SCLERANORMAL)")
         nodeutils.advance_cursor()
         normalmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
         nodeutils.link_nodes(links, strength_node, "Value", normalmap_node, "Strength")
@@ -142,7 +142,7 @@ def connect_basic_material(obj, mat):
     ao_image = imageutils.find_material_image(mat, "AO")
     diffuse_node = ao_node = None
     if (diffuse_image is not None):
-        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "diffuse_tex")
+        diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "(DIFFUSE)")
         if ao_image is not None:
 
             if mat_cache.is_skin() or mat_cache.is_nails():
@@ -173,7 +173,7 @@ def connect_basic_material(obj, mat):
     metallic_image = imageutils.find_material_image(mat, "METALLIC")
     metallic_node = None
     if metallic_image is not None:
-        metallic_node = nodeutils.make_image_node(nodes, metallic_image, "metallic_tex")
+        metallic_node = nodeutils.make_image_node(nodes, metallic_image, "(METALLIC)")
         nodeutils.link_nodes(links, metallic_node, "Color", shader, "Metallic")
 
     # Specular
@@ -202,14 +202,14 @@ def connect_basic_material(obj, mat):
 
     specular_node = mask_node = mult_node = None
     if specular_image is not None:
-        specular_node = nodeutils.make_image_node(nodes, specular_image, "specular_tex")
+        specular_node = nodeutils.make_image_node(nodes, specular_image, "(SPECULAR)")
         nodeutils.link_nodes(links, specular_node, "Color", shader, "Specular")
     # always make a specular value node for skin or if there is a mask (but no map)
     elif prop != "none":
         specular_node = nodeutils.make_value_node(nodes, "Specular Strength", prop, spec)
         nodeutils.link_nodes(links, specular_node, "Value", shader, "Specular")
     if mask_image is not None:
-        mask_node = nodeutils.make_image_node(nodes, mask_image, "specular_mask_tex")
+        mask_node = nodeutils.make_image_node(nodes, mask_image, "(SPECMASK)")
         nodeutils.advance_cursor()
         mult_node = nodeutils.make_math_node(nodes, "MULTIPLY")
         if specular_node.type == "VALUE":
@@ -225,7 +225,7 @@ def connect_basic_material(obj, mat):
     roughness_image = imageutils.find_material_image(mat, "ROUGHNESS")
     roughness_node = None
     if roughness_image is not None:
-        roughness_node = nodeutils.make_image_node(nodes, roughness_image, "roughness_tex")
+        roughness_node = nodeutils.make_image_node(nodes, roughness_image, "(ROUGHNESS)")
 
         if mat_cache.is_skin():
             prop = "skin_roughness"
@@ -262,7 +262,7 @@ def connect_basic_material(obj, mat):
     emission_image = imageutils.find_material_image(mat,"EMISSION")
     emission_node = None
     if emission_image is not None:
-        emission_node = nodeutils.make_image_node(nodes, emission_image, "emission_tex")
+        emission_node = nodeutils.make_image_node(nodes, emission_image, "(EMISSION)")
         nodeutils.link_nodes(links, emission_node, "Color", shader, "Emission")
 
     # Alpha
@@ -271,7 +271,7 @@ def connect_basic_material(obj, mat):
     alpha_image = imageutils.find_material_image(mat, "ALPHA")
     alpha_node = None
     if alpha_image is not None:
-        alpha_node = nodeutils.make_image_node(nodes, alpha_image, "opacity_tex")
+        alpha_node = nodeutils.make_image_node(nodes, alpha_image, "(ALPHA)")
         dir,file = os.path.split(alpha_image.filepath)
         if "_diffuse" in file.lower() or "_albedo" in file.lower():
             nodeutils.link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
@@ -295,7 +295,7 @@ def connect_basic_material(obj, mat):
     bump_image = imageutils.find_material_image(mat,"BUMP")
     normal_node = bump_node = normalmap_node = bumpmap_node = None
     if normal_image is not None:
-        normal_node = nodeutils.make_image_node(nodes, normal_image, "normal_tex")
+        normal_node = nodeutils.make_image_node(nodes, normal_image, "(NORMAL)")
         nodeutils.advance_cursor()
         normalmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
         nodeutils.link_nodes(links, normal_node, "Color", normalmap_node, "Color")
@@ -310,7 +310,7 @@ def connect_basic_material(obj, mat):
             bump_strength = parameters.default_bump
 
         bump_strength_node = nodeutils.make_value_node(nodes, "Bump Strength", prop, bump_strength / 1000)
-        bump_node = nodeutils.make_image_node(nodes, bump_image, "bump_tex")
+        bump_node = nodeutils.make_image_node(nodes, bump_image, "(BUMP)")
         nodeutils.advance_cursor()
         bumpmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeBump", 0.7)
         nodeutils.advance_cursor()
