@@ -149,38 +149,33 @@ def add_eye_modifiers(obj):
     mat_left, mat_right = materials.get_left_right_eye_materials(obj)
     cache_left = props.get_material_cache(mat_left)
     cache_right = props.get_material_cache(mat_right)
-
-    if cache_left is None or cache_right is None:
-        return
-
     # Create the eye displacement group
     meshutils.generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right)
-
     remove_eye_modifiers(obj)
-    displace_mod_l = obj.modifiers.new(utils.unique_name("Eye_Displace_L"), "DISPLACE")
-    displace_mod_r = obj.modifiers.new(utils.unique_name("Eye_Displace_R"), "DISPLACE")
-    warp_mod_l = obj.modifiers.new(utils.unique_name("Eye_UV_Warp_L"), "UV_WARP")
-    warp_mod_r = obj.modifiers.new(utils.unique_name("Eye_UV_Warp_R"), "UV_WARP")
 
-    init_displacement_mod(obj, displace_mod_l, prefs.eye_displacement_group + "_L", "Y", cache_left.parameters.eye_iris_depth)
-    init_displacement_mod(obj, displace_mod_r, prefs.eye_displacement_group + "_R", "Y", cache_right.parameters.eye_iris_depth)
+    if cache_left and cache_left.material_type == "EYE_LEFT":
+        displace_mod_l = obj.modifiers.new(utils.unique_name("Eye_Displace_L"), "DISPLACE")
+        warp_mod_l = obj.modifiers.new(utils.unique_name("Eye_UV_Warp_L"), "UV_WARP")
+        init_displacement_mod(obj, displace_mod_l, prefs.eye_displacement_group + "_L", "Y", cache_left.parameters.eye_iris_depth)
+        warp_mod_l.center = (0.5, 0.5)
+        warp_mod_l.axis_u = "X"
+        warp_mod_l.axis_v = "Y"
+        warp_mod_l.vertex_group = prefs.eye_displacement_group + "_L"
+        warp_mod_l.scale = (1.0 / cache_left.parameters.eye_pupil_scale, 1.0 / cache_left.parameters.eye_pupil_scale)
+        move_mod_first(obj, warp_mod_l)
+        move_mod_first(obj, displace_mod_l)
 
-    warp_mod_l.center = (0.5, 0.5)
-    warp_mod_l.axis_u = "X"
-    warp_mod_l.axis_v = "Y"
-    warp_mod_l.vertex_group = prefs.eye_displacement_group + "_L"
-    warp_mod_l.scale = (1.0 / cache_left.parameters.eye_pupil_scale, 1.0 / cache_left.parameters.eye_pupil_scale)
-
-    warp_mod_r.center = (0.5, 0.5)
-    warp_mod_r.axis_u = "X"
-    warp_mod_r.axis_v = "Y"
-    warp_mod_r.vertex_group = prefs.eye_displacement_group + "_R"
-    warp_mod_r.scale = (1.0 / cache_right.parameters.eye_pupil_scale, 1.0 / cache_right.parameters.eye_pupil_scale)
-
-    move_mod_first(obj, warp_mod_l)
-    move_mod_first(obj, displace_mod_l)
-    move_mod_first(obj, warp_mod_r)
-    move_mod_first(obj, displace_mod_r)
+    if cache_right and cache_right.material_type == "EYE_RIGHT":
+        displace_mod_r = obj.modifiers.new(utils.unique_name("Eye_Displace_R"), "DISPLACE")
+        warp_mod_r = obj.modifiers.new(utils.unique_name("Eye_UV_Warp_R"), "UV_WARP")
+        init_displacement_mod(obj, displace_mod_r, prefs.eye_displacement_group + "_R", "Y", cache_right.parameters.eye_iris_depth)
+        warp_mod_r.center = (0.5, 0.5)
+        warp_mod_r.axis_u = "X"
+        warp_mod_r.axis_v = "Y"
+        warp_mod_r.vertex_group = prefs.eye_displacement_group + "_R"
+        warp_mod_r.scale = (1.0 / cache_right.parameters.eye_pupil_scale, 1.0 / cache_right.parameters.eye_pupil_scale)
+        move_mod_first(obj, warp_mod_r)
+        move_mod_first(obj, displace_mod_r)
 
     utils.log_info("Eye Displacement modifiers applied to: " + obj.name)
 
@@ -192,51 +187,49 @@ def add_eye_occlusion_modifiers(obj):
     mat_left, mat_right = materials.get_left_right_materials(obj)
     cache_left = props.get_material_cache(mat_left)
     cache_right = props.get_material_cache(mat_right)
-
-    if cache_left is None or cache_right is None:
-        return
-
     # generate the vertex groups for occlusion displacement
     meshutils.generate_eye_occlusion_vertex_groups(obj, mat_left, mat_right)
-
-    # re-create create the displacement modifiers
     remove_eye_modifiers(obj)
-    displace_mod_inner_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Inner_L"), "DISPLACE")
-    displace_mod_outer_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Outer_L"), "DISPLACE")
-    displace_mod_top_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Top_L"), "DISPLACE")
-    displace_mod_bottom_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Bottom_L"), "DISPLACE")
-    displace_mod_all_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_All_L"), "DISPLACE")
 
-    displace_mod_inner_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Inner_R"), "DISPLACE")
-    displace_mod_outer_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Outer_R"), "DISPLACE")
-    displace_mod_top_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Top_R"), "DISPLACE")
-    displace_mod_bottom_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Bottom_R"), "DISPLACE")
-    displace_mod_all_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_All_R"), "DISPLACE")
+    if cache_left and cache_left.material_type == "OCCLUSION_LEFT":
+        # re-create create the displacement modifiers
+        displace_mod_inner_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Inner_L"), "DISPLACE")
+        displace_mod_outer_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Outer_L"), "DISPLACE")
+        displace_mod_top_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Top_L"), "DISPLACE")
+        displace_mod_bottom_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Bottom_L"), "DISPLACE")
+        displace_mod_all_l = obj.modifiers.new(utils.unique_name("Occlusion_Displace_All_L"), "DISPLACE")
+        # initialise displacement mods
+        init_displacement_mod(obj, displace_mod_inner_l, vars.OCCLUSION_GROUP_INNER + "_L", "NORMAL", cache_left.parameters.eye_occlusion_inner)
+        init_displacement_mod(obj, displace_mod_outer_l, vars.OCCLUSION_GROUP_OUTER + "_L", "NORMAL", cache_left.parameters.eye_occlusion_outer)
+        init_displacement_mod(obj, displace_mod_top_l, vars.OCCLUSION_GROUP_TOP + "_L", "NORMAL", cache_left.parameters.eye_occlusion_top)
+        init_displacement_mod(obj, displace_mod_bottom_l, vars.OCCLUSION_GROUP_BOTTOM + "_L", "NORMAL", cache_left.parameters.eye_occlusion_bottom)
+        init_displacement_mod(obj, displace_mod_all_l, vars.OCCLUSION_GROUP_ALL + "_L", "NORMAL", cache_left.parameters.eye_occlusion_displace)
+        # fix mod order
+        move_mod_first(obj, displace_mod_inner_l)
+        move_mod_first(obj, displace_mod_outer_l)
+        move_mod_first(obj, displace_mod_top_l)
+        move_mod_first(obj, displace_mod_bottom_l)
+        move_mod_first(obj, displace_mod_all_l)
 
-    # initialise displacement mods
-    init_displacement_mod(obj, displace_mod_inner_l, vars.OCCLUSION_GROUP_INNER + "_L", "NORMAL", cache_left.parameters.eye_occlusion_inner)
-    init_displacement_mod(obj, displace_mod_outer_l, vars.OCCLUSION_GROUP_OUTER + "_L", "NORMAL", cache_left.parameters.eye_occlusion_outer)
-    init_displacement_mod(obj, displace_mod_top_l, vars.OCCLUSION_GROUP_TOP + "_L", "NORMAL", cache_left.parameters.eye_occlusion_top)
-    init_displacement_mod(obj, displace_mod_bottom_l, vars.OCCLUSION_GROUP_BOTTOM + "_L", "NORMAL", cache_left.parameters.eye_occlusion_bottom)
-    init_displacement_mod(obj, displace_mod_all_l, vars.OCCLUSION_GROUP_ALL + "_L", "NORMAL", cache_left.parameters.eye_occlusion_displace)
-
-    init_displacement_mod(obj, displace_mod_inner_r, vars.OCCLUSION_GROUP_INNER + "_R", "NORMAL", cache_right.parameters.eye_occlusion_inner)
-    init_displacement_mod(obj, displace_mod_outer_r, vars.OCCLUSION_GROUP_OUTER + "_R", "NORMAL", cache_right.parameters.eye_occlusion_outer)
-    init_displacement_mod(obj, displace_mod_top_r, vars.OCCLUSION_GROUP_TOP + "_R", "NORMAL", cache_right.parameters.eye_occlusion_top)
-    init_displacement_mod(obj, displace_mod_bottom_r, vars.OCCLUSION_GROUP_BOTTOM + "_R", "NORMAL", cache_right.parameters.eye_occlusion_bottom)
-    init_displacement_mod(obj, displace_mod_all_r, vars.OCCLUSION_GROUP_ALL + "_R", "NORMAL", cache_right.parameters.eye_occlusion_displace)
-
-    # fix mod order
-    move_mod_first(obj, displace_mod_inner_l)
-    move_mod_first(obj, displace_mod_outer_l)
-    move_mod_first(obj, displace_mod_top_l)
-    move_mod_first(obj, displace_mod_bottom_l)
-    move_mod_first(obj, displace_mod_all_l)
-    move_mod_first(obj, displace_mod_inner_r)
-    move_mod_first(obj, displace_mod_outer_r)
-    move_mod_first(obj, displace_mod_top_r)
-    move_mod_first(obj, displace_mod_bottom_r)
-    move_mod_first(obj, displace_mod_all_r)
+    if cache_right and cache_right.material_type == "OCCLUSION_RIGHT":
+        # re-create create the displacement modifiers
+        displace_mod_inner_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Inner_R"), "DISPLACE")
+        displace_mod_outer_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Outer_R"), "DISPLACE")
+        displace_mod_top_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Top_R"), "DISPLACE")
+        displace_mod_bottom_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_Bottom_R"), "DISPLACE")
+        displace_mod_all_r = obj.modifiers.new(utils.unique_name("Occlusion_Displace_All_R"), "DISPLACE")
+        # initialise displacement mods
+        init_displacement_mod(obj, displace_mod_inner_r, vars.OCCLUSION_GROUP_INNER + "_R", "NORMAL", cache_right.parameters.eye_occlusion_inner)
+        init_displacement_mod(obj, displace_mod_outer_r, vars.OCCLUSION_GROUP_OUTER + "_R", "NORMAL", cache_right.parameters.eye_occlusion_outer)
+        init_displacement_mod(obj, displace_mod_top_r, vars.OCCLUSION_GROUP_TOP + "_R", "NORMAL", cache_right.parameters.eye_occlusion_top)
+        init_displacement_mod(obj, displace_mod_bottom_r, vars.OCCLUSION_GROUP_BOTTOM + "_R", "NORMAL", cache_right.parameters.eye_occlusion_bottom)
+        init_displacement_mod(obj, displace_mod_all_r, vars.OCCLUSION_GROUP_ALL + "_R", "NORMAL", cache_right.parameters.eye_occlusion_displace)
+        # fix mod order
+        move_mod_first(obj, displace_mod_inner_r)
+        move_mod_first(obj, displace_mod_outer_r)
+        move_mod_first(obj, displace_mod_top_r)
+        move_mod_first(obj, displace_mod_bottom_r)
+        move_mod_first(obj, displace_mod_all_r)
 
     utils.log_info("Eye Occlusion Displacement modifiers applied to: " + obj.name)
 
@@ -249,29 +242,30 @@ def add_tearline_modifiers(obj):
     cache_left = props.get_material_cache(mat_left)
     cache_right = props.get_material_cache(mat_right)
 
-    if cache_left is None or cache_right is None:
-        return
-
     # generate the vertex groups for tearline displacement
     meshutils.generate_tearline_vertex_groups(obj, mat_left, mat_right)
-
-    # re-create create the displacement modifiers
     remove_eye_modifiers(obj)
-    displace_mod_inner_l = obj.modifiers.new(utils.unique_name("Tearline_Displace_Inner_L"), "DISPLACE")
-    displace_mod_all_l = obj.modifiers.new(utils.unique_name("Tearline_Displace_All_L"), "DISPLACE")
-    displace_mod_inner_r = obj.modifiers.new(utils.unique_name("Tearline_Displace_Inner_R"), "DISPLACE")
-    displace_mod_all_r = obj.modifiers.new(utils.unique_name("Tearline_Displace_All_R"), "DISPLACE")
 
-    # initialise displacement mods
-    init_displacement_mod(obj, displace_mod_inner_l, vars.TEARLINE_GROUP_INNER + "_L", "Y", -cache_left.parameters.tearline_inner)
-    init_displacement_mod(obj, displace_mod_all_l, vars.TEARLINE_GROUP_ALL + "_L", "Y", -cache_left.parameters.tearline_displace)
-    init_displacement_mod(obj, displace_mod_inner_r, vars.TEARLINE_GROUP_INNER + "_R", "Y", -cache_right.parameters.tearline_inner)
-    init_displacement_mod(obj, displace_mod_all_r, vars.TEARLINE_GROUP_ALL + "_R", "Y", -cache_right.parameters.tearline_displace)
+    if cache_left and cache_left.material_type == "TEARLINE_LEFT":
+        # re-create create the displacement modifiers
+        displace_mod_inner_l = obj.modifiers.new(utils.unique_name("Tearline_Displace_Inner_L"), "DISPLACE")
+        displace_mod_all_l = obj.modifiers.new(utils.unique_name("Tearline_Displace_All_L"), "DISPLACE")
+        # initialise displacement mods
+        init_displacement_mod(obj, displace_mod_inner_l, vars.TEARLINE_GROUP_INNER + "_L", "Y", -cache_left.parameters.tearline_inner)
+        init_displacement_mod(obj, displace_mod_all_l, vars.TEARLINE_GROUP_ALL + "_L", "Y", -cache_left.parameters.tearline_displace)
+        # fix mod order
+        move_mod_first(obj, displace_mod_inner_l)
+        move_mod_first(obj, displace_mod_all_l)
 
-    # fix mod order
-    move_mod_first(obj, displace_mod_inner_l)
-    move_mod_first(obj, displace_mod_all_l)
-    move_mod_first(obj, displace_mod_inner_r)
-    move_mod_first(obj, displace_mod_all_r)
+    if cache_right and cache_right.material_type == "TEARLINE_RIGHT":
+        # re-create create the displacement modifiers
+        displace_mod_inner_r = obj.modifiers.new(utils.unique_name("Tearline_Displace_Inner_R"), "DISPLACE")
+        displace_mod_all_r = obj.modifiers.new(utils.unique_name("Tearline_Displace_All_R"), "DISPLACE")
+        # initialise displacement mods
+        init_displacement_mod(obj, displace_mod_inner_r, vars.TEARLINE_GROUP_INNER + "_R", "Y", -cache_right.parameters.tearline_inner)
+        init_displacement_mod(obj, displace_mod_all_r, vars.TEARLINE_GROUP_ALL + "_R", "Y", -cache_right.parameters.tearline_displace)
+        # fix mod order
+        move_mod_first(obj, displace_mod_inner_r)
+        move_mod_first(obj, displace_mod_all_r)
 
     utils.log_info("Tearline Displacement modifiers applied to: " + obj.name)

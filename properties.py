@@ -931,25 +931,35 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_all_materials_cache(self):
         all_materials = []
         for cache in self.tongue_material_cache:
-            all_materials.append(cache)
+            if cache.material:
+                all_materials.append(cache)
         for cache in self.teeth_material_cache:
-            all_materials.append(cache)
+            if cache.material:
+                all_materials.append(cache)
         for cache in self.head_material_cache:
-            all_materials.append(cache)
+            if cache.material:
+                all_materials.append(cache)
         for cache in self.skin_material_cache:
-            all_materials.append(cache)
+            if cache.material:
+                all_materials.append(cache)
         for cache in self.tearline_material_cache:
-            all_materials.append(cache)
+            if cache.material:
+                all_materials.append(cache)
         for cache in self.eye_occlusion_material_cache:
-            all_materials.append(cache)
+            if cache.material:
+                all_materials.append(cache)
         for cache in self.eye_material_cache:
-            all_materials.append(cache)
+            if cache.material:
+                all_materials.append(cache)
         for cache in self.hair_material_cache:
-            all_materials.append(cache)
+            if cache.material:
+                all_materials.append(cache)
         for cache in self.pbr_material_cache:
-            all_materials.append(cache)
+            if cache.material:
+                all_materials.append(cache)
         for cache in self.sss_material_cache:
-            all_materials.append(cache)
+            if cache.material:
+                all_materials.append(cache)
         return all_materials
 
     def get_object_cache(self, obj):
@@ -1019,6 +1029,14 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return None
 
 
+    def add_or_reuse_material_cache(self, collection):
+        for i in range(0, len(collection)):
+            if collection[i].material is None:
+                utils.log_info("Reusing material cache: " + str(i))
+                return collection[i]
+        return collection.add()
+
+
     def add_material_cache(self, mat, create_type = "DEFAULT"):
         """Returns the material cache for this material.
 
@@ -1026,30 +1044,30 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         """
 
         cache = self.get_material_cache(mat)
-        if cache is None:
+        if cache is None and mat:
             utils.log_info("Creating Material Cache for: " + mat.name + " (" + create_type + ")")
             if create_type == "DEFAULT" or create_type == "SCALP" or create_type == "EYELASH":
-                cache = self.pbr_material_cache.add()
+                cache = self.add_or_reuse_material_cache(self.pbr_material_cache)
             elif create_type == "SSS":
-                cache = self.sss_material_cache.add()
+                cache = self.add_or_reuse_material_cache(self.sss_material_cache)
             elif create_type == "SKIN_HEAD":
-                cache = self.head_material_cache.add()
+                cache = self.add_or_reuse_material_cache(self.head_material_cache)
             elif (create_type == "SKIN_BODY" or create_type == "SKIN_ARM"
-               or create_type == "SKIN_LEG" or create_type == "NAILS"):
-                cache = self.skin_material_cache.add()
+            or create_type == "SKIN_LEG" or create_type == "NAILS"):
+                cache = self.add_or_reuse_material_cache(self.skin_material_cache)
             elif create_type == "TEETH_UPPER" or create_type == "TEETH_LOWER":
-                cache = self.teeth_material_cache.add()
+                cache = self.add_or_reuse_material_cache(self.teeth_material_cache)
             elif create_type == "TONGUE":
-                cache = self.tongue_material_cache.add()
+                cache = self.add_or_reuse_material_cache(self.tongue_material_cache)
             elif create_type == "HAIR":
-                cache = self.hair_material_cache.add()
+                cache = self.add_or_reuse_material_cache(self.hair_material_cache)
             elif (create_type == "CORNEA_RIGHT" or create_type == "CORNEA_LEFT"
-               or create_type == "EYE_RIGHT" or create_type == "EYE_LEFT"):
-                cache = self.eye_material_cache.add()
+            or create_type == "EYE_RIGHT" or create_type == "EYE_LEFT"):
+                cache = self.add_or_reuse_material_cache(self.eye_material_cache)
             elif create_type == "OCCLUSION_RIGHT" or create_type == "OCCLUSION_LEFT":
-                cache = self.eye_occlusion_material_cache.add()
+                cache = self.add_or_reuse_material_cache(self.eye_occlusion_material_cache)
             elif create_type == "TEARLINE_RIGHT" or create_type == "TEARLINE_LEFT":
-                cache = self.tearline_material_cache.add()
+                cache = self.add_or_reuse_material_cache(self.tearline_material_cache)
             else:
                 cache = self.pbr_material_cache.add()
                 create_type = "DEFAULT"
@@ -1061,11 +1079,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         json_data = jsonutils.read_json(self.import_file)
         return jsonutils.get_character_json(json_data, self.import_name, self.character_name)
 
-    def recast_type(self, mat_cache, collection, chr_json):
+    def recast_type(self, collection, index, chr_json):
+        mat_cache = collection[index]
         mat = mat_cache.material
+        utils.log_info("Recasting material cache: " + mat.name)
         material_type = mat_cache.material_type
-        utils.remove_from_collection(collection, mat_cache)
-        mat_cache = self.add_material_cache(mat, material_type)
+        mat_cache.material = None
+        new_mat_cache = self.add_material_cache(mat, material_type)
         if not chr_json:
             chr_json = self.get_character_json()
         for obj_cache in self.object_cache:
@@ -1073,31 +1093,32 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             if obj.type == "MESH":
                 for m in obj.data.materials:
                     if m == mat:
-                        mat_cache.dir = imageutils.get_material_tex_dir(self, obj, mat)
+                        new_mat_cache.dir = imageutils.get_material_tex_dir(self, obj, mat)
                         obj_json = jsonutils.get_object_json(chr_json, obj)
                         mat_json = jsonutils.get_material_json(obj_json, mat)
-                        init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, mat_json)
+                        init_material_property_defaults(obj, mat, obj_cache, new_mat_cache, obj_json, mat_json)
+                        utils.log_info("Recast Complete.")
                         return
 
-    def check_type(self, collection, chr_json, *types):
-        to_change = []
-        for mat_cache in collection:
-            if mat_cache.material_type not in types:
-                to_change.append(mat_cache)
-        for mat_cache in to_change:
-            self.recast_type(mat_cache, collection, chr_json)
+    def check_type(self, collection, recast, chr_json, *types):
+        for i in range(0, len(collection)):
+            if i < len(collection):
+                if collection[i].material and collection[i].material_type not in types:
+                    self.recast_type(collection, i, chr_json)
+                    i -= 1
 
     def check_material_types(self, chr_json):
-        self.check_type(self.tongue_material_cache, chr_json, "TONGUE")
-        self.check_type(self.teeth_material_cache, chr_json, "TEETH_LOWER", "TEETH_UPPER")
-        self.check_type(self.head_material_cache, chr_json, "SKIN_HEAD")
-        self.check_type(self.skin_material_cache, chr_json, "SKIN_BODY", "SKIN_ARM", "SKIN_LEG", "NAILS")
-        self.check_type(self.tearline_material_cache, chr_json, "TEARLINE_LEFT", "TEARLINE_RIGHT")
-        self.check_type(self.eye_occlusion_material_cache, chr_json, "OCCLUSION_RIGHT", "OCCLUSION_LEFT")
-        self.check_type(self.eye_material_cache, chr_json, "CORNEA_RIGHT", "CORNEA_LEFT", "EYE_RIGHT", "EYE_LEFT")
-        self.check_type(self.hair_material_cache, chr_json, "HAIR")
-        self.check_type(self.pbr_material_cache, chr_json, "DEFAULT", "SCALP", "EYELASH")
-        self.check_type(self.sss_material_cache, chr_json, "SSS")
+        recast = []
+        self.check_type(self.tongue_material_cache, recast, chr_json, "TONGUE")
+        self.check_type(self.teeth_material_cache, recast, chr_json, "TEETH_LOWER", "TEETH_UPPER")
+        self.check_type(self.head_material_cache, recast, chr_json, "SKIN_HEAD")
+        self.check_type(self.skin_material_cache, recast, chr_json, "SKIN_BODY", "SKIN_ARM", "SKIN_LEG", "NAILS")
+        self.check_type(self.tearline_material_cache, recast, chr_json, "TEARLINE_LEFT", "TEARLINE_RIGHT")
+        self.check_type(self.eye_occlusion_material_cache, recast, chr_json, "OCCLUSION_RIGHT", "OCCLUSION_LEFT")
+        self.check_type(self.eye_material_cache, recast, chr_json, "CORNEA_RIGHT", "CORNEA_LEFT", "EYE_RIGHT", "EYE_LEFT")
+        self.check_type(self.hair_material_cache, recast, chr_json, "HAIR")
+        self.check_type(self.pbr_material_cache, recast, chr_json, "DEFAULT", "SCALP", "EYELASH")
+        self.check_type(self.sss_material_cache, recast, chr_json, "SSS")
 
 
 class CC3ImportProps(bpy.types.PropertyGroup):

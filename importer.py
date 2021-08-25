@@ -15,6 +15,7 @@
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
+from platform import node
 
 import bpy
 
@@ -73,67 +74,56 @@ def delete_import(chr_cache):
     utils.clean_collection(bpy.data.node_groups)
 
 
-def process_material(character_cache, obj, mat, object_json):
+def process_material(chr_cache, obj, mat, object_json):
     props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    mat_cache = character_cache.get_material_cache(mat)
+    mat_cache = chr_cache.get_material_cache(mat)
     mat_json = jsonutils.get_material_json(object_json, mat)
-    nodeutils.reset_nodes(mat)
-    node_tree = mat.node_tree
-    nodes = node_tree.nodes
-    shader = None
-
-    # find the Principled BSDF shader node
-    for n in nodes:
-        if (n.type == "BSDF_PRINCIPLED"):
-            shader = n
-            break
-
-    # create one if it does not exist
-    if shader is None:
-        shader = nodes.new("ShaderNodeBsdfPrincipled")
-
-    nodeutils.clear_cursor()
 
     if props.setup_mode == "ADVANCED":
 
         if mat_cache.is_cornea() or mat_cache.is_eye():
-            shaders.connect_eye_shader(obj, mat, shader, object_json, mat_json)
+            shaders.connect_eye_shader(obj, mat, object_json, mat_json)
 
         elif mat_cache.is_tearline():
-            shaders.connect_tearline_shader(obj, mat, shader, mat_json)
+            shaders.connect_tearline_shader(obj, mat, mat_json)
 
         elif mat_cache.is_eye_occlusion():
-            shaders.connect_eye_occlusion_shader(obj, mat, shader, mat_json)
+            shaders.connect_eye_occlusion_shader(obj, mat, mat_json)
 
         elif mat_cache.is_skin() or mat_cache.is_nails():
-            shaders.connect_skin_shader(obj, mat, shader, mat_json)
+            shaders.connect_skin_shader(obj, mat, mat_json)
 
         elif mat_cache.is_teeth():
-            shaders.connect_teeth_shader(obj, mat, shader, mat_json)
+            shaders.connect_teeth_shader(obj, mat, mat_json)
 
         elif mat_cache.is_tongue():
-            shaders.connect_tongue_shader(obj, mat, shader, mat_json)
+            shaders.connect_tongue_shader(obj, mat, mat_json)
 
         elif mat_cache.is_hair():
-            shaders.connect_hair_shader(obj, mat, shader, mat_json)
+            shaders.connect_hair_shader(obj, mat, mat_json)
+
+        elif mat_cache.is_sss():
+            shaders.connect_sss_shader(obj, mat, mat_json)
 
         else:
-            shaders.connect_pbr_shader(obj, mat, shader, mat_json)
+            shaders.connect_pbr_shader(obj, mat, mat_json)
 
     else:
 
+        nodeutils.clear_cursor()
+        nodeutils.reset_cursor()
+
         if mat_cache.is_eye_occlusion():
-            basic.connect_eye_occlusion_material(obj, mat, shader)
+            basic.connect_eye_occlusion_material(obj, mat)
 
         elif mat_cache.is_tearline():
-            basic.connect_tearline_material(obj, mat, shader)
+            basic.connect_tearline_material(obj, mat)
 
         elif mat_cache.is_cornea():
-            basic.connect_basic_eye_material(obj, mat, shader)
+            basic.connect_basic_eye_material(obj, mat)
 
         else:
-            basic.connect_basic_material(obj, mat, shader)
+            basic.connect_basic_material(obj, mat)
 
         nodeutils.move_new_nodes(-600, 0)
 
@@ -159,6 +149,7 @@ def process_object(character_cache, obj, objects_processed, character_json):
     object_json = jsonutils.get_object_json(character_json, obj)
     physics_json = None
 
+    utils.log_info("")
     utils.log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
 
     obj_cache = character_cache.get_object_cache(obj)
@@ -174,6 +165,7 @@ def process_object(character_cache, obj, objects_processed, character_json):
         # process any materials found in the mesh object
         for mat in obj.data.materials:
             if mat is not None:
+                utils.log_info("")
                 utils.log_info("Processing Material: " + mat.name)
                 process_material(character_cache, obj, mat, object_json)
                 if prefs.physics == "ENABLED" and props.physics_mode == "ON":

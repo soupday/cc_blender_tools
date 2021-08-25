@@ -63,6 +63,20 @@ def get_node_connected_to_input(node, socket):
         return None
 
 
+def get_node_and_socket_connected_to_output(node, socket):
+    try:
+        return node.outputs[socket].links[0].to_node, node.outputs[socket].links[0].to_socket.name
+    except:
+        return None, None
+
+
+def get_node_and_socket_connected_to_input(node, socket):
+    try:
+        return node.inputs[socket].links[0].from_node, node.inputs[socket].links[0].from_socket.name
+    except:
+        return None
+
+
 def has_connected_input(node, socket):
     try:
         if len(node.inputs[socket].links) > 0:
@@ -243,6 +257,18 @@ def link_nodes(links, from_node, from_socket, to_node, to_socket):
             utils.log_info("Unable to link: " + from_node.name + "[" + str(from_socket) + "] to " +
                   to_node.name + "[" + str(to_socket) + "]")
 
+
+def link_nodes_if_not(links, from_node, from_socket, to_node, to_socket):
+    if from_node is not None and to_node is not None:
+        if_node, if_socket = get_node_and_socket_connected_to_output(from_node, from_socket)
+        if if_node != to_node or if_socket != to_socket:
+            try:
+                links.new(from_node.outputs[from_socket], to_node.inputs[to_socket])
+            except:
+                utils.log_info("Unable to link: " + from_node.name + "[" + str(from_socket) + "] to " +
+                        to_node.name + "[" + str(to_socket) + "]")
+
+
 def unlink_node(links, node, socket):
     if node is not None:
         try:
@@ -254,28 +280,75 @@ def unlink_node(links, node, socket):
             utils.log_info("Unable to remove links from: " + node.name + "[" + str(socket) + "]")
 
 
-def reset_nodes(mat):
-    if not mat.use_nodes:
-        mat.use_nodes = True
+def reset_shader(nodes, links, shader_label, shader_name, shader_group):
+    shader_id = "(" + str(shader_name) + ")"
 
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
+    shader_node: bpy.types.Node = None
+    output_node: bpy.types.Node = None
 
-    links.clear()
+    if shader_group is None:
+        shader_type = "BSDF_PRINCIPLED"
+    else:
+        shader_type = "GROUP"
 
     for n in nodes:
-        if n.type != "BSDF_PRINCIPLED":
+        if n.type == shader_type and (shader_group is None or shader_name in n.name):
+            if shader_node:
+                nodes.remove(n)
+            else:
+                utils.log_info("Keeping old shader node: " + n.name)
+                shader_node = n
+        elif n.type == "OUTPUT_MATERIAL":
+            if output_node:
+                nodes.remove(n)
+            else:
+                output_node = n
+        elif n.type == "TEX_IMAGE" and vars.NODE_PREFIX in n.name:
+            if shader_group is None:
+                nodes.remove(n)
+        else:
             nodes.remove(n)
 
-    if len(nodes) == 0:
-        shader = nodes.new("ShaderNodeBsdfPrincipled")
-    else:
-        shader = nodes[0]
+    if not shader_node:
+        if not shader_node:
+            if shader_type == "BSDF_PRINCIPLED":
+                shader_node = nodes.new("ShaderNodeBsdfPrincipled")
+            else:
+                group = get_node_group(shader_group)
+                shader_node = nodes.new("ShaderNodeGroup")
+                shader_node.node_tree = group
+            shader_node.name = utils.unique_name(shader_id)
+            shader_node.label = shader_label
+            shader_node.width = 240
+            utils.log_info("Creating new shader node: " + shader_node.name)
 
-    out = nodes.new("ShaderNodeOutputMaterial")
-    out.location.x += 400
+    if not output_node:
+        output_node = nodes.new("ShaderNodeOutputMaterial")
 
-    link_nodes(links, shader, "BSDF", out, "Surface")
+    shader_node.location = (0,0)
+    output_node.location = (400, 0)
+
+    # connect the shader to the output
+    link_nodes_if_not(links, shader_node, "BSDF", output_node, "Surface")
+    link_nodes_if_not(links, shader_node, "Displacement", output_node, "Displacement")
+    return shader_node
+
+
+def clean_unused_image_nodes(nodes):
+    to_remove = []
+    for node in nodes:
+        if node.type == "TEX_IMAGE":
+            is_linked = False
+            for output in node.outputs:
+                if output.is_linked:
+                    is_linked = True
+            if not is_linked:
+                to_remove.append(node)
+
+    for node in to_remove:
+        utils.log_info("Removing unused image node: " + node.name)
+        nodes.remove(node)
+
 
 
 def get_node_group(name):

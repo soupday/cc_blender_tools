@@ -285,7 +285,7 @@ SHADER_MATRIX = [
             ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_srgb", "SSS/Falloff"],
             ["skin_suburface_radius", 1.5, "", "SSS/Radius"],
             # non json properties (just defaults)
-            ["skin_roughness_power", 0.9, "DEF"],
+            ["skin_roughness_power", 1, "DEF"],
             ["skin_roughness_min", 0.1, "DEF"],
             ["skin_roughness_max", 1, "DEF"],
             ["skin_subsurface_scale", 1, "DEF"],
@@ -438,7 +438,7 @@ SHADER_MATRIX = [
             ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_srgb", "SSS/Falloff"],
             ["skin_suburface_radius", 1.5, "", "SSS/Radius"],
             # non json properties (just defaults)
-            ["skin_roughness_power", 0.9, "DEF"],
+            ["skin_roughness_power", 1, "DEF"],
             ["skin_roughness_min", 0.1, "DEF"],
             ["skin_roughness_max", 1, "DEF"],
             ["skin_subsurface_scale", 1, "DEF"],
@@ -1045,8 +1045,8 @@ SHADER_MATRIX = [
             ["default_suburface_radius", 1.5, "", "SSS/Radius"],
             ["default_specular_strength", 1, "", "Pbr/Specular"],
             # non json properties (just defaults)
-            ["default_hue", 0.5, "", "DEF"],
-            ["default_hsv_strength", 1, "", "DEF"],
+            ["default_hue", 0.5, "DEF"],
+            ["default_hsv_strength", 1, "DEF"],
             ["default_bump_strength", 1, "DEF"],
             ["default_specular_map", 0.5, "DEF"],
             ["default_specular_mask", 1.0, "DEF"],

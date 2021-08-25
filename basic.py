@@ -3,7 +3,7 @@ import os
 from . import materials, nodeutils, imageutils, properties, params, utils, vars
 
 
-def connect_tearline_material(obj, mat, shader):
+def connect_tearline_material(obj, mat):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
@@ -11,6 +11,8 @@ def connect_tearline_material(obj, mat, shader):
     mat_cache = chr_cache.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
+
+    shader = nodeutils.reset_shader(nodes, links, "Tearline Shader", "basic_tearline", None)
 
     nodeutils.set_node_input(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
     nodeutils.set_node_input(shader, "Metallic", 1.0)
@@ -22,7 +24,7 @@ def connect_tearline_material(obj, mat, shader):
     mat.shadow_method = "NONE"
 
 
-def connect_eye_occlusion_material(obj, mat, shader):
+def connect_eye_occlusion_material(obj, mat):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
@@ -30,6 +32,8 @@ def connect_eye_occlusion_material(obj, mat, shader):
     mat_cache = chr_cache.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
+
+    shader = nodeutils.reset_shader(nodes, links, "Eye Occlusion Shader", "basic_eye_occlusion", None)
 
     shader.name = utils.unique_name("eye_occlusion_shader")
     nodeutils.set_node_input(shader, "Base Color", (0,0,0,1))
@@ -51,7 +55,7 @@ def connect_eye_occlusion_material(obj, mat, shader):
     mat.shadow_method = "NONE"
 
 
-def connect_basic_eye_material(obj, mat, shader):
+def connect_basic_eye_material(obj, mat):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
@@ -59,6 +63,8 @@ def connect_basic_eye_material(obj, mat, shader):
     mat_cache = chr_cache.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
+
+    shader = nodeutils.reset_shader(nodes, links, "Eye Shader", "basic_eye", None)
 
     # Base Color
     #
@@ -118,7 +124,7 @@ def connect_basic_eye_material(obj, mat, shader):
 
     return
 
-def connect_basic_material(obj, mat, shader):
+def connect_basic_material(obj, mat):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
@@ -126,6 +132,8 @@ def connect_basic_material(obj, mat, shader):
     mat_cache = chr_cache.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
+
+    shader = nodeutils.reset_shader(nodes, links, "Basic Shader", "basic", None)
 
     # Base Color
     #
@@ -265,10 +273,13 @@ def connect_basic_material(obj, mat, shader):
     if alpha_image is not None:
         alpha_node = nodeutils.make_image_node(nodes, alpha_image, "opacity_tex")
         dir,file = os.path.split(alpha_image.filepath)
-        if "_diffuse." in file.lower() or "_albedo." in file.lower():
+        if "_diffuse" in file.lower() or "_albedo" in file.lower():
             nodeutils.link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
         else:
             nodeutils.link_nodes(links, alpha_node, "Color", shader, "Alpha")
+    elif diffuse_node:
+        nodeutils.link_nodes(links, diffuse_node, "Alpha", shader, "Alpha")
+
     # material alpha blend settings
     if obj_cache.is_hair() or mat_cache.is_eyelash():
         materials.set_material_alpha(mat, "HASHED")
