@@ -353,6 +353,7 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
     x = location[0] - 600
     y = location[1] + 300
     c = 0
+    image_nodes = []
 
     if shader_def and "textures" in shader_def.keys():
 
@@ -367,13 +368,13 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                     tex_json = jsonutils.get_texture_info(mat_json, json_id)
                     image_id = "(" + tex_type + ")"
 
-                    image: bpy.types.Image = None
+                    image = imageutils.find_material_image(mat, tex_type, tex_json)
                     image_node = nodeutils.get_node_by_id(nodes, image_id)
-                    if image_node and image_node.image:
-                        image = image_node.image
 
-                    if not image:
-                        image =  imageutils.find_material_image(mat, tex_type, tex_json)
+                    if image_node and image_node.image:
+                        if image != image_node.image:
+                            utils.log_info("Replacing image node image with: " + image.name)
+                            image_node.image = image
 
                     if len(texture_def) == 5 and texture_def[3] == "SAMPLE":
                         # SAMPLE is a special case where the texture is sampled into a color value property:
@@ -414,12 +415,23 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
 
                         if socket_name:
                             if tex_type == "ALPHA" and "_diffuse" in image.name.lower():
-                                nodeutils.link_nodes_if_not(links, image_node, "Alpha", node, socket_name)
+                                nodeutils.link_nodes(links, image_node, "Alpha", node, socket_name)
                             else:
-                                nodeutils.link_nodes_if_not(links, image_node, "Color", node, socket_name)
+                                nodeutils.link_nodes(links, image_node, "Color", node, socket_name)
 
                         if alpha_socket_name:
-                            nodeutils.link_nodes_if_not(links, image_node, "Alpha", node, alpha_socket_name)
+                            nodeutils.link_nodes(links, image_node, "Alpha", node, alpha_socket_name)
+
+                    if image_node and image_node.image:
+                        image_nodes.append(image_node)
+
+    # remove any extra image nodes:
+    for n in nodes:
+        if n.type == "TEX_IMAGE" and n not in image_nodes:
+            utils.log_info("Removing unused image node: " + n.name)
+            nodes.remove(n)
+
+    return
 
 
 def connect_tearline_shader(obj, mat, mat_json):

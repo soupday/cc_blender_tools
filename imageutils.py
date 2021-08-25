@@ -34,12 +34,14 @@ def check_max_size(image):
 # load an image from a file, but try to find it in the existing images first
 def load_image(filename, color_space):
 
+    i: bpy.types.Image = None
     for i in bpy.data.images:
         if (i.type == "IMAGE" and i.filepath != ""):
             try:
                 if os.path.normcase(os.path.abspath(i.filepath)) == os.path.normcase(os.path.abspath(filename)):
                     utils.log_info("    Using existing image: " + i.filepath)
-                    i.alpha_mode = "CHANNEL_PACKED"
+                    if i.depth == 32 and i.alpha_mode != "CHANNEL_PACKED":
+                        i.alpha_mode = "CHANNEL_PACKED"
                     #check_max_size(i)
                     return i
             except:
@@ -49,7 +51,8 @@ def load_image(filename, color_space):
         utils.log_info("    Loading new image: " + filename)
         image = bpy.data.images.load(filename)
         image.colorspace_settings.name = color_space
-        image.alpha_mode = "CHANNEL_PACKED"
+        if image.depth == 32:
+            image.alpha_mode = "CHANNEL_PACKED"
         #check_max_size(image)
         return image
     except Exception as e:
