@@ -371,7 +371,7 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                     image = imageutils.find_material_image(mat, tex_type, tex_json)
                     image_node = nodeutils.get_node_by_id(nodes, image_id)
 
-                    if image_node and image_node.image:
+                    if image_node and image_node.image and image:
                         if image != image_node.image:
                             utils.log_info("Replacing image node image with: " + image.name)
                             image_node.image = image
