@@ -49,7 +49,6 @@ MATERIAL_TYPES = [
                         ("TEETH_LOWER", "Lower Teeth", "Lower teeth material"),
                         ("TONGUE", "Tongue", "Tongue material"),
                         ("HAIR", "Hair", "Hair material"),
-                        ("SMART_HAIR", "Smart Hair", "Smart Hair material"),
                         ("SCALP", "Scalp", "Scalp or base hair material"),
                         ("EYELASH", "Eyelash", "Eyelash material"),
                         ("NAILS", "Nails", "Finger and toe nails material"),

@@ -124,7 +124,6 @@ def get_linked_material_types(cache):
         for linked in params.LINKED_MATERIALS:
             if cache.material_type in linked:
                 return linked
-        return [cache.material_type]
     return []
 
 
@@ -740,8 +739,6 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
     material_type: bpy.props.EnumProperty(items=vars.MATERIAL_TYPES, default="DEFAULT")
     texture_mappings: bpy.props.CollectionProperty(type=CC3TextureMapping)
     #parameters: bpy.props.PointerProperty(type=CC3MaterialParameters)
-    smart_hair: bpy.props.BoolProperty(default=False)
-    compat: bpy.props.PointerProperty(type=bpy.types.Material)
     dir: bpy.props.StringProperty(default="")
     temp_weight_map: bpy.props.PointerProperty(type=bpy.types.Image)
     alpha_is_diffuse: bpy.props.BoolProperty(default=False)

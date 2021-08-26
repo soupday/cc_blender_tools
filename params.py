@@ -63,6 +63,8 @@ LINKED_MATERIALS = [
     ["OCCLUSION_RIGHT", "OCCLUSION_LEFT"],
     ["TEARLINE_RIGHT", "TEARLINE_LEFT"],
     ["TEETH_UPPER", "TEETH_LOWER"],
+    ["HAIR"],
+    ["SCALP"],
 ]
 
 # These material types must be updated together as they share the same properties:
@@ -1306,7 +1308,6 @@ SHADER_LOOKUP = [
     ["TEETH_LOWER", "RLTeethGum", "rl_teeth_shader"],
     ["TONGUE", "RLTongue", "rl_tongue_shader"],
     ["HAIR", "RLHair", "rl_hair_shader"],
-    ["SMART_HAIR", "RLHair", "rl_hair_shader"],
     ["SCALP", "Pbr", "rl_pbr_shader"],
     ["EYELASH", "Pbr", "rl_pbr_shader"],
     ["NAILS", "RLSkin", "rl_skin_shader"],
