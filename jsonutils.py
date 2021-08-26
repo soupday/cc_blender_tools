@@ -40,9 +40,9 @@ def read_json(fbx_path):
         utils.log_warn("Failed to read Json data: " + json_path)
         return None
 
-def get_character_generation_json(character_json, file_name, character_name):
+def get_character_generation_json(character_json, file_name, character_id):
     try:
-        return character_json[file_name]["Object"][character_name]["Generation"]
+        return character_json[file_name]["Object"][character_id]["Generation"]
     except:
         utils.log_warn("Failed to read character generation data!")
         return None
@@ -56,12 +56,12 @@ def get_character_root_json(json_data, file_name):
         utils.log_warn("Failed to get character root Json data!")
         return None
 
-def get_character_json(json_data, file_name, character_name):
+def get_character_json(json_data, file_name, character_id):
     if not json_data:
         return None
     try:
-        character_json = json_data[file_name]["Object"][character_name]
-        utils.log_info("Character Json data found for: " + character_name)
+        character_json = json_data[file_name]["Object"][character_id]
+        utils.log_info("Character Json data found for: " + character_id)
         return character_json
     except:
         utils.log_warn("Failed to get character Json data!")

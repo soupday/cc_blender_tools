@@ -921,6 +921,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     import_has_key: bpy.props.BoolProperty(default=False)
     import_key_file: bpy.props.StringProperty(default="")
     # which character in the import
+    character_id: bpy.props.StringProperty(default="")
     character_name: bpy.props.StringProperty(default="")
     character_index: bpy.props.IntProperty(default=0)
     generation: bpy.props.StringProperty(default="None")
@@ -1080,7 +1081,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def get_character_json(self):
         json_data = jsonutils.read_json(self.import_file)
-        return jsonutils.get_character_json(json_data, self.import_name, self.character_name)
+        return jsonutils.get_character_json(json_data, self.import_name, self.character_id)
 
     def recast_type(self, collection, index, chr_json):
         mat_cache = collection[index]

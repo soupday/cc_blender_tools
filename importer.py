@@ -267,7 +267,7 @@ def set_shape_key_edit(obj):
 def detect_generation(chr_cache, json_data):
 
     if json_data:
-        json_generation = jsonutils.get_character_generation_json(json_data, chr_cache.import_name, chr_cache.character_name)
+        json_generation = jsonutils.get_character_generation_json(json_data, chr_cache.import_name, chr_cache.character_id)
         if json_generation is not None and json_generation != "":
             return vars.CHARACTER_GENERATION[json_generation]
 
@@ -323,6 +323,10 @@ def detect_characters(file_path, type, objects, json_data):
     index = 0
     for arm in objects:
         if arm.type == "ARMATURE":
+            if index > 0:
+                character_name = name + "_" + str(index)
+            else:
+                character_name = name
             chr_cache = props.import_cache.add()
             chr_cache.import_file = file_path
             chr_cache.import_type = type
@@ -330,10 +334,12 @@ def detect_characters(file_path, type, objects, json_data):
             chr_cache.import_dir = dir
             chr_cache.import_space_in_name = " " in name
             chr_cache.character_index = index
+            chr_cache.character_name = character_name
+            arm.name = character_name
             if root_json:
-                chr_cache.character_name = character_keys[index]
+                chr_cache.character_id = character_keys[index]
             else:
-                chr_cache.character_name = arm.name
+                chr_cache.character_id = character_name
             index += 1
             # determine the main texture dir
             if type == "fbx":
@@ -436,7 +442,7 @@ class CC3Import(bpy.types.Operator):
 
             # cache materials
             for chr_cache in self.import_characters:
-                chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_name)
+                chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_id)
                 for obj_cache in chr_cache.object_cache:
                     obj = obj_cache.object
                     if obj.type == "MESH":
@@ -467,7 +473,7 @@ class CC3Import(bpy.types.Operator):
             self.import_characters = detect_characters(self.filepath, type, imported, json_data)
 
             for chr_cache in self.import_characters:
-                chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_name)
+                chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_id)
                 for obj_cache in chr_cache.object_cache:
                     # scale obj import by 1/100
                     obj_cache.scale = (0.01, 0.01, 0.01)
@@ -506,7 +512,7 @@ class CC3Import(bpy.types.Operator):
 
         for chr_cache in self.import_characters:
 
-            chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_name)
+            chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_id)
 
             if self.param == "BUILD":
                 chr_cache.check_material_types(chr_json)

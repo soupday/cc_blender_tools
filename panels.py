@@ -308,7 +308,7 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         # import details
         if chr_cache:
             if fake_drop_down(box.row(), "Import Details", "stage1_details", props.stage1_details):
-                box.label(text="Name: " + chr_cache.import_name)
+                box.label(text="Name: " + chr_cache.character_name)
                 box.label(text="Type: " + chr_cache.import_type.upper())
                 box.label(text="Generation: " + chr_cache.generation)
                 if chr_cache.import_has_key:
@@ -894,7 +894,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache: properties.CC3CharacterCache = props.get_context_character_cache(context)
         if chr_cache:
-            character_name = chr_cache.import_name
+            character_name = chr_cache.character_name
         else:
             character_name = "No Character"
 
