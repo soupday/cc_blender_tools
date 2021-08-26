@@ -303,7 +303,9 @@ def reset_shader(nodes, links, shader_label, shader_name, shader_group):
         shader_type = "GROUP"
 
     for n in nodes:
-        if n.type == shader_type and (shader_group is None or shader_name in n.name):
+        if ((shader_group and n.type == "GROUP" and
+             shader_name in n.name and shader_group in n.node_tree.name) or
+            (shader_group is None and n.type == "BSDF_PRINCIPLED")):
             if shader_node:
                 nodes.remove(n)
             else:

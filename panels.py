@@ -291,7 +291,7 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         mat = None
         obj_cache = None
         mat_cache = None
-        if obj and obj.type == "MESH":
+        if chr_cache and obj and obj.type == "MESH":
             mat = utils.context_material(context)
             obj_cache = chr_cache.get_object_cache(obj)
             mat_cache = chr_cache.get_material_cache(mat)
@@ -358,7 +358,7 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         col_1 = split.column()
         col_2 = split.column()
 
-        if obj_cache:
+        if chr_cache and obj_cache:
             if obj is not None:
                 obj_cache = chr_cache.get_object_cache(obj)
                 if obj_cache is not None:

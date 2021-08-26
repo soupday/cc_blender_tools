@@ -451,7 +451,7 @@ def connect_tearline_shader(obj, mat, mat_json):
 
     nodeutils.clean_unused_image_nodes(nodes)
 
-    materials.set_material_alpha(mat, props.blend_mode)
+    materials.set_material_alpha(mat, "BLEND")
     mat.shadow_method = "NONE"
 
 
@@ -472,7 +472,7 @@ def connect_eye_occlusion_shader(obj, mat, mat_json):
 
     nodeutils.clean_unused_image_nodes(nodes)
 
-    materials.set_material_alpha(mat, props.blend_mode)
+    materials.set_material_alpha(mat, "BLEND")
     mat.shadow_method = "NONE"
 
 
