@@ -109,7 +109,8 @@ classes = (
     scene.CC3Scene,
     bake.CC3BakeOperator,
 
-    panels.CC3QuickSet,
+    panels.CC3OperatorPhysics,
+    panels.CC3OperatorMaterial,
     panels.CC3ToolsPipelinePanel,
     panels.CC3ToolsMaterialSettingsPanel,
     panels.CC3ToolsParametersPanel,

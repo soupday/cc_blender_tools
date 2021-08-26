@@ -79,7 +79,7 @@ def process_material(chr_cache, obj, mat, object_json):
     mat_cache = chr_cache.get_material_cache(mat)
     mat_json = jsonutils.get_material_json(object_json, mat)
 
-    if props.setup_mode == "ADVANCED":
+    if chr_cache.setup_mode == "ADVANCED":
 
         if mat_cache.is_cornea() or mat_cache.is_eye():
             shaders.connect_eye_shader(obj, mat, object_json, mat_json)
@@ -137,7 +137,7 @@ def process_material(chr_cache, obj, mat, object_json):
             materials.apply_backface_culling(obj, mat, mat_cache.culling_sides)
 
 
-def process_object(character_cache, obj, objects_processed, character_json):
+def process_object(chr_cache, obj, objects_processed, character_json):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -152,7 +152,7 @@ def process_object(character_cache, obj, objects_processed, character_json):
     utils.log_info("")
     utils.log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
 
-    obj_cache = character_cache.get_object_cache(obj)
+    obj_cache = chr_cache.get_object_cache(obj)
 
     if obj.type == "MESH":
         # when rebuilding materials remove all the physics modifiers
@@ -167,7 +167,7 @@ def process_object(character_cache, obj, objects_processed, character_json):
             if mat is not None:
                 utils.log_info("")
                 utils.log_info("Processing Material: " + mat.name)
-                process_material(character_cache, obj, mat, object_json)
+                process_material(chr_cache, obj, mat, object_json)
                 if prefs.physics == "ENABLED" and props.physics_mode == "ON":
                     physics.add_material_weight_map(obj, mat, create = False)
 
@@ -179,7 +179,7 @@ def process_object(character_cache, obj, objects_processed, character_json):
                 physics.enable_cloth_physics(obj)
 
         # setup special modifiers for displacement, UV warp, etc...
-        if props.setup_mode == "ADVANCED":
+        if chr_cache.setup_mode == "ADVANCED":
             if obj_cache.is_eye():
                 modifiers.add_eye_modifiers(obj)
             elif obj_cache.is_eye_occlusion():
@@ -531,17 +531,21 @@ class CC3Import(bpy.types.Operator):
 
         # use basic materials for morph/accessory editing as it has better viewport performance
         if self.param == "IMPORT_MORPH":
-            props.setup_mode = prefs.morph_mode
+            setup_mode = prefs.morph_mode
         elif self.param == "IMPORT_ACCESSORY":
-            props.setup_mode = prefs.pipeline_mode
+            setup_mode = prefs.pipeline_mode
         # use advanced materials for quality/rendering
         elif self.param == "IMPORT_QUALITY":
-            props.setup_mode = prefs.quality_mode
+            setup_mode = prefs.quality_mode
+        else:
+            setup_mode = props.setup_mode
 
         self.import_character()
 
         warn = ""
         for chr_cache in self.import_characters:
+
+            chr_cache.setup_mode = setup_mode
 
             # check for fbxkey
             if chr_cache.import_type == "fbx":

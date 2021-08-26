@@ -33,15 +33,10 @@ def reset_preferences():
     prefs.hair_hint = "hair,scalp,beard,mustache,sideburns,ponytail,braid,!bow,!band,!tie,!ribbon,!ring,!butterfly,!flower"
     prefs.hair_scalp_hint = "scalp,base,skullcap"
     prefs.debug_mode = False
-    prefs.compat_mode = False
     prefs.physics_group = "CC_Physics"
-    prefs.new_hair_shader = True
-    prefs.fake_hair_anisotropy = True
-    prefs.fake_hair_bump = True
     prefs.refractive_eyes = True
     prefs.eye_displacement_group = "CC_Eye_Displacement"
-    prefs.use_new_shaders = True
-    prefs.max_texture_size = 2048
+    prefs.max_texture_size = 4096
 
 
 class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
@@ -109,19 +104,14 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     hair_scalp_hint: bpy.props.StringProperty(default="scalp,base,skullcap", name="Scalp detection keywords")
 
     debug_mode: bpy.props.BoolProperty(default=False)
-    compat_mode: bpy.props.BoolProperty(default=False)
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
-    new_hair_shader: bpy.props.BoolProperty(default=True, name="Smart Hair", description="Generate materials for the new hair shader")
-    fake_hair_anisotropy: bpy.props.BoolProperty(default=True, name="Eevee Anisotropic Highlights", description="Add fake anisotropic higlights to the hair in Eevee")
-    fake_hair_bump: bpy.props.BoolProperty(default=False, name="Fake Hair Bump", description="Fake hair bump map from the diffuse map if there is no normal or bump map present")
-
     refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
-    use_new_shaders: bpy.props.BoolProperty(default=True, name="Use Advanced Eye Occlusion Shader")
 
-    max_texture_size: bpy.props.FloatProperty(default=2048, min=512, max=4096)
+
+    max_texture_size: bpy.props.FloatProperty(default=4096, min=512, max=4096)
 
     # addon updater preferences
 
@@ -174,23 +164,15 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Detection:")
         layout.prop(self, "hair_hint")
         layout.prop(self, "hair_scalp_hint")
-        layout.label(text="Hair:")
-        layout.prop(self, "new_hair_shader")
-        layout.prop(self, "fake_hair_anisotropy")
-        layout.prop(self, "fake_hair_bump")
         layout.label(text="Eyes:")
         layout.prop(self, "refractive_eyes")
         layout.prop(self, "eye_displacement_group")
-        layout.prop(self, "use_new_shaders")
         layout.label(text="Physics:")
         layout.prop(self, "physics")
         layout.prop(self, "physics_group")
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")
-        layout.prop(self, "debug_mode")
-        if self.debug_mode:
-            layout.prop(self, "compat_mode")
-        op = layout.operator("cc3.quickset", icon="FILE_REFRESH", text="Reset to Defaults")
+        op = layout.operator("cc3.setmaterials", icon="FILE_REFRESH", text="Reset to Defaults")
         op.param = "RESET_PREFS"
 
         addon_updater_ops.update_settings_ui(self,context)

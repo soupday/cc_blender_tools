@@ -354,7 +354,7 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0.01, max=2, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
     skin_roughness_min: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_min"))
     skin_roughness_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_max"))
-    skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
+    skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
     skin_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_micro_normal_strength"))
     skin_normal_blend_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_blend_strength"))
     skin_unmasked_scatter_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_unmasked_scatter_scale"))
@@ -399,7 +399,7 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
     skin_roughness_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_min"))
     skin_roughness_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_max"))
-    skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
+    skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
     skin_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_micronormal_strength"))
     skin_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_subsurface_scale"))
     skin_unmasked_scatter_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_unmasked_scatter_scale"))
@@ -459,7 +459,7 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0, 0, 0, 1.0), min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_emissive_color"))
     eye_iris_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_emission_strength"))
-    eye_sclera_normal_strength: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_normal_strength"))
+    eye_sclera_normal_strength: bpy.props.FloatProperty(default=0.1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_sclera_normal_strength"))
     eye_sclera_normal_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=lambda s,c: update_property(s,c,"eye_sclera_normal_tiling"))
     # non shader properties
     eye_refraction_depth: bpy.props.FloatProperty(default=1, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_refraction_depth"))
@@ -595,9 +595,10 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_vertex_color_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_vertex_color_strength"))
     hair_vertex_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_vertex_color"))
-    hair_anisotropic_roughness: bpy.props.FloatProperty(default=1.15, min=1.0, max=2.5, update=lambda s,c: update_property(s,c,"hair_anisotropic_roughness"))
-    hair_anisotropic_strength: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength"))
-    hair_anisotropic_strength2: bpy.props.FloatProperty(default=0.4, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength2"))
+    hair_anisotropic_roughness: bpy.props.FloatProperty(default=1.15, min=1.01, max=2.5, update=lambda s,c: update_property(s,c,"hair_anisotropic_roughness"))
+    hair_anisotropic_shift: bpy.props.FloatProperty(default=0.75, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_shift"))
+    hair_anisotropic_strength: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength"))
+    hair_anisotropic_strength2: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength2"))
     hair_anisotropic_strength_cycles: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength_cycles"))
     hair_anisotropic_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.05, 0.038907, 0.0325, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_anisotropic_color"))
@@ -928,6 +929,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     generation: bpy.props.StringProperty(default="None")
     parent_object: bpy.props.PointerProperty(type=bpy.types.Object)
 
+    setup_mode: bpy.props.EnumProperty(items=[
+                        ("BASIC","Basic","Build basic PBR materials."),
+                        ("ADVANCED","Advanced","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
+                    ], default="ADVANCED")
+
     def get_all_materials_cache(self):
         all_materials = []
         for cache in self.tongue_material_cache:
@@ -1125,11 +1131,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     node_id: bpy.props.IntProperty(default=1000)
 
-    setup_mode: bpy.props.EnumProperty(items=[
-                        ("BASIC","Basic","Build basic PBR materials."),
-                        ("ADVANCED","Advanced","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
-                    ], default="ADVANCED")
-
     build_mode: bpy.props.EnumProperty(items=[
                         ("IMPORTED","All Imported","Build materials for all the imported objects."),
                         ("SELECTED","Only Selected","Build materials only for the selected objects.")
@@ -1138,12 +1139,17 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     blend_mode: bpy.props.EnumProperty(items=[
                         ("BLEND","Alpha Blend","Setup any non opaque materials as basic Alpha Blend"),
                         ("HASHED","Alpha Hashed","Setup non opaque materials as alpha hashed (Resolves Z sorting issues, but may need more samples)")
-                    ], default="BLEND")
+                    ], default="HASHED")
 
     update_mode: bpy.props.EnumProperty(items=[
                         ("UPDATE_LINKED","Linked","Update the shader parameters for all materials of the same type in all the objects from the last import"),
                         ("UPDATE_SELECTED","Selected","Update the shader parameters only in the selected object and material")
                     ], default="UPDATE_LINKED")
+
+    setup_mode: bpy.props.EnumProperty(items=[
+                        ("BASIC","Basic","Build basic PBR materials."),
+                        ("ADVANCED","Advanced","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
+                    ], default="ADVANCED")
 
     import_file: bpy.props.StringProperty(default="", subtype="FILE_PATH")
 

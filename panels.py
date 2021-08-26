@@ -21,131 +21,82 @@ from . import materials, modifiers, physics, preferences, properties, nodeutils,
 # Panel button functions and opertator
 #
 
-def quick_set_fix(param, obj, context, objects_processed):
-    props = bpy.context.scene.CC3ImportProps
-    ob = context.object
-
-    if obj is not None and obj not in objects_processed:
-        if obj.type == "MESH":
-            objects_processed.append(obj)
-
-            if props.quick_set_mode == "OBJECT":
-                for mat in obj.data.materials:
-                    if mat is not None:
-                        if param == "OPAQUE" or param == "BLEND" or param == "HASHED":
-                            materials.apply_alpha_override(obj, mat, param)
-                        elif param == "SINGLE_SIDED":
-                            materials.apply_backface_culling(obj, mat, 1)
-                        elif param == "DOUBLE_SIDED":
-                            materials.apply_backface_culling(obj, mat, 2)
-
-            elif ob is not None and ob.type == "MESH" and ob.active_material_index <= len(ob.data.materials):
-                mat = utils.context_material(context)
-                if mat is not None:
-                    if param == "OPAQUE" or param == "BLEND" or param == "HASHED":
-                        materials.apply_alpha_override(obj, mat, param)
-                    elif param == "SINGLE_SIDED":
-                        materials.apply_backface_culling(obj, mat, 1)
-                    elif param == "DOUBLE_SIDED":
-                        materials.apply_backface_culling(obj, mat, 2)
-
-        elif obj.type == "ARMATURE":
-            for child in obj.children:
-                quick_set_fix(param, child, context, objects_processed)
-
-
-def quick_set_execute(param, context = bpy.context):
+def set_physics_settings(param, context = bpy.context):
     props = bpy.context.scene.CC3ImportProps
 
-    if "PHYSICS_" in param:
-
-        if param == "PHYSICS_ADD_CLOTH":
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
-                    physics.enable_cloth_physics(obj)
-        elif param == "PHYSICS_REMOVE_CLOTH":
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
-                    physics.disable_cloth_physics(obj)
-        elif param == "PHYSICS_ADD_COLLISION":
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
-                    physics.enable_collision_physics(obj)
-        elif param == "PHYSICS_REMOVE_COLLISION":
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
-                    physics.disable_collision_physics(obj)
-        elif param == "PHYSICS_ADD_WEIGHTMAP":
-            if context.object is not None and context.object.type == "MESH":
-                physics.enable_material_weight_map(context.object, utils.context_material(context))
-        elif param == "PHYSICS_REMOVE_WEIGHTMAP":
-            if context.object is not None and context.object.type == "MESH":
-                physics.disable_material_weight_map(context.object, utils.context_material(context))
-        elif param == "PHYSICS_HAIR":
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
-                    physics.apply_cloth_settings(obj, "HAIR")
-        elif param == "PHYSICS_COTTON":
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
-                    physics.apply_cloth_settings(obj, "COTTON")
-        elif param == "PHYSICS_DENIM":
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
-                    physics.apply_cloth_settings(obj, "DENIM")
-        elif param == "PHYSICS_LEATHER":
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
-                    physics.apply_cloth_settings(obj, "LEATHER")
-        elif param == "PHYSICS_RUBBER":
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
-                    physics.apply_cloth_settings(obj, "RUBBER")
-        elif param == "PHYSICS_SILK":
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
-                    physics.apply_cloth_settings(obj, "SILK")
-        elif param == "PHYSICS_PAINT":
-            if context.object is not None and context.object.type == "MESH":
-                physics.begin_paint_weight_map(context)
-        elif param == "PHYSICS_DONE_PAINTING":
-            physics.end_paint_weight_map()
-        elif param == "PHYSICS_SAVE":
-            physics.save_dirty_weight_maps(bpy.context.selected_objects)
-        elif param == "PHYSICS_DELETE":
-            physics.delete_selected_weight_map(context.object, utils.context_material(context))
-        elif param == "PHYSICS_SEPARATE":
-            physics.separate_physics_materials(context)
-        elif param == "PHYSICS_FIX_DEGENERATE":
-            if context.object is not None:
-                if bpy.context.object.mode != "EDIT" and bpy.context.object.mode != "OBJECT":
-                    bpy.ops.object.mode_set(mode = 'OBJECT')
-                if bpy.context.object.mode != "EDIT":
-                    bpy.ops.object.mode_set(mode = 'EDIT')
-                if bpy.context.object.mode == "EDIT":
-                    bpy.ops.mesh.select_all(action = 'SELECT')
-                    bpy.ops.mesh.dissolve_degenerate()
+    if param == "PHYSICS_ADD_CLOTH":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                physics.enable_cloth_physics(obj)
+    elif param == "PHYSICS_REMOVE_CLOTH":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                physics.disable_cloth_physics(obj)
+    elif param == "PHYSICS_ADD_COLLISION":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                physics.enable_collision_physics(obj)
+    elif param == "PHYSICS_REMOVE_COLLISION":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                physics.disable_collision_physics(obj)
+    elif param == "PHYSICS_ADD_WEIGHTMAP":
+        if context.object is not None and context.object.type == "MESH":
+            physics.enable_material_weight_map(context.object, utils.context_material(context))
+    elif param == "PHYSICS_REMOVE_WEIGHTMAP":
+        if context.object is not None and context.object.type == "MESH":
+            physics.disable_material_weight_map(context.object, utils.context_material(context))
+    elif param == "PHYSICS_HAIR":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                physics.apply_cloth_settings(obj, "HAIR")
+    elif param == "PHYSICS_COTTON":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                physics.apply_cloth_settings(obj, "COTTON")
+    elif param == "PHYSICS_DENIM":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                physics.apply_cloth_settings(obj, "DENIM")
+    elif param == "PHYSICS_LEATHER":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                physics.apply_cloth_settings(obj, "LEATHER")
+    elif param == "PHYSICS_RUBBER":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                physics.apply_cloth_settings(obj, "RUBBER")
+    elif param == "PHYSICS_SILK":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                physics.apply_cloth_settings(obj, "SILK")
+    elif param == "PHYSICS_PAINT":
+        if context.object is not None and context.object.type == "MESH":
+            physics.begin_paint_weight_map(context)
+    elif param == "PHYSICS_DONE_PAINTING":
+        physics.end_paint_weight_map()
+    elif param == "PHYSICS_SAVE":
+        physics.save_dirty_weight_maps(bpy.context.selected_objects)
+    elif param == "PHYSICS_DELETE":
+        physics.delete_selected_weight_map(context.object, utils.context_material(context))
+    elif param == "PHYSICS_SEPARATE":
+        physics.separate_physics_materials(context)
+    elif param == "PHYSICS_FIX_DEGENERATE":
+        if context.object is not None:
+            if bpy.context.object.mode != "EDIT" and bpy.context.object.mode != "OBJECT":
                 bpy.ops.object.mode_set(mode = 'OBJECT')
-
-    elif param == "RESET":
-        properties.reset_parameters(context)
-
-    elif param == "RESET_PREFS":
-        preferences.reset_preferences()
-
-    else: # blend modes or single/double sided...
-        objects_processed = []
-        if props.quick_set_mode == "OBJECT":
-            for obj in bpy.context.selected_objects:
-                quick_set_fix(param, obj, context, objects_processed)
-        else:
-            quick_set_fix(param, context.object, context, objects_processed)
+            if bpy.context.object.mode != "EDIT":
+                bpy.ops.object.mode_set(mode = 'EDIT')
+            if bpy.context.object.mode == "EDIT":
+                bpy.ops.mesh.select_all(action = 'SELECT')
+                bpy.ops.mesh.dissolve_degenerate()
+            bpy.ops.object.mode_set(mode = 'OBJECT')
 
 
-class CC3QuickSet(bpy.types.Operator):
-    """Quick Set Functions"""
-    bl_idname = "cc3.quickset"
-    bl_label = "Quick Set Functions"
+class CC3OperatorPhysics(bpy.types.Operator):
+    """Physics Settings Functions"""
+    bl_idname = "cc3.setphysics"
+    bl_label = "Physics Settings Functions"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     param: bpy.props.StringProperty(
@@ -155,29 +106,14 @@ class CC3QuickSet(bpy.types.Operator):
 
     def execute(self, context):
 
-        quick_set_execute(self.param, context)
+        set_physics_settings(self.param, context)
 
         return {"FINISHED"}
 
     @classmethod
     def description(cls, context, properties):
 
-        if properties.param == "OPAQUE":
-            return "Set blend mode of all selected objects with alpha channels to opaque"
-        elif properties.param == "BLEND":
-            return "Set blend mode of all selected objects with alpha channels to alpha blend"
-        elif properties.param == "HASHED":
-            return "Set blend mode of all selected objects with alpha channels to alpha hashed"
-        elif properties.param == "FETCH":
-            return "Fetch the parameters from the selected objects"
-        elif properties.param == "RESET":
-            return "Reset parameters to the defaults"
-        elif properties.param == "SINGLE_SIDED":
-            return "Set material to be single sided, only visible from front facing"
-        elif properties.param == "DOUBLE_SIDED":
-            return "Set material to be double sided, visible from both sides"
-
-        elif properties.param == "PHYSICS_ADD_CLOTH":
+        if properties.param == "PHYSICS_ADD_CLOTH":
             return "Add Cloth physics to the selected objects."
         elif properties.param == "PHYSICS_REMOVE_CLOTH":
             return "Remove Cloth physics from the selected objects and remove all weight map modifiers and physics vertex groups"
@@ -229,6 +165,96 @@ class CC3QuickSet(bpy.types.Operator):
                    "Note: Meshes with degenerate elements, loose verteces, orphaned edges, zero length edges etc...\n" \
                    "might not simulate properly. If the mesh misbehaves badly under simulation, try this."
 
+        return ""
+
+
+def quick_set_fix(param, obj, context, objects_processed):
+    props = bpy.context.scene.CC3ImportProps
+    ob = context.object
+
+    if obj is not None and obj not in objects_processed:
+        if obj.type == "MESH":
+            objects_processed.append(obj)
+
+            if props.quick_set_mode == "OBJECT":
+                for mat in obj.data.materials:
+                    if mat is not None:
+                        if param == "OPAQUE" or param == "BLEND" or param == "HASHED" or param == "CLIP":
+                            materials.apply_alpha_override(obj, mat, param)
+                        elif param == "SINGLE_SIDED":
+                            materials.apply_backface_culling(obj, mat, 1)
+                        elif param == "DOUBLE_SIDED":
+                            materials.apply_backface_culling(obj, mat, 2)
+
+            elif ob is not None and ob.type == "MESH" and ob.active_material_index <= len(ob.data.materials):
+                mat = utils.context_material(context)
+                if mat is not None:
+                    if param == "OPAQUE" or param == "BLEND" or param == "HASHED" or param == "CLIP":
+                        materials.apply_alpha_override(obj, mat, param)
+                    elif param == "SINGLE_SIDED":
+                        materials.apply_backface_culling(obj, mat, 1)
+                    elif param == "DOUBLE_SIDED":
+                        materials.apply_backface_culling(obj, mat, 2)
+
+        elif obj.type == "ARMATURE":
+            for child in obj.children:
+                quick_set_fix(param, child, context, objects_processed)
+
+
+def set_materials_settings(param, context = bpy.context):
+    props = bpy.context.scene.CC3ImportProps
+
+    if param == "RESET":
+        properties.reset_parameters(context)
+
+    elif param == "RESET_PREFS":
+        preferences.reset_preferences()
+
+    else: # blend modes or single/double sided...
+        objects_processed = []
+        if props.quick_set_mode == "OBJECT":
+            for obj in bpy.context.selected_objects:
+                quick_set_fix(param, obj, context, objects_processed)
+        else:
+            quick_set_fix(param, context.object, context, objects_processed)
+
+
+class CC3OperatorMaterial(bpy.types.Operator):
+    """Set Material Functions"""
+    bl_idname = "cc3.setmaterials"
+    bl_label = "Set Material Functions"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = ""
+        )
+
+    def execute(self, context):
+
+        set_materials_settings(self.param, context)
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "OPAQUE":
+            return "Set blend mode of all selected objects with alpha channels to opaque"
+        elif properties.param == "BLEND":
+            return "Set blend mode of all selected objects with alpha channels to alpha blend"
+        elif properties.param == "HASHED":
+            return "Set blend mode of all selected objects with alpha channels to alpha hashed"
+        elif properties.param == "CLIP":
+            return "Set blend mode of all selected objects with alpha channels to alpha hashed"
+        elif properties.param == "FETCH":
+            return "Fetch the parameters from the selected objects"
+        elif properties.param == "RESET":
+            return "Reset parameters to the defaults"
+        elif properties.param == "SINGLE_SIDED":
+            return "Set material to be single sided, only visible from front facing"
+        elif properties.param == "DOUBLE_SIDED":
+            return "Set material to be double sided, visible from both sides"
         return ""
 
 
@@ -299,32 +325,27 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
             box.label(text="No Character")
 
         layout.box().label(text="Build Materials", icon="MOD_BUILD")
-        layout.prop(props, "setup_mode", expand=True)
-        layout.prop(props, "blend_mode", expand=True)
+        if chr_cache:
+            layout.prop(chr_cache, "setup_mode", expand=True)
+        else:
+            layout.prop(props, "setup_mode", expand=True)
+        #layout.prop(props, "blend_mode", expand=True)
         layout.prop(props, "build_mode", expand=True)
 
         # Prefs:
         box = layout.box()
-        split = box.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text="Prefs:")
-        col_2.prop(prefs, "new_hair_shader")
-        col_1.prop(prefs, "refractive_eyes")
-        col_2.prop(prefs, "fake_hair_bump")
+        box.label(text="Prefs:")
+        box.prop(prefs, "refractive_eyes")
 
         # Build Button
-        box = layout.box()
-        box.scale_y = 2
-        if not chr_cache:
-            box.enabled = False
-        if props.setup_mode == "ADVANCED":
-            op = box.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Advanced Materials")
-        else:
-            op = box.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Basic Materials")
-        op.param ="BUILD"
-        if not chr_cache:
-            box.enabled = False
+        if chr_cache:
+            box = layout.box()
+            box.scale_y = 2
+            if chr_cache.setup_mode == "ADVANCED":
+                op = box.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Advanced Materials")
+            else:
+                op = box.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Basic Materials")
+            op.param ="BUILD"
 
         # Material Setup
         layout.box().label(text="Material Setup", icon="MATERIAL")
@@ -349,19 +370,26 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
                     col_1.label(text="Material Type")
                     col_2.prop(mat_cache, "material_type", text = "")
 
+
         col_1.label(text="Set By:")
         col_1.prop(props, "quick_set_mode", expand=True)
-        op = col_2.operator("cc3.quickset", icon="SHADING_SOLID", text="Opaque")
+        col_1.label(text="")
+        op = col_2.operator("cc3.setmaterials", icon="SHADING_SOLID", text="Opaque")
         op.param = "OPAQUE"
-        op = col_2.operator("cc3.quickset", icon="SHADING_WIRE", text="Blend")
+        op = col_2.operator("cc3.setmaterials", icon="SHADING_WIRE", text="Blend")
         op.param = "BLEND"
-        op = col_2.operator("cc3.quickset", icon="SHADING_RENDERED", text="Hashed")
+        op = col_2.operator("cc3.setmaterials", icon="SHADING_RENDERED", text="Hashed")
         op.param = "HASHED"
+        op = col_2.operator("cc3.setmaterials", icon="SHADING_TEXTURE", text="Clipped")
+        op.param = "CLIP"
+        split = column.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
         col_1.separator()
         col_2.separator()
-        op = col_1.operator("cc3.quickset", icon="NORMALS_FACE", text="Single Sided")
+        op = col_1.operator("cc3.setmaterials", icon="NORMALS_FACE", text="Single Sided")
         op.param = "SINGLE_SIDED"
-        op = col_2.operator("cc3.quickset", icon="XRAY", text="Double Sided")
+        op = col_2.operator("cc3.setmaterials", icon="XRAY", text="Double Sided")
         op.param = "DOUBLE_SIDED"
 
 
@@ -403,7 +431,7 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
 
         # Parameters
 
-        if parameters and fake_drop_down(layout.box().row(),
+        if chr_cache and fake_drop_down(layout.box().row(),
                 "Adjust Parameters",
                 "stage4",
                 props.stage4):
@@ -424,7 +452,7 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
 
             linked = props.update_mode == "UPDATE_LINKED"
 
-            if props.setup_mode == "ADVANCED":
+            if chr_cache.setup_mode == "ADVANCED":
 
                 shader = params.get_shader_lookup(mat_cache)
                 shader_node = nodeutils.get_shader_node(mat, shader)
@@ -592,7 +620,7 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
             col_2.prop(props, "dummy_slider", text="", slider=True)
 
         column = layout.column()
-        op = column.operator("cc3.quickset", icon="DECORATE_OVERRIDE", text="Reset Parameters")
+        op = column.operator("cc3.setmaterials", icon="DECORATE_OVERRIDE", text="Reset Parameters")
         op.param = "RESET"
         op = column.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
         op.param ="REBUILD_NODE_GROUPS"
@@ -718,16 +746,16 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         col = layout.column()
         if not missing_cloth:
-            op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Cloth Physics")
+            op = col.operator("cc3.setphysics", icon="REMOVE", text="Remove Cloth Physics")
             op.param = "PHYSICS_REMOVE_CLOTH"
         else:
-            op = col.operator("cc3.quickset", icon="ADD", text="Add Cloth Physics")
+            op = col.operator("cc3.setphysics", icon="ADD", text="Add Cloth Physics")
             op.param = "PHYSICS_ADD_CLOTH"
         if not missing_coll:
-            op = col.operator("cc3.quickset", icon="REMOVE", text="Remove Collision Physics")
+            op = col.operator("cc3.setphysics", icon="REMOVE", text="Remove Collision Physics")
             op.param = "PHYSICS_REMOVE_COLLISION"
         else:
-            op = col.operator("cc3.quickset", icon="ADD", text="Add Collision Physics")
+            op = col.operator("cc3.setphysics", icon="ADD", text="Add Collision Physics")
             op.param = "PHYSICS_ADD_COLLISION"
         if meshes_selected == 0:
             col.enabled = False
@@ -735,9 +763,9 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         box = layout.box()
         box.label(text="Mesh Correction", icon="MESH_DATA")
         col = layout.column()
-        op = col.operator("cc3.quickset", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh")
+        op = col.operator("cc3.setphysics", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh")
         op.param = "PHYSICS_FIX_DEGENERATE"
-        op = col.operator("cc3.quickset", icon="FACE_MAPS", text="Separate Physics Materials")
+        op = col.operator("cc3.setphysics", icon="FACE_MAPS", text="Separate Physics Materials")
         op.param = "PHYSICS_SEPARATE"
 
         # Cloth Physics Presets
@@ -746,17 +774,17 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         col = layout.column()
         if cloth_mod is None:
             col.enabled = False
-        op = col.operator("cc3.quickset", icon="USER", text="Hair")
+        op = col.operator("cc3.setphysics", icon="USER", text="Hair")
         op.param = "PHYSICS_HAIR"
-        op = col.operator("cc3.quickset", icon="MATCLOTH", text="Cotton")
+        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Cotton")
         op.param = "PHYSICS_COTTON"
-        op = col.operator("cc3.quickset", icon="MATCLOTH", text="Denim")
+        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Denim")
         op.param = "PHYSICS_DENIM"
-        op = col.operator("cc3.quickset", icon="MATCLOTH", text="Leather")
+        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Leather")
         op.param = "PHYSICS_LEATHER"
-        op = col.operator("cc3.quickset", icon="MATCLOTH", text="Rubber")
+        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Rubber")
         op.param = "PHYSICS_RUBBER"
-        op = col.operator("cc3.quickset", icon="MATCLOTH", text="Silk")
+        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Silk")
         op.param = "PHYSICS_SILK"
 
         # Cloth Physics Settings
@@ -828,28 +856,28 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             col_2.prop(props, "physics_paint_strength", text="", slider=True)
             row = col.row()
             row.scale_y = 2
-            op = row.operator("cc3.quickset", icon="CHECKMARK", text="Done Weight Painting!")
+            op = row.operator("cc3.setphysics", icon="CHECKMARK", text="Done Weight Painting!")
             op.param = "PHYSICS_DONE_PAINTING"
         else:
             if edit_mod is None:
                 row = col.row()
-                op = row.operator("cc3.quickset", icon="ADD", text="Add Weight Map")
+                op = row.operator("cc3.setphysics", icon="ADD", text="Add Weight Map")
                 op.param = "PHYSICS_ADD_WEIGHTMAP"
             else:
                 row = col.row()
-                op = row.operator("cc3.quickset", icon="REMOVE", text="Remove Weight Map")
+                op = row.operator("cc3.setphysics", icon="REMOVE", text="Remove Weight Map")
                 op.param = "PHYSICS_REMOVE_WEIGHTMAP"
             col = layout.column()
             if edit_mod is None:
                 col.enabled = False
-            op = col.operator("cc3.quickset", icon="BRUSH_DATA", text="Paint Weight Map")
+            op = col.operator("cc3.setphysics", icon="BRUSH_DATA", text="Paint Weight Map")
             op.param = "PHYSICS_PAINT"
             split = col.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
-            op = col_1.operator("cc3.quickset", icon="FILE_TICK", text="Save")
+            op = col_1.operator("cc3.setphysics", icon="FILE_TICK", text="Save")
             op.param = "PHYSICS_SAVE"
-            op = col_2.operator("cc3.quickset", icon="ERROR", text="Delete")
+            op = col_2.operator("cc3.setphysics", icon="ERROR", text="Delete")
             op.param = "PHYSICS_DELETE"
 
 
@@ -876,7 +904,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Settings", icon="TOOL_SETTINGS")
-        #layout.prop(props, "setup_mode", expand=True)
+        #layout.prop(chr_cache, "setup_mode", expand=True)
         if prefs.lighting == "ENABLED" or prefs.physics == "ENABLED":
             if prefs.lighting == "ENABLED":
                 layout.prop(props, "lighting_mode", expand=True)
