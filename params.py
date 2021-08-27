@@ -800,7 +800,7 @@ SHADER_MATRIX = [
             ["eye_subsurface_radius", 5, "", "SSS/Radius"],
             # non json properties (just defaults)
             ["eye_subsurface_scale", 0.75, "DEF"],
-            ["eye_iris_depth_radius", 0.8, "DEF"],
+            ["eye_iris_depth_radius", 0.75, "DEF"],
             ["eye_refraction_depth", 1, "DEF"],
             ["eye_blood_vessel_height", 0.5, "DEF"],
             ["eye_iris_bump_height", 1, "DEF"],

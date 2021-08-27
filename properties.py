@@ -466,8 +466,8 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
     eye_iris_depth: bpy.props.FloatProperty(default=0.9, min=0.0, max=2.5, update=lambda s,c: update_property(s,c,"eye_iris_depth"))
-    eye_iris_depth_radius: bpy.props.FloatProperty(default=0.8, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_depth_radius"))
-    eye_pupil_scale: bpy.props.FloatProperty(default=0.8, min=0.25, max=2.0, update=lambda s,c: update_property(s,c,"eye_pupil_scale"))
+    eye_iris_depth_radius: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_depth_radius"))
+    eye_pupil_scale: bpy.props.FloatProperty(default=0.8, min=0.5, max=4.0, update=lambda s,c: update_property(s,c,"eye_pupil_scale"))
 
 
 class CC3EyeOcclusionParameters(bpy.types.PropertyGroup):
