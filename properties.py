@@ -734,7 +734,7 @@ class CC3TextureMapping(bpy.types.PropertyGroup):
     scale: bpy.props.FloatVectorProperty(subtype="XYZ", size=3, default=(1.0, 1.0, 1.0))
 
 
-class CC3MaterialCache(bpy.types.PropertyGroup):
+class CC3MaterialCache:
     material: bpy.props.PointerProperty(type=bpy.types.Material)
     material_type: bpy.props.EnumProperty(items=vars.MATERIAL_TYPES, default="DEFAULT")
     texture_mappings: bpy.props.CollectionProperty(type=CC3TextureMapping)
@@ -834,34 +834,34 @@ class CC3MaterialCache(bpy.types.PropertyGroup):
                 or self.material_type == "TEARLINE_LEFT")
 
 
-class CC3EyeMaterialCache(CC3MaterialCache):
+class CC3EyeMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3EyeParameters)
 
-class CC3EyeOcclusionMaterialCache(CC3MaterialCache):
+class CC3EyeOcclusionMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3EyeOcclusionParameters)
 
-class CC3TearlineMaterialCache(CC3MaterialCache):
+class CC3TearlineMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3TearlineParameters)
 
-class CC3TeethMaterialCache(CC3MaterialCache):
+class CC3TeethMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3TeethParameters)
 
-class CC3TongueMaterialCache(CC3MaterialCache):
+class CC3TongueMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3TongueParameters)
 
-class CC3HairMaterialCache(CC3MaterialCache):
+class CC3HairMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3HairParameters)
 
-class CC3HeadMaterialCache(CC3MaterialCache):
+class CC3HeadMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3HeadParameters)
 
-class CC3SkinMaterialCache(CC3MaterialCache):
+class CC3SkinMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3SkinParameters)
 
-class CC3PBRMaterialCache(CC3MaterialCache):
+class CC3PBRMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3PBRParameters)
 
-class CC3SSSMaterialCache(CC3MaterialCache):
+class CC3SSSMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3SSSParameters)
 
 

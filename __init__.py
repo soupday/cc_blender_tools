@@ -89,7 +89,7 @@ classes = (
     properties.CC3SSSParameters,
     properties.CC3BasicParameters,
     properties.CC3TextureMapping,
-    properties.CC3MaterialCache,
+    #properties.CC3MaterialCache,
     properties.CC3EyeMaterialCache,
     properties.CC3EyeOcclusionMaterialCache,
     properties.CC3TearlineMaterialCache,
@@ -127,6 +127,7 @@ def register():
     addon_updater_ops.register(bl_info)
 
     for cls in classes:
+        print(str(cls))
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
