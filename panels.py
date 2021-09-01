@@ -431,7 +431,7 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
 
         # Parameters
 
-        if chr_cache and fake_drop_down(layout.box().row(),
+        if chr_cache and mat_cache and fake_drop_down(layout.box().row(),
                 "Adjust Parameters",
                 "stage4",
                 props.stage4):
@@ -610,14 +610,15 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
         column = layout.column()
         if not chr_cache:
             column.enabled = False
-        split = column.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text="Open Mouth")
-        if chr_cache:
-            col_2.prop(chr_cache, "open_mouth", text="", slider=True)
-        else:
-            col_2.prop(props, "dummy_slider", text="", slider=True)
+        if chr_cache and chr_cache.import_type == "fbx":
+            split = column.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Open Mouth")
+            if chr_cache:
+                col_2.prop(chr_cache, "open_mouth", text="", slider=True)
+            else:
+                col_2.prop(props, "dummy_slider", text="", slider=True)
 
         column = layout.column()
         op = column.operator("cc3.setmaterials", icon="DECORATE_OVERRIDE", text="Reset Parameters")

@@ -79,6 +79,8 @@ def process_material(chr_cache, obj, mat, object_json):
     mat_cache = chr_cache.get_material_cache(mat)
     mat_json = jsonutils.get_material_json(object_json, mat)
 
+    if not mat_cache: return
+
     if chr_cache.setup_mode == "ADVANCED":
 
         if mat_cache.is_cornea() or mat_cache.is_eye():
@@ -321,50 +323,70 @@ def detect_characters(file_path, type, objects, json_data):
         character_keys = list(root_json.keys())
 
     index = 0
-    for arm in objects:
-        if arm.type == "ARMATURE":
-            if index > 0:
-                character_name = name + "_" + str(index)
-            else:
-                character_name = name
-            chr_cache = props.import_cache.add()
-            chr_cache.import_file = file_path
-            chr_cache.import_type = type
-            chr_cache.import_name = name
-            chr_cache.import_dir = dir
-            chr_cache.import_space_in_name = " " in name
-            chr_cache.character_index = index
-            chr_cache.character_name = character_name
-            arm.name = character_name
-            if root_json:
-                chr_cache.character_id = character_keys[index]
-            else:
-                chr_cache.character_id = character_name
-            index += 1
-            # determine the main texture dir
-            if type == "fbx":
+
+    if type == "fbx":
+
+        for arm in objects:
+            if arm.type == "ARMATURE":
+                if index > 0:
+                    character_name = name + "_" + str(index)
+                else:
+                    character_name = name
+                chr_cache = props.import_cache.add()
+                chr_cache.import_file = file_path
+                chr_cache.import_type = type
+                chr_cache.import_name = name
+                chr_cache.import_dir = dir
+                chr_cache.import_space_in_name = " " in name
+                chr_cache.character_index = index
+                chr_cache.character_name = character_name
+                arm.name = character_name
+                if root_json:
+                    chr_cache.character_id = character_keys[index]
+                else:
+                    chr_cache.character_id = character_name
+                index += 1
+                # determine the main texture dir
                 chr_cache.import_main_tex_dir = os.path.join(dir, name + ".fbm")
                 if os.path.exists(chr_cache.import_main_tex_dir):
                     chr_cache.import_embedded = False
                 else:
                     chr_cache.import_main_tex_dir = ""
                     chr_cache.import_embedded = True
-            elif type == "obj":
-                chr_cache.import_main_tex_dir = os.path.join(dir, name)
-                chr_cache.import_embedded = False
-                if not os.path.exists(chr_cache.import_main_tex_dir):
-                    chr_cache.import_main_tex_dir = ""
-            # add character_cache to list
-            characters.append(chr_cache)
-            # add armature to object_cache
-            chr_cache.add_object_cache(arm)
-            # add child objects to object_cache
-            for child_obj in objects:
-                if child_obj in arm.children:
-                    chr_cache.add_object_cache(child_obj)
+                # add character_cache to list
+                characters.append(chr_cache)
+                # add armature to object_cache
+                chr_cache.add_object_cache(arm)
+                # add child objects to object_cache
+                for child_obj in objects:
+                    if child_obj in arm.children:
+                        chr_cache.add_object_cache(child_obj)
 
-            chr_cache.generation = detect_generation(chr_cache, json_data)
-            utils.log_info("Generation: " + chr_cache.character_name + " (" + chr_cache.generation + ")")
+                chr_cache.generation = detect_generation(chr_cache, json_data)
+                utils.log_info("Generation: " + chr_cache.character_name + " (" + chr_cache.generation + ")")
+
+    elif type == "obj":
+
+        character_name = name
+        chr_cache = props.import_cache.add()
+        chr_cache.import_file = file_path
+        chr_cache.import_type = type
+        chr_cache.import_name = name
+        chr_cache.import_dir = dir
+        chr_cache.import_space_in_name = " " in name
+        chr_cache.character_index = index
+        chr_cache.character_name = character_name
+        # determine the main texture dir
+        chr_cache.import_main_tex_dir = os.path.join(dir, name)
+        chr_cache.import_embedded = False
+        if not os.path.exists(chr_cache.import_main_tex_dir):
+            chr_cache.import_main_tex_dir = ""
+        # add character_cache to list
+        characters.append(chr_cache)
+
+        for obj in objects:
+            if obj.type == "MESH":
+                chr_cache.add_object_cache(obj)
 
     return characters
 
@@ -476,8 +498,8 @@ class CC3Import(bpy.types.Operator):
                 chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_id)
                 for obj_cache in chr_cache.object_cache:
                     # scale obj import by 1/100
-                    obj_cache.scale = (0.01, 0.01, 0.01)
                     obj = obj_cache.object
+                    obj.scale = (0.01, 0.01, 0.01)
                     if obj.type == "MESH":
                         if self.param == "IMPORT_MORPH":
                             if chr_cache.import_main_tex_dir != "":
