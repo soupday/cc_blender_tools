@@ -612,7 +612,7 @@ SHADER_MATRIX = [
             ["AO Strength", "", "teeth_ao_strength"],
             ["Teeth Subsurface Scale", "", "teeth_teeth_subsurface_scatter"],
             ["Gums Subsurface Scale", "", "teeth_gums_subsurface_scatter"],
-            ["Subsurface Radius", "func_skin_sss", "teeth_subsurface_radius"],
+            ["Subsurface Radius", "func_teeth_sss", "teeth_subsurface_radius"],
             ["Subsurface Falloff", "", "teeth_subsurface_falloff"],
             ["Front Specular", "", "teeth_front_specular"],
             ["Rear Specular", "", "teeth_rear_specular"],

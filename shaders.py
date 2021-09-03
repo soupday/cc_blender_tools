@@ -192,6 +192,9 @@ def func_eye_sss(r):
 def func_hair_sss(r):
     return r * vars.HAIR_SSS_RADIUS_SCALE
 
+def func_teeth_sss(r):
+    return r * vars.TEETH_SSS_RADIUS_SCALE
+
 def func_recip(v):
     return 1.0 / v
 

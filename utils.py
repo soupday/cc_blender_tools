@@ -281,7 +281,6 @@ def find_pose_bone(chr_cache, *name):
 
     for obj_cache in chr_cache.object_cache:
         obj = obj_cache.object
-        print(obj.name)
         if (obj.type == "ARMATURE"):
             for n in name:
                 if n in obj.pose.bones:

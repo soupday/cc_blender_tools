@@ -24,7 +24,8 @@ def set_version_string(bl_info):
 
 # blender uses metres, CC3 uses centimetres
 UNIT_SCALE = 0.01
-SKIN_SSS_RADIUS_SCALE = 0.02
+SKIN_SSS_RADIUS_SCALE = 0.015
+TEETH_SSS_RADIUS_SCALE = 0.03
 HAIR_SSS_RADIUS_SCALE = 0.005
 EYE_SSS_RADIUS_SCALE = 0.005
 

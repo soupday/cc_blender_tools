@@ -312,6 +312,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.view_settings.look = "Medium Contrast"
             bpy.context.scene.view_settings.exposure = 0.5
             bpy.context.scene.view_settings.gamma = 0.5
+
             if bpy.context.scene.cycles.transparent_max_bounces < 50:
                 bpy.context.scene.cycles.transparent_max_bounces = 50
 
@@ -348,7 +349,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights = True
             bpy.context.space_data.shading.use_scene_world = False
             bpy.context.space_data.shading.studio_light = 'studio.exr'
-            bpy.context.space_data.shading.studiolight_rotate_z = 0
+            bpy.context.space_data.shading.studiolight_rotate_z = -0.349066
             bpy.context.space_data.shading.studiolight_intensity = 0.6
             bpy.context.space_data.shading.studiolight_background_alpha = 0
             bpy.context.space_data.shading.studiolight_background_blur = 0
