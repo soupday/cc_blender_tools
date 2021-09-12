@@ -27,10 +27,14 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 1.0.1
+- Added render target preferences setting for Cycles and Eevee.
+- Added cycles specific shaders for hair, tear-line and eye occlusion.
+
 ### 1.0.0
 - Moved all shaders over to new shader model.
 - Streamlined parameter and shader code to be data driven, rather than hard coded.
-- Character, Object and Material parameters now stored independantly for each character import.
+- Character, Object and Material parameters now stored independently for each character import.
 - Json data parser to automatically set up all shader parameters.
 
 ### 0.7.4

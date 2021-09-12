@@ -36,7 +36,8 @@ IMAGE_TYPES = [".bmp", ".sgi", ".rgb", ".bw", ".png", ".jpg", ".jpeg", ".jp2", "
 # base names of all node groups in the library blend file
 NODE_GROUPS = ["tiling_pivot_mapping", "tiling_mapping", "rl_tearline_shader",
                "rl_eye_occlusion_shader", "rl_skin_shader", "rl_head_shader", "rl_tongue_shader", "rl_teeth_shader",
-               "rl_cornea_shader", "rl_cornea_refractive_shader", "rl_eye_shader", "rl_pbr_shader", "rl_sss_shader", "rl_hair_shader"]
+               "rl_cornea_shader", "rl_cornea_refractive_shader", "rl_eye_shader", "rl_pbr_shader", "rl_sss_shader", "rl_hair_shader",
+               "rl_eye_occlusion_cycles_shader", "rl_hair_cycles_shader", "rl_tearline_cycles_shader"]
 
 
 MATERIAL_TYPES = [

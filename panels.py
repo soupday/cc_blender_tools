@@ -335,7 +335,13 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         # Prefs:
         box = layout.box()
         box.label(text="Prefs:")
+        split = box.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text = "Renderer")
+        col_2.prop(prefs, "render_target", text = "")
         box.prop(prefs, "refractive_eyes")
+
 
         # Build Button
         if chr_cache:
@@ -487,6 +493,8 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                                 for condition in conditions:
                                     if condition == "HAS_VERTEX_COLORS":
                                         cond_res = len(obj.data.vertex_colors) > 0
+                                    elif condition[0] == '#':
+                                        cond_res = prefs.render_target == condition[1:]
                                     elif condition[0] == '!':
                                         condition = condition[1:]
                                         cond_res = not nodeutils.has_connected_input(shader_node, condition)

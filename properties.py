@@ -504,6 +504,7 @@ class CC3EyeOcclusionParameters(bpy.types.PropertyGroup):
 class CC3TearlineParameters(bpy.types.PropertyGroup):
     # Tearline
     tearline_specular: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"tearline_specular"))
+    tearline_glossiness: bpy.props.FloatProperty(default=0.025, min=0, max=0.05, update=lambda s,c: update_property(s,c,"tearline_glossiness"))
     tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"tearline_alpha"))
     tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"tearline_roughness"))
     tearline_inner: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_property(s,c,"tearline_inner"))
@@ -596,6 +597,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
                         default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_vertex_color"))
     hair_anisotropic_roughness: bpy.props.FloatProperty(default=1.15, min=1.01, max=2.5, update=lambda s,c: update_property(s,c,"hair_anisotropic_roughness"))
     hair_anisotropic_shift: bpy.props.FloatProperty(default=0.75, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_shift"))
+    hair_anisotropic: bpy.props.FloatProperty(default=-1, min=-1, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic"))
     hair_anisotropic_strength: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength"))
     hair_anisotropic_strength2: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength2"))
     hair_anisotropic_strength_cycles: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength_cycles"))

@@ -21,6 +21,7 @@ from . import addon_updater_ops
 
 def reset_preferences():
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs.render_target = "EEVEE"
     prefs.lighting = "ENABLED"
     prefs.physics = "ENABLED"
     prefs.quality_lighting = "CC3"
@@ -100,10 +101,17 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("ERRORS","Just Errors","Log only errors to console."),
                     ], default="ERRORS", name = "(Debug) Log Level")
 
+    render_target: bpy.props.EnumProperty(items=[
+                        ("EEVEE","Eevee","Build shaders for Eevee rendering."),
+                        ("CYCLES","Cycles","Build shaders for Cycles rendering."),
+                    ], default="EEVEE", name = "Target Renderer")
+
     hair_hint: bpy.props.StringProperty(default="hair,scalp,beard,mustache,sideburns,ponytail,braid,!bow,!band,!tie,!ribbon,!ring,!butterfly,!flower", name="Hair detection keywords")
     hair_scalp_hint: bpy.props.StringProperty(default="scalp,base,skullcap", name="Scalp detection keywords")
 
     debug_mode: bpy.props.BoolProperty(default=False)
+
+
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
@@ -151,6 +159,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
+        layout.label(text="Rendering:")
+        layout.prop(self, "render_target")
         layout.label(text="Material settings:")
         layout.prop(self, "quality_mode")
         layout.prop(self, "pipeline_mode")

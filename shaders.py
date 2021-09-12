@@ -438,6 +438,7 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
 
 
 def connect_tearline_shader(obj, mat, mat_json):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
@@ -447,6 +448,8 @@ def connect_tearline_shader(obj, mat, mat_json):
     shader_label = "Tearline Shader"
     shader_name = "rl_tearline_shader"
     shader_group = "rl_tearline_shader"
+    if prefs.render_target == "CYCLES":
+        shader_group = "rl_tearline_cycles_shader"
 
     shader = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group)
 
@@ -459,6 +462,7 @@ def connect_tearline_shader(obj, mat, mat_json):
 
 
 def connect_eye_occlusion_shader(obj, mat, mat_json):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
@@ -468,6 +472,8 @@ def connect_eye_occlusion_shader(obj, mat, mat_json):
     shader_label = "Eye Occlusion Shader"
     shader_name = "rl_eye_occlusion_shader"
     shader_group = "rl_eye_occlusion_shader"
+    if prefs.render_target == "CYCLES":
+        shader_group = "rl_eye_occlusion_cycles_shader"
 
     shader = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group)
 
@@ -614,6 +620,7 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
 
 
 def connect_hair_shader(obj, mat, mat_json):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
@@ -623,6 +630,8 @@ def connect_hair_shader(obj, mat, mat_json):
     shader_label = "Hair Shader"
     shader_name = "rl_hair_shader"
     shader_group = "rl_hair_shader"
+    if prefs.render_target == "CYCLES":
+        shader_group = "rl_hair_cycles_shader"
 
     shader = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group)
 
