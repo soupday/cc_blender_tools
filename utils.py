@@ -303,7 +303,6 @@ def get_active_object():
 def set_active_object(obj):
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
-    print(bpy.context.active_object == obj)
     return bpy.context.active_object == obj
 
 

@@ -3,6 +3,53 @@ import os
 from . import materials, nodeutils, imageutils, properties, params, utils, vars
 
 
+def reset_shader(nodes, links, shader_label, shader_name):
+    bsdf_id = "(" + str(shader_name) + "_BSDF)"
+
+    bsdf_node: bpy.types.Node = None
+    output_node: bpy.types.Node = None
+
+    links.clear()
+
+    for n in nodes:
+
+        if n.type == "BSDF_PRINCIPLED":
+
+            if not bsdf_node:
+                utils.log_info("Keeping old BSDF: " + n.name)
+                bsdf_node = n
+            else:
+                nodes.remove(n)
+
+        elif n.type == "OUTPUT_MATERIAL":
+
+            if output_node:
+                nodes.remove(n)
+            else:
+                output_node = n
+
+        else:
+            nodes.remove(n)
+
+    if not bsdf_node:
+        bsdf_node = nodes.new("ShaderNodeBsdfPrincipled")
+        bsdf_node.name = utils.unique_name(bsdf_id)
+        bsdf_node.label = shader_label
+        bsdf_node.width = 240
+        utils.log_info("Creating new BSDF: " + bsdf_node.name)
+
+    if not output_node:
+        output_node = nodes.new("ShaderNodeOutputMaterial")
+
+    bsdf_node.location = (0,0)
+    output_node.location = (400, 0)
+
+    # connect the shader to the output
+    nodeutils.link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
+
+    return bsdf_node
+
+
 def connect_tearline_material(obj, mat):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(obj, mat)
@@ -12,7 +59,7 @@ def connect_tearline_material(obj, mat):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    shader = nodeutils.reset_shader(nodes, links, "Tearline Shader", "basic_tearline", None)
+    shader = reset_shader(nodes, links, "Tearline Shader", "basic_tearline")
 
     nodeutils.set_node_input(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
     nodeutils.set_node_input(shader, "Metallic", 1.0)
@@ -33,7 +80,7 @@ def connect_eye_occlusion_material(obj, mat):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    shader = nodeutils.reset_shader(nodes, links, "Eye Occlusion Shader", "basic_eye_occlusion", None)
+    shader = reset_shader(nodes, links, "Eye Occlusion Shader", "basic_eye_occlusion")
 
     shader.name = utils.unique_name("eye_occlusion_shader")
     nodeutils.set_node_input(shader, "Base Color", (0,0,0,1))
@@ -64,7 +111,7 @@ def connect_basic_eye_material(obj, mat):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    shader = nodeutils.reset_shader(nodes, links, "Eye Shader", "basic_eye", None)
+    shader = reset_shader(nodes, links, "Eye Shader", "basic_eye")
 
     # Base Color
     #
@@ -133,7 +180,7 @@ def connect_basic_material(obj, mat):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    shader = nodeutils.reset_shader(nodes, links, "Basic Shader", "basic", None)
+    shader = reset_shader(nodes, links, "Basic Shader", "basic")
 
     # Base Color
     #

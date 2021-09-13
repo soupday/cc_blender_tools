@@ -40,7 +40,7 @@ def bake_flow_to_normal(mat_cache):
     links = mat.node_tree.links
     mat_name = utils.strip_name(mat.name)
     shader = params.get_shader_lookup(mat_cache)
-    shader_node = nodeutils.get_shader_node(mat, shader)
+    bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
 
     if mat_cache.material_type == "HAIR":
 

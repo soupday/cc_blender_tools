@@ -461,7 +461,7 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
             if chr_cache.setup_mode == "ADVANCED":
 
                 shader = params.get_shader_lookup(mat_cache)
-                shader_node = nodeutils.get_shader_node(mat, shader)
+                bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
                 matrix = params.get_shader_def(shader)
 
                 if matrix and "ui" in matrix.keys():

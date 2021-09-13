@@ -94,6 +94,13 @@ def get_node_by_id(nodes, id):
     return None
 
 
+def get_node_by_id_and_type(nodes, id, type):
+    for node in nodes:
+        if vars.NODE_PREFIX in node.name and id in node.name and node.type == type:
+            return node
+    return None
+
+
 def get_default_shader_input(mat, input):
     if mat.node_tree is not None:
         for n in mat.node_tree.nodes:
@@ -289,62 +296,141 @@ def unlink_node(links, node, socket):
             utils.log_info("Unable to remove links from: " + node.name + "[" + str(socket) + "]")
 
 
-def reset_shader(nodes, links, shader_label, shader_name, shader_group):
+def reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group):
     shader_id = "(" + str(shader_name) + ")"
+    bsdf_id = "(" + str(shader_name) + "_BSDF)"
+    mix_id = "(" + str(shader_name) + "_MIX)"
 
-    shader_node: bpy.types.Node = None
+    group_node: bpy.types.Node = None
+    mix_node: bpy.types.Node = None
+    bsdf_node: bpy.types.Node = None
     output_node: bpy.types.Node = None
+
+    has_bsdf = shader_group is not None and shader_group != ""
+    has_group_node = has_bsdf
+    has_mix_node = mix_shader_group is not None and mix_shader_group != ""
 
     links.clear()
 
-    if shader_group is None:
-        shader_type = "BSDF_PRINCIPLED"
-    else:
-        shader_type = "GROUP"
-
     for n in nodes:
-        if ((shader_group and n.type == "GROUP" and
-             shader_name in n.name and shader_group in n.node_tree.name) or
-            (shader_group is None and n.type == "BSDF_PRINCIPLED")):
-            if shader_node:
-                nodes.remove(n)
+
+        if n.type == "BSDF_PRINCIPLED" and has_bsdf and shader_name in n.name:
+
+            if not bsdf_node:
+                utils.log_info("Keeping old BSDF: " + n.name)
+                bsdf_node = n
             else:
-                utils.log_info("Keeping old shader node: " + n.name)
-                shader_node = n
+                nodes.remove(n)
+
+        elif n.type == "GROUP" and n.node_tree and shader_name in n.name and vars.VERSION_STRING in n.node_tree.name:
+
+            if has_group_node and shader_group in n.node_tree.name:
+                if not group_node:
+                    utils.log_info("Keeping old shader group: " + n.name)
+                    group_node = n
+                else:
+                    nodes.remove(n)
+
+            elif has_mix_node and mix_shader_group in n.node_tree.name:
+                if not mix_node:
+                    utils.log_info("Keeping old mix shader group: " + n.name)
+                    mix_node = n
+                else:
+                    nodes.remove(n)
+
+            else:
+                nodes.remove(n)
+
         elif n.type == "OUTPUT_MATERIAL":
+
             if output_node:
                 nodes.remove(n)
             else:
                 output_node = n
+
         elif n.type == "TEX_IMAGE" and vars.NODE_PREFIX in n.name:
-            if shader_group is None:
-                nodes.remove(n)
+            # keep images
+            pass
+
         else:
             nodes.remove(n)
 
-    if not shader_node:
-        if not shader_node:
-            if shader_type == "BSDF_PRINCIPLED":
-                shader_node = nodes.new("ShaderNodeBsdfPrincipled")
-            else:
-                group = get_node_group(shader_group)
-                shader_node = nodes.new("ShaderNodeGroup")
-                shader_node.node_tree = group
-            shader_node.name = utils.unique_name(shader_id)
-            shader_node.label = shader_label
-            shader_node.width = 240
-            utils.log_info("Creating new shader node: " + shader_node.name)
+    if has_group_node and not group_node:
+        group = get_node_group(shader_group)
+        group_node = nodes.new("ShaderNodeGroup")
+        group_node.node_tree = group
+        group_node.name = utils.unique_name(shader_id)
+        group_node.label = shader_label
+        group_node.width = 240
+        utils.log_info("Creating new shader group: " + group_node.name)
+
+    if has_mix_node and not mix_node:
+        print("################",mix_shader_group)
+        group = get_node_group(mix_shader_group)
+        mix_node = nodes.new("ShaderNodeGroup")
+        mix_node.node_tree = group
+        mix_node.name = utils.unique_name(mix_id)
+        mix_node.label = shader_label
+        mix_node.width = 240
+        utils.log_info("Creating new mix shader group: " + mix_node.name)
+
+    # if the mix node has no BSDF input, then it doesn't need the Principled BSDF to mix:
+    if has_mix_node and has_bsdf:
+        if "BSDF" not in mix_node.inputs:
+            has_bsdf = False
+            if bsdf_node:
+                nodes.remove(bsdf_node)
+                bsdf_node = None
+
+    if has_bsdf and not bsdf_node:
+        bsdf_node = nodes.new("ShaderNodeBsdfPrincipled")
+        bsdf_node.name = utils.unique_name(bsdf_id)
+        bsdf_node.label = shader_label
+        bsdf_node.width = 240
+        utils.log_info("Creating new BSDF: " + bsdf_node.name)
 
     if not output_node:
         output_node = nodes.new("ShaderNodeOutputMaterial")
 
-    shader_node.location = (0,0)
-    output_node.location = (400, 0)
+    if has_bsdf:
+        if has_group_node:
+            bsdf_node.location = (200, 400)
+        else:
+            bsdf_node.location = (0,0)
+
+    if has_group_node:
+        group_node.location = (-400, 0)
+
+    if has_mix_node:
+        mix_node.location = (500, -500)
+
+    output_node.location = (900, -400)
+
+    # connect all group_node outputs to BSDF inputs:
+    if has_group_node and has_bsdf:
+        for socket in group_node.outputs:
+            link_nodes(links, group_node, socket.name, bsdf_node, socket.name)
+
+    # connect group_node outputs to any mix_node inputs:
+    if has_mix_node and has_group_node:
+        for socket in mix_node.inputs:
+            link_nodes(links, group_node, socket.name, mix_node, socket.name)
+
+    # connect up the BSDF to the mix_node:
+    if has_mix_node and has_bsdf:
+        link_nodes(links, bsdf_node, "BSDF", mix_node, "BSDF")
 
     # connect the shader to the output
-    link_nodes(links, shader_node, "BSDF", output_node, "Surface")
-    link_nodes(links, shader_node, "Displacement", output_node, "Displacement")
-    return shader_node
+    if has_mix_node:
+        link_nodes(links, mix_node, "BSDF", output_node, "Surface")
+    elif has_bsdf:
+        link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
+
+    # connect the displacement to the output
+    if has_group_node:
+        link_nodes(links, group_node, "Displacement", output_node, "Displacement")
+
+    return bsdf_node, group_node
 
 
 def clean_unused_image_nodes(nodes):
@@ -437,21 +523,19 @@ def store_texture_mapping(image_node, mat_cache, texture_type):
 # link utils
 
 def append_node_group(path, object_name):
-    for g in bpy.data.node_groups:
-        g.tag = True
-
     filename = "_LIB.blend"
     datablock = "NodeTree"
     file = os.path.join(path, filename)
+    appended_group = None
+
     if os.path.exists(file):
         bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=False, link=False)
 
-    appended_group = None
-    for g in bpy.data.node_groups:
-        if not g.tag and object_name in g.name:
-            appended_group = g
-            g.name = utils.unique_name(object_name)
-        g.tag = False
+        for g in bpy.data.node_groups:
+            if object_name in g.name and vars.NODE_PREFIX not in g.name:
+                appended_group = g
+                g.name = utils.unique_name(object_name)
+
     return appended_group
 
 
@@ -471,21 +555,19 @@ def fetch_node_group(name):
 
 
 def append_lib_image(path, object_name):
-    for i in bpy.data.images:
-        i.tag = True
-
     filename = "_LIB.blend"
     datablock = "Image"
     file = os.path.join(path, filename)
+    appended_image = None
+
     if os.path.exists(file):
         bpy.ops.wm.append(directory=os.path.join(path, filename, datablock), filename=object_name, set_fake=False, link=False)
 
-    appended_image = None
-    for i in bpy.data.images:
-        if not i.tag and object_name in i.name:
-            appended_image = i
-            i.name = utils.unique_name(object_name)
-        i.tag = False
+        for i in bpy.data.images:
+            if object_name in i.name and vars.NODE_PREFIX not in i.name:
+                appended_image = i
+                i.name = utils.unique_name(object_name)
+
     return appended_image
 
 
@@ -504,11 +586,22 @@ def fetch_lib_image(name):
     raise ValueError("Unable to append iamge from library file!")
 
 
-def get_shader_node(mat, shader_name):
+def get_shader_nodes(mat, shader_name):
     if mat and mat.node_tree:
         nodes = mat.node_tree.nodes
-        shader_id = "(" + shader_name + ")"
-        return get_node_by_id(nodes, shader_id)
+        shader_id = "(" + str(shader_name) + ")"
+        bsdf_id = "(" + str(shader_name) + "_BSDF)"
+        mix_id = "(" + str(shader_name) + "_MIX)"
+        shader_node = bsdf_node = mix_node = None
+        for node in nodes:
+            if vars.NODE_PREFIX in node.name:
+                if shader_id in node.name:
+                    shader_node = node
+                elif bsdf_id in node.name:
+                    bsdf_node = node
+                elif mix_id in node.name:
+                    mix_node = node
+        return bsdf_node, shader_node, mix_node
     return None
 
 

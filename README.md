@@ -27,6 +27,14 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 1.0.2
+- Fixed Eevee subsurface scattering settings:
+    - Reworked shaders to allow for direct application of subsurface radius to Principled BSDF nodes.
+    - Only the default values in the subsurface radius socket are used in Eevee rendering.
+    - As such, Eevee does not support inputs to subsurface radius and so shader and parameter code needed to be re-written to accomodate this.
+    - Cycles unaffected by this.
+- Fixed node group upgrade code that incorrectly renamed existing node groups and did not properly replace old shader/node groups with new ones in existing blend files.
+
 ### 1.0.1
 - Added render target preferences setting for Cycles and Eevee.
 - Added cycles specific shaders for hair, tear-line and eye occlusion.

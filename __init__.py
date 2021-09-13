@@ -65,7 +65,7 @@ from . import importer
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (1, 0, 1),
+    "version": (1, 0, 2),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -127,7 +127,6 @@ def register():
     addon_updater_ops.register(bl_info)
 
     for cls in classes:
-        print(str(cls))
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)

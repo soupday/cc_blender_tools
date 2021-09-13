@@ -154,13 +154,16 @@ def update_shader_property(obj, mat, mat_cache, prop_name):
     if mat and mat.node_tree and mat_cache:
 
         shader_name = params.get_shader_lookup(mat_cache)
-        shader_node = nodeutils.get_shader_node(mat, shader_name)
+        bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
         shader_def = params.get_shader_def(shader_name)
 
         if shader_def:
 
             if "inputs" in shader_def.keys():
                 update_shader_input(shader_node, mat_cache, prop_name, shader_def["inputs"])
+
+            if "bsdf" in shader_def.keys():
+                update_bsdf_input(bsdf_node, mat_cache, prop_name, shader_def["bsdf"])
 
             if "textures" in shader_def.keys():
                 update_shader_tiling(shader_name, mat, mat_cache, prop_name, shader_def["textures"])
@@ -179,6 +182,12 @@ def update_shader_input(shader_node, mat_cache, prop_name, input_defs):
     for input_def in input_defs:
         if prop_name in input_def[2:]:
             nodeutils.set_node_input(shader_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
+
+
+def update_bsdf_input(bsdf_node, mat_cache, prop_name, bsdf_defs):
+    for input_def in bsdf_defs:
+        if prop_name in input_def[2:]:
+            nodeutils.set_node_input(bsdf_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
 
 
 def update_shader_tiling(shader_name, mat, mat_cache, prop_name, texture_defs):
@@ -265,10 +274,10 @@ def update_all_properties(context, update_mode = None):
                             processed.append(mat)
                             mat_cache = chr_cache.get_material_cache(mat)
                             shader_name = params.get_shader_lookup(mat_cache)
-                            shader_node = nodeutils.get_shader_node(mat, shader_name)
+                            bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
                             shader_def = params.get_shader_def(shader_name)
 
-                            shaders.apply_prop_matrix(shader_node, mat_cache, shader_name)
+                            shaders.apply_prop_matrix(bsdf_node, shader_node, mat_cache, shader_name)
 
                             if "textures" in shader_def.keys():
                                 for tex_def in shader_def["textures"]:
