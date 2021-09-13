@@ -296,6 +296,37 @@ def find_pose_bone_in_armature(arm, *name):
     return None
 
 
+def get_active_object():
+    return bpy.context.view_layer.objects.active
+
+
+def set_active_object(obj):
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    print(bpy.context.active_object == obj)
+    return bpy.context.active_object == obj
+
+
+def set_mode(mode):
+    if bpy.context.object == None:
+        if mode != "OBJECT":
+            log_error("No context object, unable to set any mode but OBJECT!")
+            return False
+        return True
+    else:
+        bpy.ops.object.mode_set(mode=mode)
+        if bpy.context.object.mode != mode:
+            log_error("Unable to set " + mode + " on object: " + bpy.context.object.name)
+            return False
+        return True
+
+
+def edit_mode_to(obj):
+    if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
+        return True
+    return False
+
+
 def s2lin(x):
     a = 0.055
     if x <= 0.04045:

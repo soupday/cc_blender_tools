@@ -418,7 +418,7 @@ def detect_materials_from_json(character_cache, obj, mat, obj_json, mat_json):
 
 def detect_materials(character_cache, obj, mat, object_json):
     if character_cache.generation == "ActorCore":
-        return "DEFAULT", "DEFAULT"
+        return "BODY", "DEFAULT"
     mat_json = jsonutils.get_material_json(object_json, mat)
     if mat_json:
         return detect_materials_from_json(character_cache, obj, mat, object_json, mat_json)

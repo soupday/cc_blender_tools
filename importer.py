@@ -603,9 +603,6 @@ class CC3Import(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-        # for any objects with shape keys expand the slider range to -1.0 <> 1.0
-        # Character Creator and iClone both use negative ranges extensively.
-
         first_cache = None
 
         for chr_cache in self.import_characters:
@@ -613,6 +610,8 @@ class CC3Import(bpy.types.Operator):
             if not first_cache:
                 first_cache = chr_cache
 
+            # for any objects with shape keys expand the slider range to -1.0 <> 1.0
+            # Character Creator and iClone both use negative ranges extensively.
             for obj_cache in chr_cache.object_cache:
                 init_shape_key_range(obj_cache.object)
 
@@ -644,6 +643,7 @@ class CC3Import(bpy.types.Operator):
                 bpy.context.scene.cycles.transparent_max_bounces = 50
 
             scene.zoom_to_character(first_cache)
+            scene.active_select_body(first_cache)
 
         # clean up unused images from the import
         if len(self.imported_images) > 0:

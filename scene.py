@@ -544,6 +544,16 @@ def zoom_to_character(chr_cache):
         pass
 
 
+def active_select_body(chr_cache):
+    for obj_cache in chr_cache.object_cache:
+        obj = obj_cache.object
+        if obj.type == "MESH":
+            print(obj_cache.object_type)
+            if obj_cache.object_type == "BODY":
+                print("SELECTING.............")
+                utils.set_active_object(obj)
+
+
 def render_image(context):
     # TODO
     pass

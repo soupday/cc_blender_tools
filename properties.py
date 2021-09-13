@@ -292,6 +292,11 @@ def update_all_properties(context, update_mode = None):
     utils.log_timer("update_all_properties()", "ms")
 
 
+def init_actor_core_defaults(mat_cache):
+    mat_cache.parameters.default_ao_strength = 0.2
+    mat_cache.parameters.default_specular_scale = 0.4
+
+
 def init_character_property_defaults(chr_cache, chr_json):
     processed = []
 
@@ -326,6 +331,9 @@ def init_character_property_defaults(chr_cache, chr_json):
                             mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
 
                         shaders.fetch_prop_defaults(mat_cache, mat_json)
+
+                        if chr_json is None and chr_cache.generation == "ActorCore":
+                            init_actor_core_defaults(mat_cache)
 
 
 def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, mat_json):
@@ -636,6 +644,7 @@ class CC3PBRParameters(bpy.types.PropertyGroup):
                                 update=lambda s,c: update_property(s,c,"default_diffuse_color"))
     default_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_ao_strength"))
     default_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_blend_multiply_strength"))
+    default_metallic: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_metallic"))
     default_specular_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_strength"))
     default_specular_scale: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular_scale"))
     default_specular_map: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_map"))
@@ -665,6 +674,7 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_hsv_strength"))
     default_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_ao_strength"))
     default_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_blend_multiply_strength"))
+    default_metallic: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_metallic"))
     default_specular_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_strength"))
     default_specular_scale: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular_scale"))
     default_specular_map: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_map"))

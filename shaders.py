@@ -520,6 +520,7 @@ def connect_skin_shader(obj, mat, mat_json):
     nodeutils.clean_unused_image_nodes(nodes)
 
     materials.set_material_alpha(mat, "OPAQUE")
+    mat.use_sss_translucency = True
 
 
 def connect_tongue_shader(obj, mat, mat_json):
@@ -541,6 +542,7 @@ def connect_tongue_shader(obj, mat, mat_json):
     nodeutils.clean_unused_image_nodes(nodes)
 
     materials.set_material_alpha(mat, "OPAQUE")
+    mat.use_sss_translucency = True
 
 
 def connect_teeth_shader(obj, mat, mat_json):
@@ -567,6 +569,7 @@ def connect_teeth_shader(obj, mat, mat_json):
     nodeutils.clean_unused_image_nodes(nodes)
 
     materials.set_material_alpha(mat, "OPAQUE")
+    mat.use_sss_translucency = True
 
 
 def connect_eye_shader(obj, mat, obj_json, mat_json):
