@@ -4,4 +4,6 @@
 - Write changes to parameters back to json file.
 - Baking shaders...
 
+- fix Rebuilt node groups...
+
 

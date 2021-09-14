@@ -273,37 +273,39 @@ def update_all_properties(context, update_mode = None):
                         if mat not in processed:
                             processed.append(mat)
                             mat_cache = chr_cache.get_material_cache(mat)
-                            shader_name = params.get_shader_lookup(mat_cache)
-                            bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
-                            shader_def = params.get_shader_def(shader_name)
 
-                            shaders.apply_prop_matrix(bsdf_node, shader_node, mat_cache, shader_name)
+                            if chr_cache.setup_mode == "BASIC":
 
-                            if "textures" in shader_def.keys():
-                                for tex_def in shader_def["textures"]:
-                                    tiling_props = tex_def[5:]
-                                    for prop_name in tiling_props:
+                                basic.update_basic_material(mat, mat_cache, "ALL")
+
+                            else:
+
+                                shader_name = params.get_shader_lookup(mat_cache)
+                                bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
+                                shader_def = params.get_shader_def(shader_name)
+
+                                shaders.apply_prop_matrix(bsdf_node, shader_node, mat_cache, shader_name)
+
+                                if "textures" in shader_def.keys():
+                                    for tex_def in shader_def["textures"]:
+                                        tiling_props = tex_def[5:]
+                                        for prop_name in tiling_props:
+                                            update_shader_property(obj, mat, mat_cache, prop_name)
+
+                                if "modifiers" in shader_def.keys():
+                                    for mod_def in shader_def["modifiers"]:
+                                        prop_name = mod_def[0]
                                         update_shader_property(obj, mat, mat_cache, prop_name)
 
-                            if "modifiers" in shader_def.keys():
-                                for mod_def in shader_def["modifiers"]:
-                                    prop_name = mod_def[0]
-                                    update_shader_property(obj, mat, mat_cache, prop_name)
-
-                            if "settings" in shader_def.keys():
-                                for mat_def in shader_def["settings"]:
-                                    prop_name = mat_def[0]
-                                    update_shader_property(obj, mat, mat_cache, prop_name)
+                                if "settings" in shader_def.keys():
+                                    for mat_def in shader_def["settings"]:
+                                        prop_name = mat_def[0]
+                                        update_shader_property(obj, mat, mat_cache, prop_name)
 
                     if obj_cache.is_eye():
                         meshutils.rebuild_eye_vertex_groups(chr_cache)
 
     utils.log_timer("update_all_properties()", "ms")
-
-
-def init_actor_core_defaults(mat_cache):
-    mat_cache.parameters.default_ao_strength = 0.2
-    mat_cache.parameters.default_specular_scale = 0.4
 
 
 def init_character_property_defaults(chr_cache, chr_json):
@@ -317,32 +319,42 @@ def init_character_property_defaults(chr_cache, chr_json):
     else:
         utils.log_info("(No Json Data)")
 
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if obj.type == "MESH" and obj not in processed:
-            processed.append(obj)
+    if chr_cache.setup_mode == "BASIC":
+        basic.init_basic_default(chr_cache)
 
-            obj_json = jsonutils.get_object_json(chr_json, obj)
-            utils.log_info("Object: " + obj.name + " (" + obj_cache.object_type + ")")
+        if chr_json is None and chr_cache.generation == "ActorCore":
+            chr_cache.basic_parameters.default_ao = 0.2
+            chr_cache.basic_parameters.default_specular = 0.2
 
-            for mat in obj.data.materials:
-                if mat not in processed:
-                    processed.append(mat)
+    else:
 
-                    mat_cache = chr_cache.get_material_cache(mat)
-                    if mat_cache:
+        for obj_cache in chr_cache.object_cache:
+            obj = obj_cache.object
+            if obj.type == "MESH" and obj not in processed:
+                processed.append(obj)
 
-                        mat_json = jsonutils.get_material_json(obj_json, mat)
-                        utils.log_info("  Material: " + mat.name + " (" + mat_cache.material_type + ")")
+                obj_json = jsonutils.get_object_json(chr_json, obj)
+                utils.log_info("Object: " + obj.name + " (" + obj_cache.object_type + ")")
 
-                        if mat_cache.is_eye():
-                            cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
-                            mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
+                for mat in obj.data.materials:
+                    if mat not in processed:
+                        processed.append(mat)
 
-                        shaders.fetch_prop_defaults(mat_cache, mat_json)
+                        mat_cache = chr_cache.get_material_cache(mat)
+                        if mat_cache:
 
-                        if chr_json is None and chr_cache.generation == "ActorCore":
-                            init_actor_core_defaults(mat_cache)
+                            mat_json = jsonutils.get_material_json(obj_json, mat)
+                            utils.log_info("  Material: " + mat.name + " (" + mat_cache.material_type + ")")
+
+                            if mat_cache.is_eye():
+                                cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
+                                mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
+
+                            shaders.fetch_prop_defaults(mat_cache, mat_json)
+
+                            if chr_json is None and chr_cache.generation == "ActorCore":
+                                mat_cache.parameters.default_ao_strength = 0.2
+                                mat_cache.parameters.default_specular_scale = 0.4
 
 
 def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, mat_json):
@@ -612,7 +624,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_vertex_color_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_vertex_color_strength"))
     hair_vertex_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_vertex_color"))
-    hair_anisotropic_roughness: bpy.props.FloatProperty(default=1.15, min=1.01, max=2.5, update=lambda s,c: update_property(s,c,"hair_anisotropic_roughness"))
+    hair_anisotropic_roughness: bpy.props.FloatProperty(default=0.0375, min=0.001, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_roughness"))
     hair_anisotropic_shift: bpy.props.FloatProperty(default=0.75, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_shift"))
     hair_anisotropic: bpy.props.FloatProperty(default=-1, min=-1, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic"))
     hair_anisotropic_strength: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength"))
@@ -730,6 +742,7 @@ class CC3BasicParameters(bpy.types.PropertyGroup):
     skin_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"skin_ao"))
     hair_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"hair_ao"))
     default_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_basic_property(s,c,"default_ao"))
+    default_specular: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"default_specular"))
     skin_specular: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"skin_specular"))
     hair_specular: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"hair_specular"))
     scalp_specular: bpy.props.FloatProperty(default=0.0, min=0, max=2, update=lambda s,c: update_basic_property(s,c,"scalp_specular"))

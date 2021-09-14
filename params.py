@@ -1250,7 +1250,7 @@ SHADER_MATRIX = [
             ["hair_subsurface_radius", 1.5, "DEF"],
             ["hair_anisotropic_shift", 0.75, "DEF"],
             ["hair_bump_strength", 1.0, "DEF"],
-            ["hair_anisotropic_roughness", 1.15, "DEF"],
+            ["hair_anisotropic_roughness", 0.0375, "DEF"],
             ["hair_anisotropic_color", (1.000000, 0.798989, 0.689939, 1.000000), "DEF"],
         ],
         "ui": [
@@ -1392,31 +1392,32 @@ def get_rl_shader_def(rl_shader_name):
 
 BASIC_PROPS = [
 
-    ["IN", "Strength",  "", "eye_occlusion"],
-    ["IN", "Hardness",  "", "eye_occlusion_power"],
+    ["IN", "Strength",  "eye_occlusion_mask", "eye_occlusion", 0.5],
+    ["IN", "Hardness",  "eye_occlusion_mask", "eye_occlusion_power", 0.5],
 
-    ["IN", "Value",     "eye_basic_hsv", "eye_brightness"],
-    ["OUT", "Value",    "", "eye_specular"],
-    ["OUT", "Value",    "", "eye_roughness"],
-    ["OUT", "Value",    "", "eye_normal"],
+    ["IN", "Value",     "eye_basic_hsv", "eye_brightness", 0.9],
+    ["OUT", "Value",    "", "eye_specular", 0.8],
+    ["OUT", "Value",    "", "eye_roughness", 0.05],
+    ["OUT", "Value",    "", "eye_normal", 0.1],
 
-    ["OUT", "Value",    "", "skin_ao"],
-    ["OUT", "Value",    "", "hair_ao"],
-    ["OUT", "Value",    "", "default_ao"],
+    ["OUT", "Value",    "", "skin_ao", 1],
+    ["OUT", "Value",    "", "hair_ao", 1],
+    ["OUT", "Value",    "", "default_ao", 1],
 
-    ["OUT", "Value",    "", "skin_specular"],
-    ["OUT", "Value",    "", "hair_specular"],
-    ["OUT", "Value",    "", "scalp_specular"],
-    ["OUT", "Value",    "", "teeth_specular"],
-    ["OUT", "Value",    "", "tongue_specular"],
+    ["OUT", "Value",    "", "default_specular", 0.5],
+    ["OUT", "Value",    "", "skin_specular", 0.4],
+    ["OUT", "Value",    "", "hair_specular", 0.5],
+    ["OUT", "Value",    "", "scalp_specular", 0.0],
+    ["OUT", "Value",    "", "teeth_specular", 0.25],
+    ["OUT", "Value",    "", "tongue_specular", 0.259],
 
-    ["IN", "To Min",    "", "skin_roughness"],
-    ["IN", 1,           "", "teeth_roughness"],
-    ["IN", 1,           "", "tongue_roughness"],
+    ["IN", "To Min",    "", "skin_roughness", 0.15],
+    ["IN", 1,           "", "teeth_roughness", 0.4],
+    ["IN", 1,           "", "tongue_roughness", 1.0],
 
-    ["OUT", "Value",    "", "hair_bump", "parameters.hair_bump / 1000"],
-    ["OUT", "Value",    "", "default_bump", "parameters.default_bump / 1000"],
+    ["OUT", "Value",    "", "hair_bump", 1, "parameters.hair_bump / 1000"],
+    ["OUT", "Value",    "", "default_bump", 5, "parameters.default_bump / 1000"],
 
-    ["IN", "Alpha",     "eye_tearline_shader", "tearline_alpha"],
-    ["IN", "Roughness", "eye_tearline_shader", "tearline_roughness"],
+    ["IN", "Alpha",     "eye_tearline_shader", "tearline_alpha", 0.05],
+    ["IN", "Roughness", "eye_tearline_shader", "tearline_roughness", 0.15],
 ]

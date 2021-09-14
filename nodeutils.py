@@ -461,16 +461,6 @@ def get_node_group(name):
 def check_node_groups():
     for name in vars.NODE_GROUPS:
         get_node_group(name)
-    adjust_groups()
-
-
-def adjust_groups():
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-    group = get_node_group("color_hair_mixer")
-
-    # does nothing yet...
 
 
 def remove_all_groups():

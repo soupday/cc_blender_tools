@@ -216,6 +216,12 @@ def cache_object_materials(character_cache, obj, character_json, processed):
                 materials.detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache)
                 processed.append(mat)
 
+            elif mat in processed:
+
+                object_type, material_type = materials.detect_materials(character_cache, obj, mat, obj_json)
+                obj_cache.object_type = object_type
+
+
     processed.append(obj)
 
 

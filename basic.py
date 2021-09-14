@@ -67,7 +67,8 @@ def connect_tearline_material(obj, mat):
     nodeutils.set_node_input(shader, "Roughness", parameters.tearline_roughness)
     nodeutils.set_node_input(shader, "Alpha", parameters.tearline_alpha)
     shader.name = utils.unique_name("eye_tearline_shader")
-    materials.set_material_alpha(mat, props.blend_mode)
+
+    materials.set_material_alpha(mat, "BLEND")
     mat.shadow_method = "NONE"
 
 
@@ -98,7 +99,7 @@ def connect_eye_occlusion_material(obj, mat):
     # links
     nodeutils.link_nodes(links, occ_node, "Alpha", shader, "Alpha")
 
-    materials.set_material_alpha(mat, props.blend_mode)
+    materials.set_material_alpha(mat, "BLEND")
     mat.shadow_method = "NONE"
 
 
@@ -242,10 +243,13 @@ def connect_basic_material(obj, mat):
         spec = parameters.scalp_specular
     elif mat_cache.is_teeth():
         prop = "teeth_specular"
-        roughness = parameters.teeth_specular
+        spec = parameters.teeth_specular
     elif mat_cache.is_tongue():
         prop = "tongue_specular"
-        roughness = parameters.tongue_specular
+        spec = parameters.tongue_specular
+    else:
+        prop = "default_specular"
+        spec = parameters.default_specular
 
     specular_node = mask_node = mult_node = None
     if specular_image is not None:
@@ -331,7 +335,7 @@ def connect_basic_material(obj, mat):
     if obj_cache.is_hair() or mat_cache.is_eyelash():
         materials.set_material_alpha(mat, "HASHED")
     elif shader.inputs["Alpha"].default_value < 1.0:
-        materials.set_material_alpha(mat, props.blend_mode)
+        materials.set_material_alpha(mat, "HASHED")
     else:
         materials.set_material_alpha(mat, "OPAQUE")
 
@@ -393,8 +397,8 @@ def update_basic_material(mat, cache, prop):
                     prop_socket = prop_info[1]
 
                     try:
-                        if len(prop_info) == 5:
-                            prop_eval = prop_info[4]
+                        if len(prop_info) > 5:
+                            prop_eval = prop_info[5]
                         else:
                             prop_eval = "parameters." + prop_name
 
@@ -406,3 +410,21 @@ def update_basic_material(mat, cache, prop):
                             nodeutils.set_node_output(node, prop_socket, prop_value)
                     except Exception as e:
                         utils.log_error("update_basic_materials(): Unable to evaluate or set: " + prop_eval, e)
+
+
+def init_basic_default(chr_cache):
+    props = bpy.context.scene.CC3ImportProps
+    parameters = chr_cache.basic_parameters
+
+    for prop_info in params.BASIC_PROPS:
+
+        prop_name = prop_info[3]
+        prop_default = prop_info[4]
+
+        try:
+            prop_eval = "parameters." + prop_name + " = " + str(prop_default)
+            exec(prop_eval, None, locals())
+
+        except Exception as e:
+            utils.log_error("init_basic_default(): Unable to set: " + prop_eval, e)
+
