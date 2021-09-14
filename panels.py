@@ -325,29 +325,20 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
             box.label(text="No Character")
 
         layout.box().label(text="Build Materials", icon="MOD_BUILD")
-        if chr_cache:
-            layout.prop(chr_cache, "setup_mode", expand=True)
-        else:
-            layout.prop(props, "setup_mode", expand=True)
+        layout.prop(props, "setup_mode", expand=True)
+        layout.prop(prefs, "render_target", expand=True)
         #layout.prop(props, "blend_mode", expand=True)
         layout.prop(props, "build_mode", expand=True)
 
         # Prefs:
         box = layout.box()
-        box.label(text="Prefs:")
-        split = box.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text = "Renderer")
-        col_2.prop(prefs, "render_target", text = "")
         box.prop(prefs, "refractive_eyes")
-
 
         # Build Button
         if chr_cache:
             box = layout.box()
             box.scale_y = 2
-            if chr_cache.setup_mode == "ADVANCED":
+            if props.setup_mode == "ADVANCED":
                 op = box.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Advanced Materials")
             else:
                 op = box.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Basic Materials")
@@ -494,7 +485,7 @@ class CC3ToolsParametersPanel(bpy.types.Panel):
                                     if condition == "HAS_VERTEX_COLORS":
                                         cond_res = len(obj.data.vertex_colors) > 0
                                     elif condition[0] == '#':
-                                        cond_res = prefs.render_target == condition[1:]
+                                        cond_res = chr_cache.render_target == condition[1:]
                                     elif condition[0] == '!':
                                         condition = condition[1:]
                                         cond_res = not nodeutils.has_connected_input(shader_node, condition)

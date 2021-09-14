@@ -15,8 +15,6 @@
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
-from platform import node
-
 import bpy
 
 from . import (imageutils, jsonutils, materials, modifiers, nodeutils, physics,
@@ -514,7 +512,8 @@ class CC3Import(bpy.types.Operator):
 
     def build_materials(self, context):
         objects_processed = []
-        props = bpy.context.scene.CC3ImportProps
+        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         utils.start_timer()
 
@@ -532,7 +531,11 @@ class CC3Import(bpy.types.Operator):
                 self.import_characters.append(chr_cache)
                 json_data = jsonutils.read_json(chr_cache.import_file)
 
+        chr_cache: properties.CC3CharacterCache = None
         for chr_cache in self.import_characters:
+
+            chr_cache.setup_mode = props.setup_mode
+            chr_cache.render_target = prefs.render_target
 
             chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_id)
 
@@ -550,6 +553,7 @@ class CC3Import(bpy.types.Operator):
                     for cache in chr_cache.object_cache:
                         if cache.object == obj:
                             process_object(cache.object, objects_processed, chr_json)
+
 
         utils.log_timer("Done Build.", "s")
 
@@ -574,6 +578,7 @@ class CC3Import(bpy.types.Operator):
         for chr_cache in self.import_characters:
 
             chr_cache.setup_mode = setup_mode
+            chr_cache.render_target = prefs.render_target
 
             # check for fbxkey
             if chr_cache.import_type == "fbx":

@@ -953,6 +953,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("ADVANCED","Advanced","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
                     ], default="ADVANCED")
 
+    render_target: bpy.props.EnumProperty(items=[
+                        ("EEVEE","Eevee","Build shaders for Eevee rendering."),
+                        ("CYCLES","Cycles","Build shaders for Cycles rendering."),
+                    ], default="EEVEE", name = "Target Renderer")
+
     def get_all_materials_cache(self):
         all_materials = []
         for cache in self.tongue_material_cache:
