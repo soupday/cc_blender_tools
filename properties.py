@@ -319,42 +319,37 @@ def init_character_property_defaults(chr_cache, chr_json):
     else:
         utils.log_info("(No Json Data)")
 
-    if chr_cache.setup_mode == "BASIC":
-        basic.init_basic_default(chr_cache)
+    # Basic properties
+    basic.init_basic_default(chr_cache)
 
-        if chr_json is None and chr_cache.generation == "ActorCore":
-            chr_cache.basic_parameters.default_ao = 0.2
-            chr_cache.basic_parameters.default_specular = 0.2
+    # Advanced properties
+    for obj_cache in chr_cache.object_cache:
+        obj = obj_cache.object
+        if obj.type == "MESH" and obj not in processed:
+            processed.append(obj)
 
-    else:
+            obj_json = jsonutils.get_object_json(chr_json, obj)
+            utils.log_info("Object: " + obj.name + " (" + obj_cache.object_type + ")")
 
-        for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.object
-            if obj.type == "MESH" and obj not in processed:
-                processed.append(obj)
+            for mat in obj.data.materials:
+                if mat not in processed:
+                    processed.append(mat)
 
-                obj_json = jsonutils.get_object_json(chr_json, obj)
-                utils.log_info("Object: " + obj.name + " (" + obj_cache.object_type + ")")
+                    mat_cache = chr_cache.get_material_cache(mat)
+                    if mat_cache:
 
-                for mat in obj.data.materials:
-                    if mat not in processed:
-                        processed.append(mat)
+                        mat_json = jsonutils.get_material_json(obj_json, mat)
+                        utils.log_info("  Material: " + mat.name + " (" + mat_cache.material_type + ")")
 
-                        mat_cache = chr_cache.get_material_cache(mat)
-                        if mat_cache:
+                        if mat_cache.is_eye():
+                            cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
+                            mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
 
-                            mat_json = jsonutils.get_material_json(obj_json, mat)
-                            utils.log_info("  Material: " + mat.name + " (" + mat_cache.material_type + ")")
+                        shaders.fetch_prop_defaults(mat_cache, mat_json)
 
-                            if mat_cache.is_eye():
-                                cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
-                                mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
-
-                            shaders.fetch_prop_defaults(mat_cache, mat_json)
-
-                            if chr_json is None and chr_cache.generation == "ActorCore":
-                                mat_cache.parameters.default_ao_strength = 0.2
-                                mat_cache.parameters.default_specular_scale = 0.4
+                        if chr_json is None and chr_cache.generation == "ActorCore":
+                            mat_cache.parameters.default_ao_strength = 0.2
+                            mat_cache.parameters.default_specular_scale = 0.4
 
 
 def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, mat_json):

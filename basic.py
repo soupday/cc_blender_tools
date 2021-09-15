@@ -428,3 +428,7 @@ def init_basic_default(chr_cache):
         except Exception as e:
             utils.log_error("init_basic_default(): Unable to set: " + prop_eval, e)
 
+    if chr_cache.generation == "ActorCore":
+        chr_cache.basic_parameters.default_ao = 0.2
+        chr_cache.basic_parameters.default_specular = 0.2
+
