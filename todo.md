@@ -1,11 +1,5 @@
-# Changed
-- Back ported advanced eye occlusion shader from Unity.
-- Support for actor core models type C/D/D+.
-
 # TODO
-- Popup panels
-- Prefs for physics settings.
+- Write changes to parameters back to json file.
+- Baking shaders...
+- Make export button names less confusing...
 - Button to auto transfer skin weights to accessories.
-- limits on node group inputs in _LIB.
-- traceback when removing actorcore models...
-

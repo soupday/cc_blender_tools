@@ -27,6 +27,33 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 1.0.2
+- Fixed Eevee subsurface scattering settings:
+    - Reworked shaders to allow for direct application of subsurface radius to Principled BSDF nodes.
+    - Only the default values in the subsurface radius socket are used in Eevee rendering.
+    - As such, Eevee does not support inputs to subsurface radius and so shader and parameter code needed to be re-written to accomodate this.
+    - Cycles unaffected by this.
+- Fixed node group upgrade code that incorrectly renamed existing node groups and did not properly replace old shader/node groups with new ones in existing blend files.
+
+### 1.0.1
+- Added render target preferences setting for Cycles and Eevee.
+- Added cycles specific shaders for hair, tear-line and eye occlusion.
+
+### 1.0.0
+- Moved all shaders over to new shader model.
+- Streamlined parameter and shader code to be data driven, rather than hard coded.
+- Character, Object and Material parameters now stored independently for each character import.
+- Json data parser to automatically set up all shader parameters.
+
+### 0.7.4
+- New eye shader model.
+
+### 0.7.3
+- New teeth and tongue shader model.
+
+### 0.7.2
+- New skin and head shader model.
+
 ### 0.7.1
 - Back ported the more advanced Eye Occlusion shader from the Unity HDRP setup.
 - Added displacement modifiers & parameters to Eye Occlusion and Tearline objects.

@@ -14,10 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy
 import math
-from . import utils
-from . import vars
+
+import bpy
+
+from . import materials, utils, vars
 
 
 def add_vertex_group(obj, name):
@@ -108,6 +109,19 @@ def generate_tearline_vertex_groups(obj, mat_left, mat_right):
                 vertex_group_all_r.add([vertex.index], 1.0, 'REPLACE')
 
 
+def rebuild_eye_vertex_groups(chr_cache):
+    for cache in chr_cache.object_cache:
+        obj = cache.object
+        if cache.is_eye():
+            mat_left, mat_right = materials.get_left_right_eye_materials(obj)
+            cache_left = chr_cache.get_material_cache(mat_left)
+            cache_right = chr_cache.get_material_cache(mat_right)
+
+            if cache_left and cache_right:
+                # Re-create the eye displacement group
+                generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right)
+
+
 def generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -145,3 +159,13 @@ def generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right
                 vertex_group_r.add([vertex.index], weight, 'REPLACE')
 
 
+def get_material_vertices(obj, mat):
+    verts = []
+    mesh = obj.data
+    for poly in mesh.polygons:
+        poly_mat = obj.material_slots[poly.material_index].material
+        if poly_mat == mat:
+            for vert in poly.vertices:
+                if vert not in verts:
+                    verts.append(vert)
+    return verts
