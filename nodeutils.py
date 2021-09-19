@@ -601,3 +601,8 @@ def get_tiling_node(mat, shader_name, texture_type):
         shader_id = "(tiling_" + shader_name + "_" + texture_type + "_mapping)"
         return get_node_by_id(nodes, shader_id)
     return None
+
+
+def get_tiling_node_from_nodes(nodes, shader_name, texture_type):
+    shader_id = "(tiling_" + shader_name + "_" + texture_type + "_mapping)"
+    return get_node_by_id(nodes, shader_id)

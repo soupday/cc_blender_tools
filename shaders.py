@@ -102,12 +102,12 @@ def eval_input_param(input_def, mat_cache):
         return None
 
 
-def eval_tiling_param(texture_def, mat_cache):
+def eval_tiling_param(texture_def, mat_cache, start_index = 4):
     try:
         parameters = mat_cache.parameters
 
-        func = texture_def[4]
-        args = texture_def[5:]
+        func = texture_def[start_index]
+        args = texture_def[start_index + 1:]
 
         if func == "" or func == "=":
             # expression is mat_cache parameter
@@ -281,7 +281,7 @@ def func_hair_ao(ao, occ):
 
 def func_limbus_dark_radius(limbus_dark_scale):
     t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
-    return utils.lerp(0.155, 0.08, t)
+    return utils.lerp(0.155, 0.08, t) + 0.025
 
 def func_eye_depth(depth):
     return depth / 3.0
@@ -299,6 +299,7 @@ def func_index_3(values: list):
 # End Prop matrix eval, parameter conversion functions
 
 def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, tex_json):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     tex_type = texture_def[2]
     tiling_mode = "NONE"
@@ -335,6 +336,10 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
     location = node.location
     location = (location[0] - 900, location[1] - 100)
 
+    if tiling_mode == "EYE_PARALLAX":
+        if prefs.refractive_eyes or mat_cache.is_eye():
+            tiling_mode = "CENTERED"
+
     if tiling_mode == "CENTERED":
         node_group = nodeutils.get_node_group("tiling_pivot_mapping")
         tiling_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
@@ -350,6 +355,20 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
         nodeutils.set_node_input(tiling_node, "Tiling", tiling)
         nodeutils.set_node_input(tiling_node, "Offset", offset)
         nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
+
+    elif tiling_mode == "EYE_PARALLAX":
+        node_group = nodeutils.get_node_group("tiling_cornea_parallax_mapping")
+        mapping_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
+        mapping_node.location = location
+        nodeutils.link_nodes(links, mapping_node, "Vector", node, "Vector")
+        shader_name = params.get_shader_lookup(mat_cache)
+        shader_def = params.get_shader_def(shader_name)
+        if "mapping" in shader_def.keys():
+            mapping_defs = shader_def["mapping"]
+            for mapping_def in mapping_defs:
+                if len(mapping_def) > 1:
+                    socket_name = mapping_def[1]
+                    nodeutils.set_node_input(mapping_node, socket_name, eval_tiling_param(mapping_def, mat_cache, 2))
 
 
 def set_shader_input_props(shader_def, mat_cache, socket, value):
@@ -607,9 +626,12 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
     cornea_mat_cache = mat_cache
     cornea_json = mat_json
     # the eye mesh uses textures and settings from the cornea:
-    if mat_cache.is_eye():
+    if mat_cache.is_eye() and prefs.refractive_eyes:
         cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
         cornea_json = jsonutils.get_material_json(obj_json, cornea_mat)
+
+    if mat_cache.is_eye() and not prefs.refractive_eyes:
+        connect_pbr_shader(obj, mat, mat_json)
 
     mix_shader_group = ""
     if mat_cache.is_cornea():
@@ -620,8 +642,8 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
         else:
             shader_label = "Cornea Shader"
             shader_name = "rl_cornea_shader"
-            shader_group = "rl_cornea_shader"
-            mix_shader_group = "rl_cornea_mix_shader"
+            shader_group = "rl_cornea_parallax_shader"
+            #mix_shader_group = "rl_cornea_mix_shader"
     else:
         shader_label = "Eye Shader"
         shader_name = "rl_eye_shader"
@@ -632,6 +654,7 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, cornea_mat, cornea_mat_cache, shader_name, cornea_json, obj)
 
+
     nodeutils.clean_unused_image_nodes(nodes)
 
     if mat_cache.is_cornea():
@@ -640,10 +663,13 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
             mat.use_screen_refraction = True
             mat.refraction_depth = mat_cache.parameters.eye_refraction_depth / 1000
         else:
-            materials.set_material_alpha(mat, "BLEND")
+            #materials.set_material_alpha(mat, "BLEND")
+            #mat.use_screen_refraction = False
+            materials.set_material_alpha(mat, "OPAQUE")
             mat.use_screen_refraction = False
     else:
         materials.set_material_alpha(mat, "OPAQUE")
+        mat.use_screen_refraction = False
 
 
 def connect_hair_shader(obj, mat, mat_json):

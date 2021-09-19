@@ -775,13 +775,22 @@ SHADER_MATRIX = [
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
         "textures": [
             ["Sclera Diffuse Map", "", "SCLERA", "CENTERED", "func_recip", "eye_sclera_scale"],
-            ["Cornea Diffuse Map", "", "DIFFUSE", "CENTERED", "func_recip", "eye_iris_scale"],
+            ["Cornea Diffuse Map", "", "DIFFUSE", "EYE_PARALLAX", "func_recip", "eye_iris_scale"],
             ["Color Blend Map", "", "EYEBLEND"],
             ["AO Map", "", "AO"],
             ["Metallic Map", "", "METALLIC"],
             ["Sclera Normal Map", "", "SCLERANORMAL", "OFFSET", "", "eye_sclera_normal_tiling"],
             ["Sclera Emission Map", "", "EMISSION"],
             ["Iris Emission Map", "", "EMISSION"],
+        ],
+        "mapping": [
+            ["DIFFUSE"],
+            ["EYE_PARALLAX", "Iris Scale", "", "eye_iris_scale"],
+            ["EYE_PARALLAX", "Iris Radius", "", "eye_iris_radius"],
+            ["EYE_PARALLAX", "Pupil Scale", "", "eye_pupil_scale"],
+            ["EYE_PARALLAX", "Depth Radius", "", "eye_iris_depth_radius"],
+            ["EYE_PARALLAX", "Depth", "", "eye_iris_depth"],
+            ["EYE_PARALLAX", "IOR", "", "eye_ior"],
         ],
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]

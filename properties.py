@@ -168,6 +168,9 @@ def update_shader_property(obj, mat, mat_cache, prop_name):
             if "textures" in shader_def.keys():
                 update_shader_tiling(shader_name, mat, mat_cache, prop_name, shader_def["textures"])
 
+            if "mapping" in shader_def.keys():
+                update_shader_mapping(shader_name, mat, mat_cache, prop_name, shader_def["mapping"])
+
             if "modifiers" in shader_def.keys():
                 update_object_modifier(obj, mat_cache, prop_name, shader_def["modifiers"])
 
@@ -198,6 +201,19 @@ def update_shader_tiling(shader_name, mat, mat_cache, prop_name, texture_defs):
             if prop_name in tiling_props:
                 tiling_node = nodeutils.get_tiling_node(mat, shader_name, texture_type)
                 nodeutils.set_node_input(tiling_node, "Tiling", shaders.eval_tiling_param(texture_def, mat_cache))
+
+
+def update_shader_mapping(shader_name, mat, mat_cache, prop_name, mapping_defs):
+    mapping_node = None
+    for mapping_def in mapping_defs:
+        if len(mapping_def) == 1:
+            texture_type = mapping_def[0]
+            mapping_node = nodeutils.get_tiling_node(mat, shader_name, texture_type)
+        elif mapping_node:
+            tiling_props = mapping_def[3:]
+            if prop_name in tiling_props:
+                socket_name = mapping_def[1]
+                nodeutils.set_node_input(mapping_node, socket_name, shaders.eval_tiling_param(mapping_def, mat_cache, 2))
 
 
 def update_object_modifier(obj, mat_cache, prop_name, mod_defs):
