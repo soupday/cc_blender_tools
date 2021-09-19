@@ -27,6 +27,9 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 1.0.3
+- First attempt at a single material parallax eye shader added. Which does not use SSR or transparency and thus can receive full shadows and subsurface scattering in Eevee.
+
 ### 1.0.2
 - Fixed Eevee subsurface scattering settings:
     - Reworked shaders to allow for direct application of subsurface radius to Principled BSDF nodes.
