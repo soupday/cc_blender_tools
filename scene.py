@@ -253,7 +253,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bloom_knee = 0.5
             bpy.context.scene.eevee.bloom_radius = 6.5
             bpy.context.scene.eevee.bloom_intensity = 0.05
-            if prefs.refractive_eyes:
+            if prefs.refractive_eyes == "SSR":
                 bpy.context.scene.eevee.use_ssr = True
                 bpy.context.scene.eevee.use_ssr_refraction = True
             else:

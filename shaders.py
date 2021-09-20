@@ -284,7 +284,7 @@ def func_limbus_dark_radius(limbus_dark_scale):
     return utils.lerp(0.155, 0.08, t) + 0.025
 
 def func_eye_depth(depth):
-    return depth / 3.0
+    return depth / 2.0
 
 def func_index_1(values: list):
     return values[0] / 255.0
@@ -337,7 +337,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
     location = (location[0] - 900, location[1] - 100)
 
     if tiling_mode == "EYE_PARALLAX":
-        if prefs.refractive_eyes or mat_cache.is_eye():
+        if prefs.refractive_eyes == "SSR" or mat_cache.is_eye():
             tiling_mode = "CENTERED"
 
     if tiling_mode == "CENTERED":
@@ -626,16 +626,16 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
     cornea_mat_cache = mat_cache
     cornea_json = mat_json
     # the eye mesh uses textures and settings from the cornea:
-    if mat_cache.is_eye() and prefs.refractive_eyes:
+    if mat_cache.is_eye() and prefs.refractive_eyes == "SSR":
         cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
         cornea_json = jsonutils.get_material_json(obj_json, cornea_mat)
 
-    if mat_cache.is_eye() and not prefs.refractive_eyes:
+    if mat_cache.is_eye() and prefs.refractive_eyes == "PARALLAX":
         connect_pbr_shader(obj, mat, mat_json)
 
     mix_shader_group = ""
     if mat_cache.is_cornea():
-        if prefs.refractive_eyes:
+        if prefs.refractive_eyes == "SSR":
             shader_label = "Cornea Shader"
             shader_name = "rl_cornea_shader"
             shader_group = "rl_cornea_refractive_shader"
@@ -658,7 +658,7 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
     nodeutils.clean_unused_image_nodes(nodes)
 
     if mat_cache.is_cornea():
-        if prefs.refractive_eyes:
+        if prefs.refractive_eyes == "SSR":
             materials.set_material_alpha(mat, "OPAQUE")
             mat.use_screen_refraction = True
             mat.refraction_depth = mat_cache.parameters.eye_refraction_depth / 1000

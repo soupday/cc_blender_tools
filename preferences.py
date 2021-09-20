@@ -35,7 +35,7 @@ def reset_preferences():
     prefs.hair_scalp_hint = "scalp,base,skullcap"
     prefs.debug_mode = False
     prefs.physics_group = "CC_Physics"
-    prefs.refractive_eyes = True
+    prefs.refractive_eyes = "PARALLAX"
     prefs.eye_displacement_group = "CC_Eye_Displacement"
     prefs.max_texture_size = 4096
 
@@ -115,7 +115,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
-    refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
+    refractive_eyes: bpy.props.EnumProperty(items=[
+                        ("PARALLAX","Parallax","Approximatated Parallax Refraction in a single cornea material which is not subject to Eevee limitations on Subsurface scattering and receiving shadows."),
+                        ("SSR","SSR","Screen Space Refraction with a transmissive & transparent cornea material over an opaque eye (iris) material. SSR Materials do not receive full shadows and cannot have Subsurface scattering in Eevee."),
+                    ], default="PARALLAX", name = "Refractive Eyes")
+
+    #refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
 
 

@@ -332,7 +332,8 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
 
         # Prefs:
         box = layout.box()
-        box.prop(prefs, "refractive_eyes")
+        box.label(text="Eye Refraction")
+        box.row().prop(prefs, "refractive_eyes", expand=True)
 
         # Build Button
         if chr_cache:

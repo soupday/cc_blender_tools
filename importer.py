@@ -560,6 +560,9 @@ class CC3Import(bpy.types.Operator):
                         if cache.object == obj:
                             process_object(cache.object, objects_processed, chr_json)
 
+        if prefs.refractive_eyes == "SSR":
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
 
         utils.log_timer("Done Build.", "s")
 
@@ -645,7 +648,7 @@ class CC3Import(bpy.types.Operator):
                 if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
                     scene.setup_scene_default(prefs.quality_lighting)
 
-            if prefs.refractive_eyes:
+            if prefs.refractive_eyes == "SSR":
                 bpy.context.scene.eevee.use_ssr = True
                 bpy.context.scene.eevee.use_ssr_refraction = True
 
