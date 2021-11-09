@@ -269,3 +269,11 @@ def add_tearline_modifiers(obj):
         move_mod_first(obj, displace_mod_all_r)
 
     utils.log_info("Tearline Displacement modifiers applied to: " + obj.name)
+
+
+def has_modifier(obj, modifier_type):
+    if obj is not None:
+        for mod in obj.modifiers:
+            if mod.type == modifier_type:
+                return True
+    return False

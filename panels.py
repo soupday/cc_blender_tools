@@ -739,6 +739,14 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         col_2.operator("screen.frame_jump", text="Start", icon='REW').end = False
         col_3.operator("screen.frame_jump", text="End", icon='FF').end = True
 
+        chr_cache = props.get_context_character_cache(context)
+        if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
+            box = layout.box()
+            box.label(text="Cycles", icon="SHADING_RENDERED")
+            col = layout.column()
+            op = col.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
+            op.param = "CYCLES_SETUP"
+
 
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Physics_Panel"
@@ -958,25 +966,26 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         op.param = "IMPORT_QUALITY"
 
         box = layout.box()
-        box.label(text="Morph Editing", icon="OUTLINER_OB_ARMATURE")
+        box.label(text="Character Editing", icon="OUTLINER_OB_ARMATURE")
         row = layout.row()
-        op = row.operator("cc3.importer", icon="IMPORT", text="Import For Morph")
+        op = row.operator("cc3.importer", icon="IMPORT", text="Import For Editing")
         op.param = "IMPORT_MORPH"
         row = layout.row()
-        op = row.operator("cc3.exporter", icon="EXPORT", text="Export Character Morph")
+        op = row.operator("cc3.exporter", icon="EXPORT", text="Export To CC3")
         op.param = "EXPORT_MORPH"
-        if not chr_cache or not chr_cache.import_has_key:
-            row.enabled = False
-
+        # export prefs
         box = layout.box()
-        box.label(text="Accessory Editing", icon="MOD_CLOTH")
+        if fake_drop_down(box.row(),
+                "Export Prefs",
+                "export_options",
+                props.export_options):
+            box.row().prop(prefs, "export_json_changes", expand=True)
+            box.row().prop(prefs, "export_texture_changes", expand=True)
+            box.row().prop(prefs, "export_bone_roll_fix", expand=True)
         row = layout.row()
-        op = row.operator("cc3.importer", icon="IMPORT", text="Import For Accessory")
-        op.param = "IMPORT_ACCESSORY"
-        row = layout.row()
-        op = row.operator("cc3.exporter", icon="EXPORT", text="Export Accessory")
+        op = row.operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory")
         op.param = "EXPORT_ACCESSORY"
-        if not chr_cache:
+        if not chr_cache or not chr_cache.import_has_key:
             row.enabled = False
 
         layout.separator()

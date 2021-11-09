@@ -350,6 +350,15 @@ def strip_name(name):
     return name
 
 
+def make_unique_name(name, keys):
+    if name in keys:
+        i = 1
+        while name + "_" + str(i) in keys:
+            i += 1
+        return name + "_" + str(i)
+    return name
+
+
 def tag_objects():
     for obj in bpy.data.objects:
         obj.tag = True
@@ -392,11 +401,21 @@ def untagged_images():
     return untagged
 
 
-def select_all_child_objects(obj):
-    if obj.type == "ARMATURE" or obj.type == "MESH":
+def try_select_child_objects(obj):
+    try:
+        if obj.type == "ARMATURE" or obj.type == "MESH":
+            obj.select_set(True)
+        for child in obj.children:
+            try_select_child_objects(child)
+    except:
+        pass
+
+
+def try_select_object(obj):
+    try:
         obj.select_set(True)
-    for child in obj.children:
-        select_all_child_objects(child)
+    except:
+        pass
 
 
 def remove_from_collection(coll, item):
@@ -404,4 +423,18 @@ def remove_from_collection(coll, item):
         if coll[i] == item:
             coll.remove(i)
             return
+
+
+def is_blender_version(version: str):
+    major, minor, subversion = version.split(".")
+    blender_version = bpy.app.version
+
+    v_test = int(major) * 1000000 + int(minor) * 1000 + int(subversion)
+    v_this = blender_version[0] * 1000000 + blender_version[1] * 1000 + blender_version[2]
+
+    print(v_test, v_this)
+
+    if v_this >= v_test:
+        return True
+    return False
 

@@ -649,6 +649,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_subsurface_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"hair_subsurface_radius"))
     hair_diffuse_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_diffuse_strength"))
     hair_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_ao_strength"))
+    hair_ao_occlude_all: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_ao_occlude_all"))
     hair_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_blend_multiply_strength"))
     hair_specular_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_specular_scale"))
     hair_roughness_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_roughness_strength"))
@@ -1129,8 +1130,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             cache.material_type = create_type
         return cache
 
-    def get_character_json(self):
+    def get_json_data(self):
         json_data = jsonutils.read_json(self.import_file)
+        return json_data
+
+    def get_character_json(self):
+        json_data = self.get_json_data()
         return jsonutils.get_character_json(json_data, self.import_name, self.character_id)
 
     def recast_type(self, collection, index, chr_json):
@@ -1238,6 +1243,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("ON","Physics","Automatically generates physics vertex groups and settings."),
                     ], default="OFF")
 
+    export_options: bpy.props.BoolProperty(default=False)
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)

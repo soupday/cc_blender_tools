@@ -130,6 +130,24 @@ def eval_tiling_param(texture_def, mat_cache, start_index = 4):
         return None
 
 
+def eval_parameters_func(parameters, func, args, default = None):
+    try:
+        # construct eval function code
+        exec_expression = func + "("
+        first = True
+        for arg in args:
+            if not first:
+                exec_expression += ", "
+            first = False
+            exec_expression += "parameters." + arg
+        exec_expression += ")"
+
+        return eval(exec_expression, None, locals())
+    except:
+        utils.log_error("eval_parameters_func(): error in expression: " + exec_expression)
+        return default
+
+
 def eval_prop(prop_name, mat_cache):
     try:
         parameters = mat_cache.parameters
@@ -210,8 +228,14 @@ def func_teeth_sss(r, f):
     r = r * vars.TEETH_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
+def func_mul(a, b):
+    return a * b
+
 def func_recip(v):
     return 1.0 / v
+
+def func_recip_2(v, w):
+    return 1.0 / (v * w)
 
 def func_emission_scale(v):
     return v * 100.0
@@ -232,6 +256,9 @@ def func_color_vector(jc: list):
             jc[i] /= 255.0
     return jc
 
+def func_export_byte3(c):
+    return [c[0] * 255.0, c[1] * 255.0, c[2] * 255.0]
+
 def func_occlusion_range(r, m):
     return utils.lerp(m, 1.0, r)
 
@@ -247,44 +274,37 @@ def func_one_minus(v):
 def func_sqrt(v):
     return math.sqrt(v)
 
-def func_corner_shadow_radius(v, u):
-    # 0.3 -> 0.275 = 0.91, ln(0.275)/ln(0.3) = 1.0723
-    # 0.13 -> 0.11 = 0.85,
-    #t = utils.inverse_lerp(0.13, 0.3, v)
-    #return utils.lerp(0.11, 0.275, t)
-    return v * u
+def func_pow_2(v):
+    return math.pow(v, 2.0)
 
-def func_iris_radius(v):
-    #return 0.15 * (0.16 / v)
-    return v
+def func_iris_scale(iris_uv_radius):
+    return 0.16 / iris_uv_radius
 
-def func_iris_scale(v, u):
-    return u * 0.16 / v
-
-def func_scale_1000(v):
+def func_divide_1000(v):
     return v / 1000.0
 
-def func_scale_100(v):
+def func_divide_100(v):
     return v / 100.0
 
-def func_scale_10(v):
-    return v / 10.0
+def func_mul_1000(v):
+    return v * 1000.0
 
-def func_scale_2(v):
-    return v / 2.0
-
-def func_scale_x10(v):
-    return v * 10.0
-
-def func_hair_ao(ao, occ):
-    return (ao + occ) / 2.0
+def func_mul_100(v):
+    return v * 100.0
 
 def func_limbus_dark_radius(limbus_dark_scale):
     t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
     return utils.lerp(0.155, 0.08, t) + 0.025
 
+def func_export_limbus_dark_scale(limbus_dark_radius):
+    t = utils.inverse_lerp(0.155, 0.08, limbus_dark_radius - 0.025)
+    return utils.clamp(utils.lerp(0.0, 10.0, t), 0, 10)
+
 def func_eye_depth(depth):
     return depth / 2.0
+
+def func_export_eye_depth(depth):
+    return depth * 2.0
 
 def func_index_1(values: list):
     return values[0] / 255.0
@@ -294,6 +314,9 @@ def func_index_2(values: list):
 
 def func_index_3(values: list):
     return values[2] / 255.0
+
+def func_export_combine_xyz(x, y, z):
+    return [x * 255.0, y * 255.0, z * 255.0]
 
 #
 # End Prop matrix eval, parameter conversion functions

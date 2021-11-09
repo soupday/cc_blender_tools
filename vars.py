@@ -16,7 +16,7 @@
 
 # Set by __init__.py from the bl_info dict
 
-VERSION_STRING = ""
+VERSION_STRING = "v0.0.0"
 
 def set_version_string(bl_info):
     global VERSION_STRING
