@@ -1434,6 +1434,7 @@ def get_texture_type(json_id):
     for tex_info in TEXTURE_TYPES:
         if tex_info[1] == json_id:
             return tex_info[0]
+    return "NONE"
 
 
 def get_texture_json_id(tex_type):

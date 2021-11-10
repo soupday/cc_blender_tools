@@ -36,7 +36,6 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
         json_data[new_name] = json_data.pop(chr_cache.import_name)
 
     chr_json = json_data[new_name]["Object"][new_name]
-    mesh_json = chr_json["Meshes"]
 
     # get a list of all materials in the export back to CC3
     export_mats = []
@@ -94,10 +93,11 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
                     mat_json = jsonutils.get_material_json(obj_json, mat)
                     # update the json parameters with any changes
                     mat_cache = chr_cache.get_material_cache(mat)
-                    if prefs.export_json_changes:
-                        write_back_json(mat_json, mat, mat_cache)
-                    if prefs.export_texture_changes:
-                        write_back_textures(mat_json, mat, mat_cache, old_path)
+                    if mat_cache:
+                        if prefs.export_json_changes:
+                            write_back_json(mat_json, mat, mat_cache)
+                        if prefs.export_texture_changes:
+                            write_back_textures(mat_json, mat, mat_cache, old_path)
                     # replace duplicate materials with a reference to a single source material
                     # (this is to ensure there are no duplicate suffixes in the fbx export)
                     if mat_count[mat_source_name] > 1:
@@ -146,12 +146,13 @@ def remap_texture_path(tex_info, old_path, new_path):
     return
 
 
-def restore_export(export_changes):
+def restore_export(export_changes : list):
     if not export_changes:
         return
-    # undo everything prep_export did...
+    # undo everything prep_export did (in reverse order)...
     # (but don't bother with the json data as it is temporary)
-    for info in export_changes:
+    while export_changes:
+        info = export_changes.pop()
         op = info[0]
         if op == "OBJECT_RENAME":
             obj = info[1]
@@ -177,49 +178,49 @@ def get_prop_value(mat_cache, prop_name, default):
 def write_back_json(mat_json, mat, mat_cache):
     shader_name = params.get_shader_lookup(mat_cache)
     shader_def = params.get_shader_def(shader_name)
+    if shader_def:
+        if "vars" in shader_def.keys():
+            for var_def in shader_def["vars"]:
+                prop_name = var_def[0]
+                prop_default = var_def[1]
+                func = var_def[2]
+                if func == "":
+                    args = var_def[3:]
+                    json_var = args[0]
+                    if json_var and json_var != "":
+                        prop_value = get_prop_value(mat_cache, prop_name, prop_default)
+                        jsonutils.set_material_json_var(mat_json, json_var, prop_value)
 
-    if "vars" in shader_def.keys():
-        for var_def in shader_def["vars"]:
-            prop_name = var_def[0]
-            prop_default = var_def[1]
-            func = var_def[2]
-            if func == "":
-                args = var_def[3:]
-                json_var = args[0]
-                if json_var and json_var != "":
-                    prop_value = get_prop_value(mat_cache, prop_name, prop_default)
-                    jsonutils.set_material_json_var(mat_json, json_var, prop_value)
-
-    if "export" in shader_def.keys():
-        for export_def in shader_def["export"]:
-            json_var = export_def[0]
-            json_default = export_def[1]
-            func = export_def[2]
-            args = export_def[3:]
-            json_value = shaders.eval_parameters_func(mat_cache.parameters, func, args, json_default)
-            jsonutils.set_material_json_var(mat_json, json_var, json_value)
+        if "export" in shader_def.keys():
+            for export_def in shader_def["export"]:
+                json_var = export_def[0]
+                json_default = export_def[1]
+                func = export_def[2]
+                args = export_def[3:]
+                json_value = shaders.eval_parameters_func(mat_cache.parameters, func, args, json_default)
+                jsonutils.set_material_json_var(mat_json, json_var, json_value)
 
 
 def write_back_textures(mat_json, mat, mat_cache, old_path):
     shader_name = params.get_shader_lookup(mat_cache)
     shader_def = params.get_shader_def(shader_name)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
-
-    # pbr textures:
-    for channel in mat_json["Textures"].keys():
-        tex_info = mat_json["Textures"][channel]
-        update_json_shader_texture(mat, tex_info, channel, shader_def, shader_node, old_path)
-
-    # custom shader textures:
-    if "Custom Shader" in mat_json.keys():
-        for channel in mat_json["Custom Shader"]["Image"].keys():
-            tex_info = mat_json["Custom Shader"]["Image"][channel]
+    if shader_def and shader_node:
+        # pbr textures:
+        for channel in mat_json["Textures"].keys():
+            tex_info = mat_json["Textures"][channel]
             update_json_shader_texture(mat, tex_info, channel, shader_def, shader_node, old_path)
+
+        # custom shader textures:
+        if "Custom Shader" in mat_json.keys():
+            for channel in mat_json["Custom Shader"]["Image"].keys():
+                tex_info = mat_json["Custom Shader"]["Image"][channel]
+                update_json_shader_texture(mat, tex_info, channel, shader_def, shader_node, old_path)
 
 
 def update_json_shader_texture(mat, tex_info, channel, shader_def, shader_node, old_path):
     tex_type = params.get_texture_type(channel)
-    if tex_type:
+    if tex_info and shader_def and shader_node and tex_type != "NONE":
         tex_socket = params.get_shader_texture_socket(shader_def, tex_type)
         if tex_socket:
             tex_node = nodeutils.get_node_connected_to_input(shader_node, tex_socket)
