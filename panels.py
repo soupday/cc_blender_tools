@@ -981,7 +981,6 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                 props.export_options):
             box.row().prop(prefs, "export_json_changes", expand=True)
             box.row().prop(prefs, "export_texture_changes", expand=True)
-            box.row().prop(prefs, "export_bone_roll_fix", expand=True)
         row = layout.row()
         op = row.operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory")
         op.param = "EXPORT_ACCESSORY"
