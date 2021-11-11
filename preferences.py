@@ -41,6 +41,7 @@ def reset_preferences():
     prefs.export_bone_roll_fix = False
     prefs.export_json_changes = True
     prefs.export_texture_changes = True
+    prefs.export_bake_nodes = True
 
 
 class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
@@ -116,9 +117,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     export_json_changes: bpy.props.BoolProperty(default=True, name="Material parameters", description="Export all material and shader parameter changes to the character Json data. Setting to False keeps original material and shader parameters.")
     export_texture_changes: bpy.props.BoolProperty(default=True, name="Textures", description="Export all texture changes to the character Json data. Setting to False keeps original textures.")
-    export_bone_roll_fix: bpy.props.BoolProperty(default=False, name="Teeth bone fix", description="Apply zero roll to upper and lower teeth bones to fix teeth alignment problems re-importing to CC3")
-
-
+    export_bone_roll_fix: bpy.props.BoolProperty(default=False, name="Teeth bone fix", description="(Experimental) Apply zero roll to upper and lower teeth bones to fix teeth alignment problems re-importing to CC3")
+    export_bake_nodes: bpy.props.BoolProperty(default=False, name="Bake custom nodes", description="(Very Experimental) Bake any custom nodes (non texture image) attached to shader texture map sockets on export.")
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
@@ -196,6 +196,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "export_json_changes")
         layout.prop(self, "export_texture_changes")
         layout.prop(self, "export_bone_roll_fix")
+        layout.prop(self, "export_bake_nodes")
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")
         op = layout.operator("cc3.setmaterials", icon="FILE_REFRESH", text="Reset to Defaults")

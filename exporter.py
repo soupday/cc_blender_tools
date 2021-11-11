@@ -19,7 +19,7 @@ import shutil
 
 import bpy
 
-from . import shaders, nodeutils, jsonutils, utils, params
+from . import bake, shaders, nodeutils, jsonutils, utils, params
 
 
 def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
@@ -134,6 +134,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
                             bone.roll = 0
                             utils.set_mode("OBJECT")
 
+    # as the baking system can deselect everything, reselect the export objects here.
+    utils.try_select_objects(objects, True)
     return changes
 
 
@@ -219,13 +221,19 @@ def write_back_textures(mat_json, mat, mat_cache, old_path):
 
 
 def update_json_shader_texture(mat, tex_info, channel, shader_def, shader_node, old_path):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
     tex_type = params.get_texture_type(channel)
     if tex_info and shader_def and shader_node and tex_type != "NONE":
         tex_socket = params.get_shader_texture_socket(shader_def, tex_type)
         if tex_socket:
             tex_node = nodeutils.get_node_connected_to_input(shader_node, tex_socket)
-            if tex_node and tex_node.type == "TEX_IMAGE":
-                image : bpy.types.Image = tex_node.image
+            if tex_node:
+                image = None
+                if tex_node.type == "TEX_IMAGE":
+                    image : bpy.types.Image = tex_node.image
+                elif prefs.export_bake_nodes:
+                    image = bake.bake_socket_input(shader_node, tex_socket, mat, channel, old_path)
                 if image:
                     image_path = bpy.path.abspath(image.filepath)
                     rel_path = os.path.normpath(os.path.relpath(image_path, old_path))

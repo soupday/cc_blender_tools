@@ -21,9 +21,224 @@ from . import nodeutils
 from . import utils
 from . import params
 
+old_samples = 64
+old_file_format = "PNG"
+old_view_transform = "Standard"
+old_look = "None"
+old_gamma = 1
+old_exposure = 0
+old_colorspace = "Raw"
+BAKE_SAMPLES = 4
+IMAGE_FORMAT = "PNG"
+IMAGE_EXT = ".png"
 
-def make_new_image(name, width, height, format, ext, dir, data, alpha):
-    img = bpy.data.images.new(name, width, height, alpha=alpha, is_data=data)
+
+def prep_bake():
+    global BAKE_SAMPLES, IMAGE_FORMAT, old_samples, old_file_format
+    global old_view_transform, old_look, old_gamma, old_exposure, old_colorspace
+
+    old_samples = bpy.context.scene.cycles.samples
+    old_file_format = bpy.context.scene.render.image_settings.file_format
+    old_view_transform = bpy.context.scene.view_settings.view_transform
+    old_look = bpy.context.scene.view_settings.look
+    old_gamma = bpy.context.scene.view_settings.gamma
+    old_exposure = bpy.context.scene.view_settings.exposure
+    old_colorspace = bpy.context.scene.sequencer_colorspace_settings.name
+
+    bpy.context.scene.cycles.samples = BAKE_SAMPLES
+    bpy.context.scene.render.use_bake_multires = False
+    bpy.context.scene.render.bake.use_selected_to_active = False
+    bpy.context.scene.render.bake.use_pass_direct = False
+    bpy.context.scene.render.bake.use_pass_indirect = False
+    bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
+    bpy.context.scene.render.bake.margin = 16
+    bpy.context.scene.render.bake.use_clear = True
+    bpy.context.scene.render.image_settings.file_format = IMAGE_FORMAT
+    bpy.context.scene.view_settings.view_transform = 'Standard' #'Raw'
+    bpy.context.scene.view_settings.look = 'None'
+    bpy.context.scene.view_settings.gamma = 1
+    bpy.context.scene.view_settings.exposure = 0
+    bpy.context.scene.sequencer_colorspace_settings.name = 'Raw'
+
+
+def post_bake():
+    global old_samples, old_file_format
+    global old_view_transform, old_look, old_gamma, old_exposure, old_colorspace
+
+    bpy.context.scene.cycles.samples = old_samples
+    bpy.context.scene.render.image_settings.file_format = old_file_format
+    bpy.context.scene.view_settings.view_transform = old_view_transform
+    bpy.context.scene.view_settings.look = old_look
+    bpy.context.scene.view_settings.gamma = old_gamma
+    bpy.context.scene.view_settings.exposure = old_exposure
+    bpy.context.scene.sequencer_colorspace_settings.name = old_colorspace
+
+
+def bake_socket_input(node, socket_name, mat, channel_id, bake_dir):
+
+    # determine the size of the image to bake onto
+    width, height = get_largest_texture_to_socket(node, socket_name)
+    if width == 0:
+        width = 1024
+    if height == 0:
+        height = 1024
+
+    # determine image name and color space
+    image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id
+    is_data = True
+    if "Diffuse Map" in socket_name:
+        is_data = False
+
+    # deselect everything
+    bpy.ops.object.select_all(action='DESELECT')
+    # create the baking plane, a single quad baking surface for an even sampling across the entire texture
+    bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
+    bake_surface = bpy.context.active_object
+
+    # go into wireframe mode (so Blender doesn't update or recompile the material shaders while
+    # we manipulate them for baking, and also so Blender doesn't fire up the cycles viewport...):
+    shading = bpy.context.space_data.shading.type
+    bpy.context.space_data.shading.type = 'WIREFRAME'
+    # set cycles rendering mode for baking
+    engine = bpy.context.scene.render.engine
+    bpy.context.scene.render.engine = 'CYCLES'
+
+    # attach the material to bake to the baking surface plane
+    # (the baking plane also ensures that only one material is baked onto only one target image)
+    if len(bake_surface.data.materials) == 0:
+        bake_surface.data.materials.append(mat)
+    else:
+        bake_surface.data.materials[0] = mat
+
+    # get the node and output socket to bake from
+    source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(node, socket_name)
+
+    # make (and save) the target image
+    image = get_image_target(image_name, width, height, bake_dir, is_data, True)
+
+    # bake the source node output onto the target image and re-save it
+    image_node = bake_output(mat, source_node, source_socket, image, image_name)
+
+    # reconnect the custom nodes to the shader socket
+    nodeutils.link_nodes(mat.node_tree.links, source_node, source_socket, node, socket_name)
+
+    # remove the bake surface and restore the render settings
+    bpy.data.objects.remove(bake_surface)
+    bpy.context.scene.render.engine = engine
+    bpy.context.space_data.shading.type = shading
+
+    return image
+
+
+def bake_output(mat, source_node, source_socket, image, image_name):
+    global BAKE_SAMPLES
+
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    output_node = nodeutils.find_node_by_type(nodes, "OUTPUT_MATERIAL")
+    output_source, output_source_socket = nodeutils.get_node_and_socket_connected_to_input(output_node, "Surface")
+
+    image_node = nodeutils.make_image_node(nodes, image, "bake")
+    image_node.name = image_name
+
+    bpy.context.scene.cycles.samples = BAKE_SAMPLES
+    utils.log_info("Baking: " + image_name)
+
+    prep_bake()
+
+    nodeutils.link_nodes(links, source_node, source_socket, output_node, "Surface")
+    image_node.select = True
+    nodes.active = image_node
+    bpy.ops.object.bake(type='COMBINED')
+
+    image.save_render(filepath = image.filepath, scene = bpy.context.scene)
+    image.reload()
+
+    post_bake()
+
+    if output_source:
+        nodeutils.link_nodes(links, output_source, output_source_socket, output_node, "Surface")
+
+    return image_node
+
+
+def get_largest_texture_to_node(node, done):
+    largest_width = 0
+    largest_height = 0
+    socket : bpy.types.NodeSocket
+    for socket in node.inputs:
+        if socket.is_linked:
+            width, height = get_largest_texture_to_socket(node, socket.name, done)
+            if width > largest_width:
+                largest_width = width
+            if height > largest_height:
+                largest_height = height
+    return largest_width, largest_height
+
+
+def get_largest_texture_to_socket(node, socket, done = None):
+    if done is None:
+        done = []
+
+    connected_node = nodeutils.get_node_connected_to_input(node, socket)
+    if connected_node is None or connected_node in done:
+        return 0, 0
+
+    done.append(connected_node)
+
+    if connected_node.type == "TEX_IMAGE":
+        return get_tex_image_size(connected_node)
+    else:
+        return get_largest_texture_to_node(connected_node, done)
+
+
+def get_tex_image_size(node):
+    if node is not None:
+        return node.image.size[0], node.image.size[1]
+    return 0, 0
+
+
+def get_image_target(image_name, width, height, dir, data = True, alpha = False):
+    global IMAGE_FORMAT, IMAGE_EXT
+
+    format = IMAGE_FORMAT
+    ext = IMAGE_EXT
+    depth = 32
+
+    # find an old image with the same name to reuse:
+    for img in bpy.data.images:
+        if img.name == image_name:
+
+            img_path, img_file = os.path.split(img.filepath)
+            same_path = False
+            try:
+                if os.path.samefile(dir, img_path):
+                    same_path = True
+            except:
+                same_path = False
+
+            if img.file_format == format and img.depth == depth and same_path:
+                utils.log_info("Reusing image: " + image_name)
+                try:
+                    if img.size[0] != width or img.size[1] != height:
+                        img.scale(width, height)
+                    return img
+                except:
+                    utils.log_info("Bad image: " + img.name)
+                    bpy.data.images.remove(img)
+            else:
+                utils.log_info("Wrong path or format: " + img.name + ", " + img_path + "==" + dir + "?, " + img.file_format + "==" + format + "?, depth: " + str(depth) + "==" + str(img.depth) + "?")
+                bpy.data.images.remove(img)
+
+    # or just make a new one:
+    utils.log_info("Creating new image: " + image_name + " size: " + str(width))
+    img = make_new_image(image_name, width, height, format, ext, dir, data, alpha)
+    return img
+
+
+def make_new_image(name, width, height, format, ext, dir, is_data, has_alpha):
+    img = bpy.data.images.new(name, width, height, alpha=has_alpha, is_data=is_data)
     img.pixels[0] = 0
     img.file_format = format
     dir = os.path.join(bpy.path.abspath("//"), dir)

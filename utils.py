@@ -418,6 +418,13 @@ def try_select_object(obj):
         pass
 
 
+def try_select_objects(objects, clear_selection = False):
+    if clear_selection:
+        bpy.ops.object.select_all(action='DESELECT')
+    for obj in objects:
+        try_select_object(obj)
+
+
 def remove_from_collection(coll, item):
     for i in range(0, len(coll)):
         if coll[i] == item:
