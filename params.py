@@ -757,13 +757,13 @@ SHADER_MATRIX = [
             ["Cornea Roughness", "", "eye_cornea_roughness"],
             ["Iris Roughness", "", "eye_iris_roughness"],
             ["Sclera Roughness", "", "eye_sclera_roughness"],
-            ["AO Strength", "", "eye_ao_strength"],
+            ["AO Strength", "func_set_half", "eye_ao_strength"],
             ["Sclera Scale", "", "eye_sclera_scale"],
             ["Sclera Hue", "", "eye_sclera_hue"],
             ["Sclera Saturation", "", "eye_sclera_saturation"],
             ["Sclera Brightness", "", "eye_sclera_brightness"],
             ["Sclera HSV Strength", "", "eye_sclera_hsv"],
-            ["Iris Scale", "", "eye_iris_scale"],
+            ["Iris Scale", "func_set_iris_scale", "eye_iris_scale"],
             ["Iris Hue", "", "eye_iris_hue"],
             ["Iris Saturation", "", "eye_iris_saturation"],
             ["Iris Brightness", "", "eye_iris_brightness"],
@@ -777,7 +777,7 @@ SHADER_MATRIX = [
             ["Shadow Radius", "", "eye_shadow_radius"],
             ["Shadow Hardness", "", "eye_shadow_hardness"],
             ["Corner Shadow Color", "", "eye_corner_shadow_color"],
-            ["Color Blend Strength", "", "eye_color_blend_strength"],
+            ["Color Blend Strength", "func_set_half", "eye_color_blend_strength"],
             ["Sclera Emissive Color", "", "eye_sclera_emissive_color"],
             ["Sclera Emission Strength", "func_emission_scale", "eye_sclera_emission_strength"],
             ["Iris Emissive Color",  "","eye_iris_emissive_color"],
@@ -807,9 +807,9 @@ SHADER_MATRIX = [
         # texture inputs:
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
         "textures": [
-            ["Sclera Diffuse Map", "", "SCLERA", "CENTERED", "func_recip", "eye_sclera_scale"],
+            ["Sclera Diffuse Map", "", "SCLERA", "CENTERED", "func_tiling", "eye_sclera_scale"],
             # EYE_PARALLAX tells it to use a parallax mapping node, unless in SSR mode in which it behaves as a CENTERED mapping node
-            ["Cornea Diffuse Map", "", "DIFFUSE", "EYE_PARALLAX", "func_recip_2", "eye_iris_scale", "eye_sclera_scale"],
+            ["Cornea Diffuse Map", "", "DIFFUSE", "EYE_PARALLAX", "func_set_iris_tiling", "eye_iris_scale", "eye_sclera_scale"],
             ["Color Blend Map", "", "EYEBLEND"],
             ["AO Map", "", "AO"],
             ["Metallic Map", "", "METALLIC"],
@@ -819,11 +819,11 @@ SHADER_MATRIX = [
         ],
         "mapping": [
             ["DIFFUSE"], # The Parallax mapping node is updated with these params, not the mapping params in the textures above.
-            ["EYE_PARALLAX", "Iris Scale", "func_mul", "eye_iris_scale", "eye_sclera_scale"],
+            ["EYE_PARALLAX", "Iris Scale", "func_set_iris_scale", "eye_iris_scale", "eye_sclera_scale"],
             ["EYE_PARALLAX", "Iris Radius", "", "eye_iris_radius"],
             ["EYE_PARALLAX", "Pupil Scale", "", "eye_pupil_scale"],
             ["EYE_PARALLAX", "Depth Radius", "", "eye_iris_depth_radius"],
-            ["EYE_PARALLAX", "Depth", "", "eye_iris_depth"],
+            ["EYE_PARALLAX", "Depth", "func_set_parallax_iris_depth", "eye_iris_depth"],
             ["EYE_PARALLAX", "IOR", "", "eye_ior"],
         ],
         # shader variables:
@@ -834,19 +834,19 @@ SHADER_MATRIX = [
             ["eye_shadow_hardness", 0.5, "", "Custom/Shadow Hardness"],
             ["eye_cornea_specular", 0.8, "", "Custom/Specular Scale"],
             ["eye_corner_shadow_color", (1.0, 0.497, 0.445, 1.0), "func_color_srgb", "Custom/Eye Corner Darkness Color"],
-            ["eye_iris_depth", 0.3, "func_eye_depth", "Custom/Iris Depth Scale"],
+            ["eye_iris_depth", 0.3, "func_get_eye_depth", "Custom/Iris Depth Scale"],
             ["eye_cornea_roughness", 0, "", "Custom/_Iris Roughness"],
             ["eye_iris_brightness", 1, "", "Custom/Iris Color Brightness"],
             ["eye_pupil_scale", 1, "", "Custom/Pupil Scale"],
             ["eye_ior", 1.4, "", "Custom/_IoR"],
-            ["eye_iris_scale", 0.93, "func_iris_scale", "Custom/Iris UV Radius"],
+            ["eye_iris_scale", 1, "func_get_iris_scale", "Custom/Iris UV Radius"],
             ["eye_iris_radius", 0.16, "", "Custom/Iris UV Radius"],
             ["eye_limbus_width", 0.055, "", "Custom/Limbus UV Width Color"],
-            ["eye_limbus_dark_radius", 0.106, "func_limbus_dark_radius", "Custom/Limbus Dark Scale"],
+            ["eye_limbus_dark_radius", 0.13125, "func_limbus_dark_radius", "Custom/Limbus Dark Scale"],
             ["eye_sclera_brightness", 0.650, "", "Custom/ScleraBrightness"],
             ["eye_sclera_roughness", 0.2, "", "Custom/Sclera Roughness"],
             ["eye_sclera_normal_strength", 0.1, "func_one_minus", "Custom/Sclera Flatten Normal"],
-            ["eye_sclera_normal_tiling", 2, "func_recip", "Custom/Sclera Normal UV Scale"],
+            ["eye_sclera_normal_tiling", 2, "func_tiling", "Custom/Sclera Normal UV Scale"],
             ["eye_sclera_scale", 0.93, "", "Custom/Sclera UV Radius"],
             ["eye_ao_strength", 0.2, "", "Pbr/AO"],
             ["eye_normal_strength", 1, "", "Pbr/Normal"],
@@ -872,15 +872,12 @@ SHADER_MATRIX = [
         ],
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
-
-
-
         "export": [
             ["Custom/Limbus Dark Scale", 6.5, "func_export_limbus_dark_scale", "eye_limbus_dark_radius"],
             ["Custom/Eye Corner Darkness Color", [255.0, 188.0, 179.0], "func_export_byte3", "eye_corner_shadow_color"],
             ["Custom/Iris Depth Scale", 0.3, "func_export_eye_depth", "eye_iris_depth"],
             ["Custom/Sclera Flatten Normal", 0.9, "func_one_minus", "eye_sclera_normal_strength"],
-            ["Custom/Sclera Normal UV Scale", 0.5, "func_recip", "eye_sclera_normal_tiling"],
+            ["Custom/Sclera Normal UV Scale", 0.5, "func_tiling", "eye_sclera_normal_tiling"],
             ["SSS/Falloff", [255.0, 255.0, 255.0], "func_export_byte3", "eye_subsurface_falloff"],
         ],
         "ui": [
@@ -1284,7 +1281,7 @@ SHADER_MATRIX = [
             ["hair_anisotropic_strength", 0.8, "", "Custom/Specular Strength"],
             ["hair_anisotropic_strength2", 1.0, "", "Custom/Secondary Specular Strength"],
             ["hair_vertex_color", (0,0,0,1), "func_color_linear", "Custom/VertexGrayToColor"],
-            ["hair_vertex_color_strength", 0.875, "", "Custom/VertexColorStrength"],
+            ["hair_vertex_color_strength", 0, "", "Custom/VertexColorStrength"],
             ["hair_enable_color", 0, "", "Custom/ActiveChangeHairColor"],
             ["hair_base_color_strength", 1, "", "Custom/BaseColorMapStrength"],
             ["hair_root_color", (0.144129, 0.072272, 0.046665, 1.0), "func_color_linear", "Custom/RootColor"],

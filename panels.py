@@ -273,9 +273,9 @@ def fake_drop_down(row, label, prop_name, prop_bool_value):
     return prop_bool_value
 
 
-class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
-    bl_idname = "CC3_PT_Material_Settings_Panel"
-    bl_label = "Build Settings"
+class CC3CharacterSettingsPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Character_Settings_Panel"
+    bl_label = "Character Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "CC3"
@@ -324,29 +324,28 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         else:
             box.label(text="No Character")
 
-        layout.box().label(text="Build Materials", icon="MOD_BUILD")
-        layout.prop(props, "setup_mode", expand=True)
+        layout.box().label(text="Build Settings", icon="TOOL_SETTINGS")
         layout.prop(prefs, "render_target", expand=True)
-        #layout.prop(props, "blend_mode", expand=True)
-        layout.prop(props, "build_mode", expand=True)
-
-        # Prefs:
-        box = layout.box()
-        box.label(text="Eye Refraction")
-        box.row().prop(prefs, "refractive_eyes", expand=True)
+        layout.prop(prefs, "refractive_eyes", expand=True)
 
         # Build Button
         if chr_cache:
             box = layout.box()
-            box.scale_y = 2
+            box.row().label(text="Rebuild Materials", icon="MOD_BUILD")
+            row = box.row()
+            row.scale_y = 2
             if props.setup_mode == "ADVANCED":
-                op = box.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Advanced Materials")
+                op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Advanced Materials")
             else:
-                op = box.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Basic Materials")
+                op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Basic Materials")
             op.param ="BUILD"
+            row = box.row()
+            row.prop(props, "setup_mode", expand=True)
+            row = box.row()
+            row.prop(props, "build_mode", expand=True)
 
         # Material Setup
-        layout.box().label(text="Material Setup", icon="MATERIAL")
+        layout.box().label(text="Object & Material Setup", icon="MATERIAL")
         column = layout.column()
         if not mesh_in_selection:
             column.enabled = False
@@ -391,7 +390,7 @@ class CC3ToolsMaterialSettingsPanel(bpy.types.Panel):
         op.param = "DOUBLE_SIDED"
 
 
-class CC3ToolsParametersPanel(bpy.types.Panel):
+class CC3MaterialParametersPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Parameters_Panel"
     bl_label = "Material Parameters"
     bl_space_type = "VIEW_3D"
@@ -959,20 +958,20 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                 layout.prop(props, "physics_mode", expand=True)
 
         box = layout.box()
-        box.label(text="Render / Animation", icon="RENDER_RESULT")
+        box.label(text="Importing", icon="IMPORT")
         row = layout.row()
         row.scale_y = 2
-        op = row.operator("cc3.importer", icon="IMPORT", text="Import Character")
-        op.param = "IMPORT_QUALITY"
+        op = row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Import Character")
+        op.param = "IMPORT"
 
         box = layout.box()
-        box.label(text="Character Editing", icon="OUTLINER_OB_ARMATURE")
+        box.label(text="Exporting", icon="EXPORT")
         row = layout.row()
-        op = row.operator("cc3.importer", icon="IMPORT", text="Import For Editing")
-        op.param = "IMPORT_MORPH"
-        row = layout.row()
-        op = row.operator("cc3.exporter", icon="EXPORT", text="Export To CC3")
-        op.param = "EXPORT_MORPH"
+        row.scale_y = 2
+        op = row.operator("cc3.exporter", icon="MOD_ARMATURE", text="Export To CC3")
+        op.param = "EXPORT_CC3"
+        if not chr_cache or not chr_cache.import_has_key:
+            row.enabled = False
         # export prefs
         box = layout.box()
         if fake_drop_down(box.row(),
@@ -981,10 +980,11 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                 props.export_options):
             box.row().prop(prefs, "export_json_changes", expand=True)
             box.row().prop(prefs, "export_texture_changes", expand=True)
+            box.row().prop(prefs, "export_bone_roll_fix", expand=True)
         row = layout.row()
         op = row.operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory")
         op.param = "EXPORT_ACCESSORY"
-        if not chr_cache or not chr_cache.import_has_key:
+        if not chr_cache:
             row.enabled = False
 
         layout.separator()

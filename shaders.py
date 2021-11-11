@@ -219,9 +219,10 @@ def func_eye_sss(r, f):
 
 def func_hair_sss(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    r = r * vars.HAIR_SSS_RADIUS_SCALE
     if prefs.render_target == "CYCLES":
-        r = r / 10.0
+        r = r * vars.HAIR_SSS_RADIUS_SCALE_CYCLES
+    else:
+        r = r * vars.HAIR_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
 def func_teeth_sss(r, f):
@@ -231,14 +232,11 @@ def func_teeth_sss(r, f):
 def func_mul(a, b):
     return a * b
 
-def func_recip(v):
-    return 1.0 / v
-
-def func_recip_2(v, w):
-    return 1.0 / (v * w)
+def func_tiling(scale):
+    return 1.0 / scale
 
 def func_emission_scale(v):
-    return v * 100.0
+    return v * vars.EMISSION_SCALE
 
 def func_color_linear(jc: list):
     return [ jc[0] / 255.0, jc[1] / 255.0, jc[2] / 255.0, 1.0 ]
@@ -277,8 +275,20 @@ def func_sqrt(v):
 def func_pow_2(v):
     return math.pow(v, 2.0)
 
-def func_iris_scale(iris_uv_radius):
+def func_set_iris_scale(a, b):
+    return a * b * vars.IRIS_SCALE_ADJUST
+
+def func_set_iris_tiling(v, w):
+    return 1.0 / (func_set_iris_scale(v, w))
+
+def func_get_iris_scale(iris_uv_radius):
     return 0.16 / iris_uv_radius
+
+def func_set_iris_scale(s):
+    return s * vars.IRIS_SCALE_ADJUST
+
+def func_set_half(s):
+    return s * 0.5
 
 def func_divide_1000(v):
     return v / 1000.0
@@ -300,11 +310,14 @@ def func_export_limbus_dark_scale(limbus_dark_radius):
     t = utils.inverse_lerp(0.155, 0.08, limbus_dark_radius - 0.025)
     return utils.clamp(utils.lerp(0.0, 10.0, t), 0, 10)
 
-def func_eye_depth(depth):
-    return depth / 2.0
+def func_get_eye_depth(depth):
+    return (depth / 2.0)
 
 def func_export_eye_depth(depth):
-    return depth * 2.0
+    return (depth) * 2.0
+
+def func_set_parallax_iris_depth(depth):
+    return depth
 
 def func_index_1(values: list):
     return values[0] / 255.0

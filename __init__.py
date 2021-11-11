@@ -112,8 +112,8 @@ classes = (
     panels.CC3OperatorPhysics,
     panels.CC3OperatorMaterial,
     panels.CC3ToolsPipelinePanel,
-    panels.CC3ToolsMaterialSettingsPanel,
-    panels.CC3ToolsParametersPanel,
+    panels.CC3CharacterSettingsPanel,
+    panels.CC3MaterialParametersPanel,
     panels.CC3ToolsPhysicsPanel,
     panels.CC3ToolsScenePanel,
 

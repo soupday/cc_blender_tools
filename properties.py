@@ -483,7 +483,7 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_hsv: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hsv"))
     eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.01, max=0.16, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
     eye_limbus_width: bpy.props.FloatProperty(default=0.055, min=0.01, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_width"))
-    eye_limbus_dark_radius: bpy.props.FloatProperty(default=0.1, min=0.01, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_dark_radius"))
+    eye_limbus_dark_radius: bpy.props.FloatProperty(default=0.13125, min=0.01, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_dark_radius"))
     eye_limbus_dark_width: bpy.props.FloatProperty(default=0.025, min=0.01, max=0.1, update=lambda s,c: update_property(s,c,"eye_limbus_dark_width"))
     eye_limbus_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.0, 0.0, 0.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_limbus_color"))
@@ -505,7 +505,7 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_ior: bpy.props.FloatProperty(default=1.4, min=1.01, max=2.5, update=lambda s,c: update_property(s,c,"eye_ior"))
     eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
-    eye_iris_depth: bpy.props.FloatProperty(default=0.9, min=0.0, max=2.5, update=lambda s,c: update_property(s,c,"eye_iris_depth"))
+    eye_iris_depth: bpy.props.FloatProperty(default=0.45, min=0, max=1.25, update=lambda s,c: update_property(s,c,"eye_iris_depth"))
     eye_iris_depth_radius: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_depth_radius"))
     eye_pupil_scale: bpy.props.FloatProperty(default=0.8, min=0.5, max=4.0, update=lambda s,c: update_property(s,c,"eye_pupil_scale"))
 
@@ -1185,8 +1185,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     node_id: bpy.props.IntProperty(default=1000)
 
     build_mode: bpy.props.EnumProperty(items=[
-                        ("IMPORTED","All Imported","Build materials for all the imported objects."),
-                        ("SELECTED","Only Selected","Build materials only for the selected objects.")
+                        ("IMPORTED","All Imported","Rebuild materials for all the imported objects."),
+                        ("SELECTED","Only Selected","Rebuild materials only for the selected objects.")
                     ], default="IMPORTED")
 
     blend_mode: bpy.props.EnumProperty(items=[

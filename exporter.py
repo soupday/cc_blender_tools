@@ -267,8 +267,8 @@ class CC3Export(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
 
-        if self.param == "EXPORT_MORPH" or self.param == "EXPORT":
-            export_anim = self.use_anim and self.param != "EXPORT_MORPH"
+        if self.param == "EXPORT_CC3":
+            export_anim = False
             dir, name = os.path.split(self.filepath)
             type = name[-3:].lower()
             name = name[:-4]
@@ -279,13 +279,9 @@ class CC3Export(bpy.types.Operator):
 
             if type == "fbx":
 
-                json_data = None
+                json_data = chr_cache.get_json_data()
 
-                # don't bring anything else with a morph export
-                if self.param == "EXPORT_MORPH" and chr_cache.import_has_key:
-                    bpy.ops.object.select_all(action='DESELECT')
-                    json_data = chr_cache.get_json_data()
-
+                # select all the objects in the character (or try to)
                 for p in chr_cache.object_cache:
                     if p.object is not None:
                         if p.object.type == "ARMATURE":
@@ -293,14 +289,13 @@ class CC3Export(bpy.types.Operator):
                         else:
                             utils.try_select_object(p.object)
 
-                export_changes = None
-                if self.param == "EXPORT_MORPH":
-                    export_changes = prep_export(chr_cache, name, bpy.context.selected_objects, json_data, chr_cache.import_dir, dir)
+                export_changes = prep_export(chr_cache, name, bpy.context.selected_objects, json_data, chr_cache.import_dir, dir)
 
                 bpy.ops.export_scene.fbx(filepath=self.filepath,
                         use_selection = True,
                         bake_anim = export_anim,
-                        add_leaf_bones=False)
+                        add_leaf_bones = False,
+                        use_mesh_modifiers = False)
 
                 if chr_cache.import_has_key:
                     try:
@@ -312,38 +307,37 @@ class CC3Export(bpy.types.Operator):
                     except Exception as e:
                         utils.log_error("Unable to copy keyfile: " + chr_cache.import_key_file + " to: " + new_key_path, e)
 
-                if self.param == "EXPORT_MORPH" and json_data:
+                if json_data:
                     new_json_path = os.path.join(dir, name + ".json")
                     jsonutils.write_json(json_data, new_json_path)
 
-                if self.param == "EXPORT_MORPH":
-                    restore_export(export_changes)
+                restore_export(export_changes)
 
             else:
 
-                # don't bring anything else with a morph export
-                if self.param == "EXPORT_MORPH" and chr_cache.import_has_key:
-                    bpy.ops.object.select_all(action='DESELECT')
+                # don't bring anything else with an obj morph export
+                bpy.ops.object.select_all(action='DESELECT')
 
-                # select all the imported objects
+                # select all the imported objects (should be just one)
                 for p in chr_cache.object_cache:
                     if p.object is not None and p.object.type == "MESH":
                         p.object.select_set(True)
 
-                if self.param == "EXPORT_MORPH":
-                    bpy.ops.export_scene.obj(filepath=self.filepath,
-                            use_selection = True,
-                            global_scale = 100,
-                            use_materials = False,
-                            keep_vertex_order = True,
-                            use_vertex_groups = True)
-                else:
-                    bpy.ops.export_scene.obj(filepath=self.filepath,
-                            use_selection = True,
-                            global_scale = 100,
-                            use_materials = True,
-                            keep_vertex_order = True,
-                            use_vertex_groups = True)
+                bpy.ops.export_scene.obj(filepath=self.filepath,
+                    use_selection = True,
+                    global_scale = 100,
+                    use_materials = False,
+                    keep_vertex_order = True,
+                    use_vertex_groups = True,
+                    use_mesh_modifiers = False)
+
+                # export options for full obj character
+                #bpy.ops.export_scene.obj(filepath=self.filepath,
+                #    use_selection = True,
+                #    global_scale = 100,
+                #    use_materials = True,
+                #    keep_vertex_order = True,
+                #    use_vertex_groups = True)
 
                 if chr_cache.import_has_key:
                     try:
@@ -434,7 +428,7 @@ class CC3Export(bpy.types.Operator):
     @classmethod
     def description(cls, context, properties):
 
-        if properties.param == "EXPORT_MORPH":
+        if properties.param == "EXPORT_CC3":
             return "Export full character to import back into CC3"
         elif properties.param == "EXPORT_ACCESSORY":
             return "Export selected object(s) for import into CC3 as accessories"

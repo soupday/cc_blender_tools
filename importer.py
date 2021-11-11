@@ -444,9 +444,6 @@ class CC3Import(bpy.types.Operator):
         utils.log_info("--------------------------")
 
         import_anim = self.use_anim
-        # don't import animation data if importing for morph/accessory
-        if self.param == "IMPORT_MORPH":
-            import_anim = False
 
         dir, name = os.path.split(self.filepath)
         type = name[-3:].lower()
@@ -566,20 +563,39 @@ class CC3Import(bpy.types.Operator):
 
         utils.log_timer("Done Build.", "s")
 
+
+    def detect_import_mode(self):
+        # detect if we are importing a character for morph/accessory editing (i.e. has a key file)
+        dir, name = os.path.split(self.filepath)
+        type = name[-3:].lower()
+        name = name[:-4]
+
+        if type == "obj":
+            obj_key_path = os.path.join(dir, name + ".ObjKey")
+            if os.path.exists(obj_key_path):
+                self.param = "IMPORT_MORPH"
+                utils.log_info("Importing as morph with ObjKey.")
+                return
+        elif type == "fbx":
+            obj_key_path = os.path.join(dir, name + ".fbxkey")
+            if os.path.exists(obj_key_path):
+                self.param = "IMPORT_MORPH"
+                utils.log_info("Importing as character/morph with fbxkey.")
+                return
+        utils.log_info("Importing for rendering without key file.")
+        self.param = "IMPORT_QUALITY"
+
+
     def run_import(self, context):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-        # use basic materials for morph/accessory editing as it has better viewport performance
+        self.detect_import_mode()
+
         if self.param == "IMPORT_MORPH":
             setup_mode = prefs.morph_mode
-        elif self.param == "IMPORT_ACCESSORY":
-            setup_mode = prefs.pipeline_mode
-        # use advanced materials for quality/rendering
-        elif self.param == "IMPORT_QUALITY":
-            setup_mode = prefs.quality_mode
         else:
-            setup_mode = props.setup_mode
+            setup_mode = prefs.quality_mode
 
         self.import_character()
 
@@ -595,7 +611,6 @@ class CC3Import(bpy.types.Operator):
                 chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
                 if self.param == "IMPORT_MORPH" and not chr_cache.import_has_key:
                     warn = "This character export does not have an .fbxkey file, it cannot be used to create character morphs in CC3."
-
 
             # check for objkey
             if chr_cache.import_type == "obj":
@@ -769,25 +784,20 @@ class CC3Import(bpy.types.Operator):
 
     @classmethod
     def description(cls, context, properties):
-        if properties.param == "IMPORT":
-            return "Import a new .fbx or .obj character exported by Character Creator 3"
-        elif properties.param == "REIMPORT":
-            return "Rebuild the materials from the last import with the current settings"
-        elif properties.param == "IMPORT_MORPH":
-            return "Import .fbx or .obj character from CC3 for morph creation. This does not import any animation data.\n" \
+        if "IMPORT" in properties.param:
+            return "Import a new .fbx or .obj character exported by Character Creator 3.\n" \
                    "Notes for exporting from CC3:\n" \
-                   "1. For best results for morph creation export FBX: 'Mesh Only' or OBJ: Nude Character in Bind Pose, as these guarantee .fbxkey or .objkey generation.\n" \
-                   "2. OBJ export 'Nude Character in Bind Pose' .obj does not export any materials.\n" \
-                   "3. OBJ export 'Character with Current Pose' does not create an .objkey and cannot be used for morph creation.\n" \
-                   "4. FBX export with motion in 'Current Pose' or 'Custom Motion' also does not export an .fbxkey and cannot be used for morph creation"
+                   " - For round trip-editing (exporting character back to CC3), export as FBX: 'Mesh Only' or 'Mesh and Motion' with Calibration, from CC3, as this guarantees generation of the .fbxkey file needed to re-import the character back to CC3.\n" \
+                   " - For creating morph sliders, export as OBJ: Nude Character in Bind Pose from CC3, as this is the only way to generate the .ObjKey file for morph slider creation in CC3.\n" \
+                   " - FBX export with motion in 'Current Pose' or 'Custom Motion' does not export an .fbxkey and cannot be exported back to CC3.\n" \
+                   " - OBJ export 'Character with Current Pose' does not create an .objkey and cannot be exported back to CC3.\n" \
+                   " - OBJ export 'Nude Character in Bind Pose' .obj does not export any materials"
         elif properties.param == "IMPORT_ACCESSORY":
             return "Import .fbx or .obj character from CC3 for accessory creation. This will import current pose or animation.\n" \
                    "Notes for exporting from CC3:\n" \
                    "1. OBJ or FBX exports in 'Current Pose' are good for accessory creation as they import back into CC3 in exactly the right place"
-        elif properties.param == "IMPORT_QUALITY":
-            return "Import .fbx or .obj character from CC3 for rendering"
         elif properties.param == "BUILD":
-            return "Build (or Rebuild) materials for the current imported character with the current build settings"
+            return "Rebuild materials for the current imported character with the current build settings"
         elif properties.param == "DELETE_CHARACTER":
             return "Removes the character and any associated objects, meshes, materials, nodes, images, armature actions and shapekeys. Basically deletes everything not nailed down.\n**Do not press this if there is anything you want to keep!**"
         elif properties.param == "REBUILD_NODE_GROUPS":

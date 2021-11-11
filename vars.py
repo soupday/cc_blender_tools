@@ -27,7 +27,10 @@ UNIT_SCALE = 0.01
 SKIN_SSS_RADIUS_SCALE = 0.01
 TEETH_SSS_RADIUS_SCALE = 0.01
 HAIR_SSS_RADIUS_SCALE = 0.01
+HAIR_SSS_RADIUS_SCALE_CYCLES = 0.001
 EYE_SSS_RADIUS_SCALE = 0.01
+IRIS_SCALE_ADJUST = 1.08
+EMISSION_SCALE = 100
 
 # https://docs.blender.org/manual/en/latest/files/media/image_formats.html
 IMAGE_TYPES = [".bmp", ".sgi", ".rgb", ".bw", ".png", ".jpg", ".jpeg", ".jp2", ".j2c",
