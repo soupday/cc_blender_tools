@@ -42,7 +42,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
     for obj in objects:
         if obj.type == "MESH":
             for mat in obj.data.materials:
-                if mat not in export_mats:
+                if mat and mat not in export_mats:
                     export_mats.append(mat)
 
     # get a use count of each material source name (stripped of any blender duplicate name suffixes)
