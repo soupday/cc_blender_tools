@@ -525,27 +525,35 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         is_import_material = mat_cache is not None
 
         # External object selected with character
-
-        if chr_cache and obj_cache is None:
-
-            layout.box().label(text="External Object", icon="OBJECT_HIDDEN")
-            column = layout.column()
-            op = column.operator("cc3.objects", icon="ADD", text="Add To Character")
-            op.param = "ADD_PBR"
-
-        if chr_cache and obj_cache:
-            if obj.type == "MESH":
-                missing = False
-                for m in obj.data.materials:
-                    if m:
-                        mc = chr_cache.get_material_cache(m)
-                        if not mc:
-                            missing = True
-                            break
-                if missing:
-                    column = layout.column()
-                    op = column.operator("cc3.objects", icon="ADD", text="Add Materials")
-                    op.param = "ADD_PBR"
+        # As this is getting too complicated for 1.1.0 release:
+        #   Todo:   it needs it's own panel Character Objects Panel...
+        #           needs to deal with armature parenting (transfering or adding), armature modifiers
+        #           needs to write new json on export...
+        #           add/remove object from character
+        #           add missing materials on objects missing from character
+        #           remove missing materials in character but not on objects...
+        #           transfer/copy skin weights to objects...
+        #
+        #if chr_cache and obj_cache is None:
+        #
+        #    layout.box().label(text="External Object", icon="OBJECT_HIDDEN")
+        #    column = layout.column()
+        #    op = column.operator("cc3.objects", icon="ADD", text="Add To Character")
+        #    op.param = "ADD_PBR"
+        #
+        #if chr_cache and obj_cache:
+        #    if obj.type == "MESH":
+        #        missing = False
+        #        for m in obj.data.materials:
+        #            if m:
+        #                mc = chr_cache.get_material_cache(m)
+        #                if not mc:
+        #                    missing = True
+        #                    break
+        #        if missing:
+        #            column = layout.column()
+        #            op = column.operator("cc3.objects", icon="ADD", text="Add Materials")
+        #            op.param = "ADD_PBR"
 
         # Parameters
 
