@@ -16,7 +16,7 @@
 
 import bpy
 import os
-from . import materials, nodeutils, imageutils, properties, params, utils, vars
+from . import materials, nodeutils, imageutils, jsonutils, params, utils, vars
 
 
 def reset_shader(nodes, links, shader_label, shader_name):
@@ -66,7 +66,7 @@ def reset_shader(nodes, links, shader_label, shader_name):
     return bsdf_node
 
 
-def connect_tearline_material(obj, mat):
+def connect_tearline_material(obj, mat, mat_json):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
@@ -88,7 +88,7 @@ def connect_tearline_material(obj, mat):
     mat.shadow_method = "NONE"
 
 
-def connect_eye_occlusion_material(obj, mat):
+def connect_eye_occlusion_material(obj, mat, mat_json):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
@@ -119,7 +119,7 @@ def connect_eye_occlusion_material(obj, mat):
     mat.shadow_method = "NONE"
 
 
-def connect_basic_eye_material(obj, mat):
+def connect_basic_eye_material(obj, mat, mat_json):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
@@ -133,7 +133,7 @@ def connect_basic_eye_material(obj, mat):
     # Base Color
     #
     nodeutils.reset_cursor()
-    diffuse_image =  imageutils.find_material_image(mat, "DIFFUSE")
+    diffuse_image =  find_material_image_basic(mat, "DIFFUSE", mat_json)
     if diffuse_image is not None:
         diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "(DIFFUSE)")
         nodeutils.advance_cursor(1.0)
@@ -170,7 +170,7 @@ def connect_basic_eye_material(obj, mat):
     # Normal
     #
     nodeutils.reset_cursor()
-    normal_image = imageutils.find_material_image(mat, "SCLERANORMAL")
+    normal_image = find_material_image_basic(mat, "SCLERANORMAL", mat_json)
     if normal_image is not None:
         strength_node = nodeutils.make_value_node(nodes, "Normal Strength", "eye_normal", parameters.eye_normal)
         normal_node = nodeutils.make_image_node(nodes, normal_image, "(SCLERANORMAL)")
@@ -188,7 +188,7 @@ def connect_basic_eye_material(obj, mat):
 
     return
 
-def connect_basic_material(obj, mat):
+def connect_basic_material(obj, mat, mat_json):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
@@ -202,8 +202,8 @@ def connect_basic_material(obj, mat):
     # Base Color
     #
     nodeutils.reset_cursor()
-    diffuse_image = imageutils.find_material_image(mat, "DIFFUSE")
-    ao_image = imageutils.find_material_image(mat, "AO")
+    diffuse_image = find_material_image_basic(mat, "DIFFUSE", mat_json)
+    ao_image = find_material_image_basic(mat, "AO", mat_json)
     diffuse_node = ao_node = None
     if (diffuse_image is not None):
         diffuse_node = nodeutils.make_image_node(nodes, diffuse_image, "(DIFFUSE)")
@@ -234,7 +234,7 @@ def connect_basic_material(obj, mat):
     # Metallic
     #
     nodeutils.reset_cursor()
-    metallic_image = imageutils.find_material_image(mat, "METALLIC")
+    metallic_image = find_material_image_basic(mat, "METALLIC", mat_json)
     metallic_node = None
     if metallic_image is not None:
         metallic_node = nodeutils.make_image_node(nodes, metallic_image, "(METALLIC)")
@@ -243,8 +243,8 @@ def connect_basic_material(obj, mat):
     # Specular
     #
     nodeutils.reset_cursor()
-    specular_image = imageutils.find_material_image(mat, "SPECULAR")
-    mask_image = imageutils.find_material_image(mat, "SPECMASK")
+    specular_image = find_material_image_basic(mat, "SPECULAR", mat_json)
+    mask_image = find_material_image_basic(mat, "SPECMASK", mat_json)
 
     prop = "none"
     spec = 0.5
@@ -289,7 +289,7 @@ def connect_basic_material(obj, mat):
     # Roughness
     #
     nodeutils.reset_cursor()
-    roughness_image = imageutils.find_material_image(mat, "ROUGHNESS")
+    roughness_image = find_material_image_basic(mat, "ROUGHNESS", mat_json)
     roughness_node = None
     if roughness_image is not None:
         roughness_node = nodeutils.make_image_node(nodes, roughness_image, "(ROUGHNESS)")
@@ -326,7 +326,7 @@ def connect_basic_material(obj, mat):
     # Emission
     #
     nodeutils.reset_cursor()
-    emission_image = imageutils.find_material_image(mat,"EMISSION")
+    emission_image = find_material_image_basic(mat,"EMISSION", mat_json)
     emission_node = None
     if emission_image is not None:
         emission_node = nodeutils.make_image_node(nodes, emission_image, "(EMISSION)")
@@ -335,7 +335,7 @@ def connect_basic_material(obj, mat):
     # Alpha
     #
     nodeutils.reset_cursor()
-    alpha_image = imageutils.find_material_image(mat, "ALPHA")
+    alpha_image = find_material_image_basic(mat, "ALPHA", mat_json)
     alpha_node = None
     if alpha_image is not None:
         alpha_node = nodeutils.make_image_node(nodes, alpha_image, "(ALPHA)")
@@ -358,8 +358,8 @@ def connect_basic_material(obj, mat):
     # Normal
     #
     nodeutils.reset_cursor()
-    normal_image = imageutils.find_material_image(mat, "NORMAL")
-    bump_image = imageutils.find_material_image(mat,"BUMP")
+    normal_image = find_material_image_basic(mat, "NORMAL", mat_json)
+    bump_image = find_material_image_basic(mat,"BUMP", mat_json)
     normal_node = bump_node = normalmap_node = bumpmap_node = None
     if normal_image is not None:
         normal_node = nodeutils.make_image_node(nodes, normal_image, "(NORMAL)")
@@ -388,6 +388,12 @@ def connect_basic_material(obj, mat):
         nodeutils.link_nodes(links, bumpmap_node, "Normal", shader, "Normal")
 
     return
+
+
+def find_material_image_basic(mat, tex_type, mat_json):
+    json_id = imageutils.get_image_type_json_id(tex_type)
+    tex_json = jsonutils.get_texture_info(mat_json, json_id)
+    return imageutils.find_material_image(mat, tex_type, tex_json)
 
 
 def update_basic_material(mat, cache, prop):

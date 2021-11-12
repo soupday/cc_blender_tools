@@ -100,7 +100,7 @@ def get_character_json(json_data, file_name, character_id):
         return None
     try:
         character_json = json_data[file_name]["Object"][character_id]
-        utils.log_info("Character Json data found for: " + character_id)
+        utils.log_detail("Character Json data found for: " + character_id)
         return character_json
     except:
         utils.log_warn("Failed to get character Json data!")
@@ -114,7 +114,7 @@ def get_object_json(character_json, obj):
         meshes_json = character_json["Meshes"]
         for object_name in meshes_json.keys():
             if object_name.lower() == name:
-                utils.log_info("Object Json data found for: " + obj.name)
+                utils.log_detail("Object Json data found for: " + obj.name)
                 return meshes_json[object_name]
     except:
         utils.log_warn("Failed to get object Json data!")
@@ -127,7 +127,7 @@ def get_custom_shader(material_json):
         try:
             return material_json["Material Type"]
         except:
-            utils.log_warn("Failed to material shader data!")
+            utils.log_warn("Failed to find material shader data!")
             return "Pbr"
 
 def get_material_json(object_json, material):
@@ -138,7 +138,7 @@ def get_material_json(object_json, material):
         materials_json = object_json["Materials"]
         for material_name in materials_json.keys():
             if material_name.lower() == name:
-                utils.log_info("Material Json data found for: " + material.name)
+                utils.log_detail("Material Json data found for: " + material.name)
                 return materials_json[material_name]
     except:
         utils.log_warn("Failed to get material Json data!")

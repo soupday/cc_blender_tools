@@ -17,9 +17,7 @@
 import bpy
 import os
 from mathutils import Vector
-from . import nodeutils
-from . import utils
-from . import params
+from . import nodeutils, utils, params
 
 old_samples = 64
 old_file_format = "PNG"
@@ -32,9 +30,8 @@ BAKE_SAMPLES = 4
 IMAGE_FORMAT = "PNG"
 IMAGE_EXT = ".png"
 
-
 def prep_bake():
-    global BAKE_SAMPLES, IMAGE_FORMAT, old_samples, old_file_format
+    global old_samples, old_file_format
     global old_view_transform, old_look, old_gamma, old_exposure, old_colorspace
 
     old_samples = bpy.context.scene.cycles.samples
@@ -54,7 +51,8 @@ def prep_bake():
     bpy.context.scene.render.bake.margin = 16
     bpy.context.scene.render.bake.use_clear = True
     bpy.context.scene.render.image_settings.file_format = IMAGE_FORMAT
-    bpy.context.scene.view_settings.view_transform = 'Standard' #'Raw'
+    # color management settings affect the baked output so set them to standard/raw defaults:
+    bpy.context.scene.view_settings.view_transform = 'Standard'
     bpy.context.scene.view_settings.look = 'None'
     bpy.context.scene.view_settings.gamma = 1
     bpy.context.scene.view_settings.exposure = 0
@@ -131,8 +129,6 @@ def bake_socket_input(node, socket_name, mat, channel_id, bake_dir):
 
 
 def bake_output(mat, source_node, source_socket, image, image_name):
-    global BAKE_SAMPLES
-
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -200,8 +196,6 @@ def get_tex_image_size(node):
 
 
 def get_image_target(image_name, width, height, dir, data = True, alpha = False):
-    global IMAGE_FORMAT, IMAGE_EXT
-
     format = IMAGE_FORMAT
     ext = IMAGE_EXT
     depth = 32

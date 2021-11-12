@@ -67,7 +67,7 @@ def exec_var_param(var_def, mat_cache, mat_json):
 
         exec_code = "parameters." + prop_name + " = " + exec_expression
         exec(exec_code, None, locals())
-        utils.log_info("    Applying: " + exec_code)
+        utils.log_info("Applying: " + exec_code)
     except:
         utils.log_error("exec_var_param(): error in expression: " + exec_code)
         utils.log_error(str(var_def))
@@ -441,8 +441,13 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                     tex_json = jsonutils.get_texture_info(mat_json, json_id)
                     image_id = "(" + tex_type + ")"
 
-                    image = imageutils.find_material_image(mat, tex_type, tex_json)
                     image_node = nodeutils.get_node_by_id(nodes, image_id)
+
+                    # for user added materials, don't mess with the users textures...
+                    if image_node and image_node.image and mat_cache.user_added:
+                        image = image_node.image
+                    else:
+                        image = imageutils.find_material_image(mat, tex_type, tex_json)
 
                     if image_node and image_node.image and image:
                         if image != image_node.image:
@@ -499,10 +504,11 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                         image_nodes.append(image_node)
 
     # remove any extra image nodes:
-    for n in nodes:
-        if n.type == "TEX_IMAGE" and n not in image_nodes:
-            utils.log_info("Removing unused image node: " + n.name)
-            nodes.remove(n)
+    if not mat_cache.user_added:
+        for n in nodes:
+            if n.type == "TEX_IMAGE" and n not in image_nodes:
+                utils.log_info("Removing unused image node: " + n.name)
+                nodes.remove(n)
 
     return
 
@@ -523,7 +529,7 @@ def connect_tearline_shader(obj, mat, mat_json):
         shader_group = "rl_tearline_cycles_shader"
         mix_shader_group = "rl_tearline_cycles_mix_shader"
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
 
@@ -549,7 +555,7 @@ def connect_eye_occlusion_shader(obj, mat, mat_json):
         mix_shader_group = "rl_eye_occlusion_cycles_mix_shader"
         shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
 
@@ -584,7 +590,7 @@ def connect_skin_shader(obj, mat, mat_json):
         shader_group = "rl_skin_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     nodeutils.reset_cursor()
 
@@ -610,7 +616,7 @@ def connect_tongue_shader(obj, mat, mat_json):
     shader_group = "rl_tongue_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
@@ -633,7 +639,7 @@ def connect_teeth_shader(obj, mat, mat_json):
     shader_group = "rl_teeth_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
@@ -685,7 +691,7 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
         shader_name = "rl_eye_shader"
         shader_group = "rl_eye_shader"
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, cornea_mat, cornea_mat_cache, shader_name, cornea_json, obj)
@@ -723,7 +729,7 @@ def connect_hair_shader(obj, mat, mat_json):
     if prefs.render_target == "CYCLES":
         shader_group = "rl_hair_cycles_shader"
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
@@ -747,7 +753,7 @@ def connect_pbr_shader(obj, mat, mat_json):
     shader_group = "rl_pbr_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
@@ -778,7 +784,7 @@ def connect_sss_shader(obj, mat, mat_json):
     shader_group = "rl_sss_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)

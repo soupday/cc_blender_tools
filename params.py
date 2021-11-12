@@ -948,6 +948,8 @@ SHADER_MATRIX = [
             ["AO Strength", "", "default_ao_strength"],
             ["Blend Multiply Strength", "", "default_blend_multiply_strength"],
             ["Metallic Map", "", "default_metallic"],
+            ["Specular Map", "", "default_specular"],
+            ["Roughness Map", "", "default_roughness"],
             ["Specular Strength", "", "default_specular_strength"],
             ["Specular Scale", "", "default_specular_scale"],
             ["Roughness Power", "", "default_roughness_power"],
@@ -996,6 +998,8 @@ SHADER_MATRIX = [
             ["default_roughness_min", 0, "DEF"],
             ["default_roughness_max", 1, "DEF"],
             ["default_emissive_color", (0,0,0,1), "DEF"],
+            ["default_specular", 0.5, "DEF"],
+            ["default_roughness", 0.5, "DEF"],
         ],
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
@@ -1011,8 +1015,10 @@ SHADER_MATRIX = [
             ["PROP", "Blend Multiply", "default_blend_multiply_strength", True, "Blend Multiply"],
             ["HEADER",  "Surface", "SURFACE_DATA"],
             ["PROP", "Metallic", "default_metallic", True, "!Metallic Map"],
+            ["PROP", "Specular", "default_specular", True, "!Specular Map"],
             ["PROP", "Specular Map", "default_specular_strength", True, "Specular Map"],
             ["PROP", "Specular Scale", "default_specular_scale", True],
+            ["PROP", "Roughness", "default_roughness", True, "!Roughness Map"],
             ["PROP", "Roughness Power", "default_roughness_power", True],
             ["PROP", "Roughness Min", "default_roughness_min", True],
             ["PROP", "Roughness Max", "default_roughness_max", True],
@@ -1038,6 +1044,9 @@ SHADER_MATRIX = [
             ["Diffuse Color", "", "default_diffuse_color"],
             ["AO Strength", "", "default_ao_strength"],
             ["Blend Multiply Strength", "", "default_blend_multiply_strength"],
+            ["Metallic Map", "", "default_metallic"],
+            ["Specular Map", "", "default_specular"],
+            ["Roughness Map", "", "default_roughness"],
             ["Specular Strength", "", "default_specular_strength"],
             ["Specular Scale", "", "default_specular_scale"],
             ["Roughness Power", "", "default_roughness_power"],
@@ -1125,6 +1134,8 @@ SHADER_MATRIX = [
             ["default_specular_strength", 1, "", "Pbr/Specular"],
             ["default_metallic", 0, "", "Pbr/Metallic"],
             # non json properties (just defaults)
+            ["default_specular", 0.5, "DEF"],
+            ["default_roughness", 0.5, "DEF"],
             ["default_hue", 0.5, "DEF"],
             ["default_hsv_strength", 1, "DEF"],
             ["default_bump_strength", 1, "DEF"],
@@ -1156,8 +1167,10 @@ SHADER_MATRIX = [
             ["PROP", "Blend Multiply", "default_blend_multiply_strength", True, "Blend Multiply"],
             ["HEADER",  "Surface", "SURFACE_DATA"],
             ["PROP", "Metallic", "default_metallic", True, "!Metallic Map"],
+            ["PROP", "Specular", "default_specular", True, "!Specular Map"],
             ["PROP", "Specular Map", "default_specular_strength", True, "Specular Map"],
             ["PROP", "Specular Scale", "default_specular_scale", True],
+            ["PROP", "Roughness", "default_roughness", True, "!Roughness Map"],
             ["PROP", "Roughness Power", "default_roughness_power", True],
             ["PROP", "Roughness Min", "default_roughness_min", True],
             ["PROP", "Roughness Max", "default_roughness_max", True],
@@ -1424,6 +1437,7 @@ SHADER_LOOKUP = [
     ["OCCLUSION_LEFT", "RLEyeOcclusion", "rl_eye_occlusion_shader"],
     ["TEARLINE_RIGHT", "RLTearline", "rl_tearline_shader"],
     ["TEARLINE_LEFT", "RLTearline", "rl_tearline_shader"],
+    ["DEFAULT", "Tra", "rl_pbr_shader"],
 ]
 
 
@@ -1485,6 +1499,8 @@ def get_shader_def(shader_name):
 
 
 def get_rl_shader_def(rl_shader_name):
+    if rl_shader_name == "Tra":
+        rl_shader_name = "Pbr"
     for shader_def in SHADER_MATRIX:
         if shader_def["rl_shader"] == rl_shader_name:
             return shader_def

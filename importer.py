@@ -79,6 +79,9 @@ def process_material(chr_cache, obj, mat, object_json):
 
     if not mat_cache: return
 
+    if not mat.use_nodes:
+        mat.use_nodes = True
+
     if chr_cache.setup_mode == "ADVANCED":
 
         if mat_cache.is_cornea() or mat_cache.is_eye():
@@ -114,16 +117,16 @@ def process_material(chr_cache, obj, mat, object_json):
         nodeutils.reset_cursor()
 
         if mat_cache.is_eye_occlusion():
-            basic.connect_eye_occlusion_material(obj, mat)
+            basic.connect_eye_occlusion_material(obj, mat, mat_json)
 
         elif mat_cache.is_tearline():
-            basic.connect_tearline_material(obj, mat)
+            basic.connect_tearline_material(obj, mat, mat_json)
 
         elif mat_cache.is_cornea():
-            basic.connect_basic_eye_material(obj, mat)
+            basic.connect_basic_eye_material(obj, mat, mat_json)
 
         else:
-            basic.connect_basic_material(obj, mat)
+            basic.connect_basic_material(obj, mat, mat_json)
 
         nodeutils.move_new_nodes(-600, 0)
 
@@ -151,6 +154,7 @@ def process_object(chr_cache, obj, objects_processed, character_json):
 
     utils.log_info("")
     utils.log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
+    utils.log_indent()
 
     obj_cache = chr_cache.get_object_cache(obj)
 
@@ -164,12 +168,14 @@ def process_object(chr_cache, obj, objects_processed, character_json):
 
         # process any materials found in the mesh object
         for mat in obj.data.materials:
-            if mat is not None:
+            if mat:
                 utils.log_info("")
                 utils.log_info("Processing Material: " + mat.name)
+                utils.log_indent()
                 process_material(chr_cache, obj, mat, object_json)
                 if prefs.physics == "ENABLED" and props.physics_mode == "ON":
                     physics.add_material_weight_map(obj, mat, create = False)
+                utils.log_recess()
 
         # setup default physics
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
@@ -194,6 +200,8 @@ def process_object(chr_cache, obj, objects_processed, character_json):
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
             scene.fetch_anim_range(bpy.context)
 
+    utils.log_recess()
+
 
 def cache_object_materials(character_cache, obj, character_json, processed):
     props = bpy.context.scene.CC3ImportProps
@@ -205,21 +213,29 @@ def cache_object_materials(character_cache, obj, character_json, processed):
     obj_cache = character_cache.add_object_cache(obj)
 
     if obj.type == "MESH":
+
+        utils.log_info(f"Caching Object: {obj.name}")
+        utils.log_indent()
+
         for mat in obj.data.materials:
 
-            if mat.node_tree is not None and not mat in processed:
+            if mat and mat.node_tree is not None and not mat in processed:
 
                 object_type, material_type = materials.detect_materials(character_cache, obj, mat, obj_json)
                 obj_cache.object_type = object_type
                 mat_cache = character_cache.add_material_cache(mat, material_type)
                 mat_cache.dir = imageutils.get_material_tex_dir(character_cache, obj, mat)
+                utils.log_indent()
                 materials.detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache)
+                utils.log_recess()
                 processed.append(mat)
 
             elif mat in processed:
 
                 object_type, material_type = materials.detect_materials(character_cache, obj, mat, obj_json)
                 obj_cache.object_type = object_type
+
+        utils.log_recess()
 
 
     processed.append(obj)
@@ -392,6 +408,7 @@ def detect_characters(file_path, type, objects, json_data):
             if obj.type == "MESH":
                 chr_cache.add_object_cache(obj)
 
+    utils.log_info("")
     return characters
 
 
@@ -547,15 +564,14 @@ class CC3Import(bpy.types.Operator):
 
             if props.build_mode == "IMPORTED":
                 for cache in chr_cache.object_cache:
-                    if cache.object is not None:
+                    if cache.object:
                         process_object(chr_cache, cache.object, objects_processed, chr_json)
 
             # only processes the selected objects that are listed in the import_cache (character)
             elif props.build_mode == "SELECTED":
-                for obj in bpy.context.selected_objects:
-                    for cache in chr_cache.object_cache:
-                        if cache.object == obj:
-                            process_object(cache.object, objects_processed, chr_json)
+                for cache in chr_cache.object_cache:
+                    if cache.object and cache.object in bpy.context.selected_objects:
+                        process_object(chr_cache, cache.object, objects_processed, chr_json)
 
         if prefs.refractive_eyes == "SSR":
             bpy.context.scene.eevee.use_ssr = True

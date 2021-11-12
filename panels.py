@@ -16,7 +16,7 @@
 
 import bpy
 
-from . import materials, modifiers, physics, preferences, properties, nodeutils, utils, params, vars
+from . import materials, shaders, modifiers, physics, preferences, properties, nodeutils, utils, params, vars
 
 # Panel button functions and opertator
 #
@@ -178,7 +178,7 @@ def quick_set_fix(param, obj, context, objects_processed):
 
             if props.quick_set_mode == "OBJECT":
                 for mat in obj.data.materials:
-                    if mat is not None:
+                    if mat:
                         if param == "OPAQUE" or param == "BLEND" or param == "HASHED" or param == "CLIP":
                             materials.apply_alpha_override(obj, mat, param)
                         elif param == "SINGLE_SIDED":
@@ -188,7 +188,7 @@ def quick_set_fix(param, obj, context, objects_processed):
 
             elif ob is not None and ob.type == "MESH" and ob.active_material_index <= len(ob.data.materials):
                 mat = utils.context_material(context)
-                if mat is not None:
+                if mat:
                     if param == "OPAQUE" or param == "BLEND" or param == "HASHED" or param == "CLIP":
                         materials.apply_alpha_override(obj, mat, param)
                     elif param == "SINGLE_SIDED":
@@ -220,9 +220,9 @@ def set_materials_settings(param, context = bpy.context):
 
 
 class CC3OperatorMaterial(bpy.types.Operator):
-    """Set Material Functions"""
+    """CC3 Material Functions"""
     bl_idname = "cc3.setmaterials"
-    bl_label = "Set Material Functions"
+    bl_label = "CC3 Material Functions"
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     param: bpy.props.StringProperty(
@@ -258,6 +258,108 @@ class CC3OperatorMaterial(bpy.types.Operator):
         return ""
 
 
+def add_object_to_character(chr_cache : properties.CC3CharacterCache, obj):
+    props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+
+    if chr_cache and obj and obj.type == "MESH":
+
+        # convert the object name to remove any duplicate suffixes:
+        obj_name = utils.unique_object_name(obj.name, obj)
+        if obj.name != obj_name:
+            obj.name = obj_name
+
+        # add the object into the object cache
+        obj_cache : properties.CC3ObjectCache = chr_cache.add_object_cache(obj)
+        obj_cache.object_type = "DEFAULT"
+
+        add_missing_materials_to_character(chr_cache, obj, obj_cache)
+
+
+def add_missing_materials_to_character(chr_cache : properties.CC3CharacterCache, obj, obj_cache = None):
+
+    props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+
+    if chr_cache and obj and obj_cache and obj.type == "MESH":
+
+        if not obj_cache:
+            obj_cache = chr_cache.get_object_cache(obj)
+
+        if obj_cache:
+            obj_name = obj.name
+
+            # add a default material if none exists...
+            if len(obj.data.materials) == 0:
+                mat_name = utils.unique_material_name(obj_name)
+                mat = bpy.data.materials.new(mat_name)
+                obj.data.materials.append(mat)
+
+            for mat in obj.data.materials:
+                if mat:
+                    mat_cache = chr_cache.get_material_cache(mat)
+
+                    if not mat_cache:
+                        add_material_to_character(chr_cache, obj, obj_cache, mat)
+
+
+def add_material_to_character(chr_cache : properties.CC3CharacterCache, obj, obj_cache, mat):
+    props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+
+    if chr_cache and obj and obj_cache and mat:
+        # convert the material name to remove any duplicate suffixes:
+        mat_name = utils.unique_material_name(mat.name, mat)
+        if mat.name != mat_name:
+            mat.name = mat_name
+
+        # make sure there are nodes:
+        if not mat.use_nodes:
+            mat.use_nodes = True
+
+        # add the material into the material cache
+        mat_cache : properties.CC3MaterialCache = chr_cache.add_material_cache(mat, "DEFAULT")
+        mat_cache.user_added = True
+
+        # convert any existing PrincipledBSDF based material to a rl_pbr shader material
+        # can treat existing textures as embedded textures, so they will be picked up by the material builder.
+        materials.detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache)
+        # finally connect up the pbr shader...
+        shaders.connect_pbr_shader(obj, mat, None)
+
+
+class CC3OperatorObject(bpy.types.Operator):
+    """CC3 Object Functions"""
+    bl_idname = "cc3.objects"
+    bl_label = "Object Functions"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = ""
+        )
+
+    def execute(self, context):
+        props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+
+
+        if self.param == "ADD_PBR":
+            chr_cache = props.get_context_character_cache(context)
+            obj = context.active_object
+            add_object_to_character(chr_cache, obj)
+
+        elif self.param == "ADD_MATERIALS":
+            chr_cache = props.get_context_character_cache(context)
+            obj = context.active_object
+            add_missing_materials_to_character(chr_cache, obj)
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "ADD_PBR":
+            return "Add object to the character with pbr materials."
+        elif properties.param == "ADD_MATERIALS":
+            return "Add missing materials to character."
+        return ""
 
 
 # Panel functions and classes
@@ -402,8 +504,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         layout = self.layout
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-        chr_cache = props.get_context_character_cache(context)
+        chr_cache: properties.CC3CharacterCache = props.get_context_character_cache(context)
 
         obj = None
         mat = None
@@ -423,8 +524,28 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         is_import_object = obj_cache is not None
         is_import_material = mat_cache is not None
 
-        if not is_import_object and not is_import_material:
-            layout.enabled = False
+        # External object selected with character
+
+        if chr_cache and obj_cache is None:
+
+            layout.box().label(text="External Object", icon="OBJECT_HIDDEN")
+            column = layout.column()
+            op = column.operator("cc3.objects", icon="ADD", text="Add To Character")
+            op.param = "ADD_PBR"
+
+        if chr_cache and obj_cache:
+            if obj.type == "MESH":
+                missing = False
+                for m in obj.data.materials:
+                    if m:
+                        mc = chr_cache.get_material_cache(m)
+                        if not mc:
+                            missing = True
+                            break
+                if missing:
+                    column = layout.column()
+                    op = column.operator("cc3.objects", icon="ADD", text="Add Materials")
+                    op.param = "ADD_PBR"
 
         # Parameters
 
@@ -441,9 +562,6 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
             #    column.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
 
             column = layout.column()
-            if chr_cache.import_name == "":
-                column.enabled = False
-
             row = column.row()
             row.prop(props, "update_mode", expand=True)
 
@@ -658,6 +776,8 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                 col_2.prop(props, "dummy_slider", text="", slider=True)
 
         column = layout.column()
+        if not chr_cache:
+            column.enabled = False
         op = column.operator("cc3.setmaterials", icon="DECORATE_OVERRIDE", text="Reset Parameters")
         op.param = "RESET"
         op = column.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")

@@ -296,7 +296,7 @@ def unlink_node(links, node, socket):
             utils.log_info("Unable to remove links from: " + node.name + "[" + str(socket) + "]")
 
 
-def reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group):
+def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group):
     shader_id = "(" + str(shader_name) + ")"
     bsdf_id = "(" + str(shader_name) + "_BSDF)"
     mix_id = "(" + str(shader_name) + "_MIX)"
@@ -348,9 +348,14 @@ def reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shad
             else:
                 output_node = n
 
-        elif n.type == "TEX_IMAGE" and vars.NODE_PREFIX in n.name:
-            # keep images
-            pass
+        elif n.type == "TEX_IMAGE":
+            if vars.NODE_PREFIX in n.name:
+                # keep images
+                pass
+
+            elif not mat_cache.user_added:  #cc3iid_(MICRONMASK)_v1.1.0_1487
+                # keep all images if it is a user added material
+                nodes.remove(n)
 
         else:
             nodes.remove(n)
@@ -365,7 +370,6 @@ def reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shad
         utils.log_info("Creating new shader group: " + group_node.name)
 
     if has_mix_node and not mix_node:
-        print("################",mix_shader_group)
         group = get_node_group(mix_shader_group)
         mix_node = nodes.new("ShaderNodeGroup")
         mix_node.node_tree = group
@@ -508,6 +512,8 @@ def store_texture_mapping(image_node, mat_cache, texture_type):
         image = image_node.image
         mat_cache.set_texture_mapping(texture_type, texture_path, embedded, image, location, rotation, scale)
         utils.log_info("Storing texture Mapping for: " + mat_cache.material.name + " texture: " + texture_type)
+        image_id = "(" + texture_type + ")"
+        image_node.name = utils.unique_name(image_id)
 
 
 # link utils
@@ -592,7 +598,7 @@ def get_shader_nodes(mat, shader_name):
                 elif mix_id in node.name:
                     mix_node = node
         return bsdf_node, shader_node, mix_node
-    return None
+    return None, None, None
 
 
 def get_tiling_node(mat, shader_name, texture_type):

@@ -73,9 +73,9 @@ def detect_scalp_material(mat):
     hints = prefs.hair_scalp_hint.split(",")
     detect = detect_key_words(hints, material_name)
     if detect == "Deny":
-        utils.log_info(mat.name + ": has deny keywords, defininately not scalp!")
+        utils.log_info(f"{mat.name}: has deny keywords, defininately not scalp!")
     elif detect == "True":
-        utils.log_info(mat.name + ": has keywords, is scalp.")
+        utils.log_info(f"{mat.name}: has keywords, is scalp.")
     return detect
 
 
@@ -151,17 +151,17 @@ def detect_hair_material(obj, mat, tex_dirs, mat_json = None):
 
     # try to find one of the new hair maps: "Flow Map" or "Root Map"
     if detect_smart_hair_maps(mat, tex_dirs) == "True":
-        utils.log_info(obj.name + "/" + mat.name + ": has hair shader textures, is hair.")
+        utils.log_info(f"{obj.name} / {mat.name}: has hair shader textures, is hair.")
         return "True"
 
     detect_mat = detect_key_words(hints, material_name)
 
     if detect_mat == "Deny":
-        utils.log_info(obj.name + "/" + mat.name + ": Material has deny keywords, definitely not hair!")
+        utils.log_info(f"{obj.name} / {mat.name}: Material has deny keywords, definitely not hair!")
         return "Deny"
 
     if detect_mat == "True":
-        utils.log_info(obj.name + "/" + mat.name + ": Material has hair keywords, is hair.")
+        utils.log_info(f"{obj.name} / {mat.name}: Material has hair keywords, is hair.")
         return "True"
 
     return "False"
@@ -174,31 +174,33 @@ def detect_hair_object(obj, tex_dirs, obj_json = None):
 
     if obj_json:
         for mat in obj.data.materials:
-            mat_json = jsonutils.get_material_json(obj_json, mat)
-            shader = jsonutils.get_custom_shader(mat_json)
-            if shader == "RLHair":
-                utils.log_info(obj.name + "/" + mat.name + ": Hair material found in JSON data, Object is hair.")
-                return "True"
+            if mat:
+                mat_json = jsonutils.get_material_json(obj_json, mat)
+                shader = jsonutils.get_custom_shader(mat_json)
+                if shader == "RLHair":
+                    utils.log_info(f"{obj.name} / {mat.name}: Hair material found in JSON data, Object is hair.")
+                    return "True"
 
         return "False"
 
     # with no Json data, attempt to identify hair object by object and material names...
 
     for mat in obj.data.materials:
-        mat_json = jsonutils.get_material_json(obj_json, mat)
-        detect_mat = detect_hair_material(obj, mat, tex_dirs, mat_json)
-        if detect_mat == "True":
-            utils.log_info(obj.name + "/" + mat.name + ": Hair material found, Object is hair.")
-            return "True"
+        if mat:
+            mat_json = jsonutils.get_material_json(obj_json, mat)
+            detect_mat = detect_hair_material(obj, mat, tex_dirs, mat_json)
+            if detect_mat == "True":
+                utils.log_info(f"{obj.name} / {mat.name}: Hair material found, Object is hair.")
+                return "True"
 
     detect_obj = detect_key_words(hints, object_name)
 
     if detect_obj == "Deny":
-        utils.log_info(obj.name + "/" + mat.name + ": Object has deny keywords, definitely not hair!")
+        utils.log_info(f"{obj.name} / {mat.name}: Object has deny keywords, definitely not hair!")
         return "Deny"
 
     if detect_obj == "True":
-        utils.log_info(obj.name + "/" + mat.name + ": Object has hair keywords, is hair.")
+        utils.log_info(f"{obj.name} / {mat.name}: Object has hair keywords, is hair.")
         return "True"
 
     return "False"
@@ -315,7 +317,7 @@ def detect_materials_by_name(character_cache, obj, mat):
     elif detect_sss_maps(mat, tex_dirs) == "True":
         material_type = "SSS"
 
-    utils.log_info("Material: " + mat_name + " detected by name as: " + material_type)
+    utils.log_info(f"Material: {mat_name} detected by name as: {material_type}")
     return object_type, material_type
 
 
@@ -327,10 +329,11 @@ def detect_materials_from_json(character_cache, obj, mat, obj_json, mat_json):
     object_type = "DEFAULT"
     tex_dirs = imageutils.get_material_tex_dirs(character_cache, obj, mat)
 
-    if shader == "Pbr":
+    utils.log_info(f"Material Shader: {shader}")
+
+    if shader == "Pbr" or shader == "Tra":
         # PBR materials can also refer to the scalp/base on hair objects,
         # the eyelashes on the body or the eye(iris) materials on the eyes.
-
         if detect_hair_object(obj, tex_dirs, obj_json) == "True":
             object_type = "HAIR"
             if detect_hair_material(obj, mat, tex_dirs, mat_json) == "True":
@@ -412,7 +415,7 @@ def detect_materials_from_json(character_cache, obj, mat, obj_json, mat_json):
         object_type = "DEFAULT"
         material_type = "DEFAULT"
 
-    utils.log_info("Material: " + mat_name + " detected from Json data as: " + material_type)
+    utils.log_info(f"Material: {mat_name} detected from Json data as: {material_type}")
     return object_type, material_type
 
 
@@ -437,7 +440,8 @@ def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):
             dir, name = os.path.split(filepath)
 
             # detect incorrect image paths for non packed (not embedded) images and attempt to correct...
-            if node.image.packed_file is None:
+            # (don't do this for user added materials)
+            if not mat_cache.user_added and node.image.packed_file is None:
                 if os.path.normcase(dir) != os.path.normcase(main_tex_dir):
                     utils.log_warn("Import bug! Wrong image path detected: " + dir)
                     utils.log_warn("    Attempting to correct...")
@@ -454,27 +458,57 @@ def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):
                             utils.log_error("    Unable to find correct image!")
 
             name = name.lower()
-            socket = nodeutils.get_socket_connected_to_output(node, "Color")
+            color_node, color_socket = nodeutils.get_node_and_socket_connected_to_output(node, "Color")
             # the fbx importer in 2.91 makes a total balls up of the opacity
             # and connects the alpha output to the socket and not the color output
-            alpha_socket = nodeutils.get_socket_connected_to_output(node, "Alpha")
+            alpha_node, alpha_socket = nodeutils.get_node_and_socket_connected_to_output(node, "Alpha")
 
-            if socket == "Base Color":
-                nodeutils.store_texture_mapping(node, mat_cache, "DIFFUSE")
+            if color_node and color_socket:
 
-            elif socket == "Specular":
-                nodeutils.store_texture_mapping(node, mat_cache, "SPECULAR")
+                if color_node.type == "BSDF_PRINCIPLED":
 
-            elif socket == "Alpha" or alpha_socket == "Alpha":
-                nodeutils.store_texture_mapping(node, mat_cache, "ALPHA")
-                if "diffuse" in name or "albedo" in name:
-                    mat_cache.alpha_is_diffuse = True
+                    if color_socket == "Base Color":
+                        nodeutils.store_texture_mapping(node, mat_cache, "DIFFUSE")
 
-            elif socket == "Color":
-                if "_bump" in name:
+                    elif color_socket == "Specular":
+                        nodeutils.store_texture_mapping(node, mat_cache, "SPECULAR")
+
+                    elif color_socket == "Metallic":
+                        nodeutils.store_texture_mapping(node, mat_cache, "METALLIC")
+
+                    elif color_socket == "Roughness":
+                        nodeutils.store_texture_mapping(node, mat_cache, "ROUGHNESS")
+
+                    elif color_socket == "Emission":
+                        nodeutils.store_texture_mapping(node, mat_cache, "EMISSION")
+
+                    elif color_socket == "Alpha":
+                        nodeutils.store_texture_mapping(node, mat_cache, "ALPHA")
+                        if "diffuse" in name or "albedo" in name:
+                            mat_cache.alpha_is_diffuse = True
+
+                    elif color_socket == "Subsurface":
+                        nodeutils.store_texture_mapping(node, mat_cache, "SSS")
+
+                elif color_node.type == "NORMAL_MAP":
+
+                    if "_bump" in name: # fbx import plugs bump maps into the normal map node...
+                        nodeutils.store_texture_mapping(node, mat_cache, "BUMP")
+                    else:
+                        nodeutils.store_texture_mapping(node, mat_cache, "NORMAL")
+
+                elif color_node.type == "BUMP":
+
                     nodeutils.store_texture_mapping(node, mat_cache, "BUMP")
-                else:
-                    nodeutils.store_texture_mapping(node, mat_cache, "NORMAL")
+
+            elif alpha_node and alpha_socket:
+
+                if alpha_node.type == "BSDF_PRINCIPLED":
+
+                    if alpha_socket == "Alpha":
+                        nodeutils.store_texture_mapping(node, mat_cache, "ALPHA")
+                        if "diffuse" in name or "albedo" in name:
+                            mat_cache.alpha_is_diffuse = True
 
 
 def get_cornea_mat(obj, eye_mat, eye_mat_cache):
@@ -485,12 +519,6 @@ def get_cornea_mat(obj, eye_mat, eye_mat_cache):
         side = "LEFT"
     else:
         side = "RIGHT"
-
-    # try to find the matching cornea material in the objects materials
-    #for mat in obj.data.materials:
-    #    mat_cache = props.get_material_cache(mat)
-    #    if mat_cache.is_cornea(side):
-    #        return mat
 
     # then try to find in the material cache
     for cache in chr_cache.eye_material_cache:
@@ -545,7 +573,7 @@ def is_right_material(mat):
 
 
 def is_material_in_objects(mat, objects):
-    if mat is not None:
+    if mat:
         for obj in objects:
             if obj.type == "MESH":
                 if mat.name in obj.data.materials:
