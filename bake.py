@@ -128,6 +128,76 @@ def bake_socket_input(node, socket_name, mat, channel_id, bake_dir):
     return image
 
 
+def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket_name, bump_strength_socket_name, mat, channel_id, bake_dir):
+
+    # determine the size of the image to bake onto
+    width, height = get_largest_texture_to_socket(shader_node, normal_socket_name)
+    w2, h2 = get_largest_texture_to_socket(shader_node, bump_socket_name)
+    if w2 > width:
+        width = w2
+    if h2 > height:
+        height = h2
+    if width == 0:
+        width = 1024
+    if height == 0:
+        height = 1024
+
+    # determine image name and color space
+    image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id
+    is_data = True
+
+    # deselect everything
+    bpy.ops.object.select_all(action='DESELECT')
+    # create the baking plane, a single quad baking surface for an even sampling across the entire texture
+    bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
+    bake_surface = bpy.context.active_object
+
+    # go into wireframe mode (so Blender doesn't update or recompile the material shaders while
+    # we manipulate them for baking, and also so Blender doesn't fire up the cycles viewport...):
+    shading = bpy.context.space_data.shading.type
+    bpy.context.space_data.shading.type = 'WIREFRAME'
+    # set cycles rendering mode for baking
+    engine = bpy.context.scene.render.engine
+    bpy.context.scene.render.engine = 'CYCLES'
+
+    # attach the material to bake to the baking surface plane
+    # (the baking plane also ensures that only one material is baked onto only one target image)
+    if len(bake_surface.data.materials) == 0:
+        bake_surface.data.materials.append(mat)
+    else:
+        bake_surface.data.materials[0] = mat
+
+    # get the node and output socket to bake from
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    normal_source_node, normal_source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, normal_socket_name)
+    bump_source_node, bump_source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, bump_socket_name)
+    bsdf_normal_node, bsdf_normal_socket = nodeutils.get_node_and_socket_connected_to_input(bsdf_node, "Normal")
+    bump_strength = nodeutils.get_node_input(shader_node, bump_strength_socket_name, 0.05)
+    bump_map_node = nodeutils.make_bump_node(nodes, 1, bump_strength)
+    nodeutils.link_nodes(links, normal_source_node, normal_source_socket, bump_map_node, "Normal")
+    nodeutils.link_nodes(links, bump_source_node, bump_source_socket, bump_map_node, "Height")
+    nodeutils.link_nodes(links, bump_source_node, bump_source_socket, bump_map_node, "Height")
+    nodeutils.link_nodes(links, bump_map_node, "Normal", bsdf_node, "Normal")
+
+    # make (and save) the target image
+    image = get_image_target(image_name, width, height, bake_dir, is_data, True)
+
+    # bake the source node output onto the target image and re-save it
+    image_node = bake_bsdf_normal(mat, bsdf_node, image, image_name)
+
+    # remove the bake nodes and restore the normal links to the bsdf
+    nodes.remove(bump_map_node)
+    nodeutils.link_nodes(links, bsdf_normal_node, bsdf_normal_socket, bsdf_node, "Normal")
+
+    # remove the bake surface and restore the render settings
+    bpy.data.objects.remove(bake_surface)
+    bpy.context.scene.render.engine = engine
+    bpy.context.space_data.shading.type = shading
+
+    return image
+
+
 def bake_output(mat, source_node, source_socket, image, image_name):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -155,6 +225,33 @@ def bake_output(mat, source_node, source_socket, image, image_name):
 
     if output_source:
         nodeutils.link_nodes(links, output_source, output_source_socket, output_node, "Surface")
+
+    return image_node
+
+
+def bake_bsdf_normal(mat, bsdf_node, image, image_name):
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    output_node = nodeutils.find_node_by_type(nodes, "OUTPUT_MATERIAL")
+
+    image_node = nodeutils.make_image_node(nodes, image, "bake")
+    image_node.name = image_name
+
+    bpy.context.scene.cycles.samples = BAKE_SAMPLES
+    utils.log_info("Baking: " + image_name)
+
+    prep_bake()
+
+    nodeutils.link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
+    image_node.select = True
+    nodes.active = image_node
+    bpy.ops.object.bake(type='NORMAL')
+
+    image.save_render(filepath = image.filepath, scene = bpy.context.scene)
+    image.reload()
+
+    post_bake()
 
     return image_node
 

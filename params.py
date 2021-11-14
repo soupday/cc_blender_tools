@@ -56,6 +56,11 @@ TEXTURE_TYPES = [
     ["WEIGHTMAP", "Weight Map", ["weightmap"]],
 ]
 
+PBR_TYPES = [
+    "DIFFUSE", "AO", "BLEND1", "SPECULAR", "METALLIC", "ROUGHNESS",
+    "EMISSION", "ALPHA", "NORMAL", "BUMP", "DISPLACE"
+]
+
 # when updating linked materials, attempt to update the properties in all the material types in the same list:
 LINKED_MATERIALS = [
     ["SKIN_HEAD", "SKIN_BODY", "SKIN_ARM", "SKIN_LEG"],
@@ -763,7 +768,7 @@ SHADER_MATRIX = [
             ["Sclera Saturation", "", "eye_sclera_saturation"],
             ["Sclera Brightness", "", "eye_sclera_brightness"],
             ["Sclera HSV Strength", "", "eye_sclera_hsv"],
-            ["Iris Scale", "func_set_iris_scale", "eye_iris_scale"],
+            ["Iris Scale", "func_set_iris_scale", "eye_iris_scale", "eye_sclera_scale"],
             ["Iris Hue", "", "eye_iris_hue"],
             ["Iris Saturation", "", "eye_iris_saturation"],
             ["Iris Brightness", "", "eye_iris_brightness"],
@@ -873,6 +878,7 @@ SHADER_MATRIX = [
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
+            ["Custom/Iris UV Radius", 1.0, "func_export_iris_uv_radius", "eye_iris_scale", "eye_iris_radius"],
             ["Custom/Limbus Dark Scale", 6.5, "func_export_limbus_dark_scale", "eye_limbus_dark_radius"],
             ["Custom/Eye Corner Darkness Color", [255.0, 188.0, 179.0], "func_export_byte3", "eye_corner_shadow_color"],
             ["Custom/Iris Depth Scale", 0.3, "func_export_eye_depth", "eye_iris_depth"],
@@ -1538,3 +1544,29 @@ BASIC_PROPS = [
     ["IN", "Alpha",     "eye_tearline_shader", "tearline_alpha", 0.05],
     ["IN", "Roughness", "eye_tearline_shader", "tearline_roughness", 0.15],
 ]
+
+
+JSON_PBR_TEX_INFO = {
+    "Texture Path": "",
+    "Strength": 100.0,
+    "Offset": [ 0.0, 0.0 ],
+    "Tiling": [ 1.0, 1.0 ]
+}
+
+
+JSON_CUSTOM_TEX_INFO = {
+    "Texture Path": ""
+}
+
+
+JSON_PBR_MATERIAL = {
+    "Material Type": "Pbr",
+    "MultiUV Index": 0,
+    "Two Side": True,
+    "Diffuse Color": [ 150.0, 150.0, 150.0 ],
+    "Ambient Color": [ 150.0, 150.0, 150.0 ],
+    "Specular Color": [ 229.5, 229.5, 229.5 ],
+    "Opacity": 1.0,
+    "Self Illumination": 0.0,
+    "Textures": {}
+}

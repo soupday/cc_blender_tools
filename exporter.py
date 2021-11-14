@@ -203,43 +203,79 @@ def write_back_json(mat_json, mat, mat_cache):
                 jsonutils.set_material_json_var(mat_json, json_var, json_value)
 
 
-def write_back_textures(mat_json, mat, mat_cache, old_path):
+def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
     shader_name = params.get_shader_lookup(mat_cache)
     shader_def = params.get_shader_def(shader_name)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
+    has_custom_shader = "Custom Shader" in mat_json.keys()
+
+    # determine if we are combining bump maps into normal maps:
+    normal_socket = params.get_shader_texture_socket(shader_def, "NORMAL")
+    bump_socket = params.get_shader_texture_socket(shader_def, "BUMP")
+    normal_connected = normal_socket and nodeutils.has_connected_input(shader_node, normal_socket)
+    bump_combining = normal_connected and bump_socket and nodeutils.has_connected_input(shader_node, bump_socket)
+    if not prefs.export_bake_bump_to_normal:
+        bump_combining = False
+
     if shader_def and shader_node:
-        # pbr textures:
-        for channel in mat_json["Textures"].keys():
-            tex_info = mat_json["Textures"][channel]
-            update_json_shader_texture(mat, tex_info, channel, shader_def, shader_node, old_path)
 
-        # custom shader textures:
-        if "Custom Shader" in mat_json.keys():
-            for channel in mat_json["Custom Shader"]["Image"].keys():
-                tex_info = mat_json["Custom Shader"]["Image"][channel]
-                update_json_shader_texture(mat, tex_info, channel, shader_def, shader_node, old_path)
+        if "textures" in shader_def.keys():
 
+            for tex_def in shader_def["textures"]:
+                tex_type = tex_def[2]
+                shader_socket = tex_def[0]
+                tex_id = params.get_texture_json_id(tex_type)
+                is_pbr = tex_type in params.PBR_TYPES
+                tex_node = nodeutils.get_node_connected_to_input(shader_node, shader_socket)
 
-def update_json_shader_texture(mat, tex_info, channel, shader_def, shader_node, old_path):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+                tex_info = None
 
-    tex_type = params.get_texture_type(channel)
-    if tex_info and shader_def and shader_node and tex_type != "NONE":
-        tex_socket = params.get_shader_texture_socket(shader_def, tex_type)
-        if tex_socket:
-            tex_node = nodeutils.get_node_connected_to_input(shader_node, tex_socket)
-            if tex_node:
-                image = None
-                if tex_node.type == "TEX_IMAGE":
-                    image : bpy.types.Image = tex_node.image
-                elif prefs.export_bake_nodes:
-                    image = bake.bake_socket_input(shader_node, tex_socket, mat, channel, old_path)
-                if image:
-                    image_path = bpy.path.abspath(image.filepath)
-                    rel_path = os.path.normpath(os.path.relpath(image_path, old_path))
-                    if os.path.normpath(tex_info["Texture Path"]) != rel_path:
-                        utils.log_info(mat.name + "/" + channel + ": Using new texture path: " + rel_path)
-                        tex_info["Texture Path"] = rel_path
+                if is_pbr:
+                    if tex_id in mat_json["Textures"].keys():
+                        tex_info = mat_json["Textures"][tex_id]
+                    elif tex_node:
+                        tex_info = params.JSON_PBR_TEX_INFO.copy()
+                        location, rotation, scale = nodeutils.get_image_node_mapping(tex_node)
+                        tex_info["Tiling"] = [scale[0], scale[1]]
+                        tex_info["Offset"] = [location[0], location[1]]
+                        mat_json["Textures"][tex_id] = tex_info
+
+                elif has_custom_shader:
+                    if tex_id in mat_json["Custom Shader"]["Image"].keys():
+                        tex_info = mat_json["Custom Shader"]["Image"][tex_id]
+                    elif tex_node:
+                        tex_info = params.JSON_CUSTOM_TEX_INFO.copy()
+                        mat_json["Custom Shader"]["Image"][tex_id] = tex_info
+
+                # if bump and normal are connect and we are combining them, remove bump maps from the Json and don't process it:
+                if tex_info and tex_type == "BUMP" and bump_combining:
+                    tex_info = None
+                    del mat_json["Textures"][tex_id]
+
+                if tex_info:
+
+                    if tex_node:
+                        image : bpy.types.Image = None
+                        if tex_node.type == "TEX_IMAGE":
+                            if tex_type == "NORMAL" and bump_combining:
+                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, old_path)
+                            else:
+                                image = tex_node.image
+                        elif prefs.export_bake_nodes:
+                            # if something is connected to the shader socket but is not a texture image
+                            # and baking is enabled: then bake the socket input into a texture for exporting:
+                            if tex_type == "NORMAL" and bump_combining:
+                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, old_path)
+                            else:
+                                image = bake.bake_socket_input(shader_node, shader_socket, mat, tex_id, old_path)
+                        if image:
+                            image_path = bpy.path.abspath(image.filepath)
+                            rel_path = os.path.normpath(os.path.relpath(image_path, old_path))
+                            if os.path.normpath(tex_info["Texture Path"]) != rel_path:
+                                utils.log_info(mat.name + "/" + tex_id + ": Using new texture path: " + rel_path)
+                                tex_info["Texture Path"] = rel_path
 
 
 class CC3Export(bpy.types.Operator):

@@ -75,7 +75,7 @@ def get_node_and_socket_connected_to_input(node, socket):
     try:
         return node.inputs[socket].links[0].from_node, node.inputs[socket].links[0].from_socket.name
     except:
-        return None
+        return None, None
 
 
 def has_connected_input(node, socket):
@@ -219,6 +219,13 @@ def make_math_node(nodes, operation, value1 = 0.5, value2 = 0.5):
     return math_node
 
 
+def make_bump_node(nodes, strength, distance):
+    bump_node : bpy.types.ShaderNodeBump = make_shader_node(nodes, "ShaderNodeBump")
+    bump_node.inputs["Strength"].default_value = strength
+    bump_node.inputs["Distance"].default_value = distance
+    return bump_node
+
+
 def make_rgb_node(nodes, label, value = [1.0, 1.0, 1.0, 1.0]):
     rgb_node = make_shader_node(nodes, "ShaderNodeRGB", 0.8)
     rgb_node.label = label
@@ -241,9 +248,13 @@ def make_node_group_node(nodes, group, label, name):
     return group_node
 
 
-def get_node_input(node, input, default):
+def get_node_input(node : bpy.types.Node, input, default):
     if node is not None:
         try:
+            if node.inputs[input].is_linked:
+                input_node, input_socket = get_node_and_socket_connected_to_input(node, input)
+                if input_node and input_socket:
+                    return input_node.outputs[input_socket].default_value
             return node.inputs[input].default_value
         except:
             return default
@@ -265,7 +276,7 @@ def set_node_input(node, socket, value):
         try:
             node.inputs[socket].default_value = utils.match_dimensions(node.inputs[socket].default_value, value)
         except:
-            utils.log_info("Unable to set input: " + node.name + "[" + str(socket) + "]")
+            utils.log_detail("Unable to set input: " + node.name + "[" + str(socket) + "]")
 
 
 def set_node_output(node, socket, value):
@@ -273,7 +284,7 @@ def set_node_output(node, socket, value):
         try:
             node.outputs[socket].default_value = utils.match_dimensions(node.outputs[socket].default_value, value)
         except:
-            utils.log_info("Unable to set output: " + node.name + "[" + str(socket) + "]")
+            utils.log_detail("Unable to set output: " + node.name + "[" + str(socket) + "]")
 
 
 def link_nodes(links, from_node, from_socket, to_node, to_socket):
@@ -281,7 +292,7 @@ def link_nodes(links, from_node, from_socket, to_node, to_socket):
         try:
             links.new(from_node.outputs[from_socket], to_node.inputs[to_socket])
         except:
-            utils.log_info("Unable to link: " + from_node.name + "[" + str(from_socket) + "] to " +
+            utils.log_detail("Unable to link: " + from_node.name + "[" + str(from_socket) + "] to " +
                   to_node.name + "[" + str(to_socket) + "]")
 
 
@@ -496,17 +507,26 @@ def find_node_by_type(nodes, type):
             return n
 
 
+def get_image_node_mapping(image_node):
+    location = (0,0,0)
+    rotation = (0,0,0)
+    scale = (1,1,1)
+    if image_node.type == "TEX_IMAGE":
+        mapping_node = get_node_connected_to_input(image_node, "Vector")
+        if mapping_node:
+            if mapping_node.type == "MAPPING":
+                location = get_node_input(mapping_node, "Location", (0,0,0))
+                rotation = get_node_input(mapping_node, "Rotation", (0,0,0))
+                scale = get_node_input(mapping_node, "Scale", (1,1,1))
+            elif mapping_node.type == "GROUP":
+                location = get_node_input(mapping_node, "Offset", (0,0,0))
+                scale = get_node_input(mapping_node, "Tiling", (1,1,1))
+    return location, rotation, scale
+
+
 def store_texture_mapping(image_node, mat_cache, texture_type):
     if image_node and image_node.type == "TEX_IMAGE":
-        mapping_node = get_node_connected_to_input(image_node, "Vector")
-        if mapping_node and mapping_node.type == "MAPPING":
-            location = get_node_input(mapping_node, "Location", (0,0,0))
-            rotation = get_node_input(mapping_node, "Rotation", (0,0,0))
-            scale = get_node_input(mapping_node, "Scale", (1,1,1))
-        else:
-            location = (0,0,0)
-            rotation = (0,0,0)
-            scale = (1,1,1)
+        location, rotation, scale = get_image_node_mapping(image_node)
         texture_path = image_node.image.filepath
         embedded = image_node.image.packed_file is not None
         image = image_node.image

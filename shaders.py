@@ -276,16 +276,17 @@ def func_pow_2(v):
     return math.pow(v, 2.0)
 
 def func_set_iris_scale(a, b):
-    return a * b * vars.IRIS_SCALE_ADJUST
+    return (a * b * vars.IRIS_SCALE_ADJUST)
 
 def func_set_iris_tiling(v, w):
-    return 1.0 / (func_set_iris_scale(v, w))
+    # for SSR eyes only, slightly scale up the iris texture as the inner eye is a little bit smaller than the outer eye.
+    return 1.0 / (func_set_iris_scale(v, w) * 1.025)
 
 def func_get_iris_scale(iris_uv_radius):
     return 0.16 / iris_uv_radius
 
-def func_set_iris_scale(s):
-    return s * vars.IRIS_SCALE_ADJUST
+def func_export_iris_uv_radius(scale, radius):
+    return scale * radius
 
 def func_set_half(s):
     return s * 0.5
