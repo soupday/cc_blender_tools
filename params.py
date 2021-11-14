@@ -862,7 +862,7 @@ SHADER_MATRIX = [
             # non json properties (just defaults)
             ["eye_subsurface_scale", 0.75, "DEF"],
             ["eye_iris_depth_radius", 0.88, "DEF"],
-            ["eye_refraction_depth", 1, "DEF"],
+            ["eye_refraction_depth", 2.5, "DEF"],
             ["eye_blood_vessel_height", 0.5, "DEF"],
             ["eye_iris_bump_height", 1, "DEF"],
             ["eye_iris_roughness", 1, "DEF"],
@@ -872,7 +872,7 @@ SHADER_MATRIX = [
             ["eye_iris_hue", 0.5, "DEF"],
             ["eye_iris_saturation", 1, "DEF"],
             ["eye_iris_hsv", 1, "DEF"],
-            ["eye_limbus_dark_width", 0.025, "DEF"],
+            ["eye_limbus_dark_width", 1.0 - 0.34375, "DEF"],
             ["eye_limbus_color", (0.0, 0.0, 0.0, 1), "DEF"],
         ],
         # export variables to update json file on export that need special conversion

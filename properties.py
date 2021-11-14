@@ -489,8 +489,8 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_hsv: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hsv"))
     eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.01, max=0.16, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
     eye_limbus_width: bpy.props.FloatProperty(default=0.055, min=0.01, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_width"))
-    eye_limbus_dark_radius: bpy.props.FloatProperty(default=0.13125, min=0.01, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_dark_radius"))
-    eye_limbus_dark_width: bpy.props.FloatProperty(default=0.025, min=0.01, max=0.1, update=lambda s,c: update_property(s,c,"eye_limbus_dark_width"))
+    eye_limbus_dark_radius: bpy.props.FloatProperty(default=0.13125, min=0.1, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_dark_radius"))
+    eye_limbus_dark_width: bpy.props.FloatProperty(default=0.34375, min=0.01, max=0.99, update=lambda s,c: update_property(s,c,"eye_limbus_dark_width"))
     eye_limbus_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.0, 0.0, 0.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_limbus_color"))
     eye_shadow_radius: bpy.props.FloatProperty(default=0.3, min=0.0, max=0.5, update=lambda s,c: update_property(s,c,"eye_shadow_radius"))

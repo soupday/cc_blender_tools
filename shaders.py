@@ -279,8 +279,7 @@ def func_set_iris_scale(a, b):
     return (a * b * vars.IRIS_SCALE_ADJUST)
 
 def func_set_iris_tiling(v, w):
-    # for SSR eyes only, slightly scale up the iris texture as the inner eye is a little bit smaller than the outer eye.
-    return 1.0 / (func_set_iris_scale(v, w) * 1.025)
+    return 1.0 / func_set_iris_scale(v, w)
 
 def func_get_iris_scale(iris_uv_radius):
     return 0.16 / iris_uv_radius
@@ -304,18 +303,20 @@ def func_mul_100(v):
     return v * 100.0
 
 def func_limbus_dark_radius(limbus_dark_scale):
-    t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
-    return utils.lerp(0.155, 0.08, t) + 0.025
+    return 1 / limbus_dark_scale
+    #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
+    #return utils.lerp(0.155, 0.08, t) + 0.025
 
 def func_export_limbus_dark_scale(limbus_dark_radius):
-    t = utils.inverse_lerp(0.155, 0.08, limbus_dark_radius - 0.025)
-    return utils.clamp(utils.lerp(0.0, 10.0, t), 0, 10)
+    return 1 / limbus_dark_radius
+    #t = utils.inverse_lerp(0.155, 0.08, limbus_dark_radius - 0.025)
+    #return utils.clamp(utils.lerp(0.0, 10.0, t), 0, 10)
 
 def func_get_eye_depth(depth):
-    return (depth / 2.0)
+    return (depth / 3.0)
 
 def func_export_eye_depth(depth):
-    return (depth) * 2.0
+    return (depth) * 3.0
 
 def func_set_parallax_iris_depth(depth):
     return depth

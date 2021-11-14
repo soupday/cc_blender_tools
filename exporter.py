@@ -327,10 +327,12 @@ class CC3Export(bpy.types.Operator):
 
                 # select all the objects in the character (or try to)
                 for p in chr_cache.object_cache:
-                    if p.object is not None:
+                    if utils.still_exists(p.object):
                         if p.object.type == "ARMATURE":
+                            p.object.hide_set(False)
                             utils.try_select_child_objects(p.object)
                         else:
+                            p.object.hide_set(False)
                             utils.try_select_object(p.object)
 
                 export_changes = prep_export(chr_cache, name, bpy.context.selected_objects, json_data, chr_cache.import_dir, dir)
@@ -365,6 +367,7 @@ class CC3Export(bpy.types.Operator):
                 # select all the imported objects (should be just one)
                 for p in chr_cache.object_cache:
                     if p.object is not None and p.object.type == "MESH":
+                        p.object.hide_set(False)
                         p.object.select_set(True)
 
                 bpy.ops.export_scene.obj(filepath=self.filepath,
