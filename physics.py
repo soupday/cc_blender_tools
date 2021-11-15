@@ -232,7 +232,8 @@ def add_cloth_physics(obj):
 
         # Add any existing weight maps
         for mat in obj.data.materials:
-            add_material_weight_map(obj, mat, create = False)
+            if mat:
+                add_material_weight_map(obj, mat, create = False)
 
         # fix mod order
         modifiers.move_mod_last(obj, cloth_mod)
@@ -257,7 +258,7 @@ def remove_cloth_physics(obj):
 
     # Remove any weight maps
     for mat in obj.data.materials:
-        if mat is not None:
+        if mat:
             remove_material_weight_maps(obj, mat)
             weight_group = prefs.physics_group + "_" + utils.strip_name(mat.name)
             if weight_group in obj.vertex_groups:
@@ -383,10 +384,10 @@ def remove_material_weight_maps(obj, mat):
 
     edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
     if edit_mod is not None:
-        utils.log_info("    Removing weight map vertex edit modifer: " + edit_mod.name)
+        utils.log_info("Removing weight map vertex edit modifer: " + edit_mod.name)
         obj.modifiers.remove(edit_mod)
     if mix_mod is not None:
-        utils.log_info("    Removing weight map vertex mix modifer: " + mix_mod.name)
+        utils.log_info("Removing weight map vertex mix modifer: " + mix_mod.name)
         obj.modifiers.remove(mix_mod)
 
 
@@ -683,9 +684,10 @@ def separate_physics_materials(context):
         # remember which materials have active weight maps
         temp = []
         for mat in obj.data.materials:
-            edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
-            if edit_mod is not None:
-                temp.append(mat)
+            if mat:
+                edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
+                if edit_mod is not None:
+                    temp.append(mat)
 
         # remove cloth physics from the object
         disable_cloth_physics(obj)

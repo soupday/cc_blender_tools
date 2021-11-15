@@ -39,7 +39,7 @@ def load_image(filename, color_space):
         if (i.type == "IMAGE" and i.filepath != ""):
             try:
                 if os.path.normcase(os.path.abspath(i.filepath)) == os.path.normcase(os.path.abspath(filename)):
-                    utils.log_info("    Using existing image: " + i.filepath)
+                    utils.log_info("Using existing image: " + i.filepath)
                     if i.depth == 32 and i.alpha_mode != "CHANNEL_PACKED":
                         i.alpha_mode = "CHANNEL_PACKED"
                     #check_max_size(i)
@@ -48,7 +48,7 @@ def load_image(filename, color_space):
                 pass
 
     try:
-        utils.log_info("    Loading new image: " + filename)
+        utils.log_info("Loading new image: " + filename)
         image = bpy.data.images.load(filename)
         image.colorspace_settings.name = color_space
         if image.depth == 32:

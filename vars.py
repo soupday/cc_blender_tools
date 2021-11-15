@@ -16,7 +16,7 @@
 
 # Set by __init__.py from the bl_info dict
 
-VERSION_STRING = ""
+VERSION_STRING = "v0.0.0"
 
 def set_version_string(bl_info):
     global VERSION_STRING
@@ -27,7 +27,10 @@ UNIT_SCALE = 0.01
 SKIN_SSS_RADIUS_SCALE = 0.01
 TEETH_SSS_RADIUS_SCALE = 0.01
 HAIR_SSS_RADIUS_SCALE = 0.01
+HAIR_SSS_RADIUS_SCALE_CYCLES = 0.001
 EYE_SSS_RADIUS_SCALE = 0.01
+IRIS_SCALE_ADJUST = 1.08
+EMISSION_SCALE = 100
 
 # https://docs.blender.org/manual/en/latest/files/media/image_formats.html
 IMAGE_TYPES = [".bmp", ".sgi", ".rgb", ".bw", ".png", ".jpg", ".jpeg", ".jp2", ".j2c",
@@ -41,7 +44,8 @@ NODE_GROUPS = ["tiling_pivot_mapping", "tiling_mapping",
                "rl_cornea_shader", "rl_cornea_mix_shader", "rl_cornea_refractive_shader", "rl_eye_shader",
                "rl_pbr_shader", "rl_sss_shader",
                "rl_hair_shader", "rl_hair_cycles_shader",
-               "rl_eye_occlusion_cycles_mix_shader", "rl_tearline_cycles_shader", "rl_tearline_cycles_mix_shader"]
+               "rl_eye_occlusion_cycles_mix_shader", "rl_tearline_cycles_shader", "rl_tearline_cycles_mix_shader",
+               "rl_cornea_parallax_shader", "tiling_cornea_parallax_mapping"]
 
 
 MATERIAL_TYPES = [

@@ -23,17 +23,40 @@ from . import vars
 
 timer = 0
 
+LOG_INDENT = 0
+
+def log_indent():
+    global LOG_INDENT
+    LOG_INDENT += 3
+
+
+def log_recess():
+    global LOG_INDENT
+    LOG_INDENT -= 3
+
+
+def log_spacing():
+    return " " * LOG_INDENT
+
+
+def log_detail(msg):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    """Log an info message to console."""
+    if prefs.log_level == "DETAILS":
+        print((" " * LOG_INDENT) + msg)
+
+
 def log_info(msg):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     """Log an info message to console."""
-    if prefs.log_level == "ALL":
-        print(msg)
+    if prefs.log_level == "ALL" or prefs.log_level == "DETAILS":
+        print((" " * LOG_INDENT) + msg)
 
 
 def log_warn(msg):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     """Log a warning message to console."""
-    if prefs.log_level == "ALL" or prefs.log_level == "WARN":
+    if prefs.log_level == "ALL" or prefs.log_level == "DETAILS" or prefs.log_level == "WARN":
         print("Warning: " + msg)
 
 
@@ -82,6 +105,26 @@ def unique_name(name, no_version = False):
     return name
 
 
+def unique_material_name(name, mat = None):
+    name = strip_name(name)
+    index = 1001
+    if name in bpy.data.materials and bpy.data.materials[name] != mat:
+        while name + "_" + str(index) in bpy.data.materials:
+            index += 1
+        return name + "_" + str(index)
+    return name
+
+
+def unique_object_name(name, obj = None):
+    name = strip_name(name)
+    index = 1001
+    if name in bpy.data.objects and bpy.data.objects[name] != obj:
+        while name + "_" + str(index) in bpy.data.objects:
+            index += 1
+        return name + "_" + str(index)
+    return name
+
+
 def is_same_path(pa, pb):
     return os.path.normcase(os.path.realpath(pa)) == os.path.normcase(os.path.realpath(pb))
 
@@ -94,7 +137,7 @@ def object_has_material(obj, name):
     name = name.lower()
     if obj.type == "MESH":
         for mat in obj.data.materials:
-            if name in mat.name.lower():
+            if mat and name in mat.name.lower():
                 return True
     return False
 
@@ -350,6 +393,15 @@ def strip_name(name):
     return name
 
 
+def make_unique_name(name, keys):
+    if name in keys:
+        i = 1
+        while name + "_" + str(i) in keys:
+            i += 1
+        return name + "_" + str(i)
+    return name
+
+
 def tag_objects():
     for obj in bpy.data.objects:
         obj.tag = True
@@ -366,13 +418,14 @@ def untagged_objects():
 
 def tag_materials():
     for mat in bpy.data.materials:
-        mat.tag = True
+        if mat:
+            mat.tag = True
 
 
 def untagged_materials():
     untagged = []
     for mat in bpy.data.materials:
-        if mat.tag == False:
+        if mat and mat.tag == False:
             untagged.append(mat)
         mat.tag = False
     return untagged
@@ -392,11 +445,28 @@ def untagged_images():
     return untagged
 
 
-def select_all_child_objects(obj):
-    if obj.type == "ARMATURE" or obj.type == "MESH":
+def try_select_child_objects(obj):
+    try:
+        if obj.type == "ARMATURE" or obj.type == "MESH":
+            obj.select_set(True)
+        for child in obj.children:
+            try_select_child_objects(child)
+    except:
+        pass
+
+
+def try_select_object(obj):
+    try:
         obj.select_set(True)
-    for child in obj.children:
-        select_all_child_objects(child)
+    except:
+        pass
+
+
+def try_select_objects(objects, clear_selection = False):
+    if clear_selection:
+        bpy.ops.object.select_all(action='DESELECT')
+    for obj in objects:
+        try_select_object(obj)
 
 
 def remove_from_collection(coll, item):
@@ -404,4 +474,18 @@ def remove_from_collection(coll, item):
         if coll[i] == item:
             coll.remove(i)
             return
+
+
+def is_blender_version(version: str):
+    major, minor, subversion = version.split(".")
+    blender_version = bpy.app.version
+
+    v_test = int(major) * 1000000 + int(minor) * 1000 + int(subversion)
+    v_this = blender_version[0] * 1000000 + blender_version[1] * 1000 + blender_version[2]
+
+    print(v_test, v_this)
+
+    if v_this >= v_test:
+        return True
+    return False
 

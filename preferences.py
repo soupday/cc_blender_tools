@@ -35,9 +35,14 @@ def reset_preferences():
     prefs.hair_scalp_hint = "scalp,base,skullcap"
     prefs.debug_mode = False
     prefs.physics_group = "CC_Physics"
-    prefs.refractive_eyes = True
+    prefs.refractive_eyes = "PARALLAX"
     prefs.eye_displacement_group = "CC_Eye_Displacement"
     prefs.max_texture_size = 4096
+    prefs.export_json_changes = True
+    prefs.export_texture_changes = True
+    prefs.export_bone_roll_fix = False
+    prefs.export_bake_nodes = False
+    prefs.export_bake_bump_to_normal = True
 
 
 class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
@@ -111,11 +116,20 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     debug_mode: bpy.props.BoolProperty(default=False)
 
-
+    export_json_changes: bpy.props.BoolProperty(default=True, name="Material parameters", description="Export all material and shader parameter changes to the character Json data. Setting to False keeps original material and shader parameters.")
+    export_texture_changes: bpy.props.BoolProperty(default=True, name="Textures", description="Export all texture changes to the character Json data. Setting to False keeps original textures.")
+    export_bone_roll_fix: bpy.props.BoolProperty(default=False, name="Teeth bone fix", description="(Experimental) Apply zero roll to upper and lower teeth bones to fix teeth alignment problems re-importing to CC3")
+    export_bake_nodes: bpy.props.BoolProperty(default=False, name="Bake custom nodes", description="(Very Experimental) Bake any custom nodes (non texture image) attached to shader texture map sockets on export.")
+    export_bake_bump_to_normal: bpy.props.BoolProperty(default=True, name="Bake bump to normal maps", description="(Very Experimental) When both a bump map and a normal is present, bake the bump map into the normal. (CC3 materials can only have normal map or bump map.)")
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
-    refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
+    refractive_eyes: bpy.props.EnumProperty(items=[
+                        ("PARALLAX","Parallax Eye","(Experimental) Approximatated Parallax Refraction in a single cornea material which is not subject to Eevee limitations on Subsurface scattering and receiving shadows."),
+                        ("SSR","SSR Eye","Screen Space Refraction with a transmissive & transparent cornea material over an opaque eye (iris) material. SSR Materials do not receive full shadows and cannot have Subsurface scattering in Eevee."),
+                    ], default="SSR", name = "Refractive Eyes")
+
+    #refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
 
 
@@ -180,6 +194,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Physics:")
         layout.prop(self, "physics")
         layout.prop(self, "physics_group")
+        layout.label(text="Export:")
+        layout.prop(self, "export_json_changes")
+        layout.prop(self, "export_texture_changes")
+        layout.prop(self, "export_bone_roll_fix")
+        layout.prop(self, "export_bake_nodes")
+        layout.prop(self, "export_bake_bump_to_normal")
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")
         op = layout.operator("cc3.setmaterials", icon="FILE_REFRESH", text="Reset to Defaults")

@@ -168,6 +168,9 @@ def update_shader_property(obj, mat, mat_cache, prop_name):
             if "textures" in shader_def.keys():
                 update_shader_tiling(shader_name, mat, mat_cache, prop_name, shader_def["textures"])
 
+            if "mapping" in shader_def.keys():
+                update_shader_mapping(shader_name, mat, mat_cache, prop_name, shader_def["mapping"])
+
             if "modifiers" in shader_def.keys():
                 update_object_modifier(obj, mat_cache, prop_name, shader_def["modifiers"])
 
@@ -198,6 +201,19 @@ def update_shader_tiling(shader_name, mat, mat_cache, prop_name, texture_defs):
             if prop_name in tiling_props:
                 tiling_node = nodeutils.get_tiling_node(mat, shader_name, texture_type)
                 nodeutils.set_node_input(tiling_node, "Tiling", shaders.eval_tiling_param(texture_def, mat_cache))
+
+
+def update_shader_mapping(shader_name, mat, mat_cache, prop_name, mapping_defs):
+    mapping_node = None
+    for mapping_def in mapping_defs:
+        if len(mapping_def) == 1:
+            texture_type = mapping_def[0]
+            mapping_node = nodeutils.get_tiling_node(mat, shader_name, texture_type)
+        elif mapping_node:
+            tiling_props = mapping_def[3:]
+            if prop_name in tiling_props:
+                socket_name = mapping_def[1]
+                nodeutils.set_node_input(mapping_node, socket_name, shaders.eval_tiling_param(mapping_def, mat_cache, 2))
 
 
 def update_object_modifier(obj, mat_cache, prop_name, mod_defs):
@@ -270,7 +286,7 @@ def update_all_properties(context, update_mode = None):
                 processed.append(obj)
                 if obj.type == "MESH":
                     for mat in obj.data.materials:
-                        if mat not in processed:
+                        if mat and mat not in processed:
                             processed.append(mat)
                             mat_cache = chr_cache.get_material_cache(mat)
 
@@ -320,7 +336,9 @@ def init_character_property_defaults(chr_cache, chr_json):
         utils.log_info("(No Json Data)")
 
     # Basic properties
+    utils.log_indent()
     basic.init_basic_default(chr_cache)
+    utils.log_recess()
 
     # Advanced properties
     for obj_cache in chr_cache.object_cache:
@@ -330,16 +348,18 @@ def init_character_property_defaults(chr_cache, chr_json):
 
             obj_json = jsonutils.get_object_json(chr_json, obj)
             utils.log_info("Object: " + obj.name + " (" + obj_cache.object_type + ")")
+            utils.log_indent()
 
             for mat in obj.data.materials:
-                if mat not in processed:
+                if mat and mat not in processed:
                     processed.append(mat)
 
                     mat_cache = chr_cache.get_material_cache(mat)
                     if mat_cache:
 
                         mat_json = jsonutils.get_material_json(obj_json, mat)
-                        utils.log_info("  Material: " + mat.name + " (" + mat_cache.material_type + ")")
+                        utils.log_info("Material: " + mat.name + " (" + mat_cache.material_type + ")")
+                        utils.log_indent()
 
                         if mat_cache.is_eye():
                             cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
@@ -350,11 +370,13 @@ def init_character_property_defaults(chr_cache, chr_json):
                         if chr_json is None and chr_cache.generation == "ActorCore":
                             mat_cache.parameters.default_ao_strength = 0.2
                             mat_cache.parameters.default_specular_scale = 0.4
+                        utils.log_recess()
+            utils.log_recess()
 
 
 def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, mat_json):
     if obj and obj_cache and mat and mat_cache:
-        utils.log_info("Re-Initializing Material Propeerty Defaults: " + mat.name + " (" + mat_cache.material_type + ")")
+        utils.log_info("Re-Initializing Material Property Defaults: " + mat.name + " (" + mat_cache.material_type + ")")
         if mat_cache.is_eye():
             cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
             mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
@@ -467,8 +489,8 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_hsv: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hsv"))
     eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.01, max=0.16, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
     eye_limbus_width: bpy.props.FloatProperty(default=0.055, min=0.01, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_width"))
-    eye_limbus_dark_radius: bpy.props.FloatProperty(default=0.1, min=0.01, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_dark_radius"))
-    eye_limbus_dark_width: bpy.props.FloatProperty(default=0.025, min=0.01, max=0.1, update=lambda s,c: update_property(s,c,"eye_limbus_dark_width"))
+    eye_limbus_dark_radius: bpy.props.FloatProperty(default=0.13125, min=0.1, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_dark_radius"))
+    eye_limbus_dark_width: bpy.props.FloatProperty(default=0.34375, min=0.01, max=0.99, update=lambda s,c: update_property(s,c,"eye_limbus_dark_width"))
     eye_limbus_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.0, 0.0, 0.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_limbus_color"))
     eye_shadow_radius: bpy.props.FloatProperty(default=0.3, min=0.0, max=0.5, update=lambda s,c: update_property(s,c,"eye_shadow_radius"))
@@ -489,7 +511,7 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_ior: bpy.props.FloatProperty(default=1.4, min=1.01, max=2.5, update=lambda s,c: update_property(s,c,"eye_ior"))
     eye_blood_vessel_height: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_blood_vessel_height"))
     eye_iris_bump_height: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_iris_bump_height"))
-    eye_iris_depth: bpy.props.FloatProperty(default=0.9, min=0.0, max=2.5, update=lambda s,c: update_property(s,c,"eye_iris_depth"))
+    eye_iris_depth: bpy.props.FloatProperty(default=0.45, min=0, max=1.25, update=lambda s,c: update_property(s,c,"eye_iris_depth"))
     eye_iris_depth_radius: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_depth_radius"))
     eye_pupil_scale: bpy.props.FloatProperty(default=0.8, min=0.5, max=4.0, update=lambda s,c: update_property(s,c,"eye_pupil_scale"))
 
@@ -633,6 +655,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_subsurface_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"hair_subsurface_radius"))
     hair_diffuse_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_diffuse_strength"))
     hair_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_ao_strength"))
+    hair_ao_occlude_all: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_ao_occlude_all"))
     hair_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_blend_multiply_strength"))
     hair_specular_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_specular_scale"))
     hair_roughness_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_roughness_strength"))
@@ -661,13 +684,15 @@ class CC3PBRParameters(bpy.types.PropertyGroup):
     default_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_ao_strength"))
     default_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_blend_multiply_strength"))
     default_metallic: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_metallic"))
+    default_specular: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular"))
+    default_roughness: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness"))
     default_specular_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_strength"))
     default_specular_scale: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular_scale"))
     default_specular_map: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_map"))
     default_specular_mask: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_mask"))
     default_roughness_power: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_roughness_power"))
     default_roughness_min: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness_min"))
-    default_roughness_max: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness_max"))
+    default_roughness_max: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness_max"))
     default_alpha_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_alpha_strength"))
     default_opacity: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_opacity"))
     default_normal_strength: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_normal_strength"))
@@ -691,13 +716,15 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_ao_strength"))
     default_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_blend_multiply_strength"))
     default_metallic: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_metallic"))
+    default_specular: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular"))
+    default_roughness: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness"))
     default_specular_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_strength"))
     default_specular_scale: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular_scale"))
     default_specular_map: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_map"))
     default_specular_mask: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_mask"))
     default_roughness_power: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_roughness_power"))
     default_roughness_min: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness_min"))
-    default_roughness_max: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness_max"))
+    default_roughness_max: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness_max"))
     default_alpha_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_alpha_strength"))
     default_opacity: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_opacity"))
     default_normal_strength: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_normal_strength"))
@@ -769,6 +796,7 @@ class CC3MaterialCache:
     texture_mappings: bpy.props.CollectionProperty(type=CC3TextureMapping)
     #parameters: bpy.props.PointerProperty(type=CC3MaterialParameters)
     dir: bpy.props.StringProperty(default="")
+    user_added: bpy.props.BoolProperty(default=False)
     temp_weight_map: bpy.props.PointerProperty(type=bpy.types.Image)
     alpha_is_diffuse: bpy.props.BoolProperty(default=False)
     alpha_mode: bpy.props.StringProperty(default="NONE") # NONE, BLEND, HASHED, OPAQUE
@@ -1012,6 +1040,15 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     return cache
         return None
 
+    def has_objects(self, objects):
+        """Returns True if any of the objects are in the object cache.
+        """
+
+        for cache in self.object_cache:
+            if cache.object in objects:
+                return True
+        return False
+
 
     def add_object_cache(self, obj):
         """Returns the object cache for this object.
@@ -1021,7 +1058,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
         cache = self.get_object_cache(obj)
         if cache is None:
-            utils.log_info("Creating Object Cache for: " + obj.name)
+            utils.log_info(f"Creating Object Cache for: {obj.name}")
             cache = self.object_cache.add()
             cache.object = obj
         return cache
@@ -1070,7 +1107,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def add_or_reuse_material_cache(self, collection):
         for i in range(0, len(collection)):
             if collection[i].material is None:
-                utils.log_info("Reusing material cache: " + str(i))
+                utils.log_info(f"Reusing material cache: {str(i)}")
                 return collection[i]
         return collection.add()
 
@@ -1083,7 +1120,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
         cache = self.get_material_cache(mat)
         if cache is None and mat:
-            utils.log_info("Creating Material Cache for: " + mat.name + " (" + create_type + ")")
+            utils.log_info(f"Creating Material Cache for: {mat.name} (type = {create_type})")
             if create_type == "DEFAULT" or create_type == "SCALP" or create_type == "EYELASH":
                 cache = self.add_or_reuse_material_cache(self.pbr_material_cache)
             elif create_type == "SSS":
@@ -1113,14 +1150,18 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             cache.material_type = create_type
         return cache
 
-    def get_character_json(self):
+    def get_json_data(self):
         json_data = jsonutils.read_json(self.import_file)
+        return json_data
+
+    def get_character_json(self):
+        json_data = self.get_json_data()
         return jsonutils.get_character_json(json_data, self.import_name, self.character_id)
 
     def recast_type(self, collection, index, chr_json):
         mat_cache = collection[index]
         mat = mat_cache.material
-        utils.log_info("Recasting material cache: " + mat.name)
+        utils.log_info(f"Recasting material cache: {mat.name}")
         material_type = mat_cache.material_type
         mat_cache.material = None
         new_mat_cache = self.add_material_cache(mat, material_type)
@@ -1130,7 +1171,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             obj = obj_cache.object
             if obj.type == "MESH":
                 for m in obj.data.materials:
-                    if m == mat:
+                    if m and m == mat:
                         new_mat_cache.dir = imageutils.get_material_tex_dir(self, obj, mat)
                         obj_json = jsonutils.get_object_json(chr_json, obj)
                         mat_json = jsonutils.get_material_json(obj_json, mat)
@@ -1164,8 +1205,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     node_id: bpy.props.IntProperty(default=1000)
 
     build_mode: bpy.props.EnumProperty(items=[
-                        ("IMPORTED","All Imported","Build materials for all the imported objects."),
-                        ("SELECTED","Only Selected","Build materials only for the selected objects.")
+                        ("IMPORTED","All Imported","Rebuild materials for all the imported objects."),
+                        ("SELECTED","Only Selected","Rebuild materials only for the selected objects.")
                     ], default="IMPORTED")
 
     blend_mode: bpy.props.EnumProperty(items=[
@@ -1222,6 +1263,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("ON","Physics","Automatically generates physics vertex groups and settings."),
                     ], default="OFF")
 
+    export_options: bpy.props.BoolProperty(default=False)
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)
@@ -1234,23 +1276,33 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     hair_toggle: bpy.props.BoolProperty(default=True)
     default_toggle: bpy.props.BoolProperty(default=True)
 
+    def get_any_character_cache_from_objects(self, objects):
+        chr_cache : CC3CharacterCache
+        for chr_cache in self.import_cache:
+            if chr_cache.has_objects(objects):
+                return chr_cache
+        return None
+
     def get_character_cache(self, obj, mat):
         if obj:
-            for imp_cache in self.import_cache:
-                obj_cache = imp_cache.get_object_cache(obj)
+            for chr_cache in self.import_cache:
+                obj_cache = chr_cache.get_object_cache(obj)
                 if obj_cache:
-                    return imp_cache
+                    return chr_cache
         if mat:
-            for imp_cache in self.import_cache:
-                mat_cache = imp_cache.get_material_cache(mat)
+            for chr_cache in self.import_cache:
+                mat_cache = chr_cache.get_material_cache(mat)
                 if mat_cache:
-                    return imp_cache
+                    return chr_cache
         return None
 
     def get_context_character_cache(self, context):
         obj = context.object
         mat = utils.context_material(context)
-        return self.get_character_cache(obj, mat)
+        chr_cache = self.get_character_cache(obj, mat)
+        if chr_cache is None and len(context.selected_objects) > 1:
+            chr_cache = self.get_any_character_cache_from_objects(context.selected_objects)
+        return chr_cache
 
     def get_object_cache(self, obj):
         if obj:

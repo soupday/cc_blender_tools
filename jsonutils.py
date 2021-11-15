@@ -27,18 +27,56 @@ def read_json(fbx_path):
         fbx_name = os.path.splitext(fbx_file)[0]
         json_path = os.path.join(fbx_folder, fbx_name + ".json")
         if os.path.exists(json_path):
-            file = open(json_path, "rt")
+
+            # determine start of json text data
+            file_bytes = open(json_path, "rb")
+            bytes = file_bytes.read(3)
+            file_bytes.close()
+            start = 0
             # json files outputted from Visual Studio projects start with a byte mark order block (3 bytes EF BB BF)
-            file.seek(3)
+            if bytes[0] == 0xEF and bytes[1] == 0xBB and bytes[2] == 0xBF:
+                start = 3
+
+            # read json text
+            file = open(json_path, "rt")
+            file.seek(start)
             text_data = file.read()
             json_data = json.loads(text_data)
-            utils.log_info("Json data read: " + json_path)
+            file.close()
+            utils.log_info("Json data successfully parsed: " + json_path)
             return json_data
+
         utils.log_info("No Json data to parse, using defaults...")
         return None
     except:
         utils.log_warn("Failed to read Json data: " + json_path)
         return None
+
+
+def write_json(json_data, path):
+    json_object = json.dumps(json_data, indent = 4)
+    with open(path, "w") as write_file:
+        write_file.write(json_object)
+
+
+def get_all_object_keys(chr_json):
+    if chr_json:
+        meshes_json = chr_json["Meshes"]
+        return meshes_json.keys()
+    return []
+
+
+def get_all_material_keys(chr_json):
+    if chr_json:
+        keys = []
+        meshes_json = chr_json["Meshes"]
+        for obj_json_name in meshes_json.keys():
+            obj_json = meshes_json[obj_json_name]
+            materials_json = obj_json["Materials"]
+            for mat_key in materials_json.keys():
+                keys.append(mat_key)
+        return keys
+
 
 def get_character_generation_json(character_json, file_name, character_id):
     try:
@@ -46,6 +84,7 @@ def get_character_generation_json(character_json, file_name, character_id):
     except:
         utils.log_warn("Failed to read character generation data!")
         return None
+
 
 def get_character_root_json(json_data, file_name):
     if not json_data:
@@ -61,7 +100,7 @@ def get_character_json(json_data, file_name, character_id):
         return None
     try:
         character_json = json_data[file_name]["Object"][character_id]
-        utils.log_info("Character Json data found for: " + character_id)
+        utils.log_detail("Character Json data found for: " + character_id)
         return character_json
     except:
         utils.log_warn("Failed to get character Json data!")
@@ -71,11 +110,11 @@ def get_object_json(character_json, obj):
     if not character_json:
         return None
     try:
-        name = obj.name.lower()
+        name = utils.strip_name(obj.name).lower()
         meshes_json = character_json["Meshes"]
         for object_name in meshes_json.keys():
-            if object_name.lower() in name:
-                utils.log_info("Object Json data found for: " + obj.name)
+            if object_name.lower() == name:
+                utils.log_detail("Object Json data found for: " + obj.name)
                 return meshes_json[object_name]
     except:
         utils.log_warn("Failed to get object Json data!")
@@ -88,18 +127,18 @@ def get_custom_shader(material_json):
         try:
             return material_json["Material Type"]
         except:
-            utils.log_warn("Failed to material shader data!")
+            utils.log_warn("Failed to find material shader data!")
             return "Pbr"
 
 def get_material_json(object_json, material):
     if not object_json:
         return None
     try:
-        name = material.name.lower()
+        name = utils.strip_name(material.name).lower()
         materials_json = object_json["Materials"]
         for material_name in materials_json.keys():
-            if material_name.lower() in name:
-                utils.log_info("Material Json data found for: " + material.name)
+            if material_name.lower() == name:
+                utils.log_detail("Material Json data found for: " + material.name)
                 return materials_json[material_name]
     except:
         utils.log_warn("Failed to get material Json data!")
@@ -171,6 +210,48 @@ def get_sss_var(material_json, var_name):
     except:
         return None
 
+
+def set_material_json_var(material_json, var_path: str, value):
+    var_type, var_name = var_path.split('/')
+    if var_type == "Custom":
+        set_shader_var(material_json, var_name, value)
+    elif var_type == "SSS":
+        set_sss_var(material_json, var_name, value)
+    elif var_type == "Pbr":
+        set_pbr_var(material_json, var_name, value)
+    else: # var_type == "Base":
+        set_material_var(material_json, var_name, value)
+
+
+def set_shader_var(material_json, var_name, value):
+    if material_json:
+        try:
+            material_json["Custom Shader"]["Variable"][var_name] = value
+        except:
+            return
+
+def set_pbr_var(material_json, var_name, value):
+    if material_json:
+        try:
+            material_json["Textures"][var_name]["Strength"] = value * 100.0
+        except:
+            return
+
+def set_material_var(material_json, var_name, value):
+    if material_json:
+        try:
+            material_json[var_name] = value
+        except:
+            return
+
+def set_sss_var(material_json, var_name, value):
+    if material_json:
+        try:
+            material_json["Subsurface Scatter"][var_name] = value
+        except:
+            return
+
+
 def convert_to_color(json_var):
     if type(json_var) == list:
         for i in range(0, len(json_var)):
@@ -178,6 +259,7 @@ def convert_to_color(json_var):
         if len(json_var) == 3:
             json_var.append(1)
     return json_var
+
 
 def get_shader_var_color(material_json, var_name):
     if not material_json:

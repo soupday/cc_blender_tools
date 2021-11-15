@@ -79,6 +79,9 @@ def process_material(chr_cache, obj, mat, object_json):
 
     if not mat_cache: return
 
+    if not mat.use_nodes:
+        mat.use_nodes = True
+
     if chr_cache.setup_mode == "ADVANCED":
 
         if mat_cache.is_cornea() or mat_cache.is_eye():
@@ -114,16 +117,16 @@ def process_material(chr_cache, obj, mat, object_json):
         nodeutils.reset_cursor()
 
         if mat_cache.is_eye_occlusion():
-            basic.connect_eye_occlusion_material(obj, mat)
+            basic.connect_eye_occlusion_material(obj, mat, mat_json)
 
         elif mat_cache.is_tearline():
-            basic.connect_tearline_material(obj, mat)
+            basic.connect_tearline_material(obj, mat, mat_json)
 
         elif mat_cache.is_cornea():
-            basic.connect_basic_eye_material(obj, mat)
+            basic.connect_basic_eye_material(obj, mat, mat_json)
 
         else:
-            basic.connect_basic_material(obj, mat)
+            basic.connect_basic_material(obj, mat, mat_json)
 
         nodeutils.move_new_nodes(-600, 0)
 
@@ -151,6 +154,7 @@ def process_object(chr_cache, obj, objects_processed, character_json):
 
     utils.log_info("")
     utils.log_info("Processing Object: " + obj.name + ", Type: " + obj.type)
+    utils.log_indent()
 
     obj_cache = chr_cache.get_object_cache(obj)
 
@@ -164,12 +168,14 @@ def process_object(chr_cache, obj, objects_processed, character_json):
 
         # process any materials found in the mesh object
         for mat in obj.data.materials:
-            if mat is not None:
+            if mat:
                 utils.log_info("")
                 utils.log_info("Processing Material: " + mat.name)
+                utils.log_indent()
                 process_material(chr_cache, obj, mat, object_json)
                 if prefs.physics == "ENABLED" and props.physics_mode == "ON":
                     physics.add_material_weight_map(obj, mat, create = False)
+                utils.log_recess()
 
         # setup default physics
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
@@ -194,6 +200,8 @@ def process_object(chr_cache, obj, objects_processed, character_json):
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
             scene.fetch_anim_range(bpy.context)
 
+    utils.log_recess()
+
 
 def cache_object_materials(character_cache, obj, character_json, processed):
     props = bpy.context.scene.CC3ImportProps
@@ -205,21 +213,29 @@ def cache_object_materials(character_cache, obj, character_json, processed):
     obj_cache = character_cache.add_object_cache(obj)
 
     if obj.type == "MESH":
+
+        utils.log_info(f"Caching Object: {obj.name}")
+        utils.log_indent()
+
         for mat in obj.data.materials:
 
-            if mat.node_tree is not None and not mat in processed:
+            if mat and mat.node_tree is not None and not mat in processed:
 
                 object_type, material_type = materials.detect_materials(character_cache, obj, mat, obj_json)
                 obj_cache.object_type = object_type
                 mat_cache = character_cache.add_material_cache(mat, material_type)
                 mat_cache.dir = imageutils.get_material_tex_dir(character_cache, obj, mat)
+                utils.log_indent()
                 materials.detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache)
+                utils.log_recess()
                 processed.append(mat)
 
             elif mat in processed:
 
                 object_type, material_type = materials.detect_materials(character_cache, obj, mat, obj_json)
                 obj_cache.object_type = object_type
+
+        utils.log_recess()
 
 
     processed.append(obj)
@@ -392,6 +408,7 @@ def detect_characters(file_path, type, objects, json_data):
             if obj.type == "MESH":
                 chr_cache.add_object_cache(obj)
 
+    utils.log_info("")
     return characters
 
 
@@ -444,9 +461,6 @@ class CC3Import(bpy.types.Operator):
         utils.log_info("--------------------------")
 
         import_anim = self.use_anim
-        # don't import animation data if importing for morph/accessory
-        if self.param == "IMPORT_MORPH":
-            import_anim = False
 
         dir, name = os.path.split(self.filepath)
         type = name[-3:].lower()
@@ -550,33 +564,54 @@ class CC3Import(bpy.types.Operator):
 
             if props.build_mode == "IMPORTED":
                 for cache in chr_cache.object_cache:
-                    if cache.object is not None:
+                    if cache.object:
                         process_object(chr_cache, cache.object, objects_processed, chr_json)
 
             # only processes the selected objects that are listed in the import_cache (character)
             elif props.build_mode == "SELECTED":
-                for obj in bpy.context.selected_objects:
-                    for cache in chr_cache.object_cache:
-                        if cache.object == obj:
-                            process_object(cache.object, objects_processed, chr_json)
+                for cache in chr_cache.object_cache:
+                    if cache.object and cache.object in bpy.context.selected_objects:
+                        process_object(chr_cache, cache.object, objects_processed, chr_json)
 
+        if prefs.refractive_eyes == "SSR":
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
 
         utils.log_timer("Done Build.", "s")
+
+
+    def detect_import_mode(self):
+        # detect if we are importing a character for morph/accessory editing (i.e. has a key file)
+        dir, name = os.path.split(self.filepath)
+        type = name[-3:].lower()
+        name = name[:-4]
+
+        if type == "obj":
+            obj_key_path = os.path.join(dir, name + ".ObjKey")
+            if os.path.exists(obj_key_path):
+                self.param = "IMPORT_MORPH"
+                utils.log_info("Importing as morph with ObjKey.")
+                return
+        elif type == "fbx":
+            obj_key_path = os.path.join(dir, name + ".fbxkey")
+            if os.path.exists(obj_key_path):
+                self.param = "IMPORT_MORPH"
+                utils.log_info("Importing as character/morph with fbxkey.")
+                return
+        utils.log_info("Importing for rendering without key file.")
+        self.param = "IMPORT_QUALITY"
+
 
     def run_import(self, context):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-        # use basic materials for morph/accessory editing as it has better viewport performance
+        self.detect_import_mode()
+
         if self.param == "IMPORT_MORPH":
             setup_mode = prefs.morph_mode
-        elif self.param == "IMPORT_ACCESSORY":
-            setup_mode = prefs.pipeline_mode
-        # use advanced materials for quality/rendering
-        elif self.param == "IMPORT_QUALITY":
-            setup_mode = prefs.quality_mode
         else:
-            setup_mode = props.setup_mode
+            setup_mode = prefs.quality_mode
 
         self.import_character()
 
@@ -592,7 +627,6 @@ class CC3Import(bpy.types.Operator):
                 chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
                 if self.param == "IMPORT_MORPH" and not chr_cache.import_has_key:
                     warn = "This character export does not have an .fbxkey file, it cannot be used to create character morphs in CC3."
-
 
             # check for objkey
             if chr_cache.import_type == "obj":
@@ -645,7 +679,7 @@ class CC3Import(bpy.types.Operator):
                 if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
                     scene.setup_scene_default(prefs.quality_lighting)
 
-            if prefs.refractive_eyes:
+            if prefs.refractive_eyes == "SSR":
                 bpy.context.scene.eevee.use_ssr = True
                 bpy.context.scene.eevee.use_ssr_refraction = True
 
@@ -766,25 +800,20 @@ class CC3Import(bpy.types.Operator):
 
     @classmethod
     def description(cls, context, properties):
-        if properties.param == "IMPORT":
-            return "Import a new .fbx or .obj character exported by Character Creator 3"
-        elif properties.param == "REIMPORT":
-            return "Rebuild the materials from the last import with the current settings"
-        elif properties.param == "IMPORT_MORPH":
-            return "Import .fbx or .obj character from CC3 for morph creation. This does not import any animation data.\n" \
+        if "IMPORT" in properties.param:
+            return "Import a new .fbx or .obj character exported by Character Creator 3.\n" \
                    "Notes for exporting from CC3:\n" \
-                   "1. For best results for morph creation export FBX: 'Mesh Only' or OBJ: Nude Character in Bind Pose, as these guarantee .fbxkey or .objkey generation.\n" \
-                   "2. OBJ export 'Nude Character in Bind Pose' .obj does not export any materials.\n" \
-                   "3. OBJ export 'Character with Current Pose' does not create an .objkey and cannot be used for morph creation.\n" \
-                   "4. FBX export with motion in 'Current Pose' or 'Custom Motion' also does not export an .fbxkey and cannot be used for morph creation"
+                   " - For round trip-editing (exporting character back to CC3), export as FBX: 'Mesh Only' or 'Mesh and Motion' with Calibration, from CC3, as this guarantees generation of the .fbxkey file needed to re-import the character back to CC3.\n" \
+                   " - For creating morph sliders, export as OBJ: Nude Character in Bind Pose from CC3, as this is the only way to generate the .ObjKey file for morph slider creation in CC3.\n" \
+                   " - FBX export with motion in 'Current Pose' or 'Custom Motion' does not export an .fbxkey and cannot be exported back to CC3.\n" \
+                   " - OBJ export 'Character with Current Pose' does not create an .objkey and cannot be exported back to CC3.\n" \
+                   " - OBJ export 'Nude Character in Bind Pose' .obj does not export any materials"
         elif properties.param == "IMPORT_ACCESSORY":
             return "Import .fbx or .obj character from CC3 for accessory creation. This will import current pose or animation.\n" \
                    "Notes for exporting from CC3:\n" \
                    "1. OBJ or FBX exports in 'Current Pose' are good for accessory creation as they import back into CC3 in exactly the right place"
-        elif properties.param == "IMPORT_QUALITY":
-            return "Import .fbx or .obj character from CC3 for rendering"
         elif properties.param == "BUILD":
-            return "Build (or Rebuild) materials for the current imported character with the current build settings"
+            return "Rebuild materials for the current imported character with the current build settings"
         elif properties.param == "DELETE_CHARACTER":
             return "Removes the character and any associated objects, meshes, materials, nodes, images, armature actions and shapekeys. Basically deletes everything not nailed down.\n**Do not press this if there is anything you want to keep!**"
         elif properties.param == "REBUILD_NODE_GROUPS":

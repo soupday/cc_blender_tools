@@ -75,7 +75,7 @@ def get_node_and_socket_connected_to_input(node, socket):
     try:
         return node.inputs[socket].links[0].from_node, node.inputs[socket].links[0].from_socket.name
     except:
-        return None
+        return None, None
 
 
 def has_connected_input(node, socket):
@@ -219,6 +219,13 @@ def make_math_node(nodes, operation, value1 = 0.5, value2 = 0.5):
     return math_node
 
 
+def make_bump_node(nodes, strength, distance):
+    bump_node : bpy.types.ShaderNodeBump = make_shader_node(nodes, "ShaderNodeBump")
+    bump_node.inputs["Strength"].default_value = strength
+    bump_node.inputs["Distance"].default_value = distance
+    return bump_node
+
+
 def make_rgb_node(nodes, label, value = [1.0, 1.0, 1.0, 1.0]):
     rgb_node = make_shader_node(nodes, "ShaderNodeRGB", 0.8)
     rgb_node.label = label
@@ -241,9 +248,13 @@ def make_node_group_node(nodes, group, label, name):
     return group_node
 
 
-def get_node_input(node, input, default):
+def get_node_input(node : bpy.types.Node, input, default):
     if node is not None:
         try:
+            if node.inputs[input].is_linked:
+                input_node, input_socket = get_node_and_socket_connected_to_input(node, input)
+                if input_node and input_socket:
+                    return input_node.outputs[input_socket].default_value
             return node.inputs[input].default_value
         except:
             return default
@@ -265,7 +276,7 @@ def set_node_input(node, socket, value):
         try:
             node.inputs[socket].default_value = utils.match_dimensions(node.inputs[socket].default_value, value)
         except:
-            utils.log_info("Unable to set input: " + node.name + "[" + str(socket) + "]")
+            utils.log_detail("Unable to set input: " + node.name + "[" + str(socket) + "]")
 
 
 def set_node_output(node, socket, value):
@@ -273,7 +284,7 @@ def set_node_output(node, socket, value):
         try:
             node.outputs[socket].default_value = utils.match_dimensions(node.outputs[socket].default_value, value)
         except:
-            utils.log_info("Unable to set output: " + node.name + "[" + str(socket) + "]")
+            utils.log_detail("Unable to set output: " + node.name + "[" + str(socket) + "]")
 
 
 def link_nodes(links, from_node, from_socket, to_node, to_socket):
@@ -281,7 +292,7 @@ def link_nodes(links, from_node, from_socket, to_node, to_socket):
         try:
             links.new(from_node.outputs[from_socket], to_node.inputs[to_socket])
         except:
-            utils.log_info("Unable to link: " + from_node.name + "[" + str(from_socket) + "] to " +
+            utils.log_detail("Unable to link: " + from_node.name + "[" + str(from_socket) + "] to " +
                   to_node.name + "[" + str(to_socket) + "]")
 
 
@@ -296,7 +307,7 @@ def unlink_node(links, node, socket):
             utils.log_info("Unable to remove links from: " + node.name + "[" + str(socket) + "]")
 
 
-def reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group):
+def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group):
     shader_id = "(" + str(shader_name) + ")"
     bsdf_id = "(" + str(shader_name) + "_BSDF)"
     mix_id = "(" + str(shader_name) + "_MIX)"
@@ -348,9 +359,14 @@ def reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shad
             else:
                 output_node = n
 
-        elif n.type == "TEX_IMAGE" and vars.NODE_PREFIX in n.name:
-            # keep images
-            pass
+        elif n.type == "TEX_IMAGE":
+            if vars.NODE_PREFIX in n.name:
+                # keep images
+                pass
+
+            elif not mat_cache.user_added:  #cc3iid_(MICRONMASK)_v1.1.0_1487
+                # keep all images if it is a user added material
+                nodes.remove(n)
 
         else:
             nodes.remove(n)
@@ -365,7 +381,6 @@ def reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shad
         utils.log_info("Creating new shader group: " + group_node.name)
 
     if has_mix_node and not mix_node:
-        print("################",mix_shader_group)
         group = get_node_group(mix_shader_group)
         mix_node = nodes.new("ShaderNodeGroup")
         mix_node.node_tree = group
@@ -492,22 +507,33 @@ def find_node_by_type(nodes, type):
             return n
 
 
+def get_image_node_mapping(image_node):
+    location = (0,0,0)
+    rotation = (0,0,0)
+    scale = (1,1,1)
+    if image_node.type == "TEX_IMAGE":
+        mapping_node = get_node_connected_to_input(image_node, "Vector")
+        if mapping_node:
+            if mapping_node.type == "MAPPING":
+                location = get_node_input(mapping_node, "Location", (0,0,0))
+                rotation = get_node_input(mapping_node, "Rotation", (0,0,0))
+                scale = get_node_input(mapping_node, "Scale", (1,1,1))
+            elif mapping_node.type == "GROUP":
+                location = get_node_input(mapping_node, "Offset", (0,0,0))
+                scale = get_node_input(mapping_node, "Tiling", (1,1,1))
+    return location, rotation, scale
+
+
 def store_texture_mapping(image_node, mat_cache, texture_type):
     if image_node and image_node.type == "TEX_IMAGE":
-        mapping_node = get_node_connected_to_input(image_node, "Vector")
-        if mapping_node and mapping_node.type == "MAPPING":
-            location = get_node_input(mapping_node, "Location", (0,0,0))
-            rotation = get_node_input(mapping_node, "Rotation", (0,0,0))
-            scale = get_node_input(mapping_node, "Scale", (1,1,1))
-        else:
-            location = (0,0,0)
-            rotation = (0,0,0)
-            scale = (1,1,1)
+        location, rotation, scale = get_image_node_mapping(image_node)
         texture_path = image_node.image.filepath
         embedded = image_node.image.packed_file is not None
         image = image_node.image
         mat_cache.set_texture_mapping(texture_type, texture_path, embedded, image, location, rotation, scale)
         utils.log_info("Storing texture Mapping for: " + mat_cache.material.name + " texture: " + texture_type)
+        image_id = "(" + texture_type + ")"
+        image_node.name = utils.unique_name(image_id)
 
 
 # link utils
@@ -592,7 +618,7 @@ def get_shader_nodes(mat, shader_name):
                 elif mix_id in node.name:
                     mix_node = node
         return bsdf_node, shader_node, mix_node
-    return None
+    return None, None, None
 
 
 def get_tiling_node(mat, shader_name, texture_type):
@@ -601,3 +627,8 @@ def get_tiling_node(mat, shader_name, texture_type):
         shader_id = "(tiling_" + shader_name + "_" + texture_type + "_mapping)"
         return get_node_by_id(nodes, shader_id)
     return None
+
+
+def get_tiling_node_from_nodes(nodes, shader_name, texture_type):
+    shader_id = "(tiling_" + shader_name + "_" + texture_type + "_mapping)"
+    return get_node_by_id(nodes, shader_id)

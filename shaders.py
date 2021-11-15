@@ -67,7 +67,7 @@ def exec_var_param(var_def, mat_cache, mat_json):
 
         exec_code = "parameters." + prop_name + " = " + exec_expression
         exec(exec_code, None, locals())
-        utils.log_info("    Applying: " + exec_code)
+        utils.log_info("Applying: " + exec_code)
     except:
         utils.log_error("exec_var_param(): error in expression: " + exec_code)
         utils.log_error(str(var_def))
@@ -102,12 +102,12 @@ def eval_input_param(input_def, mat_cache):
         return None
 
 
-def eval_tiling_param(texture_def, mat_cache):
+def eval_tiling_param(texture_def, mat_cache, start_index = 4):
     try:
         parameters = mat_cache.parameters
 
-        func = texture_def[4]
-        args = texture_def[5:]
+        func = texture_def[start_index]
+        args = texture_def[start_index + 1:]
 
         if func == "" or func == "=":
             # expression is mat_cache parameter
@@ -128,6 +128,24 @@ def eval_tiling_param(texture_def, mat_cache):
     except:
         utils.log_error("eval_tiling_param(): error in expression: " + exec_expression)
         return None
+
+
+def eval_parameters_func(parameters, func, args, default = None):
+    try:
+        # construct eval function code
+        exec_expression = func + "("
+        first = True
+        for arg in args:
+            if not first:
+                exec_expression += ", "
+            first = False
+            exec_expression += "parameters." + arg
+        exec_expression += ")"
+
+        return eval(exec_expression, None, locals())
+    except:
+        utils.log_error("eval_parameters_func(): error in expression: " + exec_expression)
+        return default
 
 
 def eval_prop(prop_name, mat_cache):
@@ -201,20 +219,24 @@ def func_eye_sss(r, f):
 
 def func_hair_sss(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    r = r * vars.HAIR_SSS_RADIUS_SCALE
     if prefs.render_target == "CYCLES":
-        r = r / 10.0
+        r = r * vars.HAIR_SSS_RADIUS_SCALE_CYCLES
+    else:
+        r = r * vars.HAIR_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
 def func_teeth_sss(r, f):
     r = r * vars.TEETH_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_recip(v):
-    return 1.0 / v
+def func_mul(a, b):
+    return a * b
+
+def func_tiling(scale):
+    return 1.0 / scale
 
 def func_emission_scale(v):
-    return v * 100.0
+    return v * vars.EMISSION_SCALE
 
 def func_color_linear(jc: list):
     return [ jc[0] / 255.0, jc[1] / 255.0, jc[2] / 255.0, 1.0 ]
@@ -232,6 +254,9 @@ def func_color_vector(jc: list):
             jc[i] /= 255.0
     return jc
 
+def func_export_byte3(c):
+    return [c[0] * 255.0, c[1] * 255.0, c[2] * 255.0]
+
 def func_occlusion_range(r, m):
     return utils.lerp(m, 1.0, r)
 
@@ -247,44 +272,54 @@ def func_one_minus(v):
 def func_sqrt(v):
     return math.sqrt(v)
 
-def func_corner_shadow_radius(v, u):
-    # 0.3 -> 0.275 = 0.91, ln(0.275)/ln(0.3) = 1.0723
-    # 0.13 -> 0.11 = 0.85,
-    #t = utils.inverse_lerp(0.13, 0.3, v)
-    #return utils.lerp(0.11, 0.275, t)
-    return v * u
+def func_pow_2(v):
+    return math.pow(v, 2.0)
 
-def func_iris_radius(v):
-    #return 0.15 * (0.16 / v)
-    return v
+def func_set_iris_scale(a, b):
+    return (a * b * vars.IRIS_SCALE_ADJUST)
 
-def func_iris_scale(v, u):
-    return u * 0.16 / v
+def func_set_iris_tiling(v, w):
+    return 1.0 / func_set_iris_scale(v, w)
 
-def func_scale_1000(v):
+def func_get_iris_scale(iris_uv_radius):
+    return 0.16 / iris_uv_radius
+
+def func_export_iris_uv_radius(scale, radius):
+    return scale * radius
+
+def func_set_half(s):
+    return s * 0.5
+
+def func_divide_1000(v):
     return v / 1000.0
 
-def func_scale_100(v):
+def func_divide_100(v):
     return v / 100.0
 
-def func_scale_10(v):
-    return v / 10.0
+def func_mul_1000(v):
+    return v * 1000.0
 
-def func_scale_2(v):
-    return v / 2.0
-
-def func_scale_x10(v):
-    return v * 10.0
-
-def func_hair_ao(ao, occ):
-    return (ao + occ) / 2.0
+def func_mul_100(v):
+    return v * 100.0
 
 def func_limbus_dark_radius(limbus_dark_scale):
-    t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
-    return utils.lerp(0.155, 0.08, t)
+    return 1 / limbus_dark_scale
+    #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
+    #return utils.lerp(0.155, 0.08, t) + 0.025
 
-def func_eye_depth(depth):
-    return depth / 3.0
+def func_export_limbus_dark_scale(limbus_dark_radius):
+    return 1 / limbus_dark_radius
+    #t = utils.inverse_lerp(0.155, 0.08, limbus_dark_radius - 0.025)
+    #return utils.clamp(utils.lerp(0.0, 10.0, t), 0, 10)
+
+def func_get_eye_depth(depth):
+    return (depth / 3.0)
+
+def func_export_eye_depth(depth):
+    return (depth) * 3.0
+
+def func_set_parallax_iris_depth(depth):
+    return depth
 
 def func_index_1(values: list):
     return values[0] / 255.0
@@ -295,10 +330,14 @@ def func_index_2(values: list):
 def func_index_3(values: list):
     return values[2] / 255.0
 
+def func_export_combine_xyz(x, y, z):
+    return [x * 255.0, y * 255.0, z * 255.0]
+
 #
 # End Prop matrix eval, parameter conversion functions
 
 def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, tex_json):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     tex_type = texture_def[2]
     tiling_mode = "NONE"
@@ -335,6 +374,10 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
     location = node.location
     location = (location[0] - 900, location[1] - 100)
 
+    if tiling_mode == "EYE_PARALLAX":
+        if prefs.refractive_eyes == "SSR" or mat_cache.is_eye():
+            tiling_mode = "CENTERED"
+
     if tiling_mode == "CENTERED":
         node_group = nodeutils.get_node_group("tiling_pivot_mapping")
         tiling_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
@@ -350,6 +393,20 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
         nodeutils.set_node_input(tiling_node, "Tiling", tiling)
         nodeutils.set_node_input(tiling_node, "Offset", offset)
         nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
+
+    elif tiling_mode == "EYE_PARALLAX":
+        node_group = nodeutils.get_node_group("tiling_cornea_parallax_mapping")
+        mapping_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
+        mapping_node.location = location
+        nodeutils.link_nodes(links, mapping_node, "Vector", node, "Vector")
+        shader_name = params.get_shader_lookup(mat_cache)
+        shader_def = params.get_shader_def(shader_name)
+        if "mapping" in shader_def.keys():
+            mapping_defs = shader_def["mapping"]
+            for mapping_def in mapping_defs:
+                if len(mapping_def) > 1:
+                    socket_name = mapping_def[1]
+                    nodeutils.set_node_input(mapping_node, socket_name, eval_tiling_param(mapping_def, mat_cache, 2))
 
 
 def set_shader_input_props(shader_def, mat_cache, socket, value):
@@ -386,8 +443,13 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                     tex_json = jsonutils.get_texture_info(mat_json, json_id)
                     image_id = "(" + tex_type + ")"
 
-                    image = imageutils.find_material_image(mat, tex_type, tex_json)
                     image_node = nodeutils.get_node_by_id(nodes, image_id)
+
+                    # for user added materials, don't mess with the users textures...
+                    if image_node and image_node.image and mat_cache.user_added:
+                        image = image_node.image
+                    else:
+                        image = imageutils.find_material_image(mat, tex_type, tex_json)
 
                     if image_node and image_node.image and image:
                         if image != image_node.image:
@@ -444,10 +506,11 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                         image_nodes.append(image_node)
 
     # remove any extra image nodes:
-    for n in nodes:
-        if n.type == "TEX_IMAGE" and n not in image_nodes:
-            utils.log_info("Removing unused image node: " + n.name)
-            nodes.remove(n)
+    if not mat_cache.user_added:
+        for n in nodes:
+            if n.type == "TEX_IMAGE" and n not in image_nodes:
+                utils.log_info("Removing unused image node: " + n.name)
+                nodes.remove(n)
 
     return
 
@@ -468,7 +531,7 @@ def connect_tearline_shader(obj, mat, mat_json):
         shader_group = "rl_tearline_cycles_shader"
         mix_shader_group = "rl_tearline_cycles_mix_shader"
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
 
@@ -494,7 +557,7 @@ def connect_eye_occlusion_shader(obj, mat, mat_json):
         mix_shader_group = "rl_eye_occlusion_cycles_mix_shader"
         shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
 
@@ -529,7 +592,7 @@ def connect_skin_shader(obj, mat, mat_json):
         shader_group = "rl_skin_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     nodeutils.reset_cursor()
 
@@ -555,7 +618,7 @@ def connect_tongue_shader(obj, mat, mat_json):
     shader_group = "rl_tongue_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
@@ -578,7 +641,7 @@ def connect_teeth_shader(obj, mat, mat_json):
     shader_group = "rl_teeth_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
@@ -607,43 +670,50 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
     cornea_mat_cache = mat_cache
     cornea_json = mat_json
     # the eye mesh uses textures and settings from the cornea:
-    if mat_cache.is_eye():
+    if mat_cache.is_eye() and prefs.refractive_eyes == "SSR":
         cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
         cornea_json = jsonutils.get_material_json(obj_json, cornea_mat)
 
+    if mat_cache.is_eye() and prefs.refractive_eyes == "PARALLAX":
+        connect_pbr_shader(obj, mat, mat_json)
+
     mix_shader_group = ""
     if mat_cache.is_cornea():
-        if prefs.refractive_eyes:
+        if prefs.refractive_eyes == "SSR":
             shader_label = "Cornea Shader"
             shader_name = "rl_cornea_shader"
             shader_group = "rl_cornea_refractive_shader"
         else:
             shader_label = "Cornea Shader"
             shader_name = "rl_cornea_shader"
-            shader_group = "rl_cornea_shader"
-            mix_shader_group = "rl_cornea_mix_shader"
+            shader_group = "rl_cornea_parallax_shader"
+            #mix_shader_group = "rl_cornea_mix_shader"
     else:
         shader_label = "Eye Shader"
         shader_name = "rl_eye_shader"
         shader_group = "rl_eye_shader"
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, cornea_mat, cornea_mat_cache, shader_name, cornea_json, obj)
 
+
     nodeutils.clean_unused_image_nodes(nodes)
 
     if mat_cache.is_cornea():
-        if prefs.refractive_eyes:
+        if prefs.refractive_eyes == "SSR":
             materials.set_material_alpha(mat, "OPAQUE")
             mat.use_screen_refraction = True
             mat.refraction_depth = mat_cache.parameters.eye_refraction_depth / 1000
         else:
-            materials.set_material_alpha(mat, "BLEND")
+            #materials.set_material_alpha(mat, "BLEND")
+            #mat.use_screen_refraction = False
+            materials.set_material_alpha(mat, "OPAQUE")
             mat.use_screen_refraction = False
     else:
         materials.set_material_alpha(mat, "OPAQUE")
+        mat.use_screen_refraction = False
 
 
 def connect_hair_shader(obj, mat, mat_json):
@@ -661,7 +731,7 @@ def connect_hair_shader(obj, mat, mat_json):
     if prefs.render_target == "CYCLES":
         shader_group = "rl_hair_cycles_shader"
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
@@ -685,7 +755,7 @@ def connect_pbr_shader(obj, mat, mat_json):
     shader_group = "rl_pbr_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
@@ -716,7 +786,7 @@ def connect_sss_shader(obj, mat, mat_json):
     shader_group = "rl_sss_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)

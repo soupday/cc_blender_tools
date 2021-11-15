@@ -19,7 +19,7 @@ import os
 
 import bpy
 
-from . import imageutils, nodeutils, physics, utils, vars
+from . import imageutils, nodeutils, physics, modifiers, utils, vars
 
 
 def add_target(name, location):
@@ -253,7 +253,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bloom_knee = 0.5
             bpy.context.scene.eevee.bloom_radius = 6.5
             bpy.context.scene.eevee.bloom_intensity = 0.05
-            if prefs.refractive_eyes:
+            if prefs.refractive_eyes == "SSR":
                 bpy.context.scene.eevee.use_ssr = True
                 bpy.context.scene.eevee.use_ssr_refraction = True
             else:
@@ -338,8 +338,7 @@ def setup_scene_default(scene_type):
                     3 * strength, 0.5, 1.448, 9.14, 1.0)
             back.data.color = utils.linear_to_srgb([213.0/155.0, 150.0/255.0, 120.0/255.0, 1.0])[0:3]
 
-            #set_contact_shadow(key1, 0.1, 0.001)
-            #set_contact_shadow(key2, 0.1, 0.005)
+            set_contact_shadow(key1, 0.1, 0.01)
 
             bpy.context.space_data.shading.type = 'SOLID'
             bpy.context.space_data.shading.light = 'MATCAP'
@@ -580,6 +579,21 @@ def fetch_anim_range(context):
                 return
 
 
+def cycles_setup(context):
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache = props.get_context_character_cache(context)
+    for obj_cache in chr_cache.object_cache:
+        if obj_cache.object is not None and obj_cache.object.type == "MESH":
+            obj : bpy.types.Object = obj_cache.object
+            if not modifiers.has_modifier(obj, "SUBSURF"):
+                mod = obj.modifiers.new(name = "Subdivision", type = "SUBSURF")
+                if utils.is_blender_version("2.91.0"):
+                    mod.boundary_smooth = 'PRESERVE_CORNERS'
+            if utils.is_blender_version("2.90.0"):
+                if obj.cycles.shadow_terminator_offset == 0.0:
+                    obj.cycles.shadow_terminator_offset = 0.25
+
+
 class CC3Scene(bpy.types.Operator):
     """Scene Tools"""
     bl_idname = "cc3.scene"
@@ -600,6 +614,8 @@ class CC3Scene(bpy.types.Operator):
             fetch_anim_range(context)
         elif self.param == "PHYSICS_PREP":
             physics.prepare_physics_bake(context)
+        elif self.param == "CYCLES_SETUP":
+            cycles_setup(context)
         else:
             setup_scene_default(self.param)
             if (self.param == "TEMPLATE"):
@@ -630,6 +646,8 @@ class CC3Scene(bpy.types.Operator):
         elif properties.param == "ANIM_RANGE":
             return "Sets the animation range to the same range as the Action on the current character"
         elif properties.param == "PHYSICS_PREP":
-            return "Sets all the physics bake ranges to the same as the current scene animation range."
+            return "Sets all the physics bake ranges to the same as the current scene animation range"
+        elif properties.param == "CYCLES_SETUP":
+            return "Applies Shader Terminator Offset and subdivision to all meshes"
 
         return ""

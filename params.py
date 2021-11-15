@@ -56,6 +56,11 @@ TEXTURE_TYPES = [
     ["WEIGHTMAP", "Weight Map", ["weightmap"]],
 ]
 
+PBR_TYPES = [
+    "DIFFUSE", "AO", "BLEND1", "SPECULAR", "METALLIC", "ROUGHNESS",
+    "EMISSION", "ALPHA", "NORMAL", "BUMP", "DISPLACE"
+]
+
 # when updating linked materials, attempt to update the properties in all the material types in the same list:
 LINKED_MATERIALS = [
     ["SKIN_HEAD", "SKIN_BODY", "SKIN_ARM", "SKIN_LEG"],
@@ -104,6 +109,10 @@ SHADER_MATRIX = [
             ["tearline_roughness", 0.15, "", "Custom/_Roughness"],
             ["tearline_inner", 0, "DEF"],
             ["tearline_displace", 0.1, "", "Custom/Depth Offset"],
+        ],
+        # export variables to update json file on export that require special functions to convert
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -177,7 +186,7 @@ SHADER_MATRIX = [
             ["eye_occlusion_strength2", 0.4, "", "Custom/Shadow2 Strength"],
             ["eye_occlusion_top2_min", 0.15, "", "Custom/Shadow2 Top"],
             ["eye_occlusion_top2_range", 1, "", "Custom/Shadow2 Top Range"],
-            ["eye_occlusion_displace", 0.02, "func_scale_100", "Custom/Depth Offset"],
+            ["eye_occlusion_displace", 0.02, "func_divide_100", "Custom/Depth Offset"],
             ["eye_occlusion_top", 0, "", "Custom/Top Offset"],
             ["eye_occlusion_bottom", 0, "", "Custom/Bottom Offset"],
             ["eye_occlusion_inner", 0, "", "Custom/Inner Corner Offset"],
@@ -185,6 +194,12 @@ SHADER_MATRIX = [
             # non json properties (just defaults)
             ["eye_occlusion_tear_duct_width", 0.5, "DEF"],
             ["eye_occlusion_power", 1.75, "DEF"],
+        ],
+        # export variables to update json file on export that need special conversion
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
+            ["Custom/Shadow Color", [255.0, 255.0, 255.0], "func_export_byte3", "eye_occlusion_color"],
+            ["Custom/Depth Offset", 0.02, "func_mul_100", "eye_occlusion_displace"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -297,6 +312,11 @@ SHADER_MATRIX = [
             ["skin_roughness_max", 1, "DEF"],
             ["skin_subsurface_scale", 1, "DEF"],
             ["skin_emissive_color", (0,0,0,1), "DEF"],
+        ],
+        # export variables to update json file on export that need special conversion
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
+            ["SSS/Falloff", [255.0, 94.3499984741211, 76.5], "func_export_byte3", "skin_subsurface_falloff"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -453,6 +473,11 @@ SHADER_MATRIX = [
             ["skin_subsurface_scale", 1, "DEF"],
             ["skin_emissive_color", (0,0,0,1), "DEF"],
         ],
+        # export variables to update json file on export that need special conversion
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
+            ["SSS/Falloff", [255.0, 94.3499984741211, 76.5], "func_export_byte3", "skin_subsurface_falloff"],
+        ],
         "ui": [
             # ["HEADER", label, icon]
             # ["PROP", labe, prop_name, (slider=)True|False]
@@ -571,6 +596,12 @@ SHADER_MATRIX = [
             ["tongue_hsv_strength", 1, "DEF"],
             ["tongue_emissive_color", (0,0,0,1), "DEF"],
         ],
+        # export variables to update json file on export that need special conversion
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
+            ["Custom/_Desaturation", 0.05, "func_one_minus", "tongue_saturation"],
+            ["SSS/Falloff", [255.0, 255.0, 255.0], "func_export_byte3", "tongue_subsurface_falloff"],
+        ],
         "ui": [
             # ["HEADER", label, icon]
             # ["PROP", labe, prop_name, (slider=)True|False]
@@ -675,6 +706,13 @@ SHADER_MATRIX = [
             ["teeth_teeth_hue", 0.5, "DEF"],
             ["teeth_teeth_hsv_strength", 1, "DEF"],
         ],
+        # export variables to update json file on export that need special conversion
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
+            ["Custom/Teeth Desaturation", 0.1, "func_one_minus", "teeth_teeth_saturation"],
+            ["Custom/Gums Desaturation", 0.0, "func_one_minus", "teeth_gums_saturation"],
+            ["SSS/Falloff", [116.0, 123.0, 101.0], "func_export_byte3", "teeth_subsurface_falloff"],
+        ],
         "ui": [
             # ["HEADER", label, icon]
             # ["PROP", labe, prop_name, (slider=)True|False]
@@ -724,13 +762,13 @@ SHADER_MATRIX = [
             ["Cornea Roughness", "", "eye_cornea_roughness"],
             ["Iris Roughness", "", "eye_iris_roughness"],
             ["Sclera Roughness", "", "eye_sclera_roughness"],
-            ["AO Strength", "", "eye_ao_strength"],
+            ["AO Strength", "func_set_half", "eye_ao_strength"],
             ["Sclera Scale", "", "eye_sclera_scale"],
             ["Sclera Hue", "", "eye_sclera_hue"],
             ["Sclera Saturation", "", "eye_sclera_saturation"],
             ["Sclera Brightness", "", "eye_sclera_brightness"],
             ["Sclera HSV Strength", "", "eye_sclera_hsv"],
-            ["Iris Scale", "", "eye_iris_scale"],
+            ["Iris Scale", "func_set_iris_scale", "eye_iris_scale", "eye_sclera_scale"],
             ["Iris Hue", "", "eye_iris_hue"],
             ["Iris Saturation", "", "eye_iris_saturation"],
             ["Iris Brightness", "", "eye_iris_brightness"],
@@ -744,14 +782,14 @@ SHADER_MATRIX = [
             ["Shadow Radius", "", "eye_shadow_radius"],
             ["Shadow Hardness", "", "eye_shadow_hardness"],
             ["Corner Shadow Color", "", "eye_corner_shadow_color"],
-            ["Color Blend Strength", "", "eye_color_blend_strength"],
+            ["Color Blend Strength", "func_set_half", "eye_color_blend_strength"],
             ["Sclera Emissive Color", "", "eye_sclera_emissive_color"],
             ["Sclera Emission Strength", "func_emission_scale", "eye_sclera_emission_strength"],
             ["Iris Emissive Color",  "","eye_iris_emissive_color"],
             ["Iris Emission Strength", "func_emission_scale", "eye_iris_emission_strength"],
             ["Sclera Normal Strength", "", "eye_sclera_normal_strength"],
-            ["Blood Vessel Height", "func_scale_1000", "eye_blood_vessel_height"],
-            ["Iris Bump Height", "func_scale_1000", "eye_iris_bump_height"],
+            ["Blood Vessel Height", "func_divide_1000", "eye_blood_vessel_height"],
+            ["Iris Bump Height", "func_divide_1000", "eye_iris_bump_height"],
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
@@ -774,8 +812,9 @@ SHADER_MATRIX = [
         # texture inputs:
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
         "textures": [
-            ["Sclera Diffuse Map", "", "SCLERA", "CENTERED", "func_recip", "eye_sclera_scale"],
-            ["Cornea Diffuse Map", "", "DIFFUSE", "CENTERED", "func_recip", "eye_iris_scale"],
+            ["Sclera Diffuse Map", "", "SCLERA", "CENTERED", "func_tiling", "eye_sclera_scale"],
+            # EYE_PARALLAX tells it to use a parallax mapping node, unless in SSR mode in which it behaves as a CENTERED mapping node
+            ["Cornea Diffuse Map", "", "DIFFUSE", "EYE_PARALLAX", "func_set_iris_tiling", "eye_iris_scale", "eye_sclera_scale"],
             ["Color Blend Map", "", "EYEBLEND"],
             ["AO Map", "", "AO"],
             ["Metallic Map", "", "METALLIC"],
@@ -783,27 +822,36 @@ SHADER_MATRIX = [
             ["Sclera Emission Map", "", "EMISSION"],
             ["Iris Emission Map", "", "EMISSION"],
         ],
+        "mapping": [
+            ["DIFFUSE"], # The Parallax mapping node is updated with these params, not the mapping params in the textures above.
+            ["EYE_PARALLAX", "Iris Scale", "func_set_iris_scale", "eye_iris_scale", "eye_sclera_scale"],
+            ["EYE_PARALLAX", "Iris Radius", "", "eye_iris_radius"],
+            ["EYE_PARALLAX", "Pupil Scale", "", "eye_pupil_scale"],
+            ["EYE_PARALLAX", "Depth Radius", "", "eye_iris_depth_radius"],
+            ["EYE_PARALLAX", "Depth", "func_set_parallax_iris_depth", "eye_iris_depth"],
+            ["EYE_PARALLAX", "IOR", "", "eye_ior"],
+        ],
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
             ["eye_color_blend_strength", 0.1, "", "Custom/BlendMap2 Strength"],
-            ["eye_shadow_radius", 0.279, "func_corner_shadow_radius", "Custom/Shadow Radius", "Custom/Sclera UV Radius"],
+            ["eye_shadow_radius", 0.279, "", "Custom/Shadow Radius"],
             ["eye_shadow_hardness", 0.5, "", "Custom/Shadow Hardness"],
             ["eye_cornea_specular", 0.8, "", "Custom/Specular Scale"],
             ["eye_corner_shadow_color", (1.0, 0.497, 0.445, 1.0), "func_color_srgb", "Custom/Eye Corner Darkness Color"],
-            ["eye_iris_depth", 0.3, "func_eye_depth", "Custom/Iris Depth Scale"],
+            ["eye_iris_depth", 0.3, "func_get_eye_depth", "Custom/Iris Depth Scale"],
             ["eye_cornea_roughness", 0, "", "Custom/_Iris Roughness"],
             ["eye_iris_brightness", 1, "", "Custom/Iris Color Brightness"],
             ["eye_pupil_scale", 1, "", "Custom/Pupil Scale"],
             ["eye_ior", 1.4, "", "Custom/_IoR"],
-            ["eye_iris_scale", 0.93, "func_iris_scale", "Custom/Iris UV Radius", "Custom/Sclera UV Radius"],
-            ["eye_iris_radius", 0.16, "func_iris_radius", "Custom/Iris UV Radius"],
+            ["eye_iris_scale", 1, "func_get_iris_scale", "Custom/Iris UV Radius"],
+            ["eye_iris_radius", 0.16, "", "Custom/Iris UV Radius"],
             ["eye_limbus_width", 0.055, "", "Custom/Limbus UV Width Color"],
-            ["eye_limbus_dark_radius", 0.106, "func_limbus_dark_radius", "Custom/Limbus Dark Scale"],
+            ["eye_limbus_dark_radius", 0.13125, "func_limbus_dark_radius", "Custom/Limbus Dark Scale"],
             ["eye_sclera_brightness", 0.650, "", "Custom/ScleraBrightness"],
             ["eye_sclera_roughness", 0.2, "", "Custom/Sclera Roughness"],
             ["eye_sclera_normal_strength", 0.1, "func_one_minus", "Custom/Sclera Flatten Normal"],
-            ["eye_sclera_normal_tiling", 2, "func_recip", "Custom/Sclera Normal UV Scale"],
+            ["eye_sclera_normal_tiling", 2, "func_tiling", "Custom/Sclera Normal UV Scale"],
             ["eye_sclera_scale", 0.93, "", "Custom/Sclera UV Radius"],
             ["eye_ao_strength", 0.2, "", "Pbr/AO"],
             ["eye_normal_strength", 1, "", "Pbr/Normal"],
@@ -813,8 +861,8 @@ SHADER_MATRIX = [
             ["eye_subsurface_radius", 5, "", "SSS/Radius"],
             # non json properties (just defaults)
             ["eye_subsurface_scale", 0.75, "DEF"],
-            ["eye_iris_depth_radius", 0.75, "DEF"],
-            ["eye_refraction_depth", 1, "DEF"],
+            ["eye_iris_depth_radius", 0.88, "DEF"],
+            ["eye_refraction_depth", 2.5, "DEF"],
             ["eye_blood_vessel_height", 0.5, "DEF"],
             ["eye_iris_bump_height", 1, "DEF"],
             ["eye_iris_roughness", 1, "DEF"],
@@ -824,8 +872,19 @@ SHADER_MATRIX = [
             ["eye_iris_hue", 0.5, "DEF"],
             ["eye_iris_saturation", 1, "DEF"],
             ["eye_iris_hsv", 1, "DEF"],
-            ["eye_limbus_dark_width", 0.025, "DEF"],
+            ["eye_limbus_dark_width", 1.0 - 0.34375, "DEF"],
             ["eye_limbus_color", (0.0, 0.0, 0.0, 1), "DEF"],
+        ],
+        # export variables to update json file on export that need special conversion
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
+            ["Custom/Iris UV Radius", 1.0, "func_export_iris_uv_radius", "eye_iris_scale", "eye_iris_radius"],
+            ["Custom/Limbus Dark Scale", 6.5, "func_export_limbus_dark_scale", "eye_limbus_dark_radius"],
+            ["Custom/Eye Corner Darkness Color", [255.0, 188.0, 179.0], "func_export_byte3", "eye_corner_shadow_color"],
+            ["Custom/Iris Depth Scale", 0.3, "func_export_eye_depth", "eye_iris_depth"],
+            ["Custom/Sclera Flatten Normal", 0.9, "func_one_minus", "eye_sclera_normal_strength"],
+            ["Custom/Sclera Normal UV Scale", 0.5, "func_tiling", "eye_sclera_normal_tiling"],
+            ["SSS/Falloff", [255.0, 255.0, 255.0], "func_export_byte3", "eye_subsurface_falloff"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -895,6 +954,8 @@ SHADER_MATRIX = [
             ["AO Strength", "", "default_ao_strength"],
             ["Blend Multiply Strength", "", "default_blend_multiply_strength"],
             ["Metallic Map", "", "default_metallic"],
+            ["Specular Map", "", "default_specular"],
+            ["Roughness Map", "", "default_roughness"],
             ["Specular Strength", "", "default_specular_strength"],
             ["Specular Scale", "", "default_specular_scale"],
             ["Roughness Power", "", "default_roughness_power"],
@@ -903,10 +964,10 @@ SHADER_MATRIX = [
             ["Alpha Strength", "", "default_alpha_strength"],
             ["Opacity", "", "default_opacity"],
             ["Normal Strength", "", "default_normal_strength"],
-            ["Bump Strength", "func_scale_100", "default_bump_strength"],
+            ["Bump Strength", "func_divide_100", "default_bump_strength"],
             ["Emissive Color", "", "default_emissive_color"],
             ["Emission Strength", "func_emission_scale", "default_emission_strength"],
-            ["Displacement Strength", "func_scale_100", "default_displacement_strength"],
+            ["Displacement Strength", "func_divide_100", "default_displacement_strength"],
         ],
         # texture inputs:
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
@@ -943,6 +1004,13 @@ SHADER_MATRIX = [
             ["default_roughness_min", 0, "DEF"],
             ["default_roughness_max", 1, "DEF"],
             ["default_emissive_color", (0,0,0,1), "DEF"],
+            ["default_specular", 0.5, "DEF"],
+            ["default_roughness", 0.5, "DEF"],
+        ],
+        # export variables to update json file on export that need special conversion
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
+            ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "default_diffuse_color"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -953,8 +1021,10 @@ SHADER_MATRIX = [
             ["PROP", "Blend Multiply", "default_blend_multiply_strength", True, "Blend Multiply"],
             ["HEADER",  "Surface", "SURFACE_DATA"],
             ["PROP", "Metallic", "default_metallic", True, "!Metallic Map"],
+            ["PROP", "Specular", "default_specular", True, "!Specular Map"],
             ["PROP", "Specular Map", "default_specular_strength", True, "Specular Map"],
             ["PROP", "Specular Scale", "default_specular_scale", True],
+            ["PROP", "Roughness", "default_roughness", True, "!Roughness Map"],
             ["PROP", "Roughness Power", "default_roughness_power", True],
             ["PROP", "Roughness Min", "default_roughness_min", True],
             ["PROP", "Roughness Max", "default_roughness_max", True],
@@ -980,6 +1050,9 @@ SHADER_MATRIX = [
             ["Diffuse Color", "", "default_diffuse_color"],
             ["AO Strength", "", "default_ao_strength"],
             ["Blend Multiply Strength", "", "default_blend_multiply_strength"],
+            ["Metallic Map", "", "default_metallic"],
+            ["Specular Map", "", "default_specular"],
+            ["Roughness Map", "", "default_roughness"],
             ["Specular Strength", "", "default_specular_strength"],
             ["Specular Scale", "", "default_specular_scale"],
             ["Roughness Power", "", "default_roughness_power"],
@@ -988,10 +1061,10 @@ SHADER_MATRIX = [
             ["Alpha Strength", "", "default_alpha_strength"],
             ["Opacity", "", "default_opacity"],
             ["Normal Strength", "", "default_normal_strength"],
-            ["Bump Strength", "func_scale_100", "default_bump_strength"],
+            ["Bump Strength", "func_divide_100", "default_bump_strength"],
             ["Emissive Color", "", "default_emissive_color"],
             ["Emission Strength", "func_emission_scale", "default_emission_strength"],
-            ["Displacement Strength", "func_scale_100", "default_displacement_strength"],
+            ["Displacement Strength", "func_divide_100", "default_displacement_strength"],
             ["Micro Normal Strength", "", "default_micro_normal_strength"],
             ["Subsurface Scale", "", "default_subsurface_scale"],
             ["Unmasked Scatter Scale", "", "default_unmasked_scatter_scale"],
@@ -1062,11 +1135,13 @@ SHADER_MATRIX = [
             ["default_b_scatter_scale", 1, "", "Custom/B Channel Scatter Scale"],
             ["default_a_scatter_scale", 1, "", "Custom/A Channel Scatter Scale"],
             ["default_unmasked_scatter_scale", 1, "", "Custom/Unmasked Scatter Scale"],
-            ["default_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_srgb", "SSS/Falloff"],
+            ["default_subsurface_falloff", (1.0, 1.0, 1.0, 1.0), "func_color_srgb", "SSS/Falloff"],
             ["default_suburface_radius", 1.5, "", "SSS/Radius"],
             ["default_specular_strength", 1, "", "Pbr/Specular"],
             ["default_metallic", 0, "", "Pbr/Metallic"],
             # non json properties (just defaults)
+            ["default_specular", 0.5, "DEF"],
+            ["default_roughness", 0.5, "DEF"],
             ["default_hue", 0.5, "DEF"],
             ["default_hsv_strength", 1, "DEF"],
             ["default_bump_strength", 1, "DEF"],
@@ -1078,6 +1153,12 @@ SHADER_MATRIX = [
             ["default_roughness_max", 1, "DEF"],
             ["default_subsurface_scale", 1, "DEF"],
             ["default_emissive_color", (0,0,0,1), "DEF"],
+        ],
+        # export variables to update json file on export that need special conversion
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
+            ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "default_diffuse_color"],
+            ["SSS/Falloff", [255.0, 255.0, 255.0], "func_export_byte3", "default_subsurface_falloff"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -1092,8 +1173,10 @@ SHADER_MATRIX = [
             ["PROP", "Blend Multiply", "default_blend_multiply_strength", True, "Blend Multiply"],
             ["HEADER",  "Surface", "SURFACE_DATA"],
             ["PROP", "Metallic", "default_metallic", True, "!Metallic Map"],
+            ["PROP", "Specular", "default_specular", True, "!Specular Map"],
             ["PROP", "Specular Map", "default_specular_strength", True, "Specular Map"],
             ["PROP", "Specular Scale", "default_specular_scale", True],
+            ["PROP", "Roughness", "default_roughness", True, "!Roughness Map"],
             ["PROP", "Roughness Power", "default_roughness_power", True],
             ["PROP", "Roughness Min", "default_roughness_min", True],
             ["PROP", "Roughness Max", "default_roughness_max", True],
@@ -1170,16 +1253,17 @@ SHADER_MATRIX = [
             ["Subsurface Scale", "", "hair_subsurface_scale"],
             ["Diffuse Strength", "", "hair_diffuse_strength"],
             ["AO Strength", "", "hair_ao_strength"],
+            ["AO Occlude All", "", "hair_ao_occlude_all"],
             ["Blend Multiply Strength", "", "hair_blend_multiply_strength"],
             ["Specular Scale", "", "hair_specular_scale"],
             ["Roughness Strength", "", "hair_roughness_strength"],
             ["Alpha Strength", "", "hair_alpha_strength"],
             ["Opacity", "", "hair_opacity"],
             ["Normal Strength", "", "hair_normal_strength"],
-            ["Bump Strength", "func_scale_100", "hair_bump_strength"],
+            ["Bump Strength", "func_divide_100", "hair_bump_strength"],
             ["Emissive Color", "", "hair_emissive_color"],
             ["Emission Strength", "func_emission_scale", "hair_emission_strength"],
-            ["Displacement Strength", "func_scale_100", "hair_displacement_strength"],
+            ["Displacement Strength", "func_divide_100", "hair_displacement_strength"],
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
@@ -1216,7 +1300,7 @@ SHADER_MATRIX = [
             ["hair_anisotropic_strength", 0.8, "", "Custom/Specular Strength"],
             ["hair_anisotropic_strength2", 1.0, "", "Custom/Secondary Specular Strength"],
             ["hair_vertex_color", (0,0,0,1), "func_color_linear", "Custom/VertexGrayToColor"],
-            ["hair_vertex_color_strength", 0.875, "", "Custom/VertexColorStrength"],
+            ["hair_vertex_color_strength", 0, "", "Custom/VertexColorStrength"],
             ["hair_enable_color", 0, "", "Custom/ActiveChangeHairColor"],
             ["hair_base_color_strength", 1, "", "Custom/BaseColorMapStrength"],
             ["hair_root_color", (0.144129, 0.072272, 0.046665, 1.0), "func_color_linear", "Custom/RootColor"],
@@ -1239,7 +1323,8 @@ SHADER_MATRIX = [
             ["hair_highlight_b_end", 0.7, "func_index_3", "Custom/_2nd Dye Distribution from Grayscale"],
             ["hair_highlight_b_overlap_end", 0, "", "Custom/Mask 2nd Dye by RootMap"],
             ["hair_highlight_b_overlap_invert", 0, "", "Custom/Invert 2nd Dye RootMap Mask"],
-            ["hair_ao_strength", 1, "func_hair_ao", "Pbr/AO", "Custom/AO Map Occlude All Lighting"],
+            ["hair_ao_strength", 1, "", "Pbr/AO"],
+            ["hair_ao_occlude_all", 0, "", "Custom/AO Map Occlude All Lighting"],
             ["hair_blend_multiply_strength", 0, "", "Pbr/Blend"],
             ["hair_alpha_strength", 1, "", "Pbr/Opacity"],
             ["hair_opacity", 1, "", "Base/Opacity"],
@@ -1252,6 +1337,19 @@ SHADER_MATRIX = [
             ["hair_bump_strength", 1.0, "DEF"],
             ["hair_anisotropic_roughness", 0.0375, "DEF"],
             ["hair_anisotropic_color", (1.000000, 0.798989, 0.689939, 1.000000), "DEF"],
+        ],
+        # export variables to update json file on export that need special conversion
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
+            ["Custom/TangentVectorColor", [255, 0, 0], "func_export_byte3", "hair_tangent_vector"],
+            ["Custom/Hair Roughness Map Strength", 0.524, "func_pow_2", "hair_roughness_strength"],
+            ["Custom/VertexGrayToColor", [0, 0, 0], "func_export_byte3", "hair_vertex_color"],
+            ["Custom/RootColor", [37, 18, 11], "func_export_byte3", "hair_root_color"],
+            ["Custom/TipColor", [86, 48, 31], "func_export_byte3", "hair_end_color"],
+            ["Custom/_1st Dye Color", [182, 125, 79], "func_export_byte3", "hair_highlight_a_color"],
+            ["Custom/_2nd Dye Color", [255, 255, 255], "func_export_byte3", "hair_highlight_b_color"],
+            ["Custom/_1st Dye Distribution from Grayscale", [25.5, 51, 76.5], "func_export_combine_xyz", "hair_highlight_a_start", "hair_highlight_a_mid", "hair_highlight_a_end"],
+            ["Custom/_2nd Dye Distribution from Grayscale", [25.5, 51, 76.5], "func_export_combine_xyz", "hair_highlight_b_start", "hair_highlight_b_mid", "hair_highlight_b_end"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -1345,7 +1443,30 @@ SHADER_LOOKUP = [
     ["OCCLUSION_LEFT", "RLEyeOcclusion", "rl_eye_occlusion_shader"],
     ["TEARLINE_RIGHT", "RLTearline", "rl_tearline_shader"],
     ["TEARLINE_LEFT", "RLTearline", "rl_tearline_shader"],
+    ["DEFAULT", "Tra", "rl_pbr_shader"],
 ]
+
+
+def get_texture_type(json_id):
+    for tex_info in TEXTURE_TYPES:
+        if tex_info[1] == json_id:
+            return tex_info[0]
+    return "NONE"
+
+
+def get_texture_json_id(tex_type):
+    for tex_info in TEXTURE_TYPES:
+        if tex_info[0] == tex_type:
+            return tex_info[1]
+    return None
+
+
+def get_shader_texture_socket(shader_def, tex_type):
+    if "textures" in shader_def.keys():
+        for tex_def in shader_def["textures"]:
+            if tex_def[2] == tex_type:
+                return tex_def[0]
+    return None
 
 
 def get_shader_lookup(mat_cache):
@@ -1384,6 +1505,8 @@ def get_shader_def(shader_name):
 
 
 def get_rl_shader_def(rl_shader_name):
+    if rl_shader_name == "Tra":
+        rl_shader_name = "Pbr"
     for shader_def in SHADER_MATRIX:
         if shader_def["rl_shader"] == rl_shader_name:
             return shader_def
@@ -1421,3 +1544,29 @@ BASIC_PROPS = [
     ["IN", "Alpha",     "eye_tearline_shader", "tearline_alpha", 0.05],
     ["IN", "Roughness", "eye_tearline_shader", "tearline_roughness", 0.15],
 ]
+
+
+JSON_PBR_TEX_INFO = {
+    "Texture Path": "",
+    "Strength": 100.0,
+    "Offset": [ 0.0, 0.0 ],
+    "Tiling": [ 1.0, 1.0 ]
+}
+
+
+JSON_CUSTOM_TEX_INFO = {
+    "Texture Path": ""
+}
+
+
+JSON_PBR_MATERIAL = {
+    "Material Type": "Pbr",
+    "MultiUV Index": 0,
+    "Two Side": True,
+    "Diffuse Color": [ 150.0, 150.0, 150.0 ],
+    "Ambient Color": [ 150.0, 150.0, 150.0 ],
+    "Specular Color": [ 229.5, 229.5, 229.5 ],
+    "Opacity": 1.0,
+    "Self Illumination": 0.0,
+    "Textures": {}
+}
