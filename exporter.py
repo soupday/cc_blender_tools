@@ -70,7 +70,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
     obj : bpy.types.Object
     for obj in objects:
         obj_json = jsonutils.get_object_json(chr_json, obj)
-        if utils.still_exists(obj):
+        if obj_json and utils.still_exists(obj):
 
             if obj.type == "MESH":
 
@@ -83,8 +83,6 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
                     obj.name = obj_source_name
                     obj.data.name = obj_source_name
                     changes.append(["OBJECT_RENAME", obj, obj_name, mesh_name])
-
-                materials_json = obj_json["Materials"]
 
                 for slot in obj.material_slots:
                     mat = slot.material
