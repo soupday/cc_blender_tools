@@ -70,6 +70,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
     obj : bpy.types.Object
     for obj in objects:
         obj_json = jsonutils.get_object_json(chr_json, obj)
+
         if obj_json and utils.still_exists(obj):
 
             if obj.type == "MESH":
@@ -120,17 +121,17 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
                         for channel in mat_json["Custom Shader"]["Image"].keys():
                             remap_texture_path(mat_json["Custom Shader"]["Image"][channel], old_path, new_path)
 
-            if prefs.export_bone_roll_fix:
-                if obj.type == "ARMATURE":
-                    if utils.set_mode("OBJECT"):
-                        utils.set_active_object(obj)
-                        if utils.set_mode("EDIT"):
-                            utils.log_info("Applying upper and lower teeth bones roll fix.")
-                            bone = obj.data.edit_bones["CC_Base_Teeth01"]
-                            bone.roll = 0
-                            bone = obj.data.edit_bones["CC_Base_Teeth02"]
-                            bone.roll = 0
-                            utils.set_mode("OBJECT")
+        if prefs.export_bone_roll_fix:
+            if obj.type == "ARMATURE":
+                if utils.set_mode("OBJECT"):
+                    utils.set_active_object(obj)
+                    if utils.set_mode("EDIT"):
+                        utils.log_info("Applying upper and lower teeth bones roll fix.")
+                        bone = obj.data.edit_bones["CC_Base_Teeth01"]
+                        bone.roll = 0
+                        bone = obj.data.edit_bones["CC_Base_Teeth02"]
+                        bone.roll = 0
+                        utils.set_mode("OBJECT")
 
     # as the baking system can deselect everything, reselect the export objects here.
     utils.try_select_objects(objects, True)
