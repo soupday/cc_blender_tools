@@ -28,11 +28,15 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 ## Changelog
 
 ### 1.1.0
-- Updated export function generate fully compliant Fbx file for CC3 re-importer with FbxKey and to write back json material parameter and texture information. To be used in tandem with Blender Importer Plugin for CC3 3.44 for full round-trip character editing in Blender.
-- Import/Export Interface simplified
+- Updated export function to generate compatible Fbx file for CC3 re-import with FbxKey and to write back json material parameter and texture information. To be used in tandem with [Blender Importer Plugin for CC3 3.44](https://github.com/soupday/CC3-Blender-Tools-Plugin) for full round-trip character editing in Blender.
+- Import/Export Interface simplified.
+    - If character has Fbxkey then character is setup for editing. (i.e. Shapekeys locked to basis)
+    - Otherwise (character is posed or has animation) character is setup for rendering.
+    - Only Fbxkey character can be exported back to CC3.
 - Optional Json and Texture write back for exports.
 - Optional teeth rotation fix that affects some older generated characters when importing back into CC3.
 - Bake on export function added to bake custom material nodes connected to master shader's texture map sockets into textures to include when re-importing back into CC3.
+- Additional objects can be selected for exporting with the character, but must be properly parented and weighted with an armature modifier. Otherwise CC3 will ignore them.
 - Some property and parameter fixes.
 
 ### 1.0.3
