@@ -1077,7 +1077,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         layout.use_property_decorate = False
 
         box = layout.box()
-        box.label(text="Settings", icon="TOOL_SETTINGS")
+        box.label(text=f"Settings  ({vars.VERSION_STRING})", icon="TOOL_SETTINGS")
 
         if prefs.lighting == "ENABLED" or prefs.physics == "ENABLED":
             if prefs.lighting == "ENABLED":
