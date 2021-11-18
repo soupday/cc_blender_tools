@@ -565,7 +565,7 @@ SHADER_MATRIX = [
         "textures": [
             ["Diffuse Map", "", "DIFFUSE"],
             ["Gradient AO Map", "", "GRADIENTAO"],
-            ["AO Mask", "", "AO"],
+            ["AO Map", "", "AO"],
             ["Metallic Map", "", "METALLIC"],
             ["Roughness Map", "", "ROUGHNESS"],
             ["Normal Map", "", "NORMAL"],

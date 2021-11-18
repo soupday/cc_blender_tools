@@ -414,7 +414,7 @@ def detect_character(file_path, type, objects, json_data, warn):
             # scale obj import by 1/100
             obj = obj_cache.object
             obj.scale = (0.01, 0.01, 0.01)
-            if not chr_cache.has_key_file: # objkey import is a single mesh with no materials
+            if not chr_cache.import_has_key: # objkey import is a single mesh with no materials
                 cache_object_materials(chr_cache, obj, json_data, processed)
 
         properties.init_character_property_defaults(chr_cache, chr_json)
@@ -429,6 +429,7 @@ def detect_character(file_path, type, objects, json_data, warn):
     chr_cache.render_target = prefs.render_target
 
     utils.log_info("")
+    return chr_cache
 
 
 # Import operator
@@ -466,7 +467,7 @@ class CC3Import(bpy.types.Operator):
     timer = None
     clock = 0
     invoked = False
-    imported_character = []
+    imported_character = None
     imported_materials = []
     imported_images = []
 
@@ -499,7 +500,7 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            detect_character(self.filepath, type, imported, json_data, warn)
+            self.imported_character = detect_character(self.filepath, type, imported, json_data, warn)
 
             utils.log_timer("Done .Fbx Import.")
 
@@ -521,7 +522,7 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            detect_character(self.filepath, type, imported, json_data, warn)
+            self.imported_character = detect_character(self.filepath, type, imported, json_data, warn)
 
             #if self.param == "IMPORT_MORPH":
             #    if self.imported_character.import_main_tex_dir != "":
@@ -629,49 +630,51 @@ class CC3Import(bpy.types.Operator):
 
         chr_cache = self.imported_character
 
-        # for any objects with shape keys expand the slider range to -1.0 <> 1.0
-        # Character Creator and iClone both use negative ranges extensively.
-        for obj_cache in chr_cache.object_cache:
-            init_shape_key_range(obj_cache.object)
+        if chr_cache:
 
-        if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-            # for any objects with shape keys select basis and enable show in edit mode
+            # for any objects with shape keys expand the slider range to -1.0 <> 1.0
+            # Character Creator and iClone both use negative ranges extensively.
             for obj_cache in chr_cache.object_cache:
-                init_character_for_edit(obj_cache.object)
+                init_shape_key_range(obj_cache.object)
 
-        if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-            if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
-                if chr_cache.import_type == "fbx":
-                    scene.setup_scene_default(prefs.pipeline_lighting)
-                else:
-                    scene.setup_scene_default(prefs.morph_lighting)
+            if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
+                # for any objects with shape keys select basis and enable show in edit mode
+                for obj_cache in chr_cache.object_cache:
+                    init_character_for_edit(obj_cache.object)
 
-        # use portrait lighting for quality mode
-        if self.param == "IMPORT_QUALITY":
-            if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
-                scene.setup_scene_default(prefs.quality_lighting)
+            if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
+                if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
+                    if chr_cache.import_type == "fbx":
+                        scene.setup_scene_default(prefs.pipeline_lighting)
+                    else:
+                        scene.setup_scene_default(prefs.morph_lighting)
 
-        if prefs.refractive_eyes == "SSR":
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
+            # use portrait lighting for quality mode
+            if self.param == "IMPORT_QUALITY":
+                if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
+                    scene.setup_scene_default(prefs.quality_lighting)
 
-        # set a minimum of 50 max transparency bounces:
-        if bpy.context.scene.cycles.transparent_max_bounces < 50:
-            bpy.context.scene.cycles.transparent_max_bounces = 50
+            if prefs.refractive_eyes == "SSR":
+                bpy.context.scene.eevee.use_ssr = True
+                bpy.context.scene.eevee.use_ssr_refraction = True
 
-        scene.zoom_to_character(chr_cache)
-        scene.active_select_body(chr_cache)
+            # set a minimum of 50 max transparency bounces:
+            if bpy.context.scene.cycles.transparent_max_bounces < 50:
+                bpy.context.scene.cycles.transparent_max_bounces = 50
 
-        # clean up unused images from the import
-        if len(self.imported_images) > 0:
-            utils.log_info("Cleaning up unused images:")
-            img: bpy.types.Image = None
-            for img in self.imported_images:
-                num_users = img.users
-                if (img.use_fake_user and img.users == 1) or img.users == 0:
-                    utils.log_info("Removing Image: " + img.name)
-                    bpy.data.images.remove(img)
-        utils.clean_collection(bpy.data.images)
+            scene.zoom_to_character(chr_cache)
+            scene.active_select_body(chr_cache)
+
+            # clean up unused images from the import
+            if len(self.imported_images) > 0:
+                utils.log_info("Cleaning up unused images:")
+                img: bpy.types.Image = None
+                for img in self.imported_images:
+                    num_users = img.users
+                    if (img.use_fake_user and img.users == 1) or img.users == 0:
+                        utils.log_info("Removing Image: " + img.name)
+                        bpy.data.images.remove(img)
+            utils.clean_collection(bpy.data.images)
 
         self.imported_character = None
         self.imported_materials = []

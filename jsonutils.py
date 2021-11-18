@@ -16,6 +16,7 @@
 
 import json
 import os
+import bpy
 
 from . import utils
 
@@ -26,6 +27,10 @@ def read_json(fbx_path):
         fbx_folder = os.path.dirname(fbx_path)
         fbx_name = os.path.splitext(fbx_file)[0]
         json_path = os.path.join(fbx_folder, fbx_name + ".json")
+        # if the json doesn't exist in the expected path, look for it in the blend file path
+        if not os.path.exists(json_path):
+            json_path = bpy.path.abspath(fbx_name + ".json")
+
         if os.path.exists(json_path):
 
             # determine start of json text data
