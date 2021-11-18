@@ -325,91 +325,110 @@ def detect_generation(chr_cache, json_data):
     return "UNKNOWN"
 
 
-def detect_characters(file_path, type, objects, json_data):
+def detect_character(file_path, type, objects, json_data, warn):
     props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     utils.log_info("")
     utils.log_info("Detecting Characters:")
     utils.log_info("---------------------")
 
-    # for now just deal with one character...
-    characters = []
     dir, name = os.path.split(file_path)
     type = name[-3:].lower()
     name = name[:-4]
 
-    root_json = jsonutils.get_character_root_json(json_data, name)
-    if root_json:
-        character_keys = list(root_json.keys())
-
-    index = 0
+    chr_json = jsonutils.get_character_json(json_data, name, name)
+    chr_cache = props.import_cache.add()
+    chr_cache.import_file = file_path
+    chr_cache.import_type = type
+    chr_cache.import_name = name
+    chr_cache.import_dir = dir
+    chr_cache.import_space_in_name = " " in name
+    chr_cache.character_index = 0
+    chr_cache.character_name = name
+    chr_cache.character_id = name
+    processed = []
 
     if type == "fbx":
 
+        # key file
+        chr_cache.import_key_file = os.path.join(chr_cache.import_dir, chr_cache.import_name + ".fbxkey")
+        chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
+
+        # determine the main texture dir
+        chr_cache.import_main_tex_dir = os.path.join(dir, name + ".fbm")
+        if os.path.exists(chr_cache.import_main_tex_dir):
+            chr_cache.import_embedded = False
+        else:
+            chr_cache.import_main_tex_dir = ""
+            chr_cache.import_embedded = True
+
+        # process the armature(s)
+        arm_count = 0
         for arm in objects:
             if arm.type == "ARMATURE":
-                if index > 0:
-                    character_name = name + "_" + str(index)
-                else:
-                    character_name = name
-                chr_cache = props.import_cache.add()
-                chr_cache.import_file = file_path
-                chr_cache.import_type = type
-                chr_cache.import_name = name
-                chr_cache.import_dir = dir
-                chr_cache.import_space_in_name = " " in name
-                chr_cache.character_index = index
-                chr_cache.character_name = character_name
-                arm.name = character_name
-                if root_json:
-                    chr_cache.character_id = character_keys[index]
-                else:
-                    chr_cache.character_id = character_name
-                index += 1
-                # determine the main texture dir
-                chr_cache.import_main_tex_dir = os.path.join(dir, name + ".fbm")
-                if os.path.exists(chr_cache.import_main_tex_dir):
-                    chr_cache.import_embedded = False
-                else:
-                    chr_cache.import_main_tex_dir = ""
-                    chr_cache.import_embedded = True
-                # add character_cache to list
-                characters.append(chr_cache)
+                arm_count += 1
+                arm.name = name
                 # add armature to object_cache
                 chr_cache.add_object_cache(arm)
-                # add child objects to object_cache
-                for child_obj in objects:
-                    if child_obj in arm.children:
-                        chr_cache.add_object_cache(child_obj)
 
-                chr_cache.generation = detect_generation(chr_cache, json_data)
-                utils.log_info("Generation: " + chr_cache.character_name + " (" + chr_cache.generation + ")")
+        if arm_count > 1:
+            warn.append("Multiple characters detected in Fbx.")
+            warn.append("Character exports from iClone to Blender do not fully support multiple characters.")
+            warn.append("Characters should be exported individually for best results.")
+
+        # add child objects to object_cache
+        for obj in objects:
+            if obj.type == "MESH":
+                chr_cache.add_object_cache(obj)
+
+        # determine character generation
+        chr_cache.generation = detect_generation(chr_cache, json_data)
+        utils.log_info("Generation: " + chr_cache.character_name + " (" + chr_cache.generation + ")")
+
+        # cache materials
+        for obj_cache in chr_cache.object_cache:
+            obj = obj_cache.object
+            if obj.type == "MESH":
+                cache_object_materials(chr_cache, obj, chr_json, processed)
+
+        properties.init_character_property_defaults(chr_cache, chr_json)
 
     elif type == "obj":
 
-        character_name = name
-        chr_cache = props.import_cache.add()
-        chr_cache.import_file = file_path
-        chr_cache.import_type = type
-        chr_cache.import_name = name
-        chr_cache.import_dir = dir
-        chr_cache.import_space_in_name = " " in name
-        chr_cache.character_index = index
-        chr_cache.character_name = character_name
+        # key file
+        chr_cache.import_key_file = os.path.join(chr_cache.import_dir, chr_cache.import_name + ".ObjKey")
+        chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
+
         # determine the main texture dir
         chr_cache.import_main_tex_dir = os.path.join(dir, name)
         chr_cache.import_embedded = False
         if not os.path.exists(chr_cache.import_main_tex_dir):
             chr_cache.import_main_tex_dir = ""
-        # add character_cache to list
-        characters.append(chr_cache)
 
         for obj in objects:
             if obj.type == "MESH":
                 chr_cache.add_object_cache(obj)
 
+        for obj_cache in chr_cache.object_cache:
+            # scale obj import by 1/100
+            obj = obj_cache.object
+            obj.scale = (0.01, 0.01, 0.01)
+            if not chr_cache.has_key_file: # objkey import is a single mesh with no materials
+                cache_object_materials(chr_cache, obj, json_data, processed)
+
+        properties.init_character_property_defaults(chr_cache, chr_json)
+
+    # material setup mode
+    if chr_cache.import_has_key:
+        chr_cache.setup_mode = prefs.morph_mode
+    else:
+        chr_cache.setup_mode = prefs.quality_mode
+
+    # character render target
+    chr_cache.render_target = prefs.render_target
+
     utils.log_info("")
-    return characters
 
 
 # Import operator
@@ -447,11 +466,12 @@ class CC3Import(bpy.types.Operator):
     timer = None
     clock = 0
     invoked = False
-    import_characters = []
+    imported_character = []
     imported_materials = []
     imported_images = []
 
-    def import_character(self):
+
+    def import_character(self, warn):
         props = bpy.context.scene.CC3ImportProps
 
         utils.start_timer()
@@ -460,11 +480,12 @@ class CC3Import(bpy.types.Operator):
         utils.log_info("Importing Character Model:")
         utils.log_info("--------------------------")
 
+        self.detect_import_mode()
+
         import_anim = self.use_anim
 
         dir, name = os.path.split(self.filepath)
         type = name[-3:].lower()
-        processed = []
 
         json_data = jsonutils.read_json(self.filepath)
 
@@ -478,17 +499,7 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            self.import_characters = detect_characters(self.filepath, type, imported, json_data)
-
-            # cache materials
-            for chr_cache in self.import_characters:
-                chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_id)
-                for obj_cache in chr_cache.object_cache:
-                    obj = obj_cache.object
-                    if obj.type == "MESH":
-                        cache_object_materials(chr_cache, obj, chr_json, processed)
-
-                properties.init_character_property_defaults(chr_cache, chr_json)
+            detect_character(self.filepath, type, imported, json_data, warn)
 
             utils.log_timer("Done .Fbx Import.")
 
@@ -510,25 +521,15 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            self.import_characters = detect_characters(self.filepath, type, imported, json_data)
+            detect_character(self.filepath, type, imported, json_data, warn)
 
-            for chr_cache in self.import_characters:
-                chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_id)
-                for obj_cache in chr_cache.object_cache:
-                    # scale obj import by 1/100
-                    obj = obj_cache.object
-                    obj.scale = (0.01, 0.01, 0.01)
-                    if obj.type == "MESH":
-                        if self.param == "IMPORT_MORPH":
-                            if chr_cache.import_main_tex_dir != "":
-                                #reconstruct_obj_materials(obj)
-                                pass
-                        else:
-                            cache_object_materials(chr_cache, obj, json_data, processed)
-
-                properties.init_character_property_defaults(chr_cache, chr_json)
+            #if self.param == "IMPORT_MORPH":
+            #    if self.imported_character.import_main_tex_dir != "":
+            #        reconstruct_obj_materials(obj)
+            #        pass
 
             utils.log_timer("Done .Obj Import.")
+
 
     def build_materials(self, context):
         objects_processed = []
@@ -543,19 +544,19 @@ class CC3Import(bpy.types.Operator):
 
         nodeutils.check_node_groups()
 
-        if len(self.import_characters) > 0:
+        chr_cache: properties.CC3CharacterCache = None
+        if self.imported_character:
+            chr_cache = self.imported_character
             json_data = jsonutils.read_json(self.filepath)
         else:
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
-                self.import_characters.append(chr_cache)
+                self.imported_character = chr_cache
                 json_data = jsonutils.read_json(chr_cache.import_file)
+                # when rebuilding, use the currently selected render target
+                chr_cache.render_target = prefs.render_target
 
-        chr_cache: properties.CC3CharacterCache = None
-        for chr_cache in self.import_characters:
-
-            chr_cache.setup_mode = props.setup_mode
-            chr_cache.render_target = prefs.render_target
+        if chr_cache:
 
             chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_id)
 
@@ -573,9 +574,9 @@ class CC3Import(bpy.types.Operator):
                     if cache.object and cache.object in bpy.context.selected_objects:
                         process_object(chr_cache, cache.object, objects_processed, chr_json)
 
-        if prefs.refractive_eyes == "SSR":
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
+            if prefs.refractive_eyes == "SSR":
+                bpy.context.scene.eevee.use_ssr = True
+                bpy.context.scene.eevee.use_ssr_refraction = True
 
         utils.log_timer("Done Build.", "s")
 
@@ -590,105 +591,76 @@ class CC3Import(bpy.types.Operator):
             obj_key_path = os.path.join(dir, name + ".ObjKey")
             if os.path.exists(obj_key_path):
                 self.param = "IMPORT_MORPH"
-                utils.log_info("Importing as morph with ObjKey.")
+                utils.log_info("Importing as character morph with ObjKey.")
                 return
+
         elif type == "fbx":
             obj_key_path = os.path.join(dir, name + ".fbxkey")
             if os.path.exists(obj_key_path):
                 self.param = "IMPORT_MORPH"
-                utils.log_info("Importing as character/morph with fbxkey.")
+                utils.log_info("Importing as editable character with fbxkey.")
                 return
+
         utils.log_info("Importing for rendering without key file.")
         self.param = "IMPORT_QUALITY"
 
 
     def run_import(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-        self.detect_import_mode()
+        warn = []
+        self.import_character(warn)
 
-        if self.param == "IMPORT_MORPH":
-            setup_mode = prefs.morph_mode
-        else:
-            setup_mode = prefs.quality_mode
-
-        self.import_character()
-
-        warn = ""
-        for chr_cache in self.import_characters:
-
-            chr_cache.setup_mode = setup_mode
-            chr_cache.render_target = prefs.render_target
-
-            # check for fbxkey
-            if chr_cache.import_type == "fbx":
-                chr_cache.import_key_file = os.path.join(chr_cache.import_dir, chr_cache.import_name + ".fbxkey")
-                chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
-                if self.param == "IMPORT_MORPH" and not chr_cache.import_has_key:
-                    warn = "This character export does not have an .fbxkey file, it cannot be used to create character morphs in CC3."
-
-            # check for objkey
-            if chr_cache.import_type == "obj":
-                chr_cache.import_key_file = os.path.join(chr_cache.import_dir, chr_cache.import_name + ".ObjKey")
-                chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
-                if self.param == "IMPORT_MORPH" and not chr_cache.import_has_key:
-                    warn = "This character export does not have an .ObjKey file, it cannot be used to create character morphs in CC3."
-
-        if warn != "":
-            utils.message_box(warn, "Import Key Warning!")
+        if len(warn) > 0:
+            utils.message_box_multi("Import Warning!", "ERROR", warn)
 
         self.imported = True
 
+
     def run_build(self, context):
+
         self.build_materials(context)
+
         self.built = True
+
 
     def run_finish(self, context):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-        first_cache = None
+        chr_cache = self.imported_character
 
-        for chr_cache in self.import_characters:
+        # for any objects with shape keys expand the slider range to -1.0 <> 1.0
+        # Character Creator and iClone both use negative ranges extensively.
+        for obj_cache in chr_cache.object_cache:
+            init_shape_key_range(obj_cache.object)
 
-            if not first_cache:
-                first_cache = chr_cache
-
-            # for any objects with shape keys expand the slider range to -1.0 <> 1.0
-            # Character Creator and iClone both use negative ranges extensively.
+        if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
+            # for any objects with shape keys select basis and enable show in edit mode
             for obj_cache in chr_cache.object_cache:
-                init_shape_key_range(obj_cache.object)
+                init_character_for_edit(obj_cache.object)
 
-            if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-                # for any objects with shape keys select basis and enable show in edit mode
-                for obj_cache in chr_cache.object_cache:
-                    init_character_for_edit(obj_cache.object)
+        if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
+            if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
+                if chr_cache.import_type == "fbx":
+                    scene.setup_scene_default(prefs.pipeline_lighting)
+                else:
+                    scene.setup_scene_default(prefs.morph_lighting)
 
-        if first_cache:
+        # use portrait lighting for quality mode
+        if self.param == "IMPORT_QUALITY":
+            if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
+                scene.setup_scene_default(prefs.quality_lighting)
 
-            if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-                if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
-                    if first_cache.import_type == "fbx":
-                        scene.setup_scene_default(prefs.pipeline_lighting)
-                    else:
-                        scene.setup_scene_default(prefs.morph_lighting)
+        if prefs.refractive_eyes == "SSR":
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
 
-            # use portrait lighting for quality mode
-            if self.param == "IMPORT_QUALITY":
-                if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
-                    scene.setup_scene_default(prefs.quality_lighting)
+        # set a minimum of 50 max transparency bounces:
+        if bpy.context.scene.cycles.transparent_max_bounces < 50:
+            bpy.context.scene.cycles.transparent_max_bounces = 50
 
-            if prefs.refractive_eyes == "SSR":
-                bpy.context.scene.eevee.use_ssr = True
-                bpy.context.scene.eevee.use_ssr_refraction = True
-
-            # set a minimum of 50 max transparency bounces:
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
-
-            scene.zoom_to_character(first_cache)
-            scene.active_select_body(first_cache)
+        scene.zoom_to_character(chr_cache)
+        scene.active_select_body(chr_cache)
 
         # clean up unused images from the import
         if len(self.imported_images) > 0:
@@ -701,11 +673,11 @@ class CC3Import(bpy.types.Operator):
                     bpy.data.images.remove(img)
         utils.clean_collection(bpy.data.images)
 
-        self.import_characters = []
+        self.imported_character = None
         self.imported_materials = []
         self.imported_images = []
-
         self.lighting = True
+
 
     def modal(self, context, event):
 
@@ -741,15 +713,17 @@ class CC3Import(bpy.types.Operator):
 
         return {'PASS_THROUGH'}
 
+
     def cancel(self, context):
         if self.timer is not None:
             context.window_manager.event_timer_remove(self.timer)
             self.timer = None
 
+
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        self.import_characters = []
+        self.imported_character = None
         self.imported_materials = []
         self.imported_images = []
 
@@ -790,6 +764,7 @@ class CC3Import(bpy.types.Operator):
 
         return {"FINISHED"}
 
+
     def invoke(self, context, event):
         if "IMPORT" in self.param:
             context.window_manager.fileselect_add(self)
@@ -797,6 +772,7 @@ class CC3Import(bpy.types.Operator):
             return {"RUNNING_MODAL"}
 
         return self.execute(context)
+
 
     @classmethod
     def description(cls, context, properties):
