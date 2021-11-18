@@ -27,6 +27,12 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 1.1.1
+- Fix to crash from multiple character imports from iClone.
+    - Note: Exporting multiple characters in one Fbx from iClone to Blender is not fully supported.
+    - Characters should be exported individually.
+    - If multiple characters are detected then a warning pop-up will be displayed.
+
 ### 1.1.0
 - Updated export function to generate compatible Fbx file for CC3 re-import with FbxKey and to write back json material parameter and texture information. To be used in tandem with [Blender Importer Plugin for CC3 3.44](https://github.com/soupday/CC3-Blender-Tools-Plugin) for full round-trip character editing in Blender.
 - Import/Export Interface simplified.
