@@ -1219,11 +1219,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("UPDATE_SELECTED","Selected","Update the shader parameters only in the selected object and material")
                     ], default="UPDATE_LINKED")
 
-    setup_mode: bpy.props.EnumProperty(items=[
-                        ("BASIC","Basic","Build basic PBR materials."),
-                        ("ADVANCED","Advanced","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
-                    ], default="ADVANCED")
-
     import_file: bpy.props.StringProperty(default="", subtype="FILE_PATH")
 
     import_cache: bpy.props.CollectionProperty(type=CC3CharacterCache)

@@ -436,13 +436,13 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             box.row().label(text="Rebuild Materials", icon="MOD_BUILD")
             row = box.row()
             row.scale_y = 2
-            if props.setup_mode == "ADVANCED":
+            if chr_cache.setup_mode == "ADVANCED":
                 op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Advanced Materials")
             else:
                 op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Basic Materials")
             op.param ="BUILD"
             row = box.row()
-            row.prop(props, "setup_mode", expand=True)
+            row.prop(chr_cache, "setup_mode", expand=True)
             row = box.row()
             row.prop(props, "build_mode", expand=True)
 
@@ -1077,8 +1077,8 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         layout.use_property_decorate = False
 
         box = layout.box()
-        box.label(text="Settings", icon="TOOL_SETTINGS")
-        #layout.prop(chr_cache, "setup_mode", expand=True)
+        box.label(text=f"Settings  ({vars.VERSION_STRING})", icon="TOOL_SETTINGS")
+
         if prefs.lighting == "ENABLED" or prefs.physics == "ENABLED":
             if prefs.lighting == "ENABLED":
                 layout.prop(props, "lighting_mode", expand=True)

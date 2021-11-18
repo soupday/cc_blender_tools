@@ -92,6 +92,14 @@ def message_box(message = "", title = "Info", icon = 'INFO'):
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
 
 
+def message_box_multi(title = "Info", icon = 'INFO', messages = None):
+    def draw(self, context):
+        if messages:
+            for message in messages:
+                self.layout.label(text = message)
+    bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
+
+
 def unique_name(name, no_version = False):
     """Generate a unique name for the node or property to quickly
        identify texture nodes or nodes with parameters."""
