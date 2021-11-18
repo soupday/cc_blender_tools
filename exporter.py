@@ -391,13 +391,17 @@ class CC3Export(bpy.types.Operator):
 
                 if chr_cache.import_has_key:
                     try:
-                        key_dir, key_file = os.path.split(chr_cache.import_key_file)
-                        old_name, key_type = os.path.splitext(key_file)
-                        new_key_path = os.path.join(dir, name + key_type)
-                        if not utils.is_same_path(new_key_path, chr_cache.import_key_file):
-                            shutil.copyfile(chr_cache.import_key_file, new_key_path)
+                        old_key_path = chr_cache.import_key_file
+                        if not os.path.exists(old_key_path):
+                            old_key_path = bpy.path.abspath(chr_cache.import_name + ".ObjKey")
+                        if os.path.exists(old_key_path):
+                            key_dir, key_file = os.path.split(old_key_path)
+                            old_name, key_type = os.path.splitext(key_file)
+                            new_key_path = os.path.join(dir, name + key_type)
+                            if not utils.is_same_path(new_key_path, old_key_path):
+                                shutil.copyfile(old_key_path, new_key_path)
                     except Exception as e:
-                        utils.log_error("Unable to copy keyfile: " + chr_cache.import_key_file + "\n    to: " + new_key_path, e)
+                        utils.log_error("Unable to copy keyfile: " + old_key_path + "\n    to: " + new_key_path, e)
 
             # restore selection
             #bpy.ops.object.select_all(action='DESELECT')
