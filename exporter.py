@@ -28,6 +28,10 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
     if not chr_cache or not json_data:
         return None
 
+    # if the old import dir path does not exist, try using the current blend file path instead.
+    if not os.path.exists(old_path):
+        old_path = utils.local_path("//")
+
     changes = []
 
     if new_name != chr_cache.import_name:
@@ -346,7 +350,7 @@ class CC3Export(bpy.types.Operator):
                     try:
                         old_key_path = chr_cache.import_key_file
                         if not os.path.exists(old_key_path):
-                            old_key_path = bpy.path.abspath(chr_cache.import_name + ".fbxkey")
+                            old_key_path = utils.local_path(chr_cache.import_name + ".fbxkey")
                         if os.path.exists(old_key_path):
                             key_dir, key_file = os.path.split(old_key_path)
                             old_name, key_type = os.path.splitext(key_file)
@@ -393,7 +397,7 @@ class CC3Export(bpy.types.Operator):
                     try:
                         old_key_path = chr_cache.import_key_file
                         if not os.path.exists(old_key_path):
-                            old_key_path = bpy.path.abspath(chr_cache.import_name + ".ObjKey")
+                            old_key_path = utils.local_path(chr_cache.import_name + ".ObjKey")
                         if os.path.exists(old_key_path):
                             key_dir, key_file = os.path.split(old_key_path)
                             old_name, key_type = os.path.splitext(key_file)

@@ -141,6 +141,20 @@ def is_in_path(pa, pb):
     return os.path.normcase(os.path.realpath(pa)) in os.path.normcase(os.path.realpath(pb))
 
 
+def local_repath(path, original_start):
+    """Takes the path relative to the original_start and makes
+       it relative to the blend file location instead.
+       Returns the full path."""
+    rel_path = os.path.relpath(path, original_start)
+    return os.path.abspath(bpy.path.abspath(rel_path))
+
+
+def local_path(path = "//"):
+    """Get the full path of the blend file folder"""
+    blend_path_rel = bpy.path.abspath(path)
+    return os.path.abspath(blend_path_rel)
+
+
 def object_has_material(obj, name):
     name = name.lower()
     if obj.type == "MESH":

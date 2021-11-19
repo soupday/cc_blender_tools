@@ -116,27 +116,27 @@ def detect_body_object(obj):
     return False
 
 
-def detect_smart_hair_maps(mat, tex_dirs):
+def detect_smart_hair_maps(mat, tex_dirs, base_dir):
 
-    if (imageutils.find_image_file(tex_dirs, mat, "HAIRFLOW") is not None or
-        imageutils.find_image_file(tex_dirs, mat, "HAIRROOT") is not None or
-        imageutils.find_image_file(tex_dirs, mat, "HAIRID") is not None or
-        imageutils.find_image_file(tex_dirs, mat, "HAIRVERTEXCOLOR") is not None):
+    if (imageutils.find_image_file(base_dir, tex_dirs, mat, "HAIRFLOW") is not None or
+        imageutils.find_image_file(base_dir, tex_dirs, mat, "HAIRROOT") is not None or
+        imageutils.find_image_file(base_dir, tex_dirs, mat, "HAIRID") is not None or
+        imageutils.find_image_file(base_dir, tex_dirs, mat, "HAIRVERTEXCOLOR") is not None):
         return "True"
     return "False"
 
 
-def detect_sss_maps(mat, tex_dirs):
-    if (imageutils.find_image_file(tex_dirs, mat, "SSS") is not None or
-        imageutils.find_image_file(tex_dirs, mat, "TRANSMISSION") is not None or
-        imageutils.find_image_file(tex_dirs, mat, "RGBAMASK") is not None or
-        imageutils.find_image_file(tex_dirs, mat, "MICRONORMAL") is not None or
-        imageutils.find_image_file(tex_dirs, mat, "MICRONMASK") is not None):
+def detect_sss_maps(mat, tex_dirs, base_dir):
+    if (imageutils.find_image_file(base_dir, tex_dirs, mat, "SSS") is not None or
+        imageutils.find_image_file(base_dir, tex_dirs, mat, "TRANSMISSION") is not None or
+        imageutils.find_image_file(base_dir, tex_dirs, mat, "RGBAMASK") is not None or
+        imageutils.find_image_file(base_dir, tex_dirs, mat, "MICRONORMAL") is not None or
+        imageutils.find_image_file(base_dir, tex_dirs, mat, "MICRONMASK") is not None):
         return "True"
     return "False"
 
 
-def detect_hair_material(obj, mat, tex_dirs, mat_json = None):
+def detect_hair_material(obj, mat, tex_dirs, base_dir, mat_json = None):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     hints = prefs.hair_hint.split(",")
 
@@ -150,7 +150,7 @@ def detect_hair_material(obj, mat, tex_dirs, mat_json = None):
             return "False"
 
     # try to find one of the new hair maps: "Flow Map" or "Root Map"
-    if detect_smart_hair_maps(mat, tex_dirs) == "True":
+    if detect_smart_hair_maps(mat, tex_dirs, base_dir) == "True":
         utils.log_info(f"{obj.name} / {mat.name}: has hair shader textures, is hair.")
         return "True"
 
@@ -167,7 +167,7 @@ def detect_hair_material(obj, mat, tex_dirs, mat_json = None):
     return "False"
 
 
-def detect_hair_object(obj, tex_dirs, obj_json = None):
+def detect_hair_object(obj, tex_dirs, base_dir, obj_json = None):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     hints = prefs.hair_hint.split(",")
     object_name = obj.name.lower()
@@ -188,7 +188,7 @@ def detect_hair_object(obj, tex_dirs, obj_json = None):
     for mat in obj.data.materials:
         if mat:
             mat_json = jsonutils.get_material_json(obj_json, mat)
-            detect_mat = detect_hair_material(obj, mat, tex_dirs, mat_json)
+            detect_mat = detect_hair_material(obj, mat, tex_dirs, base_dir, mat_json)
             if detect_mat == "True":
                 utils.log_info(f"{obj.name} / {mat.name}: Hair material found, Object is hair.")
                 return "True"
@@ -250,11 +250,11 @@ def detect_materials_by_name(character_cache, obj, mat):
     object_type = "DEFAULT"
     tex_dirs = imageutils.get_material_tex_dirs(character_cache, obj, mat)
 
-    if detect_hair_object(obj, tex_dirs) == "True":
+    if detect_hair_object(obj, tex_dirs, character_cache.import_dir) == "True":
         object_type = "HAIR"
         if detect_scalp_material(mat) == "True":
             material_type = "SCALP"
-        elif detect_hair_material(obj, mat, tex_dirs) == "Deny":
+        elif detect_hair_material(obj, mat, tex_dirs, character_cache.import_dir) == "Deny":
             material_type = "DEFAULT"
         else:
             material_type = "HAIR"
@@ -314,7 +314,7 @@ def detect_materials_by_name(character_cache, obj, mat):
         object_type = "TONGUE"
         material_type = "TONGUE"
 
-    elif detect_sss_maps(mat, tex_dirs) == "True":
+    elif detect_sss_maps(mat, tex_dirs, character_cache.import_dir) == "True":
         material_type = "SSS"
 
     utils.log_info(f"Material: {mat_name} detected by name as: {material_type}")
@@ -334,9 +334,9 @@ def detect_materials_from_json(character_cache, obj, mat, obj_json, mat_json):
     if shader == "Pbr" or shader == "Tra":
         # PBR materials can also refer to the scalp/base on hair objects,
         # the eyelashes on the body or the eye(iris) materials on the eyes.
-        if detect_hair_object(obj, tex_dirs, obj_json) == "True":
+        if detect_hair_object(obj, tex_dirs, character_cache.import_dir, obj_json) == "True":
             object_type = "HAIR"
-            if detect_hair_material(obj, mat, tex_dirs, mat_json) == "True":
+            if detect_hair_material(obj, mat, tex_dirs, character_cache.import_dir, mat_json) == "True":
                 material_type = "HAIR"
             elif detect_scalp_material(mat) == "TRUE":
                 material_type = "SCALP"
