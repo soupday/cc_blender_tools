@@ -314,7 +314,7 @@ class CC3Export(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
 
-        if self.param == "EXPORT_CC3":
+        if chr_cache and self.param == "EXPORT_CC3":
             export_anim = False
             dir, name = os.path.split(self.filepath)
             type = name[-3:].lower()
@@ -422,7 +422,7 @@ class CC3Export(bpy.types.Operator):
             old_selection = bpy.context.selected_objects
             old_active = bpy.context.active_object
 
-            if chr_cache.import_type == "fbx":
+            if self.filename_ext == ".fbx":
                 bpy.ops.export_scene.fbx(filepath=self.filepath,
                         use_selection = True,
                         bake_anim = False,
@@ -449,7 +449,9 @@ class CC3Export(bpy.types.Operator):
     def invoke(self, context, event):
         props = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
-        self.filename_ext = "." + chr_cache.import_type
+        self.filename_ext = ".fbx"
+        if chr_cache:
+            self.filename_ext = "." + chr_cache.import_type
 
         if self.filename_ext == ".none":
             return {"FINISHED"}
