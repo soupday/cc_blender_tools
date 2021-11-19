@@ -27,6 +27,10 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 ## Changelog
 
+### 1.1.2
+- Export accessory button no longer locked to character.
+- Some import/export folder logic changed to try and cope with project folder & files being moved.
+
 ### 1.1.1
 - Fix to crash from multiple character imports from iClone.
     - Note: Exporting multiple characters in one Fbx from iClone to Blender is not fully supported.
