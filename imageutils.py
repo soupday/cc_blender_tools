@@ -61,22 +61,30 @@ def load_image(filename, color_space):
 
 
 ## Search the directory for an image filename that contains the search substring
-def find_image_file(dirs, mat, texture_type):
+def find_image_file(base_dir, dirs, mat, texture_type):
     suffix_list = get_image_type_suffix_list(texture_type)
     material_name = utils.strip_name(mat.name).lower()
     last = ""
+
     for dir in dirs:
-        if last != dir and dir != "" and os.path.normcase(dir) != os.path.normcase(last) and \
-                os.path.exists(dir):
-            last = dir
-            files = os.listdir(dir)
-            for file in files:
-                file_name = file.lower()
-                if file_name.startswith(material_name):
-                    for suffix in suffix_list:
-                        search = "_" + suffix + "."
-                        if search in file_name:
-                            return os.path.join(dir, file)
+
+        # if the texture folder does not exist, (e.g. files have been moved)
+        # remap the relative path to the current blend file directory to try and find the images there
+        if not os.path.exists(dir):
+            dir = utils.local_repath(dir, base_dir)
+
+        if os.path.exists(dir):
+
+            if last != dir and dir != "" and os.path.normcase(dir) != os.path.normcase(last):
+                last = dir
+                files = os.listdir(dir)
+                for file in files:
+                    file_name = file.lower()
+                    if file_name.startswith(material_name):
+                        for suffix in suffix_list:
+                            search = "_" + suffix + "."
+                            if search in file_name:
+                                return os.path.join(dir, file)
     return None
 
 
@@ -106,7 +114,7 @@ def find_material_image(mat, texture_type, tex_json = None):
     """
     props = bpy.context.scene.CC3ImportProps
     cache = props.get_material_cache(mat)
-    character_cache = props.get_character_cache(None, mat)
+    chr_cache = props.get_character_cache(None, mat)
 
     image_file = None
     color_space = "Non-Color"
@@ -120,13 +128,16 @@ def find_material_image(mat, texture_type, tex_json = None):
     # try to find the image in the json data first:
     if tex_json:
         rel_path = tex_json["Texture Path"]
-        image_file = os.path.join(character_cache.import_dir, rel_path)
+        image_file = os.path.join(chr_cache.import_dir, rel_path)
         if not os.path.exists(image_file):
-            image_file = None
+            image_file = utils.local_path(rel_path)
+            if not os.path.exists(image_file):
+                image_file = None
 
     # then try to find the image in the files:
     if image_file is None:
-        image_file = find_image_file([cache.dir, character_cache.import_main_tex_dir], mat, texture_type)
+        image_file = find_image_file(chr_cache.import_dir, [cache.dir, chr_cache.import_main_tex_dir], mat, texture_type)
+        print(f"Image file: {image_file}")
 
     if image_file:
         return load_image(image_file, color_space)

@@ -332,7 +332,7 @@ def make_new_image(name, width, height, format, ext, dir, is_data, has_alpha):
     img = bpy.data.images.new(name, width, height, alpha=has_alpha, is_data=is_data)
     img.pixels[0] = 0
     img.file_format = format
-    dir = os.path.join(bpy.path.abspath("//"), dir)
+    dir = os.path.join(utils.local_path(), dir)
     os.makedirs(dir, exist_ok=True)
     img.filepath_raw = os.path.join(dir, name + ext)
     img.save()

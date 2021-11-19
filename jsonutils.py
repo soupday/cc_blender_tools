@@ -29,7 +29,7 @@ def read_json(fbx_path):
         json_path = os.path.join(fbx_folder, fbx_name + ".json")
         # if the json doesn't exist in the expected path, look for it in the blend file path
         if not os.path.exists(json_path):
-            json_path = bpy.path.abspath(fbx_name + ".json")
+            json_path = utils.local_path(fbx_name + ".json")
 
         if os.path.exists(json_path):
 

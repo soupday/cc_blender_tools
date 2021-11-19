@@ -1116,8 +1116,6 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         row = layout.row()
         op = row.operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory")
         op.param = "EXPORT_ACCESSORY"
-        if not chr_cache:
-            row.enabled = False
 
         layout.separator()
         box = layout.box()
