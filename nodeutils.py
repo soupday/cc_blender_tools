@@ -226,6 +226,12 @@ def make_bump_node(nodes, strength, distance):
     return bump_node
 
 
+def make_normal_map_node(nodes, strength):
+    normal_map_node : bpy.types.ShaderNodeBump = make_shader_node(nodes, "ShaderNodeNormalMap")
+    normal_map_node.inputs["Strength"].default_value = strength
+    return normal_map_node
+
+
 def make_rgb_node(nodes, label, value = [1.0, 1.0, 1.0, 1.0]):
     rgb_node = make_shader_node(nodes, "ShaderNodeRGB", 0.8)
     rgb_node.label = label

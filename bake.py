@@ -109,6 +109,8 @@ def bake_socket_input(node, socket_name, mat, channel_id, bake_dir):
         bake_surface.data.materials[0] = mat
 
     # get the node and output socket to bake from
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
     source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(node, socket_name)
 
     # make (and save) the target image
@@ -118,6 +120,7 @@ def bake_socket_input(node, socket_name, mat, channel_id, bake_dir):
     image_node = bake_output(mat, source_node, source_socket, image, image_name)
 
     # reconnect the custom nodes to the shader socket
+    nodes.remove(image_node)
     nodeutils.link_nodes(mat.node_tree.links, source_node, source_socket, node, socket_name)
 
     # remove the bake surface and restore the render settings
@@ -175,8 +178,9 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
     bsdf_normal_node, bsdf_normal_socket = nodeutils.get_node_and_socket_connected_to_input(bsdf_node, "Normal")
     bump_strength = nodeutils.get_node_input(shader_node, bump_strength_socket_name, 0.05)
     bump_map_node = nodeutils.make_bump_node(nodes, 1, bump_strength)
-    nodeutils.link_nodes(links, normal_source_node, normal_source_socket, bump_map_node, "Normal")
-    nodeutils.link_nodes(links, bump_source_node, bump_source_socket, bump_map_node, "Height")
+    normal_map_node = nodeutils.make_normal_map_node(nodes, 1)
+    nodeutils.link_nodes(links, normal_source_node, normal_source_socket, normal_map_node, "Color")
+    nodeutils.link_nodes(links, normal_map_node, "Normal", bump_map_node, "Normal")
     nodeutils.link_nodes(links, bump_source_node, bump_source_socket, bump_map_node, "Height")
     nodeutils.link_nodes(links, bump_map_node, "Normal", bsdf_node, "Normal")
 
@@ -188,6 +192,8 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
 
     # remove the bake nodes and restore the normal links to the bsdf
     nodes.remove(bump_map_node)
+    nodes.remove(normal_map_node)
+    nodes.remove(image_node)
     nodeutils.link_nodes(links, bsdf_normal_node, bsdf_normal_socket, bsdf_node, "Normal")
 
     # remove the bake surface and restore the render settings
@@ -239,13 +245,14 @@ def bake_bsdf_normal(mat, bsdf_node, image, image_name):
     image_node.name = image_name
 
     bpy.context.scene.cycles.samples = BAKE_SAMPLES
-    utils.log_info("Baking: " + image_name)
+    utils.log_info("Baking normal: " + image_name)
 
     prep_bake()
 
     nodeutils.link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
     image_node.select = True
     nodes.active = image_node
+
     bpy.ops.object.bake(type='NORMAL')
 
     image.save_render(filepath = image.filepath, scene = bpy.context.scene)
@@ -328,8 +335,8 @@ def get_image_target(image_name, width, height, dir, data = True, alpha = False)
     return img
 
 
-def make_new_image(name, width, height, format, ext, dir, is_data, has_alpha):
-    img = bpy.data.images.new(name, width, height, alpha=has_alpha, is_data=is_data)
+def make_new_image(name, width, height, format, ext, dir, data, has_alpha):
+    img = bpy.data.images.new(name, width, height, alpha=has_alpha, is_data=data)
     img.pixels[0] = 0
     img.file_format = format
     dir = os.path.join(utils.local_path(), dir)

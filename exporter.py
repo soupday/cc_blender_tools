@@ -261,6 +261,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                 if tex_info:
 
                     if tex_node:
+
                         image : bpy.types.Image = None
                         if tex_node.type == "TEX_IMAGE":
                             if tex_type == "NORMAL" and bump_combining:
@@ -274,6 +275,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                                 image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, old_path)
                             else:
                                 image = bake.bake_socket_input(shader_node, shader_socket, mat, tex_id, old_path)
+
                         if image:
                             image_path = bpy.path.abspath(image.filepath)
                             rel_path = os.path.normpath(os.path.relpath(image_path, old_path))
