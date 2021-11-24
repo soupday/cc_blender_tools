@@ -46,6 +46,39 @@ def open_mouth_update(self, context):
             constraint.influence = chr_cache.open_mouth
 
 
+def eye_close_update(self, context):
+    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
+    chr_cache = props.get_context_character_cache(context)
+    value = chr_cache.eye_close
+
+    body_object = None
+    eo_object = None
+    tearline_object = None
+    for obj_cache in chr_cache.object_cache:
+        if obj_cache.object_type == "BODY":
+            body_object = obj_cache.object
+        elif obj_cache.object_type == "EYE_OCCLUSION":
+            eo_object = obj_cache.object
+        elif obj_cache.object_type == "TEARLINE":
+            tearline_object = obj_cache.object
+
+    if body_object:
+        try:
+            body_object.data.shape_keys.key_blocks['Eye_Blink'].value = value
+        except:
+            pass
+    if eo_object:
+        try:
+            eo_object.data.shape_keys.key_blocks['Eye_Blink'].value = value
+        except:
+            pass
+    if tearline_object:
+        try:
+            tearline_object.data.shape_keys.key_blocks['Eye_Blink'].value = value
+        except:
+            pass
+
+
 def reset_material_parameters(cache):
     props: CC3ImportProps = bpy.context.scene.CC3ImportProps
     params = cache.parameters
@@ -952,6 +985,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
 
 class CC3CharacterCache(bpy.types.PropertyGroup):
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
+    eye_close: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=eye_close_update)
     import_file: bpy.props.StringProperty(default="", subtype="FILE_PATH")
     #
     tongue_material_cache: bpy.props.CollectionProperty(type=CC3TongueMaterialCache)

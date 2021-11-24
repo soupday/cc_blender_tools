@@ -137,7 +137,6 @@ def find_material_image(mat, texture_type, tex_json = None):
     # then try to find the image in the files:
     if image_file is None:
         image_file = find_image_file(chr_cache.import_dir, [cache.dir, chr_cache.import_main_tex_dir], mat, texture_type)
-        print(f"Image file: {image_file}")
 
     if image_file:
         return load_image(image_file, color_space)

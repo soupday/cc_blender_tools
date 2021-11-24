@@ -49,6 +49,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
                 if mat and mat not in export_mats:
                     export_mats.append(mat)
 
+    # CC3 will replace any ' ' or '.' with underscores on export, so the only .00X suffix is from Blender
     # get a use count of each material source name (stripped of any blender duplicate name suffixes)
     mat_count = {}
     for mat in export_mats:
@@ -260,6 +261,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                 if tex_info:
 
                     if tex_node:
+
                         image : bpy.types.Image = None
                         if tex_node.type == "TEX_IMAGE":
                             if tex_type == "NORMAL" and bump_combining:
@@ -273,6 +275,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                                 image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, old_path)
                             else:
                                 image = bake.bake_socket_input(shader_node, shader_socket, mat, tex_id, old_path)
+
                         if image:
                             image_path = bpy.path.abspath(image.filepath)
                             rel_path = os.path.normpath(os.path.relpath(image_path, old_path))

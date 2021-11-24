@@ -783,6 +783,12 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
             else:
                 col_2.prop(props, "dummy_slider", text="", slider=True)
 
+            col_1.label(text="Eye Close")
+            if chr_cache:
+                col_2.prop(chr_cache, "eye_close", text="", slider=True)
+            else:
+                col_2.prop(props, "dummy_slider", text="", slider=True)
+
         column = layout.column()
         if not chr_cache:
             column.enabled = False
