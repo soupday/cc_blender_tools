@@ -237,19 +237,28 @@ def cache_object_materials(character_cache, obj, character_json, processed):
 
         utils.log_recess()
 
-
     processed.append(obj)
 
 
-def init_character_for_edit(obj):
-    #bpy.context.active_object.data.shape_keys.key_blocks['Basis']
+def apply_edit_shapekeys(obj):
+    """For objects with shapekeys, set the active visible and edit mode shapekey to the basis.
+    """
+    # shapekeys data path:
+    #   bpy.context.active_object.data.shape_keys.key_blocks['Basis']
     if obj.type == "MESH":
         shape_keys = obj.data.shape_keys
         if shape_keys is not None:
             blocks = shape_keys.key_blocks
             if blocks is not None:
+                # if the object has shape keys
                 if len(blocks) > 0:
-                    set_shape_key_edit(obj)
+                    try:
+                        # set the active shapekey to the basis and apply shape keys in edit mode.
+                        obj.active_shape_key_index = 0
+                        obj.show_only_shape_key = False
+                        obj.use_shape_key_edit_mode = True
+                    except Exception as e:
+                        utils.log_error("Unable to set shape key edit mode!", e)
 
 
 def init_shape_key_range(obj):
@@ -264,26 +273,13 @@ def init_shape_key_range(obj):
                         # expand the range of the shape key slider to include negative values...
                         block.slider_min = -1.0
 
-            # set a value in the action keyframes to force the shapekey action to update to the new ranges:
+            # re-set a value in the shapekey action keyframes to force
+            # the shapekey action to update to the new ranges:
             try:
                 co = shape_keys.animation_data.action.fcurves[0].keyframe_points[0].co
                 shape_keys.animation_data.action.fcurves[0].keyframe_points[0].co = co
             except:
                 pass
-
-
-def set_shape_key_edit(obj):
-    try:
-        #current_mode = bpy.context.mode
-        #if current_mode != "OBJECT":
-        #    bpy.ops.object.mode_set(mode="OBJECT")
-        #bpy.context.view_layer.objects.active = object
-        obj.active_shape_key_index = 0
-        obj.show_only_shape_key = True
-        obj.use_shape_key_edit_mode = True
-
-    except Exception as e:
-        utils.log_error("Unable to set shape key edit mode!", e)
 
 
 def detect_generation(chr_cache, json_data):
@@ -640,7 +636,7 @@ class CC3Import(bpy.types.Operator):
             if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
                 # for any objects with shape keys select basis and enable show in edit mode
                 for obj_cache in chr_cache.object_cache:
-                    init_character_for_edit(obj_cache.object)
+                    apply_edit_shapekeys(obj_cache.object)
 
             if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
                 if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
