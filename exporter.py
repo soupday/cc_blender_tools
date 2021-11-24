@@ -49,6 +49,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
                 if mat and mat not in export_mats:
                     export_mats.append(mat)
 
+    # CC3 will replace any ' ' or '.' with underscores on export, so the only .00X suffix is from Blender
     # get a use count of each material source name (stripped of any blender duplicate name suffixes)
     mat_count = {}
     for mat in export_mats:
