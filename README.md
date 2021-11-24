@@ -30,6 +30,9 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 ### 1.1.2
 - Export accessory button no longer locked to character.
 - Some import/export folder logic changed to try and cope with project folder & files being moved.
+- Added custom texture node baking on export to CC3, including baking bump maps into normal maps on export.
+    - If nodes are used to modify (or replace) texture inputs to material shaders, those nodes can be baked into the texture channel on export. This assumes the mesh has a valid UV map.
+    - Bump maps can be baked into normal channels. Typically CC3 will only allow Normal maps OR bump maps for a material, not both, so an option has been added to combine them into just the normal map.
 
 ### 1.1.1
 - Fix to crash from multiple character imports from iClone.
