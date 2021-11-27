@@ -47,7 +47,8 @@ def prep_bake():
     bpy.context.scene.render.bake.use_selected_to_active = False
     bpy.context.scene.render.bake.use_pass_direct = False
     bpy.context.scene.render.bake.use_pass_indirect = False
-    bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
+    if utils.is_blender_version("2.92.0"):
+        bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
     bpy.context.scene.render.bake.margin = 16
     bpy.context.scene.render.bake.use_clear = True
     bpy.context.scene.render.image_settings.file_format = IMAGE_FORMAT
@@ -152,7 +153,7 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
     # deselect everything
     bpy.ops.object.select_all(action='DESELECT')
     # create the baking plane, a single quad baking surface for an even sampling across the entire texture
-    bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
+    bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0))
     bake_surface = bpy.context.active_object
 
     # go into wireframe mode (so Blender doesn't update or recompile the material shaders while
@@ -306,7 +307,7 @@ def get_image_target(image_name, width, height, dir, data = True, alpha = False)
 
     # find an old image with the same name to reuse:
     for img in bpy.data.images:
-        if img.name == image_name:
+        if img and img.name == image_name:
 
             img_path, img_file = os.path.split(img.filepath)
             same_path = False

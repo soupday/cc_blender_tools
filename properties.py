@@ -1029,59 +1029,167 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ], default="EEVEE", name = "Target Renderer")
 
     def get_all_materials_cache(self):
-        all_materials = []
+        cache_all = []
         for cache in self.tongue_material_cache:
             if cache.material:
-                all_materials.append(cache)
+                cache_all.append(cache)
         for cache in self.teeth_material_cache:
             if cache.material:
-                all_materials.append(cache)
+                cache_all.append(cache)
         for cache in self.head_material_cache:
             if cache.material:
-                all_materials.append(cache)
+                cache_all.append(cache)
         for cache in self.skin_material_cache:
             if cache.material:
-                all_materials.append(cache)
+                cache_all.append(cache)
         for cache in self.tearline_material_cache:
             if cache.material:
-                all_materials.append(cache)
+                cache_all.append(cache)
         for cache in self.eye_occlusion_material_cache:
             if cache.material:
-                all_materials.append(cache)
+                cache_all.append(cache)
         for cache in self.eye_material_cache:
             if cache.material:
-                all_materials.append(cache)
+                cache_all.append(cache)
         for cache in self.hair_material_cache:
             if cache.material:
-                all_materials.append(cache)
+                cache_all.append(cache)
         for cache in self.pbr_material_cache:
             if cache.material:
-                all_materials.append(cache)
+                cache_all.append(cache)
         for cache in self.sss_material_cache:
             if cache.material:
-                all_materials.append(cache)
-        return all_materials
+                cache_all.append(cache)
+        return cache_all
+
+    def get_all_materials(self):
+        materials = []
+        for cache in self.tongue_material_cache:
+            if cache.material:
+                materials.append(cache.material)
+        for cache in self.teeth_material_cache:
+            if cache.material:
+                materials.append(cache.material)
+        for cache in self.head_material_cache:
+            if cache.material:
+                materials.append(cache.material)
+        for cache in self.skin_material_cache:
+            if cache.material:
+                materials.append(cache.material)
+        for cache in self.tearline_material_cache:
+            if cache.material:
+                materials.append(cache.material)
+        for cache in self.eye_occlusion_material_cache:
+            if cache.material:
+                materials.append(cache.material)
+        for cache in self.eye_material_cache:
+            if cache.material:
+                materials.append(cache.material)
+        for cache in self.hair_material_cache:
+            if cache.material:
+                materials.append(cache.material)
+        for cache in self.pbr_material_cache:
+            if cache.material:
+                materials.append(cache.material)
+        for cache in self.sss_material_cache:
+            if cache.material:
+                materials.append(cache.material)
+        return materials
+
+    def get_all_objects(self, include_armature = True):
+        objects = []
+        for cache in self.object_cache:
+            if cache.object.type == "ARMATURE":
+                if include_armature:
+                    objects.append(cache.object)
+            else:
+                objects.append(cache.object)
+        return objects
+
+
+    def remove_mat_cache(self, mat):
+        """Removes the material cache containing this material from the relevant material cache.
+
+           Note this will invalidate all current material cache references of the same type!
+        """
+        if mat:
+            for cache in self.tongue_material_cache:
+                if cache.material == mat:
+                    utils.remove_from_collection(self.tongue_material_cache, cache)
+                    return
+            for cache in self.teeth_material_cache:
+                if cache.material == mat:
+                    utils.remove_from_collection(self.teeth_material_cache, cache)
+                    return
+            for cache in self.head_material_cache:
+                if cache.material == mat:
+                    utils.remove_from_collection(self.head_material_cache, cache)
+                    return
+            for cache in self.skin_material_cache:
+                if cache.material == mat:
+                    utils.remove_from_collection(self.skin_material_cache, cache)
+                    return
+            for cache in self.tearline_material_cache:
+                if cache.material == mat:
+                    utils.remove_from_collection(self.tearline_material_cache, cache)
+                    return
+            for cache in self.eye_occlusion_material_cache:
+                if cache.material == mat:
+                    utils.remove_from_collection(self.eye_occlusion_material_cache, cache)
+                    return
+            for cache in self.eye_material_cache:
+                if cache.material == mat:
+                    utils.remove_from_collection(self.eye_material_cache, cache)
+                    return
+            for cache in self.hair_material_cache:
+                if cache.material == mat:
+                    utils.remove_from_collection(self.hair_material_cache, cache)
+                    return
+            for cache in self.pbr_material_cache:
+                if cache.material == mat:
+                    utils.remove_from_collection(self.pbr_material_cache, cache)
+                    return
+            for cache in self.sss_material_cache:
+                if cache.material == mat:
+                    utils.remove_from_collection(self.sss_material_cache, cache)
+                    return
 
     def get_object_cache(self, obj):
         """Returns the object cache for this object.
-
-        Fetches or creates an object cache for the object. Always returns an object cache collection.
         """
-
-        if obj is not None:
+        if obj:
             for cache in self.object_cache:
                 if cache.object == obj:
                     return cache
         return None
 
+    def remove_object_cache(self, obj):
+        """Removes the object from the object cache.
+
+           Note this will invalidate all current object cache references!
+        """
+        if obj:
+            for cache in self.object_cache:
+                if cache.object == obj:
+                    utils.remove_from_collection(self.object_cache, cache)
+                    return
+
     def has_objects(self, objects):
         """Returns True if any of the objects are in the object cache.
         """
-
         for cache in self.object_cache:
             if cache.object in objects:
                 return True
         return False
+
+    def get_armature(self):
+        try:
+            for obj_cache in self.object_cache:
+                if obj_cache.object.type == "ARMATURE":
+                    return obj_cache.object
+        except:
+            pass
+        return None
 
 
     def add_object_cache(self, obj):
@@ -1096,6 +1204,17 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             cache = self.object_cache.add()
             cache.object = obj
         return cache
+
+
+    def has_material(self, mat):
+        return (self.get_material_cache(mat) is not None)
+
+
+    def has_all_materials(self, materials):
+        for mat in materials:
+            if mat and not self.has_material(mat):
+                return False
+        return True
 
 
     def get_material_cache(self, mat):
@@ -1328,6 +1447,12 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     def get_context_character_cache(self, context):
         obj = context.object
         mat = utils.context_material(context)
+
+        # if there is only one character in the scene, this is the only possible character cache:
+        if len(self.import_cache) == 1:
+            return self.import_cache[0]
+
+        # otherwise determine the context character cache:
         chr_cache = self.get_character_cache(obj, mat)
         if chr_cache is None and len(context.selected_objects) > 1:
             chr_cache = self.get_any_character_cache_from_objects(context.selected_objects)

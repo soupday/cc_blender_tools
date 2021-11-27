@@ -45,9 +45,10 @@ def move_mod_last(obj, mod):
                 bpy.ops.object.modifier_move_down(modifier=mod.name)
             max -= 1
             if max == 0:
-                return
+                return True
     except Exception as e:
         utils.log_error("Unable to move to last, modifier: " + mod.name, e)
+    return False
 
 
 def move_mod_first(obj, mod):
@@ -61,9 +62,18 @@ def move_mod_first(obj, mod):
                 bpy.ops.object.modifier_move_up(modifier=mod.name)
             max -= 1
             if max == 0:
-                return
+                return True
     except Exception as e:
         utils.log_error("Unable to move to first, modifier: " + mod.name, e)
+    return False
+
+
+def get_armature_modifier(obj, create = False):
+    if obj is not None:
+        for mod in obj.modifiers:
+            if mod.type == "ARMATURE":
+                return mod
+    return obj.modifiers.new(name = "Armature", type = "ARMATURE")
 
 
 # Physics modifiers
