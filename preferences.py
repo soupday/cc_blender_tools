@@ -120,7 +120,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     export_texture_changes: bpy.props.BoolProperty(default=True, name="Textures", description="Export all texture changes to the character Json data. Setting to False keeps original textures.")
     export_bone_roll_fix: bpy.props.BoolProperty(default=False, name="Teeth bone fix", description="(Experimental) Apply zero roll to upper and lower teeth bones to fix teeth alignment problems re-importing to CC3")
     export_bake_nodes: bpy.props.BoolProperty(default=False, name="Bake custom nodes", description="(Very Experimental) Bake any custom nodes (non texture image) attached to shader texture map sockets on export.")
-    export_bake_bump_to_normal: bpy.props.BoolProperty(default=True, name="Bake bump to normal maps", description="(Very Experimental) When both a bump map and a normal is present, bake the bump map into the normal. (CC3 materials can only have normal map or bump map.)")
+    export_bake_bump_to_normal: bpy.props.BoolProperty(default=False, name="Bake bump to normal maps", description="(Very Experimental) When both a bump map and a normal is present, bake the bump map into the normal. (CC3 materials can only have normal map or bump map.)")
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 

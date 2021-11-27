@@ -366,9 +366,12 @@ def get_active_object():
 
 
 def set_active_object(obj):
-    obj.select_set(True)
-    bpy.context.view_layer.objects.active = obj
-    return bpy.context.active_object == obj
+    try:
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        return (bpy.context.active_object == obj)
+    except:
+        return False
 
 
 def set_mode(mode):
@@ -469,26 +472,44 @@ def untagged_images():
 
 def try_select_child_objects(obj):
     try:
-        if obj.type == "ARMATURE" or obj.type == "MESH":
-            obj.select_set(True)
-        for child in obj.children:
-            try_select_child_objects(child)
+        if obj:
+            if obj.type == "ARMATURE" or obj.type == "MESH":
+                obj.select_set(True)
+            result = True
+            for child in obj.children:
+                if not try_select_child_objects(child):
+                    result = False
+            return result
+        else:
+            return False
     except:
-        pass
+        return False
 
 
 def try_select_object(obj):
     try:
         obj.select_set(True)
+        return True
     except:
-        pass
+        return False
 
 
 def try_select_objects(objects, clear_selection = False):
     if clear_selection:
-        bpy.ops.object.select_all(action='DESELECT')
+        clear_selected_objects()
+    result = True
     for obj in objects:
-        try_select_object(obj)
+        if not try_select_object(obj):
+            result = False
+    return result
+
+
+def clear_selected_objects():
+    try:
+        bpy.ops.object.select_all(action='DESELECT')
+        return True
+    except:
+        return False
 
 
 def remove_from_collection(coll, item):

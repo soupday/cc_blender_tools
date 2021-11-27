@@ -18,8 +18,26 @@ import bpy
 
 from . import materials, shaders, modifiers, physics, preferences, properties, nodeutils, utils, params, vars
 
-# Panel button functions and opertator
+# Panel button functions and operator
 #
+
+def context_character(context):
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache: properties.CC3CharacterCache = props.get_context_character_cache(context)
+
+    obj = None
+    mat = None
+    obj_cache = None
+    mat_cache = None
+
+    if chr_cache:
+        obj = context.object
+        mat = utils.context_material(context)
+        obj_cache = chr_cache.get_object_cache(obj)
+        mat_cache = chr_cache.get_material_cache(mat)
+
+    return chr_cache, obj, mat, obj_cache, mat_cache
+
 
 def set_physics_settings(param, context = bpy.context):
     props = bpy.context.scene.CC3ImportProps
@@ -258,7 +276,7 @@ class CC3OperatorMaterial(bpy.types.Operator):
         return ""
 
 
-def add_object_to_character(chr_cache : properties.CC3CharacterCache, obj):
+def add_object_to_character(chr_cache : properties.CC3CharacterCache, obj : bpy.types.Object):
     props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
 
     if chr_cache and obj and obj.type == "MESH":
@@ -274,31 +292,120 @@ def add_object_to_character(chr_cache : properties.CC3CharacterCache, obj):
 
         add_missing_materials_to_character(chr_cache, obj, obj_cache)
 
+        utils.clear_selected_objects()
+
+        # clear any parenting
+        if obj.parent:
+            if utils.set_active_object(obj):
+                    bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
+
+        # parent to character
+        arm = chr_cache.get_armature()
+        if arm:
+            if utils.try_select_objects([arm, obj]):
+                if utils.set_active_object(arm):
+                    bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
+
+                    # add or update armature modifier
+                    arm_mod : bpy.types.ArmatureModifier = modifiers.get_armature_modifier(obj, True)
+                    if arm_mod:
+                        modifiers.move_mod_first(obj, arm_mod)
+                        arm_mod.object = arm
+
+                    utils.set_active_object(obj)
+
+
+def clean_up_character_data(chr_cache : properties.CC3CharacterCache):
+
+    props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+
+    mats = []
+    objects = []
+    arm = chr_cache.get_armature()
+
+    if arm:
+
+        for obj in arm.children:
+            if obj and obj.type == "MESH":
+                if len(obj.users_scene) > 0:
+                    objects.append(obj)
+                    for mat in obj.data.materials:
+                        if mat and mat not in mats:
+                            mats.append(mat)
+
+        delete_mats = []
+        delete_objects = []
+
+        cache_mats = chr_cache.get_all_materials()
+        cache_objects = chr_cache.get_all_objects(False)
+
+        for obj in cache_objects:
+            if obj and obj not in objects:
+                delete_objects.append(obj)
+
+        for mat in cache_mats:
+            if mat and mat not in mats:
+                delete_mats.append(mat)
+
+        for obj in delete_objects:
+            chr_cache.remove_object_cache(obj)
+
+        for mat in delete_mats:
+            chr_cache.remove_mat_cache(mat)
+
+
+def character_data_needs_clean_up(chr_cache : properties.CC3CharacterCache):
+
+    props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+
+    if chr_cache:
+
+        mats = []
+        objects = []
+        arm = chr_cache.get_armature()
+
+        if arm:
+
+            for obj in arm.children:
+                if obj and obj.type == "MESH":
+                    if len(obj.users_scene) > 0:
+                        objects.append(obj)
+                        for mat in obj.data.materials:
+                            if mat and mat not in mats:
+                                mats.append(mat)
+
+            cache_objects = chr_cache.get_all_objects(False)
+
+            if len(cache_objects) > len(objects):
+                return True
+
+            cache_mats = chr_cache.get_all_materials()
+
+            if len(cache_mats) > len(mats):
+                return True
+
+    return False
+
 
 def add_missing_materials_to_character(chr_cache : properties.CC3CharacterCache, obj, obj_cache = None):
-
     props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
 
     if chr_cache and obj and obj_cache and obj.type == "MESH":
 
-        if not obj_cache:
-            obj_cache = chr_cache.get_object_cache(obj)
+        obj_name = obj.name
 
-        if obj_cache:
-            obj_name = obj.name
+        # add a default material if none exists...
+        if len(obj.data.materials) == 0:
+            mat_name = utils.unique_material_name(obj_name)
+            mat = bpy.data.materials.new(mat_name)
+            obj.data.materials.append(mat)
 
-            # add a default material if none exists...
-            if len(obj.data.materials) == 0:
-                mat_name = utils.unique_material_name(obj_name)
-                mat = bpy.data.materials.new(mat_name)
-                obj.data.materials.append(mat)
+        for mat in obj.data.materials:
+            if mat:
+                mat_cache = chr_cache.get_material_cache(mat)
 
-            for mat in obj.data.materials:
-                if mat:
-                    mat_cache = chr_cache.get_material_cache(mat)
-
-                    if not mat_cache:
-                        add_material_to_character(chr_cache, obj, obj_cache, mat)
+                if not mat_cache:
+                    add_material_to_character(chr_cache, obj, obj_cache, mat)
 
 
 def add_material_to_character(chr_cache : properties.CC3CharacterCache, obj, obj_cache, mat):
@@ -348,7 +455,13 @@ class CC3OperatorObject(bpy.types.Operator):
         elif self.param == "ADD_MATERIALS":
             chr_cache = props.get_context_character_cache(context)
             obj = context.active_object
-            add_missing_materials_to_character(chr_cache, obj)
+            obj_cache = chr_cache.get_object_cache(obj)
+            add_missing_materials_to_character(chr_cache, obj, obj_cache)
+
+        elif self.param == "CLEAN_UP_DATA":
+            chr_cache = props.get_context_character_cache(context)
+            obj = context.active_object
+            clean_up_character_data(chr_cache)
 
         return {"FINISHED"}
 
@@ -356,9 +469,11 @@ class CC3OperatorObject(bpy.types.Operator):
     def description(cls, context, properties):
 
         if properties.param == "ADD_PBR":
-            return "Add object to the character with pbr materials."
+            return "Add object to the character with pbr materials"
         elif properties.param == "ADD_MATERIALS":
-            return "Add missing materials to character."
+            return "Add any new materials to the character data that are in this object but not in the character data"
+        elif properties.param == "CLEAN_UP_DATA":
+            return "Remove any objects from the character data that are no longer part of the character and remove any materials from the character that are no longer in the character objects"
         return ""
 
 
@@ -388,15 +503,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
 
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache: properties.CC3CharacterCache = props.get_context_character_cache(context)
-        obj = context.object
-        mat = None
-        obj_cache = None
-        mat_cache = None
-        if chr_cache and obj and obj.type == "MESH":
-            mat = utils.context_material(context)
-            obj_cache = chr_cache.get_object_cache(obj)
-            mat_cache = chr_cache.get_material_cache(mat)
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
 
         mesh_in_selection = False
         for obj in bpy.context.selected_objects:
@@ -425,6 +532,8 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 box.label(text="Name: " + chr_cache.import_name)
         else:
             box.label(text="No Character")
+
+        # Build Settings
 
         layout.box().label(text="Build Settings", icon="TOOL_SETTINGS")
         layout.prop(prefs, "render_target", expand=True)
@@ -491,6 +600,53 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         op = col_2.operator("cc3.setmaterials", icon="XRAY", text="Double Sided")
         op.param = "DOUBLE_SIDED"
 
+        # External object selected with character
+        #   Todo:   needs to write new json on export (TBD)
+        #           Add object:
+        #               add object to chr_cache (DONE)
+        #               add object materials to chr_cache (DONE)
+        #               if object parented to something else:
+        #                   unparent, keep transform (TBD)
+        #                   parent to character, keep transform (TBD)
+        #                   add armature modifier (TBD)
+        #           add missing materials:
+        #               i.e. those on objects but not in character (DONE)
+        #           remove missing materials:
+        #               i.e. those materials in character but no longer on any character objects (TBD)
+        #           transfer/copy skin weights to objects (TBD)
+
+        show_object_group = False
+        missing_object = False
+        missing_material = False
+        clean_up = character_data_needs_clean_up(chr_cache)
+        if chr_cache and obj_cache is None and obj and obj.type == "MESH":
+            missing_object = True
+            show_object_group = True
+        if chr_cache and obj and obj.type == "MESH" and not chr_cache.has_all_materials(obj.data.materials):
+            missing_material = True
+            show_object_group = True
+        if clean_up:
+            show_object_group = True
+
+        if show_object_group:
+
+            layout.box().label(text="Object Management", icon="OBJECT_HIDDEN")
+            column = layout.column()
+
+            if missing_object:
+                op = column.operator("cc3.objects", icon="ADD", text="Add To Character")
+                op.param = "ADD_PBR"
+
+            else:
+
+                if missing_material:
+                    op = column.operator("cc3.objects", icon="ADD", text="Add New Materials")
+                    op.param = "ADD_MATERIALS"
+
+                if clean_up:
+                    op = column.operator("cc3.objects", icon="REMOVE", text="Clean Up Data")
+                    op.param = "CLEAN_UP_DATA"
+
 
 class CC3MaterialParametersPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Parameters_Panel"
@@ -504,56 +660,12 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         layout = self.layout
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache: properties.CC3CharacterCache = props.get_context_character_cache(context)
 
-        obj = None
-        mat = None
-        obj_cache = None
-        mat_cache = None
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
         shader = "NONE"
         parameters = None
-
-        if chr_cache:
-            obj = context.object
-            mat = utils.context_material(context)
-            obj_cache = chr_cache.get_object_cache(obj)
-            mat_cache = chr_cache.get_material_cache(mat)
-            if mat_cache:
-                parameters = mat_cache.parameters
-
-        is_import_object = obj_cache is not None
-        is_import_material = mat_cache is not None
-
-        # External object selected with character
-        # As this is getting too complicated for 1.1.0 release:
-        #   Todo:   it needs it's own panel Character Objects Panel...
-        #           needs to deal with armature parenting (transfering or adding), armature modifiers
-        #           needs to write new json on export...
-        #           add/remove object from character
-        #           add missing materials on objects missing from character
-        #           remove missing materials in character but not on objects...
-        #           transfer/copy skin weights to objects...
-        #
-        #if chr_cache and obj_cache is None:
-        #
-        #    layout.box().label(text="External Object", icon="OBJECT_HIDDEN")
-        #    column = layout.column()
-        #    op = column.operator("cc3.objects", icon="ADD", text="Add To Character")
-        #    op.param = "ADD_PBR"
-        #
-        #if chr_cache and obj_cache:
-        #    if obj.type == "MESH":
-        #        missing = False
-        #        for m in obj.data.materials:
-        #            if m:
-        #                mc = chr_cache.get_material_cache(m)
-        #                if not mc:
-        #                    missing = True
-        #                    break
-        #        if missing:
-        #            column = layout.column()
-        #            op = column.operator("cc3.objects", icon="ADD", text="Add Materials")
-        #            op.param = "ADD_PBR"
+        if mat_cache:
+            parameters = mat_cache.parameters
 
         # Parameters
 

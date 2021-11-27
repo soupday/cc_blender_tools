@@ -26,6 +26,10 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+### 1.1.3
+- Baking fix for Blender versions 2.83 - 2.91
+- (Experimental) Added operators to add new objects to the character data.
+    - See Character Settings panel with new object selected.
 
 ### 1.1.2
 - Export accessory button no longer locked to character.

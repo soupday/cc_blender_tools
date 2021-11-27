@@ -68,23 +68,25 @@ def find_image_file(base_dir, dirs, mat, texture_type):
 
     for dir in dirs:
 
-        # if the texture folder does not exist, (e.g. files have been moved)
-        # remap the relative path to the current blend file directory to try and find the images there
-        if not os.path.exists(dir):
-            dir = utils.local_repath(dir, base_dir)
+        if dir:
 
-        if os.path.exists(dir):
+            # if the texture folder does not exist, (e.g. files have been moved)
+            # remap the relative path to the current blend file directory to try and find the images there
+            if not os.path.exists(dir):
+                dir = utils.local_repath(dir, base_dir)
 
-            if last != dir and dir != "" and os.path.normcase(dir) != os.path.normcase(last):
-                last = dir
-                files = os.listdir(dir)
-                for file in files:
-                    file_name = file.lower()
-                    if file_name.startswith(material_name):
-                        for suffix in suffix_list:
-                            search = "_" + suffix + "."
-                            if search in file_name:
-                                return os.path.join(dir, file)
+            if os.path.exists(dir):
+
+                if last != dir and dir != "" and os.path.normcase(dir) != os.path.normcase(last):
+                    last = dir
+                    files = os.listdir(dir)
+                    for file in files:
+                        file_name = file.lower()
+                        if file_name.startswith(material_name):
+                            for suffix in suffix_list:
+                                search = "_" + suffix + "."
+                                if search in file_name:
+                                    return os.path.join(dir, file)
     return None
 
 
