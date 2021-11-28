@@ -41,6 +41,9 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
 
     chr_json = json_data[new_name]["Object"][new_name]
 
+    # unpack embedded textures.
+    unpack_embedded_textures(chr_cache, chr_json, objects, old_path)
+
     # get a list of all materials in the export back to CC3
     export_mats = []
     for obj in objects:
@@ -237,7 +240,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                 tex_info = None
 
                 if is_pbr:
-                    if tex_id in mat_json["Textures"].keys():
+                    if tex_id in mat_json["Textures"]:
                         tex_info = mat_json["Textures"][tex_id]
                     elif tex_node:
                         tex_info = params.JSON_PBR_TEX_INFO.copy()
@@ -247,7 +250,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                         mat_json["Textures"][tex_id] = tex_info
 
                 elif has_custom_shader:
-                    if tex_id in mat_json["Custom Shader"]["Image"].keys():
+                    if tex_id in mat_json["Custom Shader"]["Image"]:
                         tex_info = mat_json["Custom Shader"]["Image"][tex_id]
                     elif tex_node:
                         tex_info = params.JSON_CUSTOM_TEX_INFO.copy()
@@ -283,6 +286,60 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                             if os.path.normpath(tex_info["Texture Path"]) != rel_path:
                                 utils.log_info(mat.name + "/" + tex_id + ": Using new texture path: " + rel_path)
                                 tex_info["Texture Path"] = rel_path
+
+
+def unpack_embedded_textures(chr_cache, chr_json, objects, old_path):
+
+    fbm_folder = os.path.join(chr_cache.import_dir, chr_cache.import_name + ".fbm")
+    if not os.path.exists(fbm_folder):
+        os.mkdir(fbm_folder)
+
+    obj : bpy.types.Object
+    for obj in objects:
+        obj_json = jsonutils.get_object_json(chr_json, obj)
+
+        if obj_json and utils.still_exists(obj):
+
+            if obj.type == "MESH":
+
+                for slot in obj.material_slots:
+                    mat = slot.material
+                    mat_json = jsonutils.get_material_json(obj_json, mat)
+                    mat_cache = chr_cache.get_material_cache(mat)
+                    if mat_cache and mat_json:
+                        for tex_mapping in mat_cache.texture_mappings:
+                            image : bpy.types.Image = tex_mapping.image
+
+                            if image:
+                                temp_dir, name = os.path.split(image.filepath)
+                                image_path = os.path.join(fbm_folder, name)
+
+                                # unpack the image:
+                                try:
+                                    if image.packed_file:
+                                        utils.log_info(f"Unpacking embedded image: {name}")
+                                        image.unpack(method = "REMOVE")
+                                        image.filepath_raw = image_path
+                                        image.save()
+                                except:
+                                    utils.log_warn(f"Unable to unpack embedded image: {name}")
+
+                                # fix the texture json data path:
+                                try:
+                                    tex_type = tex_mapping.texture_type
+                                    tex_id = params.get_texture_json_id(tex_type)
+                                    if tex_id in mat_json["Textures"]:
+                                        tex_info = mat_json["Textures"][tex_id]
+                                        if tex_info:
+                                            tex_path = os.path.join(old_path, tex_info["Texture Path"])
+                                            if not utils.is_same_path(tex_path, image_path):
+                                                abs_image_path = bpy.path.abspath(image_path)
+                                                rel_path = os.path.normpath(os.path.relpath(abs_image_path, old_path))
+                                                tex_info["Texture Path"] = rel_path
+                                                utils.log_info(f"Updating image Json data: {rel_path}")
+                                except:
+                                    utils.log_warn(f"Unable to update embedded image Json: {name}")
+
 
 
 class CC3Export(bpy.types.Operator):

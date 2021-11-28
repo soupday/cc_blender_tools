@@ -813,7 +813,7 @@ class CC3BasicParameters(bpy.types.PropertyGroup):
 
 
 class CC3TextureMapping(bpy.types.PropertyGroup):
-    texture_type: bpy.props.StringProperty(default="Diffuse")
+    texture_type: bpy.props.StringProperty(default="DIFFUSE")
     texture_path: bpy.props.StringProperty(default="")
     embedded: bpy.props.BoolProperty(default=False)
     image: bpy.props.PointerProperty(type=bpy.types.Image)
@@ -841,7 +841,7 @@ class CC3MaterialCache:
         if mapping is None:
             mapping = self.texture_mappings.add()
         mapping.texture_type = texture_type
-        mapping.textuure_path = texture_path
+        mapping.texture_path = texture_path
         mapping.embedded = embedded
         mapping.image = image
         mapping.location = location
