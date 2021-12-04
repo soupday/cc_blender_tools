@@ -16,6 +16,7 @@
 
 import bpy
 
+from . import addon_updater_ops
 from . import characters, modifiers, nodeutils, utils, params, vars
 
 # Panel button functions and operator
@@ -778,6 +779,11 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         global debug_counter
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        addon_updater_ops.check_for_update_background()
+        if addon_updater_ops.updater.update_ready == True:
+            addon_updater_ops.update_notice_box_ui(self, context)
+
         chr_cache = props.get_context_character_cache(context)
         if chr_cache:
             character_name = chr_cache.character_name
