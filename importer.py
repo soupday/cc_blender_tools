@@ -79,6 +79,9 @@ def process_material(chr_cache, obj, mat, object_json):
 
     if not mat_cache: return
 
+    # don't process user added materials
+    if mat_cache.user_added: return
+
     if not mat.use_nodes:
         mat.use_nodes = True
 

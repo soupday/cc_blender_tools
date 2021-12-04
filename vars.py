@@ -25,12 +25,13 @@ def set_version_string(bl_info):
 # blender uses metres, CC3 uses centimetres
 UNIT_SCALE = 0.01
 SKIN_SSS_RADIUS_SCALE = 0.01
+DEFAULT_SSS_RADIUS_SCALE = 0.01
 TEETH_SSS_RADIUS_SCALE = 0.01
+TONGUE_SSS_RADIUS_SCALE = 0.01
 HAIR_SSS_RADIUS_SCALE = 0.01
-HAIR_SSS_RADIUS_SCALE_CYCLES = 0.001
-EYE_SSS_RADIUS_SCALE = 0.01
-IRIS_SCALE_ADJUST = 1.08
+EYES_SSS_RADIUS_SCALE = 0.01 / 5.0
 EMISSION_SCALE = 100
+SSS_CYCLES_MOD = 1 #0.05
 
 # https://docs.blender.org/manual/en/latest/files/media/image_formats.html
 IMAGE_TYPES = [".bmp", ".sgi", ".rgb", ".bw", ".png", ".jpg", ".jpeg", ".jp2", ".j2c",

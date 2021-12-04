@@ -21,6 +21,7 @@ import bpy
 
 from . import bake, shaders, nodeutils, jsonutils, utils, params
 
+UNPACK_INDEX = 1001
 
 def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -40,6 +41,10 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
         json_data[new_name] = json_data.pop(chr_cache.import_name)
 
     chr_json = json_data[new_name]["Object"][new_name]
+
+    # unpack embedded textures.
+    if chr_cache.import_embedded:
+        unpack_embedded_textures(chr_cache, chr_json, objects, old_path)
 
     # get a list of all materials in the export back to CC3
     export_mats = []
@@ -75,14 +80,20 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
     obj : bpy.types.Object
     for obj in objects:
         obj_json = jsonutils.get_object_json(chr_json, obj)
+        obj_cache = chr_cache.get_object_cache(obj)
+        obj_name = obj.name
+        obj_source_name = utils.strip_name(obj.name)
+
+        # add blank object json data if user added mesh
+        if obj_cache and obj_cache.user_added:
+            obj_json = params.JSON_MESH_DATA.copy()
+            chr_json["Meshes"][obj_source_name] = obj_json
 
         if obj_json and utils.still_exists(obj):
 
             if obj.type == "MESH":
 
-                obj_name = obj.name
                 mesh_name = obj.data.name
-                obj_source_name = utils.strip_name(obj.name)
 
                 if obj_name != obj_source_name or mesh_name != obj_source_name:
                     utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
@@ -98,6 +109,10 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
                     # update the json parameters with any changes
                     mat_cache = chr_cache.get_material_cache(mat)
                     if mat_cache:
+                        if mat_cache.user_added:
+                            # add new material json data if user added
+                            mat_json = params.JSON_PBR_MATERIAL.copy()
+                            obj_json["Materials"][mat_source_name] = mat_json
                         if prefs.export_json_changes:
                             write_back_json(mat_json, mat, mat_cache)
                         if prefs.export_texture_changes:
@@ -147,7 +162,7 @@ def remap_texture_path(tex_info, old_path, new_path):
     if os.path.normpath(old_path) != os.path.normpath(new_path):
         tex_path = tex_info["Texture Path"]
         abs_path = os.path.join(old_path, tex_path)
-        rel_path = os.path.relpath(abs_path, new_path)
+        rel_path = utils.relpath(abs_path, new_path)
         tex_info["Texture Path"] = os.path.normpath(rel_path)
     return
 
@@ -208,12 +223,17 @@ def write_back_json(mat_json, mat, mat_cache):
 
 
 def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
+    global UNPACK_INDEX
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     shader_name = params.get_shader_lookup(mat_cache)
     shader_def = params.get_shader_def(shader_name)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
     has_custom_shader = "Custom Shader" in mat_json.keys()
+    unpack_path = os.path.join(old_path, "Unpack")
+    bake_path = os.path.join(old_path, "Bake")
+    bake.init_bake()
+    UNPACK_INDEX = 1001
 
     # determine if we are combining bump maps into normal maps:
     normal_socket = params.get_shader_texture_socket(shader_def, "NORMAL")
@@ -237,7 +257,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                 tex_info = None
 
                 if is_pbr:
-                    if tex_id in mat_json["Textures"].keys():
+                    if tex_id in mat_json["Textures"]:
                         tex_info = mat_json["Textures"][tex_id]
                     elif tex_node:
                         tex_info = params.JSON_PBR_TEX_INFO.copy()
@@ -247,7 +267,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                         mat_json["Textures"][tex_id] = tex_info
 
                 elif has_custom_shader:
-                    if tex_id in mat_json["Custom Shader"]["Image"].keys():
+                    if tex_id in mat_json["Custom Shader"]["Image"]:
                         tex_info = mat_json["Custom Shader"]["Image"][tex_id]
                     elif tex_node:
                         tex_info = params.JSON_CUSTOM_TEX_INFO.copy()
@@ -265,7 +285,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                         image : bpy.types.Image = None
                         if tex_node.type == "TEX_IMAGE":
                             if prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
-                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, old_path)
+                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, bake_path)
                             else:
                                 image = tex_node.image
 
@@ -273,16 +293,110 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                             # if something is connected to the shader socket but is not a texture image
                             # and baking is enabled: then bake the socket input into a texture for exporting:
                             if tex_type == "NORMAL" and bump_combining:
-                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, old_path)
+                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, bake_path)
                             else:
-                                image = bake.bake_socket_input(shader_node, shader_socket, mat, tex_id, old_path)
+                                image = bake.bake_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
                         if image:
+                            try_unpack_image(image, unpack_path, True)
                             image_path = bpy.path.abspath(image.filepath)
-                            rel_path = os.path.normpath(os.path.relpath(image_path, old_path))
+                            rel_path = os.path.normpath(utils.relpath(image_path, old_path))
                             if os.path.normpath(tex_info["Texture Path"]) != rel_path:
                                 utils.log_info(mat.name + "/" + tex_id + ": Using new texture path: " + rel_path)
                                 tex_info["Texture Path"] = rel_path
+
+
+def get_unique_path(path):
+    if os.path.exists(path):
+        dir, file = os.path.split(path)
+        name, ext = os.path.splitext(file)
+        index = 1001
+        file = name + "_" + str(index) + ext
+        path = os.path.join(dir, file)
+        while os.path.exists(path):
+            index += 1
+            file = name + "_" + str(index) + ext
+            path = os.path.join(dir, file)
+    return path
+
+
+def try_unpack_image(image, folder, index_suffix = False):
+    global UNPACK_INDEX
+    try:
+        if image.packed_file:
+            temp_dir, name = os.path.split(bpy.path.abspath(image.filepath))
+            if index_suffix:
+                root, ext = os.path.splitext(name)
+                name = root + "_" + str(UNPACK_INDEX) + ext
+                UNPACK_INDEX += 1
+            image_path = os.path.join(folder, name)
+            utils.log_info(f"Unpacking image: {name}")
+            if not os.path.exists(folder):
+                os.mkdir(folder)
+            image.unpack(method = "REMOVE")
+            image.filepath_raw = image_path
+            image.save()
+            return True
+    except:
+        utils.log_warn(f"Unable to unpack image: {name}")
+    return False
+
+
+def unpack_embedded_textures(chr_cache, chr_json, objects, old_path):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    fbm_folder = os.path.join(chr_cache.import_dir, chr_cache.import_name + ".fbm")
+    if not os.path.exists(fbm_folder):
+        os.mkdir(fbm_folder)
+
+    obj : bpy.types.Object
+    for obj in objects:
+        obj_json = jsonutils.get_object_json(chr_json, obj)
+
+        if obj_json and utils.still_exists(obj):
+
+            if obj.type == "MESH":
+
+                for slot in obj.material_slots:
+                    mat = slot.material
+                    mat_json = jsonutils.get_material_json(obj_json, mat)
+                    mat_cache = chr_cache.get_material_cache(mat)
+                    if mat_cache and mat_json:
+                        for tex_mapping in mat_cache.texture_mappings:
+                            image : bpy.types.Image = tex_mapping.image
+
+                            if image:
+                                try_unpack_image(image, fbm_folder)
+                                image_path = bpy.path.abspath(image.filepath)
+
+                                # fix the texture json data path:
+                                try:
+                                    tex_type = tex_mapping.texture_type
+                                    tex_id = params.get_texture_json_id(tex_type)
+                                    if tex_id in mat_json["Textures"]:
+                                        tex_info = mat_json["Textures"][tex_id]
+
+                                        # the fbx importer will assign the diffuse alpha to the opacity channel, even if
+                                        # there is an opacity texture present.
+                                        # this means it will incorrectly set the opacity with the diffuse
+                                        # though this will be corrected later by the texture write back,
+                                        # if no write back this will be wrong, so remove the opacity Json data
+                                        if not prefs.export_texture_changes:
+                                            dir, name = os.path.split(image_path)
+                                            if "_Diffuse" in name and tex_type == "ALPHA":
+                                                utils.log_info(f"Diffuse connected to Alpha, removing Opacity data from Json.")
+                                                del mat_json["Textures"][tex_id]
+                                                tex_info = None
+
+                                        if tex_info:
+                                            tex_path = os.path.join(old_path, tex_info["Texture Path"])
+                                            if not utils.is_same_path(tex_path, image_path):
+                                                rel_path = os.path.normpath(utils.relpath(image_path, old_path))
+                                                tex_info["Texture Path"] = rel_path
+                                                utils.log_info(f"Updating embedded image Json data: {rel_path}")
+                                except:
+                                    utils.log_warn(f"Unable to update embedded image Json: {image.name}")
+
 
 
 class CC3Export(bpy.types.Operator):
@@ -319,6 +433,13 @@ class CC3Export(bpy.types.Operator):
         chr_cache = props.get_context_character_cache(context)
 
         if chr_cache and self.param == "EXPORT_CC3":
+
+            utils.start_timer()
+
+            utils.log_info("")
+            utils.log_info("Exporting Character Model to CC3:")
+            utils.log_info("---------------------------------")
+
             export_anim = False
             dir, name = os.path.split(self.filepath)
             type = name[-3:].lower()
@@ -342,6 +463,9 @@ class CC3Export(bpy.types.Operator):
                             p.object.hide_set(False)
                             utils.try_select_object(p.object)
 
+                utils.log_info("Preparing character for export:")
+                utils.log_indent()
+
                 export_changes = prep_export(chr_cache, name, bpy.context.selected_objects, json_data, chr_cache.import_dir, dir)
 
                 bpy.ops.export_scene.fbx(filepath=self.filepath,
@@ -349,6 +473,10 @@ class CC3Export(bpy.types.Operator):
                         bake_anim = export_anim,
                         add_leaf_bones = False,
                         use_mesh_modifiers = False)
+
+                utils.log_recess()
+                utils.log_info("")
+                utils.log_info("Copying Fbx Key.")
 
                 if chr_cache.import_has_key:
                     try:
@@ -363,6 +491,8 @@ class CC3Export(bpy.types.Operator):
                                 shutil.copyfile(old_key_path, new_key_path)
                     except Exception as e:
                         utils.log_error("Unable to copy keyfile: " + old_key_path + " to: " + new_key_path, e)
+
+                utils.log_info("Writing Json Data.")
 
                 if json_data:
                     new_json_path = os.path.join(dir, name + ".json")
@@ -416,6 +546,9 @@ class CC3Export(bpy.types.Operator):
             #for obj in old_selection:
             #    obj.select_set(True)
             #bpy.context.view_layer.objects.active = old_active
+
+            utils.log_recess()
+            utils.log_timer("Done Character Export.")
 
         elif self.param == "EXPORT_ACCESSORY":
             dir, name = os.path.split(self.filepath)

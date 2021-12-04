@@ -129,31 +129,44 @@ def find_material_image(mat, texture_type, tex_json = None):
 
     # try to find the image in the json data first:
     if tex_json:
+
         rel_path = tex_json["Texture Path"]
-        image_file = os.path.join(chr_cache.import_dir, rel_path)
-        if not os.path.exists(image_file):
+        if rel_path:
+            image_file = os.path.join(chr_cache.import_dir, rel_path)
+
+            # try to load image path directly
+            if os.path.exists(image_file):
+                return load_image(image_file, color_space)
+
+            # try remapping the image path relative to the local directory
             image_file = utils.local_path(rel_path)
-            if not os.path.exists(image_file):
-                image_file = None
+            if os.path.exists(image_file):
+                return load_image(image_file, color_space)
 
-    # then try to find the image in the files:
-    if image_file is None:
+            # try to find the image in the texture_mappings (all embedded images should be here)
+            for tex_mapping in cache.texture_mappings:
+                if tex_mapping:
+                    if texture_type == tex_mapping.texture_type:
+                        if tex_mapping.image:
+                            return tex_mapping.image
+        return None
+
+    # with no Json data, try to locate the images in the texture folders:
+    else:
+
         image_file = find_image_file(chr_cache.import_dir, [cache.dir, chr_cache.import_main_tex_dir], mat, texture_type)
+        if image_file:
+            return load_image(image_file, color_space)
 
-    if image_file:
-        return load_image(image_file, color_space)
-
-    # finally try to find the image from the material cache texture mappings:
-    # (detected during the initial import)
-    for tex_mapping in cache.texture_mappings:
-        if tex_mapping:
-            if texture_type == tex_mapping.texture_type:
-                if tex_mapping.image:
-                    return tex_mapping.image
-                elif tex_mapping.texture_path is not None and tex_mapping.texture_path != "":
-                    return load_image(tex_mapping.texture_path, color_space)
-
-    return None
+        # then try to find the image in the texture_mappings (all embedded images should be here)
+        for tex_mapping in cache.texture_mappings:
+            if tex_mapping:
+                if texture_type == tex_mapping.texture_type:
+                    if tex_mapping.image:
+                        return tex_mapping.image
+                    elif tex_mapping.texture_path is not None and tex_mapping.texture_path != "":
+                        return load_image(tex_mapping.texture_path, color_space)
+        return None
 
 
 def get_material_tex_dir(character_cache, obj, mat):

@@ -439,6 +439,10 @@ def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):
             filepath = node.image.filepath
             dir, name = os.path.split(filepath)
 
+            # presence of packed images means that the fbx had embedded textures
+            if node.image.packed_file:
+                character_cache.import_embedded = True
+
             # detect incorrect image paths for non packed (not embedded) images and attempt to correct...
             # (don't do this for user added materials)
             if not mat_cache.user_added and node.image.packed_file is None:
@@ -686,3 +690,80 @@ def reconstruct_obj_materials(obj):
             elif group == 3: # teeth
                 # same with the teeth, set both to upper teeth
                 poly.material_index = 6
+
+
+def set_materials_setting(param, obj, context, objects_processed):
+    props = bpy.context.scene.CC3ImportProps
+    ob = context.object
+
+    if obj is not None and obj not in objects_processed:
+        if obj.type == "MESH":
+            objects_processed.append(obj)
+
+            if props.quick_set_mode == "OBJECT":
+                for mat in obj.data.materials:
+                    if mat:
+                        if param == "OPAQUE" or param == "BLEND" or param == "HASHED" or param == "CLIP":
+                            apply_alpha_override(obj, mat, param)
+                        elif param == "SINGLE_SIDED":
+                            apply_backface_culling(obj, mat, 1)
+                        elif param == "DOUBLE_SIDED":
+                            apply_backface_culling(obj, mat, 2)
+
+            elif ob is not None and ob.type == "MESH" and ob.active_material_index <= len(ob.data.materials):
+                mat = utils.context_material(context)
+                if mat:
+                    if param == "OPAQUE" or param == "BLEND" or param == "HASHED" or param == "CLIP":
+                        apply_alpha_override(obj, mat, param)
+                    elif param == "SINGLE_SIDED":
+                        apply_backface_culling(obj, mat, 1)
+                    elif param == "DOUBLE_SIDED":
+                        apply_backface_culling(obj, mat, 2)
+
+        elif obj.type == "ARMATURE":
+            for child in obj.children:
+                set_materials_setting(param, child, context, objects_processed)
+
+
+class CC3OperatorMaterial(bpy.types.Operator):
+    """CC3 Material Functions"""
+    bl_idname = "cc3.setmaterials"
+    bl_label = "CC3 Material Functions"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = ""
+        )
+
+    def execute(self, context):
+
+        props = bpy.context.scene.CC3ImportProps
+
+        objects_processed = []
+        if props.quick_set_mode == "OBJECT":
+            for obj in bpy.context.selected_objects:
+                set_materials_setting(self.param, obj, context, objects_processed)
+        else:
+            set_materials_setting(self.param, context.object, context, objects_processed)
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "OPAQUE":
+            return "Set blend mode of all selected objects with alpha channels to opaque"
+        elif properties.param == "BLEND":
+            return "Set blend mode of all selected objects with alpha channels to alpha blend"
+        elif properties.param == "HASHED":
+            return "Set blend mode of all selected objects with alpha channels to alpha hashed"
+        elif properties.param == "CLIP":
+            return "Set blend mode of all selected objects with alpha channels to alpha hashed"
+        elif properties.param == "FETCH":
+            return "Fetch the parameters from the selected objects"
+        elif properties.param == "SINGLE_SIDED":
+            return "Set material to be single sided, only visible from front facing"
+        elif properties.param == "DOUBLE_SIDED":
+            return "Set material to be double sided, visible from both sides"
+        return ""

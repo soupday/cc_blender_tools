@@ -25,6 +25,7 @@ if "bpy" in locals():
     importlib.reload(nodeutils)
     importlib.reload(imageutils)
     importlib.reload(materials)
+    importlib.reload(characters)
     importlib.reload(meshutils)
     importlib.reload(modifiers)
     importlib.reload(shaders)
@@ -48,6 +49,7 @@ from . import jsonutils
 from . import nodeutils
 from . import imageutils
 from . import materials
+from . import characters
 from . import meshutils
 from . import modifiers
 from . import shaders
@@ -65,7 +67,7 @@ from . import importer
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (1, 1, 3),
+    "version": (1, 1, 5),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -109,9 +111,12 @@ classes = (
     scene.CC3Scene,
     bake.CC3BakeOperator,
 
-    panels.CC3OperatorPhysics,
-    panels.CC3OperatorMaterial,
-    panels.CC3OperatorObject,
+    physics.CC3OperatorPhysics,
+    materials.CC3OperatorMaterial,
+    characters.CC3OperatorCharacter,
+    properties.CC3OperatorProperties,
+    preferences.CC3OperatorPreferences,
+
     panels.CC3ToolsPipelinePanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,

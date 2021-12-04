@@ -134,18 +134,24 @@ def unique_object_name(name, obj = None):
 
 
 def is_same_path(pa, pb):
-    return os.path.normcase(os.path.realpath(pa)) == os.path.normcase(os.path.realpath(pb))
+    try:
+        return os.path.normcase(os.path.realpath(pa)) == os.path.normcase(os.path.realpath(pb))
+    except:
+        return False
 
 
 def is_in_path(pa, pb):
-    return os.path.normcase(os.path.realpath(pa)) in os.path.normcase(os.path.realpath(pb))
+    try:
+        return os.path.normcase(os.path.realpath(pa)) in os.path.normcase(os.path.realpath(pb))
+    except:
+        return False
 
 
 def local_repath(path, original_start):
     """Takes the path relative to the original_start and makes
        it relative to the blend file location instead.
        Returns the full path."""
-    rel_path = os.path.relpath(path, original_start)
+    rel_path = relpath(path, original_start)
     return os.path.abspath(bpy.path.abspath(rel_path))
 
 
@@ -153,6 +159,14 @@ def local_path(path = "//"):
     """Get the full path of the blend file folder"""
     blend_path_rel = bpy.path.abspath(path)
     return os.path.abspath(blend_path_rel)
+
+
+def relpath(path, start):
+    try:
+        return os.path.relpath(path, start)
+    except ValueError:
+        return os.path.abspath(path)
+
 
 
 def object_has_material(obj, name):
@@ -525,8 +539,6 @@ def is_blender_version(version: str):
 
     v_test = int(major) * 1000000 + int(minor) * 1000 + int(subversion)
     v_this = blender_version[0] * 1000000 + blender_version[1] * 1000 + blender_version[2]
-
-    print(v_test, v_this)
 
     if v_this >= v_test:
         return True

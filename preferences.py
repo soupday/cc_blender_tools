@@ -43,6 +43,39 @@ def reset_preferences():
     prefs.export_bone_roll_fix = False
     prefs.export_bake_nodes = False
     prefs.export_bake_bump_to_normal = True
+    prefs.cycles_sss_skin = 0.2
+    prefs.cycles_sss_hair = 0.05
+    prefs.cycles_sss_teeth = 0.1
+    prefs.cycles_sss_tongue = 0.1
+    prefs.cycles_sss_eyes = 0.025
+    prefs.cycles_sss_default = 0.1
+
+
+
+class CC3OperatorPreferences(bpy.types.Operator):
+    """CC3 Preferences Functions"""
+    bl_idname = "cc3.setpreferences"
+    bl_label = "CC3 Preferences Functions"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = ""
+        )
+
+    def execute(self, context):
+
+        if self.param == "RESET_PREFS":
+            reset_preferences()
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "RESET_PREFS":
+            return "Reset preferences to defaults"
+        return ""
 
 
 class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
@@ -135,6 +168,13 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     max_texture_size: bpy.props.FloatProperty(default=4096, min=512, max=4096)
 
+    cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
+    cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
+    cycles_sss_teeth: bpy.props.FloatProperty(default=0.1)
+    cycles_sss_tongue: bpy.props.FloatProperty(default=0.1)
+    cycles_sss_eyes: bpy.props.FloatProperty(default=0.025)
+    cycles_sss_default: bpy.props.FloatProperty(default=0.1)
+
     # addon updater preferences
 
     auto_check_update: bpy.props.BoolProperty(
@@ -191,6 +231,13 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Eyes:")
         layout.prop(self, "refractive_eyes")
         layout.prop(self, "eye_displacement_group")
+        layout.label(text="Cycles Adjustments:")
+        layout.prop(self, "cycles_sss_skin")
+        layout.prop(self, "cycles_sss_hair")
+        layout.prop(self, "cycles_sss_teeth")
+        layout.prop(self, "cycles_sss_tongue")
+        layout.prop(self, "cycles_sss_eyes")
+        layout.prop(self, "cycles_sss_default")
         layout.label(text="Physics:")
         layout.prop(self, "physics")
         layout.prop(self, "physics_group")
@@ -202,7 +249,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "export_bake_bump_to_normal")
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")
-        op = layout.operator("cc3.setmaterials", icon="FILE_REFRESH", text="Reset to Defaults")
+        op = layout.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset to Defaults")
         op.param = "RESET_PREFS"
 
         addon_updater_ops.update_settings_ui(self,context)

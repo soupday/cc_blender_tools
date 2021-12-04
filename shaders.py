@@ -209,24 +209,70 @@ def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
 # Prop matrix eval, parameter conversion functions
 #
 
-def func_skin_sss(r, f):
+def func_sss_skin(s):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    if prefs.render_target == "CYCLES":
+        s = s * prefs.cycles_sss_skin
+    return s
+
+def func_sss_hair(s):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    if prefs.render_target == "CYCLES":
+        s = s * prefs.cycles_sss_hair
+    return s
+
+def func_sss_teeth(s):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    if prefs.render_target == "CYCLES":
+        s = s * prefs.cycles_sss_teeth
+    return s
+
+def func_sss_tongue(s):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    if prefs.render_target == "CYCLES":
+        s = s * prefs.cycles_sss_tongue
+    return s
+
+def func_sss_eyes(s):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    if prefs.render_target == "CYCLES":
+        s = s * prefs.cycles_sss_eyes
+    return s
+
+def func_sss_default(s):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    if prefs.render_target == "CYCLES":
+        s = s * prefs.cycles_sss_default
+    return s
+
+def func_sss_radius_skin(r, f):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.SKIN_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_eye_sss(r, f):
-    r = r * vars.EYE_SSS_RADIUS_SCALE
-    return [f[0] * r, f[1] * r, f[2] * r]
-
-def func_hair_sss(r, f):
+def func_sss_radius_eyes(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    if prefs.render_target == "CYCLES":
-        r = r * vars.HAIR_SSS_RADIUS_SCALE_CYCLES
-    else:
-        r = r * vars.HAIR_SSS_RADIUS_SCALE
+    r = r * vars.EYES_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_teeth_sss(r, f):
+def func_sss_radius_hair(r, f):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    r = r * vars.HAIR_SSS_RADIUS_SCALE
+    return [f[0] * r, f[1] * r, f[2] * r]
+
+def func_sss_radius_teeth(r, f):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.TEETH_SSS_RADIUS_SCALE
+    return [f[0] * r, f[1] * r, f[2] * r]
+
+def func_sss_radius_tongue(r, f):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    r = r * vars.TONGUE_SSS_RADIUS_SCALE
+    return [f[0] * r, f[1] * r, f[2] * r]
+
+def func_sss_radius_default(r, f):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    r = r * vars.DEFAULT_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
 def func_mul(a, b):
@@ -276,10 +322,10 @@ def func_pow_2(v):
     return math.pow(v, 2.0)
 
 def func_set_iris_scale(a, b):
-    return (a * b * vars.IRIS_SCALE_ADJUST)
+    return (a * b)
 
 def func_set_iris_tiling(v, w):
-    return 1.0 / func_set_iris_scale(v, w)
+    return 1.0 / (func_set_iris_scale(v, w))
 
 def func_get_iris_scale(iris_uv_radius):
     return 0.16 / iris_uv_radius

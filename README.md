@@ -26,6 +26,19 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+### 1.1.5
+- Character and Object operators (**Character Settings** Panel):
+    - Add object to character, with parenting and armature modifier.
+    - Convert and add materials to character to use with material parameters and export write back.
+    - Transfer body vertex weights to object.
+    - Clean up object and material character data.
+    - Export back to CC3 will include Texture & Json data for any new objects added with these operators.
+- Fix to Subsurface scattering for Blender 3.0 Cycles renders.
+- Cycles adjustment settings added to preferences for user fine tuning of subsurface material parameters for Cycles.
+
+### 1.1.4
+- Added more support for exporting from characters with embedded textures.
+
 ### 1.1.3
 - Baking fix for Blender versions 2.83 - 2.91
 - (Experimental) Added operators to add new objects to the character data.

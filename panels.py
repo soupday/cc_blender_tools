@@ -16,14 +16,14 @@
 
 import bpy
 
-from . import materials, shaders, modifiers, physics, preferences, properties, nodeutils, utils, params, vars
+from . import characters, modifiers, nodeutils, utils, params, vars
 
 # Panel button functions and operator
 #
 
 def context_character(context):
     props = bpy.context.scene.CC3ImportProps
-    chr_cache: properties.CC3CharacterCache = props.get_context_character_cache(context)
+    chr_cache = props.get_context_character_cache(context)
 
     obj = None
     mat = None
@@ -37,444 +37,6 @@ def context_character(context):
         mat_cache = chr_cache.get_material_cache(mat)
 
     return chr_cache, obj, mat, obj_cache, mat_cache
-
-
-def set_physics_settings(param, context = bpy.context):
-    props = bpy.context.scene.CC3ImportProps
-
-    if param == "PHYSICS_ADD_CLOTH":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                physics.enable_cloth_physics(obj)
-    elif param == "PHYSICS_REMOVE_CLOTH":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                physics.disable_cloth_physics(obj)
-    elif param == "PHYSICS_ADD_COLLISION":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                physics.enable_collision_physics(obj)
-    elif param == "PHYSICS_REMOVE_COLLISION":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                physics.disable_collision_physics(obj)
-    elif param == "PHYSICS_ADD_WEIGHTMAP":
-        if context.object is not None and context.object.type == "MESH":
-            physics.enable_material_weight_map(context.object, utils.context_material(context))
-    elif param == "PHYSICS_REMOVE_WEIGHTMAP":
-        if context.object is not None and context.object.type == "MESH":
-            physics.disable_material_weight_map(context.object, utils.context_material(context))
-    elif param == "PHYSICS_HAIR":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                physics.apply_cloth_settings(obj, "HAIR")
-    elif param == "PHYSICS_COTTON":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                physics.apply_cloth_settings(obj, "COTTON")
-    elif param == "PHYSICS_DENIM":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                physics.apply_cloth_settings(obj, "DENIM")
-    elif param == "PHYSICS_LEATHER":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                physics.apply_cloth_settings(obj, "LEATHER")
-    elif param == "PHYSICS_RUBBER":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                physics.apply_cloth_settings(obj, "RUBBER")
-    elif param == "PHYSICS_SILK":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                physics.apply_cloth_settings(obj, "SILK")
-    elif param == "PHYSICS_PAINT":
-        if context.object is not None and context.object.type == "MESH":
-            physics.begin_paint_weight_map(context)
-    elif param == "PHYSICS_DONE_PAINTING":
-        physics.end_paint_weight_map()
-    elif param == "PHYSICS_SAVE":
-        physics.save_dirty_weight_maps(bpy.context.selected_objects)
-    elif param == "PHYSICS_DELETE":
-        physics.delete_selected_weight_map(context.object, utils.context_material(context))
-    elif param == "PHYSICS_SEPARATE":
-        physics.separate_physics_materials(context)
-    elif param == "PHYSICS_FIX_DEGENERATE":
-        if context.object is not None:
-            if bpy.context.object.mode != "EDIT" and bpy.context.object.mode != "OBJECT":
-                bpy.ops.object.mode_set(mode = 'OBJECT')
-            if bpy.context.object.mode != "EDIT":
-                bpy.ops.object.mode_set(mode = 'EDIT')
-            if bpy.context.object.mode == "EDIT":
-                bpy.ops.mesh.select_all(action = 'SELECT')
-                bpy.ops.mesh.dissolve_degenerate()
-            bpy.ops.object.mode_set(mode = 'OBJECT')
-
-
-class CC3OperatorPhysics(bpy.types.Operator):
-    """Physics Settings Functions"""
-    bl_idname = "cc3.setphysics"
-    bl_label = "Physics Settings Functions"
-    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
-
-    param: bpy.props.StringProperty(
-            name = "param",
-            default = ""
-        )
-
-    def execute(self, context):
-
-        set_physics_settings(self.param, context)
-
-        return {"FINISHED"}
-
-    @classmethod
-    def description(cls, context, properties):
-
-        if properties.param == "PHYSICS_ADD_CLOTH":
-            return "Add Cloth physics to the selected objects."
-        elif properties.param == "PHYSICS_REMOVE_CLOTH":
-            return "Remove Cloth physics from the selected objects and remove all weight map modifiers and physics vertex groups"
-        elif properties.param == "PHYSICS_ADD_COLLISION":
-            return "Add Collision physics to the selected objects"
-        elif properties.param == "PHYSICS_REMOVE_COLLISION":
-            return "Remove Collision physics from the selected objects"
-        elif properties.param == "PHYSICS_ADD_WEIGHTMAP":
-            return "Add a physics weight map to the material on the current object. " \
-                   "If there is no existing weight map, a new blank weight map will be created. " \
-                   "Modifiers to generate the physics vertex groups will be added to the object"
-        elif properties.param == "PHYSICS_REMOVE_WEIGHTMAP":
-            return "Removes the physics weight map, modifiers and physics vertex groups for this material from the object"
-        elif properties.param == "PHYSICS_HAIR":
-            return "Sets the cloth physics settings for this object to simulate Hair.\n" \
-                   "Note: These settings are pure guess work and largely untested"
-        elif properties.param == "PHYSICS_COTTON":
-            return "Sets the cloth physics settings for this object to simulate Cotton.\n" \
-                   "Note: These settings are pure guess work and largely untested"
-        elif properties.param == "PHYSICS_DENIM":
-            return "Sets the cloth physics settings for this object to simulate Denim.\n" \
-                   "Note: These settings are pure guess work and largely untested"
-        elif properties.param == "PHYSICS_LEATHER":
-            return "Sets the cloth physics settings for this object to simulate Leather.\n" \
-                   "Note: These settings are pure guess work and largely untested"
-        elif properties.param == "PHYSICS_RUBBER":
-            return "Sets the cloth physics settings for this object to simulate Rubber.\n" \
-                   "Note: These settings are pure guess work and largely untested"
-        elif properties.param == "PHYSICS_SILK":
-            return "Sets the cloth physics settings for this object to simulate Silk.\n" \
-                   "Note: These settings are pure guess work and largely untested"
-        elif properties.param == "PHYSICS_PAINT":
-            return "Switches to texture paint mode and begins painting the current materials PhysX weight map"
-        elif properties.param == "PHYSICS_DONE_PAINTING":
-            return "Ends painting and returns to Object mode"
-        elif properties.param == "PHYSICS_SAVE":
-            return "Saves all changes to the weight maps to the source texture files\n" \
-                   "**Warning: This will overwrite the existing weightmap files if you have altered them!**"
-        elif properties.param == "PHYSICS_DELETE":
-            return "Removes the weight map, modifiers and physics vertex groups from the objects, " \
-                   "and then deletes the weight map texture file.\n" \
-                   "**Warning: This will delete any existing weightmap file for this object and material!**"
-        elif properties.param == "PHYSICS_SEPARATE":
-            return "Separates the object by material and applies physics to the separated objects that have weight maps.\n" \
-                   "Note: Some objects with many verteces and materials but only a small amount is cloth simulated " \
-                   "may see performance benefits from being separated."
-        elif properties.param == "PHYSICS_FIX_DEGENERATE":
-            return "Removes degenerate mesh elements from the object.\n" \
-                   "Note: Meshes with degenerate elements, loose verteces, orphaned edges, zero length edges etc...\n" \
-                   "might not simulate properly. If the mesh misbehaves badly under simulation, try this."
-
-        return ""
-
-
-def quick_set_fix(param, obj, context, objects_processed):
-    props = bpy.context.scene.CC3ImportProps
-    ob = context.object
-
-    if obj is not None and obj not in objects_processed:
-        if obj.type == "MESH":
-            objects_processed.append(obj)
-
-            if props.quick_set_mode == "OBJECT":
-                for mat in obj.data.materials:
-                    if mat:
-                        if param == "OPAQUE" or param == "BLEND" or param == "HASHED" or param == "CLIP":
-                            materials.apply_alpha_override(obj, mat, param)
-                        elif param == "SINGLE_SIDED":
-                            materials.apply_backface_culling(obj, mat, 1)
-                        elif param == "DOUBLE_SIDED":
-                            materials.apply_backface_culling(obj, mat, 2)
-
-            elif ob is not None and ob.type == "MESH" and ob.active_material_index <= len(ob.data.materials):
-                mat = utils.context_material(context)
-                if mat:
-                    if param == "OPAQUE" or param == "BLEND" or param == "HASHED" or param == "CLIP":
-                        materials.apply_alpha_override(obj, mat, param)
-                    elif param == "SINGLE_SIDED":
-                        materials.apply_backface_culling(obj, mat, 1)
-                    elif param == "DOUBLE_SIDED":
-                        materials.apply_backface_culling(obj, mat, 2)
-
-        elif obj.type == "ARMATURE":
-            for child in obj.children:
-                quick_set_fix(param, child, context, objects_processed)
-
-
-def set_materials_settings(param, context = bpy.context):
-    props = bpy.context.scene.CC3ImportProps
-
-    if param == "RESET":
-        properties.reset_parameters(context)
-
-    elif param == "RESET_PREFS":
-        preferences.reset_preferences()
-
-    else: # blend modes or single/double sided...
-        objects_processed = []
-        if props.quick_set_mode == "OBJECT":
-            for obj in bpy.context.selected_objects:
-                quick_set_fix(param, obj, context, objects_processed)
-        else:
-            quick_set_fix(param, context.object, context, objects_processed)
-
-
-class CC3OperatorMaterial(bpy.types.Operator):
-    """CC3 Material Functions"""
-    bl_idname = "cc3.setmaterials"
-    bl_label = "CC3 Material Functions"
-    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
-
-    param: bpy.props.StringProperty(
-            name = "param",
-            default = ""
-        )
-
-    def execute(self, context):
-
-        set_materials_settings(self.param, context)
-
-        return {"FINISHED"}
-
-    @classmethod
-    def description(cls, context, properties):
-
-        if properties.param == "OPAQUE":
-            return "Set blend mode of all selected objects with alpha channels to opaque"
-        elif properties.param == "BLEND":
-            return "Set blend mode of all selected objects with alpha channels to alpha blend"
-        elif properties.param == "HASHED":
-            return "Set blend mode of all selected objects with alpha channels to alpha hashed"
-        elif properties.param == "CLIP":
-            return "Set blend mode of all selected objects with alpha channels to alpha hashed"
-        elif properties.param == "FETCH":
-            return "Fetch the parameters from the selected objects"
-        elif properties.param == "RESET":
-            return "Reset parameters to the defaults"
-        elif properties.param == "SINGLE_SIDED":
-            return "Set material to be single sided, only visible from front facing"
-        elif properties.param == "DOUBLE_SIDED":
-            return "Set material to be double sided, visible from both sides"
-        return ""
-
-
-def add_object_to_character(chr_cache : properties.CC3CharacterCache, obj : bpy.types.Object):
-    props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
-
-    if chr_cache and obj and obj.type == "MESH":
-
-        # convert the object name to remove any duplicate suffixes:
-        obj_name = utils.unique_object_name(obj.name, obj)
-        if obj.name != obj_name:
-            obj.name = obj_name
-
-        # add the object into the object cache
-        obj_cache : properties.CC3ObjectCache = chr_cache.add_object_cache(obj)
-        obj_cache.object_type = "DEFAULT"
-
-        add_missing_materials_to_character(chr_cache, obj, obj_cache)
-
-        utils.clear_selected_objects()
-
-        # clear any parenting
-        if obj.parent:
-            if utils.set_active_object(obj):
-                    bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
-
-        # parent to character
-        arm = chr_cache.get_armature()
-        if arm:
-            if utils.try_select_objects([arm, obj]):
-                if utils.set_active_object(arm):
-                    bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
-
-                    # add or update armature modifier
-                    arm_mod : bpy.types.ArmatureModifier = modifiers.get_armature_modifier(obj, True)
-                    if arm_mod:
-                        modifiers.move_mod_first(obj, arm_mod)
-                        arm_mod.object = arm
-
-                    utils.set_active_object(obj)
-
-
-def clean_up_character_data(chr_cache : properties.CC3CharacterCache):
-
-    props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
-
-    mats = []
-    objects = []
-    arm = chr_cache.get_armature()
-
-    if arm:
-
-        for obj in arm.children:
-            if obj and obj.type == "MESH":
-                if len(obj.users_scene) > 0:
-                    objects.append(obj)
-                    for mat in obj.data.materials:
-                        if mat and mat not in mats:
-                            mats.append(mat)
-
-        delete_mats = []
-        delete_objects = []
-
-        cache_mats = chr_cache.get_all_materials()
-        cache_objects = chr_cache.get_all_objects(False)
-
-        for obj in cache_objects:
-            if obj and obj not in objects:
-                delete_objects.append(obj)
-
-        for mat in cache_mats:
-            if mat and mat not in mats:
-                delete_mats.append(mat)
-
-        for obj in delete_objects:
-            chr_cache.remove_object_cache(obj)
-
-        for mat in delete_mats:
-            chr_cache.remove_mat_cache(mat)
-
-
-def character_data_needs_clean_up(chr_cache : properties.CC3CharacterCache):
-
-    props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
-
-    if chr_cache:
-
-        mats = []
-        objects = []
-        arm = chr_cache.get_armature()
-
-        if arm:
-
-            for obj in arm.children:
-                if obj and obj.type == "MESH":
-                    if len(obj.users_scene) > 0:
-                        objects.append(obj)
-                        for mat in obj.data.materials:
-                            if mat and mat not in mats:
-                                mats.append(mat)
-
-            cache_objects = chr_cache.get_all_objects(False)
-
-            if len(cache_objects) > len(objects):
-                return True
-
-            cache_mats = chr_cache.get_all_materials()
-
-            if len(cache_mats) > len(mats):
-                return True
-
-    return False
-
-
-def add_missing_materials_to_character(chr_cache : properties.CC3CharacterCache, obj, obj_cache = None):
-    props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
-
-    if chr_cache and obj and obj_cache and obj.type == "MESH":
-
-        obj_name = obj.name
-
-        # add a default material if none exists...
-        if len(obj.data.materials) == 0:
-            mat_name = utils.unique_material_name(obj_name)
-            mat = bpy.data.materials.new(mat_name)
-            obj.data.materials.append(mat)
-
-        for mat in obj.data.materials:
-            if mat:
-                mat_cache = chr_cache.get_material_cache(mat)
-
-                if not mat_cache:
-                    add_material_to_character(chr_cache, obj, obj_cache, mat)
-
-
-def add_material_to_character(chr_cache : properties.CC3CharacterCache, obj, obj_cache, mat):
-    props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
-
-    if chr_cache and obj and obj_cache and mat:
-        # convert the material name to remove any duplicate suffixes:
-        mat_name = utils.unique_material_name(mat.name, mat)
-        if mat.name != mat_name:
-            mat.name = mat_name
-
-        # make sure there are nodes:
-        if not mat.use_nodes:
-            mat.use_nodes = True
-
-        # add the material into the material cache
-        mat_cache : properties.CC3MaterialCache = chr_cache.add_material_cache(mat, "DEFAULT")
-        mat_cache.user_added = True
-
-        # convert any existing PrincipledBSDF based material to a rl_pbr shader material
-        # can treat existing textures as embedded textures, so they will be picked up by the material builder.
-        materials.detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache)
-        # finally connect up the pbr shader...
-        shaders.connect_pbr_shader(obj, mat, None)
-
-
-class CC3OperatorObject(bpy.types.Operator):
-    """CC3 Object Functions"""
-    bl_idname = "cc3.objects"
-    bl_label = "Object Functions"
-    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
-
-    param: bpy.props.StringProperty(
-            name = "param",
-            default = ""
-        )
-
-    def execute(self, context):
-        props : properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
-
-
-        if self.param == "ADD_PBR":
-            chr_cache = props.get_context_character_cache(context)
-            obj = context.active_object
-            add_object_to_character(chr_cache, obj)
-
-        elif self.param == "ADD_MATERIALS":
-            chr_cache = props.get_context_character_cache(context)
-            obj = context.active_object
-            obj_cache = chr_cache.get_object_cache(obj)
-            add_missing_materials_to_character(chr_cache, obj, obj_cache)
-
-        elif self.param == "CLEAN_UP_DATA":
-            chr_cache = props.get_context_character_cache(context)
-            obj = context.active_object
-            clean_up_character_data(chr_cache)
-
-        return {"FINISHED"}
-
-    @classmethod
-    def description(cls, context, properties):
-
-        if properties.param == "ADD_PBR":
-            return "Add object to the character with pbr materials"
-        elif properties.param == "ADD_MATERIALS":
-            return "Add any new materials to the character data that are in this object but not in the character data"
-        elif properties.param == "CLEAN_UP_DATA":
-            return "Remove any objects from the character data that are no longer part of the character and remove any materials from the character that are no longer in the character objects"
-        return ""
 
 
 # Panel functions and classes
@@ -501,15 +63,17 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
 
         mesh_in_selection = False
+        all_mesh_in_selection = True
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 mesh_in_selection = True
-                break
+            else:
+                all_mesh_in_selection = False
 
         box = layout.box()
         #op = box.operator("cc3.importer", icon="IMPORT", text="Import Character")
@@ -538,6 +102,31 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         layout.box().label(text="Build Settings", icon="TOOL_SETTINGS")
         layout.prop(prefs, "render_target", expand=True)
         layout.prop(prefs, "refractive_eyes", expand=True)
+
+        # Cycles Prefs
+
+        if prefs.render_target == "CYCLES":
+            box = layout.box()
+            if fake_drop_down(box.row(),
+                    "Cycles Prefs",
+                    "cycles_options",
+                    props.cycles_options):
+                column = box.column()
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text = "Skin SSS")
+                col_2.prop(prefs, "cycles_sss_skin", text = "")
+                col_1.label(text = "Hair SSS")
+                col_2.prop(prefs, "cycles_sss_hair", text = "")
+                col_1.label(text = "Teeth SSS")
+                col_2.prop(prefs, "cycles_sss_teeth", text = "")
+                col_1.label(text = "Tongue SSS")
+                col_2.prop(prefs, "cycles_sss_tongue", text = "")
+                col_1.label(text = "Eyes SSS")
+                col_2.prop(prefs, "cycles_sss_eyes", text = "")
+                col_1.label(text = "Default SSS")
+                col_2.prop(prefs, "cycles_sss_default", text = "")
 
         # Build Button
         if chr_cache:
@@ -618,7 +207,8 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         show_object_group = False
         missing_object = False
         missing_material = False
-        clean_up = character_data_needs_clean_up(chr_cache)
+        weight_transferable = False
+        clean_up = characters.character_data_needs_clean_up(chr_cache)
         if chr_cache and obj_cache is None and obj and obj.type == "MESH":
             missing_object = True
             show_object_group = True
@@ -627,6 +217,10 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             show_object_group = True
         if clean_up:
             show_object_group = True
+        if all_mesh_in_selection:
+            if not (obj_cache and obj_cache.object_type == "BODY"):
+                weight_transferable = True
+                show_object_group = True
 
         if show_object_group:
 
@@ -634,18 +228,18 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             column = layout.column()
 
             if missing_object:
-                op = column.operator("cc3.objects", icon="ADD", text="Add To Character")
-                op.param = "ADD_PBR"
+                op = column.operator("cc3.character", icon="ADD", text="Add To Character").param = "ADD_PBR"
 
             else:
 
                 if missing_material:
-                    op = column.operator("cc3.objects", icon="ADD", text="Add New Materials")
-                    op.param = "ADD_MATERIALS"
+                    op = column.operator("cc3.character", icon="ADD", text="Add New Materials").param = "ADD_MATERIALS"
 
                 if clean_up:
-                    op = column.operator("cc3.objects", icon="REMOVE", text="Clean Up Data")
-                    op.param = "CLEAN_UP_DATA"
+                    op = column.operator("cc3.character", icon="REMOVE", text="Clean Up Data").param = "CLEAN_UP_DATA"
+
+            if weight_transferable:
+                op = column.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
 
 
 class CC3MaterialParametersPanel(bpy.types.Panel):
@@ -658,7 +252,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
@@ -904,7 +498,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         column = layout.column()
         if not chr_cache:
             column.enabled = False
-        op = column.operator("cc3.setmaterials", icon="DECORATE_OVERRIDE", text="Reset Parameters")
+        op = column.operator("cc3.setproperties", icon="DECORATE_OVERRIDE", text="Reset Parameters")
         op.param = "RESET"
         op = column.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
         op.param ="REBUILD_NODE_GROUPS"
@@ -1184,7 +778,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         global debug_counter
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache: properties.CC3CharacterCache = props.get_context_character_cache(context)
+        chr_cache = props.get_context_character_cache(context)
         if chr_cache:
             character_name = chr_cache.character_name
         else:
