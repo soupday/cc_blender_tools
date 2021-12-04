@@ -366,11 +366,12 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
                 output_node = n
 
         elif n.type == "TEX_IMAGE":
+
             if vars.NODE_PREFIX in n.name:
                 # keep images
                 pass
 
-            elif not mat_cache.user_added:  #cc3iid_(MICRONMASK)_v1.1.0_1487
+            elif not mat_cache.user_added:
                 # keep all images if it is a user added material
                 nodes.remove(n)
 
@@ -638,3 +639,31 @@ def get_tiling_node(mat, shader_name, texture_type):
 def get_tiling_node_from_nodes(nodes, shader_name, texture_type):
     shader_id = "(tiling_" + shader_name + "_" + texture_type + "_mapping)"
     return get_node_by_id(nodes, shader_id)
+
+
+# e.g.
+# Normal:Height
+# Normal:Color
+# Normal:Normal:Color
+def trace_input_sockets(node, socket_trace : str):
+    sockets = socket_trace.split(":")
+    trace_node = None
+    trace_socket = None
+    try:
+        if sockets:
+            trace_node : bpy.types.Node = node
+            for socket_name in sockets:
+                if socket_name in trace_node.inputs and trace_node.inputs[socket_name].is_linked:
+                    socket : bpy.types.NodeSocket = trace_node.inputs[socket_name]
+                    link = socket.links[0]
+                    trace_node = link.from_node
+                    trace_socket = link.from_socket.name
+                else:
+                    trace_node = None
+                    trace_socket = None
+                    break
+    except:
+        trace_node = None
+        trace_socket = None
+
+    return trace_node, trace_socket

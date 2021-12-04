@@ -79,11 +79,6 @@ def eye_close_update(self, context):
             pass
 
 
-def reset_material_parameters(cache):
-    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
-    params = cache.parameters
-
-
 def update_property(self, context, prop_name, update_mode = None):
     if vars.block_property_update: return
 
@@ -388,7 +383,7 @@ def init_character_property_defaults(chr_cache, chr_json):
                     processed.append(mat)
 
                     mat_cache = chr_cache.get_material_cache(mat)
-                    if mat_cache:
+                    if mat_cache and not mat_cache.user_added:
 
                         mat_json = jsonutils.get_material_json(obj_json, mat)
                         utils.log_info("Material: " + mat.name + " (" + mat_cache.material_type + ")")
@@ -414,6 +409,35 @@ def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, ma
             cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
             mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
         shaders.fetch_prop_defaults(mat_cache, mat_json)
+
+
+
+class CC3OperatorProperties(bpy.types.Operator):
+    """CC3 Property Functions"""
+    bl_idname = "cc3.setproperties"
+    bl_label = "CC3 Property Functions"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = ""
+        )
+
+    def execute(self, context):
+
+        if self.param == "RESET":
+            reset_parameters(context)
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "RESET":
+            return "Reset parameters to the defaults"
+        return ""
+
+
 
 
 class CC3HeadParameters(bpy.types.PropertyGroup):
@@ -961,6 +985,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     collision_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_settings: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, HAIR, COTTON, DENIM, LEATHER, RUBBER, SILK
+    user_added: bpy.props.BoolProperty(default=False)
 
     def is_body(self):
         return self.object_type == "BODY"
@@ -1412,6 +1437,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     ], default="OFF")
 
     export_options: bpy.props.BoolProperty(default=False)
+    cycles_options: bpy.props.BoolProperty(default=False)
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)

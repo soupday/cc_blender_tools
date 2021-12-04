@@ -131,23 +131,24 @@ def find_material_image(mat, texture_type, tex_json = None):
     if tex_json:
 
         rel_path = tex_json["Texture Path"]
-        image_file = os.path.join(chr_cache.import_dir, rel_path)
+        if rel_path:
+            image_file = os.path.join(chr_cache.import_dir, rel_path)
 
-        # try to load image path directly
-        if os.path.exists(image_file):
-            return load_image(image_file, color_space)
+            # try to load image path directly
+            if os.path.exists(image_file):
+                return load_image(image_file, color_space)
 
-        # try remapping the image path relative to the local directory
-        image_file = utils.local_path(rel_path)
-        if os.path.exists(image_file):
-            return load_image(image_file, color_space)
+            # try remapping the image path relative to the local directory
+            image_file = utils.local_path(rel_path)
+            if os.path.exists(image_file):
+                return load_image(image_file, color_space)
 
-        # try to find the image in the texture_mappings (all embedded images should be here)
-        for tex_mapping in cache.texture_mappings:
-            if tex_mapping:
-                if texture_type == tex_mapping.texture_type:
-                    if tex_mapping.image:
-                        return tex_mapping.image
+            # try to find the image in the texture_mappings (all embedded images should be here)
+            for tex_mapping in cache.texture_mappings:
+                if tex_mapping:
+                    if texture_type == tex_mapping.texture_type:
+                        if tex_mapping.image:
+                            return tex_mapping.image
         return None
 
     # with no Json data, try to locate the images in the texture folders:

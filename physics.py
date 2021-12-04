@@ -720,3 +720,151 @@ def should_separate_materials(context):
             if len(edit_mods) != len(obj.data.materials):
                 return True
         return False
+
+
+
+def set_physics_settings(param, context = bpy.context):
+    props = bpy.context.scene.CC3ImportProps
+
+    if param == "PHYSICS_ADD_CLOTH":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                enable_cloth_physics(obj)
+    elif param == "PHYSICS_REMOVE_CLOTH":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                disable_cloth_physics(obj)
+    elif param == "PHYSICS_ADD_COLLISION":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                enable_collision_physics(obj)
+    elif param == "PHYSICS_REMOVE_COLLISION":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                disable_collision_physics(obj)
+    elif param == "PHYSICS_ADD_WEIGHTMAP":
+        if context.object is not None and context.object.type == "MESH":
+            enable_material_weight_map(context.object, utils.context_material(context))
+    elif param == "PHYSICS_REMOVE_WEIGHTMAP":
+        if context.object is not None and context.object.type == "MESH":
+            disable_material_weight_map(context.object, utils.context_material(context))
+    elif param == "PHYSICS_HAIR":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                apply_cloth_settings(obj, "HAIR")
+    elif param == "PHYSICS_COTTON":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                apply_cloth_settings(obj, "COTTON")
+    elif param == "PHYSICS_DENIM":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                apply_cloth_settings(obj, "DENIM")
+    elif param == "PHYSICS_LEATHER":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                apply_cloth_settings(obj, "LEATHER")
+    elif param == "PHYSICS_RUBBER":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                apply_cloth_settings(obj, "RUBBER")
+    elif param == "PHYSICS_SILK":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                apply_cloth_settings(obj, "SILK")
+    elif param == "PHYSICS_PAINT":
+        if context.object is not None and context.object.type == "MESH":
+            begin_paint_weight_map(context)
+    elif param == "PHYSICS_DONE_PAINTING":
+        end_paint_weight_map()
+    elif param == "PHYSICS_SAVE":
+        save_dirty_weight_maps(bpy.context.selected_objects)
+    elif param == "PHYSICS_DELETE":
+        delete_selected_weight_map(context.object, utils.context_material(context))
+    elif param == "PHYSICS_SEPARATE":
+        separate_physics_materials(context)
+    elif param == "PHYSICS_FIX_DEGENERATE":
+        if context.object is not None:
+            if bpy.context.object.mode != "EDIT" and bpy.context.object.mode != "OBJECT":
+                bpy.ops.object.mode_set(mode = 'OBJECT')
+            if bpy.context.object.mode != "EDIT":
+                bpy.ops.object.mode_set(mode = 'EDIT')
+            if bpy.context.object.mode == "EDIT":
+                bpy.ops.mesh.select_all(action = 'SELECT')
+                bpy.ops.mesh.dissolve_degenerate()
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+
+
+class CC3OperatorPhysics(bpy.types.Operator):
+    """Physics Settings Functions"""
+    bl_idname = "cc3.setphysics"
+    bl_label = "Physics Settings Functions"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = ""
+        )
+
+    def execute(self, context):
+
+        set_physics_settings(self.param, context)
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "PHYSICS_ADD_CLOTH":
+            return "Add Cloth physics to the selected objects."
+        elif properties.param == "PHYSICS_REMOVE_CLOTH":
+            return "Remove Cloth physics from the selected objects and remove all weight map modifiers and physics vertex groups"
+        elif properties.param == "PHYSICS_ADD_COLLISION":
+            return "Add Collision physics to the selected objects"
+        elif properties.param == "PHYSICS_REMOVE_COLLISION":
+            return "Remove Collision physics from the selected objects"
+        elif properties.param == "PHYSICS_ADD_WEIGHTMAP":
+            return "Add a physics weight map to the material on the current object. " \
+                   "If there is no existing weight map, a new blank weight map will be created. " \
+                   "Modifiers to generate the physics vertex groups will be added to the object"
+        elif properties.param == "PHYSICS_REMOVE_WEIGHTMAP":
+            return "Removes the physics weight map, modifiers and physics vertex groups for this material from the object"
+        elif properties.param == "PHYSICS_HAIR":
+            return "Sets the cloth physics settings for this object to simulate Hair.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_COTTON":
+            return "Sets the cloth physics settings for this object to simulate Cotton.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_DENIM":
+            return "Sets the cloth physics settings for this object to simulate Denim.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_LEATHER":
+            return "Sets the cloth physics settings for this object to simulate Leather.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_RUBBER":
+            return "Sets the cloth physics settings for this object to simulate Rubber.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_SILK":
+            return "Sets the cloth physics settings for this object to simulate Silk.\n" \
+                   "Note: These settings are pure guess work and largely untested"
+        elif properties.param == "PHYSICS_PAINT":
+            return "Switches to texture paint mode and begins painting the current materials PhysX weight map"
+        elif properties.param == "PHYSICS_DONE_PAINTING":
+            return "Ends painting and returns to Object mode"
+        elif properties.param == "PHYSICS_SAVE":
+            return "Saves all changes to the weight maps to the source texture files\n" \
+                   "**Warning: This will overwrite the existing weightmap files if you have altered them!**"
+        elif properties.param == "PHYSICS_DELETE":
+            return "Removes the weight map, modifiers and physics vertex groups from the objects, " \
+                   "and then deletes the weight map texture file.\n" \
+                   "**Warning: This will delete any existing weightmap file for this object and material!**"
+        elif properties.param == "PHYSICS_SEPARATE":
+            return "Separates the object by material and applies physics to the separated objects that have weight maps.\n" \
+                   "Note: Some objects with many verteces and materials but only a small amount is cloth simulated " \
+                   "may see performance benefits from being separated."
+        elif properties.param == "PHYSICS_FIX_DEGENERATE":
+            return "Removes degenerate mesh elements from the object.\n" \
+                   "Note: Meshes with degenerate elements, loose verteces, orphaned edges, zero length edges etc...\n" \
+                   "might not simulate properly. If the mesh misbehaves badly under simulation, try this."
+
+        return ""

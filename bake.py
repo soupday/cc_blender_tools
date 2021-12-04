@@ -29,6 +29,13 @@ old_colorspace = "Raw"
 BAKE_SAMPLES = 4
 IMAGE_FORMAT = "PNG"
 IMAGE_EXT = ".png"
+BAKE_INDEX = 1001
+
+
+def init_bake():
+    global BAKE_INDEX
+    BAKE_INDEX = 1001
+
 
 def prep_bake():
     global old_samples, old_file_format
@@ -74,6 +81,7 @@ def post_bake():
 
 
 def bake_socket_input(node, socket_name, mat, channel_id, bake_dir):
+    global BAKE_INDEX
 
     # determine the size of the image to bake onto
     width, height = get_largest_texture_to_socket(node, socket_name)
@@ -83,7 +91,8 @@ def bake_socket_input(node, socket_name, mat, channel_id, bake_dir):
         height = 1024
 
     # determine image name and color space
-    image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id
+    image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
+    BAKE_INDEX += 1
     is_data = True
     if "Diffuse Map" in socket_name:
         is_data = False
@@ -133,6 +142,7 @@ def bake_socket_input(node, socket_name, mat, channel_id, bake_dir):
 
 
 def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket_name, bump_strength_socket_name, mat, channel_id, bake_dir):
+    global BAKE_INDEX
 
     # determine the size of the image to bake onto
     width, height = get_largest_texture_to_socket(shader_node, normal_socket_name)
@@ -147,7 +157,8 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
         height = 1024
 
     # determine image name and color space
-    image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id
+    image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
+    BAKE_INDEX += 1
     is_data = True
 
     # deselect everything
