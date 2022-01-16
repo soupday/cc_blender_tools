@@ -81,6 +81,8 @@ PAIRED_MATERIALS = [
 # shader definitions
 SHADER_MATRIX = [
 
+
+
     {   "name": "rl_tearline_shader",
         "rl_shader": "RLEyeTearline",
         "label": "Tearline",
@@ -127,6 +129,8 @@ SHADER_MATRIX = [
             ["PROP", "Inner Displace", "tearline_inner", True],
         ],
     },
+
+
 
     {   "name": "rl_eye_occlusion_shader",
         "rl_shader": "RLEyeOcclusion",
@@ -234,6 +238,8 @@ SHADER_MATRIX = [
             ["PROP", "Outer", "eye_occlusion_outer", True],
         ],
     },
+
+
 
     {   "name": "rl_skin_shader",
         "rl_shader": "RLSkin",
@@ -354,6 +360,8 @@ SHADER_MATRIX = [
             ["PROP", "Emission Strength", "skin_emission_strength", True],
         ],
     },
+
+
 
     {   "name": "rl_head_shader",
         "rl_shader": "RLHead",
@@ -533,6 +541,8 @@ SHADER_MATRIX = [
         ],
     },
 
+
+
     {   "name": "rl_tongue_shader",
         "rl_shader": "RLTongue",
         "label": "Tongue",
@@ -632,6 +642,8 @@ SHADER_MATRIX = [
             ["PROP", "Emission Strength", "tongue_emission_strength", True],
         ],
     },
+
+
 
     {   "name": "rl_teeth_shader",
         "rl_shader": "RLTeethGums",
@@ -749,6 +761,8 @@ SHADER_MATRIX = [
             ["PROP", "Emission Strength", "teeth_emission_strength", True],
         ],
     },
+
+
 
     {   "name": ["rl_cornea_shader", "rl_eye_shader"],
         "rl_shader": "RLEye",
@@ -944,6 +958,8 @@ SHADER_MATRIX = [
         ],
     },
 
+
+
     {   "name": "rl_pbr_shader",
         "rl_shader": "Pbr",
         "label": "PBR Material",
@@ -1040,6 +1056,8 @@ SHADER_MATRIX = [
             ["PROP", "Emission Strength", "default_emission_strength", True],
         ],
     },
+
+
 
     {   "name": "rl_sss_shader",
         "rl_shader": "RLSSS",
@@ -1212,6 +1230,8 @@ SHADER_MATRIX = [
             ["PROP", "Emission Strength", "default_emission_strength", True],
         ],
     },
+
+
 
     {   "name": "rl_hair_shader",
         "rl_shader": "RLHair",

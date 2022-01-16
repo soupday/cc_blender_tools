@@ -117,29 +117,30 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
                             write_back_json(mat_json, mat, mat_cache)
                         if prefs.export_texture_changes:
                             write_back_textures(mat_json, mat, mat_cache, old_path)
-                    # replace duplicate materials with a reference to a single source material
-                    # (this is to ensure there are no duplicate suffixes in the fbx export)
-                    if mat_count[mat_source_name] > 1:
-                        new_mat = mat_remap[mat_source_name]
-                        slot.material = new_mat
-                        utils.log_info("Replacing material: " + mat.name + " with " + new_mat.name)
-                        changes.append(["MATERIAL_SLOT_REPLACE", slot, mat])
-                        mat = new_mat
-                        mat_name = new_mat.name
-                    # strip any blender numerical suffixes
-                    if mat_name != mat_source_name:
-                        utils.log_info(f"Reverting material name: {mat_name} to {mat_source_name}")
-                        mat.name = mat_source_name
-                        changes.append(["MATERIAL_RENAME", mat, mat_name])
-                    # when saving the export to a new location, the texture paths need to point back to the
-                    # original texture locations, either by new relative paths or absolute paths
-                    # pbr textures:
-                    for channel in mat_json["Textures"].keys():
-                        remap_texture_path(mat_json["Textures"][channel], old_path, new_path)
-                    # custom shader textures:
-                    if "Custom Shader" in mat_json.keys():
-                        for channel in mat_json["Custom Shader"]["Image"].keys():
-                            remap_texture_path(mat_json["Custom Shader"]["Image"][channel], old_path, new_path)
+                    if mat_json:
+                        # replace duplicate materials with a reference to a single source material
+                        # (this is to ensure there are no duplicate suffixes in the fbx export)
+                        if mat_count[mat_source_name] > 1:
+                            new_mat = mat_remap[mat_source_name]
+                            slot.material = new_mat
+                            utils.log_info("Replacing material: " + mat.name + " with " + new_mat.name)
+                            changes.append(["MATERIAL_SLOT_REPLACE", slot, mat])
+                            mat = new_mat
+                            mat_name = new_mat.name
+                        # strip any blender numerical suffixes
+                        if mat_name != mat_source_name:
+                            utils.log_info(f"Reverting material name: {mat_name} to {mat_source_name}")
+                            mat.name = mat_source_name
+                            changes.append(["MATERIAL_RENAME", mat, mat_name])
+                        # when saving the export to a new location, the texture paths need to point back to the
+                        # original texture locations, either by new relative paths or absolute paths
+                        # pbr textures:
+                        for channel in mat_json["Textures"].keys():
+                            remap_texture_path(mat_json["Textures"][channel], old_path, new_path)
+                        # custom shader textures:
+                        if "Custom Shader" in mat_json.keys():
+                            for channel in mat_json["Custom Shader"]["Image"].keys():
+                                remap_texture_path(mat_json["Custom Shader"]["Image"][channel], old_path, new_path)
 
         if prefs.export_bone_roll_fix:
             if obj.type == "ARMATURE":
@@ -199,6 +200,10 @@ def get_prop_value(mat_cache, prop_name, default):
 def write_back_json(mat_json, mat, mat_cache):
     shader_name = params.get_shader_lookup(mat_cache)
     shader_def = params.get_shader_def(shader_name)
+
+    if mat_json is None:
+        return
+
     if shader_def:
         if "vars" in shader_def.keys():
             for var_def in shader_def["vars"]:
@@ -225,6 +230,9 @@ def write_back_json(mat_json, mat, mat_cache):
 def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
     global UNPACK_INDEX
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    if mat_json is None:
+        return
 
     shader_name = params.get_shader_lookup(mat_cache)
     shader_def = params.get_shader_def(shader_name)

@@ -574,7 +574,7 @@ def fetch_node_group(name):
             if group is not None:
                 return group
     utils.log_error("Trying to append group: " + name + ", _LIB.blend library file not found?")
-    raise ValueError("Unable to append node group from library file!")
+    raise ValueError(f"Unable to append node group: {name} from library file!")
 
 
 def append_lib_image(path, object_name):

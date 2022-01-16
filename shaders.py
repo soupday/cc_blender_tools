@@ -733,11 +733,16 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
             shader_label = "Cornea Shader"
             shader_name = "rl_cornea_shader"
             shader_group = "rl_cornea_parallax_shader"
-            #mix_shader_group = "rl_cornea_mix_shader"
     else:
-        shader_label = "Eye Shader"
-        shader_name = "rl_eye_shader"
-        shader_group = "rl_eye_shader"
+        if prefs.refractive_eyes == "SSR":
+            shader_label = "Eye Shader"
+            shader_name = "rl_eye_shader"
+            shader_group = "rl_eye_refractive_shader"
+        else:
+            shader_label = "Eye Shader"
+            shader_name = "rl_eye_shader"
+            # TODO rl_eye_pbr_shader???
+            shader_group = "rl_eye_refractive_shader"
 
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
