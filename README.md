@@ -26,6 +26,9 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+### 1.1.6
+- Baking add-on compatibility update.
+
 ### 1.1.5
 - Character and Object operators (**Character Settings** Panel):
     - Add object to character, with parenting and armature modifier.
