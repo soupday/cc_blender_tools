@@ -391,7 +391,8 @@ def init_character_property_defaults(chr_cache, chr_json):
 
                         if mat_cache.is_eye():
                             cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
-                            mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
+                            if cornea_mat:
+                                mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
 
                         shaders.fetch_prop_defaults(mat_cache, mat_json)
 
