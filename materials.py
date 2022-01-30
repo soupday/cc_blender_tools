@@ -531,7 +531,7 @@ def get_cornea_mat(obj, eye_mat, eye_mat_cache):
 
     utils.log_error("Unable to find the " + side + " cornea material!")
 
-    return None
+    return None, None
 
 
 def get_left_right_materials(obj):
