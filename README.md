@@ -9,6 +9,11 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 [Reallusion Forum Thread](https://forum.reallusion.com/475005/Blender-Auto-Setup)
 
+Links
+=====
+[CC3 Round-trip Import Plugin](https://github.com/soupday/CC3-Blender-Tools-Plugin)
+[Baking Add-on](https://github.com/soupday/cc3_blender_bake)
+
 ## Installation, Updating, Removal
 ### To Install
 - Download the [latest release](https://github.com/soupday/cc3_blender_tools/releases).
@@ -26,6 +31,9 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+### 1.1.7
+- Cornea material detection crash fix.
+
 ### 1.1.6
 - Baking add-on compatibility update.
 
