@@ -24,6 +24,7 @@ if "bpy" in locals():
     importlib.reload(jsonutils)
     importlib.reload(nodeutils)
     importlib.reload(imageutils)
+    importlib.reload(channel_mixer)
     importlib.reload(materials)
     importlib.reload(characters)
     importlib.reload(meshutils)
@@ -48,6 +49,7 @@ from . import utils
 from . import jsonutils
 from . import nodeutils
 from . import imageutils
+from . import channel_mixer
 from . import materials
 from . import characters
 from . import meshutils
@@ -67,7 +69,7 @@ from . import importer
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (1, 1, 7),
+    "version": (1, 1, 8),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -79,6 +81,10 @@ bl_info = {
 vars.set_version_string(bl_info)
 
 classes = (
+    channel_mixer.CC3RGBMixer,
+    channel_mixer.CC3IDMixer,
+    channel_mixer.CC3MixerSettings,
+
     properties.CC3HeadParameters,
     properties.CC3SkinParameters,
     properties.CC3EyeParameters,
@@ -91,7 +97,6 @@ classes = (
     properties.CC3SSSParameters,
     properties.CC3BasicParameters,
     properties.CC3TextureMapping,
-    #properties.CC3MaterialCache,
     properties.CC3EyeMaterialCache,
     properties.CC3EyeOcclusionMaterialCache,
     properties.CC3TearlineMaterialCache,

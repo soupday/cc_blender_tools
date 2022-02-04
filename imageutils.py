@@ -110,6 +110,10 @@ def get_image_type_json_id(texture_type):
     return None
 
 
+def search_image_in_material_dirs(chr_cache, cache, mat, texture_type):
+    return find_image_file(chr_cache.import_dir, [cache.dir, chr_cache.import_main_tex_dir], mat, texture_type)
+
+
 def find_material_image(mat, texture_type, tex_json = None):
     """Try to find the texture for a material input by searching for the material name
        appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness
@@ -154,7 +158,7 @@ def find_material_image(mat, texture_type, tex_json = None):
     # with no Json data, try to locate the images in the texture folders:
     else:
 
-        image_file = find_image_file(chr_cache.import_dir, [cache.dir, chr_cache.import_main_tex_dir], mat, texture_type)
+        image_file = search_image_in_material_dirs(chr_cache, cache, mat, texture_type)
         if image_file:
             return load_image(image_file, color_space)
 

@@ -54,6 +54,9 @@ TEXTURE_TYPES = [
     ["HAIRVERTEXCOLOR", None, ["vertexcolormap"]],
     # physics textures
     ["WEIGHTMAP", "Weight Map", ["weightmap"]],
+    # mixer mask textures
+    ["COLORID", "ColorID", ["colorid"]],
+    ["RGBMASK", "RGBMask", ["rgbmask"]],
 ]
 
 PBR_TYPES = [

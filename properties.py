@@ -16,7 +16,7 @@
 
 import bpy
 
-from . import imageutils, meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
+from . import channel_mixer, imageutils, meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -1028,6 +1028,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     basic_parameters: bpy.props.PointerProperty(type=CC3BasicParameters)
     #
     object_cache: bpy.props.CollectionProperty(type=CC3ObjectCache)
+    mixer_settings: bpy.props.PointerProperty(type=channel_mixer.CC3MixerSettings)
     import_type: bpy.props.StringProperty(default="")
     # import file name without extension
     import_name: bpy.props.StringProperty(default="")
@@ -1442,6 +1443,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)
+    stage_remapper: bpy.props.BoolProperty(default=False)
 
     skin_toggle: bpy.props.BoolProperty(default=True)
     eye_toggle: bpy.props.BoolProperty(default=True)

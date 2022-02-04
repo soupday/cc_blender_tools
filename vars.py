@@ -47,6 +47,7 @@ NODE_GROUPS = ["tiling_pivot_mapping", "tiling_mapping",
                "rl_pbr_shader", "rl_sss_shader",
                "rl_hair_shader", "rl_hair_cycles_shader",
                "rl_eye_occlusion_cycles_mix_shader", "rl_tearline_cycles_shader", "rl_tearline_cycles_mix_shader",
+               "rl_rgb_mixer", "rl_id_mixer",
                ]
 
 

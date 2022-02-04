@@ -171,7 +171,7 @@ def process_object(chr_cache, obj, objects_processed, character_json):
 
         # process any materials found in the mesh object
         for mat in obj.data.materials:
-            if mat:
+            if mat and mat not in objects_processed:
                 utils.log_info("")
                 utils.log_info("Processing Material: " + mat.name)
                 utils.log_indent()
@@ -179,6 +179,7 @@ def process_object(chr_cache, obj, objects_processed, character_json):
                 if prefs.physics == "ENABLED" and props.physics_mode == "ON":
                     physics.add_material_weight_map(obj, mat, create = False)
                 utils.log_recess()
+                objects_processed.append(mat)
 
         # setup default physics
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
@@ -230,6 +231,7 @@ def cache_object_materials(character_cache, obj, character_json, processed):
                 mat_cache.dir = imageutils.get_material_tex_dir(character_cache, obj, mat)
                 utils.log_indent()
                 materials.detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache)
+                materials.detect_mixer_masks(character_cache, obj, obj_cache, mat, mat_cache)
                 utils.log_recess()
                 processed.append(mat)
 

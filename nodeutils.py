@@ -188,19 +188,19 @@ def make_shader_node(nodes, type, scale = 1.0):
 
 
 ## color_space: Non-Color, sRGB
-def make_image_node(nodes, image, prop, scale = 1.0):
+def make_image_node(nodes, image, name, scale = 1.0):
     if image is None:
         return None
     image_node = make_shader_node(nodes, "ShaderNodeTexImage", scale)
     image_node.image = image
-    image_node.name = utils.unique_name(prop)
+    image_node.name = utils.unique_name(name)
     return image_node
 
 
-def make_value_node(nodes, label, prop, value = 0.0):
+def make_value_node(nodes, label, name, value = 0.0):
     value_node = make_shader_node(nodes, "ShaderNodeValue", 0.4)
     value_node.label = label
-    value_node.name = utils.unique_name(prop)
+    value_node.name = utils.unique_name(name)
     value_node.outputs["Value"].default_value = value
     return value_node
 
@@ -503,6 +503,7 @@ def find_node_by_keywords(nodes, *keywords):
         for keyword in keywords:
             if not keyword in node.name:
                 match = False
+                break
         if match:
             return node
     return None
@@ -512,6 +513,20 @@ def find_node_by_type(nodes, type):
     for n in nodes:
         if n.type == type:
             return n
+    return None
+
+
+def find_node_by_type_and_keywords(nodes, type, *keywords):
+    for node in nodes:
+        if node.type == type:
+            match = True
+            for keyword in keywords:
+                if not keyword in node.name:
+                    match = False
+                    break
+            if match:
+                return node
+    return None
 
 
 def get_image_node_mapping(image_node):

@@ -31,6 +31,10 @@ Links
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+
+### 1.1.8
+- Texture Channel Mixer added, primarily for alteration of Actor Core characters with RGB and Color ID masks, but can be used with all CC3 based materials.
+
 ### 1.1.7
 - Cornea material detection crash fix.
 
