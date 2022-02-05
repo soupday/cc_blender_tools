@@ -474,7 +474,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                     col_1.label(text="Default Bump Height (mm)")
                     col_2.prop(basic_params, "default_bump", text="", slider=True)
 
-        # Remapper
+        # Channel Mixers
         mixer_settings = chr_cache.mixer_settings
 
         if chr_cache.setup_mode == "ADVANCED":
@@ -523,7 +523,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
                         column = layout.column()
                         box = column.box()
-                        split = box.split(factor=0.5)
+                        split = box.split(factor=0.9)
                         col_1 = split.column()
                         col_2 = split.column()
 

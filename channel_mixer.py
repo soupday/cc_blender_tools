@@ -20,9 +20,9 @@ from . import nodeutils, utils, params, vars
 
 MIXER_CHANNELS = [
                     "RGB_HEADER",
-                        ["Red Channel", "rgb_red_enabled", "RGB_RED"],
-                        ["Green Channel", "rgb_green_enabled", "RGB_GREEN"],
-                        ["Blue Channel", "rgb_blue_enabled", "RGB_BLUE"],
+                        ["Red Channel (Skin)", "rgb_red_enabled", "RGB_RED"],
+                        ["Green Channel (Hair)", "rgb_green_enabled", "RGB_GREEN"],
+                        ["Blue Channel (Mouth)", "rgb_blue_enabled", "RGB_BLUE"],
 
                      "ID_HEADER",
                         ["Red Color", "id_red_enabled", "ID_RED"],
@@ -106,7 +106,15 @@ def update_mixer(mixer, context, field):
                 apply_mixer(mixer, mixer_node)
 
 
+def enable_disable_mixer_image(mixer_settings, context):
+    props = bpy.context.scene.CC3ImportProps
 
+    # find the current character and material in context
+    chr_cache = props.get_context_character_cache(context)
+    if chr_cache:
+        context_mat = utils.context_material(context)
+        if context_mat:
+            rebuild_mixers(chr_cache, context_mat, mixer_settings)
 
 
 def enable_disable_mixer(mixer_settings, context, type_channel):
@@ -137,7 +145,8 @@ def enable_disable_mixer(mixer_settings, context, type_channel):
     chr_cache = props.get_context_character_cache(context)
     if chr_cache:
         context_mat = utils.context_material(context)
-        rebuild_mixers(chr_cache, context_mat, mixer_settings)
+        if context_mat:
+            rebuild_mixers(chr_cache, context_mat, mixer_settings)
 
 
 def rebuild_mixers(chr_cache, context_mat, mixer_settings):
@@ -152,16 +161,22 @@ def rebuild_mixers(chr_cache, context_mat, mixer_settings):
     rgb_image_node = None
     id_image_node = None
 
-    if rgb_enabled:
-        rgb_image_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", vars.NODE_PREFIX, "MIXER_RGB_MASK")
-        if not rgb_image_node:
-            rgb_image_node = nodeutils.make_image_node(nodes, mixer_settings.rgb_image, "MIXER_RGB_MASK")
+    rgb_image_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", vars.NODE_PREFIX, "MIXER_RGB_MASK")
+    if rgb_enabled and not rgb_image_node:
+        rgb_image_node = nodeutils.make_image_node(nodes, mixer_settings.rgb_image, "MIXER_RGB_MASK")
+    elif not rgb_enabled and rgb_image_node:
+        nodes.remove(rgb_image_node)
+        rgb_image_node = None
+    if rgb_image_node:
         rgb_image_node.location = (-100, -900)
 
-    if id_enabled:
-        id_image_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", vars.NODE_PREFIX, "MIXER_ID_MASK")
-        if not id_image_node:
-            id_image_node = nodeutils.make_image_node(nodes, mixer_settings.id_image, "MIXER_ID_MASK")
+    id_image_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", vars.NODE_PREFIX, "MIXER_ID_MASK")
+    if id_enabled and not id_image_node:
+        id_image_node = nodeutils.make_image_node(nodes, mixer_settings.id_image, "MIXER_ID_MASK")
+    elif not id_enabled and id_image_node:
+        nodes.remove(id_image_node)
+        id_image_node = None
+    if id_image_node:
         id_image_node.location = (-100, -1200)
 
     for channel_ref in MIXER_CHANNELS:
@@ -170,17 +185,26 @@ def rebuild_mixers(chr_cache, context_mat, mixer_settings):
 
             mixer_type_channel = channel_ref[2]
             mixer_type, mixer_channel = mixer_type_channel.split("_")
-            mixer_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mixer_type_channel)
+            show_mixer_type = False
+            if mixer_type == "RGB":
+                show_mixer_type = rgb_enabled
+            elif mixer_type == "ID":
+                show_mixer_type = id_enabled
 
             mixer = mixer_settings.get_mixer(mixer_type, mixer_channel)
+            mixer_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mixer_type_channel)
+
             if mixer:
-
-                if mixer.enabled and not mixer_node:
-                    mixer_node = add_mixer_node(nodes, mixer_type, mixer_channel)
-
-                elif not mixer.enabled and mixer_node:
-                    nodes.remove(mixer_node)
-                    mixer_node = None
+                if show_mixer_type:
+                    if mixer.enabled and not mixer_node:
+                        mixer_node = add_mixer_node(nodes, mixer_type, mixer_channel)
+                    elif not mixer.enabled and mixer_node:
+                        nodes.remove(mixer_node)
+                        mixer_node = None
+                else:
+                    if mixer_node:
+                        nodes.remove(mixer_node)
+                        mixer_node = None
 
             if mixer and mixer_node:
                 apply_mixer(mixer, mixer_node)
@@ -233,9 +257,9 @@ def connect_mixers(chr_cache, mat, mixer_nodes, rgb_image_node, id_image_node, m
     left_node = shader_node
     location = [200, -500]
     for mixer_node in mixer_nodes:
-        if "Mask Map" in mixer_node.inputs:
+        if "Mask Map" in mixer_node.inputs and rgb_image_node:
             nodeutils.link_nodes(links, rgb_image_node, "Color", mixer_node, "Mask Map")
-        elif "Id Map" in mixer_node.inputs:
+        elif "Id Map" in mixer_node.inputs and id_image_node:
             nodeutils.link_nodes(links, id_image_node, "Color", mixer_node, "Id Map")
         mixer_node.location = location.copy()
         location[0] += 300
@@ -300,8 +324,8 @@ class CC3IDMixer(bpy.types.PropertyGroup, CC3MixerBase):
 class CC3MixerSettings(bpy.types.PropertyGroup):
     rgb_mixers: bpy.props.CollectionProperty(type=CC3RGBMixer)
     id_mixers: bpy.props.CollectionProperty(type=CC3IDMixer)
-    rgb_image: bpy.props.PointerProperty(type=bpy.types.Image)
-    id_image: bpy.props.PointerProperty(type=bpy.types.Image)
+    rgb_image: bpy.props.PointerProperty(type=bpy.types.Image, update=enable_disable_mixer_image)
+    id_image: bpy.props.PointerProperty(type=bpy.types.Image, update=enable_disable_mixer_image)
     rgb_red_enabled: bpy.props.BoolProperty(default=False, update=lambda s,c: enable_disable_mixer(s,c,"RGB_RED"))
     rgb_green_enabled: bpy.props.BoolProperty(default=False, update=lambda s,c: enable_disable_mixer(s,c,"RGB_GREEN"))
     rgb_blue_enabled: bpy.props.BoolProperty(default=False, update=lambda s,c: enable_disable_mixer(s,c,"RGB_BLUE"))
