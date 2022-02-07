@@ -533,14 +533,48 @@ def remove_from_collection(coll, item):
             return
 
 
-def is_blender_version(version: str):
+def is_blender_version(version: str, test = "GTE"):
+    """e.g. is_blender_version("3.0.0", "GTE")"""
     major, minor, subversion = version.split(".")
     blender_version = bpy.app.version
 
     v_test = int(major) * 1000000 + int(minor) * 1000 + int(subversion)
-    v_this = blender_version[0] * 1000000 + blender_version[1] * 1000 + blender_version[2]
+    v_blender = blender_version[0] * 1000000 + blender_version[1] * 1000 + blender_version[2]
 
-    if v_this >= v_test:
+    if test == "GTE" and v_blender >= v_test:
+        return True
+    elif test == "GT" and v_blender > v_test:
+        return True
+    elif test == "LT" and v_blender < v_test:
+        return True
+    elif test == "LTE" and v_blender <= v_test:
+        return True
+    elif test == "EQ" and v_blender == v_test:
+        return True
+    elif test == "NE" and v_blender != v_test:
         return True
     return False
 
+
+def is_addon_version(version: str, test = "GTE"):
+    """e.g. is_addon_version("v1.1.8", "GTE")"""
+    major, minor, subversion = version[1:].split(".")
+    addon_version = vars.VERSION_STRING
+    addon_major, addon_minor, addon_subversion = addon_version[1:].split(".")
+
+    v_test = int(major) * 1000000 + int(minor) * 1000 + int(subversion)
+    v_addon = int(addon_major) * 1000000 + int(addon_minor) * 1000 + int(addon_subversion)
+
+    if test == "GTE" and v_addon >= v_test:
+        return True
+    elif test == "GT" and v_addon > v_test:
+        return True
+    elif test == "LT" and v_addon < v_test:
+        return True
+    elif test == "LTE" and v_addon <= v_test:
+        return True
+    elif test == "EQ" and v_addon == v_test:
+        return True
+    elif test == "NE" and v_addon != v_test:
+        return True
+    return False

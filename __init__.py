@@ -121,6 +121,7 @@ classes = (
     characters.CC3OperatorCharacter,
     properties.CC3OperatorProperties,
     preferences.CC3OperatorPreferences,
+    channel_mixer.CC3OperatorChannelMixer,
 
     panels.CC3ToolsPipelinePanel,
     panels.CC3CharacterSettingsPanel,
@@ -141,6 +142,7 @@ def register():
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
+
 
 def unregister():
 

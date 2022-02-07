@@ -117,9 +117,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 col_1 = split.column()
                 col_2 = split.column()
                 col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "cycles_sss_skin", text = "")
+                col_2.prop(prefs, "cycles_sss_skin_v118", text = "")
                 col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "cycles_sss_hair", text = "")
+                col_2.prop(prefs, "cycles_sss_hair_v118", text = "")
                 col_1.label(text = "Teeth SSS")
                 col_2.prop(prefs, "cycles_sss_teeth", text = "")
                 col_1.label(text = "Tongue SSS")
@@ -475,9 +475,10 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                     col_2.prop(basic_params, "default_bump", text="", slider=True)
 
         # Channel Mixers
-        mixer_settings = chr_cache.mixer_settings
 
-        if chr_cache.setup_mode == "ADVANCED":
+        if chr_cache and mat_cache and chr_cache.setup_mode == "ADVANCED":
+
+            mixer_settings = mat_cache.mixer_settings
 
             if chr_cache and mat_cache and fake_drop_down(layout.box().row(),
                     "Texture Channel Mixer",
@@ -523,7 +524,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
                         column = layout.column()
                         box = column.box()
-                        split = box.split(factor=0.9)
+                        split = box.split(factor=0.75)
                         col_1 = split.column()
                         col_2 = split.column()
 
@@ -537,12 +538,17 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                         elif mixer:
                             row.prop(mixer, "expanded", icon="TRIA_RIGHT", icon_only=True, emboss=False)
                         row.label(text=mixer_label)
-                        col_2.prop(mixer_settings, mixer_on_prop, text="", slider=True)
+                        row = col_2.row()
+                        row.prop(mixer_settings, mixer_on_prop, text="", slider=True)
+                        if mixer:
+                            op = row.operator("cc3.mixer", icon="PANEL_CLOSE", text = "", emboss = False)
+                            op.param = "REMOVE"
+                            op.type_channel = mixer_type_channel
 
                         if mixer and mixer.enabled and expanded:
 
                             main_column = layout.column()
-                            split = column.split(factor=0.01)
+                            split = main_column.split(factor=0.01)
                             gutter = split.column()
                             column = split.column()
 

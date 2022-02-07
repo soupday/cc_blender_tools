@@ -523,7 +523,7 @@ def detect_mixer_masks(character_cache, obj, obj_cache, mat, mat_cache):
     color_id_mask : bpy.types.Image = imageutils.find_material_image(mat, "COLORID", None)
 
     if rgb_mask or color_id_mask:
-        mixer_settings = character_cache.mixer_settings
+        mixer_settings = mat_cache.mixer_settings
 
         if rgb_mask:
             utils.log_info(f"Mixer RGB Mask found: {rgb_mask.filepath}")

@@ -1,5 +1,2 @@
 # TODO
-- Write changes to parameters back to json file.
-- Baking shaders...
-- Make export button names less confusing...
-- Button to auto transfer skin weights to accessories.
+

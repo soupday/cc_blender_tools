@@ -18,7 +18,7 @@ import os
 import bpy
 
 from . import (imageutils, jsonutils, materials, modifiers, nodeutils, physics,
-               scene, shaders, basic, properties, utils, vars)
+               scene, channel_mixer, shaders, basic, properties, utils, vars)
 
 debug_counter = 0
 
@@ -141,6 +141,13 @@ def process_material(chr_cache, obj, mat, object_json):
             materials.apply_alpha_override(obj, mat, mat_cache.alpha_mode)
         if mat_cache.culling_sides > 0:
             materials.apply_backface_culling(obj, mat, mat_cache.culling_sides)
+
+    # apply any channel mixers
+    if mat_cache is not None:
+        if mat_cache.mixer_settings:
+                mixer_settings = mat_cache.mixer_settings
+                if mixer_settings.rgb_image or mixer_settings.id_image:
+                    channel_mixer.rebuild_mixers(chr_cache, mat, mixer_settings)
 
 
 def process_object(chr_cache, obj, objects_processed, character_json):

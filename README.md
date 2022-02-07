@@ -34,6 +34,11 @@ Links
 
 ### 1.1.8
 - Texture Channel Mixer added, primarily for alteration of Actor Core characters with RGB and Color ID masks, but can be used with all CC3 based materials.
+- Cycles hair anisotropy reworked.
+- Cycles parameter tweaks:
+    - Brighter iris settings for SSR eyes.
+    - Hair subsurface reduced (May want to turn it off completely, there can be too many artifacts generated in the hair.)
+    - Skin subsurface slightly increased.
 
 ### 1.1.7
 - Cornea material detection crash fix.

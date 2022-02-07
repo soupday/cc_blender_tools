@@ -120,7 +120,7 @@ def enable_disable_mixer_image(mixer_settings, context):
 def enable_disable_mixer(mixer_settings, context, type_channel):
     props = bpy.context.scene.CC3ImportProps
 
-    # find an existing mixer data
+    # find an existing mixer
     mixer_type, mixer_channel = type_channel.split("_")
     mixer = mixer_settings.get_mixer(mixer_type, mixer_channel)
 
@@ -147,6 +147,25 @@ def enable_disable_mixer(mixer_settings, context, type_channel):
         context_mat = utils.context_material(context)
         if context_mat:
             rebuild_mixers(chr_cache, context_mat, mixer_settings)
+
+
+def remove_mixer(chr_cache, mat, mixer_settings, type_channel):
+    mixer_type, mixer_channel = type_channel.split("_")
+
+    if type_channel == "RGB_RED": mixer_settings.rgb_red_enabled = False
+    elif type_channel == "RGB_GREEN": mixer_settings.rgb_green_enabled = False
+    elif type_channel == "RGB_BLUE": mixer_settings.rgb_blue_enabled = False
+    elif type_channel == "ID_RED": mixer_settings.id_red_enabled = False
+    elif type_channel == "ID_GREEN": mixer_settings.id_green_enabled = False
+    elif type_channel == "ID_BLUE": mixer_settings.id_blue_enabled = False
+    elif type_channel == "ID_CYAN": mixer_settings.id_cyan_enabled = False
+    elif type_channel == "ID_YELLOW": mixer_settings.id_yellow_enabled = False
+    elif type_channel == "ID_MAGENTA": mixer_settings.id_magenta_enabled = False
+
+    mixer_settings.remove_mixer(mixer_type, mixer_channel)
+    rebuild_mixers(chr_cache, mat, mixer_settings)
+
+    pass
 
 
 def rebuild_mixers(chr_cache, context_mat, mixer_settings):
@@ -274,6 +293,47 @@ def connect_mixers(chr_cache, mat, mixer_nodes, rgb_image_node, id_image_node, m
     output_node.location = location
 
 
+class CC3OperatorChannelMixer(bpy.types.Operator):
+    """Channel Mixer"""
+    bl_idname = "cc3.mixer"
+    bl_label = "Channel Mixer"
+    bl_options = {"REGISTER", "UNDO"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = ""
+        )
+
+    type_channel: bpy.props.StringProperty(
+            name = "type_channel",
+            default = ""
+        )
+
+    def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
+
+        # find the current character and material in context
+        chr_cache = props.get_context_character_cache(context)
+        context_mat = utils.context_material(context)
+
+        if chr_cache and context_mat:
+
+            context_mat_cache = chr_cache.get_material_cache(context_mat)
+            if context_mat_cache:
+
+                if self.param == "REMOVE":
+                    remove_mixer(chr_cache, context_mat, context_mat_cache.mixer_settings, self.type_channel)
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "REMOVE":
+            return "Remove and reset mixer: " + properties.type_channel
+        return ""
+
+
 class CC3MixerBase:
     #open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
     #import_file: bpy.props.StringProperty(default="", subtype="FILE_PATH")
@@ -368,4 +428,19 @@ class CC3MixerSettings(bpy.types.PropertyGroup):
         remap = self.get_mixer(type, channel)
         if remap:
             remap.enabled = False
+
+    def remove_mixer(self, type, channel):
+        if type == "RGB":
+            for index in range(0, len(self.rgb_mixers)):
+                remap = self.rgb_mixers[index]
+                if remap.channel == channel:
+                    self.rgb_mixers.remove(index)
+                    return True
+        else:
+            for index in range(0, len(self.id_mixers)):
+                remap = self.id_mixers[index]
+                if remap.channel == channel:
+                    self.id_mixers.remove(index)
+                    return True
+        return False
 
