@@ -44,7 +44,7 @@ def reset_preferences():
     prefs.export_bake_nodes = False
     prefs.export_bake_bump_to_normal = True
     prefs.cycles_sss_skin_v118 = 0.35
-    prefs.cycles_sss_hair_v118 = 0.1
+    prefs.cycles_sss_hair_v118 = 0.025
     prefs.cycles_sss_teeth = 0.1
     prefs.cycles_sss_tongue = 0.1
     prefs.cycles_sss_eyes = 0.025
