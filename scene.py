@@ -591,7 +591,7 @@ def cycles_setup(context):
                     mod.boundary_smooth = 'PRESERVE_CORNERS'
             if utils.is_blender_version("2.90.0"):
                 if obj.cycles.shadow_terminator_offset == 0.0:
-                    obj.cycles.shadow_terminator_offset = 0.25
+                    obj.cycles.shadow_terminator_offset = 0.1
 
 
 class CC3Scene(bpy.types.Operator):

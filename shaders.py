@@ -209,16 +209,22 @@ def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
 # Prop matrix eval, parameter conversion functions
 #
 
+def func_iris_brightness(v):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    if prefs.render_target == "CYCLES" and prefs.refractive_eyes == "SSR":
+        v = v * prefs.cycles_ssr_iris_brightness
+    return v
+
 def func_sss_skin(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_skin
+        s = s * prefs.cycles_sss_skin_v118
     return s
 
 def func_sss_hair(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_hair
+        s = s * prefs.cycles_sss_hair_v118
     return s
 
 def func_sss_teeth(s):
@@ -783,6 +789,10 @@ def connect_hair_shader(obj, mat, mat_json):
         shader_group = "rl_hair_cycles_shader"
 
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+
+    if prefs.render_target == "CYCLES" and utils.is_blender_version("3.0.0"):
+        # Blender 3.0 defaults to random walk, which does not work well with hair
+        bsdf.subsurface_method = "BURLEY"
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)

@@ -16,7 +16,7 @@
 
 import bpy
 
-from . import imageutils, meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
+from . import channel_mixer, imageutils, meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -700,14 +700,15 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_vertex_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_vertex_color"))
     hair_anisotropic_roughness: bpy.props.FloatProperty(default=0.0375, min=0.001, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_roughness"))
-    hair_anisotropic_shift: bpy.props.FloatProperty(default=0.75, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_shift"))
-    hair_anisotropic: bpy.props.FloatProperty(default=-1, min=-1, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic"))
+    hair_anisotropic_shift_min: bpy.props.FloatProperty(default=0, min=-1, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_shift_min"))
+    hair_anisotropic_shift_max: bpy.props.FloatProperty(default=0, min=-1, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_shift_max"))
+    hair_anisotropic: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic"))
     hair_anisotropic_strength: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength"))
     hair_anisotropic_strength2: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength2"))
     hair_anisotropic_strength_cycles: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength_cycles"))
     hair_anisotropic_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.05, 0.038907, 0.0325, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_anisotropic_color"))
-    hair_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_subsurface_scale"))
+    hair_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_scale"))
     hair_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_subsurface_falloff"))
     hair_subsurface_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"hair_subsurface_radius"))
@@ -853,6 +854,7 @@ class CC3MaterialCache:
     material_type: bpy.props.EnumProperty(items=vars.MATERIAL_TYPES, default="DEFAULT")
     texture_mappings: bpy.props.CollectionProperty(type=CC3TextureMapping)
     #parameters: bpy.props.PointerProperty(type=CC3MaterialParameters)
+    mixer_settings: bpy.props.PointerProperty(type=channel_mixer.CC3MixerSettings)
     dir: bpy.props.StringProperty(default="")
     user_added: bpy.props.BoolProperty(default=False)
     temp_weight_map: bpy.props.PointerProperty(type=bpy.types.Image)
@@ -1442,6 +1444,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)
+    stage_remapper: bpy.props.BoolProperty(default=False)
 
     skin_toggle: bpy.props.BoolProperty(default=True)
     eye_toggle: bpy.props.BoolProperty(default=True)

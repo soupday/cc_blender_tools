@@ -17,7 +17,7 @@
 import bpy
 
 from . import addon_updater_ops
-from . import characters, modifiers, nodeutils, utils, params, vars
+from . import characters, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 # Panel button functions and operator
 #
@@ -117,9 +117,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 col_1 = split.column()
                 col_2 = split.column()
                 col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "cycles_sss_skin", text = "")
+                col_2.prop(prefs, "cycles_sss_skin_v118", text = "")
                 col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "cycles_sss_hair", text = "")
+                col_2.prop(prefs, "cycles_sss_hair_v118", text = "")
                 col_1.label(text = "Teeth SSS")
                 col_2.prop(prefs, "cycles_sss_teeth", text = "")
                 col_1.label(text = "Tongue SSS")
@@ -473,6 +473,107 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                 if not actor_core:
                     col_1.label(text="Default Bump Height (mm)")
                     col_2.prop(basic_params, "default_bump", text="", slider=True)
+
+        # Channel Mixers
+
+        if chr_cache and mat_cache and chr_cache.setup_mode == "ADVANCED":
+
+            mixer_settings = mat_cache.mixer_settings
+
+            if chr_cache and mat_cache and fake_drop_down(layout.box().row(),
+                    "Texture Channel Mixer",
+                    "stage_remapper",
+                    props.stage_remapper):
+
+                column = layout.column()
+
+                show_channels = False
+
+                for mixer_ref in channel_mixer.MIXER_CHANNELS:
+
+                    if type(mixer_ref) == str:
+
+                        if mixer_ref == "RGB_HEADER":
+                            column.box().label(text="RGB Mask", icon="RESTRICT_COLOR_ON")
+                            column.label(text = "RGB Mask Image:")
+                            if mixer_settings.rgb_image:
+                                column.template_ID_preview(mixer_settings, "rgb_image", open="image.open")
+                                show_channels = True
+                            else:
+                                column.template_ID(mixer_settings, "rgb_image", open="image.open", live_icon=True)
+                                show_channels = False
+
+                        elif mixer_ref == "ID_HEADER":
+                            column.separator()
+                            column.box().label(text="Color ID Mask", icon="GROUP_VCOL")
+                            column.label(text = "Color ID Mask Image:")
+                            if mixer_settings.id_image:
+                                column.template_ID_preview(mixer_settings, "id_image", open="image.open")
+                                show_channels = True
+                            else:
+                                column.template_ID(mixer_settings, "id_image", open="image.open", live_icon=True)
+                                show_channels = False
+
+                    elif show_channels:
+
+                        mixer_label = mixer_ref[0]
+                        mixer_on_prop = mixer_ref[1]
+                        mixer_type_channel = mixer_ref[2]
+                        mixer_type, mixer_channel = mixer_type_channel.split("_")
+                        mixer = mixer_settings.get_mixer(mixer_type, mixer_channel)
+
+                        column = layout.column()
+                        box = column.box()
+                        split = box.split(factor=0.75)
+                        col_1 = split.column()
+                        col_2 = split.column()
+
+                        expanded = False
+                        if mixer:
+                            expanded = mixer.expanded
+
+                        row = col_1.row()
+                        if expanded:
+                            row.prop(mixer, "expanded", icon="TRIA_DOWN", icon_only=True, emboss=False)
+                        elif mixer:
+                            row.prop(mixer, "expanded", icon="TRIA_RIGHT", icon_only=True, emboss=False)
+                        row.label(text=mixer_label)
+                        row = col_2.row()
+                        row.prop(mixer_settings, mixer_on_prop, text="", slider=True)
+                        if mixer:
+                            op = row.operator("cc3.mixer", icon="PANEL_CLOSE", text = "", emboss = False)
+                            op.param = "REMOVE"
+                            op.type_channel = mixer_type_channel
+
+                        if mixer and mixer.enabled and expanded:
+
+                            main_column = layout.column()
+                            split = main_column.split(factor=0.01)
+                            gutter = split.column()
+                            column = split.column()
+
+                            for ui_row in channel_mixer.MIXER_UI:
+
+                                split = False
+                                col_1 = None
+                                col_2 = None
+
+                                if ui_row[0] == "HEADER":
+                                    column.box().label(text= ui_row[1], icon=ui_row[2])
+
+                                elif ui_row[0] == "PROP":
+
+                                    label = ui_row[1]
+                                    prop = ui_row[2]
+
+                                    if not split:
+                                        row = column.row()
+                                        split = row.split(factor=0.5)
+                                        col_1 = row.column()
+                                        col_2 = row.column()
+                                        split = True
+                                    col_1.label(text=label)
+                                    col_2.prop(mixer, prop, text="", slider=True)
 
         # Utilities
 

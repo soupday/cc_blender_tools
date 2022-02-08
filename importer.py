@@ -18,7 +18,7 @@ import os
 import bpy
 
 from . import (imageutils, jsonutils, materials, modifiers, nodeutils, physics,
-               scene, shaders, basic, properties, utils, vars)
+               scene, channel_mixer, shaders, basic, properties, utils, vars)
 
 debug_counter = 0
 
@@ -142,6 +142,13 @@ def process_material(chr_cache, obj, mat, object_json):
         if mat_cache.culling_sides > 0:
             materials.apply_backface_culling(obj, mat, mat_cache.culling_sides)
 
+    # apply any channel mixers
+    if mat_cache is not None:
+        if mat_cache.mixer_settings:
+                mixer_settings = mat_cache.mixer_settings
+                if mixer_settings.rgb_image or mixer_settings.id_image:
+                    channel_mixer.rebuild_mixers(chr_cache, mat, mixer_settings)
+
 
 def process_object(chr_cache, obj, objects_processed, character_json):
     props = bpy.context.scene.CC3ImportProps
@@ -171,7 +178,7 @@ def process_object(chr_cache, obj, objects_processed, character_json):
 
         # process any materials found in the mesh object
         for mat in obj.data.materials:
-            if mat:
+            if mat and mat not in objects_processed:
                 utils.log_info("")
                 utils.log_info("Processing Material: " + mat.name)
                 utils.log_indent()
@@ -179,6 +186,7 @@ def process_object(chr_cache, obj, objects_processed, character_json):
                 if prefs.physics == "ENABLED" and props.physics_mode == "ON":
                     physics.add_material_weight_map(obj, mat, create = False)
                 utils.log_recess()
+                objects_processed.append(mat)
 
         # setup default physics
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
@@ -230,6 +238,7 @@ def cache_object_materials(character_cache, obj, character_json, processed):
                 mat_cache.dir = imageutils.get_material_tex_dir(character_cache, obj, mat)
                 utils.log_indent()
                 materials.detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache)
+                materials.detect_mixer_masks(character_cache, obj, obj_cache, mat, mat_cache)
                 utils.log_recess()
                 processed.append(mat)
 

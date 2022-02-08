@@ -16,7 +16,7 @@
 
 import bpy
 
-from . import addon_updater_ops
+from . import addon_updater_ops, utils, vars
 
 
 def reset_preferences():
@@ -43,13 +43,13 @@ def reset_preferences():
     prefs.export_bone_roll_fix = False
     prefs.export_bake_nodes = False
     prefs.export_bake_bump_to_normal = True
-    prefs.cycles_sss_skin = 0.2
-    prefs.cycles_sss_hair = 0.05
+    prefs.cycles_sss_skin_v118 = 0.35
+    prefs.cycles_sss_hair_v118 = 0.025
     prefs.cycles_sss_teeth = 0.1
     prefs.cycles_sss_tongue = 0.1
     prefs.cycles_sss_eyes = 0.025
     prefs.cycles_sss_default = 0.1
-
+    prefs.cycles_ssr_iris_brightness = 2.0
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -168,12 +168,17 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     max_texture_size: bpy.props.FloatProperty(default=4096, min=512, max=4096)
 
-    cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
-    cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
+
+    cycles_sss_skin_v118: bpy.props.FloatProperty(default=0.35)
+    cycles_sss_hair_v118: bpy.props.FloatProperty(default=0.025)
     cycles_sss_teeth: bpy.props.FloatProperty(default=0.1)
     cycles_sss_tongue: bpy.props.FloatProperty(default=0.1)
     cycles_sss_eyes: bpy.props.FloatProperty(default=0.025)
     cycles_sss_default: bpy.props.FloatProperty(default=0.1)
+    cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles.")
+    # old
+    cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
+    cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
 
     # addon updater preferences
 
@@ -232,12 +237,13 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "refractive_eyes")
         layout.prop(self, "eye_displacement_group")
         layout.label(text="Cycles Adjustments:")
-        layout.prop(self, "cycles_sss_skin")
-        layout.prop(self, "cycles_sss_hair")
+        layout.prop(self, "cycles_sss_skin_v118")
+        layout.prop(self, "cycles_sss_hair_v118")
         layout.prop(self, "cycles_sss_teeth")
         layout.prop(self, "cycles_sss_tongue")
         layout.prop(self, "cycles_sss_eyes")
         layout.prop(self, "cycles_sss_default")
+        layout.prop(self, "cycles_ssr_iris_brightness")
         layout.label(text="Physics:")
         layout.prop(self, "physics")
         layout.prop(self, "physics_group")

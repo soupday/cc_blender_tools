@@ -54,6 +54,9 @@ TEXTURE_TYPES = [
     ["HAIRVERTEXCOLOR", None, ["vertexcolormap"]],
     # physics textures
     ["WEIGHTMAP", "Weight Map", ["weightmap"]],
+    # mixer mask textures
+    ["COLORID", "ColorID", ["colorid"]],
+    ["RGBMASK", "RGBMask", ["rgbmask"]],
 ]
 
 PBR_TYPES = [
@@ -785,7 +788,7 @@ SHADER_MATRIX = [
             ["Iris Scale", "", "eye_iris_scale"],
             ["Iris Hue", "", "eye_iris_hue"],
             ["Iris Saturation", "", "eye_iris_saturation"],
-            ["Iris Brightness", "", "eye_iris_brightness"],
+            ["Iris Brightness", "func_iris_brightness", "eye_iris_brightness"],
             ["Iris HSV Strength", "", "eye_iris_hsv"],
             ["Iris Radius", "", "eye_iris_radius"],
             ["Limbus Width", "", "eye_limbus_width"],
@@ -1265,7 +1268,8 @@ SHADER_MATRIX = [
             ["Vertex Color Strength", "", "hair_vertex_color_strength"],
             ["Vertex Color", "", "hair_vertex_color"],
             ["Anisotropic", "", "hair_anisotropic"],
-            ["Anisotropic Shift", "", "hair_anisotropic_shift"],
+            ["Anisotropic Shift Min", "", "hair_anisotropic_shift_min"],
+            ["Anisotropic Shift Max", "", "hair_anisotropic_shift_max"],
             ["Flow Invert Green", "", "hair_tangent_flip_green"],
             ["Anisotropic Roughness", "", "hair_anisotropic_roughness"],
             ["Anisotropic Strength", "", "hair_anisotropic_strength"],
@@ -1314,6 +1318,8 @@ SHADER_MATRIX = [
         "vars": [
             ["hair_tangent_vector", (1, 0, 0), "func_color_vector", "Custom/TangentVectorColor"],
             ["hair_tangent_flip_green", 1, "", "Custom/TangentMapFlipGreen"],
+            ["hair_anisotropic_shift_min", 0, "", "Custom/BlackColor Reflection Offset Z"],
+            ["hair_anisotropic_shift_max", 0, "", "Custom/WhiteColor Reflection Offset Z"],
             ["hair_diffuse_strength", 1, "", "Custom/Diffuse Strength"],
             ["hair_roughness_strength", 0.724, "func_sqrt", "Custom/Hair Roughness Map Strength"],
             ["hair_specular_scale", 0.3, "", "Custom/Hair Specular Map Strength"],
@@ -1415,7 +1421,8 @@ SHADER_MATRIX = [
             ["PROP", "Anisotropic Roughness", "hair_anisotropic_roughness", True, "#EEVEE"],
             ["PROP", "Anisotropic Strength", "hair_anisotropic_strength", True, "#EEVEE"],
             ["PROP", "Anisotropic Color", "hair_anisotropic_color", False, "#EEVEE"],
-            ["PROP", "Anisotropic Shift", "hair_anisotropic_shift", True],
+            ["PROP", "Anisotropic Shift Min", "hair_anisotropic_shift_min", True],
+            ["PROP", "Anisotropic Shift Max", "hair_anisotropic_shift_max", True],
             ["PROP", "Tangent Flip Green", "hair_tangent_flip_green", True],
             ["HEADER",  "Sub-surface", "SURFACE_NSURFACE"],
             ["PROP", "Subsurface Scale", "hair_subsurface_scale", True],

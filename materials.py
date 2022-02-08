@@ -515,6 +515,27 @@ def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):
                             mat_cache.alpha_is_diffuse = True
 
 
+def detect_mixer_masks(character_cache, obj, obj_cache, mat, mat_cache):
+    main_tex_dir = character_cache.import_main_tex_dir
+    mat_tex_dir = mat_cache.dir
+
+    rgb_mask : bpy.types.Image = imageutils.find_material_image(mat, "RGBMASK", None)
+    color_id_mask : bpy.types.Image = imageutils.find_material_image(mat, "COLORID", None)
+
+    if rgb_mask or color_id_mask:
+        mixer_settings = mat_cache.mixer_settings
+
+        if rgb_mask:
+            utils.log_info(f"Mixer RGB Mask found: {rgb_mask.filepath}")
+            mixer_settings.rgb_image = rgb_mask
+            rgb_mask.use_fake_user = True
+
+        if color_id_mask:
+            utils.log_info(f"Mixer Color Id Mask found: {color_id_mask.filepath}")
+            mixer_settings.id_image = color_id_mask
+            color_id_mask.use_fake_user = True
+
+
 def get_cornea_mat(obj, eye_mat, eye_mat_cache):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(obj, eye_mat)
