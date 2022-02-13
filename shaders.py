@@ -721,13 +721,15 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
     cornea_mat = mat
     cornea_mat_cache = mat_cache
     cornea_json = mat_json
-    connect_as_pbr = True
-    # the eye mesh uses textures and settings from the cornea:
-    if mat_cache.is_eye() and prefs.refractive_eyes == "SSR":
-        cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
-        if cornea_mat:
-            cornea_json = jsonutils.get_material_json(obj_json, cornea_mat)
-            connect_as_pbr = False
+    connect_as_pbr = False
+    if mat_cache.is_eye():
+        connect_as_pbr = True
+        if prefs.refractive_eyes == "SSR":
+            cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
+            if cornea_mat:
+                cornea_json = jsonutils.get_material_json(obj_json, cornea_mat)
+                # for SSR eyes, use the textures and settings from the cornea material, if available
+                connect_as_pbr = False
 
     if connect_as_pbr:
         connect_pbr_shader(obj, mat, mat_json)
