@@ -721,13 +721,17 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
     cornea_mat = mat
     cornea_mat_cache = mat_cache
     cornea_json = mat_json
+    connect_as_pbr = True
     # the eye mesh uses textures and settings from the cornea:
     if mat_cache.is_eye() and prefs.refractive_eyes == "SSR":
         cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
-        cornea_json = jsonutils.get_material_json(obj_json, cornea_mat)
+        if cornea_mat:
+            cornea_json = jsonutils.get_material_json(obj_json, cornea_mat)
+            connect_as_pbr = False
 
-    if mat_cache.is_eye() and prefs.refractive_eyes == "PARALLAX":
+    if connect_as_pbr:
         connect_pbr_shader(obj, mat, mat_json)
+        return
 
     mix_shader_group = ""
     if mat_cache.is_cornea():
@@ -826,12 +830,15 @@ def connect_pbr_shader(obj, mat, mat_json):
     if mat_cache.is_eyelash():
         materials.set_material_alpha(mat, "HASHED")
         nodeutils.set_node_input(group, "Specular Scale", 0.25)
-    if mat_cache.is_scalp():
+
+    elif mat_cache.is_scalp():
         materials.set_material_alpha(mat, "HASHED")
         nodeutils.set_node_input(group, "Specular Scale", 0)
-        #nodeutils.set_node_input(shader, "Opacity", 0.65)
-    else:
-        if nodeutils.has_connected_input(group, "Alpha Map"):
+
+    elif nodeutils.has_connected_input(group, "Alpha Map"):
+        if materials.detect_cornea_material(mat):
+            materials.set_material_alpha(mat, "BLEND")
+        else:
             materials.set_material_alpha(mat, "HASHED")
 
 
