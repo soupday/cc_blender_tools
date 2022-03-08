@@ -32,6 +32,12 @@ Links
 
 ## Changelog
 
+### 1.2.0
+- Added initial export to Unity project function.
+- Fixed skin micro-smoothness calculation causing smoothness seam between head and body materials.
+- Fixed UI updating wrong unmasked micro smoothness parameter.
+- Blender 3.0+ subsurface scattering method set to Christensen-Burley, rather than Random-Walk, which does not work well with hair transparencies.
+
 ### 1.1.9
 - Fixed PBR eye material crash.
 

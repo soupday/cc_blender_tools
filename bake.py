@@ -380,7 +380,7 @@ def bake_flow_to_normal(mat_cache):
         normal_image = None
 
         # try to reuse normal map
-        if nodeutils.has_connected_input(shader, "Normal Map"):
+        if nodeutils.has_connected_input(shader_node, "Normal Map"):
             normal_node = nodeutils.get_node_connected_to_input(shader_node, "Normal Map")
 
             if normal_node and normal_node.image:
@@ -420,7 +420,7 @@ def convert_flow_to_normal(flow_image: bpy.types.Image, normal_image: bpy.types.
     # fetching the flow pixels as a tuple with slice notation gives the fastest read speed:
     flow_pixels = flow_image.pixels[:]
 
-    tangent_vector = Vector(tangent)
+    #tangent_vector = Vector(tangent)
 
     if flip_y:
         flip = -1
@@ -434,9 +434,13 @@ def convert_flow_to_normal(flow_image: bpy.types.Image, normal_image: bpy.types.
         flow_vector = Vector((flow_pixels[i + 0] * 2 - 1,
                              (flow_pixels[i + 1] * 2 - 1) * flip,
                               flow_pixels[i + 2] * 2 - 1))
+        tangent_vector = Vector((-flow_vector.y, flow_vector.x, 0))
 
         # calculate normal vector
-        normal_vector = tangent_vector.cross(flow_vector).normalized()
+        normal_vector = flow_vector.cross(tangent_vector)
+        normal_vector.x *= 0.35
+        normal_vector.y *= 0.35
+        normal_vector.normalize()
 
         # normal_vector -> rgb
         normal_pixels[i + 0] = (normal_vector[0] + 1) / 2

@@ -80,7 +80,8 @@ def get_node_and_socket_connected_to_input(node, socket):
 
 def has_connected_input(node, socket):
     try:
-        if len(node.inputs[socket].links) > 0:
+        socket : bpy.types.NodeSocket = node.inputs[socket]
+        if socket.is_linked:
             return True
     except:
         pass

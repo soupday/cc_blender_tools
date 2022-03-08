@@ -654,6 +654,8 @@ def connect_skin_shader(obj, mat, mat_json):
 
     nodeutils.clean_unused_image_nodes(nodes)
 
+    fix_sss_method(bsdf)
+
     materials.set_material_alpha(mat, "OPAQUE")
     mat.use_sss_translucency = True
 
@@ -676,6 +678,8 @@ def connect_tongue_shader(obj, mat, mat_json):
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
 
     nodeutils.clean_unused_image_nodes(nodes)
+
+    fix_sss_method(bsdf)
 
     materials.set_material_alpha(mat, "OPAQUE")
     mat.use_sss_translucency = True
@@ -704,6 +708,8 @@ def connect_teeth_shader(obj, mat, mat_json):
         nodeutils.set_node_input(group, "Is Upper Teeth", 0.0)
 
     nodeutils.clean_unused_image_nodes(nodes)
+
+    fix_sss_method(bsdf)
 
     materials.set_material_alpha(mat, "OPAQUE")
     mat.use_sss_translucency = True
@@ -764,6 +770,8 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
 
     nodeutils.clean_unused_image_nodes(nodes)
 
+    fix_sss_method(bsdf)
+
     if mat_cache.is_cornea():
         if prefs.refractive_eyes == "SSR":
             materials.set_material_alpha(mat, "OPAQUE")
@@ -796,14 +804,12 @@ def connect_hair_shader(obj, mat, mat_json):
 
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
-    if prefs.render_target == "CYCLES" and utils.is_blender_version("3.0.0"):
-        # Blender 3.0 defaults to random walk, which does not work well with hair
-        bsdf.subsurface_method = "BURLEY"
-
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
 
     nodeutils.clean_unused_image_nodes(nodes)
+
+    fix_sss_method(bsdf)
 
     materials.set_material_alpha(mat, "HASHED")
     mat.use_sss_translucency = True
@@ -863,7 +869,14 @@ def connect_sss_shader(obj, mat, mat_json):
 
     nodeutils.clean_unused_image_nodes(nodes)
 
+    fix_sss_method(bsdf)
+
     if nodeutils.has_connected_input(group, "Alpha Map"):
         materials.set_material_alpha(mat, "HASHED")
 
 
+def fix_sss_method(bsdf):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    if prefs.render_target == "CYCLES" and utils.is_blender_version("3.0.0"):
+        # Blender 3.0 defaults to random walk, which does not work well with hair
+        bsdf.subsurface_method = "BURLEY"

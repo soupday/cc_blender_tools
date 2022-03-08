@@ -18,12 +18,54 @@ import os
 import shutil
 
 import bpy
+from filecmp import cmp
 
-from . import bake, shaders, nodeutils, jsonutils, utils, params
+from . import bake, shaders, modifiers, nodeutils, jsonutils, utils, params, vars
 
 UNPACK_INDEX = 1001
 
-def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
+
+def remove_modifiers_for_export(chr_cache, objects):
+    obj : bpy.types.Object
+    for obj in objects:
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache.object_type == "OCCLUSION" or obj_cache.object_type == "TEARLINE" or obj_cache.object_type == "EYE":
+            mod : bpy.types.Modifier
+            for mod in obj.modifiers:
+                if vars.NODE_PREFIX in mod.name:
+                    obj.modifiers.remove(mod)
+
+
+def restore_modifiers(chr_cache, objects):
+    obj : bpy.types.Object
+    for obj in objects:
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache.object_type == "OCCLUSION":
+            modifiers.add_eye_occlusion_modifiers(obj)
+        elif obj_cache.object_type == "TEARLINE":
+            modifiers.add_tearline_modifiers(obj)
+        elif obj_cache.object_type == "EYE":
+            modifiers.add_eye_modifiers(obj)
+
+
+def rescale_for_unity(chr_cache, objects):
+    """Do not use. Causes more problems than it solves..."""
+    if utils.set_mode("OBJECT"):
+        arm : bpy.types.Object = chr_cache.get_armature()
+        if arm.scale != 1.0:
+            utils.try_select_object(arm, True)
+            bpy.ops.object.transform_apply(location = False, rotation = False, scale = True, properties = False)
+        object_list = []
+        obj : bpy.types.Object
+        for obj in objects:
+            if obj.type == "MESH" and obj.scale != 1.0:
+                object_list.append(obj)
+        if len(object_list) > 0:
+            utils.try_select_objects(object_list, True)
+            bpy.ops.object.transform_apply(location = False, rotation = False, scale = True, properties = False)
+
+
+def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     if not chr_cache or not json_data:
@@ -95,6 +137,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path):
 
                 mesh_name = obj.data.name
 
+                # object name may have been changed by Blender
                 if obj_name != obj_source_name or mesh_name != obj_source_name:
                     utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
                     obj.name = obj_source_name
@@ -165,6 +208,142 @@ def remap_texture_path(tex_info, old_path, new_path):
         abs_path = os.path.join(old_path, tex_path)
         rel_path = utils.relpath(abs_path, new_path)
         tex_info["Texture Path"] = os.path.normpath(rel_path)
+    return
+
+
+def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_path):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    # remove everything not part of the character
+    if prefs.export_unity_remove_objects:
+        arm = chr_cache.get_armature()
+        for obj in bpy.data.objects:
+            if obj != arm and obj.parent != arm and not chr_cache.has_object(obj):
+                bpy.data.objects.remove(obj)
+
+    if not chr_cache or not json_data:
+        return None
+
+    # if the old import dir path does not exist, try using the current blend file path instead.
+    if not os.path.exists(old_path):
+        old_path = utils.local_path("//")
+
+    changes = []
+
+    if new_name != chr_cache.import_name:
+        # rename the object and character keys
+        json_data[chr_cache.import_name]["Object"][new_name] = json_data[chr_cache.import_name]["Object"].pop(chr_cache.character_id)
+        json_data[new_name] = json_data.pop(chr_cache.import_name)
+
+    chr_json = json_data[new_name]["Object"][new_name]
+
+    json_data[new_name]["Blender_Project"] = True
+
+    # unpack embedded textures.
+    if chr_cache.import_embedded:
+        unpack_embedded_textures(chr_cache, chr_json, objects, old_path)
+
+    obj : bpy.types.Object
+    for obj in objects:
+        obj_json = jsonutils.get_object_json(chr_json, obj)
+        obj_cache = chr_cache.get_object_cache(obj)
+        obj_name = obj.name
+        obj_source_name = utils.strip_name(obj.name)
+
+        # add blank object json data if user added mesh
+        if obj_cache and obj_cache.user_added:
+            obj_json = params.JSON_MESH_DATA.copy()
+            chr_json["Meshes"][obj_source_name] = obj_json
+
+        if obj_json and utils.still_exists(obj):
+
+            if obj.type == "MESH":
+
+                mesh_name = obj.data.name
+
+                # object name may have been changed by Blender
+                if obj_name != obj_source_name or mesh_name != obj_source_name:
+                    utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
+                    obj.name = obj_source_name
+                    obj.data.name = obj_source_name
+                    changes.append(["OBJECT_RENAME", obj, obj_name, mesh_name])
+
+                for slot in obj.material_slots:
+                    mat = slot.material
+                    mat_name = mat.name
+                    mat_source_name = utils.strip_name(mat.name)
+                    # if the material name has duplicate suffix, generate a new name and
+                    # update the json with the new name:
+                    if mat_name != mat_source_name:
+                        utils.log_info(f"Removing blender duplication suffix from material: {mat_name}")
+                        new_mat_name = utils.make_unique_name(mat_source_name, bpy.data.materials.keys())
+                        if mat_source_name in obj_json["Materials"].keys():
+                            utils.log_info(f"Updating material json name: {mat_source_name} to {new_mat_name}")
+                            obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(mat_source_name)
+                        mat.name = new_mat_name
+                        mat_name = new_mat_name
+                        mat_source_name = new_mat_name
+                    mat_json = obj_json["Materials"][mat_name]
+                    # update the json parameters with any changes
+                    mat_cache = chr_cache.get_material_cache(mat)
+                    if mat_cache:
+                        if mat_cache.user_added:
+                            # add new material json data if user added
+                            mat_json = params.JSON_PBR_MATERIAL.copy()
+                            obj_json["Materials"][mat_source_name] = mat_json
+                        if prefs.export_json_changes:
+                            write_back_json(mat_json, mat, mat_cache)
+                        if prefs.export_texture_changes:
+                            write_back_textures(mat_json, mat, mat_cache, old_path)
+                    if mat_json:
+                        # when saving the export to a new location, the texture paths need to point back to the
+                        # original texture locations, either by new relative paths or absolute paths
+                        # pbr textures:
+                        for channel in mat_json["Textures"].keys():
+                            update_texture_path(mat_json["Textures"][channel], old_path, new_path, chr_cache.import_name, new_name)
+                        # custom shader textures:
+                        if "Custom Shader" in mat_json.keys():
+                            for channel in mat_json["Custom Shader"]["Image"].keys():
+                                update_texture_path(mat_json["Custom Shader"]["Image"][channel], old_path, new_path, chr_cache.import_name, new_name)
+
+    # as the baking system can deselect everything, reselect the export objects here.
+    utils.try_select_objects(objects, True)
+    return changes
+
+
+def update_texture_path(tex_info, old_path, new_path, old_name, new_name):
+    """keep the same relative folder structure and copy the textures to their target folder.
+       update the images in the blend file with the new location."""
+    tex_path : str = tex_info["Texture Path"]
+    old_abs_path = os.path.normpath(bpy.path.abspath(os.path.join(old_path, tex_path)))
+    if old_name != new_name:
+        tex_path = os.path.normpath(tex_path)
+        sep = os.path.sep
+        tex_path = tex_path.replace(f"textures{sep}{old_name}{sep}{old_name}{sep}", f"textures{sep}{new_name}{sep}{new_name}{sep}")
+        tex_path = tex_path.replace(f"textures{sep}{old_name}{sep}", f"textures{sep}{new_name}{sep}")
+        tex_path = tex_path.replace(f"{old_name}.fbm{sep}", f"{new_name}.fbm{sep}")
+        tex_info["Texture Path"] = tex_path
+        utils.log_info("Changing path to: " + tex_path)
+    new_abs_path = os.path.normpath(bpy.path.abspath(os.path.join(new_path, tex_path)))
+
+    copy_file = False
+    if os.path.exists(old_abs_path):
+        if os.path.exists(new_abs_path):
+            if not cmp(old_abs_path, new_abs_path):
+                copy_file = True
+        else:
+            copy_file = True
+
+    if copy_file:
+        # make sure path exists
+        dir_path = os.path.dirname(new_abs_path)
+        os.makedirs(dir_path, exist_ok=True)
+        # copy the texture
+        shutil.copyfile(old_abs_path, new_abs_path)
+        image : bpy.types.Image
+        for image in bpy.data.images:
+            if image and image.filepath and os.path.samefile(bpy.path.abspath(image.filepath), old_abs_path):
+                image.filepath_raw = new_abs_path
     return
 
 
@@ -264,6 +443,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
 
                 tex_info = None
 
+                # find or generate tex_info json.
                 if is_pbr:
                     if tex_id in mat_json["Textures"]:
                         tex_info = mat_json["Textures"][tex_id]
@@ -281,7 +461,8 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path):
                         tex_info = params.JSON_CUSTOM_TEX_INFO.copy()
                         mat_json["Custom Shader"]["Image"][tex_id] = tex_info
 
-                # if bump and normal are connect and we are combining them, remove bump maps from the Json and don't process it:
+                # if bump and normal are connected and we are combining them,
+                # remove bump maps from the Json and don't process it:
                 if tex_info and tex_type == "BUMP" and bump_combining:
                     tex_info = None
                     del mat_json["Textures"][tex_id]
@@ -423,7 +604,7 @@ class CC3Export(bpy.types.Operator):
     filename_ext = ".fbx"  # ExportHelper mixin class uses this
 
     filter_glob: bpy.props.StringProperty(
-        default="*.fbx;*.obj",
+        default="*.fbx;*.obj;*.blend",
         options={"HIDDEN"},
         )
 
@@ -471,10 +652,14 @@ class CC3Export(bpy.types.Operator):
                             p.object.hide_set(False)
                             utils.try_select_object(p.object)
 
+                objects = bpy.context.selected_objects.copy()
+
                 utils.log_info("Preparing character for export:")
                 utils.log_indent()
 
-                export_changes = prep_export(chr_cache, name, bpy.context.selected_objects, json_data, chr_cache.import_dir, dir)
+                remove_modifiers_for_export(chr_cache, objects)
+
+                export_changes = prep_export_cc3(chr_cache, name, objects, json_data, chr_cache.import_dir, dir)
 
                 bpy.ops.export_scene.fbx(filepath=self.filepath,
                         use_selection = True,
@@ -507,6 +692,8 @@ class CC3Export(bpy.types.Operator):
                     jsonutils.write_json(json_data, new_json_path)
 
                 restore_export(export_changes)
+
+                restore_modifiers(chr_cache, objects)
 
             else:
 
@@ -558,6 +745,162 @@ class CC3Export(bpy.types.Operator):
             utils.log_recess()
             utils.log_timer("Done Character Export.")
 
+
+        elif chr_cache and self.param == "EXPORT_UNITY":
+
+            utils.start_timer()
+
+            utils.log_info("")
+            utils.log_info("Exporting Character Model to UNITY:")
+            utils.log_info("-----------------------------------")
+
+            export_anim = False
+            dir, name = os.path.split(self.filepath)
+            name, type = os.path.splitext(name)
+
+            json_data = chr_cache.get_json_data()
+
+            utils.log_info("Preparing character for export:")
+            utils.log_indent()
+
+            # select all the objects in the character (or try to)
+            utils.clear_selected_objects()
+            for p in chr_cache.object_cache:
+                if utils.still_exists(p.object):
+                    if p.object.type == "ARMATURE":
+                        p.object.hide_set(False)
+                        utils.try_select_child_objects(p.object)
+                    else:
+                        p.object.hide_set(False)
+                        utils.try_select_object(p.object)
+
+            objects = bpy.context.selected_objects.copy()
+
+            remove_modifiers_for_export(chr_cache, objects)
+            #rescale_for_unity(chr_cache, objects)
+
+            prep_export_unity(chr_cache, name, objects, json_data, chr_cache.import_dir, dir)
+
+            # store Unity project paths
+            props.unity_file_path = self.filepath
+            props.unity_project_path = utils.search_up_path(self.filepath, "Assets")
+
+            if type == ".fbx":
+
+                # export as fbx
+                bpy.ops.export_scene.fbx(filepath=self.filepath,
+                        use_selection = True,
+                        bake_anim = export_anim,
+                        add_leaf_bones = False,
+                        use_mesh_modifiers = False)
+
+            elif type == ".blend":
+
+                # save blend file at filepath
+                if not utils.is_same_path(utils.local_path, self.filepath):
+                    bpy.ops.wm.save_as_mainfile(filepath=self.filepath)
+                bpy.ops.file.make_paths_relative()
+                bpy.ops.wm.save_as_mainfile(filepath=self.filepath)
+
+            # copy fbxkey
+            if chr_cache.import_has_key:
+                try:
+                    old_key_path = chr_cache.import_key_file
+                    if not os.path.exists(old_key_path):
+                        old_key_path = utils.local_path(chr_cache.import_name + ".fbxkey")
+                    if os.path.exists(old_key_path):
+                        key_dir, key_file = os.path.split(old_key_path)
+                        old_name, key_type = os.path.splitext(key_file)
+                        new_key_path = os.path.join(dir, name + key_type)
+                        if not utils.is_same_path(new_key_path, old_key_path):
+                            shutil.copyfile(old_key_path, new_key_path)
+                except Exception as e:
+                    utils.log_error("Unable to copy keyfile: " + old_key_path + " to: " + new_key_path, e)
+
+            utils.log_recess()
+            utils.log_info("")
+            utils.log_info("Writing Json Data.")
+
+            if json_data:
+                new_json_path = os.path.join(dir, name + ".json")
+                jsonutils.write_json(json_data, new_json_path)
+
+            chr_cache.change_import_file(name, self.filepath)
+
+            # we cannot restore these modifiers for a unity project...
+            #restore_modifiers(chr_cache, objects)
+
+            utils.log_recess()
+            utils.log_timer("Done Character Export.")
+
+        elif self.param == "UPDATE_UNITY":
+
+            utils.start_timer()
+
+            utils.log_info("")
+            utils.log_info("Updating Character Model for UNITY:")
+            utils.log_info("-----------------------------------")
+
+            # update the file path (it may have been moved inside the unity project)
+            if props.unity_file_path.lower().endswith(".fbx"):
+                pass
+            else:
+                props.unity_file_path = bpy.data.filepath
+
+            dir, name = os.path.split(props.unity_file_path)
+            name, type = os.path.splitext(name)
+
+            json_data = chr_cache.get_json_data()
+
+            utils.log_info("Preparing character for export:")
+            utils.log_indent()
+
+            # select all the objects in the character (or try to)
+            utils.clear_selected_objects()
+            for p in chr_cache.object_cache:
+                if utils.still_exists(p.object):
+                    if p.object.type == "ARMATURE":
+                        p.object.hide_set(False)
+                        utils.try_select_child_objects(p.object)
+                    else:
+                        p.object.hide_set(False)
+                        utils.try_select_object(p.object)
+
+            objects = bpy.context.selected_objects.copy()
+
+            remove_modifiers_for_export(chr_cache, objects)
+
+            prep_export_unity(chr_cache, name, objects, json_data, chr_cache.import_dir, dir)
+
+            print("TYPE = " + type)
+
+            if type == ".fbx":
+
+                # export as fbx
+                bpy.ops.export_scene.fbx(filepath=props.unity_file_path,
+                        use_selection = True,
+                        bake_anim = export_anim,
+                        add_leaf_bones = False,
+                        use_mesh_modifiers = False)
+
+            elif type == ".blend":
+
+                # save blend file at filepath
+                bpy.ops.file.make_paths_relative()
+                bpy.ops.wm.save_mainfile()
+
+            utils.log_recess()
+            utils.log_info("")
+            utils.log_info("Writing Json Data.")
+
+            if json_data:
+                new_json_path = os.path.join(dir, name + ".json")
+                jsonutils.write_json(json_data, new_json_path)
+
+            utils.log_recess()
+            utils.log_timer("Done Character Export.")
+
+
         elif self.param == "EXPORT_ACCESSORY":
             dir, name = os.path.split(self.filepath)
             type = name[-3:].lower()
@@ -592,11 +935,17 @@ class CC3Export(bpy.types.Operator):
 
 
     def invoke(self, context, event):
+
+        if self.param == "UPDATE_UNITY":
+            return self.execute(context)
+
         props = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
         self.filename_ext = ".fbx"
         if chr_cache:
             self.filename_ext = "." + chr_cache.import_type
+            if self.param == "EXPORT_UNITY":
+                self.filename_ext = ".blend"
 
         if self.filename_ext == ".none":
             return {"FINISHED"}
@@ -635,6 +984,8 @@ class CC3Export(bpy.types.Operator):
 
         if properties.param == "EXPORT_CC3":
             return "Export full character to import back into CC3"
+        elif properties.param == "EXPORT_UNITY":
+            return "Export to / Save in Unity project"
         elif properties.param == "EXPORT_ACCESSORY":
             return "Export selected object(s) for import into CC3 as accessories"
         return ""

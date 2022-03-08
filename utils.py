@@ -140,9 +140,10 @@ def is_same_path(pa, pb):
         return False
 
 
-def is_in_path(pa, pb):
+def is_in_path(a, b):
+    """Is path a in path b"""
     try:
-        return os.path.normcase(os.path.realpath(pa)) in os.path.normcase(os.path.realpath(pb))
+        return os.path.normcase(os.path.realpath(a)) in os.path.normcase(os.path.realpath(b))
     except:
         return False
 
@@ -167,6 +168,15 @@ def relpath(path, start):
     except ValueError:
         return os.path.abspath(path)
 
+
+def search_up_path(path, folder):
+    path = os.path.normcase(path)
+    dir : str = os.path.dirname(path)
+    if dir == path or dir == "" or dir is None:
+        return ""
+    elif dir.lower().endswith(os.path.sep + folder.lower()):
+        return dir
+    return search_up_path(dir, folder)
 
 
 def object_has_material(obj, name):
@@ -500,7 +510,9 @@ def try_select_child_objects(obj):
         return False
 
 
-def try_select_object(obj):
+def try_select_object(obj, clear_selection = False):
+    if clear_selection:
+        clear_selected_objects()
     try:
         obj.select_set(True)
         return True

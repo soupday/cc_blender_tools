@@ -913,11 +913,23 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Exporting", icon="EXPORT")
+        # export to CC3
         row = layout.row()
         row.scale_y = 2
         op = row.operator("cc3.exporter", icon="MOD_ARMATURE", text="Export To CC3")
         op.param = "EXPORT_CC3"
         if not chr_cache or not chr_cache.import_has_key:
+            row.enabled = False
+        # export to Unity
+        row = layout.row()
+        row.scale_y = 2
+        if not props.is_unity_project():
+            op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
+            op.param = "EXPORT_UNITY"
+        else:
+            op = row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project")
+            op.param = "UPDATE_UNITY"
+        if not chr_cache:
             row.enabled = False
         # export prefs
         box = layout.box()
