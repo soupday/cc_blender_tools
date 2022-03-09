@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy
+import bpy, os
 
 from . import channel_mixer, imageutils, meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
@@ -1343,10 +1343,14 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         json_data = jsonutils.read_json(self.import_file)
         return json_data
 
-    def change_import_file(self, name, filepath):
+    def change_import_file(self, filepath):
+        dir, file = os.path.split(filepath)
+        name, type = os.path.splitext(file)
         self.import_name = name
+        self.character_id = name
         self.import_file = filepath
-
+        self.import_dir = dir
+        self.import_main_tex_dir = os.path.join(dir, name + ".fbm")
 
     def get_character_json(self):
         json_data = self.get_json_data()
@@ -1520,7 +1524,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         return None
 
     def is_unity_project(self):
-        if self.unity_file_path and self.unity_project_path:
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        if prefs.export_unity_mode == "BLEND" and self.unity_file_path and self.unity_project_path:
             if utils.is_in_path(self.unity_project_path, utils.local_path()):
                 return True
         return False
