@@ -148,6 +148,12 @@ def is_in_path(a, b):
         return False
 
 
+def path_is_parent(parent_path, child_path):
+    parent_path = os.path.abspath(parent_path)
+    child_path = os.path.abspath(child_path)
+    return os.path.commonpath([parent_path]) == os.path.commonpath([parent_path, child_path])
+
+
 def local_repath(path, original_start):
     """Takes the path relative to the original_start and makes
        it relative to the blend file location instead.

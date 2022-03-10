@@ -236,7 +236,7 @@ def bake_output(mat, source_node, source_socket, image, image_name):
     nodes.active = image_node
     bpy.ops.object.bake(type='COMBINED')
 
-    image.save_render(filepath = image.filepath, scene = bpy.context.scene)
+    image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
     image.reload()
 
     post_bake()
@@ -320,7 +320,7 @@ def get_image_target(image_name, width, height, dir, data = True, alpha = False)
     for img in bpy.data.images:
         if img and img.name == image_name:
 
-            img_path, img_file = os.path.split(img.filepath)
+            img_path, img_file = os.path.split(bpy.path.abspath(img.filepath))
             same_path = False
             try:
                 if os.path.samefile(dir, img_path):
