@@ -334,7 +334,7 @@ def update_texture_path(tex_info, old_path, new_path, old_name, new_name, as_ble
         else:
             # otherwise put the textures in folders in the textures/CHARACTER_NAME/extras/MATERIAL_NAME/ folder
             dir, file = os.path.split(tex_path)
-            extras_dir = f"textures{sep}{new_name}{sep}extras{sep}{mat_name}"
+            extras_dir = f"textures{sep}{new_name}{sep}Blender_Extras{sep}{mat_name}"
             tex_path = os.path.join(extras_dir, file)
             tex_info["Texture Path"] = tex_path
             utils.log_info("Texture outside character folders, updating Json texture path to: " + tex_path)
@@ -437,7 +437,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name):
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
     has_custom_shader = "Custom Shader" in mat_json.keys()
     unpack_path = os.path.join(old_path, "Unpack")
-    bake_path = os.path.join(old_path, "textures", old_name, "Bake")
+    bake_path = os.path.join(old_path, "textures", old_name, "Blender_Baked")
     bake.init_bake()
     UNPACK_INDEX = 1001
 
