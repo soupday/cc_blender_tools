@@ -37,6 +37,7 @@ Links
 - Round-trip/Unity export additions and fixes.
     - Added baking raw metallic and roughness values into textures, when no textures connected, when exporting.
     - Modifiers removed from eye parts when exporting that prevented exporting blend shapes.
+    - Modifiers applied on FBX exports.
     - Armature set to Pose mode on export, otherwise skeleton/bind-pose imports to CC3 incorrectly.
     - Some file path fixes when baking new textures with exports.
 - Fixed skin micro-smoothness calculation causing smoothness seams between head and body materials.
