@@ -80,7 +80,8 @@ def get_node_and_socket_connected_to_input(node, socket):
 
 def has_connected_input(node, socket):
     try:
-        if len(node.inputs[socket].links) > 0:
+        socket : bpy.types.NodeSocket = node.inputs[socket]
+        if socket.is_linked:
             return True
     except:
         pass
@@ -533,7 +534,7 @@ def get_image_node_mapping(image_node):
     location = (0,0,0)
     rotation = (0,0,0)
     scale = (1,1,1)
-    if image_node.type == "TEX_IMAGE":
+    if image_node and image_node.type == "TEX_IMAGE":
         mapping_node = get_node_connected_to_input(image_node, "Vector")
         if mapping_node:
             if mapping_node.type == "MAPPING":

@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy
+import bpy, os
 
 from . import channel_mixer, imageutils, meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
@@ -499,11 +499,11 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
                                 update=lambda s,c: update_property(s,c,"skin_subsurface_falloff"))
     skin_subsurface_radius: bpy.props.FloatProperty(default=1.5, min=0, max=3, update=lambda s,c: update_property(s,c,"skin_subsurface_radius"))
     skin_specular_scale: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular_scale"))
-    skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
-    skin_roughness_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_min"))
+    skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0.01, max=2, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
+    skin_roughness_min: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_min"))
     skin_roughness_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_max"))
     skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
-    skin_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_micronormal_strength"))
+    skin_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_micro_normal_strength"))
     skin_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_subsurface_scale"))
     skin_unmasked_scatter_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_unmasked_scatter_scale"))
     skin_r_scatter_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_r_scatter_scale"))
@@ -1127,7 +1127,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_all_objects(self, include_armature = True):
         objects = []
         for cache in self.object_cache:
-            if cache.object.type == "ARMATURE":
+            if cache.object and cache.object.type == "ARMATURE":
                 if include_armature:
                     objects.append(cache.object)
             else:
@@ -1210,10 +1210,18 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 return True
         return False
 
+    def has_object(self, obj):
+        """Returns True if any of the objects are in the object cache.
+        """
+        for cache in self.object_cache:
+            if cache.object == obj:
+                return True
+        return False
+
     def get_armature(self):
         try:
             for obj_cache in self.object_cache:
-                if obj_cache.object.type == "ARMATURE":
+                if obj_cache.object and obj_cache.object.type == "ARMATURE":
                     return obj_cache.object
         except:
             pass
@@ -1335,6 +1343,15 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         json_data = jsonutils.read_json(self.import_file)
         return json_data
 
+    def change_import_file(self, filepath):
+        dir, file = os.path.split(filepath)
+        name, type = os.path.splitext(file)
+        self.import_name = name
+        self.character_id = name
+        self.import_file = filepath
+        self.import_dir = dir
+        self.import_main_tex_dir = os.path.join(dir, name + ".fbm")
+
     def get_character_json(self):
         json_data = self.get_json_data()
         return jsonutils.get_character_json(json_data, self.import_name, self.character_id)
@@ -1406,6 +1423,9 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     dummy_slider: bpy.props.FloatProperty(default=0.5, min=0, max=1)
 
+    unity_file_path: bpy.props.StringProperty(default="", subtype="FILE_PATH")
+    unity_project_path: bpy.props.StringProperty(default="", subtype="FILE_PATH")
+
     physics_paint_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=physics.physics_paint_strength_update)
     weight_map_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=physics.weight_strength_update)
     physics_tex_size: bpy.props.EnumProperty(items=[
@@ -1417,7 +1437,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("2048","2048 x 2048","2048 x 2048 texture size"),
                         ("4096","4096 x 4096","4096 x 4096 texture size"),
                     ], default="1024")
-
 
 
     paint_object: bpy.props.PointerProperty(type=bpy.types.Object)
@@ -1503,3 +1522,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                 if mat_cache:
                     return mat_cache
         return None
+
+    def is_unity_project(self):
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        if prefs.export_unity_mode == "BLEND" and self.unity_file_path and self.unity_project_path:
+            if utils.is_in_path(self.unity_project_path, utils.local_path()):
+                return True
+        return False

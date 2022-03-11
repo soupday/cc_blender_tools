@@ -32,6 +32,19 @@ Links
 
 ## Changelog
 
+### 1.2.0
+- Added initial export to Unity project function.
+- Round-trip/Unity export additions and fixes.
+    - Added baking raw metallic and roughness values into textures, when no textures connected, when exporting.
+    - Modifiers removed from eye parts when exporting that prevented exporting blend shapes.
+    - Modifiers applied on FBX exports.
+    - Armature set to Pose mode on export, otherwise skeleton/bind-pose imports to CC3 incorrectly.
+    - Some file path fixes when baking new textures with exports.
+- Fixed skin micro-smoothness calculation causing smoothness seams between head and body materials.
+- Fixed UI updating wrong unmasked micro smoothness parameter.
+- Blender 3.0+ subsurface scattering method set to Christensen-Burley, rather than Random-Walk, which does not work well with hair transparencies.
+- Color mixers for actor core/color masked materials prevented from generating negative/zero color values which could affect diffuse lighting.
+
 ### 1.1.9
 - Fixed PBR eye material crash.
 
