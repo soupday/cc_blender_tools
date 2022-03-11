@@ -534,7 +534,7 @@ def get_image_node_mapping(image_node):
     location = (0,0,0)
     rotation = (0,0,0)
     scale = (1,1,1)
-    if image_node.type == "TEX_IMAGE":
+    if image_node and image_node.type == "TEX_IMAGE":
         mapping_node = get_node_connected_to_input(image_node, "Vector")
         if mapping_node:
             if mapping_node.type == "MAPPING":

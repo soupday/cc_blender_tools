@@ -26,6 +26,9 @@ UNPACK_INDEX = 1001
 
 
 def remove_modifiers_for_export(chr_cache, objects):
+    arm = chr_cache.get_armature()
+    if arm:
+        arm.data.pose_position = "POSE"
     obj : bpy.types.Object
     for obj in objects:
         obj_cache = chr_cache.get_object_cache(obj)
@@ -159,7 +162,7 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
                         if prefs.export_json_changes:
                             write_back_json(mat_json, mat, mat_cache)
                         if prefs.export_texture_changes:
-                            write_back_textures(mat_json, mat, mat_cache, old_path, chr_cache.import_name)
+                            write_back_textures(mat_json, mat, mat_cache, old_path, chr_cache.import_name, True)
                     if mat_json:
                         # replace duplicate materials with a reference to a single source material
                         # (this is to ensure there are no duplicate suffixes in the fbx export)
@@ -296,7 +299,7 @@ def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_pat
                         if prefs.export_json_changes:
                             write_back_json(mat_json, mat, mat_cache)
                         if prefs.export_texture_changes:
-                            write_back_textures(mat_json, mat, mat_cache, old_path, chr_cache.import_name)
+                            write_back_textures(mat_json, mat, mat_cache, old_path, chr_cache.import_name, True)
                     if mat_json:
                         # when saving the export to a new location, the texture paths need to point back to the
                         # original texture locations, either by new relative paths or absolute paths
@@ -425,7 +428,7 @@ def write_back_json(mat_json, mat, mat_cache):
                 jsonutils.set_material_json_var(mat_json, json_var, json_value)
 
 
-def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name):
+def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bake_values):
     global UNPACK_INDEX
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -461,12 +464,35 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name):
                 tex_node = nodeutils.get_node_connected_to_input(shader_node, shader_socket)
 
                 tex_info = None
+                bake_shader_output = False
+                bake_shader_socket = ""
+                bake_shader_size = 64
 
                 # find or generate tex_info json.
                 if is_pbr:
+                    # CC3 cannot set metallic or roughness values with no texture, so must bake a small value texture
+                    if not tex_node and prefs.export_bake_nodes:
+                        if tex_type == "ROUGHNESS":
+                            roughness = nodeutils.get_node_input(shader_node, "Roughness Map", 0)
+                            roughness_min = nodeutils.get_node_input(shader_node, "Roughness Min", 0)
+                            if bake_values and roughness > 0 and roughness_min > 0:
+                                bake_shader_output = True
+                                bake_shader_socket = "Roughness"
+                            elif not bake_values:
+                                mat_json["Roughness_Value"] = roughness
+
+                        elif tex_type == "METALLIC":
+                            metallic = nodeutils.get_node_input(shader_node, "Metallic Map", 0)
+                            if bake_values and metallic > 0:
+                                bake_shader_output = True
+                                bake_shader_socket = "Metallic"
+                            elif not bake_values:
+                                mat_json["Metallic_Value"] = metallic
+
                     if tex_id in mat_json["Textures"]:
                         tex_info = mat_json["Textures"][tex_id]
-                    elif tex_node:
+
+                    elif tex_node or bake_shader_output:
                         tex_info = params.JSON_PBR_TEX_INFO.copy()
                         location, rotation, scale = nodeutils.get_image_node_mapping(tex_node)
                         tex_info["Tiling"] = [scale[0], scale[1]]
@@ -488,10 +514,14 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name):
 
                 if tex_info:
 
-                    if tex_node:
+                    if tex_node or bake_shader_output:
 
                         image : bpy.types.Image = None
-                        if tex_node.type == "TEX_IMAGE":
+
+                        if bake_shader_output:
+                            image = bake.bake_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, bake_shader_size)
+
+                        elif tex_node and tex_node.type == "TEX_IMAGE":
                             if prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
                                 image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, bake_path)
                             else:
@@ -685,7 +715,7 @@ class CC3Export(bpy.types.Operator):
                         use_selection = True,
                         bake_anim = export_anim,
                         add_leaf_bones = False,
-                        use_mesh_modifiers = False)
+                        use_mesh_modifiers = True)
 
                 utils.log_recess()
                 utils.log_info("")
@@ -732,7 +762,7 @@ class CC3Export(bpy.types.Operator):
                     use_materials = False,
                     keep_vertex_order = True,
                     use_vertex_groups = True,
-                    use_mesh_modifiers = False)
+                    use_mesh_modifiers = True)
 
                 # export options for full obj character
                 #bpy.ops.export_scene.obj(filepath=self.filepath,
@@ -818,7 +848,7 @@ class CC3Export(bpy.types.Operator):
                         use_selection = True,
                         bake_anim = export_anim,
                         add_leaf_bones = False,
-                        use_mesh_modifiers = False)
+                        use_mesh_modifiers = True)
 
                 restore_modifiers(chr_cache, objects)
 
@@ -911,7 +941,7 @@ class CC3Export(bpy.types.Operator):
                         use_selection = True,
                         bake_anim = export_anim,
                         add_leaf_bones = False,
-                        use_mesh_modifiers = False)
+                        use_mesh_modifiers = True)
 
                 restore_modifiers(chr_cache, objects)
 

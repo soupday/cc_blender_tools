@@ -1127,7 +1127,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_all_objects(self, include_armature = True):
         objects = []
         for cache in self.object_cache:
-            if cache.object.type == "ARMATURE":
+            if cache.object and cache.object.type == "ARMATURE":
                 if include_armature:
                     objects.append(cache.object)
             else:
@@ -1221,7 +1221,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_armature(self):
         try:
             for obj_cache in self.object_cache:
-                if obj_cache.object.type == "ARMATURE":
+                if obj_cache.object and obj_cache.object.type == "ARMATURE":
                     return obj_cache.object
         except:
             pass

@@ -80,7 +80,7 @@ def post_bake():
     bpy.context.scene.sequencer_colorspace_settings.name = old_colorspace
 
 
-def bake_socket_input(node, socket_name, mat, channel_id, bake_dir):
+def bake_socket_input(node, socket_name, mat, channel_id, bake_dir, override_size = 0):
     global BAKE_INDEX
 
     # determine the size of the image to bake onto
@@ -89,6 +89,9 @@ def bake_socket_input(node, socket_name, mat, channel_id, bake_dir):
         width = 1024
     if height == 0:
         height = 1024
+    if override_size > 0:
+        width = override_size
+        height = override_size
 
     # determine image name and color space
     image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
