@@ -35,8 +35,8 @@ Links
 ### 1.2.0
 - Added initial export to Unity project function.
 - Round-trip/Unity export additions and fixes.
-    - Added baking metallic and roughness values into textures for round-trip export.
-    - Modifiers removed from eye parts on export that prevented exporting blend shapes.
+    - Added baking raw metallic and roughness values into textures, when no textures connected, when exporting.
+    - Modifiers removed from eye parts when exporting that prevented exporting blend shapes.
     - Armature set to Pose mode on export, otherwise skeleton/bind-pose imports to CC3 incorrectly.
     - Some file path fixes when baking new textures with exports.
 - Fixed skin micro-smoothness calculation causing smoothness seams between head and body materials.
