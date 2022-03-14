@@ -15,6 +15,7 @@
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
+from re import L
 import shutil
 
 import bpy
@@ -25,6 +26,55 @@ from . import bake, shaders, modifiers, nodeutils, jsonutils, utils, params, var
 UNPACK_INDEX = 1001
 
 
+def check_valid_export_fbx(chr_cache, objects):
+
+    report = []
+    check_valid = True
+    check_warn = False
+    arm = chr_cache.get_armature()
+
+    obj : bpy.types.Object
+    for obj in objects:
+        if obj != arm and utils.object_exists_in_scenes(obj):
+            if obj.type != "MESH":
+                message = f"ERROR: Object: {obj.name} is not a mesh!"
+                report.append(message)
+                utils.log_warn(message)
+                check_valid = False
+            if obj.parent != arm:
+                message = f"ERROR: Object: {obj.name} is not parented to character armature."
+                report.append(message)
+                utils.log_warn(message)
+                check_valid = False
+            armature_mode : bpy.types.ArmatureModifier
+            armature_mod = modifiers.get_object_modifier(obj, "ARMATURE")
+            if armature_mod is None:
+                message = f"ERROR: Object: {obj.name} does not have an armature modifier."
+                report.append(message)
+                utils.log_warn(message)
+                check_valid = False
+            if armature_mod and armature_mod.object != arm:
+                message = f"ERROR: Object: {obj.name}'s armature modifier is not set to this character's armature."
+                report.append(message)
+                utils.log_warn(message)
+                check_valid = False
+            if len(obj.vertex_groups) == 0:
+                message = f"WARNING: Object: {obj.name} has no vertex groups."
+                report.append(message)
+                utils.log_warn(message)
+                check_warn = True
+            if obj.type == "MESH" and obj.data and len(obj.data.vertices) < 150:
+                message = f"WARNING: Object: {obj.name} has a low number of vertices (less than 150), this is can cause CTD issues with CC3's importer."
+                report.append(message)
+                utils.log_warn(message)
+                message = f" (if CC3 crashes when importing this character, consider increasing vertex count or joining this object to another.)"
+                report.append(message)
+                utils.log_warn(message)
+                check_warn = True
+
+    return check_valid, check_warn, report
+
+
 def remove_modifiers_for_export(chr_cache, objects):
     arm = chr_cache.get_armature()
     if arm:
@@ -32,23 +82,25 @@ def remove_modifiers_for_export(chr_cache, objects):
     obj : bpy.types.Object
     for obj in objects:
         obj_cache = chr_cache.get_object_cache(obj)
-        if obj_cache.object_type == "OCCLUSION" or obj_cache.object_type == "TEARLINE" or obj_cache.object_type == "EYE":
-            mod : bpy.types.Modifier
-            for mod in obj.modifiers:
-                if vars.NODE_PREFIX in mod.name:
-                    obj.modifiers.remove(mod)
+        if obj_cache:
+            if obj_cache.object_type == "OCCLUSION" or obj_cache.object_type == "TEARLINE" or obj_cache.object_type == "EYE":
+                mod : bpy.types.Modifier
+                for mod in obj.modifiers:
+                    if vars.NODE_PREFIX in mod.name:
+                        obj.modifiers.remove(mod)
 
 
 def restore_modifiers(chr_cache, objects):
     obj : bpy.types.Object
     for obj in objects:
         obj_cache = chr_cache.get_object_cache(obj)
-        if obj_cache.object_type == "OCCLUSION":
-            modifiers.add_eye_occlusion_modifiers(obj)
-        elif obj_cache.object_type == "TEARLINE":
-            modifiers.add_tearline_modifiers(obj)
-        elif obj_cache.object_type == "EYE":
-            modifiers.add_eye_modifiers(obj)
+        if obj_cache:
+            if obj_cache.object_type == "OCCLUSION":
+                modifiers.add_eye_occlusion_modifiers(obj)
+            elif obj_cache.object_type == "TEARLINE":
+                modifiers.add_tearline_modifiers(obj)
+            elif obj_cache.object_type == "EYE":
+                modifiers.add_eye_modifiers(obj)
 
 
 def rescale_for_unity(chr_cache, objects):
@@ -637,6 +689,25 @@ def unpack_embedded_textures(chr_cache, chr_json, objects, old_path):
 
 
 
+def get_export_objects(chr_cache, include_selected = True):
+    """Fetch all the objects in the character (or try to)"""
+    objects = []
+    if include_selected:
+        objects = bpy.context.selected_objects.copy()
+    for obj_cache in chr_cache.object_cache:
+        if utils.object_exists_in_scenes(obj_cache.object):
+            if obj_cache.object.type == "ARMATURE":
+                obj_cache.object.hide_set(False)
+                if obj_cache.object not in objects:
+                    objects.append(obj_cache.object)
+            else:
+                obj_cache.object.hide_set(False)
+                if obj_cache.object not in objects:
+                    objects.append(obj_cache.object)
+
+    return objects
+
+
 class CC3Export(bpy.types.Operator):
     """Export CC3 Character"""
     bl_idname = "cc3.exporter"
@@ -665,6 +736,16 @@ class CC3Export(bpy.types.Operator):
 
     use_anim: bpy.props.BoolProperty(name = "Export Animation", default = True)
 
+    check_valid = True
+    check_report = []
+    check_warn = False
+
+    def error_report(self):
+        # error report
+        if not self.check_valid:
+            utils.message_box_multi("Export Check: Invalid Export", "ERROR", self.check_report)
+        elif self.check_warn:
+            utils.message_box_multi("Export Check: Some Warnings", "INFO", self.check_report)
 
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
@@ -692,17 +773,7 @@ class CC3Export(bpy.types.Operator):
 
                 json_data = chr_cache.get_json_data()
 
-                # select all the objects in the character (or try to)
-                for p in chr_cache.object_cache:
-                    if utils.still_exists(p.object):
-                        if p.object.type == "ARMATURE":
-                            p.object.hide_set(False)
-                            utils.try_select_child_objects(p.object)
-                        else:
-                            p.object.hide_set(False)
-                            utils.try_select_object(p.object)
-
-                objects = bpy.context.selected_objects.copy()
+                objects = get_export_objects(chr_cache)
 
                 utils.log_info("Preparing character for export:")
                 utils.log_indent()
@@ -795,6 +866,8 @@ class CC3Export(bpy.types.Operator):
             utils.log_recess()
             utils.log_timer("Done Character Export.")
 
+            self.error_report()
+
 
         elif chr_cache and self.param == "EXPORT_UNITY":
 
@@ -816,18 +889,7 @@ class CC3Export(bpy.types.Operator):
             utils.log_info("Preparing character for export:")
             utils.log_indent()
 
-            # select all the objects in the character (or try to)
-            utils.clear_selected_objects()
-            for p in chr_cache.object_cache:
-                if utils.still_exists(p.object):
-                    if p.object.type == "ARMATURE":
-                        p.object.hide_set(False)
-                        utils.try_select_child_objects(p.object)
-                    else:
-                        p.object.hide_set(False)
-                        utils.try_select_object(p.object)
-
-            objects = bpy.context.selected_objects.copy()
+            objects = get_export_objects(chr_cache, False)
 
             as_blend_file = False
             if type == ".blend" and prefs.export_unity_remove_objects:
@@ -886,6 +948,8 @@ class CC3Export(bpy.types.Operator):
             utils.log_recess()
             utils.log_timer("Done Character Export.")
 
+            self.error_report()
+
         elif self.param == "UPDATE_UNITY":
 
             utils.start_timer()
@@ -914,18 +978,7 @@ class CC3Export(bpy.types.Operator):
             utils.log_info("Preparing character for export:")
             utils.log_indent()
 
-            # select all the objects in the character (or try to)
-            utils.clear_selected_objects()
-            for p in chr_cache.object_cache:
-                if utils.still_exists(p.object):
-                    if p.object.type == "ARMATURE":
-                        p.object.hide_set(False)
-                        utils.try_select_child_objects(p.object)
-                    else:
-                        p.object.hide_set(False)
-                        utils.try_select_object(p.object)
-
-            objects = bpy.context.selected_objects.copy()
+            objects = get_export_objects(chr_cache, False)
 
             as_blend_file = False
             if type == ".blend" and prefs.export_unity_remove_objects:
@@ -961,6 +1014,8 @@ class CC3Export(bpy.types.Operator):
             utils.log_recess()
             utils.log_timer("Done Character Export.")
 
+            self.error_report()
+
 
         elif self.param == "EXPORT_ACCESSORY":
             dir, name = os.path.split(self.filepath)
@@ -991,6 +1046,19 @@ class CC3Export(bpy.types.Operator):
                 obj.select_set(True)
             bpy.context.view_layer.objects.active = old_active
 
+        elif self.param == "CHECK_EXPORT":
+
+            if chr_cache.import_type == "fbx":
+                chr_cache = props.get_context_character_cache(context)
+                objects = get_export_objects(chr_cache, True)
+                self.check_valid, self.check_warn, self.check_report = check_valid_export_fbx(chr_cache, objects)
+                if not self.check_valid or self.check_warn:
+                    self.error_report()
+                else:
+                    utils.message_box("No issues detected.", "Export Check", "INFO")
+
+            else:
+                pass
 
         return {"FINISHED"}
 
@@ -998,11 +1066,27 @@ class CC3Export(bpy.types.Operator):
     def invoke(self, context, event):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
+        self.check_report = []
+        self.check_valid = True
+        self.check_warn = False
+
         if self.param == "UPDATE_UNITY":
             return self.execute(context)
 
+        if self.param == "CHECK_EXPORT":
+            return self.execute(context)
+
         props = bpy.context.scene.CC3ImportProps
+
         chr_cache = props.get_context_character_cache(context)
+        if chr_cache.import_type == "fbx":
+            if self.param == "EXPORT_CC3" or self.param == "EXPORT_UNITY" or self.param == "UPDATE_UNITY":
+                objects = get_export_objects(chr_cache, self.param == "EXPORT_CC3")
+                self.check_valid, self.check_warn, self.check_report = check_valid_export_fbx(chr_cache, objects)
+                if not self.check_valid:
+                    self.error_report()
+                    return {"FINISHED"}
+
         self.filename_ext = ".fbx"
         if chr_cache:
             self.filename_ext = "." + chr_cache.import_type
@@ -1053,4 +1137,6 @@ class CC3Export(bpy.types.Operator):
             return "Export to / Save in Unity project"
         elif properties.param == "EXPORT_ACCESSORY":
             return "Export selected object(s) for import into CC3 as accessories"
+        elif properties.param == "CHECK_EXPORT":
+            return "Check for issues with the character for export"
         return ""

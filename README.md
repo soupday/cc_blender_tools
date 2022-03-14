@@ -32,6 +32,10 @@ Links
 
 ## Changelog
 
+### 1.2.1
+- Some fixes to exporting additional objects with character.
+- Added a 'Check Export' function to identify potential problems with the export.
+
 ### 1.2.0
 - Added initial export to Unity project function.
 - Round-trip/Unity export additions and fixes.

@@ -68,7 +68,7 @@ def move_mod_first(obj, mod):
     return False
 
 
-def get_armature_modifier(obj, create = False):
+def add_armature_modifier(obj, create = False):
     if obj is not None:
         for mod in obj.modifiers:
             if mod.type == "ARMATURE":

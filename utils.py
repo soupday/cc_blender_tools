@@ -202,6 +202,27 @@ def still_exists(obj):
         return False
 
 
+def object_exists_is_mesh(obj):
+    try:
+        return len(obj.users_scene) > 0 and obj.type == "MESH"
+    except:
+        return False
+
+
+def object_exists_is_armature(obj):
+    try:
+        return len(obj.users_scene) > 0 and obj.type == "ARMATURE"
+    except:
+        return False
+
+
+def object_exists_in_scenes(obj):
+    try:
+        return len(obj.users_scene) > 0
+    except:
+        return False
+
+
 def try_remove(item, force = False):
 
     if still_exists(item):

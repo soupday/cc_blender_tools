@@ -1127,11 +1127,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_all_objects(self, include_armature = True):
         objects = []
         for cache in self.object_cache:
-            if cache.object and cache.object.type == "ARMATURE":
-                if include_armature:
+            if utils.still_exists(cache.object):
+                if cache.object and cache.object.type == "ARMATURE":
+                    if include_armature:
+                        objects.append(cache.object)
+                else:
                     objects.append(cache.object)
-            else:
-                objects.append(cache.object)
         return objects
 
 

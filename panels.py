@@ -67,6 +67,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        arm = None
+        if chr_cache:
+            arm = chr_cache.get_armature()
 
         mesh_in_selection = False
         all_mesh_in_selection = True
@@ -205,42 +208,51 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         #               i.e. those materials in character but no longer on any character objects (TBD)
         #           transfer/copy skin weights to objects (TBD)
 
-        show_object_group = False
         missing_object = False
         missing_material = False
         weight_transferable = False
-        clean_up = characters.character_data_needs_clean_up(chr_cache)
-        if chr_cache and obj_cache is None and obj and obj.type == "MESH":
-            missing_object = True
-            show_object_group = True
-        if chr_cache and obj and obj.type == "MESH" and not chr_cache.has_all_materials(obj.data.materials):
-            missing_material = True
-            show_object_group = True
-        if clean_up:
-            show_object_group = True
-        if all_mesh_in_selection:
-            if not (obj_cache and obj_cache.object_type == "BODY"):
+        show_clean_up = chr_cache is not None
+        if bpy.context.selected_objects and bpy.context.active_object:
+            if chr_cache and obj_cache is None and obj and obj.type == "MESH":
+                missing_object = True
+            if chr_cache and obj and obj.type == "MESH" and not chr_cache.has_all_materials(obj.data.materials):
+                missing_material = True
+            if obj_cache and all_mesh_in_selection and arm.data.pose_position == "REST":
                 weight_transferable = True
-                show_object_group = True
+                print(bpy.context.active_object)
+                if obj_cache.object_type == "BODY":
+                    weight_transferable = False
 
-        if show_object_group:
 
-            layout.box().label(text="Object Management", icon="OBJECT_HIDDEN")
-            column = layout.column()
+        layout.box().label(text="Object Management", icon="OBJECT_HIDDEN")
+        column = layout.column()
 
-            if missing_object:
-                op = column.operator("cc3.character", icon="ADD", text="Add To Character").param = "ADD_PBR"
+        row = column.row()
+        op = row.operator("cc3.exporter", icon="CHECKMARK", text="Check Export").param = "CHECK_EXPORT"
 
-            else:
+        row = column.row()
+        op = row.operator("cc3.character", icon="REMOVE", text="Clean Up Data").param = "CLEAN_UP_DATA"
+        if not show_clean_up:
+            row.enabled = False
 
-                if missing_material:
-                    op = column.operator("cc3.character", icon="ADD", text="Add New Materials").param = "ADD_MATERIALS"
+        column.separator()
 
-                if clean_up:
-                    op = column.operator("cc3.character", icon="REMOVE", text="Clean Up Data").param = "CLEAN_UP_DATA"
+        row = column.row()
+        op = row.operator("cc3.character", icon="ADD", text="Add To Character").param = "ADD_PBR"
+        if not missing_object:
+            row.enabled = False
 
-            if weight_transferable:
-                op = column.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
+        row = column.row()
+        op = row.operator("cc3.character", icon="ADD", text="Add New Materials").param = "ADD_MATERIALS"
+        if not missing_material:
+            row.enabled = False
+
+        column.separator()
+
+        row = column.row()
+        op = row.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
+        if not weight_transferable:
+            row.enabled = False
 
 
 class CC3MaterialParametersPanel(bpy.types.Panel):
@@ -913,6 +925,9 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Exporting", icon="EXPORT")
+        row = layout.row()
+        op = row.operator("cc3.exporter", icon="CHECKMARK", text="Check Export").param = "CHECK_EXPORT"
+        layout.separator()
         # export to CC3
         row = layout.row()
         row.scale_y = 2
