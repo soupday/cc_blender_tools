@@ -1083,7 +1083,7 @@ class CC3Export(bpy.types.Operator):
             if self.param == "EXPORT_CC3" or self.param == "EXPORT_UNITY" or self.param == "UPDATE_UNITY":
                 objects = get_export_objects(chr_cache, self.param == "EXPORT_CC3")
                 self.check_valid, self.check_warn, self.check_report = check_valid_export_fbx(chr_cache, objects)
-                if not self.check_valid:
+                if self.param == "EXPORT_CC3" and not self.check_valid:
                     self.error_report()
                     return {"FINISHED"}
 
