@@ -50,7 +50,7 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object):
                     bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
 
                     # add or update armature modifier
-                    arm_mod : bpy.types.ArmatureModifier = modifiers.get_armature_modifier(obj, True)
+                    arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
                     if arm_mod:
                         modifiers.move_mod_first(obj, arm_mod)
                         arm_mod.object = arm
@@ -63,72 +63,56 @@ def clean_up_character_data(chr_cache):
 
     props = bpy.context.scene.CC3ImportProps
 
-    mats = []
-    objects = []
+    current_mats = []
+    current_objects = []
     arm = chr_cache.get_armature()
+    report = []
 
     if arm:
 
         for obj in arm.children:
-            if obj and obj.type == "MESH":
-                if len(obj.users_scene) > 0:
-                    objects.append(obj)
-                    for mat in obj.data.materials:
-                        if mat and mat not in mats:
-                            mats.append(mat)
+            if utils.object_exists_is_mesh(obj):
+                current_objects.append(obj)
+                for mat in obj.data.materials:
+                    if mat and mat not in current_mats:
+                        current_mats.append(mat)
 
-        delete_mats = []
         delete_objects = []
 
-        cache_mats = chr_cache.get_all_materials()
-        cache_objects = chr_cache.get_all_objects(False)
+        for cache in chr_cache.object_cache:
 
-        for obj in cache_objects:
-            if obj and obj not in objects:
-                delete_objects.append(obj)
+            if cache.object != arm:
 
-        for mat in cache_mats:
-            if mat and mat not in mats:
-                delete_mats.append(mat)
+                if utils.object_exists_is_mesh(cache.object):
+
+                    # add all cached objects that are not in the current objects to the delete list
+                    if cache.object not in current_objects:
+                        delete_objects.append(cache.object)
+                        report.append(f"Removing Object: {cache.object.name} from cache data.")
+
+                else:
+                    # add any invalid cached objects to the delete list
+                    delete_objects.append(cache.object)
+                    report.append(f"Removing deleted/invalid Object from cache data.")
 
         for obj in delete_objects:
             chr_cache.remove_object_cache(obj)
 
+        cache_mats = chr_cache.get_all_materials()
+        delete_mats = []
+
+        for mat in cache_mats:
+            if mat and mat not in current_mats:
+                delete_mats.append(mat)
+                report.append(f"Removing Material: {mat.name} from cache data.")
+
         for mat in delete_mats:
             chr_cache.remove_mat_cache(mat)
 
-
-def character_data_needs_clean_up(chr_cache):
-
-    props = bpy.context.scene.CC3ImportProps
-
-    if chr_cache:
-
-        mats = []
-        objects = []
-        arm = chr_cache.get_armature()
-
-        if arm:
-
-            for obj in arm.children:
-                if obj and obj.type == "MESH":
-                    if len(obj.users_scene) > 0:
-                        objects.append(obj)
-                        for mat in obj.data.materials:
-                            if mat and mat not in mats:
-                                mats.append(mat)
-
-            cache_objects = chr_cache.get_all_objects(False)
-
-            if len(cache_objects) > len(objects):
-                return True
-
-            cache_mats = chr_cache.get_all_materials()
-
-            if len(cache_mats) > len(mats):
-                return True
-
-    return False
+        if len(report) > 0:
+            utils.message_box_multi("Cleanup Report", "INFO", report)
+        else:
+            utils.message_box("Nothing to clean up.", "Cleanup Report", "INFO")
 
 
 def add_missing_materials_to_character(chr_cache, obj, obj_cache):
@@ -307,6 +291,14 @@ def convert_to_rl_pbr(mat):
 
 
 def transfer_skin_weights(chr_cache, objects):
+
+    if not utils.set_mode("OBJECT"):
+        return
+
+    arm = chr_cache.get_armature()
+    if arm is None:
+        return
+
     body = None
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type == "BODY":
@@ -318,13 +310,32 @@ def transfer_skin_weights(chr_cache, objects):
     if body in objects:
         objects.remove(body)
 
+    # in pose mode, use a copy of the body with it's armature modifier applied (shapekeys must be removed for this.)
+    #if arm.data.pose_position == "POSE":
+    #    body_copy = body.copy()
+    #    body_copy.name = body.name + "_TEMP_COPY"
+    #    body_copy.data = body.data.copy()
+    #    bpy.context.collection.objects.link(body_copy)
+    #
+    #    if utils.try_select_object(body_copy, True) and utils.set_active_object(body_copy):
+    #
+    #        bpy.ops.object.shape_key_remove(all=True)
+    #        mod : bpy.types.Modifier
+    #        for mod in body_copy.modifiers:
+    #            if mod.type == "ARMATURE":
+    #                bpy.ops.object.modifier_apply(modifier=mod.name)
+    #
+    #        body = body_copy
+    #    else:
+    #        return
+
     selected = bpy.context.selected_objects.copy()
 
     for obj in objects:
         if obj.type == "MESH":
-            if (utils.clear_selected_objects() and
-                utils.try_select_object(body) and
-                utils.set_active_object(obj)):
+
+            if utils.try_select_object(body, True) and utils.set_active_object(obj):
+
                 bpy.ops.object.data_transfer(use_reverse_transfer=True,
                                             data_type='VGROUP_WEIGHTS',
                                             use_create=True,
@@ -333,6 +344,16 @@ def transfer_skin_weights(chr_cache, objects):
                                             layers_select_src='NAME',
                                             layers_select_dst='ALL',
                                             mix_mode='REPLACE')
+
+                # add or update armature modifier
+                arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
+                if arm_mod:
+                    modifiers.move_mod_first(obj, arm_mod)
+                    arm_mod.object = arm
+
+    # remove the copy of the body if in pose mode
+    #if arm.data.pose_position == "POSE":
+    #    bpy.data.objects.remove(body)
 
     utils.clear_selected_objects()
     utils.try_select_objects(selected)
@@ -385,5 +406,5 @@ class CC3OperatorCharacter(bpy.types.Operator):
         elif properties.param == "CLEAN_UP_DATA":
             return "Remove any objects from the character data that are no longer part of the character and remove any materials from the character that are no longer in the character objects"
         elif properties.param == "TRANSFER_WEIGHTS":
-            return "Transfer skin weights from the character body to the selected objects"
+            return "Transfer skin weights from the character body to the selected objects. **ONLY IN ARMATURE REST MODE**"
         return ""
