@@ -180,6 +180,20 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
         obj_cache = chr_cache.get_object_cache(obj)
         obj_name = obj.name
         obj_source_name = utils.strip_name(obj.name)
+        cache_source_name = obj_cache.source_name
+
+        # if the name has been changed since it was cached, change it in the json
+        if obj_source_name != cache_source_name:
+            new_obj_name = obj_name.replace('.', '_')
+            if cache_source_name in chr_json["Meshes"].keys():
+                utils.log_info(f"Updating Object json name: {cache_source_name} to {new_obj_name}")
+                chr_json["Meshes"][new_obj_name] = chr_json["Meshes"].pop(cache_source_name)
+                obj_json = chr_json["Meshes"][new_obj_name]
+            changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
+            obj.name = new_obj_name
+            obj.data.name = new_obj_name
+            obj_name = new_obj_name
+            obj_source_name = new_obj_name
 
         # add blank object json data if user added mesh
         if obj_cache and obj_cache.user_added:
@@ -206,6 +220,22 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
                     mat_json = jsonutils.get_material_json(obj_json, mat)
                     # update the json parameters with any changes
                     mat_cache = chr_cache.get_material_cache(mat)
+                    cache_source_name = mat_cache.source_name
+                    if not cache_source_name:
+                        cache_source_name = mat_source_name
+
+                    # if the name has been changed since it was cached, change it in the json
+                    if mat_source_name != cache_source_name:
+                        new_mat_name = mat_name.replace('.', '_')
+                        if cache_source_name in obj_json["Materials"].keys():
+                            utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
+                            obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
+                            mat_json = obj_json["Materials"][new_mat_name]
+                        changes.append(["MATERIAL_RENAME", mat, mat.name])
+                        mat.name = new_mat_name
+                        mat_name = new_mat_name
+                        mat_source_name = new_mat_name
+
                     if mat_cache:
                         if mat_cache.user_added:
                             # add new material json data if user added
