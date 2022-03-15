@@ -176,24 +176,36 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
 
     obj : bpy.types.Object
     for obj in objects:
-        obj_json = jsonutils.get_object_json(chr_json, obj)
         obj_cache = chr_cache.get_object_cache(obj)
         obj_name = obj.name
         obj_source_name = utils.strip_name(obj.name)
-        cache_source_name = obj_cache.source_name
 
         # if the name has been changed since it was cached, change it in the json
+        cache_source_name = None
+        if obj_cache:
+            cache_source_name = obj_cache.source_name
+        if not cache_source_name:
+            cache_source_name = obj_source_name
         if obj_source_name != cache_source_name:
             new_obj_name = obj_name.replace('.', '_')
             if cache_source_name in chr_json["Meshes"].keys():
                 utils.log_info(f"Updating Object json name: {cache_source_name} to {new_obj_name}")
                 chr_json["Meshes"][new_obj_name] = chr_json["Meshes"].pop(cache_source_name)
-                obj_json = chr_json["Meshes"][new_obj_name]
             changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
             obj.name = new_obj_name
             obj.data.name = new_obj_name
             obj_name = new_obj_name
             obj_source_name = new_obj_name
+
+        # object name may have been changed by Blender
+        mesh_name = obj.data.name
+        if obj_name != obj_source_name or mesh_name != obj_source_name:
+            utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
+            obj.name = obj_source_name
+            obj.data.name = obj_source_name
+            changes.append(["OBJECT_RENAME", obj, obj_name, mesh_name])
+
+        obj_json = jsonutils.get_object_json(chr_json, obj)
 
         # add blank object json data if user added mesh
         if obj_cache and obj_cache.user_added:
@@ -204,33 +216,24 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
 
             if obj.type == "MESH":
 
-                mesh_name = obj.data.name
-
-                # object name may have been changed by Blender
-                if obj_name != obj_source_name or mesh_name != obj_source_name:
-                    utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
-                    obj.name = obj_source_name
-                    obj.data.name = obj_source_name
-                    changes.append(["OBJECT_RENAME", obj, obj_name, mesh_name])
-
                 for slot in obj.material_slots:
                     mat = slot.material
                     mat_name = mat.name
                     mat_source_name = utils.strip_name(mat.name)
                     mat_json = jsonutils.get_material_json(obj_json, mat)
-                    # update the json parameters with any changes
                     mat_cache = chr_cache.get_material_cache(mat)
-                    cache_source_name = mat_cache.source_name
-                    if not cache_source_name:
-                        cache_source_name = mat_source_name
 
                     # if the name has been changed since it was cached, change it in the json
+                    cache_source_name = None
+                    if mat_cache:
+                        cache_source_name = mat_cache.source_name
+                    if not cache_source_name:
+                        cache_source_name = mat_source_name
                     if mat_source_name != cache_source_name:
                         new_mat_name = mat_name.replace('.', '_')
                         if cache_source_name in obj_json["Materials"].keys():
                             utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
                             obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
-                            mat_json = obj_json["Materials"][new_mat_name]
                         changes.append(["MATERIAL_RENAME", mat, mat.name])
                         mat.name = new_mat_name
                         mat_name = new_mat_name
@@ -330,13 +333,39 @@ def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_pat
 
     obj : bpy.types.Object
     for obj in objects:
-        obj_json = jsonutils.get_object_json(chr_json, obj)
         obj_cache = chr_cache.get_object_cache(obj)
         obj_name = obj.name
         obj_source_name = utils.strip_name(obj.name)
 
+        # if the name has been changed since it was cached, change it in the json
+        cache_source_name = None
+        if obj_cache:
+            cache_source_name = obj_cache.source_name
+        if not cache_source_name:
+            cache_source_name = obj_source_name
+        if obj_source_name != cache_source_name:
+            new_obj_name = obj_name.replace('.', '_')
+            if cache_source_name in chr_json["Meshes"].keys():
+                utils.log_info(f"Updating Object json name: {cache_source_name} to {new_obj_name}")
+                chr_json["Meshes"][new_obj_name] = chr_json["Meshes"].pop(cache_source_name)
+            changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
+            obj.name = new_obj_name
+            obj.data.name = new_obj_name
+            obj_name = new_obj_name
+            obj_source_name = new_obj_name
+
+        # object name may have been changed by Blender
+        mesh_name = obj.data.name
+        if obj_name != obj_source_name or mesh_name != obj_source_name:
+            utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
+            obj.name = obj_source_name
+            obj.data.name = obj_source_name
+            changes.append(["OBJECT_RENAME", obj, obj_name, mesh_name])
+
+        obj_json = jsonutils.get_object_json(chr_json, obj)
+
         # add blank object json data if user added mesh
-        if obj_cache and obj_cache.user_added:
+        if not obj_json or (obj_cache and obj_cache.user_added):
             obj_json = params.JSON_MESH_DATA.copy()
             chr_json["Meshes"][obj_source_name] = obj_json
 
@@ -344,19 +373,28 @@ def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_pat
 
             if obj.type == "MESH":
 
-                mesh_name = obj.data.name
-
-                # object name may have been changed by Blender
-                if obj_name != obj_source_name or mesh_name != obj_source_name:
-                    utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
-                    obj.name = obj_source_name
-                    obj.data.name = obj_source_name
-                    changes.append(["OBJECT_RENAME", obj, obj_name, mesh_name])
-
                 for slot in obj.material_slots:
                     mat = slot.material
                     mat_name = mat.name
                     mat_source_name = utils.strip_name(mat.name)
+                    mat_cache = chr_cache.get_material_cache(mat)
+
+                    # if the name has been changed since it was cached, change it in the json
+                    cache_source_name = None
+                    if mat_cache:
+                        cache_source_name = mat_cache.source_name
+                    if not cache_source_name:
+                        cache_source_name = mat_source_name
+                    if mat_source_name != cache_source_name:
+                        new_mat_name = mat_name.replace('.', '_')
+                        if cache_source_name in obj_json["Materials"].keys():
+                            utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
+                            obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
+                        changes.append(["MATERIAL_RENAME", mat, mat.name])
+                        mat.name = new_mat_name
+                        mat_name = new_mat_name
+                        mat_source_name = new_mat_name
+
                     # if the material name has duplicate suffix, generate a new name and
                     # update the json with the new name:
                     if mat_name != mat_source_name:
@@ -372,7 +410,6 @@ def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_pat
                     if mat_name in obj_json["Materials"]:
                         mat_json = obj_json["Materials"][mat_name]
                     # update the json parameters with any changes
-                    mat_cache = chr_cache.get_material_cache(mat)
                     if mat_cache:
                         if mat_cache.user_added:
                             # add new material json data if user added
