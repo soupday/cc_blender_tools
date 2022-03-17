@@ -96,6 +96,17 @@ CHARACTER_GENERATION = {
     "NonStdLookAtDataCopyFromCCBase": "ActorCore",
 }
 
+TEX_LIST = [
+        ("64","64 x 64","64 x 64 texture size"),
+        ("128","128 x 128","128 x 128 texture size"),
+        ("256","256 x 256","256 x 256 texture size"),
+        ("512","512 x 512","512 x 512 texture size"),
+        ("1024","1024 x 1024","1024 x 1024 texture size"),
+        ("2048","2048 x 2048","2048 x 2048 texture size"),
+        ("4096","4096 x 4096","4096 x 4096 texture size"),
+        ("8192","8192 x 8192","8192 x 8192 texture size"),
+    ]
+
 NODE_PREFIX = "cc3iid_"
 
 GRID_SIZE = 300

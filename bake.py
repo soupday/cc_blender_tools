@@ -82,13 +82,14 @@ def post_bake():
 
 def bake_socket_input(node, socket_name, mat, channel_id, bake_dir, override_size = 0):
     global BAKE_INDEX
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     # determine the size of the image to bake onto
     width, height = get_largest_texture_to_socket(node, socket_name)
     if width == 0:
-        width = 1024
+        width = int(prefs.export_texture_size)
     if height == 0:
-        height = 1024
+        height = int(prefs.export_texture_size)
     if override_size > 0:
         width = override_size
         height = override_size
@@ -146,6 +147,7 @@ def bake_socket_input(node, socket_name, mat, channel_id, bake_dir, override_siz
 
 def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket_name, bump_strength_socket_name, mat, channel_id, bake_dir):
     global BAKE_INDEX
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     # determine the size of the image to bake onto
     width, height = get_largest_texture_to_socket(shader_node, normal_socket_name)
@@ -155,9 +157,9 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
     if h2 > height:
         height = h2
     if width == 0:
-        width = 1024
+        width = int(prefs.export_texture_size)
     if height == 0:
-        height = 1024
+        height = int(prefs.export_texture_size)
 
     # determine image name and color space
     image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)

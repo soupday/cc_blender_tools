@@ -268,6 +268,15 @@ def get_node_input(node : bpy.types.Node, input, default):
     return default
 
 
+def get_node_input_default(node : bpy.types.Node, input, default):
+    if node is not None:
+        try:
+            return node.inputs[input].default_value
+        except:
+            return default
+    return default
+
+
 def get_node_output(node, output, default):
     if node is not None:
         try:

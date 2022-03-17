@@ -126,6 +126,7 @@ classes = (
     panels.CC3ToolsPipelinePanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
+    panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
     panels.CC3ToolsScenePanel,
 

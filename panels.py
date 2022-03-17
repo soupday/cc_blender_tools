@@ -67,17 +67,11 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
-        arm = None
-        if chr_cache:
-            arm = chr_cache.get_armature()
 
         mesh_in_selection = False
-        all_mesh_in_selection = True
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 mesh_in_selection = True
-            else:
-                all_mesh_in_selection = False
 
         box = layout.box()
         #op = box.operator("cc3.importer", icon="IMPORT", text="Import Character")
@@ -193,64 +187,110 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         op = col_2.operator("cc3.setmaterials", icon="XRAY", text="Double Sided")
         op.param = "DOUBLE_SIDED"
 
-        # External object selected with character
-        #   Todo:   needs to write new json on export (TBD)
-        #           Add object:
-        #               add object to chr_cache (DONE)
-        #               add object materials to chr_cache (DONE)
-        #               if object parented to something else:
-        #                   unparent, keep transform (TBD)
-        #                   parent to character, keep transform (TBD)
-        #                   add armature modifier (TBD)
-        #           add missing materials:
-        #               i.e. those on objects but not in character (DONE)
-        #           remove missing materials:
-        #               i.e. those materials in character but no longer on any character objects (TBD)
-        #           transfer/copy skin weights to objects (TBD)
+
+class CC3ObjectManagementPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Object_Management_Panel"
+    bl_label = "Object Management"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "CC3"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        arm = None
+        if chr_cache:
+            arm = chr_cache.get_armature()
+
+        mesh_in_selection = False
+        all_mesh_in_selection = True
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                mesh_in_selection = True
+            else:
+                all_mesh_in_selection = False
 
         missing_object = False
+        removable_object = False
         missing_material = False
         weight_transferable = False
         show_clean_up = chr_cache is not None
         if bpy.context.selected_objects and bpy.context.active_object:
             if chr_cache and obj_cache is None and obj and obj.type == "MESH":
                 missing_object = True
+            if obj != arm and obj.parent != arm:
+                missing_object = True
+            if chr_cache and obj_cache and obj.parent == arm:
+                if (obj_cache.object_type != "BODY" and obj_cache.object_type != "EYE" and
+                    obj_cache.object_type != "TEETH" and obj_cache.object_type != "TONGUE"):
+                    removable_object = True
             if chr_cache and obj and obj.type == "MESH" and not chr_cache.has_all_materials(obj.data.materials):
                 missing_material = True
-            if obj_cache and all_mesh_in_selection and arm.data.pose_position == "REST":
+            if all_mesh_in_selection: # and arm.data.pose_position == "REST":
                 weight_transferable = True
-                print(bpy.context.active_object)
-                if obj_cache.object_type == "BODY":
+                if obj_cache and obj_cache.object_type == "BODY":
                     weight_transferable = False
 
-
-        layout.box().label(text="Object Management", icon="OBJECT_HIDDEN")
         column = layout.column()
 
-        row = column.row()
-        op = row.operator("cc3.exporter", icon="CHECKMARK", text="Check Export").param = "CHECK_EXPORT"
+        # Checking
+
+        column.box().label(text="Checking", icon="SHADERFX")
 
         row = column.row()
-        op = row.operator("cc3.character", icon="REMOVE", text="Clean Up Data").param = "CLEAN_UP_DATA"
+        row.operator("cc3.exporter", icon="CHECKMARK", text="Check Export").param = "CHECK_EXPORT"
+
+        row = column.row()
+        row.operator("cc3.character", icon="REMOVE", text="Clean Up Data").param = "CLEAN_UP_DATA"
         if not show_clean_up:
             row.enabled = False
 
         column.separator()
 
+        # Export Settings
+
+        column.box().label(text="Export Settings", icon="EXPORT")
+
+        split = column.split(factor=0.5)
+        split.column().label(text = "Texture Size")
+        split.column().prop(prefs, "export_texture_size", text = "")
+
+        column.separator()
+
+        # Objects & Materials
+
+        column.box().label(text="Objects & Materials", icon="OBJECT_HIDDEN")
+
         row = column.row()
-        op = row.operator("cc3.character", icon="ADD", text="Add To Character").param = "ADD_PBR"
+        row.operator("cc3.character", icon="ADD", text="Add To Character").param = "ADD_PBR"
         if not missing_object:
             row.enabled = False
 
         row = column.row()
-        op = row.operator("cc3.character", icon="ADD", text="Add New Materials").param = "ADD_MATERIALS"
+        row.operator("cc3.character", icon="REMOVE", text="Remove From Character").param = "REMOVE_OBJECT"
+        if not removable_object:
+            row.enabled = False
+
+        row = column.row()
+        row.operator("cc3.character", icon="ADD", text="Add New Materials").param = "ADD_MATERIALS"
         if not missing_material:
             row.enabled = False
 
         column.separator()
 
+        # Armature & Weights
+
+        column.box().label(text = "Armature & Weights", icon = "ARMATURE_DATA")
+
+        if arm:
+            column.row().prop(arm.data, "pose_position", expand=True)
+
         row = column.row()
-        op = row.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
+        row.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
         if not weight_transferable:
             row.enabled = False
 
@@ -925,9 +965,10 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Exporting", icon="EXPORT")
-        row = layout.row()
-        op = row.operator("cc3.exporter", icon="CHECKMARK", text="Check Export").param = "CHECK_EXPORT"
-        layout.separator()
+
+        #row = layout.row()
+        #op = row.operator("cc3.exporter", icon="CHECKMARK", text="Check Export").param = "CHECK_EXPORT"
+        #layout.separator()
         # export to CC3
         row = layout.row()
         row.scale_y = 2

@@ -15,7 +15,7 @@
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
-from re import L
+import copy
 import shutil
 
 import bpy
@@ -209,7 +209,7 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
 
         # add blank object json data if user added mesh
         if obj_cache and obj_cache.user_added:
-            obj_json = params.JSON_MESH_DATA.copy()
+            obj_json = copy.deepcopy(params.JSON_MESH_DATA)
             chr_json["Meshes"][obj_source_name] = obj_json
 
         if obj_json and utils.still_exists(obj):
@@ -242,7 +242,7 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
                     if mat_cache:
                         if mat_cache.user_added:
                             # add new material json data if user added
-                            mat_json = params.JSON_PBR_MATERIAL.copy()
+                            mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
                             obj_json["Materials"][mat_source_name] = mat_json
                         if prefs.export_json_changes:
                             write_back_json(mat_json, mat, mat_cache)
@@ -366,7 +366,7 @@ def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_pat
 
         # add blank object json data if user added mesh
         if not obj_json or (obj_cache and obj_cache.user_added):
-            obj_json = params.JSON_MESH_DATA.copy()
+            obj_json = copy.deepcopy(params.JSON_MESH_DATA)
             chr_json["Meshes"][obj_source_name] = obj_json
 
         if obj_json and utils.still_exists(obj):
@@ -413,7 +413,7 @@ def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_pat
                     if mat_cache:
                         if mat_cache.user_added:
                             # add new material json data if user added
-                            mat_json = params.JSON_PBR_MATERIAL.copy()
+                            mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
                             obj_json["Materials"][mat_source_name] = mat_json
                         if prefs.export_json_changes:
                             write_back_json(mat_json, mat, mat_cache)
@@ -591,10 +591,13 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                 if is_pbr:
                     # CC3 cannot set metallic or roughness values with no texture, so must bake a small value texture
                     if not tex_node and prefs.export_bake_nodes:
+
                         if tex_type == "ROUGHNESS":
                             roughness = nodeutils.get_node_input(shader_node, "Roughness Map", 0)
                             roughness_min = nodeutils.get_node_input(shader_node, "Roughness Min", 0)
-                            if bake_values and roughness > 0 and roughness_min > 0:
+                            roughness_max = nodeutils.get_node_input(shader_node, "Roughness Max", 1)
+                            roughness_pow = nodeutils.get_node_input(shader_node, "Roughness Power", 1)
+                            if bake_values and (roughness_min > 0 or roughness_max < 1 or roughness_pow != 1.0 or roughness != 0.5):
                                 bake_shader_output = True
                                 bake_shader_socket = "Roughness"
                             elif not bake_values:
@@ -612,17 +615,24 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                         tex_info = mat_json["Textures"][tex_id]
 
                     elif tex_node or bake_shader_output:
-                        tex_info = params.JSON_PBR_TEX_INFO.copy()
+                        tex_info = copy.deepcopy(params.JSON_PBR_TEX_INFO)
                         location, rotation, scale = nodeutils.get_image_node_mapping(tex_node)
                         tex_info["Tiling"] = [scale[0], scale[1]]
                         tex_info["Offset"] = [location[0], location[1]]
                         mat_json["Textures"][tex_id] = tex_info
+                        strength = 100
+                        if mat_cache:
+                            if tex_type == "NORMAL":
+                                strength = mat_cache.parameters.default_normal_strength * 100
+                            elif tex_type == "BUMP":
+                                strength = mat_cache.parameters.default_bump_strength * 200
+                        tex_info["Strength"] = strength
 
                 elif has_custom_shader:
                     if tex_id in mat_json["Custom Shader"]["Image"]:
                         tex_info = mat_json["Custom Shader"]["Image"][tex_id]
                     elif tex_node:
-                        tex_info = params.JSON_CUSTOM_TEX_INFO.copy()
+                        tex_info = copy.deepcopy(params.JSON_CUSTOM_TEX_INFO)
                         mat_json["Custom Shader"]["Image"][tex_id] = tex_info
 
                 # if bump and normal are connected and we are combining them,
@@ -761,16 +771,18 @@ def get_export_objects(chr_cache, include_selected = True):
     objects = []
     if include_selected:
         objects = bpy.context.selected_objects.copy()
-    for obj_cache in chr_cache.object_cache:
-        if utils.object_exists_in_scenes(obj_cache.object):
-            if obj_cache.object.type == "ARMATURE":
-                obj_cache.object.hide_set(False)
-                if obj_cache.object not in objects:
-                    objects.append(obj_cache.object)
-            else:
-                obj_cache.object.hide_set(False)
-                if obj_cache.object not in objects:
-                    objects.append(obj_cache.object)
+    arm = chr_cache.get_armature()
+    if arm:
+        for obj_cache in chr_cache.object_cache:
+            if utils.object_exists_in_scenes(obj_cache.object):
+                if obj_cache.object.type == "ARMATURE":
+                    obj_cache.object.hide_set(False)
+                    if obj_cache.object not in objects:
+                        objects.append(obj_cache.object)
+                elif obj_cache.object.parent == arm:
+                    obj_cache.object.hide_set(False)
+                    if obj_cache.object not in objects:
+                        objects.append(obj_cache.object)
 
     return objects
 
@@ -1205,5 +1217,5 @@ class CC3Export(bpy.types.Operator):
         elif properties.param == "EXPORT_ACCESSORY":
             return "Export selected object(s) for import into CC3 as accessories"
         elif properties.param == "CHECK_EXPORT":
-            return "Check for issues with the character for export"
+            return "Check for issues with the character for export. *Note* This will also test any selected objects as well as all objects attached to the character, as selected objects can also be exported with the character."
         return ""

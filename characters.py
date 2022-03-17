@@ -16,22 +16,26 @@
 
 import bpy
 
-from . import materials, modifiers, nodeutils, utils, vars
+from . import materials, modifiers, shaders, nodeutils, utils, vars
 
 def add_object_to_character(chr_cache, obj : bpy.types.Object):
     props = bpy.context.scene.CC3ImportProps
 
     if chr_cache and obj and obj.type == "MESH":
 
-        # convert the object name to remove any duplicate suffixes:
-        obj_name = utils.unique_object_name(obj.name, obj)
-        if obj.name != obj_name:
-            obj.name = obj_name
+        obj_cache = chr_cache.get_object_cache(obj)
 
-        # add the object into the object cache
-        obj_cache = chr_cache.add_object_cache(obj)
-        obj_cache.object_type = "DEFAULT"
-        obj_cache.user_added = True
+        if not obj_cache:
+
+            # convert the object name to remove any duplicate suffixes:
+            obj_name = utils.unique_object_name(obj.name, obj)
+            if obj.name != obj_name:
+                obj.name = obj_name
+
+            # add the object into the object cache
+            obj_cache = chr_cache.add_object_cache(obj)
+            obj_cache.object_type = "DEFAULT"
+            obj_cache.user_added = True
 
         add_missing_materials_to_character(chr_cache, obj, obj_cache)
 
@@ -59,6 +63,29 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object):
                     utils.set_active_object(obj)
 
 
+def remove_object_from_character(chr_cache, obj):
+    props = bpy.context.scene.CC3ImportProps
+
+    # unparent from character
+    arm = chr_cache.get_armature()
+    if arm:
+        if utils.try_select_objects([arm, obj]):
+            if utils.set_active_object(arm):
+                bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
+
+                # remove armature modifier
+                arm_mod : bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
+                if arm_mod:
+                    obj.modifiers.remove(arm_mod)
+
+                obj.hide_set(True)
+
+                utils.clear_selected_objects()
+                # don't reselect the removed object as this may cause confusion when using checking function immediately after...
+                #utils.set_active_object(obj)
+
+
+
 def clean_up_character_data(chr_cache):
 
     props = bpy.context.scene.CC3ImportProps
@@ -78,6 +105,8 @@ def clean_up_character_data(chr_cache):
                         current_mats.append(mat)
 
         delete_objects = []
+        unparented_objects = []
+        unparented_materials = []
 
         for cache in chr_cache.object_cache:
 
@@ -85,18 +114,25 @@ def clean_up_character_data(chr_cache):
 
                 if utils.object_exists_is_mesh(cache.object):
 
-                    # add all cached objects that are not in the current objects to the delete list
+                    # be sure not to delete object and material cache data for objects still existing in the scene,
+                    # but not currently attached to the character
                     if cache.object not in current_objects:
-                        delete_objects.append(cache.object)
-                        report.append(f"Removing Object: {cache.object.name} from cache data.")
+                        unparented_objects.append(cache.object)
+                        report.append(f"Keeping unparented Object data: {cache.object.name}")
+                        for mat in cache.object.data.materials:
+                            if mat and mat not in unparented_materials:
+                                unparented_materials.append(mat)
+                                report.append(f"Keeping unparented Material data: {mat.name}")
 
                 else:
+
                     # add any invalid cached objects to the delete list
                     delete_objects.append(cache.object)
-                    report.append(f"Removing deleted/invalid Object from cache data.")
 
         for obj in delete_objects:
-            chr_cache.remove_object_cache(obj)
+            if obj and obj not in unparented_objects:
+                report.append(f"Removing deleted/invalid Object from cache data.")
+                chr_cache.remove_object_cache(obj)
 
         cache_mats = chr_cache.get_all_materials()
         delete_mats = []
@@ -104,10 +140,11 @@ def clean_up_character_data(chr_cache):
         for mat in cache_mats:
             if mat and mat not in current_mats:
                 delete_mats.append(mat)
-                report.append(f"Removing Material: {mat.name} from cache data.")
 
         for mat in delete_mats:
-            chr_cache.remove_mat_cache(mat)
+            if mat not in unparented_materials:
+                report.append(f"Removing Material: {mat.name} from cache data.")
+                chr_cache.remove_mat_cache(mat)
 
         if len(report) > 0:
             utils.message_box_multi("Cleanup Report", "INFO", report)
@@ -159,10 +196,10 @@ def add_material_to_character(chr_cache, obj, obj_cache, mat):
         materials.detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache)
         # finally connect up the pbr shader...
         #shaders.connect_pbr_shader(obj, mat, None)
-        convert_to_rl_pbr(mat)
+        convert_to_rl_pbr(mat, mat_cache)
 
 
-def convert_to_rl_pbr(mat):
+def convert_to_rl_pbr(mat, mat_cache):
     shader_group = "rl_pbr_shader"
     shader_name = "rl_pbr_shader"
     shader_id = "(" + str(shader_name) + ")"
@@ -256,6 +293,22 @@ def convert_to_rl_pbr(mat):
         ["Normal:Height", "BSDF", "Bump Map"], # bump image > bump map (Height) > BSDF (Normal)
         ["Occlusion", "GLTF", "AO Map"]
     ]
+
+    if bsdf_node:
+        try:
+            roughness_value = bsdf_node.inputs["Roughness"].default_value
+            metallic_value = bsdf_node.inputs["Metallic"].default_value
+            specular_value = bsdf_node.inputs["Specular"].default_value
+            if not bsdf_node.inputs["Base Color"].is_linked:
+                diffuse_color = bsdf_node.inputs["Base Color"].default_value
+                mat_cache.parameters.default_diffuse_color = diffuse_color
+            mat_cache.parameters.default_roughness = roughness_value
+            mat_cache.parameters.default_metallic = metallic_value
+            mat_cache.parameters.default_specular = specular_value
+            shaders.apply_prop_matrix(bsdf_node, group_node, mat_cache, "rl_pbr_shader")
+        except:
+            utils.log_warn("Unable to set material cache defaults!")
+
     socket_mapping = {}
     for socket_trace, node_type, group_socket in sockets:
         if node_type == "BSDF":
@@ -310,6 +363,12 @@ def transfer_skin_weights(chr_cache, objects):
     if body in objects:
         objects.remove(body)
 
+    # TODO figure out a way to transfer weights in POSE mode...
+    # almost there but need to copy the armature and set the bind pose to the current pose,
+    # transfer weights from the posed-bind-pose body
+    # then construct the origin rest pose in the baked armature's pose by setting the bone positions/roll directly.
+    # then can apply that pose to get the item into the origin rest pose.
+    # (maybe transfer weights again?)
     # in pose mode, use a copy of the body with it's armature modifier applied (shapekeys must be removed for this.)
     #if arm.data.pose_position == "POSE":
     #    body_copy = body.copy()
@@ -345,6 +404,10 @@ def transfer_skin_weights(chr_cache, objects):
                                             layers_select_dst='ALL',
                                             mix_mode='REPLACE')
 
+                if obj.parent != arm:
+                    if utils.try_select_objects([arm, obj]) and utils.set_active_object(arm):
+                        bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
+
                 # add or update armature modifier
                 arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
                 if arm_mod:
@@ -378,6 +441,11 @@ class CC3OperatorCharacter(bpy.types.Operator):
             obj = context.active_object
             add_object_to_character(chr_cache, obj)
 
+        if self.param == "REMOVE_OBJECT":
+            chr_cache = props.get_context_character_cache(context)
+            obj = context.active_object
+            remove_object_from_character(chr_cache, obj)
+
         elif self.param == "ADD_MATERIALS":
             chr_cache = props.get_context_character_cache(context)
             obj = context.active_object
@@ -400,11 +468,13 @@ class CC3OperatorCharacter(bpy.types.Operator):
     def description(cls, context, properties):
 
         if properties.param == "ADD_PBR":
-            return "Add object to the character with pbr materials"
+            return "Add object to the character with pbr materials and parent to the character armature with an armature modifier"
+        elif properties.param == "REMOVE_OBJECT":
+            return "Unparent the object from the character and automatically hide it. Unparented objects will *not* be included in the export"
         elif properties.param == "ADD_MATERIALS":
             return "Add any new materials to the character data that are in this object but not in the character data"
         elif properties.param == "CLEAN_UP_DATA":
             return "Remove any objects from the character data that are no longer part of the character and remove any materials from the character that are no longer in the character objects"
         elif properties.param == "TRANSFER_WEIGHTS":
-            return "Transfer skin weights from the character body to the selected objects. **ONLY IN ARMATURE REST MODE**"
+            return "Transfer skin weights from the character body to the selected objects. *THIS OPERATES IN ARMATURE REST MODE*"
         return ""

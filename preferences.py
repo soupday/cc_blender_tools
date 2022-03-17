@@ -44,6 +44,7 @@ def reset_preferences():
     prefs.export_bake_nodes = False
     prefs.export_bake_bump_to_normal = True
     prefs.export_unity_remove_objects = True
+    prefs.export_texture_size = "2048"
     prefs.cycles_sss_skin_v118 = 0.35
     prefs.cycles_sss_hair_v118 = 0.025
     prefs.cycles_sss_teeth = 0.1
@@ -160,6 +161,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("BLEND","Blend File","Save the project as a blend file in a Unity project. All textures and folders will be copied to the new location and made relative to the blend file."),
                         ("FBX","FBX","Export the character as an .Fbx file to the specified location. All textures and folders will be copied."),
                     ], default="BLEND", name = "Unity Export Mode")
+    export_texture_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048", description="Size of procedurally generated textures to bake.")
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
@@ -260,6 +262,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "export_bake_nodes")
         layout.prop(self, "export_bake_bump_to_normal")
         layout.prop(self, "export_unity_remove_objects")
+        layout.prop(self, "export_texture_size")
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")
         op = layout.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset to Defaults")
