@@ -118,11 +118,11 @@ def clean_up_character_data(chr_cache):
                     # but not currently attached to the character
                     if cache.object not in current_objects:
                         unparented_objects.append(cache.object)
-                        report.append(f"Keeping unparented Object data: {cache.object.name}")
+                        utils.log_info(f"Keeping unparented Object data: {cache.object.name}")
                         for mat in cache.object.data.materials:
                             if mat and mat not in unparented_materials:
                                 unparented_materials.append(mat)
-                                report.append(f"Keeping unparented Material data: {mat.name}")
+                                utils.log_info(f"Keeping unparented Material data: {mat.name}")
 
                 else:
 
@@ -299,12 +299,15 @@ def convert_to_rl_pbr(mat, mat_cache):
             roughness_value = bsdf_node.inputs["Roughness"].default_value
             metallic_value = bsdf_node.inputs["Metallic"].default_value
             specular_value = bsdf_node.inputs["Specular"].default_value
+            alpha_value = bsdf_node.inputs["Alpha"].default_value
             if not bsdf_node.inputs["Base Color"].is_linked:
                 diffuse_color = bsdf_node.inputs["Base Color"].default_value
                 mat_cache.parameters.default_diffuse_color = diffuse_color
             mat_cache.parameters.default_roughness = roughness_value
             mat_cache.parameters.default_metallic = metallic_value
             mat_cache.parameters.default_specular = specular_value
+            if not bsdf_node.inputs["Alpha"].is_linked:
+                mat_cache.parameters.default_opacity = alpha_value
             shaders.apply_prop_matrix(bsdf_node, group_node, mat_cache, "rl_pbr_shader")
         except:
             utils.log_warn("Unable to set material cache defaults!")
