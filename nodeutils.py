@@ -145,7 +145,10 @@ def is_node_connected_to_socket(node, socket, search, done = None):
 
     done.append(connected_node)
 
-    return connected_node == search
+    if connected_node == search:
+        return True
+    else:
+        return is_node_connected_to_node(node, search, done)
 
 
 def clear_cursor():

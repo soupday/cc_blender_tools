@@ -33,9 +33,9 @@ IMAGE_EXT = ".png"
 BAKE_INDEX = 1001
 
 
-def init_bake():
+def init_bake(id = 1001):
     global BAKE_INDEX
-    BAKE_INDEX = 1001
+    BAKE_INDEX = id
 
 
 def prep_bake():
@@ -133,9 +133,11 @@ def bake_socket_input(shader_node, socket_name, mat, channel_id, bake_dir, overr
     # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
     i = 0
     base_name = image_name
-    while nodeutils.is_node_connected_to_socket(shader_node, socket_name, image):
+    while is_image_node_connected_to_socket(shader_node, socket_name, image):
         i += 1
+        old_name = image_name
         image_name = base_name + "_" + str(i)
+        utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
         image = get_image_target(image_name, width, height, bake_dir, is_data, True)
 
     # bake the source node output onto the target image and re-save it
@@ -153,7 +155,7 @@ def bake_socket_input(shader_node, socket_name, mat, channel_id, bake_dir, overr
     return image
 
 
-def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket_name, bump_strength_socket_name, mat, channel_id, bake_dir):
+def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket_name, normal_strength_socket_name, bump_strength_socket_name, mat, channel_id, bake_dir):
     global BAKE_INDEX
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -204,12 +206,15 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
     normal_source_node = normal_source_socket = None
     bump_source_node = bump_source_socket = None
     bump_strength = 0.05
+    normal_strength = 1.0
     bump_map_node = normal_map_node = None
     if bump_strength_socket_name:
         bump_strength = nodeutils.get_node_input(shader_node, bump_strength_socket_name, 0.05)
+    if normal_strength_socket_name:
+        normal_strength = nodeutils.get_node_input(shader_node, normal_strength_socket_name, 1.0)
     if normal_socket_name:
         normal_source_node, normal_source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, normal_socket_name)
-        normal_map_node = nodeutils.make_normal_map_node(nodes, 1)
+        normal_map_node = nodeutils.make_normal_map_node(nodes, normal_strength)
         nodeutils.link_nodes(links, normal_source_node, normal_source_socket, normal_map_node, "Color")
         nodeutils.link_nodes(links, normal_map_node, "Normal", bsdf_node, "Normal")
     if bump_socket_name:
@@ -226,11 +231,12 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
     # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
     i = 0
     base_name = image_name
-    while nodeutils.is_node_connected_to_socket(shader_node, normal_socket_name, image):
+    while is_image_node_connected_to_socket(shader_node, normal_socket_name, image):
         i += 1
+        old_name = image_name
         image_name = base_name + "_" + str(i)
+        utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
         image = get_image_target(image_name, width, height, bake_dir, is_data, True)
-
 
     # bake the source node output onto the target image and re-save it
     image_node = bake_bsdf_normal(mat, bsdf_node, image, image_name)
@@ -341,6 +347,32 @@ def get_largest_texture_to_socket(node, socket, done = None):
         return get_largest_texture_to_node(connected_node, done)
 
 
+def is_image_node_connected_to_node(node, image, done):
+    socket : bpy.types.NodeSocket
+    for socket in node.inputs:
+        if socket.is_linked:
+            found = is_image_node_connected_to_socket(node, socket.name, image, done)
+            if found:
+                return True
+    return False
+
+
+def is_image_node_connected_to_socket(node, socket, image, done = None):
+    if done is None:
+        done = []
+
+    connected_node = nodeutils.get_node_connected_to_input(node, socket)
+    if connected_node is None or connected_node in done:
+        return False
+
+    done.append(connected_node)
+
+    if connected_node.type == "TEX_IMAGE" and connected_node.image == image:
+        return True
+    else:
+        return is_image_node_connected_to_node(node, image, done)
+
+
 def get_tex_image_size(node):
     if node is not None:
         return node.image.size[0], node.image.size[1]
@@ -402,6 +434,8 @@ def get_bake_dir(chr_cache):
 
 def combine_normal(chr_cache, mat_cache):
 
+    init_bake(5001)
+
     mat = mat_cache.material
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -410,42 +444,53 @@ def combine_normal(chr_cache, mat_cache):
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
     bake_path = get_bake_dir(chr_cache)
 
+    selection = bpy.context.selected_objects.copy()
+    active = bpy.context.active_object
+
     if mat_cache.material_type == "DEFAULT" or mat_cache.material_type == "SSS":
+
+        nodeutils.clear_cursor()
 
         normal_node, normal_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Normal Map")
         bump_node, bump_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Bump Map")
 
         if normal_node and bump_node:
 
-            print("NB")
-
-            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "Normal Map", "Bump Map", "Bump Strength", mat, "Normal", bake_path)
+            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "Normal Map", "Bump Map", "Normal Strength", "Bump Strength", mat, "Normal", bake_path)
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
             nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
             nodeutils.unlink_node(links, shader_node, "Bump Map")
+            mat_cache.parameters.default_normal_strength = 1.0
+            nodeutils.set_node_input(shader_node, "Normal Strength", 1.0)
 
         elif bump_node:
 
-            print("B")
-
-            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "", "Bump Map", "Bump Strength", mat, "Normal", bake_path)
+            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "", "Bump Map", "", "Bump Strength", mat, "Normal", bake_path)
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
             nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
             nodeutils.unlink_node(links, shader_node, "Bump Map")
+            mat_cache.parameters.default_normal_strength = 1.0
+            nodeutils.set_node_input(shader_node, "Normal Strength", 1.0)
 
         elif normal_node and normal_node.type != "TEX_IMAGE":
 
-            print("N")
-
-            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "Normal Map", "", "", mat, "Normal", bake_path)
+            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "Normal Map", "", "Normal Strength", "", mat, "Normal", bake_path)
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
             nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
+            mat_cache.parameters.default_normal_strength = 1.0
+            nodeutils.set_node_input(shader_node, "Normal Strength", 1.0)
+
+    utils.try_select_objects(selection, True)
+    if active:
+        utils.set_active_object(active)
 
 
 def bake_flow_to_normal(mat_cache):
+
+    init_bake(4001)
 
     mat = mat_cache.material
     nodes = mat.node_tree.nodes
@@ -455,6 +500,11 @@ def bake_flow_to_normal(mat_cache):
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
 
     if mat_cache.material_type == "HAIR":
+
+        nodeutils.clear_cursor()
+
+        selection = bpy.context.selected_objects.copy()
+        active = bpy.context.active_object
 
         # get the flow map
         flow_node = nodeutils.get_node_connected_to_input(shader_node, "Flow Map")
@@ -499,6 +549,10 @@ def bake_flow_to_normal(mat_cache):
         flip_y = mat_cache.parameters.hair_tangent_flip_green > 0
         utils.log_info("Converting Flow Map to Normal Map...")
         convert_flow_to_normal(flow_image, normal_image, tangent, flip_y)
+
+        utils.try_select_objects(selection, True)
+        if active:
+            utils.set_active_object(active)
 
 
 def convert_flow_to_normal(flow_image: bpy.types.Image, normal_image: bpy.types.Image, tangent, flip_y):
