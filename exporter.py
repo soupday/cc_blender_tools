@@ -652,7 +652,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
 
                         elif tex_node and tex_node.type == "TEX_IMAGE":
                             if prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
-                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, bake_path)
+                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
                             else:
                                 image = tex_node.image
 
@@ -660,7 +660,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                             # if something is connected to the shader socket but is not a texture image
                             # and baking is enabled: then bake the socket input into a texture for exporting:
                             if tex_type == "NORMAL" and bump_combining:
-                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, bake_path)
+                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
                             else:
                                 image = bake.bake_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
