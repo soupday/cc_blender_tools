@@ -59,10 +59,10 @@ def check_valid_export_fbx(chr_cache, objects):
                 utils.log_warn(message)
                 check_valid = False
             if len(obj.vertex_groups) == 0:
-                message = f"WARNING: Object: {obj.name} has no vertex groups."
+                message = f"ERROR: Object: {obj.name} has no vertex groups."
                 report.append(message)
                 utils.log_warn(message)
-                check_warn = True
+                check_valid = False
             if obj.type == "MESH" and obj.data and len(obj.data.vertices) < 150:
                 message = f"WARNING: Object: {obj.name} has a low number of vertices (less than 150), this is can cause CTD issues with CC3's importer."
                 report.append(message)

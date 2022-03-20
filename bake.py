@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
+from webbrowser import get
 import bpy
 import os
 from mathutils import Vector
@@ -80,12 +81,12 @@ def post_bake():
     bpy.context.scene.sequencer_colorspace_settings.name = old_colorspace
 
 
-def bake_socket_input(node, socket_name, mat, channel_id, bake_dir, override_size = 0):
+def bake_socket_input(shader_node, socket_name, mat, channel_id, bake_dir, override_size = 0):
     global BAKE_INDEX
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     # determine the size of the image to bake onto
-    width, height = get_largest_texture_to_socket(node, socket_name)
+    width, height = get_largest_texture_to_socket(shader_node, socket_name)
     if width == 0:
         width = int(prefs.export_texture_size)
     if height == 0:
@@ -125,17 +126,24 @@ def bake_socket_input(node, socket_name, mat, channel_id, bake_dir, override_siz
     # get the node and output socket to bake from
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
-    source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(node, socket_name)
+    source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, socket_name)
 
     # make (and save) the target image
     image = get_image_target(image_name, width, height, bake_dir, is_data, True)
+    # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
+    i = 0
+    base_name = image_name
+    while nodeutils.is_node_connected_to_socket(shader_node, socket_name, image):
+        i += 1
+        image_name = base_name + "_" + str(i)
+        image = get_image_target(image_name, width, height, bake_dir, is_data, True)
 
     # bake the source node output onto the target image and re-save it
     image_node = bake_output(mat, source_node, source_socket, image, image_name)
 
     # reconnect the custom nodes to the shader socket
     nodes.remove(image_node)
-    nodeutils.link_nodes(mat.node_tree.links, source_node, source_socket, node, socket_name)
+    nodeutils.link_nodes(mat.node_tree.links, source_node, source_socket, shader_node, socket_name)
 
     # remove the bake surface and restore the render settings
     bpy.data.objects.remove(bake_surface)
@@ -190,27 +198,50 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
     # get the node and output socket to bake from
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
-    normal_source_node, normal_source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, normal_socket_name)
-    bump_source_node, bump_source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, bump_socket_name)
+    # store original links to BSDF normal socket
     bsdf_normal_node, bsdf_normal_socket = nodeutils.get_node_and_socket_connected_to_input(bsdf_node, "Normal")
-    bump_strength = nodeutils.get_node_input(shader_node, bump_strength_socket_name, 0.05)
-    bump_map_node = nodeutils.make_bump_node(nodes, 1, bump_strength)
-    normal_map_node = nodeutils.make_normal_map_node(nodes, 1)
-    nodeutils.link_nodes(links, normal_source_node, normal_source_socket, normal_map_node, "Color")
-    nodeutils.link_nodes(links, normal_map_node, "Normal", bump_map_node, "Normal")
-    nodeutils.link_nodes(links, bump_source_node, bump_source_socket, bump_map_node, "Height")
-    nodeutils.link_nodes(links, bump_map_node, "Normal", bsdf_node, "Normal")
+    #
+    normal_source_node = normal_source_socket = None
+    bump_source_node = bump_source_socket = None
+    bump_strength = 0.05
+    bump_map_node = normal_map_node = None
+    if bump_strength_socket_name:
+        bump_strength = nodeutils.get_node_input(shader_node, bump_strength_socket_name, 0.05)
+    if normal_socket_name:
+        normal_source_node, normal_source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, normal_socket_name)
+        normal_map_node = nodeutils.make_normal_map_node(nodes, 1)
+        nodeutils.link_nodes(links, normal_source_node, normal_source_socket, normal_map_node, "Color")
+        nodeutils.link_nodes(links, normal_map_node, "Normal", bsdf_node, "Normal")
+    if bump_socket_name:
+        bump_source_node, bump_source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, bump_socket_name)
+        # the bump map bakes to a normal map quite a bit weaker than it looks on the bump node, so increase it's strength here
+        bump_map_node = nodeutils.make_bump_node(nodes, 1, bump_strength * 3.0)
+        nodeutils.link_nodes(links, bump_source_node, bump_source_socket, bump_map_node, "Height")
+        if normal_map_node:
+            nodeutils.link_nodes(links, normal_map_node, "Normal", bump_map_node, "Normal")
+        nodeutils.link_nodes(links, bump_map_node, "Normal", bsdf_node, "Normal")
 
     # make (and save) the target image
-    image = get_image_target(image_name, width, height, bake_dir, is_data, True)
+    image = get_image_target(image_name, width, height, bake_dir, is_data, True, False)
+    # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
+    i = 0
+    base_name = image_name
+    while nodeutils.is_node_connected_to_socket(shader_node, normal_socket_name, image):
+        i += 1
+        image_name = base_name + "_" + str(i)
+        image = get_image_target(image_name, width, height, bake_dir, is_data, True)
+
 
     # bake the source node output onto the target image and re-save it
     image_node = bake_bsdf_normal(mat, bsdf_node, image, image_name)
 
     # remove the bake nodes and restore the normal links to the bsdf
-    nodes.remove(bump_map_node)
-    nodes.remove(normal_map_node)
-    nodes.remove(image_node)
+    if bump_map_node:
+        nodes.remove(bump_map_node)
+    if normal_map_node:
+        nodes.remove(normal_map_node)
+    if image_node:
+        nodes.remove(image_node)
     nodeutils.link_nodes(links, bsdf_normal_node, bsdf_normal_socket, bsdf_node, "Normal")
 
     # remove the bake surface and restore the render settings
@@ -316,35 +347,36 @@ def get_tex_image_size(node):
     return 0, 0
 
 
-def get_image_target(image_name, width, height, dir, data = True, alpha = False):
+def get_image_target(image_name, width, height, dir, data = True, alpha = False, force_new = False):
     format = IMAGE_FORMAT
     ext = IMAGE_EXT
     depth = 32
 
     # find an old image with the same name to reuse:
-    for img in bpy.data.images:
-        if img and img.name == image_name:
+    if not force_new:
+        for img in bpy.data.images:
+            if img and img.name == image_name:
 
-            img_path, img_file = os.path.split(bpy.path.abspath(img.filepath))
-            same_path = False
-            try:
-                if os.path.samefile(dir, img_path):
-                    same_path = True
-            except:
+                img_path, img_file = os.path.split(bpy.path.abspath(img.filepath))
                 same_path = False
-
-            if img.file_format == format and img.depth == depth and same_path:
-                utils.log_info("Reusing image: " + image_name)
                 try:
-                    if img.size[0] != width or img.size[1] != height:
-                        img.scale(width, height)
-                    return img
+                    if os.path.samefile(dir, img_path):
+                        same_path = True
                 except:
-                    utils.log_info("Bad image: " + img.name)
+                    same_path = False
+
+                if img.file_format == format and img.depth == depth and same_path:
+                    utils.log_info("Reusing image: " + image_name)
+                    try:
+                        if img.size[0] != width or img.size[1] != height:
+                            img.scale(width, height)
+                        return img
+                    except:
+                        utils.log_info("Bad image: " + img.name)
+                        bpy.data.images.remove(img)
+                else:
+                    utils.log_info("Wrong path or format: " + img.name + ", " + img_path + "==" + dir + "?, " + img.file_format + "==" + format + "?, depth: " + str(depth) + "==" + str(img.depth) + "?")
                     bpy.data.images.remove(img)
-            else:
-                utils.log_info("Wrong path or format: " + img.name + ", " + img_path + "==" + dir + "?, " + img.file_format + "==" + format + "?, depth: " + str(depth) + "==" + str(img.depth) + "?")
-                bpy.data.images.remove(img)
 
     # or just make a new one:
     utils.log_info("Creating new image: " + image_name + " size: " + str(width))
@@ -361,6 +393,56 @@ def make_new_image(name, width, height, format, ext, dir, data, has_alpha):
     img.filepath_raw = os.path.join(dir, name + ext)
     img.save()
     return img
+
+
+def get_bake_dir(chr_cache):
+    bake_path = os.path.join(chr_cache.import_dir, "textures", chr_cache.import_name, "Blender_Baked")
+    return bake_path
+
+
+def combine_normal(chr_cache, mat_cache):
+
+    mat = mat_cache.material
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    mat_name = utils.strip_name(mat.name)
+    shader = params.get_shader_lookup(mat_cache)
+    bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
+    bake_path = get_bake_dir(chr_cache)
+
+    if mat_cache.material_type == "DEFAULT" or mat_cache.material_type == "SSS":
+
+        normal_node, normal_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Normal Map")
+        bump_node, bump_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Bump Map")
+
+        if normal_node and bump_node:
+
+            print("NB")
+
+            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "Normal Map", "Bump Map", "Bump Strength", mat, "Normal", bake_path)
+            normal_image_name = utils.unique_name("(NORMAL)")
+            normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
+            nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
+            nodeutils.unlink_node(links, shader_node, "Bump Map")
+
+        elif bump_node:
+
+            print("B")
+
+            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "", "Bump Map", "Bump Strength", mat, "Normal", bake_path)
+            normal_image_name = utils.unique_name("(NORMAL)")
+            normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
+            nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
+            nodeutils.unlink_node(links, shader_node, "Bump Map")
+
+        elif normal_node and normal_node.type != "TEX_IMAGE":
+
+            print("N")
+
+            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "Normal Map", "", "", mat, "Normal", bake_path)
+            normal_image_name = utils.unique_name("(NORMAL)")
+            normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
+            nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
 
 
 def bake_flow_to_normal(mat_cache):
@@ -397,6 +479,7 @@ def bake_flow_to_normal(mat_cache):
                     if normal_image.size[0] != width or normal_image.size[1] != height:
                         utils.log_info("Resizing normal image: " + str(width) + " x " + str(height))
                         normal_image.scale(width, height)
+
                 except:
 
                     utils.log_info("Removing bad normal image: " + normal_image.name)
@@ -478,6 +561,12 @@ class CC3BakeOperator(bpy.types.Operator):
             chr_cache = props.get_context_character_cache(context)
             mat_cache = chr_cache.get_material_cache(mat)
             bake_flow_to_normal(mat_cache)
+
+        if self.param == "BAKE_BUMP_NORMAL":
+            mat = utils.context_material(context)
+            chr_cache = props.get_context_character_cache(context)
+            mat_cache = chr_cache.get_material_cache(mat)
+            combine_normal(chr_cache, mat_cache)
 
         return {"FINISHED"}
 

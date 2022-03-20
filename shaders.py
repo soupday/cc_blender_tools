@@ -474,9 +474,9 @@ def set_shader_input_props(shader_def, mat_cache, socket, value):
                 vars.block_property_update = False
 
 
-def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_json, obj):
+def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name, mat_json, obj):
     shader_def = params.get_shader_def(shader_name)
-    location = node.location
+    location = shader_node.location
     x = location[0] - 600
     y = location[1] + 300
     c = 0
@@ -484,7 +484,9 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
 
     if shader_def and "textures" in shader_def.keys():
 
-        for shader_input in node.inputs:
+
+
+        for shader_input in shader_node.inputs:
             for texture_def in shader_def["textures"]:
                 socket_name = texture_def[0]
                 if socket_name == shader_input.name:
@@ -516,7 +518,7 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                             # if there is no sample map, set it's corresponding strength properties to zero:
                             # e.g. Vertex Color uses Vertex Color Strength with props: hair_vertex_color_strength
                             strength_socket_name = socket_name + " Strength"
-                            nodeutils.set_node_input(node, strength_socket_name, 0.0)
+                            nodeutils.set_node_input(shader_node, strength_socket_name, 0.0)
                             set_shader_input_props(shader_def, mat_cache, strength_socket_name, 0.0)
 
                         else:
@@ -524,7 +526,7 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
                             sample_prop = texture_def[4]
                             sample_color = [image.pixels[0], image.pixels[1], image.pixels[2], 1.0]
                             exec_prop(sample_prop, mat_cache, sample_color)
-                            nodeutils.set_node_input(node, socket_name, sample_color)
+                            nodeutils.set_node_input(shader_node, socket_name, sample_color)
                             bpy.data.images.remove(image)
                             vars.block_property_update = False
 
@@ -547,12 +549,12 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
 
                         if socket_name:
                             if tex_type == "ALPHA" and "_diffuse" in image.name.lower():
-                                nodeutils.link_nodes(links, image_node, "Alpha", node, socket_name)
+                                nodeutils.link_nodes(links, image_node, "Alpha", shader_node, socket_name)
                             else:
-                                nodeutils.link_nodes(links, image_node, "Color", node, socket_name)
+                                nodeutils.link_nodes(links, image_node, "Color", shader_node, socket_name)
 
                         if alpha_socket_name:
-                            nodeutils.link_nodes(links, image_node, "Alpha", node, alpha_socket_name)
+                            nodeutils.link_nodes(links, image_node, "Alpha", shader_node, alpha_socket_name)
 
                     if image_node and image_node.image:
                         image_nodes.append(image_node)
@@ -563,6 +565,11 @@ def apply_texture_matrix(nodes, links, node, mat, mat_cache, shader_name, mat_js
             if n.type == "TEX_IMAGE" and n not in image_nodes:
                 utils.log_info("Removing unused image node: " + n.name)
                 nodes.remove(n)
+
+    # finally disconnect bump map if normal map is also present (this is only supposed to be one, but it is possible to bug CC3 and get both):
+    if nodeutils.has_connected_input(shader_node, "Bump Map") and nodeutils.has_connected_input(shader_node, "Normal Map"):
+        bump_node, bump_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Bump Map")
+        nodeutils.unlink_node(links, shader_node, "Bump Map")
 
     return
 

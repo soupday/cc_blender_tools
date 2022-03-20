@@ -425,6 +425,37 @@ def transfer_skin_weights(chr_cache, objects):
     utils.try_select_objects(selected)
 
 
+def normalize_skin_weights(chr_cache, objects):
+
+    if not utils.set_mode("OBJECT"):
+        return
+
+    arm = chr_cache.get_armature()
+    if arm is None:
+        return
+
+    body = None
+    for obj_cache in chr_cache.object_cache:
+        if obj_cache.object_type == "BODY":
+            body = obj_cache.object
+
+    # don't allow normalize all to body mesh
+    if body and body in objects:
+        objects.remove(body)
+
+    selected = bpy.context.selected_objects.copy()
+
+    for obj in objects:
+        if obj.type == "MESH":
+
+            if utils.try_select_object(obj, True) and utils.set_active_object(obj):
+
+                bpy.ops.object.vertex_group_normalize_all()
+
+    utils.clear_selected_objects()
+    utils.try_select_objects(selected)
+
+
 class CC3OperatorCharacter(bpy.types.Operator):
     """CC3 Character Functions"""
     bl_idname = "cc3.character"
@@ -465,6 +496,11 @@ class CC3OperatorCharacter(bpy.types.Operator):
             objects = bpy.context.selected_objects
             transfer_skin_weights(chr_cache, objects)
 
+        elif self.param == "NORMALIZE_WEIGHTS":
+            chr_cache = props.get_context_character_cache(context)
+            objects = bpy.context.selected_objects
+            normalize_skin_weights(chr_cache, objects)
+
         return {"FINISHED"}
 
     @classmethod
@@ -480,4 +516,6 @@ class CC3OperatorCharacter(bpy.types.Operator):
             return "Remove any objects from the character data that are no longer part of the character and remove any materials from the character that are no longer in the character objects"
         elif properties.param == "TRANSFER_WEIGHTS":
             return "Transfer skin weights from the character body to the selected objects. *THIS OPERATES IN ARMATURE REST MODE*"
+        elif properties.param == "NORMALIZE_WEIGHTS":
+            return "recalculate the weights in the vertex groups so they all add up to 1.0 for each vertex, so each vertex is fully weighted across all the bones influencing it."
         return ""

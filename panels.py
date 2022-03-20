@@ -294,6 +294,11 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         if not weight_transferable:
             row.enabled = False
 
+        row = column.row()
+        row.operator("cc3.character", icon="ORIENTATION_NORMAL", text="Normalize Weights").param = "NORMALIZE_WEIGHTS"
+        if not weight_transferable:
+            row.enabled = False
+
 
 class CC3MaterialParametersPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Parameters_Panel"
