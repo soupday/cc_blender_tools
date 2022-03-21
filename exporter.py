@@ -623,9 +623,9 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                         strength = 100
                         if mat_cache:
                             if tex_type == "NORMAL":
-                                strength = mat_cache.parameters.default_normal_strength * 100
+                                strength = int(mat_cache.parameters.default_normal_strength * 100)
                             elif tex_type == "BUMP":
-                                strength = mat_cache.parameters.default_bump_strength * 200
+                                strength = int(mat_cache.parameters.default_bump_strength * 200)
                         tex_info["Strength"] = strength
 
                 elif has_custom_shader:
@@ -661,6 +661,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                             # and baking is enabled: then bake the socket input into a texture for exporting:
                             if tex_type == "NORMAL" and bump_combining:
                                 image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
+                                tex_info["Strength"] = 1.0
                             else:
                                 image = bake.bake_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 

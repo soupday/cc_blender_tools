@@ -1015,7 +1015,7 @@ SHADER_MATRIX = [
             ["default_emission_strength", 0, "", "Pbr/Glow"],
             ["default_displacement_strength", 1, "", "Pbr/Displacement"],
             # non json properties (just defaults)
-            ["default_bump_strength", 1, "DEF"],
+            ["default_bump_strength", 1, "func_divide_2", "Pbr/Bump"],
             ["default_specular_strength", 1, "", "Pbr/Specular"],
             ["default_metallic", 0, "", "Pbr/Metallic"],
             ["default_specular_scale", 1.0, "DEF"],
@@ -1030,6 +1030,7 @@ SHADER_MATRIX = [
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
             ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "default_diffuse_color"],
+            ["Pbr/Bump", 1.0, "func_mul_2", "default_bump_strength"],
         ],
         "ui": [
             # ["HEADER", label, icon]
@@ -1167,7 +1168,7 @@ SHADER_MATRIX = [
             ["default_roughness", 0.5, "DEF"],
             ["default_hue", 0.5, "DEF"],
             ["default_hsv_strength", 1, "DEF"],
-            ["default_bump_strength", 1, "DEF"],
+            ["default_bump_strength", 1, "func_divide_2", "Pbr/Bump"],
             ["default_specular_map", 0.5, "DEF"],
             ["default_specular_mask", 1.0, "DEF"],
             ["default_specular_scale", 1.0, "DEF"],
@@ -1182,6 +1183,7 @@ SHADER_MATRIX = [
         "export": [
             ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "default_diffuse_color"],
             ["SSS/Falloff", [255.0, 255.0, 255.0], "func_export_byte3", "default_subsurface_falloff"],
+            ["Pbr/Bump", 1.0, "func_mul_2", "default_bump_strength"],
         ],
         "ui": [
             # ["HEADER", label, icon]
