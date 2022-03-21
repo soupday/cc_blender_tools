@@ -125,6 +125,32 @@ def is_input_connected(input):
     return False
 
 
+def is_node_connected_to_node(node, search, done):
+    socket : bpy.types.NodeSocket
+    for socket in node.inputs:
+        if socket.is_linked:
+            found = is_node_connected_to_socket(node, socket.name, search, done)
+            if found:
+                return True
+    return False
+
+
+def is_node_connected_to_socket(node, socket, search, done = None):
+    if done is None:
+        done = []
+
+    connected_node = get_node_connected_to_input(node, socket)
+    if connected_node is None or connected_node in done:
+        return False
+
+    done.append(connected_node)
+
+    if connected_node == search:
+        return True
+    else:
+        return is_node_connected_to_node(node, search, done)
+
+
 def clear_cursor():
     cursor_top.x = 0
     cursor_top.y = 0
@@ -262,6 +288,15 @@ def get_node_input(node : bpy.types.Node, input, default):
                 input_node, input_socket = get_node_and_socket_connected_to_input(node, input)
                 if input_node and input_socket:
                     return input_node.outputs[input_socket].default_value
+            return node.inputs[input].default_value
+        except:
+            return default
+    return default
+
+
+def get_node_input_default(node : bpy.types.Node, input, default):
+    if node is not None:
+        try:
             return node.inputs[input].default_value
         except:
             return default

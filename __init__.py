@@ -69,7 +69,7 @@ from . import importer
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (1, 2, 1),
+    "version": (1, 2, 2),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -126,6 +126,7 @@ classes = (
     panels.CC3ToolsPipelinePanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
+    panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
     panels.CC3ToolsScenePanel,
 

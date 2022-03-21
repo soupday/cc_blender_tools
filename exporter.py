@@ -15,7 +15,7 @@
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
-from re import L
+import copy
 import shutil
 
 import bpy
@@ -59,10 +59,10 @@ def check_valid_export_fbx(chr_cache, objects):
                 utils.log_warn(message)
                 check_valid = False
             if len(obj.vertex_groups) == 0:
-                message = f"WARNING: Object: {obj.name} has no vertex groups."
+                message = f"ERROR: Object: {obj.name} has no vertex groups."
                 report.append(message)
                 utils.log_warn(message)
-                check_warn = True
+                check_valid = False
             if obj.type == "MESH" and obj.data and len(obj.data.vertices) < 150:
                 message = f"WARNING: Object: {obj.name} has a low number of vertices (less than 150), this is can cause CTD issues with CC3's importer."
                 report.append(message)
@@ -176,40 +176,73 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
 
     obj : bpy.types.Object
     for obj in objects:
-        obj_json = jsonutils.get_object_json(chr_json, obj)
         obj_cache = chr_cache.get_object_cache(obj)
         obj_name = obj.name
         obj_source_name = utils.strip_name(obj.name)
 
+        # if the name has been changed since it was cached, change it in the json
+        cache_source_name = None
+        if obj_cache:
+            cache_source_name = obj_cache.source_name
+        if not cache_source_name:
+            cache_source_name = obj_source_name
+        if obj_source_name != cache_source_name:
+            new_obj_name = obj_name.replace('.', '_')
+            if cache_source_name in chr_json["Meshes"].keys():
+                utils.log_info(f"Updating Object json name: {cache_source_name} to {new_obj_name}")
+                chr_json["Meshes"][new_obj_name] = chr_json["Meshes"].pop(cache_source_name)
+            changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
+            obj.name = new_obj_name
+            obj.data.name = new_obj_name
+            obj_name = new_obj_name
+            obj_source_name = new_obj_name
+
+        # object name may have been changed by Blender
+        mesh_name = obj.data.name
+        if obj_name != obj_source_name or mesh_name != obj_source_name:
+            utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
+            obj.name = obj_source_name
+            obj.data.name = obj_source_name
+            changes.append(["OBJECT_RENAME", obj, obj_name, mesh_name])
+
+        obj_json = jsonutils.get_object_json(chr_json, obj)
+
         # add blank object json data if user added mesh
         if obj_cache and obj_cache.user_added:
-            obj_json = params.JSON_MESH_DATA.copy()
+            obj_json = copy.deepcopy(params.JSON_MESH_DATA)
             chr_json["Meshes"][obj_source_name] = obj_json
 
         if obj_json and utils.still_exists(obj):
 
             if obj.type == "MESH":
 
-                mesh_name = obj.data.name
-
-                # object name may have been changed by Blender
-                if obj_name != obj_source_name or mesh_name != obj_source_name:
-                    utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
-                    obj.name = obj_source_name
-                    obj.data.name = obj_source_name
-                    changes.append(["OBJECT_RENAME", obj, obj_name, mesh_name])
-
                 for slot in obj.material_slots:
                     mat = slot.material
                     mat_name = mat.name
                     mat_source_name = utils.strip_name(mat.name)
                     mat_json = jsonutils.get_material_json(obj_json, mat)
-                    # update the json parameters with any changes
                     mat_cache = chr_cache.get_material_cache(mat)
+
+                    # if the name has been changed since it was cached, change it in the json
+                    cache_source_name = None
+                    if mat_cache:
+                        cache_source_name = mat_cache.source_name
+                    if not cache_source_name:
+                        cache_source_name = mat_source_name
+                    if mat_source_name != cache_source_name:
+                        new_mat_name = mat_name.replace('.', '_')
+                        if cache_source_name in obj_json["Materials"].keys():
+                            utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
+                            obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
+                        changes.append(["MATERIAL_RENAME", mat, mat.name])
+                        mat.name = new_mat_name
+                        mat_name = new_mat_name
+                        mat_source_name = new_mat_name
+
                     if mat_cache:
                         if mat_cache.user_added:
                             # add new material json data if user added
-                            mat_json = params.JSON_PBR_MATERIAL.copy()
+                            mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
                             obj_json["Materials"][mat_source_name] = mat_json
                         if prefs.export_json_changes:
                             write_back_json(mat_json, mat, mat_cache)
@@ -300,33 +333,68 @@ def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_pat
 
     obj : bpy.types.Object
     for obj in objects:
-        obj_json = jsonutils.get_object_json(chr_json, obj)
         obj_cache = chr_cache.get_object_cache(obj)
         obj_name = obj.name
         obj_source_name = utils.strip_name(obj.name)
 
+        # if the name has been changed since it was cached, change it in the json
+        cache_source_name = None
+        if obj_cache:
+            cache_source_name = obj_cache.source_name
+        if not cache_source_name:
+            cache_source_name = obj_source_name
+        if obj_source_name != cache_source_name:
+            new_obj_name = obj_name.replace('.', '_')
+            if cache_source_name in chr_json["Meshes"].keys():
+                utils.log_info(f"Updating Object json name: {cache_source_name} to {new_obj_name}")
+                chr_json["Meshes"][new_obj_name] = chr_json["Meshes"].pop(cache_source_name)
+            changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
+            obj.name = new_obj_name
+            obj.data.name = new_obj_name
+            obj_name = new_obj_name
+            obj_source_name = new_obj_name
+
+        # object name may have been changed by Blender
+        mesh_name = obj.data.name
+        if obj_name != obj_source_name or mesh_name != obj_source_name:
+            utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
+            obj.name = obj_source_name
+            obj.data.name = obj_source_name
+            changes.append(["OBJECT_RENAME", obj, obj_name, mesh_name])
+
+        obj_json = jsonutils.get_object_json(chr_json, obj)
+
         # add blank object json data if user added mesh
-        if obj_cache and obj_cache.user_added:
-            obj_json = params.JSON_MESH_DATA.copy()
+        if not obj_json or (obj_cache and obj_cache.user_added):
+            obj_json = copy.deepcopy(params.JSON_MESH_DATA)
             chr_json["Meshes"][obj_source_name] = obj_json
 
         if obj_json and utils.still_exists(obj):
 
             if obj.type == "MESH":
 
-                mesh_name = obj.data.name
-
-                # object name may have been changed by Blender
-                if obj_name != obj_source_name or mesh_name != obj_source_name:
-                    utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
-                    obj.name = obj_source_name
-                    obj.data.name = obj_source_name
-                    changes.append(["OBJECT_RENAME", obj, obj_name, mesh_name])
-
                 for slot in obj.material_slots:
                     mat = slot.material
                     mat_name = mat.name
                     mat_source_name = utils.strip_name(mat.name)
+                    mat_cache = chr_cache.get_material_cache(mat)
+
+                    # if the name has been changed since it was cached, change it in the json
+                    cache_source_name = None
+                    if mat_cache:
+                        cache_source_name = mat_cache.source_name
+                    if not cache_source_name:
+                        cache_source_name = mat_source_name
+                    if mat_source_name != cache_source_name:
+                        new_mat_name = mat_name.replace('.', '_')
+                        if cache_source_name in obj_json["Materials"].keys():
+                            utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
+                            obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
+                        changes.append(["MATERIAL_RENAME", mat, mat.name])
+                        mat.name = new_mat_name
+                        mat_name = new_mat_name
+                        mat_source_name = new_mat_name
+
                     # if the material name has duplicate suffix, generate a new name and
                     # update the json with the new name:
                     if mat_name != mat_source_name:
@@ -342,11 +410,10 @@ def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_pat
                     if mat_name in obj_json["Materials"]:
                         mat_json = obj_json["Materials"][mat_name]
                     # update the json parameters with any changes
-                    mat_cache = chr_cache.get_material_cache(mat)
                     if mat_cache:
                         if mat_cache.user_added:
                             # add new material json data if user added
-                            mat_json = params.JSON_PBR_MATERIAL.copy()
+                            mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
                             obj_json["Materials"][mat_source_name] = mat_json
                         if prefs.export_json_changes:
                             write_back_json(mat_json, mat, mat_cache)
@@ -524,10 +591,13 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                 if is_pbr:
                     # CC3 cannot set metallic or roughness values with no texture, so must bake a small value texture
                     if not tex_node and prefs.export_bake_nodes:
+
                         if tex_type == "ROUGHNESS":
                             roughness = nodeutils.get_node_input(shader_node, "Roughness Map", 0)
                             roughness_min = nodeutils.get_node_input(shader_node, "Roughness Min", 0)
-                            if bake_values and roughness > 0 and roughness_min > 0:
+                            roughness_max = nodeutils.get_node_input(shader_node, "Roughness Max", 1)
+                            roughness_pow = nodeutils.get_node_input(shader_node, "Roughness Power", 1)
+                            if bake_values and (roughness_min > 0 or roughness_max < 1 or roughness_pow != 1.0 or roughness != 0.5):
                                 bake_shader_output = True
                                 bake_shader_socket = "Roughness"
                             elif not bake_values:
@@ -545,17 +615,24 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                         tex_info = mat_json["Textures"][tex_id]
 
                     elif tex_node or bake_shader_output:
-                        tex_info = params.JSON_PBR_TEX_INFO.copy()
+                        tex_info = copy.deepcopy(params.JSON_PBR_TEX_INFO)
                         location, rotation, scale = nodeutils.get_image_node_mapping(tex_node)
                         tex_info["Tiling"] = [scale[0], scale[1]]
                         tex_info["Offset"] = [location[0], location[1]]
                         mat_json["Textures"][tex_id] = tex_info
+                        strength = 100
+                        if mat_cache:
+                            if tex_type == "NORMAL":
+                                strength = int(mat_cache.parameters.default_normal_strength * 100)
+                            elif tex_type == "BUMP":
+                                strength = int(mat_cache.parameters.default_bump_strength * 200)
+                        tex_info["Strength"] = strength
 
                 elif has_custom_shader:
                     if tex_id in mat_json["Custom Shader"]["Image"]:
                         tex_info = mat_json["Custom Shader"]["Image"][tex_id]
                     elif tex_node:
-                        tex_info = params.JSON_CUSTOM_TEX_INFO.copy()
+                        tex_info = copy.deepcopy(params.JSON_CUSTOM_TEX_INFO)
                         mat_json["Custom Shader"]["Image"][tex_id] = tex_info
 
                 # if bump and normal are connected and we are combining them,
@@ -575,7 +652,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
 
                         elif tex_node and tex_node.type == "TEX_IMAGE":
                             if prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
-                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, bake_path)
+                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
                             else:
                                 image = tex_node.image
 
@@ -583,7 +660,8 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                             # if something is connected to the shader socket but is not a texture image
                             # and baking is enabled: then bake the socket input into a texture for exporting:
                             if tex_type == "NORMAL" and bump_combining:
-                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Bump Strength", mat, tex_id, bake_path)
+                                image = bake.bake_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
+                                tex_info["Strength"] = 1.0
                             else:
                                 image = bake.bake_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
@@ -694,16 +772,18 @@ def get_export_objects(chr_cache, include_selected = True):
     objects = []
     if include_selected:
         objects = bpy.context.selected_objects.copy()
-    for obj_cache in chr_cache.object_cache:
-        if utils.object_exists_in_scenes(obj_cache.object):
-            if obj_cache.object.type == "ARMATURE":
-                obj_cache.object.hide_set(False)
-                if obj_cache.object not in objects:
-                    objects.append(obj_cache.object)
-            else:
-                obj_cache.object.hide_set(False)
-                if obj_cache.object not in objects:
-                    objects.append(obj_cache.object)
+    arm = chr_cache.get_armature()
+    if arm:
+        for obj_cache in chr_cache.object_cache:
+            if utils.object_exists_in_scenes(obj_cache.object):
+                if obj_cache.object.type == "ARMATURE":
+                    obj_cache.object.hide_set(False)
+                    if obj_cache.object not in objects:
+                        objects.append(obj_cache.object)
+                elif obj_cache.object.parent == arm:
+                    obj_cache.object.hide_set(False)
+                    if obj_cache.object not in objects:
+                        objects.append(obj_cache.object)
 
     return objects
 
@@ -1138,5 +1218,5 @@ class CC3Export(bpy.types.Operator):
         elif properties.param == "EXPORT_ACCESSORY":
             return "Export selected object(s) for import into CC3 as accessories"
         elif properties.param == "CHECK_EXPORT":
-            return "Check for issues with the character for export"
+            return "Check for issues with the character for export. *Note* This will also test any selected objects as well as all objects attached to the character, as selected objects can also be exported with the character."
         return ""

@@ -44,6 +44,7 @@ def reset_preferences():
     prefs.export_bake_nodes = False
     prefs.export_bake_bump_to_normal = True
     prefs.export_unity_remove_objects = True
+    prefs.export_texture_size = "2048"
     prefs.cycles_sss_skin_v118 = 0.35
     prefs.cycles_sss_hair_v118 = 0.025
     prefs.cycles_sss_teeth = 0.1
@@ -153,13 +154,14 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     export_json_changes: bpy.props.BoolProperty(default=True, name="Material parameters", description="Export all material and shader parameter changes to the character Json data. Setting to False keeps original material and shader parameters.")
     export_texture_changes: bpy.props.BoolProperty(default=True, name="Textures", description="Export all texture changes to the character Json data. Setting to False keeps original textures.")
     export_bone_roll_fix: bpy.props.BoolProperty(default=False, name="Teeth bone fix", description="(Experimental) Apply zero roll to upper and lower teeth bones to fix teeth alignment problems re-importing to CC3")
-    export_bake_nodes: bpy.props.BoolProperty(default=False, name="Bake custom nodes", description="(Very Experimental) Bake any custom nodes (non texture image) attached to shader texture map sockets on export.")
-    export_bake_bump_to_normal: bpy.props.BoolProperty(default=False, name="Bake bump to normal maps", description="(Very Experimental) When both a bump map and a normal is present, bake the bump map into the normal. (CC3 materials can only have normal map or bump map.)")
+    export_bake_nodes: bpy.props.BoolProperty(default=True, name="Bake custom nodes", description="(Very Experimental) Bake any custom nodes (non texture image) attached to shader texture map sockets on export.")
+    export_bake_bump_to_normal: bpy.props.BoolProperty(default=True, name="Combine normals", description="(Very Experimental) When both a bump map and a normal is present, bake the bump map into the normal. (CC3 materials can only have one, normal map or bump map.)")
     export_unity_remove_objects: bpy.props.BoolProperty(default=True, name="Unity: Remove non-character objects.", description="Removes all objects not attached to the character, when exporting to Unity.")
     export_unity_mode: bpy.props.EnumProperty(items=[
                         ("BLEND","Blend File","Save the project as a blend file in a Unity project. All textures and folders will be copied to the new location and made relative to the blend file."),
                         ("FBX","FBX","Export the character as an .Fbx file to the specified location. All textures and folders will be copied."),
                     ], default="BLEND", name = "Unity Export Mode")
+    export_texture_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048", description="Size of procedurally generated textures to bake.")
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
@@ -260,6 +262,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "export_bake_nodes")
         layout.prop(self, "export_bake_bump_to_normal")
         layout.prop(self, "export_unity_remove_objects")
+        layout.prop(self, "export_texture_size")
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")
         op = layout.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset to Defaults")

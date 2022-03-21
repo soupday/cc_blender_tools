@@ -851,6 +851,7 @@ class CC3TextureMapping(bpy.types.PropertyGroup):
 
 class CC3MaterialCache:
     material: bpy.props.PointerProperty(type=bpy.types.Material)
+    source_name: bpy.props.StringProperty(default="")
     material_type: bpy.props.EnumProperty(items=vars.MATERIAL_TYPES, default="DEFAULT")
     texture_mappings: bpy.props.CollectionProperty(type=CC3TextureMapping)
     #parameters: bpy.props.PointerProperty(type=CC3MaterialParameters)
@@ -984,6 +985,7 @@ class CC3SSSMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
 
 class CC3ObjectCache(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
+    source_name: bpy.props.StringProperty(default="")
     object_type: bpy.props.EnumProperty(items=vars.OBJECT_TYPES, default="DEFAULT")
     collision_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
@@ -1240,6 +1242,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             utils.log_info(f"Creating Object Cache for: {obj.name}")
             cache = self.object_cache.add()
             cache.object = obj
+            cache.source_name = utils.strip_name(obj.name)
         return cache
 
 
@@ -1337,6 +1340,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 cache = self.pbr_material_cache.add()
                 create_type = "DEFAULT"
             cache.material = mat
+            cache.source_name = utils.strip_name(mat.name)
             cache.material_type = create_type
         return cache
 
@@ -1363,6 +1367,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         utils.log_info(f"Recasting material cache: {mat.name}")
         material_type = mat_cache.material_type
         mat_cache.material = None
+        mat_cache.source_name = ""
         new_mat_cache = self.add_material_cache(mat, material_type)
         if not chr_json:
             chr_json = self.get_character_json()

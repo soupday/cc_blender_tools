@@ -32,6 +32,14 @@ Links
 
 ## Changelog
 
+### 1.2.2
+- Object Management panel
+    - All round-trip/Export object management functions moved to this panel.
+    - Including checks and clean up.
+    - Normalize weights function added.
+- Bake/Combine Bump maps into Normal maps function added to Material Parameters panel.
+- Highlight shift added to Eevee hair shader.
+
 ### 1.2.1
 - Some fixes to exporting additional objects with character.
 - Added a 'Check Export' function to identify potential problems with the export.
