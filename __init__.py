@@ -38,6 +38,8 @@ if "bpy" in locals():
     importlib.reload(scene)
     importlib.reload(exporter)
     importlib.reload(importer)
+    importlib.reload(geom)
+    importlib.reload(rigify)
 
 import bpy
 
@@ -63,13 +65,14 @@ from . import properties
 from . import scene
 from . import exporter
 from . import importer
-
+from . import geom
+from . import rigify
 
 
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (1, 2, 2),
+    "version": (1, 3, 0),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -115,6 +118,7 @@ classes = (
     exporter.CC3Export,
     scene.CC3Scene,
     bake.CC3BakeOperator,
+    rigify.CC3Rigifier,
 
     physics.CC3OperatorPhysics,
     materials.CC3OperatorMaterial,
@@ -128,6 +132,7 @@ classes = (
     panels.CC3MaterialParametersPanel,
     panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
+    rigify.CC3RigifyPanel,
     panels.CC3ToolsScenePanel,
 
     preferences.CC3ToolsAddonPreferences,

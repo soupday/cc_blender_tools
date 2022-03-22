@@ -412,6 +412,14 @@ def find_pose_bone_in_armature(arm, *name):
     return None
 
 
+def find_edit_bone_in_armature(arm, *name):
+    if (arm.type == "ARMATURE"):
+        for n in name:
+            if n in arm.data.edit_bones:
+                return arm.data.edit_bones[n]
+    return None
+
+
 def get_active_object():
     return bpy.context.view_layer.objects.active
 

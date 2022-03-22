@@ -32,6 +32,11 @@ Links
 
 ## Changelog
 
+### 1.3.0
+- Rigify function added.
+    - Character objects are bound to the Rigify control rig.
+    - Vertex weights are remapped to Rigify deformation bones.
+
 ### 1.2.2
 - Object Management panel
     - All round-trip/Export object management functions moved to this panel.
