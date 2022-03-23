@@ -1,6 +1,7 @@
 
 import bpy
 import mathutils
+import textwrap
 from . import utils
 from . import geom
 from . import properties
@@ -1108,6 +1109,26 @@ class CC3RigifyPanel(bpy.types.Panel):
         layout.use_property_split = False
         layout.use_property_decorate = False
 
+        ui_shelf = None
+        area = bpy.context.area
+        width = 15
+
+        for region in area.regions:
+            if region.type == 'UI':
+                ui_shelf = region
+                width = int(ui_shelf.width / 8)
+
+        info_text = "Currently Only for CC3+ characters. Once rigged, incompatible with Export. Animations will need to be re-targetted."
+        wrapper = textwrap.TextWrapper(width=width)
+        info_list = wrapper.wrap(info_text)
+
+        box = layout.box()
+        for text in info_list:
+            box.label(text=text)
+
+        layout.separator()
+
         row = layout.row()
+        row.scale_y = 2
         row.operator("cc3.rigifier", icon="IMPORT", text="Rigify")
 
