@@ -16,8 +16,9 @@
 
 import bpy
 
+import textwrap
 from . import addon_updater_ops
-from . import characters, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 # Panel button functions and operator
 #
@@ -661,6 +662,63 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         op.param = "RESET"
         op = column.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
         op.param ="REBUILD_NODE_GROUPS"
+
+
+class CC3RigifyPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Rigify_Panel"
+    bl_label = "Rigging & Animation"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "CC3"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+
+        layout = self.layout
+        layout.use_property_split = False
+        layout.use_property_decorate = False
+
+        ui_shelf = None
+        area = bpy.context.area
+        width = 15
+
+        for region in area.regions:
+            if region.type == 'UI':
+                ui_shelf = region
+                width = int(ui_shelf.width / 8)
+
+        rigify_installed = rigging.is_rigify_installed()
+
+        if rigify_installed:
+
+            info_text = "Currently Only for CC3+ characters. Once rigged, incompatible with Export. Animations will need to be re-targetted."
+            wrapper = textwrap.TextWrapper(width=width)
+            info_list = wrapper.wrap(info_text)
+
+            box = layout.box()
+            for text in info_list:
+                box.label(text=text)
+
+            layout.separator()
+
+            row = layout.row()
+            row.scale_y = 2
+            row.operator("cc3.rigifier", icon="IMPORT", text="Rigify")
+            row.enabled = chr_cache is not None
+
+        else:
+
+            info_text = "Rigify add-on is not installed."
+            wrapper = textwrap.TextWrapper(width=width)
+            info_list = wrapper.wrap(info_text)
+
+            box = layout.box()
+            for text in info_list:
+                box.label(text=text)
 
 
 class CC3ToolsScenePanel(bpy.types.Panel):

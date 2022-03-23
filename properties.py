@@ -1058,6 +1058,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("CYCLES","Cycles","Build shaders for Cycles rendering."),
                     ], default="EEVEE", name = "Target Renderer")
 
+    rigified: bpy.props.BoolProperty(default=False)
+
     def get_all_materials_cache(self):
         cache_all = []
         for cache in self.tongue_material_cache:
@@ -1230,6 +1232,14 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             pass
         return None
 
+    def set_rigify_armature(self, new_arm):
+        self.rigified = True
+        try:
+            for obj_cache in self.object_cache:
+                if obj_cache.object and obj_cache.object.type == "ARMATURE":
+                    obj_cache.object = new_arm
+        except:
+            pass
 
     def add_object_cache(self, obj):
         """Returns the object cache for this object.

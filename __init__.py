@@ -39,7 +39,7 @@ if "bpy" in locals():
     importlib.reload(exporter)
     importlib.reload(importer)
     importlib.reload(geom)
-    importlib.reload(rigify)
+    importlib.reload(rigging)
 
 import bpy
 
@@ -66,7 +66,7 @@ from . import scene
 from . import exporter
 from . import importer
 from . import geom
-from . import rigify
+from . import rigging
 
 
 bl_info = {
@@ -118,7 +118,7 @@ classes = (
     exporter.CC3Export,
     scene.CC3Scene,
     bake.CC3BakeOperator,
-    rigify.CC3Rigifier,
+    rigging.CC3Rigifier,
 
     physics.CC3OperatorPhysics,
     materials.CC3OperatorMaterial,
@@ -132,7 +132,7 @@ classes = (
     panels.CC3MaterialParametersPanel,
     panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
-    rigify.CC3RigifyPanel,
+    panels.CC3RigifyPanel,
     panels.CC3ToolsScenePanel,
 
     preferences.CC3ToolsAddonPreferences,

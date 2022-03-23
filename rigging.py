@@ -1,7 +1,7 @@
 
 import bpy
 import mathutils
-import textwrap
+import addon_utils
 from . import utils
 from . import geom
 from . import properties
@@ -1015,7 +1015,7 @@ def reparent_to_rigify(chr_cache, cc3_rig, rigify_rig):
                         arm_mod.object = rigify_rig
 
 
-def clean_up(cc3_rig, rigify_rig, meta_rig):
+def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     """Rename the rigs, hide the original CC3 Armature and remove the meta rig.
        Set the new rig into pose mode.
     """
@@ -1029,6 +1029,8 @@ def clean_up(cc3_rig, rigify_rig, meta_rig):
     if utils.try_select_object(rigify_rig, True):
         if utils.set_active_object(rigify_rig):
             utils.set_mode("POSE")
+
+    chr_cache.set_rigify_armature(rigify_rig)
 
 
 class CC3Rigifier(bpy.types.Operator):
@@ -1087,7 +1089,7 @@ class CC3Rigifier(bpy.types.Operator):
                         reparent_to_rigify(chr_cache, self.cc3_rig, self.rigify_rig)
                         add_def_bones(self.cc3_rig, self.rigify_rig)
                         rename_vertex_groups(self.cc3_rig, self.rigify_rig)
-                        clean_up(self.cc3_rig, self.rigify_rig, self.meta_rig)
+                        clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
 
         return {"FINISHED"}
 
@@ -1097,38 +1099,17 @@ class CC3Rigifier(bpy.types.Operator):
         return "Rigification!"
 
 
-class CC3RigifyPanel(bpy.types.Panel):
-    bl_idname = "CC3_PT_Rigify_Panel"
-    bl_label = "Rigging & Animation"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "CC3"
+def get_rigify_version():
+    for mod in addon_utils.modules():
+        name = mod.bl_info.get('name', "")
+        if name == "Rigify":
+            version = mod.bl_info.get('version', (-1, -1, -1))
+            return version
 
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = False
-        layout.use_property_decorate = False
 
-        ui_shelf = None
-        area = bpy.context.area
-        width = 15
-
-        for region in area.regions:
-            if region.type == 'UI':
-                ui_shelf = region
-                width = int(ui_shelf.width / 8)
-
-        info_text = "Currently Only for CC3+ characters. Once rigged, incompatible with Export. Animations will need to be re-targetted."
-        wrapper = textwrap.TextWrapper(width=width)
-        info_list = wrapper.wrap(info_text)
-
-        box = layout.box()
-        for text in info_list:
-            box.label(text=text)
-
-        layout.separator()
-
-        row = layout.row()
-        row.scale_y = 2
-        row.operator("cc3.rigifier", icon="IMPORT", text="Rigify")
+def is_rigify_installed():
+    context = bpy.context
+    if "rigify" in context.preferences.addons.keys():
+        return True
+    return False
 
