@@ -463,14 +463,27 @@ def find_metarig(objects):
 
 
 def prune_meta_rig(rig):
+    """Removes some meta rig bones that have no corresponding match in the CC3 rig.
+       (And are safe to remove)
+    """
+
     pelvis_r = rig.data.edit_bones["pelvis.R"]
     rig.data.edit_bones.remove(pelvis_r)
     rig.data.edit_bones["pelvis.L"].name = "pelvis"
 
 
 def add_def_bones(cc3_rig, rigify_rig):
+    """Adds and parents twist deformation bones to the rigify deformation bones.
+       Twist bones are parented to their corresponding limb bones.
+       The main limb bones are not vertex weighted in the meshes but the twist bones are,
+       so it's important the twist bones move (and stretch) with the parent limb.
+
+       Also adds some missing toe bones and finger bones.
+       (See: ADD_DEF_BONES array)
+    """
 
     # use the eye org bones to deform the eye vertex groups in the eye object
+    # (rather than create new DEF bones, as the ORG bones already exist in the rigify rig)
     rigify_rig.data.bones["ORG-eye.R"].use_deform = True
     rigify_rig.data.bones["ORG-eye.L"].use_deform = True
     rigify_rig.data.bones["ORG-teeth.T"].use_deform = True
@@ -513,14 +526,31 @@ def add_def_bones(cc3_rig, rigify_rig):
 
 
 def rename_vertex_groups(cc3_rig, rigify_rig):
+    """Rename the CC3 rig vertex weight groups to the Rigify deformation bone names,
+       removes matching existing vertex groups created by parent with automatic weights.
+       Thus leaving just the automatic face rig weights.
+    """
 
-    for obj in cc3_rig.children:
+    obj : bpy.types.Object
+    for obj in rigify_rig.children:
 
         for vgrn in VERTEX_GROUP_RENAME:
             vg_from = vgrn[1]
             vg_to = vgrn[0]
+
+            print(f"{vg_from} -> {vg_to}")
+
             try:
-                obj.vertex_groups[vg_from].name = vg_to
+                if vg_to in obj.vertex_groups:
+                    utils.log_info(f"removing {vg_to}")
+                    obj.vertex_groups.remove(obj.vertex_groups[vg_to])
+            except:
+                pass
+
+            try:
+                if vg_from in obj.vertex_groups:
+                    utils.log_info(f"renaming {vg_from} to {vg_to}")
+                    obj.vertex_groups[vg_from].name = vg_to
             except:
                 pass
 
@@ -548,10 +578,9 @@ def store_relative_mappings(rig, coords):
             box.add(tail_pos)
 
         box.pad(BOX_PADDING)
-        box.debug()
 
         coords[bone_name] = [box.relative(bone_head_pos), box.relative(bone_tail_pos)]
-        print(coords[bone_name])
+        #print(coords[bone_name])
 
 
 def restore_relative_mappings(rig, coords):
@@ -570,15 +599,14 @@ def restore_relative_mappings(rig, coords):
             box.add(tail_pos)
 
         box.pad(BOX_PADDING)
-        box.debug()
 
         rc = coords[bone_name]
         if (mapping[1] == "HEAD" or mapping[1] == "BOTH"):
             bone.head = box.coord(rc[0])
-            print(box.coord(rc[0]))
+            #print(box.coord(rc[0]))
         if (mapping[1] == "TAIL" or mapping[1] == "BOTH"):
             bone.tail = box.coord(rc[1])
-            print(box.coord(rc[1]))
+            #print(box.coord(rc[1]))
 
 
 def store_bone_roll(rig, roll_store):
@@ -637,7 +665,7 @@ def map_eyes(cc3_rig, dst_rig):
     right_slot = get_eye_material_slot(obj, True)
     left_slot = get_eye_material_slot(obj, False)
 
-    print(right_slot, left_slot)
+    #print(right_slot, left_slot)
 
     mesh = obj.data
     t_mesh = geom.get_triangulated_bmesh(mesh)
@@ -787,7 +815,7 @@ def get_eye_material_slot(obj, right_eye):
         slot = obj.material_slots[i]
         if slot.material is not None:
             l_name = slot.material.name.lower()
-            print(l_name)
+            #print(l_name)
             if right_eye and "std_eye_r" in l_name:
                 return i
             elif not right_eye and "std_eye_l" in l_name:
@@ -815,7 +843,7 @@ def map_bone(src_rig, dst_rig, mapping):
     src_bone_head_name = mapping[1]
     src_bone_tail_name = mapping[2]
 
-    print("Mapping: " + dst_bone_name + " from: " + src_bone_head_name + "/" + src_bone_tail_name)
+    utils.log_info(f"Mapping: {dst_bone_name} from: {src_bone_head_name}/{src_bone_tail_name}")
 
     dst_bone = dst_rig.data.edit_bones[dst_bone_name]
 
@@ -897,11 +925,15 @@ def match_meta_rig(meta_rig, cc3_rig):
 
 
 def fix_bend(meta_rig, bone_one_name, bone_two_name, dir : mathutils.Vector):
+    """Determine if the bend between two bones is sufficient to generate an accurate pole in the rig,
+       by calculating where the middle joint lies on the line between the start and end points and
+       determining if the distance to that line is large enough and in the right direction.
+       Recalculating the joint position if not.
+    """
 
     dir.normalize()
 
-    print("FIX BEND")
-    print(bone_one_name, bone_two_name)
+    utils.log_info(f"Fix Bend: {bone_one_name}, {bone_two_name}")
 
     if utils.set_mode("OBJECT") and utils.set_active_object(meta_rig) and utils.set_mode("EDIT"):
 
@@ -926,7 +958,7 @@ def fix_bend(meta_rig, bone_one_name, bone_two_name, dir : mathutils.Vector):
                 new_mid_dir : mathutils.Vector = dir - u.dot(dir) * u
                 new_mid_dir.normalize()
                 new_mid = line_mid + new_mid_dir * 0.001
-                print(new_mid)
+                utils.log_info(f"New joint position: {new_mid}")
                 one.tail = new_mid
                 two.head = new_mid
 
@@ -934,29 +966,58 @@ def fix_bend(meta_rig, bone_one_name, bone_two_name, dir : mathutils.Vector):
 
 
 def correct_meta_rig(meta_rig):
-    """Add a slight displacement (if needed) to the knee and elbow to ensure the poles are the right way."""
+    """Add a slight displacement (if needed) to the knee and elbow to ensure the poles are the right way.
+    """
+
     fix_bend(meta_rig, "thigh.L", "shin.L", mathutils.Vector((0,-1,0)))
     fix_bend(meta_rig, "thigh.R", "shin.R", mathutils.Vector((0,-1,0)))
     fix_bend(meta_rig, "upper_arm.L", "forearm.L", mathutils.Vector((0,1,0)))
     fix_bend(meta_rig, "upper_arm.R", "forearm.R", mathutils.Vector((0,1,0)))
 
 
-def reparent_to_rigify(cc3_rig, rigify_rig, meta_rig):
+def reparent_to_rigify(chr_cache, cc3_rig, rigify_rig):
+    """Unparent (with transform) from the original CC3 rig and reparent to the new rigify rig (with automatic weights for the body),
+       setting the armature modifiers to the new rig.
+
+       The automatic weights will generate vertex weights for the additional face bones in the new rig.
+       (But only for the Body mesh)
+    """
+
+    props = bpy.context.scene.CC3ImportProps
 
     if utils.set_mode("OBJECT"):
 
         for obj in cc3_rig.children:
             if obj.type == "MESH" and obj.parent == cc3_rig:
 
+                obj_cache = chr_cache.get_object_cache(obj)
+
                 if utils.try_select_object(obj, True) and utils.set_active_object(obj):
                     bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
 
-                if utils.try_select_objects([rigify_rig, obj], True) and utils.set_active_object(rigify_rig):
-                    bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
+                # only the body will generate the automatic weights for the face rig.
+                if obj_cache and obj_cache.object_type == "BODY":
 
-                arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
-                if arm_mod:
-                    arm_mod.object = rigify_rig
+                    # remove all armature modifiers as parent with automatic weights will add them
+                    modifiers.remove_object_modifiers(obj, "ARMATURE")
+
+                    if utils.try_select_object(rigify_rig) and utils.set_active_object(rigify_rig):
+                        bpy.ops.object.parent_set(type = "ARMATURE_AUTO", keep_transform = True)
+
+                else:
+
+                    if utils.try_select_object(rigify_rig) and utils.set_active_object(rigify_rig):
+                        bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
+
+                    arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
+                    if arm_mod:
+                        arm_mod.object = rigify_rig
+
+
+def clean_up(cc3_rig, rigify_rig, meta_rig):
+    """Rename the rigs, hide the original CC3 Armature and remove the meta rig.
+       Set the new rig into pose mode.
+    """
 
     rig_name = cc3_rig.name
     cc3_rig.name = rig_name + "_OldCC"
@@ -967,7 +1028,6 @@ def reparent_to_rigify(cc3_rig, rigify_rig, meta_rig):
     if utils.try_select_object(rigify_rig, True):
         if utils.set_active_object(rigify_rig):
             utils.set_mode("POSE")
-
 
 
 class CC3Rigifier(bpy.types.Operator):
@@ -1005,14 +1065,6 @@ class CC3Rigifier(bpy.types.Operator):
         else:
             utils.log_error("Not in OBJECT mode!", self)
 
-    def auto_correct_meta_rig(self):
-        correct_meta_rig(self.meta_rig)
-
-    def remap_vertex_groups(self, rigify_rig):
-        cc3_rig = self.cc3_rig
-        add_def_bones(cc3_rig, rigify_rig)
-        rename_vertex_groups(cc3_rig, rigify_rig)
-
     def execute(self, context):
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -1026,12 +1078,15 @@ class CC3Rigifier(bpy.types.Operator):
                 self.add_meta_rig()
 
                 if self.meta_rig:
-                    self.auto_correct_meta_rig()
+                    correct_meta_rig(self.meta_rig)
                     bpy.ops.pose.rigify_generate()
                     self.rigify_rig = bpy.context.active_object
-                    self.remap_vertex_groups(self.rigify_rig)
-                    reparent_to_rigify(self.cc3_rig, self.rigify_rig, self.meta_rig)
 
+                    if self.rigify_rig:
+                        reparent_to_rigify(chr_cache, self.cc3_rig, self.rigify_rig)
+                        add_def_bones(self.cc3_rig, self.rigify_rig)
+                        rename_vertex_groups(self.cc3_rig, self.rigify_rig)
+                        clean_up(self.cc3_rig, self.rigify_rig, self.meta_rig)
 
         return {"FINISHED"}
 
