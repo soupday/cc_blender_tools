@@ -695,20 +695,54 @@ class CC3RigifyPanel(bpy.types.Panel):
 
         if rigify_installed:
 
-            info_text = "Currently Only for CC3+ characters. Once rigged, incompatible with Export. Animations will need to be re-targetted."
-            wrapper = textwrap.TextWrapper(width=width)
-            info_list = wrapper.wrap(info_text)
+            if chr_cache:
 
-            box = layout.box()
-            for text in info_list:
-                box.label(text=text)
+                info_text = "Currently Only for CC3+ characters. Once rigged, incompatible with Export. Animations will need to be re-targetted."
+                wrapper = textwrap.TextWrapper(width=width)
+                info_list = wrapper.wrap(info_text)
 
-            layout.separator()
+                box = layout.box()
+                for text in info_list:
+                    box.label(text=text)
 
-            row = layout.row()
-            row.scale_y = 2
-            row.operator("cc3.rigifier", icon="IMPORT", text="Rigify")
-            row.enabled = chr_cache is not None
+                layout.separator()
+
+                row = layout.row()
+                row.prop(chr_cache, "rig_mode", expand=True)
+
+                row = layout.row()
+                split = row.split(factor=0.5)
+                split.column().label(text = "Build Face Rig")
+                split.column().prop(chr_cache, "rig_face_rig", text = "")
+
+                if chr_cache.rig_mode == "SINGLE":
+
+                    row = layout.row()
+                    row.scale_y = 2
+                    row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param = "ALL"
+                    row.enabled = chr_cache is not None
+
+                else:
+
+                    row = layout.row()
+                    row.scale_y = 2
+                    row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Attach Meta-Rig").param = "META_RIG"
+                    row.enabled = chr_cache is not None
+
+                    row = layout.row()
+                    row.scale_y = 2
+                    row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
+                    row.enabled = chr_cache is not None
+
+            else:
+
+                info_text = "No current character!"
+                wrapper = textwrap.TextWrapper(width=width)
+                info_list = wrapper.wrap(info_text)
+
+                box = layout.box()
+                for text in info_list:
+                    box.label(text=text)
 
         else:
 
