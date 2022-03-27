@@ -429,7 +429,7 @@ UV_TARGETS_CC3PLUS = [
                                     [ [0.410, 0.741], [0.414, 0.682] ],
                                     [ [0.358, 0.725], [0.371, 0.660] ] ],
     # set the top of the 'head' bone
-    ["spine.006", "TAIL",           [0.688, 0.953]],
+    #["spine.006", "TAIL",           [0.688, 0.953]],
 ]
 
 
@@ -690,30 +690,73 @@ def get_world_from_uv(obj, t_mesh, mat_slot, uv_target):
 def map_eyes(cc3_rig, dst_rig):
     # eye head position mapped from the cc3 bones
     # eye tail map to 0.5, 0.5 on the uv
-    obj = None
+    obj : bpy.types.Object = None
     for child in cc3_rig.children:
         if child.name.lower().endswith("base_eye"):
             obj = child
-    if obj is None:
-        return
+    length = 0.375
 
-    right_slot = get_eye_material_slot(obj, True)
-    left_slot = get_eye_material_slot(obj, False)
+    #right_slot = get_eye_material_slot(obj, True)
+    #left_slot = get_eye_material_slot(obj, False)
 
-    mesh = obj.data
-    t_mesh = geom.get_triangulated_bmesh(mesh)
+    #mesh = obj.data
+    #t_mesh = geom.get_triangulated_bmesh(mesh)
 
-    uv = [0.5, 0.5, 0]
+    #uv = [0.5, 0.5, 0]
 
-    if right_slot > -1:
-        world_right = get_world_from_uv(obj, t_mesh, right_slot, uv)
-        if world_right and "eye.R" in dst_rig.data.edit_bones:
-            dst_rig.data.edit_bones["eye.R"].tail = world_right
+    #if right_slot > -1:
+    #    world_right = get_world_from_uv(obj, t_mesh, right_slot, uv)
+    #    if world_right and "eye.R" in dst_rig.data.edit_bones:
+    #        dst_rig.data.edit_bones["eye.R"].tail = world_right
 
-    if left_slot > -1:
-        world_left = get_world_from_uv(obj, t_mesh, left_slot, uv)
-        if world_left and "eye.L" in dst_rig.data.edit_bones:
-            dst_rig.data.edit_bones["eye.L"].tail = world_left
+    #if left_slot > -1:
+    #    world_left = get_world_from_uv(obj, t_mesh, left_slot, uv)
+    #    if world_left and "eye.L" in dst_rig.data.edit_bones:
+    #        dst_rig.data.edit_bones["eye.L"].tail = world_left
+
+
+    if "eye.L" in dst_rig.data.edit_bones and "CC_Base_L_Eye" in cc3_rig.data.bones:
+        left_eye = dst_rig.data.edit_bones["eye.L"]
+        src_bone = cc3_rig.data.bones["CC_Base_L_Eye"]
+        head_position = cc3_rig.matrix_world @ src_bone.head_local
+        tail_position = cc3_rig.matrix_world @ src_bone.tail_local
+        dir : mathutils.Vector = tail_position - head_position
+        #minus_y_dir = mathutils.Vector(0, -1, 0) @ left_eye.matrix.inverted()
+        # CC3 eyes look down the -Y axis, reverse this to point forward for the meta-rig
+        left_eye.tail = head_position - (dir * length)
+
+
+    if "eye.R" in dst_rig.data.edit_bones and "CC_Base_R_Eye" in cc3_rig.data.bones:
+        right_eye = dst_rig.data.edit_bones["eye.R"]
+        src_bone = cc3_rig.data.bones["CC_Base_R_Eye"]
+        head_position = cc3_rig.matrix_world @ src_bone.head_local
+        tail_position = cc3_rig.matrix_world @ src_bone.tail_local
+        dir : mathutils.Vector = tail_position - head_position
+        #minus_y_dir = mathutils.Vector(0, -1, 0) @ left_eye.matrix.inverted()
+        right_eye.tail = head_position - (dir * length)
+
+    if "spine.006" in dst_rig.data.edit_bones and "CC_Base_Head" in cc3_rig.data.bones:
+        spine6 = dst_rig.data.edit_bones["spine.006"]
+        head_bone = cc3_rig.data.bones["CC_Base_Head"]
+        head_position = cc3_rig.matrix_world @ head_bone.head_local
+        length = 0
+        n = 0
+        if "CC_Base_L_Eye" in cc3_rig.data.bones:
+            left_eye_bone = cc3_rig.data.bones["CC_Base_L_Eye"]
+            left_eye_position = cc3_rig.matrix_world @ left_eye_bone.head_local
+            length += left_eye_position.z - head_position.z
+            n += 1
+        if "CC_Base_R_Eye" in cc3_rig.data.bones:
+            right_eye_bone = cc3_rig.data.bones["CC_Base_R_Eye"]
+            right_eye_position = cc3_rig.matrix_world @ right_eye_bone.head_local
+            length += right_eye_position.z - head_position.z
+            n += 1
+        if n > 0:
+            length *= 2.65 / n
+        else:
+            length = 0.25
+        tail_position = head_position + mathutils.Vector((0,0,1)) * length
+        spine6.tail = tail_position
 
 
 def mirror_uv_target(uv):
@@ -1110,6 +1153,8 @@ def reparent_to_rigify(chr_cache, cc3_rig, rigify_rig):
 
     if utils.set_mode("OBJECT"):
 
+        BODY_TYPES = ["BODY", "TEARLINE", "OCCLUSION"]
+
         for obj in cc3_rig.children:
             if obj.type == "MESH" and obj.parent == cc3_rig:
 
@@ -1119,7 +1164,7 @@ def reparent_to_rigify(chr_cache, cc3_rig, rigify_rig):
                     bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
 
                 # only the body will generate the automatic weights for the face rig.
-                if obj_cache and obj_cache.object_type == "BODY":
+                if obj_cache and obj_cache.object_type in BODY_TYPES:
 
                     # remove all armature modifiers as parent with automatic weights will add them
                     modifiers.remove_object_modifiers(obj, "ARMATURE")
