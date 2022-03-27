@@ -758,6 +758,22 @@ def map_eyes(cc3_rig, dst_rig):
         tail_position = head_position + mathutils.Vector((0,0,1)) * length
         spine6.tail = tail_position
 
+    if "teeth.T" in dst_rig.data.edit_bones and "CC_Base_Teeth01" in cc3_rig.data.bones:
+        teeth_bone = dst_rig.data.edit_bones["teeth.T"]
+        face_bone = dst_rig.data.edit_bones["face"]
+        face_dir = face_bone.tail - face_bone.head
+        src_bone = cc3_rig.data.bones["CC_Base_Teeth01"]
+        teeth_bone.head = (cc3_rig.matrix_world @ src_bone.head_local) + face_dir * 0.5
+        teeth_bone.tail = (cc3_rig.matrix_world @ src_bone.head_local)
+
+    if "teeth.B" in dst_rig.data.edit_bones and "CC_Base_Teeth02" in cc3_rig.data.bones:
+        teeth_bone = dst_rig.data.edit_bones["teeth.B"]
+        face_bone = dst_rig.data.edit_bones["face"]
+        face_dir = face_bone.tail - face_bone.head
+        src_bone = cc3_rig.data.bones["CC_Base_Teeth02"]
+        teeth_bone.head = (cc3_rig.matrix_world @ src_bone.head_local) + face_dir * 0.5
+        teeth_bone.tail = (cc3_rig.matrix_world @ src_bone.head_local)
+
 
 def mirror_uv_target(uv):
     muv = uv.copy()
