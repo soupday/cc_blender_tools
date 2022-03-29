@@ -695,7 +695,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
         if rigify_installed:
 
-            if chr_cache:
+            if chr_cache and not chr_cache.rigified:
 
                 info_text = "Currently Only for CC3+ characters. Once rigged, incompatible with Export. Animations will need to be re-targetted."
                 wrapper = textwrap.TextWrapper(width=width)
@@ -734,6 +734,16 @@ class CC3RigifyPanel(bpy.types.Panel):
                     row.scale_y = 2
                     row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
                     row.enabled = chr_cache is not None
+
+            elif chr_cache and chr_cache.rigified:
+
+                info_text = "Character has been rigged with Rigify."
+                wrapper = textwrap.TextWrapper(width=width)
+                info_list = wrapper.wrap(info_text)
+
+                box = layout.box()
+                for text in info_list:
+                    box.label(text=text)
 
             else:
 

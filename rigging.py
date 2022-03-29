@@ -329,7 +329,25 @@ VERTEX_GROUP_RENAME = [
     ["ORG-eye.L", "CC_Base_L_Eye"],
 
     ["DEF-jaw", "CC_Base_JawRoot"],
+]
 
+CONTROL_MODIFY = [
+    ["hand_ik.R", [-1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
+    ["hand_ik.L", [1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
+
+    ["foot_ik.R", [-1.25, 1.5, 1], [0, 0.05, 0], [0, 0, 0]],
+    ["foot_ik.L", [1.25, 1.5, 1], [0, 0.05, 0], [0, 0, 0]],
+
+    ["head", [1.25, 1, 1.25], [0, 0.02, 0], [0, 0, 0]],
+    ["jaw", [1.25, 1.25, 1.25], [0, 0, 0], [0, 0, 0]],
+    ["jaw_master", [1.25, 1.25, 1.25], [0, 0, 0], [0, 0, 0]],
+
+    ["shoulder.R", [-1.5, 1.5, 1.5], [0, 0, 0], [0, 0, 0]],
+    ["shoulder.L", [1.5, 1.5, 1.5], [0, 0, 0], [0, 0, 0]],
+    ["hips", [1.35, 1.35, 1.35], [0, 0, -0.015], [0, 0, 0]],
+    ["chest", [1.1, 1.5, 1.1], [0, 0.025, -0.025], [0, 0, 0]],
+    ["torso", [1.2, 1.2, 1.2], [0, 0, 0], [0, 0, 0]],
+    ["neck", [1.5, 1, 1.5], [0, 0, 0], [0, 0, 0]],
 ]
 
 
@@ -1173,6 +1191,27 @@ def correct_meta_rig(meta_rig):
     fix_bend(meta_rig, "upper_arm.R", "forearm.R", mathutils.Vector((0,1,0)))
 
 
+def modify_controls(rigify_rig):
+
+    # scale, location, rotation modifiers for custom control shapes is Blender 3.0.0+ only
+    if utils.is_blender_version("3.0.0"):
+
+        if utils.set_mode("OBJECT"):
+
+            for mod in CONTROL_MODIFY:
+                bone_name = mod[0]
+                scale = mod[1]
+                translation = mod[2]
+                rotation = mod[3]
+
+                if bone_name in rigify_rig.pose.bones:
+
+                    bone : bpy.types.PoseBone = rigify_rig.pose.bones[bone_name]
+                    bone.custom_shape_scale_xyz = scale
+                    bone.custom_shape_translation = translation
+                    bone.custom_shape_rotation_euler = rotation
+
+
 def reparent_to_rigify(chr_cache, cc3_rig, rigify_rig):
     """Unparent (with transform) from the original CC3 rig and reparent to the new rigify rig (with automatic weights for the body),
        setting the armature modifiers to the new rig.
@@ -1289,6 +1328,7 @@ class CC3Rigifier(bpy.types.Operator):
                         self.rigify_rig = bpy.context.active_object
 
                         if self.rigify_rig:
+                            modify_controls(self.rigify_rig)
                             reparent_to_rigify(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(self.cc3_rig, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig)
@@ -1316,6 +1356,7 @@ class CC3Rigifier(bpy.types.Operator):
                         self.rigify_rig = bpy.context.active_object
 
                         if self.rigify_rig:
+                            modify_controls(self.rigify_rig)
                             reparent_to_rigify(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(self.cc3_rig, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig)

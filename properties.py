@@ -1077,7 +1077,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if self.generation == "ActorCore":
             return False
         else:
-            return self.rig_meta_rig
+            return self.rig_face_rig
 
     def get_all_materials_cache(self):
         cache_all = []
