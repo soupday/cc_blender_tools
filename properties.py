@@ -1013,6 +1013,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     def is_tearline(self):
         return self.object_type == "TEARLINE"
 
+
 class CC3CharacterCache(bpy.types.PropertyGroup):
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
     eye_close: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=eye_close_update)
@@ -1065,6 +1066,18 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("MULTI","Multi-stage","Split the process so that user adjustments can be made to the meta rig before generating."),
                     ], default="SINGLE", name = "Rigging Mode")
     rig_meta_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+
+    def can_rig_full_face(self):
+        if self.generation == "ActorCore":
+            return False
+        else:
+            return True
+
+    def rig_full_face(self):
+        if self.generation == "ActorCore":
+            return False
+        else:
+            return self.rig_meta_rig
 
     def get_all_materials_cache(self):
         cache_all = []

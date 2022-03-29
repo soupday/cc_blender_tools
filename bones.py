@@ -201,10 +201,12 @@ def generate_eye_widget(rig, bone_name, bones, distance, scale):
     wgt : bpy.types.Object = None
     if utils.set_mode("OBJECT"):
         if len(bones) == 1:
-            bpy.ops.mesh.primitive_circle_add(vertices=15, radius=1)
+            bpy.ops.mesh.primitive_circle_add(vertices=16, radius=1, rotation=[0,0,11.25])
+            bpy.ops.object.transform_apply(rotation=True)
             wgt = utils.get_active_object()
         else:
-            bpy.ops.mesh.primitive_circle_add(vertices=15, radius=1.25)
+            bpy.ops.mesh.primitive_circle_add(vertices=16, radius=1.35, rotation=[0,0,11.25])
+            bpy.ops.object.transform_apply(rotation=True)
             wgt = utils.get_active_object()
             mesh : bpy.types.Mesh = wgt.data
             vert: bpy.types.MeshVertex

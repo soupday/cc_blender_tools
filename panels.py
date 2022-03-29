@@ -710,10 +710,11 @@ class CC3RigifyPanel(bpy.types.Panel):
                 row = layout.row()
                 row.prop(chr_cache, "rig_mode", expand=True)
 
-                row = layout.row()
-                split = row.split(factor=0.5)
-                split.column().label(text = "Build Face Rig")
-                split.column().prop(chr_cache, "rig_face_rig", text = "")
+                if chr_cache and chr_cache.can_rig_full_face():
+                    row = layout.row()
+                    split = row.split(factor=0.5)
+                    split.column().label(text = "Full Face Rig")
+                    split.column().prop(chr_cache, "rig_face_rig", text = "")
 
                 if chr_cache.rig_mode == "SINGLE":
 

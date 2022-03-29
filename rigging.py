@@ -203,9 +203,9 @@ ADD_DEF_BONES = [
 
     # "+CopyRoot" tells it to add a new bone, parented to the root bone, with a transform copy from the rigify_parent
     ["+MCHEyeParent", "MCH-eyes_parent", "ORG-face", "LR", 30],
-    ["+EyeControl", "eyes", "MCH-eyes_parent", "LR", 1, ["ORG-eye.L", "ORG-eye.R"], 0.3],
-    ["+EyeControl", "eye.L", "eyes", "LR", 1,           ["ORG-eye.L"], 0.3],
-    ["+EyeControl", "eye.R", "eyes", "LR", 1,           ["ORG-eye.R"], 0.3],
+    ["+EyeControl", "eyes", "MCH-eyes_parent", "LR", 1, ["ORG-eye.L", "ORG-eye.R"], 0.2],
+    ["+EyeControl", "eye.L", "eyes", "LR", 1,           ["ORG-eye.L"], 0.2],
+    ["+EyeControl", "eye.R", "eyes", "LR", 1,           ["ORG-eye.R"], 0.2],
 ]
 
 VERTEX_GROUP_RENAME = [
@@ -550,7 +550,7 @@ def add_def_bones(cc3_rig, rigify_rig):
                 bones.set_edit_bone_flags(reparented_bone, relation_flags, layer)
 
         elif src_bone_name == "+MCHEyeParent":
-            mch_bone = bones.copy_edit_bone(rigify_rig, dst_bone_parent_name, dst_bone_name, "root", 0.2)
+            mch_bone = bones.copy_edit_bone(rigify_rig, dst_bone_parent_name, dst_bone_name, "root", 0.25)
             if mch_bone:
                 bones.set_edit_bone_flags(mch_bone, relation_flags, layer)
                 bones.add_copy_transforms_constraint(rigify_rig, mch_bone.name, dst_bone_parent_name)
@@ -1281,7 +1281,7 @@ class CC3Rigifier(bpy.types.Operator):
             if self.param == "ALL":
 
                 if self.cc3_rig:
-                    self.add_meta_rig(chr_cache.rig_face_rig)
+                    self.add_meta_rig(chr_cache.rig_full_face())
 
                     if self.meta_rig:
                         correct_meta_rig(self.meta_rig)
@@ -1299,7 +1299,7 @@ class CC3Rigifier(bpy.types.Operator):
             elif self.param == "META_RIG":
 
                 if self.cc3_rig:
-                    self.add_meta_rig(chr_cache.rig_face_rig)
+                    self.add_meta_rig(chr_cache.rig_full_face())
 
                     if self.meta_rig:
                         chr_cache.rig_meta_rig = self.meta_rig
