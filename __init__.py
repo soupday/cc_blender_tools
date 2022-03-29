@@ -39,6 +39,7 @@ if "bpy" in locals():
     importlib.reload(exporter)
     importlib.reload(importer)
     importlib.reload(geom)
+    importlib.reload(bones)
     importlib.reload(rigging)
 
 import bpy
@@ -66,6 +67,7 @@ from . import scene
 from . import exporter
 from . import importer
 from . import geom
+from . import bones
 from . import rigging
 
 

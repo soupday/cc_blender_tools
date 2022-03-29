@@ -1,3 +1,18 @@
+# Copyright (C) 2021 Victor Soupday
+# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+#
+# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
 import mathutils
@@ -6,6 +21,7 @@ from . import utils
 from . import geom
 from . import properties
 from . import modifiers
+from . import bones
 
 #   METARIG_BONE, CC_BONE_HEAD, CC_BONE_TAIL, LERP_FROM, LERP_TO
 #   '-' before CC_BONE_HEAD means to copy the tail position, not the head
@@ -137,55 +153,59 @@ RELATIVE_MAPPINGS = [
 ]
 
 # additional deformation bones to copy from the cc3 rig to the generated rigify deformation bones.
-# [cc3_source_bone, new_rigify_def_bone, rigify_parent, flags]
+# [cc3_source_bone, new_rigify_def_bone, rigify_parent, flags, layer]
 # flags C=Connected, L=Local location, R=Inherit rotation
+# layers: 31 = ORG bones, 30 = MCH bones, 29 = DEF bones
 ADD_DEF_BONES = [
 
-    ["CC_Base_L_RibsTwist", "DEF-breast_twist.L", "ORG-breast.L", "LR"],
-    ["CC_Base_R_RibsTwist", "DEF-breast_twist.R", "ORG-breast.R", "LR"],
+    ["CC_Base_L_RibsTwist", "DEF-breast_twist.L", "ORG-breast.L", "LR", 29],
+    ["CC_Base_R_RibsTwist", "DEF-breast_twist.R", "ORG-breast.R", "LR", 29],
     # "-" tells it to re-parent the existing DEF-breast bones to the new DEF-breast_twist bones.
-    ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR"],
-    ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR"],
+    ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29],
+    ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29],
 
-    ["CC_Base_L_UpperarmTwist01", "DEF-upper_arm_twist.L", "DEF-upper_arm.L", "LR"],
-    ["CC_Base_L_UpperarmTwist02", "DEF-upper_arm_twist.L.001", "DEF-upper_arm.L.001", "LR"],
-    ["CC_Base_L_ElbowShareBone", "DEF-elbow_share.L", "DEF-forearm.L", "LR"],
-    ["CC_Base_L_ForearmTwist01", "DEF-forearm_twist.L", "DEF-forearm.L", "LR"],
-    ["CC_Base_L_ForearmTwist02", "DEF-forearm_twist.L.001", "DEF-forearm.L.001", "LR"],
+    ["CC_Base_L_UpperarmTwist01", "DEF-upper_arm_twist.L", "DEF-upper_arm.L", "LR", 29],
+    ["CC_Base_L_UpperarmTwist02", "DEF-upper_arm_twist.L.001", "DEF-upper_arm.L.001", "LR", 29],
+    ["CC_Base_L_ElbowShareBone", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29],
+    ["CC_Base_L_ForearmTwist01", "DEF-forearm_twist.L", "DEF-forearm.L", "LR", 29],
+    ["CC_Base_L_ForearmTwist02", "DEF-forearm_twist.L.001", "DEF-forearm.L.001", "LR", 29],
 
-    ["CC_Base_L_ThighTwist01", "DEF-thigh_twist.L", "DEF-thigh.L", "LR"],
-    ["CC_Base_L_ThighTwist02", "DEF-thigh_twist.L.001", "DEF-thigh.L.001", "LR"],
-    ["CC_Base_L_KneeShareBone", "DEF-knee_share.L", "DEF-shin.L", "LR"],
-    ["CC_Base_L_CalfTwist01", "DEF-shin_twist.L", "DEF-shin.L", "LR"],
-    ["CC_Base_L_CalfTwist02", "DEF-shin_twist.L.001", "DEF-shin.L.001", "LR"],
+    ["CC_Base_L_ThighTwist01", "DEF-thigh_twist.L", "DEF-thigh.L", "LR", 29],
+    ["CC_Base_L_ThighTwist02", "DEF-thigh_twist.L.001", "DEF-thigh.L.001", "LR", 29],
+    ["CC_Base_L_KneeShareBone", "DEF-knee_share.L", "DEF-shin.L", "LR", 29],
+    ["CC_Base_L_CalfTwist01", "DEF-shin_twist.L", "DEF-shin.L", "LR", 29],
+    ["CC_Base_L_CalfTwist02", "DEF-shin_twist.L.001", "DEF-shin.L.001", "LR", 29],
 
-    ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR"],
-    ["CC_Base_L_IndexToe1", "DEF-toe_index.L", "DEF-toe.L", "LR"],
-    ["CC_Base_L_MidToe1", "DEF-toe_mid.L", "DEF-toe.L", "LR"],
-    ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR"],
-    ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR"],
+    ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29],
+    ["CC_Base_L_IndexToe1", "DEF-toe_index.L", "DEF-toe.L", "LR", 29],
+    ["CC_Base_L_MidToe1", "DEF-toe_mid.L", "DEF-toe.L", "LR", 29],
+    ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29],
+    ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29],
 
 
-    ["CC_Base_R_UpperarmTwist01", "DEF-upper_arm_twist.R", "DEF-upper_arm.R", "LR"],
-    ["CC_Base_R_UpperarmTwist02", "DEF-upper_arm_twist.R.001", "DEF-upper_arm.R.001", "LR"],
-    ["CC_Base_R_ElbowShareBone", "DEF-elbow_share.R", "DEF-forearm.R", "LR"],
-    ["CC_Base_R_ForearmTwist01", "DEF-forearm_twist.R", "DEF-forearm.R", "LR"],
-    ["CC_Base_R_ForearmTwist02", "DEF-forearm_twist.R.001", "DEF-forearm.R.001", "LR"],
+    ["CC_Base_R_UpperarmTwist01", "DEF-upper_arm_twist.R", "DEF-upper_arm.R", "LR", 29],
+    ["CC_Base_R_UpperarmTwist02", "DEF-upper_arm_twist.R.001", "DEF-upper_arm.R.001", "LR", 29],
+    ["CC_Base_R_ElbowShareBone", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29],
+    ["CC_Base_R_ForearmTwist01", "DEF-forearm_twist.R", "DEF-forearm.R", "LR", 29],
+    ["CC_Base_R_ForearmTwist02", "DEF-forearm_twist.R.001", "DEF-forearm.R.001", "LR", 29],
 
-    ["CC_Base_R_ThighTwist01", "DEF-thigh_twist.R", "DEF-thigh.R", "LR"],
-    ["CC_Base_R_ThighTwist02", "DEF-thigh_twist.R.001", "DEF-thigh.R.001", "LR"],
-    ["CC_Base_R_KneeShareBone", "DEF-knee_share.R", "DEF-shin.R", "LR"],
-    ["CC_Base_R_CalfTwist01", "DEF-shin_twist.R", "DEF-shin.R", "LR"],
-    ["CC_Base_R_CalfTwist02", "DEF-shin_twist.R.001", "DEF-shin.R.001", "LR"],
+    ["CC_Base_R_ThighTwist01", "DEF-thigh_twist.R", "DEF-thigh.R", "LR", 29],
+    ["CC_Base_R_ThighTwist02", "DEF-thigh_twist.R.001", "DEF-thigh.R.001", "LR", 29],
+    ["CC_Base_R_KneeShareBone", "DEF-knee_share.R", "DEF-shin.R", "LR", 29],
+    ["CC_Base_R_CalfTwist01", "DEF-shin_twist.R", "DEF-shin.R", "LR", 29],
+    ["CC_Base_R_CalfTwist02", "DEF-shin_twist.R.001", "DEF-shin.R.001", "LR", 29],
 
-    ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR"],
-    ["CC_Base_R_IndexToe1", "DEF-toe_index.R", "DEF-toe.R", "LR"],
-    ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR"],
-    ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR"],
-    ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR"],
+    ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29],
+    ["CC_Base_R_IndexToe1", "DEF-toe_index.R", "DEF-toe.R", "LR", 29],
+    ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR", 29],
+    ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR", 29],
+    ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29],
 
     # "+CopyRoot" tells it to add a new bone, parented to the root bone, with a transform copy from the rigify_parent
-    ["+CopyRoot", "MCH-eyes_parent", "ORG-face", "LR"],
+    ["+MCHEyeParent", "MCH-eyes_parent", "ORG-face", "LR", 30],
+    ["+EyeControl", "eyes", "MCH-eyes_parent", "LR", 1, ["ORG-eye.L", "ORG-eye.R"], 0.3],
+    ["+EyeControl", "eye.L", "eyes", "LR", 1,           ["ORG-eye.L"], 0.3],
+    ["+EyeControl", "eye.R", "eyes", "LR", 1,           ["ORG-eye.R"], 0.3],
 ]
 
 VERTEX_GROUP_RENAME = [
@@ -309,6 +329,7 @@ VERTEX_GROUP_RENAME = [
     ["ORG-eye.L", "CC_Base_L_Eye"],
 
     ["DEF-jaw", "CC_Base_JawRoot"],
+
 ]
 
 
@@ -514,53 +535,48 @@ def add_def_bones(cc3_rig, rigify_rig):
     if "ORG-teeth.B" in rigify_rig.data.bones:
         rigify_rig.data.bones["ORG-teeth.B"].use_deform = True
 
+    root_bone = rigify_rig.data.bones["root"]
+
     for def_copy in ADD_DEF_BONES:
         src_bone_name = def_copy[0]
         dst_bone_name = def_copy[1]
         dst_bone_parent_name = def_copy[2]
         relation_flags = def_copy[3]
+        layer = def_copy[4]
 
         if src_bone_name == "-": # means to reparent an existing deformation bone
-            if utils.edit_mode_to(rigify_rig):
-                if dst_bone_name in rigify_rig.data.edit_bones:
-                    dst_bone = rigify_rig.data.edit_bones[dst_bone_name]
-                    if dst_bone_parent_name != "":
-                        if dst_bone_parent_name in rigify_rig.data.edit_bones:
-                            parent_bone = rigify_rig.data.edit_bones[dst_bone_parent_name]
-                            dst_bone.parent = parent_bone
-                            dst_bone.use_connect = True if "C" in relation_flags else False
-                            dst_bone.use_local_location = True if "L" in relation_flags else False
-                            dst_bone.use_inherit_rotation = True if "R" in relation_flags else False
-                        else:
-                            utils.log_error(f"Could not find parent bone: {dst_bone_parent_name} in Rigify Rig!")
-                else:
-                    utils.log_error(f"Could not find bone: {dst_bone_name} in Rigify Rig!")
-        elif src_bone_name == "+CopyRoot":
-            pass
+            reparented_bone = bones.reparent_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
+            if reparented_bone:
+                bones.set_edit_bone_flags(reparented_bone, relation_flags, layer)
+
+        elif src_bone_name == "+MCHEyeParent":
+            mch_bone = bones.copy_edit_bone(rigify_rig, dst_bone_parent_name, dst_bone_name, "root", 0.2)
+            if mch_bone:
+                bones.set_edit_bone_flags(mch_bone, relation_flags, layer)
+                bones.add_copy_transforms_constraint(rigify_rig, mch_bone.name, dst_bone_parent_name)
+                # then add a parameter and driver (later?)
+
+        elif src_bone_name == "+EyeControl":
+            eyes_bone = bones.new_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
+            if eyes_bone:
+                # def_copy[5] = list of bones to copy average positions from
+                # def_copy[6] = displace scale of above bones along their (normalized) direction
+                distance = 0
+                if len(def_copy[5]) == 2:
+                    distance = bones.get_distance_between(rigify_rig, def_copy[5][0], def_copy[5][1])
+                bones.copy_position(rigify_rig, dst_bone_name, def_copy[5], def_copy[6])
+                eye_scale = 0.015
+                eyes_bone.tail = eyes_bone.head + mathutils.Vector((0, 0, eye_scale))
+                bones.set_bone_group(rigify_rig, dst_bone_name, "FK")
+                if len(def_copy[5]) == 1:
+                    bones.add_damped_track_constraint(rigify_rig, def_copy[5][0], dst_bone_name)
+                bones.generate_eye_widget(rigify_rig, dst_bone_name, def_copy[5], distance, eye_scale)
+
+
         else:
-            if dst_bone_name not in rigify_rig.data.bones:
-                if utils.edit_mode_to(cc3_rig):
-                    if src_bone_name in cc3_rig.data.edit_bones:
-                        src_bone = cc3_rig.data.edit_bones[src_bone_name]
-                        head_pos = cc3_rig.matrix_world @ src_bone.head
-                        tail_pos = cc3_rig.matrix_world @ src_bone.tail
-                        roll = src_bone.roll
-                        if utils.edit_mode_to(rigify_rig):
-                            dst_bone = rigify_rig.data.edit_bones.new(dst_bone_name)
-                            dst_bone.head = head_pos
-                            dst_bone.tail = tail_pos
-                            dst_bone.roll = roll
-                            if dst_bone_parent_name != "":
-                                if dst_bone_parent_name in rigify_rig.data.edit_bones:
-                                    parent_bone = rigify_rig.data.edit_bones[dst_bone_parent_name]
-                                    dst_bone.parent = parent_bone
-                                    dst_bone.use_connect = True if "C" in relation_flags else False
-                                    dst_bone.use_local_location = True if "L" in relation_flags else False
-                                    dst_bone.use_inherit_rotation = True if "R" in relation_flags else False
-                                else:
-                                    utils.log_error(f"Could not find parent bone: {dst_bone_parent_name} in Rigify Rig!")
-                    else:
-                        utils.log_error(f"Could not find bone: {src_bone_name} in CC Rig!")
+            def_bone = bones.copy_edit_bone_from_rig(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, 1.0)
+            if def_bone:
+                bones.set_edit_bone_flags(def_bone, relation_flags, layer)
 
 
 def rename_vertex_groups(cc3_rig, rigify_rig):
@@ -1209,9 +1225,11 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     bpy.data.objects.remove(meta_rig)
     rigify_rig.name = rig_name + "_Rigify"
 
-    if utils.try_select_object(rigify_rig, True):
-        if utils.set_active_object(rigify_rig):
-            utils.set_mode("POSE")
+    if utils.set_mode("OBJECT"):
+        utils.clear_selected_objects()
+        if utils.try_select_object(rigify_rig, True):
+            if utils.set_active_object(rigify_rig):
+                utils.set_mode("POSE")
 
     chr_cache.set_rigify_armature(rigify_rig)
 

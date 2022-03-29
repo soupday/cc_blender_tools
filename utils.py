@@ -440,16 +440,27 @@ def set_mode(mode):
             return False
         return True
     else:
-        bpy.ops.object.mode_set(mode=mode)
         if bpy.context.object.mode != mode:
-            log_error("Unable to set " + mode + " on object: " + bpy.context.object.name)
-            return False
+            bpy.ops.object.mode_set(mode=mode)
+            if bpy.context.object.mode != mode:
+                log_error("Unable to set " + mode + " on object: " + bpy.context.object.name)
+                return False
         return True
+
+
+def get_mode():
+    try:
+        return bpy.context.object.mode
+    except:
+        return "OBJECT"
 
 
 def edit_mode_to(obj):
-    if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
+    if get_active_object() == obj and get_mode() == "EDIT":
         return True
+    else:
+        if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
+            return True
     return False
 
 
