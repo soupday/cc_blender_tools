@@ -648,6 +648,22 @@ def set_material_alpha(mat, method):
         mat.use_backface_culling = False
 
 
+def test_for_material_uv_coords(obj, mat_slot, uvs):
+    mesh = obj.data
+    ul = mesh.uv_layers[0]
+    for poly in mesh.polygons:
+        if poly.material_index == mat_slot:
+            for loop_index in poly.loop_indices:
+                loop_entry = mesh.loops[loop_index]
+                poly_uv = ul.data[loop_entry.index].uv
+                for uv in uvs:
+                    du = uv[0] - poly_uv[0]
+                    dv = uv[1] - poly_uv[1]
+                    if abs(du) < 0.01 and abs(dv) < 0.01:
+                        return True
+    return False
+
+
 
 def reconstruct_obj_materials(obj):
     mesh = obj.data

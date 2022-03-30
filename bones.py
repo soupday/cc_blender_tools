@@ -20,10 +20,58 @@ from . import utils
 from rna_prop_ui import rna_idprop_ui_create
 
 
+def get_rl_edit_bone(rig, name):
+    if name in rig.data.edit_bones:
+        return rig.data.edit_bones[name]
+    # remove "CC_Base_" from start of bone name and try again...
+    name = name[8:]
+    if name in rig.data.edit_bones:
+        return rig.data.edit_bones[name]
+    return None
+
+
+def get_rl_bone(rig, name):
+    if name in rig.data.bones:
+        return rig.data.bones[name]
+    # remove "CC_Base_" from start of bone name and try again...
+    name = name[8:]
+    if name in rig.data.bones:
+        return rig.data.bones[name]
+    return None
+
+
+def get_rl_pose_bone(rig, name):
+    if name in rig.pose.bones:
+        return rig.pose.bones[name]
+    # remove "CC_Base_" from start of bone name and try again...
+    name = name[8:]
+    if name in rig.pose.bones:
+        return rig.pose.bones[name]
+    return None
+
+
+def get_edit_bone(rig, name):
+    if name in rig.data.edit_bones:
+        return rig.data.edit_bones[name]
+    return None
+
+
+def get_bone(rig, name):
+    if name in rig.data.bones:
+        return rig.data.bones[name]
+    return None
+
+
+def get_pose_bone(rig, name):
+    if name in rig.pose.bones:
+        return rig.pose.bones[name]
+    return None
+
+
 def copy_edit_bone(rig, src_name, dst_name, parent_name, scale):
     if utils.edit_mode_to(rig):
-        if src_name in rig.data.edit_bones and dst_name not in rig.data.edit_bones:
-            src_bone = rig.data.edit_bones[src_name]
+        src_bone = get_edit_bone(rig, src_name)
+        if src_bone and dst_name not in rig.data.edit_bones:
             dst_bone = rig.data.edit_bones.new(dst_name)
             dst_bone.head = src_bone.head
             dst_bone.tail = src_bone.head + (src_bone.tail - src_bone.head) * scale
@@ -70,8 +118,8 @@ def reparent_edit_bone(rig, bone_name, parent_name):
             bone = rig.data.edit_bones[bone_name]
             if bone:
                 if parent_name != "":
-                    if parent_name in rig.data.edit_bones:
-                        parent_bone = rig.data.edit_bones[parent_name]
+                    parent_bone = get_edit_bone(rig, parent_name)
+                    if parent_bone:
                         bone.parent = parent_bone
                         return bone
                     else:
@@ -83,12 +131,12 @@ def reparent_edit_bone(rig, bone_name, parent_name):
     return None
 
 
-def copy_edit_bone_from_rig(src_rig, dst_rig, src_name, dst_name, dst_parent_name, scale):
-    if utils.edit_mode_to(src_rig):
-        if src_name in src_rig.data.edit_bones:
-            src_bone = src_rig.data.edit_bones[src_name]
-            head_pos = src_rig.matrix_world @ src_bone.head
-            tail_pos = src_rig.matrix_world @ src_bone.tail
+def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, scale):
+    if utils.edit_mode_to(cc3_rig):
+        src_bone = get_rl_edit_bone(cc3_rig, cc3_name)
+        if src_bone:
+            head_pos = cc3_rig.matrix_world @ src_bone.head
+            tail_pos = cc3_rig.matrix_world @ src_bone.tail
             roll = src_bone.roll
             if utils.edit_mode_to(dst_rig):
                 dst_bone = dst_rig.data.edit_bones.new(dst_name)
@@ -96,8 +144,8 @@ def copy_edit_bone_from_rig(src_rig, dst_rig, src_name, dst_name, dst_parent_nam
                 dst_bone.tail = head_pos + (tail_pos - head_pos) * scale
                 dst_bone.roll = roll
                 if dst_parent_name != "":
-                    if dst_parent_name in dst_rig.data.edit_bones:
-                        parent_bone = dst_rig.data.edit_bones[dst_parent_name]
+                    parent_bone = get_edit_bone(dst_rig, dst_parent_name)
+                    if parent_bone:
                         dst_bone.parent = parent_bone
                     else:
                         utils.log_error(f"Could not find parent bone: {dst_parent_name} in target Rig!")
@@ -105,9 +153,9 @@ def copy_edit_bone_from_rig(src_rig, dst_rig, src_name, dst_name, dst_parent_nam
             else:
                 utils.log_error(f"Unable to edit target rig!")
         else:
-            utils.log_error(f"Could not find bone: {src_name} in source Rig!")
+            utils.log_error(f"Could not find bone: {cc3_name} in CC3 Rig!")
     else:
-        utils.log_error(f"Unable to edit source rig!")
+        utils.log_error(f"Unable to edit CC3 rig!")
     return None
 
 

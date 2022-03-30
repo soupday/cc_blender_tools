@@ -32,6 +32,15 @@ Links
 
 ## Changelog
 
+### 1.3.1
+- Optional two stage Rigify process to allow modifications to the meta-rig.
+- Optional basic face rigging.
+- Support for ActorCore character Rigging. (Only with basic face rigging)
+- Support for G3 character generation, which includes Toon base characters. (i.e. the old CC3 base)
+- Support for rigging G3Plus, G3, ActorCore characters exported from iClone. (iClone exports with no bone name prefix)
+- Some Control Widget fixes and scaling.
+- Better character Generation check on import for exports without JSON data.
+
 ### 1.3.0
 - Rigify function added.
     - Character objects are bound to the Rigify control rig.

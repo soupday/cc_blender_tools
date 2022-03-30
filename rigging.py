@@ -539,22 +539,16 @@ class BoundingBox:
         print("Max:", self.box_max)
 
 
-def find_metarig(objects):
-    for obj in objects:
-        if obj.type == "ARMATURE":
-            if "metarig" in obj.name and "spine" in obj.pose.bones:
-                return obj
-    return None
-
-
-def prune_meta_rig(rig):
+def prune_meta_rig(meta_rig):
     """Removes some meta rig bones that have no corresponding match in the CC3 rig.
        (And are safe to remove)
     """
 
-    pelvis_r = rig.data.edit_bones["pelvis.R"]
-    rig.data.edit_bones.remove(pelvis_r)
-    rig.data.edit_bones["pelvis.L"].name = "pelvis"
+    pelvis_r = bones.get_edit_bone(meta_rig, "pelvis.R")
+    pelvis_l = bones.get_edit_bone(meta_rig, "pelvis.L")
+    if pelvis_r and pelvis_l:
+        meta_rig.data.edit_bones.remove(pelvis_r)
+        pelvis_l.name = "pelvis"
 
 
 def add_def_bones(cc3_rig, rigify_rig):
@@ -577,8 +571,6 @@ def add_def_bones(cc3_rig, rigify_rig):
         rigify_rig.data.bones["ORG-teeth.T"].use_deform = True
     if "ORG-teeth.B" in rigify_rig.data.bones:
         rigify_rig.data.bones["ORG-teeth.B"].use_deform = True
-
-    root_bone = rigify_rig.data.bones["root"]
 
     for def_copy in ADD_DEF_BONES:
         src_bone_name = def_copy[0]
@@ -620,9 +612,19 @@ def add_def_bones(cc3_rig, rigify_rig):
                     bones.add_constraint_influence_driver(rigify_rig, dst_bone_parent_name, dst_bone_name, "eyes_follow", "COPY_TRANSFORMS")
 
         else:
-            def_bone = bones.copy_edit_bone_from_rig(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, 1.0)
+            def_bone = bones.copy_rl_edit_bone(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, 1.0)
             if def_bone:
                 bones.set_edit_bone_flags(def_bone, relation_flags, layer)
+
+
+def rl_vertex_group(obj, group):
+    if group in obj.vertex_groups:
+        return group
+    # remove "CC_Base_" from name and try again.
+    group = group[8:]
+    if group in obj.vertex_groups:
+        return group
+    return None
 
 
 def rename_vertex_groups(cc3_rig, rigify_rig):
@@ -635,22 +637,25 @@ def rename_vertex_groups(cc3_rig, rigify_rig):
     for obj in rigify_rig.children:
 
         for vgrn in VERTEX_GROUP_RENAME:
-            vg_from = vgrn[1]
+
             vg_to = vgrn[0]
+            vg_from = rl_vertex_group(obj, vgrn[1])
 
-            try:
-                if vg_to in obj.vertex_groups:
-                    utils.log_info(f"removing {vg_to}")
-                    obj.vertex_groups.remove(obj.vertex_groups[vg_to])
-            except:
-                pass
+            if vg_from:
 
-            try:
-                if vg_from in obj.vertex_groups:
-                    utils.log_info(f"renaming {vg_from} to {vg_to}")
-                    obj.vertex_groups[vg_from].name = vg_to
-            except:
-                pass
+                try:
+                    if vg_to in obj.vertex_groups:
+                        utils.log_info(f"removing {vg_to}")
+                        obj.vertex_groups.remove(obj.vertex_groups[vg_to])
+                except:
+                    pass
+
+                try:
+                    if vg_from in obj.vertex_groups:
+                        utils.log_info(f"renaming {vg_from} to {vg_to}")
+                        obj.vertex_groups[vg_from].name = vg_to
+                except:
+                    pass
 
         for mod in obj.modifiers:
             if mod.type == "ARMATURE":
@@ -658,54 +663,61 @@ def rename_vertex_groups(cc3_rig, rigify_rig):
                 mod.use_deform_preserve_volume = True
 
 
-def store_relative_mappings(rig, coords):
+def store_relative_mappings(meta_rig, coords):
     for mapping in RELATIVE_MAPPINGS:
         bone_name = mapping[0]
-        bone = rig.data.edit_bones[bone_name]
-        bone_head_pos = rig.matrix_world @ bone.head
-        bone_tail_pos = rig.matrix_world @ bone.tail
 
-        box = BoundingBox()
+        bone = bones.get_edit_bone(meta_rig, bone_name)
 
-        for i in range(2, len(mapping)):
-            rel_name = mapping[i]
-            rel_bone = rig.data.edit_bones[rel_name]
-            head_pos = rig.matrix_world @ rel_bone.head
-            tail_pos = rig.matrix_world @ rel_bone.tail
-            box.add(head_pos)
-            box.add(tail_pos)
+        if bone:
 
-        box.pad(BOX_PADDING)
+            bone_head_pos = meta_rig.matrix_world @ bone.head
+            bone_tail_pos = meta_rig.matrix_world @ bone.tail
 
-        coords[bone_name] = [box.relative(bone_head_pos), box.relative(bone_tail_pos)]
+            box = BoundingBox()
+
+            for i in range(2, len(mapping)):
+                rel_name = mapping[i]
+                rel_bone = bones.get_edit_bone(meta_rig, rel_name)
+                if rel_bone:
+                    head_pos = meta_rig.matrix_world @ rel_bone.head
+                    tail_pos = meta_rig.matrix_world @ rel_bone.tail
+                    box.add(head_pos)
+                    box.add(tail_pos)
+
+            box.pad(BOX_PADDING)
+            coords[bone_name] = [box.relative(bone_head_pos), box.relative(bone_tail_pos)]
 
 
-def restore_relative_mappings(rig, coords):
+def restore_relative_mappings(meta_rig, coords):
     for mapping in RELATIVE_MAPPINGS:
         bone_name = mapping[0]
-        bone = rig.data.edit_bones[bone_name]
+        bone = bones.get_edit_bone(meta_rig, bone_name)
 
-        box = BoundingBox()
+        if bone:
 
-        for i in range(2, len(mapping)):
-            rel_name = mapping[i]
-            rel_bone = rig.data.edit_bones[rel_name]
-            head_pos = rig.matrix_world @ rel_bone.head
-            tail_pos = rig.matrix_world @ rel_bone.tail
-            box.add(head_pos)
-            box.add(tail_pos)
+            box = BoundingBox()
 
-        box.pad(BOX_PADDING)
+            for i in range(2, len(mapping)):
+                rel_name = mapping[i]
+                rel_bone = bones.get_edit_bone(meta_rig, rel_name)
+                if rel_bone:
+                    head_pos = meta_rig.matrix_world @ rel_bone.head
+                    tail_pos = meta_rig.matrix_world @ rel_bone.tail
+                    box.add(head_pos)
+                    box.add(tail_pos)
 
-        rc = coords[bone_name]
-        if (mapping[1] == "HEAD" or mapping[1] == "BOTH"):
-            bone.head = box.coord(rc[0])
+            box.pad(BOX_PADDING)
 
-        if (mapping[1] == "TAIL" or mapping[1] == "BOTH"):
-            bone.tail = box.coord(rc[1])
+            rc = coords[bone_name]
+            if (mapping[1] == "HEAD" or mapping[1] == "BOTH"):
+                bone.head = box.coord(rc[0])
+
+            if (mapping[1] == "TAIL" or mapping[1] == "BOTH"):
+                bone.tail = box.coord(rc[1])
 
 
-def store_bone_roll(rig, roll_store):
+def store_bone_roll(cc3_rig, roll_store):
 
     for roll in ROLL_COPY:
 
@@ -713,11 +725,12 @@ def store_bone_roll(rig, roll_store):
         roll_mod = roll[1]
         source_name = roll[2]
 
-        bone = rig.data.edit_bones[source_name]
-        roll_store[target_name] = bone.roll
+        bone = bones.get_rl_edit_bone(cc3_rig, source_name)
+        if bone:
+            roll_store[target_name] = bone.roll
 
 
-def restore_bone_roll(rig, roll_store):
+def restore_bone_roll(meta_rig, roll_store):
 
     for roll in ROLL_COPY:
 
@@ -725,21 +738,23 @@ def restore_bone_roll(rig, roll_store):
         roll_mod = roll[1]
         source_name = roll[2]
 
-        if target_name in rig.data.edit_bones:
-            bone = rig.data.edit_bones[target_name]
+        bone = bones.get_edit_bone(meta_rig, target_name)
+        if bone:
             bone.roll = roll_store[target_name] + roll_mod * 0.0174532925199432957
 
 
-def set_rigify_params(rig):
-    #bpy.context.active_object.pose.bones['upper_arm.R'].rigify_parameters.rotation_axis = "z"
+def set_rigify_params(rigify_rig):
+    #e.g. bpy.context.active_object.pose.bones['upper_arm.R'].rigify_parameters.rotation_axis = "z"
 
     for params in RIGIFY_PARAMS:
         bone_name = params[0]
         bone_rot_axis = params[1]
-        rig.pose.bones[bone_name].rigify_parameters.rotation_axis = bone_rot_axis
+        pose_bone = bones.get_pose_bone(rigify_rig, bone_name)
+        if pose_bone:
+            pose_bone.rigify_parameters.rotation_axis = bone_rot_axis
 
 
-def map_eyes(cc3_rig, dst_rig):
+def map_eyes(cc3_rig, meta_rig):
     # eye head position mapped from the cc3 bones
     # eye tail map to 0.5, 0.5 on the uv
     obj : bpy.types.Object = None
@@ -748,59 +763,36 @@ def map_eyes(cc3_rig, dst_rig):
             obj = child
     length = 0.375
 
-    #right_slot = get_eye_material_slot(obj, True)
-    #left_slot = get_eye_material_slot(obj, False)
+    left_eye = bones.get_edit_bone(meta_rig, "eye.L")
+    left_eye_source = bones.get_rl_bone(cc3_rig, "CC_Base_L_Eye")
+    right_eye = bones.get_edit_bone(meta_rig, "eye.R")
+    right_eye_source = bones.get_rl_bone(cc3_rig, "CC_Base_R_Eye")
 
-    #mesh = obj.data
-    #t_mesh = geom.get_triangulated_bmesh(mesh)
-
-    #uv = [0.5, 0.5, 0]
-
-    #if right_slot > -1:
-    #    world_right = get_world_from_uv(obj, t_mesh, right_slot, uv)
-    #    if world_right and "eye.R" in dst_rig.data.edit_bones:
-    #        dst_rig.data.edit_bones["eye.R"].tail = world_right
-
-    #if left_slot > -1:
-    #    world_left = get_world_from_uv(obj, t_mesh, left_slot, uv)
-    #    if world_left and "eye.L" in dst_rig.data.edit_bones:
-    #        dst_rig.data.edit_bones["eye.L"].tail = world_left
-
-
-    if "eye.L" in dst_rig.data.edit_bones and "CC_Base_L_Eye" in cc3_rig.data.bones:
-        left_eye = dst_rig.data.edit_bones["eye.L"]
-        src_bone = cc3_rig.data.bones["CC_Base_L_Eye"]
-        head_position = cc3_rig.matrix_world @ src_bone.head_local
-        tail_position = cc3_rig.matrix_world @ src_bone.tail_local
+    if left_eye and left_eye_source:
+        head_position = cc3_rig.matrix_world @ left_eye_source.head_local
+        tail_position = cc3_rig.matrix_world @ left_eye_source.tail_local
         dir : mathutils.Vector = tail_position - head_position
-        #minus_y_dir = mathutils.Vector(0, -1, 0) @ left_eye.matrix.inverted()
-        # CC3 eyes look down the -Y axis, reverse this to point forward for the meta-rig
         left_eye.tail = head_position - (dir * length)
 
-
-    if "eye.R" in dst_rig.data.edit_bones and "CC_Base_R_Eye" in cc3_rig.data.bones:
-        right_eye = dst_rig.data.edit_bones["eye.R"]
-        src_bone = cc3_rig.data.bones["CC_Base_R_Eye"]
-        head_position = cc3_rig.matrix_world @ src_bone.head_local
-        tail_position = cc3_rig.matrix_world @ src_bone.tail_local
+    if right_eye and right_eye_source:
+        head_position = cc3_rig.matrix_world @ right_eye_source.head_local
+        tail_position = cc3_rig.matrix_world @ right_eye_source.tail_local
         dir : mathutils.Vector = tail_position - head_position
-        #minus_y_dir = mathutils.Vector(0, -1, 0) @ left_eye.matrix.inverted()
         right_eye.tail = head_position - (dir * length)
 
-    if "spine.006" in dst_rig.data.edit_bones and "CC_Base_Head" in cc3_rig.data.bones:
-        spine6 = dst_rig.data.edit_bones["spine.006"]
-        head_bone = cc3_rig.data.bones["CC_Base_Head"]
-        head_position = cc3_rig.matrix_world @ head_bone.head_local
+    spine6 = bones.get_edit_bone(meta_rig, "spine.006")
+    head_bone_source = bones.get_rl_bone(cc3_rig, "CC_Base_Head")
+
+    if spine6 and head_bone_source:
+        head_position = cc3_rig.matrix_world @ head_bone_source.head_local
         length = 0
         n = 0
-        if "CC_Base_L_Eye" in cc3_rig.data.bones:
-            left_eye_bone = cc3_rig.data.bones["CC_Base_L_Eye"]
-            left_eye_position = cc3_rig.matrix_world @ left_eye_bone.head_local
+        if left_eye_source:
+            left_eye_position = cc3_rig.matrix_world @ left_eye_source.head_local
             length += left_eye_position.z - head_position.z
             n += 1
-        if "CC_Base_R_Eye" in cc3_rig.data.bones:
-            right_eye_bone = cc3_rig.data.bones["CC_Base_R_Eye"]
-            right_eye_position = cc3_rig.matrix_world @ right_eye_bone.head_local
+        if right_eye_source:
+            right_eye_position = cc3_rig.matrix_world @ right_eye_source.head_local
             length += right_eye_position.z - head_position.z
             n += 1
         if n > 0:
@@ -810,21 +802,21 @@ def map_eyes(cc3_rig, dst_rig):
         tail_position = head_position + mathutils.Vector((0,0,1)) * length
         spine6.tail = tail_position
 
-    if "teeth.T" in dst_rig.data.edit_bones and "CC_Base_Teeth01" in cc3_rig.data.bones:
-        teeth_bone = dst_rig.data.edit_bones["teeth.T"]
-        face_bone = dst_rig.data.edit_bones["face"]
-        face_dir = face_bone.tail - face_bone.head
-        src_bone = cc3_rig.data.bones["CC_Base_Teeth01"]
-        teeth_bone.head = (cc3_rig.matrix_world @ src_bone.head_local) + face_dir * 0.5
-        teeth_bone.tail = (cc3_rig.matrix_world @ src_bone.head_local)
+    face_bone = bones.get_edit_bone(meta_rig, "face")
+    teeth_t_bone = bones.get_edit_bone(meta_rig, "teeth.T")
+    teeth_t_source_bone = bones.get_rl_bone(cc3_rig, "CC_Base_Teeth01")
+    teeth_b_bone = bones.get_edit_bone(meta_rig, "teeth.B")
+    teeth_b_source_bone = bones.get_rl_bone(cc3_rig, "CC_Base_Teeth02")
 
-    if "teeth.B" in dst_rig.data.edit_bones and "CC_Base_Teeth02" in cc3_rig.data.bones:
-        teeth_bone = dst_rig.data.edit_bones["teeth.B"]
-        face_bone = dst_rig.data.edit_bones["face"]
+    if face_bone and teeth_t_bone and teeth_t_source_bone:
         face_dir = face_bone.tail - face_bone.head
-        src_bone = cc3_rig.data.bones["CC_Base_Teeth02"]
-        teeth_bone.head = (cc3_rig.matrix_world @ src_bone.head_local) + face_dir * 0.5
-        teeth_bone.tail = (cc3_rig.matrix_world @ src_bone.head_local)
+        teeth_t_bone.head = (cc3_rig.matrix_world @ teeth_t_source_bone.head_local) + face_dir * 0.5
+        teeth_t_bone.tail = (cc3_rig.matrix_world @ teeth_t_source_bone.head_local)
+
+    if face_bone and teeth_b_bone and teeth_b_source_bone:
+        face_dir = face_bone.tail - face_bone.head
+        teeth_b_bone.head = (cc3_rig.matrix_world @ teeth_b_source_bone.head_local) + face_dir * 0.5
+        teeth_b_bone.tail = (cc3_rig.matrix_world @ teeth_b_source_bone.head_local)
 
 
 def mirror_uv_target(uv):
@@ -855,7 +847,7 @@ def report_uv_face_targets(obj, meta_rig):
     return
 
 
-def map_uv_targets(generation, cc3_rig, dst_rig):
+def map_uv_targets(generation, cc3_rig, meta_rig):
     obj = None
     for child in cc3_rig.children:
         if child.name.lower().endswith("base_body"):
@@ -879,15 +871,15 @@ def map_uv_targets(generation, cc3_rig, dst_rig):
         name = uvt[0]
         type = uvt[1]
         num_targets = len(uvt) - 2
-        if name in dst_rig.data.edit_bones:
-            bone = dst_rig.data.edit_bones[name]
+        bone = bones.get_edit_bone(meta_rig, name)
+        if bone:
             last = None
             m_bone = None
             m_last = None
+
             if name.endswith(".R"):
                 m_name = name[:-2] + ".L"
-                if m_name in dst_rig.data.edit_bones:
-                    m_bone = dst_rig.data.edit_bones[m_name]
+                m_bone = bones.get_edit_bone(meta_rig, m_name)
 
             if type == "CONNECTED":
                 for index in range(0, num_targets):
@@ -1007,7 +999,7 @@ def do_test():
     pass
 
 
-def map_bone(src_rig, dst_rig, mapping):
+def map_bone(cc3_rig, meta_rig, mapping):
     """Maps the head and tail of a bone in the destination
     rig, to the positions of the head and tail of bones in
     the source rig.
@@ -1021,10 +1013,10 @@ def map_bone(src_rig, dst_rig, mapping):
 
     utils.log_info(f"Mapping: {dst_bone_name} from: {src_bone_head_name}/{src_bone_tail_name}")
 
-    if dst_bone_name in dst_rig.data.edit_bones:
+    dst_bone = bones.get_edit_bone(meta_rig, dst_bone_name)
+    src_bone = None
 
-        dst_bone = dst_rig.data.edit_bones[dst_bone_name]
-        src_bone = None
+    if dst_bone:
 
         head_position = dst_bone.head
         tail_position = dst_bone.tail
@@ -1035,12 +1027,12 @@ def map_bone(src_rig, dst_rig, mapping):
             if src_bone_head_name[0] == "-":
                 src_bone_head_name = src_bone_head_name[1:]
                 reverse = True
-            if src_bone_head_name in src_rig.data.bones:
-                src_bone = src_rig.data.bones[src_bone_head_name]
+            src_bone = bones.get_rl_bone(cc3_rig, src_bone_head_name)
+            if src_bone:
                 if reverse:
-                    head_position = src_rig.matrix_world @ src_bone.tail_local
+                    head_position = cc3_rig.matrix_world @ src_bone.tail_local
                 else:
-                    head_position = src_rig.matrix_world @ src_bone.head_local
+                    head_position = cc3_rig.matrix_world @ src_bone.head_local
             else:
                 utils.log_error(f"source head bone: {src_bone_head_name} not found!")
 
@@ -1050,12 +1042,12 @@ def map_bone(src_rig, dst_rig, mapping):
             if src_bone_tail_name[0] == "-":
                 src_bone_tail_name = src_bone_tail_name[1:]
                 reverse = True
-            if src_bone_tail_name in src_rig.data.bones:
-                src_bone = src_rig.data.bones[src_bone_tail_name]
+            src_bone = bones.get_rl_bone(cc3_rig, src_bone_tail_name)
+            if src_bone:
                 if reverse:
-                    tail_position = src_rig.matrix_world @ src_bone.head_local
+                    tail_position = cc3_rig.matrix_world @ src_bone.head_local
                 else:
-                    tail_position = src_rig.matrix_world @ src_bone.tail_local
+                    tail_position = cc3_rig.matrix_world @ src_bone.tail_local
             else:
                 utils.log_error(f"source tail bone: {src_bone_tail_name} not found!")
 
@@ -1197,9 +1189,9 @@ def remove_face_rig(meta_rig):
             face_bone.tail = (0, y, 0)
 
             # set the bone parent
-            if parent_name in meta_rig.data.edit_bones:
+            bone_parent = bones.get_edit_bone(meta_rig, parent_name)
+            if bone_parent:
                 utils.log_info(f"Parenting bone: {bone_name} to {parent_name}")
-                bone_parent = meta_rig.data.edit_bones[parent_name]
                 face_bone.parent = bone_parent
 
             # set the bone flags
@@ -1209,23 +1201,24 @@ def remove_face_rig(meta_rig):
             face_bone.layers[layer] = True
 
             # set pose bone rigify types
-            pose_bone = meta_rig.pose.bones[bone_name]
-            if mode == "JAW":
-                try:
-                    pose_bone.rigify_type = 'basic.pivot'
-                    pose_bone.rigify_parameters.make_extra_control = True
-                    pose_bone.rigify_parameters.pivot_master_widget_type = "jaw"
-                    pose_bone.rigify_parameters.make_control = False
-                    pose_bone.rigify_parameters.make_extra_deform = True
-                except:
-                    utils.log_error("Unable to set rigify Jaw type.")
-            elif mode == "TONGUE":
-                try:
-                    pose_bone.rigify_type = 'face.basic_tongue'
-                except:
-                    utils.log_error("Unable to set rigify Tongue type.")
-            else:
-                pose_bone.rigify_type = ""
+            pose_bone = bones.get_pose_bone(meta_rig, bone_name)
+            if pose_bone:
+                if mode == "JAW":
+                    try:
+                        pose_bone.rigify_type = 'basic.pivot'
+                        pose_bone.rigify_parameters.make_extra_control = True
+                        pose_bone.rigify_parameters.pivot_master_widget_type = "jaw"
+                        pose_bone.rigify_parameters.make_control = False
+                        pose_bone.rigify_parameters.make_extra_deform = True
+                    except:
+                        utils.log_error("Unable to set rigify Jaw type.")
+                elif mode == "TONGUE":
+                    try:
+                        pose_bone.rigify_type = 'face.basic_tongue'
+                    except:
+                        utils.log_error("Unable to set rigify Tongue type.")
+                else:
+                    pose_bone.rigify_type = ""
 
 
 def correct_meta_rig(meta_rig):
@@ -1251,9 +1244,8 @@ def modify_controls(rigify_rig):
                 translation = mod[2]
                 rotation = mod[3]
 
-                if bone_name in rigify_rig.pose.bones:
-
-                    bone : bpy.types.PoseBone = rigify_rig.pose.bones[bone_name]
+                bone = bones.get_pose_bone(rigify_rig, bone_name)
+                if bone:
                     bone.custom_shape_scale_xyz = scale
                     bone.custom_shape_translation = translation
                     bone.custom_shape_rotation_euler = rotation

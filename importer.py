@@ -301,36 +301,62 @@ def detect_generation(chr_cache, json_data):
         if json_generation is not None and json_generation != "":
             return vars.CHARACTER_GENERATION[json_generation]
 
-    else:
+    generation = "UNKNOWN"
 
-        for obj_cache in chr_cache.object_cache:
-            arm = obj_cache.object
-            if arm.type == "ARMATURE":
-                chr_cache.parent_object = arm
-                if utils.find_pose_bone_in_armature(arm, "RootNode_0_", "RL_BoneRoot"):
-                    return "ActorCore"
-                elif utils.find_pose_bone_in_armature(arm, "CC_Base_L_Pinky3"):
-                    return "G3"
-                elif utils.find_pose_bone_in_armature(arm, "pinky_03_l"):
-                    return "GameBase"
-                elif utils.find_pose_bone_in_armature(arm, "CC_Base_L_Finger42"):
-                    return "G1"
+    arm = chr_cache.get_armature()
 
+    if arm:
+        chr_cache.parent_object = arm
+        if utils.find_pose_bone_in_armature(arm, "RootNode_0_", "RL_BoneRoot"):
+            generation = "ActorCore"
+        elif utils.find_pose_bone_in_armature(arm, "CC_Base_L_Pinky3", "L_Pinky3"):
+            generation = "G3"
+        elif utils.find_pose_bone_in_armature(arm, "pinky_03_l"):
+            generation = "GameBase"
+        elif utils.find_pose_bone_in_armature(arm, "CC_Base_L_Finger42", "L_Finger42"):
+            generation = "G1"
+        utils.log_info(f"Generation could be: {generation} detected from pose bones.")
+
+    if generation == "UNKNOWN":
         for obj_cache in chr_cache.object_cache:
             obj = obj_cache.object
             if obj.type == "MESH":
                 name = obj.name.lower()
                 if "cc_game_body" in name or "cc_game_tongue" in name:
-                        return "GameBase"
+                    generation = "GameBase"
                 elif "cc_base_body" in name:
                     if utils.object_has_material(obj, "ga_skin_body"):
-                        return "GameBase"
+                        generation = "GameBase"
                     elif utils.object_has_material(obj, "std_skin_body"):
-                        return "G3"
+                        generation = "G3"
                     elif utils.object_has_material(obj, "skin_body"):
-                        return "G1"
+                        generation = "G1"
+        if generation != "UNKNOWN":
+            utils.log_info(f"Generation could be: {generation} detected from materials.")
 
-    return "UNKNOWN"
+    if generation == "UNKNOWN" or generation == "G3":
+
+        for obj_cache in chr_cache.object_cache:
+            obj = obj_cache.object
+            if obj.type == "MESH" and obj.name == "CC_Base_Body":
+
+                # try vertex count
+                if len(obj.data.vertices) == 14164:
+                    utils.log_info("Generation: G3Plus detected by vertex count.")
+                    return "G3Plus"
+                elif len(obj.data.vertices) == 13286:
+                    utils.log_info("Generation: G3 detected by vertex count.")
+                    return "G3"
+
+                #try UV map test
+                if materials.test_for_material_uv_coords(obj, 0, [[0.5, 0.763], [0.7973, 0.6147], [0.1771, 0.0843], [0.912, 0.0691]]):
+                    utils.log_info("Generation: G3Plus detected by UV test.")
+                    return "G3Plus"
+                elif materials.test_for_material_uv_coords(obj, 0, [[0.5, 0.034365], [0.957562, 0.393431], [0.5, 0.931725], [0.275117, 0.961283]]):
+                    utils.log_info("Generation: G3 detected by UV test.")
+                    return "G3"
+
+    return generation
 
 
 def detect_character(file_path, type, objects, json_data, warn):
