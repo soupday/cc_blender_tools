@@ -605,16 +605,19 @@ def add_def_bones(cc3_rig, rigify_rig):
                 # def_copy[5] = list of bones to copy average positions from
                 # def_copy[6] = displace scale of above bones along their (normalized) direction
                 distance = 0
-                if len(def_copy[5]) == 2:
+                is_eye_parent = len(def_copy[5]) == 2
+                if is_eye_parent:
                     distance = bones.get_distance_between(rigify_rig, def_copy[5][0], def_copy[5][1])
                 bones.copy_position(rigify_rig, dst_bone_name, def_copy[5], def_copy[6])
                 eye_scale = 0.015
                 eyes_bone.tail = eyes_bone.head + mathutils.Vector((0, 0, eye_scale))
                 bones.set_bone_group(rigify_rig, dst_bone_name, "FK")
-                if len(def_copy[5]) == 1:
+                if not is_eye_parent:
                     bones.add_damped_track_constraint(rigify_rig, def_copy[5][0], dst_bone_name)
                 bones.generate_eye_widget(rigify_rig, dst_bone_name, def_copy[5], distance, eye_scale)
-
+                if is_eye_parent:
+                    bones.add_pose_bone_custom_property(rigify_rig, dst_bone_name, "eyes_follow", 1.0)
+                    bones.add_constraint_influence_driver(rigify_rig, dst_bone_parent_name, dst_bone_name, "eyes_follow", "COPY_TRANSFORMS")
 
         else:
             def_bone = bones.copy_edit_bone_from_rig(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, 1.0)

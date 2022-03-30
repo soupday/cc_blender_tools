@@ -17,6 +17,7 @@
 import bpy
 import mathutils
 from . import utils
+from rna_prop_ui import rna_idprop_ui_create
 
 
 def copy_edit_bone(rig, src_name, dst_name, parent_name, scale):
@@ -227,3 +228,29 @@ def generate_eye_widget(rig, bone_name, bones, distance, scale):
                 pose_bone = rig.pose.bones[bone_name]
                 pose_bone.custom_shape = wgt
     return wgt
+
+
+def add_pose_bone_custom_property(rig, pose_bone_name, prop_name, prop_value):
+    if utils.set_mode("OBJECT"):
+        if pose_bone_name in rig.pose.bones:
+            pose_bone = rig.pose.bones[pose_bone_name]
+            rna_idprop_ui_create(pose_bone, prop_name, default=prop_value, overridable=True, min=0, max=1)
+
+
+def add_constraint_influence_driver(rig, pose_bone_name, target_pose_bone_name, variable_name, constraint_type):
+    if utils.set_mode("OBJECT"):
+        if pose_bone_name in rig.pose.bones:
+            pose_bone = rig.pose.bones[pose_bone_name]
+            constraint = None
+            for con in pose_bone.constraints:
+                if con.type == constraint_type:
+                    constraint = con
+                    fcurve = constraint.driver_add("influence")
+                    driver : bpy.types.Driver = fcurve.driver
+                    driver.type = "SUM"
+                    var : bpy.types.DriverVariable = driver.variables.new()
+                    var.name = variable_name
+                    var.type = "SINGLE_PROP"
+                    var.targets[0].id = rig.id_data
+                    var.targets[0].data_path = f"pose.bones[\"{target_pose_bone_name}\"][\"{variable_name}\"]"
+
