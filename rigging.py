@@ -164,17 +164,17 @@ ADD_DEF_BONES = [
     ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29],
     ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29],
 
-    ["CC_Base_L_UpperarmTwist01", "DEF-upper_arm_twist.L", "DEF-upper_arm.L", "LR", 29],
-    ["CC_Base_L_UpperarmTwist02", "DEF-upper_arm_twist.L.001", "DEF-upper_arm.L.001", "LR", 29],
+    ["DEF-upper_arm.L", "DEF-upper_arm_twist.L", "DEF-upper_arm.L", "LR", 29],
+    ["DEF-upper_arm.L.001", "DEF-upper_arm_twist.L.001", "DEF-upper_arm.L.001", "LR", 29],
     ["CC_Base_L_ElbowShareBone", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29],
-    ["CC_Base_L_ForearmTwist01", "DEF-forearm_twist.L", "DEF-forearm.L", "LR", 29],
-    ["CC_Base_L_ForearmTwist02", "DEF-forearm_twist.L.001", "DEF-forearm.L.001", "LR", 29],
+    ["DEF-forearm.L", "DEF-forearm_twist.L", "DEF-forearm.L", "LR", 29],
+    ["DEF-forearm.L.001", "DEF-forearm_twist.L.001", "DEF-forearm.L.001", "LR", 29],
 
-    ["CC_Base_L_ThighTwist01", "DEF-thigh_twist.L", "DEF-thigh.L", "LR", 29],
-    ["CC_Base_L_ThighTwist02", "DEF-thigh_twist.L.001", "DEF-thigh.L.001", "LR", 29],
+    ["DEF-thigh.L", "DEF-thigh_twist.L", "DEF-thigh.L", "LR", 29],
+    ["DEF-thigh.L.001", "DEF-thigh_twist.L.001", "DEF-thigh.L.001", "LR", 29],
     ["CC_Base_L_KneeShareBone", "DEF-knee_share.L", "DEF-shin.L", "LR", 29],
-    ["CC_Base_L_CalfTwist01", "DEF-shin_twist.L", "DEF-shin.L", "LR", 29],
-    ["CC_Base_L_CalfTwist02", "DEF-shin_twist.L.001", "DEF-shin.L.001", "LR", 29],
+    ["DEF-shin.L", "DEF-shin_twist.L", "DEF-shin.L", "LR", 29],
+    ["DEF-shin.L.001", "DEF-shin_twist.L.001", "DEF-shin.L.001", "LR", 29],
 
     ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29],
     ["CC_Base_L_IndexToe1", "DEF-toe_index.L", "DEF-toe.L", "LR", 29],
@@ -183,17 +183,17 @@ ADD_DEF_BONES = [
     ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29],
 
 
-    ["CC_Base_R_UpperarmTwist01", "DEF-upper_arm_twist.R", "DEF-upper_arm.R", "LR", 29],
-    ["CC_Base_R_UpperarmTwist02", "DEF-upper_arm_twist.R.001", "DEF-upper_arm.R.001", "LR", 29],
+    ["DEF-upper_arm.R", "DEF-upper_arm_twist.R", "DEF-upper_arm.R", "LR", 29],
+    ["DEF-upper_arm.R.001", "DEF-upper_arm_twist.R.001", "DEF-upper_arm.R.001", "LR", 29],
     ["CC_Base_R_ElbowShareBone", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29],
-    ["CC_Base_R_ForearmTwist01", "DEF-forearm_twist.R", "DEF-forearm.R", "LR", 29],
-    ["CC_Base_R_ForearmTwist02", "DEF-forearm_twist.R.001", "DEF-forearm.R.001", "LR", 29],
+    ["DEF-forearm.R", "DEF-forearm_twist.R", "DEF-forearm.R", "LR", 29],
+    ["DEF-forearm.R.001", "DEF-forearm_twist.R.001", "DEF-forearm.R.001", "LR", 29],
 
-    ["CC_Base_R_ThighTwist01", "DEF-thigh_twist.R", "DEF-thigh.R", "LR", 29],
-    ["CC_Base_R_ThighTwist02", "DEF-thigh_twist.R.001", "DEF-thigh.R.001", "LR", 29],
+    ["DEF-thigh.R", "DEF-thigh_twist.R", "DEF-thigh.R", "LR", 29],
+    ["DEF-thigh.R.001", "DEF-thigh_twist.R.001", "DEF-thigh.R.001", "LR", 29],
     ["CC_Base_R_KneeShareBone", "DEF-knee_share.R", "DEF-shin.R", "LR", 29],
-    ["CC_Base_R_CalfTwist01", "DEF-shin_twist.R", "DEF-shin.R", "LR", 29],
-    ["CC_Base_R_CalfTwist02", "DEF-shin_twist.R.001", "DEF-shin.R.001", "LR", 29],
+    ["DEF-shin.R", "DEF-shin_twist.R", "DEF-shin.R", "LR", 29],
+    ["DEF-shin.R.001", "DEF-shin_twist.R.001", "DEF-shin.R.001", "LR", 29],
 
     ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29],
     ["CC_Base_R_IndexToe1", "DEF-toe_index.R", "DEF-toe.R", "LR", 29],
@@ -610,6 +610,11 @@ def add_def_bones(cc3_rig, rigify_rig):
                 if is_eye_parent:
                     bones.add_pose_bone_custom_property(rigify_rig, dst_bone_name, "eyes_follow", 1.0)
                     bones.add_constraint_influence_driver(rigify_rig, dst_bone_parent_name, dst_bone_name, "eyes_follow", "COPY_TRANSFORMS")
+
+        elif src_bone_name[:3] == "DEF":
+            def_bone = bones.copy_edit_bone(rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, 1.0)
+            if def_bone:
+                bones.set_edit_bone_flags(def_bone, relation_flags, layer)
 
         else:
             def_bone = bones.copy_rl_edit_bone(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, 1.0)
