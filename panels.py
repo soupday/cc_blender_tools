@@ -739,10 +739,10 @@ class CC3RigifyPanel(bpy.types.Panel):
                     row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
                     row.enabled = chr_cache is not None
 
-                row = layout.row()
-                row.scale_y = 2
-                row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="REPORT FACE TARGETS").param = "REPORT_FACE_TARGETS"
-                row.enabled = chr_cache is not None
+                #row = layout.row()
+                #row.scale_y = 2
+                #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="REPORT FACE TARGETS").param = "REPORT_FACE_TARGETS"
+                #row.enabled = chr_cache is not None
 
             elif chr_cache and chr_cache.rigified:
 
