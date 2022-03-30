@@ -695,9 +695,13 @@ class CC3RigifyPanel(bpy.types.Panel):
 
         if rigify_installed:
 
-            if chr_cache and not chr_cache.rigified:
+            if chr_cache and not chr_cache.rigified and chr_cache.can_be_rigged():
 
-                info_text = "Currently Only for CC3+ characters. Once rigged, incompatible with Export. Animations will need to be re-targetted."
+                info_text = ""
+                if chr_cache.generation == "G3" or chr_cache.generation == "G3Plus":
+                    info_text = "CC3 G3 and G3Plus characters can be fully face rigged. Once rigged, incompatible with Export. Animations will need to be re-targetted."
+                elif chr_cache.generation == "ActorCore":
+                    info_text = "Actor Core characters can only be partially face rigged. Once rigged, incompatible with Export. Animations will need to be re-targetted."
                 wrapper = textwrap.TextWrapper(width=width)
                 info_list = wrapper.wrap(info_text)
 
@@ -735,9 +739,24 @@ class CC3RigifyPanel(bpy.types.Panel):
                     row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
                     row.enabled = chr_cache is not None
 
+                row = layout.row()
+                row.scale_y = 2
+                row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="REPORT FACE TARGETS").param = "REPORT_FACE_TARGETS"
+                row.enabled = chr_cache is not None
+
             elif chr_cache and chr_cache.rigified:
 
                 info_text = "Character has been rigged with Rigify."
+                wrapper = textwrap.TextWrapper(width=width)
+                info_list = wrapper.wrap(info_text)
+
+                box = layout.box()
+                for text in info_list:
+                    box.label(text=text)
+
+            elif chr_cache and not chr_cache.can_be_rigged():
+
+                info_text = "This character can not be rigged."
                 wrapper = textwrap.TextWrapper(width=width)
                 info_list = wrapper.wrap(info_text)
 

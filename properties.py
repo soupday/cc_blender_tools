@@ -1067,14 +1067,23 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ], default="SINGLE", name = "Rigging Mode")
     rig_meta_rig: bpy.props.PointerProperty(type=bpy.types.Object)
 
-    def can_rig_full_face(self):
-        if self.generation == "ActorCore":
-            return False
-        else:
+
+    def can_be_rigged(self):
+        if self.generation == "G3" or self.generation == "G3Plus":
             return True
+        elif self.generation == "ActorCore":
+            return True
+        elif self.generation == "GameBase":
+            return True
+        return False
+
+    def can_rig_full_face(self):
+        if self.generation == "G3" or self.generation == "G3Plus":
+            return True
+        return False
 
     def rig_full_face(self):
-        if self.generation == "ActorCore":
+        if not self.can_rig_full_face():
             return False
         else:
             return self.rig_face_rig

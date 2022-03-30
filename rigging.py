@@ -449,7 +449,7 @@ RIGIFY_PARAMS = [
 
 UV_THRESHOLD = 0.001
 
-UV_TARGETS_CC3PLUS = [
+UV_TARGETS_G3PLUS = [
     # connected mapping: map (head)->(tail/head)->(tail/head->(tail/head)...
     ["nose", "CONNECTED",           [0.500, 0.650], [0.500, 0.597], [0.500, 0.573], [0.500, 0.550], [0.500, 0.531], [0.500, 0.516]],
     ["jaw", "CONNECTED",            [0.500, 0.339], [0.500, 0.395], [0.500, 0.432], [0.500, 0.453]],
@@ -473,6 +473,29 @@ UV_TARGETS_CC3PLUS = [
     #["spine.006", "TAIL",           [0.688, 0.953]],
 ]
 
+UV_TARGETS_G3 = [
+    # connected mapping: map (head)->(tail/head)->(tail/head->(tail/head)...
+    ["nose", "CONNECTED",           [0.4999, 0.3614], [0.5000, 0.3080], [0.5000, 0.2858], [0.5000, 0.2668], [0.5000, 0.2507], [0.5000, 0.2366]],
+    ["jaw", "CONNECTED",            [0.5000, 0.0347], [0.5000, 0.1105], [0.5000, 0.1488], [0.5000, 0.1688]],
+    ["cheek.T.R", "CONNECTED",      [0.3467, 0.3457], [0.4058, 0.3062], [0.4519, 0.3188], [0.4493, 0.2728], [0.5000, 0.2858]],
+    ["temple.R", "CONNECTED",       [0.2028, 0.4031], [0.2418, 0.1913], [0.3349, 0.1369], [0.4211, 0.1202], [0.4378, 0.2023], [0.3414, 0.2428],
+                                    [0.3467, 0.3457], [0.3625, 0.3725], [0.4110, 0.3929], [0.4557, 0.3907], [0.4999, 0.3614]],
+    ["ear.R", "CONNECTED",          [0.1467, 0.3356], [0.1032, 0.4324], [0.1441, 0.4936], [0.0794, 0.3163], [0.1237, 0.2927], [0.1467, 0.3356]],
+
+    ["lid.T.R", "CONNECTED",        [0.3884, 0.3452], [0.4095, 0.3517], [0.4262, 0.3504], [0.4423, 0.3488],
+                                    [0.4474, 0.3435], [0.4343, 0.3375], [0.4169, 0.3360], [0.3987, 0.3383], [0.3884, 0.3452]],
+    ["brow.B.R", "CONNECTED",       [0.3789, 0.3567], [0.4082, 0.3716], [0.4314, 0.3740], [0.4522, 0.3651], [0.4578, 0.3479]],
+
+    ["lip.T.R", "CONNECTED",        [0.5000, 0.2316], [0.4642, 0.2281], [0.4378, 0.2023]],
+    ["lip.B.R", "CONNECTED",        [0.5000, 0.1787], [0.4744, 0.1818], [0.4378, 0.2023]],
+
+    # disconnected mapping: map head and tail pairs
+    ["forehead.R", "DISCONNECTED",  [ [0.4600, 0.4592], [0.4557, 0.3907] ],
+                                    [ [0.4110, 0.4565], [0.4110, 0.3929] ],
+                                    [ [0.3584, 0.4407], [0.3625, 0.3725] ] ],
+    # set the top of the 'head' bone
+    #["spine.006", "TAIL",           [0.688, 0.953]],
+]
 
 # the minimum size of the relative mapping bounding box
 BOX_PADDING = 0.25
@@ -713,16 +736,6 @@ def set_rigify_params(rig):
         rig.pose.bones[bone_name].rigify_parameters.rotation_axis = bone_rot_axis
 
 
-def get_world_from_uv(obj, t_mesh, mat_slot, uv_target):
-    world = geom.mesh_world_point_from_uv(obj, t_mesh, mat_slot, uv_target)
-    if world is None: # if the point is outside the UV island(s), just find the nearest vertex.
-        world = geom.nearest_vert_from_uv(obj, t_mesh, mat_slot, uv_target, UV_THRESHOLD)
-    if world is None:
-        utils.log_error("Unable to locate uv target: " + str(uv_target))
-    return world
-
-
-
 def map_eyes(cc3_rig, dst_rig):
     # eye head position mapped from the cc3 bones
     # eye tail map to 0.5, 0.5 on the uv
@@ -818,7 +831,28 @@ def mirror_uv_target(uv):
     return muv
 
 
-def map_uv_targets(cc3_rig, dst_rig):
+def report_uv_face_targets(obj, meta_rig):
+
+    mat_slot = get_head_material_slot(obj)
+    mesh = obj.data
+    t_mesh = geom.get_triangulated_bmesh(mesh)
+
+    if utils.edit_mode_to(meta_rig):
+
+        bone : bpy.types.EditBone
+        for bone in meta_rig.data.edit_bones:
+            if bone.layers[0] and bone.name != "face":
+                head_world = bone.head
+                tail_world = bone.tail
+
+                head_uv = geom.get_uv_from_world(obj, t_mesh, mat_slot, head_world)
+                tail_uv = geom.get_uv_from_world(obj, t_mesh, mat_slot, tail_world)
+
+                print (f"{bone.name} - uv: {head_uv} -> {tail_uv}")
+    return
+
+
+def map_uv_targets(generation, cc3_rig, dst_rig):
     obj = None
     for child in cc3_rig.children:
         if child.name.lower().endswith("base_body"):
@@ -830,7 +864,15 @@ def map_uv_targets(cc3_rig, dst_rig):
     mesh = obj.data
     t_mesh = geom.get_triangulated_bmesh(mesh)
 
-    for uvt in UV_TARGETS_CC3PLUS:
+    TARGETS = None
+    if generation == "G3Plus":
+        TARGETS = UV_TARGETS_G3PLUS
+    elif generation == "G3":
+        TARGETS = UV_TARGETS_G3
+    else:
+        return
+
+    for uvt in TARGETS:
         name = uvt[0]
         type = uvt[1]
         num_targets = len(uvt) - 2
@@ -849,10 +891,10 @@ def map_uv_targets(cc3_rig, dst_rig):
                     uv_target = uvt[index + 2]
                     uv_target.append(0)
 
-                    world = get_world_from_uv(obj, t_mesh, mat_slot, uv_target)
+                    world = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_target, UV_THRESHOLD)
                     if m_bone or m_last:
                         m_uv_target = mirror_uv_target(uv_target)
-                        m_world = get_world_from_uv(obj, t_mesh, mat_slot, m_uv_target)
+                        m_world = geom.get_world_from_uv(obj, t_mesh, mat_slot, m_uv_target, UV_THRESHOLD)
 
                     if world:
                         if last:
@@ -889,14 +931,14 @@ def map_uv_targets(cc3_rig, dst_rig):
                     uv_head.append(0)
                     uv_tail.append(0)
 
-                    world_head = get_world_from_uv(obj, t_mesh, mat_slot, uv_head)
-                    world_tail = get_world_from_uv(obj, t_mesh, mat_slot, uv_tail)
+                    world_head = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_head, UV_THRESHOLD)
+                    world_tail = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_tail, UV_THRESHOLD)
 
                     if m_bone:
                         muv_head = mirror_uv_target(uv_head)
                         muv_tail = mirror_uv_target(uv_tail)
-                        mworld_head = get_world_from_uv(obj, t_mesh, mat_slot, muv_head)
-                        mworld_tail = get_world_from_uv(obj, t_mesh, mat_slot, muv_tail)
+                        mworld_head = geom.get_world_from_uv(obj, t_mesh, mat_slot, muv_head, UV_THRESHOLD)
+                        mworld_tail = geom.get_world_from_uv(obj, t_mesh, mat_slot, muv_tail, UV_THRESHOLD)
 
                     if bone and world_head:
                         bone.head = world_head
@@ -920,7 +962,7 @@ def map_uv_targets(cc3_rig, dst_rig):
                 uv_target = uvt[2]
                 uv_target.append(0)
 
-                world = get_world_from_uv(obj, t_mesh, mat_slot, uv_target)
+                world = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_target, UV_THRESHOLD)
                 if world:
                     bone.head = world
 
@@ -928,7 +970,7 @@ def map_uv_targets(cc3_rig, dst_rig):
                 uv_target = uvt[2]
                 uv_target.append(0)
 
-                world = get_world_from_uv(obj, t_mesh, mat_slot, uv_target)
+                world = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_target, UV_THRESHOLD)
                 if world:
                     bone.tail = world
 
@@ -1036,7 +1078,7 @@ def map_bone(src_rig, dst_rig, mapping):
         utils.log_error(f"destination bone: {dst_bone_name} not found!")
 
 
-def match_meta_rig(meta_rig, cc3_rig, rig_face):
+def match_meta_rig(generation, meta_rig, cc3_rig, rig_face):
     """Only call in bone edit mode...
     """
     relative_coords = {}
@@ -1063,7 +1105,7 @@ def match_meta_rig(meta_rig, cc3_rig, rig_face):
                     restore_bone_roll(meta_rig, roll_store)
                     set_rigify_params(meta_rig)
                     if rig_face:
-                        map_uv_targets(cc3_rig, meta_rig)
+                        map_uv_targets(generation, cc3_rig, meta_rig)
                     map_eyes(cc3_rig, meta_rig)
                     return
 
@@ -1291,7 +1333,7 @@ class CC3Rigifier(bpy.types.Operator):
     meta_rig = None
     rigify_rig = None
 
-    def add_meta_rig(self, face_rig):
+    def add_meta_rig(self, face_rig, generation):
         if utils.set_mode("OBJECT"):
             bpy.ops.object.armature_human_metarig_add()
             self.meta_rig = utils.get_active_object()
@@ -1303,7 +1345,7 @@ class CC3Rigifier(bpy.types.Operator):
                     self.cc3_rig.data.pose_position = "REST"
                     if not face_rig:
                         remove_face_rig(self.meta_rig)
-                    match_meta_rig(self.meta_rig, self.cc3_rig, face_rig)
+                    match_meta_rig(generation, self.meta_rig, self.cc3_rig, face_rig)
                 else:
                     utils.log_error("Unable to locate imported CC3 rig!", self)
             else:
@@ -1322,7 +1364,7 @@ class CC3Rigifier(bpy.types.Operator):
             if self.param == "ALL":
 
                 if self.cc3_rig:
-                    self.add_meta_rig(chr_cache.rig_full_face())
+                    self.add_meta_rig(chr_cache.rig_full_face(), chr_cache.generation)
 
                     if self.meta_rig:
                         correct_meta_rig(self.meta_rig)
@@ -1341,7 +1383,7 @@ class CC3Rigifier(bpy.types.Operator):
             elif self.param == "META_RIG":
 
                 if self.cc3_rig:
-                    self.add_meta_rig(chr_cache.rig_full_face())
+                    self.add_meta_rig(chr_cache.rig_full_face(), chr_cache.generation)
 
                     if self.meta_rig:
                         chr_cache.rig_meta_rig = self.meta_rig
@@ -1363,6 +1405,18 @@ class CC3Rigifier(bpy.types.Operator):
                             add_def_bones(self.cc3_rig, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
+
+            elif self.param == "REPORT_FACE_TARGETS":
+
+                if bpy.context.selected_objects:
+                    obj = rig = None
+                    for o in bpy.context.selected_objects:
+                        if o.type == "ARMATURE":
+                            rig = o
+                        elif o.type == "MESH":
+                            obj = o
+                    if rig and obj:
+                        report_uv_face_targets(obj, rig)
 
                 chr_cache.rig_meta_rig = None
 
