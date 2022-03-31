@@ -172,13 +172,13 @@ ADD_DEF_BONES = [
 
     ["DEF-upper_arm.L", "DEF-upper_arm_twist.L", "DEF-upper_arm.L", "LR", 29],
     ["DEF-upper_arm.L.001", "DEF-upper_arm_twist.L.001", "DEF-upper_arm.L.001", "LR", 29],
-    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, 0.667],
+    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, 0.667, "DEF-upper_arm.L.001", 0.5],
     ["DEF-forearm.L", "DEF-forearm_twist.L", "DEF-forearm.L", "LR", 29],
     ["DEF-forearm.L.001", "DEF-forearm_twist.L.001", "DEF-forearm.L.001", "LR", 29],
 
     ["DEF-thigh.L", "DEF-thigh_twist.L", "DEF-thigh.L", "LR", 29],
     ["DEF-thigh.L.001", "DEF-thigh_twist.L.001", "DEF-thigh.L.001", "LR", 29],
-    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, 0.667],
+    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, 0.667, "DEF-thigh.L.001", 0.5],
     ["DEF-shin.L", "DEF-shin_twist.L", "DEF-shin.L", "LR", 29],
     ["DEF-shin.L.001", "DEF-shin_twist.L.001", "DEF-shin.L.001", "LR", 29],
 
@@ -191,13 +191,13 @@ ADD_DEF_BONES = [
 
     ["DEF-upper_arm.R", "DEF-upper_arm_twist.R", "DEF-upper_arm.R", "LR", 29],
     ["DEF-upper_arm.R.001", "DEF-upper_arm_twist.R.001", "DEF-upper_arm.R.001", "LR", 29],
-    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, 0.667],
+    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, 0.667, "DEF-upper_arm.R.001", 0.5],
     ["DEF-forearm.R", "DEF-forearm_twist.R", "DEF-forearm.R", "LR", 29],
     ["DEF-forearm.R.001", "DEF-forearm_twist.R.001", "DEF-forearm.R.001", "LR", 29],
 
     ["DEF-thigh.R", "DEF-thigh_twist.R", "DEF-thigh.R", "LR", 29],
     ["DEF-thigh.R.001", "DEF-thigh_twist.R.001", "DEF-thigh.R.001", "LR", 29],
-    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, 0.667],
+    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, 0.667, "DEF-thigh.R.001", 0.5],
     ["DEF-shin.R", "DEF-shin_twist.R", "DEF-shin.R", "LR", 29],
     ["DEF-shin.R.001", "DEF-shin_twist.R.001", "DEF-shin.R.001", "LR", 29],
 
@@ -208,9 +208,9 @@ ADD_DEF_BONES = [
     ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29],
 
     ["+MCHEyeParent", "MCH-eyes_parent", "ORG-face", "LR", 30],
-    ["+EyeControl", "eyes", "MCH-eyes_parent", "LR", 1, ["ORG-eye.L", "ORG-eye.R"], 0.2],
-    ["+EyeControl", "eye.L", "eyes", "LR", 1,           ["ORG-eye.L"], 0.2],
-    ["+EyeControl", "eye.R", "eyes", "LR", 1,           ["ORG-eye.R"], 0.2],
+    ["+EyeControl", "eyes", "MCH-eyes_parent", "LR", 1, 0.2, ["ORG-eye.L", "ORG-eye.R"]],
+    ["+EyeControl", "eye.L", "eyes", "LR", 1,           0.2, ["ORG-eye.L"]],
+    ["+EyeControl", "eye.R", "eyes", "LR", 1,           0.2, ["ORG-eye.R"]],
 ]
 
 VERTEX_GROUP_RENAME = [
@@ -574,8 +574,14 @@ def add_def_bones(cc3_rig, rigify_rig):
         layer = def_copy[4]
         deform = dst_bone_name[:3] == "DEF"
         scale = 1
-        if len(def_copy) == 6:
+        ref = None
+        arg = None
+        if len(def_copy) > 5:
             scale = def_copy[5]
+        if len(def_copy) > 6:
+            ref = def_copy[6]
+        if len(def_copy) > 7:
+            arg = def_copy[7]
 
         if src_bone_name == "-": # means to reparent an existing deformation bone
             reparented_bone = bones.reparent_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
@@ -587,25 +593,25 @@ def add_def_bones(cc3_rig, rigify_rig):
             mch_bone = bones.copy_edit_bone(rigify_rig, dst_bone_parent_name, dst_bone_name, "root", 0.25)
             if mch_bone:
                 bones.set_edit_bone_flags(mch_bone, relation_flags, deform)
-                bones.add_copy_transforms_constraint(rigify_rig, mch_bone.name, dst_bone_parent_name)
+                bones.add_copy_transforms_constraint(rigify_rig, mch_bone.name, dst_bone_parent_name, 1.0)
                 bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
 
         elif src_bone_name == "+EyeControl":
             eyes_bone = bones.new_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
             if eyes_bone:
-                # def_copy[5] = list of bones to copy average positions from
-                # def_copy[6] = displace scale of above bones along their (normalized) direction
+                # ref = list of bones to copy average positions from
+                # scale = displace scale of above bones along their (normalized) direction
                 distance = 0
-                is_eye_parent = len(def_copy[5]) == 2
+                is_eye_parent = len(ref) == 2
                 if is_eye_parent:
-                    distance = bones.get_distance_between(rigify_rig, def_copy[5][0], def_copy[5][1])
-                bones.copy_position(rigify_rig, dst_bone_name, def_copy[5], def_copy[6])
+                    distance = bones.get_distance_between(rigify_rig, ref[0], ref[1])
+                bones.copy_position(rigify_rig, dst_bone_name, ref, scale)
                 eye_scale = 0.015
                 eyes_bone.tail = eyes_bone.head + mathutils.Vector((0, 0, eye_scale))
                 bones.set_bone_group(rigify_rig, dst_bone_name, "FK")
                 if not is_eye_parent:
-                    bones.add_damped_track_constraint(rigify_rig, def_copy[5][0], dst_bone_name)
-                bones.generate_eye_widget(rigify_rig, dst_bone_name, def_copy[5], distance, eye_scale)
+                    bones.add_damped_track_constraint(rigify_rig, ref[0], dst_bone_name, 1.0)
+                bones.generate_eye_widget(rigify_rig, dst_bone_name, ref, distance, eye_scale)
                 if is_eye_parent:
                     bones.add_pose_bone_custom_property(rigify_rig, dst_bone_name, "eyes_follow", 1.0)
                     bones.add_constraint_influence_driver(rigify_rig, dst_bone_parent_name, dst_bone_name, "eyes_follow", "COPY_TRANSFORMS")
@@ -615,6 +621,9 @@ def add_def_bones(cc3_rig, rigify_rig):
             if def_bone:
                 bones.set_edit_bone_flags(def_bone, relation_flags, deform)
                 bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
+            # partial rotation copy for share bones
+            if "_share" in dst_bone_name and ref:
+                bones.add_copy_rotation_constraint(rigify_rig, dst_bone_name, ref, arg)
 
         else:
             def_bone = bones.copy_rl_edit_bone(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)

@@ -161,7 +161,7 @@ def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, sca
     return None
 
 
-def add_copy_transforms_constraint(rig, to_bone, from_bone):
+def add_copy_transforms_constraint(rig, to_bone, from_bone, influence):
     try:
         if utils.set_mode("OBJECT"):
             to_pose_bone : bpy.types.PoseBone = rig.pose.bones[to_bone]
@@ -172,12 +172,33 @@ def add_copy_transforms_constraint(rig, to_bone, from_bone):
             c.mix_mode = "REPLACE"
             c.target_space = "WORLD"
             c.owner_space = "WORLD"
-            c.influence = 1.0
+            c.influence = influence
     except:
         utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
 
 
-def add_damped_track_constraint(rig, bone_name, target_name):
+def add_copy_rotation_constraint(rig, to_bone, from_bone, influence):
+    try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = rig.pose.bones[to_bone]
+            c : bpy.types.CopyRotationConstraint = to_pose_bone.constraints.new(type="COPY_ROTATION")
+            c.target = rig
+            c.subtarget = from_bone
+            c.use_x = True
+            c.use_y = True
+            c.use_z = True
+            c.invert_x = False
+            c.invert_y = False
+            c.invert_z = False
+            c.mix_mode = "REPLACE"
+            c.target_space = "WORLD"
+            c.owner_space = "WORLD"
+            c.influence = influence
+    except:
+        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+
+
+def add_damped_track_constraint(rig, bone_name, target_name, influence):
     try:
         if utils.set_mode("OBJECT"):
             pose_bone : bpy.types.PoseBone = rig.pose.bones[bone_name]
@@ -186,7 +207,7 @@ def add_damped_track_constraint(rig, bone_name, target_name):
             c.subtarget = target_name
             c.head_tail = 0
             c.track_axis = "Y"
-            c.influence = 1.0
+            c.influence = influence
     except:
         utils.log_error(f"Unable to add damped track constraint: {bone_name} {target_name}")
 
