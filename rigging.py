@@ -27,6 +27,7 @@ from . import bones
 #   '-' before CC_BONE_HEAD means to copy the tail position, not the head
 #   '-' before CC_BONE_TAIL means to copy the head position, not the tail
 BONE_MAPPINGS = [
+
     # Spine, Neck & Head:
     # spine chain
     ["spine", "CC_Base_Hip", ""],
@@ -38,11 +39,6 @@ BONE_MAPPINGS = [
     ["spine.006", "CC_Base_Head", "CC_Base_Head"], # special case
     ["face", "CC_Base_FacialBone", "CC_Base_FacialBone"], # special case
     ["pelvis", "CC_Base_Pelvis", "CC_Base_Pelvis"],
-
-    # Left Breast
-    #["breast.L", "CC_Base_L_RibsTwist", "CC_Base_L_Breast"],
-    # Right Breast
-    #["breast.R", "CC_Base_R_RibsTwist", "CC_Base_R_Breast"],
 
     # Left Breast
     ["breast.L", "CC_Base_L_Breast", "CC_Base_L_Breast"],
@@ -126,7 +122,7 @@ BONE_MAPPINGS = [
 
     ["eye.L", "CC_Base_L_Eye", ""],
 
-    # only when not using the full face rig, a jaw bone is created that needs positioning...
+    # only when using the basic face rig, a jaw bone is created that needs positioning...
     ["jaw", "CC_Base_JawRoot", "CC_Base_Tongue03", 0, 1.35],
 ]
 
@@ -152,10 +148,12 @@ RELATIVE_MAPPINGS = [
     ["heel.02.R", "BOTH", "foot.R", "toe.R"],
 ]
 
-# additional deformation bones to copy from the cc3 rig to the generated rigify deformation bones.
-# [cc3_source_bone, new_rigify_def_bone, rigify_parent, flags, layer]
+# additional bones to copy from the cc3 or rigify rigs to generate rigify deformation, mech or control bones
+# [source_bone, new_rigify_bone, rigify_parent, flags, layer, scale, ref, arg]
 # flags C=Connected, L=Local location, R=Inherit rotation
 # layers: 31 = ORG bones, 30 = MCH bones, 29 = DEF bones
+# ref: reference bone(s) for position generation or constraints
+# arg: constraint args (influence)
 ADD_DEF_BONES = [
 
     ["ORG-eye.R", "DEF-eye.R", "ORG-eye.R", "LR", 29],
@@ -166,21 +164,12 @@ ADD_DEF_BONES = [
 
     ["CC_Base_L_RibsTwist", "DEF-breast_twist.L", "ORG-breast.L", "LR", 29],
     ["CC_Base_R_RibsTwist", "DEF-breast_twist.R", "ORG-breast.R", "LR", 29],
-    # "-" tells it to re-parent the existing DEF-breast bones to the new DEF-breast_twist bones.
+    # "-" instructs to re-parent the existing DEF-breast bones to the new DEF-breast_twist bones.
     ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29],
     ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29],
 
-    ["DEF-upper_arm.L", "DEF-upper_arm_twist.L", "DEF-upper_arm.L", "LR", 29],
-    ["DEF-upper_arm.L.001", "DEF-upper_arm_twist.L.001", "DEF-upper_arm.L.001", "LR", 29],
     ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, 0.667, "DEF-upper_arm.L.001", 0.5],
-    ["DEF-forearm.L", "DEF-forearm_twist.L", "DEF-forearm.L", "LR", 29],
-    ["DEF-forearm.L.001", "DEF-forearm_twist.L.001", "DEF-forearm.L.001", "LR", 29],
-
-    ["DEF-thigh.L", "DEF-thigh_twist.L", "DEF-thigh.L", "LR", 29],
-    ["DEF-thigh.L.001", "DEF-thigh_twist.L.001", "DEF-thigh.L.001", "LR", 29],
     ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, 0.667, "DEF-thigh.L.001", 0.5],
-    ["DEF-shin.L", "DEF-shin_twist.L", "DEF-shin.L", "LR", 29],
-    ["DEF-shin.L.001", "DEF-shin_twist.L.001", "DEF-shin.L.001", "LR", 29],
 
     ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29],
     ["CC_Base_L_IndexToe1", "DEF-toe_index.L", "DEF-toe.L", "LR", 29],
@@ -188,18 +177,8 @@ ADD_DEF_BONES = [
     ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29],
     ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29],
 
-
-    ["DEF-upper_arm.R", "DEF-upper_arm_twist.R", "DEF-upper_arm.R", "LR", 29],
-    ["DEF-upper_arm.R.001", "DEF-upper_arm_twist.R.001", "DEF-upper_arm.R.001", "LR", 29],
     ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, 0.667, "DEF-upper_arm.R.001", 0.5],
-    ["DEF-forearm.R", "DEF-forearm_twist.R", "DEF-forearm.R", "LR", 29],
-    ["DEF-forearm.R.001", "DEF-forearm_twist.R.001", "DEF-forearm.R.001", "LR", 29],
-
-    ["DEF-thigh.R", "DEF-thigh_twist.R", "DEF-thigh.R", "LR", 29],
-    ["DEF-thigh.R.001", "DEF-thigh_twist.R.001", "DEF-thigh.R.001", "LR", 29],
     ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, 0.667, "DEF-thigh.R.001", 0.5],
-    ["DEF-shin.R", "DEF-shin_twist.R", "DEF-shin.R", "LR", 29],
-    ["DEF-shin.R.001", "DEF-shin_twist.R.001", "DEF-shin.R.001", "LR", 29],
 
     ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29],
     ["CC_Base_R_IndexToe1", "DEF-toe_index.R", "DEF-toe.R", "LR", 29],
@@ -215,53 +194,43 @@ ADD_DEF_BONES = [
 
 VERTEX_GROUP_RENAME = [
     # Spine, Neck & Head:
-    # spine chain
+    ["DEF-pelvis", "CC_Base_Pelvis"],
     ["DEF-spine", "CC_Base_Hip"],
     ["DEF-spine.001", "CC_Base_Waist"],
     ["DEF-spine.002", "CC_Base_Spine01"],
     ["DEF-spine.003", "CC_Base_Spine02"],
     ["DEF-spine.004", "CC_Base_NeckTwist01"],
     ["DEF-spine.005", "CC_Base_NeckTwist02"],
-    ["DEF-spine.006", "CC_Base_Head"], # special case
-    ["DEF-pelvis", "CC_Base_Pelvis"],
-
+    ["DEF-spine.006", "CC_Base_Head"],
+    # Left Breast:
     ["DEF-breast_twist.L", "CC_Base_L_RibsTwist"],
+    ["DEF-breast.L", "CC_Base_L_Breast"],
+    # Right Breast:
     ["DEF-breast_twist.R", "CC_Base_R_RibsTwist"],
-
-    # Left Breast
-    ["DEF-breast.L", "CC_Base_L_Breast"], # special case
-    # Right Breast
-    ["DEF-breast.R", "CC_Base_R_Breast"], # special case
-
+    ["DEF-breast.R", "CC_Base_R_Breast"],
     # Left Leg:
-    ["DEF-thigh.L", "CC_Base_L_Thigh"],
-    ["DEF-thigh_twist.L", "CC_Base_L_ThighTwist01"],
-    ["DEF-thigh_twist.L.001", "CC_Base_L_ThighTwist02"],
+    ["DEF-thigh.L", "CC_Base_L_ThighTwist01"],
+    ["DEF-thigh.L.001", "CC_Base_L_ThighTwist02"],
     ["DEF-knee_share.L", "CC_Base_L_KneeShareBone"],
-    ["DEF-shin.L", "CC_Base_L_Calf"],
-    ["DEF-shin_twist.L", "CC_Base_L_CalfTwist01"],
-    ["DEF-shin_twist.L.001", "CC_Base_L_CalfTwist02"],
+    ["DEF-shin.L", "CC_Base_L_CalfTwist01"],
+    ["DEF-shin.L.001", "CC_Base_L_CalfTwist02"],
     ["DEF-foot.L", "CC_Base_L_Foot"],
     ["DEF-toe.L", "CC_Base_L_ToeBase"],
-
+    # Left Foot:
     ["DEF-toe_big.L", "CC_Base_L_BigToe1"],
     ["DEF-toe_index.L", "CC_Base_L_IndexToe1"],
     ["DEF-toe_mid.L", "CC_Base_L_MidToe1"],
     ["DEF-toe_ring.L", "CC_Base_L_RingToe1"],
     ["DEF-toe_pinky.L", "CC_Base_L_PinkyToe1"],
-
     # Left Arm:
     ["DEF-shoulder.L", "CC_Base_L_Clavicle"],
-    # chain
-    ["DEF-upper_arm.L", "CC_Base_L_Upperarm"],
-    ["DEF-upper_arm_twist.L", "CC_Base_L_UpperarmTwist01"],
-    ["DEF-upper_arm_twist.L.001", "CC_Base_L_UpperarmTwist02"],
+    ["DEF-upper_arm.L", "CC_Base_L_UpperarmTwist01"],
+    ["DEF-upper_arm.L.001", "CC_Base_L_UpperarmTwist02"],
     ["DEF-elbow_share.L", "CC_Base_L_ElbowShareBone"],
-    ["DEF-forearm.L", "CC_Base_L_Forearm"],
-    ["DEF-forearm_twist.L", "CC_Base_L_ForearmTwist01"],
-    ["DEF-forearm_twist.L.001", "CC_Base_L_ForearmTwist02"],
+    ["DEF-forearm.L", "CC_Base_L_ForearmTwist01"],
+    ["DEF-forearm.L.001", "CC_Base_L_ForearmTwist02"],
     ["DEF-hand.L", "CC_Base_L_Hand"],
-    # Left Hand Fingers, chains
+    # Left Hand Fingers:
     ["DEF-thumb.01.L", "CC_Base_L_Thumb1"],
     ["DEF-f_index.01.L", "CC_Base_L_Index1"],
     ["DEF-f_middle.01.L", "CC_Base_L_Mid1"],
@@ -277,36 +246,29 @@ VERTEX_GROUP_RENAME = [
     ["DEF-f_middle.03.L", "CC_Base_L_Mid3"],
     ["DEF-f_ring.03.L", "CC_Base_L_Ring3"],
     ["DEF-f_pinky.03.L", "CC_Base_L_Pinky3"],
-
-    # Right Leg, chain
-    ["DEF-thigh.R", "CC_Base_R_Thigh"],
-    ["DEF-thigh_twist.R", "CC_Base_R_ThighTwist01"],
-    ["DEF-thigh_twist.R.001", "CC_Base_R_ThighTwist02"],
+    # Right Leg:
+    ["DEF-thigh.R", "CC_Base_R_ThighTwist01"],
+    ["DEF-thigh.R.001", "CC_Base_R_ThighTwist02"],
     ["DEF-knee_share.R", "CC_Base_R_KneeShareBone"],
-    ["DEF-shin.R", "CC_Base_R_Calf"],
-    ["DEF-shin_twist.R", "CC_Base_R_CalfTwist01"],
-    ["DEF-shin_twist.R.001", "CC_Base_R_CalfTwist02"],
+    ["DEF-shin.R", "CC_Base_R_CalfTwist01"],
+    ["DEF-shin.R.001", "CC_Base_R_CalfTwist02"],
     ["DEF-foot.R", "CC_Base_R_Foot"],
     ["DEF-toe.R", "CC_Base_R_ToeBase"],
-
+    # Right Foot:
     ["DEF-toe_big.R", "CC_Base_R_BigToe1"],
     ["DEF-toe_index.R", "CC_Base_R_IndexToe1"],
     ["DEF-toe_mid.R", "CC_Base_R_MidToe1"],
     ["DEF-toe_ring.R", "CC_Base_R_RingToe1"],
     ["DEF-toe_pinky.R", "CC_Base_R_PinkyToe1"],
-
     # Right Arm:
     ["DEF-shoulder.R", "CC_Base_R_Clavicle"],
-    # chain
-    ["DEF-upper_arm.R", "CC_Base_R_Upperarm"],
-    ["DEF-upper_arm_twist.R", "CC_Base_R_UpperarmTwist01"],
-    ["DEF-upper_arm_twist.R.001", "CC_Base_R_UpperarmTwist02"],
+    ["DEF-upper_arm.R", "CC_Base_R_UpperarmTwist01"],
+    ["DEF-upper_arm.R.001", "CC_Base_R_UpperarmTwist02"],
     ["DEF-elbow_share.R", "CC_Base_R_ElbowShareBone"],
-    ["DEF-forearm.R", "CC_Base_R_Forearm"],
-    ["DEF-forearm_twist.R", "CC_Base_R_ForearmTwist01"],
-    ["DEF-forearm_twist.R.001", "CC_Base_R_ForearmTwist02"],
+    ["DEF-forearm.R", "CC_Base_R_ForearmTwist01"],
+    ["DEF-forearm.R.001", "CC_Base_R_ForearmTwist02"],
     ["DEF-hand.R", "CC_Base_R_Hand"],
-    # Right Hand Fingers, chains
+    # Right Hand Fingers:
     ["DEF-thumb.01.R", "CC_Base_R_Thumb1"],
     ["DEF-f_index.01.R", "CC_Base_R_Index1"],
     ["DEF-f_middle.01.R", "CC_Base_R_Mid1"],
@@ -322,17 +284,17 @@ VERTEX_GROUP_RENAME = [
     ["DEF-f_middle.03.R", "CC_Base_R_Mid3"],
     ["DEF-f_ring.03.R", "CC_Base_R_Ring3"],
     ["DEF-f_pinky.03.R", "CC_Base_R_Pinky3"],
-
+    # Tongue:
     ["DEF-tongue", "CC_Base_Tongue03"],
     ["DEF-tongue.001", "CC_Base_Tongue02"],
     ["DEF-tongue.002", "CC_Base_Tongue01"],
-
+    # Teeth:
     ["DEF-teeth.T", "CC_Base_Teeth01"],
     ["DEF-teeth.B", "CC_Base_Teeth02"],
-
+    # Eyes:
     ["DEF-eye.R", "CC_Base_R_Eye"],
     ["DEF-eye.L", "CC_Base_L_Eye"],
-
+    # Jaw:
     ["DEF-jaw", "CC_Base_JawRoot"],
 ]
 
