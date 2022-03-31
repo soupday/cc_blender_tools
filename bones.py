@@ -189,11 +189,23 @@ def add_damped_track_constraint(rig, bone_name, target_name):
         utils.log_error(f"Unable to add damped track constraint: {bone_name} {target_name}")
 
 
-def set_edit_bone_flags(edit_bone, flags, layer):
+def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_connect = True if "C" in flags else False
     edit_bone.use_local_location = True if "L" in flags else False
     edit_bone.use_inherit_rotation = True if "R" in flags else False
-    edit_bone.layers[layer] = True
+    edit_bone.use_deform = deform
+
+
+def set_bone_layer(rig, bone_name, layer):
+    if utils.edit_mode_to(rig):
+        edit_bone = rig.data.edit_bones[bone_name]
+        for l in range(0, 32):
+            edit_bone.layers[l] = l == layer
+    if utils.set_mode("OBJECT"):
+        pose_bone = rig.data.bones[bone_name]
+        for l in range(0, 32):
+            pose_bone.layers[l] = l == layer
+
 
 
 def copy_position(rig, bone, copy_bones, offset):
