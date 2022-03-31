@@ -851,12 +851,13 @@ def report_uv_face_targets(obj, meta_rig):
     return
 
 
-def map_uv_targets(generation, cc3_rig, meta_rig):
+def map_uv_targets(chr_cache, cc3_rig, meta_rig):
     obj = None
-    for child in cc3_rig.children:
-        if child.name.lower().endswith("base_body"):
-            obj = child
+    for obj_cache in chr_cache.object_cache:
+        if obj_cache.object_type == "BODY":
+            obj = obj_cache.object
     if obj is None:
+        utils.log_error("Cannot find BODY mesh for uv targets!")
         return
 
     mat_slot = get_head_material_slot(obj)
@@ -864,9 +865,9 @@ def map_uv_targets(generation, cc3_rig, meta_rig):
     t_mesh = geom.get_triangulated_bmesh(mesh)
 
     TARGETS = None
-    if generation == "G3Plus":
+    if chr_cache.generation == "G3Plus":
         TARGETS = UV_TARGETS_G3PLUS
-    elif generation == "G3":
+    elif chr_cache.generation == "G3":
         TARGETS = UV_TARGETS_G3
     else:
         return
@@ -1064,7 +1065,7 @@ def map_bone(cc3_rig, meta_rig, mapping):
         utils.log_error(f"destination bone: {dst_bone_name} not found!")
 
 
-def match_meta_rig(generation, meta_rig, cc3_rig, rig_face):
+def match_meta_rig(chr_cache, cc3_rig, meta_rig):
     """Only call in bone edit mode...
     """
     relative_coords = {}
@@ -1090,8 +1091,8 @@ def match_meta_rig(generation, meta_rig, cc3_rig, rig_face):
                     restore_relative_mappings(meta_rig, relative_coords)
                     restore_bone_roll(meta_rig, roll_store)
                     set_rigify_params(meta_rig)
-                    if rig_face:
-                        map_uv_targets(generation, cc3_rig, meta_rig)
+                    if chr_cache.rig_full_face():
+                        map_uv_targets(chr_cache, cc3_rig, meta_rig)
                     map_face(cc3_rig, meta_rig)
                     return
 
@@ -1319,19 +1320,18 @@ class CC3Rigifier(bpy.types.Operator):
     meta_rig = None
     rigify_rig = None
 
-    def add_meta_rig(self, face_rig, generation):
+    def add_meta_rig(self, chr_cache):
         if utils.set_mode("OBJECT"):
             bpy.ops.object.armature_human_metarig_add()
             self.meta_rig = utils.get_active_object()
             if self.meta_rig is not None:
                 self.meta_rig.location = (0,0,0)
-                self.cc3_rig
                 if self.cc3_rig is not None:
                     self.cc3_rig.location = (0,0,0)
                     self.cc3_rig.data.pose_position = "REST"
-                    if not face_rig:
+                    if not chr_cache.rig_full_face():
                         remove_face_rig(self.meta_rig)
-                    match_meta_rig(generation, self.meta_rig, self.cc3_rig, face_rig)
+                    match_meta_rig(chr_cache, self.cc3_rig, self.meta_rig)
                 else:
                     utils.log_error("Unable to locate imported CC3 rig!", self)
             else:
@@ -1343,6 +1343,10 @@ class CC3Rigifier(bpy.types.Operator):
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
 
+        cc3_rig = None
+        meta_rig = None
+        rigify_rig = None
+
         if chr_cache:
 
             self.cc3_rig = chr_cache.get_armature()
@@ -1350,7 +1354,7 @@ class CC3Rigifier(bpy.types.Operator):
             if self.param == "ALL":
 
                 if self.cc3_rig:
-                    self.add_meta_rig(chr_cache.rig_full_face(), chr_cache.generation)
+                    self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
                         correct_meta_rig(self.meta_rig)
@@ -1369,7 +1373,7 @@ class CC3Rigifier(bpy.types.Operator):
             elif self.param == "META_RIG":
 
                 if self.cc3_rig:
-                    self.add_meta_rig(chr_cache.rig_full_face(), chr_cache.generation)
+                    self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
                         chr_cache.rig_meta_rig = self.meta_rig
@@ -1392,6 +1396,8 @@ class CC3Rigifier(bpy.types.Operator):
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
 
+                chr_cache.rig_meta_rig = None
+
             elif self.param == "REPORT_FACE_TARGETS":
 
                 if bpy.context.selected_objects:
@@ -1403,8 +1409,6 @@ class CC3Rigifier(bpy.types.Operator):
                             obj = o
                     if rig and obj:
                         report_uv_face_targets(obj, rig)
-
-                chr_cache.rig_meta_rig = None
 
         return {"FINISHED"}
 
