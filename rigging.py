@@ -760,14 +760,15 @@ def set_rigify_params(rigify_rig):
             pose_bone.rigify_parameters.rotation_axis = bone_rot_axis
 
 
-def map_eyes(cc3_rig, meta_rig):
-    # eye head position mapped from the cc3 bones
-    # eye tail map to 0.5, 0.5 on the uv
+def map_face(cc3_rig, meta_rig):
+
     obj : bpy.types.Object = None
     for child in cc3_rig.children:
         if child.name.lower().endswith("base_eye"):
             obj = child
     length = 0.375
+
+    # left and right eyes
 
     left_eye = bones.get_edit_bone(meta_rig, "eye.L")
     left_eye_source = bones.get_rl_bone(cc3_rig, "CC_Base_L_Eye")
@@ -785,6 +786,8 @@ def map_eyes(cc3_rig, meta_rig):
         tail_position = cc3_rig.matrix_world @ right_eye_source.tail_local
         dir : mathutils.Vector = tail_position - head_position
         right_eye.tail = head_position - (dir * length)
+
+    # head bone
 
     spine6 = bones.get_edit_bone(meta_rig, "spine.006")
     head_bone_source = bones.get_rl_bone(cc3_rig, "CC_Base_Head")
@@ -808,6 +811,8 @@ def map_eyes(cc3_rig, meta_rig):
         tail_position = head_position + mathutils.Vector((0,0,1)) * length
         spine6.tail = tail_position
 
+    # teeth bones
+
     face_bone = bones.get_edit_bone(meta_rig, "face")
     teeth_t_bone = bones.get_edit_bone(meta_rig, "teeth.T")
     teeth_t_source_bone = bones.get_rl_bone(cc3_rig, "CC_Base_Teeth01")
@@ -823,13 +828,6 @@ def map_eyes(cc3_rig, meta_rig):
         face_dir = face_bone.tail - face_bone.head
         teeth_b_bone.head = (cc3_rig.matrix_world @ teeth_b_source_bone.head_local) + face_dir * 0.5
         teeth_b_bone.tail = (cc3_rig.matrix_world @ teeth_b_source_bone.head_local)
-
-
-def mirror_uv_target(uv):
-    muv = uv.copy()
-    x = muv[0]
-    muv[0] = 1 - x
-    return muv
 
 
 def report_uv_face_targets(obj, meta_rig):
@@ -976,6 +974,13 @@ def map_uv_targets(generation, cc3_rig, meta_rig):
                     bone.tail = world
 
 
+def mirror_uv_target(uv):
+    muv = uv.copy()
+    x = muv[0]
+    muv[0] = 1 - x
+    return muv
+
+
 def get_head_material_slot(obj):
     for i in range(0, len(obj.material_slots)):
         slot = obj.material_slots[i]
@@ -983,26 +988,6 @@ def get_head_material_slot(obj):
             if "Std_Skin_Head" in slot.material.name:
                 return i
     return -1
-
-
-def get_eye_material_slot(obj, right_eye):
-    for i in range(0, len(obj.material_slots)):
-        slot = obj.material_slots[i]
-        if slot.material is not None:
-            l_name = slot.material.name.lower()
-            if right_eye and "std_eye_r" in l_name:
-                return i
-            elif not right_eye and "std_eye_l" in l_name:
-                return i
-    return -1
-
-
-def do_test():
-    #cc3_rig = utils.find_cc3_rig()
-    #for obj in cc3_rig.children:
-    #    if "base_body" in obj.name.lower():
-    #        map_uv_targets(obj)
-    pass
 
 
 def map_bone(cc3_rig, meta_rig, mapping):
@@ -1107,7 +1092,7 @@ def match_meta_rig(generation, meta_rig, cc3_rig, rig_face):
                     set_rigify_params(meta_rig)
                     if rig_face:
                         map_uv_targets(generation, cc3_rig, meta_rig)
-                    map_eyes(cc3_rig, meta_rig)
+                    map_face(cc3_rig, meta_rig)
                     return
 
     utils.log_error("Unable to match meta rig.")

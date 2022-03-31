@@ -135,10 +135,12 @@ def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, sca
     if utils.edit_mode_to(cc3_rig):
         src_bone = get_rl_edit_bone(cc3_rig, cc3_name)
         if src_bone:
+            # cc3 rig is usually scaled by 0.01, so calculate the world positions.
             head_pos = cc3_rig.matrix_world @ src_bone.head
             tail_pos = cc3_rig.matrix_world @ src_bone.tail
             roll = src_bone.roll
             if utils.edit_mode_to(dst_rig):
+                # meta and rigify rigs are at 1.0 scale so all bones are in world space (at the origin)
                 dst_bone = dst_rig.data.edit_bones.new(dst_name)
                 dst_bone.head = head_pos
                 dst_bone.tail = head_pos + (tail_pos - head_pos) * scale
