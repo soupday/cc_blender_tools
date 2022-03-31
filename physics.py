@@ -546,7 +546,8 @@ def get_dirty_weightmaps(objects):
                 if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name:
                     if mod.mask_texture is not None and mod.mask_texture.image is not None:
                         image = mod.mask_texture.image
-                        if image.filepath != "" and (image.is_dirty or not os.path.exists(image.filepath)):
+                        abs_image_path = bpy.path.abspath(image.filepath)
+                        if image.filepath != "" and (image.is_dirty or not os.path.exists(abs_image_path)):
                             maps.append(image)
     return maps
 
@@ -630,12 +631,13 @@ def delete_selected_weight_map(obj, mat):
         edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
         if edit_mod is not None and edit_mod.mask_texture is not None and edit_mod.mask_texture.image is not None:
             image = edit_mod.mask_texture.image
+            abs_image_path = bpy.path.abspath(image.filepath)
             try:
-                if image.filepath != "" and os.path.exists(image.filepath):
-                    utils.log_info("Removing weight map file: " + image.filepath)
-                    os.remove(image.filepath)
+                if image.filepath != "" and os.path.exists(abs_image_path):
+                    utils.log_info("Removing weight map file: " + abs_image_path)
+                    os.remove(abs_image_path)
             except Exception as e:
-                utils.log_error("Removing weight map file: " + image.filepath, e)
+                utils.log_error("Removing weight map file: " + abs_image_path, e)
         if edit_mod is not None:
             utils.log_info("Removing 'Vertex Weight Edit' modifer")
             obj.modifiers.remove(edit_mod)

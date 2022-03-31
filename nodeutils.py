@@ -585,7 +585,7 @@ def get_image_node_mapping(image_node):
 def store_texture_mapping(image_node, mat_cache, texture_type):
     if image_node and image_node.type == "TEX_IMAGE":
         location, rotation, scale = get_image_node_mapping(image_node)
-        texture_path = image_node.image.filepath
+        texture_path = bpy.path.abspath(image_node.image.filepath)
         embedded = image_node.image.packed_file is not None
         image = image_node.image
         mat_cache.set_texture_mapping(texture_type, texture_path, embedded, image, location, rotation, scale)

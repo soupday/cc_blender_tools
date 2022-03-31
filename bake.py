@@ -309,7 +309,7 @@ def bake_bsdf_normal(mat, bsdf_node, image, image_name):
 
     bpy.ops.object.bake(type='NORMAL')
 
-    image.save_render(filepath = image.filepath, scene = bpy.context.scene)
+    image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
     image.reload()
 
     post_bake()

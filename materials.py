@@ -436,7 +436,7 @@ def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):
     # detect embedded textures
     for node in nodes:
         if node.type == "TEX_IMAGE" and node.image is not None:
-            filepath = node.image.filepath
+            filepath = bpy.path.abspath(node.image.filepath)
             dir, name = os.path.split(filepath)
 
             # presence of packed images means that the fbx had embedded textures
