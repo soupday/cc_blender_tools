@@ -1060,6 +1060,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ], default="EEVEE", name = "Target Renderer")
 
     rigified: bpy.props.BoolProperty(default=False)
+    rigified_full_face_rig: bpy.props.BoolProperty(default=False)
     rig_face_rig: bpy.props.BoolProperty(default=True)
     rig_mode: bpy.props.EnumProperty(items=[
                         ("SINGLE","All-in-one","Rig the character all in one go."),

@@ -1309,6 +1309,7 @@ class CC3Rigifier(bpy.types.Operator):
                     if not chr_cache.rig_full_face():
                         convert_to_basic_face_rig(self.meta_rig)
                     match_meta_rig(chr_cache, self.cc3_rig, self.meta_rig)
+                    chr_cache.rigified_full_face_rig = chr_cache.rig_full_face()
                 else:
                     utils.log_error("Unable to locate imported CC3 rig!", self)
             else:

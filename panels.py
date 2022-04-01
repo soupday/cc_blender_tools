@@ -695,74 +695,84 @@ class CC3RigifyPanel(bpy.types.Panel):
 
         if rigify_installed:
 
-            if chr_cache and not chr_cache.rigified and chr_cache.can_be_rigged():
-
-                info_text = ""
-                if chr_cache.generation == "G3" or chr_cache.generation == "G3Plus":
-                    info_text = "CC3 G3 and G3Plus characters can be fully face rigged. Once rigged, incompatible with Export. Animations will need to be re-targetted."
-                elif chr_cache.generation == "ActorCore":
-                    info_text = "Actor Core characters can only be partially face rigged. Once rigged, incompatible with Export. Animations will need to be re-targetted."
-                wrapper = textwrap.TextWrapper(width=width)
-                info_list = wrapper.wrap(info_text)
+            if chr_cache:
 
                 box = layout.box()
-                for text in info_list:
-                    box.label(text=text)
+                split = box.split(factor=0.4)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text = "Character:")
+                col_2.label(text = chr_cache.import_name)
+                col_1.label(text = "Generation:")
+                col_2.label(text = chr_cache.generation)
+                if chr_cache.rigified:
+                    col_1.label(text = "Rig Type:")
+                    col_2.label(text = "Rigify")
+                    col_1.label(text = "Face Rig:")
+                    col_2.label(text = "Full" if chr_cache.rigified_full_face_rig else "Basic")
+                #else:
+                #    col_1.label(text = "Face Rig:")
+                #    col_2.label(text = "Full" if chr_cache.can_rig_full_face() else "Basic")
 
                 layout.separator()
 
-                row = layout.row()
-                row.prop(chr_cache, "rig_mode", expand=True)
+                if chr_cache.rigified:
 
-                if chr_cache and chr_cache.can_rig_full_face():
+                    #info_text = "Character has been rigged with Rigify."
+                    #wrapper = textwrap.TextWrapper(width=width)
+                    #info_list = wrapper.wrap(info_text)
+
+                    #box = layout.box()
+                    #for text in info_list:
+                    #    box.label(text=text)
+                    pass
+
+                elif chr_cache.can_be_rigged():
+
+                    layout.box().row().label(text = "Rigify", icon = "OUTLINER_OB_ARMATURE")
+
                     row = layout.row()
-                    split = row.split(factor=0.5)
-                    split.column().label(text = "Full Face Rig")
-                    split.column().prop(chr_cache, "rig_face_rig", text = "")
+                    row.prop(chr_cache, "rig_mode", expand=True)
 
-                if chr_cache.rig_mode == "SINGLE":
+                    if chr_cache and chr_cache.can_rig_full_face():
+                        row = layout.row()
+                        split = row.split(factor=0.5)
+                        split.column().label(text = "Full Face Rig")
+                        split.column().prop(chr_cache, "rig_face_rig", text = "")
 
-                    row = layout.row()
-                    row.scale_y = 2
-                    row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param = "ALL"
-                    row.enabled = chr_cache is not None
+                    if chr_cache.rig_mode == "SINGLE":
+
+                        row = layout.row()
+                        row.scale_y = 2
+                        row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param = "ALL"
+                        row.enabled = chr_cache is not None
+
+                    else:
+
+                        row = layout.row()
+                        row.scale_y = 2
+                        row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Attach Meta-Rig").param = "META_RIG"
+                        row.enabled = chr_cache is not None
+
+                        row = layout.row()
+                        row.scale_y = 2
+                        row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
+                        row.enabled = chr_cache is not None
+
+                    #row = layout.row()
+                    #row.scale_y = 2
+                    #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="REPORT FACE TARGETS").param = "REPORT_FACE_TARGETS"
+                    #row.enabled = chr_cache is not None
 
                 else:
 
-                    row = layout.row()
-                    row.scale_y = 2
-                    row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Attach Meta-Rig").param = "META_RIG"
-                    row.enabled = chr_cache is not None
+                    info_text = "This character can not be rigged."
+                    wrapper = textwrap.TextWrapper(width=width)
+                    info_list = wrapper.wrap(info_text)
 
-                    row = layout.row()
-                    row.scale_y = 2
-                    row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
-                    row.enabled = chr_cache is not None
-
-                #row = layout.row()
-                #row.scale_y = 2
-                #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="REPORT FACE TARGETS").param = "REPORT_FACE_TARGETS"
-                #row.enabled = chr_cache is not None
-
-            elif chr_cache and chr_cache.rigified:
-
-                info_text = "Character has been rigged with Rigify."
-                wrapper = textwrap.TextWrapper(width=width)
-                info_list = wrapper.wrap(info_text)
-
-                box = layout.box()
-                for text in info_list:
-                    box.label(text=text)
-
-            elif chr_cache and not chr_cache.can_be_rigged():
-
-                info_text = "This character can not be rigged."
-                wrapper = textwrap.TextWrapper(width=width)
-                info_list = wrapper.wrap(info_text)
-
-                box = layout.box()
-                for text in info_list:
-                    box.label(text=text)
+                    box = layout.box()
+                    for text in info_list:
+                        box.label(text=text)
 
             else:
 
