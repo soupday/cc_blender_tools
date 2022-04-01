@@ -710,9 +710,6 @@ class CC3RigifyPanel(bpy.types.Panel):
                     col_2.label(text = "Rigify")
                     col_1.label(text = "Face Rig:")
                     col_2.label(text = "Full" if chr_cache.rigified_full_face_rig else "Basic")
-                #else:
-                #    col_1.label(text = "Face Rig:")
-                #    col_2.label(text = "Full" if chr_cache.can_rig_full_face() else "Basic")
 
                 layout.separator()
 
