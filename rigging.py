@@ -168,7 +168,7 @@ ADD_DEF_BONES = [
     ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29],
     ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29],
 
-    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, 0.667, "DEF-upper_arm.L.001", 0.5],
+    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, 0.667, "DEF-upper_arm.L.001", 0.95],
     ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, 0.667, "DEF-thigh.L.001", 0.5],
 
     ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29],
@@ -177,7 +177,7 @@ ADD_DEF_BONES = [
     ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29],
     ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29],
 
-    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, 0.667, "DEF-upper_arm.R.001", 0.5],
+    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, 0.667, "DEF-upper_arm.R.001", 0.95],
     ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, 0.667, "DEF-thigh.R.001", 0.5],
 
     ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29],
@@ -190,6 +190,7 @@ ADD_DEF_BONES = [
     ["+EyeControl", "eyes", "MCH-eyes_parent", "LR", 1, 0.2, ["ORG-eye.L", "ORG-eye.R"]],
     ["+EyeControl", "eye.L", "eyes", "LR", 1,           0.2, ["ORG-eye.L"]],
     ["+EyeControl", "eye.R", "eyes", "LR", 1,           0.2, ["ORG-eye.R"]],
+    ["#RenameBasicFace", "jaw", "jaw_master", "", 1],
 ]
 
 VERTEX_GROUP_RENAME = [
@@ -518,7 +519,7 @@ def prune_meta_rig(meta_rig):
         pelvis_l.name = "pelvis"
 
 
-def add_def_bones(cc3_rig, rigify_rig):
+def add_def_bones(chr_cache, cc3_rig, rigify_rig):
     """Adds and parents twist deformation bones to the rigify deformation bones.
        Twist bones are parented to their corresponding limb bones.
        The main limb bones are not vertex weighted in the meshes but the twist bones are,
@@ -577,6 +578,11 @@ def add_def_bones(cc3_rig, rigify_rig):
                 if is_eye_parent:
                     bones.add_pose_bone_custom_property(rigify_rig, dst_bone_name, "eyes_follow", 1.0)
                     bones.add_constraint_influence_driver(rigify_rig, dst_bone_parent_name, dst_bone_name, "eyes_follow", "COPY_TRANSFORMS")
+
+        elif src_bone_name == "#RenameBasicFace":
+
+            if not chr_cache.rig_full_face():
+                bones.rename_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
 
         elif src_bone_name[:3] == "DEF" or src_bone_name[:3] == "ORG":
             def_bone = bones.copy_edit_bone(rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
@@ -1111,7 +1117,7 @@ def fix_bend(meta_rig, bone_one_name, bone_two_name, dir : mathutils.Vector):
     return
 
 
-def remove_face_rig(meta_rig):
+def convert_to_basic_face_rig(meta_rig):
 
     if utils.set_mode("OBJECT") and utils.set_active_object(meta_rig) and utils.set_mode("EDIT"):
 
@@ -1301,7 +1307,7 @@ class CC3Rigifier(bpy.types.Operator):
                     self.cc3_rig.location = (0,0,0)
                     self.cc3_rig.data.pose_position = "REST"
                     if not chr_cache.rig_full_face():
-                        remove_face_rig(self.meta_rig)
+                        convert_to_basic_face_rig(self.meta_rig)
                     match_meta_rig(chr_cache, self.cc3_rig, self.meta_rig)
                 else:
                     utils.log_error("Unable to locate imported CC3 rig!", self)
@@ -1335,7 +1341,7 @@ class CC3Rigifier(bpy.types.Operator):
                         if self.rigify_rig:
                             modify_controls(self.rigify_rig)
                             reparent_to_rigify(chr_cache, self.cc3_rig, self.rigify_rig)
-                            add_def_bones(self.cc3_rig, self.rigify_rig)
+                            add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
 
@@ -1363,7 +1369,7 @@ class CC3Rigifier(bpy.types.Operator):
                         if self.rigify_rig:
                             modify_controls(self.rigify_rig)
                             reparent_to_rigify(chr_cache, self.cc3_rig, self.rigify_rig)
-                            add_def_bones(self.cc3_rig, self.rigify_rig)
+                            add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
 

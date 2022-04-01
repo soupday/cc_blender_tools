@@ -68,6 +68,16 @@ def get_pose_bone(rig, name):
     return None
 
 
+def rename_bone(rig, from_name, to_name):
+    if utils.edit_mode_to(rig):
+        bone = get_edit_bone(rig, from_name)
+        if bone and to_name not in rig.data.edit_bones:
+            bone.name = to_name
+        else:
+            utils.log_error(f"Bone {from_name} cannot be renamed as {to_name} already exists in rig!")
+
+
+
 def copy_edit_bone(rig, src_name, dst_name, parent_name, scale):
     if utils.edit_mode_to(rig):
         src_bone = get_edit_bone(rig, src_name)
