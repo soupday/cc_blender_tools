@@ -1063,9 +1063,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     rigified_full_face_rig: bpy.props.BoolProperty(default=False)
     rig_face_rig: bpy.props.BoolProperty(default=True)
     rig_mode: bpy.props.EnumProperty(items=[
-                        ("SINGLE","All-in-one","Rig the character all in one go."),
-                        ("MULTI","Multi-stage","Split the process so that user adjustments can be made to the meta rig before generating."),
-                    ], default="SINGLE", name = "Rigging Mode")
+                        ("QUICK","Quick","Rig the character all in one go."),
+                        ("ADVANCED","Advanced","Split the process so that user adjustments can be made to the meta rig before generating."),
+                    ], default="QUICK", name = "Rigging Mode")
     rig_meta_rig: bpy.props.PointerProperty(type=bpy.types.Object)
 
 

@@ -713,23 +713,47 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                 layout.separator()
 
+                layout.box().row().label(text = "Rigify", icon = "OUTLINER_OB_ARMATURE")
+
+                row = layout.row()
+                row.prop(chr_cache, "rig_mode", expand=True)
+
+                layout.separator()
+
                 if chr_cache.rigified:
 
-                    #info_text = "Character has been rigged with Rigify."
-                    #wrapper = textwrap.TextWrapper(width=width)
-                    #info_list = wrapper.wrap(info_text)
+                    layout.row().label(text = "Re-parenting Face Rig", icon = "INFO")
 
-                    #box = layout.box()
-                    #for text in info_list:
-                    #    box.label(text=text)
-                    pass
+                    if chr_cache.rig_mode == "ADVANCED":
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="LOCKED", text="Lock Non-Face VGroups").param = "LOCK_NON_FACE_VGROUPS"
+                        row.enabled = chr_cache is not None
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="MESH_DATA", text="Clean Body Mesh").param = "CLEAN_BODY_MESH"
+                        row.enabled = chr_cache is not None
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Reparent Auto Weights").param = "REPARENT_RIG"
+                        row.enabled = chr_cache is not None
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="COMMUNITY", text="Reparent With Seprated Face").param = "REPARENT_RIG_SEPARATE_HEAD"
+                        row.enabled = chr_cache is not None
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="UNLOCKED", text="Unlock VGroups").param = "UNLOCK_VGROUPS"
+                        row.enabled = chr_cache is not None
+
+                    else:
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="COMMUNITY", text="Reparent With Seprated Face").param = "REPARENT_RIG_SEPARATE_HEAD_QUICK"
+                        row.enabled = chr_cache is not None
+
 
                 elif chr_cache.can_be_rigged():
-
-                    layout.box().row().label(text = "Rigify", icon = "OUTLINER_OB_ARMATURE")
-
-                    row = layout.row()
-                    row.prop(chr_cache, "rig_mode", expand=True)
 
                     if chr_cache and chr_cache.can_rig_full_face():
                         row = layout.row()
@@ -737,7 +761,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         split.column().label(text = "Full Face Rig")
                         split.column().prop(chr_cache, "rig_face_rig", text = "")
 
-                    if chr_cache.rig_mode == "SINGLE":
+                    if chr_cache.rig_mode == "QUICK":
 
                         row = layout.row()
                         row.scale_y = 2
@@ -1112,19 +1136,31 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             row.enabled = False
         layout.separator()
         # export to Unity
-        row = layout.row()
-        row.scale_y = 2
-        if not props.is_unity_project():
+        if chr_cache is None or not chr_cache.rigified:
+            row = layout.row()
+            row.scale_y = 2
+            if not props.is_unity_project():
+                op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
+                op.param = "EXPORT_UNITY"
+            else:
+                op = row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project")
+                op.param = "UPDATE_UNITY"
+            row2 = layout.row()
+            row2.prop(prefs, "export_unity_mode", expand=True)
+            if not chr_cache:
+                row.enabled = False
+                row2.enabled = False
+        elif chr_cache.rigified:
+            row = layout.row()
+            row.scale_y = 2
             op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
             op.param = "EXPORT_UNITY"
-        else:
-            op = row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project")
-            op.param = "UPDATE_UNITY"
-        row2 = layout.row()
-        row2.prop(prefs, "export_unity_mode", expand=True)
-        if not chr_cache:
-            row.enabled = False
-            row2.enabled = False
+            row2 = layout.row()
+            row2.label(text="Rigged character FBX only", icon="INFO")
+            if not chr_cache:
+                row.enabled = False
+                row2.enabled = False
+
         # export prefs
         box = layout.box()
         if fake_drop_down(box.row(),

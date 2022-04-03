@@ -299,6 +299,112 @@ VERTEX_GROUP_RENAME = [
     ["DEF-jaw", "CC_Base_JawRoot"],
 ]
 
+EXPORT_RIG = [
+    # Spine, Neck & Head:
+    ["DEF-pelvis", "DEF-spine", "P"],
+    ["DEF-spine", "root", "P"],
+    ["DEF-spine.001", "DEF-spine", "P"],
+    ["DEF-spine.002", "DEF-spine.001", "P"],
+    ["DEF-spine.003", "DEF-spine.002", "P"],
+    ["DEF-spine.004", "DEF-spine.003", "P"],
+    ["DEF-spine.005", "DEF-spine.004", "P"],
+    ["DEF-spine.006", "DEF-spine.005", "P"],
+    # Left Breast:
+    ["DEF-breast_twist.L", "DEF-spine.003", "P"],
+    ["DEF-breast.L", "DEF-breast_twist.L", "P"],
+    # Right Breast:
+    ["DEF-breast_twist.R", "DEF-spine.003", "P"],
+    ["DEF-breast.R", "DEF-breast_twist.R", "P"],
+    # Left Leg:
+    ["DEF-thigh.L", "DEF-pelvis", "P"],
+    ["DEF-thigh.L.001", "DEF-thigh.L", "P"],
+    ["DEF-knee_share.L", "DEF-shin.L", "P"],
+    ["DEF-shin.L", "DEF-thigh.L.001", "P"],
+    ["DEF-shin.L.001", "DEF-shin.L", "P"],
+    ["DEF-foot.L", "DEF-shin.L.001", "P"],
+    ["DEF-toe.L", "DEF-foot.L", "P"],
+    # Left Foot:
+    ["DEF-toe_big.L", "DEF-toe.L", "P"],
+    ["DEF-toe_index.L", "DEF-toe.L", "P"],
+    ["DEF-toe_mid.L", "DEF-toe.L", "P"],
+    ["DEF-toe_ring.L", "DEF-toe.L", "P"],
+    ["DEF-toe_pinky.L", "DEF-toe.L", "P"],
+    # Left Arm:
+    ["DEF-shoulder.L", "DEF-spine.003", "P"],
+    ["DEF-upper_arm.L", "DEF-shoulder.L", "P"],
+    ["DEF-upper_arm.L.001", "DEF-upper_arm.L", "P"],
+    ["DEF-elbow_share.L", "DEF-forearm.L", "P"],
+    ["DEF-forearm.L", "DEF-shoulder.L", "P"],
+    ["DEF-forearm.L.001", "DEF-forearm.L", "P"],
+    ["DEF-hand.L", "DEF-forearm.L.001", "P"],
+    # Left Hand Fingers:
+    ["DEF-thumb.01.L", "DEF-hand.L", "P"],
+    ["DEF-f_index.01.L", "DEF-hand.L", "P"],
+    ["DEF-f_middle.01.L", "DEF-hand.L", "P"],
+    ["DEF-f_ring.01.L", "DEF-hand.L", "P"],
+    ["DEF-f_pinky.01.L", "DEF-hand.L", "P"],
+    ["DEF-thumb.02.L", "DEF-thumb.01.L", "P"],
+    ["DEF-f_index.02.L", "DEF-f_index.01.L", "P"],
+    ["DEF-f_middle.02.L", "DEF-f_middle.01.L", "P"],
+    ["DEF-f_ring.02.L", "DEF-f_ring.01.L", "P"],
+    ["DEF-f_pinky.02.L", "DEF-f_pinky.01.L", "P"],
+    ["DEF-thumb.03.L", "DEF-thumb.02.L", "P"],
+    ["DEF-f_index.03.L", "DEF-f_index.02.L", "P"],
+    ["DEF-f_middle.03.L", "DEF-f_middle.02.L", "P"],
+    ["DEF-f_ring.03.L", "DEF-f_ring.02.L", "P"],
+    ["DEF-f_pinky.03.L", "DEF-f_pinky.02.L", "P"],
+    # Right Leg:
+    ["DEF-thigh.R", "DEF-pelvis", "P"],
+    ["DEF-thigh.R.001", "DEF-thigh.R", "P"],
+    ["DEF-knee_share.R", "DEF-shin.R", "P"],
+    ["DEF-shin.R", "DEF-thigh.R.001", "P"],
+    ["DEF-shin.R.001", "DEF-shin.R", "P"],
+    ["DEF-foot.R", "DEF-shin.R.001", "P"],
+    ["DEF-toe.R", "DEF-foot.R", "P"],
+    # Right Foot:
+    ["DEF-toe_big.R", "DEF-toe.R", "P"],
+    ["DEF-toe_index.R", "DEF-toe.R", "P"],
+    ["DEF-toe_mid.R", "DEF-toe.R", "P"],
+    ["DEF-toe_ring.R", "DEF-toe.R", "P"],
+    ["DEF-toe_pinky.R", "DEF-toe.R", "P"],
+    # Right Arm:
+    ["DEF-shoulder.R", "DEF-spine.003", "P"],
+    ["DEF-upper_arm.R", "DEF-shoulder.R", "P"],
+    ["DEF-upper_arm.R.001", "DEF-upper_arm.R", "P"],
+    ["DEF-elbow_share.R", "DEF-forearm.R", "P"],
+    ["DEF-forearm.R", "DEF-shoulder.R", "P"],
+    ["DEF-forearm.R.001", "DEF-forearm.R", "P"],
+    ["DEF-hand.R", "DEF-forearm.R.001", "P"],
+    # Right Hand Fingers:
+    ["DEF-thumb.01.R", "DEF-hand.R", "P"],
+    ["DEF-f_index.01.R", "DEF-hand.R", "P"],
+    ["DEF-f_middle.01.R", "DEF-hand.R", "P"],
+    ["DEF-f_ring.01.R", "DEF-hand.R", "P"],
+    ["DEF-f_pinky.01.R", "DEF-hand.R", "P"],
+    ["DEF-thumb.02.R", "DEF-thumb.01.R", "P"],
+    ["DEF-f_index.02.R", "DEF-f_index.01.R", "P"],
+    ["DEF-f_middle.02.R", "DEF-f_middle.01.R", "P"],
+    ["DEF-f_ring.02.R", "DEF-f_ring.01.R", "P"],
+    ["DEF-f_pinky.02.R", "DEF-f_pinky.01.R", "P"],
+    ["DEF-thumb.03.R", "DEF-thumb.02.R", "P"],
+    ["DEF-f_index.03.R", "DEF-f_index.02.R", "P"],
+    ["DEF-f_middle.03.R", "DEF-f_middle.02.R", "P"],
+    ["DEF-f_ring.03.R", "DEF-f_ring.02.R", "P"],
+    ["DEF-f_pinky.03.R", "DEF-f_pinky.02.R", "P"],
+    # Tongue:
+    ["DEF-tongue", "DEF-jaw", "P"],
+    ["DEF-tongue.001", "DEF-tongue", "P"],
+    ["DEF-tongue.002", "DEF-tongue.001", "P"],
+    # Teeth:
+    ["DEF-teeth.T", "DEF-spine.006", "P"],
+    ["DEF-teeth.B", "DEF-jaw", "P"],
+    # Eyes:
+    ["DEF-eye.R", "DEF-spine.006", "P"],
+    ["DEF-eye.L", "DEF-spine.006", "P"],
+    # Jaw:
+    ["DEF-jaw", "DEF-spine.006", "P"],
+]
+
 CONTROL_MODIFY = [
     ["hand_ik.R", [-1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
     ["hand_ik.L", [1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
@@ -463,6 +569,18 @@ UV_TARGETS_G3 = [
                                     [ [0.3584, 0.4407], [0.3625, 0.3725] ] ],
     # set the top of the 'head' bone
     #["spine.006", "TAIL",           [0.688, 0.953]],
+]
+
+BODY_TYPES = ["BODY", "TEARLINE", "OCCLUSION"]
+
+FACE_DEF_BONE_PREFIX = [
+    "DEF-forehead.", "DEF-brow.", "DEF-lid.", "DEF-cheek.",
+    "DEF-temple.", "DEF-jaw.", "DEF-lip.", "DEF-ear.",
+    "DEF-nose", "DEF-chin", # don't use DEF-Jaw as this is based on the original CC3 weights.
+]
+
+FACE_DEF_BONE_PREPASS = [
+    "DEF-eye.L", "DEF-eye.R", "DEF-teeth.T", "DEF-teeth.B", "DEF-jaw",
 ]
 
 # the minimum size of the relative mapping bounding box
@@ -1220,7 +1338,7 @@ def modify_controls(rigify_rig):
                     bone.custom_shape_rotation_euler = rotation
 
 
-def reparent_to_rigify(chr_cache, cc3_rig, rigify_rig):
+def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
     """Unparent (with transform) from the original CC3 rig and reparent to the new rigify rig (with automatic weights for the body),
        setting the armature modifiers to the new rig.
 
@@ -1232,8 +1350,6 @@ def reparent_to_rigify(chr_cache, cc3_rig, rigify_rig):
 
     if utils.set_mode("OBJECT"):
 
-        BODY_TYPES = ["BODY", "TEARLINE", "OCCLUSION"]
-
         for obj in cc3_rig.children:
             if obj.type == "MESH" and obj.parent == cc3_rig:
 
@@ -1243,13 +1359,19 @@ def reparent_to_rigify(chr_cache, cc3_rig, rigify_rig):
                     bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
 
                 # only the body will generate the automatic weights for the face rig.
-                if obj_cache and obj_cache.object_type in BODY_TYPES:
+                if chr_cache.rigified_full_face_rig and obj_cache and obj_cache.object_type in BODY_TYPES:
 
                     # remove all armature modifiers as parent with automatic weights will add them
                     modifiers.remove_object_modifiers(obj, "ARMATURE")
 
                     if utils.try_select_object(rigify_rig) and utils.set_active_object(rigify_rig):
+
+                        print("")
+                        if obj_cache.object_type == "BODY":
+                            print("Attemping to parent the Body mesh to the Face Rig:")
+                            print("If this fails, the face rig will not work and will need to re-parented by other means.")
                         bpy.ops.object.parent_set(type = "ARMATURE_AUTO", keep_transform = True)
+                        print("")
 
                 else:
 
@@ -1259,6 +1381,41 @@ def reparent_to_rigify(chr_cache, cc3_rig, rigify_rig):
                     arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
                     if arm_mod:
                         arm_mod.object = rigify_rig
+
+
+def check_automatic_weights(rig, obj):
+
+    # no way to definitively tell if vertex groups should be filled or not...
+
+    face_deform_bone_vgroups = []
+    vgroup_counts = {}
+    for bone in rig.data.bones:
+        if bone.use_deform:
+            for prefix in FACE_DEF_BONE_PREFIX:
+                if bone.name.startswith(prefix):
+                    if bone.name in obj.vertex_groups:
+                        index = obj.vertex_groups[bone.name].index
+                        print(f"found: {bone.name} index = {index}")
+                        face_deform_bone_vgroups.append(index)
+                        vgroup_counts[index] = 0
+
+    v : bpy.types.MeshVertex
+    for v in obj.data.vertices:
+        vg : bpy.types.VertexGroupElement
+        for vg in v.groups:
+            if vg.group in face_deform_bone_vgroups:
+                vgroup_counts[vg.group] += 1
+
+    success = True
+
+    for index in vgroup_counts:
+        if vgroup_counts[index] == 0:
+            utils.log_error(f"group: {obj.vertex_groups[index].name} not weighted.")
+            success = False
+        else:
+            utils.log_info(f"group: {obj.vertex_groups[index].name} = {vgroup_counts[index]}")
+
+    return success
 
 
 def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
@@ -1281,6 +1438,109 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     chr_cache.set_rigify_armature(rigify_rig)
 
 
+def prep_export(rigigy_rig):
+    pass
+
+
+def is_face_def_vgroup(vgroup):
+    for face_def_prefix in FACE_DEF_BONE_PREFIX:
+        if vgroup.name.startswith(face_def_prefix):
+            return True
+    return False
+
+
+def lock_non_face_vgroups(chr_cache):
+    for obj_cache in chr_cache.object_cache:
+        if obj_cache.object_type in BODY_TYPES:
+            obj = obj_cache.object
+            vg : bpy.types.VertexGroup
+            for vg in obj.vertex_groups:
+                vg.lock_weight = not is_face_def_vgroup(vg)
+    # turn off deform for the teeth and eyes, as they will get autoweighted too
+    arm = chr_cache.get_armature()
+    for bone in arm.data.bones:
+        if bone.name in FACE_DEF_BONE_PREPASS:
+            bone.use_deform = False
+
+
+def unlock_vgroups(chr_cache):
+    for obj_cache in chr_cache.object_cache:
+        if obj_cache.object_type in BODY_TYPES:
+            obj = obj_cache.object
+            vg : bpy.types.VertexGroup
+            for vg in obj.vertex_groups:
+                vg.lock_weight = False
+    # turn on deform for the teeth and the eyes
+    arm = chr_cache.get_armature()
+    for bone in arm.data.bones:
+        if bone.name in FACE_DEF_BONE_PREPASS:
+            bone.use_deform = True
+
+
+def mesh_clean_up(chr_cache):
+    for obj_cache in chr_cache.object_cache:
+        if obj_cache.object_type in BODY_TYPES:
+            obj = obj_cache.object
+            if utils.edit_mode_to(obj):
+                bpy.ops.mesh.select_all(action = 'SELECT')
+                bpy.ops.mesh.remove_doubles()
+                bpy.ops.mesh.delete_loose()
+                bpy.ops.mesh.dissolve_degenerate()
+                bpy.ops.object.mode_set(mode = 'OBJECT')
+
+
+def attempt_reparent_auto(chr_cache):
+    utils.set_mode("OBJECT")
+    utils.clear_selected_objects()
+    for obj_cache in chr_cache.object_cache:
+        if obj_cache.object_type == "BODY":
+            obj = obj_cache.object
+            modifiers.remove_object_modifiers(obj, "ARMATURE")
+            utils.try_select_object(obj)
+    arm = chr_cache.get_armature()
+    if utils.try_select_object(arm) and utils.set_active_object(arm):
+        print("Attemping to parent the Body mesh to the Face Rig:")
+        print("If this fails, the face rig will not work and will need to re-parented by other means.")
+        bpy.ops.object.parent_set(type = "ARMATURE_AUTO", keep_transform = True)
+
+
+def attempt_reparent_auto_separate_head(chr_cache):
+    utils.set_mode("OBJECT")
+    utils.clear_selected_objects()
+    for obj_cache in chr_cache.object_cache:
+        if obj_cache.object_type == "BODY":
+            obj = obj_cache.object
+            if utils.edit_mode_to(obj):
+                bpy.context.object.active_material_index = 0
+                bpy.ops.object.material_slot_select()
+                if len(obj.material_slots) == 6:
+                    bpy.context.object.active_material_index = 5
+                    bpy.ops.object.material_slot_select()
+                bpy.ops.mesh.separate(type="SELECTED")
+                utils.set_mode("OBJECT")
+                separated_head = None
+                for o in bpy.context.selected_objects:
+                    if o != obj:
+                        separated_head = o
+                if separated_head:
+                    arm = chr_cache.get_armature()
+                    utils.try_select_object(separated_head, True)
+                    if utils.try_select_object(arm) and utils.set_active_object(arm):
+                        print("Attemping to parent the Body mesh to the Face Rig:")
+                        print("If this fails, the face rig will not work and will need to re-parented by other means.")
+                        bpy.ops.object.parent_set(type = "ARMATURE_AUTO", keep_transform = True)
+                    utils.try_select_objects([obj, separated_head], True)
+                    utils.set_active_object(obj)
+                    bpy.ops.object.join()
+                    if utils.edit_mode_to(obj):
+                        bpy.ops.mesh.select_all(action = 'SELECT')
+                        bpy.ops.mesh.remove_doubles()
+                    if utils.set_mode("OBJECT"):
+                        if utils.try_select_object(arm, True) and utils.set_active_object(arm):
+                            utils.set_mode("POSE")
+                    break
+
+
 class CC3Rigifier(bpy.types.Operator):
     """Rigify CC3 Character"""
     bl_idname = "cc3.rigifier"
@@ -1296,6 +1556,8 @@ class CC3Rigifier(bpy.types.Operator):
     cc3_rig = None
     meta_rig = None
     rigify_rig = None
+    auto_weight_failed = False
+    auto_weight_report = ""
 
     def add_meta_rig(self, chr_cache):
         if utils.set_mode("OBJECT"):
@@ -1321,9 +1583,11 @@ class CC3Rigifier(bpy.types.Operator):
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
 
-        cc3_rig = None
-        meta_rig = None
-        rigify_rig = None
+        self.cc3_rig = None
+        self.meta_rig = None
+        self.rigify_rig = None
+        self.auto_weight_failed = False
+        self.auto_weight_report = ""
 
         if chr_cache:
 
@@ -1341,12 +1605,16 @@ class CC3Rigifier(bpy.types.Operator):
 
                         if self.rigify_rig:
                             modify_controls(self.rigify_rig)
-                            reparent_to_rigify(chr_cache, self.cc3_rig, self.rigify_rig)
+                            reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
 
                     chr_cache.rig_meta_rig = None
+                    if self.auto_weight_failed:
+                        self.report({'ERROR'}, "Auto weight failed for full face rig!")
+                    else:
+                        self.report({'INFO'}, "Rigify Done!")
 
             elif self.param == "META_RIG":
 
@@ -1356,6 +1624,8 @@ class CC3Rigifier(bpy.types.Operator):
                     if self.meta_rig:
                         chr_cache.rig_meta_rig = self.meta_rig
                         correct_meta_rig(self.meta_rig)
+
+                        self.report({'INFO'}, "Meta-rig generated!")
 
             elif self.param == "RIGIFY_META":
 
@@ -1369,12 +1639,16 @@ class CC3Rigifier(bpy.types.Operator):
 
                         if self.rigify_rig:
                             modify_controls(self.rigify_rig)
-                            reparent_to_rigify(chr_cache, self.cc3_rig, self.rigify_rig)
+                            reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
 
                 chr_cache.rig_meta_rig = None
+                if self.auto_weight_failed:
+                    self.report({'ERROR'}, "Auto weight failed for full face rig!")
+                else:
+                    self.report({'INFO'}, "Rigify Done!")
 
             elif self.param == "REPORT_FACE_TARGETS":
 
@@ -1388,10 +1662,69 @@ class CC3Rigifier(bpy.types.Operator):
                     if rig and obj:
                         report_uv_face_targets(obj, rig)
 
+            elif self.param == "LOCK_NON_FACE_VGROUPS":
+                lock_non_face_vgroups(chr_cache)
+                self.report({'INFO'}, "Face groups locked!")
+
+            elif self.param == "UNLOCK_VGROUPS":
+                unlock_vgroups(chr_cache)
+                self.report({'INFO'}, "Groups unlocked!")
+
+            elif self.param == "CLEAN_BODY_MESH":
+                mesh_clean_up(chr_cache)
+                self.report({'INFO'}, "Body Mesh cleaned!")
+
+            elif self.param == "REPARENT_RIG":
+                attempt_reparent_auto(chr_cache)
+                self.report({'INFO'}, "Face Re-parent Done! See system console for errors.")
+
+            elif self.param == "REPARENT_RIG_SEPARATE_HEAD":
+                attempt_reparent_auto_separate_head(chr_cache)
+                self.report({'INFO'}, "Face Re-parent Done! See system console for errors.")
+
+
+            elif self.param == "REPARENT_RIG_SEPARATE_HEAD_QUICK":
+                lock_non_face_vgroups(chr_cache)
+                mesh_clean_up(chr_cache)
+                attempt_reparent_auto_separate_head(chr_cache)
+                unlock_vgroups(chr_cache)
+                self.report({'INFO'}, "Face Re-parent Done! See system console for errors.")
+
+
         return {"FINISHED"}
 
     @classmethod
     def description(cls, context, properties):
+
+        if properties.param == "ALL":
+            return "Rigify the character, all in one go"
+
+        elif properties.param == "META_RIG":
+            return "Attach and align the Rigify Meta-rig to the character"
+
+        elif properties.param == "RIGIFY_META":
+            return "Generate the Rigify Control rig from the meta-rig and attach to character"
+
+        elif properties.param == "LOCK_NON_FACE_VGROUPS":
+            return "Lock all vertex group not part of the Rigify face rig. Also removes the eyes, teeth and jaw bone from the Deformation bones, so they won't affect any custom reparenting"
+
+        elif properties.param == "UNLOCK_VGROUPS":
+            return "Unlock all vertex groups and restore the teeth, eyes and jaw deformation bone status"
+
+        elif properties.param == "CLEAN_BODY_MESH":
+            return "Removes doubles, deletes loose vertices and edges and removes any degerate mesh elements that could be preventing Blender from Bone Heat Weighting the face mesh to the face rig"
+
+        elif properties.param == "REPARENT_RIG":
+            return "Attempt to reparent the Body mesh to the face rig"
+
+        elif properties.param == "REPARENT_RIG_SEPARATE_HEAD":
+            return "Attempt to reparent the just Face portion of the Body mesh to the face rig, by separating the face from the rest of the body, reparenting with automatic weights and then rejoining the face mesh to the body mesh. " + \
+                   "By separating the face from the body, there is much less chance the Bone Heat Weighting will fail due to bad mesh geometry from the rest of the body."
+
+        elif properties.param == "REPARENT_RIG_SEPARATE_HEAD_QUICK":
+            return "Attempt to re-parent the character's face mesh to the Rigify face rig by separating the face before re-parenting with automatic weights. " + \
+                   "Only vertex groups in the face are affected by this reparenting, all others are locked during the process. " + \
+                   "By separating the face from the body, there is much less chance the Bone Heat Weighting will fail due to bad mesh geometry from the rest of the body."
 
         return "Rigification!"
 
@@ -1407,6 +1740,12 @@ def get_rigify_version():
 def is_rigify_installed():
     context = bpy.context
     if "rigify" in context.preferences.addons.keys():
+        return True
+    return False
+
+def is_voxel_skinning_installed():
+    context = bpy.context
+    if "voxel_skinning" in context.preferences.addons.keys():
         return True
     return False
 
