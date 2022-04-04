@@ -1450,17 +1450,25 @@ def is_face_def_vgroup(vgroup):
 
 
 def lock_non_face_vgroups(chr_cache):
+    body = None
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type in BODY_TYPES:
             obj = obj_cache.object
+            if obj_cache.object_type == "BODY":
+                body = obj
             vg : bpy.types.VertexGroup
             for vg in obj.vertex_groups:
                 vg.lock_weight = not is_face_def_vgroup(vg)
     # turn off deform for the teeth and eyes, as they will get autoweighted too
     arm = chr_cache.get_armature()
-    for bone in arm.data.bones:
-        if bone.name in FACE_DEF_BONE_PREPASS:
-            bone.use_deform = False
+    if arm:
+        for bone in arm.data.bones:
+            if bone.name in FACE_DEF_BONE_PREPASS:
+                bone.use_deform = False
+    # select body mesh and active rig
+    if body and arm and utils.set_mode("OBJECT"):
+        utils.try_select_objects([body, arm], True)
+        utils.set_active_object(arm)
 
 
 def unlock_vgroups(chr_cache):
@@ -1472,9 +1480,14 @@ def unlock_vgroups(chr_cache):
                 vg.lock_weight = False
     # turn on deform for the teeth and the eyes
     arm = chr_cache.get_armature()
-    for bone in arm.data.bones:
-        if bone.name in FACE_DEF_BONE_PREPASS:
-            bone.use_deform = True
+    if arm:
+        for bone in arm.data.bones:
+            if bone.name in FACE_DEF_BONE_PREPASS:
+                bone.use_deform = True
+    # select active rig
+    if arm and utils.set_mode("OBJECT"):
+        utils.try_select_object(arm, True)
+        utils.set_active_object(arm)
 
 
 def mesh_clean_up(chr_cache):
@@ -1486,7 +1499,12 @@ def mesh_clean_up(chr_cache):
                 bpy.ops.mesh.remove_doubles()
                 bpy.ops.mesh.delete_loose()
                 bpy.ops.mesh.dissolve_degenerate()
-                bpy.ops.object.mode_set(mode = 'OBJECT')
+                # select body mesh and active rig
+                arm = chr_cache.get_armature()
+                if obj and arm and utils.set_mode("OBJECT"):
+                    utils.try_select_objects([obj, arm], True)
+                    utils.set_active_object(arm)
+                return
 
 
 def attempt_reparent_auto(chr_cache):
