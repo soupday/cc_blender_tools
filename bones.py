@@ -216,7 +216,7 @@ def add_damped_track_constraint(rig, bone_name, target_name, influence):
             c.target = rig
             c.subtarget = target_name
             c.head_tail = 0
-            c.track_axis = "Y"
+            c.track_axis = "TRACK_Y"
             c.influence = influence
     except:
         utils.log_error(f"Unable to add damped track constraint: {bone_name} {target_name}")
