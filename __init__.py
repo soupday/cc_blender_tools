@@ -74,7 +74,7 @@ from . import rigging
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (1, 3, 1),
+    "version": (1, 3, 2),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -121,6 +121,7 @@ classes = (
     scene.CC3Scene,
     bake.CC3BakeOperator,
     rigging.CC3Rigifier,
+    rigging.CC3RigifierModal,
 
     physics.CC3OperatorPhysics,
     materials.CC3OperatorMaterial,

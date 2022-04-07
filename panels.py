@@ -722,7 +722,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                 if chr_cache.rigified:
 
-                    layout.row().label(text = "Re-parenting Face Rig", icon = "INFO")
+                    layout.row().label(text = "Face Rig Re-Parenting", icon = "INFO")
 
                     if chr_cache.rig_mode == "ADVANCED":
 
@@ -739,19 +739,19 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.enabled = chr_cache is not None
 
                         row = layout.row()
-                        row.operator("cc3.rigifier", icon="COMMUNITY", text="Reparent With Seprated Face").param = "REPARENT_RIG_SEPARATE_HEAD"
-                        row.enabled = chr_cache is not None
-
-                        row = layout.row()
                         row.operator("cc3.rigifier", icon="UNLOCKED", text="Unlock VGroups").param = "UNLOCK_VGROUPS"
                         row.enabled = chr_cache is not None
 
                     else:
 
                         row = layout.row()
-                        row.operator("cc3.rigifier", icon="COMMUNITY", text="Reparent With Seprated Face").param = "REPARENT_RIG_SEPARATE_HEAD_QUICK"
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="With Automatic Weights").param = "REPARENT_RIG_SEPARATE_HEAD_QUICK"
                         row.enabled = chr_cache is not None
 
+                        if rigging.is_surface_heat_voxel_skinning_installed():
+                            row = layout.row()
+                            row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SKINNING"
+                            row.enabled = chr_cache is not None
 
                 elif chr_cache.can_be_rigged():
 

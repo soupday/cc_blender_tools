@@ -30,6 +30,15 @@ def add_vertex_group(obj, name):
         return obj.vertex_groups[name]
 
 
+def get_vertex_group(obj, name):
+    if name not in obj.vertex_groups:
+        None
+    else:
+        #group = obj.vertex_groups[name]
+        #clear_vertex_group(obj, group)
+        return obj.vertex_groups[name]
+
+
 def clear_vertex_group(obj, vertex_group):
     all_verts = []
     for v in obj.data.vertices:

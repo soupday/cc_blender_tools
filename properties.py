@@ -1261,6 +1261,15 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             pass
         return None
 
+    def get_body(self):
+        try:
+            for obj_cache in self.object_cache:
+                if obj_cache.object and obj_cache.object_type == "BODY":
+                    return obj_cache.object
+        except:
+            pass
+        return None
+
     def set_rigify_armature(self, new_arm):
         self.rigified = True
         try:

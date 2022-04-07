@@ -584,6 +584,10 @@ def clear_selected_objects():
         return False
 
 
+def float_equals(a, b):
+    return abs(a - b) < 0.00001
+
+
 def remove_from_collection(coll, item):
     for i in range(0, len(coll)):
         if coll[i] == item:
@@ -636,3 +640,64 @@ def is_addon_version(version: str, test = "GTE"):
     elif test == "NE" and v_addon != v_test:
         return True
     return False
+
+
+def clear_reports():
+    win = bpy.context.window_manager.windows[0]
+    temp_area = True
+    info_area = win.screen.areas[0]
+    # try to find an existing info area
+    for area in win.screen.areas:
+        if info_area.type == "INFO":
+            info_area = area
+            temp_area = False
+
+    # other wise turn the first area into an info area temporarily
+    if temp_area:
+        area_type = info_area.type
+        info_area.type = "INFO"
+
+    context = bpy.context.copy()
+    context['window'] = win
+    context['screen'] = win.screen
+    context['area'] = win.screen.areas[0]
+    bpy.ops.info.select_all(context, action='SELECT')
+    bpy.ops.info.report_delete(context)
+
+    # restore the temp area
+    if temp_area:
+        info_area.type = area_type
+
+
+def get_last_report():
+    win = bpy.context.window_manager.windows[0]
+    temp_area = True
+    info_area = win.screen.areas[0]
+    # try to find an existing info area
+    for area in win.screen.areas:
+        if info_area.type == "INFO":
+            info_area = area
+            temp_area = False
+
+    # other wise turn the first area into an info area temporarily
+    if temp_area:
+        area_type = info_area.type
+        info_area.type = "INFO"
+
+    context = bpy.context.copy()
+    context['window'] = win
+    context['screen'] = win.screen
+    context['area'] = win.screen.areas[0]
+    bpy.ops.info.select_all(context, action='SELECT')
+    bpy.ops.info.report_copy(context)
+
+    # restore the temp area
+    if temp_area:
+        info_area.type = area_type
+
+    # return the last line
+    clipboard = bpy.context.window_manager.clipboard
+    lines = clipboard.splitlines()
+    return lines[-1]
+
+
