@@ -1884,14 +1884,10 @@ class CC3Rigifier(bpy.types.Operator):
         elif properties.param == "REPARENT_RIG":
             return "Attempt to reparent the Body mesh to the face rig"
 
-        elif properties.param == "REPARENT_RIG_SEPARATE_HEAD":
-            return "Attempt to reparent the just Face portion of the Body mesh to the face rig, by separating the face from the rest of the body, reparenting with automatic weights and then rejoining the face mesh to the body mesh. " + \
-                   "By separating the face from the body, there is much less chance the Bone Heat Weighting will fail due to bad mesh geometry from the rest of the body."
-
         elif properties.param == "REPARENT_RIG_SEPARATE_HEAD_QUICK":
-            return "Attempt to re-parent the character's face mesh to the Rigify face rig by separating the face before re-parenting with automatic weights. " + \
+            return "Attempt to re-parent the character's face mesh objects to the Rigify face rig by re-parenting with automatic weights. " + \
                    "Only vertex groups in the face are affected by this reparenting, all others are locked during the process. " + \
-                   "By separating the face from the body, there is much less chance the Bone Heat Weighting will fail due to bad mesh geometry from the rest of the body."
+                   "Automatic Weights sometimes fails, so if detected some measures are taken to try to clean up the mesh and try again"
 
         return "Rigification!"
 
