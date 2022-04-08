@@ -320,6 +320,7 @@ def generate_eye_widget(rig, bone_name, bones, distance, scale):
                 pose_bone : bpy.types.PoseBone
                 pose_bone = rig.pose.bones[bone_name]
                 pose_bone.custom_shape = wgt
+                wgt.name = "WGT-rig_" + bone_name
     return wgt
 
 
