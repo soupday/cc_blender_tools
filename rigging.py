@@ -428,6 +428,9 @@ CONTROL_MODIFY = [
     ["neck", [1.5, 1, 1.5], [0, 0, 0], [0, 0, 0]],
     ["tongue", [1.5, 1.5, 1.5], [0, 0.015, -0.01], [0, 0, 0]],
     ["tongue_master", [1.5, 1.5, 1.5], [0, 0.015, -0.01], [0, 0, 0]],
+
+    ["foot_heel_ik.L", [1.5, 1.5, 1.5], [0, 0.015, 0], [0, 0, 0]],
+    ["foot_heel_ik.R", [-1.5, 1.5, 1.5], [0, 0.015, 0], [0, 0, 0]],
 ]
 
 
@@ -632,9 +635,9 @@ class BoundingBox:
         return c
 
     def debug(self):
-        print("BOX:")
-        print("Min:", self.box_min)
-        print("Max:", self.box_max)
+        utils.log_always("BOX:")
+        utils.log_always("Min:", self.box_min)
+        utils.log_always("Max:", self.box_max)
 
 
 def prune_meta_rig(meta_rig):
@@ -659,6 +662,9 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
        (See: ADD_DEF_BONES array)
     """
 
+    utils.log_info("Adding addition control bones to Rigify Control Rig:")
+    utils.log_indent()
+
     for def_copy in ADD_DEF_BONES:
         src_bone_name = def_copy[0]
         dst_bone_name = def_copy[1]
@@ -675,6 +681,8 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
             ref = def_copy[6]
         if len(def_copy) > 7:
             arg = def_copy[7]
+
+        utils.log_info(f"Adding/Processing: {dst_bone_name}")
 
         if src_bone_name == "-": # means to reparent an existing deformation bone
             reparented_bone = bones.reparent_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
@@ -729,6 +737,8 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
                 bones.set_edit_bone_flags(def_bone, relation_flags, deform)
                 bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
 
+    utils.log_recess()
+
 
 def rl_vertex_group(obj, group):
     if group in obj.vertex_groups:
@@ -746,8 +756,13 @@ def rename_vertex_groups(cc3_rig, rigify_rig):
        Thus leaving just the automatic face rig weights.
     """
 
+    utils.log_info("Remapping original Deformation vertex groups to the new Rigify bones:")
+    utils.log_indent()
+
     obj : bpy.types.Object
     for obj in rigify_rig.children:
+
+        utils.log_info(f"Remapping groups for: {obj.name}")
 
         for vgrn in VERTEX_GROUP_RENAME:
 
@@ -758,14 +773,12 @@ def rename_vertex_groups(cc3_rig, rigify_rig):
 
                 try:
                     if vg_to in obj.vertex_groups:
-                        utils.log_info(f"removing {vg_to}")
                         obj.vertex_groups.remove(obj.vertex_groups[vg_to])
                 except:
                     pass
 
                 try:
                     if vg_from in obj.vertex_groups:
-                        utils.log_info(f"renaming {vg_from} to {vg_to}")
                         obj.vertex_groups[vg_from].name = vg_to
                 except:
                     pass
@@ -774,6 +787,8 @@ def rename_vertex_groups(cc3_rig, rigify_rig):
             if mod.type == "ARMATURE":
                 mod.object = rigify_rig
                 mod.use_deform_preserve_volume = True
+
+    utils.log_recess()
 
 
 def store_relative_mappings(meta_rig, coords):
@@ -954,7 +969,7 @@ def report_uv_face_targets(obj, meta_rig):
                 head_uv = geom.get_uv_from_world(obj, t_mesh, mat_slot, head_world)
                 tail_uv = geom.get_uv_from_world(obj, t_mesh, mat_slot, tail_world)
 
-                print (f"{bone.name} - uv: {head_uv} -> {tail_uv}")
+                utils.log_always(f"{bone.name} - uv: {head_uv} -> {tail_uv}")
     return
 
 
@@ -1005,12 +1020,10 @@ def map_uv_targets(chr_cache, cc3_rig, meta_rig):
 
                     if world:
                         if last:
-                            utils.log_info(last.name + ": Tail: " + str(world))
                             last.tail = world
                             if m_last:
                                 m_last.tail = m_world
                         if bone:
-                            utils.log_info(bone.name + ": Head: " + str(world))
                             bone.head = world
                             if m_bone:
                                 m_bone.head = m_world
@@ -1215,8 +1228,6 @@ def fix_bend(meta_rig, bone_one_name, bone_two_name, dir : mathutils.Vector):
 
     dir.normalize()
 
-    utils.log_info(f"Fix Bend: {bone_one_name}, {bone_two_name}")
-
     if utils.set_mode("OBJECT") and utils.set_active_object(meta_rig) and utils.set_mode("EDIT"):
 
         one : bpy.types.EditBone = utils.find_edit_bone_in_armature(meta_rig, bone_one_name)
@@ -1251,6 +1262,8 @@ def convert_to_basic_face_rig(meta_rig):
 
     if utils.set_mode("OBJECT") and utils.set_active_object(meta_rig) and utils.set_mode("EDIT"):
 
+        utils.log_info("Removing face bones from Meta-Rig.")
+
         delete_bones = []
 
         # remove all meta-rig bones in layer[0] (the face bones)
@@ -1261,6 +1274,9 @@ def convert_to_basic_face_rig(meta_rig):
 
         for bone in delete_bones:
             meta_rig.data.edit_bones.remove(bone)
+
+        utils.log_info("Adding custom basic face bones to Meta-Rig.")
+        utils.log_indent()
 
         y = 0
         # add the needed face bones (eyes and jaw)
@@ -1273,7 +1289,6 @@ def convert_to_basic_face_rig(meta_rig):
             mode = "NONE"
             if len(face_bone_def) > 4:
                 mode = face_bone_def[4]
-            print("MODE: " + mode)
 
             utils.log_info(f"Adding bone: {bone_name}")
 
@@ -1319,15 +1334,22 @@ def convert_to_basic_face_rig(meta_rig):
                 else:
                     pose_bone.rigify_type = ""
 
+        utils.log_recess()
+
 
 def correct_meta_rig(meta_rig):
     """Add a slight displacement (if needed) to the knee and elbow to ensure the poles are the right way.
     """
 
+    utils.log_info("Correcting Meta-Rig, Knee and Elbow bends.")
+    utils.log_indent()
+
     fix_bend(meta_rig, "thigh.L", "shin.L", mathutils.Vector((0,-1,0)))
     fix_bend(meta_rig, "thigh.R", "shin.R", mathutils.Vector((0,-1,0)))
     fix_bend(meta_rig, "upper_arm.L", "forearm.L", mathutils.Vector((0,1,0)))
     fix_bend(meta_rig, "upper_arm.R", "forearm.R", mathutils.Vector((0,1,0)))
+
+    utils.log_recess()
 
 
 def modify_controls(rigify_rig):
@@ -1337,6 +1359,9 @@ def modify_controls(rigify_rig):
 
         if utils.set_mode("OBJECT"):
 
+            utils.log_info("Resizing and Repositioning rig controls:")
+            utils.log_indent()
+
             for mod in CONTROL_MODIFY:
                 bone_name = mod[0]
                 scale = mod[1]
@@ -1345,9 +1370,12 @@ def modify_controls(rigify_rig):
 
                 bone = bones.get_pose_bone(rigify_rig, bone_name)
                 if bone:
+                    utils.log_info(f"Altering: {bone.name}")
                     bone.custom_shape_scale_xyz = scale
                     bone.custom_shape_translation = translation
                     bone.custom_shape_rotation_euler = rotation
+
+            utils.log_recess()
 
 
 def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
@@ -1358,9 +1386,10 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
        (But only for the Body mesh)
     """
 
-    props = bpy.context.scene.CC3ImportProps
+    utils.log_info("Reparenting character objects to new Rigify Control Rig:")
+    utils.log_indent()
 
-    show_warning = False
+    props = bpy.context.scene.CC3ImportProps
     result = 1
 
     if utils.set_mode("OBJECT"):
@@ -1379,13 +1408,6 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
                     len(obj.data.vertices) >= 2 and
                     is_face_object(obj_cache, obj)):
 
-                    if not show_warning:
-                        print("")
-                        print("Attemping to parent the Body mesh to the Face Rig:")
-                        print("If this fails, the face rig will not work and will need to re-parented by other means.")
-                        print("")
-                        show_warning = True
-
                     obj_result = try_parent_auto(chr_cache, rigify_rig, obj)
                     if obj_result < result:
                         result = obj_result
@@ -1399,6 +1421,7 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
                     if arm_mod:
                         arm_mod.object = rigify_rig
 
+    utils.log_recess()
     return result
 
 
@@ -1406,6 +1429,8 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     """Rename the rigs, hide the original CC3 Armature and remove the meta rig.
        Set the new rig into pose mode.
     """
+
+    utils.log_info("Cleaning Up...")
 
     rig_name = cc3_rig.name
     cc3_rig.name = rig_name + "_OldCC"
@@ -1490,7 +1515,32 @@ def test_face_vgroups(rig, obj):
     return True
 
 
+def store_non_face_vgroups(chr_cache):
+    utils.log_info("Storing non face vertex weights.")
+    for obj_cache in chr_cache.object_cache:
+        obj = obj_cache.object
+        if is_face_object(obj_cache, obj):
+            for vg in obj.vertex_groups:
+                if not is_face_def_bone(vg):
+                    vg.name = "_tmp_shift_" + vg.name
+
+
+def restore_non_face_vgroups(chr_cache):
+    utils.log_info("Restoring non face vertex weights.")
+    for obj_cache in chr_cache.object_cache:
+        obj = obj_cache.object
+        if is_face_object(obj_cache, obj):
+            for vg in obj.vertex_groups:
+                if vg.name.startswith("_tmp_shift_"):
+                    unshifted_name = vg.name[11:]
+                    if unshifted_name in obj.vertex_groups:
+                        imposter_vertex_group = obj.vertex_groups[unshifted_name]
+                        obj.vertex_groups.remove(imposter_vertex_group)
+                    vg.name = unshifted_name
+
+
 def lock_non_face_vgroups(chr_cache):
+    utils.log_info("Locking non face vertex weights.")
     body = None
     for obj_cache in chr_cache.object_cache:
         obj = obj_cache.object
@@ -1501,6 +1551,7 @@ def lock_non_face_vgroups(chr_cache):
             for vg in obj.vertex_groups:
                 vg.lock_weight = not is_face_def_bone(vg)
     # turn off deform for the teeth and eyes, as they will get autoweighted too
+    utils.log_info("Turning off Deform in jaw and eye bones.")
     arm = chr_cache.get_armature()
     if arm:
         for bone in arm.data.bones:
@@ -1513,6 +1564,7 @@ def lock_non_face_vgroups(chr_cache):
 
 
 def unlock_vgroups(chr_cache):
+    utils.log_info("Unlocking non face vertex weights.")
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type in BODY_TYPES:
             obj = obj_cache.object
@@ -1520,6 +1572,7 @@ def unlock_vgroups(chr_cache):
             for vg in obj.vertex_groups:
                 vg.lock_weight = False
     # turn on deform for the teeth and the eyes
+    utils.log_info("Restoring Deform in jaw and eye bones.")
     arm = chr_cache.get_armature()
     if arm:
         for bone in arm.data.bones:
@@ -1558,7 +1611,7 @@ def clean_up_character_meshes(chr_cache):
 def parent_set_with_test(rig, obj):
     init_face_vgroups(rig, obj)
     if utils.try_select_objects([obj, rig], True) and utils.set_active_object(rig):
-        print(f" - Parenting: {obj.name}")
+        utils.log_always(f"Parenting: {obj.name}")
         bpy.ops.object.parent_set(type = "ARMATURE_AUTO", keep_transform = True)
         if not test_face_vgroups(rig, obj):
             return False
@@ -1573,9 +1626,9 @@ def try_parent_auto(chr_cache, rig, obj):
     # first attempt
 
     if parent_set_with_test(rig, obj):
-        print(f"Success!")
+        utils.log_always(f"Success!")
     else:
-        print(f" - Parent with automatic weights failed: attempting mesh clean up...")
+        utils.log_always(f"Parent with automatic weights failed: attempting mesh clean up...")
         mesh_clean_up(obj)
         if result == 1:
             result = 0
@@ -1583,27 +1636,27 @@ def try_parent_auto(chr_cache, rig, obj):
         # second attempt
 
         if parent_set_with_test(rig, obj):
-            print(f"Success!")
+            utils.log_always(f"Success!")
         else:
             body = chr_cache.get_body()
 
             # third attempt
 
             if obj == body:
-                print(f" - Parent with automatic weights failed again: trying just the head mesh...")
+                utils.log_always(f"Parent with automatic weights failed again: trying just the head mesh...")
                 head = separate_head(obj)
 
                 if parent_set_with_test(rig, head):
-                    print(f"Success!")
+                    utils.log_always(f"Success!")
                 else:
-                    print(f"Automatic weights failed for {obj.name}, will need to re-parented by other means!")
+                    utils.log_always(f"Automatic weights failed for {obj.name}, will need to re-parented by other means!")
                     result = -1
 
                 rejoin_head(head, body)
 
             else:
 
-                print(f" - Parent with automatic weights failed again: transferring weights from body mesh.")
+                utils.log_always(f"Parent with automatic weights failed again: transferring weights from body mesh.")
                 #characters.transfer_skin_weights(chr_cache, [obj])
 
                 if utils.try_select_object(body, True) and utils.set_active_object(obj):
@@ -1617,7 +1670,7 @@ def try_parent_auto(chr_cache, rig, obj):
                                                 layers_select_dst='ALL',
                                                 mix_mode='REPLACE')
 
-                print(f"   vertex weights will need to be checked.")
+                utils.log_always(f"Vertex weights transferred.")
 
     return result
 
@@ -1627,8 +1680,8 @@ def attempt_reparent_auto_character(chr_cache):
     utils.clear_selected_objects()
     result = 1
     rig = chr_cache.get_armature()
-    print("Attemping to parent the Body mesh to the Face Rig:")
-    print("If this fails, the face rig may not work and will need to re-parented by other means.")
+    utils.log_always("Attemping to parent the Body mesh to the Face Rig:")
+    utils.log_always("If this fails, the face rig may not work and will need to re-parented by other means.")
     for obj_cache in chr_cache.object_cache:
         obj = obj_cache.object
         if utils.object_exists_is_mesh(obj) and len(obj.data.vertices) >= 2 and is_face_object(obj_cache, obj):
@@ -1661,11 +1714,11 @@ def attempt_reparent_voxel_skinning(chr_cache):
         face_objects.append(dummy_cube)
         face_objects.append(arm)
         if utils.try_select_objects(face_objects, True) and utils.set_active_object(arm):
-            bpy.data.scenes["Scene"].surface_resolution = 512
+            bpy.data.scenes["Scene"].surface_resolution = 1024
             bpy.data.scenes["Scene"].surface_loops = 5
             bpy.data.scenes["Scene"].surface_samples = 128
             bpy.data.scenes["Scene"].surface_influence = 24
-            bpy.data.scenes["Scene"].surface_falloff = 0.15
+            bpy.data.scenes["Scene"].surface_falloff = 0.2
             bpy.data.scenes["Scene"].surface_sharpness = "1"
             bpy.ops.wm.surface_heat_diffuse()
     return dummy_cube, head, body
@@ -1719,24 +1772,34 @@ class CC3Rigifier(bpy.types.Operator):
     auto_weight_report = ""
 
     def add_meta_rig(self, chr_cache):
+
+        utils.log_info("Generating Meta-Rig:")
+        utils.log_indent()
+
         if utils.set_mode("OBJECT"):
             bpy.ops.object.armature_human_metarig_add()
             self.meta_rig = utils.get_active_object()
             if self.meta_rig is not None:
+                utils.log_info("Meta-Rig added.")
                 self.meta_rig.location = (0,0,0)
                 if self.cc3_rig is not None:
                     self.cc3_rig.location = (0,0,0)
                     self.cc3_rig.data.pose_position = "REST"
                     if not chr_cache.rig_full_face():
                         convert_to_basic_face_rig(self.meta_rig)
+                    utils.log_info("Aligning Meta-Rig.")
+                    utils.log_indent()
                     match_meta_rig(chr_cache, self.cc3_rig, self.meta_rig)
                     chr_cache.rigified_full_face_rig = chr_cache.rig_full_face()
+                    utils.log_recess()
                 else:
                     utils.log_error("Unable to locate imported CC3 rig!", self)
             else:
                 utils.log_error("Unable to create meta rig!", self)
         else:
             utils.log_error("Not in OBJECT mode!", self)
+
+        utils.log_recess()
 
     def execute(self, context):
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
@@ -1754,13 +1817,28 @@ class CC3Rigifier(bpy.types.Operator):
 
             if self.param == "ALL":
 
+                utils.start_timer()
+
+                utils.log_info("")
+                utils.log_info("Beginning Rigify Process:")
+                utils.log_info("-------------------------")
+
                 if self.cc3_rig:
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
                         correct_meta_rig(self.meta_rig)
+
+                        utils.log_info("")
+                        utils.log_info("Generating Rigify Control Rig:")
+                        utils.log_info("------------------------------")
+
                         bpy.ops.pose.rigify_generate()
                         self.rigify_rig = bpy.context.active_object
+
+                        utils.log_info("")
+                        utils.log_info("Finalizing Rigify Setup:")
+                        utils.log_info("------------------------")
 
                         if self.rigify_rig:
                             modify_controls(self.rigify_rig)
@@ -1777,7 +1855,15 @@ class CC3Rigifier(bpy.types.Operator):
                     else:
                         self.report({'ERROR'}, "Rigify Incomplete! Face rig weighting Failed!. See console log.")
 
+                utils.log_timer("Done Rigify Process")
+
             elif self.param == "META_RIG":
+
+                utils.start_timer()
+
+                utils.log_info("")
+                utils.log_info("Beginning Meta-Rig Setup:")
+                utils.log_info("---------------==--------")
 
                 if self.cc3_rig:
                     self.add_meta_rig(chr_cache)
@@ -1795,8 +1881,17 @@ class CC3Rigifier(bpy.types.Operator):
                 if self.cc3_rig and self.meta_rig:
 
                     if utils.set_mode("OBJECT") and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
+
+                        utils.log_info("")
+                        utils.log_info("Generating Rigify Control Rig:")
+                        utils.log_info("------------------------------")
+
                         bpy.ops.pose.rigify_generate()
                         self.rigify_rig = bpy.context.active_object
+
+                        utils.log_info("")
+                        utils.log_info("Finalizing Rigify Setup:")
+                        utils.log_info("------------------------")
 
                         if self.rigify_rig:
                             modify_controls(self.rigify_rig)
@@ -1964,6 +2059,7 @@ class CC3RigifierModal(bpy.types.Operator):
         chr_cache = props.get_context_character_cache(context)
 
         lock_non_face_vgroups(chr_cache)
+        store_non_face_vgroups(chr_cache)
         # as we have no way of knowing when the operator finishes, we add
         # a dummy cube (unparented) to the objects being skinned and parented.
         # Since the parenting to the armature is the last thing
@@ -1987,6 +2083,7 @@ class CC3RigifierModal(bpy.types.Operator):
             self.head_mesh = None
             self.body_mesh = None
 
+        restore_non_face_vgroups(chr_cache)
         unlock_vgroups(chr_cache)
 
         arm = chr_cache.get_armature()

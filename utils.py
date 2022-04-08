@@ -53,11 +53,17 @@ def log_info(msg):
         print((" " * LOG_INDENT) + msg)
 
 
+def log_always(msg):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    """Log an info message to console."""
+    print((" " * LOG_INDENT) + msg)
+
+
 def log_warn(msg):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     """Log a warning message to console."""
     if prefs.log_level == "ALL" or prefs.log_level == "DETAILS" or prefs.log_level == "WARN":
-        print("Warning: " + msg)
+        print((" " * LOG_INDENT) + "Warning: " + msg)
 
 
 def log_error(msg, e = None):

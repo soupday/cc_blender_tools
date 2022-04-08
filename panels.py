@@ -722,36 +722,42 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                 if chr_cache.rigified:
 
-                    layout.row().label(text = "Face Rig Re-Parenting", icon = "INFO")
+                    if chr_cache.rigified_full_face_rig:
 
-                    if chr_cache.rig_mode == "ADVANCED":
+                        layout.row().label(text = "Face Rig Re-Parenting", icon = "INFO")
 
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="LOCKED", text="Lock Non-Face VGroups").param = "LOCK_NON_FACE_VGROUPS"
-                        row.enabled = chr_cache is not None
+                        if chr_cache.rig_mode == "ADVANCED":
 
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="MESH_DATA", text="Clean Body Mesh").param = "CLEAN_BODY_MESH"
-                        row.enabled = chr_cache is not None
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="LOCKED", text="Lock Non-Face VGroups").param = "LOCK_NON_FACE_VGROUPS"
+                            row.enabled = chr_cache is not None
 
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Reparent Auto Weights").param = "REPARENT_RIG"
-                        row.enabled = chr_cache is not None
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="MESH_DATA", text="Clean Body Mesh").param = "CLEAN_BODY_MESH"
+                            row.enabled = chr_cache is not None
 
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="UNLOCKED", text="Unlock VGroups").param = "UNLOCK_VGROUPS"
-                        row.enabled = chr_cache is not None
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="ANIM_DATA", text="Reparent Auto Weights").param = "REPARENT_RIG"
+                            row.enabled = chr_cache is not None
+
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="UNLOCKED", text="Unlock VGroups").param = "UNLOCK_VGROUPS"
+                            row.enabled = chr_cache is not None
+
+                        else:
+
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="ANIM_DATA", text="With Automatic Weights").param = "REPARENT_RIG_SEPARATE_HEAD_QUICK"
+                            row.enabled = chr_cache is not None
+
+                            if rigging.is_surface_heat_voxel_skinning_installed():
+                                row = layout.row()
+                                row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SKINNING"
+                                row.enabled = chr_cache is not None
 
                     else:
 
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="With Automatic Weights").param = "REPARENT_RIG_SEPARATE_HEAD_QUICK"
-                        row.enabled = chr_cache is not None
-
-                        if rigging.is_surface_heat_voxel_skinning_installed():
-                            row = layout.row()
-                            row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SKINNING"
-                            row.enabled = chr_cache is not None
+                        layout.row().label(text = "Rigging Done.", icon = "INFO")
 
                 elif chr_cache.can_be_rigged():
 
