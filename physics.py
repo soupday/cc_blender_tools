@@ -480,11 +480,11 @@ def attach_material_weight_map(obj, mat, weight_map):
             weight_vertex_group = obj.vertex_groups.new(name = material_group)
         else:
             weight_vertex_group = obj.vertex_groups[material_group]
-        # The material weight map group should contain only those verteces affected by the material, default weight to 1.0
+        # The material weight map group should contain only those vertices affected by the material, default weight to 1.0
         meshutils.clear_vertex_group(obj, weight_vertex_group)
         mat_verts = meshutils.get_material_vertices(obj, mat)
         weight_vertex_group.add(mat_verts, 1.0, 'ADD')
-        # The pin group should contain all verteces in the mesh default weighted to 1.0
+        # The pin group should contain all vertices in the mesh default weighted to 1.0
         meshutils.set_vertex_group(obj, pin_vertex_group, 1.0)
 
         # set the pin group in the cloth physics modifier
@@ -862,11 +862,11 @@ class CC3OperatorPhysics(bpy.types.Operator):
                    "**Warning: This will delete any existing weightmap file for this object and material!**"
         elif properties.param == "PHYSICS_SEPARATE":
             return "Separates the object by material and applies physics to the separated objects that have weight maps.\n" \
-                   "Note: Some objects with many verteces and materials but only a small amount is cloth simulated " \
+                   "Note: Some objects with many vertices and materials but only a small amount is cloth simulated " \
                    "may see performance benefits from being separated."
         elif properties.param == "PHYSICS_FIX_DEGENERATE":
             return "Removes degenerate mesh elements from the object.\n" \
-                   "Note: Meshes with degenerate elements, loose verteces, orphaned edges, zero length edges etc...\n" \
+                   "Note: Meshes with degenerate elements, loose vertices, orphaned edges, zero length edges etc...\n" \
                    "might not simulate properly. If the mesh misbehaves badly under simulation, try this."
 
         return ""
