@@ -16,8 +16,9 @@
 
 import bpy
 
+import textwrap
 from . import addon_updater_ops
-from . import characters, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 # Panel button functions and operator
 #
@@ -663,6 +664,164 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         op.param ="REBUILD_NODE_GROUPS"
 
 
+class CC3RigifyPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Rigify_Panel"
+    bl_label = "Rigging & Animation"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "CC3"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+
+        layout = self.layout
+        layout.use_property_split = False
+        layout.use_property_decorate = False
+
+        ui_shelf = None
+        area = bpy.context.area
+        width = 15
+
+        for region in area.regions:
+            if region.type == 'UI':
+                ui_shelf = region
+                width = int(ui_shelf.width / 8)
+
+        rigify_installed = rigging.is_rigify_installed()
+
+        if rigify_installed:
+
+            if chr_cache:
+
+                box = layout.box()
+                split = box.split(factor=0.4)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text = "Character:")
+                col_2.label(text = chr_cache.import_name)
+                col_1.label(text = "Generation:")
+                col_2.label(text = chr_cache.generation)
+                if chr_cache.rigified:
+                    col_1.label(text = "Rig Type:")
+                    col_2.label(text = "Rigify")
+                    col_1.label(text = "Face Rig:")
+                    col_2.label(text = "Full" if chr_cache.rigified_full_face_rig else "Basic")
+
+                layout.separator()
+
+                layout.box().row().label(text = "Rigify", icon = "OUTLINER_OB_ARMATURE")
+
+                row = layout.row()
+                row.prop(chr_cache, "rig_mode", expand=True)
+
+                layout.separator()
+
+                if chr_cache.rigified:
+
+                    if chr_cache.rigified_full_face_rig:
+
+                        layout.row().label(text = "Face Rig Re-Parenting", icon = "INFO")
+
+                        if chr_cache.rig_mode == "ADVANCED":
+
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="LOCKED", text="Lock Non-Face VGroups").param = "LOCK_NON_FACE_VGROUPS"
+                            row.enabled = chr_cache is not None
+
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="MESH_DATA", text="Clean Body Mesh").param = "CLEAN_BODY_MESH"
+                            row.enabled = chr_cache is not None
+
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="ANIM_DATA", text="Reparent Auto Weights").param = "REPARENT_RIG"
+                            row.enabled = chr_cache is not None
+
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="UNLOCKED", text="Unlock VGroups").param = "UNLOCK_VGROUPS"
+                            row.enabled = chr_cache is not None
+
+                        else:
+
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="ANIM_DATA", text="With Automatic Weights").param = "REPARENT_RIG_SEPARATE_HEAD_QUICK"
+                            row.enabled = chr_cache is not None
+
+                            if rigging.is_surface_heat_voxel_skinning_installed():
+                                row = layout.row()
+                                row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SKINNING"
+                                row.enabled = chr_cache is not None
+
+                    else:
+
+                        layout.row().label(text = "Rigging Done.", icon = "INFO")
+
+                elif chr_cache.can_be_rigged():
+
+                    if chr_cache and chr_cache.can_rig_full_face():
+                        row = layout.row()
+                        split = row.split(factor=0.5)
+                        split.column().label(text = "Full Face Rig")
+                        split.column().prop(chr_cache, "rig_face_rig", text = "")
+
+                    if chr_cache.rig_mode == "QUICK":
+
+                        row = layout.row()
+                        row.scale_y = 2
+                        row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param = "ALL"
+                        row.enabled = chr_cache is not None
+
+                    else:
+
+                        row = layout.row()
+                        row.scale_y = 2
+                        row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Attach Meta-Rig").param = "META_RIG"
+                        row.enabled = chr_cache is not None
+
+                        row = layout.row()
+                        row.scale_y = 2
+                        row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
+                        row.enabled = chr_cache is not None
+
+                    #row = layout.row()
+                    #row.scale_y = 2
+                    #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="REPORT FACE TARGETS").param = "REPORT_FACE_TARGETS"
+                    #row.enabled = chr_cache is not None
+
+                else:
+
+                    info_text = "This character can not be rigged."
+                    wrapper = textwrap.TextWrapper(width=width)
+                    info_list = wrapper.wrap(info_text)
+
+                    box = layout.box()
+                    for text in info_list:
+                        box.label(text=text)
+
+            else:
+
+                info_text = "No current character!"
+                wrapper = textwrap.TextWrapper(width=width)
+                info_list = wrapper.wrap(info_text)
+
+                box = layout.box()
+                for text in info_list:
+                    box.label(text=text)
+
+        else:
+
+            info_text = "Rigify add-on is not installed."
+            wrapper = textwrap.TextWrapper(width=width)
+            info_list = wrapper.wrap(info_text)
+
+            box = layout.box()
+            for text in info_list:
+                box.label(text=text)
+
+
 class CC3ToolsScenePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Scene_Panel"
     bl_label = "Scene Tools"
@@ -983,19 +1142,31 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             row.enabled = False
         layout.separator()
         # export to Unity
-        row = layout.row()
-        row.scale_y = 2
-        if not props.is_unity_project():
+        if chr_cache is None or not chr_cache.rigified:
+            row = layout.row()
+            row.scale_y = 2
+            if not props.is_unity_project():
+                op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
+                op.param = "EXPORT_UNITY"
+            else:
+                op = row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project")
+                op.param = "UPDATE_UNITY"
+            row2 = layout.row()
+            row2.prop(prefs, "export_unity_mode", expand=True)
+            if not chr_cache:
+                row.enabled = False
+                row2.enabled = False
+        elif chr_cache.rigified:
+            row = layout.row()
+            row.scale_y = 2
             op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
             op.param = "EXPORT_UNITY"
-        else:
-            op = row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project")
-            op.param = "UPDATE_UNITY"
-        row2 = layout.row()
-        row2.prop(prefs, "export_unity_mode", expand=True)
-        if not chr_cache:
-            row.enabled = False
-            row2.enabled = False
+            row2 = layout.row()
+            row2.label(text="Rigged character FBX only", icon="INFO")
+            if not chr_cache:
+                row.enabled = False
+                row2.enabled = False
+
         # export prefs
         box = layout.box()
         if fake_drop_down(box.row(),

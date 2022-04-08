@@ -53,11 +53,17 @@ def log_info(msg):
         print((" " * LOG_INDENT) + msg)
 
 
+def log_always(msg):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    """Log an info message to console."""
+    print((" " * LOG_INDENT) + msg)
+
+
 def log_warn(msg):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     """Log a warning message to console."""
     if prefs.log_level == "ALL" or prefs.log_level == "DETAILS" or prefs.log_level == "WARN":
-        print("Warning: " + msg)
+        print((" " * LOG_INDENT) + "Warning: " + msg)
 
 
 def log_error(msg, e = None):
@@ -412,6 +418,14 @@ def find_pose_bone_in_armature(arm, *name):
     return None
 
 
+def find_edit_bone_in_armature(arm, *name):
+    if (arm.type == "ARMATURE"):
+        for n in name:
+            if n in arm.data.edit_bones:
+                return arm.data.edit_bones[n]
+    return None
+
+
 def get_active_object():
     return bpy.context.view_layer.objects.active
 
@@ -432,16 +446,27 @@ def set_mode(mode):
             return False
         return True
     else:
-        bpy.ops.object.mode_set(mode=mode)
         if bpy.context.object.mode != mode:
-            log_error("Unable to set " + mode + " on object: " + bpy.context.object.name)
-            return False
+            bpy.ops.object.mode_set(mode=mode)
+            if bpy.context.object.mode != mode:
+                log_error("Unable to set " + mode + " on object: " + bpy.context.object.name)
+                return False
         return True
+
+
+def get_mode():
+    try:
+        return bpy.context.object.mode
+    except:
+        return "OBJECT"
 
 
 def edit_mode_to(obj):
-    if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
+    if get_active_object() == obj and get_mode() == "EDIT":
         return True
+    else:
+        if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
+            return True
     return False
 
 
@@ -565,6 +590,10 @@ def clear_selected_objects():
         return False
 
 
+def float_equals(a, b):
+    return abs(a - b) < 0.00001
+
+
 def remove_from_collection(coll, item):
     for i in range(0, len(coll)):
         if coll[i] == item:
@@ -617,3 +646,64 @@ def is_addon_version(version: str, test = "GTE"):
     elif test == "NE" and v_addon != v_test:
         return True
     return False
+
+
+def clear_reports():
+    win = bpy.context.window_manager.windows[0]
+    temp_area = True
+    info_area = win.screen.areas[0]
+    # try to find an existing info area
+    for area in win.screen.areas:
+        if info_area.type == "INFO":
+            info_area = area
+            temp_area = False
+
+    # other wise turn the first area into an info area temporarily
+    if temp_area:
+        area_type = info_area.type
+        info_area.type = "INFO"
+
+    context = bpy.context.copy()
+    context['window'] = win
+    context['screen'] = win.screen
+    context['area'] = win.screen.areas[0]
+    bpy.ops.info.select_all(context, action='SELECT')
+    bpy.ops.info.report_delete(context)
+
+    # restore the temp area
+    if temp_area:
+        info_area.type = area_type
+
+
+def get_last_report():
+    win = bpy.context.window_manager.windows[0]
+    temp_area = True
+    info_area = win.screen.areas[0]
+    # try to find an existing info area
+    for area in win.screen.areas:
+        if info_area.type == "INFO":
+            info_area = area
+            temp_area = False
+
+    # other wise turn the first area into an info area temporarily
+    if temp_area:
+        area_type = info_area.type
+        info_area.type = "INFO"
+
+    context = bpy.context.copy()
+    context['window'] = win
+    context['screen'] = win.screen
+    context['area'] = win.screen.areas[0]
+    bpy.ops.info.select_all(context, action='SELECT')
+    bpy.ops.info.report_copy(context)
+
+    # restore the temp area
+    if temp_area:
+        info_area.type = area_type
+
+    # return the last line
+    clipboard = bpy.context.window_manager.clipboard
+    lines = clipboard.splitlines()
+    return lines[-1]
+
+

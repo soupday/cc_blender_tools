@@ -51,12 +51,23 @@ def prep_bake():
     old_colorspace = bpy.context.scene.sequencer_colorspace_settings.name
 
     bpy.context.scene.cycles.samples = BAKE_SAMPLES
+
+    # blender 3.0
+    if utils.is_blender_version("3.0.0"):
+        bpy.context.scene.cycles.preview_samples = BAKE_SAMPLES
+        bpy.context.scene.cycles.use_adaptive_sampling = False
+        bpy.context.scene.cycles.use_preview_adaptive_sampling = False
+        bpy.context.scene.cycles.use_denoising = False
+        bpy.context.scene.cycles.use_preview_denoising = False
+        bpy.context.scene.cycles.use_auto_tile = False
+
+    if utils.is_blender_version("2.92.0"):
+        bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
+
     bpy.context.scene.render.use_bake_multires = False
     bpy.context.scene.render.bake.use_selected_to_active = False
     bpy.context.scene.render.bake.use_pass_direct = False
     bpy.context.scene.render.bake.use_pass_indirect = False
-    if utils.is_blender_version("2.92.0"):
-        bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
     bpy.context.scene.render.bake.margin = 16
     bpy.context.scene.render.bake.use_clear = True
     bpy.context.scene.render.image_settings.file_format = IMAGE_FORMAT
@@ -309,7 +320,7 @@ def bake_bsdf_normal(mat, bsdf_node, image, image_name):
 
     bpy.ops.object.bake(type='NORMAL')
 
-    image.save_render(filepath = image.filepath, scene = bpy.context.scene)
+    image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
     image.reload()
 
     post_bake()

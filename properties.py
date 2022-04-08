@@ -1013,6 +1013,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     def is_tearline(self):
         return self.object_type == "TEARLINE"
 
+
 class CC3CharacterCache(bpy.types.PropertyGroup):
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
     eye_close: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=eye_close_update)
@@ -1057,6 +1058,36 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("EEVEE","Eevee","Build shaders for Eevee rendering."),
                         ("CYCLES","Cycles","Build shaders for Cycles rendering."),
                     ], default="EEVEE", name = "Target Renderer")
+
+    rigified: bpy.props.BoolProperty(default=False)
+    rigified_full_face_rig: bpy.props.BoolProperty(default=False)
+    rig_face_rig: bpy.props.BoolProperty(default=True)
+    rig_mode: bpy.props.EnumProperty(items=[
+                        ("QUICK","Quick","Rig the character all in one go."),
+                        ("ADVANCED","Advanced","Split the process so that user adjustments can be made to the meta rig before generating."),
+                    ], default="QUICK", name = "Rigging Mode")
+    rig_meta_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+
+
+    def can_be_rigged(self):
+        if self.generation == "G3" or self.generation == "G3Plus":
+            return True
+        elif self.generation == "ActorCore":
+            return True
+        elif self.generation == "GameBase":
+            return True
+        return False
+
+    def can_rig_full_face(self):
+        if self.generation == "G3" or self.generation == "G3Plus":
+            return True
+        return False
+
+    def rig_full_face(self):
+        if not self.can_rig_full_face():
+            return False
+        else:
+            return self.rig_face_rig
 
     def get_all_materials_cache(self):
         cache_all = []
@@ -1230,6 +1261,23 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             pass
         return None
 
+    def get_body(self):
+        try:
+            for obj_cache in self.object_cache:
+                if obj_cache.object and obj_cache.object_type == "BODY":
+                    return obj_cache.object
+        except:
+            pass
+        return None
+
+    def set_rigify_armature(self, new_arm):
+        self.rigified = True
+        try:
+            for obj_cache in self.object_cache:
+                if obj_cache.object and obj_cache.object.type == "ARMATURE":
+                    obj_cache.object = new_arm
+        except:
+            pass
 
     def add_object_cache(self, obj):
         """Returns the object cache for this object.

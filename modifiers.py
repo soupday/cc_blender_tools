@@ -30,6 +30,21 @@ def get_object_modifier(obj, type, name = ""):
                     return mod
     return None
 
+
+def remove_object_modifiers(obj, type, name = ""):
+    to_remove = []
+    if obj is not None:
+        for mod in obj.modifiers:
+            if name == "":
+                if mod.type == type:
+                    to_remove.append(mod)
+            else:
+                if mod.type == type and mod.name.startswith(vars.NODE_PREFIX) and name in mod.name:
+                    to_remove.append(mod)
+
+    for mod in to_remove:
+        obj.modifiers.remove(mod)
+
 # Modifier order
 #
 

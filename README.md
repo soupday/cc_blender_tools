@@ -32,6 +32,24 @@ Links
 
 ## Changelog
 
+### 1.3.2
+- Face rig Automatic Weight failure detection and (some) auto-correction.
+- Support for Voxel Heat Diffuse Skinning add-on for voxel weight mapping of the face rig.
+
+### 1.3.1
+- Optional two stage Rigify process to allow modifications to the meta-rig.
+- Optional basic face rigging.
+- Support for ActorCore character Rigging. (Only with basic face rigging)
+- Support for G3 character generation, which includes Toon base characters. (i.e. the old CC3 base)
+- Support for rigging G3Plus, G3, ActorCore characters exported from iClone. (iClone exports with no bone name prefix)
+- Some Control Widget fixes and scaling.
+- Better character Generation check on import for exports without JSON data.
+
+### 1.3.0
+- Rigify function added.
+    - Character objects are bound to the Rigify control rig.
+    - Vertex weights are remapped to Rigify deformation bones.
+
 ### 1.2.2
 - Object Management panel
     - All round-trip/Export object management functions moved to this panel.

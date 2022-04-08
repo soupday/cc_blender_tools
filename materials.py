@@ -436,7 +436,7 @@ def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):
     # detect embedded textures
     for node in nodes:
         if node.type == "TEX_IMAGE" and node.image is not None:
-            filepath = node.image.filepath
+            filepath = bpy.path.abspath(node.image.filepath)
             dir, name = os.path.split(filepath)
 
             # presence of packed images means that the fbx had embedded textures
@@ -646,6 +646,22 @@ def set_material_alpha(mat, method):
         mat.blend_method = "OPAQUE"
         mat.shadow_method = "OPAQUE"
         mat.use_backface_culling = False
+
+
+def test_for_material_uv_coords(obj, mat_slot, uvs):
+    mesh = obj.data
+    ul = mesh.uv_layers[0]
+    for poly in mesh.polygons:
+        if poly.material_index == mat_slot:
+            for loop_index in poly.loop_indices:
+                loop_entry = mesh.loops[loop_index]
+                poly_uv = ul.data[loop_entry.index].uv
+                for uv in uvs:
+                    du = uv[0] - poly_uv[0]
+                    dv = uv[1] - poly_uv[1]
+                    if abs(du) < 0.01 and abs(dv) < 0.01:
+                        return True
+    return False
 
 
 
