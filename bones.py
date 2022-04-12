@@ -348,3 +348,24 @@ def add_constraint_influence_driver(rig, pose_bone_name, target_pose_bone_name, 
                     var.targets[0].id = rig.id_data
                     var.targets[0].data_path = f"pose.bones[\"{target_pose_bone_name}\"][\"{variable_name}\"]"
 
+
+def clear_constraints(rig, pose_bone_name):
+    if utils.set_mode("OBJECT"):
+        if pose_bone_name in rig.pose.bones:
+            pose_bone = rig.pose.bones[pose_bone_name]
+            constraints = []
+            for con in pose_bone.constraints:
+                constraints.append(con)
+            for con in constraints:
+                pose_bone.constraints.remove(con)
+
+
+def clear_drivers(rig):
+    drivers = rig.animation_data.drivers
+    fcurves = []
+    for fc in drivers:
+        fcurves.append(fc)
+    for fc in fcurves:
+        drivers.remove(fc)
+
+

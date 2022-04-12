@@ -759,6 +759,11 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         layout.row().label(text = "Rigging Done.", icon = "INFO")
 
+                    if True:
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Prep Export").param = "PREP_EXPORT"
+                        row.enabled = chr_cache is not None
+
                 elif chr_cache.can_be_rigged():
 
                     if chr_cache and chr_cache.can_rig_full_face():
