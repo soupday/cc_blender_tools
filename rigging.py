@@ -460,7 +460,7 @@ ROLL_COPY = [
     ["thigh.L", 180, "CC_Base_L_Thigh"],
     ["shin.L", 180, "CC_Base_L_Calf"],
     ["foot.L", 180, "CC_Base_L_Foot"],
-    ["toe.L", 0, "CC_Base_L_ToeBaseShareBone"],
+    ["toe.L", 0, "CC_Base_L_ToeBase"],
 
     # Left Arm:
     ["shoulder.L", -90, "CC_Base_L_Clavicle"],
@@ -493,7 +493,7 @@ ROLL_COPY = [
     ["thigh.R", -180, "CC_Base_R_Thigh"],
     ["shin.R", -180, "CC_Base_R_Calf"],
     ["foot.R", -180, "CC_Base_R_Foot"],
-    ["toe.R", 0, "CC_Base_R_ToeBaseShareBone"],
+    ["toe.R", 0, "CC_Base_R_ToeBase"],
 
     # Right Arm:
     ["shoulder.R", 90, "CC_Base_R_Clavicle"],
@@ -1519,6 +1519,7 @@ def prep_export(chr_cache):
     bone : bpy.types.Bone
     for bone in rigify_rig.data.bones:
         bone.select = True
+    # unlock the deformation bones (Rigify locks them)
     pose_bone : bpy.types.PoseBone
     for pose_bone in rigify_rig.pose.bones:
         pose_bone.lock_location = [False, False, False]
@@ -1538,7 +1539,7 @@ def prep_export(chr_cache):
         right_arm_bone.rotation_mode = "XYZ"
         right_arm_bone.rotation_euler = [0,0,-angle]
         right_arm_bone.rotation_mode = "QUATERNION"
-    # apply keyframe
+    # apply first keyframe
     bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
     # make a second keyframe
     bpy.data.scenes["Scene"].frame_current = 2
