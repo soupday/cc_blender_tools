@@ -410,6 +410,11 @@ EXPORT_RIG = [
     ["DEF-jaw", "DEF-spine.006", "PLR"],
 ]
 
+# TODO, maybe...
+RETARGET = [
+    ["CC_Base_Pelvis", "hips"],
+]
+
 CONTROL_MODIFY = [
     ["hand_ik.R", [-1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
     ["hand_ik.L", [1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
@@ -1440,6 +1445,12 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     rigify_rig.name = rig_name + "_Rigify"
 
     if utils.set_mode("OBJECT"):
+
+        # delesect all bones (including the hidden ones)
+        # Rigimap will bake and clear constraints on the ORG bones if we don't do this...
+        for bone in rigify_rig.data.bones:
+            bone.select = False
+
         utils.clear_selected_objects()
         if utils.try_select_object(rigify_rig, True):
             if utils.set_active_object(rigify_rig):
