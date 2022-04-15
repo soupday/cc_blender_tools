@@ -32,6 +32,10 @@ Links
 
 ## Changelog
 
+### 1.3.3
+- Bake control rig animation to Unity.
+- Export Rigified character to Unity.
+
 ### 1.3.2
 - Face rig Automatic Weight failure detection and (some) auto-correction.
 - Support for Voxel Heat Diffuse Skinning add-on for voxel weight mapping of the face rig.

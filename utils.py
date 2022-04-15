@@ -470,6 +470,15 @@ def edit_mode_to(obj):
     return False
 
 
+def object_mode_to(obj):
+    if get_active_object() == obj and get_mode() == "OBJECT":
+        return True
+    else:
+        if set_mode("OBJECT") and set_active_object(obj):
+            return True
+    return False
+
+
 def s2lin(x):
     a = 0.055
     if x <= 0.04045:
@@ -589,6 +598,12 @@ def clear_selected_objects():
     except:
         return False
 
+
+def get_armature_in_objects(objects):
+    for obj in objects:
+        if obj.type == "ARMATURE":
+            return obj
+    return None
 
 def float_equals(a, b):
     return abs(a - b) < 0.00001

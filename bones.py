@@ -171,12 +171,12 @@ def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, sca
     return None
 
 
-def add_copy_transforms_constraint(rig, to_bone, from_bone, influence):
+def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0):
     try:
         if utils.set_mode("OBJECT"):
-            to_pose_bone : bpy.types.PoseBone = rig.pose.bones[to_bone]
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.CopyTransformsConstraint = to_pose_bone.constraints.new(type="COPY_TRANSFORMS")
-            c.target = rig
+            c.target = from_rig
             c.subtarget = from_bone
             c.head_tail = 0
             c.mix_mode = "REPLACE"
@@ -187,12 +187,12 @@ def add_copy_transforms_constraint(rig, to_bone, from_bone, influence):
         utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
 
 
-def add_copy_rotation_constraint(rig, to_bone, from_bone, influence):
+def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0):
     try:
         if utils.set_mode("OBJECT"):
-            to_pose_bone : bpy.types.PoseBone = rig.pose.bones[to_bone]
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.CopyRotationConstraint = to_pose_bone.constraints.new(type="COPY_ROTATION")
-            c.target = rig
+            c.target = from_rig
             c.subtarget = from_bone
             c.use_x = True
             c.use_y = True
@@ -201,6 +201,26 @@ def add_copy_rotation_constraint(rig, to_bone, from_bone, influence):
             c.invert_y = False
             c.invert_z = False
             c.mix_mode = "REPLACE"
+            c.target_space = "WORLD"
+            c.owner_space = "WORLD"
+            c.influence = influence
+    except:
+        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+
+
+def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0):
+    try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            c : bpy.types.CopyLocationConstraint = to_pose_bone.constraints.new(type="COPY_LOCATION")
+            c.target = from_rig
+            c.subtarget = from_bone
+            c.use_x = True
+            c.use_y = True
+            c.use_z = True
+            c.invert_x = False
+            c.invert_y = False
+            c.invert_z = False
             c.target_space = "WORLD"
             c.owner_space = "WORLD"
             c.influence = influence

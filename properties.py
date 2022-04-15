@@ -1067,6 +1067,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("ADVANCED","Advanced","Split the process so that user adjustments can be made to the meta rig before generating."),
                     ], default="QUICK", name = "Rigging Mode")
     rig_meta_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+    rig_export_rig: bpy.props.PointerProperty(type=bpy.types.Object)
 
 
     def can_be_rigged(self):
