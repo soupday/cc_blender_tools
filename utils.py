@@ -479,6 +479,14 @@ def object_mode_to(obj):
     return False
 
 
+def duplicate_object(obj):
+    if set_mode("OBJECT"):
+        if try_select_object(obj, True) and set_active_object(obj):
+            bpy.ops.object.duplicate()
+            return get_active_object()
+    return None
+
+
 def s2lin(x):
     a = 0.055
     if x <= 0.04045:

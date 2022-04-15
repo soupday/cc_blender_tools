@@ -1537,15 +1537,96 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     chr_cache.set_rigify_armature(rigify_rig)
 
 
+def generate_retargeting_rig(cc3_rig, rigify_rig):
+
+    cc3_rig.hide_set(False)
+    retarget_rig = bpy.data.objects.new(cc3_rig.name + "_Retarget", bpy.data.armatures.new(cc3_rig.name + "_Retarget"))
+    bpy.context.collection.objects.link(retarget_rig)
+    if retarget_rig:
+
+        cc3_bones = {}
+        rigify_bones = {}
+
+        if utils.edit_mode_to(cc3_rig):
+            for b in cc3_rig.data.edit_bones:
+                cc3_bones[b.name] = [b.parent.name if b.parent else None,
+                            cc3_rig.matrix_world @ b.head, cc3_rig.matrix_world @ b.tail,
+                            b.roll, b.use_connect,
+                            b.use_local_location, b.use_inherit_rotation, b.inherit_scale]
+
+        if utils.edit_mode_to(rigify_rig):
+            for retarget_def in RETARGET_CC3:
+                cc3_bone_name = retarget_def[0]
+                rigify_bone_name = retarget_def[1]
+                if rigify_bone_name in rigify_rig.data.edit_bones:
+                    b : bpy.types.EditBone = rigify_rig.data.edit_bones[rigify_bone_name]
+                    rigify_bones[rigify_bone_name] = [cc3_bone_name,
+                                        rigify_rig.matrix_world @ b.head, rigify_rig.matrix_world @ b.tail,
+                                        b.roll, b.use_connect,
+                                        b.use_local_location, b.use_inherit_rotation, b.inherit_scale]
+
+        if utils.edit_mode_to(retarget_rig):
+            for rb in cc3_bones:
+                bone_def = cc3_bones[rb]
+                b = retarget_rig.data.edit_bones.new(rb)
+                b.head = bone_def[1]
+                b.tail = bone_def[2]
+                b.roll = bone_def[3]
+                b.use_connect = bone_def[4]
+                b.use_local_location = bone_def[5]
+                b.use_inherit_rotation = bone_def[6]
+                b.inherit_scale = bone_def[7]
+            for rb in cc3_bones:
+                bone_def = cc3_bones[rb]
+                b = retarget_rig.data.edit_bones[rb]
+                if bone_def[0] and bone_def[0] in retarget_rig.data.edit_bones:
+                    b.parent = retarget_rig.data.edit_bones[bone_def[0]]
+            for rb in rigify_bones:
+                bone_def = rigify_bones[rb]
+                b = retarget_rig.data.edit_bones.new(rb)
+                if bone_def[0] and bone_def[0] in retarget_rig.data.edit_bones:
+                    b.parent = retarget_rig.data.edit_bones[bone_def[0]]
+                b.head = bone_def[1]
+                b.tail = bone_def[2]
+                b.roll = bone_def[3]
+                b.use_connect = bone_def[4]
+                b.use_local_location = bone_def[5]
+                b.use_inherit_rotation = bone_def[6]
+                b.inherit_scale = bone_def[7]
+
+        if utils.object_mode_to(retarget_rig):
+            for retarget_def in RETARGET_CC3:
+                cc3_bone_name = retarget_def[0]
+                rigify_bone_name = retarget_def[1]
+                flags = retarget_def[2]
+                cc3_bone = None
+                rigify_bone = None
+                if cc3_bone_name in retarget_rig.pose.bones:
+                    cc3_bone = retarget_rig.pose.bones[cc3_bone_name]
+                if rigify_bone_name in retarget_rig.pose.bones:
+                    rigify_bone = retarget_rig.pose.bones[rigify_bone_name]
+                if cc3_bone and rigify_bone:
+                    bones.add_copy_location_constraint(cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, 1.0)
+                    bones.add_copy_rotation_constraint(cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, 1.0)
+                    if "L" in flags:
+                        bones.add_copy_location_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
+                    if "R" in flags:
+                        bones.add_copy_rotation_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
+
+        utils.object_mode_to(retarget_rig)
+    return retarget_rig
+
+
 def convert_actions(chr_cache):
     cc3_rig = chr_cache.rig_original_rig
     rigify_rig = chr_cache.get_armature()
-    for action in bpy.data.actions:
-        print(action.name)
-        for fcurve in action.fcurves:
-            if "CC_Base_BoneRoot" in fcurve.data_path:
-                retarget_imported_action(action, cc3_rig, rigify_rig)
-                return
+    retarget_rig = generate_retargeting_rig(cc3_rig, rigify_rig)
+    #for action in bpy.data.actions:
+    #    print(action.name)
+    #    for fcurve in action.fcurves:
+    #        if "CC_Base_BoneRoot" in fcurve.data_path:
+    #            retarget_imported_action(action, cc3_rig, rigify_rig)
+    #            return
 
 
 def retarget_imported_action(action : bpy.types.Action, cc3_rig, rigify_rig):
@@ -1564,12 +1645,10 @@ def retarget_imported_action(action : bpy.types.Action, cc3_rig, rigify_rig):
 def get_unity_export_rig(chr_cache):
 
     rigify_rig = chr_cache.get_armature()
-    export_rig = None
-    if utils.object_mode_to(rigify_rig):
-        bpy.ops.object.duplicate()
-        export_rig = utils.get_active_object()
+    export_rig = utils.duplicate_object(rigify_rig)
+    if export_rig:
         export_rig.name = rigify_rig.name + "_Unity"
-    if not export_rig:
+    else:
         return None
 
     # compile a list of all deformation bones
