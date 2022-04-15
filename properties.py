@@ -1068,6 +1068,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ], default="QUICK", name = "Rigging Mode")
     rig_meta_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_export_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+    rig_original_rig: bpy.props.PointerProperty(type=bpy.types.Object)
 
 
     def can_be_rigged(self):
@@ -1276,6 +1277,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         try:
             for obj_cache in self.object_cache:
                 if obj_cache.object and obj_cache.object.type == "ARMATURE":
+                    self.rig_original_rig = obj_cache.object
                     obj_cache.object = new_arm
         except:
             pass

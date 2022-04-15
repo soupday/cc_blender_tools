@@ -123,8 +123,6 @@ BONE_MAPPINGS = [
     ["eye.R", "CC_Base_R_Eye", ""],
     ["eye.L", "CC_Base_L_Eye", ""],
 
-    ["eye.L", "CC_Base_L_Eye", ""],
-
     # only when using the basic face rig, a jaw bone is created that needs positioning...
     ["jaw", "CC_Base_JawRoot", "CC_Base_Tongue03", 0, 1.35],
 ]
@@ -410,9 +408,89 @@ UNITY_EXPORT_RIG = [
     ["DEF-jaw", "DEF-spine.006", "CC_Base_JawRoot", "PLR"],
 ]
 
-# TODO, maybe...
-RETARGET = [
-    ["CC_Base_Pelvis", "hips"],
+
+RETARGET_CC3 = [
+    # spine, neck & head
+    ["CC_Base_Hip", "torso", "LR"],
+    ["CC_Base_Waist", "spine_fk.001", "LR"],
+    ["CC_Base_Spine01", "spine_fk.002", "LR"],
+    ["CC_Base_Spine01", "chest", "LR"],
+    ["CC_Base_Spine02", "spine_fk.003", "LR"],
+    ["CC_Base_NeckTwist01", "neck", "LR"],
+    ["CC_Base_NeckTwist02", "tweak_spine.005", "L"],
+    ["CC_Base_Head", "head", "LR"],
+    ["CC_Base_Pelvis", "hips", "LR"],
+    # torso
+    ["CC_Base_L_Breast", "breast.L", "LR"],
+    ["CC_Base_R_Breast", "breast.R", "LR"],
+    # left leg
+    ["CC_Base_L_Thigh", "thigh_fk.L", "LR"],
+    ["CC_Base_L_Calf", "shin_fk.L", "LR"],
+    ["CC_Base_L_Foot", "foot_fk.L", "LR"],
+    ["CC_Base_L_ToeBase", "toe_fk.L", "LR"], #post 3.1
+    ["CC_Base_L_ToeBase", "toe.L", "LR"], #pre 3.1
+    # left arm
+    ["CC_Base_L_Clavicle", "shoulder.L", "LR"],
+    ["CC_Base_L_Upperarm", "upper_arm_fk.L", "LR"],
+    ["CC_Base_L_Forearm", "forearm_fk.L", "LR"],
+    ["CC_Base_L_Hand", "hand_fk.L", "LR"],
+    # left fingers
+    ["CC_Base_L_Thumb1", "thumb.01.L", "LR"],
+    ["CC_Base_L_Index1", "f_index.01.L", "LR"],
+    ["CC_Base_L_Mid1", "f_middle.01.L", "LR"],
+    ["CC_Base_L_Ring1", "f_ring.01.L", "LR"],
+    ["CC_Base_L_Pinky1", "f_pinky.01.L", "LR"],
+    ["CC_Base_L_Thumb2", "thumb.02.L", "LR"],
+    ["CC_Base_L_Index2", "f_index.02.L", "LR"],
+    ["CC_Base_L_Mid2", "f_middle.02.L", "LR"],
+    ["CC_Base_L_Ring2", "f_ring.02.L", "LR"],
+    ["CC_Base_L_Pinky2", "f_pinky.02.L", "LR"],
+    ["CC_Base_L_Thumb3", "thumb.03.L", "LR"],
+    ["CC_Base_L_Index3", "f_index.03.L", "LR"],
+    ["CC_Base_L_Mid3", "f_middle.03.L", "LR"],
+    ["CC_Base_L_Ring3", "f_ring.03.L", "LR"],
+    ["CC_Base_L_Pinky3", "f_pinky.03.L", "LR"],
+    # right leg
+    ["CC_Base_R_Thigh", "thigh_fk.R", "LR"],
+    ["CC_Base_R_Calf", "shin_fk.R", "LR"],
+    ["CC_Base_R_Foot", "foot_fk.R", "LR"],
+    ["CC_Base_R_ToeBase", "toe_fk.R", "LR"], #post 3.1
+    ["CC_Base_R_ToeBase", "toe.R", "LR"], #pre 3.1
+    # right arm
+    ["CC_Base_R_Clavicle", "shoulder.R", "LR"],
+    ["CC_Base_R_Upperarm", "upper_arm_fk.R", "LR"],
+    ["CC_Base_R_Forearm", "forearm_fk.R", "LR"],
+    ["CC_Base_R_Hand", "hand_fk.R", "LR"],
+    # right fingers
+    ["CC_Base_R_Thumb1", "thumb.01.R", "LR"],
+    ["CC_Base_R_Index1", "f_index.01.R", "LR"],
+    ["CC_Base_R_Mid1", "f_middle.01.R", "LR"],
+    ["CC_Base_R_Ring1", "f_ring.01.R", "LR"],
+    ["CC_Base_R_Pinky1", "f_pinky.01.R", "LR"],
+    ["CC_Base_R_Thumb2", "thumb.02.R", "LR"],
+    ["CC_Base_R_Index2", "f_index.02.R", "LR"],
+    ["CC_Base_R_Mid2", "f_middle.02.R", "LR"],
+    ["CC_Base_R_Ring2", "f_ring.02.R", "LR"],
+    ["CC_Base_R_Pinky2", "f_pinky.02.R", "LR"],
+    ["CC_Base_R_Thumb3", "thumb.03.R", "LR"],
+    ["CC_Base_R_Index3", "f_index.03.R", "LR"],
+    ["CC_Base_R_Mid3", "f_middle.03.R", "LR"],
+    ["CC_Base_R_Ring3", "f_ring.03.R", "LR"],
+    ["CC_Base_R_Pinky3", "f_pinky.03.R", "LR"],
+    #tongue
+    ["CC_Base_Tongue03", "tongue_master", "LR"],
+    ["CC_Base_Tongue03", "tongue", "L"],
+    ["CC_Base_Tongue02", "tongue.001", "L"],
+    ["CC_Base_Tongue01", "tongue.002", "L"],
+    # teeth
+    ["CC_Base_Teeth01", "teeth.T", "LR"],
+    ["CC_Base_Teeth02", "teeth.B", "LR"],
+    # eyes
+    # needs some targeting system...
+    #["CC_Base_R_Eye", "", "LR"],
+    #["CC_Base_L_Eye", "", "LR"],
+    # jaw
+    ["CC_Base_JawRoot", "jaw_master", "LR"],
 ]
 
 CONTROL_MODIFY = [
@@ -1459,6 +1537,30 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     chr_cache.set_rigify_armature(rigify_rig)
 
 
+def convert_actions(chr_cache):
+    cc3_rig = chr_cache.rig_original_rig
+    rigify_rig = chr_cache.get_armature()
+    for action in bpy.data.actions:
+        print(action.name)
+        for fcurve in action.fcurves:
+            if "CC_Base_BoneRoot" in fcurve.data_path:
+                retarget_imported_action(action, cc3_rig, rigify_rig)
+                return
+
+
+def retarget_imported_action(action : bpy.types.Action, cc3_rig, rigify_rig):
+    cc3_rig.animation_data.action = action
+    for retarget_def in RETARGET_CC3:
+        cc3_bone = retarget_def[0]
+        rigify_bone = retarget_def[1]
+        flags = retarget_def[2]
+        if "L" in flags:
+            bones.add_copy_location_constraint(cc3_rig, rigify_rig, cc3_bone, rigify_bone, 1.0)
+        if "R" in flags:
+            bones.add_copy_rotation_constraint(cc3_rig, rigify_rig, cc3_bone, rigify_bone, 1.0)
+
+
+
 def get_unity_export_rig(chr_cache):
 
     rigify_rig = chr_cache.get_armature()
@@ -2189,6 +2291,9 @@ class CC3Rigifier(bpy.types.Operator):
 
             elif self.param == "BAKE_UNITY_ANIMATION":
                 bake_unity_animation(chr_cache)
+
+            elif self.param == "CONVERT_ACTIONS":
+                convert_actions(chr_cache)
 
         return {"FINISHED"}
 

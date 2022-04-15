@@ -764,6 +764,10 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Unity Animation").param = "BAKE_UNITY_ANIMATION"
                         row.enabled = chr_cache is not None
 
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Convert Animation").param = "CONVERT_ACTIONS"
+                        row.enabled = chr_cache is not None
+
                 elif chr_cache.can_be_rigged():
 
                     if chr_cache and chr_cache.can_rig_full_face():
