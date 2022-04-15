@@ -1627,6 +1627,11 @@ def convert_actions(chr_cache):
     cc3_rig = chr_cache.rig_original_rig
     rigify_rig = chr_cache.get_armature()
     retarget_rig = generate_retargeting_rig(cc3_rig, rigify_rig)
+    utils.object_mode_to(rigify_rig)
+    rigify_rig.pose.bones["upper_arm_parent.L"]["IK_FK"] = 1.0
+    rigify_rig.pose.bones["upper_arm_parent.R"]["IK_FK"] = 1.0
+    rigify_rig.pose.bones["thigh_parent.L"]["IK_FK"] = 1.0
+    rigify_rig.pose.bones["thigh_parent.R"]["IK_FK"] = 1.0
     #for action in bpy.data.actions:
     #    print(action.name)
     #    for fcurve in action.fcurves:
