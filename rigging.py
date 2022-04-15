@@ -491,6 +491,11 @@ RETARGET_CC3 = [
     #["CC_Base_L_Eye", "", "LR"],
     # jaw
     ["CC_Base_JawRoot", "jaw_master", "LR"],
+    # IK bones
+    ["CC_Base_L_Hand", "hand_ik.L", "LR"],
+    ["CC_Base_R_Hand", "hand_ik.R", "LR"],
+    ["CC_Base_L_Foot", "foot_ik.L", "LR"],
+    ["CC_Base_R_Foot", "foot_ik.R", "LR"],
 ]
 
 CONTROL_MODIFY = [
