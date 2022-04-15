@@ -1540,6 +1540,7 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
 def generate_retargeting_rig(cc3_rig, rigify_rig):
 
     cc3_rig.hide_set(False)
+    cc3_rig.data.pose_position = "POSE"
     retarget_rig = bpy.data.objects.new(cc3_rig.name + "_Retarget", bpy.data.armatures.new(cc3_rig.name + "_Retarget"))
     bpy.context.collection.objects.link(retarget_rig)
     if retarget_rig:
