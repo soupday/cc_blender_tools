@@ -171,7 +171,7 @@ def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, sca
     return None
 
 
-def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0):
+def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
     try:
         if utils.set_mode("OBJECT"):
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
@@ -180,14 +180,14 @@ def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influen
             c.subtarget = from_bone
             c.head_tail = 0
             c.mix_mode = "REPLACE"
-            c.target_space = "WORLD"
-            c.owner_space = "WORLD"
+            c.target_space = space
+            c.owner_space = space
             c.influence = influence
     except:
         utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
 
 
-def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0):
+def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
     try:
         if utils.set_mode("OBJECT"):
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
@@ -201,14 +201,14 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
             c.invert_y = False
             c.invert_z = False
             c.mix_mode = "REPLACE"
-            c.target_space = "WORLD"
-            c.owner_space = "WORLD"
+            c.target_space = space
+            c.owner_space = space
             c.influence = influence
     except:
         utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
 
 
-def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0):
+def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
     try:
         if utils.set_mode("OBJECT"):
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
@@ -221,8 +221,8 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
             c.invert_x = False
             c.invert_y = False
             c.invert_z = False
-            c.target_space = "WORLD"
-            c.owner_space = "WORLD"
+            c.target_space = space
+            c.owner_space = space
             c.influence = influence
     except:
         utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")

@@ -1069,6 +1069,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     rig_meta_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_export_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_original_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+    rig_retarget_rig: bpy.props.PointerProperty(type=bpy.types.Object)
 
 
     def can_be_rigged(self):
@@ -1529,6 +1530,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     nails_toggle: bpy.props.BoolProperty(default=True)
     hair_toggle: bpy.props.BoolProperty(default=True)
     default_toggle: bpy.props.BoolProperty(default=True)
+
+    # UI List of actions index
+    action_index: bpy.props.IntProperty(default=0)
+    object_index: bpy.props.IntProperty(default=0)
 
     def get_any_character_cache_from_objects(self, objects):
         chr_cache : CC3CharacterCache

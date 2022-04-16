@@ -359,7 +359,29 @@ def detect_generation(chr_cache, json_data):
     return generation
 
 
-def detect_character(file_path, type, objects, json_data, warn):
+def remap_action_names(actions, objects, name):
+
+    key_map = {}
+    num_keys = 0
+
+    for obj in objects:
+        if obj.type == "MESH":
+            if obj.data.shape_keys:
+                key_map[utils.strip_name(obj.name)] = obj.data.shape_keys.name
+                num_keys += 1
+
+    for action in actions:
+        if action.name.startswith("Armature"):
+            action.name = f"{name}|{action.name}"
+        else:
+            for obj_name in key_map:
+                key_name = key_map[obj_name]
+                if action.name.startswith(key_name):
+                    action_name = action.name[len(key_name) + 1:]
+                    action.name = f"{name}|Key|{obj_name}|{action_name}"
+
+
+def detect_character(file_path, type, objects, actions, json_data, warn):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -403,6 +425,9 @@ def detect_character(file_path, type, objects, json_data, warn):
             if arm.type == "ARMATURE":
                 arm_count += 1
                 arm.name = name
+                # in case of duplicate names: character_name contains the name currently in Blender.
+                #                             import_name contains the original name.
+                chr_cache.character_name = arm.name
                 # add armature to object_cache
                 chr_cache.add_object_cache(arm)
 
@@ -415,6 +440,9 @@ def detect_character(file_path, type, objects, json_data, warn):
         for obj in objects:
             if obj.type == "MESH":
                 chr_cache.add_object_cache(obj)
+
+        # remame actions
+        remap_action_names(actions, objects, chr_cache.character_name)
 
         # determine character generation
         chr_cache.generation = detect_generation(chr_cache, json_data)
@@ -521,6 +549,8 @@ class CC3Import(bpy.types.Operator):
 
         dir, name = os.path.split(self.filepath)
         type = name[-3:].lower()
+        imported = None
+        actions = None
 
         json_data = jsonutils.read_json(self.filepath)
 
@@ -529,12 +559,14 @@ class CC3Import(bpy.types.Operator):
             # invoke the fbx importer
             utils.tag_objects()
             utils.tag_images()
+            utils.tag_actions()
             bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim)
             imported = utils.untagged_objects()
+            actions = utils.untagged_actions()
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            self.imported_character = detect_character(self.filepath, type, imported, json_data, warn)
+            self.imported_character = detect_character(self.filepath, type, imported, actions, json_data, warn)
 
             utils.log_timer("Done .Fbx Import.")
 
@@ -556,7 +588,7 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            self.imported_character = detect_character(self.filepath, type, imported, json_data, warn)
+            self.imported_character = detect_character(self.filepath, type, imported, actions, json_data, warn)
 
             #if self.param == "IMPORT_MORPH":
             #    if self.imported_character.import_main_tex_dir != "":

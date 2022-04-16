@@ -130,6 +130,8 @@ classes = (
     preferences.CC3OperatorPreferences,
     channel_mixer.CC3OperatorChannelMixer,
 
+    panels.ARMATURE_UL_List,
+    panels.ACTION_UL_List,
     panels.CC3ToolsPipelinePanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,

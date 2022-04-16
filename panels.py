@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
+import enum
 import bpy
 
 import textwrap
@@ -54,6 +55,53 @@ def fake_drop_down(row, label, prop_name, prop_bool_value):
     return prop_bool_value
 
 
+class ARMATURE_UL_List(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name if item else "", translate=False, icon_value=icon)
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+    def filter_items(self, context, data, propname):
+        filtered = []
+        ordered = []
+        items = getattr(data, propname)
+        filtered = [self.bitflag_filter_item] * len(items)
+        for i, item in enumerate(items):
+            if item.type != "ARMATURE":
+                filtered[i] &= ~self.bitflag_filter_item
+            else:
+                if self.filter_name and self.filter_name != "*":
+                    if self.filter_name not in item.name:
+                        filtered[i] &= ~self.bitflag_filter_item
+        return filtered, ordered
+
+
+class ACTION_UL_List(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name if item else "", translate=False, icon_value=icon)
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+    def filter_items(self, context, data, propname):
+        filtered = []
+        ordered = []
+        items = getattr(data, propname)
+        filtered = [self.bitflag_filter_item] * len(items)
+        item : bpy.types.Action
+        for i, item in enumerate(items):
+            if len(item.fcurves) == 0: # shapekey actions have no fcurves...
+                filtered[i] &= ~self.bitflag_filter_item
+            else:
+                if self.filter_name and self.filter_name != "*":
+                    if self.filter_name not in item.name:
+                        filtered[i] &= ~self.bitflag_filter_item
+        return filtered, ordered
+
+
 class CC3CharacterSettingsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Character_Settings_Panel"
     bl_label = "Character Settings"
@@ -92,7 +140,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                     if obj_cache.object:
                         box.prop(obj_cache, "object", text="")
             else:
-                box.label(text="Name: " + chr_cache.import_name)
+                box.label(text="Name: " + chr_cache.character_name)
         else:
             box.label(text="No Character")
 
@@ -702,7 +750,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                 col_1 = split.column()
                 col_2 = split.column()
                 col_1.label(text = "Character:")
-                col_2.label(text = chr_cache.import_name)
+                col_2.label(text = chr_cache.character_name)
                 col_1.label(text = "Generation:")
                 col_2.label(text = chr_cache.generation)
                 if chr_cache.rigified:
@@ -755,18 +803,44 @@ class CC3RigifyPanel(bpy.types.Panel):
                                 row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SKINNING"
                                 row.enabled = chr_cache is not None
 
+                        layout.separator()
+
                     else:
 
                         layout.row().label(text = "Rigging Done.", icon = "INFO")
 
+                        layout.separator()
+
                     if True:
+
+                        layout.box().row().label(text = "CC/ActorCore Retarget", icon = "ARMATURE_DATA")
+
+                        layout.label(text="Source Armature:")
+
+                        layout.template_list("ARMATURE_UL_List", "bake_armature_list", bpy.data, "objects", props, "object_index", rows=1, maxrows=4)
+
+                        layout.label(text="Source Action:")
+
+                        layout.template_list("ACTION_UL_List", "bake_action_list", bpy.data, "actions", props, "action_index", rows=1, maxrows=5)
+
+                        layout.separator()
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Link Retargeter").param = "RETARGET_CC_PAIR_RIGS"
+                        row.enabled = chr_cache is not None
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Animation").param = "RETARGET_CC_BAKE_ACTION"
+                        row.enabled = chr_cache is not None
+
+                        layout.separator()
+
+                        layout.box().row().label(text = "Unity Bake", icon = "CUBE")
+
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Unity Animation").param = "BAKE_UNITY_ANIMATION"
                         row.enabled = chr_cache is not None
 
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Convert Animation").param = "CONVERT_ACTIONS"
-                        row.enabled = chr_cache is not None
 
                 elif chr_cache.can_be_rigged():
 

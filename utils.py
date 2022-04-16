@@ -563,6 +563,20 @@ def untagged_images():
     return untagged
 
 
+def tag_actions():
+    for action in bpy.data.actions:
+        action.tag = True
+
+
+def untagged_actions():
+    untagged = []
+    for action in bpy.data.actions:
+        if action.tag == False:
+            untagged.append(action)
+        action.tag = False
+    return untagged
+
+
 def try_select_child_objects(obj):
     try:
         if obj:
