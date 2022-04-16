@@ -415,7 +415,7 @@ RETARGET_CC3 = [
     ["CC_Base_Hip", "torso", "LR"],
     ["CC_Base_Waist", "spine_fk.001", "LR"],
     ["CC_Base_Spine01", "spine_fk.002", "LR"],
-    ["CC_Base_Spine01", "chest", "LR"],
+    ["CC_Base_Spine01", "chest", "NLR"],
     ["CC_Base_Spine02", "spine_fk.003", "LR"],
     ["CC_Base_NeckTwist01", "neck", "LR"],
     ["CC_Base_NeckTwist02", "tweak_spine.005", "L"],
@@ -493,10 +493,10 @@ RETARGET_CC3 = [
     # jaw
     ["CC_Base_JawRoot", "jaw_master", "LR"],
     # IK bones
-    ["CC_Base_L_Hand", "hand_ik.L", "LR"],
-    ["CC_Base_R_Hand", "hand_ik.R", "LR"],
-    ["CC_Base_L_Foot", "foot_ik.L", "LR"],
-    ["CC_Base_R_Foot", "foot_ik.R", "LR"],
+    ["CC_Base_L_Hand", "hand_ik.L", "NLR"],
+    ["CC_Base_R_Hand", "hand_ik.R", "NLR"],
+    ["CC_Base_L_Foot", "foot_ik.L", "NLR"],
+    ["CC_Base_R_Foot", "foot_ik.R", "NLR"],
 ]
 
 CONTROL_MODIFY = [
@@ -1523,7 +1523,14 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     utils.log_info("Cleaning Up...")
 
     rig_name = cc3_rig.name
-    cc3_rig.name = rig_name + "_Origin"
+    if chr_cache.generation == "G3":
+        cc3_rig.name = rig_name + "_CC3"
+    elif chr_cache.generation == "G3Plus":
+        cc3_rig.name = rig_name + "_CC3+"
+    elif chr_cache.generation == "ActorCore":
+        cc3_rig.name = rig_name + "_ActorCore"
+    else:
+        cc3_rig.name = rig_name + "_Origin"
     cc3_rig.hide_set(True)
     bpy.data.objects.remove(meta_rig)
     rigify_rig.name = rig_name + "_Rigify"
@@ -1660,13 +1667,14 @@ def generate_CC3_retargeting_rig(source_cc3_rig, origin_cc3_rig, rigify_rig):
                 if rigify_bone_name in retarget_rig.pose.bones:
                     rigify_bone = retarget_rig.pose.bones[rigify_bone_name]
                 if cc3_bone and rigify_bone and cc3_bone_def:
-                    if rigify_bone_name != "root":
-                        scale_influence = cc3_bone_def[8] / cc3_bone_def[9]
-                        scale_influence = max(0.0, min(1.0, scale_influence))
-                        bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, scale_influence, "LOCAL")
-                    else:
-                        bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, 1.0)
-                    bones.add_copy_rotation_constraint(source_cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, 1.0)
+                    if "N" not in flags:
+                        if rigify_bone_name != "root":
+                            scale_influence = cc3_bone_def[8] / cc3_bone_def[9]
+                            scale_influence = max(0.0, min(1.0, scale_influence))
+                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, scale_influence, "LOCAL")
+                        else:
+                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, 1.0)
+                        bones.add_copy_rotation_constraint(source_cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, 1.0)
                     if "L" in flags:
                         bones.add_copy_location_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
                     if "R" in flags:

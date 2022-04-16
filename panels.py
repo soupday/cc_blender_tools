@@ -71,6 +71,10 @@ class ARMATURE_UL_List(bpy.types.UIList):
         for i, item in enumerate(items):
             if item.type != "ARMATURE":
                 filtered[i] &= ~self.bitflag_filter_item
+            elif item.name.endswith("_Rigify"):
+                filtered[i] &= ~self.bitflag_filter_item
+            elif item.name.endswith("_Retarget"):
+                filtered[i] &= ~self.bitflag_filter_item
             else:
                 if self.filter_name and self.filter_name != "*":
                     if self.filter_name not in item.name:
@@ -94,6 +98,10 @@ class ACTION_UL_List(bpy.types.UIList):
         item : bpy.types.Action
         for i, item in enumerate(items):
             if len(item.fcurves) == 0: # shapekey actions have no fcurves...
+                filtered[i] &= ~self.bitflag_filter_item
+            elif item.name.endswith("_Rigify"):
+                filtered[i] &= ~self.bitflag_filter_item
+            elif item.name.endswith("_Unity"):
                 filtered[i] &= ~self.bitflag_filter_item
             else:
                 if self.filter_name and self.filter_name != "*":
@@ -826,7 +834,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         layout.separator()
 
                         row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Link Retargeter").param = "RETARGET_CC_PAIR_RIGS"
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Connect Retarget Rig").param = "RETARGET_CC_PAIR_RIGS"
                         row.enabled = chr_cache is not None
 
                         row = layout.row()
