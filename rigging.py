@@ -501,7 +501,7 @@ RETARGET_CC3 = [
 
 RETARGET_CC3_CORRECTIONS = {
     "Heel_Angle": {
-        "bone": [(0, 0.1, 0), (0, 0.1, 0.1), "retarget_heel_correction_angle", "rotation_euler", 0],
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_heel_correction_angle", "rotation_euler", 0],
         "constraints": [
             ["CC_Base_L_Foot", "ROT_ADD_LOCAL", "-X"],
             ["CC_Base_R_Foot", "ROT_ADD_LOCAL", "-X"],
@@ -509,8 +509,25 @@ RETARGET_CC3_CORRECTIONS = {
             #["CC_Base_R_ToeBase", "ROT_ADD_LOCAL", "X"],
         ],
     },
+
+    "Arm_Angle": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_arm_correction_angle", "rotation_euler", 2],
+        "constraints": [
+            ["CC_Base_L_Upperarm", "ROT_ADD_LOCAL", "Z"],
+            ["CC_Base_R_Upperarm", "ROT_ADD_LOCAL", "-Z"],
+        ],
+    },
+
+    "Leg_Angle": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_leg_correction_angle", "rotation_euler", 2],
+        "constraints": [
+            ["CC_Base_L_Thigh", "ROT_ADD_LOCAL", "Z"],
+            ["CC_Base_R_Thigh", "ROT_ADD_LOCAL", "-Z"],
+        ],
+    },
+
     "Z_Correction": {
-        "bone": [(0, 0.2, 0), (0, 0.2, 0.1), "retarget_z_correction_height", "location", 1],
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_z_correction_height", "location", 1],
         "constraints": [
             ["CC_Base_Hip", "LOC_OFF_LOCAL", "Y"],
         ],

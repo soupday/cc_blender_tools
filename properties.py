@@ -1070,8 +1070,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     rig_export_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_original_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_retarget_rig: bpy.props.PointerProperty(type=bpy.types.Object)
-    retarget_heel_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.7854, max=0.7854)
-    retarget_z_correction_height: bpy.props.FloatProperty(default = 0.0, min=-0.25, max=0.25)
+    retarget_heel_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.7854, max=0.7854, description="Heel pitch angle (radians)")
+    retarget_arm_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Arm spread angle (radians)")
+    retarget_leg_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Leg spread angle (radians)")
+    retarget_z_correction_height: bpy.props.FloatProperty(default = 0.0, min=-0.1, max=0.1, description="Height Adjustment (m)")
 
     def can_be_rigged(self):
         if self.generation == "G3" or self.generation == "G3Plus":

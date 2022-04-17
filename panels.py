@@ -837,13 +837,18 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         layout.separator()
 
+                        layout.label(text="Limb Correction:")
                         column = layout.column()
                         split = column.split(factor=0.5)
                         col_1 = split.column()
                         col_2 = split.column()
-                        col_1.label(text="Heel Correction")
+                        col_1.label(text="Arms")
+                        col_2.prop(chr_cache, "retarget_arm_correction_angle", text="", slider=True)
+                        col_1.label(text="Legs")
+                        col_2.prop(chr_cache, "retarget_leg_correction_angle", text="", slider=True)
+                        col_1.label(text="Heels")
                         col_2.prop(chr_cache, "retarget_heel_correction_angle", text="", slider=True)
-                        col_1.label(text="Height Correction")
+                        col_1.label(text="Height")
                         col_2.prop(chr_cache, "retarget_z_correction_height", text="", slider=True)
 
                         layout.separator()
