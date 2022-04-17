@@ -21,50 +21,56 @@ from rna_prop_ui import rna_idprop_ui_create
 
 
 def get_rl_edit_bone(rig, name):
-    if name in rig.data.edit_bones:
-        return rig.data.edit_bones[name]
-    # remove "CC_Base_" from start of bone name and try again...
-    name = name[8:]
-    if name in rig.data.edit_bones:
-        return rig.data.edit_bones[name]
+    if name:
+        if name in rig.data.edit_bones:
+            return rig.data.edit_bones[name]
+        # remove "CC_Base_" from start of bone name and try again...
+        name = name[8:]
+        if name in rig.data.edit_bones:
+            return rig.data.edit_bones[name]
     return None
 
 
 def get_rl_bone(rig, name):
-    if name in rig.data.bones:
-        return rig.data.bones[name]
-    # remove "CC_Base_" from start of bone name and try again...
-    name = name[8:]
-    if name in rig.data.bones:
-        return rig.data.bones[name]
+    if name:
+        if name in rig.data.bones:
+            return rig.data.bones[name]
+        # remove "CC_Base_" from start of bone name and try again...
+        name = name[8:]
+        if name in rig.data.bones:
+            return rig.data.bones[name]
     return None
 
 
 def get_rl_pose_bone(rig, name):
-    if name in rig.pose.bones:
-        return rig.pose.bones[name]
-    # remove "CC_Base_" from start of bone name and try again...
-    name = name[8:]
-    if name in rig.pose.bones:
-        return rig.pose.bones[name]
+    if name:
+        if name in rig.pose.bones:
+            return rig.pose.bones[name]
+        # remove "CC_Base_" from start of bone name and try again...
+        name = name[8:]
+        if name in rig.pose.bones:
+            return rig.pose.bones[name]
     return None
 
 
 def get_edit_bone(rig, name):
-    if name in rig.data.edit_bones:
-        return rig.data.edit_bones[name]
+    if name:
+        if name in rig.data.edit_bones:
+            return rig.data.edit_bones[name]
     return None
 
 
 def get_bone(rig, name):
-    if name in rig.data.bones:
-        return rig.data.bones[name]
+    if name:
+        if name in rig.data.bones:
+            return rig.data.bones[name]
     return None
 
 
 def get_pose_bone(rig, name):
-    if name in rig.pose.bones:
-        return rig.pose.bones[name]
+    if name:
+        if name in rig.pose.bones:
+            return rig.pose.bones[name]
     return None
 
 

@@ -1585,6 +1585,12 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     chr_cache.set_rigify_armature(rigify_rig)
 
 
+def fix_cc3_bone_name(name):
+    if not name.startswith("CC_Base_"):
+        name = "CC_Base_" + name
+    return name
+
+
 def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigify_rig):
     props = bpy.context.scene.CC3ImportProps
 
@@ -1606,6 +1612,7 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
         b : bpy.types.EditBone
         if utils.edit_mode_to(origin_cc3_rig):
             for b in origin_cc3_rig.data.edit_bones:
+                print(fix_cc3_bone_name(b.name))
                 head_pos = origin_cc3_rig.matrix_world @ b.head
                 tail_pos = origin_cc3_rig.matrix_world @ b.tail
                 parent_pos = origin_cc3_rig.matrix_world @ mathutils.Vector((0,0,0))
@@ -1613,7 +1620,7 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
                     parent_pos = origin_cc3_rig.matrix_world @ b.parent.head
                 size = (head_pos - parent_pos).length
                 if size <= 0.00001: size = 1
-                cc3_bones[b.name] = [b.parent.name if b.parent else None,
+                cc3_bones[fix_cc3_bone_name(b.name)] = [fix_cc3_bone_name(b.parent.name) if b.parent else None,
                             head_pos, tail_pos,
                             b.roll, b.use_connect,
                             b.use_local_location, b.use_inherit_rotation, b.inherit_scale, size]
@@ -1626,6 +1633,7 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
         #       and is the primary method of translation retargeting.
         if utils.edit_mode_to(source_cc3_rig):
             for b in source_cc3_rig.data.edit_bones:
+                print(fix_cc3_bone_name(b.name))
                 head_pos = b.head
                 tail_pos = b.tail
                 parent_pos = mathutils.Vector((0,0,0))
@@ -1633,7 +1641,7 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
                     parent_pos = b.parent.head
                 size = (head_pos - parent_pos).length
                 if size <= 0.00001: size = 1
-                cc3_bones[b.name].append(size)
+                cc3_bones[fix_cc3_bone_name(b.name)].append(size)
 
         # cc3_bones = { bone_name: [0:parent_name, 1:world_head_pos, 2:world_tail_pos, 3:bone_roll, 4:is_connected,
         #                           5:inherit_location, 6:inherit_rotation, 7:inherit_scale, 8:target_size, 9:source_size], }
@@ -1643,8 +1651,8 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
             for retarget_def in RETARGET_CC3:
                 cc3_bone_name = retarget_def[0]
                 rigify_bone_name = retarget_def[1]
-                if rigify_bone_name in rigify_rig.data.edit_bones:
-                    b = rigify_rig.data.edit_bones[rigify_bone_name]
+                b = bones.get_edit_bone(rigify_rig, rigify_bone_name)
+                if b:
                     head_pos = rigify_rig.matrix_world @ b.head
                     tail_pos = rigify_rig.matrix_world @ b.tail
                     parent_pos = mathutils.Vector((0,0,0))
@@ -1661,9 +1669,10 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
 
         # build the retargeting rig
         if utils.edit_mode_to(retarget_rig):
-            for rb in cc3_bones:
-                bone_def = cc3_bones[rb]
-                b = retarget_rig.data.edit_bones.new(rb)
+            # add *all* the cc3 bones:
+            for cc3_rb in cc3_bones:
+                bone_def = cc3_bones[cc3_rb]
+                b = retarget_rig.data.edit_bones.new(cc3_rb)
                 b.head = bone_def[1]
                 b.tail = bone_def[2]
                 b.roll = bone_def[3]
@@ -1671,16 +1680,16 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
                 b.use_local_location = bone_def[5]
                 b.use_inherit_rotation = bone_def[6]
                 b.inherit_scale = bone_def[7]
-            for rb in cc3_bones:
-                bone_def = cc3_bones[rb]
-                b = retarget_rig.data.edit_bones[rb]
-                if bone_def[0] and bone_def[0] in retarget_rig.data.edit_bones:
-                    b.parent = retarget_rig.data.edit_bones[bone_def[0]]
-            for rb in rigify_bones:
-                bone_def = rigify_bones[rb]
-                b = retarget_rig.data.edit_bones.new(rb)
-                if bone_def[0] and bone_def[0] in retarget_rig.data.edit_bones:
-                    b.parent = retarget_rig.data.edit_bones[bone_def[0]]
+            # set the cc3 bone parents:
+            for cc3_rb in cc3_bones:
+                bone_def = cc3_bones[cc3_rb]
+                b = bones.get_rl_edit_bone(retarget_rig, cc3_rb)
+                b.parent = bones.get_rl_edit_bone(retarget_rig, bone_def[0])
+            # add the rigify control rig bones we want to retarget to:
+            for r_rb in rigify_bones:
+                bone_def = rigify_bones[r_rb]
+                b = retarget_rig.data.edit_bones.new(r_rb)
+                b.parent = bones.get_edit_bone(retarget_rig, bone_def[0])
                 b.head = bone_def[1]
                 b.tail = bone_def[2]
                 b.roll = bone_def[3]
@@ -1696,6 +1705,7 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
                 b.tail = bone_def[1]
                 b.roll = 0
 
+        # constrain the retarget rig
         if utils.object_mode_to(retarget_rig):
             for retarget_def in RETARGET_CC3:
                 cc3_bone_name = retarget_def[0]
@@ -1704,20 +1714,21 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
                 cc3_bone = None
                 cc3_bone_def = None
                 rigify_bone = None
-                if cc3_bone_name in retarget_rig.pose.bones:
-                    cc3_bone = retarget_rig.pose.bones[cc3_bone_name]
+                # watch out for iClone bone names...
+                cc3_bone = bones.get_rl_pose_bone(retarget_rig, cc3_bone_name)
+                source_cc3_bone = bones.get_rl_pose_bone(source_cc3_rig, cc3_bone_name)
+                rigify_bone = bones.get_pose_bone(retarget_rig, rigify_bone_name)
+                if cc3_bone:
                     cc3_bone_def = cc3_bones[cc3_bone_name]
-                if rigify_bone_name in retarget_rig.pose.bones:
-                    rigify_bone = retarget_rig.pose.bones[rigify_bone_name]
                 if cc3_bone and rigify_bone and cc3_bone_def:
                     if "N" not in flags:
                         if rigify_bone_name != "root":
                             scale_influence = cc3_bone_def[8] / cc3_bone_def[9]
                             scale_influence = max(0.0, min(1.0, scale_influence))
-                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, scale_influence, "LOCAL")
+                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, scale_influence, "LOCAL")
                         else:
-                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, 1.0)
-                        bones.add_copy_rotation_constraint(source_cc3_rig, retarget_rig, cc3_bone_name, cc3_bone_name, 1.0)
+                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, 1.0)
+                        bones.add_copy_rotation_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, 1.0)
                     if "L" in flags:
                         bones.add_copy_location_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
                     if "R" in flags:
@@ -1729,7 +1740,7 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
                 prop_name = bone_def[2]
                 bone_data_path = bone_def[3]
                 bone_data_index = bone_def[4]
-                correction_bone = retarget_rig.pose.bones[correction_bone_name]
+                correction_bone = bones.get_pose_bone(retarget_rig, correction_bone_name)
                 # rotate using Euler coords
                 if correction_bone:
                     correction_bone.rotation_mode = "XYZ"
@@ -1738,16 +1749,17 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
                 # add corrective constraints
                 con_defs = correction_def["constraints"]
                 for con_def in con_defs:
-                    pose_bone_name, flags, axis = con_def
-                    if pose_bone_name in retarget_rig.pose.bones:
+                    cc3_bone_name, flags, axis = con_def
+                    pose_bone = bones.get_rl_pose_bone(retarget_rig, cc3_bone_name)
+                    if pose_bone:
                         con : bpy.types.CopyLocationConstraint = None
                         space = "WORLD"
                         if "_LOCAL" in flags:
                             space = "LOCAL"
                         if "ROT_" in flags:
-                            con = bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, correction_bone_name, pose_bone_name, 1.0, space)
+                            con = bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, correction_bone_name, cc3_bone_name, 1.0, space)
                         if "LOC_" in flags:
-                            con = bones.add_copy_location_constraint(retarget_rig, retarget_rig, correction_bone_name, pose_bone_name, 1.0, space)
+                            con = bones.add_copy_location_constraint(retarget_rig, retarget_rig, correction_bone_name, cc3_bone_name, 1.0, space)
                         if con:
                             if "_ADD_" in flags:
                                 con.mix_mode = "ADD"
@@ -1767,24 +1779,11 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
     return retarget_rig
 
 
-def convert_actions(chr_cache):
-    source_cc3_rig = utils.get_active_object()
-    origin_cc3_rig = chr_cache.rig_original_rig
-    rigify_rig = chr_cache.get_armature()
-    retarget_rig = generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigify_rig)
-    chr_cache.rig_retarget_rig = retarget_rig
-    utils.object_mode_to(rigify_rig)
-
-    rigify_rig.pose.bones["upper_arm_parent.L"]["IK_FK"] = 1.0
-    rigify_rig.pose.bones["upper_arm_parent.R"]["IK_FK"] = 1.0
-    rigify_rig.pose.bones["thigh_parent.L"]["IK_FK"] = 1.0
-    rigify_rig.pose.bones["thigh_parent.R"]["IK_FK"] = 1.0
-    #for action in bpy.data.actions:
-    #    print(action.name)
-    #    for fcurve in action.fcurves:
-    #        if "CC_Base_BoneRoot" in fcurve.data_path:
-    #            retarget_imported_action(action, cc3_rig, rigify_rig)
-    #            return
+def is_cc3_action(action):
+    for fcurve in action.fcurves:
+        if "CC_Base_BoneRoot" in fcurve.data_path:
+            return True
+    return False
 
 
 def adv_retarget_CC_pair_rigs(op, chr_cache):
@@ -1807,11 +1806,14 @@ def adv_retarget_CC_pair_rigs(op, chr_cache):
     retarget_rig = generate_CC3_retargeting_rig(chr_cache, source_rig, origin_cc3_rig, rigify_rig)
     chr_cache.rig_retarget_rig = retarget_rig
     utils.object_mode_to(rigify_rig)
-    rigify_rig.pose.bones["upper_arm_parent.L"]["IK_FK"] = 1.0
-    rigify_rig.pose.bones["upper_arm_parent.R"]["IK_FK"] = 1.0
-    rigify_rig.pose.bones["thigh_parent.L"]["IK_FK"] = 1.0
-    rigify_rig.pose.bones["thigh_parent.R"]["IK_FK"] = 1.0
-    retarget_rig.data.display_type = "STICK"
+    try:
+        rigify_rig.pose.bones["upper_arm_parent.L"]["IK_FK"] = 1.0
+        rigify_rig.pose.bones["upper_arm_parent.R"]["IK_FK"] = 1.0
+        rigify_rig.pose.bones["thigh_parent.L"]["IK_FK"] = 1.0
+        rigify_rig.pose.bones["thigh_parent.R"]["IK_FK"] = 1.0
+        retarget_rig.data.display_type = "STICK"
+    except:
+        pass
 
     utils.restore_visible_in_scene(temp_collection)
 
