@@ -1612,7 +1612,6 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
         b : bpy.types.EditBone
         if utils.edit_mode_to(origin_cc3_rig):
             for b in origin_cc3_rig.data.edit_bones:
-                print(fix_cc3_bone_name(b.name))
                 head_pos = origin_cc3_rig.matrix_world @ b.head
                 tail_pos = origin_cc3_rig.matrix_world @ b.tail
                 parent_pos = origin_cc3_rig.matrix_world @ mathutils.Vector((0,0,0))
@@ -1633,7 +1632,6 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
         #       and is the primary method of translation retargeting.
         if utils.edit_mode_to(source_cc3_rig):
             for b in source_cc3_rig.data.edit_bones:
-                print(fix_cc3_bone_name(b.name))
                 head_pos = b.head
                 tail_pos = b.tail
                 parent_pos = mathutils.Vector((0,0,0))
