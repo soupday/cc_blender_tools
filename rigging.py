@@ -499,6 +499,24 @@ RETARGET_CC3 = [
     ["CC_Base_R_Foot", "foot_ik.R", "NLR"],
 ]
 
+RETARGET_CC3_CORRECTIONS = {
+    "Heel_Angle": {
+        "bone": [(0, 0.1, 0), (0, 0.1, 0.1), "retarget_heel_correction_angle", "rotation_euler", 0],
+        "constraints": [
+            ["CC_Base_L_Foot", "ROT_ADD_LOCAL", "-X"],
+            ["CC_Base_R_Foot", "ROT_ADD_LOCAL", "-X"],
+            #["CC_Base_L_ToeBase", "ROT_ADD_LOCAL", "X"],
+            #["CC_Base_R_ToeBase", "ROT_ADD_LOCAL", "X"],
+        ],
+    },
+    "Z_Correction": {
+        "bone": [(0, 0.2, 0), (0, 0.2, 0.1), "retarget_z_correction_height", "location", 1],
+        "constraints": [
+            ["CC_Base_Hip", "LOC_OFF_LOCAL", "Y"],
+        ],
+    },
+}
+
 CONTROL_MODIFY = [
     ["hand_ik.R", [-1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
     ["hand_ik.L", [1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
@@ -1550,7 +1568,8 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     chr_cache.set_rigify_armature(rigify_rig)
 
 
-def generate_CC3_retargeting_rig(source_cc3_rig, origin_cc3_rig, rigify_rig):
+def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigify_rig):
+    props = bpy.context.scene.CC3ImportProps
 
     source_cc3_rig.hide_set(False)
     source_cc3_rig.data.pose_position = "POSE"
@@ -1652,6 +1671,13 @@ def generate_CC3_retargeting_rig(source_cc3_rig, origin_cc3_rig, rigify_rig):
                 b.use_local_location = bone_def[5]
                 b.use_inherit_rotation = bone_def[6]
                 b.inherit_scale = bone_def[7]
+            for correction_bone_name in RETARGET_CC3_CORRECTIONS:
+                correction_def = RETARGET_CC3_CORRECTIONS[correction_bone_name]
+                bone_def = correction_def["bone"]
+                b = retarget_rig.data.edit_bones.new(correction_bone_name)
+                b.head = bone_def[0]
+                b.tail = bone_def[1]
+                b.roll = 0
 
         if utils.object_mode_to(retarget_rig):
             for retarget_def in RETARGET_CC3:
@@ -1679,6 +1705,43 @@ def generate_CC3_retargeting_rig(source_cc3_rig, origin_cc3_rig, rigify_rig):
                         bones.add_copy_location_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
                     if "R" in flags:
                         bones.add_copy_rotation_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
+            # constraints and drivers for corrective bones
+            for correction_bone_name in RETARGET_CC3_CORRECTIONS:
+                correction_def = RETARGET_CC3_CORRECTIONS[correction_bone_name]
+                bone_def = correction_def["bone"]
+                prop_name = bone_def[2]
+                bone_data_path = bone_def[3]
+                bone_data_index = bone_def[4]
+                correction_bone = retarget_rig.pose.bones[correction_bone_name]
+                # rotate using Euler coords
+                if correction_bone:
+                    correction_bone.rotation_mode = "XYZ"
+                # add drivers for corrective properties
+                bones.add_bone_prop_driver(retarget_rig, correction_bone_name, bone_data_path, bone_data_index, chr_cache, prop_name, prop_name + "_var")
+                # add corrective constraints
+                con_defs = correction_def["constraints"]
+                for con_def in con_defs:
+                    pose_bone_name, flags, axis = con_def
+                    if pose_bone_name in retarget_rig.pose.bones:
+                        con : bpy.types.CopyLocationConstraint = None
+                        space = "WORLD"
+                        if "_LOCAL" in flags:
+                            space = "LOCAL"
+                        if "ROT_" in flags:
+                            con = bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, correction_bone_name, pose_bone_name, 1.0, space)
+                        if "LOC_" in flags:
+                            con = bones.add_copy_location_constraint(retarget_rig, retarget_rig, correction_bone_name, pose_bone_name, 1.0, space)
+                        if con:
+                            if "_ADD_" in flags:
+                                con.mix_mode = "ADD"
+                            if "_OFF_" in flags:
+                                con.use_offset = True
+                            con.use_x = "X" in axis
+                            con.use_y = "Y" in axis
+                            con.use_z = "Z" in axis
+                            con.invert_x = "-X" in axis
+                            con.invert_y = "-Y" in axis
+                            con.invert_z = "-Z" in axis
 
         utils.object_mode_to(retarget_rig)
 
@@ -1691,7 +1754,7 @@ def convert_actions(chr_cache):
     source_cc3_rig = utils.get_active_object()
     origin_cc3_rig = chr_cache.rig_original_rig
     rigify_rig = chr_cache.get_armature()
-    retarget_rig = generate_CC3_retargeting_rig(source_cc3_rig, origin_cc3_rig, rigify_rig)
+    retarget_rig = generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigify_rig)
     chr_cache.rig_retarget_rig = retarget_rig
     utils.object_mode_to(rigify_rig)
 
@@ -1707,22 +1770,24 @@ def convert_actions(chr_cache):
     #            return
 
 
-def adv_retarget_CC_pair_rigs(chr_cache):
+def adv_retarget_CC_pair_rigs(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
     # source rig
     source_rig_index = props.object_index
     source_rig = bpy.data.objects[source_rig_index]
+    origin_cc3_rig = chr_cache.rig_original_rig
+    rigify_rig = chr_cache.get_armature()
     # source action
     source_action_index = props.action_index
     source_action = bpy.data.actions[source_action_index]
     # apply the action to the source rig
     source_rig.animation_data.action = source_action
 
-    origin_cc3_rig = chr_cache.rig_original_rig
-    rigify_rig = chr_cache.get_armature()
+    temp_collection = utils.force_visible_in_scene("TMP_Retarget", source_rig, origin_cc3_rig, rigify_rig)
+
     if utils.object_exists_is_armature(chr_cache.rig_retarget_rig):
         bpy.data.objects.remove(chr_cache.rig_retarget_rig)
-    retarget_rig = generate_CC3_retargeting_rig(source_rig, origin_cc3_rig, rigify_rig)
+    retarget_rig = generate_CC3_retargeting_rig(chr_cache, source_rig, origin_cc3_rig, rigify_rig)
     chr_cache.rig_retarget_rig = retarget_rig
     utils.object_mode_to(rigify_rig)
     rigify_rig.pose.bones["upper_arm_parent.L"]["IK_FK"] = 1.0
@@ -1730,32 +1795,41 @@ def adv_retarget_CC_pair_rigs(chr_cache):
     rigify_rig.pose.bones["thigh_parent.L"]["IK_FK"] = 1.0
     rigify_rig.pose.bones["thigh_parent.R"]["IK_FK"] = 1.0
     retarget_rig.data.display_type = "STICK"
+
+    utils.restore_visible_in_scene(temp_collection)
+
     return retarget_rig
 
 
-def adv_bake_CC_retargeted_action(chr_cache):
+def adv_bake_CC_retargeted_action(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
     # source rig
     source_rig_index = props.object_index
     source_rig = bpy.data.objects[source_rig_index]
+    rigify_rig = chr_cache.get_armature()
+    retarget_rig = adv_retarget_CC_pair_rigs(op, chr_cache)
     # source action
     source_action_index = props.action_index
     source_action = bpy.data.actions[source_action_index]
     # apply the action to the source rig
     source_rig.animation_data.action = source_action
 
-    rigify_rig = chr_cache.get_armature()
-    retarget_rig = adv_retarget_CC_pair_rigs(chr_cache)
-    if utils.object_mode_to(rigify_rig):
-        for bone in rigify_rig.data.bones:
-            bone.select = False
-            for retarget_def in RETARGET_CC3:
-                if bone.name == retarget_def[1]:
-                    bone.select = True
-                    break
-        bake_retarget_animation(source_rig, rigify_rig, retarget_rig, source_action)
+    if retarget_rig:
 
-        bpy.data.objects.remove(retarget_rig)
+        temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", source_rig, retarget_rig, rigify_rig)
+
+        if utils.object_mode_to(rigify_rig):
+            for bone in rigify_rig.data.bones:
+                bone.select = False
+                for retarget_def in RETARGET_CC3:
+                    if bone.name == retarget_def[1]:
+                        bone.select = True
+                        break
+            bake_retarget_animation(source_rig, rigify_rig, retarget_rig, source_action)
+
+            bpy.data.objects.remove(retarget_rig)
+
+        utils.restore_visible_in_scene(temp_collection)
 
 
 def retarget_imported_action(action : bpy.types.Action, cc3_rig, rigify_rig):
@@ -2517,10 +2591,10 @@ class CC3Rigifier(bpy.types.Operator):
                 bake_unity_animation(chr_cache)
 
             elif self.param == "RETARGET_CC_PAIR_RIGS":
-                adv_retarget_CC_pair_rigs(chr_cache)
+                adv_retarget_CC_pair_rigs(self, chr_cache)
 
             elif self.param == "RETARGET_CC_BAKE_ACTION":
-                adv_bake_CC_retargeted_action(chr_cache)
+                adv_bake_CC_retargeted_action(self, chr_cache)
 
         return {"FINISHED"}
 

@@ -481,6 +481,13 @@ def detect_character(file_path, type, objects, actions, json_data, warn):
 
         properties.init_character_property_defaults(chr_cache, chr_json)
 
+    # set preserve volume on armature modifiers
+    for obj in objects:
+        if obj.type == "MESH":
+            arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
+            if arm_mod:
+                arm_mod.use_deform_preserve_volume = True
+
     # material setup mode
     if chr_cache.import_has_key:
         chr_cache.setup_mode = prefs.morph_mode

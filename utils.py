@@ -638,6 +638,48 @@ def remove_from_collection(coll, item):
             return
 
 
+def force_visible_in_scene(collection_name, *objects):
+    collection = bpy.data.collections.new(collection_name)
+    bpy.context.scene.collection.children.link(collection)
+    for obj in objects:
+        if not obj.visible_get():
+            log_info(f"Object: {obj.name} is not visible or in a hidden collection. Linking to temporary root collection and making visible.")
+            obj.hide_set(False)
+            collection.objects.link(obj)
+    return collection
+
+
+def restore_visible_in_scene(collection : bpy.types.Collection):
+    objects = []
+    for obj in collection.objects:
+        objects.append(obj)
+    for obj in objects:
+        log_info(f"Object: {obj.name} Unlinking from temporary root collection and hiding.")
+        obj.hide_set(True)
+        collection.objects.unlink(obj)
+    bpy.context.scene.collection.children.unlink(collection)
+    bpy.data.collections.remove(collection)
+
+
+
+def get_object_collection(obj):
+    if obj.name in bpy.context.scene.collection.objects:
+        return bpy.context.scene.collection
+    for col in bpy.data.collections:
+        if obj.name in col.objects:
+            return col
+    return None
+
+
+def move_object_to_collection(obj, collection):
+    col : bpy.types.Collection
+    for col in bpy.data.collections:
+        if col != collection and obj.name in col.objects:
+            col.objects.unlink(obj)
+    if obj.name not in collection.objects:
+        collection.objects.link(obj)
+
+
 def is_blender_version(version: str, test = "GTE"):
     """e.g. is_blender_version("3.0.0", "GTE")"""
     major, minor, subversion = version.split(".")

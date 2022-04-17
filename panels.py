@@ -69,11 +69,12 @@ class ARMATURE_UL_List(bpy.types.UIList):
         items = getattr(data, propname)
         filtered = [self.bitflag_filter_item] * len(items)
         for i, item in enumerate(items):
-            if item.type != "ARMATURE":
+            item_name = utils.strip_name(item.name)
+            if item.type != "ARMATURE": # only list armatures
                 filtered[i] &= ~self.bitflag_filter_item
-            elif item.name.endswith("_Rigify"):
+            elif item_name.endswith("_Rigify"): # don't list rigified armatures
                 filtered[i] &= ~self.bitflag_filter_item
-            elif item.name.endswith("_Retarget"):
+            elif item_name.endswith("_Retarget"): # don't list retarget armatures
                 filtered[i] &= ~self.bitflag_filter_item
             else:
                 if self.filter_name and self.filter_name != "*":
@@ -97,11 +98,14 @@ class ACTION_UL_List(bpy.types.UIList):
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
         for i, item in enumerate(items):
-            if len(item.fcurves) == 0: # shapekey actions have no fcurves...
+            item_name = utils.strip_name(item.name)
+            if len(item.fcurves) == 0: # no fcurves, no animation...
                 filtered[i] &= ~self.bitflag_filter_item
-            elif item.name.endswith("_Rigify"):
+            elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
                 filtered[i] &= ~self.bitflag_filter_item
-            elif item.name.endswith("_Unity"):
+            elif item_name.endswith("_Rigify"): # don't show rigify baked actions
+                filtered[i] &= ~self.bitflag_filter_item
+            elif item_name.endswith("_Unity"): # don't show unity baked actions
                 filtered[i] &= ~self.bitflag_filter_item
             else:
                 if self.filter_name and self.filter_name != "*":
@@ -833,8 +837,19 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         layout.separator()
 
+                        column = layout.column()
+                        split = column.split(factor=0.5)
+                        col_1 = split.column()
+                        col_2 = split.column()
+                        col_1.label(text="Heel Correction")
+                        col_2.prop(chr_cache, "retarget_heel_correction_angle", text="", slider=True)
+                        col_1.label(text="Height Correction")
+                        col_2.prop(chr_cache, "retarget_z_correction_height", text="", slider=True)
+
+                        layout.separator()
+
                         row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Connect Retarget Rig").param = "RETARGET_CC_PAIR_RIGS"
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Retargeted Action").param = "RETARGET_CC_PAIR_RIGS"
                         row.enabled = chr_cache is not None
 
                         row = layout.row()

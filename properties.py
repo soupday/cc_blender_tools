@@ -1070,7 +1070,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     rig_export_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_original_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_retarget_rig: bpy.props.PointerProperty(type=bpy.types.Object)
-
+    retarget_heel_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.7854, max=0.7854)
+    retarget_z_correction_height: bpy.props.FloatProperty(default = 0.0, min=-0.25, max=0.25)
 
     def can_be_rigged(self):
         if self.generation == "G3" or self.generation == "G3Plus":
@@ -1532,8 +1533,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     default_toggle: bpy.props.BoolProperty(default=True)
 
     # UI List of actions index
-    action_index: bpy.props.IntProperty(default=0)
-    object_index: bpy.props.IntProperty(default=0)
+    action_index: bpy.props.IntProperty(default=-1)
+    object_index: bpy.props.IntProperty(default=-1)
 
     def get_any_character_cache_from_objects(self, objects):
         chr_cache : CC3CharacterCache
