@@ -2124,9 +2124,10 @@ def finish_unity_export(chr_cache, export_rig):
 
 
 def bake_export_animation(rigify_rig, export_rig : bpy.types.Object, armature_action : bpy.types.Action):
-    if utils.object_mode_to(export_rig):
+    if utils.try_select_object(export_rig, True) and utils.set_active_object(export_rig):
         rigify_rig.animation_data.action = armature_action
-        baked_action = bpy.data.actions.new(armature_action.name + "_Baked")
+        name = armature_action.name.split("|")[-1]
+        baked_action = bpy.data.actions.new(f"{export_rig.name}|Armature|{name}")
         baked_action.use_fake_user = True
         export_rig.animation_data.action = baked_action
         start_frame = int(armature_action.frame_range[0])
@@ -2142,7 +2143,8 @@ def bake_export_animation(rigify_rig, export_rig : bpy.types.Object, armature_ac
 def bake_retarget_animation(source_rig, rigify_rig, retarget_rig, armature_action):
     if utils.try_select_object(rigify_rig, True) and utils.set_active_object(rigify_rig):
         source_rig.animation_data.action = armature_action
-        baked_action = bpy.data.actions.new(armature_action.name + "_Rigify")
+        name = armature_action.name.split("|")[-1]
+        baked_action = bpy.data.actions.new(f"{rigify_rig.name}|Armature|{name}")
         baked_action.use_fake_user = True
         rigify_rig.animation_data.action = baked_action
         start_frame = int(armature_action.frame_range[0])
