@@ -1818,6 +1818,22 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
     return retarget_rig
 
 
+def adv_retarget_CC_remove_pair(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
+    rigify_rig = chr_cache.get_armature()
+    retarget_rig = chr_cache.rig_retarget_rig
+    if utils.still_exists(retarget_rig):
+        if utils.object_mode_to(retarget_rig):
+            for retarget_def in RETARGET_CC3:
+                rigify_bone_name = retarget_def[1]
+                bones.clear_constraints(rigify_rig, rigify_bone_name)
+        bpy.data.objects.remove(retarget_rig)
+    chr_cache.rig_retarget_rig = None
+    utils.try_select_object(rigify_rig, True)
+    utils.set_active_object(rigify_rig)
+    utils.set_mode("OBJECT")
+
+
 def adv_retarget_CC_pair_rigs(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
     origin_cc3_rig = chr_cache.rig_original_rig
@@ -1853,6 +1869,8 @@ def adv_retarget_CC_pair_rigs(op, chr_cache):
     if not check_armature_action(source_rig, source_action):
         op.report({'ERROR'}, "Source Action does not match Source Armature!")
         return None
+
+    adv_retarget_CC_remove_pair(op, chr_cache)
 
     temp_collection = utils.force_visible_in_scene("TMP_Retarget", source_rig, origin_cc3_rig, rigify_rig)
 
@@ -1898,7 +1916,7 @@ def adv_bake_CC_retargeted_action(op, chr_cache):
                         break
             bake_retarget_animation(source_rig, rigify_rig, retarget_rig, source_action)
 
-            bpy.data.objects.remove(retarget_rig)
+            adv_retarget_CC_remove_pair(op, chr_cache)
 
         utils.restore_visible_in_scene(temp_collection)
 
@@ -2714,6 +2732,9 @@ class CC3Rigifier(bpy.types.Operator):
 
             elif self.param == "RETARGET_CC_PAIR_RIGS":
                 adv_retarget_CC_pair_rigs(self, chr_cache)
+
+            elif self.param == "RETARGET_CC_REMOVE_PAIR":
+                adv_retarget_CC_remove_pair(self, chr_cache)
 
             elif self.param == "RETARGET_CC_BAKE_ACTION":
                 adv_bake_CC_retargeted_action(self, chr_cache)

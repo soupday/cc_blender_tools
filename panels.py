@@ -825,7 +825,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     if True:
 
-                        layout.box().row().label(text = "CC/ActorCore Retarget", icon = "ARMATURE_DATA")
+                        layout.box().row().label(text = "CC/ActorCore Re-target", icon = "ARMATURE_DATA")
 
                         layout.label(text="Source Armature:")
 
@@ -854,21 +854,16 @@ class CC3RigifyPanel(bpy.types.Panel):
                         layout.separator()
 
                         row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Retargeted Action").param = "RETARGET_CC_PAIR_RIGS"
-                        row.enabled = chr_cache is not None
-
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Re-target").param = "RETARGET_CC_PAIR_RIGS"
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="X", text="Stop Preview").param = "RETARGET_CC_REMOVE_PAIR"
+                        row.enabled = chr_cache.rig_retarget_rig is not None
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Animation").param = "RETARGET_CC_BAKE_ACTION"
-                        row.enabled = chr_cache is not None
-
                         layout.separator()
-
                         layout.box().row().label(text = "Unity Bake", icon = "CUBE")
-
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Unity Animation").param = "BAKE_UNITY_ANIMATION"
-                        row.enabled = chr_cache is not None
-
 
                 elif chr_cache.can_be_rigged():
 
