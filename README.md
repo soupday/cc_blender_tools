@@ -33,6 +33,8 @@ Links
 ## Changelog
 
 ### 1.3.3
+- CC/iC/ActorCore animation Retargeting to CC Rigified Rig.
+    - Arms, Legs, Heel & Height adjustments.
 - Bake control rig animation to Unity.
 - Export Rigified character to Unity.
 

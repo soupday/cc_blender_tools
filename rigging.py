@@ -1838,6 +1838,9 @@ def adv_retarget_CC_pair_rigs(op, chr_cache):
     if not rigify_rig:
         op.report({'ERROR'}, "No Rigify Armature!")
         return None
+    if not source_action:
+        op.report({'ERROR'}, "No Source Action!")
+        return None
     if not is_rigify_armature(rigify_rig):
         op.report({'ERROR'}, "Selected Armature is not a Rigify armature!")
         return None
