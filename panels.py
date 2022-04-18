@@ -835,6 +835,9 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         layout.template_list("ACTION_UL_List", "bake_action_list", bpy.data, "actions", props, "action_list_index", rows=1, maxrows=5)
 
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Set Rig Action").param = "RIGIFY_SET_ACTION"
+
                         layout.separator()
 
                         layout.label(text="Limb Correction:")

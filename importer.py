@@ -371,14 +371,14 @@ def remap_action_names(actions, objects, name):
                 num_keys += 1
 
     for action in actions:
+        action_name = action.name.split("|")[-1]
         if action.name.startswith("Armature"):
-            action.name = f"{name}|{action.name}"
+            action.name = f"{name}|A|{action_name}"
         else:
             for obj_name in key_map:
                 key_name = key_map[obj_name]
                 if action.name.startswith(key_name):
-                    action_name = action.name[len(key_name) + 1:]
-                    action.name = f"{name}|Key|{obj_name}|{action_name}"
+                    action.name = f"{name}|K|{obj_name}|{action_name}"
 
 
 def detect_character(file_path, type, objects, actions, json_data, warn):

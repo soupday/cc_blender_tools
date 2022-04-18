@@ -1818,6 +1818,30 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
     return retarget_rig
 
 
+def adv_retarget_set_rigify_action(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
+    rigify_rig = chr_cache.get_armature()
+    source_action = props.action_list_action
+
+    if not rigify_rig:
+        op.report({'ERROR'}, "No Rigify Armature!")
+        return None
+    if not source_action:
+        op.report({'ERROR'}, "No Source Action!")
+        return None
+    if not is_rigify_armature(rigify_rig):
+        op.report({'ERROR'}, "Selected Armature is not a Rigify armature!")
+        return None
+    if not check_armature_action(rigify_rig, source_action):
+        op.report({'ERROR'}, "Action does not match Rigified Armature!")
+        return None
+
+    if rigify_rig and source_action:
+        if rigify_rig.animation_data is None:
+            rigify_rig.animation_data.create()
+        rigify_rig.animation_data.action = source_action
+
+
 def adv_retarget_CC_remove_pair(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
     rigify_rig = chr_cache.get_armature()
@@ -2145,7 +2169,7 @@ def bake_export_animation(rigify_rig, export_rig : bpy.types.Object, armature_ac
     if utils.try_select_object(export_rig, True) and utils.set_active_object(export_rig):
         rigify_rig.animation_data.action = armature_action
         name = armature_action.name.split("|")[-1]
-        baked_action = bpy.data.actions.new(f"{export_rig.name}|Armature|{name}")
+        baked_action = bpy.data.actions.new(f"{export_rig.name}|A|{name}")
         baked_action.use_fake_user = True
         export_rig.animation_data.action = baked_action
         start_frame = int(armature_action.frame_range[0])
@@ -2162,7 +2186,7 @@ def bake_retarget_animation(source_rig, rigify_rig, retarget_rig, armature_actio
     if utils.try_select_object(rigify_rig, True) and utils.set_active_object(rigify_rig):
         source_rig.animation_data.action = armature_action
         name = armature_action.name.split("|")[-1]
-        baked_action = bpy.data.actions.new(f"{rigify_rig.name}|Armature|{name}")
+        baked_action = bpy.data.actions.new(f"{rigify_rig.name}|A|{name}")
         baked_action.use_fake_user = True
         rigify_rig.animation_data.action = baked_action
         start_frame = int(armature_action.frame_range[0])
@@ -2735,6 +2759,9 @@ class CC3Rigifier(bpy.types.Operator):
 
             elif self.param == "RETARGET_CC_REMOVE_PAIR":
                 adv_retarget_CC_remove_pair(self, chr_cache)
+
+            elif self.param == "RIGIFY_SET_ACTION":
+                adv_retarget_set_rigify_action(self, chr_cache)
 
             elif self.param == "RETARGET_CC_BAKE_ACTION":
                 adv_bake_CC_retargeted_action(self, chr_cache)
