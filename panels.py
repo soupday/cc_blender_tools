@@ -1236,6 +1236,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         op.param = "IMPORT"
         layout.separator()
         row = layout.row()
+        row.scale_y = 2
         op = row.operator("cc3.anim_importer", icon="ARMATURE_DATA", text="Import Animations")
 
         box = layout.box()
