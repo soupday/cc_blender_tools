@@ -71,12 +71,12 @@ class ARMATURE_UL_List(bpy.types.UIList):
             item_name = utils.strip_name(item.name)
             if item.type != "ARMATURE": # only list armatures
                 filtered[i] &= ~self.bitflag_filter_item
+            elif item_name.endswith("_Rigify"): # don't list rigified armatures
+                filtered[i] &= ~self.bitflag_filter_item
+            elif item_name.endswith("_Retarget"): # don't list retarget armatures
+                filtered[i] &= ~self.bitflag_filter_item
             elif len(item.data.bones) > 0 and "BoneRoot" not in item.data.bones[0].name:
                 filtered[i] &= ~self.bitflag_filter_item
-            #elif item_name.endswith("_Rigify"): # don't list rigified armatures
-            #    filtered[i] &= ~self.bitflag_filter_item
-            #elif item_name.endswith("_Retarget"): # don't list retarget armatures
-            #    filtered[i] &= ~self.bitflag_filter_item
             else:
                 if self.filter_name and self.filter_name != "*":
                     if self.filter_name not in item.name:
