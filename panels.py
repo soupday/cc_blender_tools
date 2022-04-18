@@ -71,10 +71,12 @@ class ARMATURE_UL_List(bpy.types.UIList):
             item_name = utils.strip_name(item.name)
             if item.type != "ARMATURE": # only list armatures
                 filtered[i] &= ~self.bitflag_filter_item
-            elif item_name.endswith("_Rigify"): # don't list rigified armatures
+            elif len(item.data.bones) > 0 and "BoneRoot" not in item.data.bones[0].name:
                 filtered[i] &= ~self.bitflag_filter_item
-            elif item_name.endswith("_Retarget"): # don't list retarget armatures
-                filtered[i] &= ~self.bitflag_filter_item
+            #elif item_name.endswith("_Rigify"): # don't list rigified armatures
+            #    filtered[i] &= ~self.bitflag_filter_item
+            #elif item_name.endswith("_Retarget"): # don't list retarget armatures
+            #    filtered[i] &= ~self.bitflag_filter_item
             else:
                 if self.filter_name and self.filter_name != "*":
                     if self.filter_name not in item.name:
@@ -102,9 +104,9 @@ class ACTION_UL_List(bpy.types.UIList):
                 filtered[i] &= ~self.bitflag_filter_item
             elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
                 filtered[i] &= ~self.bitflag_filter_item
-            elif item_name.endswith("_Rigify"): # don't show rigify baked actions
+            elif "_Rigify|" in item_name: # don't show rigify baked actions
                 filtered[i] &= ~self.bitflag_filter_item
-            elif item_name.endswith("_Unity"): # don't show unity baked actions
+            elif "_Unity|" in item.name: # don't show unity baked actions
                 filtered[i] &= ~self.bitflag_filter_item
             else:
                 if self.filter_name and self.filter_name != "*":
@@ -834,10 +836,9 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         layout.template_list("ACTION_UL_List", "bake_action_list", bpy.data, "actions", props, "action_list_index", rows=1, maxrows=5)
 
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Set Rig Action").param = "RIGIFY_SET_ACTION"
-
-                        layout.separator()
+                        #row = layout.row()
+                        #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Set Rig Action").param = "RIGIFY_SET_ACTION"
+                        #layout.separator()
 
                         layout.label(text="Limb Correction:")
                         column = layout.column()

@@ -638,28 +638,43 @@ def remove_from_collection(coll, item):
             return
 
 
+def delete_armature_object(arm):
+    if object_exists_is_armature(arm):
+        data = arm.data
+        bpy.data.objects.remove(arm)
+        if data:
+            bpy.data.armatures.remove(data)
+
+
+def delete_mesh_object(obj):
+    if object_exists_is_mesh(obj):
+        data = obj.data
+        bpy.data.objects.remove(obj)
+        if data:
+            bpy.data.meshes.remove(data)
+
+
 def force_visible_in_scene(collection_name, *objects):
-    collection = bpy.data.collections.new(collection_name)
-    bpy.context.scene.collection.children.link(collection)
+    tmp_collection = bpy.data.collections.new(collection_name)
+    bpy.context.scene.collection.children.link(tmp_collection)
     for obj in objects:
         if not obj.visible_get():
             log_info(f"Object: {obj.name} is not visible or in a hidden collection. Linking to temporary root collection and making visible.")
             obj.hide_set(False)
-            collection.objects.link(obj)
-    return collection
+            tmp_collection.objects.link(obj)
+    return tmp_collection
 
 
-def restore_visible_in_scene(collection : bpy.types.Collection):
+def restore_visible_in_scene(tmp_collection : bpy.types.Collection):
     objects = []
-    for obj in collection.objects:
+    for obj in tmp_collection.objects:
         objects.append(obj)
     for obj in objects:
         log_info(f"Object: {obj.name} Unlinking from temporary root collection and hiding.")
         obj.hide_set(True)
-        collection.objects.unlink(obj)
-    bpy.context.scene.collection.children.unlink(collection)
-    bpy.data.collections.remove(collection)
-
+        tmp_collection.objects.unlink(obj)
+    bpy.context.scene.collection.children.unlink(tmp_collection)
+    bpy.data.collections.remove(tmp_collection)
 
 
 def get_object_collection(obj):
@@ -689,9 +704,44 @@ def index_of_collection(item, collection):
     return -1
 
 
-def collection_at(index, collection):
+def collection_at_index(index, collection):
     if index >= 0 and index < len(collection):
         return collection[index]
+    return None
+
+
+def set_active_layer_collection(layer_collection):
+     old = bpy.context.view_layer.active_layer_collection
+     bpy.context.view_layer.active_layer_collection = layer_collection
+     return old
+
+
+def set_active_layer_collection_from(obj):
+    nlc = find_layer_collection_containing(obj)
+    return set_active_layer_collection(nlc)
+
+
+def find_layer_collection_containing(obj, layer_collection = None):
+    if not layer_collection:
+        layer_collection = bpy.context.view_layer.layer_collection
+    if obj.name in layer_collection.collection.objects:
+        return layer_collection
+    for child in layer_collection.children:
+        found = find_layer_collection_containing(obj, child)
+        if found:
+            return found
+    return None
+
+
+def find_layer_collection(name, layer_collection = None):
+    if not layer_collection:
+        layer_collection = bpy.context.view_layer.layer_collection
+    if layer_collection.name == name:
+        return layer_collection
+    for child in layer_collection.children:
+        found = find_layer_collection(name, child)
+        if found:
+            return found
     return None
 
 

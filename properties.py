@@ -1609,7 +1609,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     def store_ui_list_indices(self):
         """Store the indices as objects, because adding new objects will cause the indices to become invalid."""
-        self.armature_list_object = utils.collection_at(self.armature_list_index, bpy.data.objects)
-        self.action_list_action = utils.collection_at(self.action_list_index, bpy.data.actions)
-        self.unity_action_list_action = utils.collection_at(self.unity_action_list_index, bpy.data.actions)
-        self.rigified_action_list_action = utils.collection_at(self.rigified_action_list_index, bpy.data.actions)
+        self.armature_list_object = utils.collection_at_index(self.armature_list_index, bpy.data.objects)
+        self.action_list_action = utils.collection_at_index(self.action_list_index, bpy.data.actions)
+        self.unity_action_list_action = utils.collection_at_index(self.unity_action_list_index, bpy.data.actions)
+        self.rigified_action_list_action = utils.collection_at_index(self.rigified_action_list_index, bpy.data.actions)

@@ -436,6 +436,8 @@ def detect_character(file_path, type, objects, actions, json_data, warn):
             if arm.type == "ARMATURE":
                 arm_count += 1
                 arm.name = name
+                if arm.data:
+                    arm.data.name = name
                 # in case of duplicate names: character_name contains the name currently in Blender.
                 #                             import_name contains the original name.
                 chr_cache.character_name = arm.name
@@ -971,11 +973,13 @@ class CC3ImportAnimations(bpy.types.Operator):
             for obj in objects:
                 if obj.type == "ARMATURE":
                     obj.name = name
+                    if obj.data:
+                        obj.data.name = name
                     #utils.log_info(f"Moving Object: {obj.name} to animation collection.")
                     #utils.move_object_to_collection(obj, collection)
                 else:
                     utils.log_info(f"Removing Object: {obj.name}")
-                    bpy.data.objects.remove(obj)
+                    utils.delete_mesh_object(obj)
 
             if self.remove_shape_keys:
                 for action in shapekey_actions:
@@ -1008,8 +1012,8 @@ class CC3ImportAnimations(bpy.types.Operator):
         utils.start_timer()
 
         utils.log_info("")
-        utils.log_info("Building Character Materials:")
-        utils.log_info("-----------------------------")
+        utils.log_info("Importing FBX Animations:")
+        utils.log_info("-------------------------")
 
         for fbx_file in self.files:
             self.import_animation_fbx(self.directory, fbx_file.name)

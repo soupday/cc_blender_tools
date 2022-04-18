@@ -1562,17 +1562,18 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     utils.log_info("Cleaning Up...")
 
     rig_name = cc3_rig.name
-    if chr_cache.generation == "G3":
-        cc3_rig.name = rig_name + "_CC3"
-    elif chr_cache.generation == "G3Plus":
-        cc3_rig.name = rig_name + "_CC3+"
-    elif chr_cache.generation == "ActorCore":
-        cc3_rig.name = rig_name + "_ActorCore"
-    else:
-        cc3_rig.name = rig_name + "_Origin"
+    #if chr_cache.generation == "G3":
+    #    cc3_rig.name = rig_name + "_CC3"
+    #elif chr_cache.generation == "G3Plus":
+    #    cc3_rig.name = rig_name + "_CC3+"
+    #elif chr_cache.generation == "ActorCore":
+    #    cc3_rig.name = rig_name + "_ActorCore"
+    #else:
+    #    cc3_rig.name = rig_name + "_Origin"
     cc3_rig.hide_set(True)
-    bpy.data.objects.remove(meta_rig)
+    utils.delete_armature_object(meta_rig)
     rigify_rig.name = rig_name + "_Rigify"
+    rigify_rig.data.name = rig_name + "_Rigify"
 
     if utils.set_mode("OBJECT"):
 
@@ -1605,7 +1606,7 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
     rigify_rig.hide_set(False)
     rigify_rig.data.pose_position = "POSE"
 
-    retarget_rig = bpy.data.objects.new(origin_cc3_rig.name + "_Retarget", bpy.data.armatures.new(origin_cc3_rig.name + "_Retarget"))
+    retarget_rig = bpy.data.objects.new(chr_cache.character_name + "_Retarget", bpy.data.armatures.new(origin_cc3_rig.name + "_Retarget"))
     bpy.context.collection.objects.link(retarget_rig)
     if retarget_rig:
 
@@ -1851,7 +1852,7 @@ def adv_retarget_CC_remove_pair(op, chr_cache):
             for retarget_def in RETARGET_CC3:
                 rigify_bone_name = retarget_def[1]
                 bones.clear_constraints(rigify_rig, rigify_bone_name)
-        bpy.data.objects.remove(retarget_rig)
+        utils.delete_armature_object(retarget_rig)
     chr_cache.rig_retarget_rig = None
     utils.try_select_object(rigify_rig, True)
     utils.set_active_object(rigify_rig)
@@ -1868,6 +1869,8 @@ def adv_retarget_CC_pair_rigs(op, chr_cache):
         if source_rig.animation_data is None:
             source_rig.animation_data.create()
         source_rig.animation_data.action = source_action
+
+    olc = utils.set_active_layer_collection_from(rigify_rig)
 
     if not source_rig:
         op.report({'ERROR'}, "No source Armature!")
@@ -1898,8 +1901,7 @@ def adv_retarget_CC_pair_rigs(op, chr_cache):
 
     temp_collection = utils.force_visible_in_scene("TMP_Retarget", source_rig, origin_cc3_rig, rigify_rig)
 
-    if utils.object_exists_is_armature(chr_cache.rig_retarget_rig):
-        bpy.data.objects.remove(chr_cache.rig_retarget_rig)
+    utils.delete_armature_object(chr_cache.rig_retarget_rig)
     retarget_rig = generate_CC3_retargeting_rig(chr_cache, source_rig, origin_cc3_rig, rigify_rig)
     chr_cache.rig_retarget_rig = retarget_rig
     utils.object_mode_to(rigify_rig)
@@ -1913,6 +1915,8 @@ def adv_retarget_CC_pair_rigs(op, chr_cache):
         pass
 
     utils.restore_visible_in_scene(temp_collection)
+
+    utils.set_active_layer_collection(olc)
 
     return retarget_rig
 
@@ -2622,6 +2626,9 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("-------------------------")
 
                 if self.cc3_rig:
+
+                    olc = utils.set_active_layer_collection_from(self.cc3_rig)
+
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
@@ -2653,6 +2660,8 @@ class CC3Rigifier(bpy.types.Operator):
                     else:
                         self.report({'ERROR'}, "Rigify Incomplete! Face rig weighting Failed!. See console log.")
 
+                    utils.set_active_layer_collection(olc)
+
                 utils.log_timer("Done Rigify Process")
 
             elif self.param == "META_RIG":
@@ -2664,6 +2673,9 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("---------------==--------")
 
                 if self.cc3_rig:
+
+                    olc = utils.set_active_layer_collection_from(self.cc3_rig)
+
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
@@ -2672,11 +2684,15 @@ class CC3Rigifier(bpy.types.Operator):
 
                         self.report({'INFO'}, "Meta-rig generated!")
 
+                    utils.set_active_layer_collection(olc)
+
             elif self.param == "RIGIFY_META":
 
                 self.meta_rig = chr_cache.rig_meta_rig
 
                 if self.cc3_rig and self.meta_rig:
+
+                    olc = utils.set_active_layer_collection_from(self.cc3_rig)
 
                     if utils.set_mode("OBJECT") and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
 
@@ -2697,6 +2713,8 @@ class CC3Rigifier(bpy.types.Operator):
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
+
+                    utils.set_active_layer_collection(olc)
 
                 chr_cache.rig_meta_rig = None
                 if face_result == 1:
