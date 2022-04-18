@@ -1818,24 +1818,38 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
     return retarget_rig
 
 
-def is_cc3_action(action):
-    for fcurve in action.fcurves:
-        if "CC_Base_BoneRoot" in fcurve.data_path:
-            return True
-    return False
-
-
 def adv_retarget_CC_pair_rigs(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
-    # source rig
-    source_rig_index = props.armature_list_index
-    source_rig = bpy.data.objects[source_rig_index]
     origin_cc3_rig = chr_cache.rig_original_rig
     rigify_rig = chr_cache.get_armature()
-    # source action
+    source_rig = props.armature_list_object
     source_action = props.action_list_action
-    # apply the action to the source rig
-    source_rig.animation_data.action = source_action
+    if source_rig:
+        if source_rig.animation_data is None:
+            source_rig.animation_data.create()
+        source_rig.animation_data.action = source_action
+
+    if not source_rig:
+        op.report({'ERROR'}, "No source Armature!")
+        return None
+    if not origin_cc3_rig:
+        op.report({'ERROR'}, "No character origin Armature!")
+        return None
+    if not rigify_rig:
+        op.report({'ERROR'}, "No Rigify Armature!")
+        return None
+    if not is_rigify_armature(rigify_rig):
+        op.report({'ERROR'}, "Selected Armature is not a Rigify armature!")
+        return None
+    if not is_cc3_armature(source_rig):
+        op.report({'ERROR'}, "Source Armature is not a CC/iC Armature!")
+        return None
+    if not is_cc3_armature(origin_cc3_rig):
+        op.report({'ERROR'}, "Origin Armature is not a CC/iC Armature!")
+        return None
+    if not check_armature_action(source_rig, source_action):
+        op.report({'ERROR'}, "Source Action does not match Source Armature!")
+        return None
 
     temp_collection = utils.force_visible_in_scene("TMP_Retarget", source_rig, origin_cc3_rig, rigify_rig)
 
@@ -1860,17 +1874,16 @@ def adv_retarget_CC_pair_rigs(op, chr_cache):
 
 def adv_bake_CC_retargeted_action(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
-    # source rig
-    source_rig = props.armature_list_object
     rigify_rig = chr_cache.get_armature()
     retarget_rig = adv_retarget_CC_pair_rigs(op, chr_cache)
-    # source action
+    source_rig = props.armature_list_object
     source_action = props.action_list_action
-    # apply the action to the source rig
-    source_rig.animation_data.action = source_action
+    if source_rig:
+        if source_rig.animation_data is None:
+            source_rig.animation_data.create()
+        source_rig.animation_data.action = source_action
 
     if retarget_rig:
-
         temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", source_rig, retarget_rig, rigify_rig)
 
         if utils.object_mode_to(rigify_rig):
@@ -2442,7 +2455,51 @@ def rejoin_head(head_mesh, body_mesh):
     utils.set_mode("OBJECT")
 
 
+CC3_BONE_NAMES = [
+    "CC_Base_BoneRoot", "CC_Base_Hip", "CC_Base_Head", "CC_Base_Spine01", "CC_Base_Spine02"
+]
 
+RIGIFY_BONE_NAMES = [
+    "root", "hips", "torso", "head", "spine_fk", "spine_fk.001", "foot_ik.L", "foot_ik.R", "hand_ik.L", "hand_ik.R",
+]
+
+def is_cc3_action(action):
+    count = 0
+    for fcurve in action.fcurves:
+        bone_name = bones.get_bone_name_from_data_path(fcurve.data_path)
+        bone_name = unify_cc3_bone_name(bone_name)
+        if bone_name in CC3_BONE_NAMES:
+            count += 1
+    return count >= 5
+
+
+def is_cc3_armature(armature):
+    count = 0
+    for bone in armature.data.bones:
+        bone_name = unify_cc3_bone_name(bone.name)
+        if bone_name in CC3_BONE_NAMES:
+            count += 1
+    return count >= 5
+
+
+def is_rigify_armature(armature):
+    count = 0
+    for bone in armature.data.bones:
+        bone_name = bone.name
+        if bone_name in RIGIFY_BONE_NAMES:
+            count += 1
+    return count >= 10
+
+
+def check_armature_action(armature, action):
+    total = 0
+    matching = 0
+    for fcurve in action.fcurves:
+        total += 1
+        bone_name = bones.get_bone_name_from_data_path(fcurve.data_path)
+        if bone_name and bone_name in armature.data.bones:
+            matching += 1
+    return matching / total > 0
 
 
 class CC3Rigifier(bpy.types.Operator):
