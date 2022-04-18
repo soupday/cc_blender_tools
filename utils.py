@@ -673,6 +673,8 @@ def get_object_collection(obj):
 
 def move_object_to_collection(obj, collection):
     col : bpy.types.Collection
+    if obj.name in bpy.context.scene.collection:
+        bpy.context.scene.collection.objects.unlink(obj)
     for col in bpy.data.collections:
         if col != collection and obj.name in col.objects:
             col.objects.unlink(obj)

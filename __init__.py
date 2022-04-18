@@ -117,6 +117,7 @@ classes = (
     properties.CC3ImportProps,
 
     importer.CC3Import,
+    importer.CC3ImportAnimations,
     exporter.CC3Export,
     scene.CC3Scene,
     bake.CC3BakeOperator,

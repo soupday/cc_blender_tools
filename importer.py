@@ -360,25 +360,36 @@ def detect_generation(chr_cache, json_data):
 
 
 def remap_action_names(actions, objects, name):
-
     key_map = {}
     num_keys = 0
+
+    armature_actions = []
+    shapekey_actions = []
 
     for obj in objects:
         if obj.type == "MESH":
             if obj.data.shape_keys:
                 key_map[utils.strip_name(obj.name)] = obj.data.shape_keys.name
+                utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {obj.name}")
                 num_keys += 1
 
     for action in actions:
         action_name = action.name.split("|")[-1]
         if action.name.startswith("Armature"):
-            action.name = f"{name}|A|{action_name}"
+            new_name = f"{name}|A|{action_name}"
+            utils.log_info(f"Renaming action: {action.name} to {new_name}")
+            action.name = new_name
+            armature_actions.append(action)
         else:
             for obj_name in key_map:
                 key_name = key_map[obj_name]
                 if action.name.startswith(key_name):
-                    action.name = f"{name}|K|{obj_name}|{action_name}"
+                    new_name = f"{name}|K|{obj_name}|{action_name}"
+                    utils.log_info(f"Renaming action: {action.name} to {new_name}")
+                    action.name = new_name
+                    shapekey_actions.append(action)
+
+    return armature_actions, shapekey_actions
 
 
 def detect_character(file_path, type, objects, actions, json_data, warn):
@@ -442,7 +453,10 @@ def detect_character(file_path, type, objects, actions, json_data, warn):
                 chr_cache.add_object_cache(obj)
 
         # remame actions
+        utils.log_info("Renaming actions:")
+        utils.log_indent()
         remap_action_names(actions, objects, chr_cache.character_name)
+        utils.log_recess()
 
         # determine character generation
         chr_cache.generation = detect_generation(chr_cache, json_data)
@@ -870,6 +884,146 @@ class CC3Import(bpy.types.Operator):
             return "Removes the character and any associated objects, meshes, materials, nodes, images, armature actions and shapekeys. Basically deletes everything not nailed down.\n**Do not press this if there is anything you want to keep!**"
         elif properties.param == "REBUILD_NODE_GROUPS":
             return "Rebuilds the shader node groups for the advanced and eye materials."
+        return ""
+
+
+class CC3ImportAnimations(bpy.types.Operator):
+    """Import CC3 animations"""
+    bl_idname = "cc3.anim_importer"
+    bl_label = "Import Animations"
+    bl_options = {"REGISTER", "UNDO"}
+
+    filepath: bpy.props.StringProperty(
+        name="Filepath",
+        description="Filepath of the fbx to import.",
+        subtype="FILE_PATH"
+    )
+
+    directory: bpy.props.StringProperty(subtype='DIR_PATH')
+
+    files: bpy.props.CollectionProperty(
+            type=bpy.types.OperatorFileListElement,
+            options={'HIDDEN', 'SKIP_SAVE'}
+    )
+
+    filter_glob: bpy.props.StringProperty(
+        default="*.fbx",
+        options={"HIDDEN"}
+    )
+
+    remove_meshes: bpy.props.BoolProperty(
+        default = True,
+        description="Remove all imported mesh objects.",
+        name="Remove Meshes",
+    )
+
+    remove_materials_images: bpy.props.BoolProperty(
+        default = True,
+        description="Remove all imported materials and image textures.",
+        name="Remove Materials & Images",
+    )
+
+    remove_shape_keys: bpy.props.BoolProperty(
+        default = False,
+        description="Remove Shapekey actions along with their meshes.",
+        name="Remove Shapekey Actions",
+    )
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = "",
+            options={"HIDDEN"}
+    )
+
+    def import_animation_fbx(self, dir, file):
+        path = os.path.join(dir, file)
+        name = file[:-4]
+
+        utils.log_info(f"Importing Fbx file: {path}")
+
+        # invoke the fbx importer
+        utils.tag_objects()
+        utils.tag_images()
+        utils.tag_actions()
+        utils.tag_materials()
+        bpy.ops.import_scene.fbx(filepath=path, directory=dir, use_anim=True)
+        objects = utils.untagged_objects()
+        actions = utils.untagged_actions()
+        images = utils.untagged_images()
+        materials = utils.untagged_materials()
+
+        #if "Imported Animations" not in bpy.data.collections:
+        #    collection = bpy.data.collections.new("Imported Animations")
+        #    bpy.context.scene.collection.children.link(collection)
+        #else:
+        #    collection = bpy.data.collections["Imported Animations"]
+
+        utils.log_info("Renaming actions:")
+        utils.log_indent()
+        armature_actions, shapekey_actions = remap_action_names(actions, objects, name)
+        utils.log_recess()
+
+        utils.log_info("Cleaning up:")
+        utils.log_indent()
+
+        # only interested in actions, delete the rest
+        if self.remove_meshes:
+            for obj in objects:
+                if obj.type == "ARMATURE":
+                    obj.name = name
+                    #utils.log_info(f"Moving Object: {obj.name} to animation collection.")
+                    #utils.move_object_to_collection(obj, collection)
+                else:
+                    utils.log_info(f"Removing Object: {obj.name}")
+                    bpy.data.objects.remove(obj)
+
+            if self.remove_shape_keys:
+                for action in shapekey_actions:
+                    utils.log_info(f"Removing Shapekey Action: {action.name}")
+                    bpy.data.actions.remove(action)
+        else:
+            #for obj in objects:
+            #    utils.log_info(f"Moving Object: {obj.name} to animation collection.")
+            #    utils.move_object_to_collection(obj, collection)
+            pass
+
+
+        if self.remove_materials_images:
+            for img in images:
+                utils.log_info(f"Removing Image: {img.name}")
+                bpy.data.images.remove(img)
+
+            for mat in materials:
+                utils.log_info(f"Removing Material: {mat.name}")
+                bpy.data.materials.remove(mat)
+
+        utils.log_recess()
+
+        return
+
+    def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        utils.start_timer()
+
+        utils.log_info("")
+        utils.log_info("Building Character Materials:")
+        utils.log_info("-----------------------------")
+
+        for fbx_file in self.files:
+            self.import_animation_fbx(self.directory, fbx_file.name)
+
+        utils.log_timer("Done Build.", "s")
+
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    @classmethod
+    def description(cls, context, properties):
         return ""
 
 

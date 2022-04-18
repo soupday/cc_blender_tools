@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import enum
 import bpy
 
 import textwrap
@@ -1235,6 +1234,9 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         row.scale_y = 2
         op = row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Import Character")
         op.param = "IMPORT"
+        layout.separator()
+        row = layout.row()
+        op = row.operator("cc3.anim_importer", icon="ARMATURE_DATA", text="Import Animations")
 
         box = layout.box()
         box.label(text="Exporting", icon="EXPORT")

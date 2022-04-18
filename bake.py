@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-from webbrowser import get
 import bpy
 import os
 from mathutils import Vector
