@@ -829,11 +829,11 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         layout.label(text="Source Armature:")
 
-                        layout.template_list("ARMATURE_UL_List", "bake_armature_list", bpy.data, "objects", props, "object_index", rows=1, maxrows=4)
+                        layout.template_list("ARMATURE_UL_List", "bake_armature_list", bpy.data, "objects", props, "armature_list_index", rows=1, maxrows=4)
 
                         layout.label(text="Source Action:")
 
-                        layout.template_list("ACTION_UL_List", "bake_action_list", bpy.data, "actions", props, "action_index", rows=1, maxrows=5)
+                        layout.template_list("ACTION_UL_List", "bake_action_list", bpy.data, "actions", props, "action_list_index", rows=1, maxrows=5)
 
                         layout.separator()
 

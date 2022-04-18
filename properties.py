@@ -412,7 +412,6 @@ def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, ma
         shaders.fetch_prop_defaults(mat_cache, mat_json)
 
 
-
 class CC3OperatorProperties(bpy.types.Operator):
     """CC3 Property Functions"""
     bl_idname = "cc3.setproperties"
@@ -1534,9 +1533,15 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     hair_toggle: bpy.props.BoolProperty(default=True)
     default_toggle: bpy.props.BoolProperty(default=True)
 
-    # UI List of actions index
-    action_index: bpy.props.IntProperty(default=-1)
-    object_index: bpy.props.IntProperty(default=-1)
+    # UI List props
+    action_list_index: bpy.props.IntProperty(default=-1)
+    action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
+    armature_list_index: bpy.props.IntProperty(default=-1)
+    armature_list_object: bpy.props.PointerProperty(type=bpy.types.Object)
+    unity_action_list_index: bpy.props.IntProperty(default=-1)
+    unity_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
+    rigified_action_list_index: bpy.props.IntProperty(default=-1)
+    rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
 
     def get_any_character_cache_from_objects(self, objects):
         chr_cache : CC3CharacterCache
@@ -1594,3 +1599,17 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             if utils.is_in_path(self.unity_project_path, utils.local_path()):
                 return True
         return False
+
+    def restore_ui_list_indices(self):
+        """Restore the indices from the stored objects, because adding new objects will cause the indices to become invalid."""
+        self.armature_list_index = utils.index_of_collection(self.armature_list_object, bpy.data.objects)
+        self.action_list_index = utils.index_of_collection(self.action_list_action, bpy.data.actions)
+        self.unity_action_list_index = utils.index_of_collection(self.unity_action_list_action, bpy.data.actions)
+        self.rigified_action_list_index = utils.index_of_collection(self.rigified_action_list_action, bpy.data.actions)
+
+    def store_ui_list_indices(self):
+        """Store the indices as objects, because adding new objects will cause the indices to become invalid."""
+        self.armature_list_object = utils.collection_at(self.armature_list_index, bpy.data.objects)
+        self.action_list_action = utils.collection_at(self.action_list_index, bpy.data.actions)
+        self.unity_action_list_action = utils.collection_at(self.unity_action_list_index, bpy.data.actions)
+        self.rigified_action_list_action = utils.collection_at(self.rigified_action_list_index, bpy.data.actions)

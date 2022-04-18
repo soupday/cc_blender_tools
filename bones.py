@@ -256,6 +256,24 @@ def add_damped_track_constraint(rig, bone_name, target_name, influence):
         return None
 
 
+def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance, influence = 1.0, space="WORLD"):
+    try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            c : bpy.types.LimitDistanceConstraint = to_pose_bone.constraints.new(type="LIMIT_DISTANCE")
+            c.target = from_rig
+            c.subtarget = from_bone
+            c.distance = distance
+            c.limit_mode = "LIMITDIST_ONSURFACE"
+            c.target_space = space
+            c.owner_space = space
+            c.influence = influence
+            return c
+    except:
+        utils.log_error(f"Unable to add limit distance constraint: {to_bone} {from_bone}")
+        return None
+
+
 def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_connect = True if "C" in flags else False
     edit_bone.use_local_location = True if "L" in flags else False

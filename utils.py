@@ -680,6 +680,19 @@ def move_object_to_collection(obj, collection):
         collection.objects.link(obj)
 
 
+def index_of_collection(item, collection):
+    for i, o in enumerate(collection):
+        if o == item:
+            return i
+    return -1
+
+
+def collection_at(index, collection):
+    if index >= 0 and index < len(collection):
+        return collection[index]
+    return None
+
+
 def is_blender_version(version: str, test = "GTE"):
     """e.g. is_blender_version("3.0.0", "GTE")"""
     major, minor, subversion = version.split(".")
