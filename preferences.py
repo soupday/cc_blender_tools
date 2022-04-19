@@ -161,7 +161,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("BLEND","Blend File","Save the project as a blend file in a Unity project. All textures and folders will be copied to the new location and made relative to the blend file."),
                         ("FBX","FBX","Export the character as an .Fbx file to the specified location. All textures and folders will be copied."),
                     ], default="BLEND", name = "Unity Export Mode")
-    export_texture_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048", description="Size of procedurally generated textures to bake.")
+    export_texture_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Size of procedurally generated textures to bake.")
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 

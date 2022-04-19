@@ -90,6 +90,8 @@ classes = (
     channel_mixer.CC3IDMixer,
     channel_mixer.CC3MixerSettings,
 
+    properties.CC3ActionList,
+    properties.CC3ArmatureList,
     properties.CC3HeadParameters,
     properties.CC3SkinParameters,
     properties.CC3EyeParameters,

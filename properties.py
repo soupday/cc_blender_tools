@@ -438,6 +438,16 @@ class CC3OperatorProperties(bpy.types.Operator):
         return ""
 
 
+class CC3ActionList(bpy.types.PropertyGroup):
+    action: bpy.props.PointerProperty(type=bpy.types.Armature)
+    action_type: bpy.props.EnumProperty(items=vars.ENUM_ACTION_TYPES, default="NONE")
+    armature_type: bpy.props.EnumProperty(items=vars.ENUM_ARMATURE_TYPES, default="NONE")
+
+
+class CC3ArmatureList(bpy.types.PropertyGroup):
+    armature: bpy.props.PointerProperty(type=bpy.types.Armature)
+    armature_type: bpy.props.EnumProperty(items=vars.ENUM_ARMATURE_TYPES, default="NONE")
+    actions: bpy.props.CollectionProperty(type=CC3ActionList)
 
 
 class CC3HeadParameters(bpy.types.PropertyGroup):
@@ -851,7 +861,7 @@ class CC3TextureMapping(bpy.types.PropertyGroup):
 class CC3MaterialCache:
     material: bpy.props.PointerProperty(type=bpy.types.Material)
     source_name: bpy.props.StringProperty(default="")
-    material_type: bpy.props.EnumProperty(items=vars.MATERIAL_TYPES, default="DEFAULT")
+    material_type: bpy.props.EnumProperty(items=vars.ENUM_MATERIAL_TYPES, default="DEFAULT")
     texture_mappings: bpy.props.CollectionProperty(type=CC3TextureMapping)
     #parameters: bpy.props.PointerProperty(type=CC3MaterialParameters)
     mixer_settings: bpy.props.PointerProperty(type=channel_mixer.CC3MixerSettings)
@@ -985,7 +995,7 @@ class CC3SSSMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
 class CC3ObjectCache(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
     source_name: bpy.props.StringProperty(default="")
-    object_type: bpy.props.EnumProperty(items=vars.OBJECT_TYPES, default="DEFAULT")
+    object_type: bpy.props.EnumProperty(items=vars.ENUM_OBJECT_TYPES, default="DEFAULT")
     collision_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_settings: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, HAIR, COTTON, DENIM, LEATHER, RUBBER, SILK
@@ -1534,6 +1544,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     default_toggle: bpy.props.BoolProperty(default=True)
 
     # UI List props
+    armature_action_filter: bpy.props.BoolProperty(default=True)
     action_list_index: bpy.props.IntProperty(default=-1)
     action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
     armature_list_index: bpy.props.IntProperty(default=-1)

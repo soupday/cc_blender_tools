@@ -17,6 +17,7 @@
 import bpy
 
 import textwrap
+
 from . import addon_updater_ops
 from . import rigging, modifiers, channel_mixer, nodeutils, utils, params, vars
 
@@ -93,8 +94,13 @@ class ACTION_UL_List(bpy.types.UIList):
             layout.label(text="", icon_value=icon)
 
     def filter_items(self, context, data, propname):
+        props = bpy.context.scene.CC3ImportProps
         filtered = []
         ordered = []
+        arm_name = None
+        arm_object = utils.collection_at_index(props.armature_list_index, bpy.data.objects)
+        if arm_object and arm_object.type == "ARMATURE":
+            arm_name = arm_object.name
         items = getattr(data, propname)
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
@@ -104,9 +110,11 @@ class ACTION_UL_List(bpy.types.UIList):
                 filtered[i] &= ~self.bitflag_filter_item
             elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
                 filtered[i] &= ~self.bitflag_filter_item
-            elif "_Rigify|" in item_name: # don't show rigify baked actions
+            elif props.armature_action_filter and "_Rigify|A|" in item_name: # don't show rigify baked actions
                 filtered[i] &= ~self.bitflag_filter_item
-            elif "_Unity|" in item.name: # don't show unity baked actions
+            elif props.armature_action_filter and "_Unity|A|" in item.name: # don't show unity baked actions
+                filtered[i] &= ~self.bitflag_filter_item
+            elif props.armature_action_filter and arm_name and "|A|" in item.name and not item.name.startswith(arm_name + "|A|"):
                 filtered[i] &= ~self.bitflag_filter_item
             else:
                 if self.filter_name and self.filter_name != "*":
@@ -828,11 +836,20 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         layout.box().row().label(text = "CC/ActorCore Re-target", icon = "ARMATURE_DATA")
 
+                        row = layout.row()
+                        row.scale_y = 2
+                        #row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Imp. Character").param = "IMPORT"
+                        row.operator("cc3.anim_importer", icon="ARMATURE_DATA", text="Import Animations")
+
                         layout.label(text="Source Armature:")
 
                         layout.template_list("ARMATURE_UL_List", "bake_armature_list", bpy.data, "objects", props, "armature_list_index", rows=1, maxrows=4)
 
-                        layout.label(text="Source Action:")
+                        split = layout.split(factor=0.5)
+                        col_1 = split.column()
+                        col_2 = split.column()
+                        col_1.label(text="Source Action:")
+                        col_2.prop(props, "armature_action_filter", text="Filter by Rig")
 
                         layout.template_list("ACTION_UL_List", "bake_action_list", bpy.data, "actions", props, "action_list_index", rows=1, maxrows=5)
 
