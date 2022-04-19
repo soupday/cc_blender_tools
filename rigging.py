@@ -120,8 +120,8 @@ BONE_MAPPINGS = [
     ["teeth.T", "CC_Base_Teeth01", "CC_Base_Teeth01"],
     ["teeth.B", "CC_Base_Teeth02", "CC_Base_Teeth02"],
 
-    ["eye.R", "CC_Base_R_Eye", ""],
-    ["eye.L", "CC_Base_L_Eye", ""],
+    ["eye.R", "CC_Base_R_Eye", "", 0, 1, "ZUp"],
+    ["eye.L", "CC_Base_L_Eye", "", 0, 1, "ZUp"],
 
     # only when using the basic face rig, a jaw bone is created that needs positioning...
     ["jaw", "CC_Base_JawRoot", "CC_Base_Tongue03", 0, 1.35],
@@ -137,6 +137,18 @@ FACE_BONES = [
     ["tongue", "jaw", "LR", 0, "TONGUE"],
     ["tongue.001", "tongue", "CLR", 0],
     ["tongue.002", "tongue.001", "CLR", 0],
+]
+
+SHAPE_KEY_DRIVERS = [
+    ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A10_Eye_Look_Out_Left", ["SCRIPTED", "var*1.273 if var >=0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A11_Eye_Look_In_Left", ["SCRIPTED", "-var*1.273 if var <0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+
+    ["Bfr", "A07_Eye_Look_Up_Right", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A09_Eye_Look_Down_Right", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A12_Eye_Look_In_Right", ["SCRIPTED", "var*1.273 if var >=0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A13_Eye_Look_Out_Right", ["SCRIPTED", "-var*1.273 if var <0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_Z", "LOCAL_SPACE"]],
 ]
 
 # relative mappings: calculate the head/tail position of the first index,
@@ -1025,18 +1037,26 @@ def map_face(cc3_rig, meta_rig):
     left_eye_source = bones.get_rl_bone(cc3_rig, "CC_Base_L_Eye")
     right_eye = bones.get_edit_bone(meta_rig, "eye.R")
     right_eye_source = bones.get_rl_bone(cc3_rig, "CC_Base_R_Eye")
+    up = mathutils.Vector((0,0,1))
 
     if left_eye and left_eye_source:
         head_position = cc3_rig.matrix_world @ left_eye_source.head_local
         tail_position = cc3_rig.matrix_world @ left_eye_source.tail_local
         dir : mathutils.Vector = tail_position - head_position
         left_eye.tail = head_position - (dir * length)
+        # ensure z_axis is pointing up
+        rot = up.rotation_difference(left_eye.z_axis)
+        left_eye.roll = rot.angle
+
 
     if right_eye and right_eye_source:
         head_position = cc3_rig.matrix_world @ right_eye_source.head_local
         tail_position = cc3_rig.matrix_world @ right_eye_source.tail_local
         dir : mathutils.Vector = tail_position - head_position
         right_eye.tail = head_position - (dir * length)
+        # ensure z_axis is pointing up
+        rot = up.rotation_difference(right_eye.z_axis)
+        right_eye.roll = rot.angle
 
     # head bone
 
@@ -1254,6 +1274,7 @@ def map_bone(cc3_rig, meta_rig, mapping):
 
     utils.log_info(f"Mapping: {dst_bone_name} from: {src_bone_head_name}/{src_bone_tail_name}")
 
+    dst_bone : bpy.types.EditBone
     dst_bone = bones.get_edit_bone(meta_rig, dst_bone_name)
     src_bone = None
 
@@ -1295,7 +1316,7 @@ def map_bone(cc3_rig, meta_rig, mapping):
         # lerp the start and end positions if supplied
         if src_bone:
 
-            if len(mapping) == 5 and src_bone_head_name != "" and src_bone_tail_name != "":
+            if len(mapping) >= 5 and src_bone_head_name != "" and src_bone_tail_name != "":
                 start = mapping[3]
                 end = mapping[4]
                 vec = tail_position - head_position
@@ -1310,6 +1331,12 @@ def map_bone(cc3_rig, meta_rig, mapping):
             # set the tail position
             if src_bone_tail_name != "":
                 dst_bone.tail = tail_position
+
+        if len(mapping) == 6:
+            instr = mapping[5]
+            if instr == "ZUp":
+                pass
+
     else:
         utils.log_error(f"destination bone: {dst_bone_name} not found!")
 
@@ -1396,9 +1423,10 @@ def convert_to_basic_face_rig(meta_rig):
         delete_bones = []
 
         # remove all meta-rig bones in layer[0] (the face bones)
+        KEEP_BONES = []
         bone : bpy.types.EditBone
         for bone in meta_rig.data.edit_bones:
-            if bone.layers[0]:
+            if bone.layers[0] and bone.name not in KEEP_BONES:
                 delete_bones.append(bone)
 
         for bone in delete_bones:
@@ -1464,6 +1492,43 @@ def convert_to_basic_face_rig(meta_rig):
                     pose_bone.rigify_type = ""
 
         utils.log_recess()
+
+
+def add_shape_key_drivers(chr_cache, rig):
+    for obj in rig.children:
+        if obj.type == "MESH" and obj.parent == rig:
+            obj_cache = chr_cache.get_object_cache(obj)
+            if is_face_object(obj_cache, obj):
+                for skd_def in SHAPE_KEY_DRIVERS:
+                    flags = skd_def[0]
+                    if "Bfr" in flags and chr_cache.rigified_full_face_rig:
+                        continue
+                    shape_key_name = skd_def[1]
+                    driver_def = skd_def[2]
+                    var_def = skd_def[3]
+                    add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def)
+
+
+def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def):
+    if utils.set_mode("OBJECT"):
+        shape_key = meshutils.find_shape_key(obj, shape_key_name)
+        if shape_key:
+            fcurve : bpy.types.FCurve
+            fcurve = shape_key.driver_add("value")
+            driver : bpy.types.Driver = fcurve.driver
+            driver.type = driver_def[0]
+            if driver.type == "SCRIPTED":
+                driver.expression = driver_def[1]
+            var : bpy.types.DriverVariable = driver.variables.new()
+            var.name = var_def[0]
+            var.type = var_def[1]
+            if var_def[1] == "TRANSFORMS":
+                #var.targets[0].id_type = "OBJECT"
+                var.targets[0].id = rig.id_data
+                var.targets[0].bone_target = var_def[2]
+                var.targets[0].rotation_mode = "AUTO"
+                var.targets[0].transform_type = var_def[3]
+                var.targets[0].transform_space = var_def[4]
 
 
 def correct_meta_rig(meta_rig):
@@ -2649,6 +2714,7 @@ class CC3Rigifier(bpy.types.Operator):
                             modify_controls(self.rigify_rig)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
+                            add_shape_key_drivers(chr_cache, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
 
