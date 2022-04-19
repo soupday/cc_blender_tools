@@ -2940,6 +2940,24 @@ class CC3Rigifier(bpy.types.Operator):
                    "Only vertex groups in the face are affected by this reparenting, all others are locked during the process. " + \
                    "Automatic Weights sometimes fails, so if detected some measures are taken to try to clean up the mesh and try again"
 
+        elif properties.param == "BAKE_UNITY_ANIMATION":
+            return "Bake the current Rigify action (or Re-target action) to the Unity export rig"
+
+        elif properties.param == "RETARGET_CC_PAIR_RIGS":
+            return "Preview the re-target action on the rigify rig, for real time correction or baking to Unity"
+
+        elif properties.param == "RETARGET_CC_REMOVE_PAIR":
+            return "Remove re-targeting rig and constraints"
+
+        elif properties.param == "RIGIFY_SET_ACTION":
+            return "Set the current action on the characters Rigify rig"
+
+        elif properties.param == "RETARGET_CC_BAKE_ACTION":
+            return "Bake the selected source action from the selected source armature to the character Rigify Rig."
+
+        elif properties.param == "NLA_CC_BAKE":
+            return "Bake the NLA track to the character Rigify Rig using the global scene frame range."
+
         return "Rigification!"
 
 
