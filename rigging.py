@@ -1804,12 +1804,15 @@ def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigi
                 if cc3_bone and rigify_bone and cc3_bone_def:
                     # source copy
                     if "N" not in flags:
-                        if rigify_bone_name != "root":
+                        if rigify_bone_name == "root":
+                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, 1.0)
+                        else:
                             scale_influence = cc3_bone_def[8] / cc3_bone_def[9]
                             scale_influence = max(0.0, min(1.0, scale_influence))
-                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, scale_influence, "LOCAL")
-                        else:
-                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, 1.0)
+                            space = "LOCAL"
+                            if utils.is_blender_version("3.1.0"):
+                                space = "LOCAL_OWNER_ORIENT"
+                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, scale_influence, space)
                         bones.add_copy_rotation_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, 1.0)
                     for f in flags:
                         # copy location to target
@@ -1919,6 +1922,7 @@ def adv_retarget_CC_remove_pair(op, chr_cache):
                 bones.clear_constraints(rigify_rig, rigify_bone_name)
         utils.delete_armature_object(retarget_rig)
     chr_cache.rig_retarget_rig = None
+    chr_cache.rig_retarget_source_rig = None
     utils.try_select_object(rigify_rig, True)
     utils.set_active_object(rigify_rig)
     utils.set_mode("OBJECT")
@@ -1969,6 +1973,7 @@ def adv_retarget_CC_pair_rigs(op, chr_cache):
     utils.delete_armature_object(chr_cache.rig_retarget_rig)
     retarget_rig = generate_CC3_retargeting_rig(chr_cache, source_rig, origin_cc3_rig, rigify_rig)
     chr_cache.rig_retarget_rig = retarget_rig
+    chr_cache.rig_retarget_source_rig = source_rig
     utils.object_mode_to(rigify_rig)
     try:
         rigify_rig.pose.bones["upper_arm_parent.L"]["IK_FK"] = 1.0
@@ -2026,8 +2031,7 @@ def retarget_imported_action(action : bpy.types.Action, cc3_rig, rigify_rig):
             bones.add_copy_rotation_constraint(cc3_rig, rigify_rig, cc3_bone, rigify_bone, 1.0)
 
 
-def get_unity_export_rig(chr_cache):
-
+def generate_unity_export_rig(chr_cache):
     rigify_rig = chr_cache.get_armature()
     export_rig = utils.duplicate_object(rigify_rig)
     if export_rig:
@@ -2137,28 +2141,60 @@ def get_unity_export_rig(chr_cache):
     return export_rig
 
 
-def bake_unity_animation(chr_cache):
+def get_unity_bake_action(chr_cache):
+    rigify_rig = chr_cache.get_armature()
+    action = None
+    source_type = "NONE"
+    if rigify_rig.animation_data and rigify_rig.animation_data.action:
+        action = rigify_rig.animation_data.action
+        source_type = "RIGIFY"
+    # prefer direct retarget bakes
+    # (this way it always bakes whatever is currently playing on the Rigify armature)
+    if utils.object_exists_is_armature(chr_cache.rig_retarget_rig):
+        if utils.object_exists_is_armature(chr_cache.rig_retarget_source_rig):
+            if chr_cache.rig_retarget_source_rig.animation_data.action:
+                action = chr_cache.rig_retarget_source_rig.animation_data.action
+                source_type = "RETARGET"
+    return action, source_type
 
+
+def bake_unity_animation(op, chr_cache):
     rigify_rig = chr_cache.get_armature()
     export_rig = chr_cache.rig_export_rig
-    if not utils.object_exists_is_armature(export_rig):
-        export_rig = get_unity_export_rig(chr_cache)
-        chr_cache.rig_export_rig = export_rig
 
-    if export_rig:
-        # copy constraints for baking animations
-        if utils.object_mode_to(export_rig):
-            for export_def in UNITY_EXPORT_RIG:
-                rigify_bone_name = export_def[0]
-                unity_bone_name = export_def[2]
-                if unity_bone_name == "":
-                    unity_bone_name = rigify_bone_name
-                bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
-                bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+    if rigify_rig.animation_data is None:
+        rigify_rig.animation_data_create()
 
-        # bake the action on the rigify rig into the export rig
-        action = rigify_rig.animation_data.action
-        bake_export_animation(rigify_rig, export_rig, action)
+    # determine the action on the rigify rig
+    action, source_type = get_unity_bake_action(chr_cache)
+
+    # if there is an action
+    if action:
+
+        # generate the Unity export rig
+        if not utils.object_exists_is_armature(export_rig):
+            export_rig = generate_unity_export_rig(chr_cache)
+            chr_cache.rig_export_rig = export_rig
+
+        if export_rig:
+
+            # copy constraints for baking animations
+            if utils.object_mode_to(export_rig):
+                for export_def in UNITY_EXPORT_RIG:
+                    rigify_bone_name = export_def[0]
+                    unity_bone_name = export_def[2]
+                    if unity_bone_name == "":
+                        unity_bone_name = rigify_bone_name
+                    bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+                    bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+
+                # bake the action on the rigify rig into the export rig
+                bake_rigify_export_animation(rigify_rig, export_rig, action)
+
+            else:
+                op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
+    else:
+        op.report({'ERROR'}, "Rigify rig has no valid Armature Action to bake!")
 
 
 def prep_unity_export_rig(chr_cache):
@@ -2166,7 +2202,7 @@ def prep_unity_export_rig(chr_cache):
     rigify_rig = chr_cache.get_armature()
     export_rig = chr_cache.rig_export_rig
     if not utils.object_exists_is_armature(export_rig):
-        export_rig = get_unity_export_rig(chr_cache)
+        export_rig = generate_unity_export_rig(chr_cache)
         chr_cache.rig_export_rig = export_rig
 
     if utils.object_mode_to(export_rig):
@@ -2219,24 +2255,20 @@ def restore_from_unity_vertex_groups(obj):
 
 
 def finish_unity_export(chr_cache, export_rig):
-
     rigify_rig = chr_cache.get_armature()
-
     # un-reparent the child objects
     for child in export_rig.children:
         child.parent = rigify_rig
         mod = modifiers.get_object_modifier(child, "ARMATURE")
         mod.object = rigify_rig
         restore_from_unity_vertex_groups(child)
-
     # remove the t_pose_action and the export rig
     t_pose_action = export_rig.animation_data.action
     bpy.data.actions.remove(t_pose_action)
 
 
-def bake_export_animation(rigify_rig, export_rig : bpy.types.Object, armature_action : bpy.types.Action):
+def bake_rigify_export_animation(rigify_rig, export_rig : bpy.types.Object, armature_action : bpy.types.Action):
     if utils.try_select_object(export_rig, True) and utils.set_active_object(export_rig):
-        rigify_rig.animation_data.action = armature_action
         name = armature_action.name.split("|")[-1]
         baked_action = bpy.data.actions.new(f"{export_rig.name}|A|{name}")
         baked_action.use_fake_user = True
@@ -2253,7 +2285,6 @@ def bake_export_animation(rigify_rig, export_rig : bpy.types.Object, armature_ac
 
 def bake_retarget_animation(source_rig, rigify_rig, retarget_rig, armature_action):
     if utils.try_select_object(rigify_rig, True) and utils.set_active_object(rigify_rig):
-        source_rig.animation_data.action = armature_action
         name = armature_action.name.split("|")[-1]
         baked_action = bpy.data.actions.new(f"{rigify_rig.name}|A|{name}")
         baked_action.use_fake_user = True
@@ -2836,7 +2867,7 @@ class CC3Rigifier(bpy.types.Operator):
                     self.report({'ERROR'}, "Face Re-parent Failed!. See console log.")
 
             elif self.param == "BAKE_UNITY_ANIMATION":
-                bake_unity_animation(chr_cache)
+                bake_unity_animation(self, chr_cache)
 
             elif self.param == "RETARGET_CC_PAIR_RIGS":
                 adv_retarget_CC_pair_rigs(self, chr_cache)

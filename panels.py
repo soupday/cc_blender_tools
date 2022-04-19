@@ -880,10 +880,24 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.enabled = chr_cache.rig_retarget_rig is not None
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Animation").param = "RETARGET_CC_BAKE_ACTION"
+
                         layout.separator()
+
                         layout.box().row().label(text = "Unity Bake", icon = "CUBE")
+
+                        unity_bake_action, unity_bake_source_type = rigging.get_unity_bake_action(chr_cache)
+                        if unity_bake_action:
+                            if unity_bake_source_type == "RIGIFY":
+                                layout.label(text="Bake from Rigify Action:")
+                            elif unity_bake_source_type == "RETARGET":
+                                layout.label(text="Bake from Retarget Action:")
+                            layout.box().label(text=unity_bake_action.name)
+                        else:
+                            layout.label(text="No action to bake.")
+
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Unity Animation").param = "BAKE_UNITY_ANIMATION"
+                        row.enabled = unity_bake_source_type != "NONE"
 
                 elif chr_cache.can_be_rigged():
 

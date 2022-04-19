@@ -232,6 +232,8 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
             c.invert_y = False
             c.invert_z = False
             c.target_space = space
+            if space == "LOCAL_OWNER_ORIENT":
+                space = "LOCAL"
             c.owner_space = space
             c.influence = influence
             return c
