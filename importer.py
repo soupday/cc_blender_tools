@@ -388,7 +388,7 @@ def remap_action_names(actions, objects, name):
         if obj.type == "MESH":
             new_obj_name = utils.strip_name(obj.name)
             if new_obj_name.startswith("CC_Base_"): # shorten CC_Base_Objects names
-                new_obj_name = obj.name[8:]
+                new_obj_name = new_obj_name[8:]
             if obj.data.shape_keys:
                 key_map[new_obj_name] = obj.data.shape_keys.name
                 utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {new_obj_name}")
