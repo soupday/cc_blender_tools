@@ -2012,11 +2012,28 @@ def adv_bake_CC_retargeted_action(op, chr_cache):
                     if bone.name == retarget_def[1]:
                         bone.select = True
                         break
-            bake_retarget_animation(source_rig, rigify_rig, retarget_rig, source_action)
+            bake_rigify_animation(rigify_rig, source_action)
 
             adv_retarget_CC_remove_pair(op, chr_cache)
 
         utils.restore_visible_in_scene(temp_collection)
+
+
+def adv_bake_CC_NLA(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
+    rigify_rig = chr_cache.get_armature()
+    rigify_rig.animation_data.action = None
+    adv_retarget_CC_remove_pair(op, chr_cache)
+
+    if utils.object_mode_to(rigify_rig):
+        for bone in rigify_rig.data.bones:
+            bone.select = False
+            for retarget_def in RETARGET_CC3:
+                if bone.name == retarget_def[1]:
+                    bone.select = True
+                    break
+
+    bake_rigify_animation(rigify_rig, None, "NLA_Bake")
 
 
 def retarget_imported_action(action : bpy.types.Action, cc3_rig, rigify_rig):
@@ -2283,20 +2300,26 @@ def bake_rigify_export_animation(rigify_rig, export_rig : bpy.types.Object, arma
                         clean_curves=False)
 
 
-def bake_retarget_animation(source_rig, rigify_rig, retarget_rig, armature_action):
+def bake_rigify_animation(rigify_rig, armature_action, action_name = ""):
     if utils.try_select_object(rigify_rig, True) and utils.set_active_object(rigify_rig):
-        name = armature_action.name.split("|")[-1]
+        if action_name == "" and armature_action:
+            action_name = armature_action.name
+        name = action_name.split("|")[-1]
         baked_action = bpy.data.actions.new(f"{rigify_rig.name}|A|{name}")
         baked_action.use_fake_user = True
         rigify_rig.animation_data.action = baked_action
-        start_frame = int(armature_action.frame_range[0])
-        end_frame = int(armature_action.frame_range[1])
+        if armature_action:
+            start_frame = int(armature_action.frame_range[0])
+            end_frame = int(armature_action.frame_range[1])
+        else:
+            start_frame = int(bpy.context.scene.frame_start)
+            end_frame = int(bpy.context.scene.frame_end)
         bpy.ops.nla.bake(frame_start=start_frame,
                         frame_end=end_frame,
                         only_selected=True,
                         visual_keying=True,
                         use_current_action=True,
-                        clear_constraints=True,
+                        clear_constraints=False,
                         clean_curves=False)
 
 
@@ -2880,6 +2903,9 @@ class CC3Rigifier(bpy.types.Operator):
 
             elif self.param == "RETARGET_CC_BAKE_ACTION":
                 adv_bake_CC_retargeted_action(self, chr_cache)
+
+            elif self.param == "NLA_CC_BAKE":
+                adv_bake_CC_NLA(self, chr_cache)
 
             props.restore_ui_list_indices()
 

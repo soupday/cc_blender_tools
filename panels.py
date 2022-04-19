@@ -879,7 +879,10 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.operator("cc3.rigifier", icon="X", text="Stop Preview").param = "RETARGET_CC_REMOVE_PAIR"
                         row.enabled = chr_cache.rig_retarget_rig is not None
                         row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Animation").param = "RETARGET_CC_BAKE_ACTION"
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Retarget").param = "RETARGET_CC_BAKE_ACTION"
+                        layout.separator()
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
 
                         layout.separator()
 
