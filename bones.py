@@ -444,8 +444,8 @@ def clear_drivers(rig):
 
 def get_bone_name_from_data_path(data_path):
     if data_path.startswith("pose.bones[\""):
-        start = data_path.index('"', 0) + 1
-        end = data_path.index('"', start)
+        start = utils.safe_index_of(data_path, '"', 0) + 1
+        end = utils.safe_index_of(data_path, '"', start)
         return data_path[start:end]
     return None
 

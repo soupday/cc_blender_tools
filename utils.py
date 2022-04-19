@@ -697,6 +697,13 @@ def move_object_to_collection(obj, collection):
         collection.objects.link(obj)
 
 
+def safe_index_of(text : str, search : str, start : int):
+    try:
+        return text.index(search, start)
+    except:
+        return -1
+
+
 def index_of_collection(item, collection):
     for i, o in enumerate(collection):
         if o == item:

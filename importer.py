@@ -359,6 +359,24 @@ def detect_generation(chr_cache, json_data):
     return generation
 
 
+def is_iclone_temp_motion(name : str):
+    u_idx = utils.safe_index_of(name, '_', 0)
+    if u_idx == -1:
+        return False
+    if not name[:u_idx].isdigit():
+       return False
+    search = "TempMotion"
+    if name[u_idx + 1:] == search:
+        return True
+    if u_idx > -1 and len(name) > u_idx + 1:
+        j = 0
+        for i in range(u_idx + 1, len(name)):
+            if name[i] != search[j]:
+                return False
+            j += 1
+    return True
+
+
 def remap_action_names(actions, objects, name):
     key_map = {}
     num_keys = 0
@@ -368,23 +386,28 @@ def remap_action_names(actions, objects, name):
 
     for obj in objects:
         if obj.type == "MESH":
+            new_obj_name = utils.strip_name(obj.name)
+            if new_obj_name.startswith("CC_Base_"): # shorten CC_Base_Objects names
+                new_obj_name = obj.name[8:]
             if obj.data.shape_keys:
-                key_map[utils.strip_name(obj.name)] = obj.data.shape_keys.name
-                utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {obj.name}")
+                key_map[new_obj_name] = obj.data.shape_keys.name
+                utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {new_obj_name}")
                 num_keys += 1
 
     for action in actions:
-        action_name = action.name.split("|")[-1]
+        new_action_name = action.name.split("|")[-1]
+        if is_iclone_temp_motion(new_action_name):
+            new_action_name = "iCTM"
         if action.name.startswith("Armature"):
-            new_name = f"{name}|A|{action_name}"
+            new_name = f"{name}|A|{new_action_name}"
             utils.log_info(f"Renaming action: {action.name} to {new_name}")
             action.name = new_name
             armature_actions.append(action)
         else:
-            for obj_name in key_map:
-                key_name = key_map[obj_name]
+            for new_obj_name in key_map:
+                key_name = key_map[new_obj_name]
                 if action.name.startswith(key_name):
-                    new_name = f"{name}|K|{obj_name}|{action_name}"
+                    new_name = f"{name}|K|{new_obj_name}|{new_action_name}"
                     utils.log_info(f"Renaming action: {action.name} to {new_name}")
                     action.name = new_name
                     shapekey_actions.append(action)
