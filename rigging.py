@@ -2012,7 +2012,7 @@ def adv_bake_CC_retargeted_action(op, chr_cache):
                     if bone.name == retarget_def[1]:
                         bone.select = True
                         break
-            bake_rigify_animation(rigify_rig, source_action)
+            bake_rig_animation(rigify_rig, source_action)
 
             adv_retarget_CC_remove_pair(op, chr_cache)
 
@@ -2020,7 +2020,6 @@ def adv_bake_CC_retargeted_action(op, chr_cache):
 
 
 def adv_bake_CC_NLA(op, chr_cache):
-    props = bpy.context.scene.CC3ImportProps
     rigify_rig = chr_cache.get_armature()
     rigify_rig.animation_data.action = None
     adv_retarget_CC_remove_pair(op, chr_cache)
@@ -2033,7 +2032,7 @@ def adv_bake_CC_NLA(op, chr_cache):
                     bone.select = True
                     break
 
-    bake_rigify_animation(rigify_rig, None, "NLA_Bake")
+    bake_rig_animation(rigify_rig, None, "NLA_Bake")
 
 
 def retarget_imported_action(action : bpy.types.Action, cc3_rig, rigify_rig):
@@ -2175,7 +2174,7 @@ def get_unity_bake_action(chr_cache):
     return action, source_type
 
 
-def bake_unity_animation(op, chr_cache):
+def adv_bake_rigify_to_unity(op, chr_cache):
     rigify_rig = chr_cache.get_armature()
     export_rig = chr_cache.rig_export_rig
 
@@ -2206,12 +2205,42 @@ def bake_unity_animation(op, chr_cache):
                     bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
 
                 # bake the action on the rigify rig into the export rig
-                bake_rigify_export_animation(rigify_rig, export_rig, action)
+                bake_rig_animation(export_rig, action)
 
             else:
                 op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
     else:
         op.report({'ERROR'}, "Rigify rig has no valid Armature Action to bake!")
+
+
+def adv_bake_rigify_NLA_to_unity(op, chr_cache):
+    rigify_rig = chr_cache.get_armature()
+    rigify_rig.animation_data.action = None
+    adv_retarget_CC_remove_pair(op, chr_cache)
+
+    # generate the Unity export rig
+    export_rig = chr_cache.rig_export_rig
+    if not utils.object_exists_is_armature(export_rig):
+        export_rig = generate_unity_export_rig(chr_cache)
+        chr_cache.rig_export_rig = export_rig
+
+        if export_rig:
+
+            # copy constraints for baking animations
+            if utils.object_mode_to(export_rig):
+                for export_def in UNITY_EXPORT_RIG:
+                    rigify_bone_name = export_def[0]
+                    unity_bone_name = export_def[2]
+                    if unity_bone_name == "":
+                        unity_bone_name = rigify_bone_name
+                    bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+                    bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+
+                # bake the action on the rigify rig into the export rig
+                bake_rig_animation(export_rig, None, "NLA_Bake")
+
+            else:
+                op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
 
 
 def prep_unity_export_rig(chr_cache):
@@ -2284,33 +2313,17 @@ def finish_unity_export(chr_cache, export_rig):
     bpy.data.actions.remove(t_pose_action)
 
 
-def bake_rigify_export_animation(rigify_rig, export_rig : bpy.types.Object, armature_action : bpy.types.Action):
-    if utils.try_select_object(export_rig, True) and utils.set_active_object(export_rig):
-        name = armature_action.name.split("|")[-1]
-        baked_action = bpy.data.actions.new(f"{export_rig.name}|A|{name}")
-        baked_action.use_fake_user = True
-        export_rig.animation_data.action = baked_action
-        start_frame = int(armature_action.frame_range[0])
-        end_frame = int(armature_action.frame_range[1])
-        bpy.ops.nla.bake(frame_start=start_frame,
-                        frame_end=end_frame,
-                        visual_keying=True,
-                        use_current_action=True,
-                        clear_constraints=True,
-                        clean_curves=False)
-
-
-def bake_rigify_animation(rigify_rig, armature_action, action_name = ""):
-    if utils.try_select_object(rigify_rig, True) and utils.set_active_object(rigify_rig):
-        if action_name == "" and armature_action:
-            action_name = armature_action.name
+def bake_rig_animation(rig, action, action_name = ""):
+    if utils.try_select_object(rig, True) and utils.set_active_object(rig):
+        if action_name == "" and action:
+            action_name = action.name
         name = action_name.split("|")[-1]
-        baked_action = bpy.data.actions.new(f"{rigify_rig.name}|A|{name}")
+        baked_action = bpy.data.actions.new(f"{rig.name}|A|{name}")
         baked_action.use_fake_user = True
-        rigify_rig.animation_data.action = baked_action
-        if armature_action:
-            start_frame = int(armature_action.frame_range[0])
-            end_frame = int(armature_action.frame_range[1])
+        rig.animation_data.action = baked_action
+        if action:
+            start_frame = int(action.frame_range[0])
+            end_frame = int(action.frame_range[1])
         else:
             start_frame = int(bpy.context.scene.frame_start)
             end_frame = int(bpy.context.scene.frame_end)
@@ -2890,7 +2903,7 @@ class CC3Rigifier(bpy.types.Operator):
                     self.report({'ERROR'}, "Face Re-parent Failed!. See console log.")
 
             elif self.param == "BAKE_UNITY_ANIMATION":
-                bake_unity_animation(self, chr_cache)
+                adv_bake_rigify_to_unity(self, chr_cache)
 
             elif self.param == "RETARGET_CC_PAIR_RIGS":
                 adv_retarget_CC_pair_rigs(self, chr_cache)
@@ -2906,6 +2919,9 @@ class CC3Rigifier(bpy.types.Operator):
 
             elif self.param == "NLA_CC_BAKE":
                 adv_bake_CC_NLA(self, chr_cache)
+
+            elif self.param == "NLA_CC_BAKE_UNITY":
+                adv_bake_rigify_NLA_to_unity(self, chr_cache)
 
             props.restore_ui_list_indices()
 
@@ -2957,6 +2973,9 @@ class CC3Rigifier(bpy.types.Operator):
 
         elif properties.param == "NLA_CC_BAKE":
             return "Bake the NLA track to the character Rigify Rig using the global scene frame range."
+
+        elif properties.param == "NLA_CC_BAKE_UNITY":
+            return "Bake the NLA track to to the Unity export rig using the global scene frame range."
 
         return "Rigification!"
 

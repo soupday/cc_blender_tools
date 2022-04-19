@@ -883,6 +883,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         layout.separator()
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
+                        row.enabled = chr_cache.rig_retarget_rig is None
 
                         layout.separator()
 
@@ -901,6 +902,12 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Unity Animation").param = "BAKE_UNITY_ANIMATION"
                         row.enabled = unity_bake_source_type != "NONE"
+
+                        layout.separator()
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA to Unity").param = "NLA_CC_BAKE_UNITY"
+                        row.enabled = unity_bake_source_type == "NONE"
 
                 elif chr_cache.can_be_rigged():
 
