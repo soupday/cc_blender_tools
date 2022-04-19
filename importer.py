@@ -398,6 +398,8 @@ def remap_action_names(actions, objects, name):
         new_action_name = action.name.split("|")[-1]
         if is_iclone_temp_motion(new_action_name):
             new_action_name = "iCTM"
+        elif new_action_name == "AvatarCurrentMotion":
+            new_action_name = "CCPose"
         if action.name.startswith("Armature"):
             new_name = f"{name}|A|{new_action_name}"
             utils.log_info(f"Renaming action: {action.name} to {new_name}")
