@@ -498,6 +498,9 @@ RETARGET_CC3 = [
     ["CC_Base_Tongue03", "tongue", "L"],
     ["CC_Base_Tongue02", "tongue.001", "L"],
     ["CC_Base_Tongue01", "tongue.002", "L"],
+    ["CC_Base_Tongue03", "tweak_tongue", "NL"], # basic face
+    ["CC_Base_Tongue02", "tweak_tongue.001", "L"], # basic face
+    ["CC_Base_Tongue01", "tweak_tongue.002", "L"], # basic face
     # teeth
     ["CC_Base_Teeth01", "teeth.T", "LR"],
     ["CC_Base_Teeth02", "teeth.B", "LR"],
@@ -2005,6 +2008,7 @@ def adv_bake_CC_retargeted_action(op, chr_cache):
     if retarget_rig:
         temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", source_rig, retarget_rig, rigify_rig)
 
+        # select just the retargeted bones in the rigify rig, to bake:
         if utils.object_mode_to(rigify_rig):
             for bone in rigify_rig.data.bones:
                 bone.select = False
@@ -2012,6 +2016,7 @@ def adv_bake_CC_retargeted_action(op, chr_cache):
                     if bone.name == retarget_def[1]:
                         bone.select = True
                         break
+
             bake_rig_animation(rigify_rig, source_action)
 
             adv_retarget_CC_remove_pair(op, chr_cache)
@@ -2024,15 +2029,17 @@ def adv_bake_CC_NLA(op, chr_cache):
     rigify_rig.animation_data.action = None
     adv_retarget_CC_remove_pair(op, chr_cache)
 
+    # select all possible control bones in the rigify rig, to bake:
+    BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
     if utils.object_mode_to(rigify_rig):
+        bone : bpy.types.Bone
         for bone in rigify_rig.data.bones:
             bone.select = False
-            for retarget_def in RETARGET_CC3:
-                if bone.name == retarget_def[1]:
-                    bone.select = True
-                    break
+            pose_bone = bones.get_pose_bone(rigify_rig, bone.name)
+            if pose_bone and pose_bone.bone_group in BAKE_BONE_GROUPS:
+                bone.select = True
 
-    bake_rig_animation(rigify_rig, None, "NLA_Bake")
+        bake_rig_animation(rigify_rig, None, "NLA_Bake")
 
 
 def retarget_imported_action(action : bpy.types.Action, cc3_rig, rigify_rig):
