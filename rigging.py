@@ -237,6 +237,9 @@ RETARGET_CC3 = [
     ["CC_Base_Tongue03", "tongue", "L"],
     ["CC_Base_Tongue02", "tongue.001", "L"],
     ["CC_Base_Tongue01", "tongue.002", "L"],
+    ["CC_Base_Tongue03", "tweak_tongue", "NL"], # basic face
+    ["CC_Base_Tongue02", "tweak_tongue.001", "L"], # basic face
+    ["CC_Base_Tongue01", "tweak_tongue.002", "L"], # basic face
     # teeth
     ["CC_Base_Teeth01", "teeth.T", "LR"],
     ["CC_Base_Teeth02", "teeth.B", "LR"],
