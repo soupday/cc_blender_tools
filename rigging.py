@@ -1530,7 +1530,7 @@ def adv_bake_CC_retargeted_action(op, chr_cache, rigify_data):
                         bone.select = True
                         break
 
-            bake_rig_animation(rigify_rig, source_action)
+            bake_rig_animation(rigify_rig, source_action, True)
 
             adv_retarget_CC_remove_pair(op, chr_cache, rigify_data)
 
@@ -1553,7 +1553,7 @@ def adv_bake_CC_NLA(op, chr_cache, rigify_data):
                 if pose_bone.bone_group.name in BAKE_BONE_GROUPS:
                     bone.select = True
 
-        bake_rig_animation(rigify_rig, None, "NLA_Bake")
+        bake_rig_animation(rigify_rig, None, False, "NLA_Bake")
 
 
 def generate_unity_export_rig(chr_cache):
@@ -1729,7 +1729,7 @@ def adv_bake_rigify_to_unity(op, chr_cache):
                     bone.select = True
 
                 # bake the action on the rigify rig into the export rig
-                bake_rig_animation(export_rig, action)
+                bake_rig_animation(export_rig, action, True)
 
             else:
                 op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
@@ -1766,7 +1766,7 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache, rigify_data):
                 bone.select = True
 
             # bake the action on the rigify rig into the export rig
-            bake_rig_animation(export_rig, None, "NLA_Bake")
+            bake_rig_animation(export_rig, None, True, "NLA_Bake")
 
         else:
             op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
@@ -1844,7 +1844,7 @@ def finish_unity_export(chr_cache, export_rig):
         bpy.data.actions.remove(t_pose_action)
 
 
-def bake_rig_animation(rig, action, action_name = ""):
+def bake_rig_animation(rig, action, clear_constraints, action_name = ""):
     if utils.try_select_object(rig, True) and utils.set_active_object(rig):
         if action_name == "" and action:
             action_name = action.name
@@ -1863,7 +1863,7 @@ def bake_rig_animation(rig, action, action_name = ""):
                         only_selected=True,
                         visual_keying=True,
                         use_current_action=True,
-                        clear_constraints=True,
+                        clear_constraints=clear_constraints,
                         clean_curves=False)
 
 
