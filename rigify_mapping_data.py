@@ -25,6 +25,8 @@ class RigifyData:
     add_def_bones: list
     vertex_group_rename: list
     roll_copy: list
+    retarget: list
+    retarget_corrections: dict
 
 
 def get_for_generation(generation):
@@ -34,10 +36,10 @@ def get_for_generation(generation):
     return get_default()
 
 def get_default():
-    return RigifyData("CC_Base_Head", G3_BONE_MAPPINGS, FACE_BONES, ADD_DEF_BONES, G3_VERTEX_GROUP_RENAME, G3_ROLL_COPY)
+    return RigifyData("CC_Base_Head", G3_BONE_MAPPINGS, FACE_BONES, ADD_DEF_BONES, G3_VERTEX_GROUP_RENAME, G3_ROLL_COPY, RETARGET_G3, RETARGET_G3_CORRECTIONS)
 
 def get_game_base():
-    return RigifyData("head", GAME_BASE_BONE_MAPPINGS, FACE_BONES, ADD_DEF_BONES, GAME_BASE_VERTEX_GROUP_RENAME, GAME_BASE_ROLL_COPY)
+    return RigifyData("head", GAME_BASE_BONE_MAPPINGS, FACE_BONES, ADD_DEF_BONES, GAME_BASE_VERTEX_GROUP_RENAME, GAME_BASE_ROLL_COPY, None, None)
 
 #   METARIG_BONE, CC_BONE_HEAD, CC_BONE_TAIL, LERP_FROM, LERP_TO
 #   '-' before CC_BONE_HEAD means to copy the tail position, not the head
@@ -657,3 +659,141 @@ GAME_BASE_ROLL_COPY = [
     ["f_ring.03.R", -90, "ring_03_r"],
     ["f_pinky.03.R", -90, "pinky_03_r"],
 ]
+
+# Note: Retargeting system will need to be reworked a little to go between GameBase and G3
+# TODO  Currently the retargeting re-uses the origin rig of the character for the retargeting rig,
+#       and expects the animation source rig to have the exact same bones as this origin rig.
+#       (Which will cause problems between GameBase and G3)
+#       Would be better to generate a psuedo origin rig from the ORG-bones that can retarget
+#       more generically, then can potentially retarget anything to this Rigify rig.
+RETARGET_G3 = [
+    # spine, neck & head
+    # "L" - inherit location
+    # "R" - inherit rotation
+    # "C" - connected
+    ["CC_Base_BoneRoot", "root", "LR"],
+    ["CC_Base_Hip", "torso", "LR"],
+    ["CC_Base_Waist", "spine_fk.001", "LR"],
+    ["CC_Base_Spine01", "spine_fk.002", "LR"],
+    ["CC_Base_Spine01", "chest", "NLR"],
+    ["CC_Base_Spine02", "spine_fk.003", "LR"],
+    ["CC_Base_NeckTwist01", "neck", "LR"],
+    ["CC_Base_NeckTwist02", "tweak_spine.005", "L"],
+    ["CC_Base_Head", "head", "LR"],
+    ["CC_Base_Pelvis", "hips", "LR"],
+    # torso
+    ["CC_Base_L_Breast", "breast.L", "LR"],
+    ["CC_Base_R_Breast", "breast.R", "LR"],
+    # left leg
+    ["CC_Base_L_Thigh", "thigh_fk.L", "LR"],
+    ["CC_Base_L_Calf", "shin_fk.L", "LR"],
+    ["CC_Base_L_Foot", "foot_fk.L", "LR"],
+    ["CC_Base_L_ToeBase", "toe_fk.L", "LR"], #post 3.1
+    ["CC_Base_L_ToeBase", "toe.L", "LR"], #pre 3.1
+    # left arm
+    ["CC_Base_L_Clavicle", "shoulder.L", "LR"],
+    ["CC_Base_L_Upperarm", "upper_arm_fk.L", "LR"],
+    ["CC_Base_L_Forearm", "forearm_fk.L", "LR"],
+    ["CC_Base_L_Hand", "hand_fk.L", "LR"],
+    # left fingers
+    ["CC_Base_L_Thumb1", "thumb.01.L", "LR"],
+    ["CC_Base_L_Index1", "f_index.01.L", "LR"],
+    ["CC_Base_L_Mid1", "f_middle.01.L", "LR"],
+    ["CC_Base_L_Ring1", "f_ring.01.L", "LR"],
+    ["CC_Base_L_Pinky1", "f_pinky.01.L", "LR"],
+    ["CC_Base_L_Thumb2", "thumb.02.L", "LR"],
+    ["CC_Base_L_Index2", "f_index.02.L", "LR"],
+    ["CC_Base_L_Mid2", "f_middle.02.L", "LR"],
+    ["CC_Base_L_Ring2", "f_ring.02.L", "LR"],
+    ["CC_Base_L_Pinky2", "f_pinky.02.L", "LR"],
+    ["CC_Base_L_Thumb3", "thumb.03.L", "LR"],
+    ["CC_Base_L_Index3", "f_index.03.L", "LR"],
+    ["CC_Base_L_Mid3", "f_middle.03.L", "LR"],
+    ["CC_Base_L_Ring3", "f_ring.03.L", "LR"],
+    ["CC_Base_L_Pinky3", "f_pinky.03.L", "LR"],
+    # right leg
+    ["CC_Base_R_Thigh", "thigh_fk.R", "LR"],
+    ["CC_Base_R_Calf", "shin_fk.R", "LR"],
+    ["CC_Base_R_Foot", "foot_fk.R", "LR"],
+    ["CC_Base_R_ToeBase", "toe_fk.R", "LR"], #post 3.1
+    ["CC_Base_R_ToeBase", "toe.R", "LR"], #pre 3.1
+    # right arm
+    ["CC_Base_R_Clavicle", "shoulder.R", "LR"],
+    ["CC_Base_R_Upperarm", "upper_arm_fk.R", "LR"],
+    ["CC_Base_R_Forearm", "forearm_fk.R", "LR"],
+    ["CC_Base_R_Hand", "hand_fk.R", "LR"],
+    # right fingers
+    ["CC_Base_R_Thumb1", "thumb.01.R", "LR"],
+    ["CC_Base_R_Index1", "f_index.01.R", "LR"],
+    ["CC_Base_R_Mid1", "f_middle.01.R", "LR"],
+    ["CC_Base_R_Ring1", "f_ring.01.R", "LR"],
+    ["CC_Base_R_Pinky1", "f_pinky.01.R", "LR"],
+    ["CC_Base_R_Thumb2", "thumb.02.R", "LR"],
+    ["CC_Base_R_Index2", "f_index.02.R", "LR"],
+    ["CC_Base_R_Mid2", "f_middle.02.R", "LR"],
+    ["CC_Base_R_Ring2", "f_ring.02.R", "LR"],
+    ["CC_Base_R_Pinky2", "f_pinky.02.R", "LR"],
+    ["CC_Base_R_Thumb3", "thumb.03.R", "LR"],
+    ["CC_Base_R_Index3", "f_index.03.R", "LR"],
+    ["CC_Base_R_Mid3", "f_middle.03.R", "LR"],
+    ["CC_Base_R_Ring3", "f_ring.03.R", "LR"],
+    ["CC_Base_R_Pinky3", "f_pinky.03.R", "LR"],
+    #tongue
+    ["CC_Base_Tongue03", "tongue_master", "LR"],
+    ["CC_Base_Tongue03", "tongue", "L"],
+    ["CC_Base_Tongue02", "tongue.001", "L"],
+    ["CC_Base_Tongue01", "tongue.002", "L"],
+    ["CC_Base_Tongue03", "tweak_tongue", "NL"], # basic face
+    ["CC_Base_Tongue02", "tweak_tongue.001", "L"], # basic face
+    ["CC_Base_Tongue01", "tweak_tongue.002", "L"], # basic face
+    # teeth
+    ["CC_Base_Teeth01", "teeth.T", "LR"],
+    ["CC_Base_Teeth02", "teeth.B", "LR"],
+    # eyes
+    # "D", param_bone - maintain distance from param_bone
+    # "A", param_bone_1, param_bone_2 - copy average location and rotation from param_bones_1 and param_bones_2
+    ["CC_Base_R_Eye", "eye.R", "LRD", "CC_Base_FacialBone"],
+    ["CC_Base_L_Eye", "eye.L", "LRD", "CC_Base_FacialBone"],
+    ["CC_Base_FacialBone", "eyes", "LRAD", "eye.R", "eye.L", "CC_Base_FacialBone"],
+    # jaw
+    ["CC_Base_JawRoot", "jaw_master", "LR"],
+    # IK bones
+    # "N" - no source -> origin constraints
+    ["CC_Base_L_Hand", "hand_ik.L", "NLR"],
+    ["CC_Base_R_Hand", "hand_ik.R", "NLR"],
+    ["CC_Base_L_Foot", "foot_ik.L", "NLR"],
+    ["CC_Base_R_Foot", "foot_ik.R", "NLR"],
+]
+
+RETARGET_G3_CORRECTIONS = {
+    "Heel_Angle": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_heel_correction_angle", "rotation_euler", 0],
+        "constraints": [
+            ["CC_Base_L_Foot", "ROT_ADD_LOCAL", "-X"],
+            ["CC_Base_R_Foot", "ROT_ADD_LOCAL", "-X"],
+        ],
+    },
+
+    "Arm_Angle": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_arm_correction_angle", "rotation_euler", 2],
+        "constraints": [
+            ["CC_Base_L_Upperarm", "ROT_ADD_LOCAL", "Z"],
+            ["CC_Base_R_Upperarm", "ROT_ADD_LOCAL", "-Z"],
+        ],
+    },
+
+    "Leg_Angle": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_leg_correction_angle", "rotation_euler", 2],
+        "constraints": [
+            ["CC_Base_L_Thigh", "ROT_ADD_LOCAL", "Z"],
+            ["CC_Base_R_Thigh", "ROT_ADD_LOCAL", "-Z"],
+        ],
+    },
+
+    "Z_Correction": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_z_correction_height", "location", 1],
+        "constraints": [
+            ["CC_Base_Hip", "LOC_OFF_LOCAL", "Y"],
+        ],
+    },
+}
