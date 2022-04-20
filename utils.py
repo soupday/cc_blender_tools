@@ -470,6 +470,23 @@ def edit_mode_to(obj):
     return False
 
 
+def object_mode_to(obj):
+    if get_active_object() == obj and get_mode() == "OBJECT":
+        return True
+    else:
+        if set_mode("OBJECT") and set_active_object(obj):
+            return True
+    return False
+
+
+def duplicate_object(obj):
+    if set_mode("OBJECT"):
+        if try_select_object(obj, True) and set_active_object(obj):
+            bpy.ops.object.duplicate()
+            return get_active_object()
+    return None
+
+
 def s2lin(x):
     a = 0.055
     if x <= 0.04045:
@@ -546,6 +563,20 @@ def untagged_images():
     return untagged
 
 
+def tag_actions():
+    for action in bpy.data.actions:
+        action.tag = True
+
+
+def untagged_actions():
+    untagged = []
+    for action in bpy.data.actions:
+        if action.tag == False:
+            untagged.append(action)
+        action.tag = False
+    return untagged
+
+
 def try_select_child_objects(obj):
     try:
         if obj:
@@ -590,6 +621,12 @@ def clear_selected_objects():
         return False
 
 
+def get_armature_in_objects(objects):
+    for obj in objects:
+        if obj.type == "ARMATURE":
+            return obj
+    return None
+
 def float_equals(a, b):
     return abs(a - b) < 0.00001
 
@@ -599,6 +636,143 @@ def remove_from_collection(coll, item):
         if coll[i] == item:
             coll.remove(i)
             return
+
+
+def delete_armature_object(arm):
+    if object_exists_is_armature(arm):
+        data = arm.data
+        bpy.data.objects.remove(arm)
+        if data:
+            bpy.data.armatures.remove(data)
+
+
+def delete_mesh_object(obj):
+    if object_exists_is_mesh(obj):
+        data = obj.data
+        bpy.data.objects.remove(obj)
+        if data:
+            bpy.data.meshes.remove(data)
+
+
+def force_visible_in_scene(collection_name, *objects):
+    tmp_collection = bpy.data.collections.new(collection_name)
+    bpy.context.scene.collection.children.link(tmp_collection)
+    for obj in objects:
+        if not obj.visible_get():
+            log_info(f"Object: {obj.name} is not visible or in a hidden collection. Linking to temporary root collection and making visible.")
+            obj.hide_set(False)
+            tmp_collection.objects.link(obj)
+    return tmp_collection
+
+
+def restore_visible_in_scene(tmp_collection : bpy.types.Collection):
+    objects = []
+    for obj in tmp_collection.objects:
+        objects.append(obj)
+    for obj in objects:
+        log_info(f"Object: {obj.name} Unlinking from temporary root collection and hiding.")
+        obj.hide_set(True)
+        tmp_collection.objects.unlink(obj)
+    bpy.context.scene.collection.children.unlink(tmp_collection)
+    bpy.data.collections.remove(tmp_collection)
+
+
+def get_object_collection(obj):
+    if obj.name in bpy.context.scene.collection.objects:
+        return bpy.context.scene.collection
+    for col in bpy.data.collections:
+        if obj.name in col.objects:
+            return col
+    return None
+
+
+def move_object_to_collection(obj, collection):
+    col : bpy.types.Collection
+    if obj.name in bpy.context.scene.collection:
+        bpy.context.scene.collection.objects.unlink(obj)
+    for col in bpy.data.collections:
+        if col != collection and obj.name in col.objects:
+            col.objects.unlink(obj)
+    if obj.name not in collection.objects:
+        collection.objects.link(obj)
+
+
+def safe_index_of(text : str, search : str, start : int):
+    try:
+        return text.index(search, start)
+    except:
+        return -1
+
+
+def safe_get_action(obj):
+    if obj:
+        try:
+            if obj.animation_data:
+                return obj.animation_data.action
+        except:
+            log_warn(f"Unable to get action from {obj.name}")
+    return None
+
+
+def safe_set_action(obj, action):
+    if obj:
+        try:
+            if obj.animation_data is None:
+                obj.animation_data_create()
+            obj.animation_data.action = action
+            return True
+        except:
+            action_name = action.name if action else "None"
+            log_warn(f"Unable to set action {action_name} to {obj.name}")
+    return False
+
+
+def index_of_collection(item, collection):
+    for i, o in enumerate(collection):
+        if o == item:
+            return i
+    return -1
+
+
+def collection_at_index(index, collection):
+    if index >= 0 and index < len(collection):
+        return collection[index]
+    return None
+
+
+def set_active_layer_collection(layer_collection):
+     old = bpy.context.view_layer.active_layer_collection
+     bpy.context.view_layer.active_layer_collection = layer_collection
+     return old
+
+
+def set_active_layer_collection_from(obj):
+    nlc = find_layer_collection_containing(obj)
+    return set_active_layer_collection(nlc)
+
+
+def find_layer_collection_containing(obj, layer_collection = None):
+    if not layer_collection:
+        layer_collection = bpy.context.view_layer.layer_collection
+    if obj.name in layer_collection.collection.objects:
+        return layer_collection
+    for child in layer_collection.children:
+        found = find_layer_collection_containing(obj, child)
+        if found:
+            return found
+    return None
+
+
+def find_layer_collection(name, layer_collection = None):
+    if not layer_collection:
+        layer_collection = bpy.context.view_layer.layer_collection
+    if layer_collection.name == name:
+        return layer_collection
+    for child in layer_collection.children:
+        found = find_layer_collection(name, child)
+        if found:
+            return found
+    return None
 
 
 def is_blender_version(version: str, test = "GTE"):

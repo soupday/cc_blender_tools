@@ -17,6 +17,7 @@
 import bpy
 
 import textwrap
+
 from . import addon_updater_ops
 from . import rigging, modifiers, channel_mixer, nodeutils, utils, params, vars
 
@@ -52,6 +53,74 @@ def fake_drop_down(row, label, prop_name, prop_bool_value):
         row.prop(props, prop_name, icon="TRIA_RIGHT", icon_only=True, emboss=False)
     row.label(text=label)
     return prop_bool_value
+
+
+class ARMATURE_UL_List(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name if item else "", translate=False, icon_value=icon)
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+    def filter_items(self, context, data, propname):
+        filtered = []
+        ordered = []
+        items = getattr(data, propname)
+        filtered = [self.bitflag_filter_item] * len(items)
+        for i, item in enumerate(items):
+            item_name = utils.strip_name(item.name)
+            if item.type != "ARMATURE": # only list armatures
+                filtered[i] &= ~self.bitflag_filter_item
+            elif item_name.endswith("_Rigify"): # don't list rigified armatures
+                filtered[i] &= ~self.bitflag_filter_item
+            elif item_name.endswith("_Retarget"): # don't list retarget armatures
+                filtered[i] &= ~self.bitflag_filter_item
+            elif len(item.data.bones) > 0 and "BoneRoot" not in item.data.bones[0].name:
+                filtered[i] &= ~self.bitflag_filter_item
+            else:
+                if self.filter_name and self.filter_name != "*":
+                    if self.filter_name not in item.name:
+                        filtered[i] &= ~self.bitflag_filter_item
+        return filtered, ordered
+
+
+class ACTION_UL_List(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name if item else "", translate=False, icon_value=icon)
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+    def filter_items(self, context, data, propname):
+        props = bpy.context.scene.CC3ImportProps
+        filtered = []
+        ordered = []
+        arm_name = None
+        arm_object = utils.collection_at_index(props.armature_list_index, bpy.data.objects)
+        if arm_object and arm_object.type == "ARMATURE":
+            arm_name = arm_object.name
+        items = getattr(data, propname)
+        filtered = [self.bitflag_filter_item] * len(items)
+        item : bpy.types.Action
+        for i, item in enumerate(items):
+            item_name = utils.strip_name(item.name)
+            if len(item.fcurves) == 0: # no fcurves, no animation...
+                filtered[i] &= ~self.bitflag_filter_item
+            elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
+                filtered[i] &= ~self.bitflag_filter_item
+            elif props.armature_action_filter and "_Rigify|A|" in item_name: # don't show rigify baked actions
+                filtered[i] &= ~self.bitflag_filter_item
+            elif props.armature_action_filter and "_Unity|A|" in item.name: # don't show unity baked actions
+                filtered[i] &= ~self.bitflag_filter_item
+            elif props.armature_action_filter and arm_name and "|A|" in item.name and not item.name.startswith(arm_name + "|A|"):
+                filtered[i] &= ~self.bitflag_filter_item
+            else:
+                if self.filter_name and self.filter_name != "*":
+                    if self.filter_name not in item.name:
+                        filtered[i] &= ~self.bitflag_filter_item
+        return filtered, ordered
 
 
 class CC3CharacterSettingsPanel(bpy.types.Panel):
@@ -92,7 +161,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                     if obj_cache.object:
                         box.prop(obj_cache, "object", text="")
             else:
-                box.label(text="Name: " + chr_cache.import_name)
+                box.label(text="Name: " + chr_cache.character_name)
         else:
             box.label(text="No Character")
 
@@ -702,7 +771,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                 col_1 = split.column()
                 col_2 = split.column()
                 col_1.label(text = "Character:")
-                col_2.label(text = chr_cache.import_name)
+                col_2.label(text = chr_cache.character_name)
                 col_1.label(text = "Generation:")
                 col_2.label(text = chr_cache.generation)
                 if chr_cache.rigified:
@@ -755,9 +824,90 @@ class CC3RigifyPanel(bpy.types.Panel):
                                 row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SKINNING"
                                 row.enabled = chr_cache is not None
 
+                        layout.separator()
+
                     else:
 
                         layout.row().label(text = "Rigging Done.", icon = "INFO")
+
+                        layout.separator()
+
+                    if True:
+
+                        layout.box().row().label(text = "CC/ActorCore Re-target", icon = "ARMATURE_DATA")
+
+                        row = layout.row()
+                        row.scale_y = 2
+                        #row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Imp. Character").param = "IMPORT"
+                        row.operator("cc3.anim_importer", icon="ARMATURE_DATA", text="Import Animations")
+
+                        layout.label(text="Source Armature:")
+
+                        layout.template_list("ARMATURE_UL_List", "bake_armature_list", bpy.data, "objects", props, "armature_list_index", rows=1, maxrows=4)
+
+                        split = layout.split(factor=0.5)
+                        col_1 = split.column()
+                        col_2 = split.column()
+                        col_1.label(text="Source Action:")
+                        col_2.prop(props, "armature_action_filter", text="Filter by Rig")
+
+                        layout.template_list("ACTION_UL_List", "bake_action_list", bpy.data, "actions", props, "action_list_index", rows=1, maxrows=5)
+
+                        #row = layout.row()
+                        #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Set Rig Action").param = "RIGIFY_SET_ACTION"
+                        #layout.separator()
+
+                        layout.label(text="Limb Correction:")
+                        column = layout.column()
+                        split = column.split(factor=0.5)
+                        col_1 = split.column()
+                        col_2 = split.column()
+                        col_1.label(text="Arms")
+                        col_2.prop(chr_cache, "retarget_arm_correction_angle", text="", slider=True)
+                        col_1.label(text="Legs")
+                        col_2.prop(chr_cache, "retarget_leg_correction_angle", text="", slider=True)
+                        col_1.label(text="Heels")
+                        col_2.prop(chr_cache, "retarget_heel_correction_angle", text="", slider=True)
+                        col_1.label(text="Height")
+                        col_2.prop(chr_cache, "retarget_z_correction_height", text="", slider=True)
+
+                        layout.separator()
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Re-target").param = "RETARGET_CC_PAIR_RIGS"
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="X", text="Stop Preview").param = "RETARGET_CC_REMOVE_PAIR"
+                        row.enabled = chr_cache.rig_retarget_rig is not None
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Retarget").param = "RETARGET_CC_BAKE_ACTION"
+                        layout.separator()
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
+                        row.enabled = chr_cache.rig_retarget_rig is None
+
+                        layout.separator()
+
+                        layout.box().row().label(text = "Unity Bake", icon = "CUBE")
+
+                        unity_bake_action, unity_bake_source_type = rigging.get_unity_bake_action(chr_cache)
+                        if unity_bake_action:
+                            if unity_bake_source_type == "RIGIFY":
+                                layout.label(text="Bake from Rigify Action:")
+                            elif unity_bake_source_type == "RETARGET":
+                                layout.label(text="Bake from Retarget Action:")
+                            layout.box().label(text=unity_bake_action.name)
+                        else:
+                            layout.label(text="No action to bake.")
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Unity Animation").param = "BAKE_UNITY_ANIMATION"
+                        row.enabled = unity_bake_source_type != "NONE"
+
+                        layout.separator()
+
+                        row = layout.row()
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA to Unity").param = "NLA_CC_BAKE_UNITY"
+                        row.enabled = unity_bake_source_type == "NONE"
 
                 elif chr_cache.can_be_rigged():
 
@@ -1126,6 +1276,10 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         row.scale_y = 2
         op = row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Import Character")
         op.param = "IMPORT"
+        layout.separator()
+        row = layout.row()
+        row.scale_y = 2
+        op = row.operator("cc3.anim_importer", icon="ARMATURE_DATA", text="Import Animations")
 
         box = layout.box()
         box.label(text="Exporting", icon="EXPORT")

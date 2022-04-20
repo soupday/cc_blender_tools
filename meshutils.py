@@ -178,3 +178,12 @@ def get_material_vertices(obj, mat):
                 if vert not in verts:
                     verts.append(vert)
     return verts
+
+
+def find_shape_key(obj : bpy.types.Object, shape_key_name):
+    if obj.type == "MESH":
+        if obj.data and obj.data.shape_keys:
+            for key_block in obj.data.shape_keys.key_blocks:
+                if key_block.name == shape_key_name:
+                    return key_block
+    return None

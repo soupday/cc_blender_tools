@@ -570,10 +570,10 @@ def fetch_anim_range(context):
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object is not None and obj_cache.object.type == "ARMATURE":
             obj = obj_cache.object
-            if obj.animation_data is not None and \
-               obj.animation_data.action is not None:
-                frame_start = math.floor(obj.animation_data.action.frame_range[0])
-                frame_end = math.ceil(obj.animation_data.action.frame_range[1])
+            action = utils.safe_get_action(obj)
+            if action:
+                frame_start = math.floor(action.frame_range[0])
+                frame_end = math.ceil(action.frame_range[1])
                 context.scene.frame_start = frame_start
                 context.scene.frame_end = frame_end
                 return

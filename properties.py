@@ -412,7 +412,6 @@ def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, ma
         shaders.fetch_prop_defaults(mat_cache, mat_json)
 
 
-
 class CC3OperatorProperties(bpy.types.Operator):
     """CC3 Property Functions"""
     bl_idname = "cc3.setproperties"
@@ -439,6 +438,16 @@ class CC3OperatorProperties(bpy.types.Operator):
         return ""
 
 
+class CC3ActionList(bpy.types.PropertyGroup):
+    action: bpy.props.PointerProperty(type=bpy.types.Armature)
+    action_type: bpy.props.EnumProperty(items=vars.ENUM_ACTION_TYPES, default="NONE")
+    armature_type: bpy.props.EnumProperty(items=vars.ENUM_ARMATURE_TYPES, default="NONE")
+
+
+class CC3ArmatureList(bpy.types.PropertyGroup):
+    armature: bpy.props.PointerProperty(type=bpy.types.Armature)
+    armature_type: bpy.props.EnumProperty(items=vars.ENUM_ARMATURE_TYPES, default="NONE")
+    actions: bpy.props.CollectionProperty(type=CC3ActionList)
 
 
 class CC3HeadParameters(bpy.types.PropertyGroup):
@@ -852,7 +861,7 @@ class CC3TextureMapping(bpy.types.PropertyGroup):
 class CC3MaterialCache:
     material: bpy.props.PointerProperty(type=bpy.types.Material)
     source_name: bpy.props.StringProperty(default="")
-    material_type: bpy.props.EnumProperty(items=vars.MATERIAL_TYPES, default="DEFAULT")
+    material_type: bpy.props.EnumProperty(items=vars.ENUM_MATERIAL_TYPES, default="DEFAULT")
     texture_mappings: bpy.props.CollectionProperty(type=CC3TextureMapping)
     #parameters: bpy.props.PointerProperty(type=CC3MaterialParameters)
     mixer_settings: bpy.props.PointerProperty(type=channel_mixer.CC3MixerSettings)
@@ -986,7 +995,7 @@ class CC3SSSMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
 class CC3ObjectCache(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
     source_name: bpy.props.StringProperty(default="")
-    object_type: bpy.props.EnumProperty(items=vars.OBJECT_TYPES, default="DEFAULT")
+    object_type: bpy.props.EnumProperty(items=vars.ENUM_OBJECT_TYPES, default="DEFAULT")
     collision_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_settings: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, HAIR, COTTON, DENIM, LEATHER, RUBBER, SILK
@@ -1067,7 +1076,14 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("ADVANCED","Advanced","Split the process so that user adjustments can be made to the meta rig before generating."),
                     ], default="QUICK", name = "Rigging Mode")
     rig_meta_rig: bpy.props.PointerProperty(type=bpy.types.Object)
-
+    rig_export_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+    rig_original_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+    rig_retarget_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+    rig_retarget_source_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+    retarget_heel_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.7854, max=0.7854, description="Heel pitch angle (radians)")
+    retarget_arm_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Arm spread angle (radians)")
+    retarget_leg_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Leg spread angle (radians)")
+    retarget_z_correction_height: bpy.props.FloatProperty(default = 0.0, min=-0.2, max=0.2, description="Height Adjustment (m)")
 
     def can_be_rigged(self):
         if self.generation == "G3" or self.generation == "G3Plus":
@@ -1275,6 +1291,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         try:
             for obj_cache in self.object_cache:
                 if obj_cache.object and obj_cache.object.type == "ARMATURE":
+                    self.rig_original_rig = obj_cache.object
                     obj_cache.object = new_arm
         except:
             pass
@@ -1527,6 +1544,17 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     hair_toggle: bpy.props.BoolProperty(default=True)
     default_toggle: bpy.props.BoolProperty(default=True)
 
+    # UI List props
+    armature_action_filter: bpy.props.BoolProperty(default=True)
+    action_list_index: bpy.props.IntProperty(default=-1)
+    action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
+    armature_list_index: bpy.props.IntProperty(default=-1)
+    armature_list_object: bpy.props.PointerProperty(type=bpy.types.Object)
+    unity_action_list_index: bpy.props.IntProperty(default=-1)
+    unity_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
+    rigified_action_list_index: bpy.props.IntProperty(default=-1)
+    rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
+
     def get_any_character_cache_from_objects(self, objects):
         chr_cache : CC3CharacterCache
         for chr_cache in self.import_cache:
@@ -1583,3 +1611,20 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             if utils.is_in_path(self.unity_project_path, utils.local_path()):
                 return True
         return False
+
+    def restore_ui_list_indices(self):
+        """Restore the indices from the stored objects, because adding new objects will cause the indices to become invalid."""
+        self.armature_list_index = utils.index_of_collection(self.armature_list_object, bpy.data.objects)
+        self.action_list_index = utils.index_of_collection(self.action_list_action, bpy.data.actions)
+        self.unity_action_list_index = utils.index_of_collection(self.unity_action_list_action, bpy.data.actions)
+        self.rigified_action_list_index = utils.index_of_collection(self.rigified_action_list_action, bpy.data.actions)
+
+    def store_ui_list_indices(self):
+        """Store the indices as objects, because adding new objects will cause the indices to become invalid."""
+        self.armature_list_object = utils.collection_at_index(self.armature_list_index, bpy.data.objects)
+        self.action_list_action = utils.collection_at_index(self.action_list_index, bpy.data.actions)
+        self.unity_action_list_action = utils.collection_at_index(self.unity_action_list_index, bpy.data.actions)
+        self.rigified_action_list_action = utils.collection_at_index(self.rigified_action_list_index, bpy.data.actions)
+        if self.armature_list_object and self.armature_list_object.type != "ARMATURE":
+            self.armature_list_object = None
+            self.armature_list_index = -1

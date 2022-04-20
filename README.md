@@ -32,6 +32,18 @@ Links
 
 ## Changelog
 
+### 1.3.3
+- CC/iC/ActorCore animation re-targeting to CC Rigified Rig.
+    - Preview and Bake functions for re-targeted animations.
+    - Arms, Legs, Heel & Height adjustments.
+    - Source armature and action selector, filtering by Armature name.
+- Animation importer, import multiple animations in one go.
+    - Renames actions and armatures to match file names.
+    - Optionally removes meshes & materials.
+- Bake control rig & re-targeted animations to Unity.
+- Export Rigified character to Unity.
+- Basic face rig drivers for __Eye Look__ blend shapes. (If character has ExPlus blend shapes)
+
 ### 1.3.2
 - Face rig Automatic Weight failure detection and (some) auto-correction.
 - Support for Voxel Heat Diffuse Skinning add-on for voxel weight mapping of the face rig.

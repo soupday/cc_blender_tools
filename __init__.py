@@ -74,7 +74,7 @@ from . import rigging
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (1, 3, 2),
+    "version": (1, 3, 3),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
@@ -90,6 +90,8 @@ classes = (
     channel_mixer.CC3IDMixer,
     channel_mixer.CC3MixerSettings,
 
+    properties.CC3ActionList,
+    properties.CC3ArmatureList,
     properties.CC3HeadParameters,
     properties.CC3SkinParameters,
     properties.CC3EyeParameters,
@@ -117,6 +119,7 @@ classes = (
     properties.CC3ImportProps,
 
     importer.CC3Import,
+    importer.CC3ImportAnimations,
     exporter.CC3Export,
     scene.CC3Scene,
     bake.CC3BakeOperator,
@@ -130,6 +133,8 @@ classes = (
     preferences.CC3OperatorPreferences,
     channel_mixer.CC3OperatorChannelMixer,
 
+    panels.ARMATURE_UL_List,
+    panels.ACTION_UL_List,
     panels.CC3ToolsPipelinePanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
