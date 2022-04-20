@@ -1463,7 +1463,7 @@ class CC3Rigifier(bpy.types.Operator):
         if chr_cache:
 
             self.cc3_rig = chr_cache.get_armature()
-            self.rigify_data = rigify_mapping_data.get_default()
+            self.rigify_data = rigify_mapping_data.get_for_generation(chr_cache.generation)
 
             if self.param == "ALL":
 

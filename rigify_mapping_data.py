@@ -27,14 +27,22 @@ class RigifyData:
     roll_copy: list
 
 
+def get_for_generation(generation):
+    if generation == "GameBase":
+        return get_game_base()
+
+    return get_default()
+
 def get_default():
     return RigifyData("CC_Base_Head", G3_BONE_MAPPINGS, FACE_BONES, ADD_DEF_BONES, G3_VERTEX_GROUP_RENAME, G3_ROLL_COPY)
 
+def get_game_base():
+    return RigifyData("head", GAME_BASE_BONE_MAPPINGS, FACE_BONES, ADD_DEF_BONES, GAME_BASE_VERTEX_GROUP_RENAME, GAME_BASE_ROLL_COPY)
 
 #   METARIG_BONE, CC_BONE_HEAD, CC_BONE_TAIL, LERP_FROM, LERP_TO
 #   '-' before CC_BONE_HEAD means to copy the tail position, not the head
 #   '-' before CC_BONE_TAIL means to copy the head position, not the tail
-BONE_MAPPINGS = [
+G3_BONE_MAPPINGS = [
 
     # Spine, Neck & Head:
     # spine chain
@@ -134,6 +142,102 @@ BONE_MAPPINGS = [
     ["jaw", "CC_Base_JawRoot", "CC_Base_Tongue03", 0, 1.35],
 ]
 
+GAME_BASE_BONE_MAPPINGS = [
+    # Spine, Neck & Head:
+    # spine chain
+    ["spine", "pelvis", ""],
+    ["spine.001", "spine_01", ""],
+    ["spine.002", "spine_02", ""],
+    ["spine.003", "spine_03", "spine_03"],
+    ["spine.004", "-spine_03", "-neck_01"],
+    ["spine.005", "neck_01", ""],
+    ["spine.006", "head", "head"], # special case
+    ["face", "CC_Base_FacialBone", "CC_Base_FacialBone"], # special case
+
+    # Left Breast
+    ["breast.L", "CC_Base_L_RibsTwist", "CC_Base_L_RibsTwist"],
+    # Right Breast
+    ["breast.R", "CC_Base_R_RibsTwist", "CC_Base_R_RibsTwist"],
+
+    # Left Leg:
+    ["thigh.L", "thigh_l", ""],
+    ["shin.L", "calf_l", ""],
+    ["foot.L", "foot_l", ""],
+    ["toe.L", "ball_l", "ball_l"],
+
+    # Left Arm:
+    ["shoulder.L", "clavicle_l", "clavicle_l"],
+    # chain
+    ["upper_arm.L", "upperarm_l", ""],
+    ["forearm.L", "lowerarm_l", ""],
+    ["hand.L", "hand_l", "hand_l", 0, 0.75],
+    ["palm.01.L", "hand_l", "-index_01_l", 0.35, 1],
+    ["palm.02.L", "hand_l", "-middle_01_l", 0.35, 1],
+    ["palm.03.L", "hand_l", "-ring_01_l", 0.35, 1],
+    ["palm.04.L", "hand_l", "-pinky_01_l", 0.35, 1],
+    # Left Hand Fingers, chains
+    ["thumb.01.L", "thumb_01_l", ""],
+    ["f_index.01.L", "index_01_l", ""],
+    ["f_middle.01.L", "middle_01_l", ""],
+    ["f_ring.01.L", "ring_01_l", ""],
+    ["f_pinky.01.L", "pinky_01_l", ""],
+    ["thumb.02.L", "thumb_02_l", ""],
+    ["f_index.02.L", "index_02_l", ""],
+    ["f_middle.02.L", "middle_02_l", ""],
+    ["f_ring.02.L", "ring_02_l", ""],
+    ["f_pinky.02.L", "pinky_02_l", ""],
+    ["thumb.03.L", "thumb_03_l", "thumb_03_l"],
+    ["f_index.03.L", "index_03_l", "index_03_l"],
+    ["f_middle.03.L", "middle_03_l", "middle_03_l"],
+    ["f_ring.03.L", "ring_03_l", "ring_03_l"],
+    ["f_pinky.03.L", "pinky_03_l", "pinky_03_l"],
+
+    # Right Leg, chain
+    ["thigh.R", "thigh_r", ""],
+    ["shin.R", "calf_r", ""],
+    ["foot.R", "foot_r", ""],
+    ["toe.R", "ball_r", "ball_r"],
+
+    # Right Arm:
+    ["shoulder.R", "clavicle_r", "clavicle_r"],
+    ["upper_arm.R", "upperarm_r", ""],
+    ["forearm.R", "lowerarm_r", ""],
+    ["hand.R", "hand_r", "hand_r", 0, 0.75],
+    ["palm.01.R", "hand_r", "-index_01_r", 0.35, 1],
+    ["palm.02.R", "hand_r", "-middle_01_r", 0.35, 1],
+    ["palm.03.R", "hand_r", "-ring_01_r", 0.35, 1],
+    ["palm.04.R", "hand_r", "-pinky_01_r", 0.35, 1],
+    # Right Hand Fingers, chains
+    ["thumb.01.R", "thumb_01_r", ""],
+    ["f_index.01.R", "index_01_r", ""],
+    ["f_middle.01.R", "middle_01_r", ""],
+    ["f_ring.01.R", "ring_01_r", ""],
+    ["f_pinky.01.R", "pinky_01_r", ""],
+    ["thumb.02.R", "thumb_02_r", ""],
+    ["f_index.02.R", "index_02_r", ""],
+    ["f_middle.02.R", "middle_02_r", ""],
+    ["f_ring.02.R", "ring_02_r", ""],
+    ["f_pinky.02.R", "pinky_02_r", ""],
+    ["thumb.03.R", "thumb_03_r", "thumb_03_r"],
+    ["f_index.03.R", "index_03_r", "index_03_r"],
+    ["f_middle.03.R", "middle_03_r", "middle_03_r"],
+    ["f_ring.03.R", "ring_03_r", "ring_03_r"],
+    ["f_pinky.03.R", "pinky_03_r", "pinky_03_r"],
+
+    ["tongue", "CC_Base_Tongue03", "CC_Base_Tongue02"],
+    ["tongue.001", "CC_Base_Tongue02", "CC_Base_Tongue01"],
+    ["tongue.002", "CC_Base_Tongue01", "CC_Base_JawRoot", 0, 0.65],
+
+    ["teeth.T", "CC_Base_Teeth01", "CC_Base_Teeth01"],
+    ["teeth.B", "CC_Base_Teeth02", "CC_Base_Teeth02"],
+
+    ["eye.R", "CC_Base_R_Eye", ""],
+    ["eye.L", "CC_Base_L_Eye", ""],
+
+    # only when using the basic face rig, a jaw bone is created that needs positioning...
+    ["jaw", "CC_Base_JawRoot", "CC_Base_Tongue03", 0, 1.35],
+]
+
 FACE_BONES = [
     ["face", "spine.006", "LR", 0],
     ["eye.L", "face", "LR", 0],
@@ -191,7 +295,7 @@ ADD_DEF_BONES = [
     ["#RenameBasicFace", "jaw", "jaw_master", "", 1],
 ]
 
-VERTEX_GROUP_RENAME = [
+G3_VERTEX_GROUP_RENAME = [
     # Spine, Neck & Head:
     ["DEF-pelvis", "CC_Base_Pelvis"],
     ["DEF-spine", "CC_Base_Hip"],
@@ -297,10 +401,96 @@ VERTEX_GROUP_RENAME = [
     ["DEF-jaw", "CC_Base_JawRoot"],
 ]
 
+GAME_BASE_VERTEX_GROUP_RENAME = [
+    # Spine, Neck & Head:
+    ["DEF-spine", "pelvis"],
+    ["DEF-spine.001", "spine_01"],
+    ["DEF-spine.002", "spine_02"],
+    ["DEF-spine.003", "spine_03"],
+    ["DEF-spine.005", "neck_01"],
+    ["DEF-spine.006", "head"],
+    # Left Breast:
+    ["DEF-breast_twist.L", "CC_Base_L_RibsTwist"],
+    # Right Breast:
+    ["DEF-breast_twist.R", "CC_Base_R_RibsTwist"],
+    # Left Leg:
+    ["DEF-thigh.L", "thigh_l"],
+    ["DEF-thigh.L.001", "thigh_twist_01_l"],
+    ["DEF-shin.L", "calf_l"],
+    ["DEF-shin.L.001", "calf_twist_01_l"],
+    ["DEF-foot.L", "foot_l"],
+    ["DEF-toe.L", "ball_l"],
+    # Left Arm:
+    ["DEF-shoulder.L", "clavicle_l"],
+    ["DEF-upper_arm.L", "upperarm_l"],
+    ["DEF-upper_arm.L.001", "upperarm_twist_01_L"],
+    ["DEF-forearm.L", "lowerarm_l"],
+    ["DEF-forearm.L.001", "lowerarm_twist_01_l"],
+    ["DEF-hand.L", "hand_l"],
+    # Left Hand Fingers:
+    ["DEF-thumb.01.L", "thumb_01_l"],
+    ["DEF-f_index.01.L", "index_01_l"],
+    ["DEF-f_middle.01.L", "middle_01_l"],
+    ["DEF-f_ring.01.L", "ring_01_l"],
+    ["DEF-f_pinky.01.L", "pinky_01_l"],
+    ["DEF-thumb.02.L", "thumb_02_l"],
+    ["DEF-f_index.02.L", "index_02_l"],
+    ["DEF-f_middle.02.L", "middle_02_l"],
+    ["DEF-f_ring.02.L", "ring_02_l"],
+    ["DEF-f_pinky.02.L", "pinky_02_l"],
+    ["DEF-thumb.03.L", "thumb_03_l"],
+    ["DEF-f_index.03.L", "index_03_l"],
+    ["DEF-f_middle.03.L", "middle_03_l"],
+    ["DEF-f_ring.03.L", "ring_03_l"],
+    ["DEF-f_pinky.03.L", "pinky_03_l"],
+    # Right Leg:
+    ["DEF-thigh.R", "thigh_r"],
+    ["DEF-thigh.R.001", "thigh_twist_01_r"],
+    ["DEF-shin.R", "calf_r"],
+    ["DEF-shin.R.001", "calf_twist_01_r"],
+    ["DEF-foot.R", "foot_r"],
+    ["DEF-toe.R", "ball_r"],
+    # Right Arm:
+    ["DEF-shoulder.R", "clavicle_r"],
+    ["DEF-upper_arm.R", "upperarm_r"],
+    ["DEF-upper_arm.R.001", "upperarm_twist_01_r"],
+    ["DEF-forearm.R", "lowerarm_r"],
+    ["DEF-forearm.R.001", "lowerarm_twist_01_r"],
+    ["DEF-hand.R", "hand_r"],
+    # Right Hand Fingers:
+    ["DEF-thumb.01.R", "thumb_01_r"],
+    ["DEF-f_index.01.R", "index_01_r"],
+    ["DEF-f_middle.01.R", "middle_01_r"],
+    ["DEF-f_ring.01.R", "ring_01_r"],
+    ["DEF-f_pinky.01.R", "pinky_01_r"],
+    ["DEF-thumb.02.R", "thumb_02_r"],
+    ["DEF-f_index.02.R", "index_02_r"],
+    ["DEF-f_middle.02.R", "middle_02_r"],
+    ["DEF-f_ring.02.R", "ring_02_r"],
+    ["DEF-f_pinky.02.R", "pinky_02_r"],
+    ["DEF-thumb.03.R", "thumb_03_r"],
+    ["DEF-f_index.03.R", "index_03_r"],
+    ["DEF-f_middle.03.R", "middle_03_r"],
+    ["DEF-f_ring.03.R", "ring_03_r"],
+    ["DEF-f_pinky.03.R", "pinky_03_r"],
+    # Tongue:
+    ["DEF-tongue", "CC_Base_Tongue03"],
+    ["DEF-tongue.001", "CC_Base_Tongue02"],
+    ["DEF-tongue.002", "CC_Base_Tongue01"],
+    # Teeth:
+    ["DEF-teeth.T", "CC_Base_Teeth01"],
+    ["DEF-teeth.B", "CC_Base_Teeth02"],
+    # Eyes:
+    ["DEF-eye.R", "CC_Base_R_Eye"],
+    ["DEF-eye.L", "CC_Base_L_Eye"],
+    # Jaw:
+    ["DEF-jaw", "CC_Base_JawRoot"],
+]
+
 # the rigify meta rig and the cc3 bones don't always match for roll angles,
 # correct them by copying from the cc3 bones and adjusting to match the orientation the meta rig expects.
 # ["meta rig name", roll_adjust, "cc3 rig name"],
-ROLL_COPY = [
+G3_ROLL_COPY = [
     # Spine, Neck & Head:
     # spine chain
     ["spine", 0, "CC_Base_Pelvis"],
@@ -382,4 +572,88 @@ ROLL_COPY = [
     ["f_middle.03.R", -90, "CC_Base_R_Mid3"],
     ["f_ring.03.R", -90, "CC_Base_R_Ring3"],
     ["f_pinky.03.R", -90, "CC_Base_R_Pinky3"],
+]
+
+GAME_BASE_ROLL_COPY = [
+    # Spine, Neck & Head:
+    # spine chain
+    ["spine", 0, "pelvis"],
+    ["spine.001", 0, "spine_01"],
+    ["spine.002", 0, "spine_02"],
+    ["spine.003", 0, "spine_03"],
+    ["spine.004", 0, "spine_03"],
+    ["spine.005", 0, "neck_01"],
+    ["spine.006", 0, "head"], # todo
+    ["face", 0, "CC_Base_FacialBone"], # todo
+
+    # Left Breast
+    ["breast.L", 0, "CC_Base_L_RibsTwist"],
+    # Right Breast
+    ["breast.R", 0, "CC_Base_R_RibsTwist"],
+
+    # Left Leg:
+    ["thigh.L", 180, "thigh_l"],
+    ["shin.L", 180, "calf_l"],
+    ["foot.L", 180, "foot_l"],
+    ["toe.L", 0, "ball_l"],
+
+    # Left Arm:
+    ["shoulder.L", -90, "clavicle_l"],
+    ["upper_arm.L", 0, "upperarm_l"],
+    ["forearm.L", 0, "lowerarm_l"],
+    ["hand.L", 0, "hand_l"],
+    ["palm.01.L", 90, "hand_l"],
+    ["palm.02.L", 90, "hand_l"],
+    ["palm.03.L", 90, "hand_l"],
+    ["palm.04.L", 90, "hand_l"],
+
+    # Left Hand Fingers, chains
+    ["thumb.01.L", 180, "thumb_01_l"],
+    ["f_index.01.L", 90, "index_01_l"],
+    ["f_middle.01.L", 90, "middle_01_l"],
+    ["f_ring.01.L", 90, "ring_01_l"],
+    ["f_pinky.01.L", 90, "pinky_01_l"],
+    ["thumb.02.L", 180, "thumb_02_l"],
+    ["f_index.02.L", 90, "index_02_l"],
+    ["f_middle.02.L", 90, "middle_02_l"],
+    ["f_ring.02.L", 90, "ring_02_l"],
+    ["f_pinky.02.L", 90, "pinky_02_l"],
+    ["thumb.03.L", 180, "thumb_03_l"],
+    ["f_index.03.L", 90, "index_03_l"],
+    ["f_middle.03.L", 90, "middle_03_l"],
+    ["f_ring.03.L", 90, "ring_03_l"],
+    ["f_pinky.03.L", 90, "pinky_03_l"],
+
+    # Right Leg, chain
+    ["thigh.R", -180, "thigh_r"],
+    ["shin.R", -180, "calf_r"],
+    ["foot.R", -180, "foot_r"],
+    ["toe.R", 0, "ball_r"],
+
+    # Right Arm:
+    ["shoulder.R", 90, "clavicle_r"],
+    ["upper_arm.R", 0, "upperarm_r"],
+    ["forearm.R", 0, "lowerarm_r"],
+    ["hand.R", 0, "hand_r"],
+    ["palm.01.R", -90, "hand_r"],
+    ["palm.02.R", -90, "hand_r"],
+    ["palm.03.R", -90, "hand_r"],
+    ["palm.04.R", -90, "hand_r"],
+
+    # Right Hand Fingers, chains
+    ["thumb.01.R", -180, "thumb_01_r"],
+    ["f_index.01.R", -90, "index_01_r"],
+    ["f_middle.01.R", -90, "middle_01_r"],
+    ["f_ring.01.R", -90, "ring_01_r"],
+    ["f_pinky.01.R", -90, "pinky_01_r"],
+    ["thumb.02.R", -180, "thumb_02_r"],
+    ["f_index.02.R", -90, "index_02_r"],
+    ["f_middle.02.R", -90, "middle_02_r"],
+    ["f_ring.02.R", -90, "ring_02_r"],
+    ["f_pinky.02.R", -90, "pinky_02_r"],
+    ["thumb.03.R", -180, "thumb_03_r"],
+    ["f_index.03.R", -90, "index_03_r"],
+    ["f_middle.03.R", -90, "middle_03_r"],
+    ["f_ring.03.R", -90, "ring_03_r"],
+    ["f_pinky.03.R", -90, "pinky_03_r"],
 ]
