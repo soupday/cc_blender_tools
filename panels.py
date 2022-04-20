@@ -909,6 +909,18 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA to Unity").param = "NLA_CC_BAKE_UNITY"
                         row.enabled = unity_bake_source_type == "NONE"
 
+                        layout.box().row().label(text = "Unity Export", icon = "CUBE")
+
+                        row = layout.row()
+                        row.scale_y = 2
+                        op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
+                        op.param = "EXPORT_UNITY"
+                        row2 = layout.row()
+                        row2.label(text="Rigged character FBX only", icon="INFO")
+                        if not chr_cache:
+                            row.enabled = False
+                            row2.enabled = False
+
                 elif chr_cache.can_be_rigged():
 
                     if chr_cache and chr_cache.can_rig_full_face():
