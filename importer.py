@@ -288,8 +288,10 @@ def init_shape_key_range(obj):
             # re-set a value in the shapekey action keyframes to force
             # the shapekey action to update to the new ranges:
             try:
-                co = shape_keys.animation_data.action.fcurves[0].keyframe_points[0].co
-                shape_keys.animation_data.action.fcurves[0].keyframe_points[0].co = co
+                action = utils.safe_get_action(shape_keys)
+                if action:
+                    co = action.fcurves[0].keyframe_points[0].co
+                    action.fcurves[0].keyframe_points[0].co = co
             except:
                 pass
 
@@ -527,7 +529,7 @@ def detect_character(file_path, type, objects, actions, json_data, warn):
         if obj.type == "MESH":
             arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
             if arm_mod:
-                arm_mod.use_deform_preserve_volume = True
+                arm_mod.use_deform_preserve_volume = False
 
     # material setup mode
     if chr_cache.import_has_key:

@@ -1625,3 +1625,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         self.action_list_action = utils.collection_at_index(self.action_list_index, bpy.data.actions)
         self.unity_action_list_action = utils.collection_at_index(self.unity_action_list_index, bpy.data.actions)
         self.rigified_action_list_action = utils.collection_at_index(self.rigified_action_list_index, bpy.data.actions)
+        if self.armature_list_object and self.armature_list_object.type != "ARMATURE":
+            self.armature_list_object = None
+            self.armature_list_index = -1

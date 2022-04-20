@@ -120,8 +120,8 @@ BONE_MAPPINGS = [
     ["teeth.T", "CC_Base_Teeth01", "CC_Base_Teeth01"],
     ["teeth.B", "CC_Base_Teeth02", "CC_Base_Teeth02"],
 
-    ["eye.R", "CC_Base_R_Eye", "", 0, 1, "ZUp"],
-    ["eye.L", "CC_Base_L_Eye", "", 0, 1, "ZUp"],
+    ["eye.R", "CC_Base_R_Eye", "", 0, 1],
+    ["eye.L", "CC_Base_L_Eye", "", 0, 1],
 
     # only when using the basic face rig, a jaw bone is created that needs positioning...
     ["jaw", "CC_Base_JawRoot", "CC_Base_Tongue03", 0, 1.35],
@@ -498,9 +498,6 @@ RETARGET_CC3 = [
     ["CC_Base_Tongue03", "tongue", "L"],
     ["CC_Base_Tongue02", "tongue.001", "L"],
     ["CC_Base_Tongue01", "tongue.002", "L"],
-    ["CC_Base_Tongue03", "tweak_tongue", "NL"], # basic face
-    ["CC_Base_Tongue02", "tweak_tongue.001", "L"], # basic face
-    ["CC_Base_Tongue01", "tweak_tongue.002", "L"], # basic face
     # teeth
     ["CC_Base_Teeth01", "teeth.T", "LR"],
     ["CC_Base_Teeth02", "teeth.B", "LR"],
@@ -930,7 +927,7 @@ def rename_vertex_groups(cc3_rig, rigify_rig):
         for mod in obj.modifiers:
             if mod.type == "ARMATURE":
                 mod.object = rigify_rig
-                mod.use_deform_preserve_volume = True
+                mod.use_deform_preserve_volume = False
 
     utils.log_recess()
 
@@ -1319,7 +1316,7 @@ def map_bone(cc3_rig, meta_rig, mapping):
         # lerp the start and end positions if supplied
         if src_bone:
 
-            if len(mapping) >= 5 and src_bone_head_name != "" and src_bone_tail_name != "":
+            if len(mapping) == 5 and src_bone_head_name != "" and src_bone_tail_name != "":
                 start = mapping[3]
                 end = mapping[4]
                 vec = tail_position - head_position
@@ -1334,11 +1331,6 @@ def map_bone(cc3_rig, meta_rig, mapping):
             # set the tail position
             if src_bone_tail_name != "":
                 dst_bone.tail = tail_position
-
-        if len(mapping) == 6:
-            instr = mapping[5]
-            if instr == "ZUp":
-                pass
 
     else:
         utils.log_error(f"destination bone: {dst_bone_name} not found!")
@@ -1908,11 +1900,7 @@ def adv_retarget_set_rigify_action(op, chr_cache):
         op.report({'ERROR'}, "Action does not match Rigified Armature!")
         return None
 
-    if rigify_rig and source_action:
-        if rigify_rig.animation_data is None:
-            rigify_rig.animation_data.create()
-        rigify_rig.animation_data.action = source_action
-
+    utils.safe_set_action(rigify_rig, source_action)
 
 def adv_retarget_CC_remove_pair(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
@@ -1937,10 +1925,7 @@ def adv_retarget_CC_pair_rigs(op, chr_cache):
     rigify_rig = chr_cache.get_armature()
     source_rig = props.armature_list_object
     source_action = props.action_list_action
-    if source_rig:
-        if source_rig.animation_data is None:
-            source_rig.animation_data.create()
-        source_rig.animation_data.action = source_action
+    utils.safe_set_action(source_rig, source_action)
 
     olc = utils.set_active_layer_collection_from(rigify_rig)
 
@@ -1973,6 +1958,16 @@ def adv_retarget_CC_pair_rigs(op, chr_cache):
 
     temp_collection = utils.force_visible_in_scene("TMP_Retarget", source_rig, origin_cc3_rig, rigify_rig)
 
+    origin_cc3_rig.location = (0,0,0)
+    origin_cc3_rig.rotation_mode = "XYZ"
+    origin_cc3_rig.rotation_euler = (0,0,0)
+    rigify_rig.location = (0,0,0)
+    rigify_rig.rotation_mode = "XYZ"
+    rigify_rig.rotation_euler = (0,0,0)
+    source_rig.location = (0,0,0)
+    source_rig.rotation_mode = "XYZ"
+    source_rig.rotation_euler = (0,0,0)
+
     utils.delete_armature_object(chr_cache.rig_retarget_rig)
     retarget_rig = generate_CC3_retargeting_rig(chr_cache, source_rig, origin_cc3_rig, rigify_rig)
     chr_cache.rig_retarget_rig = retarget_rig
@@ -2000,10 +1995,7 @@ def adv_bake_CC_retargeted_action(op, chr_cache):
     retarget_rig = adv_retarget_CC_pair_rigs(op, chr_cache)
     source_rig = props.armature_list_object
     source_action = props.action_list_action
-    if source_rig:
-        if source_rig.animation_data is None:
-            source_rig.animation_data.create()
-        source_rig.animation_data.action = source_action
+    utils.safe_set_action(source_rig, source_action)
 
     if retarget_rig:
         temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", source_rig, retarget_rig, rigify_rig)
@@ -2026,7 +2018,7 @@ def adv_bake_CC_retargeted_action(op, chr_cache):
 
 def adv_bake_CC_NLA(op, chr_cache):
     rigify_rig = chr_cache.get_armature()
-    rigify_rig.animation_data.action = None
+    utils.safe_set_action(rigify_rig, None)
     adv_retarget_CC_remove_pair(op, chr_cache)
 
     # select all possible control bones in the rigify rig, to bake:
@@ -2040,18 +2032,6 @@ def adv_bake_CC_NLA(op, chr_cache):
                 bone.select = True
 
         bake_rig_animation(rigify_rig, None, "NLA_Bake")
-
-
-def retarget_imported_action(action : bpy.types.Action, cc3_rig, rigify_rig):
-    cc3_rig.animation_data.action = action
-    for retarget_def in RETARGET_CC3:
-        cc3_bone = retarget_def[0]
-        rigify_bone = retarget_def[1]
-        flags = retarget_def[2]
-        if "L" in flags:
-            bones.add_copy_location_constraint(cc3_rig, rigify_rig, cc3_bone, rigify_bone, 1.0)
-        if "R" in flags:
-            bones.add_copy_rotation_constraint(cc3_rig, rigify_rig, cc3_bone, rigify_bone, 1.0)
 
 
 def generate_unity_export_rig(chr_cache):
@@ -2168,16 +2148,16 @@ def get_unity_bake_action(chr_cache):
     rigify_rig = chr_cache.get_armature()
     action = None
     source_type = "NONE"
-    if rigify_rig.animation_data and rigify_rig.animation_data.action:
-        action = rigify_rig.animation_data.action
+    rigify_action = utils.safe_get_action(rigify_rig)
+    if rigify_action:
+        action = rigify_action
         source_type = "RIGIFY"
     # prefer direct retarget bakes
     # (this way it always bakes whatever is currently playing on the Rigify armature)
-    if utils.object_exists_is_armature(chr_cache.rig_retarget_rig):
-        if utils.object_exists_is_armature(chr_cache.rig_retarget_source_rig):
-            if chr_cache.rig_retarget_source_rig.animation_data.action:
-                action = chr_cache.rig_retarget_source_rig.animation_data.action
-                source_type = "RETARGET"
+    retarget_action = utils.safe_get_action(chr_cache.rig_retarget_source_rig)
+    if retarget_action:
+        action = retarget_action
+        source_type = "RETARGET"
     return action, source_type
 
 
@@ -2226,7 +2206,7 @@ def adv_bake_rigify_to_unity(op, chr_cache):
 
 def adv_bake_rigify_NLA_to_unity(op, chr_cache):
     rigify_rig = chr_cache.get_armature()
-    rigify_rig.animation_data.action = None
+    utils.safe_set_action(rigify_rig, None)
     adv_retarget_CC_remove_pair(op, chr_cache)
 
     # generate the Unity export rig
@@ -2272,7 +2252,7 @@ def prep_unity_export_rig(chr_cache):
 
         # create T-Pose action
         action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
-        export_rig.animation_data.action = action
+        utils.safe_set_action(export_rig, action)
 
         # go to first frame
         bpy.data.scenes["Scene"].frame_current = 1
@@ -2324,8 +2304,9 @@ def finish_unity_export(chr_cache, export_rig):
         mod.object = rigify_rig
         restore_from_unity_vertex_groups(child)
     # remove the t_pose_action and the export rig
-    t_pose_action = export_rig.animation_data.action
-    bpy.data.actions.remove(t_pose_action)
+    t_pose_action = utils.safe_get_action(export_rig)
+    if t_pose_action:
+        bpy.data.actions.remove(t_pose_action)
 
 
 def bake_rig_animation(rig, action, action_name = ""):
@@ -2335,7 +2316,7 @@ def bake_rig_animation(rig, action, action_name = ""):
         name = action_name.split("|")[-1]
         baked_action = bpy.data.actions.new(f"{rig.name}|A|{name}")
         baked_action.use_fake_user = True
-        rig.animation_data.action = baked_action
+        utils.safe_set_action(rig, baked_action)
         if action:
             start_frame = int(action.frame_range[0])
             end_frame = int(action.frame_range[1])

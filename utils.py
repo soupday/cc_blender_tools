@@ -704,6 +704,29 @@ def safe_index_of(text : str, search : str, start : int):
         return -1
 
 
+def safe_get_action(obj):
+    if obj:
+        try:
+            if obj.animation_data:
+                return obj.animation_data.action
+        except:
+            log_warn(f"Unable to get action from {obj.name}")
+    return None
+
+
+def safe_set_action(obj, action):
+    if obj:
+        try:
+            if obj.animation_data is None:
+                obj.animation_data_create()
+            obj.animation_data.action = action
+            return True
+        except:
+            action_name = action.name if action else "None"
+            log_warn(f"Unable to set action {action_name} to {obj.name}")
+    return False
+
+
 def index_of_collection(item, collection):
     for i, o in enumerate(collection):
         if o == item:
