@@ -138,7 +138,7 @@ class UNITY_ACTION_UL_List(bpy.types.UIList):
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
         for i, item in enumerate(items):
-            if "_Unity|A|" in item.name:
+            if "_Unity" in item.name and "|A|" in item.name:
                 if len(item.fcurves) == 0: # no fcurves, no animation...
                     filtered[i] &= ~self.bitflag_filter_item
                 elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...

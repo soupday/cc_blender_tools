@@ -1560,16 +1560,26 @@ def generate_unity_export_rig(chr_cache):
     rigify_rig = chr_cache.get_armature()
     export_rig = utils.duplicate_object(rigify_rig)
     if export_rig:
-        export_rig.name = rigify_rig.name + "_Unity"
+        export_rig.name = chr_cache.character_name + "_Unity"
+        export_rig.name = chr_cache.character_name + "_Unity"
+        export_rig.data.name = chr_cache.character_name + "_Unity"
+        export_rig.data.name = chr_cache.character_name + "_Unity"
     else:
         return None
+
+    # turn all the layers on, otherwise keyframing can fail
+    for l in range(0, 32):
+        export_rig.data.layers[l] = True
+        export_rig.data.layers_protected[l] = False
 
     # compile a list of all deformation bones
     def_bones = []
     for export_def in UNITY_EXPORT_RIG:
         def_bones.append(export_def[0])
+
     # remove all drivers
     bones.clear_drivers(export_rig)
+
     # remove all constraints
     if utils.object_mode_to(export_rig):
         for pose_bone in export_rig.pose.bones:
@@ -1684,9 +1694,8 @@ def get_unity_bake_action(chr_cache):
 
 
 def adv_bake_rigify_to_unity(op, chr_cache):
-    rigify_rig = chr_cache.get_armature()
-    export_rig = chr_cache.rig_export_rig
 
+    rigify_rig = chr_cache.get_armature()
     if rigify_rig.animation_data is None:
         rigify_rig.animation_data_create()
 
@@ -1696,10 +1705,12 @@ def adv_bake_rigify_to_unity(op, chr_cache):
     # if there is an action
     if action:
 
-        # generate the Unity export rig
-        if not utils.object_exists_is_armature(export_rig):
-            export_rig = generate_unity_export_rig(chr_cache)
-            chr_cache.rig_export_rig = export_rig
+        # generate Unity export rig
+        export_rig = chr_cache.rig_export_rig
+        if utils.object_exists_is_armature(export_rig):
+            utils.delete_armature_object(export_rig)
+        export_rig = generate_unity_export_rig(chr_cache)
+        chr_cache.rig_export_rig = export_rig
 
         if export_rig:
 
@@ -1731,11 +1742,12 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache, rigify_data):
     utils.safe_set_action(rigify_rig, None)
     adv_retarget_CC_remove_pair(op, chr_cache, rigify_data)
 
-    # generate the Unity export rig
+    # generate Unity export rig
     export_rig = chr_cache.rig_export_rig
-    if not utils.object_exists_is_armature(export_rig):
-        export_rig = generate_unity_export_rig(chr_cache)
-        chr_cache.rig_export_rig = export_rig
+    if utils.object_exists_is_armature(export_rig):
+        utils.delete_armature_object(export_rig)
+    export_rig = generate_unity_export_rig(chr_cache)
+    chr_cache.rig_export_rig = export_rig
 
     if export_rig:
 
@@ -1763,38 +1775,39 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache, rigify_data):
 def prep_unity_export_rig(chr_cache):
 
     rigify_rig = chr_cache.get_armature()
+
+    # generate Unity export rig
     export_rig = chr_cache.rig_export_rig
-    if not utils.object_exists_is_armature(export_rig):
-        export_rig = generate_unity_export_rig(chr_cache)
-        chr_cache.rig_export_rig = export_rig
+    if utils.object_exists_is_armature(export_rig):
+        utils.delete_armature_object(export_rig)
+    export_rig = generate_unity_export_rig(chr_cache)
+    chr_cache.rig_export_rig = export_rig
 
     if utils.object_mode_to(export_rig):
         export_rig.data.pose_position = "POSE"
-        utils.set_mode("POSE")
 
-        # create T-Pose action
-        action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
-        utils.safe_set_action(export_rig, action)
+        if utils.set_mode("POSE"):
 
-        # go to first frame
-        bpy.data.scenes["Scene"].frame_current = 1
+            # create T-Pose action
+            action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
+            utils.safe_set_action(export_rig, action)
 
-        # clear pose
-        bpy.ops.pose.transforms_clear()
+            # go to first frame
+            bpy.data.scenes["Scene"].frame_current = 1
 
-        # apply first keyframe
-        bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
+            # apply first keyframe
+            bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
 
-        # make a second keyframe
-        bpy.data.scenes["Scene"].frame_current = 2
-        bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
+            # make a second keyframe
+            bpy.data.scenes["Scene"].frame_current = 2
+            bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
 
-        # reparent the child objects
-        for child in rigify_rig.children:
-            child.parent = export_rig
-            mod = modifiers.get_object_modifier(child, "ARMATURE")
-            mod.object = export_rig
-            rename_to_unity_vertex_groups(child)
+            # reparent the child objects
+            for child in rigify_rig.children:
+                child.parent = export_rig
+                mod = modifiers.get_object_modifier(child, "ARMATURE")
+                mod.object = export_rig
+                rename_to_unity_vertex_groups(child)
 
     utils.object_mode_to(export_rig)
 
