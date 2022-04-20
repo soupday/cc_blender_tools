@@ -995,29 +995,23 @@ class CC3ImportAnimations(bpy.types.Operator):
         utils.log_info("Cleaning up:")
         utils.log_indent()
 
-        # only interested in actions, delete the rest
+        for obj in objects:
+            if obj.type == "ARMATURE":
+                obj.name = name
+                if obj.data:
+                    obj.data.name = name
+
         if self.remove_meshes:
+            # only interested in actions, delete the rest
             for obj in objects:
-                if obj.type == "ARMATURE":
-                    obj.name = name
-                    if obj.data:
-                        obj.data.name = name
-                    #utils.log_info(f"Moving Object: {obj.name} to animation collection.")
-                    #utils.move_object_to_collection(obj, collection)
-                else:
+                if obj.type != "ARMATURE":
                     utils.log_info(f"Removing Object: {obj.name}")
                     utils.delete_mesh_object(obj)
-
+            # and optionally remove the shape keys
             if self.remove_shape_keys:
                 for action in shapekey_actions:
                     utils.log_info(f"Removing Shapekey Action: {action.name}")
                     bpy.data.actions.remove(action)
-        else:
-            #for obj in objects:
-            #    utils.log_info(f"Moving Object: {obj.name} to animation collection.")
-            #    utils.move_object_to_collection(obj, collection)
-            pass
-
 
         if self.remove_materials_images:
             for img in images:
