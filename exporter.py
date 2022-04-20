@@ -21,7 +21,7 @@ import shutil
 import bpy
 from filecmp import cmp
 
-from . import bake, shaders, modifiers, nodeutils, jsonutils, utils, params, vars
+from . import bake, shaders, rigging, modifiers, nodeutils, jsonutils, utils, params, vars
 
 UNPACK_INDEX = 1001
 
@@ -31,52 +31,60 @@ def check_valid_export_fbx(chr_cache, objects):
     report = []
     check_valid = True
     check_warn = False
-    arm = chr_cache.get_armature()
+    arm = utils.get_armature_in_objects(objects)
 
-    obj : bpy.types.Object
-    for obj in objects:
-        if obj != arm and utils.object_exists_in_scenes(obj):
-            if obj.type != "MESH":
-                message = f"ERROR: Object: {obj.name} is not a mesh!"
-                report.append(message)
-                utils.log_warn(message)
-                check_valid = False
-            if obj.parent != arm:
-                message = f"ERROR: Object: {obj.name} is not parented to character armature."
-                report.append(message)
-                utils.log_warn(message)
-                check_valid = False
-            armature_mode : bpy.types.ArmatureModifier
-            armature_mod = modifiers.get_object_modifier(obj, "ARMATURE")
-            if armature_mod is None:
-                message = f"ERROR: Object: {obj.name} does not have an armature modifier."
-                report.append(message)
-                utils.log_warn(message)
-                check_valid = False
-            if armature_mod and armature_mod.object != arm:
-                message = f"ERROR: Object: {obj.name}'s armature modifier is not set to this character's armature."
-                report.append(message)
-                utils.log_warn(message)
-                check_valid = False
-            if len(obj.vertex_groups) == 0:
-                message = f"ERROR: Object: {obj.name} has no vertex groups."
-                report.append(message)
-                utils.log_warn(message)
-                check_valid = False
-            if obj.type == "MESH" and obj.data and len(obj.data.vertices) < 150:
-                message = f"WARNING: Object: {obj.name} has a low number of vertices (less than 150), this is can cause CTD issues with CC3's importer."
-                report.append(message)
-                utils.log_warn(message)
-                message = f" (if CC3 crashes when importing this character, consider increasing vertex count or joining this object to another.)"
-                report.append(message)
-                utils.log_warn(message)
-                check_warn = True
+    if not arm:
+
+        message = f"ERROR: Character {chr_cache.character_name} has no armature!"
+        report.append(message)
+        utils.log_warn(message)
+        check_valid = False
+
+    else:
+
+        obj : bpy.types.Object
+        for obj in objects:
+            if obj != arm and utils.object_exists_in_scenes(obj):
+                if obj.type != "MESH":
+                    message = f"ERROR: Object: {obj.name} is not a mesh!"
+                    report.append(message)
+                    utils.log_warn(message)
+                    check_valid = False
+                armature_mod : bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
+                if armature_mod is None:
+                    message = f"ERROR: Object: {obj.name} does not have an armature modifier."
+                    report.append(message)
+                    utils.log_warn(message)
+                    check_valid = False
+                if obj.parent != arm:
+                    message = f"ERROR: Object: {obj.name} is not parented to character armature."
+                    report.append(message)
+                    utils.log_warn(message)
+                    check_valid = False
+                if armature_mod and armature_mod.object != arm:
+                    message = f"ERROR: Object: {obj.name}'s armature modifier is not set to this character's armature."
+                    report.append(message)
+                    utils.log_warn(message)
+                    check_valid = False
+                if len(obj.vertex_groups) == 0:
+                    message = f"ERROR: Object: {obj.name} has no vertex groups."
+                    report.append(message)
+                    utils.log_warn(message)
+                    check_valid = False
+                if obj.type == "MESH" and obj.data and len(obj.data.vertices) < 150:
+                    message = f"WARNING: Object: {obj.name} has a low number of vertices (less than 150), this is can cause CTD issues with CC3's importer."
+                    report.append(message)
+                    utils.log_warn(message)
+                    message = f" (if CC3 crashes when importing this character, consider increasing vertex count or joining this object to another.)"
+                    report.append(message)
+                    utils.log_warn(message)
+                    check_warn = True
 
     return check_valid, check_warn, report
 
 
 def remove_modifiers_for_export(chr_cache, objects):
-    arm = chr_cache.get_armature()
+    arm = utils.get_armature_in_objects(objects)
     if arm:
         arm.data.pose_position = "POSE"
     obj : bpy.types.Object
@@ -106,7 +114,7 @@ def restore_modifiers(chr_cache, objects):
 def rescale_for_unity(chr_cache, objects):
     """Do not use. Causes more problems than it solves..."""
     if utils.set_mode("OBJECT"):
-        arm : bpy.types.Object = chr_cache.get_armature()
+        arm : bpy.types.Object = utils.get_armature_in_objects(objects)
         if arm.scale != 1.0:
             utils.try_select_object(arm, True)
             bpy.ops.object.transform_apply(location = False, rotation = False, scale = True, properties = False)
@@ -304,7 +312,7 @@ def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_pat
 
     # remove everything not part of the character for blend file exports.
     if as_blend_file:
-        arm = chr_cache.get_armature()
+        arm = utils.get_armature_in_objects(objects)
         for obj in bpy.data.objects:
             if obj != arm and obj.parent != arm and not chr_cache.has_object(obj):
                 bpy.data.objects.remove(obj)
@@ -957,7 +965,7 @@ class CC3Export(bpy.types.Operator):
             utils.log_info("Exporting Character Model to UNITY:")
             utils.log_info("-----------------------------------")
 
-            export_anim = False
+            export_anim = self.use_anim
             dir, file = os.path.split(self.filepath)
             name, type = os.path.splitext(file)
 
@@ -970,6 +978,14 @@ class CC3Export(bpy.types.Operator):
             utils.log_indent()
 
             objects = get_export_objects(chr_cache, False)
+            export_rig = None
+
+            if chr_cache.rigified:
+                export_rig = rigging.prep_unity_export_rig(chr_cache)
+                if export_rig:
+                    rigify_rig = chr_cache.get_armature()
+                    objects.remove(rigify_rig)
+                    objects.append(export_rig)
 
             as_blend_file = False
             if type == ".blend" and prefs.export_unity_remove_objects:
@@ -989,6 +1005,7 @@ class CC3Export(bpy.types.Operator):
                 bpy.ops.export_scene.fbx(filepath=self.filepath,
                         use_selection = True,
                         bake_anim = export_anim,
+                        use_armature_deform_only=True,
                         add_leaf_bones = False,
                         use_mesh_modifiers = True)
 
@@ -1016,6 +1033,10 @@ class CC3Export(bpy.types.Operator):
                             shutil.copyfile(old_key_path, new_key_path)
                 except Exception as e:
                     utils.log_error("Unable to copy keyfile: " + old_key_path + " to: " + new_key_path, e)
+
+            # clean up rigify export
+            if chr_cache.rigified:
+                rigging.finish_unity_export(chr_cache, export_rig)
 
             utils.log_recess()
             utils.log_info("")
@@ -1162,6 +1183,9 @@ class CC3Export(bpy.types.Operator):
         if chr_cache.import_type == "fbx":
             if self.param == "EXPORT_CC3" or self.param == "EXPORT_UNITY" or self.param == "UPDATE_UNITY":
                 objects = get_export_objects(chr_cache, self.param == "EXPORT_CC3")
+                check_arm = True
+                if chr_cache.rigified:
+                    check_arm = False
                 self.check_valid, self.check_warn, self.check_report = check_valid_export_fbx(chr_cache, objects)
                 if self.param == "EXPORT_CC3" and not self.check_valid:
                     self.error_report()
@@ -1171,7 +1195,7 @@ class CC3Export(bpy.types.Operator):
         if chr_cache:
             self.filename_ext = "." + chr_cache.import_type
             if self.param == "EXPORT_UNITY":
-                if prefs.export_unity_mode == "FBX":
+                if prefs.export_unity_mode == "FBX" or chr_cache.rigified:
                     self.filename_ext = ".fbx"
                 else:
                     self.filename_ext = ".blend"

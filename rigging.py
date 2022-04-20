@@ -18,7 +18,7 @@ from random import random
 import bpy
 import mathutils
 import addon_utils
-import time
+import math
 from . import utils
 from . import geom
 from . import meshutils
@@ -28,6 +28,17 @@ from . import bones
 from . import characters
 from . import rigify_mapping_data
 
+SHAPE_KEY_DRIVERS = [
+    ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A10_Eye_Look_Out_Left", ["SCRIPTED", "var*1.273 if var >=0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A11_Eye_Look_In_Left", ["SCRIPTED", "-var*1.273 if var <0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+
+    ["Bfr", "A07_Eye_Look_Up_Right", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A09_Eye_Look_Down_Right", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A12_Eye_Look_In_Right", ["SCRIPTED", "var*1.273 if var >=0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A13_Eye_Look_Out_Right", ["SCRIPTED", "-var*1.273 if var <0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+]
 
 # relative mappings: calculate the head/tail position of the first index,
 #     defined by the second index
@@ -40,111 +51,243 @@ RELATIVE_MAPPINGS = [
 ]
 
 
-EXPORT_RIG = [
+# [rigify bone name, rigify re-parent, unity bone name, instruction]
+UNITY_EXPORT_RIG = [
     # Spine, Neck & Head:
-    ["DEF-pelvis", "DEF-spine", "P"],
-    ["DEF-spine", "root", "P"],
-    ["DEF-spine.001", "DEF-spine", "P"],
-    ["DEF-spine.002", "DEF-spine.001", "P"],
-    ["DEF-spine.003", "DEF-spine.002", "P"],
-    ["DEF-spine.004", "DEF-spine.003", "P"],
-    ["DEF-spine.005", "DEF-spine.004", "P"],
-    ["DEF-spine.006", "DEF-spine.005", "P"],
+    ["root", "", "CC_Base_Root", "-"],
+    ["DEF-spine", "root", "CC_Base_Hip", "PLR"],
+    ["DEF-pelvis", "DEF-spine", "CC_Base_Pelvis", "PLR"],
+    ["DEF-spine.001", "DEF-spine", "CC_Base_Waist", "PLR"],
+    ["DEF-spine.002", "DEF-spine.001", "CC_Base_Spine01", "PLR"],
+    ["DEF-spine.003", "DEF-spine.002", "CC_Base_Spine02", "PLR"],
+    ["DEF-spine.004", "DEF-spine.003", "CC_Base_NeckTwist01", "PLR"],
+    ["DEF-spine.005", "DEF-spine.004", "CC_Base_NeckTwist02", "PLR"],
+    ["DEF-spine.006", "DEF-spine.005", "CC_Base_Head", "PLR"],
     # Left Breast:
-    ["DEF-breast_twist.L", "DEF-spine.003", "P"],
-    ["DEF-breast.L", "DEF-breast_twist.L", "P"],
+    ["DEF-breast_twist.L", "DEF-spine.003", "CC_Base_L_RibsTwist", "PLR"],
+    ["DEF-breast.L", "DEF-breast_twist.L", "CC_Base_L_Breast", "PLR"],
     # Right Breast:
-    ["DEF-breast_twist.R", "DEF-spine.003", "P"],
-    ["DEF-breast.R", "DEF-breast_twist.R", "P"],
+    ["DEF-breast_twist.R", "DEF-spine.003", "CC_Base_R_RibsTwist", "PLR"],
+    ["DEF-breast.R", "DEF-breast_twist.R", "CC_Base_R_Breast", "PLR"],
     # Left Leg:
-    ["DEF-thigh.L", "DEF-pelvis", "P"],
-    ["DEF-thigh.L.001", "DEF-thigh.L", "P"],
-    ["DEF-knee_share.L", "DEF-shin.L", "P"],
-    ["DEF-shin.L", "DEF-thigh.L.001", "P"],
-    ["DEF-shin.L.001", "DEF-shin.L", "P"],
-    ["DEF-foot.L", "DEF-shin.L.001", "P"],
-    ["DEF-toe.L", "DEF-foot.L", "P"],
+    ["DEF-thigh.L", "DEF-pelvis", "CC_Base_L_Thigh", "PLR"],
+    ["DEF-thigh.L.001", "DEF-thigh.L", "CC_Base_L_ThighTwist", "PLR"],
+    ["DEF-knee_share.L", "DEF-shin.L", "CC_Base_L_KneeShareBone", "PLR"],
+    ["DEF-shin.L", "DEF-thigh.L.001", "CC_Base_L_Calf", "PLR"],
+    ["DEF-shin.L.001", "DEF-shin.L", "CC_Base_L_CalfTwist", "PLR"],
+    ["DEF-foot.L", "DEF-shin.L.001", "CC_Base_L_Foot", "PLR"],
+    ["DEF-toe.L", "DEF-foot.L", "CC_Base_L_ToeBase", "PLR"],
     # Left Foot:
-    ["DEF-toe_big.L", "DEF-toe.L", "P"],
-    ["DEF-toe_index.L", "DEF-toe.L", "P"],
-    ["DEF-toe_mid.L", "DEF-toe.L", "P"],
-    ["DEF-toe_ring.L", "DEF-toe.L", "P"],
-    ["DEF-toe_pinky.L", "DEF-toe.L", "P"],
+    ["DEF-toe_big.L", "DEF-toe.L", "CC_Base_L_BigToe1", "PLR"],
+    ["DEF-toe_index.L", "DEF-toe.L", "CC_Base_L_IndexToe1", "PLR"],
+    ["DEF-toe_mid.L", "DEF-toe.L", "CC_Base_L_MidToe1", "PLR"],
+    ["DEF-toe_ring.L", "DEF-toe.L", "CC_Base_L_RingToe1", "PLR"],
+    ["DEF-toe_pinky.L", "DEF-toe.L", "CC_Base_L_PinkyToe1", "PLR"],
     # Left Arm:
-    ["DEF-shoulder.L", "DEF-spine.003", "P"],
-    ["DEF-upper_arm.L", "DEF-shoulder.L", "P"],
-    ["DEF-upper_arm.L.001", "DEF-upper_arm.L", "P"],
-    ["DEF-elbow_share.L", "DEF-forearm.L", "P"],
-    ["DEF-forearm.L", "DEF-shoulder.L", "P"],
-    ["DEF-forearm.L.001", "DEF-forearm.L", "P"],
-    ["DEF-hand.L", "DEF-forearm.L.001", "P"],
+    ["DEF-shoulder.L", "DEF-spine.003", "CC_Base_L_Clavicle", "PLR"],
+    ["DEF-upper_arm.L", "DEF-shoulder.L", "CC_Base_L_Upperarm", "PLRC"],
+    ["DEF-upper_arm.L.001", "DEF-upper_arm.L", "CC_Base_L_UpperarmTwist", "PLR"],
+    ["DEF-elbow_share.L", "DEF-forearm.L", "CC_Base_L_ElbowShareBone", "PLR"],
+    ["DEF-forearm.L", "DEF-upper_arm.L.001", "CC_Base_L_Forearm", "PLR"],
+    ["DEF-forearm.L.001", "DEF-forearm.L", "CC_Base_L_ForearmTwist", "PLR"],
+    ["DEF-hand.L", "DEF-forearm.L.001", "CC_Base_L_Hand", "PLR"],
     # Left Hand Fingers:
-    ["DEF-thumb.01.L", "DEF-hand.L", "P"],
-    ["DEF-f_index.01.L", "DEF-hand.L", "P"],
-    ["DEF-f_middle.01.L", "DEF-hand.L", "P"],
-    ["DEF-f_ring.01.L", "DEF-hand.L", "P"],
-    ["DEF-f_pinky.01.L", "DEF-hand.L", "P"],
-    ["DEF-thumb.02.L", "DEF-thumb.01.L", "P"],
-    ["DEF-f_index.02.L", "DEF-f_index.01.L", "P"],
-    ["DEF-f_middle.02.L", "DEF-f_middle.01.L", "P"],
-    ["DEF-f_ring.02.L", "DEF-f_ring.01.L", "P"],
-    ["DEF-f_pinky.02.L", "DEF-f_pinky.01.L", "P"],
-    ["DEF-thumb.03.L", "DEF-thumb.02.L", "P"],
-    ["DEF-f_index.03.L", "DEF-f_index.02.L", "P"],
-    ["DEF-f_middle.03.L", "DEF-f_middle.02.L", "P"],
-    ["DEF-f_ring.03.L", "DEF-f_ring.02.L", "P"],
-    ["DEF-f_pinky.03.L", "DEF-f_pinky.02.L", "P"],
+    ["DEF-thumb.01.L", "DEF-hand.L", "CC_Base_L_Thumb1", "PLR"],
+    ["DEF-f_index.01.L", "DEF-hand.L", "CC_Base_L_Index1", "PLR"],
+    ["DEF-f_middle.01.L", "DEF-hand.L", "CC_Base_L_Mid1", "PLR"],
+    ["DEF-f_ring.01.L", "DEF-hand.L", "CC_Base_L_Ring1", "PLR"],
+    ["DEF-f_pinky.01.L", "DEF-hand.L", "CC_Base_L_Pinky1", "PLR"],
+    ["DEF-thumb.02.L", "DEF-thumb.01.L", "CC_Base_L_Thumb2", "PLR"],
+    ["DEF-f_index.02.L", "DEF-f_index.01.L", "CC_Base_L_Index2", "PLR"],
+    ["DEF-f_middle.02.L", "DEF-f_middle.01.L", "CC_Base_L_Mid2", "PLR"],
+    ["DEF-f_ring.02.L", "DEF-f_ring.01.L", "CC_Base_L_Ring2", "PLR"],
+    ["DEF-f_pinky.02.L", "DEF-f_pinky.01.L", "CC_Base_L_Pinky2", "PLR"],
+    ["DEF-thumb.03.L", "DEF-thumb.02.L", "CC_Base_L_Thumb3", "PLR"],
+    ["DEF-f_index.03.L", "DEF-f_index.02.L", "CC_Base_L_Index3", "PLR"],
+    ["DEF-f_middle.03.L", "DEF-f_middle.02.L", "CC_Base_L_Mid3", "PLR"],
+    ["DEF-f_ring.03.L", "DEF-f_ring.02.L", "CC_Base_L_Ring3", "PLR"],
+    ["DEF-f_pinky.03.L", "DEF-f_pinky.02.L", "CC_Base_L_Pinky3", "PLR"],
     # Right Leg:
-    ["DEF-thigh.R", "DEF-pelvis", "P"],
-    ["DEF-thigh.R.001", "DEF-thigh.R", "P"],
-    ["DEF-knee_share.R", "DEF-shin.R", "P"],
-    ["DEF-shin.R", "DEF-thigh.R.001", "P"],
-    ["DEF-shin.R.001", "DEF-shin.R", "P"],
-    ["DEF-foot.R", "DEF-shin.R.001", "P"],
-    ["DEF-toe.R", "DEF-foot.R", "P"],
+    ["DEF-thigh.R", "DEF-pelvis", "CC_Base_R_Thigh", "PLR"],
+    ["DEF-thigh.R.001", "DEF-thigh.R", "CC_Base_R_ThighTwist", "PLR"],
+    ["DEF-knee_share.R", "DEF-shin.R", "CC_Base_R_KneeShareBone", "PLR"],
+    ["DEF-shin.R", "DEF-thigh.R.001", "CC_Base_R_Calf", "PLR"],
+    ["DEF-shin.R.001", "DEF-shin.R", "CC_Base_R_CalfTwist", "PLR"],
+    ["DEF-foot.R", "DEF-shin.R.001", "CC_Base_R_Foot", "PLR"],
+    ["DEF-toe.R", "DEF-foot.R", "CC_Base_R_ToeBase", "PLR"],
     # Right Foot:
-    ["DEF-toe_big.R", "DEF-toe.R", "P"],
-    ["DEF-toe_index.R", "DEF-toe.R", "P"],
-    ["DEF-toe_mid.R", "DEF-toe.R", "P"],
-    ["DEF-toe_ring.R", "DEF-toe.R", "P"],
-    ["DEF-toe_pinky.R", "DEF-toe.R", "P"],
+    ["DEF-toe_big.R", "DEF-toe.R", "CC_Base_R_BigToe1", "PLR"],
+    ["DEF-toe_index.R", "DEF-toe.R", "CC_Base_R_IndexToe1", "PLR"],
+    ["DEF-toe_mid.R", "DEF-toe.R", "CC_Base_R_MidToe1", "PLR"],
+    ["DEF-toe_ring.R", "DEF-toe.R", "CC_Base_R_RingToe1", "PLR"],
+    ["DEF-toe_pinky.R", "DEF-toe.R", "CC_Base_R_PinkyToe1", "PLR"],
     # Right Arm:
-    ["DEF-shoulder.R", "DEF-spine.003", "P"],
-    ["DEF-upper_arm.R", "DEF-shoulder.R", "P"],
-    ["DEF-upper_arm.R.001", "DEF-upper_arm.R", "P"],
-    ["DEF-elbow_share.R", "DEF-forearm.R", "P"],
-    ["DEF-forearm.R", "DEF-shoulder.R", "P"],
-    ["DEF-forearm.R.001", "DEF-forearm.R", "P"],
-    ["DEF-hand.R", "DEF-forearm.R.001", "P"],
+    ["DEF-shoulder.R", "DEF-spine.003", "CC_Base_R_Clavicle", "PLR"],
+    ["DEF-upper_arm.R", "DEF-shoulder.R", "CC_Base_R_Upperarm", "PLRC"],
+    ["DEF-upper_arm.R.001", "DEF-upper_arm.R", "CC_Base_R_UpperarmTwist", "PLR"],
+    ["DEF-elbow_share.R", "DEF-forearm.R", "CC_Base_R_ElbowShareBone", "PLR"],
+    ["DEF-forearm.R", "DEF-upper_arm.R.001", "CC_Base_R_Forearm", "PLR"],
+    ["DEF-forearm.R.001", "DEF-forearm.R", "CC_Base_R_ForearmTwist", "PLR"],
+    ["DEF-hand.R", "DEF-forearm.R.001", "CC_Base_R_Hand", "PLR"],
     # Right Hand Fingers:
-    ["DEF-thumb.01.R", "DEF-hand.R", "P"],
-    ["DEF-f_index.01.R", "DEF-hand.R", "P"],
-    ["DEF-f_middle.01.R", "DEF-hand.R", "P"],
-    ["DEF-f_ring.01.R", "DEF-hand.R", "P"],
-    ["DEF-f_pinky.01.R", "DEF-hand.R", "P"],
-    ["DEF-thumb.02.R", "DEF-thumb.01.R", "P"],
-    ["DEF-f_index.02.R", "DEF-f_index.01.R", "P"],
-    ["DEF-f_middle.02.R", "DEF-f_middle.01.R", "P"],
-    ["DEF-f_ring.02.R", "DEF-f_ring.01.R", "P"],
-    ["DEF-f_pinky.02.R", "DEF-f_pinky.01.R", "P"],
-    ["DEF-thumb.03.R", "DEF-thumb.02.R", "P"],
-    ["DEF-f_index.03.R", "DEF-f_index.02.R", "P"],
-    ["DEF-f_middle.03.R", "DEF-f_middle.02.R", "P"],
-    ["DEF-f_ring.03.R", "DEF-f_ring.02.R", "P"],
-    ["DEF-f_pinky.03.R", "DEF-f_pinky.02.R", "P"],
+    ["DEF-thumb.01.R", "DEF-hand.R", "CC_Base_R_Thumb1", "PLR"],
+    ["DEF-f_index.01.R", "DEF-hand.R", "CC_Base_R_Index1", "PLR"],
+    ["DEF-f_middle.01.R", "DEF-hand.R", "CC_Base_R_Mid1", "PLR"],
+    ["DEF-f_ring.01.R", "DEF-hand.R", "CC_Base_R_Ring1", "PLR"],
+    ["DEF-f_pinky.01.R", "DEF-hand.R", "CC_Base_R_Pinky1", "PLR"],
+    ["DEF-thumb.02.R", "DEF-thumb.01.R", "CC_Base_R_Thumb2", "PLR"],
+    ["DEF-f_index.02.R", "DEF-f_index.01.R", "CC_Base_R_Index2", "PLR"],
+    ["DEF-f_middle.02.R", "DEF-f_middle.01.R", "CC_Base_R_Mid2", "PLR"],
+    ["DEF-f_ring.02.R", "DEF-f_ring.01.R", "CC_Base_R_Ring2", "PLR"],
+    ["DEF-f_pinky.02.R", "DEF-f_pinky.01.R", "CC_Base_R_Pinky2", "PLR"],
+    ["DEF-thumb.03.R", "DEF-thumb.02.R", "CC_Base_R_Thumb3", "PLR"],
+    ["DEF-f_index.03.R", "DEF-f_index.02.R", "CC_Base_R_Index3", "PLR"],
+    ["DEF-f_middle.03.R", "DEF-f_middle.02.R", "CC_Base_R_Mid3", "PLR"],
+    ["DEF-f_ring.03.R", "DEF-f_ring.02.R", "CC_Base_R_Ring3", "PLR"],
+    ["DEF-f_pinky.03.R", "DEF-f_pinky.02.R", "CC_Base_R_Pinky3", "PLR"],
     # Tongue:
-    ["DEF-tongue", "DEF-jaw", "P"],
-    ["DEF-tongue.001", "DEF-tongue", "P"],
-    ["DEF-tongue.002", "DEF-tongue.001", "P"],
+    ["DEF-tongue", "DEF-jaw", "CC_Base_Tongue03", "LRP"],
+    ["DEF-tongue.001", "DEF-tongue", "CC_Base_Tongue02", "PLR"],
+    ["DEF-tongue.002", "DEF-tongue.001", "CC_Base_Tongue01", "PLR"],
     # Teeth:
-    ["DEF-teeth.T", "DEF-spine.006", "P"],
-    ["DEF-teeth.B", "DEF-jaw", "P"],
+    ["DEF-teeth.T", "DEF-spine.006", "CC_Base_Teeth01", "PLR"],
+    ["DEF-teeth.B", "DEF-jaw", "CC_Base_Teeth02", "PLR"],
     # Eyes:
-    ["DEF-eye.R", "DEF-spine.006", "P"],
-    ["DEF-eye.L", "DEF-spine.006", "P"],
+    ["DEF-eye.R", "DEF-spine.006", "CC_Base_R_Eye", "PLR"],
+    ["DEF-eye.L", "DEF-spine.006", "CC_Base_L_Eye", "PLR"],
     # Jaw:
-    ["DEF-jaw", "DEF-spine.006", "P"],
+    ["DEF-jaw", "DEF-spine.006", "CC_Base_JawRoot", "PLR"],
 ]
+
+
+RETARGET_CC3 = [
+    # spine, neck & head
+    # "L" - inherit location
+    # "R" - inherit rotation
+    # "C" - connected
+    ["CC_Base_BoneRoot", "root", "LR"],
+    ["CC_Base_Hip", "torso", "LR"],
+    ["CC_Base_Waist", "spine_fk.001", "LR"],
+    ["CC_Base_Spine01", "spine_fk.002", "LR"],
+    ["CC_Base_Spine01", "chest", "NLR"],
+    ["CC_Base_Spine02", "spine_fk.003", "LR"],
+    ["CC_Base_NeckTwist01", "neck", "LR"],
+    ["CC_Base_NeckTwist02", "tweak_spine.005", "L"],
+    ["CC_Base_Head", "head", "LR"],
+    ["CC_Base_Pelvis", "hips", "LR"],
+    # torso
+    ["CC_Base_L_Breast", "breast.L", "LR"],
+    ["CC_Base_R_Breast", "breast.R", "LR"],
+    # left leg
+    ["CC_Base_L_Thigh", "thigh_fk.L", "LR"],
+    ["CC_Base_L_Calf", "shin_fk.L", "LR"],
+    ["CC_Base_L_Foot", "foot_fk.L", "LR"],
+    ["CC_Base_L_ToeBase", "toe_fk.L", "LR"], #post 3.1
+    ["CC_Base_L_ToeBase", "toe.L", "LR"], #pre 3.1
+    # left arm
+    ["CC_Base_L_Clavicle", "shoulder.L", "LR"],
+    ["CC_Base_L_Upperarm", "upper_arm_fk.L", "LR"],
+    ["CC_Base_L_Forearm", "forearm_fk.L", "LR"],
+    ["CC_Base_L_Hand", "hand_fk.L", "LR"],
+    # left fingers
+    ["CC_Base_L_Thumb1", "thumb.01.L", "LR"],
+    ["CC_Base_L_Index1", "f_index.01.L", "LR"],
+    ["CC_Base_L_Mid1", "f_middle.01.L", "LR"],
+    ["CC_Base_L_Ring1", "f_ring.01.L", "LR"],
+    ["CC_Base_L_Pinky1", "f_pinky.01.L", "LR"],
+    ["CC_Base_L_Thumb2", "thumb.02.L", "LR"],
+    ["CC_Base_L_Index2", "f_index.02.L", "LR"],
+    ["CC_Base_L_Mid2", "f_middle.02.L", "LR"],
+    ["CC_Base_L_Ring2", "f_ring.02.L", "LR"],
+    ["CC_Base_L_Pinky2", "f_pinky.02.L", "LR"],
+    ["CC_Base_L_Thumb3", "thumb.03.L", "LR"],
+    ["CC_Base_L_Index3", "f_index.03.L", "LR"],
+    ["CC_Base_L_Mid3", "f_middle.03.L", "LR"],
+    ["CC_Base_L_Ring3", "f_ring.03.L", "LR"],
+    ["CC_Base_L_Pinky3", "f_pinky.03.L", "LR"],
+    # right leg
+    ["CC_Base_R_Thigh", "thigh_fk.R", "LR"],
+    ["CC_Base_R_Calf", "shin_fk.R", "LR"],
+    ["CC_Base_R_Foot", "foot_fk.R", "LR"],
+    ["CC_Base_R_ToeBase", "toe_fk.R", "LR"], #post 3.1
+    ["CC_Base_R_ToeBase", "toe.R", "LR"], #pre 3.1
+    # right arm
+    ["CC_Base_R_Clavicle", "shoulder.R", "LR"],
+    ["CC_Base_R_Upperarm", "upper_arm_fk.R", "LR"],
+    ["CC_Base_R_Forearm", "forearm_fk.R", "LR"],
+    ["CC_Base_R_Hand", "hand_fk.R", "LR"],
+    # right fingers
+    ["CC_Base_R_Thumb1", "thumb.01.R", "LR"],
+    ["CC_Base_R_Index1", "f_index.01.R", "LR"],
+    ["CC_Base_R_Mid1", "f_middle.01.R", "LR"],
+    ["CC_Base_R_Ring1", "f_ring.01.R", "LR"],
+    ["CC_Base_R_Pinky1", "f_pinky.01.R", "LR"],
+    ["CC_Base_R_Thumb2", "thumb.02.R", "LR"],
+    ["CC_Base_R_Index2", "f_index.02.R", "LR"],
+    ["CC_Base_R_Mid2", "f_middle.02.R", "LR"],
+    ["CC_Base_R_Ring2", "f_ring.02.R", "LR"],
+    ["CC_Base_R_Pinky2", "f_pinky.02.R", "LR"],
+    ["CC_Base_R_Thumb3", "thumb.03.R", "LR"],
+    ["CC_Base_R_Index3", "f_index.03.R", "LR"],
+    ["CC_Base_R_Mid3", "f_middle.03.R", "LR"],
+    ["CC_Base_R_Ring3", "f_ring.03.R", "LR"],
+    ["CC_Base_R_Pinky3", "f_pinky.03.R", "LR"],
+    #tongue
+    ["CC_Base_Tongue03", "tongue_master", "LR"],
+    ["CC_Base_Tongue03", "tongue", "L"],
+    ["CC_Base_Tongue02", "tongue.001", "L"],
+    ["CC_Base_Tongue01", "tongue.002", "L"],
+    # teeth
+    ["CC_Base_Teeth01", "teeth.T", "LR"],
+    ["CC_Base_Teeth02", "teeth.B", "LR"],
+    # eyes
+    # "D", param_bone - maintain distance from param_bone
+    # "A", param_bone_1, param_bone_2 - copy average location and rotation from param_bones_1 and param_bones_2
+    ["CC_Base_R_Eye", "eye.R", "LRD", "CC_Base_FacialBone"],
+    ["CC_Base_L_Eye", "eye.L", "LRD", "CC_Base_FacialBone"],
+    ["CC_Base_FacialBone", "eyes", "LRAD", "eye.R", "eye.L", "CC_Base_FacialBone"],
+    # jaw
+    ["CC_Base_JawRoot", "jaw_master", "LR"],
+    # IK bones
+    # "N" - no source -> origin constraints
+    ["CC_Base_L_Hand", "hand_ik.L", "NLR"],
+    ["CC_Base_R_Hand", "hand_ik.R", "NLR"],
+    ["CC_Base_L_Foot", "foot_ik.L", "NLR"],
+    ["CC_Base_R_Foot", "foot_ik.R", "NLR"],
+]
+
+RETARGET_CC3_CORRECTIONS = {
+    "Heel_Angle": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_heel_correction_angle", "rotation_euler", 0],
+        "constraints": [
+            ["CC_Base_L_Foot", "ROT_ADD_LOCAL", "-X"],
+            ["CC_Base_R_Foot", "ROT_ADD_LOCAL", "-X"],
+        ],
+    },
+
+    "Arm_Angle": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_arm_correction_angle", "rotation_euler", 2],
+        "constraints": [
+            ["CC_Base_L_Upperarm", "ROT_ADD_LOCAL", "Z"],
+            ["CC_Base_R_Upperarm", "ROT_ADD_LOCAL", "-Z"],
+        ],
+    },
+
+    "Leg_Angle": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_leg_correction_angle", "rotation_euler", 2],
+        "constraints": [
+            ["CC_Base_L_Thigh", "ROT_ADD_LOCAL", "Z"],
+            ["CC_Base_R_Thigh", "ROT_ADD_LOCAL", "-Z"],
+        ],
+    },
+
+    "Z_Correction": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_z_correction_height", "location", 1],
+        "constraints": [
+            ["CC_Base_Hip", "LOC_OFF_LOCAL", "Y"],
+        ],
+    },
+}
 
 CONTROL_MODIFY = [
     ["hand_ik.R", [-1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
@@ -343,7 +486,7 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig, def_bones):
             mch_bone = bones.copy_edit_bone(rigify_rig, dst_bone_parent_name, dst_bone_name, "root", 0.25)
             if mch_bone:
                 bones.set_edit_bone_flags(mch_bone, relation_flags, deform)
-                bones.add_copy_transforms_constraint(rigify_rig, mch_bone.name, dst_bone_parent_name, 1.0)
+                bones.add_copy_transforms_constraint(rigify_rig, rigify_rig, dst_bone_parent_name, mch_bone.name, 1.0)
                 bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
 
         elif src_bone_name == "+EyeControl":
@@ -378,7 +521,7 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig, def_bones):
                 bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
             # partial rotation copy for share bones
             if "_share" in dst_bone_name and ref:
-                bones.add_copy_rotation_constraint(rigify_rig, dst_bone_name, ref, arg)
+                bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, arg)
 
         else:
             def_bone = bones.copy_rl_edit_bone(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
@@ -435,7 +578,7 @@ def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups):
         for mod in obj.modifiers:
             if mod.type == "ARMATURE":
                 mod.object = rigify_rig
-                mod.use_deform_preserve_volume = True
+                mod.use_deform_preserve_volume = False
 
     utils.log_recess()
 
@@ -545,18 +688,26 @@ def map_face(cc3_rig, meta_rig, cc3_head_bone):
     left_eye_source = bones.get_rl_bone(cc3_rig, "CC_Base_L_Eye")
     right_eye = bones.get_edit_bone(meta_rig, "eye.R")
     right_eye_source = bones.get_rl_bone(cc3_rig, "CC_Base_R_Eye")
+    up = mathutils.Vector((0,0,1))
 
     if left_eye and left_eye_source:
         head_position = cc3_rig.matrix_world @ left_eye_source.head_local
         tail_position = cc3_rig.matrix_world @ left_eye_source.tail_local
         dir : mathutils.Vector = tail_position - head_position
         left_eye.tail = head_position - (dir * length)
+        # ensure z_axis is pointing up
+        rot = up.rotation_difference(left_eye.z_axis)
+        left_eye.roll = rot.angle
+
 
     if right_eye and right_eye_source:
         head_position = cc3_rig.matrix_world @ right_eye_source.head_local
         tail_position = cc3_rig.matrix_world @ right_eye_source.tail_local
         dir : mathutils.Vector = tail_position - head_position
         right_eye.tail = head_position - (dir * length)
+        # ensure z_axis is pointing up
+        rot = up.rotation_difference(right_eye.z_axis)
+        right_eye.roll = rot.angle
 
     # head bone
 
@@ -774,6 +925,7 @@ def map_bone(cc3_rig, meta_rig, mapping):
 
     utils.log_info(f"Mapping: {dst_bone_name} from: {src_bone_head_name}/{src_bone_tail_name}")
 
+    dst_bone : bpy.types.EditBone
     dst_bone = bones.get_edit_bone(meta_rig, dst_bone_name)
     src_bone = None
 
@@ -830,6 +982,7 @@ def map_bone(cc3_rig, meta_rig, mapping):
             # set the tail position
             if src_bone_tail_name != "":
                 dst_bone.tail = tail_position
+
     else:
         utils.log_error(f"destination bone: {dst_bone_name} not found!")
 
@@ -916,9 +1069,10 @@ def convert_to_basic_face_rig(meta_rig, face_bones):
         delete_bones = []
 
         # remove all meta-rig bones in layer[0] (the face bones)
+        KEEP_BONES = []
         bone : bpy.types.EditBone
         for bone in meta_rig.data.edit_bones:
-            if bone.layers[0]:
+            if bone.layers[0] and bone.name not in KEEP_BONES:
                 delete_bones.append(bone)
 
         for bone in delete_bones:
@@ -984,6 +1138,43 @@ def convert_to_basic_face_rig(meta_rig, face_bones):
                     pose_bone.rigify_type = ""
 
         utils.log_recess()
+
+
+def add_shape_key_drivers(chr_cache, rig):
+    for obj in rig.children:
+        if obj.type == "MESH" and obj.parent == rig:
+            obj_cache = chr_cache.get_object_cache(obj)
+            if is_face_object(obj_cache, obj):
+                for skd_def in SHAPE_KEY_DRIVERS:
+                    flags = skd_def[0]
+                    if "Bfr" in flags and chr_cache.rigified_full_face_rig:
+                        continue
+                    shape_key_name = skd_def[1]
+                    driver_def = skd_def[2]
+                    var_def = skd_def[3]
+                    add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def)
+
+
+def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def):
+    if utils.set_mode("OBJECT"):
+        shape_key = meshutils.find_shape_key(obj, shape_key_name)
+        if shape_key:
+            fcurve : bpy.types.FCurve
+            fcurve = shape_key.driver_add("value")
+            driver : bpy.types.Driver = fcurve.driver
+            driver.type = driver_def[0]
+            if driver.type == "SCRIPTED":
+                driver.expression = driver_def[1]
+            var : bpy.types.DriverVariable = driver.variables.new()
+            var.name = var_def[0]
+            var.type = var_def[1]
+            if var_def[1] == "TRANSFORMS":
+                #var.targets[0].id_type = "OBJECT"
+                var.targets[0].id = rig.id_data
+                var.targets[0].bone_target = var_def[2]
+                var.targets[0].rotation_mode = "AUTO"
+                var.targets[0].transform_type = var_def[3]
+                var.targets[0].transform_space = var_def[4]
 
 
 def correct_meta_rig(meta_rig):
@@ -1082,12 +1273,26 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     utils.log_info("Cleaning Up...")
 
     rig_name = cc3_rig.name
-    cc3_rig.name = rig_name + "_OldCC"
+    #if chr_cache.generation == "G3":
+    #    cc3_rig.name = rig_name + "_CC3"
+    #elif chr_cache.generation == "G3Plus":
+    #    cc3_rig.name = rig_name + "_CC3+"
+    #elif chr_cache.generation == "ActorCore":
+    #    cc3_rig.name = rig_name + "_ActorCore"
+    #else:
+    #    cc3_rig.name = rig_name + "_Origin"
     cc3_rig.hide_set(True)
-    bpy.data.objects.remove(meta_rig)
+    utils.delete_armature_object(meta_rig)
     rigify_rig.name = rig_name + "_Rigify"
+    rigify_rig.data.name = rig_name + "_Rigify"
 
     if utils.set_mode("OBJECT"):
+
+        # delesect all bones (including the hidden ones)
+        # Rigimap will bake and clear constraints on the ORG bones if we don't do this...
+        for bone in rigify_rig.data.bones:
+            bone.select = False
+
         utils.clear_selected_objects()
         if utils.try_select_object(rigify_rig, True):
             if utils.set_active_object(rigify_rig):
@@ -1096,8 +1301,686 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     chr_cache.set_rigify_armature(rigify_rig)
 
 
-def prep_export(rigigy_rig):
-    pass
+def unify_cc3_bone_name(name):
+    if not name.startswith("CC_Base_"):
+        name = "CC_Base_" + name
+    return name
+
+
+def generate_CC3_retargeting_rig(chr_cache, source_cc3_rig, origin_cc3_rig, rigify_rig):
+    props = bpy.context.scene.CC3ImportProps
+
+    source_cc3_rig.hide_set(False)
+    source_cc3_rig.data.pose_position = "POSE"
+    origin_cc3_rig.hide_set(False)
+    origin_cc3_rig.data.pose_position = "POSE"
+    rigify_rig.hide_set(False)
+    rigify_rig.data.pose_position = "POSE"
+
+    retarget_rig = bpy.data.objects.new(chr_cache.character_name + "_Retarget", bpy.data.armatures.new(origin_cc3_rig.name + "_Retarget"))
+    bpy.context.collection.objects.link(retarget_rig)
+    if retarget_rig:
+
+        cc3_bones = {}
+        rigify_bones = {}
+        eyes_distance = 0.5
+        face_pos = None
+        eyes_pos = None
+
+        # store all the bone details from the cc3 origin rig (the CC3 rig the character originally had)
+        b : bpy.types.EditBone
+        if utils.edit_mode_to(origin_cc3_rig):
+            for b in origin_cc3_rig.data.edit_bones:
+                bone_name = unify_cc3_bone_name(b.name)
+                head_pos = origin_cc3_rig.matrix_world @ b.head
+                tail_pos = origin_cc3_rig.matrix_world @ b.tail
+                parent_pos = origin_cc3_rig.matrix_world @ mathutils.Vector((0,0,0))
+                if b.parent:
+                    parent_pos = origin_cc3_rig.matrix_world @ b.parent.head
+                if bone_name == "CC_Base_FacialBone":
+                    face_pos = head_pos
+                size = (head_pos - parent_pos).length
+                if size <= 0.00001: size = 1
+                cc3_bones[bone_name] = [unify_cc3_bone_name(b.parent.name) if b.parent else None,
+                            head_pos, tail_pos,
+                            b.roll, b.use_connect,
+                            b.use_local_location, b.use_inherit_rotation, b.inherit_scale, size]
+
+        # fetch the size of the source bones (for translation retargetting)
+        # note: we do not calculate the size of the source bones in world space,
+        #       because the animation data is in local space (which for cc3 characters is 100x larger)
+        #       so the size ratio needs to be between source_local : target_world
+        #       this ratio is used as the influence in the copy (local) location constraints
+        #       and is the primary method of translation retargeting.
+        if utils.edit_mode_to(source_cc3_rig):
+            for b in source_cc3_rig.data.edit_bones:
+                head_pos = b.head
+                tail_pos = b.tail
+                parent_pos = mathutils.Vector((0,0,0))
+                if b.parent:
+                    parent_pos = b.parent.head
+                size = (head_pos - parent_pos).length
+                if size <= 0.00001: size = 1
+                cc3_bones[unify_cc3_bone_name(b.name)].append(size)
+
+        # cc3_bones = { bone_name: [0:parent_name, 1:world_head_pos, 2:world_tail_pos, 3:bone_roll, 4:is_connected,
+        #                           5:inherit_location, 6:inherit_rotation, 7:inherit_scale, 8:target_size, 9:source_size], }
+
+        # store the details of the rigify bones to retarget to
+        if utils.edit_mode_to(rigify_rig):
+            for retarget_def in RETARGET_CC3:
+                cc3_bone_name = retarget_def[0]
+                rigify_bone_name = retarget_def[1]
+                b = bones.get_edit_bone(rigify_rig, rigify_bone_name)
+                if b:
+                    head_pos = rigify_rig.matrix_world @ b.head
+                    tail_pos = rigify_rig.matrix_world @ b.tail
+                    parent_pos = mathutils.Vector((0,0,0))
+                    if b.parent:
+                        parent_pos = origin_cc3_rig.matrix_world @ b.parent.head
+                    if b.name == "eyes":
+                        eyes_pos = head_pos
+                    size = head_pos - parent_pos
+                    rigify_bones[rigify_bone_name] = [cc3_bone_name,
+                                        head_pos, tail_pos,
+                                        b.roll, b.use_connect,
+                                        b.use_local_location, b.use_inherit_rotation, b.inherit_scale]
+
+        # rigify_bones = { bone_name: [0:equivalent_cc3_bone_name, 1:world_head_pos, 2:world_tail_pos, 3:bone_roll, 4:is_connected,
+        #                              5:inherit_location, 6:inherit_rotation, 7:inherit_scale], }
+
+        # determine the distance for the eyes control
+        if face_pos and eyes_pos:
+            eyes_distance = (eyes_pos - face_pos).length
+
+        # build the retargeting rig
+        if utils.edit_mode_to(retarget_rig):
+            # add *all* the cc3 bones:
+            for cc3_rb in cc3_bones:
+                bone_def = cc3_bones[cc3_rb]
+                b = retarget_rig.data.edit_bones.new(cc3_rb)
+                b.head = bone_def[1]
+                b.tail = bone_def[2]
+                b.roll = bone_def[3]
+                b.use_connect = bone_def[4]
+                b.use_local_location = bone_def[5]
+                b.use_inherit_rotation = bone_def[6]
+                b.inherit_scale = bone_def[7]
+            # set the cc3 bone parents:
+            for cc3_rb in cc3_bones:
+                bone_def = cc3_bones[cc3_rb]
+                b = bones.get_rl_edit_bone(retarget_rig, cc3_rb)
+                b.parent = bones.get_rl_edit_bone(retarget_rig, bone_def[0])
+            # add the rigify control rig bones we want to retarget to:
+            for r_rb in rigify_bones:
+                bone_def = rigify_bones[r_rb]
+                b = retarget_rig.data.edit_bones.new(r_rb)
+                b.parent = bones.get_edit_bone(retarget_rig, bone_def[0])
+                b.head = bone_def[1]
+                b.tail = bone_def[2]
+                b.roll = bone_def[3]
+                b.use_connect = bone_def[4]
+                b.use_local_location = bone_def[5]
+                b.use_inherit_rotation = bone_def[6]
+                b.inherit_scale = bone_def[7]
+            for correction_bone_name in RETARGET_CC3_CORRECTIONS:
+                correction_def = RETARGET_CC3_CORRECTIONS[correction_bone_name]
+                bone_def = correction_def["bone"]
+                b = retarget_rig.data.edit_bones.new(correction_bone_name)
+                b.head = bone_def[0]
+                b.tail = bone_def[1]
+                b.roll = 0
+
+        # constrain the retarget rig
+        if utils.object_mode_to(retarget_rig):
+            for retarget_def in RETARGET_CC3:
+                cc3_bone_name = retarget_def[0]
+                rigify_bone_name = retarget_def[1]
+                flags = retarget_def[2]
+                pidx = 3
+                cc3_bone = None
+                cc3_bone_def = None
+                rigify_bone = None
+                # watch out for iClone bone names...
+                cc3_bone = bones.get_rl_pose_bone(retarget_rig, cc3_bone_name)
+                source_cc3_bone = bones.get_rl_pose_bone(source_cc3_rig, cc3_bone_name)
+                rigify_bone = bones.get_pose_bone(retarget_rig, rigify_bone_name)
+                if cc3_bone:
+                    cc3_bone_def = cc3_bones[cc3_bone_name]
+                if cc3_bone and rigify_bone and cc3_bone_def:
+                    # source copy
+                    if "N" not in flags:
+                        if rigify_bone_name == "root":
+                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, 1.0)
+                        else:
+                            scale_influence = cc3_bone_def[8] / cc3_bone_def[9]
+                            scale_influence = max(0.0, min(1.0, scale_influence))
+                            space = "LOCAL"
+                            if utils.is_blender_version("3.1.0"):
+                                space = "LOCAL_OWNER_ORIENT"
+                            bones.add_copy_location_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, scale_influence, space)
+                        bones.add_copy_rotation_constraint(source_cc3_rig, retarget_rig, source_cc3_bone.name, cc3_bone.name, 1.0)
+                    for f in flags:
+                        # copy location to target
+                        if f == "L":
+                            bones.add_copy_location_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
+                        # copy rotation to target
+                        if f == "R":
+                            bones.add_copy_rotation_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
+                        # average bone copy (in re-target)
+                        if f == "A":
+                            bone_1_name = retarget_def[pidx]
+                            pidx += 1
+                            bone_2_name = retarget_def[pidx]
+                            pidx += 1
+                            bone_1 = bones.get_pose_bone(retarget_rig, bone_1_name)
+                            bone_2 = bones.get_pose_bone(retarget_rig, bone_2_name)
+                            if bone_1 and bone_2:
+                                bones.add_copy_location_constraint(retarget_rig, retarget_rig, bone_1.name, rigify_bone_name, 1.0)
+                                bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, bone_1.name, rigify_bone_name, 1.0)
+                                bones.add_copy_location_constraint(retarget_rig, retarget_rig, bone_2.name, rigify_bone_name, 0.5)
+                                bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, bone_2.name, rigify_bone_name, 0.5)
+                        # limit distance contraint
+                        if f == "D":
+                            limit_bone_name = retarget_def[pidx]
+                            pidx += 1
+                            limit_bone = bones.get_pose_bone(retarget_rig, limit_bone_name)
+                            if limit_bone:
+                                bones.add_limit_distance_constraint(retarget_rig, retarget_rig, limit_bone.name, rigify_bone_name, eyes_distance, 1.0)
+            # constraints and drivers for corrective bones
+            for correction_bone_name in RETARGET_CC3_CORRECTIONS:
+                correction_def = RETARGET_CC3_CORRECTIONS[correction_bone_name]
+                bone_def = correction_def["bone"]
+                prop_name = bone_def[2]
+                bone_data_path = bone_def[3]
+                bone_data_index = bone_def[4]
+                correction_bone = bones.get_pose_bone(retarget_rig, correction_bone_name)
+                # rotate using Euler coords
+                if correction_bone:
+                    correction_bone.rotation_mode = "XYZ"
+                # add drivers for corrective properties
+                bones.add_bone_prop_driver(retarget_rig, correction_bone_name, bone_data_path, bone_data_index, chr_cache, prop_name, prop_name + "_var")
+                # add corrective constraints
+                con_defs = correction_def["constraints"]
+                for con_def in con_defs:
+                    cc3_bone_name, flags, axis = con_def
+                    pose_bone = bones.get_rl_pose_bone(retarget_rig, cc3_bone_name)
+                    if pose_bone:
+                        con : bpy.types.CopyLocationConstraint = None
+                        space = "WORLD"
+                        if "_LOCAL" in flags:
+                            space = "LOCAL"
+                        if "ROT_" in flags:
+                            con = bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, correction_bone_name, cc3_bone_name, 1.0, space)
+                        if "LOC_" in flags:
+                            con = bones.add_copy_location_constraint(retarget_rig, retarget_rig, correction_bone_name, cc3_bone_name, 1.0, space)
+                        if con:
+                            if "_ADD_" in flags:
+                                con.mix_mode = "ADD"
+                            if "_OFF_" in flags:
+                                con.use_offset = True
+                            con.use_x = "X" in axis
+                            con.use_y = "Y" in axis
+                            con.use_z = "Z" in axis
+                            con.invert_x = "-X" in axis
+                            con.invert_y = "-Y" in axis
+                            con.invert_z = "-Z" in axis
+
+        utils.object_mode_to(retarget_rig)
+
+    origin_cc3_rig.hide_set(True)
+    retarget_rig.data.display_type = "STICK"
+    return retarget_rig
+
+
+def adv_retarget_set_rigify_action(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
+    rigify_rig = chr_cache.get_armature()
+    source_action = props.action_list_action
+
+    if not rigify_rig:
+        op.report({'ERROR'}, "No Rigify Armature!")
+        return None
+    if not source_action:
+        op.report({'ERROR'}, "No Source Action!")
+        return None
+    if not is_rigify_armature(rigify_rig):
+        op.report({'ERROR'}, "Selected Armature is not a Rigify armature!")
+        return None
+    if not check_armature_action(rigify_rig, source_action):
+        op.report({'ERROR'}, "Action does not match Rigified Armature!")
+        return None
+
+    utils.safe_set_action(rigify_rig, source_action)
+
+def adv_retarget_CC_remove_pair(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
+    rigify_rig = chr_cache.get_armature()
+    retarget_rig = chr_cache.rig_retarget_rig
+    if utils.still_exists(retarget_rig):
+        if utils.object_mode_to(retarget_rig):
+            for retarget_def in RETARGET_CC3:
+                rigify_bone_name = retarget_def[1]
+                bones.clear_constraints(rigify_rig, rigify_bone_name)
+        utils.delete_armature_object(retarget_rig)
+    chr_cache.rig_retarget_rig = None
+    chr_cache.rig_retarget_source_rig = None
+    utils.try_select_object(rigify_rig, True)
+    utils.set_active_object(rigify_rig)
+    utils.set_mode("OBJECT")
+
+
+def adv_retarget_CC_pair_rigs(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
+    origin_cc3_rig = chr_cache.rig_original_rig
+    rigify_rig = chr_cache.get_armature()
+    source_rig = props.armature_list_object
+    source_action = props.action_list_action
+    utils.safe_set_action(source_rig, source_action)
+
+    olc = utils.set_active_layer_collection_from(rigify_rig)
+
+    if not source_rig:
+        op.report({'ERROR'}, "No source Armature!")
+        return None
+    if not origin_cc3_rig:
+        op.report({'ERROR'}, "No character origin Armature!")
+        return None
+    if not rigify_rig:
+        op.report({'ERROR'}, "No Rigify Armature!")
+        return None
+    if not source_action:
+        op.report({'ERROR'}, "No Source Action!")
+        return None
+    if not is_rigify_armature(rigify_rig):
+        op.report({'ERROR'}, "Selected Armature is not a Rigify armature!")
+        return None
+    if not is_cc3_armature(source_rig):
+        op.report({'ERROR'}, "Source Armature is not a CC/iC Armature!")
+        return None
+    if not is_cc3_armature(origin_cc3_rig):
+        op.report({'ERROR'}, "Origin Armature is not a CC/iC Armature!")
+        return None
+    if not check_armature_action(source_rig, source_action):
+        op.report({'ERROR'}, "Source Action does not match Source Armature!")
+        return None
+
+    adv_retarget_CC_remove_pair(op, chr_cache)
+
+    temp_collection = utils.force_visible_in_scene("TMP_Retarget", source_rig, origin_cc3_rig, rigify_rig)
+
+    origin_cc3_rig.location = (0,0,0)
+    origin_cc3_rig.rotation_mode = "XYZ"
+    origin_cc3_rig.rotation_euler = (0,0,0)
+    rigify_rig.location = (0,0,0)
+    rigify_rig.rotation_mode = "XYZ"
+    rigify_rig.rotation_euler = (0,0,0)
+    source_rig.location = (0,0,0)
+    source_rig.rotation_mode = "XYZ"
+    source_rig.rotation_euler = (0,0,0)
+
+    utils.delete_armature_object(chr_cache.rig_retarget_rig)
+    retarget_rig = generate_CC3_retargeting_rig(chr_cache, source_rig, origin_cc3_rig, rigify_rig)
+    chr_cache.rig_retarget_rig = retarget_rig
+    chr_cache.rig_retarget_source_rig = source_rig
+    utils.object_mode_to(rigify_rig)
+    try:
+        rigify_rig.pose.bones["upper_arm_parent.L"]["IK_FK"] = 1.0
+        rigify_rig.pose.bones["upper_arm_parent.R"]["IK_FK"] = 1.0
+        rigify_rig.pose.bones["thigh_parent.L"]["IK_FK"] = 1.0
+        rigify_rig.pose.bones["thigh_parent.R"]["IK_FK"] = 1.0
+        retarget_rig.data.display_type = "STICK"
+    except:
+        pass
+
+    utils.restore_visible_in_scene(temp_collection)
+
+    utils.set_active_layer_collection(olc)
+
+    return retarget_rig
+
+
+def adv_bake_CC_retargeted_action(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
+    rigify_rig = chr_cache.get_armature()
+    retarget_rig = adv_retarget_CC_pair_rigs(op, chr_cache)
+    source_rig = props.armature_list_object
+    source_action = props.action_list_action
+    utils.safe_set_action(source_rig, source_action)
+
+    if retarget_rig:
+        temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", source_rig, retarget_rig, rigify_rig)
+
+        # select just the retargeted bones in the rigify rig, to bake:
+        if utils.object_mode_to(rigify_rig):
+            for bone in rigify_rig.data.bones:
+                bone.select = False
+                for retarget_def in RETARGET_CC3:
+                    if bone.name == retarget_def[1]:
+                        bone.select = True
+                        break
+
+            bake_rig_animation(rigify_rig, source_action)
+
+            adv_retarget_CC_remove_pair(op, chr_cache)
+
+        utils.restore_visible_in_scene(temp_collection)
+
+
+def adv_bake_CC_NLA(op, chr_cache):
+    rigify_rig = chr_cache.get_armature()
+    utils.safe_set_action(rigify_rig, None)
+    adv_retarget_CC_remove_pair(op, chr_cache)
+
+    # select all possible control bones in the rigify rig, to bake:
+    BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
+    if utils.object_mode_to(rigify_rig):
+        bone : bpy.types.Bone
+        for bone in rigify_rig.data.bones:
+            bone.select = False
+            pose_bone = bones.get_pose_bone(rigify_rig, bone.name)
+            if pose_bone and pose_bone.bone_group in BAKE_BONE_GROUPS:
+                bone.select = True
+
+        bake_rig_animation(rigify_rig, None, "NLA_Bake")
+
+
+def generate_unity_export_rig(chr_cache):
+    rigify_rig = chr_cache.get_armature()
+    export_rig = utils.duplicate_object(rigify_rig)
+    if export_rig:
+        export_rig.name = rigify_rig.name + "_Unity"
+    else:
+        return None
+
+    # compile a list of all deformation bones
+    def_bones = []
+    for export_def in UNITY_EXPORT_RIG:
+        def_bones.append(export_def[0])
+    # remove all drivers
+    bones.clear_drivers(export_rig)
+    # remove all constraints
+    if utils.object_mode_to(export_rig):
+        for pose_bone in export_rig.pose.bones:
+            bones.clear_constraints(export_rig, pose_bone.name)
+            pose_bone.custom_shape = None
+
+    a_pose = False
+    layer = 0
+
+    if utils.edit_mode_to(export_rig):
+
+        edit_bones = export_rig.data.edit_bones
+
+        # test for A-pose
+        upper_arm_l = edit_bones['DEF-upper_arm.L']
+        world_x = mathutils.Vector((1, 0, 0))
+        if world_x.dot(upper_arm_l.y_axis) < 0.9:
+            a_pose = True
+
+        # remove all non-deformation bones
+        for edit_bone in edit_bones:
+            if edit_bone.name not in def_bones:
+                edit_bones.remove(edit_bone)
+
+        for export_def in UNITY_EXPORT_RIG:
+
+            bone_name = export_def[0]
+            parent_name = export_def[1]
+            rename_name = export_def[2]
+            flags = export_def[3]
+            bone = None
+            parent_bone = None
+
+            if bone_name in edit_bones:
+                bone = edit_bones[bone_name]
+
+                # assign parent hierachy
+                if "P" in flags:
+                    parent_bone = edit_bones[parent_name]
+                if parent_bone:
+                    bone.parent = parent_bone
+
+                # set flags
+                bones.set_edit_bone_flags(bone, flags, True)
+
+                # set layer
+                for l in range(0, 32):
+                    bone.layers[l] = l == layer
+
+        # rename bones for Unity
+        for export_def in UNITY_EXPORT_RIG:
+            bone_name = export_def[0]
+            rename_name = export_def[2]
+            if rename_name != "" and bone_name in edit_bones:
+                edit_bones[bone_name].name = rename_name
+
+    # set pose bone layers
+    if utils.object_mode_to(export_rig):
+        for bone in export_rig.data.bones:
+            for l in range(0, 32):
+                bone.layers[l] = l == layer
+
+    # select all bones in pose mode
+    export_rig.data.pose_position = "POSE"
+    utils.set_mode("POSE")
+    bone : bpy.types.Bone
+    for bone in export_rig.data.bones:
+        bone.select = True
+
+    # unlock the deformation bones (Rigify locks them)
+    pose_bone : bpy.types.PoseBone
+    for pose_bone in export_rig.pose.bones:
+        pose_bone.lock_location = [False, False, False]
+        pose_bone.lock_rotation = [False, False, False]
+        pose_bone.lock_rotation_w = False
+        pose_bone.lock_scale = [False, False, False]
+
+    # clear pose
+    bpy.ops.pose.transforms_clear()
+
+    # Force T-pose
+    if a_pose:
+        angle = 30.0 * math.pi / 180.0
+        if "CC_Base_L_Upperarm" in export_rig.pose.bones and "CC_Base_R_Upperarm" in export_rig.pose.bones:
+            left_arm_bone : bpy.types.PoseBone = export_rig.pose.bones["CC_Base_L_Upperarm"]
+            right_arm_bone : bpy.types.PoseBone  = export_rig.pose.bones["CC_Base_R_Upperarm"]
+            left_arm_bone.rotation_mode = "XYZ"
+            left_arm_bone.rotation_euler = [0,0,angle]
+            left_arm_bone.rotation_mode = "QUATERNION"
+            right_arm_bone.rotation_mode = "XYZ"
+            right_arm_bone.rotation_euler = [0,0,-angle]
+            right_arm_bone.rotation_mode = "QUATERNION"
+
+    return export_rig
+
+
+def get_unity_bake_action(chr_cache):
+    rigify_rig = chr_cache.get_armature()
+    action = None
+    source_type = "NONE"
+    rigify_action = utils.safe_get_action(rigify_rig)
+    if rigify_action:
+        action = rigify_action
+        source_type = "RIGIFY"
+    # prefer direct retarget bakes
+    # (this way it always bakes whatever is currently playing on the Rigify armature)
+    retarget_action = utils.safe_get_action(chr_cache.rig_retarget_source_rig)
+    if retarget_action:
+        action = retarget_action
+        source_type = "RETARGET"
+    return action, source_type
+
+
+def adv_bake_rigify_to_unity(op, chr_cache):
+    rigify_rig = chr_cache.get_armature()
+    export_rig = chr_cache.rig_export_rig
+
+    if rigify_rig.animation_data is None:
+        rigify_rig.animation_data_create()
+
+    # determine the action on the rigify rig
+    action, source_type = get_unity_bake_action(chr_cache)
+
+    # if there is an action
+    if action:
+
+        # generate the Unity export rig
+        if not utils.object_exists_is_armature(export_rig):
+            export_rig = generate_unity_export_rig(chr_cache)
+            chr_cache.rig_export_rig = export_rig
+
+        if export_rig:
+
+            # copy constraints for baking animations
+            if utils.object_mode_to(export_rig):
+                for export_def in UNITY_EXPORT_RIG:
+                    rigify_bone_name = export_def[0]
+                    unity_bone_name = export_def[2]
+                    if unity_bone_name == "":
+                        unity_bone_name = rigify_bone_name
+                    bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+                    bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+
+                # select all export rig bones
+                for bone in export_rig.data.bones:
+                    bone.select = True
+
+                # bake the action on the rigify rig into the export rig
+                bake_rig_animation(export_rig, action)
+
+            else:
+                op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
+    else:
+        op.report({'ERROR'}, "Rigify rig has no valid Armature Action to bake!")
+
+
+def adv_bake_rigify_NLA_to_unity(op, chr_cache):
+    rigify_rig = chr_cache.get_armature()
+    utils.safe_set_action(rigify_rig, None)
+    adv_retarget_CC_remove_pair(op, chr_cache)
+
+    # generate the Unity export rig
+    export_rig = chr_cache.rig_export_rig
+    if not utils.object_exists_is_armature(export_rig):
+        export_rig = generate_unity_export_rig(chr_cache)
+        chr_cache.rig_export_rig = export_rig
+
+        if export_rig:
+
+            # copy constraints for baking animations
+            if utils.object_mode_to(export_rig):
+                for export_def in UNITY_EXPORT_RIG:
+                    rigify_bone_name = export_def[0]
+                    unity_bone_name = export_def[2]
+                    if unity_bone_name == "":
+                        unity_bone_name = rigify_bone_name
+                    bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+                    bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+
+                # select all export rig bones
+                for bone in export_rig.data.bones:
+                    bone.select = True
+
+                # bake the action on the rigify rig into the export rig
+                bake_rig_animation(export_rig, None, "NLA_Bake")
+
+            else:
+                op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
+
+
+def prep_unity_export_rig(chr_cache):
+
+    rigify_rig = chr_cache.get_armature()
+    export_rig = chr_cache.rig_export_rig
+    if not utils.object_exists_is_armature(export_rig):
+        export_rig = generate_unity_export_rig(chr_cache)
+        chr_cache.rig_export_rig = export_rig
+
+    if utils.object_mode_to(export_rig):
+        export_rig.data.pose_position = "POSE"
+        utils.set_mode("POSE")
+
+        # create T-Pose action
+        action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
+        utils.safe_set_action(export_rig, action)
+
+        # go to first frame
+        bpy.data.scenes["Scene"].frame_current = 1
+
+        # clear pose
+        bpy.ops.pose.transforms_clear()
+
+        # apply first keyframe
+        bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
+
+        # make a second keyframe
+        bpy.data.scenes["Scene"].frame_current = 2
+        bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
+
+        # reparent the child objects
+        for child in rigify_rig.children:
+            child.parent = export_rig
+            mod = modifiers.get_object_modifier(child, "ARMATURE")
+            mod.object = export_rig
+            rename_to_unity_vertex_groups(child)
+
+    utils.object_mode_to(export_rig)
+
+    return export_rig
+
+
+def rename_to_unity_vertex_groups(obj):
+    for export_def in UNITY_EXPORT_RIG:
+        rigify_bone_name = export_def[0]
+        unity_bone_name = export_def[2]
+        if rigify_bone_name in obj.vertex_groups:
+            obj.vertex_groups[rigify_bone_name].name = unity_bone_name
+
+
+def restore_from_unity_vertex_groups(obj):
+    for export_def in UNITY_EXPORT_RIG:
+        rigify_bone_name = export_def[0]
+        unity_bone_name = export_def[2]
+        if unity_bone_name in obj.vertex_groups:
+            obj.vertex_groups[unity_bone_name].name = rigify_bone_name
+
+
+def finish_unity_export(chr_cache, export_rig):
+    rigify_rig = chr_cache.get_armature()
+    # un-reparent the child objects
+    for child in export_rig.children:
+        child.parent = rigify_rig
+        mod = modifiers.get_object_modifier(child, "ARMATURE")
+        mod.object = rigify_rig
+        restore_from_unity_vertex_groups(child)
+    # remove the t_pose_action and the export rig
+    t_pose_action = utils.safe_get_action(export_rig)
+    if t_pose_action:
+        bpy.data.actions.remove(t_pose_action)
+
+
+def bake_rig_animation(rig, action, action_name = ""):
+    if utils.try_select_object(rig, True) and utils.set_active_object(rig):
+        if action_name == "" and action:
+            action_name = action.name
+        name = action_name.split("|")[-1]
+        baked_action = bpy.data.actions.new(f"{rig.name}|A|{name}")
+        baked_action.use_fake_user = True
+        utils.safe_set_action(rig, baked_action)
+        if action:
+            start_frame = int(action.frame_range[0])
+            end_frame = int(action.frame_range[1])
+        else:
+            start_frame = int(bpy.context.scene.frame_start)
+            end_frame = int(bpy.context.scene.frame_end)
+        bpy.ops.nla.bake(frame_start=start_frame,
+                        frame_end=end_frame,
+                        only_selected=True,
+                        visual_keying=True,
+                        use_current_action=True,
+                        clear_constraints=False,
+                        clean_curves=False)
 
 
 def is_face_object(obj_cache, obj):
@@ -1402,6 +2285,53 @@ def rejoin_head(head_mesh, body_mesh):
     utils.set_mode("OBJECT")
 
 
+CC3_BONE_NAMES = [
+    "CC_Base_BoneRoot", "CC_Base_Hip", "CC_Base_Head", "CC_Base_Spine01", "CC_Base_Spine02"
+]
+
+RIGIFY_BONE_NAMES = [
+    "root", "hips", "torso", "head", "spine_fk", "spine_fk.001", "foot_ik.L", "foot_ik.R", "hand_ik.L", "hand_ik.R",
+]
+
+def is_cc3_action(action):
+    count = 0
+    for fcurve in action.fcurves:
+        bone_name = bones.get_bone_name_from_data_path(fcurve.data_path)
+        bone_name = unify_cc3_bone_name(bone_name)
+        if bone_name in CC3_BONE_NAMES:
+            count += 1
+    return count >= 5
+
+
+def is_cc3_armature(armature):
+    count = 0
+    for bone in armature.data.bones:
+        bone_name = unify_cc3_bone_name(bone.name)
+        if bone_name in CC3_BONE_NAMES:
+            count += 1
+    return count >= 5
+
+
+def is_rigify_armature(armature):
+    count = 0
+    for bone in armature.data.bones:
+        bone_name = bone.name
+        if bone_name in RIGIFY_BONE_NAMES:
+            count += 1
+    return count >= 10
+
+
+def check_armature_action(armature, action):
+    total = 0
+    matching = 0
+    for fcurve in action.fcurves:
+        total += 1
+        bone_name = bones.get_bone_name_from_data_path(fcurve.data_path)
+        if bone_name and bone_name in armature.data.bones:
+            matching += 1
+    return matching / total > 0
+
+
 class CC3Rigifier(bpy.types.Operator):
     """Rigify CC3 Character"""
     bl_idname = "cc3.rigifier"
@@ -1462,6 +2392,8 @@ class CC3Rigifier(bpy.types.Operator):
 
         if chr_cache:
 
+            props.store_ui_list_indices()
+
             self.cc3_rig = chr_cache.get_armature()
             self.rigify_data = rigify_mapping_data.get_for_generation(chr_cache.generation)
 
@@ -1474,6 +2406,9 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("-------------------------")
 
                 if self.cc3_rig:
+
+                    olc = utils.set_active_layer_collection_from(self.cc3_rig)
+
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
@@ -1494,6 +2429,7 @@ class CC3Rigifier(bpy.types.Operator):
                             modify_controls(self.rigify_rig)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.add_def_bones)
+                            add_shape_key_drivers(chr_cache, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
 
@@ -1504,6 +2440,8 @@ class CC3Rigifier(bpy.types.Operator):
                         self.report({'WARNING'}, "Rigify Complete! Some issues with the face rig were detected and fixed automatically. See console log.")
                     else:
                         self.report({'ERROR'}, "Rigify Incomplete! Face rig weighting Failed!. See console log.")
+
+                    utils.set_active_layer_collection(olc)
 
                 utils.log_timer("Done Rigify Process")
 
@@ -1516,6 +2454,9 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("---------------==--------")
 
                 if self.cc3_rig:
+
+                    olc = utils.set_active_layer_collection_from(self.cc3_rig)
+
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
@@ -1524,11 +2465,15 @@ class CC3Rigifier(bpy.types.Operator):
 
                         self.report({'INFO'}, "Meta-rig generated!")
 
+                    utils.set_active_layer_collection(olc)
+
             elif self.param == "RIGIFY_META":
 
                 self.meta_rig = chr_cache.rig_meta_rig
 
                 if self.cc3_rig and self.meta_rig:
+
+                    olc = utils.set_active_layer_collection_from(self.cc3_rig)
 
                     if utils.set_mode("OBJECT") and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
 
@@ -1549,6 +2494,8 @@ class CC3Rigifier(bpy.types.Operator):
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.add_def_bones)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
+
+                    utils.set_active_layer_collection(olc)
 
                 chr_cache.rig_meta_rig = None
                 if face_result == 1:
@@ -1603,6 +2550,29 @@ class CC3Rigifier(bpy.types.Operator):
                 else:
                     self.report({'ERROR'}, "Face Re-parent Failed!. See console log.")
 
+            elif self.param == "BAKE_UNITY_ANIMATION":
+                adv_bake_rigify_to_unity(self, chr_cache)
+
+            elif self.param == "RETARGET_CC_PAIR_RIGS":
+                adv_retarget_CC_pair_rigs(self, chr_cache)
+
+            elif self.param == "RETARGET_CC_REMOVE_PAIR":
+                adv_retarget_CC_remove_pair(self, chr_cache)
+
+            elif self.param == "RIGIFY_SET_ACTION":
+                adv_retarget_set_rigify_action(self, chr_cache)
+
+            elif self.param == "RETARGET_CC_BAKE_ACTION":
+                adv_bake_CC_retargeted_action(self, chr_cache)
+
+            elif self.param == "NLA_CC_BAKE":
+                adv_bake_CC_NLA(self, chr_cache)
+
+            elif self.param == "NLA_CC_BAKE_UNITY":
+                adv_bake_rigify_NLA_to_unity(self, chr_cache)
+
+            props.restore_ui_list_indices()
+
         return {"FINISHED"}
 
     @classmethod
@@ -1633,6 +2603,27 @@ class CC3Rigifier(bpy.types.Operator):
             return "Attempt to re-parent the character's face mesh objects to the Rigify face rig by re-parenting with automatic weights. " + \
                    "Only vertex groups in the face are affected by this reparenting, all others are locked during the process. " + \
                    "Automatic Weights sometimes fails, so if detected some measures are taken to try to clean up the mesh and try again"
+
+        elif properties.param == "BAKE_UNITY_ANIMATION":
+            return "Bake the current Rigify action (or Re-target action) to the Unity export rig"
+
+        elif properties.param == "RETARGET_CC_PAIR_RIGS":
+            return "Preview the re-target action on the rigify rig, for real time correction or baking to Unity"
+
+        elif properties.param == "RETARGET_CC_REMOVE_PAIR":
+            return "Remove re-targeting rig and constraints"
+
+        elif properties.param == "RIGIFY_SET_ACTION":
+            return "Set the current action on the characters Rigify rig"
+
+        elif properties.param == "RETARGET_CC_BAKE_ACTION":
+            return "Bake the selected source action from the selected source armature to the character Rigify Rig."
+
+        elif properties.param == "NLA_CC_BAKE":
+            return "Bake the NLA track to the character Rigify Rig using the global scene frame range."
+
+        elif properties.param == "NLA_CC_BAKE_UNITY":
+            return "Bake the NLA track to to the Unity export rig using the global scene frame range."
 
         return "Rigification!"
 

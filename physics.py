@@ -214,10 +214,10 @@ def add_cloth_physics(obj):
 
         # Set cache bake frame range
         frame_count = 250
-        if obj.parent is not None and obj.parent.animation_data is not None and \
-                obj.parent.animation_data.action is not None:
-            frame_start = math.floor(obj.parent.animation_data.action.frame_range[0])
-            frame_count = math.ceil(obj.parent.animation_data.action.frame_range[1])
+        parent_action = utils.safe_get_action(obj.parent)
+        if parent_action:
+            frame_start = math.floor(parent_action.frame_range[0])
+            frame_count = math.ceil(parent_action.frame_range[1])
         utils.log_info("Setting " + obj.name + " bake cache frame range to [1-" + str(frame_count) + "]")
         cloth_mod.point_cache.frame_start = frame_start
         cloth_mod.point_cache.frame_end = frame_count
@@ -652,9 +652,10 @@ def set_physics_bake_range(obj, start, end):
     if cloth_mod is not None:
         if obj.parent is not None and obj.parent.type == "ARMATURE":
             arm = obj.parent
-            if arm.animation_data is not None and arm.animation_data.action is not None:
-                frame_start = math.floor(arm.animation_data.action.frame_range[0])
-                frame_end = math.ceil(arm.animation_data.action.frame_range[1])
+            action = utils.safe_get_action(arm)
+            if action:
+                frame_start = math.floor(action.frame_range[0])
+                frame_end = math.ceil(action.frame_range[1])
                 if frame_start < start:
                     start = frame_start
                 if frame_end > end:

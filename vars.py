@@ -51,7 +51,7 @@ NODE_GROUPS = ["tiling_pivot_mapping", "tiling_mapping",
                ]
 
 
-MATERIAL_TYPES = [
+ENUM_MATERIAL_TYPES = [
                         ("DEFAULT", "Default", "Default material"),
                         ("SSS", "Subsurface", "Subsurface Scattering material"),
                         ("SKIN_HEAD", "Head", "Head skin material"),
@@ -75,7 +75,7 @@ MATERIAL_TYPES = [
                         ("TEARLINE_LEFT", "Left Tearline", "Left tear line material"),
                     ]
 
-OBJECT_TYPES = [
+ENUM_OBJECT_TYPES = [
                         ("DEFAULT", "Default", "Default object type"),
                         ("BODY", "Body", "Base character body object"),
                         ("TEETH", "Teeth", "Teeth object"),
@@ -96,7 +96,7 @@ CHARACTER_GENERATION = {
     "NonStdLookAtDataCopyFromCCBase": "ActorCore",
 }
 
-TEX_LIST = [
+ENUM_TEX_LIST = [
         ("64","64 x 64","64 x 64 texture size"),
         ("128","128 x 128","128 x 128 texture size"),
         ("256","256 x 256","256 x 256 texture size"),
@@ -119,5 +119,17 @@ OCCLUSION_GROUP_ALL = "CC_EyeOcclusion_All"
 
 TEARLINE_GROUP_INNER = "CC_Tearline_Inner"
 TEARLINE_GROUP_ALL = "CC_Tearline_All"
+
+ENUM_ARMATURE_TYPES = [
+    ("NONE","Unknown","Unknown structure"),
+    ("CC3","CC3","CC3, CC3+, iClone / ActorCore"),
+    ("RIGIFY","Rigify","Rigify control rig structure"),
+]
+
+ENUM_ACTION_TYPES = [
+    ("NONE","Unknown","Unknown action"),
+    ("ARMATURE","Armature","Armature Action"),
+    ("KEY","Shapekey","Shapekey Action"),
+]
 
 block_property_update = False

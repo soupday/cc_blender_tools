@@ -288,8 +288,10 @@ def init_shape_key_range(obj):
             # re-set a value in the shapekey action keyframes to force
             # the shapekey action to update to the new ranges:
             try:
-                co = shape_keys.animation_data.action.fcurves[0].keyframe_points[0].co
-                shape_keys.animation_data.action.fcurves[0].keyframe_points[0].co = co
+                action = utils.safe_get_action(shape_keys)
+                if action:
+                    co = action.fcurves[0].keyframe_points[0].co
+                    action.fcurves[0].keyframe_points[0].co = co
             except:
                 pass
 
@@ -359,7 +361,65 @@ def detect_generation(chr_cache, json_data):
     return generation
 
 
-def detect_character(file_path, type, objects, json_data, warn):
+def is_iclone_temp_motion(name : str):
+    u_idx = utils.safe_index_of(name, '_', 0)
+    if u_idx == -1:
+        return False
+    if not name[:u_idx].isdigit():
+       return False
+    search = "TempMotion"
+    if name[u_idx + 1:] == search:
+        return True
+    if u_idx > -1 and len(name) > u_idx + 1:
+        j = 0
+        for i in range(u_idx + 1, len(name)):
+            if name[i] != search[j]:
+                return False
+            j += 1
+    return True
+
+
+def remap_action_names(actions, objects, name):
+    key_map = {}
+    num_keys = 0
+
+    armature_actions = []
+    shapekey_actions = []
+
+    for obj in objects:
+        if obj.type == "MESH":
+            new_obj_name = utils.strip_name(obj.name)
+            if new_obj_name.startswith("CC_Base_"): # shorten CC_Base_Objects names
+                new_obj_name = new_obj_name[8:]
+            if obj.data.shape_keys:
+                key_map[new_obj_name] = obj.data.shape_keys.name
+                utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {new_obj_name}")
+                num_keys += 1
+
+    for action in actions:
+        new_action_name = action.name.split("|")[-1]
+        if is_iclone_temp_motion(new_action_name):
+            new_action_name = "iCTM"
+        elif new_action_name == "AvatarCurrentMotion":
+            new_action_name = "CCPose"
+        if action.name.startswith("Armature"):
+            new_name = f"{name}|A|{new_action_name}"
+            utils.log_info(f"Renaming action: {action.name} to {new_name}")
+            action.name = new_name
+            armature_actions.append(action)
+        else:
+            for new_obj_name in key_map:
+                key_name = key_map[new_obj_name]
+                if action.name.startswith(key_name):
+                    new_name = f"{name}|K|{new_obj_name}|{new_action_name}"
+                    utils.log_info(f"Renaming action: {action.name} to {new_name}")
+                    action.name = new_name
+                    shapekey_actions.append(action)
+
+    return armature_actions, shapekey_actions
+
+
+def detect_character(file_path, type, objects, actions, json_data, warn):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -403,6 +463,11 @@ def detect_character(file_path, type, objects, json_data, warn):
             if arm.type == "ARMATURE":
                 arm_count += 1
                 arm.name = name
+                if arm.data:
+                    arm.data.name = name
+                # in case of duplicate names: character_name contains the name currently in Blender.
+                #                             import_name contains the original name.
+                chr_cache.character_name = arm.name
                 # add armature to object_cache
                 chr_cache.add_object_cache(arm)
 
@@ -415,6 +480,12 @@ def detect_character(file_path, type, objects, json_data, warn):
         for obj in objects:
             if obj.type == "MESH":
                 chr_cache.add_object_cache(obj)
+
+        # remame actions
+        utils.log_info("Renaming actions:")
+        utils.log_indent()
+        remap_action_names(actions, objects, chr_cache.character_name)
+        utils.log_recess()
 
         # determine character generation
         chr_cache.generation = detect_generation(chr_cache, json_data)
@@ -452,6 +523,13 @@ def detect_character(file_path, type, objects, json_data, warn):
                 cache_object_materials(chr_cache, obj, json_data, processed)
 
         properties.init_character_property_defaults(chr_cache, chr_json)
+
+    # set preserve volume on armature modifiers
+    for obj in objects:
+        if obj.type == "MESH":
+            arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
+            if arm_mod:
+                arm_mod.use_deform_preserve_volume = False
 
     # material setup mode
     if chr_cache.import_has_key:
@@ -521,6 +599,8 @@ class CC3Import(bpy.types.Operator):
 
         dir, name = os.path.split(self.filepath)
         type = name[-3:].lower()
+        imported = None
+        actions = None
 
         json_data = jsonutils.read_json(self.filepath)
 
@@ -529,12 +609,14 @@ class CC3Import(bpy.types.Operator):
             # invoke the fbx importer
             utils.tag_objects()
             utils.tag_images()
+            utils.tag_actions()
             bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim)
             imported = utils.untagged_objects()
+            actions = utils.untagged_actions()
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            self.imported_character = detect_character(self.filepath, type, imported, json_data, warn)
+            self.imported_character = detect_character(self.filepath, type, imported, actions, json_data, warn)
 
             utils.log_timer("Done .Fbx Import.")
 
@@ -556,7 +638,7 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            self.imported_character = detect_character(self.filepath, type, imported, json_data, warn)
+            self.imported_character = detect_character(self.filepath, type, imported, actions, json_data, warn)
 
             #if self.param == "IMPORT_MORPH":
             #    if self.imported_character.import_main_tex_dir != "":
@@ -831,6 +913,148 @@ class CC3Import(bpy.types.Operator):
             return "Removes the character and any associated objects, meshes, materials, nodes, images, armature actions and shapekeys. Basically deletes everything not nailed down.\n**Do not press this if there is anything you want to keep!**"
         elif properties.param == "REBUILD_NODE_GROUPS":
             return "Rebuilds the shader node groups for the advanced and eye materials."
+        return ""
+
+
+class CC3ImportAnimations(bpy.types.Operator):
+    """Import CC3 animations"""
+    bl_idname = "cc3.anim_importer"
+    bl_label = "Import Animations"
+    bl_options = {"REGISTER", "UNDO"}
+
+    filepath: bpy.props.StringProperty(
+        name="Filepath",
+        description="Filepath of the fbx to import.",
+        subtype="FILE_PATH"
+    )
+
+    directory: bpy.props.StringProperty(subtype='DIR_PATH')
+
+    files: bpy.props.CollectionProperty(
+            type=bpy.types.OperatorFileListElement,
+            options={'HIDDEN', 'SKIP_SAVE'}
+    )
+
+    filter_glob: bpy.props.StringProperty(
+        default="*.fbx",
+        options={"HIDDEN"}
+    )
+
+    remove_meshes: bpy.props.BoolProperty(
+        default = True,
+        description="Remove all imported mesh objects.",
+        name="Remove Meshes",
+    )
+
+    remove_materials_images: bpy.props.BoolProperty(
+        default = True,
+        description="Remove all imported materials and image textures.",
+        name="Remove Materials & Images",
+    )
+
+    remove_shape_keys: bpy.props.BoolProperty(
+        default = False,
+        description="Remove Shapekey actions along with their meshes.",
+        name="Remove Shapekey Actions",
+    )
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = "",
+            options={"HIDDEN"}
+    )
+
+    def import_animation_fbx(self, dir, file):
+        path = os.path.join(dir, file)
+        name = file[:-4]
+
+        utils.log_info(f"Importing Fbx file: {path}")
+
+        # invoke the fbx importer
+        utils.tag_objects()
+        utils.tag_images()
+        utils.tag_actions()
+        utils.tag_materials()
+        bpy.ops.import_scene.fbx(filepath=path, directory=dir, use_anim=True)
+        objects = utils.untagged_objects()
+        actions = utils.untagged_actions()
+        images = utils.untagged_images()
+        materials = utils.untagged_materials()
+
+        #if "Imported Animations" not in bpy.data.collections:
+        #    collection = bpy.data.collections.new("Imported Animations")
+        #    bpy.context.scene.collection.children.link(collection)
+        #else:
+        #    collection = bpy.data.collections["Imported Animations"]
+
+        utils.log_info("Renaming actions:")
+        utils.log_indent()
+        armature_actions, shapekey_actions = remap_action_names(actions, objects, name)
+        utils.log_recess()
+
+        utils.log_info("Cleaning up:")
+        utils.log_indent()
+
+        # only interested in actions, delete the rest
+        if self.remove_meshes:
+            for obj in objects:
+                if obj.type == "ARMATURE":
+                    obj.name = name
+                    if obj.data:
+                        obj.data.name = name
+                    #utils.log_info(f"Moving Object: {obj.name} to animation collection.")
+                    #utils.move_object_to_collection(obj, collection)
+                else:
+                    utils.log_info(f"Removing Object: {obj.name}")
+                    utils.delete_mesh_object(obj)
+
+            if self.remove_shape_keys:
+                for action in shapekey_actions:
+                    utils.log_info(f"Removing Shapekey Action: {action.name}")
+                    bpy.data.actions.remove(action)
+        else:
+            #for obj in objects:
+            #    utils.log_info(f"Moving Object: {obj.name} to animation collection.")
+            #    utils.move_object_to_collection(obj, collection)
+            pass
+
+
+        if self.remove_materials_images:
+            for img in images:
+                utils.log_info(f"Removing Image: {img.name}")
+                bpy.data.images.remove(img)
+
+            for mat in materials:
+                utils.log_info(f"Removing Material: {mat.name}")
+                bpy.data.materials.remove(mat)
+
+        utils.log_recess()
+
+        return
+
+    def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        utils.start_timer()
+
+        utils.log_info("")
+        utils.log_info("Importing FBX Animations:")
+        utils.log_info("-------------------------")
+
+        for fbx_file in self.files:
+            self.import_animation_fbx(self.directory, fbx_file.name)
+
+        utils.log_timer("Done Build.", "s")
+
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    @classmethod
+    def description(cls, context, properties):
         return ""
 
 

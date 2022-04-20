@@ -21,50 +21,56 @@ from rna_prop_ui import rna_idprop_ui_create
 
 
 def get_rl_edit_bone(rig, name):
-    if name in rig.data.edit_bones:
-        return rig.data.edit_bones[name]
-    # remove "CC_Base_" from start of bone name and try again...
-    name = name[8:]
-    if name in rig.data.edit_bones:
-        return rig.data.edit_bones[name]
+    if name:
+        if name in rig.data.edit_bones:
+            return rig.data.edit_bones[name]
+        # remove "CC_Base_" from start of bone name and try again...
+        name = name[8:]
+        if name in rig.data.edit_bones:
+            return rig.data.edit_bones[name]
     return None
 
 
 def get_rl_bone(rig, name):
-    if name in rig.data.bones:
-        return rig.data.bones[name]
-    # remove "CC_Base_" from start of bone name and try again...
-    name = name[8:]
-    if name in rig.data.bones:
-        return rig.data.bones[name]
+    if name:
+        if name in rig.data.bones:
+            return rig.data.bones[name]
+        # remove "CC_Base_" from start of bone name and try again...
+        name = name[8:]
+        if name in rig.data.bones:
+            return rig.data.bones[name]
     return None
 
 
 def get_rl_pose_bone(rig, name):
-    if name in rig.pose.bones:
-        return rig.pose.bones[name]
-    # remove "CC_Base_" from start of bone name and try again...
-    name = name[8:]
-    if name in rig.pose.bones:
-        return rig.pose.bones[name]
+    if name:
+        if name in rig.pose.bones:
+            return rig.pose.bones[name]
+        # remove "CC_Base_" from start of bone name and try again...
+        name = name[8:]
+        if name in rig.pose.bones:
+            return rig.pose.bones[name]
     return None
 
 
 def get_edit_bone(rig, name):
-    if name in rig.data.edit_bones:
-        return rig.data.edit_bones[name]
+    if name:
+        if name in rig.data.edit_bones:
+            return rig.data.edit_bones[name]
     return None
 
 
 def get_bone(rig, name):
-    if name in rig.data.bones:
-        return rig.data.bones[name]
+    if name:
+        if name in rig.data.bones:
+            return rig.data.bones[name]
     return None
 
 
 def get_pose_bone(rig, name):
-    if name in rig.pose.bones:
-        return rig.pose.bones[name]
+    if name:
+        if name in rig.pose.bones:
+            return rig.pose.bones[name]
     return None
 
 
@@ -171,28 +177,30 @@ def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, sca
     return None
 
 
-def add_copy_transforms_constraint(rig, to_bone, from_bone, influence):
+def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
     try:
         if utils.set_mode("OBJECT"):
-            to_pose_bone : bpy.types.PoseBone = rig.pose.bones[to_bone]
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.CopyTransformsConstraint = to_pose_bone.constraints.new(type="COPY_TRANSFORMS")
-            c.target = rig
+            c.target = from_rig
             c.subtarget = from_bone
             c.head_tail = 0
             c.mix_mode = "REPLACE"
-            c.target_space = "WORLD"
-            c.owner_space = "WORLD"
+            c.target_space = space
+            c.owner_space = space
             c.influence = influence
+            return c
     except:
         utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+        return None
 
 
-def add_copy_rotation_constraint(rig, to_bone, from_bone, influence):
+def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
     try:
         if utils.set_mode("OBJECT"):
-            to_pose_bone : bpy.types.PoseBone = rig.pose.bones[to_bone]
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.CopyRotationConstraint = to_pose_bone.constraints.new(type="COPY_ROTATION")
-            c.target = rig
+            c.target = from_rig
             c.subtarget = from_bone
             c.use_x = True
             c.use_y = True
@@ -201,11 +209,37 @@ def add_copy_rotation_constraint(rig, to_bone, from_bone, influence):
             c.invert_y = False
             c.invert_z = False
             c.mix_mode = "REPLACE"
-            c.target_space = "WORLD"
-            c.owner_space = "WORLD"
+            c.target_space = space
+            c.owner_space = space
             c.influence = influence
+            return c
     except:
         utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+        return None
+
+
+def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
+    try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            c : bpy.types.CopyLocationConstraint = to_pose_bone.constraints.new(type="COPY_LOCATION")
+            c.target = from_rig
+            c.subtarget = from_bone
+            c.use_x = True
+            c.use_y = True
+            c.use_z = True
+            c.invert_x = False
+            c.invert_y = False
+            c.invert_z = False
+            c.target_space = space
+            if space == "LOCAL_OWNER_ORIENT":
+                space = "LOCAL"
+            c.owner_space = space
+            c.influence = influence
+            return c
+    except:
+        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+        return None
 
 
 def add_damped_track_constraint(rig, bone_name, target_name, influence):
@@ -218,8 +252,28 @@ def add_damped_track_constraint(rig, bone_name, target_name, influence):
             c.head_tail = 0
             c.track_axis = "TRACK_Y"
             c.influence = influence
+            return c
     except:
         utils.log_error(f"Unable to add damped track constraint: {bone_name} {target_name}")
+        return None
+
+
+def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance, influence = 1.0, space="WORLD"):
+    try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            c : bpy.types.LimitDistanceConstraint = to_pose_bone.constraints.new(type="LIMIT_DISTANCE")
+            c.target = from_rig
+            c.subtarget = from_bone
+            c.distance = distance
+            c.limit_mode = "LIMITDIST_ONSURFACE"
+            c.target_space = space
+            c.owner_space = space
+            c.influence = influence
+            return c
+    except:
+        utils.log_error(f"Unable to add limit distance constraint: {to_bone} {from_bone}")
+        return None
 
 
 def set_edit_bone_flags(edit_bone, flags, deform):
@@ -335,16 +389,66 @@ def add_constraint_influence_driver(rig, pose_bone_name, target_pose_bone_name, 
     if utils.set_mode("OBJECT"):
         if pose_bone_name in rig.pose.bones:
             pose_bone = rig.pose.bones[pose_bone_name]
-            constraint = None
+            constraint : bpy.types.Constraint = None
             for con in pose_bone.constraints:
                 if con.type == constraint_type:
                     constraint = con
+                    fcurve : bpy.types.FCurve
                     fcurve = constraint.driver_add("influence")
                     driver : bpy.types.Driver = fcurve.driver
                     driver.type = "SUM"
                     var : bpy.types.DriverVariable = driver.variables.new()
                     var.name = variable_name
                     var.type = "SINGLE_PROP"
+                    var.targets[0].id_type = "OBJECT"
                     var.targets[0].id = rig.id_data
                     var.targets[0].data_path = f"pose.bones[\"{target_pose_bone_name}\"][\"{variable_name}\"]"
+
+
+def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, props, prop_name, variable_name):
+    if utils.set_mode("OBJECT"):
+        pose_bone : bpy.types.PoseBone
+        if pose_bone_name in rig.pose.bones:
+            pose_bone = rig.pose.bones[pose_bone_name]
+            fcurve : bpy.types.FCurve
+            fcurve = pose_bone.driver_add(bone_data_path, bone_data_index)
+            driver : bpy.types.Driver = fcurve.driver
+            driver.type = "SUM"
+            var : bpy.types.DriverVariable = driver.variables.new()
+            var.name = variable_name
+            var.type = "SINGLE_PROP"
+            var.targets[0].id_type = "SCENE"
+            var.targets[0].id = props.id_data
+            var.targets[0].data_path = props.path_from_id(prop_name)
+            print(props.id_data)
+            print(props.path_from_id(prop_name))
+
+
+def clear_constraints(rig, pose_bone_name):
+    if utils.set_mode("OBJECT"):
+        if pose_bone_name in rig.pose.bones:
+            pose_bone = rig.pose.bones[pose_bone_name]
+            constraints = []
+            for con in pose_bone.constraints:
+                constraints.append(con)
+            for con in constraints:
+                pose_bone.constraints.remove(con)
+
+
+def clear_drivers(rig):
+    drivers = rig.animation_data.drivers
+    fcurves = []
+    for fc in drivers:
+        fcurves.append(fc)
+    for fc in fcurves:
+        drivers.remove(fc)
+
+
+def get_bone_name_from_data_path(data_path):
+    if data_path.startswith("pose.bones[\""):
+        start = utils.safe_index_of(data_path, '"', 0) + 1
+        end = utils.safe_index_of(data_path, '"', start)
+        return data_path[start:end]
+    return None
+
 
