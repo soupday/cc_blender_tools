@@ -137,6 +137,7 @@ classes = (
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
+    panels.UNITY_ACTION_UL_List,
     panels.CC3ToolsPipelinePanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,

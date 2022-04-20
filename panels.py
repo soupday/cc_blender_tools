@@ -123,6 +123,34 @@ class ACTION_UL_List(bpy.types.UIList):
         return filtered, ordered
 
 
+class UNITY_ACTION_UL_List(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name if item else "", translate=False, icon_value=icon)
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+    def filter_items(self, context, data, propname):
+        filtered = []
+        ordered = []
+        items = getattr(data, propname)
+        filtered = [self.bitflag_filter_item] * len(items)
+        item : bpy.types.Action
+        for i, item in enumerate(items):
+            if "_Unity|A|" in item.name:
+                if len(item.fcurves) == 0: # no fcurves, no animation...
+                    filtered[i] &= ~self.bitflag_filter_item
+                elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
+                    filtered[i] &= ~self.bitflag_filter_item
+                    if self.filter_name and self.filter_name != "*":
+                        if self.filter_name not in item.name:
+                            filtered[i] &= ~self.bitflag_filter_item
+            else:
+                filtered[i] &= ~self.bitflag_filter_item
+        return filtered, ordered
+
+
 class CC3CharacterSettingsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Character_Settings_Panel"
     bl_label = "Character Settings"
@@ -910,6 +938,14 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.enabled = unity_bake_source_type == "NONE"
 
                         layout.box().row().label(text = "Unity Export", icon = "CUBE")
+
+                        has_unity_actions = False
+                        for action in bpy.data.actions:
+                            if "_Unity|A|" in action.name:
+                                has_unity_actions = True
+                                break
+                        if has_unity_actions:
+                            layout.template_list("UNITY_ACTION_UL_List", "unity_armature_list", bpy.data, "actions", props, "unity_action_list_index", rows=1, maxrows=4)
 
                         row = layout.row()
                         row.scale_y = 2
