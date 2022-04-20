@@ -2211,6 +2211,10 @@ def adv_bake_rigify_to_unity(op, chr_cache):
                     bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
                     bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
 
+                # select all export rig bones
+                for bone in export_rig.data.bones:
+                    bone.select = True
+
                 # bake the action on the rigify rig into the export rig
                 bake_rig_animation(export_rig, action)
 
@@ -2242,6 +2246,10 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache):
                         unity_bone_name = rigify_bone_name
                     bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
                     bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+
+                # select all export rig bones
+                for bone in export_rig.data.bones:
+                    bone.select = True
 
                 # bake the action on the rigify rig into the export rig
                 bake_rig_animation(export_rig, None, "NLA_Bake")
