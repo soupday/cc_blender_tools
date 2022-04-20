@@ -1549,8 +1549,9 @@ def adv_bake_CC_NLA(op, chr_cache, rigify_data):
         for bone in rigify_rig.data.bones:
             bone.select = False
             pose_bone = bones.get_pose_bone(rigify_rig, bone.name)
-            if pose_bone and pose_bone.bone_group in BAKE_BONE_GROUPS:
-                bone.select = True
+            if pose_bone and pose_bone.bone_group:
+                if pose_bone.bone_group.name in BAKE_BONE_GROUPS:
+                    bone.select = True
 
         bake_rig_animation(rigify_rig, None, "NLA_Bake")
 
