@@ -935,7 +935,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA to Unity").param = "NLA_CC_BAKE_UNITY"
-                        row.enabled = unity_bake_source_type == "NONE"
+                        #row.enabled = unity_bake_source_type == "NONE"
 
                         layout.box().row().label(text = "Unity Export", icon = "CUBE")
 

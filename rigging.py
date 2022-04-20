@@ -1737,27 +1737,27 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache, rigify_data):
         export_rig = generate_unity_export_rig(chr_cache)
         chr_cache.rig_export_rig = export_rig
 
-        if export_rig:
+    if export_rig:
 
-            # copy constraints for baking animations
-            if utils.object_mode_to(export_rig):
-                for export_def in UNITY_EXPORT_RIG:
-                    rigify_bone_name = export_def[0]
-                    unity_bone_name = export_def[2]
-                    if unity_bone_name == "":
-                        unity_bone_name = rigify_bone_name
-                    bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
-                    bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+        # copy constraints for baking animations
+        if utils.object_mode_to(export_rig):
+            for export_def in UNITY_EXPORT_RIG:
+                rigify_bone_name = export_def[0]
+                unity_bone_name = export_def[2]
+                if unity_bone_name == "":
+                    unity_bone_name = rigify_bone_name
+                bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+                bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
 
-                # select all export rig bones
-                for bone in export_rig.data.bones:
-                    bone.select = True
+            # select all export rig bones
+            for bone in export_rig.data.bones:
+                bone.select = True
 
-                # bake the action on the rigify rig into the export rig
-                bake_rig_animation(export_rig, None, "NLA_Bake")
+            # bake the action on the rigify rig into the export rig
+            bake_rig_animation(export_rig, None, "NLA_Bake")
 
-            else:
-                op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
+        else:
+            op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
 
 
 def prep_unity_export_rig(chr_cache):
