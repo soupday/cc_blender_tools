@@ -475,11 +475,10 @@ def edit_mode_to(obj):
 
 
 def object_mode_to(obj):
-    if obj in bpy.context.selected_objects and get_active_object() == obj and get_mode() == "OBJECT":
-        return True
-    else:
-        if set_mode("OBJECT") and set_active_object(obj):
-            return True
+    if set_mode("OBJECT"):
+        if try_select_object(obj):
+            if set_active_object(obj):
+                return True
     return False
 
 
