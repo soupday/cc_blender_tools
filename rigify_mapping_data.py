@@ -35,11 +35,14 @@ def get_for_generation(generation):
 
     return get_default()
 
+
 def get_default():
     return RigifyData("CC_Base_Head", G3_BONE_MAPPINGS, FACE_BONES, ADD_DEF_BONES, G3_VERTEX_GROUP_RENAME, G3_ROLL_COPY, RETARGET_G3, RETARGET_G3_CORRECTIONS)
 
+
 def get_game_base():
     return RigifyData("head", GAME_BASE_BONE_MAPPINGS, FACE_BONES, ADD_DEF_BONES, GAME_BASE_VERTEX_GROUP_RENAME, GAME_BASE_ROLL_COPY, None, None)
+
 
 #   METARIG_BONE, CC_BONE_HEAD, CC_BONE_TAIL, LERP_FROM, LERP_TO
 #   '-' before CC_BONE_HEAD means to copy the tail position, not the head
@@ -147,6 +150,7 @@ G3_BONE_MAPPINGS = [
 GAME_BASE_BONE_MAPPINGS = [
     # Spine, Neck & Head:
     # spine chain
+    ["pelvis", "pelvis", "pelvis"],
     ["spine", "pelvis", ""],
     ["spine.001", "spine_01", ""],
     ["spine.002", "spine_02", ""],

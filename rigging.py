@@ -1849,7 +1849,7 @@ def bake_rig_animation(rig, action, action_name = ""):
                         only_selected=True,
                         visual_keying=True,
                         use_current_action=True,
-                        clear_constraints=False,
+                        clear_constraints=True,
                         clean_curves=False)
 
 
