@@ -427,6 +427,10 @@ def find_edit_bone_in_armature(arm, *name):
 
 
 def get_active_object():
+    return bpy.context.active_object
+
+
+def get_active_view_layer_object():
     return bpy.context.view_layer.objects.active
 
 
@@ -462,7 +466,7 @@ def get_mode():
 
 
 def edit_mode_to(obj):
-    if get_active_object() == obj and get_mode() == "EDIT":
+    if obj in bpy.context.selected_objects and get_active_object() == obj and get_mode() == "EDIT":
         return True
     else:
         if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
@@ -471,7 +475,7 @@ def edit_mode_to(obj):
 
 
 def object_mode_to(obj):
-    if get_active_object() == obj and get_mode() == "OBJECT":
+    if obj in bpy.context.selected_objects and get_active_object() == obj and get_mode() == "OBJECT":
         return True
     else:
         if set_mode("OBJECT") and set_active_object(obj):
