@@ -43,6 +43,7 @@ Links
 - Bake control rig & re-targeted animations to Unity.
 - Export Rigified character to Unity.
 - Basic face rig drivers for __Eye Look__ blend shapes. (If character has ExPlus blend shapes)
+- GameBase to Rigify support.
 
 ### 1.3.2
 - Face rig Automatic Weight failure detection and (some) auto-correction.
