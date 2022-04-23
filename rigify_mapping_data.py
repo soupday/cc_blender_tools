@@ -692,16 +692,16 @@ RETARGET_G3 = [
     ["ORG-f_middle.03.R", "ORG-f_middle.02.R",  "(CC_Base_|)R_Mid3", "f_middle.03.R", "LR"],
     ["ORG-f_ring.03.R", "ORG-f_ring.02.R",      "(CC_Base_|)R_Ring3", "f_ring.03.R", "LR"],
     ["ORG-f_pinky.03.R", "ORG-f_pinky.02.R",    "(CC_Base_|)R_Pinky3", "f_pinky.03.R", "LR"],
-    #face
-    ["ORG-face_base", "ORG-spine.006",          "(CC_Base_|)FacialBone", "", "+LR",    "ORG-face", "@(CC_Base_|)FacialBone"],
+    #face                                                                   #  G - align source lookup dir with
+    ["ORG-face_base", "ORG-spine.006",          "(CC_Base_|)FacialBone", "", "+GLR",    "ORG-face", "@(CC_Base_|)FacialBone", "-(CC_Base_|)FacialBone"],
     ["ORG-face", "ORG-face_base",               "", "", "LR"],
     # eyes
     #   flags
     #   "D", param_bone - maintain distance from param_bone
     #   "A", param_bone_1, param_bone_2 - copy average location and rotation from param_bones_1 and param_bones_2
     # eyes parent correction
-    ["ORG-eye_base.L", "ORG-face",               "(CC_Base_|)L_Eye", "", "+LR",    "ORG-eye.L", "@(CC_Base_|)L_Eye"],
-    ["ORG-eye_base.R", "ORG-face",               "(CC_Base_|)R_Eye", "", "+LR",    "ORG-eye.R", "@(CC_Base_|)R_Eye"],
+    ["ORG-eye_base.L", "ORG-face",               "(CC_Base_|)L_Eye", "", "+GVLR",    "ORG-eye.L", "@(CC_Base_|)L_Eye", "-(CC_Base_|)L_Eye"],
+    ["ORG-eye_base.R", "ORG-face",               "(CC_Base_|)R_Eye", "", "+GVLR",    "ORG-eye.R", "@(CC_Base_|)R_Eye", "-(CC_Base_|)R_Eye"],
     ["ORG-eye.L", "ORG-eye_base.L",              "", "eye.L", "LRD", "ORG-eye.L"],
     ["ORG-eye.R", "ORG-eye_base.R",              "", "eye.R", "LRD", "ORG-eye.R"],
     #

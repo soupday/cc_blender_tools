@@ -1608,9 +1608,9 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
         if utils.edit_mode_to(source_rig):
             for retarget_def in retarget_data.retarget:
                 source_bone_regex = retarget_def[2]
+                org_bone_name = retarget_def[0]
                 flags = retarget_def[4]
                 if source_bone_regex:
-                    org_bone_name = retarget_def[0]
                     if org_bone_name in ORG_BONES:
                         org_bone_def = ORG_BONES[org_bone_name]
                         if len(org_bone_def) == 9: # only append z_axis and scale once.
@@ -1654,19 +1654,45 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                     org_bone_def = ORG_BONES[org_bone_name]
                     head_bone_name = retarget_def[5]
                     tail_bone_name = retarget_def[6]
+                    real_bone_tail_name = ""
+                    if len(retarget_def) > 7:
+                        real_bone_tail_name = retarget_def[7]
                     if head_bone_name[0] == "@":
-                        source_bone_copy_name = get_bone_name_regex(source_rig, head_bone_name[1:])
-                        source_bone_copy = bones.get_edit_bone(source_rig, source_bone_copy_name)
+                        source_bone_copy = bones.get_edit_bone(source_rig, get_bone_name_regex(source_rig, head_bone_name[1:]))
                         if source_bone_copy:
                             org_bone_def[1] = source_rig.matrix_world @ source_bone_copy.head
                     if tail_bone_name[0] == "@":
-                        source_bone_copy_name = get_bone_name_regex(source_rig, tail_bone_name[1:])
-                        source_bone_copy = bones.get_edit_bone(source_rig, source_bone_copy_name)
+                        source_bone_copy = bones.get_edit_bone(source_rig, get_bone_name_regex(source_rig, tail_bone_name[1:]))
                         if source_bone_copy:
                             source_head = source_rig.matrix_world @ source_bone_copy.head
                             source_tail = source_rig.matrix_world @ source_bone_copy.tail
                             head_position = org_bone_def[1]
-                            org_bone_def[2] = head_position + (source_tail - source_head)
+                            source_dir = source_tail - source_head
+                            if "V" in flags:
+                                # reverse the source_dir
+                                source_dir = -source_dir
+                            if "G" in flags and real_bone_tail_name:
+                                # align the source bone dir by the relative difference in the *real* source bone dir
+                                # (determined by the real_bone_tail parameter) and the ORG bone dir.
+                                # this is mainly for when animations have arbitrarily placed bones (i.e. Mixamo)
+                                # we need a relatively aligned bone to act as a rotation parent for the target ORG
+                                # bone (which is in head_bone_name). the animation is constrained to this new parent bone
+                                # (named in org_bone_name).
+                                reverse_real_bone_tail = False
+                                if real_bone_tail_name[0] == "-":
+                                    real_bone_tail_name = real_bone_tail_name[1:]
+                                    reverse_real_bone_tail = True
+                                real_bone_tail_bone = bones.get_edit_bone(source_rig, get_bone_name_regex(source_rig, real_bone_tail_name))
+                                if reverse_real_bone_tail:
+                                    real_bone_tail = source_rig.matrix_world @ real_bone_tail_bone.tail
+                                else:
+                                    real_bone_tail = source_rig.matrix_world @ real_bone_tail_bone.head
+                                real_bone_dir = real_bone_tail - source_head
+                                org_def = ORG_BONES[head_bone_name]
+                                org_dir = org_def[2] - org_def[1]
+                                rot = real_bone_dir.rotation_difference(org_dir)
+                                source_dir = rot @ source_dir
+                            org_bone_def[2] = head_position + source_dir
 
         # ORG_BONES = { org_bone_name: [0:parent_name, 1:world_head_pos, 2:world_tail_pos, 3:bone_roll, 4:is_connected,
         #                               5:inherit_location, 6:inherit_rotation, 7:inherit_scale, 8:target_size,
