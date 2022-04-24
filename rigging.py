@@ -1683,9 +1683,9 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                         pidx += 1
                         if org_bone_name + "_pivot" in ORG_BONES:
                             pivot_org_bone_def = ORG_BONES[org_bone_name + "_pivot"]
-                        if source_bone_regex and org_bone_def and pivot_org_bone_def:
-                            source_bone_name = get_bone_name_regex(source_rig, source_bone_regex)
-                            source_bone = bones.get_edit_bone(source_rig, source_bone_name)
+                        source_bone_name = get_bone_name_regex(source_rig, source_bone_regex)
+                        source_bone = bones.get_edit_bone(source_rig, source_bone_name)
+                        if source_bone and org_bone_def and pivot_org_bone_def:
                             source_head = source_rig.matrix_world @ source_bone.head
                             source_tail = source_rig.matrix_world @ source_bone.tail
                             head_position = org_bone_def[1]
@@ -1851,6 +1851,8 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                                 bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, bone_1.name, rigify_bone_name, 1.0)
                                 bones.add_copy_location_constraint(retarget_rig, retarget_rig, bone_2.name, rigify_bone_name, 0.5)
                                 bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, bone_2.name, rigify_bone_name, 0.5)
+                            else:
+                                utils.log_warn(f"Unable to find: {bone_1_name} and/or {bone_2_name} in retarget rig!")
                         # limit distance contraint
                         if f == "D":
                             limit_bone_name = retarget_def[pidx]
@@ -1858,6 +1860,8 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                             limit_bone = bones.get_pose_bone(retarget_rig, limit_bone_name)
                             if limit_bone:
                                 bones.add_limit_distance_constraint(retarget_rig, retarget_rig, limit_bone.name, rigify_bone_name, eyes_distance, 1.0)
+                            else:
+                                utils.log_warn(f"Unable to find: {limit_bone_name} in retarget rig!")
 
             # constraints and drivers for corrective bones
             for correction_bone_name in retarget_data.retarget_corrections:
