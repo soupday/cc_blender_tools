@@ -264,6 +264,10 @@ CC3_BONE_NAMES = [
     "CC_Base_BoneRoot", "CC_Base_Hip", "CC_Base_Head", "CC_Base_Spine01", "CC_Base_Spine02"
 ]
 
+MIXAMO_BONE_NAMES = [
+    "mixamorig:Hips", "mixamorig:Spine", "mixamorig:Head", "mixamorig:Spine1", "mixamorig:Spine2"
+]
+
 RIGIFY_BONE_NAMES = [
     "root", "hips", "torso", "head", "spine_fk", "spine_fk.001", "foot_ik.L", "foot_ik.R", "hand_ik.L", "hand_ik.R",
 ]
@@ -1530,6 +1534,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                     # don't process the same ORG bone more than once
                     continue
                 org_parent_bone_name = retarget_def[1]
+                utils.log_info(f"Generating retarget ORG bone: {org_bone_name}")
                 flags = retarget_def[4]
                 head_pos = rigify_rig.matrix_world @ mathutils.Vector((0,0,0))
                 tail_pos = rigify_rig.matrix_world @ mathutils.Vector((0,0,0.01))
@@ -1538,62 +1543,53 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 use_inherit_rotation = True
                 use_local_location = True
                 inherit_scale = "FULL"
-                roll = 0
                 if "+" in flags:
-                    # "+" means create a new ORG bone that doesn't exist in the ORG bones to match the source armature better.
-                    reverse_head_bone = False
-                    reverse_tail_bone = False
-                    head_bone_name = retarget_def[5]
-                    tail_bone_name = retarget_def[6]
-                    # determine head position
-                    if head_bone_name[0] == "-":
-                        head_bone_name = head_bone_name[1:]
-                        reverse_head_bone = True
-                    if head_bone_name[0] == "@" or head_bone_name[0] == "#":
-                        # source/rigify bone look up, handled later
-                        pass
-                    else:
-                        head_bone = bones.get_edit_bone(rigify_rig, head_bone_name)
-                        if head_bone:
-                            head_pos = rigify_rig.matrix_world @ head_bone.head
-                            if reverse_head_bone:
-                                head_pos = rigify_rig.matrix_world @ head_bone.tail
-                    # determine tail position
-                    if tail_bone_name[0] == "-":
-                        tail_bone_name = tail_bone_name[1:]
-                        reverse_tail_bone = True
-                    if tail_bone_name[0] == "@" or tail_bone_name[0] == "#":
-                        # source/rigify bone look up, handled later
-                        pass
-                    else:
-                        tail_bone = bones.get_edit_bone(rigify_rig, tail_bone_name)
-                        if tail_bone:
-                            tail_pos = rigify_rig.matrix_world @ tail_bone.tail
-                            if reverse_tail_bone:
-                                tail_pos = rigify_rig.matrix_world @ tail_bone.head
+                    ref_bone_name = retarget_def[5]
+                    if ref_bone_name and ref_bone_name.startswith("rigify:"):
+                        ref_bone = bones.get_edit_bone(rigify_rig, ref_bone_name[7:])
+                        if ref_bone:
+                            head_pos = rigify_rig.matrix_world @ ref_bone.head
+                            tail_pos = rigify_rig.matrix_world @ ref_bone.tail
+                        else:
+                            utils.log_error(f"Could not find ref bone: {ref_bone_name} in Rigify rig!")
                 else:
                     org_bone = bones.get_edit_bone(rigify_rig, org_bone_name)
                     if org_bone:
                         head_pos = rigify_rig.matrix_world @ org_bone.head
                         tail_pos = rigify_rig.matrix_world @ org_bone.tail
-                        roll = org_bone.roll
                     else:
                         utils.log_error(f"Could not find ORG bone: {org_bone_name} in Rigify rig!")
+                # find parent bone
                 org_parent_bone = bones.get_edit_bone(rigify_rig, org_parent_bone_name)
                 if org_parent_bone:
                     parent_pos = rigify_rig.matrix_world @ org_parent_bone.head
                 elif org_parent_bone_name in ORG_BONES:
                     parent_pos = ORG_BONES[org_parent_bone_name][1]
-                # store the face position for eye control constraints later
-                if org_bone_name == "ORG-face":
-                    face_pos = head_pos
+                else:
+                    utils.log_error(f"Could not find parent bone: {org_parent_bone_name} in Rigify rig or ORG bones!")
+                    org_parent_bone_name = ""
                 # get the scale of the bone as the distance from it's parent head position
                 scale = (head_pos - parent_pos).length
                 if scale <= 0.00001:
                     scale = 1
+                # parent retarget correction, add corrective parent bone and insert into parent chain
+                if "P" in flags:
+                    pivot_bone_name = org_bone_name + "_pivot"
+                    utils.log_info(f"Adding parent correction pivot: {pivot_bone_name} -> {org_bone_name}")
+                    ORG_BONES[pivot_bone_name] = [org_parent_bone_name,
+                            head_pos, tail_pos, parent_pos,
+                            use_connect,
+                            use_local_location,
+                            use_inherit_rotation,
+                            inherit_scale,
+                            scale]
+                    org_parent_bone_name = pivot_bone_name
+                # store the face position for eye control constraints later
+                if org_bone_name == "ORG-face":
+                    face_pos = head_pos
                 ORG_BONES[org_bone_name] = [org_parent_bone_name,
-                            head_pos, tail_pos,
-                            roll, use_connect,
+                            head_pos, tail_pos, parent_pos,
+                            use_connect,
                             use_local_location,
                             use_inherit_rotation,
                             inherit_scale,
@@ -1609,92 +1605,114 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
             for retarget_def in retarget_data.retarget:
                 source_bone_regex = retarget_def[2]
                 org_bone_name = retarget_def[0]
+                org_bone_def = None
+                if org_bone_name in ORG_BONES:
+                    org_bone_def = ORG_BONES[org_bone_name]
                 flags = retarget_def[4]
-                if source_bone_regex:
-                    if org_bone_name in ORG_BONES:
-                        org_bone_def = ORG_BONES[org_bone_name]
-                        if len(org_bone_def) == 9: # only append z_axis and scale once.
+                if source_bone_regex and org_bone_def:
+                    if len(org_bone_def) == 9: # only append z_axis and scale once.
+                        source_bone_name = get_bone_name_regex(source_rig, source_bone_regex)
+                        source_bone = bones.get_edit_bone(source_rig, source_bone_name)
+                        z_axis = source_rig.matrix_world @ mathutils.Vector((0,0,1))
+                        scale = 1.0
+                        if source_bone:
+                            head_pos = source_bone.head
+                            tail_pos = source_bone.tail
+                            z_axis = source_rig.matrix_world @ source_bone.z_axis
+                            parent_pos = mathutils.Vector((0,0,0))
+                            # find the source bone equivalent to the ORG bones parent
+                            org_parent_bone_name = retarget_def[1]
+                            for parent_retarget_def in retarget_data.retarget:
+                                parent_org_bone_name = parent_retarget_def[0]
+                                if parent_org_bone_name == org_parent_bone_name:
+                                    source_parent_bone_regex = parent_retarget_def[2]
+                                    if source_parent_bone_regex:
+                                        source_parent_bone_name = get_bone_name_regex(source_rig, source_parent_bone_regex)
+                                        source_parent_bone = bones.get_edit_bone(source_rig, source_parent_bone_name)
+                                        if source_parent_bone:
+                                            parent_pos = source_parent_bone.head
+                                        break
+                            else:
+                                if source_bone.parent:
+                                    parent_pos = source_bone.parent.head
+                            scale = (head_pos - parent_pos).length
+                            if scale <= 0.00001: scale = 1
+                        else:
+                            utils.log_error(f"Could not find source bone: {source_bone_name} in source rig!")
+                        org_bone_def.append(scale)
+                        org_bone_def.append(z_axis)
+                        if "P" in flags and org_bone_name + "_pivot" in ORG_BONES:
+                            pivot_org_bone_def = ORG_BONES[org_bone_name + "_pivot"]
+                            pivot_org_bone_def.append(scale)
+                            pivot_org_bone_def.append(z_axis)
+                else:
+                    utils.log_error(f"Could not find ORG bone: {org_bone_name} in ORG_BONES!")
+                # process flags
+                pidx = 5
+                for f in flags:
+                    if f == "+":
+                        # handle source bone copy (and re-calculate scale)
+                        if org_bone_name in ORG_BONES:
+                            ref_bone_name = retarget_def[pidx]
+                            pidx += 1
+                            if ref_bone_name and ref_bone_name.startswith("source:"):
+                                ref_bone_name = get_bone_name_regex(source_rig, ref_bone_name[7:])
+                                ref_bone = bones.get_edit_bone(source_rig, ref_bone_name)
+                                if ref_bone:
+                                    # these need to be in world space
+                                    head_pos = source_rig.matrix_world @ ref_bone.head
+                                    tail_pos = source_rig.matrix_world @ ref_bone.tail
+                                    parent_pos = org_bone_def[3]
+                                    scale = (head_pos - parent_pos).length
+                                    if scale <= 0.00001:
+                                        scale = 1
+                                    ORG_BONES[org_bone_name][1] = head_pos
+                                    ORG_BONES[org_bone_name][2] = tail_pos
+                                    ORG_BONES[org_bone_name][8] = scale
+                                else:
+                                    utils.log_error(f"Could not find ref bone: {ref_bone_name} in source rig!")
+                    if f == "P":
+                        print(org_bone_name)
+                        # handle parent retarget correction:
+                        # when the source bone is not in the same orientation as the ORG bone
+                        # we need to parent the ORG bone to a copy of the source bone -
+                        # with it's orientation adjusted by the relative rotational difference between the
+                        # ORG bone and the *real* direction of the source bone which is the direction to
+                        # the next/child bone specified in the parameters.
+                        next_bone_name = retarget_def[pidx]
+                        pidx += 1
+                        if org_bone_name + "_pivot" in ORG_BONES:
+                            pivot_org_bone_def = ORG_BONES[org_bone_name + "_pivot"]
+                        if source_bone_regex and org_bone_def and pivot_org_bone_def:
                             source_bone_name = get_bone_name_regex(source_rig, source_bone_regex)
                             source_bone = bones.get_edit_bone(source_rig, source_bone_name)
-                            z_axis = mathutils.Vector((0,0,1))
-                            scale = 1.0
-                            if source_bone:
-                                head_pos = source_bone.head
-                                tail_pos = source_bone.tail
-                                z_axis = source_bone.z_axis
-                                parent_pos = mathutils.Vector((0,0,0))
-                                # find the source bone equivalent to the **ORG bones parent**.
-                                # thus if the source bone encompasses multiple ORG bones, we get an accurate scale.
-                                # Note: for the opposite case, multiple source bones encompass one ORG bone,
-                                #       we *create* new ORG bones in the retarget rig to match the source aramture
-                                org_parent_bone_name = retarget_def[1]
-                                for parent_retarget_def in retarget_data.retarget:
-                                    parent_org_bone_name = parent_retarget_def[0]
-                                    if parent_org_bone_name == org_parent_bone_name:
-                                        source_parent_bone_regex = parent_retarget_def[2]
-                                        if source_parent_bone_regex:
-                                            source_parent_bone_name = get_bone_name_regex(source_rig, source_parent_bone_regex)
-                                            source_parent_bone = bones.get_edit_bone(source_rig, source_parent_bone_name)
-                                            if source_parent_bone:
-                                                parent_pos = source_parent_bone.head
-                                            break
-                                else:
-                                    if source_bone.parent:
-                                        parent_pos = source_bone.parent.head
-                                scale = (head_pos - parent_pos).length
-                                if scale <= 0.00001: scale = 1
-                            else:
-                                utils.log_error(f"Could not find source bone: {source_bone_name} in source rig!")
-                            org_bone_def.append(scale)
-                            org_bone_def.append(z_axis)
-                    else:
-                        utils.log_error(f"Could not find ORG bone: {org_bone_name} ORG_BONES!")
-                # now handle any source bone lookups (update tail positions)
-                if "+" in flags:
-                    org_bone_def = ORG_BONES[org_bone_name]
-                    head_bone_name = retarget_def[5]
-                    tail_bone_name = retarget_def[6]
-                    real_bone_tail_name = ""
-                    if len(retarget_def) > 7:
-                        real_bone_tail_name = retarget_def[7]
-                    if head_bone_name[0] == "@":
-                        source_bone_copy = bones.get_edit_bone(source_rig, get_bone_name_regex(source_rig, head_bone_name[1:]))
-                        if source_bone_copy:
-                            org_bone_def[1] = source_rig.matrix_world @ source_bone_copy.head
-                    if tail_bone_name[0] == "@":
-                        source_bone_copy = bones.get_edit_bone(source_rig, get_bone_name_regex(source_rig, tail_bone_name[1:]))
-                        if source_bone_copy:
-                            source_head = source_rig.matrix_world @ source_bone_copy.head
-                            source_tail = source_rig.matrix_world @ source_bone_copy.tail
+                            source_head = source_rig.matrix_world @ source_bone.head
+                            source_tail = source_rig.matrix_world @ source_bone.tail
                             head_position = org_bone_def[1]
                             source_dir = source_tail - source_head
-                            if "V" in flags:
-                                # reverse the source_dir
+                            if "V" in flags: # reverse the source_dir
                                 source_dir = -source_dir
-                            if "G" in flags and real_bone_tail_name:
-                                # align the source bone dir by the relative difference in the *real* source bone dir
-                                # (determined by the real_bone_tail parameter) and the ORG bone dir.
-                                # this is mainly for when animations have arbitrarily placed bones (i.e. Mixamo)
-                                # we need a relatively aligned bone to act as a rotation parent for the target ORG
-                                # bone (which is in head_bone_name). the animation is constrained to this new parent bone
-                                # (named in org_bone_name).
-                                reverse_real_bone_tail = False
-                                if real_bone_tail_name[0] == "-":
-                                    real_bone_tail_name = real_bone_tail_name[1:]
-                                    reverse_real_bone_tail = True
-                                real_bone_tail_bone = bones.get_edit_bone(source_rig, get_bone_name_regex(source_rig, real_bone_tail_name))
-                                if reverse_real_bone_tail:
-                                    real_bone_tail = source_rig.matrix_world @ real_bone_tail_bone.tail
+                            if "T" in flags: # alignment correction
+                                use_tail = False
+                                if not next_bone_name or next_bone_name == "-":
+                                    use_tail = True
+                                    next_bone_name = source_bone_name
+                                next_bone_name = get_bone_name_regex(source_rig, next_bone_name)
+                                next_bone = bones.get_edit_bone(source_rig, next_bone_name)
+                                if use_tail:
+                                    next_pos = source_rig.matrix_world @ next_bone.tail
                                 else:
-                                    real_bone_tail = source_rig.matrix_world @ real_bone_tail_bone.head
-                                real_bone_dir = real_bone_tail - source_head
-                                org_def = ORG_BONES[head_bone_name]
-                                org_dir = org_def[2] - org_def[1]
-                                rot = real_bone_dir.rotation_difference(org_dir)
-                                source_dir = rot @ source_dir
-                            org_bone_def[2] = head_position + source_dir
+                                    next_pos = source_rig.matrix_world @ next_bone.head
+                                next_bone_dir = next_pos - source_head
+                                if source_dir.dot(next_bone_dir) < 0.99:
+                                    org_bone_dir = org_bone_def[2] - org_bone_def[1]
+                                    rot = next_bone_dir.rotation_difference(org_bone_dir)
+                                    print(org_bone_name, source_dir, next_bone_dir, org_bone_dir)
+                                    source_dir = rot @ source_dir
+                                    print(rot.angle, source_dir)
+                            pivot_org_bone_def[2] = head_position + source_dir
 
-        # ORG_BONES = { org_bone_name: [0:parent_name, 1:world_head_pos, 2:world_tail_pos, 3:bone_roll, 4:is_connected,
+        # ORG_BONES = { org_bone_name: [0:parent_name, 1:world_head_pos, 2:world_tail_pos, 3:parent_pos, 4:is_connected,
         #                               5:inherit_location, 6:inherit_rotation, 7:inherit_scale, 8:target_size,
         #    (optional if source_bone)  9:source_size, 10:source_bone_z_axis], }
 
@@ -1719,22 +1737,6 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                                                           rigify_bone.inherit_scale]
                     else:
                         utils.log_warn(f"Could not find Rigify bone: {rigify_bone_name} in Rigify rig!")
-                # now handle any rigify bone lookups
-                if "+" in flags:
-                    org_bone_def = ORG_BONES[org_bone_name]
-                    head_bone_name = retarget_def[5]
-                    tail_bone_name = retarget_def[6]
-                    if head_bone_name[0] == "#":
-                        source_bone_copy = bones.get_edit_bone(rigify_rig, head_bone_name[1:])
-                        if source_bone_copy:
-                            org_bone_def[1] = rigify_rig.matrix_world @ source_bone_copy.head
-                    if tail_bone_name[0] == "#":
-                        source_bone_copy = bones.get_edit_bone(rigify_rig, tail_bone_name[1:])
-                        if source_bone_copy:
-                            source_head = rigify_rig.matrix_world @ source_bone_copy.head
-                            source_tail = rigify_rig.matrix_world @ source_bone_copy.tail
-                            head_position = org_bone_def[1]
-                            org_bone_def[2] = head_position + (source_tail - source_head)
 
         # RIGIFY_BONES = { bone_name: [0:equivalent_org_bone_name, 1:world_head_pos, 2:world_tail_pos, 3:bone_roll,
         #                              4:is_connected, 5:inherit_location, 6:inherit_rotation, 7:inherit_scale], }
@@ -1748,13 +1750,16 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
             # add the org bones:
             for org_bone_name in ORG_BONES:
                 bone_def = ORG_BONES[org_bone_name]
+                utils.log_info(f"Building: {org_bone_name}")
                 b = retarget_rig.data.edit_bones.new(org_bone_name)
                 b.head = bone_def[1]
                 b.tail = bone_def[2]
-                b.roll = bone_def[3]
                 # very important to align the roll of the source and ORG bones.
                 if len(bone_def) >= 11:
+                    utils.log_info(f"Align bone roll: {bone_def[10]}")
                     b.align_roll(bone_def[10])
+                else:
+                    utils.log_warn(f"Bone roll axis not stored for {org_bone_name}")
                 b.use_connect = bone_def[4]
                 b.use_local_location = bone_def[5]
                 b.use_inherit_rotation = bone_def[6]
@@ -1796,6 +1801,8 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 source_bone_name = get_bone_name_regex(source_rig, retarget_def[2])
                 rigify_bone_name = retarget_def[3]
                 flags = retarget_def[4]
+                if "P" in flags:
+                    org_bone_name = org_bone_name + "_pivot"
                 pidx = 5
                 source_bone = bones.get_pose_bone(source_rig, source_bone_name)
                 org_bone = bones.get_pose_bone(retarget_rig, org_bone_name)
@@ -1805,22 +1812,26 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                     org_bone_def = ORG_BONES[org_bone_name]
                 if org_bone and source_bone and org_bone_def:
                     # source copy
-                    print("CON:", org_bone_name, source_bone_name)
                     if "N" not in flags:
                         scale_influence = 1.0
                         if len(org_bone_def) >= 11:
                             scale_influence = org_bone_def[8] / org_bone_def[9]
                             scale_influence = max(0.0, min(1.0, scale_influence))
-                        space = "LOCAL"
-                        if utils.is_blender_version("3.1.0"):
-                            space = "LOCAL_OWNER_ORIENT"
-                        bones.add_copy_location_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, scale_influence, space)
+                        if org_bone_name == "ORG-hip" or org_bone_name == "ORG-hip_pivot":
+                            bones.add_copy_location_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, scale_influence, "LOCAL_WITH_PARENT")
+                        else:
+                            space = "LOCAL"
+                            if utils.is_blender_version("3.1.0"):
+                                space = "LOCAL_OWNER_ORIENT"
+                            bones.add_copy_location_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, scale_influence, space)
                         bones.add_copy_rotation_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, 1.0)
                 if rigify_bone:
                     for f in flags:
                         # add new ORG bone (not handled here, but increment the parameter index)
                         if f == "+":
-                            pidx += 2
+                            pidx += 1
+                        if f == "C":
+                            pidx += 1
                         # copy location to target
                         if f == "L":
                             bones.add_copy_location_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
@@ -1865,6 +1876,11 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 con_defs = correction_def["constraints"]
                 for con_def in con_defs:
                     org_bone_name, flags, axis = con_def
+                    for retarget_def in retarget_data.retarget:
+                        if retarget_def[0] == org_bone_name:
+                            if "P" in retarget_def[4]:
+                                org_bone_name = org_bone_name + "_pivot"
+                            break
                     pose_bone = bones.get_rl_pose_bone(retarget_rig, org_bone_name)
                     if pose_bone:
                         con : bpy.types.CopyLocationConstraint = None
@@ -1952,7 +1968,7 @@ def adv_retarget_pair_rigs(op, chr_cache):
     rigify_rig.rotation_euler = (0,0,0)
     source_rig.location = (0,0,0)
     source_rig.rotation_mode = "XYZ"
-    source_rig.rotation_euler = (0,0,0)
+    #source_rig.rotation_euler = (0,0,0)
 
     utils.delete_armature_object(chr_cache.rig_retarget_rig)
     retarget_rig = generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data)
@@ -2395,6 +2411,24 @@ def is_G3_armature(armature):
     return count >= 5
 
 
+def is_Mixamo_action(action):
+    count = 0
+    for fcurve in action.fcurves:
+        bone_name = bones.get_bone_name_from_data_path(fcurve.data_path)
+        if bone_name in MIXAMO_BONE_NAMES:
+            count += 1
+    return count >= 5
+
+
+def is_Mixamo_armature(armature):
+    count = 0
+    for bone in armature.data.bones:
+        bone_name = bone.name
+        if bone_name in MIXAMO_BONE_NAMES:
+            count += 1
+    return count >= 5
+
+
 def is_rigify_armature(armature):
     count = 0
     for bone in armature.data.bones:
@@ -2402,6 +2436,8 @@ def is_rigify_armature(armature):
         if bone_name in RIGIFY_BONE_NAMES:
             count += 1
     return count >= 10
+
+
 
 
 def check_armature_action(armature, action):
@@ -2418,6 +2454,8 @@ def check_armature_action(armature, action):
 def get_armature_action_source_type(armature, action):
     if is_G3_armature(armature) and is_G3_action(action):
         return "G3"
+    elif is_Mixamo_armature(armature) and is_Mixamo_action(action):
+        return "Mixamo"
     # detect other types as they become available...
     return "Unknown"
 

@@ -55,6 +55,11 @@ def fake_drop_down(row, label, prop_name, prop_bool_value):
     return prop_bool_value
 
 
+ALLOWED_BONE_ROOTS = [
+    "CC_Base_BoneRoot", "BoneRoot", "mixamorig:Hips",
+]
+
+
 class ARMATURE_UL_List(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -76,7 +81,7 @@ class ARMATURE_UL_List(bpy.types.UIList):
                 filtered[i] &= ~self.bitflag_filter_item
             elif item_name.endswith("_Retarget"): # don't list retarget armatures
                 filtered[i] &= ~self.bitflag_filter_item
-            elif len(item.data.bones) > 0 and "BoneRoot" not in item.data.bones[0].name:
+            elif len(item.data.bones) > 0 and item.data.bones[0].name not in ALLOWED_BONE_ROOTS:
                 filtered[i] &= ~self.bitflag_filter_item
             else:
                 if self.filter_name and self.filter_name != "*":

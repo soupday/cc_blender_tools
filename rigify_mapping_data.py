@@ -63,7 +63,7 @@ def get_retarget_for_source(source):
         return RetargetData(RETARGET_GAME_BASE, RETARGET_CORRECTIONS)
 
     elif source == "Mixamo":
-        return None
+        return RetargetData(RETARGET_MIXAMO, RETARGET_CORRECTIONS)
 
     elif source == "Rokoko":
         return None
@@ -600,20 +600,28 @@ RETARGET_RIGIFY_BONES = [
     "hand_ik.L", "hand_ik.R", "foot_ik.L", "foot_ik.R", "toe_ik.L", "toe_ik.R",
 ]
 
-#   [origin_bone, orign_bone_parent,           animation_source_bone(regex match), retarget_control_bone, flags,  *params]
+
 RETARGET_G3 = [
-    # spine, neck & head
     #   flags (flags are processed in order of left to right)
-    #       "L" - inherit location
-    #       "R" - inherit rotation
-    #       "N" - no source -> origin constraints
-    #       "+", ORG_head, ORG_tail - create new
-    #   origin_bone
-    #       "+" - create new
-    #["+ORG-root", "",                          "(CC_Base_|)Root", "root", "LR"],
-    # hip parent correction
-    ["ORG-hip", "",                             "(CC_Base_|)Hip", "", "+LR",        "ORG-spine", "@(CC_Base_|)Hip"],
-    ["ORG-spine", "ORG-hip",                    "(CC_Base_|)Pelvis", "torso", "LR"],           # @source_bone_regex == match the size and dir of the source bone
+    #
+    #       "L" - constrain location (retarget rig to rigify rig)
+    #       "R" - constrain rotation (retarget rig to rigify rig)
+    #       "N" - no source -> retarget constraints (to avoid duplicate constraints)
+    #       "C" - copy rigify bone positions
+    #
+    #   flags with parameters (are processed left to right and parameters are consecutive)
+    #
+    #       "+", copy_bone - this org bone needs be added copied from copy_bone
+    #       "P", start_bone - parent retarget correction, for when source bone and org bone
+    #                         are not the in the same orientation
+    #       "D", root_bone - maintain distance from root_bone
+    #       "A", bone_1, bone_2 - copy average location and rotation from bone_1 and bone_2
+    #
+    # [origin_bone, orign_bone_parent,          source_bone(regex match), rigify_target_bone, flags, *params]
+    #
+    # hips
+    ["ORG-hip", "",                             "(CC_Base_|)Hip", "", "+PLR", "rigify:ORG-spine", "-"],
+    ["ORG-spine", "ORG-hip",                    "(CC_Base_|)Pelvis", "torso", "LR"],
     # spine
     ["ORG-spine.001", "ORG-spine",              "(CC_Base_|)Waist", "spine_fk.001", "LR"],
     ["ORG-spine.002", "ORG-spine.001",          "(CC_Base_|)Spine01", "spine_fk.002", "LR"],
@@ -622,9 +630,8 @@ RETARGET_G3 = [
     ["ORG-spine.004", "ORG-spine.003",          "(CC_Base_|)NeckTwist01", "neck", "LR"],
     ["ORG-spine.005", "ORG-spine.004",          "(CC_Base_|)NeckTwist02", "tweak_spine.005", "L"],
     ["ORG-spine.006", "ORG-spine.005",          "(CC_Base_|)Head", "head", "LR"],
-    # pelvis parent correction
-    ["ORG-pelvis_base", "ORG-hip",              "(CC_Base_|)Pelvis", "", "+LR",     "ORG-pelvis", "@(CC_Base_|)Pelvis"],
-    ["ORG-pelvis", "ORG-pelvis_base",           "", "hips", "LR"],
+    # pelvis
+    ["ORG-pelvis", "ORG-hip",                   "(CC_Base_|)Pelvis", "hips", "PLR", "-"],
     # torso
     ["ORG-breast.L", "ORG-spine.003",           "(CC_Base_|)L_RibsTwist", "breast.L", "LR"],
     ["ORG-breast.R", "ORG-spine.003",           "(CC_Base_|)R_RibsTwist", "breast.R", "LR"],
@@ -639,17 +646,12 @@ RETARGET_G3 = [
     ["ORG-upper_arm.L", "ORG-shoulder.L",       "(CC_Base_|)L_Upperarm", "upper_arm_fk.L", "LR"],
     ["ORG-forearm.L", "ORG-upper_arm.L",        "(CC_Base_|)L_Forearm", "forearm_fk.L", "LR"],
     ["ORG-hand.L", "ORG-forearm.L",             "(CC_Base_|)L_Hand", "hand_fk.L", "LR"],
-    # left palm
-    ["ORG-palm.01.L", "ORG-hand.L",             "", "", ""],
-    ["ORG-palm.02.L", "ORG-hand.L",             "", "", ""],
-    ["ORG-palm.03.L", "ORG-hand.L",             "", "", ""],
-    ["ORG-palm.04.L", "ORG-hand.L",             "", "", ""],
     # left fingers
-    ["ORG-thumb.01.L", "ORG-palm.01.L",         "(CC_Base_|)L_Thumb1", "thumb.01.L", "LR"],
-    ["ORG-f_index.01.L", "ORG-palm.01.L",       "(CC_Base_|)L_Index1", "f_index.01.L", "LR"],
-    ["ORG-f_middle.01.L", "ORG-palm.02.L",      "(CC_Base_|)L_Mid1", "f_middle.01.L", "LR"],
-    ["ORG-f_ring.01.L", "ORG-palm.03.L",        "(CC_Base_|)L_Ring1", "f_ring.01.L", "LR"],
-    ["ORG-f_pinky.01.L", "ORG-palm.04.L",       "(CC_Base_|)L_Pinky1", "f_pinky.01.L", "LR"],
+    ["ORG-thumb.01.L", "ORG-hand.L",            "(CC_Base_|)L_Thumb1", "thumb.01.L", "LR"],
+    ["ORG-f_index.01.L", "ORG-hand.L",          "(CC_Base_|)L_Index1", "f_index.01.L", "LR"],
+    ["ORG-f_middle.01.L", "ORG-hand.L",         "(CC_Base_|)L_Mid1", "f_middle.01.L", "LR"],
+    ["ORG-f_ring.01.L", "ORG-hand.L",           "(CC_Base_|)L_Ring1", "f_ring.01.L", "LR"],
+    ["ORG-f_pinky.01.L", "ORG-hand.L",          "(CC_Base_|)L_Pinky1", "f_pinky.01.L", "LR"],
     ["ORG-thumb.02.L", "ORG-thumb.01.L",        "(CC_Base_|)L_Thumb2", "thumb.02.L", "LR"],
     ["ORG-f_index.02.L", "ORG-f_index.01.L",    "(CC_Base_|)L_Index2", "f_index.02.L", "LR"],
     ["ORG-f_middle.02.L", "ORG-f_middle.01.L",  "(CC_Base_|)L_Mid2", "f_middle.02.L", "LR"],
@@ -671,17 +673,12 @@ RETARGET_G3 = [
     ["ORG-upper_arm.R", "ORG-shoulder.R",       "(CC_Base_|)R_Upperarm", "upper_arm_fk.R", "LR"],
     ["ORG-forearm.R", "ORG-upper_arm.R",        "(CC_Base_|)R_Forearm", "forearm_fk.R", "LR"],
     ["ORG-hand.R", "ORG-forearm.R",             "(CC_Base_|)R_Hand", "hand_fk.R", "LR"],
-    # right palm
-    ["ORG-palm.01.R", "ORG-hand.R",             "", "", ""],
-    ["ORG-palm.02.R", "ORG-hand.R",             "", "", ""],
-    ["ORG-palm.03.R", "ORG-hand.R",             "", "", ""],
-    ["ORG-palm.04.R", "ORG-hand.R",             "", "", ""],
     # right fingers
-    ["ORG-thumb.01.R", "ORG-palm.01.R",         "(CC_Base_|)R_Thumb1", "thumb.01.R", "LR"],
-    ["ORG-f_index.01.R", "ORG-palm.01.R",       "(CC_Base_|)R_Index1", "f_index.01.R", "LR"],
-    ["ORG-f_middle.01.R", "ORG-palm.02.R",      "(CC_Base_|)R_Mid1", "f_middle.01.R", "LR"],
-    ["ORG-f_ring.01.R", "ORG-palm.03.R",        "(CC_Base_|)R_Ring1", "f_ring.01.R", "LR"],
-    ["ORG-f_pinky.01.R", "ORG-palm.04.R",       "(CC_Base_|)R_Pinky1", "f_pinky.01.R", "LR"],
+    ["ORG-thumb.01.R", "ORG-hand.R",            "(CC_Base_|)R_Thumb1", "thumb.01.R", "LR"],
+    ["ORG-f_index.01.R", "ORG-hand.R",          "(CC_Base_|)R_Index1", "f_index.01.R", "LR"],
+    ["ORG-f_middle.01.R", "ORG-hand.R",         "(CC_Base_|)R_Mid1", "f_middle.01.R", "LR"],
+    ["ORG-f_ring.01.R", "ORG-hand.R",           "(CC_Base_|)R_Ring1", "f_ring.01.R", "LR"],
+    ["ORG-f_pinky.01.R", "ORG-hand.R",          "(CC_Base_|)R_Pinky1", "f_pinky.01.R", "LR"],
     ["ORG-thumb.02.R", "ORG-thumb.01.R",        "(CC_Base_|)R_Thumb2", "thumb.02.R", "LR"],
     ["ORG-f_index.02.R", "ORG-f_index.01.R",    "(CC_Base_|)R_Index2", "f_index.02.R", "LR"],
     ["ORG-f_middle.02.R", "ORG-f_middle.01.R",  "(CC_Base_|)R_Mid2", "f_middle.02.R", "LR"],
@@ -692,43 +689,25 @@ RETARGET_G3 = [
     ["ORG-f_middle.03.R", "ORG-f_middle.02.R",  "(CC_Base_|)R_Mid3", "f_middle.03.R", "LR"],
     ["ORG-f_ring.03.R", "ORG-f_ring.02.R",      "(CC_Base_|)R_Ring3", "f_ring.03.R", "LR"],
     ["ORG-f_pinky.03.R", "ORG-f_pinky.02.R",    "(CC_Base_|)R_Pinky3", "f_pinky.03.R", "LR"],
-    #face                                                                   #  G - align source lookup dir with
-    ["ORG-face_base", "ORG-spine.006",          "(CC_Base_|)FacialBone", "", "+GLR",    "ORG-face", "@(CC_Base_|)FacialBone", "-(CC_Base_|)FacialBone"],
-    ["ORG-face", "ORG-face_base",               "", "", "LR"],
+    #face
+    ["ORG-face", "ORG-spine.006",               "(CC_Base_|)FacialBone", "", "PLR", "-"],
     # eyes
-    #   flags
-    #   "D", param_bone - maintain distance from param_bone
-    #   "A", param_bone_1, param_bone_2 - copy average location and rotation from param_bones_1 and param_bones_2
-    # eyes parent correction
-    ["ORG-eye_base.L", "ORG-face",               "(CC_Base_|)L_Eye", "", "+GVLR",    "ORG-eye.L", "@(CC_Base_|)L_Eye", "-(CC_Base_|)L_Eye"],
-    ["ORG-eye_base.R", "ORG-face",               "(CC_Base_|)R_Eye", "", "+GVLR",    "ORG-eye.R", "@(CC_Base_|)R_Eye", "-(CC_Base_|)R_Eye"],
-    ["ORG-eye.L", "ORG-eye_base.L",              "", "eye.L", "LRD", "ORG-eye.L"],
-    ["ORG-eye.R", "ORG-eye_base.R",              "", "eye.R", "LRD", "ORG-eye.R"],
-    #
-    ["ORG-eyes", "ORG-face",                     "", "eyes", "+LRA",        "ORG-face", "#eyes",  # "#" - Rigify bone lookup
-                                                                            "eye.R", "eye.L"],
+    ["ORG-eye.L", "ORG-face",                   "(CC_Base_|)L_Eye", "eye.L", "PLRD", "-", "ORG-eye.L"],
+    ["ORG-eye.R", "ORG-face",                   "(CC_Base_|)R_Eye", "eye.R", "PLRD", "-", "ORG-eye.R"],
+    ["ORG-eyes", "ORG-face",                    "", "eyes", "+LRA", "rigify:eyes", "eye.R", "eye.L"],
     # jaw
-    # jaw parent correction
-    ["ORG-jaw_base", "ORG-face",                "(CC_Base_|)JawRoot", "", "+LR",   "ORG-jaw", "@(CC_Base_|)JawRoot"],
-    ["ORG-jaw", "ORG-jaw_base",                 "", "jaw_master", "R"],
+    ["ORG-jaw", "ORG-face",                     "(CC_Base_|)JawRoot", "jaw_master", "PLR", "-"],
     # teeth
-    # teeth parent correction
-    ["ORG-teeth_base.T", "ORG-face",            "(CC_Base_|)Teeth01", "", "+LR",   "ORG-teeth.T", "@(CC_Base_|)Teeth01"],
-    ["ORG-teeth_base.B", "ORG-face",            "(CC_Base_|)Teeth02", "", "+LR",   "ORG-teeth.T", "@(CC_Base_|)Teeth02"],
-    ["ORG-teeth.T", "ORG-teeth_base.T",         "", "teeth.T", "LR"],
-    ["ORG-teeth.B", "ORG-teeth_base.B",         "", "teeth.B", "LR"],
-    # tongue
-    # tongue parent correction
-    ["ORG-tongue_base", "ORG-jaw_base",         "(CC_Base_|)Tongue03", "", "+LR",  "ORG-tongue", "@(CC_Base_|)Tongue03"],
-    ["ORG-tongue_base.001", "ORG-tongue_base",     "(CC_Base_|)Tongue02", "", "+LR",  "ORG-tongue.001", "@(CC_Base_|)Tongue02"],
-    ["ORG-tongue_base.002", "ORG-tongue_base.001",     "(CC_Base_|)Tongue01", "", "+LR",  "ORG-tongue.002", "@(CC_Base_|)Tongue01"],
-    ["ORG-tongue", "ORG-tongue_base",           "(CC_Base_|)Tongue03", "tongue_master", "LR"],
-    ["ORG-tongue", "ORG-tongue_base",           "(CC_Base_|)Tongue03", "tongue", "NL"], # full face only
-    ["ORG-tongue.001", "ORG-tongue_base.001",   "(CC_Base_|)Tongue02", "tongue.001", "L"], # full face only
-    ["ORG-tongue.002", "ORG-tongue_base.002",   "(CC_Base_|)Tongue01", "tongue.002", "L"], # full face only
-    ["ORG-tongue", "ORG-tongue_base",           "(CC_Base_|)Tongue03", "tweak_tongue", "NL"], # basic face only
-    ["ORG-tongue.001", "ORG-tongue_base.001",   "(CC_Base_|)Tongue02", "tweak_tongue.001", "L"], # basic face only
-    ["ORG-tongue.002", "ORG-tongue_base.002",   "(CC_Base_|)Tongue01", "tweak_tongue.002", "L"], # basic face only
+    ["ORG-teeth.T", "ORG-face",                 "(CC_Base_|)Teeth01", "teeth.T", "PLR", "-"],
+    ["ORG-teeth.B", "ORG-face",                 "(CC_Base_|)Teeth02", "teeth.B", "PLR", "-"],
+    # tongue (full face)
+    ["ORG-tongue", "ORG-jaw",                   "(CC_Base_|)Tongue03", "tongue_master", "PLR", "-"],
+    ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tongue.001", "PL", "-"],
+    ["ORG-tongue.002", "ORG-jaw",               "(CC_Base_|)Tongue01", "tongue.002", "PL", "-"],
+    # tongue (basic face)
+    ["ORG-tongue", "ORG-jaw",                   "(CC_Base_|)Tongue03", "tweak_tongue", "PL", "-"],
+    ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tweak_tongue.001", "PL", "-"],
+    ["ORG-tongue.002", "ORG-jaw",               "(CC_Base_|)Tongue01", "tweak_tongue.002", "PL", "-"],
     # IK bones
     ["ORG-hand.L", "ORG-forearm.L",             "(CC_Base_|)L_Hand", "hand_ik.L", "NLR"],
     ["ORG-hand.R", "ORG-forearm.R",             "(CC_Base_|)R_Hand", "hand_ik.R", "NLR"],
@@ -739,15 +718,25 @@ RETARGET_G3 = [
 ]
 
 
-#   [origin_bone, orign_bone_parent,           animation_source_bone(regex match), retarget_control_bone, flags]
 RETARGET_GAME_BASE = [
-    # spine, neck & head
     #   flags (flags are processed in order of left to right)
-    #       "L" - inherit location
-    #       "R" - inherit rotation
-    #       "N" - no source -> origin constraints
-    #   origin_bone
-    #       "+" - create new
+    #
+    #       "L" - constrain location (retarget rig to rigify rig)
+    #       "R" - constrain rotation (retarget rig to rigify rig)
+    #       "N" - no source -> retarget constraints (to avoid duplicate constraints)
+    #       "+" - this org bone needs be added
+    #       "C" - copy rigify bone positions
+    #
+    #   flags with parameters (are processed left to right and parameters are consecutive)
+    #
+    #       "P", start_bone - parent retarget correction, for when source bone and org bone
+    #                         are not the in the same orientation
+    #       "D", root_bone - maintain distance from root_bone
+    #       "A", bone_1, bone_2 - copy average location and rotation from bone_1 and bone_2
+    #
+    # [origin_bone, orign_bone_parent,          source_bone(regex match), rigify_target_bone, flags, *params]
+    #
+    # hips
     ["+ORG-root", "",                           "root", "root", "LR"],
     ["ORG-spine", "ORG-root",                   "pelvis", "torso", "LR"],
     ["ORG-spine.001", "ORG-spine",              "pelvis", "spine_fk.001", "LR"],
@@ -854,6 +843,107 @@ RETARGET_GAME_BASE = [
     ["ORG-foot.R", "ORG-shin.R",                "(CC_Base_|)R_Foot", "foot_ik.R", "NLR"],
     ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase", "toe_ik.L", "NLR"],
     ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase", "toe_ik.R", "NLR"],
+]
+
+
+RETARGET_MIXAMO = [
+    #   flags (flags are processed in order of left to right)
+    #
+    #       "L" - constrain location (retarget rig to rigify rig)
+    #       "R" - constrain rotation (retarget rig to rigify rig)
+    #       "N" - no source -> retarget constraints (to avoid duplicate constraints)
+    #       "+" - this org bone needs be added
+    #       "C" - copy rigify bone positions
+    #
+    #   flags with parameters (are processed left to right and parameters are consecutive)
+    #
+    #       "P", start_bone - parent retarget correction, for when source bone and org bone
+    #                         are not the in the same orientation
+    #       "D", root_bone - maintain distance from root_bone
+    #       "A", bone_1, bone_2 - copy average location and rotation from bone_1 and bone_2
+    #
+    # [origin_bone, orign_bone_parent,          source_bone(regex match), rigify_target_bone, flags, *params]
+    #
+    # hips
+    ["ORG-hip", "",                             "mixamorig:Hips", "", "+PLR", "rigify:ORG-spine", "-"],
+    ["ORG-spine", "ORG-hip",                    "mixamorig:Hips", "torso", "NPLR", "-"],
+    # spine
+    # spine.001 is too short and too low to match any Mixamo spine bones
+    #["ORG-spine.001", "ORG-spine",              "mixamorig:Spine$", "spine_fk.001", "PRL", "mixamorig:Spine1"],
+    ["ORG-spine.002", "ORG-spine",              "mixamorig:Spine$", "spine_fk.002", "PTL", "mixamorig:Spine1"],
+    ["ORG-spine.002", "ORG-spine",              "mixamorig:Spine1", "chest", "NPTR", "mixamorig:Spine2"],
+    ["ORG-spine.003", "ORG-spine.002",          "mixamorig:Spine2", "spine_fk.003", "PTR", "mixamorig:Neck"],
+    ["ORG-spine.004", "ORG-spine.003",          "mixamorig:Neck", "neck", "PTLR", "mixamorig:Head"],
+    ["ORG-spine.006", "ORG-spine.004",          "mixamorig:Head$", "head", "PTLR", "mixamorig:HeadTop_End"],
+    # pelvis
+    ["ORG-pelvis", "ORG-spine",                 "mixamorig:Hips", "hips", "NPLR", "-"],
+    # left leg
+    ["ORG-thigh.L", "ORG-pelvis",               "mixamorig:LeftUpLeg", "thigh_fk.L", "PTLR", "mixamorig:LeftLeg"],
+    ["ORG-shin.L", "ORG-thigh.L",               "mixamorig:LeftLeg", "shin_fk.L", "PTLR", "mixamorig:LeftToeBase"],
+    ["ORG-foot.L", "ORG-shin.L",                "mixamorig:LeftFoot", "foot_fk.L", "PTLR", "mixamorig:LeftToeBase"],
+    ["ORG-toe.L", "ORG-foot.L",                 "mixamorig:LeftToeBase", "toe_fk.L", "PTLR", "mixamorig:LeftToe_End"], #post 3.1
+    ["ORG-toe.L", "ORG-foot.L",                 "mixamorig:LeftToeBase", "toe.L", "PTLR", "mixamorig:LeftToe_End"], #pre 3.1
+    # left arm
+    ["ORG-shoulder.L", "ORG-spine.003",         "mixamorig:LeftShoulder", "shoulder.L", "PTLR", "mixamorig:LeftArm"],
+    ["ORG-upper_arm.L", "ORG-shoulder.L",       "mixamorig:LeftArm", "upper_arm_fk.L", "PTLR", "mixamorig:LeftForeArm"],
+    ["ORG-forearm.L", "ORG-upper_arm.L",        "mixamorig:LeftForeArm", "forearm_fk.L", "PTLR", "mixamorig:LeftHand"],
+    ["ORG-hand.L", "ORG-forearm.L",             "mixamorig:LeftHand$", "hand_fk.L", "PTLR", "mixamorig:LeftHandMiddle1"],
+    # left fingers
+    ["ORG-thumb.01.L", "ORG-hand.L",            "mixamorig:LeftHandThumb1", "thumb.01.L", "PTLR", "mixamorig:LeftHandThumb2"],
+    ["ORG-f_index.01.L", "ORG-hand.L",          "mixamorig:LeftHandIndex1", "f_index.01.L", "PTLR", "mixamorig:LeftHandIndex2"],
+    ["ORG-f_middle.01.L", "ORG-hand.L",         "mixamorig:LeftHandMiddle1", "f_middle.01.L", "PTLR", "mixamorig:LeftHandMiddle2"],
+    ["ORG-f_ring.01.L", "ORG-hand.L",           "mixamorig:LeftHandRing1", "f_ring.01.L", "PTLR", "mixamorig:LeftHandRing2"],
+    ["ORG-f_pinky.01.L", "ORG-hand.L",          "mixamorig:LeftHandPinky1", "f_pinky.01.L", "PTLR", "mixamorig:LeftHandPinky2"],
+    ["ORG-thumb.02.L", "ORG-thumb.01.L",        "mixamorig:LeftHandThumb2", "thumb.02.L", "PTLR", "mixamorig:LeftHandThumb3"],
+    ["ORG-f_index.02.L", "ORG-f_index.01.L",    "mixamorig:LeftHandIndex2", "f_index.02.L", "PTLR", "mixamorig:LeftHandIndex3"],
+    ["ORG-f_middle.02.L", "ORG-f_middle.01.L",  "mixamorig:LeftHandMiddle2", "f_middle.02.L", "PTLR", "mixamorig:LeftHandMiddle3"],
+    ["ORG-f_ring.02.L", "ORG-f_ring.01.L",      "mixamorig:LeftHandRing2", "f_ring.02.L", "PTLR", "mixamorig:LeftHandRing3"],
+    ["ORG-f_pinky.02.L", "ORG-f_pinky.01.L",    "mixamorig:LeftHandPinky2", "f_pinky.02.L", "PTLR", "mixamorig:LeftHandPinky3"],
+    ["ORG-thumb.03.L", "ORG-thumb.02.L",        "mixamorig:LeftHandThumb3", "thumb.03.L", "PTLR", "mixamorig:LeftHandThumb4"],
+    ["ORG-f_index.03.L", "ORG-f_index.02.L",    "mixamorig:LeftHandIndex3", "f_index.03.L", "PTLR", "mixamorig:LeftHandIndex4"],
+    ["ORG-f_middle.03.L", "ORG-f_middle.02.L",  "mixamorig:LeftHandMiddle3", "f_middle.03.L", "PTLR", "mixamorig:LeftHandMiddle4"],
+    ["ORG-f_ring.03.L", "ORG-f_ring.02.L",      "mixamorig:LeftHandRing3", "f_ring.03.L", "PTLR", "mixamorig:LeftHandRing4"],
+    ["ORG-f_pinky.03.L", "ORG-f_pinky.02.L",    "mixamorig:LeftHandPinky3", "f_pinky.03.L", "PTLR", "mixamorig:LeftHandPinky4"],
+    # right leg
+    ["ORG-thigh.R", "ORG-pelvis",               "mixamorig:RightUpLeg", "thigh_fk.R", "PTLR", "mixamorig:RightLeg"],
+    ["ORG-shin.R", "ORG-thigh.R",               "mixamorig:RightLeg", "shin_fk.R", "PTLR", "mixamorig:RightFoot"],
+    ["ORG-foot.R", "ORG-shin.R",                "mixamorig:RightFoot", "foot_fk.R", "PTLR", "mixamorig:RightToeBase"],
+    ["ORG-toe.R", "ORG-foot.R",                 "mixamorig:RightToeBase", "toe_fk.R", "PTLR", "mixamorig:RightToe_End"], #post 3.1
+    ["ORG-toe.R", "ORG-foot.R",                 "mixamorig:RightToeBase", "toe.R", "PTLR", "mixamorig:RightToe_End"], #pre 3.1
+    # right arm
+    ["ORG-shoulder.R", "ORG-spine.003",         "mixamorig:RightShoulder", "shoulder.R", "PTLR", "mixamorig:RightArm"],
+    ["ORG-upper_arm.R", "ORG-shoulder.R",       "mixamorig:RightArm", "upper_arm_fk.R", "PTLR", "mixamorig:RightForeArm"],
+    ["ORG-forearm.R", "ORG-upper_arm.R",        "mixamorig:RightForeArm", "forearm_fk.R", "PTLR", "mixamorig:RightHand$"],
+    ["ORG-hand.R", "ORG-forearm.R",             "mixamorig:RightHand$", "hand_fk.R", "PTLR", "mixamorig:RightHandMiddle1"],
+    # right fingers
+    ["ORG-thumb.01.R", "ORG-hand.R",            "mixamorig:RightHandThumb1", "thumb.01.R", "PTLR", "mixamorig:RightHandThumb2"],
+    ["ORG-f_index.01.R", "ORG-hand.R",          "mixamorig:RightHandIndex1", "f_index.01.R", "PTLR", "mixamorig:RightHandIndex2"],
+    ["ORG-f_middle.01.R", "ORG-hand.R",         "mixamorig:RightHandMiddle1", "f_middle.01.R", "PTLR", "mixamorig:RightHandMiddle2"],
+    ["ORG-f_ring.01.R", "ORG-hand.R",           "mixamorig:RightHandRing1", "f_ring.01.R", "PTLR", "mixamorig:RightHandRing2"],
+    ["ORG-f_pinky.01.R", "ORG-hand.R",          "mixamorig:RightHandPinky1", "f_pinky.01.R", "PTLR", "mixamorig:RightHandPinky2"],
+    ["ORG-thumb.02.R", "ORG-thumb.01.R",        "mixamorig:RightHandThumb2", "thumb.02.R", "PTLR", "mixamorig:RightHandThumb3"],
+    ["ORG-f_index.02.R", "ORG-f_index.01.R",    "mixamorig:RightHandIndex2", "f_index.02.R", "PTLR", "mixamorig:RightHandIndex3"],
+    ["ORG-f_middle.02.R", "ORG-f_middle.01.R",  "mixamorig:RightHandMiddle2", "f_middle.02.R", "PTLR", "mixamorig:RightHandMiddle3"],
+    ["ORG-f_ring.02.R", "ORG-f_ring.01.R",      "mixamorig:RightHandRing2", "f_ring.02.R", "PTLR", "mixamorig:RightHandRing3"],
+    ["ORG-f_pinky.02.R", "ORG-f_pinky.01.R",    "mixamorig:RightHandPinky2", "f_pinky.02.R", "PTLR", "mixamorig:RightHandPinky3"],
+    ["ORG-thumb.03.R", "ORG-thumb.02.R",        "mixamorig:RightHandThumb3", "thumb.03.R", "PTLR", "mixamorig:RightHandThumb4"],
+    ["ORG-f_index.03.R", "ORG-f_index.02.R",    "mixamorig:RightHandIndex3", "f_index.03.R", "PTLR", "mixamorig:RightHandIndex4"],
+    ["ORG-f_middle.03.R", "ORG-f_middle.02.R",  "mixamorig:RightHandMiddle3", "f_middle.03.R", "PTLR", "mixamorig:RightHandMiddle4"],
+    ["ORG-f_ring.03.R", "ORG-f_ring.02.R",      "mixamorig:RightHandRing3", "f_ring.03.R", "PTLR", "mixamorig:RightHandRing4"],
+    ["ORG-f_pinky.03.R", "ORG-f_pinky.02.R",    "mixamorig:RightHandPinky3", "f_pinky.03.R", "PTLR", "mixamorig:RightHandPinky4"],
+    #face
+    ["ORG-face", "ORG-spine.006",               "", "", "LR"],
+    # eyes
+    ["ORG-eye.L", "ORG-face",                   "mixamorig:LeftEye", "eye.L", "PLRD", "ORG-eye.L", "-"],
+    ["ORG-eye.R", "ORG-face",                   "mixamorig:RightEye", "eye.R", "PLRD", "ORG-eye.R", "-"],
+    ["ORG-eyes", "ORG-face",                    "", "eyes", "+LRA", "rigify:eyes", "eye.R", "eye.L"],
+    # IK bones
+    ["ORG-hand.L", "ORG-forearm.L",             "mixamorig:LeftHand$", "hand_ik.L", "NPTLR", "mixamorig:LeftHandMiddle1"],
+    ["ORG-hand.R", "ORG-forearm.R",             "mixamorig:RightHand$", "hand_ik.R", "NPTLR", "mixamorig:RightHandMiddle1"],
+    ["ORG-foot.L", "ORG-shin.L",                "mixamorig:LeftFoot", "foot_ik.L", "NPTLR", "mixamorig:LeftToeBase"],
+    ["ORG-foot.R", "ORG-shin.R",                "mixamorig:RightFoot", "foot_ik.R", "NPTLR", "mixamorig:RightToeBase"],
+    ["ORG-toe.L", "ORG-foot.L",                 "mixamorig:LeftToeBase", "toe_ik.L", "NPTLR", "mixamorig:LeftToe_End"],
+    ["ORG-toe.R", "ORG-foot.R",                 "mixamorig:RightToeBase", "toe_ik.R", "NPTLR", "mixamorig:RightToe_End"],
 ]
 
 
