@@ -1524,6 +1524,8 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
         face_pos = None
         eyes_pos = None
 
+        # scan the rigify rig for origin bones
+        #
         # store all the bone details from the ORG bones to reconstruct the origin rig.
         # in some cases new ORG bones are created to act as parents or animation targets from the source.
         # this way if the Rigify rig is not complex enough, the retarget rig can be made to better match the source armature.
@@ -1533,6 +1535,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 if not org_bone_name or org_bone_name in ORG_BONES:
                     # don't process the same ORG bone more than once
                     continue
+
                 org_parent_bone_name = retarget_def[1]
                 utils.log_info(f"Generating retarget ORG bone: {org_bone_name}")
                 flags = retarget_def[4]
@@ -1543,6 +1546,8 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 use_inherit_rotation = True
                 use_local_location = True
                 inherit_scale = "FULL"
+
+                # fetch the bone head and tail positions
                 if "+" in flags:
                     ref_bone_name = retarget_def[5]
                     if ref_bone_name and ref_bone_name.startswith("rigify:"):
@@ -1559,6 +1564,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                         tail_pos = rigify_rig.matrix_world @ org_bone.tail
                     else:
                         utils.log_error(f"Could not find ORG bone: {org_bone_name} in Rigify rig!")
+
                 # find parent bone
                 org_parent_bone = bones.get_edit_bone(rigify_rig, org_parent_bone_name)
                 if org_parent_bone:
@@ -1568,10 +1574,12 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 else:
                     utils.log_error(f"Could not find parent bone: {org_parent_bone_name} in Rigify rig or ORG bones!")
                     org_parent_bone_name = ""
+
                 # get the scale of the bone as the distance from it's parent head position
                 scale = (head_pos - parent_pos).length
                 if scale <= 0.00001:
                     scale = 1
+
                 # parent retarget correction, add corrective parent bone and insert into parent chain
                 if "P" in flags:
                     pivot_bone_name = org_bone_name + "_pivot"
@@ -1584,6 +1592,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                             inherit_scale,
                             scale]
                     org_parent_bone_name = pivot_bone_name
+
                 # store the face position for eye control constraints later
                 if org_bone_name == "ORG-face":
                     face_pos = head_pos
@@ -1595,12 +1604,28 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                             inherit_scale,
                             scale]
 
-        # fetch the size of the source bones (for translation retargetting)
-        # note: we do not calculate the size of the source bones in world space,
-        #       because the animation data is in local space (which for cc3 characters is 100x larger)
-        #       so the size ratio needs to be between source_local : target_world
-        #       this ratio is used as the influence in the copy (local) location constraints
-        #       and is the primary method of translation retargeting.
+            # finally build a list of target control bones
+            for retarget_def in retarget_data.retarget:
+                org_bone_name = retarget_def[0]
+                rigify_bone_name = retarget_def[3]
+                if org_bone_name in ORG_BONES and rigify_bone_name not in RIGIFY_BONES:
+                    rigify_bone = bones.get_edit_bone(rigify_rig, rigify_bone_name)
+                    if rigify_bone:
+                        head_pos = rigify_rig.matrix_world @ rigify_bone.head
+                        tail_pos = rigify_rig.matrix_world @ rigify_bone.tail
+                        if rigify_bone.name == "eyes":
+                            eyes_pos = head_pos
+                        RIGIFY_BONES[rigify_bone_name] = [org_bone_name,
+                                                          head_pos, tail_pos,
+                                                          rigify_bone.roll, rigify_bone.use_connect,
+                                                          rigify_bone.use_local_location,
+                                                          rigify_bone.use_inherit_rotation,
+                                                          rigify_bone.inherit_scale]
+                    else:
+                        utils.log_warn(f"Could not find Rigify bone: {rigify_bone_name} in Rigify rig!")
+
+        # scan the source rig
+        #
         if utils.edit_mode_to(source_rig):
             for retarget_def in retarget_data.retarget:
                 source_bone_regex = retarget_def[2]
@@ -1610,17 +1635,22 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                     org_bone_def = ORG_BONES[org_bone_name]
                 flags = retarget_def[4]
                 if source_bone_regex and org_bone_def:
+
+                    # fetch the size of the source bones (for translation retargetting)
                     if len(org_bone_def) == 9: # only append z_axis and scale once.
                         source_bone_name = get_bone_name_regex(source_rig, source_bone_regex)
                         source_bone = bones.get_edit_bone(source_rig, source_bone_name)
                         z_axis = source_rig.matrix_world @ mathutils.Vector((0,0,1))
                         scale = 1.0
                         if source_bone:
-                            head_pos = source_bone.head
-                            tail_pos = source_bone.tail
+                            head_pos = source_rig.matrix_world @ source_bone.head
+                            tail_pos = source_rig.matrix_world @ source_bone.tail
+
+                            # z-axis is in local space, we wan't it in world space for the retarget rig
                             z_axis = source_rig.matrix_world @ source_bone.z_axis
-                            parent_pos = mathutils.Vector((0,0,0))
+
                             # find the source bone equivalent to the ORG bones parent
+                            parent_pos = source_rig.matrix_world @ mathutils.Vector((0,0,0))
                             org_parent_bone_name = retarget_def[1]
                             for parent_retarget_def in retarget_data.retarget:
                                 parent_org_bone_name = parent_retarget_def[0]
@@ -1630,12 +1660,16 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                                         source_parent_bone_name = get_bone_name_regex(source_rig, source_parent_bone_regex)
                                         source_parent_bone = bones.get_edit_bone(source_rig, source_parent_bone_name)
                                         if source_parent_bone:
-                                            parent_pos = source_parent_bone.head
+                                            parent_pos = source_rig.matrix_world @ source_parent_bone.head
                                         break
                             else:
                                 if source_bone.parent:
-                                    parent_pos = source_bone.parent.head
-                            scale = (head_pos - parent_pos).length
+                                    parent_pos = source_rig.matrix_world @ source_bone.parent.head
+                            dir = head_pos - parent_pos
+                            dir.x /= source_rig.scale.x
+                            dir.y /= source_rig.scale.y
+                            dir.z /= source_rig.scale.z
+                            scale = dir.length
                             if scale <= 0.00001: scale = 1
                         else:
                             utils.log_error(f"Could not find source bone: {source_bone_name} in source rig!")
@@ -1647,11 +1681,13 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                             pivot_org_bone_def.append(z_axis)
                 else:
                     utils.log_error(f"Could not find ORG bone: {org_bone_name} in ORG_BONES!")
-                # process flags
+
+                # process special flags
                 pidx = 5
                 for f in flags:
+
+                    # handle source bone copy (and re-calculate scale)
                     if f == "+":
-                        # handle source bone copy (and re-calculate scale)
                         if org_bone_name in ORG_BONES:
                             ref_bone_name = retarget_def[pidx]
                             pidx += 1
@@ -1671,14 +1707,11 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                                     ORG_BONES[org_bone_name][8] = scale
                                 else:
                                     utils.log_error(f"Could not find ref bone: {ref_bone_name} in source rig!")
+
+                    # handle parent retarget correction:
+                    # when the source bone is not in the same orientation as the ORG bone
+                    # we need to parent the ORG bone to a copy of the source bone -
                     if f == "P":
-                        print(org_bone_name)
-                        # handle parent retarget correction:
-                        # when the source bone is not in the same orientation as the ORG bone
-                        # we need to parent the ORG bone to a copy of the source bone -
-                        # with it's orientation adjusted by the relative rotational difference between the
-                        # ORG bone and the *real* direction of the source bone which is the direction to
-                        # the next/child bone specified in the parameters.
                         next_bone_name = retarget_def[pidx]
                         pidx += 1
                         if org_bone_name + "_pivot" in ORG_BONES:
@@ -1690,9 +1723,14 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                             source_tail = source_rig.matrix_world @ source_bone.tail
                             head_position = org_bone_def[1]
                             source_dir = source_tail - source_head
+
                             if "V" in flags: # reverse the source_dir
                                 source_dir = -source_dir
+
                             if "T" in flags: # alignment correction
+                                # optional orientation adjusted by the relative rotational difference between the
+                                # ORG bone and the *real* direction of the source bone which is the direction to
+                                # the next/child bone specified in the parameters.
                                 use_tail = False
                                 if not next_bone_name or next_bone_name == "-":
                                     use_tail = True
@@ -1707,37 +1745,15 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                                 if source_dir.dot(next_bone_dir) < 0.99:
                                     org_bone_dir = org_bone_def[2] - org_bone_def[1]
                                     rot = next_bone_dir.rotation_difference(org_bone_dir)
-                                    print(org_bone_name, source_dir, next_bone_dir, org_bone_dir)
                                     source_dir = rot @ source_dir
-                                    print(rot.angle, source_dir)
+
+                            # update the pivot bone def with the new orientation
                             pivot_org_bone_def[2] = head_position + source_dir
 
         # ORG_BONES = { org_bone_name: [0:parent_name, 1:world_head_pos, 2:world_tail_pos, 3:parent_pos, 4:is_connected,
         #                               5:inherit_location, 6:inherit_rotation, 7:inherit_scale, 8:target_size,
         #    (optional if source_bone)  9:source_size, 10:source_bone_z_axis], }
-
-        # store the details of the rigify bones to retarget to
-        if utils.edit_mode_to(rigify_rig):
-            for retarget_def in retarget_data.retarget:
-                org_bone_name = retarget_def[0]
-                rigify_bone_name = retarget_def[3]
-                flags = retarget_def[4]
-                if rigify_bone_name and org_bone_name:
-                    rigify_bone = bones.get_edit_bone(rigify_rig, rigify_bone_name)
-                    if rigify_bone:
-                        head_pos = rigify_rig.matrix_world @ rigify_bone.head
-                        tail_pos = rigify_rig.matrix_world @ rigify_bone.tail
-                        if rigify_bone.name == "eyes":
-                            eyes_pos = head_pos
-                        RIGIFY_BONES[rigify_bone_name] = [org_bone_name,
-                                                          head_pos, tail_pos,
-                                                          rigify_bone.roll, rigify_bone.use_connect,
-                                                          rigify_bone.use_local_location,
-                                                          rigify_bone.use_inherit_rotation,
-                                                          rigify_bone.inherit_scale]
-                    else:
-                        utils.log_warn(f"Could not find Rigify bone: {rigify_bone_name} in Rigify rig!")
-
+        #
         # RIGIFY_BONES = { bone_name: [0:equivalent_org_bone_name, 1:world_head_pos, 2:world_tail_pos, 3:bone_roll,
         #                              4:is_connected, 5:inherit_location, 6:inherit_rotation, 7:inherit_scale], }
 
@@ -1745,8 +1761,10 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
         if face_pos and eyes_pos:
             eyes_distance = (eyes_pos - face_pos).length
 
-        # build the retargeting rig
+        # build the retargeting rig:
+        #
         if utils.edit_mode_to(retarget_rig):
+
             # add the org bones:
             for org_bone_name in ORG_BONES:
                 bone_def = ORG_BONES[org_bone_name]
@@ -1754,23 +1772,28 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 b = retarget_rig.data.edit_bones.new(org_bone_name)
                 b.head = bone_def[1]
                 b.tail = bone_def[2]
+
                 # very important to align the roll of the source and ORG bones.
                 if len(bone_def) >= 11:
                     utils.log_info(f"Align bone roll: {bone_def[10]}")
                     b.align_roll(bone_def[10])
                 else:
                     utils.log_warn(f"Bone roll axis not stored for {org_bone_name}")
+
                 b.use_connect = bone_def[4]
                 b.use_local_location = bone_def[5]
                 b.use_inherit_rotation = bone_def[6]
                 b.inherit_scale = bone_def[7]
+
             # set the org bone parents:
             for org_bone_name in ORG_BONES:
                 bone_def = ORG_BONES[org_bone_name]
                 b = bones.get_edit_bone(retarget_rig, org_bone_name)
                 b.parent = bones.get_edit_bone(retarget_rig, bone_def[0])
+
             # add the rigify control rig bones we want to retarget to:
             for rigify_bone_name in RIGIFY_BONES:
+                utils.log_info(f"Adding Rigify target control bone {rigify_bone_name}")
                 bone_def = RIGIFY_BONES[rigify_bone_name]
                 b = retarget_rig.data.edit_bones.new(rigify_bone_name)
                 b.parent = bones.get_edit_bone(retarget_rig, bone_def[0])
@@ -1781,6 +1804,8 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 b.use_local_location = bone_def[5]
                 b.use_inherit_rotation = bone_def[6]
                 b.inherit_scale = "FULL"
+
+            # add the correction control bones
             for correction_bone_name in retarget_data.retarget_corrections:
                 correction_def = retarget_data.retarget_corrections[correction_bone_name]
                 bone_def = correction_def["bone"]
@@ -1789,13 +1814,33 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 b.tail = bone_def[1]
                 b.roll = 0
 
+            # v2 correction control bones
+            if False:
+                for retarget_def in retarget_data.retarget:
+                    org_bone_name = retarget_def[0]
+                    org_parent_bone_name = retarget_def[1]
+                    if org_bone_name[:3] == "ORG":
+                        correction_bone_name = "COR" + org_bone_name[3:]
+                        correction_parent_bone_name = "COR" + org_parent_bone_name[3:]
+                        if (org_bone_name in retarget_rig.data.edit_bones and
+                            correction_bone_name not in retarget_rig.data.edit_bones):
+                            org_bone = bones.get_edit_bone(retarget_rig, org_bone_name)
+                            correction_bone = bones.copy_edit_bone(retarget_rig, org_bone_name,
+                                                    correction_bone_name, correction_parent_bone_name, 1.0)
+                            correction_bone.layers[2] = True
+                            CORRECTION_BONES[correction_bone_name] = [org_bone_name, org_parent_bone_name,
+                                                                    correction_parent_bone_name]
+
         # constrain the retarget rig
+        #
         if utils.object_mode_to(retarget_rig):
 
+            # check for missing bones
             for rigify_bone_name in RIGIFY_BONES:
                 if rigify_bone_name not in retarget_rig.pose.bones:
                     utils.log_error(f"{rigify_bone_name} missing from Retarget Rig!")
 
+            # add all contraints to/from the retarget rig
             for retarget_def in retarget_data.retarget:
                 org_bone_name = retarget_def[0]
                 source_bone_name = get_bone_name_regex(source_rig, retarget_def[2])
@@ -1806,6 +1851,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 pidx = 5
                 source_bone = bones.get_pose_bone(source_rig, source_bone_name)
                 org_bone = bones.get_pose_bone(retarget_rig, org_bone_name)
+                print(rigify_bone_name)
                 rigify_bone = bones.get_pose_bone(retarget_rig, rigify_bone_name)
                 org_bone_def = None
                 if org_bone:
@@ -1827,17 +1873,23 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                         bones.add_copy_rotation_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, 1.0)
                 if rigify_bone:
                     for f in flags:
+
                         # add new ORG bone (not handled here, but increment the parameter index)
                         if f == "+":
                             pidx += 1
+
+                        # copy bone (not handled here, but increment the parameter index)
                         if f == "C":
                             pidx += 1
+
                         # copy location to target
                         if f == "L":
                             bones.add_copy_location_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
+
                         # copy rotation to target
                         if f == "R":
                             bones.add_copy_rotation_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
+
                         # average bone copy (in re-target rig)
                         if f == "A":
                             bone_1_name = retarget_def[pidx]
@@ -1853,6 +1905,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                                 bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, bone_2.name, rigify_bone_name, 0.5)
                             else:
                                 utils.log_warn(f"Unable to find: {bone_1_name} and/or {bone_2_name} in retarget rig!")
+
                         # limit distance contraint
                         if f == "D":
                             limit_bone_name = retarget_def[pidx]
@@ -1864,6 +1917,20 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                                 utils.log_warn(f"Unable to find: {limit_bone_name} in retarget rig!")
 
             # constraints and drivers for corrective bones
+            #
+            # v2 system...
+            if False:
+                for correction_bone_name in CORRECTION_BONES:
+                    cdef = CORRECTION_BONES[correction_bone_name]
+                    org_bone_name = cdef[0]
+                    org_bone_parent_name = cdef[1]
+                    correction_bone_parent_name = cdef[2]
+                    space = "LOCAL"
+                    if org_bone_name == "ORG-hip":
+                        space = "WORLD"
+                    bones.add_copy_location_constraint(retarget_rig, retarget_rig, org_bone_name, correction_bone_name, 1, space)
+                    bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, org_bone_name, correction_bone_name, 1, space)
+
             for correction_bone_name in retarget_data.retarget_corrections:
                 correction_def = retarget_data.retarget_corrections[correction_bone_name]
                 bone_def = correction_def["bone"]
@@ -1929,6 +1996,20 @@ def adv_retarget_remove_pair(op, chr_cache):
     utils.try_select_object(rigify_rig, True)
     utils.set_active_object(rigify_rig)
     utils.set_mode("OBJECT")
+
+
+def adv_preview_retarget(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
+    rigify_rig = chr_cache.get_armature()
+    source_rig = props.armature_list_object
+    source_action = props.action_list_action
+
+    retarget_rig = adv_retarget_pair_rigs(op, chr_cache)
+    if retarget_rig and source_action:
+        start_frame = int(source_action.frame_range[0])
+        end_frame = int(source_action.frame_range[1])
+        bpy.context.scene.frame_start = start_frame
+        bpy.context.scene.frame_end = end_frame
 
 
 def adv_retarget_pair_rigs(op, chr_cache):
@@ -2686,7 +2767,7 @@ class CC3Rigifier(bpy.types.Operator):
                 adv_bake_rigify_to_unity(self, chr_cache)
 
             elif self.param == "RETARGET_CC_PAIR_RIGS":
-                adv_retarget_pair_rigs(self, chr_cache)
+                adv_preview_retarget(self, chr_cache)
 
             elif self.param == "RETARGET_CC_REMOVE_PAIR":
                 adv_retarget_remove_pair(self, chr_cache)

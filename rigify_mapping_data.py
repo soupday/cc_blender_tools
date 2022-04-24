@@ -15,6 +15,7 @@
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 from dataclasses import dataclass
+from sys import set_coroutine_origin_tracking_depth
 
 @dataclass
 class RigifyData:
@@ -612,8 +613,11 @@ RETARGET_G3 = [
     #   flags with parameters (are processed left to right and parameters are consecutive)
     #
     #       "+", copy_bone - this org bone needs be added copied from copy_bone
-    #       "P", start_bone - parent retarget correction, for when source bone and org bone
+    #       "P", start_bone - parent retarget correction: for when source bone and org bone
     #                         are not the in the same orientation
+    #           - "T" - align with target: maintain alignment with org bone, for when the source and ORG bones should
+    #                                      be in alignment but aren't because of strange bone orientations (Mixamo!)
+    #                                      in the source rig.
     #       "D", root_bone - maintain distance from root_bone
     #       "A", bone_1, bone_2 - copy average location and rotation from bone_1 and bone_2
     #
@@ -638,7 +642,7 @@ RETARGET_G3 = [
     # left leg
     ["ORG-thigh.L", "ORG-pelvis",               "(CC_Base_|)L_Thigh", "thigh_fk.L", "LR"],
     ["ORG-shin.L", "ORG-thigh.L",               "(CC_Base_|)L_Calf", "shin_fk.L", "LR"],
-    ["ORG-foot.L", "ORG-shin.L",                "(CC_Base_|)L_Foot", "foot_fk.L", "LR"],
+    ["ORG-foot.L", "ORG-shin.L",                "(CC_Base_|)L_Foot$", "foot_fk.L", "PLR", "-"],
     ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase$", "toe_fk.L", "LR"], #post 3.1
     ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase$", "toe.L", "LR"], #pre 3.1
     # left arm
@@ -665,7 +669,7 @@ RETARGET_G3 = [
     # right leg
     ["ORG-thigh.R", "ORG-pelvis",               "(CC_Base_|)R_Thigh", "thigh_fk.R", "LR"],
     ["ORG-shin.R", "ORG-thigh.R",               "(CC_Base_|)R_Calf", "shin_fk.R", "LR"],
-    ["ORG-foot.R", "ORG-shin.R",                "(CC_Base_|)R_Foot", "foot_fk.R", "LR"],
+    ["ORG-foot.R", "ORG-shin.R",                "(CC_Base_|)R_Foot$", "foot_fk.R", "PLR", "-"],
     ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe_fk.R", "LR"], #post 3.1
     ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe.R", "LR"], #pre 3.1
     # right arm
@@ -717,7 +721,7 @@ RETARGET_G3 = [
     ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe_ik.R", "NLR"],
 ]
 
-
+# Note: this is retarget FROM game base actions TO the rigify rig.
 RETARGET_GAME_BASE = [
     #   flags (flags are processed in order of left to right)
     #
@@ -961,6 +965,22 @@ RETARGET_CORRECTIONS = {
         "constraints": [
             ["ORG-upper_arm.L", "ROT_ADD_LOCAL", "Z"],
             ["ORG-upper_arm.R", "ROT_ADD_LOCAL", "-Z"],
+        ],
+    },
+
+    "Hand_Angle": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_hand_correction_angle", "rotation_euler", 0],
+        "constraints": [
+            ["ORG-hand.L", "ROT_ADD_LOCAL", "X"],
+            ["ORG-hand.R", "ROT_ADD_LOCAL", "X"],
+        ],
+    },
+
+    "Thumb_Angle": {
+        "bone": [(0, 0, 0), (0, 0, 0.1), "retarget_thumb_correction_angle", "rotation_euler", 2],
+        "constraints": [
+            ["ORG-thumb.01.L", "ROT_ADD_LOCAL", "Z"],
+            ["ORG-thumb.01.R", "ROT_ADD_LOCAL", "Z"],
         ],
     },
 
