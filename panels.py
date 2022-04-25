@@ -925,7 +925,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.enabled = chr_cache.rig_retarget_rig is not None
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Retarget").param = "RETARGET_CC_BAKE_ACTION"
-                        if source_type == "Unknown" or chr_cache.rig_retarget_rig is None:
+                        if source_type == "Unknown" and chr_cache.rig_retarget_rig is None:
                             row.enabled = False
                         layout.separator()
                         row = layout.row()
