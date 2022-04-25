@@ -32,6 +32,12 @@ Links
 
 ## Changelog
 
+### 1.3.4
+- Re-targeting system extended.
+    - GameBase animation re-targeting to CC Rigified Rig.
+    - Mixamo animation re-targeting to CC Rigified Rig.
+- Crash fixes importing characters with very short names.
+
 ### 1.3.3
 - CC/iC/ActorCore animation re-targeting to CC Rigified Rig.
     - Preview and Bake functions for re-targeted animations.

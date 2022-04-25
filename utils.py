@@ -509,8 +509,9 @@ def lin2s(x):
 
 # remove any .001 from the material name
 def strip_name(name):
-    if name[-3:].isdigit() and name[-4] == ".":
-        name = name[:-4]
+    if len(name) >= 4:
+        if name[-3:].isdigit() and name[-4] == ".":
+            name = name[:-4]
     return name
 
 

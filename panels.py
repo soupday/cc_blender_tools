@@ -55,8 +55,8 @@ def fake_drop_down(row, label, prop_name, prop_bool_value):
     return prop_bool_value
 
 
-ALLOWED_BONE_ROOTS = [
-    "CC_Base_BoneRoot", "BoneRoot", "mixamorig:Hips",
+ALLOWED_RIG_BONES = [
+    "CC_Base_BoneRoot", "CC_Base_FacialBone", "BoneRoot", "mixamorig:Hips",
 ]
 
 
@@ -75,14 +75,16 @@ class ARMATURE_UL_List(bpy.types.UIList):
         filtered = [self.bitflag_filter_item] * len(items)
         for i, item in enumerate(items):
             item_name = utils.strip_name(item.name)
-            if item.type != "ARMATURE": # only list armatures
-                filtered[i] &= ~self.bitflag_filter_item
-            elif item_name.endswith("_Rigify"): # don't list rigified armatures
-                filtered[i] &= ~self.bitflag_filter_item
-            elif item_name.endswith("_Retarget"): # don't list retarget armatures
-                filtered[i] &= ~self.bitflag_filter_item
-            elif len(item.data.bones) > 0 and item.data.bones[0].name not in ALLOWED_BONE_ROOTS:
-                filtered[i] &= ~self.bitflag_filter_item
+            allowed = False
+            if item.type == "ARMATURE": # only list armatures
+                if "_Rigify" not in item_name: # don't list rigified armatures
+                    if "_Retarget" not in item_name: # don't list retarget armatures
+                        if len(item.data.bones) > 0:
+                            for allowed_bone in ALLOWED_RIG_BONES: # only list armatures of the allowed sources
+                                if allowed_bone in item.data.bones:
+                                    allowed = True
+            if not allowed:
+                    filtered[i] &= ~self.bitflag_filter_item
             else:
                 if self.filter_name and self.filter_name != "*":
                     if self.filter_name not in item.name:
@@ -886,6 +888,14 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         layout.template_list("ACTION_UL_List", "bake_action_list", bpy.data, "actions", props, "action_list_index", rows=1, maxrows=5)
 
+                        armature_list_object = utils.collection_at_index(props.armature_list_index, bpy.data.objects)
+                        action_list_action = utils.collection_at_index(props.action_list_index, bpy.data.actions)
+                        source_type = "Unknown"
+                        if armature_list_object:
+                            source_type = rigging.get_armature_action_source_type(armature_list_object, action_list_action)
+                            if source_type:
+                                layout.box().label(text = f"{source_type} Animation", icon = "ARMATURE_DATA")
+
                         #row = layout.row()
                         #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Set Rig Action").param = "RIGIFY_SET_ACTION"
                         #layout.separator()
@@ -897,10 +907,6 @@ class CC3RigifyPanel(bpy.types.Panel):
                         col_2 = split.column()
                         col_1.label(text="Arms")
                         col_2.prop(chr_cache, "retarget_arm_correction_angle", text="", slider=True)
-                        col_1.label(text="Wrist")
-                        col_2.prop(chr_cache, "retarget_hand_correction_angle", text="", slider=True)
-                        col_1.label(text="Thumbs")
-                        col_2.prop(chr_cache, "retarget_thumb_correction_angle", text="", slider=True)
                         col_1.label(text="Legs")
                         col_2.prop(chr_cache, "retarget_leg_correction_angle", text="", slider=True)
                         col_1.label(text="Heels")
@@ -912,11 +918,15 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Re-target").param = "RETARGET_CC_PAIR_RIGS"
+                        if source_type == "Unknown":
+                            row.enabled = False
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="X", text="Stop Preview").param = "RETARGET_CC_REMOVE_PAIR"
                         row.enabled = chr_cache.rig_retarget_rig is not None
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Retarget").param = "RETARGET_CC_BAKE_ACTION"
+                        if source_type == "Unknown" or chr_cache.rig_retarget_rig is None:
+                            row.enabled = False
                         layout.separator()
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"

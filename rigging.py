@@ -261,15 +261,23 @@ FACE_TEST_SHAPEKEYS = [
 ]
 
 CC3_BONE_NAMES = [
-    "CC_Base_BoneRoot", "CC_Base_Hip", "CC_Base_Head", "CC_Base_Spine01", "CC_Base_Spine02"
+    "CC_Base_BoneRoot", "CC_Base_Hip", "CC_Base_FacialBone"
+]
+
+ICLONE_BONE_NAMES = [
+    "BoneRoot", "Hip", "FacialBone"
+]
+
+GAME_BASE_BONE_NAMES = [
+    "pelvis", "spine_01", "CC_Base_FacialBone"
 ]
 
 MIXAMO_BONE_NAMES = [
-    "mixamorig:Hips", "mixamorig:Spine", "mixamorig:Head", "mixamorig:Spine1", "mixamorig:Spine2"
+    "mixamorig:Hips", "mixamorig:Spine", "mixamorig:Head"
 ]
 
 RIGIFY_BONE_NAMES = [
-    "root", "hips", "torso", "head", "spine_fk", "spine_fk.001", "foot_ik.L", "foot_ik.R", "hand_ik.L", "hand_ik.R",
+    "MCH-torso.parent", "ORG-spine", "spine_fk"
 ]
 
 # the minimum size of the relative mapping bounding box
@@ -1581,7 +1589,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                     scale = 1
 
                 # parent retarget correction, add corrective parent bone and insert into parent chain
-                if "P" in flags:
+                if "P" in flags or "T" in flags:
                     pivot_bone_name = org_bone_name + "_pivot"
                     utils.log_info(f"Adding parent correction pivot: {pivot_bone_name} -> {org_bone_name}")
                     ORG_BONES[pivot_bone_name] = [org_parent_bone_name,
@@ -1675,7 +1683,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                             utils.log_error(f"Could not find source bone: {source_bone_name} in source rig!")
                         org_bone_def.append(scale)
                         org_bone_def.append(z_axis)
-                        if "P" in flags and org_bone_name + "_pivot" in ORG_BONES:
+                        if ("P" in flags or "T" in flags) and org_bone_name + "_pivot" in ORG_BONES:
                             pivot_org_bone_def = ORG_BONES[org_bone_name + "_pivot"]
                             pivot_org_bone_def.append(scale)
                             pivot_org_bone_def.append(z_axis)
@@ -1711,9 +1719,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                     # handle parent retarget correction:
                     # when the source bone is not in the same orientation as the ORG bone
                     # we need to parent the ORG bone to a copy of the source bone -
-                    if f == "P":
-                        next_bone_name = retarget_def[pidx]
-                        pidx += 1
+                    if f == "P" or f == "T":
                         if org_bone_name + "_pivot" in ORG_BONES:
                             pivot_org_bone_def = ORG_BONES[org_bone_name + "_pivot"]
                         source_bone_name = get_bone_name_regex(source_rig, source_bone_regex)
@@ -1727,10 +1733,12 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                             if "V" in flags: # reverse the source_dir
                                 source_dir = -source_dir
 
-                            if "T" in flags: # alignment correction
+                            if f == "T": # alignment correction
                                 # optional orientation adjusted by the relative rotational difference between the
                                 # ORG bone and the *real* direction of the source bone which is the direction to
                                 # the next/child bone specified in the parameters.
+                                next_bone_name = retarget_def[pidx]
+                                pidx += 1
                                 use_tail = False
                                 if not next_bone_name or next_bone_name == "-":
                                     use_tail = True
@@ -1846,7 +1854,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 source_bone_name = get_bone_name_regex(source_rig, retarget_def[2])
                 rigify_bone_name = retarget_def[3]
                 flags = retarget_def[4]
-                if "P" in flags:
+                if "P" in flags or "T" in flags:
                     org_bone_name = org_bone_name + "_pivot"
                 pidx = 5
                 source_bone = bones.get_pose_bone(source_rig, source_bone_name)
@@ -1876,6 +1884,10 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
 
                         # add new ORG bone (not handled here, but increment the parameter index)
                         if f == "+":
+                            pidx += 1
+
+                        # parent with align correction (not handled here, but increment the parameter index)
+                        if f == "T":
                             pidx += 1
 
                         # copy bone (not handled here, but increment the parameter index)
@@ -2073,6 +2085,8 @@ def adv_retarget_pair_rigs(op, chr_cache):
 
     utils.set_active_layer_collection(olc)
 
+    retarget_rig.hide_set(True)
+
     return retarget_rig
 
 
@@ -2186,7 +2200,7 @@ def generate_unity_export_rig(chr_cache):
                 bone = edit_bones[bone_name]
 
                 # assign parent hierachy
-                if "P" in flags:
+                if "P" in flags or "T" in flags:
                     parent_bone = edit_bones[parent_name]
                 if parent_bone:
                     bone.parent = parent_bone
@@ -2477,52 +2491,97 @@ def unify_cc3_bone_name(name):
     return name
 
 
-def is_G3_action(action):
-    count = 0
+def name_in_data_paths(action, name):
     for fcurve in action.fcurves:
-        bone_name = bones.get_bone_name_from_data_path(fcurve.data_path)
-        bone_name = unify_cc3_bone_name(bone_name)
-        if bone_name in CC3_BONE_NAMES:
-            count += 1
-    return count >= 5
+        if name in fcurve.data_path:
+            return True
+    return False
+
+
+def is_G3_action(action):
+    if len(action.fcurves) > 0:
+        BONE_NAMES = None
+        if "CC_Base_" in action.fcurves[0].data_path:
+            BONE_NAMES = CC3_BONE_NAMES
+        else:
+            BONE_NAMES = ICLONE_BONE_NAMES
+        for bone_name in BONE_NAMES:
+            if not name_in_data_paths(action, bone_name):
+                return False
+        return True
+    else:
+        return False
 
 
 def is_G3_armature(armature):
-    count = 0
-    for bone in armature.data.bones:
-        bone_name = unify_cc3_bone_name(bone.name)
-        if bone_name in CC3_BONE_NAMES:
-            count += 1
-    return count >= 5
+    if len(armature.data.bones) > 0:
+        BONE_NAMES = None
+        if armature.data.bones[0].name.startswith("CC_Base_"):
+            BONE_NAMES = CC3_BONE_NAMES
+        else:
+            BONE_NAMES = ICLONE_BONE_NAMES
+        for bone_name in BONE_NAMES:
+            if bone_name not in armature.data.bones:
+                return False
+        return True
+    else:
+        return False
+
+
+def is_GameBase_action(action):
+    print("IS GameBase action")
+    if len(action.fcurves) > 0:
+        for bone_name in GAME_BASE_BONE_NAMES:
+            if not name_in_data_paths(action, bone_name):
+                return False
+        print("GameBase Action")
+        return True
+    else:
+        return False
+
+
+def is_GameBase_armature(armature):
+    print("IS GameBase armature")
+    if len(armature.data.bones) > 0:
+        for bone_name in GAME_BASE_BONE_NAMES:
+            print(bone_name)
+            if bone_name not in armature.data.bones:
+                print("NO MATCH")
+                return False
+        print("GameBase arm")
+        return True
+    else:
+        return False
 
 
 def is_Mixamo_action(action):
-    count = 0
-    for fcurve in action.fcurves:
-        bone_name = bones.get_bone_name_from_data_path(fcurve.data_path)
-        if bone_name in MIXAMO_BONE_NAMES:
-            count += 1
-    return count >= 5
+    if len(action.fcurves) > 0:
+        for bone_name in MIXAMO_BONE_NAMES:
+            if not name_in_data_paths(action, bone_name):
+                return False
+        return True
+    else:
+        return False
 
 
 def is_Mixamo_armature(armature):
-    count = 0
-    for bone in armature.data.bones:
-        bone_name = bone.name
-        if bone_name in MIXAMO_BONE_NAMES:
-            count += 1
-    return count >= 5
+    if len(armature.data.bones) > 0:
+        for bone_name in MIXAMO_BONE_NAMES:
+            if bone_name not in armature.data.bones:
+                return False
+        return True
+    else:
+        return False
 
 
 def is_rigify_armature(armature):
-    count = 0
-    for bone in armature.data.bones:
-        bone_name = bone.name
-        if bone_name in RIGIFY_BONE_NAMES:
-            count += 1
-    return count >= 10
-
-
+    if len(armature.data.bones) > 0:
+        for bone_name in RIGIFY_BONE_NAMES:
+            if bone_name not in armature.data.bones:
+                return False
+        return True
+    else:
+        return False
 
 
 def check_armature_action(armature, action):
@@ -2539,7 +2598,9 @@ def check_armature_action(armature, action):
 def get_armature_action_source_type(armature, action):
     if is_G3_armature(armature) and is_G3_action(action):
         return "G3"
-    elif is_Mixamo_armature(armature) and is_Mixamo_action(action):
+    if is_GameBase_armature(armature) and is_GameBase_action(action):
+        return "GameBase"
+    if is_Mixamo_armature(armature) and is_Mixamo_action(action):
         return "Mixamo"
     # detect other types as they become available...
     return "Unknown"
