@@ -932,7 +932,7 @@ RETARGET_MIXAMO = [
     ["ORG-f_ring.03.R", "ORG-f_ring.02.R",      "mixamorig:RightHandRing3", "f_ring.03.R", "TR", "mixamorig:RightHandRing4"],
     ["ORG-f_pinky.03.R", "ORG-f_pinky.02.R",    "mixamorig:RightHandPinky3", "f_pinky.03.R", "TR", "mixamorig:RightHandPinky4"],
     #face
-    ["ORG-face", "ORG-spine.006",               "", "", "LR"],
+    ["ORG-face", "ORG-spine.006",               "", "", ""],
     # eyes
     ["ORG-eye.L", "ORG-face",                   "mixamorig:LeftEye", "eye.L", "PRD", "ORG-eye.L"],
     ["ORG-eye.R", "ORG-face",                   "mixamorig:RightEye", "eye.R", "PRD", "ORG-eye.R"],
