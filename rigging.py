@@ -1859,7 +1859,6 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 pidx = 5
                 source_bone = bones.get_pose_bone(source_rig, source_bone_name)
                 org_bone = bones.get_pose_bone(retarget_rig, org_bone_name)
-                print(rigify_bone_name)
                 rigify_bone = bones.get_pose_bone(retarget_rig, rigify_bone_name)
                 org_bone_def = None
                 if org_bone:
@@ -1999,6 +1998,7 @@ def adv_retarget_remove_pair(op, chr_cache):
     rigify_rig = chr_cache.get_armature()
     retarget_rig = chr_cache.rig_retarget_rig
     if utils.still_exists(retarget_rig):
+        retarget_rig.hide_set(False)
         if utils.object_mode_to(retarget_rig):
             for rigify_bone_name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
                 bones.clear_constraints(rigify_rig, rigify_bone_name)
@@ -2499,89 +2499,83 @@ def name_in_data_paths(action, name):
 
 
 def is_G3_action(action):
-    if len(action.fcurves) > 0:
-        BONE_NAMES = None
-        if "CC_Base_" in action.fcurves[0].data_path:
-            BONE_NAMES = CC3_BONE_NAMES
-        else:
-            BONE_NAMES = ICLONE_BONE_NAMES
-        for bone_name in BONE_NAMES:
-            if not name_in_data_paths(action, bone_name):
-                return False
-        return True
-    else:
-        return False
+    if action:
+        if len(action.fcurves) > 0:
+            BONE_NAMES = None
+            if "CC_Base_" in action.fcurves[0].data_path:
+                BONE_NAMES = CC3_BONE_NAMES
+            else:
+                BONE_NAMES = ICLONE_BONE_NAMES
+            for bone_name in BONE_NAMES:
+                if not name_in_data_paths(action, bone_name):
+                    return False
+            return True
+    return False
 
 
 def is_G3_armature(armature):
-    if len(armature.data.bones) > 0:
-        BONE_NAMES = None
-        if armature.data.bones[0].name.startswith("CC_Base_"):
-            BONE_NAMES = CC3_BONE_NAMES
-        else:
-            BONE_NAMES = ICLONE_BONE_NAMES
-        for bone_name in BONE_NAMES:
-            if bone_name not in armature.data.bones:
-                return False
-        return True
-    else:
-        return False
+    if armature:
+        if len(armature.data.bones) > 0:
+            BONE_NAMES = None
+            if armature.data.bones[0].name.startswith("CC_Base_"):
+                BONE_NAMES = CC3_BONE_NAMES
+            else:
+                BONE_NAMES = ICLONE_BONE_NAMES
+            for bone_name in BONE_NAMES:
+                if bone_name not in armature.data.bones:
+                    return False
+            return True
+    return False
 
 
 def is_GameBase_action(action):
-    print("IS GameBase action")
-    if len(action.fcurves) > 0:
-        for bone_name in GAME_BASE_BONE_NAMES:
-            if not name_in_data_paths(action, bone_name):
-                return False
-        print("GameBase Action")
-        return True
-    else:
-        return False
+    if action:
+        if len(action.fcurves) > 0:
+            for bone_name in GAME_BASE_BONE_NAMES:
+                if not name_in_data_paths(action, bone_name):
+                    return False
+            return True
+    return False
 
 
 def is_GameBase_armature(armature):
-    print("IS GameBase armature")
-    if len(armature.data.bones) > 0:
-        for bone_name in GAME_BASE_BONE_NAMES:
-            print(bone_name)
-            if bone_name not in armature.data.bones:
-                print("NO MATCH")
-                return False
-        print("GameBase arm")
-        return True
-    else:
-        return False
+    if armature:
+        if len(armature.data.bones) > 0:
+            for bone_name in GAME_BASE_BONE_NAMES:
+                if bone_name not in armature.data.bones:
+                    return False
+            return True
+    return False
 
 
 def is_Mixamo_action(action):
-    if len(action.fcurves) > 0:
-        for bone_name in MIXAMO_BONE_NAMES:
-            if not name_in_data_paths(action, bone_name):
-                return False
-        return True
-    else:
-        return False
+    if action:
+        if len(action.fcurves) > 0:
+            for bone_name in MIXAMO_BONE_NAMES:
+                if not name_in_data_paths(action, bone_name):
+                    return False
+            return True
+    return False
 
 
 def is_Mixamo_armature(armature):
-    if len(armature.data.bones) > 0:
-        for bone_name in MIXAMO_BONE_NAMES:
-            if bone_name not in armature.data.bones:
-                return False
-        return True
-    else:
-        return False
+    if armature:
+        if len(armature.data.bones) > 0:
+            for bone_name in MIXAMO_BONE_NAMES:
+                if bone_name not in armature.data.bones:
+                    return False
+            return True
+    return False
 
 
 def is_rigify_armature(armature):
-    if len(armature.data.bones) > 0:
-        for bone_name in RIGIFY_BONE_NAMES:
-            if bone_name not in armature.data.bones:
-                return False
-        return True
-    else:
-        return False
+    if armature:
+        if len(armature.data.bones) > 0:
+            for bone_name in RIGIFY_BONE_NAMES:
+                if bone_name not in armature.data.bones:
+                    return False
+            return True
+    return False
 
 
 def check_armature_action(armature, action):

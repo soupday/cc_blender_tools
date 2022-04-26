@@ -582,8 +582,9 @@ ROLL_CORRECTION = [
 ]
 
 RETARGET_RIGIFY_BONES = [
-    "root", "hips", "torso", "spine_fk.001", "spine_fk.002", "chest", "spine_fk.003",
-    "neck", "tweak_spine.005", "head",
+    "root", "hips", "torso", "spine_fk", "spine_fk.001", "spine_fk.002", "chest", "spine_fk.003",
+    "neck", "tweak_spine", "tweak_spine.001", "tweak_spine.002", "tweak_spine.003", "tweak_spine.004", "tweak_spine.005",
+    "head", "neck",
     "breast.L", "breast.R",
     "thigh_fk.L", "shin_fk.L", "foot_fk.L", "toe_fk.L", "toe.L",
     "shoulder.L", "upper_arm_fk.L", "forearm_fk.L", "hand_fk.L",
@@ -871,20 +872,23 @@ RETARGET_MIXAMO = [
     ["ORG-pelvis", "ORG-spine",                 "mixamorig:Hips", "hips", "NPLR"],
     # spine
     # spine.001 is too short and too low to match any Mixamo spine bones
-    #["ORG-spine.001", "ORG-spine",              "mixamorig:Spine$", "spine_fk.001", "PRL", "mixamorig:Spine1"],
-    ["ORG-spine.002", "ORG-spine",              "mixamorig:Spine$", "spine_fk.002", "PL", "mixamorig:Spine1"],
-    ["ORG-spine.002", "ORG-spine",              "mixamorig:Spine1", "chest", "NPLR", "mixamorig:Spine2"],
-    ["ORG-spine.003", "ORG-spine.002",          "mixamorig:Spine2", "spine_fk.003", "PL", "mixamorig:Neck"],
-    ["ORG-spine.004", "ORG-spine.003",          "mixamorig:Neck", "neck", "PLR", "mixamorig:Head$"],
-    ["ORG-spine.006", "ORG-spine.004",          "mixamorig:Head$", "head", "PLR", "mixamorig:HeadTop_End"],
+    # mixamorig:Hips = ORG-spine + ORG-spine.001
+    ["ORG-spine.001", "ORG-spine",              "", "spine_fk.001", "LR"],
+    # mixamorig:Spine = ORG-spine.002
+    ["ORG-spine.002", "ORG-spine.001",          "mixamorig:Spine$", "spine_fk.002", "PLR"],
+    ["ORG-spine.002", "ORG-spine.001",          "", "chest", "LR"],
+    # mixamorig:Spine1 + mixamorig:Spine2 = ORG-spine.003
+    ["ORG-spine.003", "ORG-spine.002",          "mixamorig:Spine1", "spine_fk.003", "PLR"],
+    ["ORG-spine.004", "ORG-spine.003",          "mixamorig:Neck", "neck", "PLR"],
+    ["ORG-spine.006", "ORG-spine.004",          "mixamorig:Head$", "head", "PLR"],
     # left leg
     ["ORG-thigh.L", "ORG-pelvis",               "mixamorig:LeftUpLeg", "thigh_fk.L", "TLR", "mixamorig:LeftLeg"],
     ["ORG-shin.L", "ORG-thigh.L",               "mixamorig:LeftLeg", "shin_fk.L", "TLR", "mixamorig:LeftFoot"],
-    ["ORG-foot.L", "ORG-shin.L",                "mixamorig:LeftFoot", "foot_fk.L", "PLR", "mixamorig:LeftToeBase"],
+    ["ORG-foot.L", "ORG-shin.L",                "mixamorig:LeftFoot", "foot_fk.L", "PLR"],
     ["ORG-toe.L", "ORG-foot.L",                 "mixamorig:LeftToeBase", "toe_fk.L", "TLR", "mixamorig:LeftToe_End"], #post 3.1
     ["ORG-toe.L", "ORG-foot.L",                 "mixamorig:LeftToeBase", "toe.L", "TLR", "mixamorig:LeftToe_End"], #pre 3.1
     # left arm
-    ["ORG-shoulder.L", "ORG-spine.003",         "mixamorig:LeftShoulder", "shoulder.L", "TLR", "mixamorig:LeftArm"],
+    ["ORG-shoulder.L", "ORG-spine.003",         "mixamorig:LeftShoulder", "shoulder.L", "PLR"],
     ["ORG-upper_arm.L", "ORG-shoulder.L",       "mixamorig:LeftArm", "upper_arm_fk.L", "TLR", "mixamorig:LeftForeArm"],
     ["ORG-forearm.L", "ORG-upper_arm.L",        "mixamorig:LeftForeArm", "forearm_fk.L", "TLR", "mixamorig:LeftHand$"],
     ["ORG-hand.L", "ORG-forearm.L",             "mixamorig:LeftHand$", "hand_fk.L", "TLR", "mixamorig:LeftHandMiddle1"],
@@ -907,11 +911,11 @@ RETARGET_MIXAMO = [
     # right leg
     ["ORG-thigh.R", "ORG-pelvis",               "mixamorig:RightUpLeg", "thigh_fk.R", "TLR", "mixamorig:RightLeg"],
     ["ORG-shin.R", "ORG-thigh.R",               "mixamorig:RightLeg", "shin_fk.R", "TLR", "mixamorig:RightFoot"],
-    ["ORG-foot.R", "ORG-shin.R",                "mixamorig:RightFoot", "foot_fk.R", "PLR", "mixamorig:RightToeBase"],
+    ["ORG-foot.R", "ORG-shin.R",                "mixamorig:RightFoot", "foot_fk.R", "PLR"],
     ["ORG-toe.R", "ORG-foot.R",                 "mixamorig:RightToeBase", "toe_fk.R", "TLR", "mixamorig:RightToe_End"], #post 3.1
     ["ORG-toe.R", "ORG-foot.R",                 "mixamorig:RightToeBase", "toe.R", "TLR", "mixamorig:RightToe_End"], #pre 3.1
     # right arm
-    ["ORG-shoulder.R", "ORG-spine.003",         "mixamorig:RightShoulder", "shoulder.R", "TLR", "mixamorig:RightArm"],
+    ["ORG-shoulder.R", "ORG-spine.003",         "mixamorig:RightShoulder", "shoulder.R", "PLR"],
     ["ORG-upper_arm.R", "ORG-shoulder.R",       "mixamorig:RightArm", "upper_arm_fk.R", "TR", "mixamorig:RightForeArm"],
     ["ORG-forearm.R", "ORG-upper_arm.R",        "mixamorig:RightForeArm", "forearm_fk.R", "TR", "mixamorig:RightHand$"],
     ["ORG-hand.R", "ORG-forearm.R",             "mixamorig:RightHand$", "hand_fk.R", "TR", "mixamorig:RightHandMiddle1"],
