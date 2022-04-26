@@ -1693,7 +1693,8 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 # process special flags
                 pidx = 5
                 for f in flags:
-
+                    if f == "C" or f == "M" or f == "I":
+                        pidx += 1
                     # handle source bone copy (and re-calculate scale)
                     if f == "+":
                         if org_bone_name in ORG_BONES:
@@ -1864,6 +1865,10 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                 if org_bone:
                     org_bone_def = ORG_BONES[org_bone_name]
                 if org_bone and source_bone and org_bone_def:
+                    influence = 1.0
+                    if "I" in flags:
+                        influence = retarget_def[pidx]
+                        pidx += 1
                     # source copy
                     if "N" not in flags:
                         scale_influence = 1.0
@@ -1871,13 +1876,13 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                             scale_influence = org_bone_def[8] / org_bone_def[9]
                             scale_influence = max(0.0, min(1.0, scale_influence))
                         if org_bone_name == "ORG-hip" or org_bone_name == "ORG-hip_pivot":
-                            bones.add_copy_location_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, scale_influence, "LOCAL_WITH_PARENT")
+                            bones.add_copy_location_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, scale_influence * influence, "LOCAL_WITH_PARENT")
                         else:
                             space = "LOCAL"
                             if utils.is_blender_version("3.1.0"):
                                 space = "LOCAL_OWNER_ORIENT"
-                            bones.add_copy_location_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, scale_influence, space)
-                        bones.add_copy_rotation_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, 1.0)
+                            bones.add_copy_location_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, scale_influence * influence, space)
+                        bones.add_copy_rotation_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, influence)
                 if rigify_bone:
                     for f in flags:
 
@@ -1926,6 +1931,22 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                                 bones.add_limit_distance_constraint(retarget_rig, retarget_rig, limit_bone.name, rigify_bone_name, eyes_distance, 1.0)
                             else:
                                 utils.log_warn(f"Unable to find: {limit_bone_name} in retarget rig!")
+
+                        # clone position
+                        if f == "M":
+                            target_bone_name = retarget_def[pidx]
+                            pidx += 1
+                            head_tail = 0.0
+                            if target_bone_name[0] == "-":
+                                head_tail = 1.0
+                                target_bone_name = target_bone_name[1:]
+                            target_bone = bones.get_pose_bone(retarget_rig, target_bone_name)
+                            if target_bone:
+                                con = bones.add_copy_location_constraint(retarget_rig, retarget_rig, target_bone_name, rigify_bone_name, 1.0)
+                                if con:
+                                    con.head_tail = head_tail
+                            else:
+                                utils.log_warn(f"Unable to find: {target_bone_name} in retarget rig!")
 
             # constraints and drivers for corrective bones
             #

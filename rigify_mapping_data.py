@@ -616,6 +616,7 @@ RETARGET_G3 = [
     #   flags with parameters (are processed left to right and parameters are consecutive)
     #
     #       "+", copy_bone - this org bone needs be added copied from copy_bone
+    #       "I", influence - multiply the influence of the source -> org copy location/rotation
     #       "T", next_bone - parent correction & align with target: like "P" but maintain alignment
     #                        between the org bone and next_bone.
     #                        for when the source and ORG bones should be in alignment but aren't
@@ -737,6 +738,7 @@ RETARGET_GAME_BASE = [
     #   flags with parameters (are processed left to right and parameters are consecutive)
     #
     #       "+", copy_bone - this org bone needs be added copied from copy_bone
+    #       "I", influence - multiply the influence of the source -> org copy location/rotation
     #       "T", next_bone - parent correction & align with target: like "P" but maintain alignment with
     #                        org bone, for when the source and ORG bones should be in alignment but aren't
     #                        because of strange bone orientations (Mixamo!) in the source rig.
@@ -856,6 +858,7 @@ RETARGET_MIXAMO = [
     #   flags with parameters (are processed left to right and parameters are consecutive)
     #
     #       "+", copy_bone - this org bone needs be added copied from copy_bone
+    #       "I", influence - multiply the influence of the source -> org copy location/rotation
     #       "T", next_bone - parent correction & align with target: like "P" but maintain alignment
     #                        between the org bone and next_bone.
     #                        for when the source and ORG bones should be in alignment but aren't
@@ -867,18 +870,21 @@ RETARGET_MIXAMO = [
     #
     # hips
     ["ORG-hip", "",                             "mixamorig:Hips", "", "+PLR", "rigify:ORG-spine"],
-    ["ORG-spine", "ORG-hip",                    "mixamorig:Hips", "torso", "NPLR"],
-    ["ORG-spine", "ORG-hip",                    "mixamorig:Hips", "spine_fk", "NPLR"],
-    ["ORG-pelvis", "ORG-spine",                 "mixamorig:Hips", "hips", "NPLR"],
+    ["ORG-spine", "ORG-hip",                    "", "torso", "LR"],
+    ["ORG-spine", "ORG-hip",                    "", "spine_fk", "LR"],
+    ["ORG-pelvis", "ORG-spine",                 "", "hips", "LR"],
     # spine
     # spine.001 is too short and too low to match any Mixamo spine bones
     # mixamorig:Hips = ORG-spine + ORG-spine.001
     ["ORG-spine.001", "ORG-spine",              "", "spine_fk.001", "LR"],
+    #["ORG-spine.001", "ORG-spine",              "", "tweak_spine.001", "L"],
     # mixamorig:Spine = ORG-spine.002
-    ["ORG-spine.002", "ORG-spine.001",          "mixamorig:Spine$", "spine_fk.002", "PLR"],
-    ["ORG-spine.002", "ORG-spine.001",          "", "chest", "LR"],
+    ["ORG-spine.002", "ORG-spine.001",          "mixamorig:Spine$", "spine_fk.002", "PLRI", 0.25], # reduce the influence of this bone
+    #["ORG-spine.002", "ORG-spine.001",          "", "tweak_spine.002", "L"],
+    #["ORG-spine.002", "ORG-spine.001",          "", "chest", "LR"],
     # mixamorig:Spine1 + mixamorig:Spine2 = ORG-spine.003
     ["ORG-spine.003", "ORG-spine.002",          "mixamorig:Spine1", "spine_fk.003", "PLR"],
+    ["ORG-spine.003", "ORG-spine.002",          "", "chest", "LR"],
     ["ORG-spine.004", "ORG-spine.003",          "mixamorig:Neck", "neck", "PLR"],
     ["ORG-spine.006", "ORG-spine.004",          "mixamorig:Head$", "head", "PLR"],
     # left leg
