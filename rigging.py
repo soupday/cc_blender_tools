@@ -2018,11 +2018,17 @@ def adv_retarget_remove_pair(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
     rigify_rig = chr_cache.get_armature()
     retarget_rig = chr_cache.rig_retarget_rig
-    if utils.still_exists(retarget_rig):
-        retarget_rig.hide_set(False)
-        if utils.object_mode_to(retarget_rig):
+
+    # remove all contraints on Rigify control bones
+    if utils.still_exists(rigify_rig):
+        rigify_rig.hide_set(False)
+        if utils.object_mode_to(rigify_rig):
             for rigify_bone_name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
                 bones.clear_constraints(rigify_rig, rigify_bone_name)
+
+    # remove the retarget rig
+    if utils.still_exists(retarget_rig):
+        retarget_rig.hide_set(False)
         utils.delete_armature_object(retarget_rig)
     chr_cache.rig_retarget_rig = None
     chr_cache.rig_retarget_source_rig = None

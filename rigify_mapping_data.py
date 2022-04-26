@@ -868,24 +868,21 @@ RETARGET_MIXAMO = [
     #
     # [origin_bone, orign_bone_parent,          source_bone(regex match), rigify_target_bone, flags, *params]
     #
-    # hips
+    # mixamorig:Hips = ORG-spine + ORG-spine.001
     ["ORG-hip", "",                             "mixamorig:Hips", "", "+PLR", "rigify:ORG-spine"],
     ["ORG-spine", "ORG-hip",                    "", "torso", "LR"],
     ["ORG-spine", "ORG-hip",                    "", "spine_fk", "LR"],
     ["ORG-pelvis", "ORG-spine",                 "", "hips", "LR"],
-    # spine
-    # spine.001 is too short and too low to match any Mixamo spine bones
-    # mixamorig:Hips = ORG-spine + ORG-spine.001
     ["ORG-spine.001", "ORG-spine",              "", "spine_fk.001", "LR"],
-    #["ORG-spine.001", "ORG-spine",              "", "tweak_spine.001", "L"],
     # mixamorig:Spine = ORG-spine.002
-    ["ORG-spine.002", "ORG-spine.001",          "mixamorig:Spine$", "spine_fk.002", "PLRI", 0.25], # reduce the influence of this bone
-    #["ORG-spine.002", "ORG-spine.001",          "", "tweak_spine.002", "L"],
-    #["ORG-spine.002", "ORG-spine.001",          "", "chest", "LR"],
+    # reduce the influence of this bone, as it causes too much twisting in the abdomen
+    ["ORG-spine.002", "ORG-spine.001",          "mixamorig:Spine$", "spine_fk.002", "PLRI", 0.25],
     # mixamorig:Spine1 + mixamorig:Spine2 = ORG-spine.003
     ["ORG-spine.003", "ORG-spine.002",          "mixamorig:Spine1", "spine_fk.003", "PLR"],
     ["ORG-spine.003", "ORG-spine.002",          "", "chest", "LR"],
+    # mixamorig:Neck = ORG-spine.004 + ORG.spine.005
     ["ORG-spine.004", "ORG-spine.003",          "mixamorig:Neck", "neck", "PLR"],
+    # head
     ["ORG-spine.006", "ORG-spine.004",          "mixamorig:Head$", "head", "PLR"],
     # left leg
     ["ORG-thigh.L", "ORG-pelvis",               "mixamorig:LeftUpLeg", "thigh_fk.L", "TLR", "mixamorig:LeftLeg"],
