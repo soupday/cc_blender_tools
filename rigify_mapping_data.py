@@ -515,6 +515,7 @@ ADD_DEF_BONES = [
 ]
 
 
+# shape key drivers for facial blend shapes
 SHAPE_KEY_DRIVERS = [
     ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
     ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
@@ -697,6 +698,8 @@ RELATIVE_MAPPINGS = [
 ]
 
 
+# face bones to remove from the Rigify rig for just a basic face rig.
+# all prefix variations are also removed DEF-, ORG- MCH-
 REMOVE_BASIC_FACE_BONES = [
     "DEF-chin",
     "chin.002", "chin.001",
@@ -828,6 +831,7 @@ UNITY_EXPORT_RIG = [
 ]
 
 
+# Rigify control bones to resize
 CONTROL_MODIFY = [
     ["hand_ik.R", [-1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
     ["hand_ik.L", [1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
@@ -864,6 +868,7 @@ RIGIFY_PARAMS = [
 UV_THRESHOLD = 0.001
 
 
+# G3Plus UV coordinates of the face rig bones, to reverse calculate the spacial coordinates
 UV_TARGETS_G3PLUS = [
     # connected mapping: map (head)->(tail/head)->(tail/head->(tail/head)...
     ["nose", "CONNECTED",           [0.500, 0.650], [0.500, 0.597], [0.500, 0.573], [0.500, 0.550], [0.500, 0.531], [0.500, 0.516]],
@@ -889,6 +894,7 @@ UV_TARGETS_G3PLUS = [
 ]
 
 
+# G3 UV coordinates of the face rig bones, to reverse calculate the spacial coordinates
 UV_TARGETS_G3 = [
     # connected mapping: map (head)->(tail/head)->(tail/head->(tail/head)...
     ["nose", "CONNECTED",           [0.4999, 0.3614], [0.5000, 0.3080], [0.5000, 0.2858], [0.5000, 0.2668], [0.5000, 0.2507], [0.5000, 0.2366]],
@@ -914,9 +920,12 @@ UV_TARGETS_G3 = [
 ]
 
 
+# body object types (with facial blend shapes)
 BODY_TYPES = ["BODY", "TEARLINE", "OCCLUSION"]
 
 
+# deformation bone vertex group name prefixes to clear and initialise with random test weights
+# (by checking for these test weights we can tell if the parent with automatic weights function succeeded or not)
 FACE_DEF_BONE_PREFIX = [
     "DEF-forehead.", "DEF-brow.", "DEF-lid.", "DEF-cheek.",
     "DEF-temple.", "DEF-jaw.", "DEF-lip.", "DEF-ear.",
@@ -924,11 +933,13 @@ FACE_DEF_BONE_PREFIX = [
 ]
 
 
+# deformation bones in the Rigify rig to turn off when re-parenting the face objects to the Rigify face rig.
 FACE_DEF_BONE_PREPASS = [
     "DEF-eye.L", "DEF-eye.R", "DEF-teeth.T", "DEF-teeth.B", "DEF-jaw",
 ]
 
 
+# ShapeKey names to look for to test if a mesh is a face object. e.g. brows / beards / tearline etc...
 FACE_TEST_SHAPEKEYS = [
     "Eye_Wide_L", "Eye_Wide_R", "Eye_Blink_L", "Eye_Blink_R",
     "Nose_Scrunch", "Nose_Flank_Raise_L", "Nose_Flank_Raise_R",
@@ -938,26 +949,32 @@ FACE_TEST_SHAPEKEYS = [
 ]
 
 
+# bone names to test for to see if armature or action is for a CC3:G3/G3Plus/ActorCore rig.
 CC3_BONE_NAMES = [
     "CC_Base_BoneRoot", "CC_Base_Hip", "CC_Base_FacialBone"
 ]
 
 
+# bone names to test for to see if armature or action is for a iClone:G3/G3Plus/ActorCore rig.
+# (iClone does not export bones with the "CC_Base_" prefix)
 ICLONE_BONE_NAMES = [
     "BoneRoot", "Hip", "FacialBone"
 ]
 
 
+# bone names to test for to see if armature or action is for a CC3:GameBase rig.
 GAME_BASE_BONE_NAMES = [
     "pelvis", "spine_01", "CC_Base_FacialBone"
 ]
 
 
+# bone names to test for to see if armature or action is for a mixamo rig
 MIXAMO_BONE_NAMES = [
     "mixamorig:Hips", "mixamorig:Spine", "mixamorig:Head"
 ]
 
 
+# bone names to test for to see if armature or action is for a rigify rig
 RIGIFY_BONE_NAMES = [
     "MCH-torso.parent", "ORG-spine", "spine_fk"
 ]
@@ -967,6 +984,7 @@ RIGIFY_BONE_NAMES = [
 BOX_PADDING = 0.01
 
 
+# list of the Rigify control bones that animations are retargeted to
 RETARGET_RIGIFY_BONES = [
     "root", "hips", "torso", "spine_fk", "spine_fk.001", "spine_fk.002", "chest", "spine_fk.003",
     "neck", "tweak_spine", "tweak_spine.001", "tweak_spine.002", "tweak_spine.003", "tweak_spine.004", "tweak_spine.005",
@@ -1109,6 +1127,7 @@ RETARGET_G3 = [
     ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase$", "toe_ik.L", "NLR"],
     ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe_ik.R", "NLR"],
 ]
+
 
 # Note: this is retarget FROM game base actions TO the rigify rig.
 RETARGET_GAME_BASE = [
