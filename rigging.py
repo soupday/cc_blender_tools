@@ -112,44 +112,14 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
 
         utils.log_info(f"Adding/Processing: {dst_bone_name}")
 
-        if src_bone_name == "-": # means to reparent an existing deformation bone
+        # reparent an existing deformation bone
+        if src_bone_name == "-":
             reparented_bone = bones.reparent_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
             if reparented_bone:
                 bones.set_edit_bone_flags(reparented_bone, relation_flags, deform)
                 bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
 
-        elif src_bone_name == "+MCHEyeParent":
-            mch_bone = bones.copy_edit_bone(rigify_rig, dst_bone_parent_name, dst_bone_name, "root", 0.25)
-            if mch_bone:
-                bones.set_edit_bone_flags(mch_bone, relation_flags, deform)
-                bones.add_copy_transforms_constraint(rigify_rig, rigify_rig, dst_bone_parent_name, mch_bone.name, 1.0)
-                bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
-
-        elif src_bone_name == "+EyeControl":
-            eyes_bone = bones.new_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
-            if eyes_bone:
-                # ref = list of bones to copy average positions from
-                # scale = displace scale of above bones along their (normalized) direction
-                distance = 0
-                is_eye_parent = len(ref) == 2
-                if is_eye_parent:
-                    distance = bones.get_distance_between(rigify_rig, ref[0], ref[1])
-                bones.copy_position(rigify_rig, dst_bone_name, ref, scale)
-                eye_scale = 0.015
-                eyes_bone.tail = eyes_bone.head + mathutils.Vector((0, 0, eye_scale))
-                bones.set_bone_group(rigify_rig, dst_bone_name, "FK")
-                if not is_eye_parent:
-                    bones.add_damped_track_constraint(rigify_rig, ref[0], dst_bone_name, 1.0)
-                bones.generate_eye_widget(rigify_rig, dst_bone_name, ref, distance, eye_scale)
-                if is_eye_parent:
-                    bones.add_pose_bone_custom_property(rigify_rig, dst_bone_name, "eyes_follow", 1.0)
-                    bones.add_constraint_influence_driver(rigify_rig, dst_bone_parent_name, dst_bone_name, "eyes_follow", "COPY_TRANSFORMS")
-
-        elif src_bone_name == "#RenameBasicFace":
-
-            if not chr_cache.rig_full_face():
-                bones.rename_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
-
+        # add a custom DEF or ORG bone
         elif src_bone_name[:3] == "DEF" or src_bone_name[:3] == "ORG":
             def_bone = bones.copy_edit_bone(rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
             if def_bone:
@@ -159,6 +129,7 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
             if "_share" in dst_bone_name and ref:
                 bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, arg)
 
+        # or make a copy of a bone from the original character rig
         else:
             def_bone = bones.copy_rl_edit_bone(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
             if def_bone:

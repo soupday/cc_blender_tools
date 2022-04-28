@@ -167,9 +167,6 @@ G3_BONE_MAPPINGS = [
     ["eye.L", "CC_Base_L_Eye", ""],
 
     ["eye.L", "CC_Base_L_Eye", ""],
-
-    # only when using the basic face rig, a jaw bone is created that needs positioning...
-    ["jaw", "CC_Base_JawRoot", "CC_Base_Tongue03", 0, 1.35],
 ]
 
 
@@ -267,9 +264,6 @@ GAME_BASE_BONE_MAPPINGS = [
 
     ["eye.R", "CC_Base_R_Eye", ""],
     ["eye.L", "CC_Base_L_Eye", ""],
-
-    # only when using the basic face rig, a jaw bone is created that needs positioning...
-    ["jaw", "CC_Base_JawRoot", "CC_Base_Tongue03", 0, 1.35],
 ]
 
 
@@ -506,12 +500,6 @@ ADD_DEF_BONES = [
     ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR", 29],
     ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR", 29],
     ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29],
-
-    ["+MCHEyeParent", "MCH-eyes_parent", "ORG-face", "LR", 30],
-    ["+EyeControl", "eyes", "MCH-eyes_parent", "LR", 1, 0.2, ["ORG-eye.L", "ORG-eye.R"]],
-    ["+EyeControl", "eye.L", "eyes", "LR", 1,           0.2, ["ORG-eye.L"]],
-    ["+EyeControl", "eye.R", "eyes", "LR", 1,           0.2, ["ORG-eye.R"]],
-    ["#RenameBasicFace", "jaw", "jaw_master", "", 1],
 ]
 
 
