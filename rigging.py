@@ -28,260 +28,6 @@ from . import modifiers
 from . import bones
 from . import rigify_mapping_data
 
-SHAPE_KEY_DRIVERS = [
-    ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A10_Eye_Look_Out_Left", ["SCRIPTED", "var*1.273 if var >=0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A11_Eye_Look_In_Left", ["SCRIPTED", "-var*1.273 if var <0 else 0"], ["var", "TRANSFORMS", "ORG-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-
-    ["Bfr", "A07_Eye_Look_Up_Right", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A09_Eye_Look_Down_Right", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A12_Eye_Look_In_Right", ["SCRIPTED", "var*1.273 if var >=0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A13_Eye_Look_Out_Right", ["SCRIPTED", "-var*1.273 if var <0 else 0"], ["var", "TRANSFORMS", "ORG-eye.R", "ROT_Z", "LOCAL_SPACE"]],
-]
-
-# relative mappings: calculate the head/tail position of the first index,
-#     defined by the second index
-#     relative to a bounding box containing the proceding bones
-#     may need to specify a minimum box dimension to avoid flat boxes.
-# after everything else has been placed, restore the relative mappings
-RELATIVE_MAPPINGS = [
-    ["heel.02.L", "BOTH", "foot.L", "toe.L"],
-    ["heel.02.R", "BOTH", "foot.R", "toe.R"],
-]
-
-
-# [rigify bone name, rigify re-parent, unity bone name, instruction]
-UNITY_EXPORT_RIG = [
-    # Spine, Neck & Head:
-    ["root", "", "CC_Base_Root", "-"],
-    ["DEF-spine", "root", "CC_Base_Hip", "PLR"],
-    ["DEF-pelvis", "DEF-spine", "CC_Base_Pelvis", "PLR"],
-    ["DEF-spine.001", "DEF-spine", "CC_Base_Waist", "PLR"],
-    ["DEF-spine.002", "DEF-spine.001", "CC_Base_Spine01", "PLR"],
-    ["DEF-spine.003", "DEF-spine.002", "CC_Base_Spine02", "PLR"],
-    ["DEF-spine.004", "DEF-spine.003", "CC_Base_NeckTwist01", "PLR"],
-    ["DEF-spine.005", "DEF-spine.004", "CC_Base_NeckTwist02", "PLR"],
-    ["DEF-spine.006", "DEF-spine.005", "CC_Base_Head", "PLR"],
-    # Left Breast:
-    ["DEF-breast_twist.L", "DEF-spine.003", "CC_Base_L_RibsTwist", "PLR"],
-    ["DEF-breast.L", "DEF-breast_twist.L", "CC_Base_L_Breast", "PLR"],
-    # Right Breast:
-    ["DEF-breast_twist.R", "DEF-spine.003", "CC_Base_R_RibsTwist", "PLR"],
-    ["DEF-breast.R", "DEF-breast_twist.R", "CC_Base_R_Breast", "PLR"],
-    # Left Leg:
-    ["DEF-thigh.L", "DEF-pelvis", "CC_Base_L_Thigh", "PLR"],
-    ["DEF-thigh.L.001", "DEF-thigh.L", "CC_Base_L_ThighTwist", "PLR"],
-    ["DEF-knee_share.L", "DEF-shin.L", "CC_Base_L_KneeShareBone", "PLR"],
-    ["DEF-shin.L", "DEF-thigh.L.001", "CC_Base_L_Calf", "PLR"],
-    ["DEF-shin.L.001", "DEF-shin.L", "CC_Base_L_CalfTwist", "PLR"],
-    ["DEF-foot.L", "DEF-shin.L.001", "CC_Base_L_Foot", "PLR"],
-    ["DEF-toe.L", "DEF-foot.L", "CC_Base_L_ToeBase", "PLR"],
-    # Left Foot:
-    ["DEF-toe_big.L", "DEF-toe.L", "CC_Base_L_BigToe1", "PLR"],
-    ["DEF-toe_index.L", "DEF-toe.L", "CC_Base_L_IndexToe1", "PLR"],
-    ["DEF-toe_mid.L", "DEF-toe.L", "CC_Base_L_MidToe1", "PLR"],
-    ["DEF-toe_ring.L", "DEF-toe.L", "CC_Base_L_RingToe1", "PLR"],
-    ["DEF-toe_pinky.L", "DEF-toe.L", "CC_Base_L_PinkyToe1", "PLR"],
-    # Left Arm:
-    ["DEF-shoulder.L", "DEF-spine.003", "CC_Base_L_Clavicle", "PLR"],
-    ["DEF-upper_arm.L", "DEF-shoulder.L", "CC_Base_L_Upperarm", "PLRC"],
-    ["DEF-upper_arm.L.001", "DEF-upper_arm.L", "CC_Base_L_UpperarmTwist", "PLR"],
-    ["DEF-elbow_share.L", "DEF-forearm.L", "CC_Base_L_ElbowShareBone", "PLR"],
-    ["DEF-forearm.L", "DEF-upper_arm.L.001", "CC_Base_L_Forearm", "PLR"],
-    ["DEF-forearm.L.001", "DEF-forearm.L", "CC_Base_L_ForearmTwist", "PLR"],
-    ["DEF-hand.L", "DEF-forearm.L.001", "CC_Base_L_Hand", "PLR"],
-    # Left Hand Fingers:
-    ["DEF-thumb.01.L", "DEF-hand.L", "CC_Base_L_Thumb1", "PLR"],
-    ["DEF-f_index.01.L", "DEF-hand.L", "CC_Base_L_Index1", "PLR"],
-    ["DEF-f_middle.01.L", "DEF-hand.L", "CC_Base_L_Mid1", "PLR"],
-    ["DEF-f_ring.01.L", "DEF-hand.L", "CC_Base_L_Ring1", "PLR"],
-    ["DEF-f_pinky.01.L", "DEF-hand.L", "CC_Base_L_Pinky1", "PLR"],
-    ["DEF-thumb.02.L", "DEF-thumb.01.L", "CC_Base_L_Thumb2", "PLR"],
-    ["DEF-f_index.02.L", "DEF-f_index.01.L", "CC_Base_L_Index2", "PLR"],
-    ["DEF-f_middle.02.L", "DEF-f_middle.01.L", "CC_Base_L_Mid2", "PLR"],
-    ["DEF-f_ring.02.L", "DEF-f_ring.01.L", "CC_Base_L_Ring2", "PLR"],
-    ["DEF-f_pinky.02.L", "DEF-f_pinky.01.L", "CC_Base_L_Pinky2", "PLR"],
-    ["DEF-thumb.03.L", "DEF-thumb.02.L", "CC_Base_L_Thumb3", "PLR"],
-    ["DEF-f_index.03.L", "DEF-f_index.02.L", "CC_Base_L_Index3", "PLR"],
-    ["DEF-f_middle.03.L", "DEF-f_middle.02.L", "CC_Base_L_Mid3", "PLR"],
-    ["DEF-f_ring.03.L", "DEF-f_ring.02.L", "CC_Base_L_Ring3", "PLR"],
-    ["DEF-f_pinky.03.L", "DEF-f_pinky.02.L", "CC_Base_L_Pinky3", "PLR"],
-    # Right Leg:
-    ["DEF-thigh.R", "DEF-pelvis", "CC_Base_R_Thigh", "PLR"],
-    ["DEF-thigh.R.001", "DEF-thigh.R", "CC_Base_R_ThighTwist", "PLR"],
-    ["DEF-knee_share.R", "DEF-shin.R", "CC_Base_R_KneeShareBone", "PLR"],
-    ["DEF-shin.R", "DEF-thigh.R.001", "CC_Base_R_Calf", "PLR"],
-    ["DEF-shin.R.001", "DEF-shin.R", "CC_Base_R_CalfTwist", "PLR"],
-    ["DEF-foot.R", "DEF-shin.R.001", "CC_Base_R_Foot", "PLR"],
-    ["DEF-toe.R", "DEF-foot.R", "CC_Base_R_ToeBase", "PLR"],
-    # Right Foot:
-    ["DEF-toe_big.R", "DEF-toe.R", "CC_Base_R_BigToe1", "PLR"],
-    ["DEF-toe_index.R", "DEF-toe.R", "CC_Base_R_IndexToe1", "PLR"],
-    ["DEF-toe_mid.R", "DEF-toe.R", "CC_Base_R_MidToe1", "PLR"],
-    ["DEF-toe_ring.R", "DEF-toe.R", "CC_Base_R_RingToe1", "PLR"],
-    ["DEF-toe_pinky.R", "DEF-toe.R", "CC_Base_R_PinkyToe1", "PLR"],
-    # Right Arm:
-    ["DEF-shoulder.R", "DEF-spine.003", "CC_Base_R_Clavicle", "PLR"],
-    ["DEF-upper_arm.R", "DEF-shoulder.R", "CC_Base_R_Upperarm", "PLRC"],
-    ["DEF-upper_arm.R.001", "DEF-upper_arm.R", "CC_Base_R_UpperarmTwist", "PLR"],
-    ["DEF-elbow_share.R", "DEF-forearm.R", "CC_Base_R_ElbowShareBone", "PLR"],
-    ["DEF-forearm.R", "DEF-upper_arm.R.001", "CC_Base_R_Forearm", "PLR"],
-    ["DEF-forearm.R.001", "DEF-forearm.R", "CC_Base_R_ForearmTwist", "PLR"],
-    ["DEF-hand.R", "DEF-forearm.R.001", "CC_Base_R_Hand", "PLR"],
-    # Right Hand Fingers:
-    ["DEF-thumb.01.R", "DEF-hand.R", "CC_Base_R_Thumb1", "PLR"],
-    ["DEF-f_index.01.R", "DEF-hand.R", "CC_Base_R_Index1", "PLR"],
-    ["DEF-f_middle.01.R", "DEF-hand.R", "CC_Base_R_Mid1", "PLR"],
-    ["DEF-f_ring.01.R", "DEF-hand.R", "CC_Base_R_Ring1", "PLR"],
-    ["DEF-f_pinky.01.R", "DEF-hand.R", "CC_Base_R_Pinky1", "PLR"],
-    ["DEF-thumb.02.R", "DEF-thumb.01.R", "CC_Base_R_Thumb2", "PLR"],
-    ["DEF-f_index.02.R", "DEF-f_index.01.R", "CC_Base_R_Index2", "PLR"],
-    ["DEF-f_middle.02.R", "DEF-f_middle.01.R", "CC_Base_R_Mid2", "PLR"],
-    ["DEF-f_ring.02.R", "DEF-f_ring.01.R", "CC_Base_R_Ring2", "PLR"],
-    ["DEF-f_pinky.02.R", "DEF-f_pinky.01.R", "CC_Base_R_Pinky2", "PLR"],
-    ["DEF-thumb.03.R", "DEF-thumb.02.R", "CC_Base_R_Thumb3", "PLR"],
-    ["DEF-f_index.03.R", "DEF-f_index.02.R", "CC_Base_R_Index3", "PLR"],
-    ["DEF-f_middle.03.R", "DEF-f_middle.02.R", "CC_Base_R_Mid3", "PLR"],
-    ["DEF-f_ring.03.R", "DEF-f_ring.02.R", "CC_Base_R_Ring3", "PLR"],
-    ["DEF-f_pinky.03.R", "DEF-f_pinky.02.R", "CC_Base_R_Pinky3", "PLR"],
-    # Tongue:
-    ["DEF-tongue", "DEF-jaw", "CC_Base_Tongue03", "LRP"],
-    ["DEF-tongue.001", "DEF-tongue", "CC_Base_Tongue02", "PLR"],
-    ["DEF-tongue.002", "DEF-tongue.001", "CC_Base_Tongue01", "PLR"],
-    # Teeth:
-    ["DEF-teeth.T", "DEF-spine.006", "CC_Base_Teeth01", "PLR"],
-    ["DEF-teeth.B", "DEF-jaw", "CC_Base_Teeth02", "PLR"],
-    # Eyes:
-    ["DEF-eye.R", "DEF-spine.006", "CC_Base_R_Eye", "PLR"],
-    ["DEF-eye.L", "DEF-spine.006", "CC_Base_L_Eye", "PLR"],
-    # Jaw:
-    ["DEF-jaw", "DEF-spine.006", "CC_Base_JawRoot", "PLR"],
-]
-
-CONTROL_MODIFY = [
-    ["hand_ik.R", [-1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
-    ["hand_ik.L", [1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
-
-    ["foot_ik.R", [-1.25, 1.5, 1], [0, 0.05, 0], [0, 0, 0]],
-    ["foot_ik.L", [1.25, 1.5, 1], [0, 0.05, 0], [0, 0, 0]],
-
-    ["head", [1.25, 1, 1.25], [0, 0.02, 0], [0, 0, 0]],
-    ["jaw", [1.25, 1.25, 1.25], [0, 0, 0], [0, 0, 0]],
-    ["jaw_master", [1.25, 1.25, 1.25], [0, 0, 0], [0, 0, 0]],
-
-    ["shoulder.R", [-1.5, 1.5, 1.5], [0, 0, 0], [0, 0, 0]],
-    ["shoulder.L", [1.5, 1.5, 1.5], [0, 0, 0], [0, 0, 0]],
-    ["hips", [1.35, 1.35, 1.35], [0, 0, -0.015], [0, 0, 0]],
-    ["chest", [1.1, 1.5, 1.1], [0, 0.025, -0.025], [0, 0, 0]],
-    ["torso", [1.2, 1.2, 1.2], [0, 0, 0], [0, 0, 0]],
-    ["neck", [1.5, 1, 1.5], [0, 0, 0], [0, 0, 0]],
-    ["tongue", [1.5, 1.5, 1.5], [0, 0.015, -0.01], [0, 0, 0]],
-    ["tongue_master", [1.5, 1.5, 1.5], [0, 0.015, -0.01], [0, 0, 0]],
-
-    ["foot_heel_ik.L", [1.5, 1.5, 1.5], [0, 0.015, 0], [0, 0, 0]],
-    ["foot_heel_ik.R", [-1.5, 1.5, 1.5], [0, 0.015, 0], [0, 0, 0]],
-]
-
-RIGIFY_PARAMS = [
-    ["upper_arm.R", "x"],
-    ["upper_arm.L", "x"],
-    ["thigh.R", "x"],
-    ["thigh.L", "x"],
-]
-
-UV_THRESHOLD = 0.001
-
-UV_TARGETS_G3PLUS = [
-    # connected mapping: map (head)->(tail/head)->(tail/head->(tail/head)...
-    ["nose", "CONNECTED",           [0.500, 0.650], [0.500, 0.597], [0.500, 0.573], [0.500, 0.550], [0.500, 0.531], [0.500, 0.516]],
-    ["jaw", "CONNECTED",            [0.500, 0.339], [0.500, 0.395], [0.500, 0.432], [0.500, 0.453]],
-    ["cheek.T.R", "CONNECTED",      [0.360, 0.633], [0.413, 0.593], [0.453, 0.606], [0.446, 0.559], [0.500, 0.573]],
-    ["temple.R", "CONNECTED",       [0.250, 0.645], [0.289, 0.492], [0.360, 0.435], [0.429, 0.408], [0.443, 0.486], [0.363, 0.533],
-                                    [0.360, 0.633], [0.371, 0.660], [0.414, 0.682], [0.458, 0.678], [0.500, 0.650]],
-    ["ear.R", "CONNECTED",          [0.246, 0.566], [0.228, 0.640], [0.196, 0.623], [0.207, 0.554], [0.235, 0.534], [0.246, 0.566]],
-
-    ["lid.T.R", "CONNECTED",        [0.398, 0.638], [0.417, 0.644], [0.431, 0.644], [0.444, 0.641],
-                                    [0.450, 0.635], [0.437, 0.632], [0.422, 0.631], [0.407, 0.633], [0.398, 0.638]],
-    ["brow.B.R", "CONNECTED",       [0.388, 0.646], [0.413, 0.661], [0.435, 0.662], [0.454, 0.653], [0.460, 0.638]],
-
-    ["lip.T.R", "CONNECTED",        [0.500, 0.512], [0.468, 0.508], [0.443, 0.486]],
-    ["lip.B.R", "CONNECTED",        [0.500, 0.463], [0.478, 0.467], [0.443, 0.486]],
-
-    # disconnected mapping: map head and tail pairs
-    ["forehead.R", "DISCONNECTED",  [ [0.461, 0.740], [0.458, 0.678] ],
-                                    [ [0.410, 0.741], [0.414, 0.682] ],
-                                    [ [0.358, 0.725], [0.371, 0.660] ] ],
-    # set the top of the 'head' bone
-    #["spine.006", "TAIL",           [0.688, 0.953]],
-]
-
-UV_TARGETS_G3 = [
-    # connected mapping: map (head)->(tail/head)->(tail/head->(tail/head)...
-    ["nose", "CONNECTED",           [0.4999, 0.3614], [0.5000, 0.3080], [0.5000, 0.2858], [0.5000, 0.2668], [0.5000, 0.2507], [0.5000, 0.2366]],
-    ["jaw", "CONNECTED",            [0.5000, 0.0347], [0.5000, 0.1105], [0.5000, 0.1488], [0.5000, 0.1688]],
-    ["cheek.T.R", "CONNECTED",      [0.3467, 0.3457], [0.4058, 0.3062], [0.4519, 0.3188], [0.4493, 0.2728], [0.5000, 0.2858]],
-    ["temple.R", "CONNECTED",       [0.2028, 0.4031], [0.2418, 0.1913], [0.3349, 0.1369], [0.4211, 0.1202], [0.4378, 0.2023], [0.3414, 0.2428],
-                                    [0.3467, 0.3457], [0.3625, 0.3725], [0.4110, 0.3929], [0.4557, 0.3907], [0.4999, 0.3614]],
-    ["ear.R", "CONNECTED",          [0.1467, 0.3356], [0.1032, 0.4324], [0.1441, 0.4936], [0.0794, 0.3163], [0.1237, 0.2927], [0.1467, 0.3356]],
-
-    ["lid.T.R", "CONNECTED",        [0.3884, 0.3452], [0.4095, 0.3517], [0.4262, 0.3504], [0.4423, 0.3488],
-                                    [0.4474, 0.3435], [0.4343, 0.3375], [0.4169, 0.3360], [0.3987, 0.3383], [0.3884, 0.3452]],
-    ["brow.B.R", "CONNECTED",       [0.3789, 0.3567], [0.4082, 0.3716], [0.4314, 0.3740], [0.4522, 0.3651], [0.4578, 0.3479]],
-
-    ["lip.T.R", "CONNECTED",        [0.5000, 0.2316], [0.4642, 0.2281], [0.4378, 0.2023]],
-    ["lip.B.R", "CONNECTED",        [0.5000, 0.1787], [0.4744, 0.1818], [0.4378, 0.2023]],
-
-    # disconnected mapping: map head and tail pairs
-    ["forehead.R", "DISCONNECTED",  [ [0.4600, 0.4592], [0.4557, 0.3907] ],
-                                    [ [0.4110, 0.4565], [0.4110, 0.3929] ],
-                                    [ [0.3584, 0.4407], [0.3625, 0.3725] ] ],
-    # set the top of the 'head' bone
-    #["spine.006", "TAIL",           [0.688, 0.953]],
-]
-
-BODY_TYPES = ["BODY", "TEARLINE", "OCCLUSION"]
-
-FACE_DEF_BONE_PREFIX = [
-    "DEF-forehead.", "DEF-brow.", "DEF-lid.", "DEF-cheek.",
-    "DEF-temple.", "DEF-jaw.", "DEF-lip.", "DEF-ear.",
-    "DEF-nose", "DEF-chin", # don't use DEF-Jaw as this is based on the original CC3 weights.
-]
-
-FACE_DEF_BONE_PREPASS = [
-    "DEF-eye.L", "DEF-eye.R", "DEF-teeth.T", "DEF-teeth.B", "DEF-jaw",
-]
-
-FACE_TEST_SHAPEKEYS = [
-    "Eye_Wide_L", "Eye_Wide_R", "Eye_Blink_L", "Eye_Blink_R",
-    "Nose_Scrunch", "Nose_Flank_Raise_L", "Nose_Flank_Raise_R",
-    "Mouth_Smile_L", "Mouth_Smile_R", "Mouth_Open",
-    "Brow_Raise_L", "Brow_Raise_R",
-    "Cheek_Blow_L", "Cheek_Blow_R",
-]
-
-CC3_BONE_NAMES = [
-    "CC_Base_BoneRoot", "CC_Base_Hip", "CC_Base_FacialBone"
-]
-
-ICLONE_BONE_NAMES = [
-    "BoneRoot", "Hip", "FacialBone"
-]
-
-GAME_BASE_BONE_NAMES = [
-    "pelvis", "spine_01", "CC_Base_FacialBone"
-]
-
-MIXAMO_BONE_NAMES = [
-    "mixamorig:Hips", "mixamorig:Spine", "mixamorig:Head"
-]
-
-RIGIFY_BONE_NAMES = [
-    "MCH-torso.parent", "ORG-spine", "spine_fk"
-]
-
-# the minimum size of the relative mapping bounding box
-BOX_PADDING = 0.25
 
 class BoundingBox:
     box_min = [ float('inf'), float('inf'), float('inf')]
@@ -334,7 +80,7 @@ def prune_meta_rig(meta_rig):
         pelvis_l.name = "pelvis"
 
 
-def add_def_bones(chr_cache, cc3_rig, rigify_rig, def_bones):
+def add_def_bones(chr_cache, cc3_rig, rigify_rig):
     """Adds and parents twist deformation bones to the rigify deformation bones.
        Twist bones are parented to their corresponding limb bones.
        The main limb bones are not vertex weighted in the meshes but the twist bones are,
@@ -347,7 +93,7 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig, def_bones):
     utils.log_info("Adding addition control bones to Rigify Control Rig:")
     utils.log_indent()
 
-    for def_copy in def_bones:
+    for def_copy in rigify_mapping_data.ADD_DEF_BONES:
         src_bone_name = def_copy[0]
         dst_bone_name = def_copy[1]
         dst_bone_parent_name = def_copy[2]
@@ -474,12 +220,14 @@ def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups):
 
 
 def store_relative_mappings(meta_rig, coords):
-    for mapping in RELATIVE_MAPPINGS:
+    for mapping in rigify_mapping_data.RELATIVE_MAPPINGS:
         bone_name = mapping[0]
 
         bone = bones.get_edit_bone(meta_rig, bone_name)
 
         if bone:
+
+            print("STORE: " + bone.name)
 
             bone_head_pos = meta_rig.matrix_world @ bone.head
             bone_tail_pos = meta_rig.matrix_world @ bone.tail
@@ -493,18 +241,20 @@ def store_relative_mappings(meta_rig, coords):
                     head_pos = meta_rig.matrix_world @ rel_bone.head
                     tail_pos = meta_rig.matrix_world @ rel_bone.tail
                     box.add(head_pos)
-                    box.add(tail_pos)
+                    #box.add(tail_pos)
 
-            box.pad(BOX_PADDING)
+            box.pad(rigify_mapping_data.BOX_PADDING)
             coords[bone_name] = [box.relative(bone_head_pos), box.relative(bone_tail_pos)]
 
 
 def restore_relative_mappings(meta_rig, coords):
-    for mapping in RELATIVE_MAPPINGS:
+    for mapping in rigify_mapping_data.RELATIVE_MAPPINGS:
         bone_name = mapping[0]
         bone = bones.get_edit_bone(meta_rig, bone_name)
 
         if bone:
+
+            print("RESTORE: " + bone.name)
 
             box = BoundingBox()
 
@@ -515,9 +265,9 @@ def restore_relative_mappings(meta_rig, coords):
                     head_pos = meta_rig.matrix_world @ rel_bone.head
                     tail_pos = meta_rig.matrix_world @ rel_bone.tail
                     box.add(head_pos)
-                    box.add(tail_pos)
+                    #box.add(tail_pos)
 
-            box.pad(BOX_PADDING)
+            box.pad(rigify_mapping_data.BOX_PADDING)
 
             rc = coords[bone_name]
             if (mapping[1] == "HEAD" or mapping[1] == "BOTH"):
@@ -532,13 +282,13 @@ def store_bone_roll(meta_rig, roll_store):
         roll_store[bone.name] = [bone.roll, bone.z_axis]
 
 
-def restore_bone_roll(meta_rig, roll_store, roll_correction):
+def restore_bone_roll(meta_rig, roll_store):
     for bone in meta_rig.data.edit_bones:
         if bone.name in roll_store:
             bone_roll = roll_store[bone.name][0]
             bone_z_axis = roll_store[bone.name][1]
             bone.align_roll(bone_z_axis)
-            for correction in roll_correction:
+            for correction in rigify_mapping_data.ROLL_CORRECTION:
                 if correction[0] == bone.name:
                     axis = correction[1]
                     if axis == "X":
@@ -558,7 +308,7 @@ def restore_bone_roll(meta_rig, roll_store, roll_correction):
 def set_rigify_params(rigify_rig):
     #e.g. bpy.context.active_object.pose.bones['upper_arm.R'].rigify_parameters.rotation_axis = "z"
 
-    for params in RIGIFY_PARAMS:
+    for params in rigify_mapping_data.RIGIFY_PARAMS:
         bone_name = params[0]
         bone_rot_axis = params[1]
         pose_bone = bones.get_pose_bone(rigify_rig, bone_name)
@@ -625,6 +375,20 @@ def map_face(cc3_rig, meta_rig, cc3_head_bone):
         tail_position = head_position + mathutils.Vector((0,0,1)) * length
         spine6.tail = tail_position
 
+    # jaw bones
+
+    jaw_l_bone = bones.get_edit_bone(meta_rig, "jaw.L")
+    jaw_r_bone = bones.get_edit_bone(meta_rig, "jaw.R")
+    jaw_source_bone = bones.get_rl_bone(cc3_rig, "CC_Base_JawRoot")
+    if jaw_source_bone:
+        jaw_xyz = cc3_rig.matrix_world @ jaw_source_bone.head_local
+        if jaw_l_bone:
+            jaw_l_bone.head.z = jaw_xyz.z
+            jaw_l_bone.head.y = jaw_xyz.y
+        if jaw_r_bone:
+            jaw_r_bone.head.z = jaw_xyz.z
+            jaw_r_bone.head.y = jaw_xyz.y
+
     # teeth bones
 
     face_bone = bones.get_edit_bone(meta_rig, "face")
@@ -642,6 +406,20 @@ def map_face(cc3_rig, meta_rig, cc3_head_bone):
         face_dir = face_bone.tail - face_bone.head
         teeth_b_bone.head = (cc3_rig.matrix_world @ teeth_b_source_bone.head_local) + face_dir * 0.5
         teeth_b_bone.tail = (cc3_rig.matrix_world @ teeth_b_source_bone.head_local)
+
+
+def fix_jaw(cc3_rig, meta_rig):
+    jaw_l_bone = bones.get_edit_bone(meta_rig, "jaw.L")
+    jaw_r_bone = bones.get_edit_bone(meta_rig, "jaw.R")
+    jaw_source_bone = bones.get_rl_bone(cc3_rig, "CC_Base_JawRoot")
+    if jaw_source_bone:
+        jaw_xyz = cc3_rig.matrix_world @ jaw_source_bone.head_local
+        if jaw_l_bone:
+            jaw_l_bone.head.z = jaw_xyz.z
+            jaw_l_bone.head.y = jaw_xyz.y
+        if jaw_r_bone:
+            jaw_r_bone.head.z = jaw_xyz.z
+            jaw_r_bone.head.y = jaw_xyz.y
 
 
 def report_uv_face_targets(obj, meta_rig):
@@ -680,9 +458,9 @@ def map_uv_targets(chr_cache, cc3_rig, meta_rig):
 
     TARGETS = None
     if chr_cache.generation == "G3Plus":
-        TARGETS = UV_TARGETS_G3PLUS
+        TARGETS = rigify_mapping_data.UV_TARGETS_G3PLUS
     elif chr_cache.generation == "G3":
-        TARGETS = UV_TARGETS_G3
+        TARGETS = rigify_mapping_data.UV_TARGETS_G3
     else:
         return
 
@@ -705,10 +483,10 @@ def map_uv_targets(chr_cache, cc3_rig, meta_rig):
                     uv_target = uvt[index + 2]
                     uv_target.append(0)
 
-                    world = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_target, UV_THRESHOLD)
+                    world = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_target, rigify_mapping_data.UV_THRESHOLD)
                     if m_bone or m_last:
                         m_uv_target = mirror_uv_target(uv_target)
-                        m_world = geom.get_world_from_uv(obj, t_mesh, mat_slot, m_uv_target, UV_THRESHOLD)
+                        m_world = geom.get_world_from_uv(obj, t_mesh, mat_slot, m_uv_target, rigify_mapping_data.UV_THRESHOLD)
 
                     if world:
                         if last:
@@ -743,14 +521,14 @@ def map_uv_targets(chr_cache, cc3_rig, meta_rig):
                     uv_head.append(0)
                     uv_tail.append(0)
 
-                    world_head = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_head, UV_THRESHOLD)
-                    world_tail = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_tail, UV_THRESHOLD)
+                    world_head = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_head, rigify_mapping_data.UV_THRESHOLD)
+                    world_tail = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_tail, rigify_mapping_data.UV_THRESHOLD)
 
                     if m_bone:
                         muv_head = mirror_uv_target(uv_head)
                         muv_tail = mirror_uv_target(uv_tail)
-                        mworld_head = geom.get_world_from_uv(obj, t_mesh, mat_slot, muv_head, UV_THRESHOLD)
-                        mworld_tail = geom.get_world_from_uv(obj, t_mesh, mat_slot, muv_tail, UV_THRESHOLD)
+                        mworld_head = geom.get_world_from_uv(obj, t_mesh, mat_slot, muv_head, rigify_mapping_data.UV_THRESHOLD)
+                        mworld_tail = geom.get_world_from_uv(obj, t_mesh, mat_slot, muv_tail, rigify_mapping_data.UV_THRESHOLD)
 
                     if bone and world_head:
                         bone.head = world_head
@@ -774,7 +552,7 @@ def map_uv_targets(chr_cache, cc3_rig, meta_rig):
                 uv_target = uvt[2]
                 uv_target.append(0)
 
-                world = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_target, UV_THRESHOLD)
+                world = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_target, rigify_mapping_data.UV_THRESHOLD)
                 if world:
                     bone.head = world
 
@@ -782,7 +560,7 @@ def map_uv_targets(chr_cache, cc3_rig, meta_rig):
                 uv_target = uvt[2]
                 uv_target.append(0)
 
-                world = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_target, UV_THRESHOLD)
+                world = geom.get_world_from_uv(obj, t_mesh, mat_slot, uv_target, rigify_mapping_data.UV_THRESHOLD)
                 if world:
                     bone.tail = world
 
@@ -885,30 +663,27 @@ def match_meta_rig(chr_cache, cc3_rig, meta_rig, rigify_data):
     relative_coords = {}
     roll_store = {}
 
-    if utils.set_mode("OBJECT"):
-        utils.set_active_object(cc3_rig)
+    if utils.edit_mode_to(cc3_rig):
 
-        if utils.set_mode("EDIT"):
-            store_bone_roll(meta_rig, roll_store)
+        store_bone_roll(meta_rig, roll_store)
 
-            if utils.set_mode("OBJECT"):
-                utils.set_active_object(meta_rig)
+        if utils.edit_mode_to(meta_rig):
 
-                if utils.set_mode("EDIT"):
+            prune_meta_rig(meta_rig)
+            store_relative_mappings(meta_rig, relative_coords)
 
-                    prune_meta_rig(meta_rig)
-                    store_relative_mappings(meta_rig, relative_coords)
+            for mapping in rigify_data.bone_mapping:
+                map_bone(cc3_rig, meta_rig, mapping)
 
-                    for mapping in rigify_data.bone_mapping:
-                        map_bone(cc3_rig, meta_rig, mapping)
+            set_rigify_params(meta_rig)
+            if chr_cache.rig_full_face():
+                map_uv_targets(chr_cache, cc3_rig, meta_rig)
+            map_face(cc3_rig, meta_rig, rigify_data.head_bone)
 
-                    restore_relative_mappings(meta_rig, relative_coords)
-                    restore_bone_roll(meta_rig, roll_store, rigify_data.roll_correction)
-                    set_rigify_params(meta_rig)
-                    if chr_cache.rig_full_face():
-                        map_uv_targets(chr_cache, cc3_rig, meta_rig)
-                    map_face(cc3_rig, meta_rig, rigify_data.head_bone)
-                    return
+            restore_relative_mappings(meta_rig, relative_coords)
+            fix_jaw(cc3_rig, meta_rig)
+            restore_bone_roll(meta_rig, roll_store)
+            return
 
     utils.log_error("Unable to match meta rig.")
 
@@ -952,84 +727,20 @@ def fix_bend(meta_rig, bone_one_name, bone_two_name, dir : mathutils.Vector):
     return
 
 
-def convert_to_basic_face_rig(meta_rig, face_bones):
+def convert_to_basic_face_rig(rigify_rig):
 
-    if utils.set_mode("OBJECT") and utils.set_active_object(meta_rig) and utils.set_mode("EDIT"):
+    if utils.edit_mode_to(rigify_rig):
 
-        utils.log_info("Removing face bones from Meta-Rig.")
+        for b in rigify_mapping_data.REMOVE_BASIC_FACE_BONES:
 
-        delete_bones = []
+            bone_names = [b, f"DEF-{b}", f"ORG-{b}", f"MCH-{b}"]
 
-        # remove all meta-rig bones in layer[0] (the face bones)
-        KEEP_BONES = []
-        bone : bpy.types.EditBone
-        for bone in meta_rig.data.edit_bones:
-            if bone.layers[0] and bone.name not in KEEP_BONES:
-                delete_bones.append(bone)
+            for bone_name in bone_names:
+                bone = bones.get_edit_bone(rigify_rig, bone_name)
+                if bone:
+                    rigify_rig.data.edit_bones.remove(bone)
 
-        for bone in delete_bones:
-            meta_rig.data.edit_bones.remove(bone)
-
-        utils.log_info("Adding custom basic face bones to Meta-Rig.")
-        utils.log_indent()
-
-        y = 0
-        # add the needed face bones (eyes and jaw)
-        for face_bone_def in face_bones:
-
-            bone_name = face_bone_def[0]
-            parent_name = face_bone_def[1]
-            relation_flags = face_bone_def[2]
-            layer = face_bone_def[3]
-            mode = "NONE"
-            if len(face_bone_def) > 4:
-                mode = face_bone_def[4]
-
-            utils.log_info(f"Adding bone: {bone_name}")
-
-            # make a new bone
-            face_bone = meta_rig.data.edit_bones.new(bone_name)
-
-            # give the bone a non zero length otherwise the bone will be deleted as invalid when exiting edit mode...
-            # (the bone will be positioned correctly later acording to the bone mappings)
-            face_bone.head = (0, y, 0)
-            # and make sure chains of bones don't overlap and become invalid...
-            y -= 0.1
-            face_bone.tail = (0, y, 0)
-
-            # set the bone parent
-            bone_parent = bones.get_edit_bone(meta_rig, parent_name)
-            if bone_parent:
-                utils.log_info(f"Parenting bone: {bone_name} to {parent_name}")
-                face_bone.parent = bone_parent
-
-            # set the bone flags
-            face_bone.use_connect = True if "C" in relation_flags else False
-            face_bone.use_local_location = True if "L" in relation_flags else False
-            face_bone.use_inherit_rotation = True if "R" in relation_flags else False
-            face_bone.layers[layer] = True
-
-            # set pose bone rigify types
-            pose_bone = bones.get_pose_bone(meta_rig, bone_name)
-            if pose_bone:
-                if mode == "JAW":
-                    try:
-                        pose_bone.rigify_type = 'basic.pivot'
-                        pose_bone.rigify_parameters.make_extra_control = True
-                        pose_bone.rigify_parameters.pivot_master_widget_type = "jaw"
-                        pose_bone.rigify_parameters.make_control = False
-                        pose_bone.rigify_parameters.make_extra_deform = True
-                    except:
-                        utils.log_error("Unable to set rigify Jaw type.")
-                elif mode == "TONGUE":
-                    try:
-                        pose_bone.rigify_type = 'face.basic_tongue'
-                    except:
-                        utils.log_error("Unable to set rigify Tongue type.")
-                else:
-                    pose_bone.rigify_type = ""
-
-        utils.log_recess()
+    utils.set_mode("OBJECT")
 
 
 def add_shape_key_drivers(chr_cache, rig):
@@ -1037,7 +748,7 @@ def add_shape_key_drivers(chr_cache, rig):
         if obj.type == "MESH" and obj.parent == rig:
             obj_cache = chr_cache.get_object_cache(obj)
             if is_face_object(obj_cache, obj):
-                for skd_def in SHAPE_KEY_DRIVERS:
+                for skd_def in rigify_mapping_data.SHAPE_KEY_DRIVERS:
                     flags = skd_def[0]
                     if "Bfr" in flags and chr_cache.rigified_full_face_rig:
                         continue
@@ -1096,7 +807,7 @@ def modify_controls(rigify_rig):
             utils.log_info("Resizing and Repositioning rig controls:")
             utils.log_indent()
 
-            for mod in CONTROL_MODIFY:
+            for mod in rigify_mapping_data.CONTROL_MODIFY:
                 bone_name = mod[0]
                 scale = mod[1]
                 translation = mod[2]
@@ -1202,17 +913,17 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
 
 def is_face_object(obj_cache, obj):
     if obj and obj.type == "MESH":
-        if obj_cache and obj_cache.object_type in BODY_TYPES:
+        if obj_cache and obj_cache.object_type in rigify_mapping_data.BODY_TYPES:
             return True
         if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
             for shape_key in obj.data.shape_keys.key_blocks:
-                if shape_key.name in FACE_TEST_SHAPEKEYS:
+                if shape_key.name in rigify_mapping_data.FACE_TEST_SHAPEKEYS:
                     return True
     return False
 
 
 def is_face_def_bone(bvg):
-    for face_def_prefix in FACE_DEF_BONE_PREFIX:
+    for face_def_prefix in rigify_mapping_data.FACE_DEF_BONE_PREFIX:
         if bvg.name.startswith(face_def_prefix):
             return True
     return False
@@ -1304,7 +1015,7 @@ def lock_non_face_vgroups(chr_cache):
     arm = chr_cache.get_armature()
     if arm:
         for bone in arm.data.bones:
-            if bone.name in FACE_DEF_BONE_PREPASS:
+            if bone.name in rigify_mapping_data.FACE_DEF_BONE_PREPASS:
                 bone.use_deform = False
     # select body mesh and active rig
     if body and arm and utils.set_mode("OBJECT"):
@@ -1315,7 +1026,7 @@ def lock_non_face_vgroups(chr_cache):
 def unlock_vgroups(chr_cache):
     utils.log_info("Unlocking non face vertex weights.")
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.object_type in BODY_TYPES:
+        if obj_cache.object_type in rigify_mapping_data.BODY_TYPES:
             obj = obj_cache.object
             vg : bpy.types.VertexGroup
             for vg in obj.vertex_groups:
@@ -1325,7 +1036,7 @@ def unlock_vgroups(chr_cache):
     arm = chr_cache.get_armature()
     if arm:
         for bone in arm.data.bones:
-            if bone.name in FACE_DEF_BONE_PREPASS:
+            if bone.name in rigify_mapping_data.FACE_DEF_BONE_PREPASS:
                 bone.use_deform = True
     # select active rig
     if arm and utils.set_mode("OBJECT"):
@@ -2184,7 +1895,7 @@ def generate_unity_export_rig(chr_cache):
 
     # compile a list of all deformation bones
     def_bones = []
-    for export_def in UNITY_EXPORT_RIG:
+    for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
         def_bones.append(export_def[0])
 
     # remove all drivers
@@ -2214,7 +1925,7 @@ def generate_unity_export_rig(chr_cache):
             if edit_bone.name not in def_bones:
                 edit_bones.remove(edit_bone)
 
-        for export_def in UNITY_EXPORT_RIG:
+        for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
 
             bone_name = export_def[0]
             parent_name = export_def[1]
@@ -2240,7 +1951,7 @@ def generate_unity_export_rig(chr_cache):
                     bone.layers[l] = l == layer
 
         # rename bones for Unity
-        for export_def in UNITY_EXPORT_RIG:
+        for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
             bone_name = export_def[0]
             rename_name = export_def[2]
             if rename_name != "" and bone_name in edit_bones:
@@ -2326,7 +2037,7 @@ def adv_bake_rigify_to_unity(op, chr_cache):
 
             # copy constraints for baking animations
             if utils.object_mode_to(export_rig):
-                for export_def in UNITY_EXPORT_RIG:
+                for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
                     rigify_bone_name = export_def[0]
                     unity_bone_name = export_def[2]
                     if unity_bone_name == "":
@@ -2363,7 +2074,7 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache):
 
         # copy constraints for baking animations
         if utils.object_mode_to(export_rig):
-            for export_def in UNITY_EXPORT_RIG:
+            for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
                 rigify_bone_name = export_def[0]
                 unity_bone_name = export_def[2]
                 if unity_bone_name == "":
@@ -2425,7 +2136,7 @@ def prep_unity_export_rig(chr_cache):
 
 
 def rename_to_unity_vertex_groups(obj):
-    for export_def in UNITY_EXPORT_RIG:
+    for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
         rigify_bone_name = export_def[0]
         unity_bone_name = export_def[2]
         if rigify_bone_name in obj.vertex_groups:
@@ -2433,7 +2144,7 @@ def rename_to_unity_vertex_groups(obj):
 
 
 def restore_from_unity_vertex_groups(obj):
-    for export_def in UNITY_EXPORT_RIG:
+    for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
         rigify_bone_name = export_def[0]
         unity_bone_name = export_def[2]
         if unity_bone_name in obj.vertex_groups:
@@ -2530,9 +2241,9 @@ def is_G3_action(action):
         if len(action.fcurves) > 0:
             BONE_NAMES = None
             if "CC_Base_" in action.fcurves[0].data_path:
-                BONE_NAMES = CC3_BONE_NAMES
+                BONE_NAMES = rigify_mapping_data.CC3_BONE_NAMES
             else:
-                BONE_NAMES = ICLONE_BONE_NAMES
+                BONE_NAMES = rigify_mapping_data.ICLONE_BONE_NAMES
             for bone_name in BONE_NAMES:
                 if not name_in_data_paths(action, bone_name):
                     return False
@@ -2545,9 +2256,9 @@ def is_G3_armature(armature):
         if len(armature.data.bones) > 0:
             BONE_NAMES = None
             if armature.data.bones[0].name.startswith("CC_Base_"):
-                BONE_NAMES = CC3_BONE_NAMES
+                BONE_NAMES = rigify_mapping_data.CC3_BONE_NAMES
             else:
-                BONE_NAMES = ICLONE_BONE_NAMES
+                BONE_NAMES = rigify_mapping_data.ICLONE_BONE_NAMES
             for bone_name in BONE_NAMES:
                 if bone_name not in armature.data.bones:
                     return False
@@ -2558,7 +2269,7 @@ def is_G3_armature(armature):
 def is_GameBase_action(action):
     if action:
         if len(action.fcurves) > 0:
-            for bone_name in GAME_BASE_BONE_NAMES:
+            for bone_name in rigify_mapping_data.GAME_BASE_BONE_NAMES:
                 if not name_in_data_paths(action, bone_name):
                     return False
             return True
@@ -2568,7 +2279,7 @@ def is_GameBase_action(action):
 def is_GameBase_armature(armature):
     if armature:
         if len(armature.data.bones) > 0:
-            for bone_name in GAME_BASE_BONE_NAMES:
+            for bone_name in rigify_mapping_data.GAME_BASE_BONE_NAMES:
                 if bone_name not in armature.data.bones:
                     return False
             return True
@@ -2578,7 +2289,7 @@ def is_GameBase_armature(armature):
 def is_Mixamo_action(action):
     if action:
         if len(action.fcurves) > 0:
-            for bone_name in MIXAMO_BONE_NAMES:
+            for bone_name in rigify_mapping_data.MIXAMO_BONE_NAMES:
                 if not name_in_data_paths(action, bone_name):
                     return False
             return True
@@ -2588,7 +2299,7 @@ def is_Mixamo_action(action):
 def is_Mixamo_armature(armature):
     if armature:
         if len(armature.data.bones) > 0:
-            for bone_name in MIXAMO_BONE_NAMES:
+            for bone_name in rigify_mapping_data.MIXAMO_BONE_NAMES:
                 if bone_name not in armature.data.bones:
                     return False
             return True
@@ -2598,7 +2309,7 @@ def is_Mixamo_armature(armature):
 def is_rigify_armature(armature):
     if armature:
         if len(armature.data.bones) > 0:
-            for bone_name in RIGIFY_BONE_NAMES:
+            for bone_name in rigify_mapping_data.RIGIFY_BONE_NAMES:
                 if bone_name not in armature.data.bones:
                     return False
             return True
@@ -2659,12 +2370,9 @@ class CC3Rigifier(bpy.types.Operator):
                 if self.cc3_rig is not None:
                     self.cc3_rig.location = (0,0,0)
                     self.cc3_rig.data.pose_position = "REST"
-                    if not chr_cache.rig_full_face():
-                        convert_to_basic_face_rig(self.meta_rig, self.rigify_data.face_bones)
                     utils.log_info("Aligning Meta-Rig.")
                     utils.log_indent()
                     match_meta_rig(chr_cache, self.cc3_rig, self.meta_rig, self.rigify_data)
-                    chr_cache.rigified_full_face_rig = chr_cache.rig_full_face()
                     utils.log_recess()
                 else:
                     utils.log_error("Unable to locate imported CC3 rig!", self)
@@ -2721,9 +2429,14 @@ class CC3Rigifier(bpy.types.Operator):
                         utils.log_info("------------------------")
 
                         if self.rigify_rig:
+                            if not chr_cache.rig_full_face():
+                                convert_to_basic_face_rig(self.rigify_rig)
+                                chr_cache.rigified_full_face_rig = False
+                            else:
+                                chr_cache.rigified_full_face_rig = True
                             modify_controls(self.rigify_rig)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
-                            add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.add_def_bones)
+                            add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
@@ -2784,9 +2497,15 @@ class CC3Rigifier(bpy.types.Operator):
                         utils.log_info("------------------------")
 
                         if self.rigify_rig:
+                            if not chr_cache.rig_full_face():
+                                convert_to_basic_face_rig(self.rigify_rig)
+                                chr_cache.rigified_full_face_rig = False
+                            else:
+                                chr_cache.rigified_full_face_rig = True
                             modify_controls(self.rigify_rig)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
-                            add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.add_def_bones)
+                            add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
+                            add_shape_key_drivers(chr_cache, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
 

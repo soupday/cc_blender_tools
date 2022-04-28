@@ -16,7 +16,7 @@
 
 import bpy
 import mathutils
-from math import pi, atan, atan2
+from math import pi, atan
 from . import utils
 from rna_prop_ui import rna_idprop_ui_create
 

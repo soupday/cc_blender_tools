@@ -1351,13 +1351,15 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         box = layout.box()
         box.label(text="Exporting", icon="EXPORT")
 
-        #row = layout.row()
-        #op = row.operator("cc3.exporter", icon="CHECKMARK", text="Check Export").param = "CHECK_EXPORT"
-        #layout.separator()
         # export to CC3
         row = layout.row()
         row.scale_y = 2
-        op = row.operator("cc3.exporter", icon="MOD_ARMATURE", text="Export To CC3")
+        text = "Export to CC3"
+        icon = "MOD_ARMATURE"
+        if chr_cache and chr_cache.import_type == "obj":
+            text = "Export Morph Target"
+            icon = "ARROW_LEFTRIGHT"
+        op = row.operator("cc3.exporter", icon=icon, text=text)
         op.param = "EXPORT_CC3"
         if not chr_cache or not chr_cache.import_has_key:
             row.enabled = False
@@ -1374,7 +1376,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                 op.param = "UPDATE_UNITY"
             row2 = layout.row()
             row2.prop(prefs, "export_unity_mode", expand=True)
-            if not chr_cache:
+            if not chr_cache or chr_cache.import_type != "fbx":
                 row.enabled = False
                 row2.enabled = False
         elif chr_cache.rigified:

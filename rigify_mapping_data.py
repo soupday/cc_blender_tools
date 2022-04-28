@@ -15,17 +15,13 @@
 # along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 from dataclasses import dataclass
-from sys import set_coroutine_origin_tracking_depth
 
 @dataclass
 class RigifyData:
     """Class for keeping all data relating to bones mapping for rigify."""
     head_bone: str
     bone_mapping: list
-    face_bones: list
-    add_def_bones: list
     vertex_group_rename: list
-    roll_correction: list
 
 
 @dataclass
@@ -39,18 +35,12 @@ def get_mapping_for_generation(generation):
     if generation == "GameBase":
         return RigifyData("head",
                           GAME_BASE_BONE_MAPPINGS,
-                          FACE_BONES,
-                          ADD_DEF_BONES,
-                          GAME_BASE_VERTEX_GROUP_RENAME,
-                          ROLL_CORRECTION)
+                          GAME_BASE_VERTEX_GROUP_RENAME)
 
     elif generation == "ActorCore" or generation == "G3" or generation == "G3Plus":
         return RigifyData("CC_Base_Head",
                           G3_BONE_MAPPINGS,
-                          FACE_BONES,
-                          ADD_DEF_BONES,
-                          G3_VERTEX_GROUP_RENAME,
-                          ROLL_CORRECTION)
+                          G3_VERTEX_GROUP_RENAME)
 
     else:
         return None
@@ -182,6 +172,7 @@ G3_BONE_MAPPINGS = [
     ["jaw", "CC_Base_JawRoot", "CC_Base_Tongue03", 0, 1.35],
 ]
 
+
 GAME_BASE_BONE_MAPPINGS = [
     # Spine, Neck & Head:
     # spine chain
@@ -281,64 +272,6 @@ GAME_BASE_BONE_MAPPINGS = [
     ["jaw", "CC_Base_JawRoot", "CC_Base_Tongue03", 0, 1.35],
 ]
 
-FACE_BONES = [
-    ["face", "spine.006", "LR", 0],
-    ["eye.L", "face", "LR", 0],
-    ["eye.R", "face", "LR", 0],
-    ["jaw", "face", "LR", 0, "JAW"],
-    ["teeth.T", "face", "LR", 0],
-    ["teeth.B", "jaw", "LR", 0],
-    ["tongue", "jaw", "LR", 0, "TONGUE"],
-    ["tongue.001", "tongue", "CLR", 0],
-    ["tongue.002", "tongue.001", "CLR", 0],
-]
-
-# additional bones to copy from the cc3 or rigify rigs to generate rigify deformation, mech or control bones
-# [source_bone, new_rigify_bone, rigify_parent, flags, layer, scale, ref, arg]
-# flags C=Connected, L=Local location, R=Inherit rotation
-# layers: 31 = ORG bones, 30 = MCH bones, 29 = DEF bones
-# ref: reference bone(s) for position generation or constraints
-# arg: constraint args (influence)
-ADD_DEF_BONES = [
-
-    ["ORG-eye.R", "DEF-eye.R", "ORG-eye.R", "LR", 29],
-    ["ORG-eye.L", "DEF-eye.L", "ORG-eye.L", "LR", 29],
-
-    ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29],
-    ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29],
-
-    ["CC_Base_L_RibsTwist", "DEF-breast_twist.L", "ORG-breast.L", "LR", 29],
-    ["CC_Base_R_RibsTwist", "DEF-breast_twist.R", "ORG-breast.R", "LR", 29],
-    # "-" instructs to re-parent the existing DEF-breast bones to the new DEF-breast_twist bones.
-    ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29],
-    ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29],
-
-    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, 0.667, "DEF-upper_arm.L.001", 0.5],
-    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, 0.667, "DEF-thigh.L.001", 0.5],
-    #["DEF-toe.L", "DEF-toe_share.L", "DEF-toe.L", "LR", 29, 4.0, "DEF-foot.L", 0.5],
-
-    ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_IndexToe1", "DEF-toe_index.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_MidToe1", "DEF-toe_mid.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29],
-
-    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, 0.667, "DEF-upper_arm.R.001", 0.5],
-    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, 0.667, "DEF-thigh.R.001", 0.5],
-    #["DEF-toe.R", "DEF-toe_share.R", "DEF-toe.R", "LR", 29, 4.0, "DEF-foot.R", 0.5],
-
-    ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_IndexToe1", "DEF-toe_index.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29],
-
-    ["+MCHEyeParent", "MCH-eyes_parent", "ORG-face", "LR", 30],
-    ["+EyeControl", "eyes", "MCH-eyes_parent", "LR", 1, 0.2, ["ORG-eye.L", "ORG-eye.R"]],
-    ["+EyeControl", "eye.L", "eyes", "LR", 1,           0.2, ["ORG-eye.L"]],
-    ["+EyeControl", "eye.R", "eyes", "LR", 1,           0.2, ["ORG-eye.R"]],
-    ["#RenameBasicFace", "jaw", "jaw_master", "", 1],
-]
 
 G3_VERTEX_GROUP_RENAME = [
     # Spine, Neck & Head:
@@ -446,6 +379,7 @@ G3_VERTEX_GROUP_RENAME = [
     ["DEF-jaw", "CC_Base_JawRoot"],
 ]
 
+
 GAME_BASE_VERTEX_GROUP_RENAME = [
     # Spine, Neck & Head:
     ["DEF-spine", "pelvis"],
@@ -532,6 +466,68 @@ GAME_BASE_VERTEX_GROUP_RENAME = [
     ["DEF-jaw", "CC_Base_JawRoot"],
 ]
 
+
+# additional bones to copy from the cc3 or rigify rigs to generate rigify deformation, mech or control bones
+# [source_bone, new_rigify_bone, rigify_parent, flags, layer, scale, ref, arg]
+# flags C=Connected, L=Local location, R=Inherit rotation
+# layers: 31 = ORG bones, 30 = MCH bones, 29 = DEF bones
+# ref: reference bone(s) for position generation or constraints
+# arg: constraint args (influence)
+ADD_DEF_BONES = [
+
+    ["ORG-eye.R", "DEF-eye.R", "ORG-eye.R", "LR", 29],
+    ["ORG-eye.L", "DEF-eye.L", "ORG-eye.L", "LR", 29],
+
+    ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29],
+    ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29],
+
+    ["CC_Base_L_RibsTwist", "DEF-breast_twist.L", "ORG-breast.L", "LR", 29],
+    ["CC_Base_R_RibsTwist", "DEF-breast_twist.R", "ORG-breast.R", "LR", 29],
+    # "-" instructs to re-parent the existing DEF-breast bones to the new DEF-breast_twist bones.
+    ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29],
+    ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29],
+
+    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, 0.667, "DEF-upper_arm.L.001", 0.5],
+    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, 0.667, "DEF-thigh.L.001", 0.5],
+    #["DEF-toe.L", "DEF-toe_share.L", "DEF-toe.L", "LR", 29, 4.0, "DEF-foot.L", 0.5],
+
+    ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29],
+    ["CC_Base_L_IndexToe1", "DEF-toe_index.L", "DEF-toe.L", "LR", 29],
+    ["CC_Base_L_MidToe1", "DEF-toe_mid.L", "DEF-toe.L", "LR", 29],
+    ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29],
+    ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29],
+
+    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, 0.667, "DEF-upper_arm.R.001", 0.5],
+    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, 0.667, "DEF-thigh.R.001", 0.5],
+    #["DEF-toe.R", "DEF-toe_share.R", "DEF-toe.R", "LR", 29, 4.0, "DEF-foot.R", 0.5],
+
+    ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29],
+    ["CC_Base_R_IndexToe1", "DEF-toe_index.R", "DEF-toe.R", "LR", 29],
+    ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR", 29],
+    ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR", 29],
+    ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29],
+
+    ["+MCHEyeParent", "MCH-eyes_parent", "ORG-face", "LR", 30],
+    ["+EyeControl", "eyes", "MCH-eyes_parent", "LR", 1, 0.2, ["ORG-eye.L", "ORG-eye.R"]],
+    ["+EyeControl", "eye.L", "eyes", "LR", 1,           0.2, ["ORG-eye.L"]],
+    ["+EyeControl", "eye.R", "eyes", "LR", 1,           0.2, ["ORG-eye.R"]],
+    ["#RenameBasicFace", "jaw", "jaw_master", "", 1],
+]
+
+
+SHAPE_KEY_DRIVERS = [
+    ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A10_Eye_Look_Out_Left", ["SCRIPTED", "var*1.273 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A11_Eye_Look_In_Left", ["SCRIPTED", "-var*1.273 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+
+    ["Bfr", "A07_Eye_Look_Up_Right", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A09_Eye_Look_Down_Right", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A12_Eye_Look_In_Right", ["SCRIPTED", "var*1.273 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A13_Eye_Look_Out_Right", ["SCRIPTED", "-var*1.273 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+]
+
+
 # roll is aligned directly from meta rig bone z_axis now
 # we just need to apply a few corrections for better alignment i.e. hands, fingers
 # [meta rig bone name, axis],
@@ -580,6 +576,396 @@ ROLL_CORRECTION = [
     ["f_ring.03.R", "-Z"],
     ["f_pinky.03.R", "-Z"],
 ]
+
+
+# relative mappings: calculate the head/tail position of the first index,
+#     defined by the second index
+#     relative to a bounding box containing the proceding bones
+#     may need to specify a minimum box dimension to avoid flat boxes.
+#     after everything else has been placed, restore these relative mappings
+#     to place these bones in approximately the right place
+RELATIVE_MAPPINGS = [
+    # heel mappings
+    ["heel.02.L", "BOTH", "foot.L", "toe.L", "foot.R", "toe.R"],
+    ["heel.02.R", "BOTH", "foot.L", "toe.L", "foot.R", "toe.R"],
+
+    # approx face mappings
+    ["jaw",             "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["chin",            "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["chin.001",        "BOTH", "eye.L", "eye.R", "spine.006"],
+    #
+    ["tongue",          "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["tongue.001",      "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["tongue.002",      "BOTH", "eye.L", "eye.R", "spine.006"],
+    #
+    ["temple.R",        "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["jaw.R",           "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["jaw.R.001",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["chin.R",          "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["cheek.B.R",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["cheek.B.R.001",   "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["brow.T.R",        "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["brow.T.R.001",    "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["brow.T.R.002",    "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["brow.T.R.003",    "BOTH", "eye.L", "eye.R", "spine.006"],
+    #
+    ["cheek.T.R",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["cheek.T.R.001",   "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["nose.R",          "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["nose.R.001",      "BOTH", "eye.L", "eye.R", "spine.006"],
+    #
+    ["temple.L",        "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["jaw.L",           "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["jaw.L.001",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["chin.L",          "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["cheek.B.L",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["cheek.B.L.001",   "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["brow.T.L",        "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["brow.T.L.001",    "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["brow.T.L.002",    "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["brow.T.L.003",    "BOTH", "eye.L", "eye.R", "spine.006"],
+    #
+    ["cheek.T.L",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["cheek.T.L.001",   "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["nose.L",          "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["nose.L.001",      "BOTH", "eye.L", "eye.R", "spine.006"],
+    #
+    ["nose",            "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["nose.001",        "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["nose.002",        "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["nose.003",        "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["nose.004",        "BOTH", "eye.L", "eye.R", "spine.006"],
+    #
+    ["lip.T.R",         "HEAD", "eye.L", "eye.R", "spine.006", "spine.005"],
+    ["lip.T.R.001",     "BOTH", "eye.L", "eye.R", "spine.006", "spine.005"],
+    #
+    ["lip.T.L",         "HEAD", "eye.L", "eye.R", "spine.006", "spine.005"],
+    ["lip.T.L.001",     "BOTH", "eye.L", "eye.R", "spine.006", "spine.005"],
+    #
+    ["lip.B.R",         "HEAD", "eye.L", "eye.R", "spine.006", "spine.005"],
+    ["lip.B.R.001",     "BOTH", "eye.L", "eye.R", "spine.006", "spine.005"],
+    #
+    ["lip.B.L",         "HEAD", "eye.L", "eye.R", "spine.006", "spine.005"],
+    ["lip.B.L.001",     "BOTH", "eye.L", "eye.R", "spine.006", "spine.005"],
+    #
+    ["brow.B.R",        "HEAD", "eye.L", "eye.R"],
+    ["brow.B.R.001",    "HEAD", "eye.L", "eye.R"],
+    ["brow.B.R.002",    "HEAD", "eye.L", "eye.R"],
+    ["brow.B.R.003",    "BOTH", "eye.L", "eye.R"],
+    #
+    ["lid.T.R",         "HEAD", "eye.L", "eye.R"],
+    ["lid.T.R.001",     "HEAD", "eye.L", "eye.R"],
+    ["lid.T.R.002",     "HEAD", "eye.L", "eye.R"],
+    ["lid.T.R.003",     "HEAD", "eye.L", "eye.R"],
+    ["lid.B.R",         "HEAD", "eye.L", "eye.R"],
+    ["lid.B.R.001",     "HEAD", "eye.L", "eye.R"],
+    ["lid.B.R.002",     "HEAD", "eye.L", "eye.R"],
+    ["lid.B.R.003",     "BOTH", "eye.L", "eye.R"],
+    #
+    ["brow.B.L",        "HEAD", "eye.L", "eye.R"],
+    ["brow.B.L.001",    "HEAD", "eye.L", "eye.R"],
+    ["brow.B.L.002",    "HEAD", "eye.L", "eye.R"],
+    ["brow.B.L.003",    "BOTH", "eye.L", "eye.R"],
+    #
+    ["lid.T.L",         "HEAD", "eye.L", "eye.R"],
+    ["lid.T.L.001",     "HEAD", "eye.L", "eye.R"],
+    ["lid.T.L.002",     "HEAD", "eye.L", "eye.R"],
+    ["lid.T.L.003",     "HEAD", "eye.L", "eye.R"],
+    ["lid.B.L",         "HEAD", "eye.L", "eye.R"],
+    ["lid.B.L.001",     "HEAD", "eye.L", "eye.R"],
+    ["lid.B.L.002",     "HEAD", "eye.L", "eye.R"],
+    ["lid.B.L.003",     "BOTH", "eye.L", "eye.R"],
+    #
+    ["forehead.R",      "BOTH", "eye.L", "eye.R", "spine.006"],
+    ["forehead.R.001",  "BOTH", "eye.L", "eye.R", "spine.006"],
+    ["forehead.R.002",  "BOTH", "eye.L", "eye.R", "spine.006"],
+    ["forehead.L",      "BOTH", "eye.L", "eye.R", "spine.006"],
+    ["forehead.L.001",  "BOTH", "eye.L", "eye.R", "spine.006"],
+    ["forehead.L.002",  "BOTH", "eye.L", "eye.R", "spine.006"],
+    #
+    ["ear.R",           "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["ear.R.001",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["ear.R.002",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["ear.R.003",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["ear.R.004",       "BOTH", "eye.L", "eye.R", "spine.006"],
+    #
+    ["ear.L",           "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["ear.L.001",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["ear.L.002",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["ear.L.003",       "HEAD", "eye.L", "eye.R", "spine.006"],
+    ["ear.L.004",       "BOTH", "eye.L", "eye.R", "spine.006"],
+]
+
+
+REMOVE_BASIC_FACE_BONES = [
+    "DEF-chin",
+    "chin.002", "chin.001",
+    "temple.R", "jaw.R", "jaw.R.001",
+    "chin.R", "cheek.B.R", "cheek.B.R.001", "brow.T.R", "brow.T.R.001", "brow.T.R.002", "brow.T.R.003",
+    "cheek.T.R", "cheek.T.R.001", "nose.R", "nose.R.001",
+    "temple.L", "jaw.L", "jaw.L.001", "chin.L", "cheek.B.L", "cheek.B.L.001", "brow.T.L", "brow.T.L.001", "brow.T.L.002", "brow.T.L.003",
+    "cheek.T.L", "cheek.T.L.001", "nose.L", "nose.L.001",
+    "nose", "nose_master", "nose.001", "nose.002", "nose.003", "nose.004", "nose.005",
+    "lips.R", "lips.L", "lip.T", "lip.B", "lip.T.R", "lip.T.R.001", "lip.T.L", "lip.T.L.001",
+    "lip.B.R", "lip.B.R.001", "lip.B.L", "lip.B.L.001",
+    "brow.B.R", "brow.B.R.001", "brow.B.R.002", "brow.B.R.003", "brow.B.R.004",
+    "lid.T.R", "lid.T.R.001", "lid.T.R.002", "lid.T.R.003", "lid.B.R", "lid.B.R.001", "lid.B.R.002", "lid.B.R.003",
+    "brow.B.L", "brow.B.L.001", "brow.B.L.002", "brow.B.L.003", "brow.B.L.004",
+    "lid.T.L", "lid.T.L.001", "lid.T.L.002", "lid.T.L.003", "lid.B.L", "lid.B.L.001", "lid.B.L.002", "lid.B.L.003",
+    "forehead.R", "forehead.R.001", "forehead.R.002",
+    "forehead.L", "forehead.L.001", "forehead.L.002",
+    "ear.R", "ear.R.001", "ear.R.002", "ear.R.003", "ear.R.004",
+    "ear.L", "ear.L.001", "ear.L.002", "ear.L.003", "ear.L.004",
+]
+
+
+# [rigify bone name, rigify re-parent, unity bone name, instruction]
+UNITY_EXPORT_RIG = [
+    # Spine, Neck & Head:
+    ["root", "", "CC_Base_Root", "-"],
+    ["DEF-spine", "root", "CC_Base_Hip", "PLR"],
+    ["DEF-pelvis", "DEF-spine", "CC_Base_Pelvis", "PLR"],
+    ["DEF-spine.001", "DEF-spine", "CC_Base_Waist", "PLR"],
+    ["DEF-spine.002", "DEF-spine.001", "CC_Base_Spine01", "PLR"],
+    ["DEF-spine.003", "DEF-spine.002", "CC_Base_Spine02", "PLR"],
+    ["DEF-spine.004", "DEF-spine.003", "CC_Base_NeckTwist01", "PLR"],
+    ["DEF-spine.005", "DEF-spine.004", "CC_Base_NeckTwist02", "PLR"],
+    ["DEF-spine.006", "DEF-spine.005", "CC_Base_Head", "PLR"],
+    # Left Breast:
+    ["DEF-breast_twist.L", "DEF-spine.003", "CC_Base_L_RibsTwist", "PLR"],
+    ["DEF-breast.L", "DEF-breast_twist.L", "CC_Base_L_Breast", "PLR"],
+    # Right Breast:
+    ["DEF-breast_twist.R", "DEF-spine.003", "CC_Base_R_RibsTwist", "PLR"],
+    ["DEF-breast.R", "DEF-breast_twist.R", "CC_Base_R_Breast", "PLR"],
+    # Left Leg:
+    ["DEF-thigh.L", "DEF-pelvis", "CC_Base_L_Thigh", "PLR"],
+    ["DEF-thigh.L.001", "DEF-thigh.L", "CC_Base_L_ThighTwist", "PLR"],
+    ["DEF-knee_share.L", "DEF-shin.L", "CC_Base_L_KneeShareBone", "PLR"],
+    ["DEF-shin.L", "DEF-thigh.L.001", "CC_Base_L_Calf", "PLR"],
+    ["DEF-shin.L.001", "DEF-shin.L", "CC_Base_L_CalfTwist", "PLR"],
+    ["DEF-foot.L", "DEF-shin.L.001", "CC_Base_L_Foot", "PLR"],
+    ["DEF-toe.L", "DEF-foot.L", "CC_Base_L_ToeBase", "PLR"],
+    # Left Foot:
+    ["DEF-toe_big.L", "DEF-toe.L", "CC_Base_L_BigToe1", "PLR"],
+    ["DEF-toe_index.L", "DEF-toe.L", "CC_Base_L_IndexToe1", "PLR"],
+    ["DEF-toe_mid.L", "DEF-toe.L", "CC_Base_L_MidToe1", "PLR"],
+    ["DEF-toe_ring.L", "DEF-toe.L", "CC_Base_L_RingToe1", "PLR"],
+    ["DEF-toe_pinky.L", "DEF-toe.L", "CC_Base_L_PinkyToe1", "PLR"],
+    # Left Arm:
+    ["DEF-shoulder.L", "DEF-spine.003", "CC_Base_L_Clavicle", "PLR"],
+    ["DEF-upper_arm.L", "DEF-shoulder.L", "CC_Base_L_Upperarm", "PLRC"],
+    ["DEF-upper_arm.L.001", "DEF-upper_arm.L", "CC_Base_L_UpperarmTwist", "PLR"],
+    ["DEF-elbow_share.L", "DEF-forearm.L", "CC_Base_L_ElbowShareBone", "PLR"],
+    ["DEF-forearm.L", "DEF-upper_arm.L.001", "CC_Base_L_Forearm", "PLR"],
+    ["DEF-forearm.L.001", "DEF-forearm.L", "CC_Base_L_ForearmTwist", "PLR"],
+    ["DEF-hand.L", "DEF-forearm.L.001", "CC_Base_L_Hand", "PLR"],
+    # Left Hand Fingers:
+    ["DEF-thumb.01.L", "DEF-hand.L", "CC_Base_L_Thumb1", "PLR"],
+    ["DEF-f_index.01.L", "DEF-hand.L", "CC_Base_L_Index1", "PLR"],
+    ["DEF-f_middle.01.L", "DEF-hand.L", "CC_Base_L_Mid1", "PLR"],
+    ["DEF-f_ring.01.L", "DEF-hand.L", "CC_Base_L_Ring1", "PLR"],
+    ["DEF-f_pinky.01.L", "DEF-hand.L", "CC_Base_L_Pinky1", "PLR"],
+    ["DEF-thumb.02.L", "DEF-thumb.01.L", "CC_Base_L_Thumb2", "PLR"],
+    ["DEF-f_index.02.L", "DEF-f_index.01.L", "CC_Base_L_Index2", "PLR"],
+    ["DEF-f_middle.02.L", "DEF-f_middle.01.L", "CC_Base_L_Mid2", "PLR"],
+    ["DEF-f_ring.02.L", "DEF-f_ring.01.L", "CC_Base_L_Ring2", "PLR"],
+    ["DEF-f_pinky.02.L", "DEF-f_pinky.01.L", "CC_Base_L_Pinky2", "PLR"],
+    ["DEF-thumb.03.L", "DEF-thumb.02.L", "CC_Base_L_Thumb3", "PLR"],
+    ["DEF-f_index.03.L", "DEF-f_index.02.L", "CC_Base_L_Index3", "PLR"],
+    ["DEF-f_middle.03.L", "DEF-f_middle.02.L", "CC_Base_L_Mid3", "PLR"],
+    ["DEF-f_ring.03.L", "DEF-f_ring.02.L", "CC_Base_L_Ring3", "PLR"],
+    ["DEF-f_pinky.03.L", "DEF-f_pinky.02.L", "CC_Base_L_Pinky3", "PLR"],
+    # Right Leg:
+    ["DEF-thigh.R", "DEF-pelvis", "CC_Base_R_Thigh", "PLR"],
+    ["DEF-thigh.R.001", "DEF-thigh.R", "CC_Base_R_ThighTwist", "PLR"],
+    ["DEF-knee_share.R", "DEF-shin.R", "CC_Base_R_KneeShareBone", "PLR"],
+    ["DEF-shin.R", "DEF-thigh.R.001", "CC_Base_R_Calf", "PLR"],
+    ["DEF-shin.R.001", "DEF-shin.R", "CC_Base_R_CalfTwist", "PLR"],
+    ["DEF-foot.R", "DEF-shin.R.001", "CC_Base_R_Foot", "PLR"],
+    ["DEF-toe.R", "DEF-foot.R", "CC_Base_R_ToeBase", "PLR"],
+    # Right Foot:
+    ["DEF-toe_big.R", "DEF-toe.R", "CC_Base_R_BigToe1", "PLR"],
+    ["DEF-toe_index.R", "DEF-toe.R", "CC_Base_R_IndexToe1", "PLR"],
+    ["DEF-toe_mid.R", "DEF-toe.R", "CC_Base_R_MidToe1", "PLR"],
+    ["DEF-toe_ring.R", "DEF-toe.R", "CC_Base_R_RingToe1", "PLR"],
+    ["DEF-toe_pinky.R", "DEF-toe.R", "CC_Base_R_PinkyToe1", "PLR"],
+    # Right Arm:
+    ["DEF-shoulder.R", "DEF-spine.003", "CC_Base_R_Clavicle", "PLR"],
+    ["DEF-upper_arm.R", "DEF-shoulder.R", "CC_Base_R_Upperarm", "PLRC"],
+    ["DEF-upper_arm.R.001", "DEF-upper_arm.R", "CC_Base_R_UpperarmTwist", "PLR"],
+    ["DEF-elbow_share.R", "DEF-forearm.R", "CC_Base_R_ElbowShareBone", "PLR"],
+    ["DEF-forearm.R", "DEF-upper_arm.R.001", "CC_Base_R_Forearm", "PLR"],
+    ["DEF-forearm.R.001", "DEF-forearm.R", "CC_Base_R_ForearmTwist", "PLR"],
+    ["DEF-hand.R", "DEF-forearm.R.001", "CC_Base_R_Hand", "PLR"],
+    # Right Hand Fingers:
+    ["DEF-thumb.01.R", "DEF-hand.R", "CC_Base_R_Thumb1", "PLR"],
+    ["DEF-f_index.01.R", "DEF-hand.R", "CC_Base_R_Index1", "PLR"],
+    ["DEF-f_middle.01.R", "DEF-hand.R", "CC_Base_R_Mid1", "PLR"],
+    ["DEF-f_ring.01.R", "DEF-hand.R", "CC_Base_R_Ring1", "PLR"],
+    ["DEF-f_pinky.01.R", "DEF-hand.R", "CC_Base_R_Pinky1", "PLR"],
+    ["DEF-thumb.02.R", "DEF-thumb.01.R", "CC_Base_R_Thumb2", "PLR"],
+    ["DEF-f_index.02.R", "DEF-f_index.01.R", "CC_Base_R_Index2", "PLR"],
+    ["DEF-f_middle.02.R", "DEF-f_middle.01.R", "CC_Base_R_Mid2", "PLR"],
+    ["DEF-f_ring.02.R", "DEF-f_ring.01.R", "CC_Base_R_Ring2", "PLR"],
+    ["DEF-f_pinky.02.R", "DEF-f_pinky.01.R", "CC_Base_R_Pinky2", "PLR"],
+    ["DEF-thumb.03.R", "DEF-thumb.02.R", "CC_Base_R_Thumb3", "PLR"],
+    ["DEF-f_index.03.R", "DEF-f_index.02.R", "CC_Base_R_Index3", "PLR"],
+    ["DEF-f_middle.03.R", "DEF-f_middle.02.R", "CC_Base_R_Mid3", "PLR"],
+    ["DEF-f_ring.03.R", "DEF-f_ring.02.R", "CC_Base_R_Ring3", "PLR"],
+    ["DEF-f_pinky.03.R", "DEF-f_pinky.02.R", "CC_Base_R_Pinky3", "PLR"],
+    # Tongue:
+    ["DEF-tongue", "DEF-jaw", "CC_Base_Tongue03", "LRP"],
+    ["DEF-tongue.001", "DEF-tongue", "CC_Base_Tongue02", "PLR"],
+    ["DEF-tongue.002", "DEF-tongue.001", "CC_Base_Tongue01", "PLR"],
+    # Teeth:
+    ["DEF-teeth.T", "DEF-spine.006", "CC_Base_Teeth01", "PLR"],
+    ["DEF-teeth.B", "DEF-jaw", "CC_Base_Teeth02", "PLR"],
+    # Eyes:
+    ["DEF-eye.R", "DEF-spine.006", "CC_Base_R_Eye", "PLR"],
+    ["DEF-eye.L", "DEF-spine.006", "CC_Base_L_Eye", "PLR"],
+    # Jaw:
+    ["DEF-jaw", "DEF-spine.006", "CC_Base_JawRoot", "PLR"],
+]
+
+
+CONTROL_MODIFY = [
+    ["hand_ik.R", [-1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
+    ["hand_ik.L", [1, 1.5, 1.5], [0, 0, 0.0125], [0, 0, 0]],
+
+    ["foot_ik.R", [-1.25, 1.5, 1], [0, 0.05, 0], [0, 0, 0]],
+    ["foot_ik.L", [1.25, 1.5, 1], [0, 0.05, 0], [0, 0, 0]],
+
+    ["head", [1.25, 1, 1.25], [0, 0.02, 0], [0, 0, 0]],
+    ["jaw", [1.25, 1.25, 1.25], [0, 0, 0], [0, 0, 0]],
+    ["jaw_master", [1.25, 1.25, 1.25], [0, 0, 0], [0, 0, 0]],
+
+    ["shoulder.R", [-1.5, 1.5, 1.5], [0, 0, 0], [0, 0, 0]],
+    ["shoulder.L", [1.5, 1.5, 1.5], [0, 0, 0], [0, 0, 0]],
+    ["hips", [1.35, 1.35, 1.35], [0, 0, -0.015], [0, 0, 0]],
+    ["chest", [1.1, 1.5, 1.1], [0, 0.025, -0.025], [0, 0, 0]],
+    ["torso", [1.2, 1.2, 1.2], [0, 0, 0], [0, 0, 0]],
+    ["neck", [1.5, 1, 1.5], [0, 0, 0], [0, 0, 0]],
+    ["tongue", [1.5, 1.5, 1.5], [0, 0.015, -0.01], [0, 0, 0]],
+    ["tongue_master", [1.5, 1.5, 1.5], [0, 0.015, -0.01], [0, 0, 0]],
+
+    ["foot_heel_ik.L", [1.5, 1.5, 1.5], [0, 0.015, 0], [0, 0, 0]],
+    ["foot_heel_ik.R", [-1.5, 1.5, 1.5], [0, 0.015, 0], [0, 0, 0]],
+]
+
+
+RIGIFY_PARAMS = [
+    ["upper_arm.R", "x"],
+    ["upper_arm.L", "x"],
+    ["thigh.R", "x"],
+    ["thigh.L", "x"],
+]
+
+
+UV_THRESHOLD = 0.001
+
+
+UV_TARGETS_G3PLUS = [
+    # connected mapping: map (head)->(tail/head)->(tail/head->(tail/head)...
+    ["nose", "CONNECTED",           [0.500, 0.650], [0.500, 0.597], [0.500, 0.573], [0.500, 0.550], [0.500, 0.531], [0.500, 0.516]],
+    ["jaw", "CONNECTED",            [0.500, 0.339], [0.500, 0.395], [0.500, 0.432], [0.500, 0.453]],
+    ["cheek.T.R", "CONNECTED",      [0.360, 0.633], [0.413, 0.593], [0.453, 0.606], [0.446, 0.559], [0.500, 0.573]],
+    ["temple.R", "CONNECTED",       [0.250, 0.645], [0.289, 0.492], [0.360, 0.435], [0.429, 0.408], [0.443, 0.486], [0.363, 0.533],
+                                    [0.360, 0.633], [0.371, 0.660], [0.414, 0.682], [0.458, 0.678], [0.500, 0.650]],
+    ["ear.R", "CONNECTED",          [0.246, 0.566], [0.228, 0.640], [0.196, 0.623], [0.207, 0.554], [0.235, 0.534], [0.246, 0.566]],
+
+    ["lid.T.R", "CONNECTED",        [0.398, 0.638], [0.417, 0.644], [0.431, 0.644], [0.444, 0.641],
+                                    [0.450, 0.635], [0.437, 0.632], [0.422, 0.631], [0.407, 0.633], [0.398, 0.638]],
+    ["brow.B.R", "CONNECTED",       [0.388, 0.646], [0.413, 0.661], [0.435, 0.662], [0.454, 0.653], [0.460, 0.638]],
+
+    ["lip.T.R", "CONNECTED",        [0.500, 0.512], [0.468, 0.508], [0.443, 0.486]],
+    ["lip.B.R", "CONNECTED",        [0.500, 0.463], [0.478, 0.467], [0.443, 0.486]],
+
+    # disconnected mapping: map head and tail pairs
+    ["forehead.R", "DISCONNECTED",  [ [0.461, 0.740], [0.458, 0.678] ],
+                                    [ [0.410, 0.741], [0.414, 0.682] ],
+                                    [ [0.358, 0.725], [0.371, 0.660] ] ],
+    # set the top of the 'head' bone
+    #["spine.006", "TAIL",           [0.688, 0.953]],
+]
+
+
+UV_TARGETS_G3 = [
+    # connected mapping: map (head)->(tail/head)->(tail/head->(tail/head)...
+    ["nose", "CONNECTED",           [0.4999, 0.3614], [0.5000, 0.3080], [0.5000, 0.2858], [0.5000, 0.2668], [0.5000, 0.2507], [0.5000, 0.2366]],
+    ["jaw", "CONNECTED",            [0.5000, 0.0347], [0.5000, 0.1105], [0.5000, 0.1488], [0.5000, 0.1688]],
+    ["cheek.T.R", "CONNECTED",      [0.3467, 0.3457], [0.4058, 0.3062], [0.4519, 0.3188], [0.4493, 0.2728], [0.5000, 0.2858]],
+    ["temple.R", "CONNECTED",       [0.2028, 0.4031], [0.2418, 0.1913], [0.3349, 0.1369], [0.4211, 0.1202], [0.4378, 0.2023], [0.3414, 0.2428],
+                                    [0.3467, 0.3457], [0.3625, 0.3725], [0.4110, 0.3929], [0.4557, 0.3907], [0.4999, 0.3614]],
+    ["ear.R", "CONNECTED",          [0.1467, 0.3356], [0.1032, 0.4324], [0.1441, 0.4936], [0.0794, 0.3163], [0.1237, 0.2927], [0.1467, 0.3356]],
+
+    ["lid.T.R", "CONNECTED",        [0.3884, 0.3452], [0.4095, 0.3517], [0.4262, 0.3504], [0.4423, 0.3488],
+                                    [0.4474, 0.3435], [0.4343, 0.3375], [0.4169, 0.3360], [0.3987, 0.3383], [0.3884, 0.3452]],
+    ["brow.B.R", "CONNECTED",       [0.3789, 0.3567], [0.4082, 0.3716], [0.4314, 0.3740], [0.4522, 0.3651], [0.4578, 0.3479]],
+
+    ["lip.T.R", "CONNECTED",        [0.5000, 0.2316], [0.4642, 0.2281], [0.4378, 0.2023]],
+    ["lip.B.R", "CONNECTED",        [0.5000, 0.1787], [0.4744, 0.1818], [0.4378, 0.2023]],
+
+    # disconnected mapping: map head and tail pairs
+    ["forehead.R", "DISCONNECTED",  [ [0.4600, 0.4592], [0.4557, 0.3907] ],
+                                    [ [0.4110, 0.4565], [0.4110, 0.3929] ],
+                                    [ [0.3584, 0.4407], [0.3625, 0.3725] ] ],
+    # set the top of the 'head' bone
+    #["spine.006", "TAIL",           [0.688, 0.953]],
+]
+
+
+BODY_TYPES = ["BODY", "TEARLINE", "OCCLUSION"]
+
+
+FACE_DEF_BONE_PREFIX = [
+    "DEF-forehead.", "DEF-brow.", "DEF-lid.", "DEF-cheek.",
+    "DEF-temple.", "DEF-jaw.", "DEF-lip.", "DEF-ear.",
+    "DEF-nose", "DEF-chin", # don't use DEF-Jaw as this is based on the original CC3 weights.
+]
+
+
+FACE_DEF_BONE_PREPASS = [
+    "DEF-eye.L", "DEF-eye.R", "DEF-teeth.T", "DEF-teeth.B", "DEF-jaw",
+]
+
+
+FACE_TEST_SHAPEKEYS = [
+    "Eye_Wide_L", "Eye_Wide_R", "Eye_Blink_L", "Eye_Blink_R",
+    "Nose_Scrunch", "Nose_Flank_Raise_L", "Nose_Flank_Raise_R",
+    "Mouth_Smile_L", "Mouth_Smile_R", "Mouth_Open",
+    "Brow_Raise_L", "Brow_Raise_R",
+    "Cheek_Blow_L", "Cheek_Blow_R",
+]
+
+
+CC3_BONE_NAMES = [
+    "CC_Base_BoneRoot", "CC_Base_Hip", "CC_Base_FacialBone"
+]
+
+
+ICLONE_BONE_NAMES = [
+    "BoneRoot", "Hip", "FacialBone"
+]
+
+
+GAME_BASE_BONE_NAMES = [
+    "pelvis", "spine_01", "CC_Base_FacialBone"
+]
+
+
+MIXAMO_BONE_NAMES = [
+    "mixamorig:Hips", "mixamorig:Spine", "mixamorig:Head"
+]
+
+
+RIGIFY_BONE_NAMES = [
+    "MCH-torso.parent", "ORG-spine", "spine_fk"
+]
+
+# the minimum size of the relative mapping bounding box
+# 5cm
+BOX_PADDING = 0.01
+
 
 RETARGET_RIGIFY_BONES = [
     "root", "hips", "torso", "spine_fk", "spine_fk.001", "spine_fk.002", "chest", "spine_fk.003",
