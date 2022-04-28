@@ -688,7 +688,7 @@ RELATIVE_MAPPINGS = [
 
 # face bones to remove from the Rigify rig for just a basic face rig.
 # all prefix variations are also removed DEF-, ORG- MCH-
-REMOVE_BASIC_FACE_BONES = [
+NON_BASIC_FACE_BONES = [
     "DEF-chin",
     "chin.002", "chin.001",
     "temple.R", "jaw.R", "jaw.R.001",
@@ -1103,10 +1103,6 @@ RETARGET_G3 = [
     ["ORG-tongue", "ORG-jaw",                   "(CC_Base_|)Tongue03", "tongue_master", "PLR"],
     ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tongue.001", "PL"],
     ["ORG-tongue.002", "ORG-jaw",               "(CC_Base_|)Tongue01", "tongue.002", "PL"],
-    # tongue (basic face)
-    ["ORG-tongue", "ORG-jaw",                   "(CC_Base_|)Tongue03", "tweak_tongue", "PL"],
-    ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tweak_tongue.001", "PL"],
-    ["ORG-tongue.002", "ORG-jaw",               "(CC_Base_|)Tongue01", "tweak_tongue.002", "PL"],
     # IK bones
     ["ORG-hand.L", "ORG-forearm.L",             "(CC_Base_|)L_Hand", "hand_ik.L", "NLR"],
     ["ORG-hand.R", "ORG-forearm.R",             "(CC_Base_|)R_Hand", "hand_ik.R", "NLR"],
@@ -1224,10 +1220,6 @@ RETARGET_GAME_BASE = [
     ["ORG-tongue", "ORG-jaw",                   "(CC_Base_|)Tongue03", "tongue_master", "PLR"],
     ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tongue.001", "PL"],
     ["ORG-tongue.002", "ORG-jaw",               "(CC_Base_|)Tongue01", "tongue.002", "PL"],
-    # tongue (basic face)
-    ["ORG-tongue", "ORG-jaw",                   "(CC_Base_|)Tongue03", "tweak_tongue", "PL"],
-    ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tweak_tongue.001", "PL"],
-    ["ORG-tongue.002", "ORG-jaw",               "(CC_Base_|)Tongue01", "tweak_tongue.002", "PL"],
     # IK bones
     ["ORG-hand.L", "ORG-forearm.L",             "hand_l", "hand_ik.L", "NLR"],
     ["ORG-hand.R", "ORG-forearm.R",             "hand_r", "hand_ik.R", "NLR"],

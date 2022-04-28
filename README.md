@@ -37,6 +37,7 @@ Links
     - GameBase animation re-targeting to CC Rigified Rig.
     - Mixamo animation re-targeting to CC Rigified Rig.
 - Crash fixes importing characters with very short names.
+- **Export to CC3** button renamed to **Export Morph Target** when editing OBJ imports with ObjKey.
 
 ### 1.3.3
 - CC/iC/ActorCore animation re-targeting to CC Rigified Rig.

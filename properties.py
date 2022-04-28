@@ -1100,10 +1100,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return False
 
     def rig_full_face(self):
-        if not self.can_rig_full_face():
-            return False
-        else:
+        if self.rig_mode == "ADVANCED":
             return self.rig_face_rig
+        else:
+            if self.can_rig_full_face():
+                return self.rig_face_rig
+            else:
+                return False
 
     def get_all_materials_cache(self):
         cache_all = []

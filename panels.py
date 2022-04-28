@@ -55,6 +55,27 @@ def fake_drop_down(row, label, prop_name, prop_bool_value):
     return prop_bool_value
 
 
+def get_layout_width(region_type = "UI"):
+    ui_shelf = None
+    area = bpy.context.area
+    width = 15
+    for region in area.regions:
+        if region.type == region_type:
+            ui_shelf = region
+            width = int(ui_shelf.width / 8)
+    return width
+
+
+def wrapped_text_box(layout, info_text, width):
+    wrapper = textwrap.TextWrapper(width=width)
+    info_list = wrapper.wrap(info_text)
+
+    box = layout.box()
+    for text in info_list:
+        box.label(text=text)
+
+
+
 ALLOWED_RIG_BONES = [
     "CC_Base_BoneRoot", "CC_Base_FacialBone", "BoneRoot", "mixamorig:Hips",
 ]
@@ -786,14 +807,7 @@ class CC3RigifyPanel(bpy.types.Panel):
         layout.use_property_split = False
         layout.use_property_decorate = False
 
-        ui_shelf = None
-        area = bpy.context.area
-        width = 15
-
-        for region in area.regions:
-            if region.type == 'UI':
-                ui_shelf = region
-                width = int(ui_shelf.width / 8)
+        width = get_layout_width("UI")
 
         rigify_installed = rigging.is_rigify_installed()
 
@@ -978,11 +992,13 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                 elif chr_cache.can_be_rigged():
 
-                    if chr_cache and chr_cache.can_rig_full_face():
+                    if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
                         row = layout.row()
                         split = row.split(factor=0.5)
                         split.column().label(text = "Full Face Rig")
                         split.column().prop(chr_cache, "rig_face_rig", text = "")
+                        if not chr_cache.can_rig_full_face() and chr_cache.rig_face_rig:
+                            wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
 
                     if chr_cache.rig_mode == "QUICK":
 
@@ -1009,34 +1025,13 @@ class CC3RigifyPanel(bpy.types.Panel):
                     #row.enabled = chr_cache is not None
 
                 else:
-
-                    info_text = "This character can not be rigged."
-                    wrapper = textwrap.TextWrapper(width=width)
-                    info_list = wrapper.wrap(info_text)
-
-                    box = layout.box()
-                    for text in info_list:
-                        box.label(text=text)
+                    wrapped_text_box(layout, "This character can not be rigged.", width)
 
             else:
-
-                info_text = "No current character!"
-                wrapper = textwrap.TextWrapper(width=width)
-                info_list = wrapper.wrap(info_text)
-
-                box = layout.box()
-                for text in info_list:
-                    box.label(text=text)
+                wrapped_text_box(layout, "No current character!", width)
 
         else:
-
-            info_text = "Rigify add-on is not installed."
-            wrapper = textwrap.TextWrapper(width=width)
-            info_list = wrapper.wrap(info_text)
-
-            box = layout.box()
-            for text in info_list:
-                box.label(text=text)
+            wrapped_text_box(layout, "Rigify add-on is not installed.", width)
 
 
 class CC3ToolsScenePanel(bpy.types.Panel):
