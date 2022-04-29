@@ -564,6 +564,9 @@ ROLL_CORRECTION = [
     ["f_middle.03.R", "-Z"],
     ["f_ring.03.R", "-Z"],
     ["f_pinky.03.R", "-Z"],
+
+    ["eye.L", "Z"],
+    ["eye.R", "Z"],
 ]
 
 

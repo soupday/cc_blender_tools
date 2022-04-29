@@ -307,7 +307,7 @@ def set_rigify_params(meta_rig):
                 pose_bone.rigify_parameters.rotation_axis = bone_rot_axis
 
 
-def map_face(cc3_rig, meta_rig, cc3_head_bone):
+def map_face_bones(cc3_rig, meta_rig, cc3_head_bone):
     """Map positions of special face bones.
     """
 
@@ -325,26 +325,18 @@ def map_face(cc3_rig, meta_rig, cc3_head_bone):
         left_eye_source = bones.get_rl_bone(cc3_rig, "CC_Base_L_Eye")
         right_eye = bones.get_edit_bone(meta_rig, "eye.R")
         right_eye_source = bones.get_rl_bone(cc3_rig, "CC_Base_R_Eye")
-        up = mathutils.Vector((0,0,1))
 
         if left_eye and left_eye_source:
             head_position = cc3_rig.matrix_world @ left_eye_source.head_local
             tail_position = cc3_rig.matrix_world @ left_eye_source.tail_local
             dir : mathutils.Vector = tail_position - head_position
             left_eye.tail = head_position - (dir * length)
-            # ensure z_axis is pointing up
-            rot = up.rotation_difference(left_eye.z_axis)
-            left_eye.roll = rot.angle
-
 
         if right_eye and right_eye_source:
             head_position = cc3_rig.matrix_world @ right_eye_source.head_local
             tail_position = cc3_rig.matrix_world @ right_eye_source.tail_local
             dir : mathutils.Vector = tail_position - head_position
             right_eye.tail = head_position - (dir * length)
-            # ensure z_axis is pointing up
-            rot = up.rotation_difference(right_eye.z_axis)
-            right_eye.roll = rot.angle
 
         # head bone
 
@@ -389,7 +381,7 @@ def map_face(cc3_rig, meta_rig, cc3_head_bone):
             teeth_b_bone.tail = (cc3_rig.matrix_world @ teeth_b_source_bone.head_local)
 
 
-def fix_jaw(cc3_rig, meta_rig):
+def fix_jaw_pivot(cc3_rig, meta_rig):
     """Set the exact jaw bone position by setting the YZ coordinates of the jaw left and right bones.
     """
 
@@ -653,22 +645,33 @@ def match_meta_rig(chr_cache, cc3_rig, meta_rig, rigify_data):
     roll_store = {}
 
     if edit_rig(cc3_rig):
+        # store all the meta-rig bone roll axes
         store_bone_roll(meta_rig, roll_store)
+        #
         if edit_rig(meta_rig):
+            # remove unnecessary bones
             prune_meta_rig(meta_rig)
+            # store the relative positions of certain bones (face & heel)
             store_relative_mappings(meta_rig, relative_coords)
+            # map all CC3 bones to Meta-rig bones
             for mapping in rigify_data.bone_mapping:
                 map_bone(cc3_rig, meta_rig, mapping)
-            set_rigify_params(meta_rig)
-            if chr_cache.rig_full_face():
-                map_uv_targets(chr_cache, cc3_rig, meta_rig)
-            else:
-                hide_face_bones(meta_rig)
-            map_face(cc3_rig, meta_rig, rigify_data.head_bone)
+            # determine positions of face bones (eyes, head and teeth)
+            map_face_bones(cc3_rig, meta_rig, rigify_data.head_bone)
+            # restore and apply the relative positions of certain bones (face & heel)
             restore_relative_mappings(meta_rig, relative_coords)
-            fix_jaw(cc3_rig, meta_rig)
+            # fix the jaw pivot
+            fix_jaw_pivot(cc3_rig, meta_rig)
+            # map the face rig bones by UV map if possible
+            if chr_cache.rig_full_face():
+                if chr_cache.can_rig_full_face():
+                    map_uv_targets(chr_cache, cc3_rig, meta_rig)
+            else: # or hide them
+                hide_face_bones(meta_rig)
+            # restore meta-rig bone roll axes
             restore_bone_roll(meta_rig, roll_store)
-            return
+            # set rigify rig params
+            set_rigify_params(meta_rig)
 
 
 def fix_bend(meta_rig, bone_one_name, bone_two_name, dir : mathutils.Vector):
