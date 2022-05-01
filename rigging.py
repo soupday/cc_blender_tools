@@ -1593,7 +1593,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                         if f == "R":
                             bones.add_copy_rotation_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
 
-                        # average bone copy (in re-target rig)
+                        # average bone copy (in retarget rig)
                         if f == "A":
                             bone_1_name = retarget_def[pidx]
                             pidx += 1
@@ -1737,6 +1737,9 @@ def adv_preview_retarget(op, chr_cache):
         bpy.context.scene.frame_start = start_frame
         bpy.context.scene.frame_end = end_frame
 
+        if props.retarget_preview_shape_keys:
+            adv_retarget_shape_keys(op, chr_cache)
+
 
 def adv_retarget_pair_rigs(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
@@ -1755,7 +1758,7 @@ def adv_retarget_pair_rigs(op, chr_cache):
         op.report({'ERROR'}, "No Source Action!")
         return None
     if not is_rigify_armature(rigify_rig):
-        op.report({'ERROR'}, "Selected Armature is not a Rigify armature!")
+        op.report({'ERROR'}, "Character Armature is not a Rigify armature!")
         return None
     if not check_armature_action(source_rig, source_action):
         op.report({'ERROR'}, "Source Action does not match Source Armature!")
@@ -1849,9 +1852,172 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
         bake_rig_animation(rigify_rig, None, False, "NLA_Bake")
 
 
+# Shape-key retargeting
+#
+#
+
+
+def get_shape_key_name_from_data_path(data_path):
+    if data_path.startswith("key_blocks[\""):
+        start = utils.safe_index_of(data_path, '"', 0) + 1
+        end = utils.safe_index_of(data_path, '"', start)
+        return data_path[start:end]
+    return None
+
+
+def is_same_character_shape_key_actions(rigify_rig, shape_key_actions):
+    for action_object_name in shape_key_actions:
+        action = shape_key_actions[action_object_name]
+        matching_target = False
+        for child in rigify_rig.children:
+            child_name = utils.strip_name(child.name)
+            if child.type == "MESH" and child_name == action_object_name:
+                if action.fcurves == None or len(action.fcurves) == 0:
+                    matching_target = True
+                else:
+                    for fcurve in action.fcurves:
+                        shape_key_name = get_shape_key_name_from_data_path(fcurve.data_path)
+                        if shape_key_name in child.data.shape_keys.key_blocks:
+                            matching_target = True
+        if not matching_target:
+            utils.log_info(f"Action {action.name} different to character!")
+            return False
+    return True
+
+
+def get_source_shape_key_actions(source_rig, source_action):
+    actions = {}
+
+    utils.log_info(f"looking for shape-key actions in armature child objects: {source_rig.name}")
+
+    # try and fetch actions from child objects to the rig
+    for obj in source_rig.children:
+        if obj.type == "MESH":
+            action = utils.safe_get_action(obj.data.shape_keys)
+            if action:
+                utils.log_info(f"Found shape-key action: {action.name} for object {obj.name}")
+                actions[obj.name] = action
+
+    # try and match actions by name
+    animation_name = None
+    if source_action:
+        names = source_action.name.split("|")
+        if len(names) >= 3:
+            if names[0] == source_rig.name and names[1] == "A":
+                animation_name = names[2]
+
+    utils.log_info(f"looking for shape-key actions with animation name: {source_rig.name}|K|<obj>|{animation_name}")
+
+    if animation_name:
+        for action in bpy.data.actions:
+            names = action.name.split("|")
+            if len(names) >= 4:
+                if names[0] == source_rig.name and names[1] == "K":
+                    if utils.partial_match(names[3], animation_name):
+                        if names[2] not in actions:
+                            utils.log_info(f"Found shape-key action: {action.name} for object {names[2]}")
+                            actions[names[2]] = action
+
+    return actions
+
+
+def match_obj_shape_key_action_name(obj_name, shape_key_actions):
+    try_names = [obj_name]
+    if "CC_Base_" in obj_name:
+        try_names.append("CC_Game_" + obj_name[8:])
+        try_names.append(obj_name[8:])
+    elif "CC_Game_" in obj_name:
+        try_names.append("CC_Base_" + obj_name[8:])
+        try_names.append(obj_name[10:])
+    for name in try_names:
+        utils.log_info(f"Trying name {name}")
+        if name in shape_key_actions:
+            return shape_key_actions[name]
+    return None
+
+
+def remap_shape_key_actions(chr_cache, rigify_rig, shape_key_actions):
+    body_action = None
+    for obj_name in shape_key_actions:
+        if obj_name == "CC_Base_Body" or obj_name == "CC_Game_Body":
+            body_action = shape_key_actions[obj_name]
+            utils.log_info(f"Body Action: {body_action.name}")
+    if body_action:
+        for child in rigify_rig.children:
+            if child.type == "MESH":
+                obj_cache = chr_cache.get_object_cache(child)
+                child_name = utils.strip_name(child.name)
+                if is_face_object(obj_cache, child):
+                    action =  match_obj_shape_key_action_name(child_name, shape_key_actions)
+                    if action:
+                        utils.log_info(f"Remapping Action {action.name} for object: {child_name}")
+                        shape_key_actions[child_name] = action
+                    else:
+                        utils.log_info(f"Adding Body Action to object: {child_name}")
+                        shape_key_actions[child_name] = body_action
+    return shape_key_actions
+
+
+def apply_shape_key_actions(rigify_rig, shape_key_actions):
+    for child in rigify_rig.children:
+        if child.type == "MESH":
+            child_name = utils.strip_name(child.name)
+            if child_name in shape_key_actions:
+                utils.safe_set_action(child.data.shape_keys, shape_key_actions[child_name])
+            else:
+                utils.safe_set_action(child.data.shape_keys, None)
+
+
+def adv_retarget_shape_keys(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
+    rigify_rig = chr_cache.get_armature()
+    source_rig = props.armature_list_object
+    source_action = props.action_list_action
+
+    if not source_rig:
+        op.report({'ERROR'}, "No source Armature!")
+        return
+    if not rigify_rig:
+        op.report({'ERROR'}, "No Rigify Armature!")
+        return
+    if not source_action:
+        op.report({'ERROR'}, "No Source Action!")
+        return
+    if not is_rigify_armature(rigify_rig):
+        op.report({'ERROR'}, "Character Armature is not a Rigify armature!")
+        return
+    if not check_armature_action(source_rig, source_action):
+        op.report({'ERROR'}, "Source Action does not match Source Armature!")
+        return
+
+    source_type = get_armature_action_source_type(source_rig, source_action)
+    retarget_data = rigify_mapping_data.get_retarget_for_source(source_type)
+
+    if not retarget_data:
+        op.report({'ERROR'}, f"Retargeting from {source_type} not supported!")
+        return
+
+    shape_key_actions = get_source_shape_key_actions(source_rig, source_action)
+
+    if not shape_key_actions or len(shape_key_actions) == 0:
+        op.report({'WARNING'}, f"No shape-key actions in source animation!")
+        return
+
+    if is_same_character_shape_key_actions(rigify_rig, shape_key_actions):
+        apply_shape_key_actions(rigify_rig, shape_key_actions)
+        op.report({'INFO'}, f"Shape-key actions applied to character directly!")
+        return
+    else:
+        shape_key_actions = remap_shape_key_actions(chr_cache, rigify_rig, shape_key_actions)
+        apply_shape_key_actions(rigify_rig, shape_key_actions)
+        op.report({'WARNING'}, f"Shape-key actions retargeted to character!")
+        return
+
+
 # Unity animation exporting and baking
 #
 #
+
 
 def generate_unity_export_rig(chr_cache):
     rigify_rig = chr_cache.get_armature()
@@ -2567,6 +2733,9 @@ class CC3Rigifier(bpy.types.Operator):
             elif self.param == "NLA_CC_BAKE_UNITY":
                 adv_bake_rigify_NLA_to_unity(self, chr_cache)
 
+            elif self.param == "RETARGET_SHAPE_KEYS":
+                adv_retarget_shape_keys(self, chr_cache)
+
             props.restore_ui_list_indices()
 
         return {"FINISHED"}
@@ -2601,19 +2770,22 @@ class CC3Rigifier(bpy.types.Operator):
                    "Automatic Weights sometimes fails, so if detected some measures are taken to try to clean up the mesh and try again"
 
         elif properties.param == "BAKE_UNITY_ANIMATION":
-            return "Bake the current Rigify action (or Re-target action) to the Unity export rig"
+            return "Bake the current Rigify action (or Retarget action) to the Unity export rig"
 
         elif properties.param == "RETARGET_CC_PAIR_RIGS":
-            return "Preview the re-target action on the rigify rig, for real time correction or baking to Unity"
+            return "Preview the retarget action on the rigify rig, for real time correction or baking to Unity"
 
         elif properties.param == "RETARGET_CC_REMOVE_PAIR":
-            return "Remove re-targeting rig and constraints"
+            return "Remove retargeting rig and constraints"
 
         elif properties.param == "RIGIFY_SET_ACTION":
             return "Set the current action on the characters Rigify rig"
 
         elif properties.param == "RETARGET_CC_BAKE_ACTION":
             return "Bake the selected source action from the selected source armature to the character Rigify Rig."
+
+        elif properties.param == "RETARGET_SHAPE_KEYS":
+            return "Attempt to load the shape-key actions from the selected source armature's corresponding shape-key actions onto the current Rigify character."
 
         elif properties.param == "NLA_CC_BAKE":
             return "Bake the NLA track to the character Rigify Rig using the global scene frame range."

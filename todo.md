@@ -1,5 +1,7 @@
 # TODO
 
+
+- ActorCore (website) animations & armatures RL_BoneRoot, etc...
 - ShapeKey Actions:
     - ShapeKey retargeting from one character on an armature to the current rigified character
     - Facial expression extraction from shapekey actions (for NLA).

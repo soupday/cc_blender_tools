@@ -33,21 +33,21 @@ Links
 ## Changelog
 
 ### 1.3.4
-- Re-targeting system extended.
-    - GameBase animation re-targeting to CC Rigified Rig.
-    - Mixamo animation re-targeting to CC Rigified Rig.
+- Retargeting system extended.
+    - GameBase animation retargeting to CC Rigified Rig.
+    - Mixamo animation retargeting to CC Rigified Rig.
 - Crash fixes importing characters with very short names.
 - **Export to CC3** button renamed to **Export Morph Target** when editing OBJ imports with ObjKey.
 
 ### 1.3.3
-- CC/iC/ActorCore animation re-targeting to CC Rigified Rig.
-    - Preview and Bake functions for re-targeted animations.
+- CC/iC/ActorCore animation retargeting to CC Rigified Rig.
+    - Preview and Bake functions for retargeted animations.
     - Arms, Legs, Heel & Height adjustments.
     - Source armature and action selector, filtering by Armature name.
 - Animation importer, import multiple animations in one go.
     - Renames actions and armatures to match file names.
     - Optionally removes meshes & materials.
-- Bake control rig & re-targeted animations to Unity.
+- Bake control rig & retargeted animations to Unity.
 - Export Rigified character to Unity.
 - Basic face rig drivers for __Eye Look__ blend shapes. (If character has ExPlus blend shapes)
 - GameBase to Rigify support.

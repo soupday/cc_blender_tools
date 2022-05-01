@@ -524,6 +524,18 @@ def make_unique_name(name, keys):
     return name
 
 
+def partial_match(text, search, start = 0):
+    if text[start:] == search:
+        return True
+    if start > -1 and len(text) > start:
+        j = 0
+        for i in range(start, len(text)):
+            if text[i] != search[j]:
+                return False
+            j += 1
+    return True
+
+
 def tag_objects():
     for obj in bpy.data.objects:
         obj.tag = True

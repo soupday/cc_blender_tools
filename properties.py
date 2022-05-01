@@ -1538,6 +1538,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)
     stage_remapper: bpy.props.BoolProperty(default=False)
+    section_rigify_setup: bpy.props.BoolProperty(default=True)
+    section_rigify_retarget: bpy.props.BoolProperty(default=True)
+    retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
+    section_rigify_unity: bpy.props.BoolProperty(default=False)
 
     skin_toggle: bpy.props.BoolProperty(default=True)
     eye_toggle: bpy.props.BoolProperty(default=True)

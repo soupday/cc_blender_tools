@@ -368,15 +368,10 @@ def is_iclone_temp_motion(name : str):
     if not name[:u_idx].isdigit():
        return False
     search = "TempMotion"
-    if name[u_idx + 1:] == search:
+    if utils.partial_match(name, "TempMotion", u_idx + 1):
         return True
-    if u_idx > -1 and len(name) > u_idx + 1:
-        j = 0
-        for i in range(u_idx + 1, len(name)):
-            if name[i] != search[j]:
-                return False
-            j += 1
-    return True
+    else:
+        return False
 
 
 def remap_action_names(actions, objects, name):

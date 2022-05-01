@@ -831,60 +831,101 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                 layout.separator()
 
-                layout.box().row().label(text = "Rigify", icon = "OUTLINER_OB_ARMATURE")
+                if fake_drop_down(layout.box().row(),
+                                          "Rigify Setup",
+                                          "section_rigify_setup",
+                                          props.section_rigify_setup):
 
-                row = layout.row()
-                row.prop(chr_cache, "rig_mode", expand=True)
+                    row = layout.row()
+                    row.prop(chr_cache, "rig_mode", expand=True)
 
-                layout.separator()
+                    layout.separator()
 
-                if chr_cache.rigified:
+                    if chr_cache.rigified:
 
-                    if chr_cache.rigified_full_face_rig:
+                        if chr_cache.rigified_full_face_rig:
 
-                        layout.row().label(text = "Face Rig Re-Parenting", icon = "INFO")
+                            layout.row().label(text = "Face Rig Re-Parenting", icon = "INFO")
 
-                        if chr_cache.rig_mode == "ADVANCED":
+                            if chr_cache.rig_mode == "ADVANCED":
+
+                                row = layout.row()
+                                row.operator("cc3.rigifier", icon="LOCKED", text="Lock Non-Face VGroups").param = "LOCK_NON_FACE_VGROUPS"
+                                row.enabled = chr_cache is not None
+
+                                row = layout.row()
+                                row.operator("cc3.rigifier", icon="MESH_DATA", text="Clean Body Mesh").param = "CLEAN_BODY_MESH"
+                                row.enabled = chr_cache is not None
+
+                                row = layout.row()
+                                row.operator("cc3.rigifier", icon="ANIM_DATA", text="Reparent Auto Weights").param = "REPARENT_RIG"
+                                row.enabled = chr_cache is not None
+
+                                row = layout.row()
+                                row.operator("cc3.rigifier", icon="UNLOCKED", text="Unlock VGroups").param = "UNLOCK_VGROUPS"
+                                row.enabled = chr_cache is not None
+
+                            else:
+
+                                row = layout.row()
+                                row.operator("cc3.rigifier", icon="ANIM_DATA", text="With Automatic Weights").param = "REPARENT_RIG_SEPARATE_HEAD_QUICK"
+                                row.enabled = chr_cache is not None
+
+                                if rigging.is_surface_heat_voxel_skinning_installed():
+                                    row = layout.row()
+                                    row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SKINNING"
+                                    row.enabled = chr_cache is not None
+
+                            layout.separator()
+
+                        else:
+
+                            layout.row().label(text = "Rigging Done.", icon = "INFO")
+                            layout.separator()
+
+                    elif chr_cache.can_be_rigged():
+
+                        if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
+                            row = layout.row()
+                            split = row.split(factor=0.5)
+                            split.column().label(text = "Full Face Rig")
+                            split.column().prop(chr_cache, "rig_face_rig", text = "")
+                            if not chr_cache.can_rig_full_face() and chr_cache.rig_face_rig:
+                                wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
+
+                        if chr_cache.rig_mode == "QUICK":
 
                             row = layout.row()
-                            row.operator("cc3.rigifier", icon="LOCKED", text="Lock Non-Face VGroups").param = "LOCK_NON_FACE_VGROUPS"
-                            row.enabled = chr_cache is not None
-
-                            row = layout.row()
-                            row.operator("cc3.rigifier", icon="MESH_DATA", text="Clean Body Mesh").param = "CLEAN_BODY_MESH"
-                            row.enabled = chr_cache is not None
-
-                            row = layout.row()
-                            row.operator("cc3.rigifier", icon="ANIM_DATA", text="Reparent Auto Weights").param = "REPARENT_RIG"
-                            row.enabled = chr_cache is not None
-
-                            row = layout.row()
-                            row.operator("cc3.rigifier", icon="UNLOCKED", text="Unlock VGroups").param = "UNLOCK_VGROUPS"
+                            row.scale_y = 2
+                            row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param = "ALL"
                             row.enabled = chr_cache is not None
 
                         else:
 
                             row = layout.row()
-                            row.operator("cc3.rigifier", icon="ANIM_DATA", text="With Automatic Weights").param = "REPARENT_RIG_SEPARATE_HEAD_QUICK"
+                            row.scale_y = 2
+                            row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Attach Meta-Rig").param = "META_RIG"
                             row.enabled = chr_cache is not None
 
-                            if rigging.is_surface_heat_voxel_skinning_installed():
-                                row = layout.row()
-                                row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SKINNING"
-                                row.enabled = chr_cache is not None
+                            row = layout.row()
+                            row.scale_y = 2
+                            row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
+                            row.enabled = chr_cache is not None
 
-                        layout.separator()
+                        #row = layout.row()
+                        #row.scale_y = 2
+                        #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="REPORT FACE TARGETS").param = "REPORT_FACE_TARGETS"
+                        #row.enabled = chr_cache is not None
 
                     else:
+                        wrapped_text_box(layout, "This character can not be rigged.", width)
 
-                        layout.row().label(text = "Rigging Done.", icon = "INFO")
+                if chr_cache.rigified:
 
-                        layout.separator()
-
-                    if True:
-
-                        layout.box().row().label(text = "CC/ActorCore Re-target", icon = "ARMATURE_DATA")
-
+                    if fake_drop_down(layout.box().row(),
+                                        "Retargeting",
+                                        "section_rigify_retarget",
+                                        props.section_rigify_retarget):
                         row = layout.row()
                         row.scale_y = 2
                         #row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Imp. Character").param = "IMPORT"
@@ -930,10 +971,15 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         layout.separator()
 
+                        column = layout.column()
+                        split = column.split(factor=0.5)
+                        col_1 = split.column()
+                        col_2 = split.column()
+                        col_1.label(text="Preview Shape-keys")
+                        col_2.prop(props, "retarget_preview_shape_keys", text="")
                         row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Re-target").param = "RETARGET_CC_PAIR_RIGS"
-                        if source_type == "Unknown":
-                            row.enabled = False
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Retarget").param = "RETARGET_CC_PAIR_RIGS"
+                        row.enabled = source_type != "Unknown"
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="X", text="Stop Preview").param = "RETARGET_CC_REMOVE_PAIR"
                         row.enabled = chr_cache.rig_retarget_rig is not None
@@ -943,13 +989,19 @@ class CC3RigifyPanel(bpy.types.Panel):
                             row.enabled = False
                         layout.separator()
                         row = layout.row()
+                        row.operator("cc3.rigifier", icon="KEYINGSET", text="Retarget Shapekeys").param = "RETARGET_SHAPE_KEYS"
+                        row.enabled = source_type != "Unknown"
+                        layout.separator()
+                        row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
                         row.enabled = chr_cache.rig_retarget_rig is None
 
                         layout.separator()
 
-                        layout.box().row().label(text = "Unity Bake", icon = "CUBE")
-
+                    if fake_drop_down(layout.box().row(),
+                                        "Unity",
+                                        "section_rigify_unity",
+                                        props.section_rigify_unity):
                         unity_bake_action, unity_bake_source_type = rigging.get_unity_bake_action(chr_cache)
                         if unity_bake_action:
                             if unity_bake_source_type == "RIGIFY":
@@ -989,43 +1041,6 @@ class CC3RigifyPanel(bpy.types.Panel):
                         if not chr_cache:
                             row.enabled = False
                             row2.enabled = False
-
-                elif chr_cache.can_be_rigged():
-
-                    if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
-                        row = layout.row()
-                        split = row.split(factor=0.5)
-                        split.column().label(text = "Full Face Rig")
-                        split.column().prop(chr_cache, "rig_face_rig", text = "")
-                        if not chr_cache.can_rig_full_face() and chr_cache.rig_face_rig:
-                            wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
-
-                    if chr_cache.rig_mode == "QUICK":
-
-                        row = layout.row()
-                        row.scale_y = 2
-                        row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param = "ALL"
-                        row.enabled = chr_cache is not None
-
-                    else:
-
-                        row = layout.row()
-                        row.scale_y = 2
-                        row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Attach Meta-Rig").param = "META_RIG"
-                        row.enabled = chr_cache is not None
-
-                        row = layout.row()
-                        row.scale_y = 2
-                        row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Generate Rigify").param = "RIGIFY_META"
-                        row.enabled = chr_cache is not None
-
-                    #row = layout.row()
-                    #row.scale_y = 2
-                    #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="REPORT FACE TARGETS").param = "REPORT_FACE_TARGETS"
-                    #row.enabled = chr_cache is not None
-
-                else:
-                    wrapped_text_box(layout, "This character can not be rigged.", width)
 
             else:
                 wrapped_text_box(layout, "No current character!", width)
