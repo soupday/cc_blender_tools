@@ -36,6 +36,7 @@ Links
 - Retargeting system extended.
     - GameBase animation retargeting to CC Rigified Rig.
     - Mixamo animation retargeting to CC Rigified Rig.
+    - Shape-key retargeting from source animation to CC character.
 - Crash fixes importing characters with very short names.
 - **Export to CC3** button renamed to **Export Morph Target** when editing OBJ imports with ObjKey.
 

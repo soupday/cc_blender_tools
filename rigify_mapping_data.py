@@ -103,10 +103,14 @@ G3_BONE_MAPPINGS = [
     ["upper_arm.L", "CC_Base_L_Upperarm", ""],
     ["forearm.L", "CC_Base_L_Forearm", ""],
     ["hand.L", "CC_Base_L_Hand", "CC_Base_L_Hand", 0, 0.75],
-    ["palm.01.L", "CC_Base_L_Hand", "-CC_Base_L_Index1", 0.35, 1],
-    ["palm.02.L", "CC_Base_L_Hand", "-CC_Base_L_Mid1", 0.35, 1],
-    ["palm.03.L", "CC_Base_L_Hand", "-CC_Base_L_Ring1", 0.35, 1],
-    ["palm.04.L", "CC_Base_L_Hand", "-CC_Base_L_Pinky1", 0.35, 1],
+    #["palm.01.L", "CC_Base_L_Hand", "-CC_Base_L_Index1", 0.35, 1],
+    #["palm.02.L", "CC_Base_L_Hand", "-CC_Base_L_Mid1", 0.35, 1],
+    #["palm.03.L", "CC_Base_L_Hand", "-CC_Base_L_Ring1", 0.35, 1],
+    #["palm.04.L", "CC_Base_L_Hand", "-CC_Base_L_Pinky1", 0.35, 1],
+    ["palm.01.L", "CC_Base_L_Index1", "CC_Base_L_Index1", -1, 0],
+    ["palm.02.L", "CC_Base_L_Mid1", "CC_Base_L_Mid1", -1, 0],
+    ["palm.03.L", "CC_Base_L_Ring1", "CC_Base_L_Ring1", -1, 0],
+    ["palm.04.L", "CC_Base_L_Pinky1", "CC_Base_L_Pinky1", -1, 0],
     # Left Hand Fingers, chains
     ["thumb.01.L", "CC_Base_L_Thumb1", ""],
     ["f_index.01.L", "CC_Base_L_Index1", ""],
@@ -135,10 +139,14 @@ G3_BONE_MAPPINGS = [
     ["upper_arm.R", "CC_Base_R_Upperarm", ""],
     ["forearm.R", "CC_Base_R_Forearm", ""],
     ["hand.R", "CC_Base_R_Hand", "CC_Base_R_Hand", 0, 0.75],
-    ["palm.01.R", "CC_Base_R_Hand", "-CC_Base_R_Index1", 0.35, 1],
-    ["palm.02.R", "CC_Base_R_Hand", "-CC_Base_R_Mid1", 0.35, 1],
-    ["palm.03.R", "CC_Base_R_Hand", "-CC_Base_R_Ring1", 0.35, 1],
-    ["palm.04.R", "CC_Base_R_Hand", "-CC_Base_R_Pinky1", 0.35, 1],
+    #["palm.01.R", "CC_Base_R_Hand", "-CC_Base_R_Index1", 0.35, 1],
+    #["palm.02.R", "CC_Base_R_Hand", "-CC_Base_R_Mid1", 0.35, 1],
+    #["palm.03.R", "CC_Base_R_Hand", "-CC_Base_R_Ring1", 0.35, 1],
+    #["palm.04.R", "CC_Base_R_Hand", "-CC_Base_R_Pinky1", 0.35, 1],
+    ["palm.01.R", "CC_Base_R_Index1", "CC_Base_R_Index1", -1, 0],
+    ["palm.02.R", "CC_Base_R_Mid1", "CC_Base_R_Mid1", -1, 0],
+    ["palm.03.R", "CC_Base_R_Ring1", "CC_Base_R_Ring1", -1, 0],
+    ["palm.04.R", "CC_Base_R_Pinky1", "CC_Base_R_Pinky1", -1, 0],
     # Right Hand Fingers, chains
     ["thumb.01.R", "CC_Base_R_Thumb1", ""],
     ["f_index.01.R", "CC_Base_R_Index1", ""],
@@ -284,9 +292,11 @@ G3_VERTEX_GROUP_RENAME = [
     ["DEF-breast_twist.R", "CC_Base_R_RibsTwist"],
     ["DEF-breast.R", "CC_Base_R_Breast"],
     # Left Leg:
+    ["DEF-thigh.L", "CC_Base_L_Thigh"],
     ["DEF-thigh.L", "CC_Base_L_ThighTwist01"],
     ["DEF-thigh.L.001", "CC_Base_L_ThighTwist02"],
     ["DEF-knee_share.L", "CC_Base_L_KneeShareBone"],
+    ["DEF-shin.L", "CC_Base_L_Calf"],
     ["DEF-shin.L", "CC_Base_L_CalfTwist01"],
     ["DEF-shin.L.001", "CC_Base_L_CalfTwist02"],
     ["DEF-foot.L", "CC_Base_L_Foot"],
@@ -299,9 +309,11 @@ G3_VERTEX_GROUP_RENAME = [
     ["DEF-toe_pinky.L", "CC_Base_L_PinkyToe1"],
     # Left Arm:
     ["DEF-shoulder.L", "CC_Base_L_Clavicle"],
+    ["DEF-upper_arm.L", "CC_Base_L_Upperarm"],
     ["DEF-upper_arm.L", "CC_Base_L_UpperarmTwist01"],
     ["DEF-upper_arm.L.001", "CC_Base_L_UpperarmTwist02"],
     ["DEF-elbow_share.L", "CC_Base_L_ElbowShareBone"],
+    ["DEF-forearm.L", "CC_Base_L_Forearm"],
     ["DEF-forearm.L", "CC_Base_L_ForearmTwist01"],
     ["DEF-forearm.L.001", "CC_Base_L_ForearmTwist02"],
     ["DEF-hand.L", "CC_Base_L_Hand"],
@@ -322,9 +334,11 @@ G3_VERTEX_GROUP_RENAME = [
     ["DEF-f_ring.03.L", "CC_Base_L_Ring3"],
     ["DEF-f_pinky.03.L", "CC_Base_L_Pinky3"],
     # Right Leg:
+    ["DEF-thigh.R", "CC_Base_R_Thigh"],
     ["DEF-thigh.R", "CC_Base_R_ThighTwist01"],
     ["DEF-thigh.R.001", "CC_Base_R_ThighTwist02"],
     ["DEF-knee_share.R", "CC_Base_R_KneeShareBone"],
+    ["DEF-shin.R", "CC_Base_R_Calf"],
     ["DEF-shin.R", "CC_Base_R_CalfTwist01"],
     ["DEF-shin.R.001", "CC_Base_R_CalfTwist02"],
     ["DEF-foot.R", "CC_Base_R_Foot"],
@@ -337,9 +351,11 @@ G3_VERTEX_GROUP_RENAME = [
     ["DEF-toe_pinky.R", "CC_Base_R_PinkyToe1"],
     # Right Arm:
     ["DEF-shoulder.R", "CC_Base_R_Clavicle"],
+    ["DEF-upper_arm.R", "CC_Base_R_Upperarm"],
     ["DEF-upper_arm.R", "CC_Base_R_UpperarmTwist01"],
     ["DEF-upper_arm.R.001", "CC_Base_R_UpperarmTwist02"],
     ["DEF-elbow_share.R", "CC_Base_R_ElbowShareBone"],
+    ["DEF-forearm.R", "CC_Base_R_Forearm"],
     ["DEF-forearm.R", "CC_Base_R_ForearmTwist01"],
     ["DEF-forearm.R.001", "CC_Base_R_ForearmTwist02"],
     ["DEF-hand.R", "CC_Base_R_Hand"],
@@ -945,6 +961,10 @@ CC3_BONE_NAMES = [
     "CC_Base_BoneRoot", "CC_Base_Hip", "CC_Base_FacialBone"
 ]
 
+ACTOR_CORE_BONE_NAMES = [
+    "RL_BoneRoot", "CC_Base_Hip", "CC_Base_FacialBone"
+]
+
 
 # bone names to test for to see if armature or action is for a iClone:G3/G3Plus/ActorCore rig.
 # (iClone does not export bones with the "CC_Base_" prefix)
@@ -973,6 +993,11 @@ RIGIFY_BONE_NAMES = [
 # the minimum size of the relative mapping bounding box
 # 5cm
 BOX_PADDING = 0.01
+
+
+ALLOWED_RIG_BONES = [
+    "CC_Base_BoneRoot", "CC_Base_FacialBone", "RL_BoneRoot", "BoneRoot", "mixamorig:Hips",
+]
 
 
 # list of the Rigify control bones that animations are retargeted to

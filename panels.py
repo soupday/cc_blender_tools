@@ -19,7 +19,7 @@ import bpy
 import textwrap
 
 from . import addon_updater_ops
-from . import rigging, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, rigify_mapping_data, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 # Panel button functions and operator
 #
@@ -75,12 +75,6 @@ def wrapped_text_box(layout, info_text, width):
         box.label(text=text)
 
 
-
-ALLOWED_RIG_BONES = [
-    "CC_Base_BoneRoot", "CC_Base_FacialBone", "BoneRoot", "mixamorig:Hips",
-]
-
-
 class ARMATURE_UL_List(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -101,7 +95,7 @@ class ARMATURE_UL_List(bpy.types.UIList):
                 if "_Rigify" not in item_name: # don't list rigified armatures
                     if "_Retarget" not in item_name: # don't list retarget armatures
                         if len(item.data.bones) > 0:
-                            for allowed_bone in ALLOWED_RIG_BONES: # only list armatures of the allowed sources
+                            for allowed_bone in rigify_mapping_data.ALLOWED_RIG_BONES: # only list armatures of the allowed sources
                                 if allowed_bone in item.data.bones:
                                     allowed = True
             if not allowed:
@@ -133,21 +127,22 @@ class ACTION_UL_List(bpy.types.UIList):
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
         for i, item in enumerate(items):
-            item_name = utils.strip_name(item.name)
-            if len(item.fcurves) == 0: # no fcurves, no animation...
-                filtered[i] &= ~self.bitflag_filter_item
-            elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
-                filtered[i] &= ~self.bitflag_filter_item
-            elif props.armature_action_filter and "_Rigify|A|" in item_name: # don't show rigify baked actions
-                filtered[i] &= ~self.bitflag_filter_item
-            elif props.armature_action_filter and "_Unity|A|" in item.name: # don't show unity baked actions
-                filtered[i] &= ~self.bitflag_filter_item
-            elif props.armature_action_filter and arm_name and "|A|" in item.name and not item.name.startswith(arm_name + "|A|"):
-                filtered[i] &= ~self.bitflag_filter_item
+            if props.armature_action_filter:
+                if arm_name and item.name.startswith(arm_name + "|A|"):
+                    if self.filter_name and self.filter_name != "*":
+                        if self.filter_name not in item.name:
+                            filtered[i] &= ~self.bitflag_filter_item
+                else:
+                    filtered[i] &= ~self.bitflag_filter_item
             else:
-                if self.filter_name and self.filter_name != "*":
-                    if self.filter_name not in item.name:
-                        filtered[i] &= ~self.bitflag_filter_item
+                if len(item.fcurves) == 0: # no fcurves, no animation...
+                    filtered[i] &= ~self.bitflag_filter_item
+                elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
+                    filtered[i] &= ~self.bitflag_filter_item
+                else:
+                    if self.filter_name and self.filter_name != "*":
+                        if self.filter_name not in item.name:
+                            filtered[i] &= ~self.bitflag_filter_item
         return filtered, ordered
 
 
@@ -947,9 +942,9 @@ class CC3RigifyPanel(bpy.types.Panel):
                         action_list_action = utils.collection_at_index(props.action_list_index, bpy.data.actions)
                         source_type = "Unknown"
                         if armature_list_object:
-                            source_type = rigging.get_armature_action_source_type(armature_list_object, action_list_action)
+                            source_type, source_label = rigging.get_armature_action_source_type(armature_list_object, action_list_action)
                             if source_type:
-                                layout.box().label(text = f"{source_type} Animation", icon = "ARMATURE_DATA")
+                                layout.box().label(text = f"{source_label} Animation", icon = "ARMATURE_DATA")
 
                         #row = layout.row()
                         #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Set Rig Action").param = "RIGIFY_SET_ACTION"

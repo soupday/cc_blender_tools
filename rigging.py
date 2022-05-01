@@ -1764,7 +1764,7 @@ def adv_retarget_pair_rigs(op, chr_cache):
         op.report({'ERROR'}, "Source Action does not match Source Armature!")
         return None
 
-    source_type = get_armature_action_source_type(source_rig, source_action)
+    source_type, source_label = get_armature_action_source_type(source_rig, source_action)
     retarget_data = rigify_mapping_data.get_retarget_for_source(source_type)
 
     if not retarget_data:
@@ -1871,7 +1871,7 @@ def is_same_character_shape_key_actions(rigify_rig, shape_key_actions):
         matching_target = False
         for child in rigify_rig.children:
             child_name = utils.strip_name(child.name)
-            if child.type == "MESH" and child_name == action_object_name:
+            if child.type == "MESH" and child_name == action_object_name and child.data.shape_keys:
                 if action.fcurves == None or len(action.fcurves) == 0:
                     matching_target = True
                 else:
@@ -1990,7 +1990,7 @@ def adv_retarget_shape_keys(op, chr_cache):
         op.report({'ERROR'}, "Source Action does not match Source Armature!")
         return
 
-    source_type = get_armature_action_source_type(source_rig, source_action)
+    source_type, source_label = get_armature_action_source_type(source_rig, source_action)
     retarget_data = rigify_mapping_data.get_retarget_for_source(source_type)
 
     if not retarget_data:
@@ -2381,12 +2381,7 @@ def name_in_data_paths(action, name):
 def is_G3_action(action):
     if action:
         if len(action.fcurves) > 0:
-            BONE_NAMES = None
-            if "CC_Base_" in action.fcurves[0].data_path:
-                BONE_NAMES = rigify_mapping_data.CC3_BONE_NAMES
-            else:
-                BONE_NAMES = rigify_mapping_data.ICLONE_BONE_NAMES
-            for bone_name in BONE_NAMES:
+            for bone_name in rigify_mapping_data.CC3_BONE_NAMES:
                 if not name_in_data_paths(action, bone_name):
                     return False
             return True
@@ -2396,12 +2391,47 @@ def is_G3_action(action):
 def is_G3_armature(armature):
     if armature:
         if len(armature.data.bones) > 0:
-            BONE_NAMES = None
-            if armature.data.bones[0].name.startswith("CC_Base_"):
-                BONE_NAMES = rigify_mapping_data.CC3_BONE_NAMES
-            else:
-                BONE_NAMES = rigify_mapping_data.ICLONE_BONE_NAMES
-            for bone_name in BONE_NAMES:
+            for bone_name in rigify_mapping_data.CC3_BONE_NAMES:
+                if bone_name not in armature.data.bones:
+                    return False
+            return True
+    return False
+
+
+def is_iClone_action(action):
+    if action:
+        if len(action.fcurves) > 0:
+            for bone_name in rigify_mapping_data.ICLONE_BONE_NAMES:
+                if not name_in_data_paths(action, bone_name):
+                    return False
+            return True
+    return False
+
+
+def is_iClone_armature(armature):
+    if armature:
+        if len(armature.data.bones) > 0:
+            for bone_name in rigify_mapping_data.ICLONE_BONE_NAMES:
+                if bone_name not in armature.data.bones:
+                    return False
+            return True
+    return False
+
+
+def is_ActorCore_action(action):
+    if action:
+        if len(action.fcurves) > 0:
+            for bone_name in rigify_mapping_data.ACTOR_CORE_BONE_NAMES:
+                if not name_in_data_paths(action, bone_name):
+                    return False
+            return True
+    return False
+
+
+def is_ActorCore_armature(armature):
+    if armature:
+        if len(armature.data.bones) > 0:
+            for bone_name in rigify_mapping_data.ACTOR_CORE_BONE_NAMES:
                 if bone_name not in armature.data.bones:
                     return False
             return True
@@ -2471,13 +2501,17 @@ def check_armature_action(armature, action):
 
 def get_armature_action_source_type(armature, action):
     if is_G3_armature(armature) and is_G3_action(action):
-        return "G3"
+        return "G3", "G3 (CC3/CC3+)"
+    if is_iClone_armature(armature) and is_iClone_action(action):
+        return "G3", "G3 (iClone)"
+    if is_ActorCore_armature(armature) and is_ActorCore_action(action):
+        return "G3", "G3 (ActorCore)"
     if is_GameBase_armature(armature) and is_GameBase_action(action):
-        return "GameBase"
+        return "GameBase", "GameBase (CC3/CC3+)"
     if is_Mixamo_armature(armature) and is_Mixamo_action(action):
-        return "Mixamo"
+        return "Mixamo", "Mixamo"
     # detect other types as they become available...
-    return "Unknown"
+    return "Unknown", "Unknown"
 
 
 class CC3Rigifier(bpy.types.Operator):

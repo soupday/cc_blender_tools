@@ -1,11 +1,6 @@
 # TODO
 
-
-- ActorCore (website) animations & armatures RL_BoneRoot, etc...
-- ShapeKey Actions:
-    - ShapeKey retargeting from one character on an armature to the current rigified character
-    - Facial expression extraction from shapekey actions (for NLA).
-- Export Rigify > Unity
+- Export / Bake Rigify > Unity
     - Optional export Just animation to Unity, (just those meshes with shapekey tracks?).
     - Options to export just NLA or loose actions.
     - Optional export full face rig/just eyes and jaw
