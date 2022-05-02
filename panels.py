@@ -127,7 +127,7 @@ class ACTION_UL_List(bpy.types.UIList):
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
         for i, item in enumerate(items):
-            if props.armature_action_filter:
+            if props.armature_action_filter and arm_object:
                 if arm_name and item.name.startswith(arm_name + "|A|"):
                     if self.filter_name and self.filter_name != "*":
                         if self.filter_name not in item.name:
