@@ -789,10 +789,16 @@ def correct_meta_rig(meta_rig):
     utils.log_recess()
 
 
-def modify_controls(rigify_rig):
+def modify_rigify_rig(rigify_rig):
     """Resize and reposition Rigify control bones to make them easier to find.
        Note: scale, location, rotation modifiers for custom control shapes is Blender 3.0.0+ only
     """
+
+    # turn off deformation for palm bones
+    if edit_rig(rigify_rig):
+        for edit_bone in rigify_rig.data.edit_bones:
+            if edit_bone.name.startswith("DEF-palm"):
+                edit_bone.use_deform = False
 
     if utils.is_blender_version("3.0.0"):
         if select_rig(rigify_rig):
@@ -1738,7 +1744,7 @@ def adv_preview_retarget(op, chr_cache):
         bpy.context.scene.frame_end = end_frame
 
         if props.retarget_preview_shape_keys:
-            adv_retarget_shape_keys(op, chr_cache)
+            adv_retarget_shape_keys(op, chr_cache, False)
 
 
 def adv_retarget_pair_rigs(op, chr_cache):
@@ -1865,26 +1871,6 @@ def get_shape_key_name_from_data_path(data_path):
     return None
 
 
-def is_same_character_shape_key_actions(rigify_rig, shape_key_actions):
-    for action_object_name in shape_key_actions:
-        action = shape_key_actions[action_object_name]
-        matching_target = False
-        for child in rigify_rig.children:
-            child_name = utils.strip_name(child.name)
-            if child.type == "MESH" and child_name == action_object_name and child.data.shape_keys:
-                if action.fcurves == None or len(action.fcurves) == 0:
-                    matching_target = True
-                else:
-                    for fcurve in action.fcurves:
-                        shape_key_name = get_shape_key_name_from_data_path(fcurve.data_path)
-                        if shape_key_name in child.data.shape_keys.key_blocks:
-                            matching_target = True
-        if not matching_target:
-            utils.log_info(f"Action {action.name} different to character!")
-            return False
-    return True
-
-
 def get_source_shape_key_actions(source_rig, source_action):
     actions = {}
 
@@ -1930,7 +1916,6 @@ def match_obj_shape_key_action_name(obj_name, shape_key_actions):
         try_names.append("CC_Base_" + obj_name[8:])
         try_names.append(obj_name[10:])
     for name in try_names:
-        utils.log_info(f"Trying name {name}")
         if name in shape_key_actions:
             return shape_key_actions[name]
     return None
@@ -1939,7 +1924,7 @@ def match_obj_shape_key_action_name(obj_name, shape_key_actions):
 def remap_shape_key_actions(chr_cache, rigify_rig, shape_key_actions):
     body_action = None
     for obj_name in shape_key_actions:
-        if obj_name == "CC_Base_Body" or obj_name == "CC_Game_Body":
+        if obj_name == "CC_Base_Body" or obj_name == "CC_Game_Body" or obj_name == "Body":
             body_action = shape_key_actions[obj_name]
             utils.log_info(f"Body Action: {body_action.name}")
     if body_action:
@@ -1947,8 +1932,8 @@ def remap_shape_key_actions(chr_cache, rigify_rig, shape_key_actions):
             if child.type == "MESH":
                 obj_cache = chr_cache.get_object_cache(child)
                 child_name = utils.strip_name(child.name)
-                if is_face_object(obj_cache, child):
-                    action =  match_obj_shape_key_action_name(child_name, shape_key_actions)
+                if child_name not in shape_key_actions and is_face_object(obj_cache, child):
+                    action = match_obj_shape_key_action_name(child_name, shape_key_actions)
                     if action:
                         utils.log_info(f"Remapping Action {action.name} for object: {child_name}")
                         shape_key_actions[child_name] = action
@@ -1968,7 +1953,7 @@ def apply_shape_key_actions(rigify_rig, shape_key_actions):
                 utils.safe_set_action(child.data.shape_keys, None)
 
 
-def adv_retarget_shape_keys(op, chr_cache):
+def adv_retarget_shape_keys(op, chr_cache, report):
     props = bpy.context.scene.CC3ImportProps
     rigify_rig = chr_cache.get_armature()
     source_rig = props.armature_list_object
@@ -2000,18 +1985,15 @@ def adv_retarget_shape_keys(op, chr_cache):
     shape_key_actions = get_source_shape_key_actions(source_rig, source_action)
 
     if not shape_key_actions or len(shape_key_actions) == 0:
-        op.report({'WARNING'}, f"No shape-key actions in source animation!")
+        if report:
+            op.report({'WARNING'}, f"No shape-key actions in source animation!")
         return
 
-    if is_same_character_shape_key_actions(rigify_rig, shape_key_actions):
-        apply_shape_key_actions(rigify_rig, shape_key_actions)
-        op.report({'INFO'}, f"Shape-key actions applied to character directly!")
-        return
-    else:
-        shape_key_actions = remap_shape_key_actions(chr_cache, rigify_rig, shape_key_actions)
-        apply_shape_key_actions(rigify_rig, shape_key_actions)
-        op.report({'WARNING'}, f"Shape-key actions retargeted to character!")
-        return
+    shape_key_actions = remap_shape_key_actions(chr_cache, rigify_rig, shape_key_actions)
+    apply_shape_key_actions(rigify_rig, shape_key_actions)
+    if report:
+        op.report({'INFO'}, f"Shape-key actions retargeted to character!")
+    return
 
 
 # Unity animation exporting and baking
@@ -2613,7 +2595,7 @@ class CC3Rigifier(bpy.types.Operator):
                             else:
                                 convert_to_basic_face_rig(self.rigify_rig)
                                 chr_cache.rigified_full_face_rig = False
-                            modify_controls(self.rigify_rig)
+                            modify_rigify_rig(self.rigify_rig)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
@@ -2685,7 +2667,7 @@ class CC3Rigifier(bpy.types.Operator):
                             else:
                                 convert_to_basic_face_rig(self.rigify_rig)
                                 chr_cache.rigified_full_face_rig = False
-                            modify_controls(self.rigify_rig)
+                            modify_rigify_rig(self.rigify_rig)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
@@ -2768,7 +2750,7 @@ class CC3Rigifier(bpy.types.Operator):
                 adv_bake_rigify_NLA_to_unity(self, chr_cache)
 
             elif self.param == "RETARGET_SHAPE_KEYS":
-                adv_retarget_shape_keys(self, chr_cache)
+                adv_retarget_shape_keys(self, chr_cache, True)
 
             props.restore_ui_list_indices()
 
