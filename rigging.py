@@ -1729,6 +1729,9 @@ def adv_retarget_remove_pair(op, chr_cache):
     utils.set_active_object(rigify_rig)
     utils.set_mode("OBJECT")
 
+    # clear any animated shape keys
+    reset_shape_keys(chr_cache)
+
 
 def adv_preview_retarget(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
@@ -1862,6 +1865,22 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
 #
 #
 
+def reset_shape_keys(chr_cache):
+    rigify_rig = chr_cache.get_armature()
+    objects = []
+    for obj_cache in chr_cache.object_cache:
+        obj = obj_cache.object
+        if obj.type == "MESH":
+            objects.append(obj)
+    for obj in rigify_rig.children:
+        if obj.type == "MESH" and obj not in objects:
+            objects.append(obj)
+    for obj in objects:
+        if obj.data.shape_keys:
+            for key_block in obj.data.shape_keys.key_blocks:
+                key_block.value = 0.0
+
+
 
 def get_shape_key_name_from_data_path(data_path):
     if data_path.startswith("key_blocks[\""):
@@ -1987,12 +2006,12 @@ def adv_retarget_shape_keys(op, chr_cache, report):
     if not shape_key_actions or len(shape_key_actions) == 0:
         if report:
             op.report({'WARNING'}, f"No shape-key actions in source animation!")
-        return
+    else:
+        shape_key_actions = remap_shape_key_actions(chr_cache, rigify_rig, shape_key_actions)
+        apply_shape_key_actions(rigify_rig, shape_key_actions)
+        if report:
+            op.report({'INFO'}, f"Shape-key actions retargeted to character!")
 
-    shape_key_actions = remap_shape_key_actions(chr_cache, rigify_rig, shape_key_actions)
-    apply_shape_key_actions(rigify_rig, shape_key_actions)
-    if report:
-        op.report({'INFO'}, f"Shape-key actions retargeted to character!")
     return
 
 

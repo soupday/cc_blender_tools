@@ -1115,10 +1115,11 @@ RETARGET_G3 = [
     ["ORG-eye.R", "ORG-face",                   "(CC_Base_|)R_Eye", "eye.R", "PLRD", "ORG-eye.R"],
     ["ORG-eyes", "ORG-face",                    "", "eyes", "+LRA", "rigify:eyes", "eye.R", "eye.L"],
     # jaw
-    ["ORG-jaw", "ORG-face",                     "(CC_Base_|)JawRoot", "jaw_master", "PLR"],
+    ["ORG-jaw_root", "ORG-face",                "(CC_Base_|)JawRoot", "jaw_master", "+PLR", "rigify:MCH-jaw_master"],
+    ["ORG-jaw", "ORG-jaw_root",                 "", "", ""],
     # teeth
     ["ORG-teeth.T", "ORG-face",                 "(CC_Base_|)Teeth01", "teeth.T", "PLR"],
-    ["ORG-teeth.B", "ORG-face",                 "(CC_Base_|)Teeth02", "teeth.B", "PLR"],
+    ["ORG-teeth.B", "ORG-jaw",                  "(CC_Base_|)Teeth02", "teeth.B", "PLR"],
     # tongue (full face)
     ["ORG-tongue", "ORG-jaw",                   "(CC_Base_|)Tongue03", "tongue_master", "PLR"],
     ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tongue.001", "PL"],
@@ -1232,10 +1233,11 @@ RETARGET_GAME_BASE = [
     ["ORG-eye.R", "ORG-face",                   "(CC_Base_|)R_Eye", "eye.R", "PLRD", "ORG-eye.R"],
     ["ORG-eyes", "ORG-face",                    "", "eyes", "+LRA", "rigify:eyes", "eye.R", "eye.L"],
     # jaw
-    ["ORG-jaw", "ORG-face",                     "(CC_Base_|)JawRoot", "jaw_master", "PLR"],
+    ["ORG-jaw_root", "ORG-face",                "(CC_Base_|)JawRoot", "jaw_master", "+PLR", "rigify:MCH-jaw_master"],
+    ["ORG-jaw", "ORG-jaw_root",                 "", "", ""],
     # teeth
     ["ORG-teeth.T", "ORG-face",                 "(CC_Base_|)Teeth01", "teeth.T", "PLR"],
-    ["ORG-teeth.B", "ORG-face",                 "(CC_Base_|)Teeth02", "teeth.B", "PLR"],
+    ["ORG-teeth.B", "ORG-jaw",                  "(CC_Base_|)Teeth02", "teeth.B", "PLR"],
     # tongue (full face)
     ["ORG-tongue", "ORG-jaw",                   "(CC_Base_|)Tongue03", "tongue_master", "PLR"],
     ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tongue.001", "PL"],

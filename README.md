@@ -33,12 +33,16 @@ Links
 ## Changelog
 
 ### 1.3.4
-- Retargeting system extended.
+- Retargeting system extended:
     - GameBase animation retargeting to CC Rigified Rig.
     - Mixamo animation retargeting to CC Rigified Rig.
-    - Shape-key retargeting from source animation to CC character.
-- Crash fixes importing characters with very short names.
-- **Export to CC3** button renamed to **Export Morph Target** when editing OBJ imports with ObjKey.
+    - Shape-key animation retargeting from source animation to CC character.
+- Changes:
+    - Basic face rig generated from full face rig and has the same jaw & eye controls and parameters.
+    - Jaw pivot retargeting fixes.
+    - Palm bones no longer affect deformation or generate vertex weights.
+    - Crash fixes importing characters with very short names.
+    - **Export to CC3** button renamed to **Export Morph Target** when editing OBJ imports with ObjKey.
 
 ### 1.3.3
 - CC/iC/ActorCore animation retargeting to CC Rigified Rig.
