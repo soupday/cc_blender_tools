@@ -38,6 +38,7 @@ Links
     - Mixamo animation retargeting to CC Rigified Rig.
     - Shape-key animation retargeting from source animation to CC character.
 - Changes:
+    - Diffuse color, hue, saturation and brightness parameters for skin and hair materials.
     - Fix to ActorCore character (ActorCore website download) animation retargeting.
     - Basic face rig generated from full face rig and has the same jaw & eye controls and parameters.
     - Jaw pivot retargeting fixes.
