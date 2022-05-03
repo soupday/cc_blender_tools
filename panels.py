@@ -176,7 +176,7 @@ class UNITY_ACTION_UL_List(bpy.types.UIList):
 
 class CC3CharacterSettingsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Character_Settings_Panel"
-    bl_label = "Character Settings"
+    bl_label = "Character Build Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "CC3"
@@ -262,6 +262,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             row.prop(chr_cache, "setup_mode", expand=True)
             row = box.row()
             row.prop(props, "build_mode", expand=True)
+            box.row().operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups").param ="REBUILD_NODE_GROUPS"
 
         # Material Setup
         layout.box().label(text="Object & Material Setup", icon="MATERIAL")
@@ -780,8 +781,6 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
             column.enabled = False
         op = column.operator("cc3.setproperties", icon="DECORATE_OVERRIDE", text="Reset Parameters")
         op.param = "RESET"
-        op = column.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups")
-        op.param ="REBUILD_NODE_GROUPS"
 
 
 class CC3RigifyPanel(bpy.types.Panel):
@@ -1366,7 +1365,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             icon = "ARROW_LEFTRIGHT"
         op = row.operator("cc3.exporter", icon=icon, text=text)
         op.param = "EXPORT_CC3"
-        if not chr_cache or not chr_cache.import_has_key:
+        if not (chr_cache and chr_cache.can_export()):
             row.enabled = False
         layout.separator()
         # export to Unity

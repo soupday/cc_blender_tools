@@ -250,6 +250,11 @@ SHADER_MATRIX = [
         # property inputs:
         # [input_socket, function, property_arg1, property_arg2...]
         "inputs": [
+            ["Diffuse Color", "", "skin_diffuse_color"],
+            ["Diffuse Hue", "", "skin_diffuse_hue"],
+            ["Diffuse Saturation", "", "skin_diffuse_saturation"],
+            ["Diffuse Brightness", "", "skin_diffuse_brightness"],
+            ["Diffuse HSV", "", "skin_diffuse_hsv_strength"],
             ["AO Strength", "", "skin_ao_strength"],
             ["Specular Scale", "", "skin_specular_scale"],
             ["Roughness Power", "", "skin_roughness_power"],
@@ -296,6 +301,7 @@ SHADER_MATRIX = [
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
+            ["skin_diffuse_color", (1,1,1,1), "func_color_linear", "/Diffuse Color"],
             ["skin_micro_normal_tiling", 25, "", "Custom/MicroNormal Tiling"],
             ["skin_micro_normal_strength", 0.8, "", "Custom/MicroNormal Strength"],
             ["skin_micro_roughness_mod", 0.05, "", "Custom/Micro Roughness Scale"],
@@ -316,6 +322,10 @@ SHADER_MATRIX = [
             ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_srgb", "SSS/Falloff"],
             ["skin_subsurface_radius", 1.5, "", "SSS/Radius"],
             # non json properties (just defaults)
+            ["skin_diffuse_hue", 0.5, "DEF"],
+            ["skin_diffuse_saturation", 1, "DEF"],
+            ["skin_diffuse_brightness", 1, "DEF"],
+            ["skin_diffuse_hsv_strength", 1, "DEF"],
             ["skin_roughness_power", 1, "DEF"],
             ["skin_roughness_min", 0.1, "DEF"],
             ["skin_roughness_max", 1, "DEF"],
@@ -325,12 +335,19 @@ SHADER_MATRIX = [
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
+            ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "skin_diffuse_color"],
             ["SSS/Falloff", [255.0, 94.3499984741211, 76.5], "func_export_byte3", "skin_subsurface_falloff"],
         ],
         "ui": [
             # ["HEADER", label, icon]
             # ["PROP", labe, prop_name, (slider=)True|False]
             ["HEADER",  "Base Color", "COLOR"],
+            ["PROP", "Color", "skin_diffuse_color", True],
+            ["PROP", "Hue", "skin_diffuse_hue", True, "Diffuse Map"],
+            ["PROP", "Saturation", "skin_diffuse_saturation", True, "Diffuse Map"],
+            ["PROP", "Brightness", "skin_diffuse_brightness", True, "Diffuse Map"],
+            ["PROP", "HSV Strength", "skin_diffuse_hsv_strength", True, "Diffuse Map"],
+            ["SPACER"],
             ["PROP", "AO Strength", "skin_ao_strength", True, "AO Map"],
             ["HEADER",  "Surface", "SURFACE_DATA"],
             ["PROP", "Specular Scale", "skin_specular_scale", True],
@@ -372,6 +389,11 @@ SHADER_MATRIX = [
         # property inputs:
         # [input_socket, function, property_arg1, property_arg2...]
         "inputs": [
+            ["Diffuse Color", "", "skin_diffuse_color"],
+            ["Diffuse Hue", "", "skin_diffuse_hue"],
+            ["Diffuse Saturation", "", "skin_diffuse_saturation"],
+            ["Diffuse Brightness", "", "skin_diffuse_brightness"],
+            ["Diffuse HSV", "", "skin_diffuse_hsv_strength"],
             ["Cavity AO Strength", "", "skin_cavity_ao_strength"],
             ["Blend Overlay Strength", "", "skin_blend_overlay_strength"],
             ["AO Strength", "", "skin_ao_strength"],
@@ -441,6 +463,7 @@ SHADER_MATRIX = [
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
+            ["skin_diffuse_color", (1,1,1,1), "func_color_linear", "/Diffuse Color"],
             ["skin_blend_overlay_strength", 0, "", "Custom/BaseColor Blend2 Strength"],
             ["skin_normal_blend_strength", 0, "", "Custom/NormalMap Blend Strength"],
             ["skin_micro_normal_tiling", 20, "", "Custom/MicroNormal Tiling"],
@@ -478,6 +501,10 @@ SHADER_MATRIX = [
             ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_srgb", "SSS/Falloff"],
             ["skin_subsurface_radius", 1.5, "", "SSS/Radius"],
             # non json properties (just defaults)
+            ["skin_diffuse_hue", 0.5, "DEF"],
+            ["skin_diffuse_saturation", 1, "DEF"],
+            ["skin_diffuse_brightness", 1, "DEF"],
+            ["skin_diffuse_hsv_strength", 1, "DEF"],
             ["skin_roughness_power", 1, "DEF"],
             ["skin_roughness_min", 0.1, "DEF"],
             ["skin_roughness_max", 1, "DEF"],
@@ -487,12 +514,19 @@ SHADER_MATRIX = [
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
+            ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "skin_diffuse_color"],
             ["SSS/Falloff", [255.0, 94.3499984741211, 76.5], "func_export_byte3", "skin_subsurface_falloff"],
         ],
         "ui": [
             # ["HEADER", label, icon]
             # ["PROP", labe, prop_name, (slider=)True|False]
             ["HEADER",  "Base Color", "COLOR"],
+            ["PROP", "Color", "skin_diffuse_color", True],
+            ["PROP", "Hue", "skin_diffuse_hue", True, "Diffuse Map"],
+            ["PROP", "Saturation", "skin_diffuse_saturation", True, "Diffuse Map"],
+            ["PROP", "Brightness", "skin_diffuse_brightness", True, "Diffuse Map"],
+            ["PROP", "HSV Strength", "skin_diffuse_hsv_strength", True, "Diffuse Map"],
+            ["SPACER"],
             ["PROP", "AO Strength", "skin_ao_strength", True, "AO Map"],
             ["PROP", "Mouth AO", "skin_mouth_ao", True, "MCMAO Map"],
             ["PROP", "Nostrils AO", "skin_nostril_ao", True, "MCMAO Map"],
@@ -1249,6 +1283,11 @@ SHADER_MATRIX = [
         # property inputs:
         # [input_socket, function, property_arg1, property_arg2...]
         "inputs": [
+            ["Diffuse Color", "", "hair_diffuse_color"],
+            ["Diffuse Hue", "", "hair_diffuse_hue"],
+            ["Diffuse Saturation", "", "hair_diffuse_saturation"],
+            ["Diffuse Brightness", "", "hair_diffuse_brightness"],
+            ["Diffuse HSV", "", "hair_diffuse_hsv_strength"],
             ["Enable Color", "", "hair_enable_color"],
             ["Global Strength", "", "hair_global_strength"],
             ["Root Color Strength", "", "hair_root_color_strength"],
@@ -1322,6 +1361,7 @@ SHADER_MATRIX = [
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
+            ["hair_diffuse_color", (1,1,1,1), "func_color_linear", "/Diffuse Color"],
             ["hair_tangent_vector", (1, 0, 0), "func_color_vector", "Custom/TangentVectorColor"],
             ["hair_tangent_flip_green", 1, "", "Custom/TangentMapFlipGreen"],
             ["hair_anisotropic_shift_min", 0, "", "Custom/BlackColor Reflection Offset Z"],
@@ -1364,6 +1404,10 @@ SHADER_MATRIX = [
             ["hair_emission_strength", 0, "", "Pbr/Glow"],
             ["hair_displacement_strength", 1, "", "Pbr/Displacement"],
             # non json properties (just defaults)
+            ["hair_diffuse_hue", 0.5, "DEF"],
+            ["hair_diffuse_saturation", 1, "DEF"],
+            ["hair_diffuse_brightness", 1, "DEF"],
+            ["hair_diffuse_hsv_strength", 1, "DEF"],
             ["hair_subsurface_radius", 1.5, "DEF"],
             ["hair_anisotropic_shift", 0.75, "DEF"],
             ["hair_bump_strength", 1.0, "DEF"],
@@ -1373,6 +1417,7 @@ SHADER_MATRIX = [
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
+            ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "hair_diffuse_color"],
             ["Custom/TangentVectorColor", [255, 0, 0], "func_export_byte3", "hair_tangent_vector"],
             ["Custom/Hair Roughness Map Strength", 0.524, "func_pow_2", "hair_roughness_strength"],
             ["Custom/VertexGrayToColor", [0, 0, 0], "func_export_byte3", "hair_vertex_color"],
@@ -1387,6 +1432,12 @@ SHADER_MATRIX = [
             # ["HEADER", label, icon]
             # ["PROP", labe, prop_name, (slider=)True|False]
             ["HEADER",  "Base Color", "COLOR"],
+            ["PROP", "Color", "hair_diffuse_color", True],
+            ["PROP", "Hue", "hair_diffuse_hue", True, "Diffuse Map"],
+            ["PROP", "Saturation", "hair_diffuse_saturation", True, "Diffuse Map"],
+            ["PROP", "Brightness", "hair_diffuse_brightness", True, "Diffuse Map"],
+            ["PROP", "HSV Strength", "hair_diffuse_hsv_strength", True, "Diffuse Map"],
+            ["SPACER"],
             ["PROP", "AO Strength", "hair_ao_strength", True, "AO Map"],
             ["PROP", "Blend Multiply", "hair_blend_multiply_strength", True, "Blend Multiply"],
             ["SPACER"],
