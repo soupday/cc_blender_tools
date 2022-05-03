@@ -456,7 +456,7 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
                                 default=(1, 1, 1, 1), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"skin_diffuse_color"))
     skin_diffuse_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hue"))
-    skin_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_diffuse_brightness"))
+    skin_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_brightness"))
     skin_diffuse_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_saturation"))
     skin_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hsv_strength"))
     skin_cavity_ao_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_cavity_ao_strength"))
@@ -513,7 +513,7 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
                                 default=(1, 1, 1, 1), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"skin_diffuse_color"))
     skin_diffuse_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hue"))
-    skin_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_diffuse_brightness"))
+    skin_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_brightness"))
     skin_diffuse_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_saturation"))
     skin_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hsv_strength"))
     skin_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao_strength"))
@@ -698,7 +698,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
                                 default=(1, 1, 1, 1), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"hair_diffuse_color"))
     hair_diffuse_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_diffuse_hue"))
-    hair_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=lambda s,c: update_property(s,c,"hair_diffuse_brightness"))
+    hair_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_diffuse_brightness"))
     hair_diffuse_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_diffuse_saturation"))
     hair_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_diffuse_hsv_strength"))
     hair_global_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_global_strength"))
