@@ -1893,17 +1893,6 @@ def get_shape_key_name_from_data_path(data_path):
 def get_source_shape_key_actions(source_rig, source_action):
     actions = {}
 
-    utils.log_info(f"looking for shape-key actions in armature child objects: {source_rig.name}")
-
-    # try and fetch actions from child objects to the rig
-    for obj in source_rig.children:
-        if obj.type == "MESH":
-            action = utils.safe_get_action(obj.data.shape_keys)
-            if action:
-                utils.log_info(f"Found shape-key action: {action.name} for object {obj.name}")
-                actions[obj.name] = action
-
-    # try and match actions by name
     animation_name = None
     if source_action:
         names = source_action.name.split("|")
@@ -1911,9 +1900,10 @@ def get_source_shape_key_actions(source_rig, source_action):
             if names[0] == source_rig.name and names[1] == "A":
                 animation_name = names[2]
 
-    utils.log_info(f"looking for shape-key actions with animation name: {source_rig.name}|K|<obj>|{animation_name}")
-
     if animation_name:
+
+        # match actions by name (if imported using this add-on)
+        utils.log_info(f"looking for shape-key actions with animation name: {source_rig.name}|K|<obj>|{animation_name}")
         for action in bpy.data.actions:
             names = action.name.split("|")
             if len(names) >= 4:
@@ -1922,6 +1912,19 @@ def get_source_shape_key_actions(source_rig, source_action):
                         if names[2] not in actions:
                             utils.log_info(f"Found shape-key action: {action.name} for object {names[2]}")
                             actions[names[2]] = action
+    else:
+
+        # try and fetch shape-key actions from source armature child objects
+        utils.log_info(f"looking for shape-key actions in armature child objects: {source_rig.name}")
+        for obj in source_rig.children:
+            obj_name = utils.strip_name(obj.name)
+            if obj_name.startswith("CC_Base_") or obj_name.startswith("CC_Game_"):
+                obj_name = obj_name[8:]
+            if obj.type == "MESH":
+                action = utils.safe_get_action(obj.data.shape_keys)
+                if action:
+                    utils.log_info(f"Found shape-key action: {action.name} for object {obj_name}")
+                    actions[obj_name] = action
 
     return actions
 
