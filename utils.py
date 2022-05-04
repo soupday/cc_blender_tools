@@ -527,13 +527,16 @@ def make_unique_name(name, keys):
 def partial_match(text, search, start = 0):
     if text[start:] == search:
         return True
-    if start > -1 and len(text) > start:
+    ls = len(search)
+    lt = len(text)
+    if start > -1 and lt > start:
         j = 0
-        for i in range(start, len(text)):
+        for i in range(start, min(start + ls, lt)):
             if text[i] != search[j]:
                 return False
             j += 1
-    return True
+        return True
+    return False
 
 
 def tag_objects():

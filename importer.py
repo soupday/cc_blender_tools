@@ -390,6 +390,7 @@ def remap_action_names(actions, objects, name):
                 num_keys += 1
 
     for action in actions:
+        action_key_name = action.name.split("|")[0]
         new_action_name = action.name.split("|")[-1]
         if is_iclone_temp_motion(new_action_name):
             new_action_name = "iCTM"
@@ -403,7 +404,7 @@ def remap_action_names(actions, objects, name):
         else:
             for new_obj_name in key_map:
                 key_name = key_map[new_obj_name]
-                if action.name.startswith(key_name):
+                if action_key_name == key_name:
                     new_name = f"{name}|K|{new_obj_name}|{new_action_name}"
                     utils.log_info(f"Renaming action: {action.name} to {new_name}")
                     action.name = new_name
