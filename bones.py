@@ -16,6 +16,7 @@
 
 import bpy
 import mathutils
+from math import pi, atan
 from . import utils
 from rna_prop_ui import rna_idprop_ui_create
 
@@ -210,6 +211,8 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
             c.invert_z = False
             c.mix_mode = "REPLACE"
             c.target_space = space
+            if space == "LOCAL_OWNER_ORIENT":
+                space = "LOCAL"
             c.owner_space = space
             c.influence = influence
             return c
@@ -425,14 +428,15 @@ def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, p
 
 
 def clear_constraints(rig, pose_bone_name):
-    if utils.set_mode("OBJECT"):
-        if pose_bone_name in rig.pose.bones:
-            pose_bone = rig.pose.bones[pose_bone_name]
-            constraints = []
-            for con in pose_bone.constraints:
-                constraints.append(con)
-            for con in constraints:
-                pose_bone.constraints.remove(con)
+    if pose_bone_name:
+        if utils.set_mode("OBJECT"):
+            if pose_bone_name in rig.pose.bones:
+                pose_bone = rig.pose.bones[pose_bone_name]
+                constraints = []
+                for con in pose_bone.constraints:
+                    constraints.append(con)
+                for con in constraints:
+                    pose_bone.constraints.remove(con)
 
 
 def clear_drivers(rig):
@@ -452,3 +456,11 @@ def get_bone_name_from_data_path(data_path):
     return None
 
 
+def get_roll(bone):
+    mat = bone.matrix_local.to_3x3()
+    quat = mat.to_quaternion()
+    if abs(quat.w) < 1e-4:
+        roll = pi
+    else:
+        roll = 2*atan(quat.y/quat.w)
+    return roll

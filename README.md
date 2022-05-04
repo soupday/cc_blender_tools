@@ -32,15 +32,34 @@ Links
 
 ## Changelog
 
+### 1.3.4
+- Rigify Retargeting:
+    - GameBase animation retargeting to CC Rigified Rig.
+    - (Experimental) Mixamo animation retargeting to CC Rigified Rig.
+    - Shape-key animation retargeting from source animation to CC character.
+    - Shape-key NLA baking added (optional).
+- Materials:
+    - Diffuse Color, Hue, Saturation & Brightness parameters for Skin and Hair materials.
+- Exporting:
+    - **Export to CC3** button renamed to **Export Morph Target** when editing OBJ imports with ObjKey.
+    - When **Export** button is disabled: The reason is displayed under the button.
+        - Export button Key check is overridable in the add-on preferences.
+- Other Changes:
+    - Fix to ActorCore character (ActorCore website download) animation retargeting.
+    - Basic face rig generated from full face rig and has the same jaw & eye controls and parameters.
+    - Jaw pivot retargeting fixes.
+    - Palm bones no longer affect deformation or generate vertex weights.
+    - Crash fixes importing characters with very short names.
+
 ### 1.3.3
-- CC/iC/ActorCore animation re-targeting to CC Rigified Rig.
-    - Preview and Bake functions for re-targeted animations.
+- CC/iC/ActorCore animation retargeting to CC Rigified Rig.
+    - Preview and Bake functions for retargeted animations.
     - Arms, Legs, Heel & Height adjustments.
     - Source armature and action selector, filtering by Armature name.
 - Animation importer, import multiple animations in one go.
     - Renames actions and armatures to match file names.
     - Optionally removes meshes & materials.
-- Bake control rig & re-targeted animations to Unity.
+- Bake control rig & retargeted animations to Unity.
 - Export Rigified character to Unity.
 - Basic face rig drivers for __Eye Look__ blend shapes. (If character has ExPlus blend shapes)
 - GameBase to Rigify support.

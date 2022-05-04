@@ -368,15 +368,10 @@ def is_iclone_temp_motion(name : str):
     if not name[:u_idx].isdigit():
        return False
     search = "TempMotion"
-    if name[u_idx + 1:] == search:
+    if utils.partial_match(name, "TempMotion", u_idx + 1):
         return True
-    if u_idx > -1 and len(name) > u_idx + 1:
-        j = 0
-        for i in range(u_idx + 1, len(name)):
-            if name[i] != search[j]:
-                return False
-            j += 1
-    return True
+    else:
+        return False
 
 
 def remap_action_names(actions, objects, name):
@@ -388,9 +383,7 @@ def remap_action_names(actions, objects, name):
 
     for obj in objects:
         if obj.type == "MESH":
-            new_obj_name = utils.strip_name(obj.name)
-            if new_obj_name.startswith("CC_Base_"): # shorten CC_Base_Objects names
-                new_obj_name = new_obj_name[8:]
+            new_obj_name = utils.get_action_shape_key_object_name(obj.name)
             if obj.data.shape_keys:
                 key_map[new_obj_name] = obj.data.shape_keys.name
                 utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {new_obj_name}")

@@ -509,8 +509,9 @@ def lin2s(x):
 
 # remove any .001 from the material name
 def strip_name(name):
-    if name[-3:].isdigit() and name[-4] == ".":
-        name = name[:-4]
+    if len(name) >= 4:
+        if name[-3:].isdigit() and name[-4] == ".":
+            name = name[:-4]
     return name
 
 
@@ -521,6 +522,18 @@ def make_unique_name(name, keys):
             i += 1
         return name + "_" + str(i)
     return name
+
+
+def partial_match(text, search, start = 0):
+    if text[start:] == search:
+        return True
+    if start > -1 and len(text) > start:
+        j = 0
+        for i in range(start, len(text)):
+            if text[i] != search[j]:
+                return False
+            j += 1
+    return True
 
 
 def tag_objects():
@@ -632,6 +645,13 @@ def get_armature_in_objects(objects):
 
 def float_equals(a, b):
     return abs(a - b) < 0.00001
+
+
+def get_action_shape_key_object_name(name):
+    obj_name = strip_name(name)
+    if obj_name.startswith("CC_Base_") or obj_name.startswith("CC_Game_"):
+        obj_name = obj_name[8:]
+    return obj_name
 
 
 def remove_from_collection(coll, item):

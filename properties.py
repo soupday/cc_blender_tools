@@ -452,6 +452,13 @@ class CC3ArmatureList(bpy.types.PropertyGroup):
 
 class CC3HeadParameters(bpy.types.PropertyGroup):
     # shader (rl_head_shader)
+    skin_diffuse_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                                default=(1, 1, 1, 1), min = 0.0, max = 1.0,
+                                update=lambda s,c: update_property(s,c,"skin_diffuse_color"))
+    skin_diffuse_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hue"))
+    skin_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_brightness"))
+    skin_diffuse_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_saturation"))
+    skin_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hsv_strength"))
     skin_cavity_ao_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_cavity_ao_strength"))
     skin_blend_overlay_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_blend_overlay_strength"))
     skin_ao_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao_strength"))
@@ -502,6 +509,13 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
 
 class CC3SkinParameters(bpy.types.PropertyGroup):
     # shader (rl_skin_shader)
+    skin_diffuse_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                                default=(1, 1, 1, 1), min = 0.0, max = 1.0,
+                                update=lambda s,c: update_property(s,c,"skin_diffuse_color"))
+    skin_diffuse_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hue"))
+    skin_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_brightness"))
+    skin_diffuse_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_saturation"))
+    skin_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hsv_strength"))
     skin_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao_strength"))
     skin_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0,
@@ -680,6 +694,13 @@ class CC3TongueParameters(bpy.types.PropertyGroup):
 
 class CC3HairParameters(bpy.types.PropertyGroup):
     # shader
+    hair_diffuse_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                                default=(1, 1, 1, 1), min = 0.0, max = 1.0,
+                                update=lambda s,c: update_property(s,c,"hair_diffuse_color"))
+    hair_diffuse_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_diffuse_hue"))
+    hair_diffuse_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_diffuse_brightness"))
+    hair_diffuse_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_diffuse_saturation"))
+    hair_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_diffuse_hsv_strength"))
     hair_global_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_global_strength"))
     hair_root_color_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_root_color_strength"))
     hair_end_color_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_end_color_strength"))
@@ -1085,6 +1106,15 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     retarget_leg_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Leg spread angle (radians)")
     retarget_z_correction_height: bpy.props.FloatProperty(default = 0.0, min=-0.2, max=0.2, description="Height Adjustment (m)")
 
+    def can_export(self):
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        if prefs.export_require_key:
+            return self.import_has_key
+        else:
+            return True
+
+
     def can_be_rigged(self):
         if self.generation == "G3" or self.generation == "G3Plus":
             return True
@@ -1100,10 +1130,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return False
 
     def rig_full_face(self):
-        if not self.can_rig_full_face():
-            return False
-        else:
+        if self.rig_mode == "ADVANCED":
             return self.rig_face_rig
+        else:
+            if self.can_rig_full_face():
+                return self.rig_face_rig
+            else:
+                return False
 
     def get_all_materials_cache(self):
         cache_all = []
@@ -1535,6 +1568,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)
     stage_remapper: bpy.props.BoolProperty(default=False)
+    section_rigify_setup: bpy.props.BoolProperty(default=True)
+    section_rigify_retarget: bpy.props.BoolProperty(default=True)
+    retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
+    bake_nla_shape_keys: bpy.props.BoolProperty(default=True)
+    section_rigify_unity: bpy.props.BoolProperty(default=False)
 
     skin_toggle: bpy.props.BoolProperty(default=True)
     eye_toggle: bpy.props.BoolProperty(default=True)

@@ -45,6 +45,7 @@ def reset_preferences():
     prefs.export_bake_bump_to_normal = True
     prefs.export_unity_remove_objects = True
     prefs.export_texture_size = "2048"
+    prefs.export_require_key = True
     prefs.cycles_sss_skin_v118 = 0.35
     prefs.cycles_sss_hair_v118 = 0.025
     prefs.cycles_sss_teeth = 0.1
@@ -151,6 +152,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     debug_mode: bpy.props.BoolProperty(default=False)
 
+    export_require_key: bpy.props.BoolProperty(default=True, name="Export Require Key", description="Ensure that exports back to CC3 have a valid Fbx/Obj Key file")
+
     export_json_changes: bpy.props.BoolProperty(default=True, name="Material parameters", description="Export all material and shader parameter changes to the character Json data. Setting to False keeps original material and shader parameters.")
     export_texture_changes: bpy.props.BoolProperty(default=True, name="Textures", description="Export all texture changes to the character Json data. Setting to False keeps original textures.")
     export_bone_roll_fix: bpy.props.BoolProperty(default=False, name="Teeth bone fix", description="(Experimental) Apply zero roll to upper and lower teeth bones to fix teeth alignment problems re-importing to CC3")
@@ -161,7 +164,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("BLEND","Blend File","Save the project as a blend file in a Unity project. All textures and folders will be copied to the new location and made relative to the blend file."),
                         ("FBX","FBX","Export the character as an .Fbx file to the specified location. All textures and folders will be copied."),
                     ], default="BLEND", name = "Unity Export Mode")
-    export_texture_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Size of procedurally generated textures to bake.")
+    export_texture_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Size of procedurally generated textures to bake")
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")
 
@@ -228,22 +231,27 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.use_property_split = True
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")
+
         layout.label(text="Material settings:")
         layout.prop(self, "quality_mode")
         layout.prop(self, "pipeline_mode")
         layout.prop(self, "morph_mode")
+
         layout.label(text="Lighting:")
         layout.prop(self, "lighting")
         if self.lighting == "ENABLED":
             layout.prop(self, "quality_lighting")
             layout.prop(self, "pipeline_lighting")
             layout.prop(self, "morph_lighting")
+
         layout.label(text="Detection:")
         layout.prop(self, "hair_hint")
         layout.prop(self, "hair_scalp_hint")
+
         layout.label(text="Eyes:")
         layout.prop(self, "refractive_eyes")
         layout.prop(self, "eye_displacement_group")
+
         layout.label(text="Cycles Adjustments:")
         layout.prop(self, "cycles_sss_skin_v118")
         layout.prop(self, "cycles_sss_hair_v118")
@@ -252,9 +260,11 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "cycles_sss_eyes")
         layout.prop(self, "cycles_sss_default")
         layout.prop(self, "cycles_ssr_iris_brightness")
+
         layout.label(text="Physics:")
         layout.prop(self, "physics")
         layout.prop(self, "physics_group")
+
         layout.label(text="Export:")
         layout.prop(self, "export_json_changes")
         layout.prop(self, "export_texture_changes")
@@ -263,6 +273,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "export_bake_bump_to_normal")
         layout.prop(self, "export_unity_remove_objects")
         layout.prop(self, "export_texture_size")
+        layout.prop(self, "export_require_key")
+
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")
         op = layout.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset to Defaults")
