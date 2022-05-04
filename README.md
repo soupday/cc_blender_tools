@@ -39,9 +39,9 @@ Links
     - Shape-key animation retargeting from source animation to CC character.
 - Import & Materials:
     - Diffuse color, hue, saturation and brightness parameters for skin and hair materials.
-    - When **Export to CC3** button is disabled: The reason is displayed under the button.
-        - Export button Key check is overridable in the add-on preferences.
     - **Export to CC3** button renamed to **Export Morph Target** when editing OBJ imports with ObjKey.
+    - When **Export** button is disabled: The reason is displayed under the button.
+        - **Export** button Key check is overridable in the add-on preferences.
 - Changes:
     - Fix to ActorCore character (ActorCore website download) animation retargeting.
     - Basic face rig generated from full face rig and has the same jaw & eye controls and parameters.
