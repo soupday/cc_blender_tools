@@ -525,17 +525,18 @@ def make_unique_name(name, keys):
 
 
 def partial_match(text, search, start = 0):
-    if text[start:] == search:
-        return True
-    ls = len(search)
-    lt = len(text)
-    if start > -1 and lt > start:
-        j = 0
-        for i in range(start, min(start + ls, lt)):
-            if text[i] != search[j]:
-                return False
-            j += 1
-        return True
+    if text and search:
+        ls = len(search)
+        lt = len(text)
+        if start > -1 and lt > start:
+            if text[start:] == search:
+                return True
+            j = 0
+            for i in range(start, min(start + ls, lt)):
+                if text[i] != search[j]:
+                    return False
+                j += 1
+            return True
     return False
 
 
