@@ -647,6 +647,13 @@ def float_equals(a, b):
     return abs(a - b) < 0.00001
 
 
+def get_action_shape_key_object_name(name):
+    obj_name = strip_name(name)
+    if obj_name.startswith("CC_Base_") or obj_name.startswith("CC_Game_"):
+        obj_name = obj_name[8:]
+    return obj_name
+
+
 def remove_from_collection(coll, item):
     for i in range(0, len(coll)):
         if coll[i] == item:

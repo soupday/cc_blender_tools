@@ -1571,6 +1571,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
+    bake_nla_shape_keys: bpy.props.BoolProperty(default=True)
     section_rigify_unity: bpy.props.BoolProperty(default=False)
 
     skin_toggle: bpy.props.BoolProperty(default=True)

@@ -1835,7 +1835,7 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
                 if bone.name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
                     bone.select = True
 
-            bake_rig_animation(rigify_rig, source_action, True)
+            bake_rig_animation(rigify_rig, source_action, None, True)
 
             adv_retarget_remove_pair(op, chr_cache)
 
@@ -1843,6 +1843,7 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 
 
 def adv_bake_NLA_to_rigify(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
     rigify_rig = chr_cache.get_armature()
     utils.safe_set_action(rigify_rig, None)
     adv_retarget_remove_pair(op, chr_cache)
@@ -1857,13 +1858,22 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
             if pose_bone and pose_bone.bone_group:
                 if pose_bone.bone_group.name in BAKE_BONE_GROUPS:
                     bone.select = True
+        shape_key_objects = []
+        if props.bake_nla_shape_keys:
+            for child in rigify_rig.children:
+                if (child.type == "MESH" and
+                    child.data.shape_keys and
+                    child.data.shape_keys.key_blocks and
+                    len(child.data.shape_keys.key_blocks) > 0):
+                    shape_key_objects.append(child)
 
-        bake_rig_animation(rigify_rig, None, False, "NLA_Bake")
+        bake_rig_animation(rigify_rig, None, shape_key_objects, False, "NLA_Bake")
 
 
 # Shape-key retargeting
 #
 #
+
 
 def reset_shape_keys(chr_cache):
     rigify_rig = chr_cache.get_armature()
@@ -1879,7 +1889,6 @@ def reset_shape_keys(chr_cache):
         if obj.data.shape_keys:
             for key_block in obj.data.shape_keys.key_blocks:
                 key_block.value = 0.0
-
 
 
 def get_shape_key_name_from_data_path(data_path):
@@ -1917,9 +1926,7 @@ def get_source_shape_key_actions(source_rig, source_action):
         # try and fetch shape-key actions from source armature child objects
         utils.log_info(f"looking for shape-key actions in armature child objects: {source_rig.name}")
         for obj in source_rig.children:
-            obj_name = utils.strip_name(obj.name)
-            if obj_name.startswith("CC_Base_") or obj_name.startswith("CC_Game_"):
-                obj_name = obj_name[8:]
+            obj_name = utils.get_action_shape_key_object_name(obj.name)
             if obj.type == "MESH":
                 action = utils.safe_get_action(obj.data.shape_keys)
                 if action:
@@ -2015,7 +2022,7 @@ def adv_retarget_shape_keys(op, chr_cache, report):
         if report:
             op.report({'INFO'}, f"Shape-key actions retargeted to character!")
 
-    return
+    reset_shape_keys(chr_cache)
 
 
 # Unity animation exporting and baking
@@ -2196,7 +2203,7 @@ def adv_bake_rigify_to_unity(op, chr_cache):
                     bone.select = True
 
                 # bake the action on the rigify rig into the export rig
-                bake_rig_animation(export_rig, action, True)
+                bake_rig_animation(export_rig, action, None, True)
 
             else:
                 op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
@@ -2205,6 +2212,7 @@ def adv_bake_rigify_to_unity(op, chr_cache):
 
 
 def adv_bake_rigify_NLA_to_unity(op, chr_cache):
+    props = bpy.context.scene.CC3ImportProps
     rigify_rig = chr_cache.get_armature()
     utils.safe_set_action(rigify_rig, None)
     adv_retarget_remove_pair(op, chr_cache)
@@ -2232,8 +2240,14 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache):
             for bone in export_rig.data.bones:
                 bone.select = True
 
+            shape_key_objects = []
+            if props.bake_nla_shape_keys:
+                for child in rigify_rig.children:
+                    if child.data.shape_keys and len(child.data.shape_keys) > 0:
+                        shape_key_objects.append(child)
+
             # bake the action on the rigify rig into the export rig
-            bake_rig_animation(export_rig, None, True, "NLA_Bake")
+            bake_rig_animation(export_rig, None, shape_key_objects, True, "NLA_Bake")
 
         else:
             op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
@@ -2315,20 +2329,31 @@ def finish_unity_export(chr_cache, export_rig):
 #
 #
 
-def bake_rig_animation(rig, action, clear_constraints, action_name = ""):
+def bake_rig_animation(rig, action, shape_key_objects, clear_constraints, action_name = ""):
     if utils.try_select_object(rig, True) and utils.set_active_object(rig):
         if action_name == "" and action:
             action_name = action.name
         name = action_name.split("|")[-1]
+        # armature action
         baked_action = bpy.data.actions.new(f"{rig.name}|A|{name}")
         baked_action.use_fake_user = True
         utils.safe_set_action(rig, baked_action)
+        # shape key actions
+        if shape_key_objects:
+            for obj in shape_key_objects:
+                obj_name = utils.get_action_shape_key_object_name(obj.name)
+                baked_action = bpy.data.actions.new(f"{rig.name}|K|{obj_name}|{name}")
+                baked_action.use_fake_user = True
+                utils.safe_set_action(obj.data.shape_keys, baked_action)
+            utils.try_select_objects(shape_key_objects)
+        # frame range
         if action:
             start_frame = int(action.frame_range[0])
             end_frame = int(action.frame_range[1])
         else:
             start_frame = int(bpy.context.scene.frame_start)
             end_frame = int(bpy.context.scene.frame_end)
+        # bake
         bpy.ops.nla.bake(frame_start=start_frame,
                         frame_end=end_frame,
                         only_selected=True,

@@ -945,10 +945,6 @@ class CC3RigifyPanel(bpy.types.Panel):
                             if source_type:
                                 layout.box().label(text = f"{source_label} Animation", icon = "ARMATURE_DATA")
 
-                        #row = layout.row()
-                        #row.operator("cc3.rigifier", icon="MOD_ARMATURE", text="Set Rig Action").param = "RIGIFY_SET_ACTION"
-                        #layout.separator()
-
                         layout.label(text="Limb Correction:")
                         column = layout.column()
                         split = column.split(factor=0.5)
@@ -962,15 +958,12 @@ class CC3RigifyPanel(bpy.types.Panel):
                         col_2.prop(chr_cache, "retarget_heel_correction_angle", text="", slider=True)
                         col_1.label(text="Height")
                         col_2.prop(chr_cache, "retarget_z_correction_height", text="", slider=True)
-
                         layout.separator()
 
-                        column = layout.column()
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Preview Shape-keys")
-                        col_2.prop(props, "retarget_preview_shape_keys", text="")
+                        # retarget and bake armature actions
+                        row = layout.row()
+                        row.label(text="Preview Shape-keys")
+                        row.prop(props, "retarget_preview_shape_keys", text="")
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Retarget").param = "RETARGET_CC_PAIR_RIGS"
                         row.enabled = source_type != "Unknown"
@@ -982,10 +975,17 @@ class CC3RigifyPanel(bpy.types.Panel):
                         if source_type == "Unknown" and chr_cache.rig_retarget_rig is None:
                             row.enabled = False
                         layout.separator()
+
+                        # retarget shape keys to character
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="KEYINGSET", text="Retarget Shapekeys").param = "RETARGET_SHAPE_KEYS"
                         row.enabled = source_type != "Unknown"
                         layout.separator()
+
+                        # nla bake
+                        row = layout.row()
+                        row.label(text="Bake Shape-keys")
+                        row.prop(props, "bake_nla_shape_keys", text="")
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
                         row.enabled = chr_cache.rig_retarget_rig is None
@@ -1012,6 +1012,9 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         layout.separator()
 
+                        row = layout.row()
+                        row.label(text="Bake Shape-keys")
+                        row.prop(props, "bake_nla_shape_keys", text="")
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA to Unity").param = "NLA_CC_BAKE_UNITY"
                         #row.enabled = unity_bake_source_type == "NONE"
@@ -1367,6 +1370,14 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         op.param = "EXPORT_CC3"
         if not (chr_cache and chr_cache.can_export()):
             row.enabled = False
+            if not chr_cache:
+                layout.row().label(text="No current character!", icon="ERROR")
+            elif not chr_cache.import_has_key:
+                if chr_cache.import_type == "fbx":
+                    layout.row().label(text="No Fbx-Key file!", icon="ERROR")
+                elif chr_cache.import_type == "obj":
+                    layout.row().label(text="No Obj-Key file!", icon="ERROR")
+
         layout.separator()
         # export to Unity
         if chr_cache is None or not chr_cache.rigified:
