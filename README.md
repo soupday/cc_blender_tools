@@ -32,11 +32,14 @@ Links
 
 ## Changelog
 
+### 1.3.5
+- Fix to shape-key action name matching.
+
 ### 1.3.4
 - Rigify Retargeting:
     - GameBase animation retargeting to CC Rigified Rig.
     - (Experimental) Mixamo animation retargeting to CC Rigified Rig.
-    - Shape-key animation retargeting from source animation to CC character.
+    - Facial Expression Shape-key animation retargeting from source animation to CC character.
     - Shape-key NLA baking added (optional).
 - Materials:
     - Diffuse Color, Hue, Saturation & Brightness parameters for Skin and Hair materials.
