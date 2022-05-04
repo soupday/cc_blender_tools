@@ -37,12 +37,13 @@ Links
     - GameBase animation retargeting to CC Rigified Rig.
     - Mixamo animation retargeting to CC Rigified Rig.
     - Shape-key animation retargeting from source animation to CC character.
+    - Shape-key NLA baking added (optional).
 - Materials:
     - Diffuse Color, Hue, Saturation & Brightness parameters for Skin and Hair materials.
 - Exporting:
     - **Export to CC3** button renamed to **Export Morph Target** when editing OBJ imports with ObjKey.
     - When **Export** button is disabled: The reason is displayed under the button.
-        - **Export** button Key check is overridable in the add-on preferences.
+        - Export button Key check is overridable in the add-on preferences.
 - Other Changes:
     - Fix to ActorCore character (ActorCore website download) animation retargeting.
     - Basic face rig generated from full face rig and has the same jaw & eye controls and parameters.
