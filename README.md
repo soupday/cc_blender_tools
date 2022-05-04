@@ -35,7 +35,7 @@ Links
 ### 1.3.4
 - Rigify Retargeting:
     - GameBase animation retargeting to CC Rigified Rig.
-    - Mixamo animation retargeting to CC Rigified Rig.
+    - (Experimental) Mixamo animation retargeting to CC Rigified Rig.
     - Shape-key animation retargeting from source animation to CC character.
     - Shape-key NLA baking added (optional).
 - Materials:
