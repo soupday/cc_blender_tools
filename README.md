@@ -33,16 +33,17 @@ Links
 ## Changelog
 
 ### 1.3.4
-- Retargeting system extended:
+- Rigify Retargeting:
     - GameBase animation retargeting to CC Rigified Rig.
     - Mixamo animation retargeting to CC Rigified Rig.
     - Shape-key animation retargeting from source animation to CC character.
-- Import & Materials:
-    - Diffuse color, hue, saturation and brightness parameters for skin and hair materials.
+- Materials:
+    - Diffuse Color, Hue, Saturation & Brightness parameters for Skin and Hair materials.
+- Exporting:
     - **Export to CC3** button renamed to **Export Morph Target** when editing OBJ imports with ObjKey.
     - When **Export** button is disabled: The reason is displayed under the button.
         - **Export** button Key check is overridable in the add-on preferences.
-- Changes:
+- Other Changes:
     - Fix to ActorCore character (ActorCore website download) animation retargeting.
     - Basic face rig generated from full face rig and has the same jaw & eye controls and parameters.
     - Jaw pivot retargeting fixes.
