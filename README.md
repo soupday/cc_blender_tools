@@ -32,6 +32,12 @@ Links
 
 ## Changelog
 
+### 1.3.6
+- Physics:
+    - PhysX weight maps normalized, provides a more consistent and controllable simulation for different weight maps.
+    - Tweaked cloth simulation parameters.
+    - Smart Hair meshes in particular should simulate better now.
+
 ### 1.3.5
 - Fix to shape-key action name matching.
 

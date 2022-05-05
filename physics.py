@@ -37,9 +37,9 @@ def apply_cloth_settings(obj, cloth_type):
     mod.settings.time_scale = 1
     if cloth_type == "HAIR":
         mod.settings.quality = 4
-        mod.settings.pin_stiffness = 1
+        mod.settings.pin_stiffness = 0.005
         # physical properties
-        mod.settings.mass = 0.15
+        mod.settings.mass = 0.05
         mod.settings.air_damping = 1
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
@@ -53,11 +53,11 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.shear_damping = 0
         mod.settings.bending_damping = 0
         # collision
-        mod.collision_settings.distance_min = 0.005
+        mod.collision_settings.distance_min = 0.001
         mod.collision_settings.collision_quality = 2
     elif cloth_type == "SILK":
         mod.settings.quality = 8
-        mod.settings.pin_stiffness = 1
+        mod.settings.pin_stiffness = 0.01
         # physical properties
         mod.settings.mass = 0.25
         mod.settings.air_damping = 1
@@ -73,11 +73,11 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.shear_damping = 0
         mod.settings.bending_damping = 0
         # collision
-        mod.collision_settings.distance_min = 0.005
+        mod.collision_settings.distance_min = 0.0025
         mod.collision_settings.collision_quality = 4
     elif cloth_type == "DENIM":
         mod.settings.quality = 8
-        mod.settings.pin_stiffness = 1
+        mod.settings.pin_stiffness = 0.5
         # physical properties
         mod.settings.mass = 1
         mod.settings.air_damping = 1
@@ -117,7 +117,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.collision_settings.collision_quality = 4
     elif cloth_type == "RUBBER":
         mod.settings.quality = 8
-        mod.settings.pin_stiffness = 1
+        mod.settings.pin_stiffness = 0.5
         # physical properties
         mod.settings.mass = 3
         mod.settings.air_damping = 1
@@ -137,7 +137,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.collision_settings.collision_quality = 4
     else: #cotton
         mod.settings.quality = 8
-        mod.settings.pin_stiffness = 1
+        mod.settings.pin_stiffness = 0.1
         # physical properties
         mod.settings.mass = 0.3
         mod.settings.air_damping = 1
@@ -153,7 +153,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.shear_damping = 5
         mod.settings.bending_damping = 0
         # collision
-        mod.collision_settings.distance_min = 0.005
+        mod.collision_settings.distance_min = 0.0025
         mod.collision_settings.collision_quality = 4
 
 
@@ -187,7 +187,7 @@ def remove_collision_physics(obj):
             obj.modifiers.remove(mod)
 
 
-def add_cloth_physics(obj):
+def add_cloth_physics(obj, add_weight_maps = False):
     """Adds a Cloth modifier to the object depending on the object cache settings.
 
     Does not overwrite or re-create any existing Cloth modifier.
@@ -231,9 +231,14 @@ def add_cloth_physics(obj):
             apply_cloth_settings(obj, "COTTON")
 
         # Add any existing weight maps
-        for mat in obj.data.materials:
-            if mat:
-                add_material_weight_map(obj, mat, create = False)
+        if add_weight_maps:
+            for mat in obj.data.materials:
+                if mat:
+                    add_material_weight_map(obj, mat, create = False)
+
+        #weight_min, weight_max = get_physx_weight_range(obj)
+        #cloth_mod.settings.pin_stiffness = 1.0 # some function of weight_min and weight_max
+
 
         # fix mod order
         modifiers.move_mod_last(obj, cloth_mod)
@@ -310,12 +315,12 @@ def disable_collision_physics(obj):
     remove_collision_physics(obj)
 
 
-def enable_cloth_physics(obj):
+def enable_cloth_physics(obj, add_weight_maps = True):
     props = bpy.context.scene.CC3ImportProps
     cache = props.get_object_cache(obj)
     cache.cloth_physics = "ON"
     utils.log_info("Enabling Cloth physics for: " + obj.name)
-    add_cloth_physics(obj)
+    add_cloth_physics(obj, add_weight_maps)
 
 
 def disable_cloth_physics(obj):
@@ -494,6 +499,7 @@ def attach_material_weight_map(obj, mat, weight_map):
 
         # re-create create the Vertex Weight Edit modifier and the Vertex Weight Mix modifer
         remove_material_weight_maps(obj, mat)
+        edit_mod : bpy.types.VertexWeightEditModifier
         edit_mod = obj.modifiers.new(utils.unique_name(mat_name + "_WeightEdit"), "VERTEX_WEIGHT_EDIT")
         mix_mod = obj.modifiers.new(utils.unique_name(mat_name + "_WeightMix"), "VERTEX_WEIGHT_MIX")
         # Use the texture as the modifiers vertex weight source
@@ -510,6 +516,10 @@ def attach_material_weight_map(obj, mat, weight_map):
         edit_mod.mask_constant = 1
         edit_mod.mask_tex_mapping = 'UV'
         edit_mod.mask_tex_use_channel = 'INT'
+        try:
+            edit_mod.normalize = True
+        except:
+            pass
         # The Vertex Weight Mix modifier takes the material weight map group and mixes it into the pin weight group:
         # (this allows multiple weight maps from different materials and UV layouts to combine in the same mesh)
         mix_mod.vertex_group_a = pin_group
@@ -521,6 +531,73 @@ def attach_material_weight_map(obj, mat, weight_map):
         mix_mod.mix_mode = 'SET'
         mix_mod.invert_mask_vertex_group = False
         utils.log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
+
+
+def get_physx_weight_range(obj):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    vertex_group_name = prefs.physics_group + "_Pin"
+
+    weight_min = 1.0
+    weight_max = 0.0
+
+    if obj.type == "MESH" and vertex_group_name in obj.vertex_groups:
+
+        if utils.set_active_object(obj):
+
+            # normalize pin vertex group range
+            pin_vg = obj.vertex_groups[vertex_group_name]
+            pin_vg_index = pin_vg.index
+
+            # determine range
+            for vertex in obj.data.vertices:
+                for vg in vertex.groups:
+                    if vg.group == pin_vg_index:
+                        w = vg.weight
+                        weight_min = min(w, weight_min)
+                        weight_max = max(w, weight_max)
+
+    return weight_min, weight_max
+
+
+def remap_physx_weight_maps(obj):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    vertex_group_name = prefs.physics_group + "_Pin"
+
+    if obj.type == "MESH" and vertex_group_name in obj.vertex_groups:
+
+        if utils.set_active_object(obj):
+
+            # apply vg mods
+            edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
+            for mod in edit_mods:
+                bpy.ops.object.modifier_apply(modifier=mod.name)
+            for mod in mix_mods:
+                bpy.ops.object.modifier_apply(modifier=mod.name)
+
+            # normalize pin vertex group range
+            pin_vg = obj.vertex_groups[vertex_group_name]
+            pin_vg_index = pin_vg.index
+            weight_min = 1.0
+            weight_max = 0.0
+
+            # determine range
+            for vertex in obj.data.vertices:
+                for vg in vertex.groups:
+                    if vg.group == pin_vg_index:
+                        w = vg.weight
+                        weight_min = min(w, weight_min)
+                        weight_max = max(w, weight_max)
+
+            # remap range to 0->1
+            for vertex in obj.data.vertices:
+                for vg in vertex.groups:
+                    if vg.group == pin_vg_index:
+                        w = utils.inverse_lerp(weight_min, weight_max, vg.weight)
+                        vg.weight = w
 
 
 def count_weightmaps(objects):
@@ -705,7 +782,7 @@ def separate_physics_materials(context):
         for split in split_objects:
             for mat in split.data.materials:
                 if mat in temp:
-                    enable_cloth_physics(split)
+                    enable_cloth_physics(split, True)
                     break
         temp = None
 
@@ -732,7 +809,7 @@ def set_physics_settings(param, context = bpy.context):
     if param == "PHYSICS_ADD_CLOTH":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                enable_cloth_physics(obj)
+                enable_cloth_physics(obj, True)
     elif param == "PHYSICS_REMOVE_CLOTH":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":

@@ -192,8 +192,9 @@ def process_object(chr_cache, obj, objects_processed, character_json):
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
             physics.add_collision_physics(obj)
             edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
-            if len(edit_mods) > 0:
-                physics.enable_cloth_physics(obj)
+            if len(edit_mods) + len(mix_mods) > 0:
+                physics.enable_cloth_physics(obj, False)
+                #physics.remap_physx_weight_maps(obj)
 
         # setup special modifiers for displacement, UV warp, etc...
         if chr_cache.setup_mode == "ADVANCED":
