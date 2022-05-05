@@ -33,6 +33,8 @@ Links
 ## Changelog
 
 ### 1.3.6
+- Rigify
+    - Finger roll alignment fixed.
 - Physics:
     - PhysX weight maps normalized, provides a more consistent and controllable simulation for different weight maps.
     - Tweaked cloth simulation parameters.
