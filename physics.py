@@ -37,7 +37,7 @@ def apply_cloth_settings(obj, cloth_type):
     mod.settings.time_scale = 1
     if cloth_type == "HAIR":
         mod.settings.quality = 4
-        mod.settings.pin_stiffness = 0.005
+        mod.settings.pin_stiffness = 0.01
         # physical properties
         mod.settings.mass = 0.05
         mod.settings.air_damping = 1
@@ -57,7 +57,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.collision_settings.collision_quality = 2
     elif cloth_type == "SILK":
         mod.settings.quality = 8
-        mod.settings.pin_stiffness = 0.01
+        mod.settings.pin_stiffness = 0.05
         # physical properties
         mod.settings.mass = 0.25
         mod.settings.air_damping = 1
