@@ -301,10 +301,11 @@ def set_rigify_params(meta_rig):
     if select_rig(meta_rig):
         for params in rigify_mapping_data.RIGIFY_PARAMS:
             bone_name = params[0]
-            bone_rot_axis = params[1]
+            bone_param = params[1]
+            bone_value = params[2]
             pose_bone = bones.get_pose_bone(meta_rig, bone_name)
             if pose_bone:
-                pose_bone.rigify_parameters.rotation_axis = bone_rot_axis
+                exec(f"pose_bone.rigify_parameters.{bone_param} = bone_value", None, locals())
 
 
 def map_face_bones(cc3_rig, meta_rig, cc3_head_bone):
