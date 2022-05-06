@@ -134,8 +134,8 @@ def get_weight_map_mods(obj):
 def get_material_weight_map_mods(obj, mat):
     edit_mod = None
     mix_mod = None
-    mat_name = utils.strip_name(mat.name)
     if obj is not None and mat is not None:
+        mat_name = utils.strip_name(mat.name)
         for mod in obj.modifiers:
             if mod.type == "VERTEX_WEIGHT_EDIT" and (vars.NODE_PREFIX + mat_name + "_WeightEdit") in mod.name:
                 edit_mod = mod
