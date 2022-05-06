@@ -841,6 +841,9 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
         for obj in cc3_rig.children:
             if obj.type == "MESH" and obj.parent == cc3_rig:
 
+                hidden = not obj.visible_get()
+                if hidden:
+                    obj.hide_set(False)
                 obj_cache = chr_cache.get_object_cache(obj)
 
                 if utils.try_select_object(obj, True) and utils.set_active_object(obj):
@@ -864,6 +867,9 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
                     arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
                     if arm_mod:
                         arm_mod.object = rigify_rig
+
+                if hidden:
+                    obj.hide_set(True)
 
     utils.log_recess()
     return result

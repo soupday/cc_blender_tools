@@ -184,16 +184,16 @@ def process_object(chr_cache, obj, objects_processed, character_json):
                 utils.log_indent()
                 process_material(chr_cache, obj, mat, object_json)
                 if prefs.physics == "ENABLED" and props.physics_mode == "ON":
-                    physics.add_material_weight_map(obj, mat, create = False)
+                    physics.add_material_weight_map(chr_cache, obj, mat, create = False)
                 utils.log_recess()
                 objects_processed.append(mat)
 
         # setup default physics
         if prefs.physics == "ENABLED" and props.physics_mode == "ON":
-            physics.add_collision_physics(obj)
+            physics.add_collision_physics(chr_cache, obj, obj_cache)
             edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
             if len(edit_mods) + len(mix_mods) > 0:
-                physics.enable_cloth_physics(obj, False)
+                physics.enable_cloth_physics(chr_cache, obj, False)
                 #physics.remap_physx_weight_maps(obj)
 
         # setup special modifiers for displacement, UV warp, etc...

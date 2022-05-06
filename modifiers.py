@@ -102,11 +102,20 @@ def get_cloth_physics_mod(obj):
     return None
 
 
-def get_collision_physics_mod(obj):
+def get_collision_physics_mod(chr_cache, obj):
+    obj_cache = chr_cache.get_object_cache(obj)
     if obj is not None:
         for mod in obj.modifiers:
             if mod.type == "COLLISION":
                 return mod
+        if obj_cache and obj_cache.object_type == "BODY":
+            if chr_cache.collision_body:
+                try:
+                    for mod in chr_cache.collision_body.modifiers:
+                        if mod.type == "COLLISION":
+                            return mod
+                except:
+                    pass
     return None
 
 
@@ -125,11 +134,12 @@ def get_weight_map_mods(obj):
 def get_material_weight_map_mods(obj, mat):
     edit_mod = None
     mix_mod = None
+    mat_name = utils.strip_name(mat.name)
     if obj is not None and mat is not None:
         for mod in obj.modifiers:
-            if mod.type == "VERTEX_WEIGHT_EDIT" and (vars.NODE_PREFIX + mat.name + "_WeightEdit") in mod.name:
+            if mod.type == "VERTEX_WEIGHT_EDIT" and (vars.NODE_PREFIX + mat_name + "_WeightEdit") in mod.name:
                 edit_mod = mod
-            if mod.type == "VERTEX_WEIGHT_MIX" and (vars.NODE_PREFIX + mat.name + "_WeightMix") in mod.name:
+            if mod.type == "VERTEX_WEIGHT_MIX" and (vars.NODE_PREFIX + mat_name + "_WeightMix") in mod.name:
                 mix_mod = mod
     return edit_mod, mix_mod
 
@@ -294,6 +304,17 @@ def add_tearline_modifiers(obj):
         move_mod_first(obj, displace_mod_all_r)
 
     utils.log_info("Tearline Displacement modifiers applied to: " + obj.name)
+
+
+def add_decimate_modifier(obj, ratio):
+    mod : bpy.types.DecimateModifier
+    mod = get_object_modifier(obj, "DECIMATE", "Decimate_Collision_Body")
+    if not mod:
+        mod = obj.modifiers.new(utils.unique_name("Decimate_Collision_Body"), "DECIMATE")
+    print("#################", mod)
+    mod.decimate_type = 'COLLAPSE'
+    mod.ratio = ratio
+    return mod
 
 
 def has_modifier(obj, modifier_type):

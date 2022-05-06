@@ -34,10 +34,12 @@ Links
 
 ### 1.3.6
 - Rigify
-    - Finger roll alignment fixed.
+    - Finger roll alignment fixed. All fingers now have exactly the same local bend axis.
 - Physics:
-    - PhysX weight maps normalized, provides a more consistent and controllable simulation for different weight maps.
-    - Tweaked cloth simulation parameters.
+    - Low poly (1/8th) Collision Body mesh created from decimating a copy of the Body mesh and removing the eyelashes.
+        - Hair would easily get trapped in the eyelashes and a lower poly collision mesh should speed up the cloth simulation.
+    - PhysX weight maps normalized, provides a more consistent and controllable simulation across different weight maps.
+    - Tweaked some cloth simulation parameters.
     - Smart Hair meshes in particular should simulate better now.
 
 ### 1.3.5

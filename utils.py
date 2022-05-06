@@ -434,13 +434,18 @@ def get_active_view_layer_object():
     return bpy.context.view_layer.objects.active
 
 
-def set_active_object(obj):
+def set_active_object(obj, deselect_all = False):
     try:
+        if deselect_all:
+            bpy.ops.object.select_all(action='DESELECT')
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
         return (bpy.context.active_object == obj)
     except:
         return False
+
+def set_only_active_object(obj):
+    return set_active_object(obj, True)
 
 
 def set_mode(mode):

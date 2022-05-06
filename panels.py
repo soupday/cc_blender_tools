@@ -1142,6 +1142,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         layout = self.layout
 
+        chr_cache = props.get_context_character_cache(context)
         missing_cloth = False
         has_cloth = False
         missing_coll = False
@@ -1152,7 +1153,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             if obj.type == "MESH":
                 meshes_selected += 1
                 clm = modifiers.get_cloth_physics_mod(obj)
-                com = modifiers.get_collision_physics_mod(obj)
+                com = modifiers.get_collision_physics_mod(chr_cache, obj)
                 if clm is None:
                     missing_cloth = True
                 else:

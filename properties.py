@@ -1089,6 +1089,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("CYCLES","Cycles","Build shaders for Cycles rendering."),
                     ], default="EEVEE", name = "Target Renderer")
 
+    collision_body: bpy.props.PointerProperty(type=bpy.types.Object)
+
     rigified: bpy.props.BoolProperty(default=False)
     rigified_full_face_rig: bpy.props.BoolProperty(default=False)
     rig_face_rig: bpy.props.BoolProperty(default=True)
@@ -1613,7 +1615,9 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     return chr_cache
         return None
 
-    def get_context_character_cache(self, context):
+    def get_context_character_cache(self, context = None):
+        if not context:
+            context = bpy.context
         obj = context.object
         mat = utils.context_material(context)
 

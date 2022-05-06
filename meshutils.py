@@ -168,16 +168,46 @@ def generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right
                 vertex_group_r.add([vertex.index], weight, 'REPLACE')
 
 
+def get_material_vertex_indices(obj, mat):
+    vert_indices = []
+    mesh = obj.data
+    for poly in mesh.polygons:
+        poly_mat = obj.material_slots[poly.material_index].material
+        if poly_mat == mat:
+            for vert_index in poly.vertices:
+                if vert_index not in vert_indices:
+                    vert_indices.append(vert_index)
+    return vert_indices
+
+
 def get_material_vertices(obj, mat):
     verts = []
     mesh = obj.data
     for poly in mesh.polygons:
         poly_mat = obj.material_slots[poly.material_index].material
         if poly_mat == mat:
-            for vert in poly.vertices:
-                if vert not in verts:
-                    verts.append(vert)
+            for vert_index in poly.vertices:
+                if vert_index not in verts:
+                    verts.append(mesh.vertices[vert_index])
     return verts
+
+
+def remove_material_verts(obj, mat):
+    mesh = obj.data
+    utils.clear_selected_objects()
+    if utils.edit_mode_to(obj):
+        bpy.ops.mesh.select_all(action="DESELECT")
+    if utils.object_mode_to(obj):
+        for vert in mesh.vertices:
+            vert.select = False
+        for poly in mesh.polygons:
+            poly_mat = obj.material_slots[poly.material_index].material
+            if poly_mat == mat:
+                for vert_index in poly.vertices:
+                    mesh.vertices[vert_index].select = True
+    if utils.edit_mode_to(obj):
+        bpy.ops.mesh.delete(type='VERT')
+    utils.object_mode_to(obj)
 
 
 def find_shape_key(obj : bpy.types.Object, shape_key_name):
