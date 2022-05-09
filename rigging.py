@@ -1846,9 +1846,13 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
                 if bone.name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
                     bone.select = True
 
+            tmp_collection, layer_collections, to_hide = utils.scene_collection_only_items("TMP_BAKE", rigify_rig, source_rig, retarget_rig)
+
             bake_rig_animation(chr_cache, rigify_rig, source_action, None, True)
 
             adv_retarget_remove_pair(op, chr_cache)
+
+            utils.restore_scene_collection_only_items(tmp_collection, layer_collections, to_hide)
 
         utils.restore_visible_in_scene(temp_collection)
 
@@ -1878,7 +1882,13 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
                     len(child.data.shape_keys.key_blocks) > 0):
                     shape_key_objects.append(child)
 
+        if not props.bake_nla_shape_keys:
+            tmp_collection, layer_collections, to_hide = utils.scene_collection_only_items("TMP_BAKE", rigify_rig)
+
         bake_rig_animation(chr_cache, rigify_rig, None, shape_key_objects, False, "NLA_Bake")
+
+        if not props.bake_nla_shape_keys:
+            utils.restore_scene_collection_only_items(tmp_collection, layer_collections, to_hide)
 
 
 # Shape-key retargeting
@@ -2213,8 +2223,12 @@ def adv_bake_rigify_to_unity(op, chr_cache):
                 for bone in export_rig.data.bones:
                     bone.select = True
 
+                tmp_collection, layer_collections, to_hide = utils.scene_collection_only_items("TMP_BAKE", rigify_rig)
+
                 # bake the action on the rigify rig into the export rig
                 bake_rig_animation(chr_cache, export_rig, action, None, True)
+
+                utils.restore_scene_collection_only_items(tmp_collection, layer_collections, to_hide)
 
             else:
                 op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
@@ -2257,8 +2271,12 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache):
                     if child.data.shape_keys and len(child.data.shape_keys) > 0:
                         shape_key_objects.append(child)
 
+            tmp_collection, layer_collections, to_hide = utils.scene_collection_only_items("TMP_BAKE", rigify_rig)
+
             # bake the action on the rigify rig into the export rig
             bake_rig_animation(chr_cache, export_rig, None, shape_key_objects, True, "NLA_Bake")
+
+            utils.restore_scene_collection_only_items(tmp_collection, layer_collections, to_hide)
 
         else:
             op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")

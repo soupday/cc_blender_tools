@@ -686,6 +686,50 @@ def delete_mesh_object(obj):
             bpy.data.meshes.remove(data)
 
 
+def get_context_area(context, area_type):
+    for area in context.screen.areas:
+        if area.type == area_type:
+            return area
+    return None
+
+
+# C.scene.view_layers[0].layer_collection.children[0].exclude
+def scene_collection_only_items(collection_name, *items):
+    layer_collections = []
+    to_hide = []
+    # exclude all active layer collections
+    for view_layer in bpy.context.scene.view_layers:
+        layer_collection : bpy.types.LayerCollection
+        for layer_collection in view_layer.layer_collection.children:
+            if not layer_collection.exclude:
+                for obj in layer_collection.collection.objects:
+                    if not obj.visible_get():
+                        to_hide.append(obj)
+                layer_collections.append(layer_collection)
+                layer_collection.exclude = True
+    # add a new collection just for these items
+    tmp_collection = bpy.data.collections.new(collection_name)
+    bpy.context.scene.collection.children.link(tmp_collection)
+    for item in items:
+        tmp_collection.objects.link(item)
+    # return the temp collection and the layers exlcuded
+    return tmp_collection, layer_collections, to_hide
+
+
+def restore_scene_collection_only_items(tmp_collection, layer_collections, to_hide):
+    objects = []
+    for obj in tmp_collection.objects:
+        objects.append(obj)
+    for obj in objects:
+        tmp_collection.objects.unlink(obj)
+    bpy.context.scene.collection.children.unlink(tmp_collection)
+    bpy.data.collections.remove(tmp_collection)
+    for layer_collection in layer_collections:
+        layer_collection.exclude = False
+    for obj in to_hide:
+        obj.hide_set(True)
+
+
 def force_visible_in_scene(collection_name, *objects):
     tmp_collection = bpy.data.collections.new(collection_name)
     bpy.context.scene.collection.children.link(tmp_collection)
