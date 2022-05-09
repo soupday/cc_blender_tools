@@ -665,9 +665,6 @@ def get_dirty_weightmaps(objects):
     return maps
 
 
-
-
-
 def physics_paint_strength_update(self, context):
     props = bpy.context.scene.CC3ImportProps
 
@@ -684,7 +681,6 @@ def weight_strength_update(self, context):
     influence = 1 - math.pow(1 - strength, 3)
     edit_mod, mix_mod = modifiers.get_material_weight_map_mods(context.object, utils.context_material(context))
     mix_mod.mask_constant = influence
-
 
 
 def begin_paint_weight_map(chr_cache, context):
@@ -780,6 +776,7 @@ def set_physics_bake_range(obj, start, end):
             return True
     return False
 
+
 def prepare_physics_bake(context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
@@ -823,6 +820,39 @@ def separate_physics_materials(chr_cache, context):
         temp = None
 
 
+def disable_physics(chr_cache, physics_objects = None):
+    changed_objects = []
+    if not physics_objects:
+        physics_objects = chr_cache.get_all_objects(False, True)
+    for obj in physics_objects:
+        for mod in obj.modifiers:
+            if mod.type == "CLOTH":
+                if mod.show_render or mod.show_viewport:
+                    mod.show_viewport = False
+                    mod.show_render = False
+                    changed_objects.append(obj)
+            elif mod.type == "COLLISION":
+                if obj.collision and obj.collision.use:
+                    obj.collision.use = False
+                    changed_objects.append(obj)
+    chr_cache.physics_disabled = True
+    return changed_objects
+
+
+def enable_physics(chr_cache, physics_objects = None):
+    if not physics_objects:
+        physics_objects = chr_cache.get_all_objects(False, True)
+    for obj in physics_objects:
+        for mod in obj.modifiers:
+            if mod.type == "CLOTH":
+                mod.show_viewport = True
+                mod.show_render = True
+            elif mod.type == "COLLISION":
+                if obj.collision:
+                    obj.collision.use = True
+    chr_cache.physics_disabled = False
+
+
 def should_separate_materials(context):
     """Check to see if the current object has a weight map for each material.
     If not separating the mesh by material could improve performance.
@@ -839,7 +869,7 @@ def should_separate_materials(context):
 
 
 
-def set_physics_settings(param, context):
+def set_physics_settings(op, param, context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
 
@@ -910,6 +940,13 @@ def set_physics_settings(param, context):
                 bpy.ops.mesh.select_all(action = 'SELECT')
                 bpy.ops.mesh.dissolve_degenerate()
             bpy.ops.object.mode_set(mode = 'OBJECT')
+            op.report({'INFO'}, f"Degenerate elements removed for {context.object.name}")
+    elif param == "DISABLE_PHYSICS":
+        disable_physics(chr_cache)
+        op.report({'INFO'}, f"Physics disabled for {chr_cache.character_name}")
+    elif param == "ENABLE_PHYSICS":
+        enable_physics(chr_cache)
+        op.report({'INFO'}, f"Physics enabled for {chr_cache.character_name}")
 
 
 class CC3OperatorPhysics(bpy.types.Operator):
@@ -925,7 +962,7 @@ class CC3OperatorPhysics(bpy.types.Operator):
 
     def execute(self, context):
 
-        set_physics_settings(self.param, context)
+        set_physics_settings(self, self.param, context)
 
         return {"FINISHED"}
 
@@ -983,5 +1020,9 @@ class CC3OperatorPhysics(bpy.types.Operator):
             return "Removes degenerate mesh elements from the object.\n" \
                    "Note: Meshes with degenerate elements, loose vertices, orphaned edges, zero length edges etc...\n" \
                    "might not simulate properly. If the mesh misbehaves badly under simulation, try this."
+        elif properties.param == "DISABLE_PHYSICS":
+            return "Disable all physics modifiers for the characater."
+        elif properties.param == "ENABLE_PHYSICS":
+            return "Enable all physics modifiers for the characater."
 
         return ""

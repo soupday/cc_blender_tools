@@ -1090,6 +1090,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ], default="EEVEE", name = "Target Renderer")
 
     collision_body: bpy.props.PointerProperty(type=bpy.types.Object)
+    physics_disabled: bpy.props.BoolProperty(default=False)
 
     rigified: bpy.props.BoolProperty(default=False)
     rigified_full_face_rig: bpy.props.BoolProperty(default=False)
@@ -1208,15 +1209,21 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 materials.append(cache.material)
         return materials
 
-    def get_all_objects(self, include_armature = True):
+    def get_all_objects(self, include_armature = True, include_children = False):
         objects = []
+        arm = None
         for cache in self.object_cache:
-            if utils.still_exists(cache.object):
-                if cache.object and cache.object.type == "ARMATURE":
+            if utils.still_exists(cache.object) and cache.object not in objects:
+                if cache.object.type == "ARMATURE":
+                    arm = cache.object
                     if include_armature:
                         objects.append(cache.object)
                 else:
                     objects.append(cache.object)
+        if include_children and arm:
+            for child in arm.children:
+                if child.type == "MESH" and child not in objects:
+                    objects.append(child)
         return objects
 
 

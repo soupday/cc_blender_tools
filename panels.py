@@ -1309,6 +1309,13 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             op = col_2.operator("cc3.setphysics", icon="ERROR", text="Delete")
             op.param = "PHYSICS_DELETE"
 
+        if chr_cache:
+            layout.box().label(text="Character Setting", icon="FORCE_CURVE")
+            if chr_cache.physics_disabled:
+                layout.row().operator("cc3.setphysics", icon="PLAY", text="Enable Physics").param = "ENABLE_PHYSICS"
+            else:
+                layout.row().operator("cc3.setphysics", icon="PAUSE", text="Disable Physics").param = "DISABLE_PHYSICS"
+
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Pipeline_Panel"

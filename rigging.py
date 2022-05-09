@@ -25,6 +25,7 @@ from . import geom
 from . import meshutils
 from . import properties
 from . import modifiers
+from . import physics
 from . import bones
 from . import rigify_mapping_data
 
@@ -1837,6 +1838,8 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 
     if retarget_rig:
         temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", source_rig, retarget_rig, rigify_rig)
+        # turn off physics
+        physics.enable_disable_physics(chr_cache, False)
 
         # select just the retargeted bones in the rigify rig, to bake:
         if select_rig(rigify_rig):
@@ -1845,11 +1848,13 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
                 if bone.name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
                     bone.select = True
 
-            bake_rig_animation(rigify_rig, source_action, None, True)
+            bake_rig_animation(chr_cache, rigify_rig, source_action, None, True)
 
             adv_retarget_remove_pair(op, chr_cache)
 
         utils.restore_visible_in_scene(temp_collection)
+        # turn on physics
+        physics.enable_disable_physics(chr_cache, True)
 
 
 def adv_bake_NLA_to_rigify(op, chr_cache):
@@ -1877,7 +1882,7 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
                     len(child.data.shape_keys.key_blocks) > 0):
                     shape_key_objects.append(child)
 
-        bake_rig_animation(rigify_rig, None, shape_key_objects, False, "NLA_Bake")
+        bake_rig_animation(chr_cache, rigify_rig, None, shape_key_objects, False, "NLA_Bake")
 
 
 # Shape-key retargeting
@@ -2213,7 +2218,7 @@ def adv_bake_rigify_to_unity(op, chr_cache):
                     bone.select = True
 
                 # bake the action on the rigify rig into the export rig
-                bake_rig_animation(export_rig, action, None, True)
+                bake_rig_animation(chr_cache, export_rig, action, None, True)
 
             else:
                 op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
@@ -2257,7 +2262,7 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache):
                         shape_key_objects.append(child)
 
             # bake the action on the rigify rig into the export rig
-            bake_rig_animation(export_rig, None, shape_key_objects, True, "NLA_Bake")
+            bake_rig_animation(chr_cache, export_rig, None, shape_key_objects, True, "NLA_Bake")
 
         else:
             op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
@@ -2339,11 +2344,13 @@ def finish_unity_export(chr_cache, export_rig):
 #
 #
 
-def bake_rig_animation(rig, action, shape_key_objects, clear_constraints, action_name = ""):
+def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constraints, action_name = ""):
     if utils.try_select_object(rig, True) and utils.set_active_object(rig):
         if action_name == "" and action:
             action_name = action.name
         name = action_name.split("|")[-1]
+        # turn off physics
+        physics_objects = physics.disable_physics(chr_cache)
         # armature action
         baked_action = bpy.data.actions.new(f"{rig.name}|A|{name}")
         baked_action.use_fake_user = True
@@ -2371,6 +2378,8 @@ def bake_rig_animation(rig, action, shape_key_objects, clear_constraints, action
                         use_current_action=True,
                         clear_constraints=clear_constraints,
                         clean_curves=False)
+        # turn on physics
+        physics.enable_physics(chr_cache, physics_objects)
 
 
 # Helper functions
