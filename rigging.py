@@ -1838,8 +1838,6 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 
     if retarget_rig:
         temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", source_rig, retarget_rig, rigify_rig)
-        # turn off physics
-        physics.enable_disable_physics(chr_cache, False)
 
         # select just the retargeted bones in the rigify rig, to bake:
         if select_rig(rigify_rig):
@@ -1853,8 +1851,6 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
             adv_retarget_remove_pair(op, chr_cache)
 
         utils.restore_visible_in_scene(temp_collection)
-        # turn on physics
-        physics.enable_disable_physics(chr_cache, True)
 
 
 def adv_bake_NLA_to_rigify(op, chr_cache):
