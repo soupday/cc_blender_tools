@@ -674,6 +674,7 @@ class CC3Import(bpy.types.Operator):
 
             # setup default physics
             if prefs.physics == "ENABLED" and props.physics_mode == "ON":
+                utils.log_info("")
                 physics.add_all_physics(chr_cache)
 
             # enable SSR
