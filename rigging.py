@@ -1846,13 +1846,9 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
                 if bone.name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
                     bone.select = True
 
-            tmp_collection, layer_collections, to_hide = utils.scene_collection_only_items("TMP_BAKE", rigify_rig, source_rig, retarget_rig)
-
-            bake_rig_animation(chr_cache, rigify_rig, source_action, None, True)
+            bake_rig_animation(chr_cache, rigify_rig, source_action, None, True, True)
 
             adv_retarget_remove_pair(op, chr_cache)
-
-            utils.restore_scene_collection_only_items(tmp_collection, layer_collections, to_hide)
 
         utils.restore_visible_in_scene(temp_collection)
 
@@ -1882,13 +1878,7 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
                     len(child.data.shape_keys.key_blocks) > 0):
                     shape_key_objects.append(child)
 
-        if not props.bake_nla_shape_keys:
-            tmp_collection, layer_collections, to_hide = utils.scene_collection_only_items("TMP_BAKE", rigify_rig)
-
-        bake_rig_animation(chr_cache, rigify_rig, None, shape_key_objects, False, "NLA_Bake")
-
-        if not props.bake_nla_shape_keys:
-            utils.restore_scene_collection_only_items(tmp_collection, layer_collections, to_hide)
+        bake_rig_animation(chr_cache, rigify_rig, None, shape_key_objects, False, True, "NLA_Bake")
 
 
 # Shape-key retargeting
@@ -2223,12 +2213,8 @@ def adv_bake_rigify_to_unity(op, chr_cache):
                 for bone in export_rig.data.bones:
                     bone.select = True
 
-                tmp_collection, layer_collections, to_hide = utils.scene_collection_only_items("TMP_BAKE", rigify_rig)
-
                 # bake the action on the rigify rig into the export rig
-                bake_rig_animation(chr_cache, export_rig, action, None, True)
-
-                utils.restore_scene_collection_only_items(tmp_collection, layer_collections, to_hide)
+                bake_rig_animation(chr_cache, export_rig, action, None, True, True)
 
             else:
                 op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
@@ -2271,12 +2257,8 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache):
                     if child.data.shape_keys and len(child.data.shape_keys) > 0:
                         shape_key_objects.append(child)
 
-            tmp_collection, layer_collections, to_hide = utils.scene_collection_only_items("TMP_BAKE", rigify_rig)
-
             # bake the action on the rigify rig into the export rig
-            bake_rig_animation(chr_cache, export_rig, None, shape_key_objects, True, "NLA_Bake")
-
-            utils.restore_scene_collection_only_items(tmp_collection, layer_collections, to_hide)
+            bake_rig_animation(chr_cache, export_rig, None, shape_key_objects, True, True, "NLA_Bake")
 
         else:
             op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
@@ -2358,13 +2340,11 @@ def finish_unity_export(chr_cache, export_rig):
 #
 #
 
-def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constraints, action_name = ""):
+def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constraints, limit_view_layer, action_name = ""):
     if utils.try_select_object(rig, True) and utils.set_active_object(rig):
         if action_name == "" and action:
             action_name = action.name
         name = action_name.split("|")[-1]
-        # turn off physics
-        physics_objects = physics.disable_physics(chr_cache)
         # armature action
         baked_action = bpy.data.actions.new(f"{rig.name}|A|{name}")
         baked_action.use_fake_user = True
@@ -2384,14 +2364,22 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
         else:
             start_frame = int(bpy.context.scene.frame_start)
             end_frame = int(bpy.context.scene.frame_end)
+        # turn off character physics
+        physics_objects = physics.disable_physics(chr_cache)
+        # limit view layer (bakes faster)
+        if limit_view_layer:
+            tmp_collection, layer_collections, to_hide = utils.limit_view_layer_to_collection("TMP_BAKE", rig, shape_key_objects)
         # bake
         bpy.ops.nla.bake(frame_start=start_frame,
-                        frame_end=end_frame,
-                        only_selected=True,
-                        visual_keying=True,
-                        use_current_action=True,
-                        clear_constraints=clear_constraints,
-                        clean_curves=False)
+                         frame_end=end_frame,
+                         only_selected=True,
+                         visual_keying=True,
+                         use_current_action=True,
+                         clear_constraints=clear_constraints,
+                         clean_curves=False)
+        # restore view layers
+        if limit_view_layer:
+            utils.restore_limited_view_layers(tmp_collection, layer_collections, to_hide)
         # turn on physics
         physics.enable_physics(chr_cache, physics_objects)
 
@@ -2562,16 +2550,17 @@ def check_armature_action(armature, action):
 
 
 def get_armature_action_source_type(armature, action):
-    if is_G3_armature(armature) and is_G3_action(action):
-        return "G3", "G3 (CC3/CC3+)"
-    if is_iClone_armature(armature) and is_iClone_action(action):
-        return "G3", "G3 (iClone)"
-    if is_ActorCore_armature(armature) and is_ActorCore_action(action):
-        return "G3", "G3 (ActorCore)"
-    if is_GameBase_armature(armature) and is_GameBase_action(action):
-        return "GameBase", "GameBase (CC3/CC3+)"
-    if is_Mixamo_armature(armature) and is_Mixamo_action(action):
-        return "Mixamo", "Mixamo"
+    if armature and action and armature.type == "ARMATURE":
+        if is_G3_armature(armature) and is_G3_action(action):
+            return "G3", "G3 (CC3/CC3+)"
+        if is_iClone_armature(armature) and is_iClone_action(action):
+            return "G3", "G3 (iClone)"
+        if is_ActorCore_armature(armature) and is_ActorCore_action(action):
+            return "G3", "G3 (ActorCore)"
+        if is_GameBase_armature(armature) and is_GameBase_action(action):
+            return "GameBase", "GameBase (CC3/CC3+)"
+        if is_Mixamo_armature(armature) and is_Mixamo_action(action):
+            return "Mixamo", "Mixamo"
     # detect other types as they become available...
     return "Unknown", "Unknown"
 

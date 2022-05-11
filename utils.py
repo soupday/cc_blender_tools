@@ -694,7 +694,7 @@ def get_context_area(context, area_type):
 
 
 # C.scene.view_layers[0].layer_collection.children[0].exclude
-def scene_collection_only_items(collection_name, *items):
+def limit_view_layer_to_collection(collection_name, *items):
     layer_collections = []
     to_hide = []
     # exclude all active layer collections
@@ -711,12 +711,19 @@ def scene_collection_only_items(collection_name, *items):
     tmp_collection = bpy.data.collections.new(collection_name)
     bpy.context.scene.collection.children.link(tmp_collection)
     for item in items:
-        tmp_collection.objects.link(item)
+        if item:
+            if type(item) is list:
+                for sub_item in item:
+                    tmp_collection.objects.link(sub_item)
+                    sub_item.hide_set(False)
+            else:
+                tmp_collection.objects.link(item)
+                item.hide_set(False)
     # return the temp collection and the layers exlcuded
     return tmp_collection, layer_collections, to_hide
 
 
-def restore_scene_collection_only_items(tmp_collection, layer_collections, to_hide):
+def restore_limited_view_layers(tmp_collection, layer_collections, to_hide):
     objects = []
     for obj in tmp_collection.objects:
         objects.append(obj)
