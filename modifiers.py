@@ -311,7 +311,6 @@ def add_decimate_modifier(obj, ratio):
     mod = get_object_modifier(obj, "DECIMATE", "Decimate_Collision_Body")
     if not mod:
         mod = obj.modifiers.new(utils.unique_name("Decimate_Collision_Body"), "DECIMATE")
-    print("#################", mod)
     mod.decimate_type = 'COLLAPSE'
     mod.ratio = ratio
     return mod

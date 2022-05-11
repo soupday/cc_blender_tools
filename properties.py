@@ -1091,6 +1091,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     collision_body: bpy.props.PointerProperty(type=bpy.types.Object)
     physics_disabled: bpy.props.BoolProperty(default=False)
+    physics_applied: bpy.props.BoolProperty(default=False)
 
     rigified: bpy.props.BoolProperty(default=False)
     rigified_full_face_rig: bpy.props.BoolProperty(default=False)

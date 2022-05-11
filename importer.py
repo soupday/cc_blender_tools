@@ -169,9 +169,6 @@ def process_object(chr_cache, obj, objects_processed, character_json):
     obj_cache = chr_cache.get_object_cache(obj)
 
     if obj.type == "MESH":
-        # when rebuilding materials remove all the physics modifiers
-        # they don't seem to like having their settings changed...
-        physics.remove_all_physics_mods(obj)
 
         # remove any modifiers for refractive eyes
         modifiers.remove_eye_modifiers(obj)
@@ -183,18 +180,8 @@ def process_object(chr_cache, obj, objects_processed, character_json):
                 utils.log_info("Processing Material: " + mat.name)
                 utils.log_indent()
                 process_material(chr_cache, obj, mat, object_json)
-                if prefs.physics == "ENABLED" and props.physics_mode == "ON":
-                    physics.add_material_weight_map(chr_cache, obj, mat, create = False)
                 utils.log_recess()
                 objects_processed.append(mat)
-
-        # setup default physics
-        if prefs.physics == "ENABLED" and props.physics_mode == "ON":
-            physics.add_collision_physics(chr_cache, obj, obj_cache)
-            edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
-            if len(edit_mods) + len(mix_mods) > 0:
-                physics.enable_cloth_physics(chr_cache, obj, False)
-                #physics.remap_physx_weight_maps(obj)
 
         # setup special modifiers for displacement, UV warp, etc...
         if chr_cache.setup_mode == "ADVANCED":
@@ -204,7 +191,6 @@ def process_object(chr_cache, obj, objects_processed, character_json):
                 modifiers.add_eye_occlusion_modifiers(obj)
             elif obj_cache.is_tearline():
                 modifiers.add_tearline_modifiers(obj)
-
 
     elif obj.type == "ARMATURE":
 
@@ -686,6 +672,11 @@ class CC3Import(bpy.types.Operator):
                     if cache.object and cache.object in bpy.context.selected_objects:
                         process_object(chr_cache, cache.object, objects_processed, chr_json)
 
+            # setup default physics
+            if prefs.physics == "ENABLED" and props.physics_mode == "ON":
+                physics.add_all_physics(chr_cache)
+
+            # enable SSR
             if prefs.refractive_eyes == "SSR":
                 bpy.context.scene.eevee.use_ssr = True
                 bpy.context.scene.eevee.use_ssr_refraction = True

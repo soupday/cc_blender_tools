@@ -192,7 +192,6 @@ def remove_collision_physics(chr_cache, obj, obj_cache):
     """
 
     if obj_cache.object_type == "BODY" and utils.still_exists(chr_cache.collision_body):
-        chr_cache.collision_body
         utils.delete_mesh_object(chr_cache.collision_body)
         chr_cache.collision_body = None
 
@@ -349,7 +348,7 @@ def disable_cloth_physics(chr_cache, obj):
 def create_body_collision_mesh(chr_cache, obj):
     # remove old collsion mesh
     collision_body = None
-    if utils.still_exists(chr_cache.collision_body) and collision_body != obj:
+    if utils.object_exists_is_mesh(chr_cache.collision_body) and collision_body != obj:
         utils.delete_mesh_object(chr_cache.collision_body)
     # clone obj
     collision_body = utils.duplicate_object(obj)
@@ -853,6 +852,44 @@ def enable_physics(chr_cache, physics_objects = None):
     chr_cache.physics_disabled = False
 
 
+def add_all_physics(chr_cache):
+    if chr_cache:
+        utils.log_info(f"Adding all Physics modifiers to: {chr_cache.character_name}")
+        utils.log_indent()
+        objects_processed = []
+        for obj_cache in chr_cache.object_cache:
+            obj = obj_cache.object
+            if utils.object_exists_is_mesh(obj) and obj not in objects_processed:
+                utils.log_info(f"Object: {obj.name}:")
+                utils.log_indent()
+                remove_all_physics_mods(obj)
+                for mat in obj.data.materials:
+                    if mat and mat not in objects_processed:
+                        add_material_weight_map(chr_cache, obj, mat, create = False)
+                    objects_processed.append(mat)
+                objects_processed.append(obj)
+                add_collision_physics(chr_cache, obj, obj_cache)
+                edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
+                if len(edit_mods) + len(mix_mods) > 0:
+                    enable_cloth_physics(chr_cache, obj, False)
+                utils.log_recess()
+        chr_cache.physics_applied = True
+        utils.log_recess()
+
+
+def remove_all_physics(chr_cache):
+    if chr_cache:
+        utils.log_info(f"Removing all Physics modifiers from: {chr_cache.character_name}")
+        utils.log_indent()
+        objects_processed = []
+        for obj_cache in chr_cache.object_cache:
+            obj = obj_cache.object
+            if utils.object_exists_is_mesh(obj) and obj not in objects_processed:
+                remove_all_physics_mods(obj)
+        chr_cache.physics_applied = False
+        utils.log_recess()
+
+
 def should_separate_materials(context):
     """Check to see if the current object has a weight map for each material.
     If not separating the mesh by material could improve performance.
@@ -947,6 +984,12 @@ def set_physics_settings(op, param, context):
     elif param == "ENABLE_PHYSICS":
         enable_physics(chr_cache)
         op.report({'INFO'}, f"Physics enabled for {chr_cache.character_name}")
+    elif param == "REMOVE_PHYSICS":
+        remove_all_physics(chr_cache)
+        op.report({'INFO'}, f"Physics removed for {chr_cache.character_name}")
+    elif param == "APPLY_PHYSICS":
+        add_all_physics(chr_cache)
+        op.report({'INFO'}, f"Physics applied to {chr_cache.character_name}")
 
 
 class CC3OperatorPhysics(bpy.types.Operator):
@@ -1021,8 +1064,12 @@ class CC3OperatorPhysics(bpy.types.Operator):
                    "Note: Meshes with degenerate elements, loose vertices, orphaned edges, zero length edges etc...\n" \
                    "might not simulate properly. If the mesh misbehaves badly under simulation, try this."
         elif properties.param == "DISABLE_PHYSICS":
-            return "Disable all physics modifiers for the characater."
+            return "Temporarily disable all physics modifiers for the characater."
         elif properties.param == "ENABLE_PHYSICS":
-            return "Enable all physics modifiers for the characater."
+            return "Re-enable all physics modifiers for the characater."
+        elif properties.param == "REMOVE_PHYSICS":
+            return "Remove all physics modifiers for the characater."
+        elif properties.param == "APPLY_PHYSICS":
+            return "Add all possible physics modifiers for the characater."
 
         return ""

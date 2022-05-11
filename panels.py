@@ -1170,6 +1170,17 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         mat = utils.context_material(context)
         edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
 
+        if chr_cache:
+            layout.box().label(text="Character Physics", icon="FORCE_CURVE")
+            if chr_cache.physics_applied:
+                layout.row().operator("cc3.setphysics", icon="REMOVE", text="Remove All Physics").param = "REMOVE_PHYSICS"
+            else:
+                layout.row().operator("cc3.setphysics", icon="ADD", text="Apply All Physics").param = "APPLY_PHYSICS"
+            if chr_cache.physics_disabled:
+                layout.row().operator("cc3.setphysics", icon="PLAY", text="Re-enable Physics").param = "ENABLE_PHYSICS"
+            else:
+                layout.row().operator("cc3.setphysics", icon="PAUSE", text="Disable Physics").param = "DISABLE_PHYSICS"
+
         box = layout.box()
         box.label(text="Create / Remove", icon="PHYSICS")
 
@@ -1308,13 +1319,6 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             op.param = "PHYSICS_SAVE"
             op = col_2.operator("cc3.setphysics", icon="ERROR", text="Delete")
             op.param = "PHYSICS_DELETE"
-
-        if chr_cache:
-            layout.box().label(text="Character Setting", icon="FORCE_CURVE")
-            if chr_cache.physics_disabled:
-                layout.row().operator("cc3.setphysics", icon="PLAY", text="Enable Physics").param = "ENABLE_PHYSICS"
-            else:
-                layout.row().operator("cc3.setphysics", icon="PAUSE", text="Disable Physics").param = "DISABLE_PHYSICS"
 
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):

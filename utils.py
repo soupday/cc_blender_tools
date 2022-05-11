@@ -201,6 +201,7 @@ def object_has_material(obj, name):
 
 
 def still_exists(obj):
+    """Test if obj still exists."""
     try:
         name = obj.name
         return True
@@ -209,21 +210,27 @@ def still_exists(obj):
 
 
 def object_exists_is_mesh(obj):
+    """Test if Object: obj still exists as an object in the scene, and is a mesh."""
     try:
+        name = obj.name
         return len(obj.users_scene) > 0 and obj.type == "MESH"
     except:
         return False
 
 
 def object_exists_is_armature(obj):
+    """Test if Object: obj still exists as an object in the scene, and is an armature."""
     try:
+        name = obj.name
         return len(obj.users_scene) > 0 and obj.type == "ARMATURE"
     except:
         return False
 
 
-def object_exists_in_scenes(obj):
+def object_exists(obj):
+    """Test if Object: obj still exists as an object in the scene."""
     try:
+        name = obj.name
         return len(obj.users_scene) > 0
     except:
         return False
