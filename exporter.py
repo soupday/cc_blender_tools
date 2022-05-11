@@ -995,9 +995,13 @@ class CC3Export(bpy.types.Operator):
 
             if type == ".fbx":
                 # export as fbx
+                export_actions = prefs.export_animation_mode == "ACTIONS" or prefs.export_animation_mode == "BOTH"
+                export_strips = prefs.export_animation_mode == "STRIPS" or prefs.export_animation_mode == "BOTH"
                 bpy.ops.export_scene.fbx(filepath=self.filepath,
                         use_selection = True,
                         bake_anim = export_anim,
+                        bake_anim_use_all_actions=export_actions,
+                        bake_anim_use_nla_strips=export_strips,
                         use_armature_deform_only=True,
                         add_leaf_bones = False,
                         use_mesh_modifiers = True)
@@ -1084,9 +1088,14 @@ class CC3Export(bpy.types.Operator):
 
             if type == ".fbx":
                 # export as fbx
+                export_actions = prefs.export_animation_mode == "ACTIONS" or prefs.export_animation_mode == "BOTH"
+                export_strips = prefs.export_animation_mode == "STRIPS" or prefs.export_animation_mode == "BOTH"
                 bpy.ops.export_scene.fbx(filepath=props.unity_file_path,
                         use_selection = True,
                         bake_anim = export_anim,
+                        bake_anim_use_all_actions=export_actions,
+                        bake_anim_use_nla_strips=export_strips,
+                        use_armature_deform_only=True,
                         add_leaf_bones = False,
                         use_mesh_modifiers = True)
 

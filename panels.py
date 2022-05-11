@@ -1034,10 +1034,13 @@ class CC3RigifyPanel(bpy.types.Panel):
                         op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
                         op.param = "EXPORT_UNITY"
                         row2 = layout.row()
-                        row2.label(text="Rigged character FBX only", icon="INFO")
+                        row2.prop(prefs, "export_animation_mode", expand=True)
+                        row3 = layout.row()
+                        row3.label(text="Rigged character FBX only", icon="INFO")
                         if not chr_cache:
                             row.enabled = False
                             row2.enabled = False
+                            row3.enabled = False
 
             else:
                 wrapped_text_box(layout, "No current character!", width)
@@ -1406,16 +1409,23 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             if not chr_cache or chr_cache.import_type != "fbx":
                 row.enabled = False
                 row2.enabled = False
-        elif chr_cache.rigified:
+        elif chr_cache and chr_cache.rigified:
             row = layout.row()
             row.scale_y = 2
             op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
             op.param = "EXPORT_UNITY"
-            row2 = layout.row()
-            row2.label(text="Rigged character FBX only", icon="INFO")
             if not chr_cache:
                 row.enabled = False
-                row2.enabled = False
+        row = layout.row()
+        row.prop(prefs, "export_animation_mode", expand=True)
+        if not chr_cache:
+            row.enabled = False
+        if chr_cache and chr_cache.rigified:
+            row = layout.row()
+            row.label(text="Rigged character FBX only", icon="INFO")
+            if not chr_cache:
+                row.enabled = False
+
 
         # export prefs
         box = layout.box()

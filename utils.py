@@ -971,3 +971,5 @@ def get_last_report():
     return lines[-1]
 
 
+def stop_now():
+    raise Exception("STOP!")

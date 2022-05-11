@@ -826,7 +826,7 @@ UNITY_EXPORT_RIG = [
     ["DEF-eye.R", "DEF-spine.006", "CC_Base_R_Eye", "PLR"],
     ["DEF-eye.L", "DEF-spine.006", "CC_Base_L_Eye", "PLR"],
     # Jaw:
-    ["DEF-jaw", "DEF-spine.006", "CC_Base_JawRoot", "PLR"],
+    ["DEF-jaw", "DEF-spine.006", "CC_Base_JawRoot", "PLRT", "jaw_master"],
 ]
 
 
