@@ -38,6 +38,7 @@ Links
 ### 1.3.6
 - Rigify
     - Finger roll alignment fixed. All fingers now have exactly the same local bend axis.
+    - Disables all physics modifiers non-contributing armatures and meshes during retarget baking to speed it up a bit.
 - Physics:
     - Low poly (1/8th) Collision Body mesh created from decimating a copy of the Body mesh and removing the eyelashes.
         - Hair would easily get trapped in the eyelashes and a lower poly collision mesh should speed up the cloth simulation.
