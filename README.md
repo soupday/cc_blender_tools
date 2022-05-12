@@ -12,7 +12,9 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 Links
 =====
 [CC3 Round-trip Import Plugin](https://github.com/soupday/CC3-Blender-Tools-Plugin)
+
 [CC4 Round-trip Import Plugin](https://github.com/soupday/CC4-Blender-Tools-Plugin)
+
 [Baking Add-on](https://github.com/soupday/cc3_blender_bake)
 
 ## Installation, Updating, Removal
