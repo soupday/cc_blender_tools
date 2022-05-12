@@ -664,6 +664,24 @@ def test_for_material_uv_coords(obj, mat_slot, uvs):
     return False
 
 
+def get_material_slot_by_type(chr_cache, obj, material_type):
+    if obj.type == "MESH":
+        for slot in obj.material_slots:
+            mat = slot.material
+            mat_cache = chr_cache.get_material_cache(mat)
+            if mat_cache and mat_cache.material_type == material_type:
+                return slot.index
+    return -1
+
+
+def get_material_by_type(chr_cache, obj, material_type):
+    if obj.type == "MESH":
+        for mat in obj.data.materials:
+            mat_cache = chr_cache.get_material_cache(mat)
+            if mat_cache and mat_cache.material_type == material_type:
+                return mat
+    return None
+
 
 def reconstruct_obj_materials(obj):
     mesh = obj.data

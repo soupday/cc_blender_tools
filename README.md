@@ -1,17 +1,20 @@
-# CC3 Blender Tools
-An add-on for importing and automatically setting up materials for Character Creator 3 character exports.
+# CC/iC Blender Tools
+An add-on for importing and automatically setting up materials for Character Creator 3 & 4 and iClone 7 & 8 character exports.
 
-Using Blender in the Character Creator 3 pipeline can often feel like hitting a brick wall. Spending potentially hours having to get the import settings correct and setting up the materials often with hundreds of textures.
+Using Blender in the Character Creator pipeline can often feel like hitting a brick wall. Spending potentially hours having to get the import settings correct and setting up the materials often with hundreds of textures.
 
 This add-on aims to reduce that time spent getting characters into Blender down to just a few seconds and make use of as many of the exported textures as possible so that character artists can work in the highest quality possible using Blender.
 
-[Online Documentation](https://soupday.github.io/cc3_blender_tools/index.html) (Work in progress...)
+[Online Documentation](https://soupday.github.io/cc3_blender_tools/index.html)
 
 [Reallusion Forum Thread](https://forum.reallusion.com/475005/Blender-Auto-Setup)
 
 Links
 =====
 [CC3 Round-trip Import Plugin](https://github.com/soupday/CC3-Blender-Tools-Plugin)
+
+[CC4 Round-trip Import Plugin](https://github.com/soupday/CC4-Blender-Tools-Plugin)
+
 [Baking Add-on](https://github.com/soupday/cc3_blender_bake)
 
 ## Installation, Updating, Removal
@@ -31,6 +34,19 @@ Links
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+
+### 1.3.6
+- Rigify
+    - Finger roll alignment fixed. All fingers now have exactly the same local bend axis.
+    - Disables all physics modifiers non-contributing armatures and meshes during retarget baking to speed it up a bit.
+- Physics:
+    - Low poly (1/8th) Collision Body mesh created from decimating a copy of the Body mesh and removing the eyelashes.
+        - Hair would easily get trapped in the eyelashes and a lower poly collision mesh should speed up the cloth simulation.
+    - PhysX weight maps normalized, provides a more consistent and controllable simulation across different weight maps.
+    - Tweaked some cloth simulation parameters.
+    - Smart Hair meshes in particular should simulate better now.
+- Unity:
+    - Added animation export options (Actions or Strips)
 
 ### 1.3.5
 - Fix to shape-key action name matching.

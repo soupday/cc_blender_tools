@@ -826,7 +826,7 @@ UNITY_EXPORT_RIG = [
     ["DEF-eye.R", "DEF-spine.006", "CC_Base_R_Eye", "PLR"],
     ["DEF-eye.L", "DEF-spine.006", "CC_Base_L_Eye", "PLR"],
     # Jaw:
-    ["DEF-jaw", "DEF-spine.006", "CC_Base_JawRoot", "PLR"],
+    ["DEF-jaw", "DEF-spine.006", "CC_Base_JawRoot", "PLRT", "jaw_master"],
 ]
 
 
@@ -857,10 +857,20 @@ CONTROL_MODIFY = [
 
 
 RIGIFY_PARAMS = [
-    ["upper_arm.R", "x"],
-    ["upper_arm.L", "x"],
-    ["thigh.R", "x"],
-    ["thigh.L", "x"],
+    ["upper_arm.R", "rotation_axis", "x"],
+    ["upper_arm.L", "rotation_axis", "x"],
+    ["thigh.R", "rotation_axis", "x"],
+    ["thigh.L", "rotation_axis", "x"],
+
+    ["f_index.01.L", "primary_rotation_axis", "X"],
+    ["f_middle.01.L", "primary_rotation_axis", "X"],
+    ["f_ring.01.L", "primary_rotation_axis", "X"],
+    ["f_pinky.01.L", "primary_rotation_axis", "X"],
+
+    ["f_index.01.R", "primary_rotation_axis", "X"],
+    ["f_middle.01.R", "primary_rotation_axis", "X"],
+    ["f_ring.01.R", "primary_rotation_axis", "X"],
+    ["f_pinky.01.R", "primary_rotation_axis", "X"],
 ]
 
 

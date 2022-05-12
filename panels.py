@@ -1034,10 +1034,13 @@ class CC3RigifyPanel(bpy.types.Panel):
                         op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
                         op.param = "EXPORT_UNITY"
                         row2 = layout.row()
-                        row2.label(text="Rigged character FBX only", icon="INFO")
+                        row2.prop(prefs, "export_animation_mode", expand=True)
+                        row3 = layout.row()
+                        row3.label(text="Rigged character FBX only", icon="INFO")
                         if not chr_cache:
                             row.enabled = False
                             row2.enabled = False
+                            row3.enabled = False
 
             else:
                 wrapped_text_box(layout, "No current character!", width)
@@ -1142,6 +1145,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         layout = self.layout
 
+        chr_cache = props.get_context_character_cache(context)
         missing_cloth = False
         has_cloth = False
         missing_coll = False
@@ -1152,7 +1156,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             if obj.type == "MESH":
                 meshes_selected += 1
                 clm = modifiers.get_cloth_physics_mod(obj)
-                com = modifiers.get_collision_physics_mod(obj)
+                com = modifiers.get_collision_physics_mod(chr_cache, obj)
                 if clm is None:
                     missing_cloth = True
                 else:
@@ -1168,6 +1172,17 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         obj = context.object
         mat = utils.context_material(context)
         edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
+
+        if chr_cache:
+            layout.box().label(text="Character Physics", icon="FORCE_CURVE")
+            if chr_cache.physics_applied:
+                layout.row().operator("cc3.setphysics", icon="REMOVE", text="Remove All Physics").param = "REMOVE_PHYSICS"
+            else:
+                layout.row().operator("cc3.setphysics", icon="ADD", text="Apply All Physics").param = "APPLY_PHYSICS"
+            if chr_cache.physics_disabled:
+                layout.row().operator("cc3.setphysics", icon="PLAY", text="Re-enable Physics").param = "ENABLE_PHYSICS"
+            else:
+                layout.row().operator("cc3.setphysics", icon="PAUSE", text="Disable Physics").param = "DISABLE_PHYSICS"
 
         box = layout.box()
         box.label(text="Create / Remove", icon="PHYSICS")
@@ -1394,16 +1409,23 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             if not chr_cache or chr_cache.import_type != "fbx":
                 row.enabled = False
                 row2.enabled = False
-        elif chr_cache.rigified:
+        elif chr_cache and chr_cache.rigified:
             row = layout.row()
             row.scale_y = 2
             op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
             op.param = "EXPORT_UNITY"
-            row2 = layout.row()
-            row2.label(text="Rigged character FBX only", icon="INFO")
             if not chr_cache:
                 row.enabled = False
-                row2.enabled = False
+        row = layout.row()
+        row.prop(prefs, "export_animation_mode", expand=True)
+        if not chr_cache:
+            row.enabled = False
+        if chr_cache and chr_cache.rigified:
+            row = layout.row()
+            row.label(text="Rigged character FBX only", icon="INFO")
+            if not chr_cache:
+                row.enabled = False
+
 
         # export prefs
         box = layout.box()

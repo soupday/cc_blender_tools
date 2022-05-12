@@ -335,9 +335,6 @@ def func_set_iris_tiling(v, w):
 def func_get_iris_scale(iris_uv_radius):
     return 0.16 / iris_uv_radius
 
-def func_export_iris_uv_radius(scale, radius):
-    return scale * radius
-
 def func_set_half(s):
     return s * 0.5
 

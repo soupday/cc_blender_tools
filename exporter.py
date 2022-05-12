@@ -44,7 +44,7 @@ def check_valid_export_fbx(chr_cache, objects):
 
         obj : bpy.types.Object
         for obj in objects:
-            if obj != arm and utils.object_exists_in_scenes(obj):
+            if obj != arm and utils.object_exists(obj):
                 if obj.type != "MESH":
                     message = f"ERROR: Object: {obj.name} is not a mesh!"
                     report.append(message)
@@ -220,66 +220,64 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
             obj_json = copy.deepcopy(params.JSON_MESH_DATA)
             chr_json["Meshes"][obj_source_name] = obj_json
 
-        if obj_json and utils.still_exists(obj):
+        if obj_json and utils.object_exists_is_mesh(obj):
 
-            if obj.type == "MESH":
+            for slot in obj.material_slots:
+                mat = slot.material
+                mat_name = mat.name
+                mat_source_name = utils.strip_name(mat.name)
+                mat_json = jsonutils.get_material_json(obj_json, mat)
+                mat_cache = chr_cache.get_material_cache(mat)
 
-                for slot in obj.material_slots:
-                    mat = slot.material
-                    mat_name = mat.name
-                    mat_source_name = utils.strip_name(mat.name)
-                    mat_json = jsonutils.get_material_json(obj_json, mat)
-                    mat_cache = chr_cache.get_material_cache(mat)
+                # if the name has been changed since it was cached, change it in the json
+                cache_source_name = None
+                if mat_cache:
+                    cache_source_name = mat_cache.source_name
+                if not cache_source_name:
+                    cache_source_name = mat_source_name
+                if mat_source_name != cache_source_name:
+                    new_mat_name = mat_name.replace('.', '_')
+                    if cache_source_name in obj_json["Materials"].keys():
+                        utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
+                        obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
+                    changes.append(["MATERIAL_RENAME", mat, mat.name])
+                    mat.name = new_mat_name
+                    mat_name = new_mat_name
+                    mat_source_name = new_mat_name
 
-                    # if the name has been changed since it was cached, change it in the json
-                    cache_source_name = None
-                    if mat_cache:
-                        cache_source_name = mat_cache.source_name
-                    if not cache_source_name:
-                        cache_source_name = mat_source_name
-                    if mat_source_name != cache_source_name:
-                        new_mat_name = mat_name.replace('.', '_')
-                        if cache_source_name in obj_json["Materials"].keys():
-                            utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
-                            obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
-                        changes.append(["MATERIAL_RENAME", mat, mat.name])
-                        mat.name = new_mat_name
-                        mat_name = new_mat_name
-                        mat_source_name = new_mat_name
-
-                    if mat_cache:
-                        if mat_cache.user_added:
-                            # add new material json data if user added
-                            mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
-                            obj_json["Materials"][mat_source_name] = mat_json
-                        if prefs.export_json_changes:
-                            write_back_json(mat_json, mat, mat_cache)
-                        if prefs.export_texture_changes:
-                            write_back_textures(mat_json, mat, mat_cache, old_path, chr_cache.import_name, True)
-                    if mat_json:
-                        # replace duplicate materials with a reference to a single source material
-                        # (this is to ensure there are no duplicate suffixes in the fbx export)
-                        if mat_count[mat_source_name] > 1:
-                            new_mat = mat_remap[mat_source_name]
-                            slot.material = new_mat
-                            utils.log_info("Replacing material: " + mat.name + " with " + new_mat.name)
-                            changes.append(["MATERIAL_SLOT_REPLACE", slot, mat])
-                            mat = new_mat
-                            mat_name = new_mat.name
-                        # strip any blender numerical suffixes
-                        if mat_name != mat_source_name:
-                            utils.log_info(f"Reverting material name: {mat_name} to {mat_source_name}")
-                            mat.name = mat_source_name
-                            changes.append(["MATERIAL_RENAME", mat, mat_name])
-                        # when saving the export to a new location, the texture paths need to point back to the
-                        # original texture locations, either by new relative paths or absolute paths
-                        # pbr textures:
-                        for channel in mat_json["Textures"].keys():
-                            remap_texture_path(mat_json["Textures"][channel], old_path, new_path)
-                        # custom shader textures:
-                        if "Custom Shader" in mat_json.keys():
-                            for channel in mat_json["Custom Shader"]["Image"].keys():
-                                remap_texture_path(mat_json["Custom Shader"]["Image"][channel], old_path, new_path)
+                if mat_cache:
+                    if mat_cache.user_added:
+                        # add new material json data if user added
+                        mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
+                        obj_json["Materials"][mat_source_name] = mat_json
+                    if prefs.export_json_changes:
+                        write_back_json(mat_json, mat, mat_cache)
+                    if prefs.export_texture_changes:
+                        write_back_textures(mat_json, mat, mat_cache, old_path, chr_cache.import_name, True)
+                if mat_json:
+                    # replace duplicate materials with a reference to a single source material
+                    # (this is to ensure there are no duplicate suffixes in the fbx export)
+                    if mat_count[mat_source_name] > 1:
+                        new_mat = mat_remap[mat_source_name]
+                        slot.material = new_mat
+                        utils.log_info("Replacing material: " + mat.name + " with " + new_mat.name)
+                        changes.append(["MATERIAL_SLOT_REPLACE", slot, mat])
+                        mat = new_mat
+                        mat_name = new_mat.name
+                    # strip any blender numerical suffixes
+                    if mat_name != mat_source_name:
+                        utils.log_info(f"Reverting material name: {mat_name} to {mat_source_name}")
+                        mat.name = mat_source_name
+                        changes.append(["MATERIAL_RENAME", mat, mat_name])
+                    # when saving the export to a new location, the texture paths need to point back to the
+                    # original texture locations, either by new relative paths or absolute paths
+                    # pbr textures:
+                    for channel in mat_json["Textures"].keys():
+                        remap_texture_path(mat_json["Textures"][channel], old_path, new_path)
+                    # custom shader textures:
+                    if "Custom Shader" in mat_json.keys():
+                        for channel in mat_json["Custom Shader"]["Image"].keys():
+                            remap_texture_path(mat_json["Custom Shader"]["Image"][channel], old_path, new_path)
 
         if prefs.export_bone_roll_fix:
             if obj.type == "ARMATURE":
@@ -377,66 +375,64 @@ def prep_export_unity(chr_cache, new_name, objects, json_data, old_path, new_pat
             obj_json = copy.deepcopy(params.JSON_MESH_DATA)
             chr_json["Meshes"][obj_source_name] = obj_json
 
-        if obj_json and utils.still_exists(obj):
+        if obj_json and utils.object_exists_is_mesh(obj):
 
-            if obj.type == "MESH":
+            for slot in obj.material_slots:
+                mat = slot.material
+                mat_name = mat.name
+                mat_source_name = utils.strip_name(mat.name)
+                mat_cache = chr_cache.get_material_cache(mat)
 
-                for slot in obj.material_slots:
-                    mat = slot.material
-                    mat_name = mat.name
-                    mat_source_name = utils.strip_name(mat.name)
-                    mat_cache = chr_cache.get_material_cache(mat)
+                # if the name has been changed since it was cached, change it in the json
+                cache_source_name = None
+                if mat_cache:
+                    cache_source_name = mat_cache.source_name
+                if not cache_source_name:
+                    cache_source_name = mat_source_name
+                if mat_source_name != cache_source_name:
+                    new_mat_name = mat_name.replace('.', '_')
+                    if cache_source_name in obj_json["Materials"].keys():
+                        utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
+                        obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
+                    changes.append(["MATERIAL_RENAME", mat, mat.name])
+                    mat.name = new_mat_name
+                    mat_name = new_mat_name
+                    mat_source_name = new_mat_name
 
-                    # if the name has been changed since it was cached, change it in the json
-                    cache_source_name = None
-                    if mat_cache:
-                        cache_source_name = mat_cache.source_name
-                    if not cache_source_name:
-                        cache_source_name = mat_source_name
-                    if mat_source_name != cache_source_name:
-                        new_mat_name = mat_name.replace('.', '_')
-                        if cache_source_name in obj_json["Materials"].keys():
-                            utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
-                            obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
-                        changes.append(["MATERIAL_RENAME", mat, mat.name])
-                        mat.name = new_mat_name
-                        mat_name = new_mat_name
-                        mat_source_name = new_mat_name
-
-                    # if the material name has duplicate suffix, generate a new name and
-                    # update the json with the new name:
-                    if mat_name != mat_source_name:
-                        utils.log_info(f"Removing blender duplication suffix from material: {mat_name}")
-                        new_mat_name = utils.make_unique_name(mat_source_name, bpy.data.materials.keys())
-                        if mat_source_name in obj_json["Materials"].keys():
-                            utils.log_info(f"Updating material json name: {mat_source_name} to {new_mat_name}")
-                            obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(mat_source_name)
-                        mat.name = new_mat_name
-                        mat_name = new_mat_name
-                        mat_source_name = new_mat_name
-                    mat_json = None
-                    if mat_name in obj_json["Materials"]:
-                        mat_json = obj_json["Materials"][mat_name]
-                    # update the json parameters with any changes
-                    if mat_cache:
-                        if mat_cache.user_added:
-                            # add new material json data if user added
-                            mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
-                            obj_json["Materials"][mat_source_name] = mat_json
-                        if prefs.export_json_changes:
-                            write_back_json(mat_json, mat, mat_cache)
-                        if prefs.export_texture_changes:
-                            write_back_textures(mat_json, mat, mat_cache, old_path, chr_cache.import_name, True)
-                    if mat_json:
-                        # when saving the export to a new location, the texture paths need to point back to the
-                        # original texture locations, either by new relative paths or absolute paths
-                        # pbr textures:
-                        for channel in mat_json["Textures"].keys():
-                            update_texture_path(mat_json["Textures"][channel], old_path, new_path, chr_cache.import_name, new_name, as_blend_file, mat_name)
-                        # custom shader textures:
-                        if "Custom Shader" in mat_json.keys():
-                            for channel in mat_json["Custom Shader"]["Image"].keys():
-                                update_texture_path(mat_json["Custom Shader"]["Image"][channel], old_path, new_path, chr_cache.import_name, new_name, as_blend_file, mat_name)
+                # if the material name has duplicate suffix, generate a new name and
+                # update the json with the new name:
+                if mat_name != mat_source_name:
+                    utils.log_info(f"Removing blender duplication suffix from material: {mat_name}")
+                    new_mat_name = utils.make_unique_name(mat_source_name, bpy.data.materials.keys())
+                    if mat_source_name in obj_json["Materials"].keys():
+                        utils.log_info(f"Updating material json name: {mat_source_name} to {new_mat_name}")
+                        obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(mat_source_name)
+                    mat.name = new_mat_name
+                    mat_name = new_mat_name
+                    mat_source_name = new_mat_name
+                mat_json = None
+                if mat_name in obj_json["Materials"]:
+                    mat_json = obj_json["Materials"][mat_name]
+                # update the json parameters with any changes
+                if mat_cache:
+                    if mat_cache.user_added:
+                        # add new material json data if user added
+                        mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
+                        obj_json["Materials"][mat_source_name] = mat_json
+                    if prefs.export_json_changes:
+                        write_back_json(mat_json, mat, mat_cache)
+                    if prefs.export_texture_changes:
+                        write_back_textures(mat_json, mat, mat_cache, old_path, chr_cache.import_name, True)
+                if mat_json:
+                    # when saving the export to a new location, the texture paths need to point back to the
+                    # original texture locations, either by new relative paths or absolute paths
+                    # pbr textures:
+                    for channel in mat_json["Textures"].keys():
+                        update_texture_path(mat_json["Textures"][channel], old_path, new_path, chr_cache.import_name, new_name, as_blend_file, mat_name)
+                    # custom shader textures:
+                    if "Custom Shader" in mat_json.keys():
+                        for channel in mat_json["Custom Shader"]["Image"].keys():
+                            update_texture_path(mat_json["Custom Shader"]["Image"][channel], old_path, new_path, chr_cache.import_name, new_name, as_blend_file, mat_name)
 
     # as the baking system can deselect everything, reselect the export objects here.
     utils.try_select_objects(objects, True)
@@ -729,50 +725,47 @@ def unpack_embedded_textures(chr_cache, chr_json, objects, old_path):
     for obj in objects:
         obj_json = jsonutils.get_object_json(chr_json, obj)
 
-        if obj_json and utils.still_exists(obj):
+        if obj_json and utils.object_exists_is_mesh(obj):
 
-            if obj.type == "MESH":
+            for slot in obj.material_slots:
+                mat = slot.material
+                mat_json = jsonutils.get_material_json(obj_json, mat)
+                mat_cache = chr_cache.get_material_cache(mat)
+                if mat_cache and mat_json:
+                    for tex_mapping in mat_cache.texture_mappings:
+                        image : bpy.types.Image = tex_mapping.image
 
-                for slot in obj.material_slots:
-                    mat = slot.material
-                    mat_json = jsonutils.get_material_json(obj_json, mat)
-                    mat_cache = chr_cache.get_material_cache(mat)
-                    if mat_cache and mat_json:
-                        for tex_mapping in mat_cache.texture_mappings:
-                            image : bpy.types.Image = tex_mapping.image
+                        if image:
+                            try_unpack_image(image, fbm_folder)
+                            image_path = bpy.path.abspath(image.filepath)
 
-                            if image:
-                                try_unpack_image(image, fbm_folder)
-                                image_path = bpy.path.abspath(image.filepath)
+                            # fix the texture json data path:
+                            try:
+                                tex_type = tex_mapping.texture_type
+                                tex_id = params.get_texture_json_id(tex_type)
+                                if tex_id in mat_json["Textures"]:
+                                    tex_info = mat_json["Textures"][tex_id]
 
-                                # fix the texture json data path:
-                                try:
-                                    tex_type = tex_mapping.texture_type
-                                    tex_id = params.get_texture_json_id(tex_type)
-                                    if tex_id in mat_json["Textures"]:
-                                        tex_info = mat_json["Textures"][tex_id]
+                                    # the fbx importer will assign the diffuse alpha to the opacity channel, even if
+                                    # there is an opacity texture present.
+                                    # this means it will incorrectly set the opacity with the diffuse
+                                    # though this will be corrected later by the texture write back,
+                                    # if no write back this will be wrong, so remove the opacity Json data
+                                    if not prefs.export_texture_changes:
+                                        dir, name = os.path.split(image_path)
+                                        if "_Diffuse" in name and tex_type == "ALPHA":
+                                            utils.log_info(f"Diffuse connected to Alpha, removing Opacity data from Json.")
+                                            del mat_json["Textures"][tex_id]
+                                            tex_info = None
 
-                                        # the fbx importer will assign the diffuse alpha to the opacity channel, even if
-                                        # there is an opacity texture present.
-                                        # this means it will incorrectly set the opacity with the diffuse
-                                        # though this will be corrected later by the texture write back,
-                                        # if no write back this will be wrong, so remove the opacity Json data
-                                        if not prefs.export_texture_changes:
-                                            dir, name = os.path.split(image_path)
-                                            if "_Diffuse" in name and tex_type == "ALPHA":
-                                                utils.log_info(f"Diffuse connected to Alpha, removing Opacity data from Json.")
-                                                del mat_json["Textures"][tex_id]
-                                                tex_info = None
-
-                                        if tex_info:
-                                            tex_path = os.path.join(old_path, tex_info["Texture Path"])
-                                            if not utils.is_same_path(tex_path, image_path):
-                                                rel_path = os.path.normpath(utils.relpath(image_path, old_path))
-                                                tex_info["Texture Path"] = rel_path
-                                                utils.log_info(f"Updating embedded image Json data: {rel_path}")
-                                except:
-                                    utils.log_warn(f"Unable to update embedded image Json: {image.name}")
-
+                                    if tex_info:
+                                        tex_path = os.path.join(old_path, tex_info["Texture Path"])
+                                        if not utils.is_same_path(tex_path, image_path):
+                                            rel_path = os.path.normpath(utils.relpath(image_path, old_path))
+                                            tex_info["Texture Path"] = rel_path
+                                            utils.log_info(f"Updating embedded image Json data: {rel_path}")
+                            except:
+                                utils.log_warn(f"Unable to update embedded image Json: {image.name}")
 
 
 def get_export_objects(chr_cache, include_selected = True):
@@ -783,7 +776,7 @@ def get_export_objects(chr_cache, include_selected = True):
     arm = chr_cache.get_armature()
     if arm:
         for obj_cache in chr_cache.object_cache:
-            if utils.object_exists_in_scenes(obj_cache.object):
+            if utils.object_exists(obj_cache.object):
                 if obj_cache.object.type == "ARMATURE":
                     obj_cache.object.hide_set(False)
                     if obj_cache.object not in objects:
@@ -1002,9 +995,13 @@ class CC3Export(bpy.types.Operator):
 
             if type == ".fbx":
                 # export as fbx
+                export_actions = prefs.export_animation_mode == "ACTIONS" or prefs.export_animation_mode == "BOTH"
+                export_strips = prefs.export_animation_mode == "STRIPS" or prefs.export_animation_mode == "BOTH"
                 bpy.ops.export_scene.fbx(filepath=self.filepath,
                         use_selection = True,
                         bake_anim = export_anim,
+                        bake_anim_use_all_actions=export_actions,
+                        bake_anim_use_nla_strips=export_strips,
                         use_armature_deform_only=True,
                         add_leaf_bones = False,
                         use_mesh_modifiers = True)
@@ -1091,9 +1088,14 @@ class CC3Export(bpy.types.Operator):
 
             if type == ".fbx":
                 # export as fbx
+                export_actions = prefs.export_animation_mode == "ACTIONS" or prefs.export_animation_mode == "BOTH"
+                export_strips = prefs.export_animation_mode == "STRIPS" or prefs.export_animation_mode == "BOTH"
                 bpy.ops.export_scene.fbx(filepath=props.unity_file_path,
                         use_selection = True,
                         bake_anim = export_anim,
+                        bake_anim_use_all_actions=export_actions,
+                        bake_anim_use_nla_strips=export_strips,
+                        use_armature_deform_only=True,
                         add_leaf_bones = False,
                         use_mesh_modifiers = True)
 

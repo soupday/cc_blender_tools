@@ -201,6 +201,7 @@ def object_has_material(obj, name):
 
 
 def still_exists(obj):
+    """Test if obj still exists."""
     try:
         name = obj.name
         return True
@@ -209,21 +210,27 @@ def still_exists(obj):
 
 
 def object_exists_is_mesh(obj):
+    """Test if Object: obj still exists as an object in the scene, and is a mesh."""
     try:
+        name = obj.name
         return len(obj.users_scene) > 0 and obj.type == "MESH"
     except:
         return False
 
 
 def object_exists_is_armature(obj):
+    """Test if Object: obj still exists as an object in the scene, and is an armature."""
     try:
+        name = obj.name
         return len(obj.users_scene) > 0 and obj.type == "ARMATURE"
     except:
         return False
 
 
-def object_exists_in_scenes(obj):
+def object_exists(obj):
+    """Test if Object: obj still exists as an object in the scene."""
     try:
+        name = obj.name
         return len(obj.users_scene) > 0
     except:
         return False
@@ -434,13 +441,18 @@ def get_active_view_layer_object():
     return bpy.context.view_layer.objects.active
 
 
-def set_active_object(obj):
+def set_active_object(obj, deselect_all = False):
     try:
+        if deselect_all:
+            bpy.ops.object.select_all(action='DESELECT')
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
         return (bpy.context.active_object == obj)
     except:
         return False
+
+def set_only_active_object(obj):
+    return set_active_object(obj, True)
 
 
 def set_mode(mode):
@@ -681,6 +693,57 @@ def delete_mesh_object(obj):
             bpy.data.meshes.remove(data)
 
 
+def get_context_area(context, area_type):
+    for area in context.screen.areas:
+        if area.type == area_type:
+            return area
+    return None
+
+
+# C.scene.view_layers[0].layer_collection.children[0].exclude
+def limit_view_layer_to_collection(collection_name, *items):
+    layer_collections = []
+    to_hide = []
+    # exclude all active layer collections
+    for view_layer in bpy.context.scene.view_layers:
+        layer_collection : bpy.types.LayerCollection
+        for layer_collection in view_layer.layer_collection.children:
+            if not layer_collection.exclude:
+                for obj in layer_collection.collection.objects:
+                    if not obj.visible_get():
+                        to_hide.append(obj)
+                layer_collections.append(layer_collection)
+                layer_collection.exclude = True
+    # add a new collection just for these items
+    tmp_collection = bpy.data.collections.new(collection_name)
+    bpy.context.scene.collection.children.link(tmp_collection)
+    for item in items:
+        if item:
+            if type(item) is list:
+                for sub_item in item:
+                    tmp_collection.objects.link(sub_item)
+                    sub_item.hide_set(False)
+            else:
+                tmp_collection.objects.link(item)
+                item.hide_set(False)
+    # return the temp collection and the layers exlcuded
+    return tmp_collection, layer_collections, to_hide
+
+
+def restore_limited_view_layers(tmp_collection, layer_collections, to_hide):
+    objects = []
+    for obj in tmp_collection.objects:
+        objects.append(obj)
+    for obj in objects:
+        tmp_collection.objects.unlink(obj)
+    bpy.context.scene.collection.children.unlink(tmp_collection)
+    bpy.data.collections.remove(tmp_collection)
+    for layer_collection in layer_collections:
+        layer_collection.exclude = False
+    for obj in to_hide:
+        obj.hide_set(True)
+
+
 def force_visible_in_scene(collection_name, *objects):
     tmp_collection = bpy.data.collections.new(collection_name)
     bpy.context.scene.collection.children.link(tmp_collection)
@@ -908,3 +971,5 @@ def get_last_report():
     return lines[-1]
 
 
+def stop_now():
+    raise Exception("STOP!")

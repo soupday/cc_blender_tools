@@ -155,7 +155,7 @@ def camera_setup(camera_loc, target_loc):
 def camera_auto_target(camera, target):
     props = bpy.context.scene.CC3ImportProps
 
-    chr_cache = props.get_context_character_cache(bpy.context)
+    chr_cache = props.get_context_character_cache()
     if chr_cache is None:
         chr_cache = props.get_character_cache(bpy.context.active_object, None)
     if chr_cache is None:

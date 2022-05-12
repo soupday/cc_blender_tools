@@ -929,7 +929,6 @@ SHADER_MATRIX = [
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
-            ["Custom/Iris UV Radius", 1.0, "func_export_iris_uv_radius", "eye_iris_scale", "eye_iris_radius"],
             ["Custom/Limbus Dark Scale", 6.5, "func_export_limbus_dark_scale", "eye_limbus_dark_radius"],
             ["Custom/Eye Corner Darkness Color", [255.0, 188.0, 179.0], "func_export_byte3", "eye_corner_shadow_color"],
             ["Custom/Iris Depth Scale", 0.3, "func_export_eye_depth", "eye_iris_depth"],
