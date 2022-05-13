@@ -35,6 +35,9 @@ Links
 
 ## Changelog
 
+### 1.3.7
+- Iris Color and Iris Cloudy Color added.
+
 ### 1.3.6
 - Rigify
     - Finger roll alignment fixed. All fingers now have exactly the same local bend axis.

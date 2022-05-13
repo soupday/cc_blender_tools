@@ -76,7 +76,7 @@ from . import rigging
 bl_info = {
     "name": "CC3 Tools",
     "author": "Victor Soupday",
-    "version": (1, 3, 6),
+    "version": (1, 3, 7),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties> CC3",
