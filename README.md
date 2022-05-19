@@ -5,7 +5,7 @@ Using Blender in the Character Creator pipeline can often feel like hitting a br
 
 This add-on aims to reduce that time spent getting characters into Blender down to just a few seconds and make use of as many of the exported textures as possible so that character artists can work in the highest quality possible using Blender.
 
-[Online Documentation](https://soupday.github.io/cc3_blender_tools/index.html)
+[Online Documentation](https://soupday.github.io/cc_blender_tools/index.html)
 
 [Reallusion Forum Thread](https://forum.reallusion.com/475005/Blender-Auto-Setup)
 
@@ -19,7 +19,7 @@ Links
 
 ## Installation, Updating, Removal
 ### To Install
-- Download the [latest release](https://github.com/soupday/cc3_blender_tools/releases).
+- Download the [latest release](https://github.com/soupday/cc_blender_tools/releases).
 - In Blender go to menu **Edit**->**Preferences** then select **Add-ons**.
 - Click the **Install** button at the top of the preferences window and navigate to where you downloaded the zip file, select the file and click **Install Add-on**.
 - Activate the add-on by ticking the checkbox next to **Edit**->**Preferences** then select **Add-ons**
@@ -35,8 +35,15 @@ Links
 
 ## Changelog
 
+### 1.3.8
+- UI update
+- Repository rename to **cc_blender_tools** (title **CC/iC Blender Tools**)
+- Added export character function for non-standard characters.
+
 ### 1.3.7
 - Iris Color and Iris Cloudy Color added.
+- Tool bar tab renamed from **CC3** to **CC/iC**
+- Some UI button name changes.
 
 ### 1.3.6
 - Rigify

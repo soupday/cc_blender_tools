@@ -1,18 +1,18 @@
 # Copyright (C) 2021 Victor Soupday
-# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+# This file is part of CC/iC Blender Tools <https://github.com/soupday/cc_blender_tools>
 #
-# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# CC/iC Blender Tools is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# CC/iC Blender Tools is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+# along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 
@@ -565,6 +565,19 @@ def find_node_by_type_and_keywords(nodes, type, *keywords):
     return None
 
 
+def find_node_group_by_keywords(nodes, *keywords):
+    for node in nodes:
+        if node.type == "GROUP" and node.node_tree and node.node_tree.nodes:
+            match = True
+            for keyword in keywords:
+                if not keyword in node.node_tree.name:
+                    match = False
+                    break
+            if match:
+                return node
+    return None
+
+
 def get_image_node_mapping(image_node):
     location = (0,0,0)
     rotation = (0,0,0)
@@ -677,6 +690,15 @@ def get_shader_nodes(mat, shader_name):
                     mix_node = node
         return bsdf_node, shader_node, mix_node
     return None, None, None
+
+
+def get_bsdf_node(mat):
+    if mat and mat.node_tree:
+        nodes = mat.node_tree.nodes
+        for node in nodes:
+            if node.type == "BSDF_PRINCIPLED":
+                return node
+    return None
 
 
 def get_tiling_node(mat, shader_name, texture_type):

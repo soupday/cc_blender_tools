@@ -1,18 +1,18 @@
 # Copyright (C) 2021 Victor Soupday
-# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+# This file is part of CC/iC Blender Tools <https://github.com/soupday/cc_blender_tools>
 #
-# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# CC/iC Blender Tools is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# CC/iC Blender Tools is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+# along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
 
@@ -20,6 +20,8 @@ import textwrap
 
 from . import addon_updater_ops
 from . import rigging, rigify_mapping_data, modifiers, channel_mixer, nodeutils, utils, params, vars
+
+TAB_NAME = "CC/iC Pipeline"
 
 # Panel button functions and operator
 #
@@ -179,7 +181,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
     bl_label = "Character Build Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -315,7 +317,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
     bl_label = "Object Management"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -427,7 +429,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
     bl_label = "Material Parameters"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -788,7 +790,7 @@ class CC3RigifyPanel(bpy.types.Panel):
     bl_label = "Rigging & Animation"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -1054,7 +1056,7 @@ class CC3ToolsScenePanel(bpy.types.Panel):
     bl_label = "Scene Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -1071,7 +1073,7 @@ class CC3ToolsScenePanel(bpy.types.Panel):
 
         op = col.operator("cc3.scene", icon="SHADING_TEXTURE", text="Blender Default")
         op.param = "BLENDER"
-        op = col.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3 Default")
+        op = col.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC Default")
         op.param = "CC3"
 
         op = col.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio Right")
@@ -1137,7 +1139,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_label = "Physics Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -1329,7 +1331,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
     bl_label = "Import / Export"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "CC3"
+    bl_category = TAB_NAME
 
     def draw(self, context):
         global debug_counter
@@ -1339,6 +1341,10 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         addon_updater_ops.check_for_update_background()
         if addon_updater_ops.updater.update_ready == True:
             addon_updater_ops.update_notice_box_ui(self, context)
+
+        arm = None
+        if bpy.context.selected_objects:
+            arm = utils.get_armature_in_objects(bpy.context.selected_objects)
 
         chr_cache = props.get_context_character_cache(context)
         if chr_cache:
@@ -1374,24 +1380,39 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         box.label(text="Exporting", icon="EXPORT")
 
         # export to CC3
-        row = layout.row()
-        row.scale_y = 2
-        text = "Export to CC3"
+        text = "Export to CC3/4"
         icon = "MOD_ARMATURE"
-        if chr_cache and chr_cache.import_type == "obj":
-            text = "Export Morph Target"
-            icon = "ARROW_LEFTRIGHT"
-        op = row.operator("cc3.exporter", icon=icon, text=text)
-        op.param = "EXPORT_CC3"
-        if not (chr_cache and chr_cache.can_export()):
+
+        if chr_cache:
+            row = layout.row()
+            row.scale_y = 2
+            if chr_cache and chr_cache.import_type == "obj":
+                text = "Export Morph Target"
+                icon = "ARROW_LEFTRIGHT"
+            op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
+            if not chr_cache.can_export():
+                row.enabled = False
+                if not chr_cache.import_has_key:
+                    if chr_cache.import_type == "fbx":
+                        layout.row().label(text="No Fbx-Key file!", icon="ERROR")
+                    elif chr_cache.import_type == "obj":
+                        layout.row().label(text="No Obj-Key file!", icon="ERROR")
+
+        elif arm:
+            row = layout.row()
+            row.scale_y = 2
+            text = "Export Non-Standard"
+            icon = "MONKEY"
+            op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_NON_STANDARD"
+            row2 = layout.row()
+            row2.prop(prefs, "export_non_standard_mode", expand=True)
+
+        else:
+            row = layout.row()
+            row.scale_y = 2
+            row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
             row.enabled = False
-            if not chr_cache:
-                layout.row().label(text="No current character!", icon="ERROR")
-            elif not chr_cache.import_has_key:
-                if chr_cache.import_type == "fbx":
-                    layout.row().label(text="No Fbx-Key file!", icon="ERROR")
-                elif chr_cache.import_type == "obj":
-                    layout.row().label(text="No Obj-Key file!", icon="ERROR")
+            layout.row().label(text="No current character!", icon="ERROR")
 
         layout.separator()
         # export to Unity

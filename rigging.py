@@ -1,18 +1,18 @@
 # Copyright (C) 2021 Victor Soupday
-# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+# This file is part of CC/iC Blender Tools <https://github.com/soupday/cc_blender_tools>
 #
-# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# CC/iC Blender Tools is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# CC/iC Blender Tools is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+# along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 from random import random
 import bpy
@@ -2135,23 +2135,8 @@ def generate_unity_export_rig(chr_cache):
             for l in range(0, 32):
                 bone.layers[l] = l == layer
 
-    # select all bones in pose mode
-    export_rig.data.pose_position = "POSE"
-    utils.set_mode("POSE")
-    bone : bpy.types.Bone
-    for bone in export_rig.data.bones:
-        bone.select = True
-
-    # unlock the deformation bones (Rigify locks them)
-    pose_bone : bpy.types.PoseBone
-    for pose_bone in export_rig.pose.bones:
-        pose_bone.lock_location = [False, False, False]
-        pose_bone.lock_rotation = [False, False, False]
-        pose_bone.lock_rotation_w = False
-        pose_bone.lock_scale = [False, False, False]
-
-    # clear pose
-    bpy.ops.pose.transforms_clear()
+    # reset the pose
+    bones.clear_pose(export_rig)
 
     # Force T-pose
     if a_pose:

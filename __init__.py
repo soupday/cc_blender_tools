@@ -1,18 +1,18 @@
 # Copyright (C) 2021 Victor Soupday
-# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+# This file is part of CC/iC Blender Tools <https://github.com/soupday/cc_blender_tools>
 #
-# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# CC/iC Blender Tools is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# CC/iC Blender Tools is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+# along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 if "bpy" in locals():
     import importlib
@@ -74,15 +74,15 @@ from . import rigging
 
 
 bl_info = {
-    "name": "CC3 Tools",
+    "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (1, 3, 7),
+    "version": (1, 3, 8),
     "blender": (2, 80, 0),
     "category": "Characters",
-    "location": "3D View > Properties> CC3",
-    "description": "Automatic import and material setup of CC3 characters.",
-    "wiki_url": "https://soupday.github.io/cc3_blender_tools/index.html",
-    "tracker_url": "https://github.com/soupday/cc3_blender_tools/issues",
+    "location": "3D View > Properties > CC/iC Pipeline",
+    "description": "Automatic import and material setup of CC3/4-iClone7/8 characters.",
+    "wiki_url": "https://soupday.github.io/cc_blender_tools/index.html",
+    "tracker_url": "https://github.com/soupday/cc_blender_tools/issues",
 }
 
 vars.set_version_string(bl_info)
