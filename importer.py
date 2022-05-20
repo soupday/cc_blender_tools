@@ -1,20 +1,21 @@
 # Copyright (C) 2021 Victor Soupday
-# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+# This file is part of CC/iC Blender Tools <https://github.com/soupday/cc_blender_tools>
 #
-# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# CC/iC Blender Tools is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# CC/iC Blender Tools is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+# along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
+import shutil
 import bpy
 
 from . import (imageutils, jsonutils, materials, modifiers, nodeutils, physics,
@@ -288,7 +289,10 @@ def detect_generation(chr_cache, json_data):
     if json_data:
         json_generation = jsonutils.get_character_generation_json(json_data, chr_cache.import_name, chr_cache.character_id)
         if json_generation is not None and json_generation != "":
-            return vars.CHARACTER_GENERATION[json_generation]
+            try:
+                return vars.CHARACTER_GENERATION[json_generation]
+            except:
+                pass
 
     generation = "UNKNOWN"
 
@@ -541,7 +545,7 @@ class CC3Import(bpy.types.Operator):
         )
 
     filter_glob: bpy.props.StringProperty(
-        default="*.fbx;*.obj",
+        default="*.fbx;*.obj;*.glb;*.gltf;*.vrm",
         options={"HIDDEN"},
         )
 
@@ -563,6 +567,7 @@ class CC3Import(bpy.types.Operator):
     imported_character = None
     imported_materials = []
     imported_images = []
+    is_rl_character = False
 
 
     def import_character(self, warn):
@@ -628,6 +633,44 @@ class CC3Import(bpy.types.Operator):
 
             utils.log_timer("Done .Obj Import.")
 
+        elif type == "gltf" or type == "glb":
+
+            # invoke the GLTF importer
+            utils.tag_objects()
+            utils.tag_images()
+            bpy.ops.import_scene.gltf(filepath = self.filepath)
+            imported = utils.untagged_objects()
+            self.imported_images = utils.untagged_images()
+
+            utils.log_timer("Done .GLTF Import.")
+
+        elif type == "vrm":
+
+            # copy .vrm to .glb
+            glb_path = os.path.join(dir, name + "_temp.glb")
+            shutil.copyfile(self.filepath, glb_path)
+            self.filepath = glb_path
+
+            # invoke the GLTF importer
+            utils.tag_objects()
+            utils.tag_images()
+            bpy.ops.import_scene.gltf(filepath = self.filepath)
+            imported = utils.untagged_objects()
+            self.imported_images = utils.untagged_images()
+
+            # find the armature and rotate it 180 degrees in Z
+            arm : bpy.types.Object = utils.get_armature_in_objects(imported)
+            if arm:
+                arm.rotation_mode = "XYZ"
+                arm.rotation_euler = (0, 0, 3.1415926535897)
+                utils.set_only_active_object(arm)
+                bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
+                utils.try_select_objects(imported)
+
+            os.remove(glb_path)
+
+            utils.log_timer("Done .vrm Import.")
+
 
     def build_materials(self, context):
         objects_processed = []
@@ -691,11 +734,17 @@ class CC3Import(bpy.types.Operator):
         type = name[-3:].lower()
         name = name[:-4]
 
+        textures_path = os.path.join(dir, "textures", name)
+        json_path = os.path.join(dir, name + ".json")
+
+        self.is_rl_character = False
+
         if type == "obj":
             obj_key_path = os.path.join(dir, name + ".ObjKey")
             if os.path.exists(obj_key_path):
                 self.param = "IMPORT_MORPH"
                 utils.log_info("Importing as character morph with ObjKey.")
+                self.is_rl_character = True
                 return
 
         elif type == "fbx":
@@ -703,9 +752,20 @@ class CC3Import(bpy.types.Operator):
             if os.path.exists(obj_key_path):
                 self.param = "IMPORT_MORPH"
                 utils.log_info("Importing as editable character with fbxkey.")
+                self.is_rl_character = True
                 return
 
-        utils.log_info("Importing for rendering without key file.")
+        if os.path.exists(textures_path):
+            self.is_rl_character = True
+
+        if os.path.exists(json_path):
+            self.is_rl_character = True
+
+        if self.is_rl_character:
+            utils.log_info("Importing for rendering without key file.")
+        else:
+            utils.log_info("Importing generic character.")
+
         self.param = "IMPORT_QUALITY"
 
 
@@ -722,7 +782,8 @@ class CC3Import(bpy.types.Operator):
 
     def run_build(self, context):
 
-        self.build_materials(context)
+        if self.is_rl_character:
+            self.build_materials(context)
 
         self.built = True
 
@@ -799,6 +860,10 @@ class CC3Import(bpy.types.Operator):
             if not self.imported:
                 self.running = True
                 self.run_import(context)
+                if not self.is_rl_character:
+                    self.cancel(context)
+                    self.report({'INFO'}, "None Standard Character Done!")
+                    return {'FINISHED'}
                 self.clock = 0
                 self.running = False
             elif not self.built:
@@ -814,7 +879,7 @@ class CC3Import(bpy.types.Operator):
 
             if self.imported and self.built and self.lighting:
                 self.cancel(context)
-                self.report({'INFO'}, "All done!")
+                self.report({'INFO'}, "All Done!")
                 return {'FINISHED'}
 
         return {'PASS_THROUGH'}
@@ -848,8 +913,9 @@ class CC3Import(bpy.types.Operator):
                     return {'PASS_THROUGH'}
                 elif not self.invoked:
                     self.run_import(context)
-                    self.run_build(context)
-                    self.run_finish(context)
+                    if self.is_rl_character:
+                        self.run_build(context)
+                        self.run_finish(context)
                     return {'FINISHED'}
             else:
                 utils.log_error("No valid filepath to import!")

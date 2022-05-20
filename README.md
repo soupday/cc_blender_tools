@@ -5,7 +5,7 @@ Using Blender in the Character Creator pipeline can often feel like hitting a br
 
 This add-on aims to reduce that time spent getting characters into Blender down to just a few seconds and make use of as many of the exported textures as possible so that character artists can work in the highest quality possible using Blender.
 
-[Online Documentation](https://soupday.github.io/cc3_blender_tools/index.html)
+[Online Documentation](https://soupday.github.io/cc_blender_tools/index.html)
 
 [Reallusion Forum Thread](https://forum.reallusion.com/475005/Blender-Auto-Setup)
 
@@ -19,7 +19,7 @@ Links
 
 ## Installation, Updating, Removal
 ### To Install
-- Download the [latest release](https://github.com/soupday/cc3_blender_tools/releases).
+- Download the [latest release](https://github.com/soupday/cc_blender_tools/releases).
 - In Blender go to menu **Edit**->**Preferences** then select **Add-ons**.
 - Click the **Install** button at the top of the preferences window and navigate to where you downloaded the zip file, select the file and click **Install Add-on**.
 - Activate the add-on by ticking the checkbox next to **Edit**->**Preferences** then select **Add-ons**
@@ -34,6 +34,23 @@ Links
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+
+### 1.3.8
+- UI naming update.
+- Repository rename to **cc_blender_tools** (title **CC/iC Blender Tools**), old repo links still apply.
+- Initial support for exporting _any_ non-standard characters to CC4.
+    - Character should be aligned -Y forward, Z up for correct bone translation in CC4.
+    - Json data constructed on export to try and reconstruct materials using the **CC4 Blender Tools Plugin**.
+        - Materials must be based on Principled BSDF otherwise only texture name matching is possible.
+    - non-standard characters rigged with Auto-Rig Pro will (try to) invoke the ARP export operator (if installed)
+        - ARP export operator cleans up the rig and leaves only the relevent deformation bones.
+    - Import functions expanded to allow import from FBX, GLTF and VRM for non-standard characters.
+        - These are **not** considered to be CC/iC characters and have no material parameter, rigging or physics options.
+
+### 1.3.7
+- Iris Color and Iris Cloudy Color added.
+- Tool bar tab renamed from **CC3** to **CC/iC**
+- Some UI button name changes.
 
 ### 1.3.6
 - Rigify

@@ -1,18 +1,18 @@
 # Copyright (C) 2021 Victor Soupday
-# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+# This file is part of CC/iC Blender Tools <https://github.com/soupday/cc_blender_tools>
 #
-# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# CC/iC Blender Tools is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# CC/iC Blender Tools is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+# along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy, os
 
@@ -569,6 +569,13 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=5, update=lambda s,c: update_property(s,c,"eye_iris_brightness"))
     eye_iris_hsv: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_hsv"))
     eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.01, max=0.16, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
+    eye_iris_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_color"))
+    eye_iris_inner_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_inner_color"))
+    eye_iris_cloudy_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(0.0, 0.0, 0.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_cloudy_color"))
+    eye_iris_inner_scale: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_inner_scale"))
     eye_limbus_width: bpy.props.FloatProperty(default=0.055, min=0.01, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_width"))
     eye_limbus_dark_radius: bpy.props.FloatProperty(default=0.13125, min=0.1, max=0.2, update=lambda s,c: update_property(s,c,"eye_limbus_dark_radius"))
     eye_limbus_dark_width: bpy.props.FloatProperty(default=0.34375, min=0.01, max=0.99, update=lambda s,c: update_property(s,c,"eye_limbus_dark_width"))

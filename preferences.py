@@ -1,18 +1,18 @@
 # Copyright (C) 2021 Victor Soupday
-# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+# This file is part of CC/iC Blender Tools <https://github.com/soupday/cc_blender_tools>
 #
-# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# CC/iC Blender Tools is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# CC/iC Blender Tools is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+# along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
 
@@ -169,6 +169,11 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("STRIPS","Strips", "Export only Unity actions via NLA strips"),
                         ("BOTH","Both","Export both actions and NLA strips"),
                     ], default="STRIPS", name = "Animation Export")
+    export_non_standard_mode: bpy.props.EnumProperty(items=[
+                        ("HUMANOID","Humanoid","Export the selected armature and objects as a humanoid .Fbx file, with generated .json data for import into CC4 (Only)"),
+                        ("CREATURE","Creature","Export the selected armature and objects as a creature .Fbx file, with generated .json data for import into CC4 (Only)"),
+                        ("PROP","Prop","Export the selected objects as a prop .Fbx file, with generated .json data for import into CC4 (Only)"),
+                    ], default="HUMANOID", name = "Non-standard Export")
     export_texture_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Size of procedurally generated textures to bake")
 
     physics_group: bpy.props.StringProperty(default="CC_Physics", name="Physics Vertex Group Prefix")

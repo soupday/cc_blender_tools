@@ -1,18 +1,18 @@
 # Copyright (C) 2021 Victor Soupday
-# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+# This file is part of CC/iC Blender Tools <https://github.com/soupday/cc_blender_tools>
 #
-# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# CC/iC Blender Tools is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# CC/iC Blender Tools is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+# along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 # [system_id, json_id, suffix_list]
 TEXTURE_TYPES = [
@@ -825,6 +825,8 @@ SHADER_MATRIX = [
             ["Iris Brightness", "func_iris_brightness", "eye_iris_brightness"],
             ["Iris HSV Strength", "", "eye_iris_hsv"],
             ["Iris Radius", "", "eye_iris_radius"],
+            ["Iris Color", "", "eye_iris_color"],
+            ["Iris Cloudy Color", "", "eye_iris_cloudy_color"],
             ["Limbus Width", "", "eye_limbus_width"],
             ["Limbus Dark Radius", "", "eye_limbus_dark_radius"],
             ["Limbus Dark Width", "", "eye_limbus_dark_width"],
@@ -897,6 +899,10 @@ SHADER_MATRIX = [
             ["eye_ior", 1.4, "", "Custom/_IoR"],
             ["eye_iris_scale", 1, "func_get_iris_scale", "Custom/Iris UV Radius"],
             ["eye_iris_radius", 0.16, "", "Custom/Iris UV Radius"],
+            ["eye_iris_color", (1.0, 1.0, 1.0, 1.0), "func_color_srgb", "Custom/Iris Color"],
+            ["eye_iris_inner_color", (1.0, 1.0, 1.0, 1.0), "func_color_srgb", "Custom/Iris Inner Color"],
+            ["eye_iris_inner_scale", 0, "", "Custom/Iris Inner Scale"],
+            ["eye_iris_cloudy_color", (0, 0, 0, 1.0), "func_color_srgb", "Custom/Iris Cloudy Color"],
             ["eye_limbus_width", 0.055, "", "Custom/Limbus UV Width Color"],
             ["eye_limbus_dark_radius", 0.13125, "func_limbus_dark_radius", "Custom/Limbus Dark Scale"],
             ["eye_sclera_brightness", 0.650, "", "Custom/ScleraBrightness"],
@@ -931,6 +937,9 @@ SHADER_MATRIX = [
         "export": [
             ["Custom/Limbus Dark Scale", 6.5, "func_export_limbus_dark_scale", "eye_limbus_dark_radius"],
             ["Custom/Eye Corner Darkness Color", [255.0, 188.0, 179.0], "func_export_byte3", "eye_corner_shadow_color"],
+            ["Custom/Iris Color", [255.0, 255.0, 255.0], "func_export_byte3", "eye_iris_color"],
+            ["Custom/Iris Inner Color", [255.0, 255.0, 255.0], "func_export_byte3", "eye_iris_inner_color"],
+            ["Custom/Iris Cloudy Color", [0, 0, 0], "func_export_byte3", "eye_iris_cloudy_color"],
             ["Custom/Iris Depth Scale", 0.3, "func_export_eye_depth", "eye_iris_depth"],
             ["Custom/Sclera Flatten Normal", 0.9, "func_one_minus", "eye_sclera_normal_strength"],
             ["Custom/Sclera Normal UV Scale", 0.5, "func_tiling", "eye_sclera_normal_tiling"],
@@ -953,6 +962,8 @@ SHADER_MATRIX = [
             ["PROP", "Iris Brightness", "eye_iris_brightness", True],
             ["PROP", "Iris HSV", "eye_iris_hsv", True],
             ["SPACER"],
+            ["PROP", "Iris Color", "eye_iris_color", False],
+            ["PROP", "Iris Cloudy Color", "eye_iris_cloudy_color", False],
             ["PROP", "Iris Radius", "eye_iris_radius", True],
             ["PROP", "Limbus Width", "eye_limbus_width", True],
             ["PROP", "Dark Radius", "eye_limbus_dark_radius", True],

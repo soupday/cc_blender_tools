@@ -1,18 +1,18 @@
 # Copyright (C) 2021 Victor Soupday
-# This file is part of CC3_Blender_Tools <https://github.com/soupday/cc3_blender_tools>
+# This file is part of CC/iC Blender Tools <https://github.com/soupday/cc_blender_tools>
 #
-# CC3_Blender_Tools is free software: you can redistribute it and/or modify
+# CC/iC Blender Tools is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# CC3_Blender_Tools is distributed in the hope that it will be useful,
+# CC/iC Blender Tools is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with CC3_Blender_Tools.  If not, see <https://www.gnu.org/licenses/>.
+# along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
 import os
@@ -37,7 +37,7 @@ def init_bake(id = 1001):
     BAKE_INDEX = id
 
 
-def prep_bake():
+def prep_bake(mat):
     global old_samples, old_file_format
     global old_view_transform, old_look, old_gamma, old_exposure, old_colorspace
 
@@ -77,115 +77,6 @@ def prep_bake():
     bpy.context.scene.view_settings.exposure = 0
     bpy.context.scene.sequencer_colorspace_settings.name = 'Raw'
 
-
-def post_bake():
-    global old_samples, old_file_format
-    global old_view_transform, old_look, old_gamma, old_exposure, old_colorspace
-
-    bpy.context.scene.cycles.samples = old_samples
-    bpy.context.scene.render.image_settings.file_format = old_file_format
-    bpy.context.scene.view_settings.view_transform = old_view_transform
-    bpy.context.scene.view_settings.look = old_look
-    bpy.context.scene.view_settings.gamma = old_gamma
-    bpy.context.scene.view_settings.exposure = old_exposure
-    bpy.context.scene.sequencer_colorspace_settings.name = old_colorspace
-
-
-def bake_socket_input(shader_node, socket_name, mat, channel_id, bake_dir, override_size = 0):
-    global BAKE_INDEX
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-    # determine the size of the image to bake onto
-    width, height = get_largest_texture_to_socket(shader_node, socket_name)
-    if width == 0:
-        width = int(prefs.export_texture_size)
-    if height == 0:
-        height = int(prefs.export_texture_size)
-    if override_size > 0:
-        width = override_size
-        height = override_size
-
-    # determine image name and color space
-    image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
-    BAKE_INDEX += 1
-    is_data = True
-    if "Diffuse Map" in socket_name:
-        is_data = False
-
-    # deselect everything
-    bpy.ops.object.select_all(action='DESELECT')
-    # create the baking plane, a single quad baking surface for an even sampling across the entire texture
-    bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
-    bake_surface = bpy.context.active_object
-
-    # go into wireframe mode (so Blender doesn't update or recompile the material shaders while
-    # we manipulate them for baking, and also so Blender doesn't fire up the cycles viewport...):
-    shading = bpy.context.space_data.shading.type
-    bpy.context.space_data.shading.type = 'WIREFRAME'
-    # set cycles rendering mode for baking
-    engine = bpy.context.scene.render.engine
-    bpy.context.scene.render.engine = 'CYCLES'
-
-    # attach the material to bake to the baking surface plane
-    # (the baking plane also ensures that only one material is baked onto only one target image)
-    if len(bake_surface.data.materials) == 0:
-        bake_surface.data.materials.append(mat)
-    else:
-        bake_surface.data.materials[0] = mat
-
-    # get the node and output socket to bake from
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
-    source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, socket_name)
-
-    # make (and save) the target image
-    image = get_image_target(image_name, width, height, bake_dir, is_data, True)
-    # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
-    i = 0
-    base_name = image_name
-    while is_image_node_connected_to_socket(shader_node, socket_name, image):
-        i += 1
-        old_name = image_name
-        image_name = base_name + "_" + str(i)
-        utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
-        image = get_image_target(image_name, width, height, bake_dir, is_data, True)
-
-    # bake the source node output onto the target image and re-save it
-    image_node = bake_output(mat, source_node, source_socket, image, image_name)
-
-    # reconnect the custom nodes to the shader socket
-    nodes.remove(image_node)
-    nodeutils.link_nodes(mat.node_tree.links, source_node, source_socket, shader_node, socket_name)
-
-    # remove the bake surface and restore the render settings
-    bpy.data.objects.remove(bake_surface)
-    bpy.context.scene.render.engine = engine
-    bpy.context.space_data.shading.type = shading
-
-    return image
-
-
-def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket_name, normal_strength_socket_name, bump_strength_socket_name, mat, channel_id, bake_dir):
-    global BAKE_INDEX
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-    # determine the size of the image to bake onto
-    width, height = get_largest_texture_to_socket(shader_node, normal_socket_name)
-    w2, h2 = get_largest_texture_to_socket(shader_node, bump_socket_name)
-    if w2 > width:
-        width = w2
-    if h2 > height:
-        height = h2
-    if width == 0:
-        width = int(prefs.export_texture_size)
-    if height == 0:
-        height = int(prefs.export_texture_size)
-
-    # determine image name and color space
-    image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
-    BAKE_INDEX += 1
-    is_data = True
-
     # deselect everything
     bpy.ops.object.select_all(action='DESELECT')
     # create the baking plane, a single quad baking surface for an even sampling across the entire texture
@@ -206,10 +97,79 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
         bake_surface.data.materials.append(mat)
     else:
         bake_surface.data.materials[0] = mat
+    return [shading, engine, bake_surface]
+
+
+def post_bake(bake_store):
+    global old_samples, old_file_format
+    global old_view_transform, old_look, old_gamma, old_exposure, old_colorspace
+
+    bpy.context.scene.cycles.samples = old_samples
+    bpy.context.scene.render.image_settings.file_format = old_file_format
+    bpy.context.scene.view_settings.view_transform = old_view_transform
+    bpy.context.scene.view_settings.look = old_look
+    bpy.context.scene.view_settings.gamma = old_gamma
+    bpy.context.scene.view_settings.exposure = old_exposure
+    bpy.context.scene.sequencer_colorspace_settings.name = old_colorspace
+
+    # remove the bake surface and restore the render settings
+    bpy.data.objects.remove(bake_store.pop())
+    bpy.context.scene.render.engine = bake_store.pop()
+    bpy.context.space_data.shading.type = bake_store.pop()
+
+
+def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bake_dir):
+    global BAKE_INDEX
+
+    # determine image name and color space
+    image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
+    BAKE_INDEX += 1
+    is_data = True
+    if "Diffuse Map" in socket_name or channel_id == "Base Color":
+        is_data = False
+    # make (and save) the target image
+    image = get_image_target(image_name, width, height, bake_dir, is_data, True)
+    # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
+    i = 0
+    base_name = image_name
+    if shader_node and socket_name:
+        while is_image_node_connected_to_socket(shader_node, socket_name, image):
+            i += 1
+            old_name = image_name
+            image_name = base_name + "_" + str(i)
+            utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
+            image = get_image_target(image_name, width, height, bake_dir, is_data, True)
+
+    return image, image_name
+
+
+def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, override_size = 0):
+    # determine the size of the image to bake onto
+    width, height = get_texture_size(node, override_size, socket_name)
 
     # get the node and output socket to bake from
+    source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(node, socket_name)
+
+    # bake the source node output onto the target image and re-save it
+    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir)
+    image_node = bake_output(mat, source_node, source_socket, image, image_name)
+
+    # remove the image node
+    nodes = mat.node_tree.nodes
+    nodes.remove(image_node)
+
+    return image
+
+
+def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket_name,
+                            normal_strength_socket_name, bump_strength_socket_name,
+                            mat, channel_id, bake_dir, override_size = 0):
+    # determine the size of the image to bake onto
+    width, height = get_texture_size(shader_node, override_size, normal_socket_name, bump_socket_name)
+
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
+
     # store original links to BSDF normal socket
     bsdf_normal_node, bsdf_normal_socket = nodeutils.get_node_and_socket_connected_to_input(bsdf_node, "Normal")
     #
@@ -236,20 +196,9 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
             nodeutils.link_nodes(links, normal_map_node, "Normal", bump_map_node, "Normal")
         nodeutils.link_nodes(links, bump_map_node, "Normal", bsdf_node, "Normal")
 
-    # make (and save) the target image
-    image = get_image_target(image_name, width, height, bake_dir, is_data, True, False)
-    # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
-    i = 0
-    base_name = image_name
-    while is_image_node_connected_to_socket(shader_node, normal_socket_name, image):
-        i += 1
-        old_name = image_name
-        image_name = base_name + "_" + str(i)
-        utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
-        image = get_image_target(image_name, width, height, bake_dir, is_data, True)
-
     # bake the source node output onto the target image and re-save it
-    image_node = bake_bsdf_normal(mat, bsdf_node, image, image_name)
+    image, image_name = get_bake_image(mat, channel_id, width, height, shader_node, normal_socket_name, bake_dir)
+    image_node = bake_normal_output(mat, bsdf_node, image, image_name)
 
     # remove the bake nodes and restore the normal links to the bsdf
     if bump_map_node:
@@ -260,11 +209,58 @@ def bake_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket
         nodes.remove(image_node)
     nodeutils.link_nodes(links, bsdf_normal_node, bsdf_normal_socket, bsdf_node, "Normal")
 
-    # remove the bake surface and restore the render settings
-    bpy.data.objects.remove(bake_surface)
-    bpy.context.scene.render.engine = engine
-    bpy.context.space_data.shading.type = shading
+    return image
 
+
+def bake_node_socket_output(node, socket_name, mat, channel_id, bake_dir, override_size = 0):
+    # determine the size of the image to bake onto
+    width, height = get_texture_size(node, override_size, socket_name)
+
+    # bake the source node output onto the target image and re-save it
+    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir)
+    image_node = bake_output(mat, node, socket_name, image, image_name)
+
+    # remove the image node
+    nodes = mat.node_tree.nodes
+    nodes.remove(image_node)
+
+    return image
+
+
+def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, override_size = 0):
+    # determine the size of the image to bake onto
+    width, height = get_texture_size(bsdf_node, override_size, "Normal")
+
+    # get the node and output socket to bake from
+    nodes = mat.node_tree.nodes
+
+    # bake the source node output onto the target image and re-save it
+    image, image_name = get_bake_image(mat, channel_id, width, height, bsdf_node, "Normal", bake_dir)
+    image_node = bake_normal_output(mat, bsdf_node, image, image_name)
+
+    if image_node:
+        nodes.remove(image_node)
+
+    return image
+
+
+def bake_value_image(value, mat, channel_id, bake_dir, size = 64):
+    width = height = size
+    image, image_name = get_bake_image(mat, channel_id, width, height, None, "", bake_dir)
+
+    image_pixels = list(image.pixels)
+
+    l = len(image_pixels)
+    for i in range(0, l, 4):
+        image_pixels[i + 0] = value
+        image_pixels[i + 1] = value
+        image_pixels[i + 2] = value
+        image_pixels[i + 3] = 1
+
+    # replace-in-place all the pixels from the list:
+    image.pixels[:] = image_pixels
+    image.update()
+    image.save()
     return image
 
 
@@ -281,7 +277,7 @@ def bake_output(mat, source_node, source_socket, image, image_name):
     bpy.context.scene.cycles.samples = BAKE_SAMPLES
     utils.log_info("Baking: " + image_name)
 
-    prep_bake()
+    bake = prep_bake(mat)
 
     nodeutils.link_nodes(links, source_node, source_socket, output_node, "Surface")
     image_node.select = True
@@ -291,15 +287,15 @@ def bake_output(mat, source_node, source_socket, image, image_name):
     image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
     image.reload()
 
-    post_bake()
-
     if output_source:
         nodeutils.link_nodes(links, output_source, output_source_socket, output_node, "Surface")
+
+    post_bake(bake)
 
     return image_node
 
 
-def bake_bsdf_normal(mat, bsdf_node, image, image_name):
+def bake_normal_output(mat, bsdf_node, image, image_name):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -311,7 +307,7 @@ def bake_bsdf_normal(mat, bsdf_node, image, image_name):
     bpy.context.scene.cycles.samples = BAKE_SAMPLES
     utils.log_info("Baking normal: " + image_name)
 
-    prep_bake()
+    bake = prep_bake(mat)
 
     nodeutils.link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
     image_node.select = True
@@ -322,7 +318,7 @@ def bake_bsdf_normal(mat, bsdf_node, image, image_name):
     image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
     image.reload()
 
-    post_bake()
+    post_bake(bake)
 
     return image_node
 
@@ -355,6 +351,26 @@ def get_largest_texture_to_socket(node, socket, done = None):
         return get_tex_image_size(connected_node)
     else:
         return get_largest_texture_to_node(connected_node, done)
+
+
+def get_texture_size(node, override_size, *sockets):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    width = 0
+    height = 0
+    for socket_name in sockets:
+        w, h = get_largest_texture_to_socket(node, socket_name)
+        if w > width:
+            width = w
+        if h > height:
+            height = h
+    if width == 0:
+        width = int(prefs.export_texture_size)
+    if height == 0:
+        height = int(prefs.export_texture_size)
+    if override_size > 0:
+        width = override_size
+        height = override_size
+    return width, height
 
 
 def is_image_node_connected_to_node(node, image, done):
@@ -466,7 +482,7 @@ def combine_normal(chr_cache, mat_cache):
 
         if normal_node and bump_node:
 
-            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "Normal Map", "Bump Map", "Normal Strength", "Bump Strength", mat, "Normal", bake_path)
+            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, "Normal Map", "Bump Map", "Normal Strength", "Bump Strength", mat, "Normal", bake_path)
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
             nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
@@ -476,7 +492,7 @@ def combine_normal(chr_cache, mat_cache):
 
         elif bump_node:
 
-            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "", "Bump Map", "", "Bump Strength", mat, "Normal", bake_path)
+            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, "", "Bump Map", "", "Bump Strength", mat, "Normal", bake_path)
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
             nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
@@ -486,7 +502,7 @@ def combine_normal(chr_cache, mat_cache):
 
         elif normal_node and normal_node.type != "TEX_IMAGE":
 
-            normal_image = bake_bump_and_normal(shader_node, bsdf_node, "Normal Map", "", "Normal Strength", "", mat, "Normal", bake_path)
+            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, "Normal Map", "", "Normal Strength", "", mat, "Normal", bake_path)
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
             nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
@@ -638,5 +654,7 @@ class CC3BakeOperator(bpy.types.Operator):
     def description(cls, context, properties):
 
         if properties.param == "BAKE_FLOW_NORMAL":
-            return "Generates a normal map from the flow map and connects it."
+            return "Generates a normal map from the flow map and connects it"
+        if properties.param == "BAKE_BUMP_NORMAL":
+            return "Combines the Bump and Normal maps into a single normal map"
         return ""
