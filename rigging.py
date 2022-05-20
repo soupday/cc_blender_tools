@@ -2436,7 +2436,7 @@ def is_rigify_installed():
 def is_surface_heat_voxel_skinning_installed():
     try:
         bl_options = bpy.ops.wm.surface_heat_diffuse.bl_options
-        if bl_options:
+        if bl_options is not None:
             return True
         else:
             return False

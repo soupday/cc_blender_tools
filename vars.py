@@ -94,6 +94,11 @@ CHARACTER_GENERATION = {
     "RL_CharacterCreator_Base_Std_G3": "G3",
     "RL_G6_Standard_Series": "G1",
     "NonStdLookAtDataCopyFromCCBase": "ActorCore",
+    "ActorBuild": "ActorCore",
+    "ActorScan": "ActorCore",
+    "Humanoid": "Humanoid",
+    "Creature": "Creature",
+    "Prop": "Prop",
 }
 
 ENUM_TEX_LIST = [

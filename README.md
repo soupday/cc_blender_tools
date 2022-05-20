@@ -36,9 +36,11 @@ Links
 ## Changelog
 
 ### 1.3.8
-- UI update
-- Repository rename to **cc_blender_tools** (title **CC/iC Blender Tools**)
-- Added export character function for non-standard characters.
+- UI naming update.
+- Repository rename to **cc_blender_tools** (title **CC/iC Blender Tools**), old repo links still apply.
+- Initial support for exporting _any_ non-standard characters to CC4.
+    - Character should be aligned -Y forward, Z up for correct bone translation in CC4.
+    - Json data constructed on export to try and reconstruct materials using the **CC4 Blender Tools Plugin**.
 
 ### 1.3.7
 - Iris Color and Iris Cloudy Color added.

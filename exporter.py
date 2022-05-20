@@ -82,7 +82,7 @@ def check_valid_export_fbx(chr_cache, objects):
     return check_valid, check_warn, report
 
 
-def fix_for_export_name(name):
+def fix_for_pbr_export_name(name):
     return name.replace('.', '_').replace(' ', '_').replace('(', '_').replace(')', '_')
 
 
@@ -146,10 +146,11 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
 
     changes = []
 
-    if new_name != chr_cache.import_name:
+    old_name = chr_cache.import_name
+    if new_name != old_name:
         # rename the object and character keys
-        json_data[chr_cache.import_name]["Object"][new_name] = json_data[chr_cache.import_name]["Object"].pop(chr_cache.character_id)
-        json_data[new_name] = json_data.pop(chr_cache.import_name)
+        json_data[old_name]["Object"][new_name] = json_data[old_name]["Object"].pop(chr_cache.character_id)
+        json_data[new_name] = json_data.pop(old_name)
 
     chr_json = json_data[new_name]["Object"][new_name]
 
@@ -157,12 +158,14 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
     if chr_cache.import_embedded:
         unpack_embedded_textures(chr_cache, chr_json, objects, old_path)
 
-    # get a list of all materials in the export back to CC3
+    # get a list of all cached materials in the export back to CC3
     export_mats = []
     for obj in objects:
-        if obj.type == "MESH":
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and obj.type == "MESH":
             for mat in obj.data.materials:
-                if mat and mat not in export_mats:
+                mat_cache = chr_cache.get_material_cache(mat)
+                if mat and mat_cache and mat not in export_mats:
                     export_mats.append(mat)
 
     # CC3 will replace any ' ' or '.' with underscores on export, so the only .00X suffix is from Blender
@@ -192,14 +195,15 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
     for obj in objects:
         obj_cache = chr_cache.get_object_cache(obj)
         obj_name = obj.name
-        obj_source_name = utils.strip_name(obj.name)
+        if obj_cache:
+            obj_source_name = utils.strip_name(obj.name)
+        else:
+            obj_source_name = fix_for_pbr_export_name(obj.name)
 
         # if the name has been changed since it was cached, change it in the json
-        cache_source_name = None
+        cache_source_name = obj_source_name
         if obj_cache:
             cache_source_name = obj_cache.source_name
-        if not cache_source_name:
-            cache_source_name = obj_source_name
         if obj_source_name != cache_source_name:
             new_obj_name = obj_name.replace('.', '_')
             if cache_source_name in chr_json["Meshes"].keys():
@@ -211,7 +215,7 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
             obj_name = new_obj_name
             obj_source_name = new_obj_name
 
-        # object name may have been changed by Blender
+        # object name may have been changed by Blender (or may need to be changed for CC)
         mesh_name = obj.data.name
         if obj_name != obj_source_name or mesh_name != obj_source_name:
             utils.log_info(f"Reverting object & mesh name: {obj_name} to {obj_source_name}")
@@ -222,7 +226,8 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
         obj_json = jsonutils.get_object_json(chr_json, obj)
 
         # add blank object json data if user added mesh
-        if obj_cache and obj_cache.user_added:
+        if not obj_json:
+            utils.log_info(f"Adding Object Json: {obj_source_name}")
             obj_json = copy.deepcopy(params.JSON_MESH_DATA)
             chr_json["Meshes"][obj_source_name] = obj_json
 
@@ -231,59 +236,73 @@ def prep_export_cc3(chr_cache, new_name, objects, json_data, old_path, new_path)
             for slot in obj.material_slots:
                 mat = slot.material
                 mat_name = mat.name
-                mat_source_name = utils.strip_name(mat.name)
-                mat_json = jsonutils.get_material_json(obj_json, mat)
                 mat_cache = chr_cache.get_material_cache(mat)
-
-                # if the name has been changed since it was cached, change it in the json
-                cache_source_name = None
+                mat_json = jsonutils.get_material_json(obj_json, mat)
                 if mat_cache:
-                    cache_source_name = mat_cache.source_name
-                if not cache_source_name:
-                    cache_source_name = mat_source_name
-                if mat_source_name != cache_source_name:
-                    new_mat_name = mat_name.replace('.', '_')
-                    if cache_source_name in obj_json["Materials"].keys():
-                        utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
-                        obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
-                    changes.append(["MATERIAL_RENAME", mat, mat.name])
-                    mat.name = new_mat_name
-                    mat_name = new_mat_name
-                    mat_source_name = new_mat_name
+                    mat_source_name = utils.strip_name(mat.name)
+                else:
+                    mat_source_name = fix_for_pbr_export_name(mat.name)
 
                 if mat_cache:
-                    if mat_cache.user_added:
-                        # add new material json data if user added
-                        mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
-                        obj_json["Materials"][mat_source_name] = mat_json
-                    if prefs.export_json_changes:
-                        write_back_json(mat_json, mat, mat_cache)
-                    if prefs.export_texture_changes:
-                        write_back_textures(mat_json, mat, mat_cache, old_path, chr_cache.import_name, True)
-                if mat_json:
-                    # replace duplicate materials with a reference to a single source material
-                    # (this is to ensure there are no duplicate suffixes in the fbx export)
-                    if mat_count[mat_source_name] > 1:
-                        new_mat = mat_remap[mat_source_name]
-                        slot.material = new_mat
-                        utils.log_info("Replacing material: " + mat.name + " with " + new_mat.name)
-                        changes.append(["MATERIAL_SLOT_REPLACE", slot, mat])
-                        mat = new_mat
-                        mat_name = new_mat.name
-                    # strip any blender numerical suffixes
-                    if mat_name != mat_source_name:
-                        utils.log_info(f"Reverting material name: {mat_name} to {mat_source_name}")
+                    # if the name has been changed since it was cached, change it in the json
+                    cache_source_name = None
+                    if mat_cache:
+                        cache_source_name = mat_cache.source_name
+                    if not cache_source_name:
+                        cache_source_name = mat_source_name
+                    if mat_source_name != cache_source_name:
+                        new_mat_name = mat_name.replace('.', '_')
+                        if cache_source_name in obj_json["Materials"].keys():
+                            utils.log_info(f"Updating material json name: {cache_source_name} to {new_mat_name}")
+                            obj_json["Materials"][new_mat_name] = obj_json["Materials"].pop(cache_source_name)
+                        changes.append(["MATERIAL_RENAME", mat, mat.name])
+                        mat.name = new_mat_name
+                        mat_name = new_mat_name
+                        mat_source_name = new_mat_name
+
+                    if mat_cache:
+                        if mat_cache.user_added:
+                            # add new material json data if user added
+                            mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
+                            obj_json["Materials"][mat_source_name] = mat_json
+                        if prefs.export_json_changes:
+                            write_back_json(mat_json, mat, mat_cache)
+                        if prefs.export_texture_changes:
+                            write_back_textures(mat_json, mat, mat_cache, old_path, old_name, True)
+                    if mat_json:
+                        # replace duplicate materials with a reference to a single source material
+                        # (this is to ensure there are no duplicate suffixes in the fbx export)
+                        if mat_count[mat_source_name] > 1:
+                            new_mat = mat_remap[mat_source_name]
+                            slot.material = new_mat
+                            utils.log_info("Replacing material: " + mat.name + " with " + new_mat.name)
+                            changes.append(["MATERIAL_SLOT_REPLACE", slot, mat])
+                            mat = new_mat
+                            mat_name = new_mat.name
+                        # strip any blender numerical suffixes
+                        if mat_name != mat_source_name:
+                            utils.log_info(f"Reverting material name: {mat_name} to {mat_source_name}")
+                            mat.name = mat_source_name
+                            changes.append(["MATERIAL_RENAME", mat, mat_name])
+                        # when saving the export to a new location, the texture paths need to point back to the
+                        # original texture locations, either by new relative paths or absolute paths
+                        # pbr textures:
+                        for channel in mat_json["Textures"].keys():
+                            remap_texture_path(mat_json["Textures"][channel], old_path, new_path)
+                        # custom shader textures:
+                        if "Custom Shader" in mat_json.keys():
+                            for channel in mat_json["Custom Shader"]["Image"].keys():
+                                remap_texture_path(mat_json["Custom Shader"]["Image"][channel], old_path, new_path)
+                else:
+                    # add pbr material to json for non-cached base object/material
+                    utils.log_info(f"Adding Material Json: {mat.name}")
+                    if mat_source_name != mat.name:
+                        utils.log_info(f"Updating Material name: {mat.name} to {mat_source_name}")
                         mat.name = mat_source_name
-                        changes.append(["MATERIAL_RENAME", mat, mat_name])
-                    # when saving the export to a new location, the texture paths need to point back to the
-                    # original texture locations, either by new relative paths or absolute paths
-                    # pbr textures:
-                    for channel in mat_json["Textures"].keys():
-                        remap_texture_path(mat_json["Textures"][channel], old_path, new_path)
-                    # custom shader textures:
-                    if "Custom Shader" in mat_json.keys():
-                        for channel in mat_json["Custom Shader"]["Image"].keys():
-                            remap_texture_path(mat_json["Custom Shader"]["Image"][channel], old_path, new_path)
+                        changes.append(["MATERIAL_RENAME", mat, mat.name])
+                    mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
+                    obj_json["Materials"][mat.name] = mat_json
+                    write_pbr_material_to_json(mat, mat_json, old_path, old_name, True)
 
         if prefs.export_bone_roll_fix:
             if obj.type == "ARMATURE":
@@ -568,8 +587,8 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
     shader_def = params.get_shader_def(shader_name)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
     has_custom_shader = "Custom Shader" in mat_json.keys()
-    unpack_path = os.path.join(old_path, "Unpack")
-    bake_path = os.path.join(old_path, "textures", old_name, "Blender_Baked")
+    unpack_path = os.path.join(old_path, "textures", old_name, "Unpack")
+    bake_path = os.path.join(old_path, "textures", old_name, "Baked")
     bake.init_bake()
     UNPACK_INDEX = 1001
 
@@ -832,14 +851,8 @@ def prep_non_standard_export(objects, dir, name, character_type):
     # prefer to bake and unpack textures next to blend file, otherwise at the destination.
     blend_path = bpy.path.abspath("//")
     if blend_path:
-        unpack_path = os.path.join(blend_path, "textures", name, "Unpack")
-        bake_path = os.path.join(blend_path, "textures", name, "Baked")
-    else:
-        unpack_path = os.path.join(dir, "textures", name, "Unpack")
-        bake_path = os.path.join(dir, "textures", name, "Baked")
-
-    utils.log_info(f"Unpack Path: {unpack_path}")
-    utils.log_info(f"Bake Path: {bake_path}")
+        dir = blend_path
+    utils.log_info(f"Texture Root Dir: {dir}")
 
     json_data = {
         name: {
@@ -867,8 +880,8 @@ def prep_non_standard_export(objects, dir, name, character_type):
     for obj in objects:
         if obj.type == "MESH" and obj not in done:
             done.append(obj)
-            utils.log_info(f"Adding Object: {obj.name}")
-            export_name = fix_for_export_name(obj.name)
+            utils.log_info(f"Adding Object Json: {obj.name}")
+            export_name = fix_for_pbr_export_name(obj.name)
             if export_name != obj.name:
                 utils.log_info(f"Updating Object name: {obj.name} to {export_name}")
                 obj.name = export_name
@@ -879,15 +892,15 @@ def prep_non_standard_export(objects, dir, name, character_type):
                 mat = slot.material
                 if mat not in done:
                     done.append(mat)
-                    utils.log_info(f"Adding Material: {mat.name}")
-                    export_name = fix_for_export_name(mat.name)
+                    utils.log_info(f"Adding Material Json: {mat.name}")
+                    export_name = fix_for_pbr_export_name(mat.name)
                     if export_name != mat.name:
                         utils.log_info(f"Updating Material name: {mat.name} to {export_name}")
                         mat.name = export_name
                         changes.append(["MATERIAL_RENAME", mat, mat.name])
                     mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
                     mesh_json["Materials"][mat.name] = mat_json
-                    write_pbr_material_to_json(mat, mat_json, bake_path, unpack_path)
+                    write_pbr_material_to_json(mat, mat_json, dir, name, True)
 
     # select all the export objects
     utils.try_select_objects(objects, True)
@@ -919,11 +932,12 @@ BSDF_TEXTURE_KEYWORDS = {
     "AO": ["occlusion", "lightmap", "intensity", ".ao$", "_ao$"],
 }
 
-def write_pbr_material_to_json(mat, mat_json, bake_path, unpack_path):
-
+def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
     if not mat.node_tree or not mat.node_tree.nodes:
         return
 
+    unpack_path = os.path.join(path, "textures", name, "Unpack")
+    bake_path = os.path.join(path, "textures", name, "Baked")
     bsdf_node = nodeutils.get_bsdf_node(mat)
     gltf_node = nodeutils.find_node_group_by_keywords(mat.node_tree.nodes, "glTF Settings")
 
@@ -931,6 +945,8 @@ def write_pbr_material_to_json(mat, mat_json, bake_path, unpack_path):
         try:
             roughness_value = bsdf_node.inputs["Roughness"].default_value
             metallic_value = bsdf_node.inputs["Metallic"].default_value
+            bake_roughness = False
+            bake_metallic = False
             specular_value = bsdf_node.inputs["Specular"].default_value
             diffuse_color = (1,1,1,1)
             alpha_value = 1.0
@@ -943,6 +959,14 @@ def write_pbr_material_to_json(mat, mat_json, bake_path, unpack_path):
                         utils.linear_to_srgb((specular_value, specular_value, specular_value, 1.0))
                     )
             mat_json["Opacity"] = alpha_value
+            if bake_values:
+                if roughness_value != 0.5:
+                    bake_roughness = True
+                if metallic_value > 0:
+                    bake_metallic = True
+            elif not bake_values:
+                mat_json["Roughness_Value"] = roughness_value
+                mat_json["Metallic_Value"] = metallic_value
         except:
             utils.log_warn("Unable to set BSDF parameters!")
 
@@ -957,7 +981,13 @@ def write_pbr_material_to_json(mat, mat_json, bake_path, unpack_path):
             if n:
                 linked_node, linked_socket = nodeutils.trace_input_sockets(n, socket_trace)
                 if linked_node and linked_socket:
-                    socket_mapping[tex_id] = [linked_node, linked_socket]
+                    socket_mapping[tex_id] = [linked_node, linked_socket, False]
+                else:
+                    if tex_id == "Roughness" and bake_roughness:
+                        socket_mapping[tex_id] = [bsdf_node, "Roughness", True]
+                    elif tex_id == "Metallic" and bake_metallic:
+                        socket_mapping[tex_id] = [bsdf_node, "Metallic", True]
+
 
         write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, bake_path, unpack_path)
 
@@ -969,7 +999,7 @@ def write_pbr_material_to_json(mat, mat_json, bake_path, unpack_path):
                 for tex_id in BSDF_TEXTURE_KEYWORDS:
                     for key in BSDF_TEXTURE_KEYWORDS[tex_id]:
                         if re.match(key, node.image.name.lower()) or re.match(key, node.label.lower()) or re.match(key, node.name.lower()):
-                            socket_mapping[tex_id] = [node, "Color"]
+                            socket_mapping[tex_id] = [node, "Color", False]
 
         write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, None, bake_path, unpack_path)
 
@@ -992,7 +1022,7 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, bak
         if tex_id == "Bump" and "Normal" in socket_mapping:
             continue
 
-        node, socket = socket_mapping[tex_id]
+        node, socket, bake_value = socket_mapping[tex_id]
         utils.log_info(f"Adding Texture Chennel: {tex_id}")
 
         tex_node = None
@@ -1005,7 +1035,10 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, bak
             if tex_id == "Normal" and combine_normals:
                 image = bake.bake_bsdf_normal(bsdf_node, mat, tex_id, bake_path)
             else:
-                image = bake.bake_node_socket_output(node, socket, mat, tex_id, bake_path)
+                if bake_value:
+                    image = bake.bake_value_image(node.inputs[socket].default_value, mat, tex_id, bake_path)
+                else:
+                    image = bake.bake_node_socket_output(node, socket, mat, tex_id, bake_path)
 
         tex_info = copy.deepcopy(params.JSON_PBR_TEX_INFO)
         tex_info["Texture Path"] = bpy.path.abspath(image.filepath)
@@ -1048,6 +1081,63 @@ def export_copy_obj_key(chr_cache, dir, name):
             utils.log_error("Unable to copy keyfile: " + old_key_path + "\n    to: " + new_key_path, e)
 
 
+def is_arp_installed():
+    try:
+        bl_options = bpy.ops.id.arp_export_fbx_panel.bl_options
+        if bl_options is not None:
+            return True
+        else:
+            return False
+    except:
+        return False
+
+
+def is_arp_rig(rig):
+    if utils.object_exists_is_armature(rig):
+        if "c_pos" in rig.data.bones and "c_traj" in rig.data.bones and "c_root.x" in rig.data.bones:
+            print("ARP RIG")
+            return True
+    return False
+
+
+def export_arp(file_path):
+    try:
+        if "arp_engine_type" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_engine_type = "unity"
+        if "arp_export_rig_type" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_export_rig_type = "humanoid"
+        if "arp_bake_anim" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_bake_anim = False
+        if "arp_ge_sel_only" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_ge_sel_only = True
+        if "arp_keep_bend_bones" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_keep_bend_bones = False
+        if "arp_export_twist" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_export_twist = True
+        if "arp_export_noparent" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_export_noparent = False
+        if "arp_use_tspace" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_use_tspace = False
+        if "arp_fix_fbx_rot" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_fix_fbx_rot = False
+        if "arp_fix_fbx_matrix" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_fix_fbx_matrix = True
+        if "arp_init_fbx_rot" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_init_fbx_rot = False
+        if "arp_bone_axis_primary_export" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_bone_axis_primary_export = "Y"
+        if "arp_bone_axis_secondary_export" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_bone_axis_secondary_export = "X"
+        if "arp_export_rig_name" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_export_rig_name = "root"
+        if "arp_export_tex" in bpy.data.scenes["Scene"]:
+            bpy.data.scenes["Scene"].arp_export_tex = False
+
+        bpy.ops.id.arp_export_fbx_panel(filepath=file_path, check_existing = False)
+        return True
+    except:
+        return False
+
 
 def export_standard(chr_cache, file_path):
     props = bpy.context.scene.CC3ImportProps
@@ -1058,6 +1148,8 @@ def export_standard(chr_cache, file_path):
     utils.log_info("")
     utils.log_info("Exporting Character Model to CC:")
     utils.log_info("--------------------------------")
+
+    utils.set_mode("OBJECT")
 
     export_anim = False
     dir, name = os.path.split(file_path)
@@ -1144,6 +1236,8 @@ def export_non_standard(file_path):
     utils.log_info("Exporting Non-Standard Model to CC:")
     utils.log_info("-----------------------------------")
 
+    utils.set_mode("OBJECT")
+
     export_anim = False
     dir, name = os.path.split(file_path)
     type = name[-3:].lower()
@@ -1154,6 +1248,7 @@ def export_non_standard(file_path):
     old_active = bpy.context.active_object
 
     objects = get_export_objects(None, True)
+    arm = utils.get_armature_in_objects(objects)
 
     utils.log_info("Generating JSON data for export:")
     utils.log_indent()
@@ -1165,11 +1260,23 @@ def export_non_standard(file_path):
 
     remove_modifiers_for_export(None, objects, True)
 
-    bpy.ops.export_scene.fbx(filepath=file_path,
-            use_selection = True,
-            bake_anim = export_anim,
-            add_leaf_bones = False,
-            use_mesh_modifiers = True)
+    # attempt any custom exports (ARP)
+    custom_export = False
+    if is_arp_installed() and is_arp_rig(arm):
+        custom_export = export_arp(file_path)
+
+    # double check custom export
+    if not os.path.exists(file_path):
+        custom_export = False
+
+    # proceed with normal export
+    if not custom_export:
+        bpy.ops.export_scene.fbx(filepath=file_path,
+                use_selection = True,
+                bake_anim = export_anim,
+                add_leaf_bones = False,
+                use_mesh_modifiers = True,
+                use_armature_deform_only = True)
 
     utils.log_recess()
     utils.log_info("")
@@ -1200,6 +1307,8 @@ def export_to_unity(chr_cache, export_anim, file_path):
     utils.log_info("")
     utils.log_info("Exporting Character Model to UNITY:")
     utils.log_info("-----------------------------------")
+
+    utils.set_mode("OBJECT")
 
     dir, file = os.path.split(file_path)
     name, type = os.path.splitext(file)
@@ -1285,6 +1394,8 @@ def update_to_unity(chr_cache, export_anim):
     utils.log_info("")
     utils.log_info("Updating Character Model for UNITY:")
     utils.log_info("-----------------------------------")
+
+    utils.set_mode("OBJECT")
 
     # update the file path (it may have been moved inside the unity project)
     if props.unity_file_path.lower().endswith(".fbx"):

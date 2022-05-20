@@ -121,8 +121,6 @@ def post_bake(bake_store):
 def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bake_dir):
     global BAKE_INDEX
 
-    print(socket_name, channel_id)
-
     # determine image name and color space
     image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
     BAKE_INDEX += 1
@@ -134,12 +132,13 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bak
     # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
     i = 0
     base_name = image_name
-    while is_image_node_connected_to_socket(shader_node, socket_name, image):
-        i += 1
-        old_name = image_name
-        image_name = base_name + "_" + str(i)
-        utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
-        image = get_image_target(image_name, width, height, bake_dir, is_data, True)
+    if shader_node and socket_name:
+        while is_image_node_connected_to_socket(shader_node, socket_name, image):
+            i += 1
+            old_name = image_name
+            image_name = base_name + "_" + str(i)
+            utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
+            image = get_image_target(image_name, width, height, bake_dir, is_data, True)
 
     return image, image_name
 
@@ -242,6 +241,26 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, override_size = 0):
     if image_node:
         nodes.remove(image_node)
 
+    return image
+
+
+def bake_value_image(value, mat, channel_id, bake_dir, size = 64):
+    width = height = size
+    image, image_name = get_bake_image(mat, channel_id, width, height, None, "", bake_dir)
+
+    image_pixels = list(image.pixels)
+
+    l = len(image_pixels)
+    for i in range(0, l, 4):
+        image_pixels[i + 0] = value
+        image_pixels[i + 1] = value
+        image_pixels[i + 2] = value
+        image_pixels[i + 3] = 1
+
+    # replace-in-place all the pixels from the list:
+    image.pixels[:] = image_pixels
+    image.update()
+    image.save()
     return image
 
 
