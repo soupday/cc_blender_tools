@@ -41,6 +41,11 @@ Links
 - Initial support for exporting _any_ non-standard characters to CC4.
     - Character should be aligned -Y forward, Z up for correct bone translation in CC4.
     - Json data constructed on export to try and reconstruct materials using the **CC4 Blender Tools Plugin**.
+        - Materials must be based on Principled BSDF otherwise only texture name matching is possible.
+    - non-standard characters rigged with Auto-Rig Pro will (try to) invoke the ARP export operator (if installed)
+        - ARP export operator cleans up the rig and leaves only the relevent deformation bones.
+    - Import functions expanded to allow import from FBX, GLTF and VRM for non-standard characters.
+        - These are **not** considered to be CC/iC characters and have no material parameter, rigging or physics options.
 
 ### 1.3.7
 - Iris Color and Iris Cloudy Color added.
