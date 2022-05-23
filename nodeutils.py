@@ -722,21 +722,71 @@ def trace_input_sockets(node, socket_trace : str):
     sockets = socket_trace.split(":")
     trace_node = None
     trace_socket = None
-    try:
-        if sockets:
-            trace_node : bpy.types.Node = node
-            for socket_name in sockets:
-                if socket_name in trace_node.inputs and trace_node.inputs[socket_name].is_linked:
-                    socket : bpy.types.NodeSocket = trace_node.inputs[socket_name]
-                    link = socket.links[0]
-                    trace_node = link.from_node
-                    trace_socket = link.from_socket.name
-                else:
-                    trace_node = None
-                    trace_socket = None
-                    break
-    except:
-        trace_node = None
-        trace_socket = None
+    if node and socket_trace:
+        try:
+            if sockets:
+                trace_node : bpy.types.Node = node
+                for socket_name in sockets:
+                    if socket_name in trace_node.inputs and trace_node.inputs[socket_name].is_linked:
+                        socket : bpy.types.NodeSocket = trace_node.inputs[socket_name]
+                        link = socket.links[0]
+                        trace_node = link.from_node
+                        trace_socket = link.from_socket.name
+                    else:
+                        trace_node = None
+                        trace_socket = None
+                        break
+        except:
+            trace_node = None
+            trace_socket = None
 
     return trace_node, trace_socket
+
+
+def trace_input_value(node, socket_trace, default_value):
+    if node and socket_trace:
+        sockets = socket_trace.split(":")
+        try:
+            value_socket = sockets[-1]
+            sockets = sockets[:-1]
+            trace_node : bpy.types.Node = node
+            if sockets:
+                for socket_name in sockets:
+                    if socket_name in trace_node.inputs and trace_node.inputs[socket_name].is_linked:
+                        socket : bpy.types.NodeSocket = trace_node.inputs[socket_name]
+                        link = socket.links[0]
+                        trace_node = link.from_node
+                    else:
+                        trace_node = None
+                        break
+            if trace_node:
+                return trace_node.inputs[value_socket].default_value
+        except:
+            pass
+    return default_value
+
+
+def set_trace_input_value(node, socket_trace, value):
+    if node and socket_trace:
+        sockets = socket_trace.split(":")
+        try:
+            value_socket = sockets[-1]
+            sockets = sockets[:-1]
+            trace_node : bpy.types.Node = node
+            if sockets:
+                for socket_name in sockets:
+                    if socket_name in trace_node.inputs and trace_node.inputs[socket_name].is_linked:
+                        socket : bpy.types.NodeSocket = trace_node.inputs[socket_name]
+                        link = socket.links[0]
+                        trace_node = link.from_node
+                    else:
+                        trace_node = None
+                        break
+            if trace_node:
+                trace_node.inputs[value_socket].default_value = value
+                return True
+        except:
+            pass
+    return False
+
+

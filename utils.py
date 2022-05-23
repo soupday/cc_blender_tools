@@ -155,9 +155,12 @@ def is_in_path(a, b):
 
 
 def path_is_parent(parent_path, child_path):
-    parent_path = os.path.abspath(parent_path)
-    child_path = os.path.abspath(child_path)
-    return os.path.commonpath([parent_path]) == os.path.commonpath([parent_path, child_path])
+    try:
+        parent_path = os.path.abspath(parent_path)
+        child_path = os.path.abspath(child_path)
+        return os.path.commonpath([parent_path]) == os.path.commonpath([parent_path, child_path])
+    except:
+        return False
 
 
 def local_repath(path, original_start):
@@ -525,6 +528,13 @@ def strip_name(name):
         if name[-3:].isdigit() and name[-4] == ".":
             name = name[:-4]
     return name
+
+
+def is_blender_duplicate(name):
+    if len(name) >= 4:
+        if name[-3:].isdigit() and name[-4] == ".":
+            return True
+    return False
 
 
 def make_unique_name(name, keys):

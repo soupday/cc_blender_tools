@@ -56,22 +56,37 @@ def get_rl_pose_bone(rig, name):
 
 def get_edit_bone(rig, name):
     if name:
-        if name in rig.data.edit_bones:
-            return rig.data.edit_bones[name]
+        if type(name) is list:
+            for n in name:
+                if n in rig.data.edit_bones:
+                    return rig.data.edit_bones[n]
+        else:
+            if name in rig.data.edit_bones:
+                return rig.data.edit_bones[name]
     return None
 
 
 def get_bone(rig, name):
     if name:
-        if name in rig.data.bones:
-            return rig.data.bones[name]
+        if type(name) is list:
+            for n in name:
+                if n in rig.data.bones:
+                    return rig.data.bones[n]
+        else:
+            if name in rig.data.bones:
+                return rig.data.bones[name]
     return None
 
 
 def get_pose_bone(rig, name):
     if name:
-        if name in rig.pose.bones:
-            return rig.pose.bones[name]
+        if type(name) is list:
+            for n in name:
+                if n in rig.pose.bones:
+                    return rig.pose.bones[n]
+        else:
+            if name in rig.pose.bones:
+                return rig.pose.bones[name]
     return None
 
 
