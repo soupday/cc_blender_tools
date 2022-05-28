@@ -289,15 +289,8 @@ def func_tiling(scale):
 def func_emission_scale(v):
     return v * vars.EMISSION_SCALE
 
-def func_color_linear(jc: list):
+def func_color_bytes(jc: list):
     return [ jc[0] / 255.0, jc[1] / 255.0, jc[2] / 255.0, 1.0 ]
-
-# Blender wants the colours in linear color space, but most of the color
-# parameters in the json files are in sRGB, so they need to be converted...
-# (Only the hair shader colors appear to be in linear color space.)
-def func_color_srgb(jc: list):
-    #return utils.srgb_to_linear(func_color_linear(jc))
-    return func_color_linear(jc)
 
 def func_color_vector(jc: list):
     if type(jc) == list:

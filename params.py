@@ -84,7 +84,8 @@ PAIRED_MATERIALS = [
 # shader definitions
 SHADER_MATRIX = [
 
-
+    # Tearline Shader
+    #######################################
 
     {   "name": "rl_tearline_shader",
         "rl_shader": "RLEyeTearline",
@@ -133,7 +134,8 @@ SHADER_MATRIX = [
         ],
     },
 
-
+    # Eye Occlusion Shader
+    #########################################
 
     {   "name": "rl_eye_occlusion_shader",
         "rl_shader": "RLEyeOcclusion",
@@ -178,7 +180,7 @@ SHADER_MATRIX = [
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
             ["eye_occlusion_tear_duct_position", 0.8, "", "Custom/Tear Duct Position"],
-            ["eye_occlusion_color", (0.014451, 0.001628, 0.000837, 1.0), "func_color_srgb", "Custom/Shadow Color"],
+            ["eye_occlusion_color", (0.014451, 0.001628, 0.000837, 1.0), "func_color_bytes", "Custom/Shadow Color"],
             ["eye_occlusion_strength", 0.2, "", "Custom/Shadow Strength"],
             ["eye_occlusion_top_min", 0.27, "", "Custom/Shadow Top"],
             ["eye_occlusion_top_range", 1, "", "Custom/Shadow Top Range"],
@@ -242,7 +244,8 @@ SHADER_MATRIX = [
         ],
     },
 
-
+    # Skin Shader
+    ########################################
 
     {   "name": "rl_skin_shader",
         "rl_shader": "RLSkin",
@@ -301,7 +304,7 @@ SHADER_MATRIX = [
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
-            ["skin_diffuse_color", (1,1,1,1), "func_color_linear", "/Diffuse Color"],
+            ["skin_diffuse_color", (1,1,1,1), "func_color_bytes", "/Diffuse Color"],
             ["skin_micro_normal_tiling", 25, "", "Custom/MicroNormal Tiling"],
             ["skin_micro_normal_strength", 0.8, "", "Custom/MicroNormal Strength"],
             ["skin_micro_roughness_mod", 0.05, "", "Custom/Micro Roughness Scale"],
@@ -319,7 +322,7 @@ SHADER_MATRIX = [
             ["skin_ao_strength", 1, "", "Pbr/AO"],
             ["skin_normal_strength", 1, "", "Pbr/Normal"],
             ["skin_emission_strength", 0, "", "Pbr/Glow"],
-            ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_srgb", "SSS/Falloff"],
+            ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_bytes", "SSS/Falloff"],
             ["skin_subsurface_radius", 1.5, "", "SSS/Radius"],
             # non json properties (just defaults)
             ["skin_diffuse_hue", 0.5, "DEF"],
@@ -336,6 +339,10 @@ SHADER_MATRIX = [
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
             ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "skin_diffuse_color"],
+            ["/Diffuse Hue", 0.5, "", "skin_diffuse_hue"],
+            ["/Diffuse Saturation", 1.0, "", "skin_diffuse_saturation"],
+            ["/Diffuse Brightness", 1.0, "", "skin_diffuse_brightness"],
+            ["/Diffuse HSV", 1.0, "", "skin_diffuse_hsv_strength"],
             ["SSS/Falloff", [255.0, 94.3499984741211, 76.5], "func_export_byte3", "skin_subsurface_falloff"],
         ],
         "ui": [
@@ -381,7 +388,8 @@ SHADER_MATRIX = [
         ],
     },
 
-
+    # Head Shader
+    ##########################################
 
     {   "name": "rl_head_shader",
         "rl_shader": "RLHead",
@@ -463,7 +471,7 @@ SHADER_MATRIX = [
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
-            ["skin_diffuse_color", (1,1,1,1), "func_color_linear", "/Diffuse Color"],
+            ["skin_diffuse_color", (1,1,1,1), "func_color_bytes", "/Diffuse Color"],
             ["skin_blend_overlay_strength", 0, "", "Custom/BaseColor Blend2 Strength"],
             ["skin_normal_blend_strength", 0, "", "Custom/NormalMap Blend Strength"],
             ["skin_micro_normal_tiling", 20, "", "Custom/MicroNormal Tiling"],
@@ -498,7 +506,7 @@ SHADER_MATRIX = [
             ["skin_ao_strength", 1, "", "Pbr/AO"],
             ["skin_normal_strength", 1, "", "Pbr/Normal"],
             ["skin_emission_strength", 0, "", "Pbr/Glow"],
-            ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_srgb", "SSS/Falloff"],
+            ["skin_subsurface_falloff", (1.0, 0.112, 0.072, 1.0), "func_color_bytes", "SSS/Falloff"],
             ["skin_subsurface_radius", 1.5, "", "SSS/Radius"],
             # non json properties (just defaults)
             ["skin_diffuse_hue", 0.5, "DEF"],
@@ -515,6 +523,10 @@ SHADER_MATRIX = [
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
             ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "skin_diffuse_color"],
+            ["/Diffuse Hue", 0.5, "", "skin_diffuse_hue"],
+            ["/Diffuse Saturation", 1.0, "", "skin_diffuse_saturation"],
+            ["/Diffuse Brightness", 1.0, "", "skin_diffuse_brightness"],
+            ["/Diffuse HSV", 1.0, "", "skin_diffuse_hsv_strength"],
             ["SSS/Falloff", [255.0, 94.3499984741211, 76.5], "func_export_byte3", "skin_subsurface_falloff"],
         ],
         "ui": [
@@ -578,7 +590,8 @@ SHADER_MATRIX = [
         ],
     },
 
-
+    # Tongue Shader
+    #########################################
 
     {   "name": "rl_tongue_shader",
         "rl_shader": "RLTongue",
@@ -636,7 +649,7 @@ SHADER_MATRIX = [
             ["tongue_ao_strength", 1, "", "Pbr/AO"],
             ["tongue_normal_strength", 1, "", "Pbr/Normal"],
             ["tongue_emission_strength", 0, "", "Pbr/Glow"],
-            ["tongue_subsurface_falloff", (1, 1, 1, 1), "func_color_srgb", "SSS/Falloff"],
+            ["tongue_subsurface_falloff", (1, 1, 1, 1), "func_color_bytes", "SSS/Falloff"],
             ["tongue_subsurface_radius", 1, "", "SSS/Radius"],
             # non json properties (just defaults)
             ["tongue_hue", 0.5, "DEF"],
@@ -680,7 +693,8 @@ SHADER_MATRIX = [
         ],
     },
 
-
+    # Teeth Shader
+    ########################################
 
     {   "name": "rl_teeth_shader",
         "rl_shader": "RLTeethGums",
@@ -747,7 +761,7 @@ SHADER_MATRIX = [
             ["teeth_ao_strength", 1, "", "Pbr/AO"],
             ["teeth_normal_strength", 1, "", "Pbr/Normal"],
             ["teeth_emission_strength", 0, "", "Pbr/Glow"],
-            ["teeth_subsurface_falloff", (0.381, 0.198, 0.13, 1.0), "func_color_srgb", "SSS/Falloff"],
+            ["teeth_subsurface_falloff", (0.381, 0.198, 0.13, 1.0), "func_color_bytes", "SSS/Falloff"],
             ["teeth_subsurface_radius", 1, "", "SSS/Radius"],
             # non json properties (just defaults)
             ["teeth_gums_hue", 0.5, "DEF"],
@@ -799,7 +813,8 @@ SHADER_MATRIX = [
         ],
     },
 
-
+    # Eye Shader
+    ##################################
 
     {   "name": ["rl_cornea_shader", "rl_eye_shader"],
         "rl_shader": "RLEye",
@@ -891,7 +906,7 @@ SHADER_MATRIX = [
             ["eye_shadow_radius", 0.279, "", "Custom/Shadow Radius"],
             ["eye_shadow_hardness", 0.5, "", "Custom/Shadow Hardness"],
             ["eye_cornea_specular", 0.8, "", "Custom/Specular Scale"],
-            ["eye_corner_shadow_color", (1.0, 0.497, 0.445, 1.0), "func_color_srgb", "Custom/Eye Corner Darkness Color"],
+            ["eye_corner_shadow_color", (1.0, 0.497, 0.445, 1.0), "func_color_bytes", "Custom/Eye Corner Darkness Color"],
             ["eye_iris_depth", 0.3, "func_get_eye_depth", "Custom/Iris Depth Scale"],
             ["eye_cornea_roughness", 0, "", "Custom/_Iris Roughness"],
             ["eye_iris_brightness", 1, "", "Custom/Iris Color Brightness"],
@@ -899,10 +914,10 @@ SHADER_MATRIX = [
             ["eye_ior", 1.4, "", "Custom/_IoR"],
             ["eye_iris_scale", 1, "func_get_iris_scale", "Custom/Iris UV Radius"],
             ["eye_iris_radius", 0.16, "", "Custom/Iris UV Radius"],
-            ["eye_iris_color", (1.0, 1.0, 1.0, 1.0), "func_color_srgb", "Custom/Iris Color"],
-            ["eye_iris_inner_color", (1.0, 1.0, 1.0, 1.0), "func_color_srgb", "Custom/Iris Inner Color"],
+            ["eye_iris_color", (1.0, 1.0, 1.0, 1.0), "func_color_bytes", "Custom/Iris Color"],
+            ["eye_iris_inner_color", (1.0, 1.0, 1.0, 1.0), "func_color_bytes", "Custom/Iris Inner Color"],
             ["eye_iris_inner_scale", 0, "", "Custom/Iris Inner Scale"],
-            ["eye_iris_cloudy_color", (0, 0, 0, 1.0), "func_color_srgb", "Custom/Iris Cloudy Color"],
+            ["eye_iris_cloudy_color", (0, 0, 0, 1.0), "func_color_bytes", "Custom/Iris Cloudy Color"],
             ["eye_limbus_width", 0.055, "", "Custom/Limbus UV Width Color"],
             ["eye_limbus_dark_radius", 0.13125, "func_limbus_dark_radius", "Custom/Limbus Dark Scale"],
             ["eye_sclera_brightness", 0.650, "", "Custom/ScleraBrightness"],
@@ -914,7 +929,7 @@ SHADER_MATRIX = [
             ["eye_normal_strength", 1, "", "Pbr/Normal"],
             ["eye_sclera_emission_strength", 0, "", "Pbr/Glow"],
             ["eye_iris_emission_strength", 0, "", "Pbr/Glow"],
-            ["eye_subsurface_falloff", (1,1,1,1), "func_color_srgb", "SSS/Falloff"],
+            ["eye_subsurface_falloff", (1,1,1,1), "func_color_bytes", "SSS/Falloff"],
             ["eye_subsurface_radius", 5, "", "SSS/Radius"],
             # non json properties (just defaults)
             ["eye_subsurface_scale", 0.75, "DEF"],
@@ -1005,7 +1020,8 @@ SHADER_MATRIX = [
         ],
     },
 
-
+    # PBR Shader
+    ############################################################
 
     {   "name": "rl_pbr_shader",
         "rl_shader": "Pbr",
@@ -1051,7 +1067,7 @@ SHADER_MATRIX = [
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
             ["default_ao_strength", 1, "", "Pbr/AO"],
-            ["default_diffuse_color", (1,1,1,1), "func_color_linear", "/Diffuse Color"],
+            ["default_diffuse_color", (1,1,1,1), "func_color_bytes", "/Diffuse Color"],
             ["default_blend_multiply_strength", 0, "", "Pbr/Blend"],
             ["default_alpha_strength", 1, "", "Pbr/Opacity"],
             ["default_opacity", 1, "", "Base/Opacity"],
@@ -1107,7 +1123,8 @@ SHADER_MATRIX = [
         ],
     },
 
-
+    # SSS Shader
+    #########################################
 
     {   "name": "rl_sss_shader",
         "rl_shader": "RLSSS",
@@ -1179,7 +1196,7 @@ SHADER_MATRIX = [
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
-            ["default_diffuse_color", (1,1,1,1), "func_color_linear", "/Diffuse Color"],
+            ["default_diffuse_color", (1,1,1,1), "func_color_bytes", "/Diffuse Color"],
             ["default_specular_scale", 1.0, "", "Custom/_Specular"],
             ["default_brightness", 1, "", "Custom/_BaseColorMap Brightness"],
             ["default_saturation", 1, "", "Custom/_BaseColorMap Saturation"],
@@ -1203,7 +1220,7 @@ SHADER_MATRIX = [
             ["default_b_scatter_scale", 1, "", "Custom/B Channel Scatter Scale"],
             ["default_a_scatter_scale", 1, "", "Custom/A Channel Scatter Scale"],
             ["default_unmasked_scatter_scale", 1, "", "Custom/Unmasked Scatter Scale"],
-            ["default_subsurface_falloff", (1.0, 1.0, 1.0, 1.0), "func_color_srgb", "SSS/Falloff"],
+            ["default_subsurface_falloff", (1.0, 1.0, 1.0, 1.0), "func_color_bytes", "SSS/Falloff"],
             ["default_suburface_radius", 1.5, "", "SSS/Radius"],
             ["default_specular_strength", 1, "", "Pbr/Specular"],
             ["default_metallic", 0, "", "Pbr/Metallic"],
@@ -1284,7 +1301,8 @@ SHADER_MATRIX = [
         ],
     },
 
-
+    # Hair Shader
+    #####################################
 
     {   "name": "rl_hair_shader",
         "rl_shader": "RLHair",
@@ -1371,7 +1389,7 @@ SHADER_MATRIX = [
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
         "vars": [
-            ["hair_diffuse_color", (1,1,1,1), "func_color_linear", "/Diffuse Color"],
+            ["hair_diffuse_color", (1,1,1,1), "func_color_bytes", "/Diffuse Color"],
             ["hair_tangent_vector", (1, 0, 0), "func_color_vector", "Custom/TangentVectorColor"],
             ["hair_tangent_flip_green", 1, "", "Custom/TangentMapFlipGreen"],
             ["hair_anisotropic_shift_min", 0, "", "Custom/BlackColor Reflection Offset Z"],
@@ -1381,24 +1399,24 @@ SHADER_MATRIX = [
             ["hair_specular_scale", 0.3, "", "Custom/Hair Specular Map Strength"],
             ["hair_anisotropic_strength", 0.8, "", "Custom/Specular Strength"],
             ["hair_anisotropic_strength2", 1.0, "", "Custom/Secondary Specular Strength"],
-            ["hair_vertex_color", (0,0,0,1), "func_color_linear", "Custom/VertexGrayToColor"],
+            ["hair_vertex_color", (0,0,0,1), "func_color_bytes", "Custom/VertexGrayToColor"],
             ["hair_vertex_color_strength", 0, "", "Custom/VertexColorStrength"],
             ["hair_enable_color", 0, "", "Custom/ActiveChangeHairColor"],
             ["hair_base_color_strength", 1, "", "Custom/BaseColorMapStrength"],
-            ["hair_root_color", (0.144129, 0.072272, 0.046665, 1.0), "func_color_linear", "Custom/RootColor"],
-            ["hair_end_color", (0.332452, 0.184475, 0.122139, 1.0), "func_color_linear", "Custom/TipColor"],
+            ["hair_root_color", (0.144129, 0.072272, 0.046665, 1.0), "func_color_bytes", "Custom/RootColor"],
+            ["hair_end_color", (0.332452, 0.184475, 0.122139, 1.0), "func_color_bytes", "Custom/TipColor"],
             ["hair_global_strength", 0, "", "Custom/UseRootTipColor"],
             ["hair_root_color_strength", 1, "", "Custom/RootColorStrength"],
             ["hair_end_color_strength", 1, "", "Custom/TipColorStrength"],
             ["hair_invert_root_map", 0, "", "Custom/InvertRootTip"],
-            ["hair_highlight_a_color", (0.502886, 0.323143, 0.205079, 1.0), "func_color_linear", "Custom/_1st Dye Color"],
+            ["hair_highlight_a_color", (0.502886, 0.323143, 0.205079, 1.0), "func_color_bytes", "Custom/_1st Dye Color"],
             ["hair_highlight_a_strength", 0.543, "", "Custom/_1st Dye Strength"],
             ["hair_highlight_a_start", 0.1, "func_index_1", "Custom/_1st Dye Distribution from Grayscale"],
             ["hair_highlight_a_mid", 0.2, "func_index_2", "Custom/_1st Dye Distribution from Grayscale"],
             ["hair_highlight_a_end", 0.3, "func_index_3", "Custom/_1st Dye Distribution from Grayscale"],
             ["hair_highlight_a_overlap_end", 0.99, "", "Custom/Mask 1st Dye by RootMap"],
             ["hair_highlight_a_overlap_invert", 0.99, "", "Custom/Invert 1st Dye RootMap Mask"],
-            ["hair_highlight_b_color", (1, 1, 1, 1.0), "func_color_linear", "Custom/_2nd Dye Color"],
+            ["hair_highlight_b_color", (1, 1, 1, 1.0), "func_color_bytes", "Custom/_2nd Dye Color"],
             ["hair_highlight_b_strength", 0, "", "Custom/_2nd Dye Strength"],
             ["hair_highlight_b_start", 0.5, "func_index_1", "Custom/_2nd Dye Distribution from Grayscale"],
             ["hair_highlight_b_mid", 0.6, "func_index_2", "Custom/_2nd Dye Distribution from Grayscale"],
@@ -1428,6 +1446,10 @@ SHADER_MATRIX = [
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
         "export": [
             ["/Diffuse Color", [255.0, 255.0, 255.0], "func_export_byte3", "hair_diffuse_color"],
+            ["/Diffuse Hue", 0.5, "", "hair_diffuse_hue"],
+            ["/Diffuse Saturation", 1.0, "", "hair_diffuse_saturation"],
+            ["/Diffuse Brightness", 1.0, "", "hair_diffuse_brightness"],
+            ["/Diffuse HSV", 1.0, "", "hair_diffuse_hsv_strength"],
             ["Custom/TangentVectorColor", [255, 0, 0], "func_export_byte3", "hair_tangent_vector"],
             ["Custom/Hair Roughness Map Strength", 0.524, "func_pow_2", "hair_roughness_strength"],
             ["Custom/VertexGrayToColor", [0, 0, 0], "func_export_byte3", "hair_vertex_color"],

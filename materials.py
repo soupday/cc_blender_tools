@@ -419,14 +419,14 @@ def detect_materials_from_json(character_cache, obj, mat, obj_json, mat_json):
     return object_type, material_type
 
 
-def detect_materials(character_cache, obj, mat, object_json):
-    if character_cache.generation == "ActorCore":
+def detect_materials(chr_cache, obj, mat, object_json):
+    if chr_cache.is_actor_core():
         return "BODY", "DEFAULT"
     mat_json = jsonutils.get_material_json(object_json, mat)
     if mat_json:
-        return detect_materials_from_json(character_cache, obj, mat, object_json, mat_json)
+        return detect_materials_from_json(chr_cache, obj, mat, object_json, mat_json)
     else:
-        return detect_materials_by_name(character_cache, obj, mat)
+        return detect_materials_by_name(chr_cache, obj, mat)
 
 
 def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):

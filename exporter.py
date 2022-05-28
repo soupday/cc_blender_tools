@@ -35,8 +35,10 @@ def check_valid_export_fbx(chr_cache, objects):
     check_valid = True
     check_warn = False
     arm = utils.get_armature_in_objects(objects)
+    standard = chr_cache.is_standard()
+    non_standard = chr_cache.is_non_standard()
 
-    if not arm:
+    if standard and not arm:
 
         if chr_cache:
             message = f"ERROR: Character {chr_cache.character_name} has no armature!"
@@ -51,27 +53,28 @@ def check_valid_export_fbx(chr_cache, objects):
         obj : bpy.types.Object
         for obj in objects:
             if obj != arm and utils.object_exists_is_mesh(obj):
-                armature_mod : bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
-                if armature_mod is None:
-                    message = f"ERROR: Object: {obj.name} does not have an armature modifier."
-                    report.append(message)
-                    utils.log_warn(message)
-                    check_valid = False
-                if obj.parent != arm:
-                    message = f"ERROR: Object: {obj.name} is not parented to character armature."
-                    report.append(message)
-                    utils.log_warn(message)
-                    check_valid = False
-                if armature_mod and armature_mod.object != arm:
-                    message = f"ERROR: Object: {obj.name}'s armature modifier is not set to this character's armature."
-                    report.append(message)
-                    utils.log_warn(message)
-                    check_valid = False
-                if len(obj.vertex_groups) == 0:
-                    message = f"ERROR: Object: {obj.name} has no vertex groups."
-                    report.append(message)
-                    utils.log_warn(message)
-                    check_valid = False
+                if standard:
+                    armature_mod : bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
+                    if armature_mod is None:
+                        message = f"ERROR: Object: {obj.name} does not have an armature modifier."
+                        report.append(message)
+                        utils.log_warn(message)
+                        check_valid = False
+                    if obj.parent != arm:
+                        message = f"ERROR: Object: {obj.name} is not parented to character armature."
+                        report.append(message)
+                        utils.log_warn(message)
+                        check_valid = False
+                    if armature_mod and armature_mod.object != arm:
+                        message = f"ERROR: Object: {obj.name}'s armature modifier is not set to this character's armature."
+                        report.append(message)
+                        utils.log_warn(message)
+                        check_valid = False
+                    if len(obj.vertex_groups) == 0:
+                        message = f"ERROR: Object: {obj.name} has no vertex groups."
+                        report.append(message)
+                        utils.log_warn(message)
+                        check_valid = False
                 if obj.type == "MESH" and obj.data and len(obj.data.vertices) < 150:
                     message = f"WARNING: Object: {obj.name} has a low number of vertices (less than 150), this is can cause CTD issues with CC3's importer."
                     report.append(message)
@@ -186,6 +189,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path, cop
     chr_json = json_data[new_name]["Object"][new_name]
 
     json_data[new_name]["Blender_Project"] = True
+    if chr_cache.is_non_standard():
+        set_non_standard_generation(json_data, chr_cache.non_standard_type, new_name, new_name)
 
     # unpack embedded textures.
     if chr_cache.import_embedded:
@@ -789,20 +794,22 @@ def set_T_pose(arm):
                 right_arm_pose.rotation_mode = "QUATERNION"
 
 
+def set_non_standard_generation(json_data, character_type, import_name, character_id):
+    generation = "Humanoid"
+    if character_type == "CREATURE":
+        generation = "Creature"
+    elif character_type == "PROP":
+        generation = "Prop"
+    utils.log_info(f"Generation: {generation}")
+    jsonutils.set_character_generation_json(json_data, import_name, character_id, generation)
+
+
 def prep_non_standard_export(objects, dir, name, character_type):
     global UNPACK_INDEX
     bake.init_bake()
     UNPACK_INDEX = 5001
 
     changes = []
-
-    generation = "Humanoid"
-    if character_type == "CREATURE":
-        generation = "Creature"
-    elif character_type == "PROP":
-        generation = "Prop"
-
-    utils.log_info(f"Generation: {generation}")
 
     # prefer to bake and unpack textures next to blend file, otherwise at the destination.
     blend_path = bpy.path.abspath("//")
@@ -819,13 +826,15 @@ def prep_non_standard_export(objects, dir, name, character_type):
             },
             "Object": {
                 name: {
-                    "Generation": generation,
+                    "Generation": "",
                     "Meshes": {
                     },
                 },
             },
         }
     }
+
+    set_non_standard_generation(json_data, character_type, name, name)
 
     #arm = utils.get_armature_in_objects(objects)
     #if arm:
@@ -1076,7 +1085,6 @@ def is_arp_installed():
 def is_arp_rig(rig):
     if utils.object_exists_is_armature(rig):
         if "c_pos" in rig.data.bones and "c_traj" in rig.data.bones and "c_root.x" in rig.data.bones:
-            print("ARP RIG")
             return True
     return False
 
@@ -1479,6 +1487,30 @@ def export_as_accessory(file_path, filename_ext):
     bpy.context.view_layer.objects.active = old_active
 
 
+def export_as_replace_mesh(file_path):
+    dir, name = os.path.split(file_path)
+    type = name[-3:].lower()
+    name = name[:-4]
+
+    # store selection
+    old_selection = bpy.context.selected_objects
+    old_active = bpy.context.active_object
+
+    bpy.ops.export_scene.obj(filepath=file_path,
+            global_scale=100,
+            use_selection=True,
+            use_animation=False,
+            use_materials=True,
+            use_mesh_modifiers=True,
+            keep_vertex_order=True)
+
+    # restore selection
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in old_selection:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = old_active
+
+
 class CC3Export(bpy.types.Operator):
     """Export CC3 Character"""
     bl_idname = "cc3.exporter"
@@ -1552,11 +1584,16 @@ class CC3Export(bpy.types.Operator):
         elif self.param == "EXPORT_ACCESSORY":
 
             export_as_accessory(self.filepath, self.filename_ext)
-            self.report(type="INFO", message="Export Accessory Done!")
+            self.report({'INFO'}, message="Export Accessory Done!")
+
+        elif self.param == "EXPORT_MESH":
+
+            export_as_replace_mesh(self.filepath)
+            self.report({'INFO'}, message="Export Mesh Replacement Done!")
 
         elif self.param == "CHECK_EXPORT":
 
-            if chr_cache.import_type == "fbx":
+            if chr_cache and chr_cache.import_type == "fbx":
                 chr_cache = props.get_context_character_cache(context)
                 objects = get_export_objects(chr_cache, True)
                 self.check_valid, self.check_warn, self.check_report = check_valid_export_fbx(chr_cache, objects)
@@ -1590,7 +1627,9 @@ class CC3Export(bpy.types.Operator):
 
         # determine export format
         export_format = "fbx"
-        if self.param == "EXPORT_NON_STANDARD":
+        if self.param == "EXPORT_MESH":
+            export_format = "obj"
+        elif self.param == "EXPORT_NON_STANDARD":
             export_format = "fbx"
         elif self.param == "EXPORT_UNITY":
             if prefs.export_unity_mode == "FBX" or chr_cache.rigified:
@@ -1626,6 +1665,11 @@ class CC3Export(bpy.types.Operator):
                         default_file_path = chr_cache.import_name + "_accessory"
                     else:
                         default_file_path = "accessory"
+                elif self.param == "EXPORT_MESH":
+                    if chr_cache:
+                        default_file_path = chr_cache.import_name + "_mesh"
+                    else:
+                        default_file_path = "mesh"
                 else:
                     if chr_cache:
                         default_file_path = chr_cache.import_name + "_export"
@@ -1664,6 +1708,9 @@ class CC3Export(bpy.types.Operator):
             return "Export to / Save in Unity project"
         elif properties.param == "EXPORT_ACCESSORY":
             return "Export selected object(s) for import into CC3 as accessories"
+        elif properties.param == "EXPORT_MESH":
+            return "Export selected object as a mesh replacement. Use with Mesh > Replace Mesh, with the desired mesh to replace selected in CC4.\n" \
+                   "**Mesh must have the same number of vertices as the original mesh to replace.**"
         elif properties.param == "CHECK_EXPORT":
             return "Check for issues with the character for export. *Note* This will also test any selected objects as well as all objects attached to the character, as selected objects can also be exported with the character."
         return ""

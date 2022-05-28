@@ -2,13 +2,10 @@
 
 - Export / Bake Rigify > Unity
     - Optional export Just animation to Unity, (just those meshes with shapekey tracks?).
-    - Options to export just NLA or loose actions.
     - Optional export full face rig/just eyes and jaw
     - Optional export/bake(NLA) shapekey actions.
-- Meta Rig
-    - look at palm bones meta-rig positions, align with fingers, could fix finger spread ik control...
 
-- Unity
-    - carry hue saturation parameters for skin and eyes forward into unity (add them to json)
+- Button convert from generic... (to non-standard)
+- use HIK profile to setup rig on humanoids
 
-- Any materials that have a diffuse colour modifier should write these back to the json on export...
+- Fix toe stretch by adding invereted stretch influence driver to DEF-foot.l/r stretch constraint.

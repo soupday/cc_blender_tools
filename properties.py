@@ -396,7 +396,7 @@ def init_character_property_defaults(chr_cache, chr_json):
 
                         shaders.fetch_prop_defaults(mat_cache, mat_json)
 
-                        if chr_json is None and chr_cache.generation == "ActorCore":
+                        if chr_json is None and chr_cache.is_actor_core():
                             mat_cache.parameters.default_ao_strength = 0.2
                             mat_cache.parameters.default_specular_scale = 0.4
                         utils.log_recess()
@@ -1117,26 +1117,43 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     retarget_leg_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Leg spread angle (radians)")
     retarget_z_correction_height: bpy.props.FloatProperty(default = 0.0, min=-0.2, max=0.2, description="Height Adjustment (m)")
 
+    non_standard_type: bpy.props.EnumProperty(items=[
+                    ("HUMANOID","Humanoid","Non standard character is a Humanoid"),
+                    ("CREATURE","Creature","Non standard character is a Creature"),
+                    ("PROP","Prop","Non standard character is a Prop"),
+                ], default="HUMANOID", name = "Non-standard Character Type")
+
     def can_export(self):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
         if prefs.export_require_key:
-            return self.import_has_key
-        else:
-            return True
+            if self.generation in vars.STANDARD_GENERATIONS:
+                return self.import_has_key
+        return True
 
+    def is_standard(self):
+        return self.generation in vars.STANDARD_GENERATIONS
+
+    def is_non_standard(self):
+        return not (self.generation in vars.STANDARD_GENERATIONS)
+
+    def is_actor_core(self):
+        if (self.generation == "ActorCore"
+         or self.generation == "ActorScan"
+         or self.generation == "ActorBuild"):
+            return True
+        return False
 
     def can_be_rigged(self):
-        if self.generation == "G3" or self.generation == "G3Plus":
+        if self.generation == "G3" or self.generation == "G3Plus" or self.generation == "NonStandardG3":
             return True
-        elif self.generation == "ActorCore":
+        elif self.is_actor_core():
             return True
         elif self.generation == "GameBase":
             return True
         return False
 
     def can_rig_full_face(self):
-        if self.generation == "G3" or self.generation == "G3Plus":
+        if self.generation == "G3" or self.generation == "G3Plus" or self.generation == "NonStandardG3":
             return True
         return False
 
@@ -1635,9 +1652,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             context = bpy.context
         obj = context.object
         mat = utils.context_material(context)
+        arm = utils.get_armature_in_objects(context.selected_objects)
 
         # if there is only one character in the scene, this is the only possible character cache:
-        if len(self.import_cache) == 1:
+        # unless it's an armature...
+        if len(self.import_cache) == 1 and arm is None:
             return self.import_cache[0]
 
         # otherwise determine the context character cache:

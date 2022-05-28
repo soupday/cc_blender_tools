@@ -94,12 +94,21 @@ CHARACTER_GENERATION = {
     "RL_CharacterCreator_Base_Std_G3": "G3",
     "RL_G6_Standard_Series": "G1",
     "NonStdLookAtDataCopyFromCCBase": "ActorCore",
-    "ActorBuild": "ActorCore",
-    "ActorScan": "ActorCore",
+    "ActorBuild": "ActorBuild",
+    "ActorScan": "ActorScan",
     "Humanoid": "Humanoid",
     "Creature": "Creature",
     "Prop": "Prop",
+    "NonStandardG3": "NonStandardG3",
+    "NonStandardGameBase": "NonStandardGameBase",
+    "NonStandardGeneric": "NonStandardGeneric",
+    "" : "NonStandard",
 }
+
+# character generations considered standard humans and require FBX/OBJ keys to export
+STANDARD_GENERATIONS = [
+    "G3Plus", "G3"
+]
 
 ENUM_TEX_LIST = [
         ("64","64 x 64","64 x 64 texture size"),

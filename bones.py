@@ -438,8 +438,6 @@ def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, p
             var.targets[0].id_type = "SCENE"
             var.targets[0].id = props.id_data
             var.targets[0].data_path = props.path_from_id(prop_name)
-            print(props.id_data)
-            print(props.path_from_id(prop_name))
 
 
 def clear_constraints(rig, pose_bone_name):

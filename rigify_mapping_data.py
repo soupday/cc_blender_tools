@@ -32,12 +32,13 @@ class RetargetData:
 
 
 def get_mapping_for_generation(generation):
-    if generation == "GameBase":
+    if generation == "GameBase" or generation == "NonStandardGameBase":
         return RigifyData("head",
                           GAME_BASE_BONE_MAPPINGS,
                           GAME_BASE_VERTEX_GROUP_RENAME)
 
-    elif generation == "ActorCore" or generation == "G3" or generation == "G3Plus":
+    elif (generation == "ActorCore" or generation == "ActorScan" or generation == "ActorBuild" or
+          generation == "G3" or generation == "G3Plus" or generation == "NonStandardG3"):
         return RigifyData("CC_Base_Head",
                           G3_BONE_MAPPINGS,
                           G3_VERTEX_GROUP_RENAME)
