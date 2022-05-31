@@ -169,7 +169,7 @@ def exec_prop(prop_name, mat_cache, value):
 
 def fetch_prop_defaults(mat_cache, mat_json):
     vars.block_property_update = True
-    shader = params.get_shader_lookup(mat_cache)
+    shader = params.get_shader_name(mat_cache)
     matrix_group = params.get_shader_def(shader)
     if matrix_group and "vars" in matrix_group.keys():
         for var_def in matrix_group["vars"]:
@@ -446,7 +446,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
         mapping_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
         mapping_node.location = location
         nodeutils.link_nodes(links, mapping_node, "Vector", node, "Vector")
-        shader_name = params.get_shader_lookup(mat_cache)
+        shader_name = params.get_shader_name(mat_cache)
         shader_def = params.get_shader_def(shader_name)
         if "mapping" in shader_def.keys():
             mapping_defs = shader_def["mapping"]

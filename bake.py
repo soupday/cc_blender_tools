@@ -477,7 +477,7 @@ def combine_normal(chr_cache, mat_cache):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     mat_name = utils.strip_name(mat.name)
-    shader = params.get_shader_lookup(mat_cache)
+    shader = params.get_shader_name(mat_cache)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
     bake_path = get_bake_dir(chr_cache)
 
@@ -533,7 +533,7 @@ def bake_flow_to_normal(mat_cache):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     mat_name = utils.strip_name(mat.name)
-    shader = params.get_shader_lookup(mat_cache)
+    shader = params.get_shader_name(mat_cache)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
 
     if mat_cache.material_type == "HAIR":

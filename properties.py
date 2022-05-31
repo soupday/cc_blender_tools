@@ -181,7 +181,7 @@ def update_shader_property(obj, mat, mat_cache, prop_name):
 
     if mat and mat.node_tree and mat_cache:
 
-        shader_name = params.get_shader_lookup(mat_cache)
+        shader_name = params.get_shader_name(mat_cache)
         bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
         shader_def = params.get_shader_def(shader_name)
 
@@ -324,7 +324,7 @@ def update_all_properties(context, update_mode = None):
 
                             else:
 
-                                shader_name = params.get_shader_lookup(mat_cache)
+                                shader_name = params.get_shader_name(mat_cache)
                                 bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
                                 shader_def = params.get_shader_def(shader_name)
 

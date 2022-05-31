@@ -530,7 +530,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
             if chr_cache.setup_mode == "ADVANCED":
 
-                shader = params.get_shader_lookup(mat_cache)
+                shader = params.get_shader_name(mat_cache)
                 bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
                 matrix = params.get_shader_def(shader)
 
