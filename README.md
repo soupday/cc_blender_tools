@@ -42,7 +42,6 @@ Links
 - Convert from Generic character to Reallusion material based non-standard character.
 - Export baking fixes and default PBR export support added.
 
-
 ### 1.3.8
 - UI naming update.
 - Repository rename to **cc_blender_tools** (title **CC/iC Blender Tools**), old repo links still apply.
