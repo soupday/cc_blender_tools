@@ -30,6 +30,7 @@ BAKE_SAMPLES = 4
 IMAGE_FORMAT = "PNG"
 IMAGE_EXT = ".png"
 BAKE_INDEX = 1001
+BUMP_BAKE_MULTIPLIER = 2.0
 
 
 def init_bake(id = 1001):
@@ -162,7 +163,7 @@ def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, overrid
 
 
 def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket_name,
-                            normal_strength_socket_name, bump_strength_socket_name,
+                            normal_strength_socket_name, bump_distance_socket_name,
                             mat, channel_id, bake_dir, override_size = 0):
     # determine the size of the image to bake onto
     width, height = get_texture_size(shader_node, override_size, normal_socket_name, bump_socket_name)
@@ -175,11 +176,11 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_soc
     #
     normal_source_node = normal_source_socket = None
     bump_source_node = bump_source_socket = None
-    bump_strength = 0.05
+    bump_distance = 0.01
     normal_strength = 1.0
     bump_map_node = normal_map_node = None
-    if bump_strength_socket_name:
-        bump_strength = nodeutils.get_node_input(shader_node, bump_strength_socket_name, 0.05)
+    if bump_distance_socket_name:
+        bump_distance = nodeutils.get_node_input(shader_node, bump_distance_socket_name, 0.01) * BUMP_BAKE_MULTIPLIER
     if normal_strength_socket_name:
         normal_strength = nodeutils.get_node_input(shader_node, normal_strength_socket_name, 1.0)
     if normal_socket_name:
@@ -190,7 +191,7 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_soc
     if bump_socket_name:
         bump_source_node, bump_source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, bump_socket_name)
         # the bump map bakes to a normal map quite a bit weaker than it looks on the bump node, so increase it's strength here
-        bump_map_node = nodeutils.make_bump_node(nodes, 1, bump_strength * 3.0)
+        bump_map_node = nodeutils.make_bump_node(nodes, 1, bump_distance)
         nodeutils.link_nodes(links, bump_source_node, bump_source_socket, bump_map_node, "Height")
         if normal_map_node:
             nodeutils.link_nodes(links, normal_map_node, "Normal", bump_map_node, "Normal")
@@ -234,9 +235,19 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, override_size = 0):
     # get the node and output socket to bake from
     nodes = mat.node_tree.nodes
 
+    # double the bump distance for baking
+    bump_distance = 0.01
+    normal_input_node, normal_input_socket = nodeutils.get_node_and_socket_connected_to_input(bsdf_node, "Normal")
+    if normal_input_node and normal_input_node.type == "BUMP":
+        bump_distance = normal_input_node.inputs["Distance"].default_value
+        normal_input_node.inputs["Distance"].default_value = bump_distance * BUMP_BAKE_MULTIPLIER
+
     # bake the source node output onto the target image and re-save it
     image, image_name = get_bake_image(mat, channel_id, width, height, bsdf_node, "Normal", bake_dir)
     image_node = bake_normal_output(mat, bsdf_node, image, image_name)
+
+    if normal_input_node and normal_input_node.type == "BUMP":
+        normal_input_node.inputs["Distance"].default_value = bump_distance
 
     if image_node:
         nodes.remove(image_node)
@@ -466,7 +477,7 @@ def combine_normal(chr_cache, mat_cache):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     mat_name = utils.strip_name(mat.name)
-    shader = params.get_shader_lookup(mat_cache)
+    shader = params.get_shader_name(mat_cache)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
     bake_path = get_bake_dir(chr_cache)
 
@@ -522,7 +533,7 @@ def bake_flow_to_normal(mat_cache):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     mat_name = utils.strip_name(mat.name)
-    shader = params.get_shader_lookup(mat_cache)
+    shader = params.get_shader_name(mat_cache)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
 
     if mat_cache.material_type == "HAIR":

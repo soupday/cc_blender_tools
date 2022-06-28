@@ -135,8 +135,6 @@ def process_material(chr_cache, obj, mat, object_json):
         nodeutils.move_new_nodes(-600, 0)
 
     # apply cached alpha settings
-    #if character_cache.generation == "ActorCore":
-    #    materials.set_material_alpha(mat, "CLIP")
     if mat_cache is not None:
         if mat_cache.alpha_mode != "NONE":
             materials.apply_alpha_override(obj, mat, mat_cache.alpha_mode)
@@ -293,8 +291,10 @@ def detect_generation(chr_cache, json_data):
                 return vars.CHARACTER_GENERATION[json_generation]
             except:
                 pass
+        if json_generation is not None and json_generation == "":
+            return "NonStandard"
 
-    generation = "UNKNOWN"
+    generation = "Unknown"
 
     arm = chr_cache.get_armature()
 
@@ -310,7 +310,7 @@ def detect_generation(chr_cache, json_data):
             generation = "G1"
         utils.log_info(f"Generation could be: {generation} detected from pose bones.")
 
-    if generation == "UNKNOWN":
+    if generation == "Unknown":
         for obj_cache in chr_cache.object_cache:
             obj = obj_cache.object
             if obj.type == "MESH":
@@ -324,10 +324,10 @@ def detect_generation(chr_cache, json_data):
                         generation = "G3"
                     elif utils.object_has_material(obj, "skin_body"):
                         generation = "G1"
-        if generation != "UNKNOWN":
+        if generation != "Unknown":
             utils.log_info(f"Generation could be: {generation} detected from materials.")
 
-    if generation == "UNKNOWN" or generation == "G3":
+    if generation == "Unknown" or generation == "G3":
 
         for obj_cache in chr_cache.object_cache:
             obj = obj_cache.object

@@ -77,6 +77,51 @@ def wrapped_text_box(layout, info_text, width):
         box.label(text=text)
 
 
+def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type = True, show_type_selector = True):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    is_character = False
+    is_non_standard = True
+    if chr_cache:
+        character_name = chr_cache.character_name
+        is_non_standard = chr_cache.is_non_standard()
+        if chr_cache.is_standard():
+            type_text = f"Standard ({chr_cache.generation})"
+        else:
+            if "NonStandard" in chr_cache.generation:
+                generation = chr_cache.generation[11:]
+                if not generation:
+                    generation = "Any"
+                type_text = f"Non-Standard ({generation})"
+            else:
+                type_text = f"Non-Standard ({chr_cache.generation})"
+        is_character = True
+    elif chr_rig:
+        character_name = chr_rig.name
+        type_text = "Generic"
+        is_non_standard = True
+        is_character = True
+
+    if is_character:
+        box = layout.box()
+        if show_name:
+            box.row().label(text=f"Character: {character_name}")
+        if show_type:
+            box.row().label(text=f"Type: {type_text}")
+        if show_type_selector:
+            if is_non_standard:
+                row = box.row()
+                if chr_cache:
+                    row.prop(chr_cache, "non_standard_type", expand=True)
+                elif chr_rig:
+                    row.prop(prefs, "export_non_standard_mode", expand=True)
+
+    else:
+        box = layout.box()
+        box.row().label(text=f"No Character")
+
+
 class ARMATURE_UL_List(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -204,11 +249,13 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             if fake_drop_down(box.row(), "Import Details", "stage1_details", props.stage1_details):
                 box.label(text="Name: " + chr_cache.character_name)
                 box.label(text="Type: " + chr_cache.import_type.upper())
-                box.label(text="Generation: " + chr_cache.generation)
-                if chr_cache.import_has_key:
-                    box.label(text="Key File: Yes")
-                else:
-                    box.label(text="Key File: No")
+                split = box.split(factor=0.4)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Generation")
+                col_2.prop(chr_cache, "generation", text="")
+                col_1.label(text="Key File")
+                col_2.prop(chr_cache, "import_has_key", text="")
                 box.prop(chr_cache, "import_file", text="")
                 for obj_cache in chr_cache.object_cache:
                     if obj_cache.object:
@@ -326,9 +373,11 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
-        arm = None
+        chr_rig = None
         if chr_cache:
-            arm = chr_cache.get_armature()
+            chr_rig = chr_cache.get_armature()
+        elif context.selected_objects:
+            chr_rig = utils.get_generic_character_rig(context.selected_objects)
 
         mesh_in_selection = False
         all_mesh_in_selection = True
@@ -346,9 +395,9 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         if bpy.context.selected_objects and bpy.context.active_object:
             if chr_cache and obj_cache is None and obj and obj.type == "MESH":
                 missing_object = True
-            if obj != arm and obj.parent != arm:
+            if obj != chr_rig and obj.parent != chr_rig:
                 missing_object = True
-            if chr_cache and obj_cache and obj.parent == arm:
+            if chr_cache and obj_cache and obj.parent == chr_rig:
                 if (obj_cache.object_type != "BODY" and obj_cache.object_type != "EYE" and
                     obj_cache.object_type != "TEETH" and obj_cache.object_type != "TONGUE"):
                     removable_object = True
@@ -360,6 +409,22 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
                     weight_transferable = False
 
         column = layout.column()
+
+        # Converting
+
+        column.box().label(text="Converting", icon="DRIVER")
+
+        character_info_box(chr_cache, chr_rig, column)
+
+        row = column.row()
+        row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
+        if not chr_cache or chr_cache.is_non_standard():
+            row.enabled = False
+
+        row = column.row()
+        row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
+        if chr_cache or not chr_rig:
+            row.enabled = False
 
         # Checking
 
@@ -410,8 +475,8 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column.box().label(text = "Armature & Weights", icon = "ARMATURE_DATA")
 
-        if arm:
-            column.row().prop(arm.data, "pose_position", expand=True)
+        if chr_rig:
+            column.row().prop(chr_rig.data, "pose_position", expand=True)
 
         row = column.row()
         row.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
@@ -465,7 +530,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
             if chr_cache.setup_mode == "ADVANCED":
 
-                shader = params.get_shader_lookup(mat_cache)
+                shader = params.get_shader_name(mat_cache)
                 bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
                 matrix = params.get_shader_def(shader)
 
@@ -1342,15 +1407,16 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         if addon_updater_ops.updater.update_ready == True:
             addon_updater_ops.update_notice_box_ui(self, context)
 
-        arm = None
-        if bpy.context.selected_objects:
-            arm = utils.get_armature_in_objects(bpy.context.selected_objects)
-
         chr_cache = props.get_context_character_cache(context)
         if chr_cache:
             character_name = chr_cache.character_name
         else:
             character_name = "No Character"
+        chr_rig = None
+        if chr_cache:
+            chr_rig = chr_cache.get_armature()
+        elif context.selected_objects:
+            chr_rig = utils.get_generic_character_rig(context.selected_objects)
 
         layout = self.layout
         layout.use_property_split = False
@@ -1379,9 +1445,14 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         box = layout.box()
         box.label(text="Exporting", icon="EXPORT")
 
+        character_info_box(chr_cache, chr_rig, layout)
+
         # export to CC3
         text = "Export to CC3/4"
         icon = "MOD_ARMATURE"
+
+        standard_export = chr_cache and chr_cache.is_standard()
+        non_standard_export = (chr_cache and chr_cache.is_non_standard()) or (chr_rig and not standard_export)
 
         if chr_cache:
             row = layout.row()
@@ -1398,14 +1469,12 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                     elif chr_cache.import_type == "obj":
                         layout.row().label(text="No Obj-Key file!", icon="ERROR")
 
-        elif arm:
+        elif chr_rig:
             row = layout.row()
             row.scale_y = 2
             text = "Export Non-Standard"
             icon = "MONKEY"
             op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_NON_STANDARD"
-            row2 = layout.row()
-            row2.prop(prefs, "export_non_standard_mode", expand=True)
 
         else:
             row = layout.row()
@@ -1441,6 +1510,8 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         row.prop(prefs, "export_animation_mode", expand=True)
         if not chr_cache:
             row.enabled = False
+        if prefs.export_unity_mode == "BLEND":
+            row.enabled = False
         if chr_cache and chr_cache.rigified:
             row = layout.row()
             row.label(text="Rigged character FBX only", icon="INFO")
@@ -1462,8 +1533,10 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                     box.row().prop(prefs, "export_bake_bump_to_normal", expand=True)
             box.row().prop(prefs, "export_bone_roll_fix", expand=True)
         row = layout.row()
-        op = row.operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory")
-        op.param = "EXPORT_ACCESSORY"
+
+        # export extras
+        op = layout.row().operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
+        op = layout.row().operator("cc3.exporter", icon="MESH_DATA", text="Export Replace Mesh").param = "EXPORT_MESH"
 
         layout.separator()
         box = layout.box()

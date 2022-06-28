@@ -267,7 +267,7 @@ def connect_mixers(chr_cache, mat, mixer_nodes, rgb_image_node, id_image_node, m
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     mat_cache = chr_cache.get_material_cache(mat)
-    shader = params.get_shader_lookup(mat_cache)
+    shader = params.get_shader_name(mat_cache)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
     output_node = nodeutils.find_node_by_type(nodes, "OUTPUT_MATERIAL")
     # daisy chain and position the mixers from the shader_node > mixers > bsdf_node

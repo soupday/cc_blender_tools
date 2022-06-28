@@ -169,7 +169,7 @@ def exec_prop(prop_name, mat_cache, value):
 
 def fetch_prop_defaults(mat_cache, mat_json):
     vars.block_property_update = True
-    shader = params.get_shader_lookup(mat_cache)
+    shader = params.get_shader_name(mat_cache)
     matrix_group = params.get_shader_def(shader)
     if matrix_group and "vars" in matrix_group.keys():
         for var_def in matrix_group["vars"]:
@@ -289,15 +289,8 @@ def func_tiling(scale):
 def func_emission_scale(v):
     return v * vars.EMISSION_SCALE
 
-def func_color_linear(jc: list):
+def func_color_bytes(jc: list):
     return [ jc[0] / 255.0, jc[1] / 255.0, jc[2] / 255.0, 1.0 ]
-
-# Blender wants the colours in linear color space, but most of the color
-# parameters in the json files are in sRGB, so they need to be converted...
-# (Only the hair shader colors appear to be in linear color space.)
-def func_color_srgb(jc: list):
-    #return utils.srgb_to_linear(func_color_linear(jc))
-    return func_color_linear(jc)
 
 def func_color_vector(jc: list):
     if type(jc) == list:
@@ -453,7 +446,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
         mapping_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
         mapping_node.location = location
         nodeutils.link_nodes(links, mapping_node, "Vector", node, "Vector")
-        shader_name = params.get_shader_lookup(mat_cache)
+        shader_name = params.get_shader_name(mat_cache)
         shader_def = params.get_shader_def(shader_name)
         if "mapping" in shader_def.keys():
             mapping_defs = shader_def["mapping"]

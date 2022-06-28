@@ -56,22 +56,37 @@ def get_rl_pose_bone(rig, name):
 
 def get_edit_bone(rig, name):
     if name:
-        if name in rig.data.edit_bones:
-            return rig.data.edit_bones[name]
+        if type(name) is list:
+            for n in name:
+                if n in rig.data.edit_bones:
+                    return rig.data.edit_bones[n]
+        else:
+            if name in rig.data.edit_bones:
+                return rig.data.edit_bones[name]
     return None
 
 
 def get_bone(rig, name):
     if name:
-        if name in rig.data.bones:
-            return rig.data.bones[name]
+        if type(name) is list:
+            for n in name:
+                if n in rig.data.bones:
+                    return rig.data.bones[n]
+        else:
+            if name in rig.data.bones:
+                return rig.data.bones[name]
     return None
 
 
 def get_pose_bone(rig, name):
     if name:
-        if name in rig.pose.bones:
-            return rig.pose.bones[name]
+        if type(name) is list:
+            for n in name:
+                if n in rig.pose.bones:
+                    return rig.pose.bones[n]
+        else:
+            if name in rig.pose.bones:
+                return rig.pose.bones[name]
     return None
 
 
@@ -388,24 +403,89 @@ def add_pose_bone_custom_property(rig, pose_bone_name, prop_name, prop_value):
             rna_idprop_ui_create(pose_bone, prop_name, default=prop_value, overridable=True, min=0, max=1)
 
 
-def add_constraint_influence_driver(rig, pose_bone_name, target_pose_bone_name, variable_name, constraint_type):
+def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, variable_name, constraint_type, expression = ""):
     if utils.set_mode("OBJECT"):
         if pose_bone_name in rig.pose.bones:
             pose_bone = rig.pose.bones[pose_bone_name]
-            constraint : bpy.types.Constraint = None
+            con : bpy.types.Constraint = None
             for con in pose_bone.constraints:
                 if con.type == constraint_type:
-                    constraint = con
-                    fcurve : bpy.types.FCurve
-                    fcurve = constraint.driver_add("influence")
-                    driver : bpy.types.Driver = fcurve.driver
-                    driver.type = "SUM"
-                    var : bpy.types.DriverVariable = driver.variables.new()
-                    var.name = variable_name
-                    var.type = "SINGLE_PROP"
-                    var.targets[0].id_type = "OBJECT"
-                    var.targets[0].id = rig.id_data
-                    var.targets[0].data_path = f"pose.bones[\"{target_pose_bone_name}\"][\"{variable_name}\"]"
+                    if expression:
+                        driver = make_driver(con, "influence", "SCRIPTED", expression)
+                    else:
+                        driver = make_driver(con, "influence", "SUM")
+                    if driver:
+                        var = make_driver_var(driver, "SINGLE_PROP", variable_name, rig, data_path = data_path)
+
+
+def make_driver_var(driver, var_type, var_name, target, data_path = "", bone_target = "", transform_type = "", transform_space = ""):
+    """
+    var_type = "SINGLE_PROP", "TRANSFORMS"
+    var_name = variable name
+    target = target object/bone
+    target_data_path = "..."
+    """
+    var : bpy.types.DriverVariable = driver.variables.new()
+    var.name = var_name
+    if var_type == "SINGLE_PROP":
+        var.type = var_type
+        var.targets[0].id_type = "OBJECT"
+        var.targets[0].id = target.id_data
+        var.targets[0].data_path = data_path
+    elif var_type == "TRANSFORMS":
+        var.targets[0].id = target.id_data
+        var.targets[0].bone_target = bone_target
+        var.targets[0].rotation_mode = "AUTO"
+        var.targets[0].transform_type = transform_type
+        var.targets[0].transform_space = transform_space
+    return var
+
+
+def make_driver(source, prop_name, driver_type, driver_expression = ""):
+    """
+    prop_name = "value", "influence"
+    driver_type = "SUM", "SCRIPTED"
+    driver_expression = "..."
+    """
+    driver = None
+    if source:
+        fcurve : bpy.types.FCurve
+        fcurve = source.driver_add(prop_name)
+        driver : bpy.types.Driver = fcurve.driver
+        if driver_type == "SUM":
+            driver.type = driver_type
+        elif driver_type == "SCRIPTED":
+            driver.type = driver_type
+            driver.expression = driver_expression
+    return driver
+
+
+
+def get_data_path_pose_bone_property(pose_bone_name, variable_name):
+    data_path = f"pose.bones[\"{pose_bone_name}\"][\"{variable_name}\"]"
+    return data_path
+
+
+def get_data_rigify_limb_property(limb_id, variable_name):
+    """
+    limb_id = "LEFT_LEFT", "RIGHT_LEFT", "LEFT_ARM", "RIGHT_ARM", "TORSO", "JAW", "EYES"\n
+    variable_name = "IK_Stretch", "IK_FK", "neck_follow", "head_follow", "mouth_lock", "eyes_follow"
+    """
+    if limb_id == "LEFT_LEG":
+        return get_data_path_pose_bone_property("thigh_parent.L", variable_name)
+    elif limb_id == "RIGHT_LEFT":
+        return get_data_path_pose_bone_property("thigh_parent.R", variable_name)
+    elif limb_id == "LEFT_ARM":
+        return get_data_path_pose_bone_property("upper_arm_parent.L", variable_name)
+    elif limb_id == "RIGHT_ARM":
+        return get_data_path_pose_bone_property("upper_arm_parent.R", variable_name)
+    elif limb_id == "TORSO":
+        return get_data_path_pose_bone_property("torso", variable_name)
+    elif limb_id == "JAW":
+        return get_data_path_pose_bone_property("jaw_master", variable_name)
+    elif limb_id == "EYES":
+        return get_data_path_pose_bone_property("eyes", variable_name)
+    return ""
 
 
 def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, props, prop_name, variable_name):
@@ -423,8 +503,6 @@ def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, p
             var.targets[0].id_type = "SCENE"
             var.targets[0].id = props.id_data
             var.targets[0].data_path = props.path_from_id(prop_name)
-            print(props.id_data)
-            print(props.path_from_id(prop_name))
 
 
 def clear_constraints(rig, pose_bone_name):

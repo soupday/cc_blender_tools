@@ -18,7 +18,58 @@ import bpy
 
 from . import materials, modifiers, shaders, nodeutils, utils, vars
 
-def add_object_to_character(chr_cache, obj : bpy.types.Object):
+
+def get_character_objects(arm):
+    """Fetch all the objects in the character (or try to)"""
+    objects = []
+    if arm.type == "ARMATURE":
+        objects.append(arm)
+        for obj in arm.children:
+            if utils.object_exists_is_mesh(obj):
+                if obj not in objects:
+                    objects.append(obj)
+    return objects
+
+
+def convert_generic_to_non_standard(arm):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    objects = get_character_objects(arm)
+
+    utils.log_info("")
+    utils.log_info("Detecting Generic Character:")
+    utils.log_info("----------------------------")
+
+    type = "fbx"
+    full_name = arm.name
+    name = utils.strip_name(full_name)
+
+    chr_json = None
+    chr_cache = props.import_cache.add()
+    chr_cache.import_file = ""
+    chr_cache.import_type = type
+    chr_cache.import_name = name
+    chr_cache.import_dir = ""
+    chr_cache.import_space_in_name = False
+    chr_cache.character_index = 0
+    chr_cache.character_name = full_name
+    chr_cache.character_id = name
+    chr_cache.import_key_file = ""
+    chr_cache.import_has_key = False
+    chr_cache.import_main_tex_dir = ""
+    chr_cache.import_embedded = False
+    chr_cache.generation = "NonStandardGeneric"
+
+    chr_cache.add_object_cache(arm)
+
+    # add child objects to object_cache
+    for obj in objects:
+        if utils.object_exists_is_mesh(obj):
+            add_object_to_character(chr_cache, obj, reparent=False)
+
+
+def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
     props = bpy.context.scene.CC3ImportProps
 
     if chr_cache and obj and obj.type == "MESH":
@@ -41,26 +92,27 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object):
 
         utils.clear_selected_objects()
 
-        # clear any parenting
-        if obj.parent:
-            if utils.set_active_object(obj):
-                    bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
+        if reparent:
+            # clear any parenting
+            if obj.parent:
+                if utils.set_active_object(obj):
+                        bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
 
-        # parent to character
-        arm = chr_cache.get_armature()
-        if arm:
-            if utils.try_select_objects([arm, obj]):
-                if utils.set_active_object(arm):
-                    bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
+            # parent to character
+            arm = chr_cache.get_armature()
+            if arm:
+                if utils.try_select_objects([arm, obj]):
+                    if utils.set_active_object(arm):
+                        bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
 
-                    # add or update armature modifier
-                    arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
-                    if arm_mod:
-                        modifiers.move_mod_first(obj, arm_mod)
-                        arm_mod.object = arm
+                        # add or update armature modifier
+                        arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
+                        if arm_mod:
+                            modifiers.move_mod_first(obj, arm_mod)
+                            arm_mod.object = arm
 
-                    utils.clear_selected_objects()
-                    utils.set_active_object(obj)
+                        utils.clear_selected_objects()
+                        utils.set_active_object(obj)
 
 
 def remove_object_from_character(chr_cache, obj):
@@ -456,6 +508,14 @@ def normalize_skin_weights(chr_cache, objects):
     utils.try_select_objects(selected)
 
 
+def convert_to_non_standard(chr_cache):
+    if chr_cache.generation == "G3Plus" or chr_cache.generation == "G3":
+        chr_cache.generation = "NonStandardG3"
+    elif chr_cache.generation == "GameBase":
+        chr_cache.generation = "NonStandardGameBase"
+    chr_cache.non_standard_type = "HUMANOID"
+
+
 class CC3OperatorCharacter(bpy.types.Operator):
     """CC3 Character Functions"""
     bl_idname = "cc3.character"
@@ -501,6 +561,19 @@ class CC3OperatorCharacter(bpy.types.Operator):
             objects = bpy.context.selected_objects
             normalize_skin_weights(chr_cache, objects)
 
+        elif self.param == "CONVERT_TO_NON_STANDARD":
+            chr_cache = props.get_context_character_cache(context)
+            convert_to_non_standard(chr_cache)
+            self.report({'INFO'}, message="Convert to Non-standard complete!")
+
+        elif self.param == "CONVERT_FROM_GENERIC":
+            chr_rig = utils.get_generic_character_rig(context.selected_objects)
+            if chr_rig:
+                convert_generic_to_non_standard(chr_rig)
+                self.report({'INFO'}, message="Generic character converted to Non-Standard!")
+            else:
+                self.report({'ERROR'}, message="Invalid generic character selection!")
+
         return {"FINISHED"}
 
     @classmethod
@@ -515,7 +588,11 @@ class CC3OperatorCharacter(bpy.types.Operator):
         elif properties.param == "CLEAN_UP_DATA":
             return "Remove any objects from the character data that are no longer part of the character and remove any materials from the character that are no longer in the character objects"
         elif properties.param == "TRANSFER_WEIGHTS":
-            return "Transfer skin weights from the character body to the selected objects. *THIS OPERATES IN ARMATURE REST MODE*"
+            return "Transfer skin weights from the character body to the selected objects.\n**THIS OPERATES IN ARMATURE REST MODE**"
         elif properties.param == "NORMALIZE_WEIGHTS":
-            return "recalculate the weights in the vertex groups so they all add up to 1.0 for each vertex, so each vertex is fully weighted across all the bones influencing it."
+            return "Recalculate the weights in the vertex groups so they all add up to 1.0 for each vertex, so each vertex is fully weighted across all the bones influencing it"
+        elif properties.param == "CONVERT_TO_NON_STANDARD":
+            return "Convert character to a non-standard Humanoid, Creature or Prop"
+        elif properties.param == "CONVERT_FROM_GENERIC":
+            return "Convert character from generic armature and objects to Non-Standard character with Reallusion materials."
         return ""

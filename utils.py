@@ -155,9 +155,12 @@ def is_in_path(a, b):
 
 
 def path_is_parent(parent_path, child_path):
-    parent_path = os.path.abspath(parent_path)
-    child_path = os.path.abspath(child_path)
-    return os.path.commonpath([parent_path]) == os.path.commonpath([parent_path, child_path])
+    try:
+        parent_path = os.path.abspath(parent_path)
+        child_path = os.path.abspath(child_path)
+        return os.path.commonpath([parent_path]) == os.path.commonpath([parent_path, child_path])
+    except:
+        return False
 
 
 def local_repath(path, original_start):
@@ -527,6 +530,13 @@ def strip_name(name):
     return name
 
 
+def is_blender_duplicate(name):
+    if len(name) >= 4:
+        if name[-3:].isdigit() and name[-4] == ".":
+            return True
+    return False
+
+
 def make_unique_name(name, keys):
     if name in keys:
         i = 1
@@ -654,10 +664,31 @@ def clear_selected_objects():
 
 
 def get_armature_in_objects(objects):
-    for obj in objects:
-        if obj.type == "ARMATURE":
-            return obj
+    arm = None
+    if objects:
+        for obj in objects:
+            if obj.type == "ARMATURE":
+                return obj
+            elif obj.type == "MESH":
+                if arm is None and obj.parent and obj.parent.type == "ARMATURE":
+                    arm = obj.parent
+    return arm
+
+
+def is_possible_character(arm):
+    if arm:
+        for obj in arm.children:
+            if obj.type == "MESH" and obj.parent == arm:
+                return True
+    return False
+
+
+def get_generic_character_rig(objects):
+    arm = get_armature_in_objects(objects)
+    if is_possible_character(arm):
+        return arm
     return None
+
 
 def float_equals(a, b):
     return abs(a - b) < 0.00001

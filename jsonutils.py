@@ -91,6 +91,15 @@ def get_character_generation_json(character_json, file_name, character_id):
         return None
 
 
+def set_character_generation_json(character_json, file_name, character_id, generation):
+    try:
+        character_json[file_name]["Object"][character_id]["Generation"] = generation
+        return True
+    except:
+        utils.log_warn(f"Failed to set character generation to: {generation}")
+        return False
+
+
 def get_character_root_json(json_data, file_name):
     if not json_data:
         return None
@@ -282,3 +291,22 @@ def get_shader_var_color(material_json, var_name):
     except:
         return None
 
+
+def generate_character_json_data(name):
+    json_data = {
+        name: {
+            "Version": "1.10.1822.1",
+            "Scene": {
+                "Name": True,
+                "SupportShaderSelect": True
+            },
+            "Object": {
+                name: {
+                    "Generation": "",
+                    "Meshes": {
+                    },
+                },
+            },
+        }
+    }
+    return json_data

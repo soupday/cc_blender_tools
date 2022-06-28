@@ -753,6 +753,12 @@ def add_shape_key_drivers(chr_cache, rig):
                     driver_def = skd_def[2]
                     var_def = skd_def[3]
                     add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def)
+    if utils.is_blender_version("3.1.0", "GTE"):
+        left_data_path = bones.get_data_rigify_limb_property("LEFT_LEG", "IK_Stretch")
+        right_data_path = bones.get_data_rigify_limb_property("RIGHT_LEG", "IK_Stretch")
+        expression = "pow(ik_stretch, 3)"
+        bones.add_constraint_scripted_influence_driver(rig, "DEF-foot.L", left_data_path, "ik_stretch", "STRETCH_TO", expression)
+        bones.add_constraint_scripted_influence_driver(rig, "DEF-foot.R", right_data_path, "ik_stretch", "STRETCH_TO", expression)
 
 
 def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def):
