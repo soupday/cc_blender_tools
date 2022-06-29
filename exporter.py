@@ -160,7 +160,8 @@ def remap_texture_path(tex_info, old_path, new_path):
     return
 
 
-def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path, copy_textures, revert_duplicates, apply_fixes, as_blend_file, bake_values):
+def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
+                copy_textures, revert_duplicates, apply_fixes, as_blend_file, bake_values):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     if as_blend_file:
@@ -1185,9 +1186,10 @@ def export_standard(chr_cache, file_path, include_selected):
 
         remove_modifiers_for_export(chr_cache, objects, True)
 
+        revert_duplicates = prefs.export_revert_names
         copy_textures = chr_cache.generation == "NonStandardGeneric"
         export_changes = prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir,
-                                     dir, copy_textures, True, True, False, True)
+                                     dir, copy_textures, revert_duplicates, True, False, True)
 
         # attempt any custom exports (ARP)
         custom_export = False
