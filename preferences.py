@@ -46,6 +46,7 @@ def reset_preferences():
     prefs.export_unity_remove_objects = True
     prefs.export_texture_size = "2048"
     prefs.export_require_key = True
+    prefs.export_revert_names = True
     prefs.cycles_sss_skin_v118 = 0.35
     prefs.cycles_sss_hair_v118 = 0.025
     prefs.cycles_sss_teeth = 0.1
@@ -160,6 +161,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     export_bake_nodes: bpy.props.BoolProperty(default=True, name="Bake custom nodes", description="(Very Experimental) Bake any custom nodes (non texture image) attached to shader texture map sockets on export.")
     export_bake_bump_to_normal: bpy.props.BoolProperty(default=True, name="Combine normals", description="(Very Experimental) When both a bump map and a normal is present, bake the bump map into the normal. (CC3 materials can only have one, normal map or bump map.)")
     export_unity_remove_objects: bpy.props.BoolProperty(default=True, name="Unity: Remove non-character objects.", description="Removes all objects not attached to the character, when exporting to Unity.")
+    export_revert_names: bpy.props.BoolProperty(default=True, name="Revert names", description="Revert object and material names to match their original names from the source Json.")
     export_unity_mode: bpy.props.EnumProperty(items=[
                         ("BLEND","Blend File","Save the project as a blend file in a Unity project. All textures and folders will be copied to the new location and made relative to the blend file."),
                         ("FBX","FBX","Export the character as an .Fbx file to the specified location. All textures and folders will be copied."),

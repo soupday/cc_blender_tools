@@ -1532,6 +1532,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                 if prefs.export_bake_nodes:
                     box.row().prop(prefs, "export_bake_bump_to_normal", expand=True)
             box.row().prop(prefs, "export_bone_roll_fix", expand=True)
+            box.row().prop(prefs, "export_revert_names", expand=True)
         row = layout.row()
 
         # export extras

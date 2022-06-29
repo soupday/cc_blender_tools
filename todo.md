@@ -8,3 +8,5 @@
 - use HIK profile to setup rig on humanoids
 
 - use RLSSS shader for generic exports with Subsurface nodes attached?
+
+- in CC4 plugin, check for duplicate names on *export* and warn.
