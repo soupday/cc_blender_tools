@@ -1123,6 +1123,21 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ("PROP","Prop","Non standard character is a Prop"),
                 ], default="HUMANOID", name = "Non-standard Character Type")
 
+    def check_paths(self):
+        if self.import_file and not os.path.exists(self.import_file):
+            utils.log_info(f"Import source file no longer exists: {self.import_file}")
+            dir, name = os.path.split(self.import_file)
+            local_dir = bpy.path.abspath("//")
+            local_file = os.path.join(local_dir, name)
+            utils.log_info(f"Looking for moved source file: {local_file}")
+            if os.path.exists(local_file):
+                utils.log_info(f"Updating paths to source file: {local_file}")
+                self.import_dir = local_dir
+                self.import_file = local_file
+                key_file, key_ext = os.path.splitext(self.import_key_file)
+                self.import_key = os.path.join(local_dir, self.import_name + key_ext)
+                self.import_main_tex_dir = os.path.join(local_dir, self.import_name + ".fbm")
+
     def can_export(self):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         if prefs.export_require_key:

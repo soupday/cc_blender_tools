@@ -260,6 +260,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 for obj_cache in chr_cache.object_cache:
                     if obj_cache.object:
                         box.prop(obj_cache, "object", text="")
+                box.label(text="Collision Mesh")
+                box.prop(chr_cache, "collision_body", text="")
+
             else:
                 box.label(text="Name: " + chr_cache.character_name)
         else:

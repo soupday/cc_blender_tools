@@ -167,10 +167,10 @@ def add_collision_physics(chr_cache, obj, obj_cache):
     Does not overwrite or re-create any existing Collision modifier.
     """
 
-    if (obj_cache.collision_physics == "ON"
-
-        or (obj_cache.collision_physics == "DEFAULT"
-            and (obj_cache.object_type == "BODY" or obj_cache.object_type == "OCCLUSION"))):
+    if (obj_cache.collision_physics == "ON" or
+        (obj_cache.collision_physics == "DEFAULT" and
+            (obj_cache.object_type == "BODY" or obj_cache.object_type == "OCCLUSION")
+        )):
 
         if obj_cache.object_type == "BODY":
             obj = create_body_collision_mesh(chr_cache, obj)
@@ -229,6 +229,8 @@ def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
         # Set cache bake frame range
         frame_count = 250
         parent_action = utils.safe_get_action(obj.parent)
+        frame_start = 1
+        frame_count = 1
         if parent_action:
             frame_start = math.floor(parent_action.frame_range[0])
             frame_count = math.ceil(parent_action.frame_range[1])
@@ -346,9 +348,11 @@ def disable_cloth_physics(chr_cache, obj):
 
 
 def create_body_collision_mesh(chr_cache, obj):
+    utils.log_info(f"Creating body collision mesh from: {obj.name}")
     # remove old collsion mesh
     collision_body = None
     if utils.object_exists_is_mesh(chr_cache.collision_body) and collision_body != obj:
+        utils.log_info(f"Removing old collision mesh: {chr_cache.collision_body}")
         utils.delete_mesh_object(chr_cache.collision_body)
     # clone obj
     collision_body = utils.duplicate_object(obj)
@@ -363,6 +367,9 @@ def create_body_collision_mesh(chr_cache, obj):
         # add decimate modifier
         mod = modifiers.add_decimate_modifier(collision_body, 0.125)
         modifiers.move_mod_first(collision_body, mod)
+        # remove materials
+        collision_body.data.materials.clear()
+    utils.log_info(f"Storing collision mesh: {collision_body.name}")
     chr_cache.collision_body = collision_body
     collision_body.hide_set(True)
     collision_body.hide_render = True
@@ -483,6 +490,15 @@ def cloth_physics_available(chr_cache, obj, mat):
         if obj_cache.cloth_physics == "OFF":
             obj_cache.cloth_physics == "ON"
     return True
+
+
+def is_cloth_physics_enabled(mat_cache, mat, obj):
+    cloth_mod = modifiers.get_cloth_physics_mod(obj)
+    edit_mods, mix_mods = modifiers.get_material_weight_map_mods(obj, mat)
+    if cloth_mod and edit_mods and mix_mods:
+        if mat_cache.cloth_physics != "OFF":
+            return True
+    return False
 
 
 def attach_material_weight_map(obj, mat, weight_map):
@@ -886,6 +902,7 @@ def remove_all_physics(chr_cache):
             obj = obj_cache.object
             if utils.object_exists_is_mesh(obj) and obj not in objects_processed:
                 remove_all_physics_mods(obj)
+        utils.delete_mesh_object(chr_cache.collision_body)
         chr_cache.physics_applied = False
         utils.log_recess()
 
