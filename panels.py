@@ -1487,40 +1487,23 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             layout.row().label(text="No current character!", icon="ERROR")
 
         layout.separator()
+
         # export to Unity
-        if chr_cache is None or not chr_cache.rigified:
-            row = layout.row()
-            row.scale_y = 2
-            if not props.is_unity_project():
-                op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
-                op.param = "EXPORT_UNITY"
-            else:
-                op = row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project")
-                op.param = "UPDATE_UNITY"
-            row2 = layout.row()
-            row2.prop(prefs, "export_unity_mode", expand=True)
-            if not chr_cache or chr_cache.import_type != "fbx":
-                row.enabled = False
-                row2.enabled = False
-        elif chr_cache and chr_cache.rigified:
-            row = layout.row()
-            row.scale_y = 2
+        column = layout.column()
+        # export button
+        row = column.row()
+        row.scale_y = 2
+        if not props.is_unity_project():
             op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
             op.param = "EXPORT_UNITY"
-            if not chr_cache:
-                row.enabled = False
-        row = layout.row()
-        row.prop(prefs, "export_animation_mode", expand=True)
-        if not chr_cache:
-            row.enabled = False
-        if prefs.export_unity_mode == "BLEND":
-            row.enabled = False
-        if chr_cache and chr_cache.rigified:
-            row = layout.row()
-            row.label(text="Rigged character FBX only", icon="INFO")
-            if not chr_cache:
-                row.enabled = False
-
+        else:
+            op = row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project")
+            op.param = "UPDATE_UNITY"
+        row = column.row()
+        row.prop(prefs, "export_unity_mode", expand=True)
+        # disable if no character, not an fbx import or is rigified
+        if not chr_cache or chr_cache.import_type != "fbx" or chr_cache.rigified:
+            column.enabled = False
 
         # export prefs
         box = layout.box()

@@ -156,12 +156,13 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     if as_blend_file:
-        # remove everything not part of the character for blend file exports.
-        arm = utils.get_armature_in_objects(objects)
-        for obj in bpy.data.objects:
-            if not (obj == arm or obj.parent == arm or chr_cache.has_object(obj)):
-                utils.log_info(f"Removing {obj.name} from blend file")
-                bpy.data.objects.remove(obj)
+        if prefs.export_unity_remove_objects:
+            # remove everything not part of the character for blend file exports.
+            arm = utils.get_armature_in_objects(objects)
+            for obj in bpy.data.objects:
+                if not (obj == arm or obj.parent == arm or chr_cache.has_object(obj)):
+                    utils.log_info(f"Removing {obj.name} from blend file")
+                    bpy.data.objects.remove(obj)
 
     if not chr_cache or not json_data:
         return None
@@ -865,6 +866,7 @@ def get_export_objects(chr_cache, include_selected = True):
 
 def set_T_pose(arm, chr_json):
     utils.log_info("Putting character in T-Pose.")
+
     if utils.edit_mode_to(arm):
         left_arm_edit = bones.get_edit_bone(arm, ["CC_Base_L_Upperarm", "L_Upperarm", "upperarm_l"])
         right_arm_edit = bones.get_edit_bone(arm, ["CC_Base_R_Upperarm", "R_Upperarm", "upperarm_r"])
@@ -890,26 +892,33 @@ def set_T_pose(arm, chr_json):
                 right_arm_pose.rotation_euler = [0,0,-angle]
                 right_arm_pose.rotation_mode = "QUATERNION"
             chr_json["Bind_Pose"] = "APose"
-            create_T_pose_action(arm)
             return True
         chr_json["Bind_Pose"] = "TPose"
     return False
 
 
-def create_T_pose_action(arm):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+def clear_animation_data(obj):
+    if obj.type == "ARMATURE" or obj.type == "MESH":
+        # remove action
+        utils.safe_set_action(obj, None)
+        # remove strips
+        obj.animation_data_clear()
+    if obj.type == "MESH":
+        # remove shape key action
+        utils.safe_set_action(obj.data.shape_keys, None)
+        # remove shape key strips
+        if obj.data.shape_keys and obj.data.shape_keys.animation_data:
+            obj.data.shape_keys.animation_data_clear()
 
-    # Clear the NLA track for this rig
-    if prefs.export_animation_mode == "STRIPS":
-        if len(arm.animation_data.nla_tracks) == 0:
-            track = arm.animation_data.nla_tracks.new()
-        else:
-            track = arm.animation_data.nla_tracks[0]
-        strips = []
-        for strip in track.strips:
-            strips.append(strip)
-        for strip in strips:
-            track.strips.remove(strip)
+
+def create_T_pose_action(arm, objects, export_strips):
+
+    # remove all actions from objects
+    for obj in objects:
+        clear_animation_data(obj)
+
+    bpy.context.scene.frame_start = 1
+    bpy.context.scene.frame_end = 2
 
     # create T-Pose action
     if "0_T-Pose" not in bpy.data.actions:
@@ -926,12 +935,22 @@ def create_T_pose_action(arm):
         bpy.data.scenes["Scene"].frame_current = 2
         bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
 
-        # push T-Pose to NLA if exporting only strips
-        if prefs.export_animation_mode == "STRIPS":
-            utils.log_info(f"Adding {action.name} to NLA strips")
+    # or re-use T-Pose action
+    else:
+        action = bpy.data.actions["0_T-Pose"]
+        utils.safe_set_action(arm, action)
+
+    # push T-Pose to NLA if exporting strips
+    if export_strips:
+        utils.log_info(f"Adding {action.name} to NLA strips")
+        if obj.animation_data is None:
+            obj.animation_data_create()
+        if len(obj.animation_data.nla_tracks) == 0:
+            track = arm.animation_data.nla_tracks.new()
+        else:
             track = arm.animation_data.nla_tracks[0]
-            track.strips.new(action.name, int(action.frame_range[0]), action)
-            #export_rig.animation_data.action = None
+        track.strips.new(action.name, int(action.frame_range[0]), action)
+        utils.safe_set_action(arm, None)
 
 
 def set_character_generation(json_data, chr_cache, name):
@@ -1474,6 +1493,11 @@ def export_to_unity(chr_cache, export_anim, file_path, include_selected):
     utils.log_info("Preparing character for export:")
     utils.log_indent()
 
+    # remove the collision mesh proxy
+    if type == ".blend":
+        if utils.object_exists_is_mesh(chr_cache.collision_body):
+            utils.delete_mesh_object(chr_cache.collision_body)
+
     objects = get_export_objects(chr_cache, include_selected)
     export_rig = None
 
@@ -1484,18 +1508,29 @@ def export_to_unity(chr_cache, export_anim, file_path, include_selected):
             objects.remove(rigify_rig)
             objects.append(export_rig)
 
-    as_blend_file = False
-    if type == ".blend" and prefs.export_unity_remove_objects:
-        as_blend_file = True
+    as_blend_file = type == ".blend"
 
+    # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True)
 
     prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, True, False, False, as_blend_file, False)
 
+    export_actions = prefs.export_animation_mode == "ACTIONS" or prefs.export_animation_mode == "BOTH"
+    export_strips = prefs.export_animation_mode == "STRIPS" or prefs.export_animation_mode == "BOTH"
+
     if not chr_cache.rigified:
+        # non rigified FBX exports export only T-pose as a strip
+        if type == ".fbx":
+            export_actions = False
+            export_strips = True
+        # blend file exports make the T-pose as an action
+        else:
+            export_actions = True
+            export_strips = False
         arm = utils.get_armature_in_objects(objects)
         utils.safe_set_action(arm, None)
         set_T_pose(arm, json_data[name]["Object"][name])
+        create_T_pose_action(arm, objects, export_strips)
 
     # store Unity project paths
     if type == ".blend":
@@ -1504,8 +1539,6 @@ def export_to_unity(chr_cache, export_anim, file_path, include_selected):
 
     if type == ".fbx":
         # export as fbx
-        export_actions = prefs.export_animation_mode == "ACTIONS" or prefs.export_animation_mode == "BOTH"
-        export_strips = prefs.export_animation_mode == "STRIPS" or prefs.export_animation_mode == "BOTH"
         bpy.ops.export_scene.fbx(filepath=file_path,
                 use_selection = True,
                 bake_anim = export_anim,
@@ -1569,20 +1602,26 @@ def update_to_unity(chr_cache, export_anim, include_selected):
 
     # keep the file paths up to date with the blend file location
     # Note: the textures and json file *must* maintain their relative paths to the blend/model file
-    if type == ".blend":
-        chr_cache.change_import_file(props.unity_file_path)
+    if type != ".blend":
+        utils.log_error("Update to Unity can only be called for Blend file exports!")
+        return
+
+    chr_cache.change_import_file(props.unity_file_path)
 
     json_data = chr_cache.get_json_data()
 
     utils.log_info("Preparing character for export:")
     utils.log_indent()
 
+    # remove the collision mesh proxy
+    if utils.object_exists_is_mesh(chr_cache.collision_body):
+        utils.delete_mesh_object(chr_cache.collision_body)
+
     objects = get_export_objects(chr_cache, include_selected)
 
-    as_blend_file = False
-    if type == ".blend" and prefs.export_unity_remove_objects:
-        as_blend_file = True
+    as_blend_file = True
 
+    # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True)
 
     prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, True, False, False, as_blend_file, False)
@@ -1590,26 +1629,12 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     arm = utils.get_armature_in_objects(objects)
     utils.safe_set_action(arm, None)
     set_T_pose(arm, json_data[name]["Object"][name])
+    # make the T-pose as an action
+    create_T_pose_action(arm, objects, False)
 
-    if type == ".fbx":
-        # export as fbx
-        export_actions = prefs.export_animation_mode == "ACTIONS" or prefs.export_animation_mode == "BOTH"
-        export_strips = prefs.export_animation_mode == "STRIPS" or prefs.export_animation_mode == "BOTH"
-        bpy.ops.export_scene.fbx(filepath=props.unity_file_path,
-                use_selection = True,
-                bake_anim = export_anim,
-                bake_anim_use_all_actions=export_actions,
-                bake_anim_use_nla_strips=export_strips,
-                use_armature_deform_only=True,
-                add_leaf_bones = False,
-                use_mesh_modifiers = True)
-
-        restore_modifiers(chr_cache, objects)
-
-    elif type == ".blend":
-        # save blend file at filepath
-        bpy.ops.file.make_paths_relative()
-        bpy.ops.wm.save_mainfile()
+    # save blend file at filepath
+    bpy.ops.file.make_paths_relative()
+    bpy.ops.wm.save_mainfile()
 
     utils.log_recess()
     utils.log_info("")
@@ -1736,6 +1761,7 @@ class CC3Export(bpy.types.Operator):
 
         elif self.param == "UPDATE_UNITY":
 
+            # only called when updating .blend file exports
             update_to_unity(chr_cache, self.include_anim, True)
             self.report({'INFO'}, "Update to Unity Done!")
             self.error_report()
@@ -1871,7 +1897,7 @@ class CC3Export(bpy.types.Operator):
         elif properties.param == "EXPORT_NON_STANDARD":
             return "Export selected objects as a non-standard character (Humanoid, Creature or Prop) to CC4"
         elif properties.param == "EXPORT_UNITY":
-            return "Export to / Save in Unity project"
+            return "Export to / Save in Unity project. Note: Not rigified exports to Unity are exporting without animations in a T-Pose only."
         elif properties.param == "EXPORT_ACCESSORY":
             return "Export selected object(s) for import into CC3 as accessories"
         elif properties.param == "EXPORT_MESH":
