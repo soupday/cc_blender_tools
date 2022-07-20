@@ -1497,6 +1497,8 @@ def export_to_unity(chr_cache, export_anim, file_path, include_selected):
     if type == ".blend":
         if utils.object_exists_is_mesh(chr_cache.collision_body):
             utils.delete_mesh_object(chr_cache.collision_body)
+            chr_cache.collision_body = None
+
 
     objects = get_export_objects(chr_cache, include_selected)
     export_rig = None
@@ -1616,6 +1618,7 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     # remove the collision mesh proxy
     if utils.object_exists_is_mesh(chr_cache.collision_body):
         utils.delete_mesh_object(chr_cache.collision_body)
+        chr_cache.collision_body = None
 
     objects = get_export_objects(chr_cache, include_selected)
 
@@ -1897,12 +1900,13 @@ class CC3Export(bpy.types.Operator):
         elif properties.param == "EXPORT_NON_STANDARD":
             return "Export selected objects as a non-standard character (Humanoid, Creature or Prop) to CC4"
         elif properties.param == "EXPORT_UNITY":
-            return "Export to / Save in Unity project. Note: Not rigified exports to Unity are exporting without animations in a T-Pose only."
+            return "Export to / Save in Unity project.\n" \
+                   "**Note: Non-rigified exports to Unity are exporting without animations, with a T-Pose only**"
         elif properties.param == "EXPORT_ACCESSORY":
             return "Export selected object(s) for import into CC3 as accessories"
         elif properties.param == "EXPORT_MESH":
             return "Export selected object as a mesh replacement. Use with Mesh > Replace Mesh, with the desired mesh to replace selected in CC4.\n" \
-                   "**Mesh must have the same number of vertices as the original mesh to replace.**"
+                   "**Mesh must have the same number of vertices as the original mesh to replace**"
         elif properties.param == "CHECK_EXPORT":
-            return "Check for issues with the character for export. *Note* This will also test any selected objects as well as all objects attached to the character, as selected objects can also be exported with the character."
+            return "Check for issues with the character for export. *Note* This will also test any selected objects as well as all objects attached to the character, as selected objects can also be exported with the character"
         return ""
