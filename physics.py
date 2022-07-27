@@ -377,6 +377,17 @@ def create_body_collision_mesh(chr_cache, obj):
     return collision_body
 
 
+def get_weight_map_from_modifiers(obj, mat):
+    mat_name = "_" + utils.strip_name(mat.name) + "_"
+    if obj.type == "MESH":
+        for mod in obj.modifiers:
+            if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name and mat_name in mod.name:
+                if mod.mask_texture is not None and mod.mask_texture.image is not None:
+                    image = mod.mask_texture.image
+                    return image
+    return None
+
+
 def get_weight_map_image(chr_cache, obj, mat, create = False):
     """Returns the weight map image for the material.
 

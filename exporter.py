@@ -692,10 +692,10 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                             try_unpack_image(image, unpack_path, True)
 
                             # make path relative
-                            if baked or (tex_path is None or tex_path == ""):
-                                image_path = bpy.path.abspath(image.filepath)
+                            image_path = bpy.path.abspath(image.filepath)
+                            if image_path:
                                 rel_path = os.path.normpath(utils.relpath(image_path, old_path))
-                                if os.path.normpath(tex_info["Texture Path"]) != rel_path:
+                                if baked or tex_path is None or tex_path == "" or os.path.normpath(tex_info["Texture Path"]) != rel_path:
                                     utils.log_info(mat.name + "/" + tex_id + ": Using new texture path: " + rel_path)
                                     tex_info["Texture Path"] = rel_path
 
@@ -716,14 +716,12 @@ def write_back_physics_weightmap(physics_mat_json : dict, mat, mat_cache, old_pa
     if image:
         try_unpack_image(image, unpack_path, True)
 
-        if (tex_path is None or tex_path == ""):
-            image_path = bpy.path.abspath(image.filepath)
+        image_path = bpy.path.abspath(image.filepath)
+        if image_path:
             rel_path = os.path.normpath(utils.relpath(image_path, old_path))
-            if os.path.normpath(physics_mat_json["Weight Map Path"]) != rel_path:
+            if tex_path is None or tex_path == "" or os.path.normpath(physics_mat_json["Weight Map Path"]) != rel_path:
                 utils.log_info(mat.name + ": Using new weight map texture path: " + rel_path)
                 physics_mat_json["Weight Map Path"] = rel_path
-
-
 
 
 def get_unique_path(path):

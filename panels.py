@@ -1352,7 +1352,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         if cloth_mod is None:
             col.enabled = False
 
-        weight_map : bpy.types.Image = physics.get_weight_map_image(chr_cache, obj, mat)
+        weight_map : bpy.types.Image = physics.get_weight_map_from_modifiers(obj, mat)
         weight_map_size = int(props.physics_tex_size)
         if weight_map:
             split = col.split(factor=0.5)
