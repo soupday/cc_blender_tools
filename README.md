@@ -35,6 +35,15 @@ Links
 
 ## Changelog
 
+### 1.4.0
+- Physics JSON changes and additions export.
+- Unity T-pose export fix.
+- Body Collision Mesh fix.
+- Unity export logic fixes.
+- Resize weightmap function.
+- increment/decrement paint strenth weightmap buttons.
+- image path writeback fix.
+
 ### 1.3.9
 - Full Json data generation added.
 - Rigify Toe IK Stretch Fix for Blender 3.1+

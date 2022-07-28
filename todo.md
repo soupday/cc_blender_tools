@@ -10,3 +10,11 @@
 - use RLSSS shader for generic exports with Subsurface nodes attached?
 
 - in CC4 plugin, check for duplicate names on *export* and warn.
+
+
+
+
+- Accessories are placed as extentions to armature, Rigify breaks this...
+- Remove deform status from Twist bone containers in import (UpperArm, LowerArm, etc...)
+- for obj imports, the humanoid/creature/prop box shows...
+- scaling weightmaps can change the file type to png...

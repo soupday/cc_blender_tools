@@ -1906,3 +1906,32 @@ JSON_PBR_MATERIAL = {
     "Self Illumination": 0.0,
     "Textures": {}
 }
+
+JSON_PHYSICS_MESH = {
+    "Materials": {}
+}
+
+JSON_PHYSICS_MATERIAL = {
+    "Activate Physics": True,
+    "Use Global Gravity": True,
+    "Weight Map Path": "",
+    "Mass": 1.0,
+    "Friction": 0.2,
+    "Damping": 0.2,
+    "Drag": 0.1,
+    "Solver Frequency": 120.0,
+    "Tether Limit": 1.1,
+    "Elasticity": 1.0,
+    "Stretch": 0.0,
+    "Bending": 0.0,
+    "Inertia": [
+        8.0,
+        8.0,
+        8.0
+    ],
+    "Soft Vs Rigid Collision": True,
+    "Soft Vs Rigid Collision_Margin": 2.0,
+    "Self Collision": False,
+    "Self Collision Margin": 0.0,
+    "Stiffness Frequency": 10.0
+}

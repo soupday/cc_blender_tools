@@ -167,10 +167,10 @@ def add_collision_physics(chr_cache, obj, obj_cache):
     Does not overwrite or re-create any existing Collision modifier.
     """
 
-    if (obj_cache.collision_physics == "ON"
-
-        or (obj_cache.collision_physics == "DEFAULT"
-            and (obj_cache.object_type == "BODY" or obj_cache.object_type == "OCCLUSION"))):
+    if (obj_cache.collision_physics == "ON" or
+        (obj_cache.collision_physics == "DEFAULT" and
+            (obj_cache.object_type == "BODY" or obj_cache.object_type == "OCCLUSION")
+        )):
 
         if obj_cache.object_type == "BODY":
             obj = create_body_collision_mesh(chr_cache, obj)
@@ -229,6 +229,8 @@ def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
         # Set cache bake frame range
         frame_count = 250
         parent_action = utils.safe_get_action(obj.parent)
+        frame_start = 1
+        frame_count = 1
         if parent_action:
             frame_start = math.floor(parent_action.frame_range[0])
             frame_count = math.ceil(parent_action.frame_range[1])
@@ -346,9 +348,11 @@ def disable_cloth_physics(chr_cache, obj):
 
 
 def create_body_collision_mesh(chr_cache, obj):
+    utils.log_info(f"Creating body collision mesh from: {obj.name}")
     # remove old collsion mesh
     collision_body = None
     if utils.object_exists_is_mesh(chr_cache.collision_body) and collision_body != obj:
+        utils.log_info(f"Removing old collision mesh: {chr_cache.collision_body}")
         utils.delete_mesh_object(chr_cache.collision_body)
     # clone obj
     collision_body = utils.duplicate_object(obj)
@@ -363,11 +367,25 @@ def create_body_collision_mesh(chr_cache, obj):
         # add decimate modifier
         mod = modifiers.add_decimate_modifier(collision_body, 0.125)
         modifiers.move_mod_first(collision_body, mod)
+        # remove materials
+        collision_body.data.materials.clear()
+    utils.log_info(f"Storing collision mesh: {collision_body.name}")
     chr_cache.collision_body = collision_body
     collision_body.hide_set(True)
     collision_body.hide_render = True
     utils.set_only_active_object(obj)
     return collision_body
+
+
+def get_weight_map_from_modifiers(obj, mat):
+    mat_name = "_" + utils.strip_name(mat.name) + "_"
+    if obj.type == "MESH":
+        for mod in obj.modifiers:
+            if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name and mat_name in mod.name:
+                if mod.mask_texture is not None and mod.mask_texture.image is not None:
+                    image = mod.mask_texture.image
+                    return image
+    return None
 
 
 def get_weight_map_image(chr_cache, obj, mat, create = False):
@@ -483,6 +501,15 @@ def cloth_physics_available(chr_cache, obj, mat):
         if obj_cache.cloth_physics == "OFF":
             obj_cache.cloth_physics == "ON"
     return True
+
+
+def is_cloth_physics_enabled(mat_cache, mat, obj):
+    cloth_mod = modifiers.get_cloth_physics_mod(obj)
+    edit_mods, mix_mods = modifiers.get_material_weight_map_mods(obj, mat)
+    if cloth_mod and edit_mods and mix_mods:
+        if mat_cache.cloth_physics != "OFF":
+            return True
+    return False
 
 
 def attach_material_weight_map(obj, mat, weight_map):
@@ -695,6 +722,7 @@ def begin_paint_weight_map(chr_cache, context):
         if bpy.context.mode == "PAINT_TEXTURE":
             physics_paint_strength_update(None, context)
             weight_map = get_weight_map_image(chr_cache, obj, mat)
+            weight_map.update()
             props.paint_object = obj
             props.paint_material = mat
             props.paint_image = weight_map
@@ -704,13 +732,38 @@ def begin_paint_weight_map(chr_cache, context):
                 bpy.context.space_data.shading.type = 'SOLID'
 
 
-def end_paint_weight_map(chr_cache):
+def resize_weight_map(chr_cache, context, op):
+    props = bpy.context.scene.CC3ImportProps
+
+    if bpy.context.mode == "PAINT_TEXTURE":
+        return
+
+    obj = context.object
+    mat = utils.context_material(context)
+    props = bpy.context.scene.CC3ImportProps
+    if obj is not None and mat is not None:
+        weight_map : bpy.types.Image = get_weight_map_image(chr_cache, obj, mat)
+        size = int(props.physics_tex_size)
+        if weight_map and (weight_map.size[0] != size or weight_map.size[1] != size):
+            weight_map.scale(size, size)
+            # force Blender to update the image by changing a pixel value
+            # otherwise it doesn't recognise the size change.
+            value = weight_map.pixels[0]
+            weight_map.pixels[0] = 0.0
+            weight_map.pixels[0] = value
+            weight_map.update()
+            op.report({'INFO'}, f"Weightmap Resized to: {size} x {size}")
+
+
+
+def end_paint_weight_map(chr_cache, op):
     try:
         props = bpy.context.scene.CC3ImportProps
         if bpy.context.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
         bpy.context.space_data.shading.type = props.paint_store_render
         #props.paint_image.save()
+        op.report({'INFO'}, f"Weightmap painting done, Save the weightmap to preserve changes.")
     except Exception as e:
         utils.log_error("Something went wrong restoring object mode from paint mode!", e)
 
@@ -886,6 +939,7 @@ def remove_all_physics(chr_cache):
             obj = obj_cache.object
             if utils.object_exists_is_mesh(obj) and obj not in objects_processed:
                 remove_all_physics_mods(obj)
+        utils.delete_mesh_object(chr_cache.collision_body)
         chr_cache.physics_applied = False
         utils.log_recess()
 
@@ -932,6 +986,9 @@ def set_physics_settings(op, param, context):
     elif param == "PHYSICS_REMOVE_WEIGHTMAP":
         if context.object is not None and context.object.type == "MESH":
             disable_material_weight_map(chr_cache, context.object, utils.context_material(context))
+    elif param == "PHYSICS_RESIZE_WEIGHTMAP":
+        if context.object is not None and context.object.type == "MESH":
+            resize_weight_map(chr_cache, context, op)
     elif param == "PHYSICS_HAIR":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
@@ -960,7 +1017,7 @@ def set_physics_settings(op, param, context):
         if context.object is not None and context.object.type == "MESH":
             begin_paint_weight_map(chr_cache, context)
     elif param == "PHYSICS_DONE_PAINTING":
-        end_paint_weight_map(chr_cache)
+        end_paint_weight_map(chr_cache, op)
     elif param == "PHYSICS_SAVE":
         save_dirty_weight_maps(chr_cache, bpy.context.selected_objects)
     elif param == "PHYSICS_DELETE":
@@ -990,6 +1047,16 @@ def set_physics_settings(op, param, context):
     elif param == "APPLY_PHYSICS":
         add_all_physics(chr_cache)
         op.report({'INFO'}, f"Physics applied to {chr_cache.character_name}")
+
+    elif param == "PHYSICS_INC_STRENGTH":
+        print(props.physics_paint_strength)
+        strength = float(round(props.physics_paint_strength * 10)) / 10.0
+        print(strength)
+        props.physics_paint_strength = min(1.0, max(0.0, strength + 0.1))
+
+    elif param == "PHYSICS_DEC_STRENGTH":
+        strength = float(round(props.physics_paint_strength * 10)) / 10.0
+        props.physics_paint_strength = min(1.0, max(0.0, strength - 0.1))
 
 
 class CC3OperatorPhysics(bpy.types.Operator):
@@ -1026,6 +1093,8 @@ class CC3OperatorPhysics(bpy.types.Operator):
                    "Modifiers to generate the physics vertex groups will be added to the object"
         elif properties.param == "PHYSICS_REMOVE_WEIGHTMAP":
             return "Removes the physics weight map, modifiers and physics vertex groups for this material from the object"
+        elif properties.param == "PHYSICS_RESIZE_WEIGHTMAP":
+            return "Resizes the physics weightmap to the current size"
         elif properties.param == "PHYSICS_HAIR":
             return "Sets the cloth physics settings for this object to simulate Hair.\n" \
                    "Note: These settings are pure guess work and largely untested"
@@ -1071,5 +1140,9 @@ class CC3OperatorPhysics(bpy.types.Operator):
             return "Remove all physics modifiers for the characater."
         elif properties.param == "APPLY_PHYSICS":
             return "Add all possible physics modifiers for the characater."
+        elif properties.param == "PHYSICS_INC_STRENGTH":
+            return "Increase weight paint strength by 10%"
+        elif properties.param == "PHYSICS_DEC_STRENGTH":
+            return "Decrease weight paint strength by 10%"
 
         return ""

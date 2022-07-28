@@ -19,7 +19,7 @@ import bpy
 import textwrap
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, rigify_mapping_data, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 TAB_NAME = "CC/iC Pipeline"
 
@@ -260,6 +260,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 for obj_cache in chr_cache.object_cache:
                     if obj_cache.object:
                         box.prop(obj_cache, "object", text="")
+                box.label(text="Collision Mesh")
+                box.prop(chr_cache, "collision_body", text="")
+
             else:
                 box.label(text="Name: " + chr_cache.character_name)
         else:
@@ -1173,7 +1176,7 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         op = col.operator("cc3.scene", icon="ANIM", text="Sync Physics Range")
         op.param = "PHYSICS_PREP"
         col.separator()
-        split = col.split(factor=0.)
+        split = col.split(factor=0.0)
         col_1 = split.column()
         col_2 = split.column()
         col_3 = split.column()
@@ -1349,6 +1352,23 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         if cloth_mod is None:
             col.enabled = False
 
+        weight_map : bpy.types.Image = physics.get_weight_map_from_modifiers(obj, mat)
+        weight_map_size = int(props.physics_tex_size)
+        if weight_map:
+            split = col.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Current Size:")
+            col_2.label(text=f"{weight_map.size[0]} x {weight_map.size[1]}")
+            row = col.row()
+            row.operator("cc3.setphysics", icon="MOD_LENGTH", text="Resize Weightmap").param = "PHYSICS_RESIZE_WEIGHTMAP"
+            if (weight_map and
+               (weight_map.size[0] != weight_map_size or weight_map.size[1] != weight_map_size) and
+               bpy.context.mode != "PAINT_TEXTURE"):
+                row.enabled = True
+            else:
+                row.enabled = False
+
         if obj is not None:
             col.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
         if edit_mod is not None:
@@ -1363,7 +1383,10 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             col_1 = split.column()
             col_2 = split.column()
             col_1.label(text="Strength")
-            col_2.prop(props, "physics_paint_strength", text="", slider=True)
+            row = col_2.row()
+            row.operator("cc3.setphysics", text="", icon='TRIA_LEFT').param = "PHYSICS_DEC_STRENGTH"
+            row.prop(props, "physics_paint_strength", text="", slider=True)
+            row.operator("cc3.setphysics", text="", icon='TRIA_RIGHT').param = "PHYSICS_INC_STRENGTH"
             row = col.row()
             row.scale_y = 2
             op = row.operator("cc3.setphysics", icon="CHECKMARK", text="Done Weight Painting!")
@@ -1484,40 +1507,23 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             layout.row().label(text="No current character!", icon="ERROR")
 
         layout.separator()
+
         # export to Unity
-        if chr_cache is None or not chr_cache.rigified:
-            row = layout.row()
-            row.scale_y = 2
-            if not props.is_unity_project():
-                op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
-                op.param = "EXPORT_UNITY"
-            else:
-                op = row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project")
-                op.param = "UPDATE_UNITY"
-            row2 = layout.row()
-            row2.prop(prefs, "export_unity_mode", expand=True)
-            if not chr_cache or chr_cache.import_type != "fbx":
-                row.enabled = False
-                row2.enabled = False
-        elif chr_cache and chr_cache.rigified:
-            row = layout.row()
-            row.scale_y = 2
+        column = layout.column()
+        # export button
+        row = column.row()
+        row.scale_y = 2
+        if not props.is_unity_project():
             op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
             op.param = "EXPORT_UNITY"
-            if not chr_cache:
-                row.enabled = False
-        row = layout.row()
-        row.prop(prefs, "export_animation_mode", expand=True)
-        if not chr_cache:
-            row.enabled = False
-        if prefs.export_unity_mode == "BLEND":
-            row.enabled = False
-        if chr_cache and chr_cache.rigified:
-            row = layout.row()
-            row.label(text="Rigged character FBX only", icon="INFO")
-            if not chr_cache:
-                row.enabled = False
-
+        else:
+            op = row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project")
+            op.param = "UPDATE_UNITY"
+        row = column.row()
+        row.prop(prefs, "export_unity_mode", expand=True)
+        # disable if no character, not an fbx import or is rigified
+        if not chr_cache or chr_cache.import_type != "fbx" or chr_cache.rigified:
+            column.enabled = False
 
         # export prefs
         box = layout.box()

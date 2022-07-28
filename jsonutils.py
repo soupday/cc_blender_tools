@@ -134,6 +134,20 @@ def get_object_json(character_json, obj):
         utils.log_warn("Failed to get object Json data!")
         return None
 
+def get_physics_mesh_json(physics_json, obj):
+    if not physics_json:
+        return None
+    try:
+        name = utils.strip_name(obj.name).lower()
+        for object_name in physics_json.keys():
+            if object_name.lower() == name:
+                utils.log_detail("Physics Object Json data found for: " + obj.name)
+                return physics_json[object_name]
+    except:
+        utils.log_warn("Failed to get physics object Json data!")
+        return None
+
+
 def get_custom_shader(material_json):
     try:
         return material_json["Custom Shader"]["Shader Name"]
@@ -156,6 +170,20 @@ def get_material_json(object_json, material):
                 return materials_json[material_name]
     except:
         utils.log_warn("Failed to get material Json data!")
+        return None
+
+def get_physics_material_json(physics_mesh_json, material):
+    if not physics_mesh_json:
+        return None
+    try:
+        name = utils.strip_name(material.name).lower()
+        materials_json = physics_mesh_json["Materials"]
+        for material_name in materials_json.keys():
+            if material_name.lower() == name:
+                utils.log_detail("Physics Material Json data found for: " + material.name)
+                return materials_json[material_name]
+    except:
+        utils.log_warn("Failed to get physics material Json data!")
         return None
 
 def get_texture_info(material_json, texture_id):
@@ -310,3 +338,21 @@ def generate_character_json_data(name):
         }
     }
     return json_data
+
+
+def add_json_path(json_data, path):
+    keys = path.split("/")
+    for key in keys:
+        if key not in json_data.keys():
+            json_data[key] = {}
+        json_data = json_data[key]
+    return json_data
+
+
+def rename_json_key(json_data, old_name, new_name):
+    if old_name in json_data.keys():
+        json_data[new_name] = json_data.pop(old_name)
+        return True
+    return False
+
+
