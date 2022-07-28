@@ -497,6 +497,13 @@ def object_mode_to(obj):
     return False
 
 
+def pose_mode_to(arm):
+    if object_mode_to(arm):
+        if set_mode("POSE"):
+            return True
+    return False
+
+
 def duplicate_object(obj):
     if set_mode("OBJECT"):
         if try_select_object(obj, True) and set_active_object(obj):
