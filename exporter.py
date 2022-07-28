@@ -369,7 +369,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                     # there isn't a meaningful way to convert between Blender physics and RL PhysX
                     pass
                 if write_physics_textures:
-                    write_back_physics_weightmap(physics_mat_json, mat, mat_cache, old_path, old_name)
+                    write_back_physics_weightmap(physics_mat_json, obj, mat, mat_cache, old_path, old_name)
                 if revert_duplicates:
                     # replace duplicate materials with a reference to a single source material
                     # (this is to ensure there are no duplicate suffixes in the fbx export)
@@ -700,7 +700,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                                     tex_info["Texture Path"] = rel_path
 
 
-def write_back_physics_weightmap(physics_mat_json : dict, mat, mat_cache, old_path, old_name):
+def write_back_physics_weightmap(physics_mat_json : dict, obj, mat, mat_cache, old_path, old_name):
     global UNPACK_INDEX
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -711,7 +711,8 @@ def write_back_physics_weightmap(physics_mat_json : dict, mat, mat_cache, old_pa
     UNPACK_INDEX = 1001
 
     tex_path = physics_mat_json["Weight Map Path"]
-    image = mat_cache.temp_weight_map
+
+    image = physics.get_weight_map_from_modifiers(obj, mat)
 
     if image:
         try_unpack_image(image, unpack_path, True)
