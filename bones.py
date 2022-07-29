@@ -17,7 +17,8 @@
 import bpy
 import mathutils
 from math import pi, atan
-from . import utils
+
+from . import utils, vars
 from rna_prop_ui import rna_idprop_ui_create
 
 
@@ -191,6 +192,87 @@ def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, sca
     else:
         utils.log_error(f"Unable to edit CC3 rig!")
     return None
+
+
+def get_edit_bone_tree_defs(rig, bone : bpy.types.EditBone, tree = None):
+
+    if tree is None:
+            tree = []
+
+    if utils.edit_mode_to(rig):
+
+        bone_data = [bone.name,
+                     rig.matrix_world @ bone.head,
+                     rig.matrix_world @ bone.tail,
+                     bone.head_radius,
+                     bone.tail_radius,
+                     bone.roll,
+                     bone.parent.name]
+
+        tree.append(bone_data)
+
+        for child_bone in bone.children:
+            get_edit_bone_tree_defs(rig, child_bone, tree)
+
+    return tree
+
+
+def copy_rl_edit_bone_tree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, layer):
+
+    src_bone_defs = None
+
+    # copy the cc3 bone tree to the destination rig
+    if utils.edit_mode_to(cc3_rig):
+        cc3_bone = get_edit_bone(cc3_rig, cc3_name)
+        src_bone_defs = get_edit_bone_tree_defs(cc3_rig, cc3_bone)
+
+        if utils.edit_mode_to(dst_rig):
+
+            for bone_def in src_bone_defs:
+                name = bone_def[0]
+                if name == cc3_name:
+                    name = dst_name
+                head = bone_def[1]
+                tail = bone_def[2]
+                head_radius = bone_def[3]
+                tail_radius = bone_def[4]
+                roll = bone_def[5]
+                parent_name = bone_def[6]
+
+                bone : bpy.types.EditBone = dst_rig.data.edit_bones.new(name)
+                bone.head = head
+                bone.tail = tail
+                bone.head_radius = head_radius
+                bone.tail_radius = tail_radius
+                bone.roll = roll
+
+                # store the name of the newly created bone (in case Blender has changed it)
+                bone_def.append(bone.name)
+
+                # set the edit bone layers
+                for l in range(0, 32):
+                    bone.layers[l] = l == layer
+
+                # set the bone parent
+                parent_bone = get_edit_bone(dst_rig, parent_name)
+                if parent_bone:
+                    bone.parent = parent_bone
+
+            # set the tree parent
+            dst_bone = get_edit_bone(dst_rig, dst_name)
+            dst_parent_bone = get_edit_bone(dst_rig, dst_parent_name)
+            if dst_bone and dst_parent_bone:
+                dst_bone.parent = dst_parent_bone
+
+            # finally set pose bone layers
+            if utils.set_mode("OBJECT"):
+                for bone_def in src_bone_defs:
+                    name = bone_def[7]
+                    pose_bone = dst_rig.data.bones[name]
+                    for l in range(0, 32):
+                        pose_bone.layers[l] = l == layer
+
+    return src_bone_defs
 
 
 def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
@@ -578,3 +660,20 @@ def reset_root_bone(arm):
             root_bone.tail = tail
             root_bone.align_roll(mathutils.Vector((0,0,1)))
     utils.set_mode("OBJECT")
+
+
+def bone_mapping_contains_bone(bone_mappings, bone_name):
+    for bone_mappings in bone_mappings:
+            if bone_mappings[1] == bone_name:
+                return True
+    return False
+
+
+def get_accessory_root_bone(bone_mappings, bone):
+    root = None
+    if not bone_mapping_contains_bone(bone_mappings, bone.name):
+        while bone.parent:
+            if not bone_mapping_contains_bone(bone_mappings, bone.parent.name):
+                root = bone.parent
+            bone = bone.parent
+    return root

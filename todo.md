@@ -14,7 +14,8 @@
 
 
 
-- Accessories are placed as extentions to armature, Rigify breaks this...
+- Accessories are placed as extentions to armature: try to make control rig for them?
+- Accessory colliders: make invisible, include in physics colliders on/off
 - Remove deform status from Twist bone containers in import (UpperArm, LowerArm, etc...)
 - for obj imports, the humanoid/creature/prop box shows...
 - scaling weightmaps can change the file type to png...

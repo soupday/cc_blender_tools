@@ -168,6 +168,35 @@ G3_BONE_MAPPINGS = [
     ["eye.L", "CC_Base_L_Eye", ""],
 
     ["eye.L", "CC_Base_L_Eye", ""],
+
+    # unmapped bones
+    ["", "CC_Base_BoneRoot", ""],
+    ["", "CC_Base_UpperJaw", ""],
+    ["", "CC_Base_JawRoot", ""],
+    ["", "CC_Base_L_RibsTwist", ""],
+    ["", "CC_Base_L_UpperarmTwist01", ""],
+    ["", "CC_Base_L_UpperarmTwist02", ""],
+    ["", "CC_Base_L_ElbowShareBone", ""],
+    ["", "CC_Base_L_ForearmTwist01", ""],
+    ["", "CC_Base_L_ForearmTwist02", ""],
+    ["", "CC_Base_L_ThighTwist01", ""],
+    ["", "CC_Base_L_ThighTwist02", ""],
+    ["", "CC_Base_L_KneeShareBone", ""],
+    ["", "CC_Base_L_CalfTwist01", ""],
+    ["", "CC_Base_L_CalfTwist02", ""],
+    ["", "CC_Base_L_ToeBaseShareBone", ""],
+    ["", "CC_Base_R_RibsTwist", ""],
+    ["", "CC_Base_R_UpperarmTwist01", ""],
+    ["", "CC_Base_R_UpperarmTwist02", ""],
+    ["", "CC_Base_R_ElbowShareBone", ""],
+    ["", "CC_Base_R_ForearmTwist01", ""],
+    ["", "CC_Base_R_ForearmTwist02", ""],
+    ["", "CC_Base_R_ThighTwist01", ""],
+    ["", "CC_Base_R_ThighTwist02", ""],
+    ["", "CC_Base_R_KneeShareBone", ""],
+    ["", "CC_Base_R_CalfTwist01", ""],
+    ["", "CC_Base_R_CalfTwist02", ""],
+    ["", "CC_Base_R_ToeBaseShareBone", ""],
 ]
 
 
@@ -265,6 +294,19 @@ GAME_BASE_BONE_MAPPINGS = [
 
     ["eye.R", "CC_Base_R_Eye", ""],
     ["eye.L", "CC_Base_L_Eye", ""],
+
+    # unmapped bones
+    ["", "root", ""],
+    ["", "CC_Base_UpperJaw", ""],
+    ["", "CC_Base_JawRoot", ""],
+    ["", "upperarm_twist_01_l", ""],
+    ["", "lowerarm_twist_01_l", ""],
+    ["", "thigh_twist_01_l", ""],
+    ["", "calf_twist_01_l", ""],
+    ["", "upperarm_twist_01_r", ""],
+    ["", "lowerarm_twist_01_r", ""],
+    ["", "thigh_twist_01_r", ""],
+    ["", "calf_twist_01_r", ""],
 ]
 
 

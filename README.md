@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 1.4.1
+- Export fix
+- Accessory bones now copy to rigify rig.
+
 ### 1.4.0
 - Physics JSON changes and additions export.
 - Unity T-pose export fix.
