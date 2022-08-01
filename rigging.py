@@ -158,15 +158,12 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
 def add_accessory_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings):
 
     # find all the accessories in the armature
-    accessory_bones = []
-    for bone in cc3_rig.data.bones:
-        accessory_bone = bones.get_accessory_root_bone(bone_mappings, bone)
-        if accessory_bone and accessory_bone not in accessory_bones:
-            utils.log_info(f"Found accessory root bone: {accessory_bone.name}")
-            accessory_bones.append(accessory_bone)
+    accessory_bones = bones.find_accessory_bones(bone_mappings, cc3_rig)
 
     # copy the accessory bone trees into the rigify rig
     for bone in accessory_bones:
+
+        utils.log_info(f"Found accessory root bone: {bone.name}")
 
         cc3_parent_name = None
         rigify_parent_name = None

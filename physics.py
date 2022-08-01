@@ -909,7 +909,10 @@ def add_all_physics(chr_cache):
     if chr_cache:
         utils.log_info(f"Adding all Physics modifiers to: {chr_cache.character_name}")
         utils.log_indent()
+        arm = chr_cache.get_armature()
+        objects = chr_cache.get_all_objects(False, False)
         objects_processed = []
+        accessory_colldiers = get_accessory_colliders(arm, objects, True)
         for obj_cache in chr_cache.object_cache:
             obj = obj_cache.object
             if utils.object_exists_is_mesh(obj) and obj not in objects_processed:
@@ -922,6 +925,8 @@ def add_all_physics(chr_cache):
                     objects_processed.append(mat)
                 objects_processed.append(obj)
                 add_collision_physics(chr_cache, obj, obj_cache)
+                if obj in accessory_colldiers:
+                    add_collision_physics(chr_cache, obj, obj_cache)
                 edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
                 if len(edit_mods) + len(mix_mods) > 0:
                     enable_cloth_physics(chr_cache, obj, False)
@@ -944,6 +949,53 @@ def remove_all_physics(chr_cache):
         utils.log_recess()
 
 
+def get_accessory_colliders(arm, objects, hide = False):
+
+    # find all collider bone names
+    collider_bone_names = []
+    bone : bpy.types.Bone
+    pivot_bone : bpy.types.Bone
+    for bone in arm.data.bones:
+        if bone.name.startswith("CollisionShape"):
+            for child_bone in bone.children:
+                if child_bone.name.startswith(vars.ACCESORY_PIVOT_NAME):
+                    pivot_bone = child_bone
+                    for collider_bone in pivot_bone.children:
+                        if collider_bone.name not in collider_bone_names:
+                            collider_bone_names.append(collider_bone.name)
+                else:
+                    collider_bone = child_bone
+                    if collider_bone.name not in collider_bone_names:
+                        collider_bone_names.append(collider_bone.name)
+
+    # use those names to find all the collider objects
+    collider_objects = []
+    for collider_bone_name in collider_bone_names:
+        source_name = utils.strip_name(collider_bone_name)
+        obj : bpy.types.Object
+        for obj in objects:
+            # this might be the right collider
+            if obj.name.startswith(source_name):
+                # check vertex group name to be sure
+                if obj.vertex_groups and len(obj.vertex_groups) > 0:
+                    for vg in obj.vertex_groups:
+                        if vg.name == collider_bone_name:
+                            if obj not in collider_objects:
+                                collider_objects.append(obj)
+                            if hide:
+                                obj.hide_set(True)
+                            break
+
+    return collider_objects
+
+
+def delete_accessory_colliders(arm, objects):
+    colliders = get_accessory_colliders(arm, objects)
+    for collider in colliders:
+        utils.delete_mesh_object(collider)
+        objects.remove(collider)
+
+
 def should_separate_materials(context):
     """Check to see if the current object has a weight map for each material.
     If not separating the mesh by material could improve performance.
@@ -957,7 +1009,6 @@ def should_separate_materials(context):
             if len(edit_mods) != len(obj.data.materials):
                 return True
         return False
-
 
 
 def set_physics_settings(op, param, context):

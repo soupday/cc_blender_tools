@@ -677,3 +677,12 @@ def get_accessory_root_bone(bone_mappings, bone):
                 root = bone.parent
             bone = bone.parent
     return root
+
+
+def find_accessory_bones(bone_mappings, rig):
+    accessory_bones = []
+    for bone in rig.data.bones:
+        accessory_bone = get_accessory_root_bone(bone_mappings, bone)
+        if accessory_bone and accessory_bone not in accessory_bones:
+            accessory_bones.append(accessory_bone)
+    return accessory_bones
