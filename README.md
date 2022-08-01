@@ -35,6 +35,13 @@ Links
 
 ## Changelog
 
+### 1.4.1
+- Fixes
+    - Export T-pose action created correctly when character bind pose is already a T-pose.
+    - Tongue subsurface scatter parameter fixes in UI.
+    - Hair material UI corrected in Blender 3.2.1 (caused by renamed icon enums)
+- Accessory bones now copy to rigify rig.
+
 ### 1.4.0
 - Physics JSON changes and additions export.
 - Unity T-pose export fix.

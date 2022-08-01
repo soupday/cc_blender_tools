@@ -20,7 +20,7 @@ import mathutils
 import addon_utils
 import math
 import re
-from . import utils
+from . import utils, vars
 from . import geom
 from . import meshutils
 from . import properties
@@ -153,6 +153,38 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
                 bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
 
     utils.log_recess()
+
+
+def add_accessory_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings):
+
+    # find all the accessories in the armature
+    accessory_bones = bones.find_accessory_bones(bone_mappings, cc3_rig)
+
+    # copy the accessory bone trees into the rigify rig
+    for bone in accessory_bones:
+
+        utils.log_info(f"Found accessory root bone: {bone.name}")
+
+        cc3_parent_name = None
+        rigify_parent_name = None
+
+        if bone.parent:
+            cc3_parent_name = bone.parent.name
+            for bone_map in bone_mappings:
+                if bone_map[1] == cc3_parent_name:
+                    # try to find the parent in the ORG bones
+                    rigify_parent_name = f"ORG-{bone_map[0]}"
+                    if rigify_parent_name not in rigify_rig.data.bones:
+                        # then try the DEF bones
+                        rigify_parent_name = f"DEF-{bone_map[0]}"
+                    if rigify_parent_name not in rigify_rig.data.bones:
+                        rigify_parent_name = None
+
+        if not (rigify_parent_name and rigify_parent_name in rigify_rig.data.bones):
+            utils.log_error(f"Unable to find matching accessory bone tree parent: {cc3_parent_name} in rigify bones!")
+
+        utils.log_info(f"Copying accessory bone tree into rigify rig: {bone.name} parent: {rigify_parent_name}")
+        bones.copy_rl_edit_bone_tree(cc3_rig, rigify_rig, bone.name, bone.name, rigify_parent_name, 23)
 
 
 def rl_vertex_group(obj, group):
@@ -572,6 +604,9 @@ def map_bone(cc3_rig, meta_rig, mapping):
     """
 
     if not edit_rig(meta_rig):
+        return
+
+    if not mapping[0]:
         return
 
     dst_bone_name = mapping[0]
@@ -2706,6 +2741,7 @@ class CC3Rigifier(bpy.types.Operator):
                             modify_rigify_rig(self.rigify_rig)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
+                            add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
@@ -2778,6 +2814,7 @@ class CC3Rigifier(bpy.types.Operator):
                             modify_rigify_rig(self.rigify_rig)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
+                            add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)

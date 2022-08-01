@@ -497,6 +497,13 @@ def object_mode_to(obj):
     return False
 
 
+def pose_mode_to(arm):
+    if object_mode_to(arm):
+        if set_mode("POSE"):
+            return True
+    return False
+
+
 def duplicate_object(obj):
     if set_mode("OBJECT"):
         if try_select_object(obj, True) and set_active_object(obj):
@@ -1004,3 +1011,16 @@ def get_last_report():
 
 def stop_now():
     raise Exception("STOP!")
+
+
+def is_valid_icon(icon):
+    return icon in bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.keys()
+
+
+def check_icon(icon):
+    if is_blender_version("3.2.1"):
+        if icon == "OUTLINER_OB_HAIR":
+            return "OUTLINER_OB_CURVES"
+        elif icon == "HAIR":
+            return "CURVES"
+    return icon

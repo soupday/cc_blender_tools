@@ -920,7 +920,7 @@ def create_T_pose_action(arm, objects, export_strips):
     bpy.context.scene.frame_end = 2
 
     # create T-Pose action
-    if "0_T-Pose" not in bpy.data.actions:
+    if "0_T-Pose" not in bpy.data.actions and utils.pose_mode_to(arm):
         action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
         utils.safe_set_action(arm, action)
 

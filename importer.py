@@ -455,11 +455,16 @@ def detect_character(file_path, type, objects, actions, json_data, warn):
                 chr_cache.character_name = arm.name
                 # add armature to object_cache
                 chr_cache.add_object_cache(arm)
+                break
 
         if arm_count > 1:
             warn.append("Multiple characters detected in Fbx.")
             warn.append("Character exports from iClone to Blender do not fully support multiple characters.")
             warn.append("Characters should be exported individually for best results.")
+
+        # delete accessory colliders, currently they are useless as
+        # accessories don't export with any physics data or weightmaps.
+        physics.delete_accessory_colliders(arm, objects)
 
         # add child objects to object_cache
         for obj in objects:

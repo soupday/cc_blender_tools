@@ -552,7 +552,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                         col_2 = None
 
                         if ui_row[0] == "HEADER":
-                            column.box().label(text= ui_row[1], icon=ui_row[2])
+                            column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
 
                         elif ui_row[0] == "PROP":
 
@@ -592,7 +592,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                             show_op = True
                             label = ui_row[1]
                             op_id = ui_row[2]
-                            icon = ui_row[3]
+                            icon = utils.check_icon(ui_row[3])
                             param = ui_row[4]
                             conditions = ui_row[5:]
 

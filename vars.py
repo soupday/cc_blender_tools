@@ -146,4 +146,6 @@ ENUM_ACTION_TYPES = [
     ("KEY","Shapekey","Shapekey Action"),
 ]
 
+ACCESORY_PIVOT_NAME = "CC_Base_Pivot"
+
 block_property_update = False
