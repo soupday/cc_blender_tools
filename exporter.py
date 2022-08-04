@@ -282,7 +282,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             utils.log_info(f"Adding Object Json: {obj_name}")
             obj_json = copy.deepcopy(params.JSON_MESH_DATA)
             chr_json["Meshes"][obj_name] = obj_json
-        if not physics_mesh_json and obj_cache.cloth_physics == "ON":
+        if not physics_mesh_json and obj_cache and obj_cache.cloth_physics == "ON":
             utils.log_info(f"Adding Physics Object Json: {obj_name}")
             physics_mesh_json = copy.deepcopy(params.JSON_PHYSICS_MESH)
             physics_json[obj_name] = physics_mesh_json
@@ -639,9 +639,9 @@ def write_back_textures(mat_json : dict, mat, mat_cache, old_path, old_name, bak
                         strength = 100.0
                         if mat_cache:
                             if tex_type == "NORMAL":
-                                strength = mat_cache.parameters.default_normal_strength * 100.0
+                                strength = params.get_material_parameter(mat_cache, "NORMAL_STRENGTH", 1.0) * 100.0
                             elif tex_type == "BUMP":
-                                strength = mat_cache.parameters.default_bump_strength * 100.0
+                                strength = params.get_material_parameter(mat_cache, "BUMP_STRENGTH", 1.0) * 100.0
                         tex_info["Strength"] = strength
 
                 elif has_custom_shader:

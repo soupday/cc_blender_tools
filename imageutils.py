@@ -15,7 +15,7 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
-
+import filecmp
 import bpy
 
 from . import params, utils
@@ -32,7 +32,7 @@ def check_max_size(image):
 
 
 # load an image from a file, but try to find it in the existing images first
-def load_image(filename, color_space):
+def load_image(filename, color_space, processed = None):
 
     i: bpy.types.Image = None
     for i in bpy.data.images:
@@ -48,12 +48,21 @@ def load_image(filename, color_space):
                 pass
 
     try:
+        image_md5 = None
+        if processed is not None:
+            image_md5 = utils.md5sum(filename)
+            for p in processed:
+                if p[0] == image_md5:
+                    utils.log_info("Skipping duplicate image, reusing: " + p[1].filepath)
+                    return p[1]
         utils.log_info("Loading new image: " + filename)
         image = bpy.data.images.load(filename)
         image.colorspace_settings.name = color_space
         if image.depth == 32:
             image.alpha_mode = "CHANNEL_PACKED"
         #check_max_size(image)
+        if processed is not None and image_md5 is not None:
+            processed.append([image_md5, image])
         return image
     except Exception as e:
         utils.log_error("Unable to load image: " + filename, e)

@@ -16,7 +16,7 @@
 
 import os
 import time
-
+from hashlib import md5
 import bpy
 
 from . import vars
@@ -1024,3 +1024,11 @@ def check_icon(icon):
         elif icon == "HAIR":
             return "CURVES"
     return icon
+
+
+def md5sum(filename):
+    hash = md5()
+    with open(filename, "rb") as f:
+        for chunk in iter(lambda: f.read(128 * hash.block_size), b""):
+            hash.update(chunk)
+    return hash.hexdigest()
