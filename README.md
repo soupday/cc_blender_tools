@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 1.4.2
+- Separate Iris & Sclera emission colors for parallax eye shader.
+- Displacement calculation reworked as it behaves differently in Blender 3.2.1 (was causing triangulation artifacts)
+
 ### 1.4.1
 - Fixes
     - Export T-pose action created correctly when character bind pose is already a T-pose.

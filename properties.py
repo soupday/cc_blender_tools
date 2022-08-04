@@ -793,7 +793,8 @@ class CC3PBRParameters(bpy.types.PropertyGroup):
     default_opacity: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_opacity"))
     default_normal_strength: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_normal_strength"))
     default_bump_strength: bpy.props.FloatProperty(default=1, min=-3, max=3, update=lambda s,c: update_property(s,c,"default_bump_strength"))
-    default_displacement_strength: bpy.props.FloatProperty(default=1, min=-3, max=3, update=lambda s,c: update_property(s,c,"default_displacement_strength"))
+    default_displacement_strength: bpy.props.FloatProperty(default=1, min=-5, max=5, update=lambda s,c: update_property(s,c,"default_displacement_strength"))
+    default_displacement_base: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_displacement_base"))
     default_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(0, 0, 0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_emissive_color"))
@@ -825,7 +826,8 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_opacity: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_opacity"))
     default_normal_strength: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_normal_strength"))
     default_bump_strength: bpy.props.FloatProperty(default=1, min=-3, max=3, update=lambda s,c: update_property(s,c,"default_bump_strength"))
-    default_displacement_strength: bpy.props.FloatProperty(default=1, min=-3, max=3, update=lambda s,c: update_property(s,c,"default_displacement_strength"))
+    default_displacement_strength: bpy.props.FloatProperty(default=1, min=-5, max=5, update=lambda s,c: update_property(s,c,"default_displacement_strength"))
+    default_displacement_base: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_displacement_base"))
     default_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(0, 0, 0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_emissive_color"))

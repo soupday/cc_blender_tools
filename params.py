@@ -15,6 +15,8 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 # [system_id, json_id, suffix_list]
+
+
 TEXTURE_TYPES = [
     # pbr textures
     ["DIFFUSE", "Base Color", ["diffuse", "albedo"]],
@@ -1198,7 +1200,8 @@ SHADER_MATRIX = [
             ["Bump Strength", "func_divide_100", "default_bump_strength"],
             ["Emissive Color", "", "default_emissive_color"],
             ["Emission Strength", "func_emission_scale", "default_emission_strength"],
-            ["Displacement Strength", "func_divide_100", "default_displacement_strength"],
+            ["Displacement Strength", "func_divide_200", "default_displacement_strength"],
+            ["Displacement Base", "", "default_displacement_base"],
         ],
         # texture inputs:
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
@@ -1225,7 +1228,8 @@ SHADER_MATRIX = [
             ["default_opacity", 1, "", "Base/Opacity"],
             ["default_normal_strength", 1, "", "Pbr/Normal"],
             ["default_emission_strength", 0, "", "Pbr/Glow"],
-            ["default_displacement_strength", 1, "", "Pbr/Displacement"],
+            ["default_displacement_strength", 0, "", "Pbr/Displacement"],
+            ["default_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
             # non json properties (just defaults)
             ["default_bump_strength", 1, "func_divide_2", "Pbr/Bump"],
             ["default_specular_strength", 1, "", "Pbr/Specular"],
@@ -1267,6 +1271,7 @@ SHADER_MATRIX = [
             ["PROP", "Normal Strength", "default_normal_strength", True, "Normal Map"],
             ["PROP", "Bump Strength", "default_bump_strength", True, "Bump Map"],
             ["PROP", "Displacement", "default_displacement_strength", True, "Displacement Map"],
+            ["PROP", "Displacement Base", "default_displacement_base", True, "Displacement Map"],
             ["OP", "Convert Bump", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "!Normal Map"],
             ["OP", "Combine Normals", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "Normal Map"],
             ["HEADER",  "Emission", "LIGHT"],
@@ -1312,7 +1317,8 @@ SHADER_MATRIX = [
             ["Bump Strength", "func_divide_100", "default_bump_strength"],
             ["Emissive Color", "", "default_emissive_color"],
             ["Emission Strength", "func_emission_scale", "default_emission_strength"],
-            ["Displacement Strength", "func_divide_100", "default_displacement_strength"],
+            ["Displacement Strength", "func_divide_200", "default_displacement_strength"],
+            ["Displacement Base", "", "default_displacement_base"],
             ["Micro Normal Strength", "", "default_micro_normal_strength"],
             ["Subsurface Scale", "func_sss_default", "default_subsurface_scale"],
             ["Unmasked Scatter Scale", "", "default_unmasked_scatter_scale"],
@@ -1387,6 +1393,8 @@ SHADER_MATRIX = [
             ["default_suburface_radius", 1.5, "", "SSS/Radius"],
             ["default_specular_strength", 1, "", "Pbr/Specular"],
             ["default_metallic", 0, "", "Pbr/Metallic"],
+            ["default_displacement_strength", 0, "", "Pbr/Displacement"],
+            ["default_displacement_base", 0.5, "", "Pbr/Displacement/Gray-scale Base Value"],
             # non json properties (just defaults)
             ["default_specular", 0.5, "DEF"],
             ["default_roughness", 0.5, "DEF"],
@@ -1453,6 +1461,7 @@ SHADER_MATRIX = [
             ["PROP", "Normal Strength", "default_normal_strength", True, "Normal Map"],
             ["PROP", "Bump Strength", "default_bump_strength", True, "Bump Map"],
             ["PROP", "Displacement", "default_displacement_strength", True, "Displacement Map"],
+            ["PROP", "Displacement Base", "default_displacement_base", True, "Displacement Map"],
             ["OP", "Convert Bump", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "!Normal Map"],
             ["OP", "Combine Normals", "cc3.bake", "PLAY", "BAKE_BUMP_NORMAL", "Bump Map", "Normal Map"],
             ["SPACER"],
@@ -1765,6 +1774,44 @@ SHADER_LOOKUP = [
     ["TEARLINE_LEFT", "RLTearline", "rl_tearline_shader"],
     ["DEFAULT", "Tra", "rl_pbr_shader"],
 ]
+
+
+PARAM_TYPES = {
+    "NORMAL_STRENGTH": {
+                        "rl_pbr_shader": "default_normal_strength",
+                        "rl_sss_shader": "default_normal_strength",
+                        "rl_head_shader": "skin_normal_strength",
+                        "rl_skin_shader": "skin_normal_strength",
+                        "rl_teeth_shader": "teeth_normal_strength",
+                        "rl_tongue_shader": "tongue_normal_strength",
+                        "rl_hair_shader": "hair_normal_strength",
+                        "rl_cornea_shader": "eye_normal_strength",
+                        "rl_eye_shader": "eye_normal_strength",
+                       },
+
+    "BUMP_STRENGTH": {
+                        "rl_pbr_shader": "default_bump_strength",
+                        "rl_sss_shader": "default_bump_strength",
+                        "rl_hair_shader": "hair_bump_strength",
+                       },
+
+}
+
+
+def get_material_parameter(mat_cache, param_type, default):
+    shader = get_rl_shader_name(mat_cache)
+    if shader and param_type in PARAM_TYPES.keys():
+        shader_params = PARAM_TYPES[param_type]
+        if shader in shader_params.keys():
+            prop_name = shader_params[shader]
+            if prop_name:
+                parameters = mat_cache.parameters
+                exec_expression = "parameters." + prop_name
+                try:
+                    return eval(exec_expression, None, locals())
+                except:
+                    pass
+    return default
 
 
 def get_texture_type(json_id):

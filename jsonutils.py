@@ -209,13 +209,15 @@ def get_shader_texture_info(material_json, texture_id):
         return None
 
 def get_material_json_var(material_json, var_path: str):
-    var_type, var_name = var_path.split('/')
+    paths = var_path.split('/')
+    var_type = paths[0]
+    var_name = paths[1]
     if var_type == "Custom":
         return get_shader_var(material_json, var_name)
     elif var_type == "SSS":
         return get_sss_var(material_json, var_name)
     elif var_type == "Pbr":
-        return get_pbr_var(material_json, var_name)
+        return get_pbr_var(material_json, var_name, paths)
     else: # var_type == "Base":
         return get_material_var(material_json, var_name)
 
@@ -228,11 +230,14 @@ def get_shader_var(material_json, var_name):
     except:
         return None
 
-def get_pbr_var(material_json, var_name):
+def get_pbr_var(material_json, var_name, paths):
     if not material_json:
         return None
     try:
-        return material_json["Textures"][var_name]["Strength"] / 100.0
+        if len(paths) == 3:
+            return material_json["Textures"][var_name][paths[2]]
+        else:
+            return material_json["Textures"][var_name]["Strength"] / 100.0
     except:
         return None
 
@@ -254,13 +259,15 @@ def get_sss_var(material_json, var_name):
 
 
 def set_material_json_var(material_json, var_path: str, value):
-    var_type, var_name = var_path.split('/')
+    paths = var_path.split('/')
+    var_type = paths[0]
+    var_name = paths[1]
     if var_type == "Custom":
         set_shader_var(material_json, var_name, value)
     elif var_type == "SSS":
         set_sss_var(material_json, var_name, value)
     elif var_type == "Pbr":
-        set_pbr_var(material_json, var_name, value)
+        set_pbr_var(material_json, var_name, paths, value)
     else: # var_type == "Base":
         set_material_var(material_json, var_name, value)
 
@@ -272,10 +279,13 @@ def set_shader_var(material_json, var_name, value):
         except:
             return
 
-def set_pbr_var(material_json, var_name, value):
+def set_pbr_var(material_json, var_name, paths, value):
     if material_json:
         try:
-            material_json["Textures"][var_name]["Strength"] = value * 100.0
+            if len(paths) == 3:
+                material_json["Textures"][var_name][paths[2]] = value
+            else:
+                material_json["Textures"][var_name]["Strength"] = value * 100.0
         except:
             return
 
