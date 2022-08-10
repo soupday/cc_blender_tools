@@ -26,6 +26,8 @@ old_look = "None"
 old_gamma = 1
 old_exposure = 0
 old_colorspace = "Raw"
+old_color_depth = "8"
+old_color_mode = "RGBA"
 BAKE_SAMPLES = 4
 IMAGE_FORMAT = "PNG"
 IMAGE_EXT = ".png"
@@ -39,11 +41,13 @@ def init_bake(id = 1001):
 
 
 def prep_bake(mat):
-    global old_samples, old_file_format
+    global old_samples, old_file_format, old_color_depth, old_color_mode
     global old_view_transform, old_look, old_gamma, old_exposure, old_colorspace
 
     old_samples = bpy.context.scene.cycles.samples
     old_file_format = bpy.context.scene.render.image_settings.file_format
+    old_color_depth = bpy.context.scene.render.image_settings.color_depth
+    old_color_mode = bpy.context.scene.render.image_settings.color_mode
     old_view_transform = bpy.context.scene.view_settings.view_transform
     old_look = bpy.context.scene.view_settings.look
     old_gamma = bpy.context.scene.view_settings.gamma
@@ -102,11 +106,13 @@ def prep_bake(mat):
 
 
 def post_bake(bake_store):
-    global old_samples, old_file_format
+    global old_samples, old_file_format, old_color_depth, old_color_mode
     global old_view_transform, old_look, old_gamma, old_exposure, old_colorspace
 
     bpy.context.scene.cycles.samples = old_samples
     bpy.context.scene.render.image_settings.file_format = old_file_format
+    bpy.context.scene.render.image_settings.color_depth = old_color_depth
+    bpy.context.scene.render.image_settings.color_mode = old_color_mode
     bpy.context.scene.view_settings.view_transform = old_view_transform
     bpy.context.scene.view_settings.look = old_look
     bpy.context.scene.view_settings.gamma = old_gamma
@@ -126,10 +132,11 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bak
     image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
     BAKE_INDEX += 1
     is_data = True
+    alpha = False
     if "Diffuse Map" in socket_name or channel_id == "Base Color":
         is_data = False
     # make (and save) the target image
-    image = get_image_target(image_name, width, height, bake_dir, is_data, True)
+    image = get_image_target(image_name, width, height, bake_dir, is_data, alpha)
     # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
     i = 0
     base_name = image_name
@@ -139,7 +146,7 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bak
             old_name = image_name
             image_name = base_name + "_" + str(i)
             utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
-            image = get_image_target(image_name, width, height, bake_dir, is_data, True)
+            image = get_image_target(image_name, width, height, bake_dir, is_data, alpha)
 
     return image, image_name
 
@@ -275,7 +282,7 @@ def bake_value_image(value, mat, channel_id, bake_dir, size = 64):
     return image
 
 
-def bake_output(mat, source_node, source_socket, image, image_name):
+def bake_output(mat, source_node, source_socket, image : bpy.types.Image, image_name):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -295,6 +302,8 @@ def bake_output(mat, source_node, source_socket, image, image_name):
     nodes.active = image_node
     bpy.ops.object.bake(type='COMBINED')
 
+    bpy.context.scene.render.image_settings.color_depth = '8'
+    bpy.context.scene.render.image_settings.color_mode = 'RGB' if image.depth == 24 else 'RGBA'
     image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
     image.reload()
 
@@ -326,6 +335,8 @@ def bake_normal_output(mat, bsdf_node, image, image_name):
 
     bpy.ops.object.bake(type='NORMAL')
 
+    bpy.context.scene.render.image_settings.color_depth = '8'
+    bpy.context.scene.render.image_settings.color_mode = 'RGB' if image.depth == 24 else 'RGBA'
     image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
     image.reload()
 
@@ -419,7 +430,9 @@ def get_tex_image_size(node):
 def get_image_target(image_name, width, height, dir, data = True, alpha = False, force_new = False):
     format = IMAGE_FORMAT
     ext = IMAGE_EXT
-    depth = 32
+    depth = 24
+    if alpha:
+        depth = 32
 
     # find an old image with the same name to reuse:
     if not force_new:
@@ -457,9 +470,11 @@ def make_new_image(name, width, height, format, ext, dir, data, has_alpha):
     img = bpy.data.images.new(name, width, height, alpha=has_alpha, is_data=data)
     img.pixels[0] = 0
     img.file_format = format
-    dir = os.path.join(utils.local_path(), dir)
-    os.makedirs(dir, exist_ok=True)
-    img.filepath_raw = os.path.join(dir, name + ext)
+    full_dir = os.path.normpath(dir)
+    full_path = os.path.normpath(os.path.join(full_dir, name + ext))
+    utils.log_info(f"   Path: {full_path}")
+    os.makedirs(full_dir, exist_ok=True)
+    img.filepath_raw = full_path
     img.save()
     return img
 
@@ -525,7 +540,7 @@ def combine_normal(chr_cache, mat_cache):
         utils.set_active_object(active)
 
 
-def bake_flow_to_normal(mat_cache):
+def bake_flow_to_normal(chr_cache, mat_cache):
 
     init_bake(4001)
 
@@ -575,7 +590,7 @@ def bake_flow_to_normal(mat_cache):
         # if no existing normal image, create one and link it to the shader
         if not normal_image:
             utils.log_info("Creating new normal image.")
-            normal_image = make_new_image(mat_name + "_Normal", width, height, "PNG", ".png", mat_cache.dir, True, False)
+            normal_image = make_new_image(mat_name + "_Normal", width, height, "PNG", ".png", mat_cache.get_tex_dir(chr_cache), True, False)
         if not normal_node:
             utils.log_info("Creating new normal image node.")
             normal_node = nodeutils.make_image_node(nodes, normal_image, "Generated Normal Map")
@@ -651,7 +666,7 @@ class CC3BakeOperator(bpy.types.Operator):
             mat = utils.context_material(context)
             chr_cache = props.get_context_character_cache(context)
             mat_cache = chr_cache.get_material_cache(mat)
-            bake_flow_to_normal(mat_cache)
+            bake_flow_to_normal(chr_cache, mat_cache)
 
         if self.param == "BAKE_BUMP_NORMAL":
             mat = utils.context_material(context)

@@ -100,7 +100,7 @@ def find_image_file(base_dir, dirs, mat, texture_type):
 
 
 def is_image_type_srgb(texture_type):
-    if texture_type == "DIFFUSE" or texture_type == "SCLERA":
+    if texture_type == "DIFFUSE" or texture_type == "SCLERA" or texture_type == "EMISSION":
         return True
     return False
 
@@ -119,8 +119,8 @@ def get_image_type_json_id(texture_type):
     return None
 
 
-def search_image_in_material_dirs(chr_cache, cache, mat, texture_type):
-    return find_image_file(chr_cache.import_dir, [cache.dir, chr_cache.import_main_tex_dir], mat, texture_type)
+def search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type):
+    return find_image_file(chr_cache.import_dir, [mat_cache.get_tex_dir(chr_cache), chr_cache.get_tex_dir()], mat, texture_type)
 
 
 def find_material_image(mat, texture_type, tex_json = None):
@@ -128,7 +128,7 @@ def find_material_image(mat, texture_type, tex_json = None):
        appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness
     """
     props = bpy.context.scene.CC3ImportProps
-    cache = props.get_material_cache(mat)
+    mat_cache = props.get_material_cache(mat)
     chr_cache = props.get_character_cache(None, mat)
 
     image_file = None
@@ -137,8 +137,8 @@ def find_material_image(mat, texture_type, tex_json = None):
         color_space = "sRGB"
 
     # temp weight maps in the cache override weight maps on disk
-    if texture_type == "WEIGHTMAP" and cache.temp_weight_map is not None:
-        return cache.temp_weight_map
+    if texture_type == "WEIGHTMAP" and mat_cache.temp_weight_map is not None:
+        return mat_cache.temp_weight_map
 
     # try to find the image in the json data first:
     if tex_json:
@@ -153,11 +153,11 @@ def find_material_image(mat, texture_type, tex_json = None):
 
             # try remapping the image path relative to the local directory
             image_file = utils.local_path(rel_path)
-            if os.path.exists(image_file):
+            if image_file and os.path.exists(image_file):
                 return load_image(image_file, color_space)
 
             # try to find the image in the texture_mappings (all embedded images should be here)
-            for tex_mapping in cache.texture_mappings:
+            for tex_mapping in mat_cache.texture_mappings:
                 if tex_mapping:
                     if texture_type == tex_mapping.texture_type:
                         if tex_mapping.image:
@@ -167,12 +167,12 @@ def find_material_image(mat, texture_type, tex_json = None):
     # with no Json data, try to locate the images in the texture folders:
     else:
 
-        image_file = search_image_in_material_dirs(chr_cache, cache, mat, texture_type)
+        image_file = search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type)
         if image_file:
             return load_image(image_file, color_space)
 
         # then try to find the image in the texture_mappings (all embedded images should be here)
-        for tex_mapping in cache.texture_mappings:
+        for tex_mapping in mat_cache.texture_mappings:
             if tex_mapping:
                 if texture_type == tex_mapping.texture_type:
                     if tex_mapping.image:
@@ -182,29 +182,51 @@ def find_material_image(mat, texture_type, tex_json = None):
         return None
 
 
-def get_material_tex_dir(character_cache, obj, mat):
+def get_material_tex_dir(chr_cache, obj, mat):
+    """Returns the *relative* path to the texture folder for this material.
+    """
+
     props = bpy.context.scene.CC3ImportProps
 
-    if character_cache.import_type == "fbx":
+    if utils.is_file_ext(chr_cache.import_type, "FBX"):
         object_name = utils.strip_name(obj.name)
         mesh_name = utils.strip_name(obj.data.name)
         material_name = utils.strip_name(mat.name)
         # non .fbm textures are stored in two possible locations:
         #    /textures/character_name/object_name/mesh_name/material_name
         # or /textures/character_name/character_name/mesh_name/material_name
-        path_object = os.path.join(character_cache.import_dir, "textures", character_cache.import_name, object_name, mesh_name, material_name)
-        path_character = os.path.join(character_cache.import_dir, "textures", character_cache.import_name, character_cache.import_name, mesh_name, material_name)
+        rel_object = os.path.join("textures", chr_cache.import_name, object_name, mesh_name, material_name)
+        path_object = os.path.join(chr_cache.import_dir, rel_object)
+        rel_character = os.path.join("textures", chr_cache.import_name, chr_cache.import_name, mesh_name, material_name)
+        path_character = os.path.join(chr_cache.import_dir, rel_character)
         if os.path.exists(path_object):
-            return path_object
+            return rel_object
         elif os.path.exists(path_character):
-            return path_character
+            return rel_character
         else:
-            return os.path.join(character_cache.import_dir, character_cache.import_name + ".fbm")
+            return os.path.join(chr_cache.import_name + ".fbm")
 
-    elif character_cache.import_type == "obj":
-        return os.path.join(character_cache.import_dir, character_cache.import_name)
+    elif utils.is_file_ext(chr_cache.import_type, "OBJ"):
+        return chr_cache.import_name
 
 
-def get_material_tex_dirs(character_cache, obj, mat):
-    mat_dir = get_material_tex_dir(character_cache, obj, mat)
-    return [character_cache.import_main_tex_dir, mat_dir]
+def get_material_tex_dirs(chr_cache, obj, mat):
+    mat_dir = os.path.normpath(os.path.join(chr_cache.import_dir, get_material_tex_dir(chr_cache, obj, mat)))
+    return [chr_cache.get_tex_dir(), mat_dir]
+
+
+def find_texture_folder_in_objects(objects):
+    for obj in objects:
+        if obj.type == "MESH":
+            for mat in obj.data.materials:
+                if mat.node_tree:
+                    nodes = mat.node_tree.nodes
+                    for node in nodes:
+                        if node.type == "TEX_IMAGE":
+                            image = node.image
+                            if image.filepath:
+                                file_path = bpy.path.abspath(image.filepath)
+                                folder = os.path.dirname(file_path)
+                                if folder:
+                                    return folder
+    return None

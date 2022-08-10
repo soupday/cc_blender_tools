@@ -42,6 +42,7 @@ if "bpy" in locals():
     importlib.reload(bones)
     importlib.reload(rigify_mapping_data)
     importlib.reload(rigging)
+    importlib.reload(sculpting)
 
 import bpy
 
@@ -71,12 +72,13 @@ from . import geom
 from . import bones
 from . import rigify_mapping_data
 from . import rigging
+from . import sculpting
 
 
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (1, 4, 2),
+    "version": (1, 4, 3),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -134,6 +136,7 @@ classes = (
     properties.CC3OperatorProperties,
     preferences.CC3OperatorPreferences,
     channel_mixer.CC3OperatorChannelMixer,
+    sculpting.CC3OperatorSculpt,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
@@ -144,6 +147,7 @@ classes = (
     panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
     panels.CC3RigifyPanel,
+    panels.CC3ToolsTexturingPanel,
     panels.CC3ToolsScenePanel,
 
     preferences.CC3ToolsAddonPreferences,

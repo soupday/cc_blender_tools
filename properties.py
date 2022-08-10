@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
+from posixpath import isabs
 import bpy, os
 
 from . import channel_mixer, imageutils, meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
@@ -147,28 +148,30 @@ def update_basic_property(self, context, prop_name, update_mode = None):
     utils.log_timer("update_property()", "ms")
 
 
-def get_linked_material_types(cache):
-    if cache:
+def get_linked_material_types(mat_cache):
+    if mat_cache:
         for linked in params.LINKED_MATERIALS:
-            if cache.material_type in linked:
+            if mat_cache.material_type in linked:
                 return linked
     return []
 
 
-def get_paired_material_types(cache):
-    if cache:
+def get_paired_material_types(mat_cache):
+    if mat_cache:
         for paired in params.PAIRED_MATERIALS:
-            if cache.material_type in paired:
+            if mat_cache.material_type in paired:
                 return paired
     return []
 
 
-def set_linked_property(prop_name, active_cache, cache):
+def set_linked_property(prop_name, active_mat_cache, mat_cache):
     vars.block_property_update = True
     code = ""
 
     try:
-        code = "cache.parameters." + prop_name + " = active_cache.parameters." + prop_name
+        parameters = mat_cache.parameters
+        active_parameters = active_mat_cache.parameters
+        code = "parameters." + prop_name + " = active_parameters." + prop_name
         exec(code, None, locals())
     except Exception as e:
         utils.log_error("set_linked_property(): Unable to evaluate: " + code, e)
@@ -501,7 +504,7 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_ear_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_ear_roughness_mod"))
     skin_neck_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_neck_roughness_mod"))
     skin_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                            default=(0, 0, 0, 1.0), min = 0.0, max = 1.0,
+                            default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                             update=lambda s,c: update_property(s,c,"skin_emissive_color"))
     skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_head_shader_skin_micro_normal_tiling)
@@ -540,7 +543,7 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_b_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_b_roughness_mod"))
     skin_a_roughness_mod: bpy.props.FloatProperty(default=0, min=-1.5, max=1.5, update=lambda s,c: update_property(s,c,"skin_a_roughness_mod"))
     skin_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                            default=(0, 0, 0, 1.0), min = 0.0, max = 1.0,
+                            default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                             update=lambda s,c: update_property(s,c,"skin_emissive_color"))
     skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_skin_shader_skin_micro_normal_tiling)
@@ -587,10 +590,10 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
                         default=(1.0, 0.497, 0.445, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_corner_shadow_color"))
     eye_color_blend_strength: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_color_blend_strength"))
     eye_sclera_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0, 0, 0, 1.0), min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_sclera_emissive_color"))
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_sclera_emissive_color"))
     eye_sclera_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_sclera_emission_strength"))
     eye_iris_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0, 0, 0, 1.0), min=0.0, max=1.0, update=lambda s,c: update_property(s,c,"eye_iris_emissive_color"))
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_emissive_color"))
     eye_iris_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_iris_emission_strength"))
     eye_sclera_normal_strength: bpy.props.FloatProperty(default=0.1, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_sclera_normal_strength"))
     eye_sclera_normal_tiling: bpy.props.FloatProperty(default=2.0, min=0, max=10, update=lambda s,c: update_property(s,c,"eye_sclera_normal_tiling"))
@@ -670,7 +673,7 @@ class CC3TeethParameters(bpy.types.PropertyGroup):
     teeth_micro_normal_strength: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_micro_normal_strength"))
     teeth_micro_normal_tiling: bpy.props.FloatProperty(default=10, min=0, max=20, update=lambda s,c: update_property(s,c,"teeth_micro_normal_tiling"))
     teeth_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"teeth_emissive_color"))
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"teeth_emissive_color"))
     teeth_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_emission_strength"))
 
 
@@ -695,7 +698,7 @@ class CC3TongueParameters(bpy.types.PropertyGroup):
     tongue_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_micro_normal_strength"))
     tongue_micro_normal_tiling: bpy.props.FloatProperty(default=4, min=0, max=20, update=lambda s,c: update_property(s,c,"tongue_micro_normal_tiling"))
     tongue_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                        default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"tongue_emissive_color"))
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"tongue_emissive_color"))
     tongue_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_emission_strength"))
 
 
@@ -761,7 +764,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_bump_strength: bpy.props.FloatProperty(default=1, min=-3, max=3, update=lambda s,c: update_property(s,c,"hair_bump_strength"))
     hair_displacement_strength: bpy.props.FloatProperty(default=0, min=-3, max=3, update=lambda s,c: update_property(s,c,"hair_displacement_strength"))
     hair_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                                default=(0, 0, 0, 1.0), min = 0.0, max = 1.0,
+                                default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"hair_emissive_color"))
     hair_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_emission_strength"))
     # not done yet
@@ -784,7 +787,6 @@ class CC3PBRParameters(bpy.types.PropertyGroup):
     default_roughness: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness"))
     default_specular_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_strength"))
     default_specular_scale: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular_scale"))
-    default_specular_map: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_map"))
     default_specular_mask: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_mask"))
     default_roughness_power: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_roughness_power"))
     default_roughness_min: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness_min"))
@@ -796,7 +798,7 @@ class CC3PBRParameters(bpy.types.PropertyGroup):
     default_displacement_strength: bpy.props.FloatProperty(default=1, min=-5, max=5, update=lambda s,c: update_property(s,c,"default_displacement_strength"))
     default_displacement_base: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_displacement_base"))
     default_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                                default=(0, 0, 0, 1.0), min = 0.0, max = 1.0,
+                                default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_emissive_color"))
     default_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_emission_strength"))
 
@@ -817,7 +819,6 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_roughness: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness"))
     default_specular_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_strength"))
     default_specular_scale: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular_scale"))
-    default_specular_map: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_map"))
     default_specular_mask: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"default_specular_mask"))
     default_roughness_power: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_roughness_power"))
     default_roughness_min: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_roughness_min"))
@@ -829,7 +830,7 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_displacement_strength: bpy.props.FloatProperty(default=1, min=-5, max=5, update=lambda s,c: update_property(s,c,"default_displacement_strength"))
     default_displacement_base: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_displacement_base"))
     default_emissive_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-                                default=(0, 0, 0, 1.0), min = 0.0, max = 1.0,
+                                default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_emissive_color"))
     default_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_emission_strength"))
     default_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -914,6 +915,12 @@ class CC3MaterialCache:
         mapping.location = location
         mapping.rotation = rotation
         mapping.scale = scale
+
+    def get_tex_dir(self, chr_cache):
+        if os.path.isabs(self.dir):
+            return os.path.normpath(self.dir)
+        else:
+            return os.path.normpath(os.path.join(chr_cache.import_dir, self.dir))
 
     def get_texture_mapping(self, texture_type):
         for mapping in self.texture_mappings:
@@ -1125,11 +1132,31 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ("PROP","Prop","Non standard character is a Prop"),
                 ], default="HUMANOID", name = "Non-standard Character Type")
 
+    sculpt_target: bpy.props.EnumProperty(items=[
+                        ("HEAD","Head","Sculpt on the head only"),
+                        ("BODY","Body","Sculpt on the body only"),
+                        ("ALL","All","Sculpt the entire body"),
+                    ], default="HEAD", name = "Sculpt Target")
+
+    sculpt_bake_target: bpy.props.EnumProperty(items=[
+                        ("SKINGEN","SkinGen","Bake normals for skin gen"),
+                        ("BLENDNORMAL","Blend Normal","Bake normals for overlay on blend normal map"),
+                        ("NORMAL","Main Normal","Bake normals for overlay on main normal map"),
+                    ], default="SKINGEN", name = "Sculpt Bake Target")
+
+    sculpt_body: bpy.props.PointerProperty(type=bpy.types.Object)
+
+    def get_tex_dir(self):
+        if os.path.isabs(self.import_main_tex_dir):
+            return os.path.normpath(self.import_main_tex_dir)
+        else:
+            return os.path.normpath(os.path.join(self.import_dir, self.import_main_tex_dir))
+
     def check_paths(self):
-        if self.import_file and not os.path.exists(self.import_file):
+        local_dir = utils.local_path()
+        if local_dir and self.import_file and not os.path.exists(self.import_file):
             utils.log_info(f"Import source file no longer exists: {self.import_file}")
             dir, name = os.path.split(self.import_file)
-            local_dir = bpy.path.abspath("//")
             local_file = os.path.join(local_dir, name)
             utils.log_info(f"Looking for moved source file: {local_file}")
             if os.path.exists(local_file):
@@ -1138,7 +1165,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 self.import_file = local_file
                 key_file, key_ext = os.path.splitext(self.import_key_file)
                 self.import_key = os.path.join(local_dir, self.import_name + key_ext)
-                self.import_main_tex_dir = os.path.join(local_dir, self.import_name + ".fbm")
+                self.import_main_tex_dir = self.import_name + ".fbm"
 
     def can_export(self):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -1185,83 +1212,83 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def get_all_materials_cache(self):
         cache_all = []
-        for cache in self.tongue_material_cache:
-            if cache.material:
-                cache_all.append(cache)
-        for cache in self.teeth_material_cache:
-            if cache.material:
-                cache_all.append(cache)
-        for cache in self.head_material_cache:
-            if cache.material:
-                cache_all.append(cache)
-        for cache in self.skin_material_cache:
-            if cache.material:
-                cache_all.append(cache)
-        for cache in self.tearline_material_cache:
-            if cache.material:
-                cache_all.append(cache)
-        for cache in self.eye_occlusion_material_cache:
-            if cache.material:
-                cache_all.append(cache)
-        for cache in self.eye_material_cache:
-            if cache.material:
-                cache_all.append(cache)
-        for cache in self.hair_material_cache:
-            if cache.material:
-                cache_all.append(cache)
-        for cache in self.pbr_material_cache:
-            if cache.material:
-                cache_all.append(cache)
-        for cache in self.sss_material_cache:
-            if cache.material:
-                cache_all.append(cache)
+        for mat_cache in self.tongue_material_cache:
+            if mat_cache.material:
+                cache_all.append(mat_cache)
+        for mat_cache in self.teeth_material_cache:
+            if mat_cache.material:
+                cache_all.append(mat_cache)
+        for mat_cache in self.head_material_cache:
+            if mat_cache.material:
+                cache_all.append(mat_cache)
+        for mat_cache in self.skin_material_cache:
+            if mat_cache.material:
+                cache_all.append(mat_cache)
+        for mat_cache in self.tearline_material_cache:
+            if mat_cache.material:
+                cache_all.append(mat_cache)
+        for mat_cache in self.eye_occlusion_material_cache:
+            if mat_cache.material:
+                cache_all.append(mat_cache)
+        for mat_cache in self.eye_material_cache:
+            if mat_cache.material:
+                cache_all.append(mat_cache)
+        for mat_cache in self.hair_material_cache:
+            if mat_cache.material:
+                cache_all.append(mat_cache)
+        for mat_cache in self.pbr_material_cache:
+            if mat_cache.material:
+                cache_all.append(mat_cache)
+        for mat_cache in self.sss_material_cache:
+            if mat_cache.material:
+                cache_all.append(mat_cache)
         return cache_all
 
     def get_all_materials(self):
         materials = []
-        for cache in self.tongue_material_cache:
-            if cache.material:
-                materials.append(cache.material)
-        for cache in self.teeth_material_cache:
-            if cache.material:
-                materials.append(cache.material)
-        for cache in self.head_material_cache:
-            if cache.material:
-                materials.append(cache.material)
-        for cache in self.skin_material_cache:
-            if cache.material:
-                materials.append(cache.material)
-        for cache in self.tearline_material_cache:
-            if cache.material:
-                materials.append(cache.material)
-        for cache in self.eye_occlusion_material_cache:
-            if cache.material:
-                materials.append(cache.material)
-        for cache in self.eye_material_cache:
-            if cache.material:
-                materials.append(cache.material)
-        for cache in self.hair_material_cache:
-            if cache.material:
-                materials.append(cache.material)
-        for cache in self.pbr_material_cache:
-            if cache.material:
-                materials.append(cache.material)
-        for cache in self.sss_material_cache:
-            if cache.material:
-                materials.append(cache.material)
+        for mat_cache in self.tongue_material_cache:
+            if mat_cache.material:
+                materials.append(mat_cache.material)
+        for mat_cache in self.teeth_material_cache:
+            if mat_cache.material:
+                materials.append(mat_cache.material)
+        for mat_cache in self.head_material_cache:
+            if mat_cache.material:
+                materials.append(mat_cache.material)
+        for mat_cache in self.skin_material_cache:
+            if mat_cache.material:
+                materials.append(mat_cache.material)
+        for mat_cache in self.tearline_material_cache:
+            if mat_cache.material:
+                materials.append(mat_cache.material)
+        for mat_cache in self.eye_occlusion_material_cache:
+            if mat_cache.material:
+                materials.append(mat_cache.material)
+        for mat_cache in self.eye_material_cache:
+            if mat_cache.material:
+                materials.append(mat_cache.material)
+        for mat_cache in self.hair_material_cache:
+            if mat_cache.material:
+                materials.append(mat_cache.material)
+        for mat_cache in self.pbr_material_cache:
+            if mat_cache.material:
+                materials.append(mat_cache.material)
+        for mat_cache in self.sss_material_cache:
+            if mat_cache.material:
+                materials.append(mat_cache.material)
         return materials
 
     def get_all_objects(self, include_armature = True, include_children = False):
         objects = []
         arm = None
-        for cache in self.object_cache:
-            if utils.still_exists(cache.object) and cache.object not in objects:
-                if cache.object.type == "ARMATURE":
-                    arm = cache.object
+        for obj_cache in self.object_cache:
+            if utils.still_exists(obj_cache.object) and obj_cache.object not in objects:
+                if obj_cache.object.type == "ARMATURE":
+                    arm = obj_cache.object
                     if include_armature:
-                        objects.append(cache.object)
+                        objects.append(obj_cache.object)
                 else:
-                    objects.append(cache.object)
+                    objects.append(obj_cache.object)
         if include_children and arm:
             for child in arm.children:
                 if child.type == "MESH" and child not in objects:
@@ -1275,54 +1302,54 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
            Note this will invalidate all current material cache references of the same type!
         """
         if mat:
-            for cache in self.tongue_material_cache:
-                if cache.material == mat:
-                    utils.remove_from_collection(self.tongue_material_cache, cache)
+            for mat_cache in self.tongue_material_cache:
+                if mat_cache.material == mat:
+                    utils.remove_from_collection(self.tongue_material_cache, mat_cache)
                     return
-            for cache in self.teeth_material_cache:
-                if cache.material == mat:
-                    utils.remove_from_collection(self.teeth_material_cache, cache)
+            for mat_cache in self.teeth_material_cache:
+                if mat_cache.material == mat:
+                    utils.remove_from_collection(self.teeth_material_cache, mat_cache)
                     return
-            for cache in self.head_material_cache:
-                if cache.material == mat:
-                    utils.remove_from_collection(self.head_material_cache, cache)
+            for mat_cache in self.head_material_cache:
+                if mat_cache.material == mat:
+                    utils.remove_from_collection(self.head_material_cache, mat_cache)
                     return
-            for cache in self.skin_material_cache:
-                if cache.material == mat:
-                    utils.remove_from_collection(self.skin_material_cache, cache)
+            for mat_cache in self.skin_material_cache:
+                if mat_cache.material == mat:
+                    utils.remove_from_collection(self.skin_material_cache, mat_cache)
                     return
-            for cache in self.tearline_material_cache:
-                if cache.material == mat:
-                    utils.remove_from_collection(self.tearline_material_cache, cache)
+            for mat_cache in self.tearline_material_cache:
+                if mat_cache.material == mat:
+                    utils.remove_from_collection(self.tearline_material_cache, mat_cache)
                     return
-            for cache in self.eye_occlusion_material_cache:
-                if cache.material == mat:
-                    utils.remove_from_collection(self.eye_occlusion_material_cache, cache)
+            for mat_cache in self.eye_occlusion_material_cache:
+                if mat_cache.material == mat:
+                    utils.remove_from_collection(self.eye_occlusion_material_cache, mat_cache)
                     return
-            for cache in self.eye_material_cache:
-                if cache.material == mat:
-                    utils.remove_from_collection(self.eye_material_cache, cache)
+            for mat_cache in self.eye_material_cache:
+                if mat_cache.material == mat:
+                    utils.remove_from_collection(self.eye_material_cache, mat_cache)
                     return
-            for cache in self.hair_material_cache:
-                if cache.material == mat:
-                    utils.remove_from_collection(self.hair_material_cache, cache)
+            for mat_cache in self.hair_material_cache:
+                if mat_cache.material == mat:
+                    utils.remove_from_collection(self.hair_material_cache, mat_cache)
                     return
-            for cache in self.pbr_material_cache:
-                if cache.material == mat:
-                    utils.remove_from_collection(self.pbr_material_cache, cache)
+            for mat_cache in self.pbr_material_cache:
+                if mat_cache.material == mat:
+                    utils.remove_from_collection(self.pbr_material_cache, mat_cache)
                     return
-            for cache in self.sss_material_cache:
-                if cache.material == mat:
-                    utils.remove_from_collection(self.sss_material_cache, cache)
+            for mat_cache in self.sss_material_cache:
+                if mat_cache.material == mat:
+                    utils.remove_from_collection(self.sss_material_cache, mat_cache)
                     return
 
     def get_object_cache(self, obj):
         """Returns the object cache for this object.
         """
         if obj:
-            for cache in self.object_cache:
-                if cache.object == obj:
-                    return cache
+            for obj_cache in self.object_cache:
+                if obj_cache.object == obj:
+                    return obj_cache
         return None
 
     def remove_object_cache(self, obj):
@@ -1331,24 +1358,24 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
            Note this will invalidate all current object cache references!
         """
         if obj:
-            for cache in self.object_cache:
-                if cache.object == obj:
-                    utils.remove_from_collection(self.object_cache, cache)
+            for obj_cache in self.object_cache:
+                if obj_cache.object == obj:
+                    utils.remove_from_collection(self.object_cache, obj_cache)
                     return
 
     def has_objects(self, objects):
         """Returns True if any of the objects are in the object cache.
         """
-        for cache in self.object_cache:
-            if cache.object in objects:
+        for obj_cache in self.object_cache:
+            if obj_cache.object in objects:
                 return True
         return False
 
     def has_object(self, obj):
         """Returns True if any of the objects are in the object cache.
         """
-        for cache in self.object_cache:
-            if cache.object == obj:
+        for obj_cache in self.object_cache:
+            if obj_cache.object == obj:
                 return True
         return False
 
@@ -1386,13 +1413,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         Fetches or creates an object cache for the object. Always returns an object cache collection.
         """
 
-        cache = self.get_object_cache(obj)
-        if cache is None:
+        obj_cache = self.get_object_cache(obj)
+        if obj_cache is None:
             utils.log_info(f"Creating Object Cache for: {obj.name}")
-            cache = self.object_cache.add()
-            cache.object = obj
-            cache.source_name = utils.strip_name(obj.name)
-        return cache
+            obj_cache = self.object_cache.add()
+            obj_cache.object = obj
+            obj_cache.source_name = utils.strip_name(obj.name)
+        return obj_cache
 
 
     def has_material(self, mat):
@@ -1413,36 +1440,36 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         """
 
         if mat is not None:
-            for cache in self.eye_material_cache:
-                if cache.material == mat:
-                    return cache
-            for cache in self.hair_material_cache:
-                if cache.material == mat:
-                    return cache
-            for cache in self.head_material_cache:
-                if cache.material == mat:
-                    return cache
-            for cache in self.skin_material_cache:
-                if cache.material == mat:
-                    return cache
-            for cache in self.tongue_material_cache:
-                if cache.material == mat:
-                    return cache
-            for cache in self.teeth_material_cache:
-                if cache.material == mat:
-                    return cache
-            for cache in self.tearline_material_cache:
-                if cache.material == mat:
-                    return cache
-            for cache in self.eye_occlusion_material_cache:
-                if cache.material == mat:
-                    return cache
-            for cache in self.pbr_material_cache:
-                if cache.material == mat:
-                    return cache
-            for cache in self.sss_material_cache:
-                if cache.material == mat:
-                    return cache
+            for mat_cache in self.eye_material_cache:
+                if mat_cache.material == mat:
+                    return mat_cache
+            for mat_cache in self.hair_material_cache:
+                if mat_cache.material == mat:
+                    return mat_cache
+            for mat_cache in self.head_material_cache:
+                if mat_cache.material == mat:
+                    return mat_cache
+            for mat_cache in self.skin_material_cache:
+                if mat_cache.material == mat:
+                    return mat_cache
+            for mat_cache in self.tongue_material_cache:
+                if mat_cache.material == mat:
+                    return mat_cache
+            for mat_cache in self.teeth_material_cache:
+                if mat_cache.material == mat:
+                    return mat_cache
+            for mat_cache in self.tearline_material_cache:
+                if mat_cache.material == mat:
+                    return mat_cache
+            for mat_cache in self.eye_occlusion_material_cache:
+                if mat_cache.material == mat:
+                    return mat_cache
+            for mat_cache in self.pbr_material_cache:
+                if mat_cache.material == mat:
+                    return mat_cache
+            for mat_cache in self.sss_material_cache:
+                if mat_cache.material == mat:
+                    return mat_cache
         return None
 
 
@@ -1460,38 +1487,38 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         Fetches the material cache for the material. Returns None if the material is not in the cache.
         """
 
-        cache = self.get_material_cache(mat)
-        if cache is None and mat:
+        mat_cache = self.get_material_cache(mat)
+        if mat_cache is None and mat:
             utils.log_info(f"Creating Material Cache for: {mat.name} (type = {create_type})")
             if create_type == "DEFAULT" or create_type == "SCALP" or create_type == "EYELASH":
-                cache = self.add_or_reuse_material_cache(self.pbr_material_cache)
+                mat_cache = self.add_or_reuse_material_cache(self.pbr_material_cache)
             elif create_type == "SSS":
-                cache = self.add_or_reuse_material_cache(self.sss_material_cache)
+                mat_cache = self.add_or_reuse_material_cache(self.sss_material_cache)
             elif create_type == "SKIN_HEAD":
-                cache = self.add_or_reuse_material_cache(self.head_material_cache)
+                mat_cache = self.add_or_reuse_material_cache(self.head_material_cache)
             elif (create_type == "SKIN_BODY" or create_type == "SKIN_ARM"
             or create_type == "SKIN_LEG" or create_type == "NAILS"):
-                cache = self.add_or_reuse_material_cache(self.skin_material_cache)
+                mat_cache = self.add_or_reuse_material_cache(self.skin_material_cache)
             elif create_type == "TEETH_UPPER" or create_type == "TEETH_LOWER":
-                cache = self.add_or_reuse_material_cache(self.teeth_material_cache)
+                mat_cache = self.add_or_reuse_material_cache(self.teeth_material_cache)
             elif create_type == "TONGUE":
-                cache = self.add_or_reuse_material_cache(self.tongue_material_cache)
+                mat_cache = self.add_or_reuse_material_cache(self.tongue_material_cache)
             elif create_type == "HAIR":
-                cache = self.add_or_reuse_material_cache(self.hair_material_cache)
+                mat_cache = self.add_or_reuse_material_cache(self.hair_material_cache)
             elif (create_type == "CORNEA_RIGHT" or create_type == "CORNEA_LEFT"
             or create_type == "EYE_RIGHT" or create_type == "EYE_LEFT"):
-                cache = self.add_or_reuse_material_cache(self.eye_material_cache)
+                mat_cache = self.add_or_reuse_material_cache(self.eye_material_cache)
             elif create_type == "OCCLUSION_RIGHT" or create_type == "OCCLUSION_LEFT":
-                cache = self.add_or_reuse_material_cache(self.eye_occlusion_material_cache)
+                mat_cache = self.add_or_reuse_material_cache(self.eye_occlusion_material_cache)
             elif create_type == "TEARLINE_RIGHT" or create_type == "TEARLINE_LEFT":
-                cache = self.add_or_reuse_material_cache(self.tearline_material_cache)
+                mat_cache = self.add_or_reuse_material_cache(self.tearline_material_cache)
             else:
-                cache = self.pbr_material_cache.add()
+                mat_cache = self.pbr_material_cache.add()
                 create_type = "DEFAULT"
-            cache.material = mat
-            cache.source_name = utils.strip_name(mat.name)
-            cache.material_type = create_type
-        return cache
+            mat_cache.material = mat
+            mat_cache.source_name = utils.strip_name(mat.name)
+            mat_cache.material_type = create_type
+        return mat_cache
 
     def get_json_data(self):
         json_data = jsonutils.read_json(self.import_file)
@@ -1504,7 +1531,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.character_id = name
         self.import_file = filepath
         self.import_dir = dir
-        self.import_main_tex_dir = os.path.join(dir, name + ".fbm")
+        self.import_main_tex_dir = name + ".fbm"
 
     def get_character_json(self):
         json_data = self.get_json_data()
@@ -1551,6 +1578,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.check_type(self.hair_material_cache, recast, chr_json, "HAIR")
         self.check_type(self.pbr_material_cache, recast, chr_json, "DEFAULT", "SCALP", "EYELASH")
         self.check_type(self.sss_material_cache, recast, chr_json, "SSS")
+
+    def get_sculpt_body(self):
+        if utils.object_exists_is_mesh(self.sculpt_body):
+            return self.sculpt_body
+        else:
+            return None
+
 
 
 class CC3ImportProps(bpy.types.PropertyGroup):
@@ -1700,9 +1734,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     def is_unity_project(self):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        if prefs.export_unity_mode == "BLEND" and self.unity_file_path and self.unity_project_path:
-            if utils.is_in_path(self.unity_project_path, utils.local_path()):
-                return True
+        local_path = utils.local_path()
+        if local_path:
+            if prefs.export_unity_mode == "BLEND" and self.unity_file_path and self.unity_project_path:
+                if utils.is_in_path(self.unity_project_path, local_path):
+                    return True
         return False
 
     def restore_ui_list_indices(self):

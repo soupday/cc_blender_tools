@@ -68,11 +68,12 @@ def get_layout_width(region_type = "UI"):
     return width
 
 
-def wrapped_text_box(layout, info_text, width):
+def wrapped_text_box(layout, info_text, width, alert = False):
     wrapper = textwrap.TextWrapper(width=width)
     info_list = wrapper.wrap(info_text)
 
     box = layout.box()
+    box.alert = alert
     for text in info_list:
         box.label(text=text)
 
@@ -425,8 +426,11 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
             row.enabled = False
 
         row = column.row()
-        row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
-        if chr_cache or not chr_rig:
+        if chr_rig:
+            row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
+        else:
+            row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
+        if chr_cache or not bpy.context.selected_objects:
             row.enabled = False
 
         # Checking
@@ -561,6 +565,10 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                             prop = ui_row[2]
                             is_slider = ui_row[3]
                             conditions = ui_row[4:]
+                            alert = False
+                            if len(label) > 0 and label.startswith("*"):
+                                alert = True
+                                label = label[1:]
 
                             if shader:
                                 for condition in conditions:
@@ -584,7 +592,9 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                     col_1 = row.column()
                                     col_2 = row.column()
                                     split = True
+                                col_1.alert = alert
                                 col_1.label(text=label)
+                                #col_2.alert = alert
                                 col_2.prop(parameters, prop, text="", slider=is_slider)
 
                         elif ui_row[0] == "OP":
@@ -830,7 +840,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         column = layout.column()
         if not chr_cache:
             column.enabled = False
-        if chr_cache and chr_cache.import_type == "fbx":
+        if chr_cache and utils.is_file_ext(chr_cache.import_type, "FBX"):
             split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
@@ -1113,10 +1123,10 @@ class CC3RigifyPanel(bpy.types.Panel):
                             row3.enabled = False
 
             else:
-                wrapped_text_box(layout, "No current character!", width)
+                wrapped_text_box(layout, "No current character!", width, True)
 
         else:
-            wrapped_text_box(layout, "Rigify add-on is not installed.", width)
+            wrapped_text_box(layout, "Rigify add-on is not installed.", width, True)
 
 
 class CC3ToolsScenePanel(bpy.types.Panel):
@@ -1414,6 +1424,49 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             op.param = "PHYSICS_DELETE"
 
 
+class CC3ToolsTexturingPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Texturing_Panel"
+    bl_label = "Sculpting / Texturing"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        layout = self.layout
+        chr_cache = props.get_context_character_cache(context)
+
+        sculpt_body = None
+        sculpt_label = "Setup Sculpt"
+        if chr_cache:
+            sculpt_body = chr_cache.get_sculpt_body()
+            if sculpt_body and prefs.sculpt_target != chr_cache.sculpt_target:
+                sculpt_label = "Replace Sculpt"
+
+        layout.box().label(text = "Body Sculpting", icon = "OUTLINER_OB_ARMATURE")
+        column = layout.column()
+        if not chr_cache:
+            column.enabled = False
+        column.row().prop(prefs, "sculpt_target", expand=True)
+        column.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text=sculpt_label).param = "SETUP"
+        column.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Begin").param = "BEGIN"
+        column.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="End").param = "END"
+        column.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Clean").param = "CLEAN"
+        row = column.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text = "Bake Size")
+        col_2.prop(prefs, "normal_bake_size", text = "")
+        column.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "BAKE"
+        column.row().prop(prefs, "sculpt_bake_target", expand=True)
+
+
+
+
+
 class CC3ToolsPipelinePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Pipeline_Panel"
     bl_label = "Import / Export"
@@ -1480,16 +1533,16 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         if chr_cache:
             row = layout.row()
             row.scale_y = 2
-            if chr_cache and chr_cache.import_type == "obj":
+            if chr_cache and utils.is_file_ext(chr_cache.import_type, "OBJ"):
                 text = "Export Morph Target"
                 icon = "ARROW_LEFTRIGHT"
             op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
             if not chr_cache.can_export():
                 row.enabled = False
                 if not chr_cache.import_has_key:
-                    if chr_cache.import_type == "fbx":
+                    if utils.is_file_ext(chr_cache.import_type, "FBX"):
                         layout.row().label(text="No Fbx-Key file!", icon="ERROR")
-                    elif chr_cache.import_type == "obj":
+                    elif utils.is_file_ext(chr_cache.import_type, "OBJ"):
                         layout.row().label(text="No Obj-Key file!", icon="ERROR")
 
         elif chr_rig:
@@ -1504,7 +1557,9 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             row.scale_y = 2
             row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
             row.enabled = False
-            layout.row().label(text="No current character!", icon="ERROR")
+            row = layout.row()
+            row.alert = True
+            row.label(text="No current character!", icon="ERROR")
 
         layout.separator()
 
@@ -1522,7 +1577,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         row = column.row()
         row.prop(prefs, "export_unity_mode", expand=True)
         # disable if no character, not an fbx import or is rigified
-        if not chr_cache or chr_cache.import_type != "fbx" or chr_cache.rigified:
+        if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
             column.enabled = False
 
         # export prefs

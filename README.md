@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 1.4.3
+- Export bake maps now correctly sets bit depth and no alpha channel. Opacity texture bakes should work now.
+- Convert generic character from objects added.
+
 ### 1.4.2
 - Separate Iris & Sclera emission colors for parallax eye shader.
 - Displacement calculation reworked as it behaves differently in Blender 3.2.1 (was causing triangulation artifacts)

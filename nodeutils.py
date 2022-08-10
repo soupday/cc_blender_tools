@@ -627,10 +627,12 @@ def append_node_group(path, object_name):
 
 
 def fetch_node_group(name):
+    paths = []
+    local_path = utils.local_path()
+    if local_path:
+        paths.append(local_path)
+    paths.append(os.path.dirname(os.path.realpath(__file__)))
 
-    paths = [bpy.path.abspath("//"),
-             os.path.dirname(os.path.realpath(__file__)),
-             ]
     for path in paths:
         utils.log_info("Trying to append: " + path + " > " + name)
         if os.path.exists(path):
@@ -659,10 +661,12 @@ def append_lib_image(path, object_name):
 
 
 def fetch_lib_image(name):
+    paths = []
+    local_path = utils.local_path()
+    if local_path:
+        paths.append(local_path)
+    paths.append(os.path.dirname(os.path.realpath(__file__)))
 
-    paths = [bpy.path.abspath("//"),
-             os.path.dirname(os.path.realpath(__file__)),
-             ]
     for path in paths:
         utils.log_info("Trying to append image: " + path + " > " + name)
         if os.path.exists(path):

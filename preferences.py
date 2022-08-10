@@ -185,6 +185,19 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("SSR","SSR Eye","Screen Space Refraction with a transmissive & transparent cornea material over an opaque eye (iris) material. SSR Materials do not receive full shadows and cannot have Subsurface scattering in Eevee."),
                     ], default="SSR", name = "Refractive Eyes")
 
+    sculpt_target: bpy.props.EnumProperty(items=[
+                        ("HEAD","Head","Sculpt on the head only"),
+                        ("BODY","Body","Sculpt on the body only"),
+                        ("ALL","All","Sculpt the entire body"),
+                    ], default="HEAD", name = "Sculpt Target")
+
+    sculpt_bake_target: bpy.props.EnumProperty(items=[
+                        ("BLENDNORMAL","Blend Normal","Bake normals for overlay on blend normal map"),
+                        ("NORMAL","Main Normal","Bake normals for overlay on main normal map"),
+                    ], default="NORMAL", name = "Sculpt Bake Target")
+
+    normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Resolution of sculpt normals to bake")
+
     #refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
 

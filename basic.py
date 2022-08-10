@@ -396,7 +396,7 @@ def find_material_image_basic(mat, tex_type, mat_json):
     return imageutils.find_material_image(mat, tex_type, tex_json)
 
 
-def update_basic_material(mat, cache, prop):
+def update_basic_material(mat, mat_cache, prop):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_character_cache(None, mat)
     parameters = chr_cache.basic_parameters

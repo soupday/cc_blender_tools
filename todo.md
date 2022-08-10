@@ -20,3 +20,17 @@
 - eye/cornea shader iris emmission
 - PBR shader color tint
 - texture matching / reduction
+
+To Test:
+bake textures, normals, flow maps
+basic materials
+clean up character data
+convert generic to non standard
+convert genertic materials to rl pbr
+
+standard exports (all, json updates, textures remap and copy, physics weightmaps and data)
+non standard exports (not converted)
+exports to unity blend and fbx
+
+
+imports textures, detecting materials by name, from json, tex_dirs...

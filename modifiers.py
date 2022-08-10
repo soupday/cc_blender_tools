@@ -316,6 +316,18 @@ def add_decimate_modifier(obj, ratio):
     return mod
 
 
+def add_multi_res_modifier(obj, subdivisions):
+    if utils.set_active_object(obj):
+        mod : bpy.types.MultiresModifier
+        mod = get_object_modifier(obj, "MULTIRES", "Multi_Res_Sculpt")
+        if not mod:
+            mod = obj.modifiers.new(utils.unique_name("Multi_Res_Sculpt"), "MULTIRES")
+        if mod:
+            for i in range(0, subdivisions):
+                bpy.ops.object.multires_subdivide(modifier=mod.name, mode='CATMULL_CLARK')
+    return mod
+
+
 def has_modifier(obj, modifier_type):
     if obj is not None:
         for mod in obj.modifiers:

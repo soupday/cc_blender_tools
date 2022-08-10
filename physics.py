@@ -33,8 +33,8 @@ def apply_cloth_settings(obj, cloth_type):
     mod = modifiers.get_cloth_physics_mod(obj)
     if mod is None:
         return
-    cache = props.get_object_cache(obj)
-    cache.cloth_settings = cloth_type
+    obj_cache = props.get_object_cache(obj)
+    obj_cache.cloth_settings = cloth_type
 
     utils.log_info("Setting " + obj.name + " cloth settings to: " + cloth_type)
     mod.settings.vertex_group_mass = prefs.physics_group + "_Pin"
@@ -400,17 +400,17 @@ def get_weight_map_image(chr_cache, obj, mat, create = False):
     weight_map = imageutils.find_material_image(mat, "WEIGHTMAP")
 
     if weight_map is None and create:
-        cache = props.get_material_cache(mat)
+        mat_cache = props.get_material_cache(mat)
         name = utils.strip_name(mat.name) + "_WeightMap"
         tex_size = int(props.physics_tex_size)
         weight_map = bpy.data.images.new(name, tex_size, tex_size, is_data=True)
         # make the image 'dirty' so it converts to a file based image which can be saved:
         weight_map.pixels[0] = 0.0
         weight_map.file_format = "PNG"
-        weight_map.filepath_raw = os.path.join(cache.dir, name + ".png")
+        weight_map.filepath_raw = os.path.join(mat_cache.get_tex_dir(chr_cache), name + ".png")
         weight_map.save()
         # keep track of which weight maps we created:
-        cache.temp_weight_map = weight_map
+        mat_cache.temp_weight_map = weight_map
         utils.log_info("Weight-map image: " + weight_map.name + " created and saved.")
 
     return weight_map
@@ -468,8 +468,8 @@ def enable_material_weight_map(chr_cache, obj, mat):
 def disable_material_weight_map(chr_cache, obj, mat):
     """Disables the weight map for the object's material and removes the Vertex Weight Edit modifier.
     """
-    cache = chr_cache.get_material_cache(mat)
-    cache.cloth_physics = "OFF"
+    mat_cache = chr_cache.get_material_cache(mat)
+    mat_cache.cloth_physics = "OFF"
     remove_material_weight_maps(obj, mat)
     pass
 
