@@ -168,8 +168,11 @@ def convert_generic_to_non_standard(objects):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     # select all child objects of the current selected objects (Humanoid)
+    utils.try_select_objects(objects, True)
     for obj in objects:
         utils.try_select_child_objects(obj)
+
+    objects = bpy.context.selected_objects
 
     # try to find a character armature
     chr_rig = utils.get_generic_character_rig(objects)

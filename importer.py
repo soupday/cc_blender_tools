@@ -615,7 +615,7 @@ class CC3Import(bpy.types.Operator):
             # invoke the obj importer
             utils.tag_objects()
             utils.tag_images()
-            if self.param == "IMPORT_MORPH":
+            if self.is_rl_character and self.param == "IMPORT_MORPH":
                 bpy.ops.import_scene.obj(filepath = self.filepath, split_mode = "OFF",
                         use_split_objects = False, use_split_groups = False,
                         use_groups_as_vgroups = True)
@@ -628,7 +628,10 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            self.imported_character = detect_character(self.filepath, imported, actions, json_data, warn)
+            if self.is_rl_character:
+                self.imported_character = detect_character(self.filepath, imported, actions, json_data, warn)
+            else:
+                self.import_characterer = characters.convert_generic_to_non_standard(imported)
 
             #if self.param == "IMPORT_MORPH":
             #    if self.imported_character.get_tex_dir() != "":
