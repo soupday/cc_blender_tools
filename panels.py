@@ -534,6 +534,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
             row.prop(props, "update_mode", expand=True)
 
             linked = props.update_mode == "UPDATE_LINKED"
+            has_key = chr_cache.import_has_key
 
             if chr_cache.setup_mode == "ADVANCED":
 
@@ -567,7 +568,8 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                             conditions = ui_row[4:]
                             alert = False
                             if len(label) > 0 and label.startswith("*"):
-                                alert = True
+                                if has_key:
+                                    alert = True
                                 label = label[1:]
 
                             if shader:

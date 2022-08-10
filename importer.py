@@ -18,7 +18,7 @@ import os
 import shutil
 import bpy
 
-from . import (imageutils, jsonutils, materials, modifiers, nodeutils, physics,
+from . import (characters, imageutils, jsonutils, materials, modifiers, nodeutils, physics,
                scene, channel_mixer, shaders, basic, properties, utils, vars)
 
 debug_counter = 0
@@ -646,6 +646,8 @@ class CC3Import(bpy.types.Operator):
             imported = utils.untagged_objects()
             self.imported_images = utils.untagged_images()
 
+            self.imported_character = characters.convert_generic_to_non_standard(imported)
+
             utils.log_timer("Done .GLTF Import.")
 
         elif utils.is_file_ext(ext, "VRM"):
@@ -672,6 +674,8 @@ class CC3Import(bpy.types.Operator):
                 utils.try_select_objects(imported)
 
             os.remove(glb_path)
+
+            self.imported_character = characters.convert_generic_to_non_standard(imported)
 
             utils.log_timer("Done .vrm Import.")
 
@@ -799,22 +803,24 @@ class CC3Import(bpy.types.Operator):
 
         if chr_cache:
 
-            # for any objects with shape keys expand the slider range to -1.0 <> 1.0
-            # Character Creator and iClone both use negative ranges extensively.
-            for obj_cache in chr_cache.object_cache:
-                init_shape_key_range(obj_cache.object)
+            if self.is_rl_character:
 
-            if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-                # for any objects with shape keys select basis and enable show in edit mode
+                # for any objects with shape keys expand the slider range to -1.0 <> 1.0
+                # Character Creator and iClone both use negative ranges extensively.
                 for obj_cache in chr_cache.object_cache:
-                    apply_edit_shapekeys(obj_cache.object)
+                    init_shape_key_range(obj_cache.object)
 
-            if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-                if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
-                    if utils.is_file_ext(chr_cache.import_type, "FBX"):
-                        scene.setup_scene_default(prefs.pipeline_lighting)
-                    else:
-                        scene.setup_scene_default(prefs.morph_lighting)
+                if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
+                    # for any objects with shape keys select basis and enable show in edit mode
+                    for obj_cache in chr_cache.object_cache:
+                        apply_edit_shapekeys(obj_cache.object)
+
+                if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
+                    if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
+                        if utils.is_file_ext(chr_cache.import_type, "FBX"):
+                            scene.setup_scene_default(prefs.pipeline_lighting)
+                        else:
+                            scene.setup_scene_default(prefs.morph_lighting)
 
             # use portrait lighting for quality mode
             if self.param == "IMPORT_QUALITY":
@@ -843,6 +849,8 @@ class CC3Import(bpy.types.Operator):
                         bpy.data.images.remove(img)
             utils.clean_collection(bpy.data.images)
 
+            props.lighting_mode = "OFF"
+
         self.imported_character = None
         self.imported_materials = []
         self.imported_images = []
@@ -863,10 +871,10 @@ class CC3Import(bpy.types.Operator):
             if not self.imported:
                 self.running = True
                 self.run_import(context)
-                if not self.is_rl_character:
-                    self.cancel(context)
-                    self.report({'INFO'}, "None Standard Character Done!")
-                    return {'FINISHED'}
+                #if not self.is_rl_character:
+                #    self.cancel(context)
+                #    self.report({'INFO'}, "None Standard Character Done!")
+                #    return {'FINISHED'}
                 self.clock = 0
                 self.running = False
             elif not self.built:

@@ -168,6 +168,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
     if not chr_cache or not json_data:
         return None
 
+    mats_processed = {}
+
     # old path might be blank, so try to use blend file path or export target path
     base_path = old_path
     if not base_path:
@@ -307,6 +309,11 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             mat_cache = chr_cache.get_material_cache(mat)
             source_changed = False
             new_material = False
+
+            if mat.name not in mats_processed.keys():
+                mats_processed[mat.name] = { "processed": False }
+            mat_data = mats_processed[mat.name]
+
             if mat_cache:
                 mat_expected_source_name = (safe_export_name(utils.strip_name(mat_name))
                                             if revert_duplicates else
@@ -375,14 +382,14 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             if mat_cache:
                 # update the json parameters with any changes
                 if write_textures:
-                    write_back_textures(mat_json, mat, mat_cache, base_path, old_name, bake_values)
+                    write_back_textures(mat_json, mat, mat_cache, base_path, old_name, bake_values, mat_data)
                 if write_json:
                     write_back_json(mat_json, mat, mat_cache)
                 if write_physics_json:
                     # there isn't a meaningful way to convert between Blender physics and RL PhysX
                     pass
                 if write_physics_textures:
-                    write_back_physics_weightmap(physics_mat_json, obj, mat, mat_cache, base_path, old_name)
+                    write_back_physics_weightmap(physics_mat_json, obj, mat, mat_cache, base_path, old_name, mat_data)
                 if revert_duplicates:
                     # replace duplicate materials with a reference to a single source material
                     # (this is to ensure there are no duplicate suffixes in the fbx export)
@@ -420,6 +427,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         remap_texture_path(mat_json["Custom Shader"]["Image"][channel], "Texture Path", old_path, new_path)
                 if physics_mat_json:
                     remap_texture_path(physics_mat_json, "Weight Map Path", old_path, new_path)
+
+            mat_data["processed"] = True
 
     if apply_fixes and prefs.export_bone_roll_fix:
         if obj.type == "ARMATURE":
@@ -597,7 +606,7 @@ def write_back_json(mat_json, mat, mat_cache):
                 jsonutils.set_material_json_var(mat_json, json_var, json_value)
 
 
-def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, bake_values):
+def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, bake_values, mat_data):
     global UNPACK_INDEX
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -693,36 +702,42 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
                 if tex_info:
 
+                    processed_image = None
+                    if tex_type in mat_data.keys():
+                        processed_image = mat_data[tex_type]
+                        utils.log_info(f"Resusing already processed material image: {processed_image.name}")
+
                     if tex_node or bake_shader_output:
 
                         image : bpy.types.Image = None
-                        baked = False
 
-                        if bake_shader_output:
-                            image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, bake_shader_size)
-                            baked = True
+                        # re-use the already processed image if available
+                        if processed_image:
+                            image = processed_image
 
-                        elif tex_node and tex_node.type == "TEX_IMAGE":
-                            if prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
-                                image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
-                                baked = True
-                            else:
-                                image = tex_node.image
-                                baked = False
+                        else:
+                            if bake_shader_output:
+                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, bake_shader_size)
 
-                        elif prefs.export_bake_nodes:
-                            # if something is connected to the shader socket but is not a texture image
-                            # and baking is enabled: then bake the socket input into a texture for exporting:
-                            if tex_type == "NORMAL" and bump_combining:
-                                image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
-                                baked = True
-                            else:
-                                image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
-                                baked = True
+                            elif tex_node and tex_node.type == "TEX_IMAGE":
+                                if prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
+                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
+                                else:
+                                    image = tex_node.image
+
+                            elif prefs.export_bake_nodes:
+                                # if something is connected to the shader socket but is not a texture image
+                                # and baking is enabled: then bake the socket input into a texture for exporting:
+                                if tex_type == "NORMAL" and bump_combining:
+                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
+                                else:
+                                    image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
                         tex_info["Texture Path"] = ""
 
                         if image:
+
+                            mat_data[tex_type] = image
 
                             try_unpack_image(image, unpack_path, True)
 
@@ -734,7 +749,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                     utils.log_info(f"{mat.name}/{tex_id}: Using texture path: {abs_image_path}")
 
 
-def write_back_physics_weightmap(physics_mat_json : dict, obj, mat, mat_cache, base_path, old_name):
+def write_back_physics_weightmap(physics_mat_json : dict, obj, mat, mat_cache, base_path, old_name, mat_data):
     global UNPACK_INDEX
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -747,6 +762,9 @@ def write_back_physics_weightmap(physics_mat_json : dict, obj, mat, mat_cache, b
     image = physics.get_weight_map_from_modifiers(obj, mat)
 
     if image:
+
+        mat_data["WEIGHTMAP"] = image
+
         try_unpack_image(image, unpack_path, True)
 
         if image.filepath:

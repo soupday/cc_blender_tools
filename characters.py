@@ -163,21 +163,37 @@ def create_prop_rig(objects):
     return arm
 
 
-def convert_generic_to_non_standard(arm, chr_type):
+def convert_generic_to_non_standard(objects):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-    objects = get_character_objects(arm)
+    # select all child objects of the current selected objects (Humanoid)
+    for obj in objects:
+        utils.try_select_child_objects(obj)
+
+    # try to find a character armature
+    chr_rig = utils.get_generic_character_rig(objects)
+    chr_type = "HUMANOID"
+
+    # if not generate one from the objects and empty parent transforms (Prop Only)
+    if not chr_rig:
+        chr_rig = create_prop_rig(objects)
+        chr_type = "PROP"
+
+    if not chr_rig:
+        return None
+
+    # now treat the armature as any generic character
+    objects = get_character_objects(chr_rig)
 
     utils.log_info("")
     utils.log_info("Detecting Generic Character:")
     utils.log_info("----------------------------")
 
     ext = ".fbx"
-    full_name = arm.name
+    full_name = chr_rig.name
     name = utils.strip_name(full_name)
 
-    chr_json = None
     chr_cache = props.import_cache.add()
     chr_cache.import_file = ""
     chr_cache.import_type = ext[1:]
@@ -194,12 +210,14 @@ def convert_generic_to_non_standard(arm, chr_type):
     chr_cache.generation = "NonStandardGeneric"
     chr_cache.non_standard_type = chr_type
 
-    chr_cache.add_object_cache(arm)
+    chr_cache.add_object_cache(chr_rig)
 
     # add child objects to object_cache
     for obj in objects:
         if utils.object_exists_is_mesh(obj):
             add_object_to_character(chr_cache, obj, reparent=False)
+
+    return chr_cache
 
 
 def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
@@ -724,12 +742,12 @@ class CC3OperatorCharacter(bpy.types.Operator):
 
         elif self.param == "TRANSFER_WEIGHTS":
             chr_cache = props.get_context_character_cache(context)
-            objects = bpy.context.selected_objects
+            objects = bpy.context.selected_objects.copy()
             transfer_skin_weights(chr_cache, objects)
 
         elif self.param == "NORMALIZE_WEIGHTS":
             chr_cache = props.get_context_character_cache(context)
-            objects = bpy.context.selected_objects
+            objects = bpy.context.selected_objects.copy()
             normalize_skin_weights(chr_cache, objects)
 
         elif self.param == "CONVERT_TO_NON_STANDARD":
@@ -738,16 +756,8 @@ class CC3OperatorCharacter(bpy.types.Operator):
             self.report({'INFO'}, message="Convert to Non-standard complete!")
 
         elif self.param == "CONVERT_FROM_GENERIC":
-            for obj in context.selected_objects:
-                utils.try_select_child_objects(obj)
             objects = context.selected_objects.copy()
-            chr_rig = utils.get_generic_character_rig(objects)
-            chr_type = "HUMANOID"
-            if not chr_rig:
-                chr_rig = create_prop_rig(objects)
-                chr_type = "PROP"
-            if chr_rig:
-                convert_generic_to_non_standard(chr_rig, chr_type)
+            if convert_generic_to_non_standard(objects):
                 self.report({'INFO'}, message="Generic character converted to Non-Standard!")
             else:
                 self.report({'ERROR'}, message="Invalid generic character selection!")
