@@ -472,7 +472,7 @@ def set_shader_input_props(shader_def, mat_cache, socket, value):
                 vars.block_property_update = False
 
 
-def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name, mat_json, obj):
+def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name, mat_json, obj, processed_images):
     shader_def = params.get_shader_def(shader_name)
     location = shader_node.location
     x = location[0] - 600
@@ -501,7 +501,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                     if image_node and image_node.image and mat_cache.user_added:
                         image = image_node.image
                     else:
-                        image = imageutils.find_material_image(mat, tex_type, tex_json)
+                        image = imageutils.find_material_image(mat, tex_type, processed_images, tex_json)
 
                     if image_node and image_node.image and image:
                         if image != image_node.image:
@@ -572,7 +572,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
     return
 
 
-def connect_tearline_shader(obj, mat, mat_json):
+def connect_tearline_shader(obj, mat, mat_json, processed_images):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
@@ -598,7 +598,7 @@ def connect_tearline_shader(obj, mat, mat_json):
     mat.shadow_method = "NONE"
 
 
-def connect_eye_occlusion_shader(obj, mat, mat_json):
+def connect_eye_occlusion_shader(obj, mat, mat_json, processed_images):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
@@ -624,7 +624,7 @@ def connect_eye_occlusion_shader(obj, mat, mat_json):
     mat.shadow_method = "NONE"
 
 
-def connect_skin_shader(obj, mat, mat_json):
+def connect_skin_shader(obj, mat, mat_json, processed_images):
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
@@ -655,7 +655,7 @@ def connect_skin_shader(obj, mat, mat_json):
 
     # use shader_group here instead of shader_name
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
+    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
     nodeutils.clean_unused_image_nodes(nodes)
 
@@ -665,7 +665,7 @@ def connect_skin_shader(obj, mat, mat_json):
     mat.use_sss_translucency = True
 
 
-def connect_tongue_shader(obj, mat, mat_json):
+def connect_tongue_shader(obj, mat, mat_json, processed_images):
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
@@ -680,7 +680,7 @@ def connect_tongue_shader(obj, mat, mat_json):
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
+    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
     nodeutils.clean_unused_image_nodes(nodes)
 
@@ -690,7 +690,7 @@ def connect_tongue_shader(obj, mat, mat_json):
     mat.use_sss_translucency = True
 
 
-def connect_teeth_shader(obj, mat, mat_json):
+def connect_teeth_shader(obj, mat, mat_json, processed_images):
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
@@ -705,7 +705,7 @@ def connect_teeth_shader(obj, mat, mat_json):
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
+    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
     if mat_cache.is_upper_teeth():
         nodeutils.set_node_input(group, "Is Upper Teeth", 1.0)
@@ -720,7 +720,7 @@ def connect_teeth_shader(obj, mat, mat_json):
     mat.use_sss_translucency = True
 
 
-def connect_eye_shader(obj, mat, obj_json, mat_json):
+def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     obj_cache = props.get_object_cache(obj)
@@ -743,7 +743,7 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
                 connect_as_pbr = False
 
     if connect_as_pbr:
-        connect_pbr_shader(obj, mat, mat_json)
+        connect_pbr_shader(obj, mat, mat_json, processed_images)
         return
 
     mix_shader_group = ""
@@ -770,7 +770,7 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, group, cornea_mat, cornea_mat_cache, shader_name, cornea_json, obj)
+    apply_texture_matrix(nodes, links, group, cornea_mat, cornea_mat_cache, shader_name, cornea_json, obj, processed_images)
 
 
     nodeutils.clean_unused_image_nodes(nodes)
@@ -792,7 +792,7 @@ def connect_eye_shader(obj, mat, obj_json, mat_json):
         mat.use_screen_refraction = False
 
 
-def connect_hair_shader(obj, mat, mat_json):
+def connect_hair_shader(obj, mat, mat_json, processed_images):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
@@ -810,7 +810,7 @@ def connect_hair_shader(obj, mat, mat_json):
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
+    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
     nodeutils.clean_unused_image_nodes(nodes)
 
@@ -821,7 +821,7 @@ def connect_hair_shader(obj, mat, mat_json):
 
 
 
-def connect_pbr_shader(obj, mat, mat_json):
+def connect_pbr_shader(obj, mat, mat_json, processed_images):
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
@@ -836,7 +836,7 @@ def connect_pbr_shader(obj, mat, mat_json):
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
+    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
     nodeutils.clean_unused_image_nodes(nodes)
 
@@ -855,7 +855,7 @@ def connect_pbr_shader(obj, mat, mat_json):
             materials.set_material_alpha(mat, "HASHED")
 
 
-def connect_sss_shader(obj, mat, mat_json):
+def connect_sss_shader(obj, mat, mat_json, processed_images):
     props = bpy.context.scene.CC3ImportProps
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
@@ -870,7 +870,7 @@ def connect_sss_shader(obj, mat, mat_json):
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
-    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj)
+    apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
     nodeutils.clean_unused_image_nodes(nodes)
 

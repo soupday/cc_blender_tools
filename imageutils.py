@@ -32,26 +32,38 @@ def check_max_size(image):
 
 
 # load an image from a file, but try to find it in the existing images first
-def load_image(filename, color_space, processed = None):
+def load_image(filename, color_space, processed_images = None):
 
     i: bpy.types.Image = None
+    # TODO: should the de-duplication only consider images brough in from the import.
+    #       (but then the rebuild won't work...)
+    #       or only consider images with the characters folder as a common path...
     for i in bpy.data.images:
-        if (i.type == "IMAGE" and i.filepath != ""):
-            try:
-                if os.path.normcase(os.path.abspath(i.filepath)) == os.path.normcase(os.path.abspath(filename)):
-                    utils.log_info("Using existing image: " + i.filepath)
-                    if i.depth == 32 and i.alpha_mode != "CHANNEL_PACKED":
-                        i.alpha_mode = "CHANNEL_PACKED"
-                    #check_max_size(i)
-                    return i
-            except:
-                pass
+        if i.type == "IMAGE" and i.filepath != "":
+
+            if os.path.normcase(os.path.abspath(i.filepath)) == os.path.normcase(os.path.abspath(filename)):
+                utils.log_info("Using existing image: " + i.filepath)
+                found = False
+                image_md5 = None
+                image_path = bpy.path.abspath(i.filepath)
+                if processed_images is not None and os.path.exists(image_path):
+                    image_md5 = utils.md5sum(image_path)
+                    for p in processed_images:
+                        if p[0] == image_md5:
+                            utils.log_info("Skipping duplicate existing image, reusing: " + p[1].filepath)
+                            i = p[1]
+                            found = True
+                if i.depth == 32 and i.alpha_mode != "CHANNEL_PACKED":
+                    i.alpha_mode = "CHANNEL_PACKED"
+                if processed_images is not None and i and image_md5 and not found:
+                    processed_images.append([image_md5, i])
+                return i
 
     try:
         image_md5 = None
-        if processed is not None:
+        if processed_images is not None and os.path.exists(filename):
             image_md5 = utils.md5sum(filename)
-            for p in processed:
+            for p in processed_images:
                 if p[0] == image_md5:
                     utils.log_info("Skipping duplicate image, reusing: " + p[1].filepath)
                     return p[1]
@@ -61,8 +73,8 @@ def load_image(filename, color_space, processed = None):
         if image.depth == 32:
             image.alpha_mode = "CHANNEL_PACKED"
         #check_max_size(image)
-        if processed is not None and image_md5 is not None:
-            processed.append([image_md5, image])
+        if processed_images is not None and image and image_md5:
+            processed_images.append([image_md5, image])
         return image
     except Exception as e:
         utils.log_error("Unable to load image: " + filename, e)
@@ -123,7 +135,7 @@ def search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type):
     return find_image_file(chr_cache.import_dir, [mat_cache.get_tex_dir(chr_cache), chr_cache.get_tex_dir()], mat, texture_type)
 
 
-def find_material_image(mat, texture_type, tex_json = None):
+def find_material_image(mat, texture_type, processed_images = None, tex_json = None):
     """Try to find the texture for a material input by searching for the material name
        appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness
     """
@@ -149,12 +161,12 @@ def find_material_image(mat, texture_type, tex_json = None):
 
             # try to load image path directly
             if os.path.exists(image_file):
-                return load_image(image_file, color_space)
+                return load_image(image_file, color_space, processed_images)
 
             # try remapping the image path relative to the local directory
             image_file = utils.local_path(rel_path)
             if image_file and os.path.exists(image_file):
-                return load_image(image_file, color_space)
+                return load_image(image_file, color_space, processed_images)
 
             # try to find the image in the texture_mappings (all embedded images should be here)
             for tex_mapping in mat_cache.texture_mappings:
@@ -169,7 +181,7 @@ def find_material_image(mat, texture_type, tex_json = None):
 
         image_file = search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type)
         if image_file:
-            return load_image(image_file, color_space)
+            return load_image(image_file, color_space, processed_images)
 
         # then try to find the image in the texture_mappings (all embedded images should be here)
         for tex_mapping in mat_cache.texture_mappings:
@@ -178,7 +190,7 @@ def find_material_image(mat, texture_type, tex_json = None):
                     if tex_mapping.image:
                         return tex_mapping.image
                     elif tex_mapping.texture_path is not None and tex_mapping.texture_path != "":
-                        return load_image(tex_mapping.texture_path, color_space)
+                        return load_image(tex_mapping.texture_path, color_space, processed_images)
         return None
 
 

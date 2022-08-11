@@ -73,7 +73,7 @@ def delete_import(chr_cache):
     utils.clean_collection(bpy.data.node_groups)
 
 
-def process_material(chr_cache, obj, mat, obj_json):
+def process_material(chr_cache, obj, mat, obj_json, processed_images):
     props = bpy.context.scene.CC3ImportProps
     mat_cache = chr_cache.get_material_cache(mat)
     mat_json = jsonutils.get_material_json(obj_json, mat)
@@ -89,31 +89,31 @@ def process_material(chr_cache, obj, mat, obj_json):
     if chr_cache.setup_mode == "ADVANCED":
 
         if mat_cache.is_cornea() or mat_cache.is_eye():
-            shaders.connect_eye_shader(obj, mat, obj_json, mat_json)
+            shaders.connect_eye_shader(obj, mat, obj_json, mat_json, processed_images)
 
         elif mat_cache.is_tearline():
-            shaders.connect_tearline_shader(obj, mat, mat_json)
+            shaders.connect_tearline_shader(obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_eye_occlusion():
-            shaders.connect_eye_occlusion_shader(obj, mat, mat_json)
+            shaders.connect_eye_occlusion_shader(obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_skin() or mat_cache.is_nails():
-            shaders.connect_skin_shader(obj, mat, mat_json)
+            shaders.connect_skin_shader(obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_teeth():
-            shaders.connect_teeth_shader(obj, mat, mat_json)
+            shaders.connect_teeth_shader(obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_tongue():
-            shaders.connect_tongue_shader(obj, mat, mat_json)
+            shaders.connect_tongue_shader(obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_hair():
-            shaders.connect_hair_shader(obj, mat, mat_json)
+            shaders.connect_hair_shader(obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_sss():
-            shaders.connect_sss_shader(obj, mat, mat_json)
+            shaders.connect_sss_shader(obj, mat, mat_json, processed_images)
 
         else:
-            shaders.connect_pbr_shader(obj, mat, mat_json)
+            shaders.connect_pbr_shader(obj, mat, mat_json, processed_images)
 
     else:
 
@@ -121,16 +121,16 @@ def process_material(chr_cache, obj, mat, obj_json):
         nodeutils.reset_cursor()
 
         if mat_cache.is_eye_occlusion():
-            basic.connect_eye_occlusion_material(obj, mat, mat_json)
+            basic.connect_eye_occlusion_material(obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_tearline():
-            basic.connect_tearline_material(obj, mat, mat_json)
+            basic.connect_tearline_material(obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_cornea():
-            basic.connect_basic_eye_material(obj, mat, mat_json)
+            basic.connect_basic_eye_material(obj, mat, mat_json, processed_images)
 
         else:
-            basic.connect_basic_material(obj, mat, mat_json)
+            basic.connect_basic_material(obj, mat, mat_json, processed_images)
 
         nodeutils.move_new_nodes(-600, 0)
 
@@ -149,7 +149,7 @@ def process_material(chr_cache, obj, mat, obj_json):
                     channel_mixer.rebuild_mixers(chr_cache, mat, mixer_settings)
 
 
-def process_object(chr_cache, obj, objects_processed, chr_json):
+def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_json, processed_materials, processed_images):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -173,12 +173,21 @@ def process_object(chr_cache, obj, objects_processed, chr_json):
         modifiers.remove_eye_modifiers(obj)
 
         # process any materials found in the mesh object
-        for mat in obj.data.materials:
+        for slot in obj.material_slots:
+            mat = slot.material
             if mat and mat not in objects_processed:
                 utils.log_info("")
                 utils.log_info("Processing Material: " + mat.name)
                 utils.log_indent()
-                process_material(chr_cache, obj, mat, obj_json)
+
+                process_material(chr_cache, obj, mat, obj_json, processed_images)
+                first = materials.find_duplicate_material(chr_cache, mat, processed_materials)
+                if first:
+                    utils.log_info(f"Found duplicate material, re-using {first.name} instead.")
+                    slot.material = first
+                else:
+                    processed_materials.append(mat)
+
                 utils.log_recess()
                 objects_processed.append(mat)
 
@@ -415,6 +424,10 @@ def detect_character(file_path, objects, actions, json_data, warn):
     dir, file = os.path.split(file_path)
     name, ext = os.path.splitext(file)
 
+    if not objects:
+        utils.log_error("No objects in import!")
+        return None
+
     chr_json = jsonutils.get_character_json(json_data, name, name)
     chr_cache = props.import_cache.add()
     chr_cache.import_file = file_path
@@ -442,8 +455,10 @@ def detect_character(file_path, objects, actions, json_data, warn):
             chr_cache.import_embedded = True
 
         # process the armature(s)
+        arm = None
         arm_count = 0
         for arm in objects:
+            print(arm)
             if arm.type == "ARMATURE":
                 arm_count += 1
                 arm.name = name
@@ -715,16 +730,19 @@ class CC3Import(bpy.types.Operator):
             if self.param == "BUILD":
                 chr_cache.check_material_types(chr_json)
 
+            processed_images = []
+            processed_materials = []
+
             if props.build_mode == "IMPORTED":
                 for obj_cache in chr_cache.object_cache:
                     if obj_cache.object:
-                        process_object(chr_cache, obj_cache.object, objects_processed, chr_json)
+                        process_object(chr_cache, obj_cache.object, objects_processed, chr_json, processed_materials, processed_images)
 
             # only processes the selected objects that are listed in the import_cache (character)
             elif props.build_mode == "SELECTED":
                 for obj_cache in chr_cache.object_cache:
                     if obj_cache.object and obj_cache.object in bpy.context.selected_objects:
-                        process_object(chr_cache, obj_cache.object, objects_processed, chr_json)
+                        process_object(chr_cache, obj_cache.object, objects_processed, chr_json, processed_materials, processed_images)
 
             # setup default physics
             if prefs.physics == "ENABLED" and props.physics_mode == "ON":
@@ -792,7 +810,7 @@ class CC3Import(bpy.types.Operator):
 
     def run_build(self, context):
 
-        if self.is_rl_character:
+        if self.is_rl_character and self.imported_character:
             self.build_materials(context)
 
         self.built = True

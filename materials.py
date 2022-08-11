@@ -519,8 +519,8 @@ def detect_mixer_masks(chr_cache, obj, obj_cache, mat, mat_cache):
     main_tex_dir = chr_cache.get_tex_dir()
     mat_tex_dir = mat_cache.get_tex_dir(chr_cache)
 
-    rgb_mask : bpy.types.Image = imageutils.find_material_image(mat, "RGBMASK", None)
-    color_id_mask : bpy.types.Image = imageutils.find_material_image(mat, "COLORID", None)
+    rgb_mask : bpy.types.Image = imageutils.find_material_image(mat, "RGBMASK")
+    color_id_mask : bpy.types.Image = imageutils.find_material_image(mat, "COLORID")
 
     if rgb_mask or color_id_mask:
         mixer_settings = mat_cache.mixer_settings
@@ -681,6 +681,88 @@ def get_material_by_type(chr_cache, obj, material_type):
             if mat_cache and mat_cache.material_type == material_type:
                 return mat
     return None
+
+
+def has_same_textures(mat_a, mat_b):
+    if mat_a.node_tree and mat_b.node_tree:
+        nodes_a = mat_a.node_tree.nodes
+        nodes_b = mat_b.node_tree.nodes
+        if nodes_a and nodes_b:
+            for a in nodes_a:
+                if a.type == "TEX_IMAGE":
+                    has_image = False
+                    for b in nodes_b:
+                        if b.type == "TEX_IMAGE":
+                            if a.image == b.image:
+                                has_image = True
+                    if not has_image:
+                        return False
+            return True
+    return False
+
+
+def has_same_parameters(cache_a, cache_b):
+    if cache_a and cache_b:
+        if cache_a.material_type == cache_b.material_type:
+            params_a = cache_a.parameters
+            params_b = cache_b.parameters
+            items_a = params_a.items()
+            items_b = params_b.items()
+            # put the property group items into lists
+            #     [(prop_name, value), (prop_name, value), ...]
+            # (because items are not subscriptable)
+            list_a = []
+            list_b = []
+            for i in items_a:
+                list_a.append(i)
+            for i in items_b:
+                list_b.append(i)
+            for i in range(0, len(list_a)):
+                # compare prop names
+                if list_a[i][0] != list_b[i][0]:
+                    return False
+                # compare prop values
+                try:
+                    # try as array first
+                    if len(list_a[i][1]) == len(list_b[i][1]):
+                        for j in range(0, len(list_a[i][1])):
+                            if list_a[i][1][j] != list_b[i][1][j]:
+                                return False
+                    else:
+                        return False
+                except:
+                    # then as a value
+                    if list_a[i][1] != list_b[i][1]:
+                        return False
+            return True
+    return False
+
+
+def find_duplicate_material(chr_cache, mat, processed_materials):
+    source_name = utils.strip_name(mat.name)
+    mat_cache = chr_cache.get_material_cache(mat)
+    if mat_cache:
+        for processed_mat in processed_materials:
+            if mat != processed_mat:
+                processed_name = utils.strip_name(processed_mat.name)
+                # only consider materials with the same base name
+                if processed_name == source_name:
+                    processed_cache = chr_cache.get_material_cache(processed_mat)
+                    if processed_cache:
+                        # with the same material type
+                        if mat_cache.material_type == processed_cache.material_type:
+                            # that use the same textures
+                            if has_same_textures(mat, processed_mat):
+                                # and have the same parameters
+                                if has_same_parameters(mat_cache, processed_cache):
+                                    # if there is a matching material that is the base name,
+                                    # then set the first material name to this base name
+                                    if mat.name == source_name:
+                                        processed_mat.name = source_name
+                                        processed_mat.name = source_name
+                                    return processed_mat
+    return None
+
 
 
 def reconstruct_obj_materials(obj):
