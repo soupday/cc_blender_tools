@@ -204,6 +204,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     max_texture_size: bpy.props.FloatProperty(default=4096, min=512, max=4096)
 
+    import_deduplicate: bpy.props.BoolProperty(default=True, name="De-duplicate Materials", description="Detects and re-uses duplicate textures and consolidates materials with same name, textures and parameters into a single material")
+    import_auto_convert: bpy.props.BoolProperty(default=True, name="Auto Convert Generic", description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
+                "Which sets up Reallusion import compatible materials and material parameters.")
 
     cycles_sss_skin_v118: bpy.props.FloatProperty(default=0.35)
     cycles_sss_hair_v118: bpy.props.FloatProperty(default=0.025)
@@ -211,7 +214,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_sss_tongue: bpy.props.FloatProperty(default=0.1)
     cycles_sss_eyes: bpy.props.FloatProperty(default=0.025)
     cycles_sss_default: bpy.props.FloatProperty(default=0.1)
-    cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles.")
+    cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
     # old
     cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
     cycles_sss_hair: bpy.props.FloatProperty(default=0.05)

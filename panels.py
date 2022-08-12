@@ -21,7 +21,8 @@ import textwrap
 from . import addon_updater_ops
 from . import rigging, rigify_mapping_data, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
 
-TAB_NAME = "CC/iC Pipeline"
+PIPELINE_TAB_NAME = "CC/iC Pipeline"
+CREATE_TAB_NAME = "CC/iC Create"
 
 # Panel button functions and operator
 #
@@ -227,7 +228,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
     bl_label = "Character Build Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = PIPELINE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -272,8 +273,15 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         # Build Settings
 
         layout.box().label(text="Build Settings", icon="TOOL_SETTINGS")
+        if prefs.physics == "ENABLED":
+            layout.prop(props, "physics_mode", expand=True)
         layout.prop(prefs, "render_target", expand=True)
         layout.prop(prefs, "refractive_eyes", expand=True)
+        split = layout.split(factor=0.9)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="De-duplicate Materials")
+        col_2.prop(prefs, "import_deduplicate", text="")
 
         # Cycles Prefs
 
@@ -368,7 +376,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
     bl_label = "Object Management"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = CREATE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -501,7 +509,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
     bl_label = "Material Parameters"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = PIPELINE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -870,7 +878,7 @@ class CC3RigifyPanel(bpy.types.Panel):
     bl_label = "Rigging & Animation"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = PIPELINE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -1136,7 +1144,7 @@ class CC3ToolsScenePanel(bpy.types.Panel):
     bl_label = "Scene Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = PIPELINE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -1219,7 +1227,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_label = "Physics Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = CREATE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -1431,7 +1439,7 @@ class CC3ToolsTexturingPanel(bpy.types.Panel):
     bl_label = "Sculpting / Texturing"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = CREATE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -1466,15 +1474,12 @@ class CC3ToolsTexturingPanel(bpy.types.Panel):
         column.row().prop(prefs, "sculpt_bake_target", expand=True)
 
 
-
-
-
 class CC3ToolsPipelinePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Pipeline_Panel"
     bl_label = "Import / Export"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = PIPELINE_TAB_NAME
 
     def draw(self, context):
         global debug_counter
@@ -1508,6 +1513,11 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                 layout.prop(props, "lighting_mode", expand=True)
             if prefs.physics == "ENABLED":
                 layout.prop(props, "physics_mode", expand=True)
+            split = layout.split(factor=0.9)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Auto Convert Generic")
+            col_2.prop(prefs, "import_auto_convert", text="")
 
         box = layout.box()
         box.label(text="Importing", icon="IMPORT")

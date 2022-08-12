@@ -169,6 +169,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         return None
 
     mats_processed = {}
+    images_processed = {}
 
     # old path might be blank, so try to use blend file path or export target path
     base_path = old_path
@@ -255,6 +256,9 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         if chr_cache.collision_body == obj:
             continue
 
+        utils.log_info(f"Obejct: {obj.name}")
+        utils.log_indent()
+
         obj_name = obj.name
         obj_cache = chr_cache.get_object_cache(obj)
         source_changed = False
@@ -310,8 +314,11 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             source_changed = False
             new_material = False
 
-            if mat.name not in mats_processed.keys():
-                mats_processed[mat.name] = { "processed": False }
+            utils.log_info(f"Material: {mat.name}")
+            utils.log_indent()
+
+            if mat not in mats_processed.keys():
+                mats_processed[mat.name] = { "processed": False, "write_back": False, "copied": False, "remapped": False }
             mat_data = mats_processed[mat.name]
 
             if mat_cache:
@@ -380,9 +387,11 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 write_physics_textures = True
 
             if mat_cache:
+                utils.log_info("Writing Json:")
+                utils.log_indent()
                 # update the json parameters with any changes
                 if write_textures:
-                    write_back_textures(mat_json, mat, mat_cache, base_path, old_name, bake_values, mat_data)
+                    write_back_textures(mat_json, mat, mat_cache, base_path, old_name, bake_values, mat_data, images_processed)
                 if write_json:
                     write_back_json(mat_json, mat, mat_cache)
                 if write_physics_json:
@@ -404,31 +413,42 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         utils.log_info(f"Reverting material name: {mat_name} to {mat_safe_name}")
                         mat.name = mat_safe_name
                         mat.name = mat_safe_name
+                utils.log_recess()
             else:
                 # add pbr material to json for non-cached base object/material
                 write_pbr_material_to_json(mat, mat_json, old_path, old_name, bake_values)
 
             # copy or remap the texture paths
+            utils.log_info("Finalizing Texture Paths:")
+            utils.log_indent()
             if copy_textures:
                 images_copied = []
                 for channel in mat_json["Textures"].keys():
-                    copy_and_update_texture_path(mat_json["Textures"][channel], "Texture Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, images_copied)
+                    copy_and_update_texture_path(mat_json["Textures"][channel], "Texture Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied)
                 if "Custom Shader" in mat_json.keys():
                     for channel in mat_json["Custom Shader"]["Image"].keys():
-                        copy_and_update_texture_path(mat_json["Custom Shader"]["Image"][channel], "Texture Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, images_copied)
+                        copy_and_update_texture_path(mat_json["Custom Shader"]["Image"][channel], "Texture Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied)
                 if physics_mat_json:
-                    copy_and_update_texture_path(physics_mat_json, "Weight Map Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, images_copied)
+                    copy_and_update_texture_path(physics_mat_json, "Weight Map Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied)
 
             else:
                 for channel in mat_json["Textures"].keys():
-                    remap_texture_path(mat_json["Textures"][channel], "Texture Path", old_path, new_path)
+                    remap_texture_path(mat_json["Textures"][channel], "Texture Path", old_path, new_path, mat_data)
                 if "Custom Shader" in mat_json.keys():
                     for channel in mat_json["Custom Shader"]["Image"].keys():
-                        remap_texture_path(mat_json["Custom Shader"]["Image"][channel], "Texture Path", old_path, new_path)
+                        remap_texture_path(mat_json["Custom Shader"]["Image"][channel], "Texture Path", old_path, new_path, mat_data)
                 if physics_mat_json:
-                    remap_texture_path(physics_mat_json, "Weight Map Path", old_path, new_path)
+                    remap_texture_path(physics_mat_json, "Weight Map Path", old_path, new_path, mat_data)
 
             mat_data["processed"] = True
+            # texure paths
+            utils.log_recess()
+
+            # material
+            utils.log_recess()
+
+        # object
+        utils.log_recess()
 
     if apply_fixes and prefs.export_bone_roll_fix:
         if obj.type == "ARMATURE":
@@ -447,7 +467,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
     return changes
 
 
-def remap_texture_path(tex_info, path_key, old_path, new_path):
+def remap_texture_path(tex_info, path_key, old_path, new_path, mat_data):
 
     # at this point all the image paths have been re-written as absolute paths
     # (except those not used in the Blender material shaders)
@@ -462,14 +482,22 @@ def remap_texture_path(tex_info, path_key, old_path, new_path):
             rel_path = utils.relpath(abs_path, new_path)
             tex_info[path_key] = os.path.normpath(rel_path)
 
+    mat_data["remapped"] = True
+
     return
 
 
-def copy_and_update_texture_path(tex_info, path_key, old_path, new_path, old_name, new_name, as_blend_file, mat_name, images_copied):
+
+
+
+def copy_and_update_texture_path(tex_info, path_key, old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied):
     """keep the same relative folder structure and copy the textures to their target folder.
        update the images in the blend file with the new location."""
 
     # at this point all the image paths have been re-written as absolute paths
+
+    # TODO: this needs to cope with materials being reused across multiple meshes
+    #       currently it is stacking relative paths each time it's called...
 
     sep = os.path.sep
     old_tex_base = os.path.join(old_path, f"textures{sep}{old_name}")
@@ -501,7 +529,7 @@ def copy_and_update_texture_path(tex_info, path_key, old_path, new_path, old_nam
                 new_abs_path = os.path.normpath(os.path.join(new_path, rel_tex_path))
                 new_rel_path = os.path.normpath(utils.relpath(new_abs_path, new_path))
 
-                utils.log_info("Texture path in expected character folders, updating Json texture path to: " + new_rel_path)
+                utils.log_info("Remapping JSON texture path to: " + new_rel_path)
 
             else:
 
@@ -511,7 +539,7 @@ def copy_and_update_texture_path(tex_info, path_key, old_path, new_path, old_nam
                 new_rel_path = os.path.normpath(os.path.join(extras_dir, file))
                 new_abs_path = os.path.normpath(os.path.join(new_path, new_rel_path))
 
-                utils.log_info("Updating Json texture path to: " + new_rel_path)
+                utils.log_info("Setting JSON texture path to: " + new_rel_path)
 
             copy_file = False
             if os.path.exists(old_abs_path):
@@ -526,22 +554,29 @@ def copy_and_update_texture_path(tex_info, path_key, old_path, new_path, old_nam
                 dir_path = os.path.dirname(new_abs_path)
                 os.makedirs(dir_path, exist_ok=True)
                 # copy the texture
+                utils.log_info(f"Copying texture: {old_abs_path}")
+                utils.log_info(f"             to: {new_abs_path}")
                 shutil.copyfile(old_abs_path, new_abs_path)
-                image : bpy.types.Image
 
             # update the json texture path with the new relative path
             tex_info[path_key] = new_rel_path
 
             # update images with changed file path (if it changed, and only if exporting as blend file)
             if as_blend_file and os.path.exists(old_abs_path) and os.path.exists(new_abs_path):
+                # if the original path and new path are different
                 if os.path.normpath(old_abs_path) != os.path.normpath(new_abs_path):
+                    image : bpy.types.Image
                     for image in bpy.data.images:
-                        if image and image.filepath:
+                        # for each image not already copied
+                        if image and image.filepath and image not in images_copied:
                             image_file_path = bpy.path.abspath(image.filepath)
                             if os.path.exists(image_file_path):
+                                # if this is the image specified in the json path
                                 if os.path.samefile(image_file_path, old_abs_path):
-                                    utils.log_info(f"Updating image {image.name} filepath to: {new_abs_path}")
+                                    utils.log_info(f"Updating .blend Image: {image.name}")
+                                    utils.log_info(f"                   to: {new_abs_path}")
                                     image.filepath = new_abs_path
+                                    images_copied.append(image)
 
 
 def restore_export(export_changes : list):
@@ -606,7 +641,7 @@ def write_back_json(mat_json, mat, mat_cache):
                 jsonutils.set_material_json_var(mat_json, json_var, json_value)
 
 
-def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, bake_values, mat_data):
+def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, bake_values, mat_data, images_processed):
     global UNPACK_INDEX
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -704,7 +739,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
                     processed_image = None
                     if tex_type in mat_data.keys():
-                        processed_image = mat_data[tex_type]
+                        processed_image = mat_data[tex_type]["image"]
                         utils.log_info(f"Resusing already processed material image: {processed_image.name}")
 
                     if tex_node or bake_shader_output:
@@ -741,12 +776,22 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
                             try_unpack_image(image, unpack_path, True)
 
-                            # make path relative
                             if image.filepath:
-                                abs_image_path = bpy.path.abspath(image.filepath)
-                                if abs_image_path:
-                                    tex_info["Texture Path"] = abs_image_path
-                                    utils.log_info(f"{mat.name}/{tex_id}: Using texture path: {abs_image_path}")
+
+                                image_data = None
+                                if image in images_processed.keys():
+                                    image_data = images_processed[image]
+                                else:
+                                    abs_image_path = os.path.normpath(bpy.path.abspath(image.filepath))
+                                    image_data = { "old_path": abs_image_path }
+                                    images_processed[image] = image_data
+
+                                abs_image_path = image_data["old_path"]
+
+                                tex_info["Texture Path"] = abs_image_path
+                                utils.log_info(f"{mat.name}/{tex_id}: Source texture path: {abs_image_path}")
+
+            mat_data["write_back"] = True
 
 
 def write_back_physics_weightmap(physics_mat_json : dict, obj, mat, mat_cache, base_path, old_name, mat_data):

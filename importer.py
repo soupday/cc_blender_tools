@@ -181,12 +181,13 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
                 utils.log_indent()
 
                 process_material(chr_cache, obj, mat, obj_json, processed_images)
-                first = materials.find_duplicate_material(chr_cache, mat, processed_materials)
-                if first:
-                    utils.log_info(f"Found duplicate material, re-using {first.name} instead.")
-                    slot.material = first
-                else:
-                    processed_materials.append(mat)
+                if processed_materials is not None:
+                    first = materials.find_duplicate_material(chr_cache, mat, processed_materials)
+                    if first:
+                        utils.log_info(f"Found duplicate material, re-using {first.name} instead.")
+                        slot.material = first
+                    else:
+                        processed_materials.append(mat)
 
                 utils.log_recess()
                 objects_processed.append(mat)
@@ -591,6 +592,7 @@ class CC3Import(bpy.types.Operator):
 
     def import_character(self, warn):
         props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         utils.start_timer()
 
@@ -645,8 +647,8 @@ class CC3Import(bpy.types.Operator):
             # detect characters and objects
             if self.is_rl_character:
                 self.imported_character = detect_character(self.filepath, imported, actions, json_data, warn)
-            else:
-                self.import_characterer = characters.convert_generic_to_non_standard(imported)
+            elif prefs.import_auto_convert:
+                self.imported_characterer = characters.convert_generic_to_non_standard(imported)
 
             #if self.param == "IMPORT_MORPH":
             #    if self.imported_character.get_tex_dir() != "":
@@ -664,7 +666,8 @@ class CC3Import(bpy.types.Operator):
             imported = utils.untagged_objects()
             self.imported_images = utils.untagged_images()
 
-            self.imported_character = characters.convert_generic_to_non_standard(imported)
+            if prefs.import_auto_convert:
+                self.imported_character = characters.convert_generic_to_non_standard(imported)
 
             utils.log_timer("Done .GLTF Import.")
 
@@ -693,7 +696,8 @@ class CC3Import(bpy.types.Operator):
 
             os.remove(glb_path)
 
-            self.imported_character = characters.convert_generic_to_non_standard(imported)
+            if prefs.import_auto_convert:
+                self.imported_character = characters.convert_generic_to_non_standard(imported)
 
             utils.log_timer("Done .vrm Import.")
 
@@ -730,8 +734,12 @@ class CC3Import(bpy.types.Operator):
             if self.param == "BUILD":
                 chr_cache.check_material_types(chr_json)
 
-            processed_images = []
-            processed_materials = []
+            if prefs.import_deduplicate:
+                processed_images = []
+                processed_materials = []
+            else:
+                processed_images = None
+                processed_materials = None
 
             if props.build_mode == "IMPORTED":
                 for obj_cache in chr_cache.object_cache:

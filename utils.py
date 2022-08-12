@@ -194,7 +194,7 @@ def relpath(path, start):
 
 
 def search_up_path(path, folder):
-    path = os.path.normcase(path)
+    path = os.path.normpath(path)
     dir : str = os.path.dirname(path)
     if dir == path or dir == "" or dir is None:
         return ""

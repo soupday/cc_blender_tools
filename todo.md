@@ -8,6 +8,8 @@
 
 ## To Add
 
+Unpack embedded textures on import (deal with duplication via _0001 _0002)
+
 - Export / Bake Rigify > Unity
     - Optional export Just animation to Unity, (just those meshes with shapekey tracks?).
     - Optional export full face rig/just eyes and jaw
