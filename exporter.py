@@ -481,13 +481,8 @@ def remap_texture_path(tex_info, path_key, old_path, new_path, mat_data):
                 abs_path = os.path.normpath(os.path.join(old_path, tex_path))
             rel_path = utils.relpath(abs_path, new_path)
             tex_info[path_key] = os.path.normpath(rel_path)
-
-    mat_data["remapped"] = True
-
+            utils.log_info(f"Remapping JSON texture path to: {tex_info[path_key]}")
     return
-
-
-
 
 
 def copy_and_update_texture_path(tex_info, path_key, old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied):
@@ -529,7 +524,7 @@ def copy_and_update_texture_path(tex_info, path_key, old_path, new_path, old_nam
                 new_abs_path = os.path.normpath(os.path.join(new_path, rel_tex_path))
                 new_rel_path = os.path.normpath(utils.relpath(new_abs_path, new_path))
 
-                utils.log_info("Remapping JSON texture path to: " + new_rel_path)
+                utils.log_info(f"Remapping JSON texture path to: {new_rel_path}")
 
             else:
 
@@ -539,7 +534,7 @@ def copy_and_update_texture_path(tex_info, path_key, old_path, new_path, old_nam
                 new_rel_path = os.path.normpath(os.path.join(extras_dir, file))
                 new_abs_path = os.path.normpath(os.path.join(new_path, new_rel_path))
 
-                utils.log_info("Setting JSON texture path to: " + new_rel_path)
+                utils.log_info(f"Setting JSON texture path to: {new_rel_path}")
 
             copy_file = False
             if os.path.exists(old_abs_path):
