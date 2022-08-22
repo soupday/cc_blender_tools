@@ -17,6 +17,7 @@
 import bpy
 import re
 import mathutils
+import os
 
 from . import materials, modifiers, shaders, meshutils, nodeutils, utils, vars
 
@@ -163,7 +164,7 @@ def create_prop_rig(objects):
     return arm
 
 
-def convert_generic_to_non_standard(objects):
+def convert_generic_to_non_standard(objects, file_path = None):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -194,14 +195,21 @@ def convert_generic_to_non_standard(objects):
     utils.log_info("----------------------------")
 
     ext = ".fbx"
-    full_name = chr_rig.name
-    name = utils.strip_name(full_name)
+    if file_path:
+        dir, file = os.path.split(file_path)
+        name, ext = os.path.splitext(file)
+        chr_rig.name = name
+        full_name = chr_rig.name
+    else:
+        full_name = chr_rig.name
+        name = utils.strip_name(full_name)
+        dir = ""
 
     chr_cache = props.import_cache.add()
     chr_cache.import_file = ""
     chr_cache.import_type = ext[1:]
     chr_cache.import_name = name
-    chr_cache.import_dir = ""
+    chr_cache.import_dir = dir
     chr_cache.import_space_in_name = False
     chr_cache.character_index = 0
     chr_cache.character_name = full_name

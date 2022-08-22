@@ -17,7 +17,7 @@
 from posixpath import isabs
 import bpy, os
 
-from . import channel_mixer, imageutils, meshutils, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
+from . import channel_mixer, imageutils, meshutils, sculpting, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -413,6 +413,19 @@ def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, ma
             cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
             mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
         shaders.fetch_prop_defaults(mat_cache, mat_json)
+
+
+def update_sculpt_layer_normal(self, context, prop_name):
+    if vars.block_property_update: return
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
+    if chr_cache:
+        if prop_name == "detail_normal_strength":
+            body = chr_cache.get_detail_body()
+            sculpting.update_layer_nodes(body, "DETAIL", "Strength", chr_cache.detail_normal_strength)
+        elif prop_name == "body_normal_strength":
+            body = chr_cache.get_body()
+            sculpting.update_layer_nodes(body, "BODY", "Strength", chr_cache.body_normal_strength)
 
 
 class CC3OperatorProperties(bpy.types.Operator):
@@ -1132,19 +1145,16 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ("PROP","Prop","Non standard character is a Prop"),
                 ], default="HUMANOID", name = "Non-standard Character Type")
 
-    sculpt_target: bpy.props.EnumProperty(items=[
+    detail_sculpt_target: bpy.props.EnumProperty(items=[
                         ("HEAD","Head","Sculpt on the head only"),
                         ("BODY","Body","Sculpt on the body only"),
                         ("ALL","All","Sculpt the entire body"),
                     ], default="HEAD", name = "Sculpt Target")
 
-    sculpt_bake_target: bpy.props.EnumProperty(items=[
-                        ("SKINGEN","SkinGen","Bake normals for skin gen"),
-                        ("BLENDNORMAL","Blend Normal","Bake normals for overlay on blend normal map"),
-                        ("NORMAL","Main Normal","Bake normals for overlay on main normal map"),
-                    ], default="SKINGEN", name = "Sculpt Bake Target")
+    detail_sculpt_body: bpy.props.PointerProperty(type=bpy.types.Object)
 
-    sculpt_body: bpy.props.PointerProperty(type=bpy.types.Object)
+    detail_normal_strength: bpy.props.FloatProperty(default=1.0, min = -5.0, max = 5.0, update=lambda s,c: update_sculpt_layer_normal(s,c,"detail_normal_strength"))
+    body_normal_strength: bpy.props.FloatProperty(default=1.0, min = -5.0, max = 5.0, update=lambda s,c: update_sculpt_layer_normal(s,c,"body_normal_strength"))
 
     def get_tex_dir(self):
         if os.path.isabs(self.import_main_tex_dir):
@@ -1579,9 +1589,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.check_type(self.pbr_material_cache, recast, chr_json, "DEFAULT", "SCALP", "EYELASH")
         self.check_type(self.sss_material_cache, recast, chr_json, "SSS")
 
-    def get_sculpt_body(self):
-        if utils.object_exists_is_mesh(self.sculpt_body):
-            return self.sculpt_body
+    def get_detail_body(self):
+        if utils.object_exists_is_mesh(self.detail_sculpt_body):
+            return self.detail_sculpt_body
         else:
             return None
 

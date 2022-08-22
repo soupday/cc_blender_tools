@@ -18,6 +18,8 @@ import bpy
 
 from . import materials, meshutils, utils, vars
 
+MOD_MULTIRES = "MULTIRES"
+MOD_MULTIRES_NAME = "Multi_Res_Sculpt"
 
 def get_object_modifier(obj, type, name = ""):
     if obj is not None:

@@ -171,6 +171,7 @@ G3_BONE_MAPPINGS = [
 
     # unmapped bones
     ["", "CC_Base_BoneRoot", ""],
+    ["", "RL_BoneRoot", ""],
     ["", "CC_Base_UpperJaw", ""],
     ["", "CC_Base_JawRoot", ""],
     ["", "CC_Base_L_RibsTwist", ""],

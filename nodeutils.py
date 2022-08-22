@@ -718,6 +718,17 @@ def get_tiling_node_from_nodes(nodes, shader_name, texture_type):
     return get_node_by_id(nodes, shader_id)
 
 
+def get_custom_image_node(nodes, node_name, image, location = (0, 0)):
+    # find or create the bake image node
+    image_node = find_node_by_type_and_keywords(nodes, "TEX_IMAGE", node_name)
+    if not image_node:
+        image_node = make_image_node(nodes, image, node_name)
+    if image_node.image != image:
+        image_node.image = image
+    image_node.location = location
+    return image_node
+
+
 # e.g.
 # Normal:Height
 # Normal:Color

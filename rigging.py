@@ -184,7 +184,7 @@ def add_accessory_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings):
             utils.log_error(f"Unable to find matching accessory bone tree parent: {cc3_parent_name} in rigify bones!")
 
         utils.log_info(f"Copying accessory bone tree into rigify rig: {bone.name} parent: {rigify_parent_name}")
-        bones.copy_rl_edit_bone_tree(cc3_rig, rigify_rig, bone.name, bone.name, rigify_parent_name, 23)
+        bones.copy_rl_edit_bone_subtree(cc3_rig, rigify_rig, bone.name, bone.name, rigify_parent_name, 23)
 
 
 def rl_vertex_group(obj, group):

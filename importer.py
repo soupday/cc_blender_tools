@@ -648,7 +648,7 @@ class CC3Import(bpy.types.Operator):
             if self.is_rl_character:
                 self.imported_character = detect_character(self.filepath, imported, actions, json_data, warn)
             elif prefs.import_auto_convert:
-                self.imported_characterer = characters.convert_generic_to_non_standard(imported)
+                self.imported_characterer = characters.convert_generic_to_non_standard(imported, self.filepath)
 
             #if self.param == "IMPORT_MORPH":
             #    if self.imported_character.get_tex_dir() != "":
@@ -667,7 +667,7 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             if prefs.import_auto_convert:
-                self.imported_character = characters.convert_generic_to_non_standard(imported)
+                self.imported_character = characters.convert_generic_to_non_standard(imported, self.filepath)
 
             utils.log_timer("Done .GLTF Import.")
 
@@ -697,7 +697,7 @@ class CC3Import(bpy.types.Operator):
             os.remove(glb_path)
 
             if prefs.import_auto_convert:
-                self.imported_character = characters.convert_generic_to_non_standard(imported)
+                self.imported_character = characters.convert_generic_to_non_standard(imported, self.filepath)
 
             utils.log_timer("Done .vrm Import.")
 

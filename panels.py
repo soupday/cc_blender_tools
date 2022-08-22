@@ -19,7 +19,7 @@ import bpy
 import textwrap
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, rigify_mapping_data, sculpting, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
@@ -282,6 +282,8 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         col_2 = split.column()
         col_1.label(text="De-duplicate Materials")
         col_2.prop(prefs, "import_deduplicate", text="")
+        col_1.label(text="Auto Convert Generic")
+        col_2.prop(prefs, "import_auto_convert", text="")
 
         # Cycles Prefs
 
@@ -1448,30 +1450,129 @@ class CC3ToolsTexturingPanel(bpy.types.Panel):
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
 
-        sculpt_body = None
-        sculpt_label = "Setup Sculpt"
+        detail_body = None
+        body = None
+        detail_sculpting = False
+        body_sculpting = False
         if chr_cache:
-            sculpt_body = chr_cache.get_sculpt_body()
-            if sculpt_body and prefs.sculpt_target != chr_cache.sculpt_target:
-                sculpt_label = "Replace Sculpt"
+            detail_body = chr_cache.get_detail_body()
+            body = chr_cache.get_body()
+            if detail_body:
+                if utils.get_active_object() == detail_body and utils.get_mode() == "SCULPT":
+                    detail_sculpting = True
+                if detail_body.visible_get():
+                    detail_sculpting = True
+            if body:
+                if utils.get_active_object() == body and utils.get_mode() == "SCULPT":
+                    body_sculpting = True
+        has_body_overlay = sculpting.has_overlay_nodes(body, sculpting.LAYER_TARGET_SCULPT)
+        has_detail_overlay = sculpting.has_overlay_nodes(detail_body, sculpting.LAYER_TARGET_DETAIL)
+        has_body_mod = sculpting.has_body_multires_mod(body)
 
-        layout.box().label(text = "Body Sculpting", icon = "OUTLINER_OB_ARMATURE")
+        # Full Body Sculpting
+
+        layout.box().label(text = "Full Body Sculpting", icon = "OUTLINER_OB_ARMATURE")
         column = layout.column()
         if not chr_cache:
             column.enabled = False
-        column.row().prop(prefs, "sculpt_target", expand=True)
-        column.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text=sculpt_label).param = "SETUP"
-        column.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Begin").param = "BEGIN"
-        column.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="End").param = "END"
-        column.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Clean").param = "CLEAN"
+
+        row = column.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text = "Multi-res Level")
+        col_2.prop(prefs, "body_sculpt_level", slider=True)
+        if body_sculpting:
+            row.enabled = False
+
+        row = column.row()
+        row.scale_y = 2.0
+        if not has_body_mod:
+            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
+        elif not body_sculpting:
+            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Begin Body Sculpt").param = "BODY_BEGIN"
+        else:
+            row.operator("cc3.sculpting", icon="X", text="End Body Sculpt").param = "BODY_END"
+
+        row = column.row()
+        row.operator("cc3.sculpting", icon="TRASH", text="Remove Body Sculpt").param = "BODY_CLEAN"
+        if not has_body_mod:
+            row.enabled = False
+
         row = column.row()
         split = row.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
         col_1.label(text = "Bake Size")
-        col_2.prop(prefs, "normal_bake_size", text = "")
-        column.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "BAKE"
-        column.row().prop(prefs, "sculpt_bake_target", expand=True)
+        col_2.prop(prefs, "body_normal_bake_size", text = "")
+        #row = column.row()
+        #split = row.split(factor=0.9)
+        #col_1 = split.column()
+        #col_2 = split.column()
+        #col_1.label(text = "Apply Base Shape")
+        #col_2.prop(prefs, "body_sculpt_apply_base")
+        row = column.row()
+        row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "BODY_BAKE"
+        if not has_body_mod:
+            row.enabled = False
+
+        if chr_cache:
+            row = column.row()
+            row.prop(chr_cache, "body_normal_strength", text="", slider=True)
+            if not has_body_overlay:
+                row.enabled = False
+
+        # Detail Sculpting
+
+        layout.box().label(text = "Detail Sculpting", icon = "POSE_HLT")
+        column = layout.column()
+        if not chr_cache:
+            column.enabled = False
+
+        row = column.row()
+        row.prop(prefs, "detail_sculpt_target", expand=True)
+        if detail_body or detail_sculpting:
+            row.enabled = False
+
+        row = column.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text = "Multi-res Level")
+        col_2.prop(prefs, "detail_sculpt_level", slider=True)
+        if detail_body or detail_sculpting:
+            row.enabled = False
+
+        row = column.row()
+        row.scale_y = 2.0
+        if not detail_body:
+            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
+        elif not detail_sculpting:
+            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Begin Detail Sculpt").param = "DETAIL_BEGIN"
+        else:
+            row.operator("cc3.sculpting", icon="X", text="End Detail Sculpt").param = "DETAIL_END"
+
+        row = column.row()
+        row.operator("cc3.sculpting", icon="TRASH", text="Remove Detail Sculpt").param = "DETAIL_CLEAN"
+        if not detail_body:
+            row.enabled = False
+
+        row = column.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text = "Bake Size")
+        col_2.prop(prefs, "detail_normal_bake_size", text = "")
+        row = column.row()
+        row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "DETAIL_BAKE"
+        if not detail_body:
+            row.enabled = False
+
+        if chr_cache:
+            row = column.row()
+            row.prop(chr_cache, "detail_normal_strength", text="", slider=True)
+            if not has_detail_overlay:
+                row.enabled = False
 
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):
@@ -1513,11 +1614,6 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                 layout.prop(props, "lighting_mode", expand=True)
             if prefs.physics == "ENABLED":
                 layout.prop(props, "physics_mode", expand=True)
-            split = layout.split(factor=0.9)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Auto Convert Generic")
-            col_2.prop(prefs, "import_auto_convert", text="")
 
         box = layout.box()
         box.label(text="Importing", icon="IMPORT")

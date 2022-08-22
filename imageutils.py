@@ -242,3 +242,37 @@ def find_texture_folder_in_objects(objects):
                                 if folder:
                                     return folder
     return None
+
+
+def get_custom_image(image_name, size, alpha = False, data = True, float = False):
+    # find the image by name
+    image = None
+    if image_name in bpy.data.images:
+        image = bpy.data.images[image_name]
+        if image.size[0] != size or image.size[1] != size:
+            bpy.data.images.remove(image)
+            image = None
+            utils.log_info(f"Deleting Custom image: {image_name}, wrong size.")
+        else:
+            utils.log_info(f"Reusing Custom image: {image_name}")
+
+    # or create the bake image
+    if not image:
+        utils.log_info(f"Creating new Custom image: {image_name} {size}x{size}")
+        image = bpy.data.images.new(image_name, size, size, alpha=alpha, is_data=data, float_buffer=float)
+
+    if float:
+        image.use_half_precision = False
+
+    return image
+
+
+def save_scene_image(image : bpy.types.Image, file_path, file_format = 'PNG', color_depth = '8'):
+    scene = bpy.data.scenes.new("RL_Save_Image_Settings_Scene")
+    settings = scene.render.image_settings
+    settings.color_depth = color_depth
+    settings.file_format = file_format
+    settings.color_mode = 'RGB' if image.depth == 24 else 'RGBA'
+    image.save_render(file_path, scene = scene)
+    image.filepath_raw = file_path
+    bpy.data.scenes.remove(scene)

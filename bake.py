@@ -304,6 +304,7 @@ def bake_output(mat, source_node, source_socket, image : bpy.types.Image, image_
 
     bpy.context.scene.render.image_settings.color_depth = '8'
     bpy.context.scene.render.image_settings.color_mode = 'RGB' if image.depth == 24 else 'RGBA'
+
     image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
     image.reload()
 

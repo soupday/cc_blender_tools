@@ -764,6 +764,18 @@ def find_duplicate_material(chr_cache, mat, processed_materials):
     return None
 
 
+def normalize_udim_uvs(obj):
+    """Restore UDIM uv's to into range 0.0 - 1.0
+    """
+    mesh = obj.data
+    ul = mesh.uv_layers[0]
+    for uv_loop in ul.data:
+        uv = uv_loop.uv
+        x = int(uv[0])
+        y = int(uv[1])
+        uv[0] -= x
+        uv[1] -= y
+
 
 def reconstruct_obj_materials(obj):
     mesh = obj.data

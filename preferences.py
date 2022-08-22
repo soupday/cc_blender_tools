@@ -54,6 +54,8 @@ def reset_preferences():
     prefs.cycles_sss_eyes = 0.025
     prefs.cycles_sss_default = 0.1
     prefs.cycles_ssr_iris_brightness = 2.0
+    prefs.import_auto_convert = True
+    prefs.import_deduplicate = True
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -185,18 +187,19 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("SSR","SSR Eye","Screen Space Refraction with a transmissive & transparent cornea material over an opaque eye (iris) material. SSR Materials do not receive full shadows and cannot have Subsurface scattering in Eevee."),
                     ], default="SSR", name = "Refractive Eyes")
 
-    sculpt_target: bpy.props.EnumProperty(items=[
+    detail_sculpt_target: bpy.props.EnumProperty(items=[
                         ("HEAD","Head","Sculpt on the head only"),
                         ("BODY","Body","Sculpt on the body only"),
                         ("ALL","All","Sculpt the entire body"),
                     ], default="HEAD", name = "Sculpt Target")
 
-    sculpt_bake_target: bpy.props.EnumProperty(items=[
-                        ("BLENDNORMAL","Blend Normal","Bake normals for overlay on blend normal map"),
-                        ("NORMAL","Main Normal","Bake normals for overlay on main normal map"),
-                    ], default="NORMAL", name = "Sculpt Bake Target")
+    detail_sculpt_level: bpy.props.IntProperty(default=4, min = 1, max = 6, name="Level")
+    body_sculpt_level: bpy.props.IntProperty(default=3, min = 1, max = 6, name="Level")
+    body_sculpt_apply_base: bpy.props.BoolProperty(default=False, name="Apply Base Shape", description="Apply sculpted shape to base topology on bake.")
 
-    normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Resolution of sculpt normals to bake")
+
+    detail_normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="4096", description="Resolution of detail sculpt normals to bake")
+    body_normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Resolution of full body sculpt normals to bake")
 
     #refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
@@ -257,6 +260,11 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
+
+        layout.label(text="Import:")
+        layout.prop(self, "import_deduplicate")
+        layout.prop(self, "import_auto_convert")
+
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")
 
@@ -275,6 +283,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Detection:")
         layout.prop(self, "hair_hint")
         layout.prop(self, "hair_scalp_hint")
+
 
         layout.label(text="Eyes:")
         layout.prop(self, "refractive_eyes")
