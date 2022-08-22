@@ -53,6 +53,7 @@ def do_multires_bake(chr_cache, body, layer_target):
     if utils.is_blender_version("2.92.0"):
         bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
 
+    # applying base shape distorts the displacement maps
     if False and layer_target == LAYER_TARGET_SCULPT and prefs.body_sculpt_apply_base:
 
         if utils.set_mode("OBJECT") and utils.set_only_active_object(body):
@@ -347,7 +348,7 @@ def begin_detail_sculpting(chr_cache):
 def end_detail_sculpting(chr_cache):
     body = chr_cache.get_body()
     detail_body = chr_cache.get_detail_body()
-    set_multi_res_level(detail_body, view_level=0)
+    set_multi_res_level(detail_body, view_level=9)
     utils.set_mode("OBJECT")
     set_hide_character(chr_cache, False)
     set_hide_detail_body(chr_cache, True)
@@ -420,7 +421,7 @@ def begin_body_sculpting(chr_cache):
 
 def end_body_sculpting(chr_cache):
     body = chr_cache.get_body()
-    set_multi_res_level(body, view_level=0)
+    set_multi_res_level(body, view_level=9)
     utils.set_mode("OBJECT")
     unhide_body_sculpt(chr_cache)
     set_hide_character(chr_cache, False)
