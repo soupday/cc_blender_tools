@@ -236,13 +236,14 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
             displacement_image = imageutils.get_custom_image(displacement_image_name, int(prefs.body_normal_bake_size), alpha = False, data = True, float = True)
 
         normal_tex_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "(NORMAL)")
+        ref_location = mathutils.Vector((-1600, -1100))
         normal_bake_node = nodeutils.get_custom_image_node(nodes, normal_bake_node_name, normal_image, location = (1000 + delta, -1000))
         displacement_bake_node = nodeutils.get_custom_image_node(nodes, displacement_bake_node_name, displacement_image,
                                                                  location = (1000 + delta, -1300))
         layer_node = nodeutils.get_custom_image_node(nodes, layer_node_name, normal_image,
-                                                     location = normal_tex_node.location + mathutils.Vector((delta, -1200)))
+                                                     location = ref_location + mathutils.Vector((delta, -1200)))
         mask_node = nodeutils.get_custom_image_node(nodes, mask_node_name, displacement_image,
-                                                     location = normal_tex_node.location + mathutils.Vector((delta, -1500)))
+                                                     location = ref_location + mathutils.Vector((delta, -1500)))
 
         # find or create the layer mix group
         mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
@@ -250,7 +251,7 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
             mix_group = nodeutils.get_node_group("rl_tex_mod_normal_blend")
             mix_node = nodeutils.make_node_group_node(nodes, mix_group, "Normal Blend", mix_node_name)
         mix_node.inputs["Strength"].default_value = 1.0
-        mix_node.location = normal_tex_node.location + mathutils.Vector((300 + delta, -1200))
+        mix_node.location = ref_location + mathutils.Vector((300 + delta, -1200))
 
         # if connecting the detail layer and there is also a sculpt layer, connect the normal input from the sculpt layer instead
         sculpt_mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", sculpt_mix_node_name)
