@@ -18,7 +18,7 @@ import os
 import bpy
 import mathutils
 
-from . import nodeutils, imageutils, materials, modifiers, utils, params, vars
+from . import nodeutils, imageutils, materials, bake, modifiers, utils, params, vars
 
 LAYER_TARGET_SCULPT = "BODY"
 LAYER_TARGET_DETAIL = "DETAIL"
@@ -29,6 +29,8 @@ BAKE_NORMAL_SUFFIX = "Bake_Normal"
 BAKE_DISPLACEMENT_SUFFIX = "Bake_Displacement"
 LAYER_NORMAL_SUFFIX = "Layer_Normal"
 LAYER_DISPLACEMENT_SUFFIX = "Layer_Displacement"
+BAKE_FOLDER = "Sculpt Bake"
+SKINGEN_FOLDER = "Skingen"
 
 
 def set_multi_res_level(obj, view_level = -1, sculpt_level = -1, render_level = -1):
@@ -108,7 +110,7 @@ def do_multires_bake(chr_cache, body, layer_target):
 
         utils.log_info("Baking complete!")
 
-    #utils.delete_mesh_object(temp_body)
+    utils.delete_mesh_object(temp_body)
 
 
 def save_skin_gen_bake(chr_cache, body, layer_target):
@@ -116,9 +118,9 @@ def save_skin_gen_bake(chr_cache, body, layer_target):
     if not base_dir:
         base_dir = chr_cache.import_dir
 
-    skin_gen_dir = os.path.join(base_dir, "Skingen")
-    utils.log_info(f"Texture save path: {skin_gen_dir}")
-    os.makedirs(skin_gen_dir, exist_ok=True)
+    bake_dir = os.path.join(base_dir, BAKE_FOLDER)
+    utils.log_info(f"Texture save path: {bake_dir}")
+    os.makedirs(bake_dir, exist_ok=True)
 
     character_name = chr_cache.character_name
 
@@ -143,7 +145,7 @@ def save_skin_gen_bake(chr_cache, body, layer_target):
             for image, image_name, file_format, color_depth in images:
                 if image:
                     image_file = image_name + ".png"
-                    image_path = os.path.normpath(os.path.join(skin_gen_dir, image_file))
+                    image_path = os.path.normpath(os.path.join(bake_dir, image_file))
 
                     if image_path:
                         imageutils.save_scene_image(image, image_path, file_format, color_depth)
@@ -190,6 +192,38 @@ def has_body_multires_mod(body):
     return False
 
 
+def bake_skingen(chr_cache, layer_target):
+
+    base_dir = utils.local_path()
+    if not base_dir:
+        base_dir = chr_cache.import_dir
+
+    skin_gen_dir = os.path.join(base_dir, SKINGEN_FOLDER)
+    utils.log_info(f"Texture save path: {skin_gen_dir}")
+    os.makedirs(skin_gen_dir, exist_ok=True)
+
+    body = chr_cache.get_body()
+
+    if layer_target == LAYER_TARGET_DETAIL:
+        channel_id = "Detail_Sculpt"
+    else:
+        channel_id = "Body_Sculpt"
+
+    if body:
+
+        mix_node_name = f"{layer_target}_{LAYER_MIX_SUFFIX}"
+
+        for mat in body.data.materials:
+
+            nodes = mat.node_tree.nodes
+            links = mat.node_tree.links
+
+            mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
+
+            if mix_node:
+                bake.bake_node_socket_output(mix_node, "Layer", mat, channel_id, skin_gen_dir, name_prefix = chr_cache.character_name)
+
+
 def update_layer_nodes(body, layer_target, socket, value):
     if body:
         mix_node_name = f"{layer_target}_{LAYER_MIX_SUFFIX}"
@@ -206,9 +240,9 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
     if not base_dir:
         base_dir = chr_cache.import_dir
 
-    skin_gen_dir = os.path.join(base_dir, "Skingen")
-    utils.log_info(f"Texture save path: {skin_gen_dir}")
-    os.makedirs(skin_gen_dir, exist_ok=True)
+    bake_dir = os.path.join(base_dir, BAKE_FOLDER)
+    utils.log_info(f"Texture save path: {bake_dir}")
+    os.makedirs(bake_dir, exist_ok=True)
 
     for mat in detail_body.data.materials:
         nodes = mat.node_tree.nodes
@@ -232,9 +266,9 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
         layer_node_name = f"{layer_target}_{LAYER_NORMAL_SUFFIX}"
         mask_node_name = f"{layer_target}_{LAYER_DISPLACEMENT_SUFFIX}"
         normal_image_file = normal_image_name + ".png"
-        normal_image_path = os.path.normpath(os.path.join(skin_gen_dir, normal_image_file))
+        normal_image_path = os.path.normpath(os.path.join(bake_dir, normal_image_file))
         displacement_image_file = displacement_image_name + ".png"
-        displacement_image_path = os.path.normpath(os.path.join(skin_gen_dir, displacement_image_file))
+        displacement_image_path = os.path.normpath(os.path.join(bake_dir, displacement_image_file))
 
         delta = 0
         if layer_target == LAYER_TARGET_DETAIL:
@@ -601,6 +635,9 @@ class CC3OperatorSculpt(bpy.types.Operator):
         elif self.param == "DETAIL_CLEAN":
             clean_up_detail_sculpt(chr_cache)
 
+        elif self.param == "DETAIL_SKINGEN":
+            bake_skingen(chr_cache, LAYER_TARGET_DETAIL)
+
 
         if self.param == "BODY_SETUP":
             setup_body_sculpt(chr_cache)
@@ -616,6 +653,9 @@ class CC3OperatorSculpt(bpy.types.Operator):
 
         elif self.param == "BODY_CLEAN":
             clean_up_body_sculpt(chr_cache)
+
+        elif self.param == "BODY_SKINGEN":
+            bake_skingen(chr_cache, LAYER_TARGET_SCULPT)
 
         return {"FINISHED"}
 

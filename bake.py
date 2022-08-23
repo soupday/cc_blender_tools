@@ -125,11 +125,14 @@ def post_bake(bake_store):
     bpy.context.space_data.shading.type = bake_store.pop()
 
 
-def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bake_dir):
+def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bake_dir, name_prefix = ""):
     global BAKE_INDEX
 
+    prefix_sep = ""
+    if name_prefix:
+        prefix_sep = "_"
     # determine image name and color space
-    image_name = "EXPORT_BAKE_" + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
+    image_name = "EXPORT_BAKE_" + name_prefix + prefix_sep + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
     BAKE_INDEX += 1
     is_data = True
     alpha = False
@@ -151,7 +154,7 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bak
     return image, image_name
 
 
-def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, override_size = 0):
+def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, name_prefix = "", override_size = 0):
     # determine the size of the image to bake onto
     width, height = get_texture_size(node, override_size, socket_name)
 
@@ -159,7 +162,7 @@ def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, overrid
     source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(node, socket_name)
 
     # bake the source node output onto the target image and re-save it
-    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir)
+    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir, name_prefix = name_prefix)
     image_node = bake_output(mat, source_node, source_socket, image, image_name)
 
     # remove the image node
@@ -171,7 +174,7 @@ def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, overrid
 
 def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket_name,
                             normal_strength_socket_name, bump_distance_socket_name,
-                            mat, channel_id, bake_dir, override_size = 0):
+                            mat, channel_id, bake_dir, name_prefix = "", override_size = 0):
     # determine the size of the image to bake onto
     width, height = get_texture_size(shader_node, override_size, normal_socket_name, bump_socket_name)
 
@@ -205,7 +208,7 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_soc
         nodeutils.link_nodes(links, bump_map_node, "Normal", bsdf_node, "Normal")
 
     # bake the source node output onto the target image and re-save it
-    image, image_name = get_bake_image(mat, channel_id, width, height, shader_node, normal_socket_name, bake_dir)
+    image, image_name = get_bake_image(mat, channel_id, width, height, shader_node, normal_socket_name, bake_dir, name_prefix = name_prefix)
     image_node = bake_normal_output(mat, bsdf_node, image, image_name)
 
     # remove the bake nodes and restore the normal links to the bsdf
@@ -220,12 +223,12 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_soc
     return image
 
 
-def bake_node_socket_output(node, socket_name, mat, channel_id, bake_dir, override_size = 0):
+def bake_node_socket_output(node, socket_name, mat, channel_id, bake_dir, name_prefix = "", override_size = 0):
     # determine the size of the image to bake onto
     width, height = get_texture_size(node, override_size, socket_name)
 
     # bake the source node output onto the target image and re-save it
-    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir)
+    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir, name_prefix = name_prefix)
     image_node = bake_output(mat, node, socket_name, image, image_name)
 
     # remove the image node
@@ -235,7 +238,7 @@ def bake_node_socket_output(node, socket_name, mat, channel_id, bake_dir, overri
     return image
 
 
-def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, override_size = 0):
+def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", override_size = 0):
     # determine the size of the image to bake onto
     width, height = get_texture_size(bsdf_node, override_size, "Normal")
 
@@ -250,7 +253,7 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, override_size = 0):
         normal_input_node.inputs["Distance"].default_value = bump_distance * BUMP_BAKE_MULTIPLIER
 
     # bake the source node output onto the target image and re-save it
-    image, image_name = get_bake_image(mat, channel_id, width, height, bsdf_node, "Normal", bake_dir)
+    image, image_name = get_bake_image(mat, channel_id, width, height, bsdf_node, "Normal", bake_dir, name_prefix = name_prefix)
     image_node = bake_normal_output(mat, bsdf_node, image, image_name)
 
     if normal_input_node and normal_input_node.type == "BUMP":
@@ -262,9 +265,9 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, override_size = 0):
     return image
 
 
-def bake_value_image(value, mat, channel_id, bake_dir, size = 64):
+def bake_value_image(value, mat, channel_id, bake_dir, name_prefix = "", size = 64):
     width = height = size
-    image, image_name = get_bake_image(mat, channel_id, width, height, None, "", bake_dir)
+    image, image_name = get_bake_image(mat, channel_id, width, height, None, "", bake_dir, name_prefix = name_prefix)
 
     image_pixels = list(image.pixels)
 

@@ -1436,9 +1436,9 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             op.param = "PHYSICS_DELETE"
 
 
-class CC3ToolsTexturingPanel(bpy.types.Panel):
-    bl_idname = "CC3_PT_Texturing_Panel"
-    bl_label = "Sculpting / Texturing"
+class CC3ToolsSculptingPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Sculpting_Panel"
+    bl_label = "Sculpting"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -1505,22 +1505,29 @@ class CC3ToolsTexturingPanel(bpy.types.Panel):
         col_2 = split.column()
         col_1.label(text = "Bake Size")
         col_2.prop(prefs, "body_normal_bake_size", text = "")
-        #row = column.row()
-        #split = row.split(factor=0.9)
-        #col_1 = split.column()
-        #col_2 = split.column()
-        #col_1.label(text = "Apply Base Shape")
-        #col_2.prop(prefs, "body_sculpt_apply_base")
+
         row = column.row()
-        row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "BODY_BAKE"
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "BODY_BAKE"
         if not has_body_mod:
+            col_1.enabled = False
+        if chr_cache:
+            col_2.prop(chr_cache, "body_normal_strength", text="", slider=True)
+            if not has_body_overlay:
+                col_2.enabled = False
+
+        column.separator()
+
+        row = column.row()
+        row.scale_y = 2
+        row.operator("cc3.sculpting", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
+        if not has_body_mod or not has_body_overlay:
             row.enabled = False
 
-        if chr_cache:
-            row = column.row()
-            row.prop(chr_cache, "body_normal_strength", text="", slider=True)
-            if not has_body_overlay:
-                row.enabled = False
+        column.separator()
+
 
         # Detail Sculpting
 
@@ -1563,16 +1570,28 @@ class CC3ToolsTexturingPanel(bpy.types.Panel):
         col_2 = split.column()
         col_1.label(text = "Bake Size")
         col_2.prop(prefs, "detail_normal_bake_size", text = "")
+
         row = column.row()
-        row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "DETAIL_BAKE"
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "DETAIL_BAKE"
         if not detail_body:
+            col_1.enabled = False
+        if chr_cache:
+            col_2.prop(chr_cache, "detail_normal_strength", text="", slider=True)
+            if not has_detail_overlay:
+                col_2.enabled = False
+
+        column.separator()
+
+        row = column.row()
+        row.scale_y = 2
+        row.operator("cc3.sculpting", icon="EXPORT", text="Export Layer").param = "DETAIL_SKINGEN"
+        if not detail_body or not has_detail_overlay:
             row.enabled = False
 
-        if chr_cache:
-            row = column.row()
-            row.prop(chr_cache, "detail_normal_strength", text="", slider=True)
-            if not has_detail_overlay:
-                row.enabled = False
+        column.separator()
 
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):

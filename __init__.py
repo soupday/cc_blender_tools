@@ -147,7 +147,7 @@ classes = (
     panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
     panels.CC3RigifyPanel,
-    panels.CC3ToolsTexturingPanel,
+    panels.CC3ToolsSculptingPanel,
     panels.CC3ToolsScenePanel,
 
     preferences.CC3ToolsAddonPreferences,

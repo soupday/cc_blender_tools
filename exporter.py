@@ -747,7 +747,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
                         else:
                             if bake_shader_output:
-                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, bake_shader_size)
+                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_shader_size)
 
                             elif tex_node and tex_node.type == "TEX_IMAGE":
                                 if prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
@@ -1441,7 +1441,7 @@ def export_standard(chr_cache, file_path, include_selected):
                     use_selection = True,
                     bake_anim = export_anim,
                     add_leaf_bones = False,
-                    use_mesh_modifiers = True)
+                    use_mesh_modifiers = False)
 
         utils.log_recess()
         utils.log_info("")
