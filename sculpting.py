@@ -202,6 +202,14 @@ def update_layer_nodes(body, layer_target, socket, value):
 def setup_bake_nodes(chr_cache, detail_body, layer_target):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
+    base_dir = utils.local_path()
+    if not base_dir:
+        base_dir = chr_cache.import_dir
+
+    skin_gen_dir = os.path.join(base_dir, "Skingen")
+    utils.log_info(f"Texture save path: {skin_gen_dir}")
+    os.makedirs(skin_gen_dir, exist_ok=True)
+
     for mat in detail_body.data.materials:
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
@@ -223,17 +231,21 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
         displacement_bake_node_name = f"{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}"
         layer_node_name = f"{layer_target}_{LAYER_NORMAL_SUFFIX}"
         mask_node_name = f"{layer_target}_{LAYER_DISPLACEMENT_SUFFIX}"
+        normal_image_file = normal_image_name + ".png"
+        normal_image_path = os.path.normpath(os.path.join(skin_gen_dir, normal_image_file))
+        displacement_image_file = displacement_image_name + ".png"
+        displacement_image_path = os.path.normpath(os.path.join(skin_gen_dir, displacement_image_file))
 
         delta = 0
         if layer_target == LAYER_TARGET_DETAIL:
             delta = 600
 
         if layer_target == LAYER_TARGET_DETAIL:
-            normal_image = imageutils.get_custom_image(normal_image_name, int(prefs.detail_normal_bake_size), alpha = False, data = True)
-            displacement_image = imageutils.get_custom_image(displacement_image_name, int(prefs.detail_normal_bake_size), alpha = False, data = True, float = True)
+            normal_image = imageutils.get_custom_image(normal_image_name, int(prefs.detail_normal_bake_size), alpha = False, data = True, path = normal_image_path)
+            displacement_image = imageutils.get_custom_image(displacement_image_name, int(prefs.detail_normal_bake_size), alpha = False, data = True, float = True, path = displacement_image_path)
         else:
-            normal_image = imageutils.get_custom_image(normal_image_name, int(prefs.body_normal_bake_size), alpha = False, data = True)
-            displacement_image = imageutils.get_custom_image(displacement_image_name, int(prefs.body_normal_bake_size), alpha = False, data = True, float = True)
+            normal_image = imageutils.get_custom_image(normal_image_name, int(prefs.body_normal_bake_size), alpha = False, data = True, path = normal_image_path)
+            displacement_image = imageutils.get_custom_image(displacement_image_name, int(prefs.body_normal_bake_size), alpha = False, data = True, float = True, path = displacement_image_path)
 
         normal_tex_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "(NORMAL)")
         ref_location = mathutils.Vector((-1600, -1100))
@@ -251,6 +263,7 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
             mix_group = nodeutils.get_node_group("rl_tex_mod_normal_blend")
             mix_node = nodeutils.make_node_group_node(nodes, mix_group, "Normal Blend", mix_node_name)
         mix_node.inputs["Strength"].default_value = 1.0
+        mix_node.inputs["Threshold"].default_value = 0.1
         mix_node.location = ref_location + mathutils.Vector((300 + delta, -1200))
 
         # if connecting the detail layer and there is also a sculpt layer, connect the normal input from the sculpt layer instead
@@ -294,7 +307,7 @@ def bake_detail_sculpt(chr_cache):
         do_multires_bake(chr_cache, detail_body, LAYER_TARGET_DETAIL)
         save_skin_gen_bake(chr_cache, detail_body, LAYER_TARGET_DETAIL)
         finish_bake(chr_cache, detail_body, LAYER_TARGET_DETAIL)
-        end_detail_sculpting(chr_cache)
+        end_detail_sculpting(chr_cache, baked = True)
 
 
 def bake_body_sculpt(chr_cache):
@@ -305,7 +318,7 @@ def bake_body_sculpt(chr_cache):
         do_multires_bake(chr_cache, body, LAYER_TARGET_SCULPT)
         save_skin_gen_bake(chr_cache, body, LAYER_TARGET_SCULPT)
         finish_bake(chr_cache, body, LAYER_TARGET_SCULPT)
-        end_body_sculpting(chr_cache)
+        end_body_sculpting(chr_cache, baked = True)
 
 
 def set_hide_character(chr_cache, hide, show_body = False):
@@ -346,10 +359,13 @@ def begin_detail_sculpting(chr_cache):
         bpy.context.space_data.shading.show_cavity = True
 
 
-def end_detail_sculpting(chr_cache):
+def end_detail_sculpting(chr_cache, baked = False):
     body = chr_cache.get_body()
     detail_body = chr_cache.get_detail_body()
-    set_multi_res_level(detail_body, view_level=9)
+    if baked:
+        set_multi_res_level(detail_body, view_level=0)
+    else:
+        set_multi_res_level(detail_body, view_level=9)
     utils.set_mode("OBJECT")
     set_hide_character(chr_cache, False)
     set_hide_detail_body(chr_cache, True)
@@ -358,7 +374,7 @@ def end_detail_sculpting(chr_cache):
 
 
 def clean_up_detail_sculpt(chr_cache):
-    end_detail_sculpting(chr_cache)
+    end_detail_sculpting(chr_cache, True)
     remove_detail_detail_body(chr_cache)
 
 
@@ -420,9 +436,12 @@ def begin_body_sculpting(chr_cache):
         bpy.context.space_data.shading.show_cavity = True
 
 
-def end_body_sculpting(chr_cache):
+def end_body_sculpting(chr_cache, baked = False):
     body = chr_cache.get_body()
-    set_multi_res_level(body, view_level=9)
+    if baked:
+        set_multi_res_level(body, view_level=0)
+    else:
+        set_multi_res_level(body, view_level=9)
     utils.set_mode("OBJECT")
     unhide_body_sculpt(chr_cache)
     set_hide_character(chr_cache, False)
@@ -432,13 +451,14 @@ def end_body_sculpting(chr_cache):
 
 
 def clean_up_body_sculpt(chr_cache):
+    end_body_sculpting(chr_cache, True)
     body = chr_cache.get_body()
     mod = modifiers.get_object_modifier(body, modifiers.MOD_MULTIRES, modifiers.MOD_MULTIRES_NAME)
     if mod:
         body.modifiers.remove(mod)
 
 
-def add_detail_detail_body(chr_cache, detail_sculpt_target):
+def add_detail_body(chr_cache, detail_sculpt_target):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     # duplicate the body
@@ -540,12 +560,12 @@ def setup_detail_sculpt(chr_cache):
         elif detail_body and detail_sculpt_target != prefs.detail_sculpt_target:
 
             remove_detail_detail_body(chr_cache)
-            detail_body = add_detail_detail_body(chr_cache, prefs.detail_sculpt_target)
+            detail_body = add_detail_body(chr_cache, prefs.detail_sculpt_target)
             begin_detail_sculpting(chr_cache)
 
         elif detail_body is None:
 
-            detail_body = add_detail_detail_body(chr_cache, prefs.detail_sculpt_target)
+            detail_body = add_detail_body(chr_cache, prefs.detail_sculpt_target)
             begin_detail_sculpting(chr_cache)
 
 

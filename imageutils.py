@@ -244,7 +244,7 @@ def find_texture_folder_in_objects(objects):
     return None
 
 
-def get_custom_image(image_name, size, alpha = False, data = True, float = False):
+def get_custom_image(image_name, size, alpha = False, data = True, float = False, path = ""):
     # find the image by name
     image = None
     if image_name in bpy.data.images:
@@ -264,15 +264,23 @@ def get_custom_image(image_name, size, alpha = False, data = True, float = False
     if float:
         image.use_half_precision = False
 
+    if path:
+        image.filepath_raw = path
+        image.save()
+
     return image
 
 
 def save_scene_image(image : bpy.types.Image, file_path, file_format = 'PNG', color_depth = '8'):
+    """To reload properly, the image must be pre-saved with image.filepath_raw = ... and image.save()"""
     scene = bpy.data.scenes.new("RL_Save_Image_Settings_Scene")
     settings = scene.render.image_settings
     settings.color_depth = color_depth
     settings.file_format = file_format
     settings.color_mode = 'RGB' if image.depth == 24 else 'RGBA'
-    image.save_render(file_path, scene = scene)
-    image.filepath_raw = file_path
+    if not file_path and image.filepath:
+        file_path = bpy.path.abspath(image.filepath)
+    image.save_render(filepath = file_path, scene = scene)
+    if image.filepath:
+        image.reload()
     bpy.data.scenes.remove(scene)

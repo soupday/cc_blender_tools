@@ -194,7 +194,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                     ], default="HEAD", name = "Sculpt Target")
 
     detail_sculpt_level: bpy.props.IntProperty(default=4, min = 1, max = 6, name="Level")
-    body_sculpt_level: bpy.props.IntProperty(default=3, min = 1, max = 6, name="Level")
+    body_sculpt_level: bpy.props.IntProperty(default=2, min = 1, max = 6, name="Level")
     body_sculpt_apply_base: bpy.props.BoolProperty(default=False, name="Apply Base Shape", description="Apply sculpted shape to base topology on bake.")
 
 
