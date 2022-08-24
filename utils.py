@@ -578,6 +578,20 @@ def partial_match(text, search, start = 0):
     return False
 
 
+def get_dot_file_ext(ext):
+    if ext[0] == ".":
+        return ext.lower()
+    else:
+        return f".{ext}".lower()
+
+
+def get_file_ext(ext):
+    if ext[0] == ".":
+        return ext[1:].lower()
+    else:
+        return ext.lower()
+
+
 def is_file_ext(test, ext):
     if ext[0] == ".":
         ext = ext[1:]

@@ -1922,8 +1922,11 @@ class CC3Export(bpy.types.Operator):
             else:
                 export_format = "blend"
         elif chr_cache:
-            export_format = chr_cache.import_type
+            export_format = utils.get_file_ext(chr_cache.import_type)
+            if export_format != "obj":
+                export_format = "fbx"
         self.filename_ext = "." + export_format
+        print(self.param, export_format, self.filename_ext)
 
         # perform checks and validation
         require_export_check = (self.param == "EXPORT_CC3" or
