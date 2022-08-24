@@ -41,6 +41,7 @@ Links
 - Auto converts generic imports where possible, when using the import character button.
 - Texture and material de-duplication.
 - Multi-res sculpt & bake helper tools.
+- ActorCore rigify accessory fix.
 
 ### 1.4.2
 - Separate Iris & Sclera emission colors for parallax eye shader.
