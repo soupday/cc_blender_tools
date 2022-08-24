@@ -39,9 +39,11 @@ Links
 - Export bake maps now correctly sets bit depth and no alpha channel. Opacity texture bakes should work now.
 - Convert generic character from objects to props added.
 - Auto converts generic imports where possible, when using the import character button.
-- Texture and material de-duplication.
-- Multi-res sculpt & bake helper tools.
+- Texture and material de-duplication (optional)
 - ActorCore rigify accessory fix.
+- CC/iC Create tab and panels added.
+    - Physics & Object Management moved to CC/iC Create.
+    - Multi-res sculpt & bake helper tools panels added.
 
 ### 1.4.2
 - Separate Iris & Sclera emission colors for parallax eye shader.
