@@ -627,10 +627,12 @@ def append_node_group(path, object_name):
 
 
 def fetch_node_group(name):
+    paths = []
+    local_path = utils.local_path()
+    if local_path:
+        paths.append(local_path)
+    paths.append(os.path.dirname(os.path.realpath(__file__)))
 
-    paths = [bpy.path.abspath("//"),
-             os.path.dirname(os.path.realpath(__file__)),
-             ]
     for path in paths:
         utils.log_info("Trying to append: " + path + " > " + name)
         if os.path.exists(path):
@@ -659,10 +661,12 @@ def append_lib_image(path, object_name):
 
 
 def fetch_lib_image(name):
+    paths = []
+    local_path = utils.local_path()
+    if local_path:
+        paths.append(local_path)
+    paths.append(os.path.dirname(os.path.realpath(__file__)))
 
-    paths = [bpy.path.abspath("//"),
-             os.path.dirname(os.path.realpath(__file__)),
-             ]
     for path in paths:
         utils.log_info("Trying to append image: " + path + " > " + name)
         if os.path.exists(path):
@@ -712,6 +716,17 @@ def get_tiling_node(mat, shader_name, texture_type):
 def get_tiling_node_from_nodes(nodes, shader_name, texture_type):
     shader_id = "(tiling_" + shader_name + "_" + texture_type + "_mapping)"
     return get_node_by_id(nodes, shader_id)
+
+
+def get_custom_image_node(nodes, node_name, image, location = (0, 0)):
+    # find or create the bake image node
+    image_node = find_node_by_type_and_keywords(nodes, "TEX_IMAGE", node_name)
+    if not image_node:
+        image_node = make_image_node(nodes, image, node_name)
+    if image_node.image != image:
+        image_node.image = image
+    image_node.location = location
+    return image_node
 
 
 # e.g.

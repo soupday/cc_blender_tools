@@ -31,7 +31,7 @@ def read_json(fbx_path):
         if not os.path.exists(json_path):
             json_path = utils.local_path(fbx_name + ".json")
 
-        if os.path.exists(json_path):
+        if json_path and os.path.exists(json_path):
 
             # determine start of json text data
             file_bytes = open(json_path, "rb")
@@ -83,17 +83,17 @@ def get_all_material_keys(chr_json):
         return keys
 
 
-def get_character_generation_json(character_json, file_name, character_id):
+def get_character_generation_json(chr_json, file_name, character_id):
     try:
-        return character_json[file_name]["Object"][character_id]["Generation"]
+        return chr_json[file_name]["Object"][character_id]["Generation"]
     except:
         utils.log_warn("Failed to read character generation data!")
         return None
 
 
-def set_character_generation_json(character_json, file_name, character_id, generation):
+def set_character_generation_json(chr_json, file_name, character_id, generation):
     try:
-        character_json[file_name]["Object"][character_id]["Generation"] = generation
+        chr_json[file_name]["Object"][character_id]["Generation"] = generation
         return True
     except:
         utils.log_warn(f"Failed to set character generation to: {generation}")
@@ -113,19 +113,19 @@ def get_character_json(json_data, file_name, character_id):
     if not json_data:
         return None
     try:
-        character_json = json_data[file_name]["Object"][character_id]
+        chr_json = json_data[file_name]["Object"][character_id]
         utils.log_detail("Character Json data found for: " + character_id)
-        return character_json
+        return chr_json
     except:
         utils.log_warn("Failed to get character Json data!")
         return None
 
-def get_object_json(character_json, obj):
-    if not character_json:
+def get_object_json(chr_json, obj):
+    if not chr_json:
         return None
     try:
         name = utils.strip_name(obj.name).lower()
-        meshes_json = character_json["Meshes"]
+        meshes_json = chr_json["Meshes"]
         for object_name in meshes_json.keys():
             if object_name.lower() == name:
                 utils.log_detail("Object Json data found for: " + obj.name)
@@ -148,22 +148,22 @@ def get_physics_mesh_json(physics_json, obj):
         return None
 
 
-def get_custom_shader(material_json):
+def get_custom_shader(mat_json):
     try:
-        return material_json["Custom Shader"]["Shader Name"]
+        return mat_json["Custom Shader"]["Shader Name"]
     except:
         try:
-            return material_json["Material Type"]
+            return mat_json["Material Type"]
         except:
             utils.log_warn("Failed to find material shader data!")
             return "Pbr"
 
-def get_material_json(object_json, material):
-    if not object_json:
+def get_material_json(obj_json, material):
+    if not obj_json:
         return None
     try:
         name = utils.strip_name(material.name).lower()
-        materials_json = object_json["Materials"]
+        materials_json = obj_json["Materials"]
         for material_name in materials_json.keys():
             if material_name.lower() == name:
                 utils.log_detail("Material Json data found for: " + material.name)
@@ -186,120 +186,120 @@ def get_physics_material_json(physics_mesh_json, material):
         utils.log_warn("Failed to get physics material Json data!")
         return None
 
-def get_texture_info(material_json, texture_id):
-    tex_info = get_pbr_texture_info(material_json, texture_id)
+def get_texture_info(mat_json, texture_id):
+    tex_info = get_pbr_texture_info(mat_json, texture_id)
     if tex_info is None:
-        tex_info = get_shader_texture_info(material_json, texture_id)
+        tex_info = get_shader_texture_info(mat_json, texture_id)
     return tex_info
 
-def get_pbr_texture_info(material_json, texture_id):
-    if not material_json:
+def get_pbr_texture_info(mat_json, texture_id):
+    if not mat_json:
         return None
     try:
-        return material_json["Textures"][texture_id]
+        return mat_json["Textures"][texture_id]
     except:
         return None
 
-def get_shader_texture_info(material_json, texture_id):
-    if not material_json:
+def get_shader_texture_info(mat_json, texture_id):
+    if not mat_json:
         return None
     try:
-        return material_json["Custom Shader"]["Image"][texture_id]
+        return mat_json["Custom Shader"]["Image"][texture_id]
     except:
         return None
 
-def get_material_json_var(material_json, var_path: str):
+def get_material_json_var(mat_json, var_path: str):
     paths = var_path.split('/')
     var_type = paths[0]
     var_name = paths[1]
     if var_type == "Custom":
-        return get_shader_var(material_json, var_name)
+        return get_shader_var(mat_json, var_name)
     elif var_type == "SSS":
-        return get_sss_var(material_json, var_name)
+        return get_sss_var(mat_json, var_name)
     elif var_type == "Pbr":
-        return get_pbr_var(material_json, var_name, paths)
+        return get_pbr_var(mat_json, var_name, paths)
     else: # var_type == "Base":
-        return get_material_var(material_json, var_name)
+        return get_material_var(mat_json, var_name)
 
 
-def get_shader_var(material_json, var_name):
-    if not material_json:
+def get_shader_var(mat_json, var_name):
+    if not mat_json:
         return None
     try:
-        return material_json["Custom Shader"]["Variable"][var_name]
+        return mat_json["Custom Shader"]["Variable"][var_name]
     except:
         return None
 
-def get_pbr_var(material_json, var_name, paths):
-    if not material_json:
+def get_pbr_var(mat_json, var_name, paths):
+    if not mat_json:
         return None
     try:
         if len(paths) == 3:
-            return material_json["Textures"][var_name][paths[2]]
+            return mat_json["Textures"][var_name][paths[2]]
         else:
-            return material_json["Textures"][var_name]["Strength"] / 100.0
+            return mat_json["Textures"][var_name]["Strength"] / 100.0
     except:
         return None
 
-def get_material_var(material_json, var_name):
-    if not material_json:
+def get_material_var(mat_json, var_name):
+    if not mat_json:
         return None
     try:
-        return material_json[var_name]
+        return mat_json[var_name]
     except:
         return None
 
-def get_sss_var(material_json, var_name):
-    if not material_json:
+def get_sss_var(mat_json, var_name):
+    if not mat_json:
         return None
     try:
-        return material_json["Subsurface Scatter"][var_name]
+        return mat_json["Subsurface Scatter"][var_name]
     except:
         return None
 
 
-def set_material_json_var(material_json, var_path: str, value):
+def set_material_json_var(mat_json, var_path: str, value):
     paths = var_path.split('/')
     var_type = paths[0]
     var_name = paths[1]
     if var_type == "Custom":
-        set_shader_var(material_json, var_name, value)
+        set_shader_var(mat_json, var_name, value)
     elif var_type == "SSS":
-        set_sss_var(material_json, var_name, value)
+        set_sss_var(mat_json, var_name, value)
     elif var_type == "Pbr":
-        set_pbr_var(material_json, var_name, paths, value)
+        set_pbr_var(mat_json, var_name, paths, value)
     else: # var_type == "Base":
-        set_material_var(material_json, var_name, value)
+        set_material_var(mat_json, var_name, value)
 
 
-def set_shader_var(material_json, var_name, value):
-    if material_json:
+def set_shader_var(mat_json, var_name, value):
+    if mat_json:
         try:
-            material_json["Custom Shader"]["Variable"][var_name] = value
+            mat_json["Custom Shader"]["Variable"][var_name] = value
         except:
             return
 
-def set_pbr_var(material_json, var_name, paths, value):
-    if material_json:
+def set_pbr_var(mat_json, var_name, paths, value):
+    if mat_json:
         try:
             if len(paths) == 3:
-                material_json["Textures"][var_name][paths[2]] = value
+                mat_json["Textures"][var_name][paths[2]] = value
             else:
-                material_json["Textures"][var_name]["Strength"] = value * 100.0
+                mat_json["Textures"][var_name]["Strength"] = value * 100.0
         except:
             return
 
-def set_material_var(material_json, var_name, value):
-    if material_json:
+def set_material_var(mat_json, var_name, value):
+    if mat_json:
         try:
-            material_json[var_name] = value
+            mat_json[var_name] = value
         except:
             return
 
-def set_sss_var(material_json, var_name, value):
-    if material_json:
+def set_sss_var(mat_json, var_name, value):
+    if mat_json:
         try:
-            material_json["Subsurface Scatter"][var_name] = value
+            mat_json["Subsurface Scatter"][var_name] = value
         except:
             return
 
@@ -320,11 +320,11 @@ def convert_from_color(color):
         return [255,255,255]
 
 
-def get_shader_var_color(material_json, var_name):
-    if not material_json:
+def get_shader_var_color(mat_json, var_name):
+    if not mat_json:
         return None
     try:
-        json_color = material_json["Custom Shader"]["Variable"][var_name]
+        json_color = mat_json["Custom Shader"]["Variable"][var_name]
         return convert_to_color(json_color)
     except:
         return None

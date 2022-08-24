@@ -194,37 +194,38 @@ def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, sca
     return None
 
 
-def get_edit_bone_tree_defs(rig, bone : bpy.types.EditBone, tree = None):
+def get_edit_bone_subtree_defs(rig, bone : bpy.types.EditBone, tree = None):
 
     if tree is None:
             tree = []
 
-    if utils.edit_mode_to(rig):
+    # bone must have a parent for it to be a sub-tree
+    if utils.edit_mode_to(rig) and bone.parent:
 
         bone_data = [bone.name,
-                     rig.matrix_world @ bone.head,
-                     rig.matrix_world @ bone.tail,
-                     bone.head_radius,
-                     bone.tail_radius,
-                     bone.roll,
-                     bone.parent.name]
+                    rig.matrix_world @ bone.head,
+                    rig.matrix_world @ bone.tail,
+                    bone.head_radius,
+                    bone.tail_radius,
+                    bone.roll,
+                    bone.parent.name]
 
         tree.append(bone_data)
 
         for child_bone in bone.children:
-            get_edit_bone_tree_defs(rig, child_bone, tree)
+            get_edit_bone_subtree_defs(rig, child_bone, tree)
 
     return tree
 
 
-def copy_rl_edit_bone_tree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, layer):
+def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, layer):
 
     src_bone_defs = None
 
-    # copy the cc3 bone tree to the destination rig
+    # copy the cc3 bone sub-tree to the destination rig
     if utils.edit_mode_to(cc3_rig):
         cc3_bone = get_edit_bone(cc3_rig, cc3_name)
-        src_bone_defs = get_edit_bone_tree_defs(cc3_rig, cc3_bone)
+        src_bone_defs = get_edit_bone_subtree_defs(cc3_rig, cc3_bone)
 
         if utils.edit_mode_to(dst_rig):
 

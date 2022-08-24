@@ -35,6 +35,14 @@ Links
 
 ## Changelog
 
+### 1.4.3
+- Export bake maps now correctly sets bit depth and no alpha channel. Opacity texture bakes should work now.
+- Convert generic character from objects to props added.
+- Auto converts generic imports where possible, when using the import character button.
+- Texture and material de-duplication.
+- Multi-res sculpt & bake helper tools.
+- ActorCore rigify accessory fix.
+
 ### 1.4.2
 - Separate Iris & Sclera emission colors for parallax eye shader.
 - Displacement calculation reworked as it behaves differently in Blender 3.2.1 (was causing triangulation artifacts)

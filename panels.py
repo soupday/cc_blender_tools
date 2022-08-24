@@ -19,9 +19,10 @@ import bpy
 import textwrap
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, rigify_mapping_data, sculpting, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
 
-TAB_NAME = "CC/iC Pipeline"
+PIPELINE_TAB_NAME = "CC/iC Pipeline"
+CREATE_TAB_NAME = "CC/iC Create"
 
 # Panel button functions and operator
 #
@@ -68,11 +69,12 @@ def get_layout_width(region_type = "UI"):
     return width
 
 
-def wrapped_text_box(layout, info_text, width):
+def wrapped_text_box(layout, info_text, width, alert = False):
     wrapper = textwrap.TextWrapper(width=width)
     info_list = wrapper.wrap(info_text)
 
     box = layout.box()
+    box.alert = alert
     for text in info_list:
         box.label(text=text)
 
@@ -120,6 +122,46 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
     else:
         box = layout.box()
         box.row().label(text=f"No Character")
+
+
+def character_export_button(chr_cache, chr_rig, layout):
+    # export to CC3
+    text = "Export to CC3/4"
+    icon = "MOD_ARMATURE"
+
+    standard_export = chr_cache and chr_cache.is_standard()
+    non_standard_export = (chr_cache and chr_cache.is_non_standard()) or (chr_rig and not standard_export)
+
+    if chr_cache:
+        row = layout.row()
+        row.scale_y = 2
+        if chr_cache and utils.is_file_ext(chr_cache.import_type, "OBJ"):
+            text = "Export Morph Target"
+            icon = "ARROW_LEFTRIGHT"
+        op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
+        if not chr_cache.can_export():
+            row.enabled = False
+            if not chr_cache.import_has_key:
+                if utils.is_file_ext(chr_cache.import_type, "FBX"):
+                    layout.row().label(text="No Fbx-Key file!", icon="ERROR")
+                elif utils.is_file_ext(chr_cache.import_type, "OBJ"):
+                    layout.row().label(text="No Obj-Key file!", icon="ERROR")
+
+    elif chr_rig:
+        row = layout.row()
+        row.scale_y = 2
+        text = "Export Non-Standard"
+        icon = "MONKEY"
+        op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_NON_STANDARD"
+
+    else:
+        row = layout.row()
+        row.scale_y = 2
+        row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
+        row.enabled = False
+        row = layout.row()
+        row.alert = True
+        row.label(text="No current character!", icon="ERROR")
 
 
 class ARMATURE_UL_List(bpy.types.UIList):
@@ -226,7 +268,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
     bl_label = "Character Build Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = PIPELINE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -271,8 +313,17 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         # Build Settings
 
         layout.box().label(text="Build Settings", icon="TOOL_SETTINGS")
+        if prefs.physics == "ENABLED":
+            layout.prop(props, "physics_mode", expand=True)
         layout.prop(prefs, "render_target", expand=True)
         layout.prop(prefs, "refractive_eyes", expand=True)
+        split = layout.split(factor=0.9)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="De-duplicate Materials")
+        col_2.prop(prefs, "import_deduplicate", text="")
+        col_1.label(text="Auto Convert Generic")
+        col_2.prop(prefs, "import_auto_convert", text="")
 
         # Cycles Prefs
 
@@ -367,7 +418,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
     bl_label = "Object Management"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = CREATE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -425,8 +476,11 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
             row.enabled = False
 
         row = column.row()
-        row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
-        if chr_cache or not chr_rig:
+        if chr_rig:
+            row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
+        else:
+            row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
+        if chr_cache or not bpy.context.selected_objects:
             row.enabled = False
 
         # Checking
@@ -497,7 +551,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
     bl_label = "Material Parameters"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = PIPELINE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -530,6 +584,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
             row.prop(props, "update_mode", expand=True)
 
             linked = props.update_mode == "UPDATE_LINKED"
+            has_key = chr_cache.import_has_key
 
             if chr_cache.setup_mode == "ADVANCED":
 
@@ -561,6 +616,11 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                             prop = ui_row[2]
                             is_slider = ui_row[3]
                             conditions = ui_row[4:]
+                            alert = False
+                            if len(label) > 0 and label.startswith("*"):
+                                if has_key:
+                                    alert = True
+                                label = label[1:]
 
                             if shader:
                                 for condition in conditions:
@@ -584,7 +644,9 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                     col_1 = row.column()
                                     col_2 = row.column()
                                     split = True
+                                col_1.alert = alert
                                 col_1.label(text=label)
+                                #col_2.alert = alert
                                 col_2.prop(parameters, prop, text="", slider=is_slider)
 
                         elif ui_row[0] == "OP":
@@ -830,7 +892,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         column = layout.column()
         if not chr_cache:
             column.enabled = False
-        if chr_cache and chr_cache.import_type == "fbx":
+        if chr_cache and utils.is_file_ext(chr_cache.import_type, "FBX"):
             split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
@@ -858,7 +920,7 @@ class CC3RigifyPanel(bpy.types.Panel):
     bl_label = "Rigging & Animation"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = PIPELINE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -1113,10 +1175,10 @@ class CC3RigifyPanel(bpy.types.Panel):
                             row3.enabled = False
 
             else:
-                wrapped_text_box(layout, "No current character!", width)
+                wrapped_text_box(layout, "No current character!", width, True)
 
         else:
-            wrapped_text_box(layout, "Rigify add-on is not installed.", width)
+            wrapped_text_box(layout, "Rigify add-on is not installed.", width, True)
 
 
 class CC3ToolsScenePanel(bpy.types.Panel):
@@ -1124,7 +1186,7 @@ class CC3ToolsScenePanel(bpy.types.Panel):
     bl_label = "Scene Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = PIPELINE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -1134,31 +1196,28 @@ class CC3ToolsScenePanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Scene Lighting", icon="LIGHT")
-        col = layout.column()
 
-        op = col.operator("cc3.scene", icon="SHADING_SOLID", text="Solid Matcap")
-        op.param = "MATCAP"
-
-        op = col.operator("cc3.scene", icon="SHADING_TEXTURE", text="Blender Default")
-        op.param = "BLENDER"
-        op = col.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC Default")
-        op.param = "CC3"
-
-        op = col.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio Right")
-        op.param = "STUDIO"
-        op = col.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard Left")
-        op.param = "COURTYARD"
+        column = layout.column()
+        split = column.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
+        col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
+        col_1.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
+        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
+        col_1.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
+        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
 
         box = layout.box()
         box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
-        col = layout.column()
+        column = layout.column()
 
-        op = col.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
+        op = column.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
         op.param = "TEMPLATE"
 
         box = layout.box()
         box.label(text="Animation", icon="RENDER_ANIMATION")
-        col = layout.column()
+        column = layout.column()
         scene = context.scene
         #op = col.operator("cc3.scene", icon="RENDER_STILL", text="Render Image")
         #op.param = "RENDER_IMAGE"
@@ -1169,14 +1228,14 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         col_2 = split.column()
         col_1.prop(scene, "frame_start", text="Start")
         col_2.prop(scene, "frame_end", text="End")
-        col = layout.column()
-        col.separator()
-        op = col.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character")
+        column = layout.column()
+        column.separator()
+        op = column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character")
         op.param = "ANIM_RANGE"
-        op = col.operator("cc3.scene", icon="ANIM", text="Sync Physics Range")
+        op = column.operator("cc3.scene", icon="ANIM", text="Sync Physics Range")
         op.param = "PHYSICS_PREP"
-        col.separator()
-        split = col.split(factor=0.0)
+        column.separator()
+        split = column.split(factor=0.0)
         col_1 = split.column()
         col_2 = split.column()
         col_3 = split.column()
@@ -1197,9 +1256,48 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
             box = layout.box()
             box.label(text="Cycles", icon="SHADING_RENDERED")
-            col = layout.column()
-            op = col.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
+            column = layout.column()
+            op = column.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
             op.param = "CYCLES_SETUP"
+
+
+
+class CC3ToolsCreatePanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Create_Panel"
+    bl_label = "Create Tools"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = CREATE_TAB_NAME
+
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        layout = self.layout
+
+        chr_cache = props.get_context_character_cache(context)
+        chr_rig = None
+        if chr_cache:
+            chr_rig = chr_cache.get_armature()
+        elif context.selected_objects:
+            chr_rig = utils.get_generic_character_rig(context.selected_objects)
+
+        box = layout.box()
+        box.label(text=f"Quick Export  ({vars.VERSION_STRING})", icon="EXPORT")
+        # export to CC3
+        character_export_button(chr_cache, chr_rig, layout)
+
+        box = layout.box()
+        box.label(text="Lighting Presets", icon="LIGHT")
+        column = layout.column()
+        split = column.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
+        col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
+        col_1.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
+        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
+        col_1.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
+        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
 
 
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
@@ -1207,7 +1305,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_label = "Physics Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = CREATE_TAB_NAME
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
@@ -1414,12 +1512,170 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             op.param = "PHYSICS_DELETE"
 
 
+class CC3ToolsSculptingPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Sculpting_Panel"
+    bl_label = "Sculpting"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = CREATE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        layout = self.layout
+        chr_cache = props.get_context_character_cache(context)
+
+        detail_body = None
+        body = None
+        detail_sculpting = False
+        body_sculpting = False
+        if chr_cache:
+            detail_body = chr_cache.get_detail_body()
+            body = chr_cache.get_body()
+            if detail_body:
+                if utils.get_active_object() == detail_body and utils.get_mode() == "SCULPT":
+                    detail_sculpting = True
+                if detail_body.visible_get():
+                    detail_sculpting = True
+            if body:
+                if utils.get_active_object() == body and utils.get_mode() == "SCULPT":
+                    body_sculpting = True
+        has_body_overlay = sculpting.has_overlay_nodes(body, sculpting.LAYER_TARGET_SCULPT)
+        has_detail_overlay = sculpting.has_overlay_nodes(detail_body, sculpting.LAYER_TARGET_DETAIL)
+        has_body_mod = sculpting.has_body_multires_mod(body)
+
+        # Full Body Sculpting
+
+        layout.box().label(text = "Full Body Sculpting", icon = "OUTLINER_OB_ARMATURE")
+        column = layout.column()
+        if not chr_cache:
+            column.enabled = False
+
+        row = column.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text = "Multi-res Level")
+        col_2.prop(prefs, "body_sculpt_level", slider=True)
+        if body_sculpting:
+            row.enabled = False
+
+        row = column.row()
+        row.scale_y = 2.0
+        if not has_body_mod:
+            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
+        elif not body_sculpting:
+            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Begin Body Sculpt").param = "BODY_BEGIN"
+        else:
+            row.operator("cc3.sculpting", icon="X", text="End Body Sculpt").param = "BODY_END"
+
+        row = column.row()
+        row.operator("cc3.sculpting", icon="TRASH", text="Remove Body Sculpt").param = "BODY_CLEAN"
+        if not has_body_mod:
+            row.enabled = False
+
+        row = column.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text = "Bake Size")
+        col_2.prop(prefs, "body_normal_bake_size", text = "")
+
+        row = column.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "BODY_BAKE"
+        if not has_body_mod:
+            col_1.enabled = False
+        if chr_cache:
+            col_2.prop(chr_cache, "body_normal_strength", text="", slider=True)
+            if not has_body_overlay:
+                col_2.enabled = False
+
+        column.separator()
+
+        row = column.row()
+        row.scale_y = 2
+        row.operator("cc3.sculpting", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
+        if not has_body_mod or not has_body_overlay:
+            row.enabled = False
+
+        column.separator()
+
+
+        # Detail Sculpting
+
+        layout.box().label(text = "Detail Sculpting", icon = "POSE_HLT")
+        column = layout.column()
+        if not chr_cache:
+            column.enabled = False
+
+        row = column.row()
+        row.prop(prefs, "detail_sculpt_target", expand=True)
+        if detail_body or detail_sculpting:
+            row.enabled = False
+
+        row = column.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text = "Multi-res Level")
+        col_2.prop(prefs, "detail_sculpt_level", slider=True)
+        if detail_body or detail_sculpting:
+            row.enabled = False
+
+        row = column.row()
+        row.scale_y = 2.0
+        if not detail_body:
+            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
+        elif not detail_sculpting:
+            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Begin Detail Sculpt").param = "DETAIL_BEGIN"
+        else:
+            row.operator("cc3.sculpting", icon="X", text="End Detail Sculpt").param = "DETAIL_END"
+
+        row = column.row()
+        row.operator("cc3.sculpting", icon="TRASH", text="Remove Detail Sculpt").param = "DETAIL_CLEAN"
+        if not detail_body:
+            row.enabled = False
+
+        row = column.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text = "Bake Size")
+        col_2.prop(prefs, "detail_normal_bake_size", text = "")
+
+        row = column.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "DETAIL_BAKE"
+        if not detail_body:
+            col_1.enabled = False
+        if chr_cache:
+            col_2.prop(chr_cache, "detail_normal_strength", text="", slider=True)
+            if not has_detail_overlay:
+                col_2.enabled = False
+
+        column.separator()
+
+        row = column.row()
+        row.scale_y = 2
+        row.operator("cc3.sculpting", icon="EXPORT", text="Export Layer").param = "DETAIL_SKINGEN"
+        if not detail_body or not has_detail_overlay:
+            row.enabled = False
+
+        column.separator()
+
+
 class CC3ToolsPipelinePanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Pipeline_Panel"
     bl_label = "Import / Export"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = TAB_NAME
+    bl_category = PIPELINE_TAB_NAME
 
     def draw(self, context):
         global debug_counter
@@ -1471,40 +1727,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         character_info_box(chr_cache, chr_rig, layout)
 
         # export to CC3
-        text = "Export to CC3/4"
-        icon = "MOD_ARMATURE"
-
-        standard_export = chr_cache and chr_cache.is_standard()
-        non_standard_export = (chr_cache and chr_cache.is_non_standard()) or (chr_rig and not standard_export)
-
-        if chr_cache:
-            row = layout.row()
-            row.scale_y = 2
-            if chr_cache and chr_cache.import_type == "obj":
-                text = "Export Morph Target"
-                icon = "ARROW_LEFTRIGHT"
-            op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
-            if not chr_cache.can_export():
-                row.enabled = False
-                if not chr_cache.import_has_key:
-                    if chr_cache.import_type == "fbx":
-                        layout.row().label(text="No Fbx-Key file!", icon="ERROR")
-                    elif chr_cache.import_type == "obj":
-                        layout.row().label(text="No Obj-Key file!", icon="ERROR")
-
-        elif chr_rig:
-            row = layout.row()
-            row.scale_y = 2
-            text = "Export Non-Standard"
-            icon = "MONKEY"
-            op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_NON_STANDARD"
-
-        else:
-            row = layout.row()
-            row.scale_y = 2
-            row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
-            row.enabled = False
-            layout.row().label(text="No current character!", icon="ERROR")
+        character_export_button(chr_cache, chr_rig, layout)
 
         layout.separator()
 
@@ -1522,7 +1745,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         row = column.row()
         row.prop(prefs, "export_unity_mode", expand=True)
         # disable if no character, not an fbx import or is rigified
-        if not chr_cache or chr_cache.import_type != "fbx" or chr_cache.rigified:
+        if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
             column.enabled = False
 
         # export prefs

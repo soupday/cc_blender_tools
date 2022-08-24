@@ -243,18 +243,18 @@ def detect_eye_occlusion_material(mat):
     return False
 
 
-def detect_materials_by_name(character_cache, obj, mat):
+def detect_materials_by_name(chr_cache, obj, mat):
 
     mat_name = mat.name.lower()
     material_type = "DEFAULT"
     object_type = "DEFAULT"
-    tex_dirs = imageutils.get_material_tex_dirs(character_cache, obj, mat)
+    tex_dirs = imageutils.get_material_tex_dirs(chr_cache, obj, mat)
 
-    if detect_hair_object(obj, tex_dirs, character_cache.import_dir) == "True":
+    if detect_hair_object(obj, tex_dirs, chr_cache.import_dir) == "True":
         object_type = "HAIR"
         if detect_scalp_material(mat) == "True":
             material_type = "SCALP"
-        elif detect_hair_material(obj, mat, tex_dirs, character_cache.import_dir) == "Deny":
+        elif detect_hair_material(obj, mat, tex_dirs, chr_cache.import_dir) == "Deny":
             material_type = "DEFAULT"
         else:
             material_type = "HAIR"
@@ -314,29 +314,29 @@ def detect_materials_by_name(character_cache, obj, mat):
         object_type = "TONGUE"
         material_type = "TONGUE"
 
-    elif detect_sss_maps(mat, tex_dirs, character_cache.import_dir) == "True":
+    elif detect_sss_maps(mat, tex_dirs, chr_cache.import_dir) == "True":
         material_type = "SSS"
 
     utils.log_info(f"Material: {mat_name} detected by name as: {material_type}")
     return object_type, material_type
 
 
-def detect_materials_from_json(character_cache, obj, mat, obj_json, mat_json):
+def detect_materials_from_json(chr_cache, obj, mat, obj_json, mat_json):
     shader = jsonutils.get_custom_shader(mat_json)
     mat_name = mat.name.lower()
 
     material_type = "DEFAULT"
     object_type = "DEFAULT"
-    tex_dirs = imageutils.get_material_tex_dirs(character_cache, obj, mat)
+    tex_dirs = imageutils.get_material_tex_dirs(chr_cache, obj, mat)
 
     utils.log_info(f"Material Shader: {shader}")
 
     if shader == "Pbr" or shader == "Tra":
         # PBR materials can also refer to the scalp/base on hair objects,
         # the eyelashes on the body or the eye(iris) materials on the eyes.
-        if detect_hair_object(obj, tex_dirs, character_cache.import_dir, obj_json) == "True":
+        if detect_hair_object(obj, tex_dirs, chr_cache.import_dir, obj_json) == "True":
             object_type = "HAIR"
-            if detect_hair_material(obj, mat, tex_dirs, character_cache.import_dir, mat_json) == "True":
+            if detect_hair_material(obj, mat, tex_dirs, chr_cache.import_dir, mat_json) == "True":
                 material_type = "HAIR"
             elif detect_scalp_material(mat) == "TRUE":
                 material_type = "SCALP"
@@ -419,18 +419,18 @@ def detect_materials_from_json(character_cache, obj, mat, obj_json, mat_json):
     return object_type, material_type
 
 
-def detect_materials(chr_cache, obj, mat, object_json):
+def detect_materials(chr_cache, obj, mat, obj_json):
     if chr_cache.is_actor_core():
         return "BODY", "DEFAULT"
-    mat_json = jsonutils.get_material_json(object_json, mat)
+    mat_json = jsonutils.get_material_json(obj_json, mat)
     if mat_json:
-        return detect_materials_from_json(chr_cache, obj, mat, object_json, mat_json)
+        return detect_materials_from_json(chr_cache, obj, mat, obj_json, mat_json)
     else:
         return detect_materials_by_name(chr_cache, obj, mat)
 
 
-def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):
-    main_tex_dir = character_cache.import_main_tex_dir
+def detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache):
+    main_tex_dir = chr_cache.import_main_tex_dir
     nodes = mat.node_tree.nodes
 
     # detect embedded textures
@@ -441,7 +441,7 @@ def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):
 
             # presence of packed images means that the fbx had embedded textures
             if node.image.packed_file:
-                character_cache.import_embedded = True
+                chr_cache.import_embedded = True
 
             # detect incorrect image paths for non packed (not embedded) images and attempt to correct...
             # (don't do this for user added materials)
@@ -454,7 +454,7 @@ def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):
                         utils.log_warn("    Correct image path found: " + correct_path)
                         node.image.filepath = correct_path
                     else:
-                        correct_path = os.path.join(mat_cache.dir, name)
+                        correct_path = os.path.join(mat_cache.get_tex_dir(chr_cache), name)
                         if os.path.exists(correct_path):
                             utils.log_warn("    Correct image path found: " + correct_path)
                             node.image.filepath = correct_path
@@ -515,12 +515,12 @@ def detect_embedded_textures(character_cache, obj, obj_cache, mat, mat_cache):
                             mat_cache.alpha_is_diffuse = True
 
 
-def detect_mixer_masks(character_cache, obj, obj_cache, mat, mat_cache):
-    main_tex_dir = character_cache.import_main_tex_dir
-    mat_tex_dir = mat_cache.dir
+def detect_mixer_masks(chr_cache, obj, obj_cache, mat, mat_cache):
+    main_tex_dir = chr_cache.get_tex_dir()
+    mat_tex_dir = mat_cache.get_tex_dir(chr_cache)
 
-    rgb_mask : bpy.types.Image = imageutils.find_material_image(mat, "RGBMASK", None)
-    color_id_mask : bpy.types.Image = imageutils.find_material_image(mat, "COLORID", None)
+    rgb_mask : bpy.types.Image = imageutils.find_material_image(mat, "RGBMASK")
+    color_id_mask : bpy.types.Image = imageutils.find_material_image(mat, "COLORID")
 
     if rgb_mask or color_id_mask:
         mixer_settings = mat_cache.mixer_settings
@@ -546,9 +546,9 @@ def get_cornea_mat(obj, eye_mat, eye_mat_cache):
         side = "RIGHT"
 
     # then try to find in the material cache
-    for cache in chr_cache.eye_material_cache:
-        if cache.is_cornea(side):
-            return cache.material, cache
+    for mat_cache in chr_cache.eye_material_cache:
+        if mat_cache.is_cornea(side):
+            return mat_cache.material, mat_cache
 
     utils.log_error("Unable to find the " + side + " cornea material!")
 
@@ -608,9 +608,9 @@ def is_material_in_objects(mat, objects):
 
 def apply_backface_culling(obj, mat, sides):
     props = bpy.context.scene.CC3ImportProps
-    cache = props.get_material_cache(mat)
-    if cache is not None:
-        cache.culling_sides = sides
+    mat_cache = props.get_material_cache(mat)
+    if mat_cache is not None:
+        mat_cache.culling_sides = sides
     if sides == 1:
         mat.use_backface_culling = True
     else:
@@ -619,9 +619,9 @@ def apply_backface_culling(obj, mat, sides):
 
 def apply_alpha_override(obj, mat, method):
     props = bpy.context.scene.CC3ImportProps
-    cache = props.get_material_cache(mat)
-    if cache is not None:
-        cache.alpha_mode = method
+    mat_cache = props.get_material_cache(mat)
+    if mat_cache is not None:
+        mat_cache.alpha_mode = method
 
     set_material_alpha(mat, method)
 
@@ -681,6 +681,100 @@ def get_material_by_type(chr_cache, obj, material_type):
             if mat_cache and mat_cache.material_type == material_type:
                 return mat
     return None
+
+
+def has_same_textures(mat_a, mat_b):
+    if mat_a.node_tree and mat_b.node_tree:
+        nodes_a = mat_a.node_tree.nodes
+        nodes_b = mat_b.node_tree.nodes
+        if nodes_a and nodes_b:
+            for a in nodes_a:
+                if a.type == "TEX_IMAGE":
+                    has_image = False
+                    for b in nodes_b:
+                        if b.type == "TEX_IMAGE":
+                            if a.image == b.image:
+                                has_image = True
+                    if not has_image:
+                        return False
+            return True
+    return False
+
+
+def has_same_parameters(cache_a, cache_b):
+    if cache_a and cache_b:
+        if cache_a.material_type == cache_b.material_type:
+            params_a = cache_a.parameters
+            params_b = cache_b.parameters
+            items_a = params_a.items()
+            items_b = params_b.items()
+            # put the property group items into lists
+            #     [(prop_name, value), (prop_name, value), ...]
+            # (because items are not subscriptable)
+            list_a = []
+            list_b = []
+            for i in items_a:
+                list_a.append(i)
+            for i in items_b:
+                list_b.append(i)
+            for i in range(0, len(list_a)):
+                # compare prop names
+                if list_a[i][0] != list_b[i][0]:
+                    return False
+                # compare prop values
+                try:
+                    # try as array first
+                    if len(list_a[i][1]) == len(list_b[i][1]):
+                        for j in range(0, len(list_a[i][1])):
+                            if list_a[i][1][j] != list_b[i][1][j]:
+                                return False
+                    else:
+                        return False
+                except:
+                    # then as a value
+                    if list_a[i][1] != list_b[i][1]:
+                        return False
+            return True
+    return False
+
+
+def find_duplicate_material(chr_cache, mat, processed_materials):
+    source_name = utils.strip_name(mat.name)
+    mat_cache = chr_cache.get_material_cache(mat)
+    if mat_cache and processed_materials is not None:
+        for processed_mat in processed_materials:
+            if mat != processed_mat:
+                processed_name = utils.strip_name(processed_mat.name)
+                # only consider materials with the same base name
+                if processed_name == source_name:
+                    processed_cache = chr_cache.get_material_cache(processed_mat)
+                    if processed_cache:
+                        # with the same material type
+                        if mat_cache.material_type == processed_cache.material_type:
+                            # that use the same textures
+                            if has_same_textures(mat, processed_mat):
+                                # and have the same parameters
+                                if has_same_parameters(mat_cache, processed_cache):
+                                    # if there is a matching material that is the base name,
+                                    # then set the first material name to this base name
+                                    if mat.name == source_name:
+                                        processed_mat.name = source_name
+                                        processed_mat.name = source_name
+                                    return processed_mat
+    return None
+
+
+def normalize_udim_uvs(obj):
+    """Restore UDIM uv's to into range 0.0 - 1.0
+    """
+    mesh = obj.data
+    ul = mesh.uv_layers[0]
+    for uv_loop in ul.data:
+        uv = uv_loop.uv
+        x = int(uv[0])
+        y = int(uv[1])
+        uv[0] -= x
+        uv[1] -= y
 
 
 def reconstruct_obj_materials(obj):

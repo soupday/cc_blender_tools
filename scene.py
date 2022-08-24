@@ -402,7 +402,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studio_light = 'studio.exr'
             bpy.context.space_data.shading.studiolight_rotate_z = 0.0
             bpy.context.space_data.shading.studiolight_intensity = 0.2
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.5
+            bpy.context.space_data.shading.studiolight_background_alpha = 0.1
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
             bpy.context.space_data.clip_start = 0.01
 
@@ -454,7 +454,63 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studio_light = 'courtyard.exr'
             bpy.context.space_data.shading.studiolight_rotate_z = 2.00713
             bpy.context.space_data.shading.studiolight_intensity = 0.35
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.5
+            bpy.context.space_data.shading.studiolight_background_alpha = 0.1
+            bpy.context.space_data.shading.studiolight_background_blur = 0.5
+
+            bpy.context.space_data.clip_start = 0.01
+
+        elif scene_type == "AQUA":
+
+            bpy.context.scene.eevee.use_gtao = True
+            bpy.context.scene.eevee.gtao_distance = 0.25
+            bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_bloom = True
+            bpy.context.scene.eevee.bloom_threshold = 0.35
+            bpy.context.scene.eevee.bloom_knee = 0.5
+            bpy.context.scene.eevee.bloom_radius = 2.0
+            bpy.context.scene.eevee.bloom_intensity = 0.1
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.eevee.bokeh_max_size = 32
+            bpy.context.scene.view_settings.view_transform = "Filmic"
+            bpy.context.scene.view_settings.look = "Medium High Contrast"
+            bpy.context.scene.view_settings.exposure = 0.5
+            bpy.context.scene.view_settings.gamma = 0.6
+            if bpy.context.scene.cycles.transparent_max_bounces < 50:
+                bpy.context.scene.cycles.transparent_max_bounces = 50
+
+
+            remove_all_lights(True)
+            restore_hidden_camera()
+
+            key1 = add_area_light("Key",
+                    (-0.6483273506164551, -2.073286771774292, 0.9459081292152405),
+                    (1.8756767511367798, -0.6675444841384888, -0.49660807847976685),
+                    40, 0.5)
+
+            back1 = add_area_light("Back",
+                    (-1.1216378211975098, 1.4875532388687134, 1.6059372425079346),
+                    (-1.4973092079162598, -0.07008785009384155, 0.6377549767494202),
+                    40, 1)
+
+            back2 = add_area_light("Back",
+                    (-1.9412485361099243, -0.5231357216835022, 1.8983763456344604),
+                    (1.278488278388977, 0.6497069001197815, -1.6310228109359741),
+                    60, 1)
+
+            set_contact_shadow(key1, 0.1, 0.01)
+            set_contact_shadow(back2, 0.1, 0.01)
+            key1.data.color = (0.8999999761581421, 1.0, 0.9494728446006775)
+            back1.data.color = (0.6919613480567932, 0.9645320177078247, 1.0)
+            back2.data.color = (0.6919613480567932, 0.9645320177078247, 1.0)
+
+            bpy.context.space_data.shading.type = 'MATERIAL'
+            bpy.context.space_data.shading.use_scene_lights = True
+            bpy.context.space_data.shading.use_scene_world = False
+            bpy.context.space_data.shading.studio_light = 'studio.exr'
+            bpy.context.space_data.shading.studiolight_rotate_z = 2.443461
+            bpy.context.space_data.shading.studiolight_intensity = 0.35
+            bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
 
             bpy.context.space_data.clip_start = 0.01

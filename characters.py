@@ -15,8 +15,11 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
+import re
+import mathutils
+import os
 
-from . import materials, modifiers, shaders, nodeutils, utils, vars
+from . import materials, modifiers, shaders, meshutils, nodeutils, utils, vars
 
 
 def get_character_objects(arm):
@@ -31,26 +34,182 @@ def get_character_objects(arm):
     return objects
 
 
-def convert_generic_to_non_standard(arm):
+def make_prop_armature(objects):
+
+    utils.set_mode("OBJECT")
+
+    # find the all the root empties and determine if there is one single root
+    roots = []
+    single_empty_root = None
+    for obj in objects:
+
+        # reset all transforms
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+        # find single root
+        if obj.parent is None or obj.parent not in objects:
+            if obj.type == "EMPTY":
+                roots.append(obj)
+                single_empty_root = obj
+                if len(roots) > 1:
+                    single_empty_root = False
+                    single_empty_root = None
+            else:
+                single_empty_root = None
+
+    arm_name = "Prop"
+    if single_empty_root:
+        arm_name = single_empty_root.name
+
+    arm_data = bpy.data.armatures.new(arm_name)
+    arm = bpy.data.objects.new(arm_name, arm_data)
+    bpy.context.collection.objects.link(arm)
+    utils.clear_selected_objects()
+
+    root_bone = None
+    root_bone_name = None
+    tail_vector = mathutils.Vector((0,0,0.1))
+    tail_translate = mathutils.Matrix.Translation(-tail_vector)
+
+    if utils.edit_mode_to(arm):
+
+        if single_empty_root:
+            root_bone = arm.data.edit_bones.new(single_empty_root.name)
+            root_bone.head = single_empty_root.location
+            root_bone.tail = single_empty_root.location + tail_vector
+            root_bone.roll = 0
+            root_bone_name = root_bone.name
+        else:
+            root_bone = arm.data.edit_bones.new("Root")
+            root_bone.head = (0,0,0)
+            root_bone.tail = (0,0,0.1)
+            root_bone.roll = 0
+            root_bone_name = root_bone.name
+
+        for obj in objects:
+            if obj.type == "EMPTY" and obj.name not in arm.data.edit_bones:
+                bone = arm.data.edit_bones.new(obj.name)
+                bone.head = obj.location
+                bone.tail = obj.location + tail_vector
+
+        for obj in objects:
+            if obj.type == "EMPTY" and obj.parent:
+                bone = arm.data.edit_bones[obj.name]
+                if obj.parent.name in arm.data.edit_bones:
+                    parent = arm.data.edit_bones[obj.parent.name]
+                    bone.parent = parent
+                elif bone != bone.parent:
+                    bone.parent = root_bone
+                else:
+                    bone.parent = None
+
+    utils.object_mode_to(arm)
+
+    obj : bpy.types.Object
+    for obj in objects:
+        if obj.type == "MESH":
+            print(obj.name)
+            if obj.parent: print(obj.parent.name)
+            if obj.parent and obj.parent.name in arm.data.bones:
+                parent_name = obj.parent.name
+                parent_bone : bpy.types.Bone = arm.data.bones[parent_name]
+                obj.parent = arm
+                obj.parent_type = 'BONE'
+                obj.parent_bone = parent_name
+                obj.matrix_parent_inverse = parent_bone.matrix_local.inverted() @ tail_translate
+            elif root_bone_name:
+                parent_bone = arm.data.bones[root_bone_name]
+                obj.parent = arm
+                obj.parent_type = 'BONE'
+                obj.parent_bone = root_bone_name
+                obj.matrix_parent_inverse = parent_bone.matrix_local.inverted() @ tail_translate
+
+    # remove the empties and move all objects into the same collection as the armature
+    collection = utils.get_object_collection(arm)
+    for obj in objects:
+        if obj.type == "EMPTY":
+            bpy.data.objects.remove(obj)
+        else:
+            utils.move_object_to_collection(obj, collection)
+
+    # finally force the armature name again (as it may have been taken by the original object)
+    arm.name = arm_name
+
+    return arm
+
+
+def add_child_objects(obj, objects):
+    for child in obj.children:
+        if child not in objects:
+            print(f"adding {child.name}")
+            objects.append(child)
+            add_child_objects(child, objects)
+
+
+def create_prop_rig(objects):
+    arm_name = "Prop"
+    bone_name = "Root"
+    utils.set_mode("OBJECT")
+
+    arm = make_prop_armature(objects)
+
+    #utils.try_select_objects(objects, True)
+    #utils.set_active_object(arm)
+    #bpy.ops.object.parent_set(type = "ARMATURE", keep_transform = True)
+    #obj : bpy.types.Object
+    #for obj in objects:
+    #    if obj.type == "MESH":
+    #        vg = meshutils.add_vertex_group(obj, bone_name)
+    #        meshutils.set_vertex_group(obj, vg, 1.0)
+    return arm
+
+
+def convert_generic_to_non_standard(objects, file_path = None):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-    objects = get_character_objects(arm)
+    # select all child objects of the current selected objects (Humanoid)
+    utils.try_select_objects(objects, True)
+    for obj in objects:
+        utils.try_select_child_objects(obj)
+
+    objects = bpy.context.selected_objects
+
+    # try to find a character armature
+    chr_rig = utils.get_generic_character_rig(objects)
+    chr_type = "HUMANOID"
+
+    # if not generate one from the objects and empty parent transforms (Prop Only)
+    if not chr_rig:
+        chr_rig = create_prop_rig(objects)
+        chr_type = "PROP"
+
+    if not chr_rig:
+        return None
+
+    # now treat the armature as any generic character
+    objects = get_character_objects(chr_rig)
 
     utils.log_info("")
     utils.log_info("Detecting Generic Character:")
     utils.log_info("----------------------------")
 
-    type = "fbx"
-    full_name = arm.name
-    name = utils.strip_name(full_name)
+    ext = ".fbx"
+    if file_path:
+        dir, file = os.path.split(file_path)
+        name, ext = os.path.splitext(file)
+        chr_rig.name = name
+        full_name = chr_rig.name
+    else:
+        full_name = chr_rig.name
+        name = utils.strip_name(full_name)
+        dir = ""
 
-    chr_json = None
     chr_cache = props.import_cache.add()
     chr_cache.import_file = ""
-    chr_cache.import_type = type
+    chr_cache.import_type = ext[1:]
     chr_cache.import_name = name
-    chr_cache.import_dir = ""
+    chr_cache.import_dir = dir
     chr_cache.import_space_in_name = False
     chr_cache.character_index = 0
     chr_cache.character_name = full_name
@@ -60,13 +219,16 @@ def convert_generic_to_non_standard(arm):
     chr_cache.import_main_tex_dir = ""
     chr_cache.import_embedded = False
     chr_cache.generation = "NonStandardGeneric"
+    chr_cache.non_standard_type = chr_type
 
-    chr_cache.add_object_cache(arm)
+    chr_cache.add_object_cache(chr_rig)
 
     # add child objects to object_cache
     for obj in objects:
         if utils.object_exists_is_mesh(obj):
             add_object_to_character(chr_cache, obj, reparent=False)
+
+    return chr_cache
 
 
 def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
@@ -160,18 +322,18 @@ def clean_up_character_data(chr_cache):
         unparented_objects = []
         unparented_materials = []
 
-        for cache in chr_cache.object_cache:
+        for obj_cache in chr_cache.object_cache:
 
-            if cache.object != arm:
+            if obj_cache.object != arm:
 
-                if utils.object_exists_is_mesh(cache.object):
+                if utils.object_exists_is_mesh(obj_cache.object):
 
                     # be sure not to delete object and material cache data for objects still existing in the scene,
                     # but not currently attached to the character
-                    if cache.object not in current_objects:
-                        unparented_objects.append(cache.object)
-                        utils.log_info(f"Keeping unparented Object data: {cache.object.name}")
-                        for mat in cache.object.data.materials:
+                    if obj_cache.object not in current_objects:
+                        unparented_objects.append(obj_cache.object)
+                        utils.log_info(f"Keeping unparented Object data: {obj_cache.object.name}")
+                        for mat in obj_cache.object.data.materials:
                             if mat and mat not in unparented_materials:
                                 unparented_materials.append(mat)
                                 utils.log_info(f"Keeping unparented Material data: {mat.name}")
@@ -179,7 +341,7 @@ def clean_up_character_data(chr_cache):
                 else:
 
                     # add any invalid cached objects to the delete list
-                    delete_objects.append(cache.object)
+                    delete_objects.append(obj_cache.object)
 
         for obj in delete_objects:
             if obj and obj not in unparented_objects:
@@ -334,16 +496,17 @@ def convert_to_rl_pbr(mat, mat_cache):
 
     # remap bsdf socket inputs to shader group node sockets
     sockets = [
-        ["Base Color", "BSDF", "Diffuse Map"],
-        ["Metallic", "BSDF", "Metallic Map"],
-        ["Specular", "BSDF", "Specular Map"],
-        ["Roughness", "BSDF", "Roughness Map"],
-        ["Emission", "BSDF", "Emission Map"],
-        ["Alpha", "BSDF", "Alpha Map"],
-        ["Normal:Color", "BSDF", "Normal Map"], # normal image > normal map (Color) > BSDF (Normal)
-        ["Normal:Normal:Color", "BSDF", "Normal Map"], # normal image > normal map (Color) > bump map (Normal) > BSDF (Normal)
-        ["Normal:Height", "BSDF", "Bump Map"], # bump image > bump map (Height) > BSDF (Normal)
-        ["Occlusion", "GLTF", "AO Map"]
+        ["Base Color", "", "BSDF", "Diffuse Map", "", ""],
+        ["Metallic", "", "BSDF", "Metallic Map", "", ""],
+        ["Specular", "", "BSDF", "Specular Map", "", ""],
+        ["Roughness", "", "BSDF", "Roughness Map", "", ""],
+        ["Emission", "", "BSDF", "Emission Map", "", ""],
+        ["Alpha", "", "BSDF", "Alpha Map", "", ""],
+        ["Normal:Color", "", "BSDF", "Normal Map", "Normal:Strength", "default_normal_strength"], # normal image > normal map (Color) > BSDF (Normal)
+        ["Normal:Normal:Color", "", "BSDF", "Normal Map", ["Normal:Normal:Strength", "Normal:Strength"], "default_normal_strength"], # normal image > normal map (Color) > bump map (Normal) > BSDF (Normal)
+        ["Normal:Height", "", "BSDF", "Bump Map", ["Normal:Distance", "Normal:Strength"], "default_bump_strength"], # bump image > bump map (Height) > BSDF (Normal)
+        ["Base Color:Color2", "ao|occlusion", "BSDF", "AO Map", "Base Color:Fac", "default_ao_strength"],
+        ["Occlusion", "", "GLTF", "AO Map", "", "default_ao_strength"],
     ]
 
     if bsdf_node:
@@ -352,20 +515,32 @@ def convert_to_rl_pbr(mat, mat_cache):
             metallic_value = bsdf_node.inputs["Metallic"].default_value
             specular_value = bsdf_node.inputs["Specular"].default_value
             alpha_value = bsdf_node.inputs["Alpha"].default_value
+
+            if bsdf_node.inputs["Emission"].is_linked:
+                if utils.is_blender_version("2.93.0"):
+                    emission_value = bsdf_node.inputs["Emission Strength"].default_value
+                else:
+                    emission_value = 1.0
+            else:
+                emission_value = 0.0
+
             if not bsdf_node.inputs["Base Color"].is_linked:
                 diffuse_color = bsdf_node.inputs["Base Color"].default_value
                 mat_cache.parameters.default_diffuse_color = diffuse_color
+
             mat_cache.parameters.default_roughness = roughness_value
             mat_cache.parameters.default_metallic = metallic_value
             mat_cache.parameters.default_specular = specular_value
+            mat_cache.parameters.default_emission_strength = emission_value / vars.EMISSION_SCALE
+            mat_cache.parameters.default_emissive_color = (1.0, 1.0, 1.0, 1.0)
+            bsdf_node.inputs["Emission Strength"].default_value = 1.0
             if not bsdf_node.inputs["Alpha"].is_linked:
                 mat_cache.parameters.default_opacity = alpha_value
-            shaders.apply_prop_matrix(bsdf_node, group_node, mat_cache, "rl_pbr_shader")
         except:
             utils.log_warn("Unable to set material cache defaults!")
 
     socket_mapping = {}
-    for socket_trace, node_type, group_socket in sockets:
+    for socket_trace, match, node_type, group_socket, strength_trace, strength_prop in sockets:
         if node_type == "BSDF":
             n = bsdf_node
         elif node_type == "GLTF":
@@ -374,16 +549,41 @@ def convert_to_rl_pbr(mat, mat_cache):
             n = None
         if n:
             linked_node, linked_socket = nodeutils.trace_input_sockets(n, socket_trace)
+
+            strength = 1.0
+            if type(strength_trace) is list:
+                for st in strength_trace:
+                    strength *= float(nodeutils.trace_input_value(n, st, 1.0))
+            else:
+                strength = float(nodeutils.trace_input_value(n, strength_trace, 1.0))
+            if group_socket == "Bump Map":
+                strength = min(2, max(0, strength * 100.0))
+            elif group_socket == "Normal Map":
+                strength = min(2, max(0, strength))
+            else:
+                strength = min(1, max(0, strength))
+
             if linked_node and linked_socket:
-                if linked_node != group_node:
-                    socket_mapping[group_socket] = [linked_node, linked_socket]
+                if match:
+                    if re.match(match, linked_node.label) or re.match(match, linked_node.name):
+                        socket_mapping[group_socket] = [linked_node, linked_socket, strength, strength_prop]
+                else:
+                    socket_mapping[group_socket] = [linked_node, linked_socket, strength, strength_prop]
 
     # connect the shader group node sockets
     for socket_name in socket_mapping:
         linked_info = socket_mapping[socket_name]
         linked_node = linked_info[0]
         linked_socket = linked_info[1]
+        strength = linked_info[2]
+        strength_prop = linked_info[3]
         nodeutils.link_nodes(links, linked_node, linked_socket, group_node, socket_name)
+        if strength_prop:
+            print(f"setting {strength_prop} = {strength}")
+            shaders.exec_prop(strength_prop, mat_cache, strength)
+
+    if bsdf_node and group_node and mat_cache:
+        shaders.apply_prop_matrix(bsdf_node, group_node, mat_cache, "rl_pbr_shader")
 
     # connect all group_node outputs to BSDF inputs:
     for socket in group_node.outputs:
@@ -553,12 +753,12 @@ class CC3OperatorCharacter(bpy.types.Operator):
 
         elif self.param == "TRANSFER_WEIGHTS":
             chr_cache = props.get_context_character_cache(context)
-            objects = bpy.context.selected_objects
+            objects = bpy.context.selected_objects.copy()
             transfer_skin_weights(chr_cache, objects)
 
         elif self.param == "NORMALIZE_WEIGHTS":
             chr_cache = props.get_context_character_cache(context)
-            objects = bpy.context.selected_objects
+            objects = bpy.context.selected_objects.copy()
             normalize_skin_weights(chr_cache, objects)
 
         elif self.param == "CONVERT_TO_NON_STANDARD":
@@ -567,9 +767,8 @@ class CC3OperatorCharacter(bpy.types.Operator):
             self.report({'INFO'}, message="Convert to Non-standard complete!")
 
         elif self.param == "CONVERT_FROM_GENERIC":
-            chr_rig = utils.get_generic_character_rig(context.selected_objects)
-            if chr_rig:
-                convert_generic_to_non_standard(chr_rig)
+            objects = context.selected_objects.copy()
+            if convert_generic_to_non_standard(objects):
                 self.report({'INFO'}, message="Generic character converted to Non-Standard!")
             else:
                 self.report({'ERROR'}, message="Invalid generic character selection!")

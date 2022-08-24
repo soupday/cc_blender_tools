@@ -141,7 +141,10 @@ def unique_object_name(name, obj = None):
 
 def is_same_path(pa, pb):
     try:
-        return os.path.normcase(os.path.realpath(pa)) == os.path.normcase(os.path.realpath(pb))
+        if pa and pb:
+            return os.path.normcase(os.path.realpath(pa)) == os.path.normcase(os.path.realpath(pb))
+        else:
+            return False
     except:
         return False
 
@@ -149,7 +152,10 @@ def is_same_path(pa, pb):
 def is_in_path(a, b):
     """Is path a in path b"""
     try:
-        return os.path.normcase(os.path.realpath(a)) in os.path.normcase(os.path.realpath(b))
+        if a and b:
+            return os.path.normcase(os.path.realpath(a)) in os.path.normcase(os.path.realpath(b))
+        else:
+            return False
     except:
         return False
 
@@ -168,13 +174,16 @@ def local_repath(path, original_start):
        it relative to the blend file location instead.
        Returns the full path."""
     rel_path = relpath(path, original_start)
-    return os.path.abspath(bpy.path.abspath(rel_path))
+    return os.path.normpath(bpy.path.abspath(f"//{rel_path}"))
 
 
-def local_path(path = "//"):
-    """Get the full path of the blend file folder"""
-    blend_path_rel = bpy.path.abspath(path)
-    return os.path.abspath(blend_path_rel)
+def local_path(path = ""):
+    """Get the full path of <path> relative to the blend file. Returns empty if no blend file path."""
+    if bpy.path.abspath("//"):
+        abs_path = bpy.path.abspath(f"//{path}")
+        return os.path.normpath(abs_path)
+    else:
+        return ""
 
 
 def relpath(path, start):
@@ -185,7 +194,7 @@ def relpath(path, start):
 
 
 def search_up_path(path, folder):
-    path = os.path.normcase(path)
+    path = os.path.normpath(path)
     dir : str = os.path.dirname(path)
     if dir == path or dir == "" or dir is None:
         return ""
@@ -569,6 +578,28 @@ def partial_match(text, search, start = 0):
     return False
 
 
+def get_dot_file_ext(ext):
+    if ext[0] == ".":
+        return ext.lower()
+    else:
+        return f".{ext}".lower()
+
+
+def get_file_ext(ext):
+    if ext[0] == ".":
+        return ext[1:].lower()
+    else:
+        return ext.lower()
+
+
+def is_file_ext(test, ext):
+    if ext[0] == ".":
+        ext = ext[1:]
+    if test[0] == ".":
+        test = test[1:]
+    return test.lower() == ext.lower()
+
+
 def tag_objects():
     for obj in bpy.data.objects:
         obj.tag = True
@@ -629,7 +660,7 @@ def untagged_actions():
 def try_select_child_objects(obj):
     try:
         if obj:
-            if obj.type == "ARMATURE" or obj.type == "MESH":
+            if obj.type == "ARMATURE" or obj.type == "MESH" or obj.type == "EMPTY":
                 obj.select_set(True)
             result = True
             for child in obj.children:
@@ -816,7 +847,7 @@ def get_object_collection(obj):
 
 def move_object_to_collection(obj, collection):
     col : bpy.types.Collection
-    if obj.name in bpy.context.scene.collection:
+    if obj.name in bpy.context.scene.collection.objects:
         bpy.context.scene.collection.objects.unlink(obj)
     for col in bpy.data.collections:
         if col != collection and obj.name in col.objects:
