@@ -22,14 +22,27 @@ from . import utils, vars
 from rna_prop_ui import rna_idprop_ui_create
 
 
+def cmp_rl_bone_names(name, bone_name):
+    if bone_name.startswith("RL_"):
+        bone_name = bone_name[3:]
+    elif bone_name.startswith("CC_Base_"):
+        bone_name = bone_name[8:]
+    if name.startswith("RL_"):
+        name = name[3:]
+    elif name.startswith("CC_Base_"):
+        name = name[8:]
+    return name == bone_name
+
+
 def get_rl_edit_bone(rig, name):
     if name:
         if name in rig.data.edit_bones:
             return rig.data.edit_bones[name]
         # remove "CC_Base_" from start of bone name and try again...
-        name = name[8:]
-        if name in rig.data.edit_bones:
-            return rig.data.edit_bones[name]
+        if name.startswith("CC_Base_"):
+            name = name[8:]
+            if name in rig.data.edit_bones:
+                return rig.data.edit_bones[name]
     return None
 
 
@@ -38,9 +51,10 @@ def get_rl_bone(rig, name):
         if name in rig.data.bones:
             return rig.data.bones[name]
         # remove "CC_Base_" from start of bone name and try again...
-        name = name[8:]
-        if name in rig.data.bones:
-            return rig.data.bones[name]
+        if name.startswith("CC_Base_"):
+            name = name[8:]
+            if name in rig.data.bones:
+                return rig.data.bones[name]
     return None
 
 
@@ -49,9 +63,10 @@ def get_rl_pose_bone(rig, name):
         if name in rig.pose.bones:
             return rig.pose.bones[name]
         # remove "CC_Base_" from start of bone name and try again...
-        name = name[8:]
-        if name in rig.pose.bones:
-            return rig.pose.bones[name]
+        if name.startswith("CC_Base_"):
+            name = name[8:]
+            if name in rig.pose.bones:
+                return rig.pose.bones[name]
     return None
 
 
@@ -665,7 +680,7 @@ def reset_root_bone(arm):
 
 def bone_mapping_contains_bone(bone_mappings, bone_name):
     for bone_mappings in bone_mappings:
-            if bone_mappings[1] == bone_name:
+            if cmp_rl_bone_names(bone_mappings[1], bone_name):
                 return True
     return False
 
