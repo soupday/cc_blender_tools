@@ -198,6 +198,16 @@ G3_BONE_MAPPINGS = [
     ["", "CC_Base_R_CalfTwist01", ""],
     ["", "CC_Base_R_CalfTwist02", ""],
     ["", "CC_Base_R_ToeBaseShareBone", ""],
+    ["", "CC_Base_L_PinkyToe1", ""],
+    ["", "CC_Base_L_RingToe1", ""],
+    ["", "CC_Base_L_MidToe1", ""],
+    ["", "CC_Base_L_IndexToe1", ""],
+    ["", "CC_Base_L_BigToe1", ""],
+    ["", "CC_Base_R_BigToe1", ""],
+    ["", "CC_Base_R_PinkyToe1", ""],
+    ["", "CC_Base_R_RingToe1", ""],
+    ["", "CC_Base_R_IndexToe1", ""],
+    ["", "CC_Base_R_MidToe1", ""],
 ]
 
 

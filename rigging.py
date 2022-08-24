@@ -158,33 +158,36 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
 def add_accessory_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings):
 
     # find all the accessories in the armature
-    accessory_bones = bones.find_accessory_bones(bone_mappings, cc3_rig)
+    accessory_bone_names = bones.find_accessory_bones(bone_mappings, cc3_rig)
 
     # copy the accessory bone trees into the rigify rig
-    for bone in accessory_bones:
+    for bone_name in accessory_bone_names:
+        bone = cc3_rig.data.bones[bone_name]
 
-        utils.log_info(f"Found accessory root bone: {bone.name}")
+        if bone:
 
-        cc3_parent_name = None
-        rigify_parent_name = None
+            utils.log_info(f"Processing accessory root bone: {bone_name}")
 
-        if bone.parent:
-            cc3_parent_name = bone.parent.name
-            for bone_map in bone_mappings:
-                if bone_map[1] == cc3_parent_name:
-                    # try to find the parent in the ORG bones
-                    rigify_parent_name = f"ORG-{bone_map[0]}"
-                    if rigify_parent_name not in rigify_rig.data.bones:
-                        # then try the DEF bones
-                        rigify_parent_name = f"DEF-{bone_map[0]}"
-                    if rigify_parent_name not in rigify_rig.data.bones:
-                        rigify_parent_name = None
+            cc3_parent_name = None
+            rigify_parent_name = None
 
-        if not (rigify_parent_name and rigify_parent_name in rigify_rig.data.bones):
-            utils.log_error(f"Unable to find matching accessory bone tree parent: {cc3_parent_name} in rigify bones!")
+            if bone.parent:
+                cc3_parent_name = bone.parent.name
+                for bone_map in bone_mappings:
+                    if bone_map[1] == cc3_parent_name:
+                        # try to find the parent in the ORG bones
+                        rigify_parent_name = f"ORG-{bone_map[0]}"
+                        if rigify_parent_name not in rigify_rig.data.bones:
+                            # then try the DEF bones
+                            rigify_parent_name = f"DEF-{bone_map[0]}"
+                        if rigify_parent_name not in rigify_rig.data.bones:
+                            rigify_parent_name = None
 
-        utils.log_info(f"Copying accessory bone tree into rigify rig: {bone.name} parent: {rigify_parent_name}")
-        bones.copy_rl_edit_bone_subtree(cc3_rig, rigify_rig, bone.name, bone.name, rigify_parent_name, 23)
+            if not (rigify_parent_name and rigify_parent_name in rigify_rig.data.bones):
+                utils.log_error(f"Unable to find matching accessory bone tree parent: {cc3_parent_name} in rigify bones!")
+
+            utils.log_info(f"Copying accessory bone tree into rigify rig: {bone.name} parent: {rigify_parent_name}")
+            bones.copy_rl_edit_bone_subtree(cc3_rig, rigify_rig, bone.name, bone.name, rigify_parent_name, 23)
 
 
 def rl_vertex_group(obj, group):
