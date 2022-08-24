@@ -679,8 +679,8 @@ def reset_root_bone(arm):
 
 
 def bone_mapping_contains_bone(bone_mappings, bone_name):
-    for bone_mappings in bone_mappings:
-            if cmp_rl_bone_names(bone_mappings[1], bone_name):
+    for bone_mapping in bone_mappings:
+            if cmp_rl_bone_names(bone_mapping[1], bone_name):
                 return True
     return False
 
@@ -695,10 +695,21 @@ def get_accessory_root_bone(bone_mappings, bone):
     return root
 
 
+def bone_parent_in_list(bone_list, bone):
+    if bone:
+        while bone.parent:
+            if bone.parent.name in bone_list:
+                return True
+            bone = bone.parent
+    return False
+
+
 def find_accessory_bones(bone_mappings, rig):
     accessory_bones = []
     for bone in rig.data.bones:
-        accessory_bone = get_accessory_root_bone(bone_mappings, bone)
-        if accessory_bone and accessory_bone not in accessory_bones:
-            accessory_bones.append(accessory_bone)
+        bone_name = bone.name
+        if not bone_mapping_contains_bone(bone_mappings, bone_name):
+            if bone_name not in accessory_bones and not bone_parent_in_list(accessory_bones, bone):
+                utils.log_info(f"Accessory Bone: {bone_name}")
+                accessory_bones.append(bone_name)
     return accessory_bones
