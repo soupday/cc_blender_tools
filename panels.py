@@ -124,6 +124,46 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
         box.row().label(text=f"No Character")
 
 
+def character_export_button(chr_cache, chr_rig, layout):
+    # export to CC3
+    text = "Export to CC3/4"
+    icon = "MOD_ARMATURE"
+
+    standard_export = chr_cache and chr_cache.is_standard()
+    non_standard_export = (chr_cache and chr_cache.is_non_standard()) or (chr_rig and not standard_export)
+
+    if chr_cache:
+        row = layout.row()
+        row.scale_y = 2
+        if chr_cache and utils.is_file_ext(chr_cache.import_type, "OBJ"):
+            text = "Export Morph Target"
+            icon = "ARROW_LEFTRIGHT"
+        op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
+        if not chr_cache.can_export():
+            row.enabled = False
+            if not chr_cache.import_has_key:
+                if utils.is_file_ext(chr_cache.import_type, "FBX"):
+                    layout.row().label(text="No Fbx-Key file!", icon="ERROR")
+                elif utils.is_file_ext(chr_cache.import_type, "OBJ"):
+                    layout.row().label(text="No Obj-Key file!", icon="ERROR")
+
+    elif chr_rig:
+        row = layout.row()
+        row.scale_y = 2
+        text = "Export Non-Standard"
+        icon = "MONKEY"
+        op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_NON_STANDARD"
+
+    else:
+        row = layout.row()
+        row.scale_y = 2
+        row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
+        row.enabled = False
+        row = layout.row()
+        row.alert = True
+        row.label(text="No current character!", icon="ERROR")
+
+
 class ARMATURE_UL_List(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -1156,31 +1196,28 @@ class CC3ToolsScenePanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Scene Lighting", icon="LIGHT")
-        col = layout.column()
 
-        op = col.operator("cc3.scene", icon="SHADING_SOLID", text="Solid Matcap")
-        op.param = "MATCAP"
-
-        op = col.operator("cc3.scene", icon="SHADING_TEXTURE", text="Blender Default")
-        op.param = "BLENDER"
-        op = col.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC Default")
-        op.param = "CC3"
-
-        op = col.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio Right")
-        op.param = "STUDIO"
-        op = col.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard Left")
-        op.param = "COURTYARD"
+        column = layout.column()
+        split = column.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
+        col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
+        col_1.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
+        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
+        col_1.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
+        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
 
         box = layout.box()
         box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
-        col = layout.column()
+        column = layout.column()
 
-        op = col.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
+        op = column.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
         op.param = "TEMPLATE"
 
         box = layout.box()
         box.label(text="Animation", icon="RENDER_ANIMATION")
-        col = layout.column()
+        column = layout.column()
         scene = context.scene
         #op = col.operator("cc3.scene", icon="RENDER_STILL", text="Render Image")
         #op.param = "RENDER_IMAGE"
@@ -1191,14 +1228,14 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         col_2 = split.column()
         col_1.prop(scene, "frame_start", text="Start")
         col_2.prop(scene, "frame_end", text="End")
-        col = layout.column()
-        col.separator()
-        op = col.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character")
+        column = layout.column()
+        column.separator()
+        op = column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character")
         op.param = "ANIM_RANGE"
-        op = col.operator("cc3.scene", icon="ANIM", text="Sync Physics Range")
+        op = column.operator("cc3.scene", icon="ANIM", text="Sync Physics Range")
         op.param = "PHYSICS_PREP"
-        col.separator()
-        split = col.split(factor=0.0)
+        column.separator()
+        split = column.split(factor=0.0)
         col_1 = split.column()
         col_2 = split.column()
         col_3 = split.column()
@@ -1219,9 +1256,48 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
             box = layout.box()
             box.label(text="Cycles", icon="SHADING_RENDERED")
-            col = layout.column()
-            op = col.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
+            column = layout.column()
+            op = column.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
             op.param = "CYCLES_SETUP"
+
+
+
+class CC3ToolsCreatePanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Create_Panel"
+    bl_label = "Create Tools"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = CREATE_TAB_NAME
+
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        layout = self.layout
+
+        chr_cache = props.get_context_character_cache(context)
+        chr_rig = None
+        if chr_cache:
+            chr_rig = chr_cache.get_armature()
+        elif context.selected_objects:
+            chr_rig = utils.get_generic_character_rig(context.selected_objects)
+
+        box = layout.box()
+        box.label(text=f"Quick Export  ({vars.VERSION_STRING})", icon="EXPORT")
+        # export to CC3
+        character_export_button(chr_cache, chr_rig, layout)
+
+        box = layout.box()
+        box.label(text="Lighting Presets", icon="LIGHT")
+        column = layout.column()
+        split = column.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
+        col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
+        col_1.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
+        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
+        col_1.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
+        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
 
 
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
@@ -1651,42 +1727,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         character_info_box(chr_cache, chr_rig, layout)
 
         # export to CC3
-        text = "Export to CC3/4"
-        icon = "MOD_ARMATURE"
-
-        standard_export = chr_cache and chr_cache.is_standard()
-        non_standard_export = (chr_cache and chr_cache.is_non_standard()) or (chr_rig and not standard_export)
-
-        if chr_cache:
-            row = layout.row()
-            row.scale_y = 2
-            if chr_cache and utils.is_file_ext(chr_cache.import_type, "OBJ"):
-                text = "Export Morph Target"
-                icon = "ARROW_LEFTRIGHT"
-            op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
-            if not chr_cache.can_export():
-                row.enabled = False
-                if not chr_cache.import_has_key:
-                    if utils.is_file_ext(chr_cache.import_type, "FBX"):
-                        layout.row().label(text="No Fbx-Key file!", icon="ERROR")
-                    elif utils.is_file_ext(chr_cache.import_type, "OBJ"):
-                        layout.row().label(text="No Obj-Key file!", icon="ERROR")
-
-        elif chr_rig:
-            row = layout.row()
-            row.scale_y = 2
-            text = "Export Non-Standard"
-            icon = "MONKEY"
-            op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_NON_STANDARD"
-
-        else:
-            row = layout.row()
-            row.scale_y = 2
-            row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
-            row.enabled = False
-            row = layout.row()
-            row.alert = True
-            row.label(text="No current character!", icon="ERROR")
+        character_export_button(chr_cache, chr_rig, layout)
 
         layout.separator()
 

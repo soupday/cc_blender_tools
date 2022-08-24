@@ -141,14 +141,17 @@ classes = (
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
     panels.UNITY_ACTION_UL_List,
+    # pipeline panels
     panels.CC3ToolsPipelinePanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
+    panels.CC3RigifyPanel,
+    panels.CC3ToolsScenePanel,
+    # create panels
+    panels.CC3ToolsCreatePanel,
     panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
-    panels.CC3RigifyPanel,
     panels.CC3ToolsSculptingPanel,
-    panels.CC3ToolsScenePanel,
 
     preferences.CC3ToolsAddonPreferences,
     preferences.MATERIAL_UL_weightedmatslots,
