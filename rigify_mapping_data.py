@@ -21,6 +21,7 @@ class RigifyData:
     """Class for keeping all data relating to bones mapping for rigify."""
     head_bone: str
     bone_mapping: list
+    hide_chains: list
     vertex_group_rename: list
 
 
@@ -35,12 +36,14 @@ def get_mapping_for_generation(generation):
     if generation == "GameBase" or generation == "NonStandardGameBase":
         return RigifyData("head",
                           GAME_BASE_BONE_MAPPINGS,
+                          None,
                           GAME_BASE_VERTEX_GROUP_RENAME)
 
     elif (generation == "ActorCore" or generation == "ActorScan" or generation == "ActorBuild" or
           generation == "G3" or generation == "G3Plus" or generation == "NonStandardG3"):
         return RigifyData("CC_Base_Head",
                           G3_BONE_MAPPINGS,
+                          G3_HIDE_CHAINS,
                           G3_VERTEX_GROUP_RENAME)
 
     else:
@@ -320,6 +323,19 @@ GAME_BASE_BONE_MAPPINGS = [
     ["", "calf_twist_01_r", ""],
 ]
 
+# [ rl_bone_name, [rigify regex1, regex2, ...], [metarig regex1, regex2]]
+G3_HIDE_CHAINS = [
+    ["CC_Base_R_Thumb1", ["thumb\.0[1|2|3]\.[R|R\.001]"], ["thumb.0[1|2|3].R"]],
+    ["CC_Base_R_Index1", ["f_index\.0[1|2|3]\.[R|R\.001]"], ["palm.01.R", "f_index.0[1|2|3].R"]],
+    ["CC_Base_R_Mid1", ["f_middle\.0[1|2|3]\.[R|R\.001]"], ["palm.02.R", "f_middle.0[1|2|3].R"]],
+    ["CC_Base_R_Ring1", ["f_ring\.0[1|2|3]\.[R|R\.001]"], ["palm.03.R", "f_ring.0[1|2|3].R"]],
+    ["CC_Base_R_Pinky1", ["f_pinky\.0[1|2|3]\.[R|R\.001]"], ["palm.04.R", "f_pinky.0[1|2|3].R"]],
+    ["CC_Base_L_Thumb1", ["thumb\.0[1|2|3]\.[L|L\.001]"], ["thumb.0[1|2|3].L"]],
+    ["CC_Base_L_Index1", ["f_index\.0[1|2|3]\.[L|L\.001]"], ["palm.01.L", "f_index.0[1|2|3].L"]],
+    ["CC_Base_L_Mid1", ["f_middle\.0[1|2|3]\.[L|L\.001]"], ["palm.02.L", "f_middle.0[1|2|3].L"]],
+    ["CC_Base_L_Ring1", ["f_ring\.0[1|2|3]\.[L|L\.001]"], ["palm.03.L", "f_ring.0[1|2|3].L"]],
+    ["CC_Base_L_Pinky1", ["f_pinky\.0[1|2|3]\.[L|L\.001]"], ["palm.04.L", "f_pinky.0[1|2|3].L"]],
+]
 
 G3_VERTEX_GROUP_RENAME = [
     # Spine, Neck & Head:

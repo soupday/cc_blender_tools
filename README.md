@@ -35,6 +35,9 @@ Links
 
 ## Changelog
 
+### 1.4.4
+- Missing bone chains from CC3 rig will hide corresponding control rig bones (e.g. missing fingers)
+
 ### 1.4.3
 - Export bake maps now correctly sets bit depth and no alpha channel. Opacity texture bakes should work now.
 - Convert generic character from objects to props added.

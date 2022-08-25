@@ -43,6 +43,10 @@ def get_rl_edit_bone(rig, name):
             name = name[8:]
             if name in rig.data.edit_bones:
                 return rig.data.edit_bones[name]
+        if name.startswith("RL_"):
+            name = name[3:]
+            if name in rig.data.edit_bones:
+                return rig.data.edit_bones[name]
     return None
 
 
@@ -55,6 +59,10 @@ def get_rl_bone(rig, name):
             name = name[8:]
             if name in rig.data.bones:
                 return rig.data.bones[name]
+        if name.startswith("RL_"):
+            name = name[3:]
+            if name in rig.data.bones:
+                return rig.data.bones[name]
     return None
 
 
@@ -65,6 +73,10 @@ def get_rl_pose_bone(rig, name):
         # remove "CC_Base_" from start of bone name and try again...
         if name.startswith("CC_Base_"):
             name = name[8:]
+            if name in rig.pose.bones:
+                return rig.pose.bones[name]
+        if name.startswith("RL_"):
+            name = name[3:]
             if name in rig.pose.bones:
                 return rig.pose.bones[name]
     return None
@@ -401,14 +413,21 @@ def set_edit_bone_flags(edit_bone, flags, deform):
 
 def set_bone_layer(rig, bone_name, layer):
     if utils.edit_mode_to(rig):
-        edit_bone = rig.data.edit_bones[bone_name]
-        for l in range(0, 32):
-            edit_bone.layers[l] = l == layer
+        set_edit_bone_layer(rig, bone_name, layer)
     if utils.set_mode("OBJECT"):
-        pose_bone = rig.data.bones[bone_name]
-        for l in range(0, 32):
-            pose_bone.layers[l] = l == layer
+        set_pose_bone_layer(rig, bone_name, layer)
 
+
+def set_edit_bone_layer(rig, bone_name, layer):
+    edit_bone = rig.data.edit_bones[bone_name]
+    for l in range(0, 32):
+        edit_bone.layers[l] = l == layer
+
+
+def set_pose_bone_layer(rig, bone_name, layer):
+    pose_bone = rig.data.bones[bone_name]
+    for l in range(0, 32):
+        pose_bone.layers[l] = l == layer
 
 
 def copy_position(rig, bone, copy_bones, offset):
