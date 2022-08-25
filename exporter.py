@@ -191,7 +191,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                     done.append(mat)
     done.clear()
 
-    old_name = chr_cache.import_name
+    old_name = chr_cache.character_id
     if new_name != old_name:
         if (old_name in json_data.keys() and
             old_name in json_data[old_name]["Object"].keys() and
@@ -205,7 +205,16 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
     # create soft physics json if none
     physics_json = jsonutils.add_json_path(chr_json, "Physics/Soft Physics/Meshes")
 
+    # set custom JSON data
     json_data[new_name]["Blender_Project"] = True
+    if not copy_textures:
+        json_data[new_name]["Import_Dir"] = chr_cache.import_dir
+        json_data[new_name]["Import_Name"] = chr_cache.import_name
+    else:
+        json_data[new_name].pop("Import_Dir", None)
+        json_data[new_name].pop("Import_Name", None)
+
+
     if chr_cache.is_non_standard():
         set_non_standard_generation(json_data, chr_cache.non_standard_type, new_name)
 
@@ -1055,7 +1064,7 @@ def set_non_standard_generation(json_data, character_type, character_id):
     elif character_type == "PROP":
         generation = "Prop"
     utils.log_info(f"Generation: {generation}")
-    jsonutils.set_character_generation_json(json_data, character_id, character_id, generation)
+    jsonutils.set_character_generation_json(json_data, character_id, generation)
 
 
 def set_standard_generation(json_data, generation, character_id):
@@ -1069,7 +1078,7 @@ def set_standard_generation(json_data, generation, character_id):
             json_generation = id
             break
 
-    jsonutils.set_character_generation_json(json_data, character_id, character_id, generation)
+    jsonutils.set_character_generation_json(json_data, character_id, generation)
 
 
 def prep_non_standard_export(objects, dir, name, character_type):
@@ -1304,6 +1313,8 @@ def export_copy_fbx_key(chr_cache, dir, name):
         try:
             old_key_path = chr_cache.import_key_file
             if not os.path.exists(old_key_path):
+                old_key_path = utils.local_path(chr_cache.character_id + ".fbxkey")
+            if not os.path.exists(old_key_path):
                 old_key_path = utils.local_path(chr_cache.import_name + ".fbxkey")
             if old_key_path and os.path.exists(old_key_path):
                 key_dir, key_file = os.path.split(old_key_path)
@@ -1319,6 +1330,8 @@ def export_copy_obj_key(chr_cache, dir, name):
     if chr_cache.import_has_key:
         try:
             old_key_path = chr_cache.import_key_file
+            if not os.path.exists(old_key_path):
+                old_key_path = utils.local_path(chr_cache.character_id + ".ObjKey")
             if not os.path.exists(old_key_path):
                 old_key_path = utils.local_path(chr_cache.import_name + ".ObjKey")
             if old_key_path and os.path.exists(old_key_path):
@@ -1950,17 +1963,17 @@ class CC3Export(bpy.types.Operator):
             if not default_file_path:
                 if self.param == "EXPORT_ACCESSORY":
                     if chr_cache:
-                        default_file_path = chr_cache.import_name + "_accessory"
+                        default_file_path = chr_cache.character_id + "_accessory"
                     else:
                         default_file_path = "accessory"
                 elif self.param == "EXPORT_MESH":
                     if chr_cache:
-                        default_file_path = chr_cache.import_name + "_mesh"
+                        default_file_path = chr_cache.character_id + "_mesh"
                     else:
                         default_file_path = "mesh"
                 else:
                     if chr_cache:
-                        default_file_path = chr_cache.import_name + "_export"
+                        default_file_path = chr_cache.character_id + "_export"
                     else:
                         default_file_path = "untitled"
             else:

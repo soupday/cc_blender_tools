@@ -1184,6 +1184,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 return self.import_has_key
         return True
 
+    def is_morph(self):
+        return utils.is_file_ext(self.import_type, "OBJ") and self.import_has_key
+
     def is_standard(self):
         return self.generation in vars.STANDARD_GENERATIONS
 
@@ -1545,7 +1548,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def get_character_json(self):
         json_data = self.get_json_data()
-        return jsonutils.get_character_json(json_data, self.import_name, self.character_id)
+        return jsonutils.get_character_json(json_data, self.character_id)
 
     def recast_type(self, collection, index, chr_json):
         mat_cache = collection[index]

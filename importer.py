@@ -295,7 +295,7 @@ def init_shape_key_range(obj):
 def detect_generation(chr_cache, json_data):
 
     if json_data:
-        json_generation = jsonutils.get_character_generation_json(json_data, chr_cache.import_name, chr_cache.character_id)
+        json_generation = jsonutils.get_character_generation_json(json_data, chr_cache.character_id)
         if json_generation is not None and json_generation != "":
             try:
                 return vars.CHARACTER_GENERATION[json_generation]
@@ -424,27 +424,44 @@ def detect_character(file_path, objects, actions, json_data, warn):
 
     dir, file = os.path.split(file_path)
     name, ext = os.path.splitext(file)
+    import_name = name
+    import_dir = dir
 
     if not objects:
         utils.log_error("No objects in import!")
         return None
 
-    chr_json = jsonutils.get_character_json(json_data, name, name)
+    try:
+        # try to override the import dir with the directory specified in the json
+        import_dir = json_data[name]["Import_Dir"]
+        import_name = json_data[name]["Import_Name"]
+        utils.log_info(f"Using original Import Dir: {import_dir}")
+        utils.log_info(f"Using original Import Name: {import_name}")
+    except:
+        pass
+
+    chr_json = jsonutils.get_character_json(json_data, name)
     chr_cache = props.import_cache.add()
     chr_cache.import_file = file_path
     chr_cache.import_type = ext[1:]
-    chr_cache.import_name = name
-    chr_cache.import_dir = dir
+    # original import name (if re-importing an export from Blender)
+    chr_cache.import_name = import_name
+    # original import dir (if re-importing an export from Blender)
+    #   import_name and import_dir are used mainly to find textures and for texture bake paths
+    #   thus, repeat imports of Blender exports can keep track of where the textures originally came from.
+    chr_cache.import_dir = import_dir
     chr_cache.import_space_in_name = " " in name
     chr_cache.character_index = 0
+    # actual armature name of character
     chr_cache.character_name = name
+    # current character import name
     chr_cache.character_id = name
     processed = []
 
     if utils.is_file_ext(ext, "FBX"):
 
         # key file
-        chr_cache.import_key_file = os.path.join(chr_cache.import_dir, chr_cache.import_name + ".fbxkey")
+        chr_cache.import_key_file = os.path.join(dir, name + ".fbxkey")
         chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
 
         # determine the main texture dir
@@ -507,7 +524,7 @@ def detect_character(file_path, objects, actions, json_data, warn):
     elif utils.is_file_ext(ext, "OBJ"):
 
         # key file
-        chr_cache.import_key_file = os.path.join(chr_cache.import_dir, chr_cache.import_name + ".ObjKey")
+        chr_cache.import_key_file = os.path.join(dir, name + ".ObjKey")
         chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
 
         # determine the main texture dir
@@ -729,7 +746,7 @@ class CC3Import(bpy.types.Operator):
 
         if chr_cache:
 
-            chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name, chr_cache.character_id)
+            chr_json = jsonutils.get_character_json(json_data, chr_cache.character_id)
 
             if self.param == "BUILD":
                 chr_cache.check_material_types(chr_json)

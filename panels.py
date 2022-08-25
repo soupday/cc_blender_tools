@@ -85,6 +85,7 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
 
     is_character = False
     is_non_standard = True
+    is_morph = False
     if chr_cache:
         character_name = chr_cache.character_name
         is_non_standard = chr_cache.is_non_standard()
@@ -99,6 +100,10 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
             else:
                 type_text = f"Non-Standard ({chr_cache.generation})"
         is_character = True
+        if chr_cache.is_morph():
+            is_morph = True
+            is_non_standard = False
+            type_text = "Obj/Morph"
     elif chr_rig:
         character_name = chr_rig.name
         type_text = "Generic"
