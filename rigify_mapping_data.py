@@ -325,16 +325,16 @@ GAME_BASE_BONE_MAPPINGS = [
 
 # [ rl_bone_name, [rigify regex1, regex2, ...], [metarig regex1, regex2]]
 G3_HIDE_CHAINS = [
-    ["CC_Base_R_Thumb1", ["thumb\.0[1|2|3]\.[R|R\.001]"], ["thumb.0[1|2|3].R"]],
-    ["CC_Base_R_Index1", ["f_index\.0[1|2|3]\.[R|R\.001]"], ["palm.01.R", "f_index.0[1|2|3].R"]],
-    ["CC_Base_R_Mid1", ["f_middle\.0[1|2|3]\.[R|R\.001]"], ["palm.02.R", "f_middle.0[1|2|3].R"]],
-    ["CC_Base_R_Ring1", ["f_ring\.0[1|2|3]\.[R|R\.001]"], ["palm.03.R", "f_ring.0[1|2|3].R"]],
-    ["CC_Base_R_Pinky1", ["f_pinky\.0[1|2|3]\.[R|R\.001]"], ["palm.04.R", "f_pinky.0[1|2|3].R"]],
-    ["CC_Base_L_Thumb1", ["thumb\.0[1|2|3]\.[L|L\.001]"], ["thumb.0[1|2|3].L"]],
-    ["CC_Base_L_Index1", ["f_index\.0[1|2|3]\.[L|L\.001]"], ["palm.01.L", "f_index.0[1|2|3].L"]],
-    ["CC_Base_L_Mid1", ["f_middle\.0[1|2|3]\.[L|L\.001]"], ["palm.02.L", "f_middle.0[1|2|3].L"]],
-    ["CC_Base_L_Ring1", ["f_ring\.0[1|2|3]\.[L|L\.001]"], ["palm.03.L", "f_ring.0[1|2|3].L"]],
-    ["CC_Base_L_Pinky1", ["f_pinky\.0[1|2|3]\.[L|L\.001]"], ["palm.04.L", "f_pinky.0[1|2|3].L"]],
+    ["CC_Base_R_Thumb1", ["thumb\.(01|01_master|02|03)\.(R|R.001)"], ["thumb.0[1|2|3].R"]],
+    ["CC_Base_R_Index1", ["f_index\.(01|01_master|02|03)*\.(R|R.001)"], ["palm.01.R", "f_index.0[1|2|3].R"]],
+    ["CC_Base_R_Mid1", ["f_middle\.(01|01_master|02|03)*\.(R|R.001)"], ["palm.02.R", "f_middle.0[1|2|3].R"]],
+    ["CC_Base_R_Ring1", ["f_ring\.(01|01_master|02|03)*\.(R|R.001)"], ["palm.03.R", "f_ring.0[1|2|3].R"]],
+    ["CC_Base_R_Pinky1", ["f_pinky\.(01|01_master|02|03)*\.(R|R.001)", "palm.R"], ["palm.04.R", "f_pinky.0[1|2|3].R"]],
+    ["CC_Base_L_Thumb1", ["thumb\.(01|01_master|02|03)*\.(L|L.001)"], ["thumb.0[1|2|3].L"]],
+    ["CC_Base_L_Index1", ["f_index\.(01|01_master|02|03)*\.(L|L.001)"], ["palm.01.L", "f_index.0[1|2|3].L"]],
+    ["CC_Base_L_Mid1", ["f_middle\.(01|01_master|02|03)*\.(L|L.001)"], ["palm.02.L", "f_middle.0[1|2|3].L"]],
+    ["CC_Base_L_Ring1", ["f_ring\.(01|01_master|02|03)*\.(L|L.001)"], ["palm.03.L", "f_ring.0[1|2|3].L"]],
+    ["CC_Base_L_Pinky1", ["f_pinky\.(01|01_master|02|03)*\.(L|L.001)", "palm.L"], ["palm.04.L", "f_pinky.0[1|2|3].L"]],
 ]
 
 G3_VERTEX_GROUP_RENAME = [

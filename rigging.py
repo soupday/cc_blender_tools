@@ -868,6 +868,7 @@ def modify_rigify_rig(cc3_rig, rigify_rig, rigify_data):
 
     # hide control rig bones if RL chain parent bones missing from CC3 rig
     if rigify_data.hide_chains and select_rig(rigify_rig):
+        bone_list = []
         for chain_def in rigify_data.hide_chains:
             rl_bone_name = chain_def[0]
             rigify_regex_list = chain_def[1]
@@ -877,11 +878,17 @@ def modify_rigify_rig(cc3_rig, rigify_rig, rigify_data):
                 utils.log_info(f"Chain Parent missing from CC3 Rig: {rl_bone_name}")
                 utils.log_indent()
                 for regex in rigify_regex_list:
-                    for pose_bone in rigify_rig.data.pose_bones:
-                        if re.match(regex, pose_bone.name):
-                            utils.log_info(f"Hiding control rig bone: {pose_bone.name}")
-                            bones.set_pose_bone_layer(rigify_rig, pose_bone.name, 22)
+                    for bone in rigify_rig.data.bones:
+                        if re.match(regex, bone.name):
+                            utils.log_info(f"Hiding control rig bone: {bone.name}")
+                            bones.set_pose_bone_layer(rigify_rig, bone.name, 22)
+                            bone_list.append(bone.name)
                 utils.log_recess()
+        if bone_list and edit_rig(rigify_rig):
+            for bone_name in bone_list:
+                bones.set_edit_bone_layer(rigify_rig, bone_name, 22)
+            select_rig(rigify_rig)
+
 
 
 def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
