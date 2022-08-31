@@ -131,11 +131,11 @@ def unique_material_name(name, mat = None):
 
 def unique_object_name(name, obj = None):
     name = strip_name(name)
-    index = 1001
     if name in bpy.data.objects and bpy.data.objects[name] != obj:
-        while name + "_" + str(index) in bpy.data.objects:
+        index = 1
+        while name + "_" + str(index).zfill(2) in bpy.data.objects:
             index += 1
-        return name + "_" + str(index)
+        return name + "_" + str(index).zfill(2)
     return name
 
 
@@ -661,6 +661,7 @@ def try_select_child_objects(obj):
     try:
         if obj:
             if obj.type == "ARMATURE" or obj.type == "MESH" or obj.type == "EMPTY":
+                print("SELECTING: ", obj.name, obj.type)
                 obj.select_set(True)
             result = True
             for child in obj.children:

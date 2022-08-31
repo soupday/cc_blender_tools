@@ -39,6 +39,7 @@ Links
 - Missing bone chains from CC3 rig will hide corresponding control rig bones (e.g. missing fingers)
 - Export texture baking no longer duplicates baking on same materials across different objects.
 - Export fix to CC3/4 when material name starts with a digit.
+- Fix to import of multiple generic GLTF/GLB props or characters.
 
 
 ### 1.4.3

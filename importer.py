@@ -680,10 +680,9 @@ class CC3Import(bpy.types.Operator):
         elif utils.is_file_ext(ext, "GLTF") or utils.is_file_ext(ext, "GLB"):
 
             # invoke the GLTF importer
-            utils.tag_objects()
             utils.tag_images()
             bpy.ops.import_scene.gltf(filepath = self.filepath)
-            imported = utils.untagged_objects()
+            imported = bpy.context.selected_objects.copy()
             self.imported_images = utils.untagged_images()
 
             if prefs.import_auto_convert:
@@ -699,10 +698,9 @@ class CC3Import(bpy.types.Operator):
             self.filepath = glb_path
 
             # invoke the GLTF importer
-            utils.tag_objects()
             utils.tag_images()
             bpy.ops.import_scene.gltf(filepath = self.filepath)
-            imported = utils.untagged_objects()
+            imported = bpy.context.selected_objects.copy()
             self.imported_images = utils.untagged_images()
 
             # find the armature and rotate it 180 degrees in Z
