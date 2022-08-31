@@ -1711,7 +1711,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     return chr_cache
         return None
 
-    def get_context_character_cache(self, context = None):
+    def get_context_character_cache(self, context = None, exact = False):
         if not context:
             context = bpy.context
         obj = context.object
@@ -1720,7 +1720,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
         # if there is only one character in the scene, this is the only possible character cache:
         # unless it's an armature...
-        if len(self.import_cache) == 1 and arm is None:
+        if not exact and len(self.import_cache) == 1 and arm is None:
             return self.import_cache[0]
 
         # otherwise determine the context character cache:

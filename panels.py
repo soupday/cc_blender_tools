@@ -27,9 +27,9 @@ CREATE_TAB_NAME = "CC/iC Create"
 # Panel button functions and operator
 #
 
-def context_character(context):
+def context_character(context, exact = False):
     props = bpy.context.scene.CC3ImportProps
-    chr_cache = props.get_context_character_cache(context)
+    chr_cache = props.get_context_character_cache(context, exact = exact)
 
     obj = None
     mat = None
@@ -431,7 +431,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context, exact = True)
         chr_rig = None
         if chr_cache:
             chr_rig = chr_cache.get_armature()

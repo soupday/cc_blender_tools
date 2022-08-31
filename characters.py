@@ -511,6 +511,7 @@ def convert_to_rl_pbr(mat, mat_cache):
 
     if bsdf_node:
         try:
+            clearcoat_value = bsdf_node.inputs["Clearcoat"].default_value
             roughness_value = bsdf_node.inputs["Roughness"].default_value
             metallic_value = bsdf_node.inputs["Metallic"].default_value
             specular_value = bsdf_node.inputs["Specular"].default_value
@@ -529,11 +530,14 @@ def convert_to_rl_pbr(mat, mat_cache):
                 mat_cache.parameters.default_diffuse_color = diffuse_color
 
             mat_cache.parameters.default_roughness = roughness_value
+            # a rough approximation for the clearcoat
+            mat_cache.parameters.default_roughness_power = 1.0 + clearcoat_value * 0.5
             mat_cache.parameters.default_metallic = metallic_value
             mat_cache.parameters.default_specular = specular_value
             mat_cache.parameters.default_emission_strength = emission_value / vars.EMISSION_SCALE
             mat_cache.parameters.default_emissive_color = (1.0, 1.0, 1.0, 1.0)
             bsdf_node.inputs["Emission Strength"].default_value = 1.0
+            bsdf_node.inputs["Clearcoat"].default_value = 0.0
             if not bsdf_node.inputs["Alpha"].is_linked:
                 mat_cache.parameters.default_opacity = alpha_value
         except:
@@ -594,6 +598,12 @@ def convert_to_rl_pbr(mat, mat_cache):
 
     # connect the displacement to the output
     nodeutils.link_nodes(links, group_node, "Displacement", output_node, "Displacement")
+
+    # use alpha hashing by default
+    if mat.blend_method == "BLEND":
+        mat.blend_method = "HASHED"
+        mat.shadow_method = "HASHED"
+        mat.use_backface_culling = False
 
     return
 
