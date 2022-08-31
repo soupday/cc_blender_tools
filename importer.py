@@ -640,7 +640,10 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            self.imported_character = detect_character(self.filepath, imported, actions, json_data, warn)
+            if self.is_rl_character:
+                self.imported_character = detect_character(self.filepath, imported, actions, json_data, warn)
+            elif prefs.import_auto_convert:
+                self.imported_characterer = characters.convert_generic_to_non_standard(imported, self.filepath)
 
             utils.log_timer("Done .Fbx Import.")
 

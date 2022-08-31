@@ -88,19 +88,26 @@ def check_valid_export_fbx(chr_cache, objects):
 
 
 INVALID_EXPORT_CHARACTERS = "`¬!\"£$%^&*()+-=[]{}:@~;'#<>?,./\| "
+DIGITS = "0123456789"
 
 
-def is_invalid_export_name(name):
+def is_invalid_export_name(name, is_material = False):
     for char in INVALID_EXPORT_CHARACTERS:
         if char in name:
+            return True
+    if is_material:
+        if name[0] in DIGITS:
             return True
     return False
 
 
-def safe_export_name(name):
+def safe_export_name(name, is_material = False):
     for char in INVALID_EXPORT_CHARACTERS:
         if char in name:
             name = name.replace(char, "_")
+    if is_material:
+        if name[0] in DIGITS:
+            name = f"_{name}"
     return name
 
 
@@ -238,7 +245,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         mat_count = {}
         for mat in export_mats:
             mat_name = mat.name
-            mat_safe_name = safe_export_name(utils.strip_name(mat_name))
+            mat_safe_name = safe_export_name(utils.strip_name(mat_name), is_material=True)
             if mat_safe_name in mat_count.keys():
                 mat_count[mat_safe_name] += 1
             else:
@@ -326,23 +333,23 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             utils.log_info(f"Material: {mat.name}")
             utils.log_indent()
 
-            if mat not in mats_processed.keys():
+            if mat.name not in mats_processed.keys():
                 mats_processed[mat.name] = { "processed": False, "write_back": False, "copied": False, "remapped": False }
             mat_data = mats_processed[mat.name]
 
             if mat_cache:
-                mat_expected_source_name = (safe_export_name(utils.strip_name(mat_name))
+                mat_expected_source_name = (safe_export_name(utils.strip_name(mat_name), is_material=True)
                                             if revert_duplicates else
-                                            safe_export_name(mat_name))
+                                            safe_export_name(mat_name, is_material=True))
                 mat_source_name = mat_cache.source_name
                 source_changed = mat_expected_source_name != mat_source_name
                 if source_changed:
-                    mat_safe_name = safe_export_name(mat_name)
+                    mat_safe_name = safe_export_name(mat_name, is_material=True)
                 else:
                     mat_safe_name = mat_source_name
             else:
                 new_material = True
-                mat_safe_name = safe_export_name(mat_name)
+                mat_safe_name = safe_export_name(mat_name, is_material=True)
                 mat_source_name = mat_safe_name
 
             if mat_name != mat_safe_name:
@@ -743,8 +750,9 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
                     processed_image = None
                     if tex_type in mat_data.keys():
-                        processed_image = mat_data[tex_type]["image"]
-                        utils.log_info(f"Resusing already processed material image: {processed_image.name}")
+                        processed_image = mat_data[tex_type]
+                        if processed_image:
+                            utils.log_info(f"Resusing already processed material image: {processed_image.name}")
 
                     if tex_node or bake_shader_output:
 
@@ -773,10 +781,9 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                     image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
                         tex_info["Texture Path"] = ""
+                        mat_data[tex_type] = image
 
                         if image:
-
-                            mat_data[tex_type] = image
 
                             try_unpack_image(image, unpack_path, True)
 
@@ -1130,7 +1137,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
                 if mat not in done:
                     done.append(mat)
                     utils.log_info(f"Adding Material Json: {mat.name}")
-                    export_name = safe_export_name(mat.name)
+                    export_name = safe_export_name(mat.name, is_material=True)
                     if export_name != mat.name:
                         utils.log_info(f"Updating Material name: {mat.name} to {export_name}")
                         mat.name = export_name
