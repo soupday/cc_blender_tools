@@ -171,7 +171,6 @@ def convert_generic_to_non_standard(objects, file_path = None):
     # select all child objects of the current selected objects (Humanoid)
     utils.try_select_objects(objects, True)
     for obj in objects:
-        print("IMPORTED:", obj.name, obj.type)
         utils.try_select_child_objects(obj)
 
     objects = bpy.context.selected_objects
@@ -199,7 +198,7 @@ def convert_generic_to_non_standard(objects, file_path = None):
     if file_path:
         dir, file = os.path.split(file_path)
         name, ext = os.path.splitext(file)
-        chr_rig.name = name
+        chr_rig.name = utils.unique_object_name(name, chr_rig)
         full_name = chr_rig.name
     else:
         full_name = chr_rig.name

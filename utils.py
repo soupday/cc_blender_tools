@@ -661,7 +661,6 @@ def try_select_child_objects(obj):
     try:
         if obj:
             if obj.type == "ARMATURE" or obj.type == "MESH" or obj.type == "EMPTY":
-                print("SELECTING: ", obj.name, obj.type)
                 obj.select_set(True)
             result = True
             for child in obj.children:
