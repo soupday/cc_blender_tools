@@ -531,7 +531,7 @@ def convert_to_rl_pbr(mat, mat_cache):
 
             mat_cache.parameters.default_roughness = roughness_value
             # a rough approximation for the clearcoat
-            mat_cache.parameters.default_roughness_power = 1.0 + clearcoat_value * 0.5
+            mat_cache.parameters.default_roughness_power = 1.0 + clearcoat_value
             mat_cache.parameters.default_metallic = metallic_value
             mat_cache.parameters.default_specular = specular_value
             mat_cache.parameters.default_emission_strength = emission_value / vars.EMISSION_SCALE
