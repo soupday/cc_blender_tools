@@ -88,19 +88,26 @@ def check_valid_export_fbx(chr_cache, objects):
 
 
 INVALID_EXPORT_CHARACTERS = "`¬!\"£$%^&*()+-=[]{}:@~;'#<>?,./\| "
+DIGITS = "0123456789"
 
 
-def is_invalid_export_name(name):
+def is_invalid_export_name(name, is_material = False):
     for char in INVALID_EXPORT_CHARACTERS:
         if char in name:
+            return True
+    if is_material:
+        if name[0] in DIGITS:
             return True
     return False
 
 
-def safe_export_name(name):
+def safe_export_name(name, is_material = False):
     for char in INVALID_EXPORT_CHARACTERS:
         if char in name:
             name = name.replace(char, "_")
+    if is_material:
+        if name[0] in DIGITS:
+            name = f"_{name}"
     return name
 
 
@@ -191,7 +198,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                     done.append(mat)
     done.clear()
 
-    old_name = chr_cache.import_name
+    old_name = chr_cache.character_id
     if new_name != old_name:
         if (old_name in json_data.keys() and
             old_name in json_data[old_name]["Object"].keys() and
@@ -205,7 +212,16 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
     # create soft physics json if none
     physics_json = jsonutils.add_json_path(chr_json, "Physics/Soft Physics/Meshes")
 
+    # set custom JSON data
     json_data[new_name]["Blender_Project"] = True
+    if not copy_textures:
+        json_data[new_name]["Import_Dir"] = chr_cache.import_dir
+        json_data[new_name]["Import_Name"] = chr_cache.import_name
+    else:
+        json_data[new_name].pop("Import_Dir", None)
+        json_data[new_name].pop("Import_Name", None)
+
+
     if chr_cache.is_non_standard():
         set_non_standard_generation(json_data, chr_cache.non_standard_type, new_name)
 
@@ -229,7 +245,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         mat_count = {}
         for mat in export_mats:
             mat_name = mat.name
-            mat_safe_name = safe_export_name(utils.strip_name(mat_name))
+            mat_safe_name = safe_export_name(utils.strip_name(mat_name), is_material=True)
             if mat_safe_name in mat_count.keys():
                 mat_count[mat_safe_name] += 1
             else:
@@ -317,23 +333,23 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             utils.log_info(f"Material: {mat.name}")
             utils.log_indent()
 
-            if mat not in mats_processed.keys():
+            if mat.name not in mats_processed.keys():
                 mats_processed[mat.name] = { "processed": False, "write_back": False, "copied": False, "remapped": False }
             mat_data = mats_processed[mat.name]
 
             if mat_cache:
-                mat_expected_source_name = (safe_export_name(utils.strip_name(mat_name))
+                mat_expected_source_name = (safe_export_name(utils.strip_name(mat_name), is_material=True)
                                             if revert_duplicates else
-                                            safe_export_name(mat_name))
+                                            safe_export_name(mat_name, is_material=True))
                 mat_source_name = mat_cache.source_name
                 source_changed = mat_expected_source_name != mat_source_name
                 if source_changed:
-                    mat_safe_name = safe_export_name(mat_name)
+                    mat_safe_name = safe_export_name(mat_name, is_material=True)
                 else:
                     mat_safe_name = mat_source_name
             else:
                 new_material = True
-                mat_safe_name = safe_export_name(mat_name)
+                mat_safe_name = safe_export_name(mat_name, is_material=True)
                 mat_source_name = mat_safe_name
 
             if mat_name != mat_safe_name:
@@ -671,7 +687,8 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                 tex_type = tex_def[2]
                 shader_socket = tex_def[0]
                 tex_id = params.get_texture_json_id(tex_type)
-                is_pbr = tex_type in params.PBR_TYPES
+                is_pbr_texture = tex_type in params.PBR_TYPES
+                is_pbr_shader = shader_name == "rl_pbr_shader" or shader_name == "rl_sss_shader"
                 tex_node = nodeutils.get_node_connected_to_input(shader_node, shader_socket)
 
                 tex_info = None
@@ -679,17 +696,30 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                 bake_shader_socket = ""
                 bake_shader_size = 64
 
+                roughness_modified = False
+                if tex_type == "ROUGHNESS":
+                    roughness = 0.5
+                    if nodeutils.is_input_socket_connected(shader_node, "Roughness Map"):
+                        roughness = nodeutils.get_node_input(shader_node, "Roughness Map", 0.5)
+                    def_min = 0
+                    def_max = 1
+                    def_pow = 1
+                    if shader_name == "rl_skin_shader" or shader_name == "rl_head_shader":
+                        def_min = 0.1
+                    roughness_min = nodeutils.get_node_input(shader_node, "Roughness Min", def_min)
+                    roughness_max = nodeutils.get_node_input(shader_node, "Roughness Max", def_max)
+                    roughness_pow = nodeutils.get_node_input(shader_node, "Roughness Power", def_pow)
+                    if roughness_min != def_min or roughness_max != def_max or roughness_pow != def_pow or roughness != 0.5:
+                        roughness_modified = True
+
                 # find or generate tex_info json.
-                if is_pbr:
+                if is_pbr_texture:
+
                     # CC3 cannot set metallic or roughness values with no texture, so must bake a small value texture
                     if not tex_node and prefs.export_bake_nodes:
 
                         if tex_type == "ROUGHNESS":
-                            roughness = nodeutils.get_node_input(shader_node, "Roughness Map", 0)
-                            roughness_min = nodeutils.get_node_input(shader_node, "Roughness Min", 0)
-                            roughness_max = nodeutils.get_node_input(shader_node, "Roughness Max", 1)
-                            roughness_pow = nodeutils.get_node_input(shader_node, "Roughness Power", 1)
-                            if bake_values and (roughness_min > 0 or roughness_max < 1 or roughness_pow != 1.0 or roughness != 0.5):
+                            if bake_values and roughness_modified:
                                 bake_shader_output = True
                                 bake_shader_socket = "Roughness"
                             elif not bake_values:
@@ -734,8 +764,9 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
                     processed_image = None
                     if tex_type in mat_data.keys():
-                        processed_image = mat_data[tex_type]["image"]
-                        utils.log_info(f"Resusing already processed material image: {processed_image.name}")
+                        processed_image = mat_data[tex_type]
+                        if processed_image:
+                            utils.log_info(f"Resusing already processed material image: {processed_image.name}")
 
                     if tex_node or bake_shader_output:
 
@@ -760,14 +791,16 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                 # and baking is enabled: then bake the socket input into a texture for exporting:
                                 if tex_type == "NORMAL" and bump_combining:
                                     image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
+                                elif tex_type == "ROUGHNESS" and is_pbr_shader and roughness_modified:
+                                    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
+                                                                            size_override_node = shader_node, size_override_socket = "Roughness Map")
                                 else:
                                     image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
                         tex_info["Texture Path"] = ""
+                        mat_data[tex_type] = image
 
                         if image:
-
-                            mat_data[tex_type] = image
 
                             try_unpack_image(image, unpack_path, True)
 
@@ -1055,7 +1088,7 @@ def set_non_standard_generation(json_data, character_type, character_id):
     elif character_type == "PROP":
         generation = "Prop"
     utils.log_info(f"Generation: {generation}")
-    jsonutils.set_character_generation_json(json_data, character_id, character_id, generation)
+    jsonutils.set_character_generation_json(json_data, character_id, generation)
 
 
 def set_standard_generation(json_data, generation, character_id):
@@ -1069,7 +1102,7 @@ def set_standard_generation(json_data, generation, character_id):
             json_generation = id
             break
 
-    jsonutils.set_character_generation_json(json_data, character_id, character_id, generation)
+    jsonutils.set_character_generation_json(json_data, character_id, generation)
 
 
 def prep_non_standard_export(objects, dir, name, character_type):
@@ -1121,7 +1154,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
                 if mat not in done:
                     done.append(mat)
                     utils.log_info(f"Adding Material Json: {mat.name}")
-                    export_name = safe_export_name(mat.name)
+                    export_name = safe_export_name(mat.name, is_material=True)
                     if export_name != mat.name:
                         utils.log_info(f"Updating Material name: {mat.name} to {export_name}")
                         mat.name = export_name
@@ -1304,6 +1337,8 @@ def export_copy_fbx_key(chr_cache, dir, name):
         try:
             old_key_path = chr_cache.import_key_file
             if not os.path.exists(old_key_path):
+                old_key_path = utils.local_path(chr_cache.character_id + ".fbxkey")
+            if not os.path.exists(old_key_path):
                 old_key_path = utils.local_path(chr_cache.import_name + ".fbxkey")
             if old_key_path and os.path.exists(old_key_path):
                 key_dir, key_file = os.path.split(old_key_path)
@@ -1319,6 +1354,8 @@ def export_copy_obj_key(chr_cache, dir, name):
     if chr_cache.import_has_key:
         try:
             old_key_path = chr_cache.import_key_file
+            if not os.path.exists(old_key_path):
+                old_key_path = utils.local_path(chr_cache.character_id + ".ObjKey")
             if not os.path.exists(old_key_path):
                 old_key_path = utils.local_path(chr_cache.import_name + ".ObjKey")
             if old_key_path and os.path.exists(old_key_path):
@@ -1950,17 +1987,17 @@ class CC3Export(bpy.types.Operator):
             if not default_file_path:
                 if self.param == "EXPORT_ACCESSORY":
                     if chr_cache:
-                        default_file_path = chr_cache.import_name + "_accessory"
+                        default_file_path = chr_cache.character_id + "_accessory"
                     else:
                         default_file_path = "accessory"
                 elif self.param == "EXPORT_MESH":
                     if chr_cache:
-                        default_file_path = chr_cache.import_name + "_mesh"
+                        default_file_path = chr_cache.character_id + "_mesh"
                     else:
                         default_file_path = "mesh"
                 else:
                     if chr_cache:
-                        default_file_path = chr_cache.import_name + "_export"
+                        default_file_path = chr_cache.character_id + "_export"
                     else:
                         default_file_path = "untitled"
             else:

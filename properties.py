@@ -1184,6 +1184,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 return self.import_has_key
         return True
 
+    def is_morph(self):
+        return utils.is_file_ext(self.import_type, "OBJ") and self.import_has_key
+
     def is_standard(self):
         return self.generation in vars.STANDARD_GENERATIONS
 
@@ -1545,7 +1548,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def get_character_json(self):
         json_data = self.get_json_data()
-        return jsonutils.get_character_json(json_data, self.import_name, self.character_id)
+        return jsonutils.get_character_json(json_data, self.character_id)
 
     def recast_type(self, collection, index, chr_json):
         mat_cache = collection[index]
@@ -1708,7 +1711,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     return chr_cache
         return None
 
-    def get_context_character_cache(self, context = None):
+    def get_context_character_cache(self, context = None, exact = False):
         if not context:
             context = bpy.context
         obj = context.object
@@ -1717,7 +1720,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
         # if there is only one character in the scene, this is the only possible character cache:
         # unless it's an armature...
-        if len(self.import_cache) == 1 and arm is None:
+        if not exact and len(self.import_cache) == 1 and arm is None:
             return self.import_cache[0]
 
         # otherwise determine the context character cache:

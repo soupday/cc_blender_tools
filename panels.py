@@ -27,9 +27,9 @@ CREATE_TAB_NAME = "CC/iC Create"
 # Panel button functions and operator
 #
 
-def context_character(context):
+def context_character(context, exact = False):
     props = bpy.context.scene.CC3ImportProps
-    chr_cache = props.get_context_character_cache(context)
+    chr_cache = props.get_context_character_cache(context, exact = exact)
 
     obj = None
     mat = None
@@ -85,6 +85,7 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
 
     is_character = False
     is_non_standard = True
+    is_morph = False
     if chr_cache:
         character_name = chr_cache.character_name
         is_non_standard = chr_cache.is_non_standard()
@@ -99,6 +100,10 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
             else:
                 type_text = f"Non-Standard ({chr_cache.generation})"
         is_character = True
+        if chr_cache.is_morph():
+            is_morph = True
+            is_non_standard = False
+            type_text = "Obj/Morph"
     elif chr_rig:
         character_name = chr_rig.name
         type_text = "Generic"
@@ -426,7 +431,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context, exact = True)
         chr_rig = None
         if chr_cache:
             chr_rig = chr_cache.get_armature()
@@ -598,7 +603,10 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
                     column.separator()
 
-                    column.box().label(text = matrix["label"] + " Parameters:", icon="MOD_HUE_SATURATION")
+                    box = column.box()
+                    box.row().label(text = matrix["label"] + " Parameters", icon="MOD_HUE_SATURATION")
+                    box.row().label(text = f"Material: {mat.name}", icon="SHADING_TEXTURE")
+
 
                     for ui_row in ui_matrix:
 

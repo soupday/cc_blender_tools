@@ -35,6 +35,13 @@ Links
 
 ## Changelog
 
+### 1.4.4
+- Missing bone chains from CC3 rig will hide corresponding control rig bones (e.g. missing fingers)
+- Export texture baking no longer duplicates baking on same materials across different objects.
+- Export fix to CC3/4 when material name starts with a digit.
+- Fix to import/convert of multiple generic GLTF/GLB props or characters.
+- Fix to exporting Roughness and Metallic texture strength (should always be 100).
+
 ### 1.4.3
 - Export bake maps now correctly sets bit depth and no alpha channel. Opacity texture bakes should work now.
 - Convert generic character from objects to props added.
@@ -62,8 +69,8 @@ Links
 - Body Collision Mesh fix.
 - Unity export logic fixes.
 - Resize weightmap function.
-- increment/decrement paint strenth weightmap buttons.
-- image path writeback fix.
+- Increment/decrement paint strenth weightmap buttons.
+- Image path writeback fix.
 
 ### 1.3.9
 - Full Json data generation added.

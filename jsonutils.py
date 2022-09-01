@@ -83,37 +83,37 @@ def get_all_material_keys(chr_json):
         return keys
 
 
-def get_character_generation_json(chr_json, file_name, character_id):
+def get_character_generation_json(chr_json, character_id):
     try:
-        return chr_json[file_name]["Object"][character_id]["Generation"]
+        return chr_json[character_id]["Object"][character_id]["Generation"]
     except:
         utils.log_warn("Failed to read character generation data!")
         return None
 
 
-def set_character_generation_json(chr_json, file_name, character_id, generation):
+def set_character_generation_json(chr_json, character_id, generation):
     try:
-        chr_json[file_name]["Object"][character_id]["Generation"] = generation
+        chr_json[character_id]["Object"][character_id]["Generation"] = generation
         return True
     except:
         utils.log_warn(f"Failed to set character generation to: {generation}")
         return False
 
 
-def get_character_root_json(json_data, file_name):
+def get_character_root_json(json_data, character_id):
     if not json_data:
         return None
     try:
-        return json_data[file_name]["Object"]
+        return json_data[character_id]["Object"]
     except:
         utils.log_warn("Failed to get character root Json data!")
         return None
 
-def get_character_json(json_data, file_name, character_id):
+def get_character_json(json_data, character_id):
     if not json_data:
         return None
     try:
-        chr_json = json_data[file_name]["Object"][character_id]
+        chr_json = json_data[character_id]["Object"][character_id]
         utils.log_detail("Character Json data found for: " + character_id)
         return chr_json
     except:
@@ -285,6 +285,9 @@ def set_pbr_var(mat_json, var_name, paths, value):
             if len(paths) == 3:
                 mat_json["Textures"][var_name][paths[2]] = value
             else:
+                # metallic and roughness don't have controllable strength settings, so always set to max
+                if var_name == "Metallic" or var_name != "Roughness":
+                    value = 1.0
                 mat_json["Textures"][var_name]["Strength"] = value * 100.0
         except:
             return

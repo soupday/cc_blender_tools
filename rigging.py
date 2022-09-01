@@ -838,7 +838,7 @@ def correct_meta_rig(meta_rig):
     utils.log_recess()
 
 
-def modify_rigify_rig(rigify_rig):
+def modify_rigify_rig(cc3_rig, rigify_rig, rigify_data):
     """Resize and reposition Rigify control bones to make them easier to find.
        Note: scale, location, rotation modifiers for custom control shapes is Blender 3.0.0+ only
     """
@@ -865,6 +865,30 @@ def modify_rigify_rig(rigify_rig):
                     bone.custom_shape_translation = translation
                     bone.custom_shape_rotation_euler = rotation
             utils.log_recess()
+
+    # hide control rig bones if RL chain parent bones missing from CC3 rig
+    if rigify_data.hide_chains and select_rig(rigify_rig):
+        bone_list = []
+        for chain_def in rigify_data.hide_chains:
+            rl_bone_name = chain_def[0]
+            rigify_regex_list = chain_def[1]
+            metarig_regex_list = chain_def[2]
+            # if the chain parent is missing from the cc3 rig, hide the control rig in rigify
+            if not bones.get_rl_bone(cc3_rig, rl_bone_name):
+                utils.log_info(f"Chain Parent missing from CC3 Rig: {rl_bone_name}")
+                utils.log_indent()
+                for regex in rigify_regex_list:
+                    for bone in rigify_rig.data.bones:
+                        if re.match(regex, bone.name):
+                            utils.log_info(f"Hiding control rig bone: {bone.name}")
+                            bones.set_pose_bone_layer(rigify_rig, bone.name, 22)
+                            bone_list.append(bone.name)
+                utils.log_recess()
+        if bone_list and edit_rig(rigify_rig):
+            for bone_name in bone_list:
+                bones.set_edit_bone_layer(rigify_rig, bone_name, 22)
+            select_rig(rigify_rig)
+
 
 
 def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
@@ -2741,7 +2765,7 @@ class CC3Rigifier(bpy.types.Operator):
                             else:
                                 convert_to_basic_face_rig(self.rigify_rig)
                                 chr_cache.rigified_full_face_rig = False
-                            modify_rigify_rig(self.rigify_rig)
+                            modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
@@ -2814,7 +2838,7 @@ class CC3Rigifier(bpy.types.Operator):
                             else:
                                 convert_to_basic_face_rig(self.rigify_rig)
                                 chr_cache.rigified_full_face_rig = False
-                            modify_rigify_rig(self.rigify_rig)
+                            modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)

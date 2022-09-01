@@ -245,7 +245,7 @@ def setup_scene_default(scene_type):
 
         if scene_type == "BLENDER":
 
-            bpy.context.scene.eevee.use_gtao = False
+            bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.2
             bpy.context.scene.eevee.gtao_factor = 1.0
             bpy.context.scene.eevee.use_bloom = False
@@ -253,12 +253,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bloom_knee = 0.5
             bpy.context.scene.eevee.bloom_radius = 6.5
             bpy.context.scene.eevee.bloom_intensity = 0.05
-            if prefs.refractive_eyes == "SSR":
-                bpy.context.scene.eevee.use_ssr = True
-                bpy.context.scene.eevee.use_ssr_refraction = True
-            else:
-                bpy.context.scene.eevee.use_ssr = False
-                bpy.context.scene.eevee.use_ssr_refraction = False
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
             bpy.context.scene.view_settings.view_transform = "Filmic"
             bpy.context.scene.view_settings.look = "None"
