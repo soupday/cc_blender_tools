@@ -285,6 +285,9 @@ def set_pbr_var(mat_json, var_name, paths, value):
             if len(paths) == 3:
                 mat_json["Textures"][var_name][paths[2]] = value
             else:
+                # metallic and roughness don't have controllable strength settings, so always set to max
+                if var_name == "Metallic" or var_name != "Roughness":
+                    value = 1.0
                 mat_json["Textures"][var_name]["Strength"] = value * 100.0
         except:
             return

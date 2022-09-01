@@ -603,7 +603,10 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
                     column.separator()
 
-                    column.box().label(text = matrix["label"] + " Parameters:", icon="MOD_HUE_SATURATION")
+                    box = column.box()
+                    box.row().label(text = matrix["label"] + " Parameters", icon="MOD_HUE_SATURATION")
+                    box.row().label(text = f"Material: {mat.name}", icon="SHADING_TEXTURE")
+
 
                     for ui_row in ui_matrix:
 

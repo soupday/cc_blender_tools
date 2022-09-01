@@ -40,6 +40,7 @@ Links
 - Export texture baking no longer duplicates baking on same materials across different objects.
 - Export fix to CC3/4 when material name starts with a digit.
 - Fix to import/convert of multiple generic GLTF/GLB props or characters.
+- Fix to exporting Roughness and Metallic texture strength (should always be 100).
 
 ### 1.4.3
 - Export bake maps now correctly sets bit depth and no alpha channel. Opacity texture bakes should work now.
