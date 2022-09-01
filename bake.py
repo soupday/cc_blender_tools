@@ -154,9 +154,16 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bak
     return image, image_name
 
 
-def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, name_prefix = "", override_size = 0):
+def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, name_prefix = "",
+                           override_size = 0, size_override_node = None, size_override_socket = None):
     # determine the size of the image to bake onto
-    width, height = get_texture_size(node, override_size, socket_name)
+    size_node = node
+    size_socket = socket_name
+    if size_override_node:
+        size_node = size_override_node
+    if size_override_socket:
+        size_socket = size_override_socket
+    width, height = get_texture_size(size_node, override_size, size_socket)
 
     # get the node and output socket to bake from
     source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(node, socket_name)
@@ -164,6 +171,28 @@ def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, name_pr
     # bake the source node output onto the target image and re-save it
     image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir, name_prefix = name_prefix)
     image_node = bake_output(mat, source_node, source_socket, image, image_name)
+
+    # remove the image node
+    nodes = mat.node_tree.nodes
+    nodes.remove(image_node)
+
+    return image
+
+
+def bake_node_socket_output(node, socket_name, mat, channel_id, bake_dir, name_prefix = "",
+                            override_size = 0, size_override_node = None, size_override_socket = None):
+    # determine the size of the image to bake onto
+    size_node = node
+    size_socket = socket_name
+    if size_override_node:
+        size_node = size_override_node
+    if size_override_socket:
+        size_socket = size_override_socket
+    width, height = get_texture_size(size_node, override_size, size_socket)
+
+    # bake the source node output onto the target image and re-save it
+    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir, name_prefix = name_prefix)
+    image_node = bake_output(mat, node, socket_name, image, image_name)
 
     # remove the image node
     nodes = mat.node_tree.nodes
@@ -219,21 +248,6 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_soc
     if image_node:
         nodes.remove(image_node)
     nodeutils.link_nodes(links, bsdf_normal_node, bsdf_normal_socket, bsdf_node, "Normal")
-
-    return image
-
-
-def bake_node_socket_output(node, socket_name, mat, channel_id, bake_dir, name_prefix = "", override_size = 0):
-    # determine the size of the image to bake onto
-    width, height = get_texture_size(node, override_size, socket_name)
-
-    # bake the source node output onto the target image and re-save it
-    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir, name_prefix = name_prefix)
-    image_node = bake_output(mat, node, socket_name, image, image_name)
-
-    # remove the image node
-    nodes = mat.node_tree.nodes
-    nodes.remove(image_node)
 
     return image
 

@@ -119,10 +119,11 @@ def set_default_shader_input(mat, input, value):
                     n.inputs[input].default_value = value
 
 
-def is_input_connected(input):
-    if len(input.links) > 0:
-        return True
-    return False
+def is_input_socket_connected(node, socket_name):
+    try:
+        return len(node.inputs[socket_name].links) > 0
+    except:
+        return False
 
 
 def is_node_connected_to_node(node, search, done):

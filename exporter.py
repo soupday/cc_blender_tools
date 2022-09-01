@@ -687,7 +687,8 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                 tex_type = tex_def[2]
                 shader_socket = tex_def[0]
                 tex_id = params.get_texture_json_id(tex_type)
-                is_pbr = tex_type in params.PBR_TYPES
+                is_pbr_texture = tex_type in params.PBR_TYPES
+                is_pbr_shader = shader_name == "rl_pbr_shader" or shader_name == "rl_sss_shader"
                 tex_node = nodeutils.get_node_connected_to_input(shader_node, shader_socket)
 
                 tex_info = None
@@ -695,17 +696,30 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                 bake_shader_socket = ""
                 bake_shader_size = 64
 
+                roughness_modified = False
+                if tex_type == "ROUGHNESS":
+                    roughness = 0.5
+                    if nodeutils.is_input_socket_connected(shader_node, "Roughness Map"):
+                        roughness = nodeutils.get_node_input(shader_node, "Roughness Map", 0.5)
+                    def_min = 0
+                    def_max = 1
+                    def_pow = 1
+                    if shader_name == "rl_skin_shader" or shader_name == "rl_head_shader":
+                        def_min = 0.1
+                    roughness_min = nodeutils.get_node_input(shader_node, "Roughness Min", def_min)
+                    roughness_max = nodeutils.get_node_input(shader_node, "Roughness Max", def_max)
+                    roughness_pow = nodeutils.get_node_input(shader_node, "Roughness Power", def_pow)
+                    if roughness_min != def_min or roughness_max != def_max or roughness_pow != def_pow or roughness != 0.5:
+                        roughness_modified = True
+
                 # find or generate tex_info json.
-                if is_pbr:
+                if is_pbr_texture:
+
                     # CC3 cannot set metallic or roughness values with no texture, so must bake a small value texture
                     if not tex_node and prefs.export_bake_nodes:
 
                         if tex_type == "ROUGHNESS":
-                            roughness = nodeutils.get_node_input(shader_node, "Roughness Map", 0)
-                            roughness_min = nodeutils.get_node_input(shader_node, "Roughness Min", 0)
-                            roughness_max = nodeutils.get_node_input(shader_node, "Roughness Max", 1)
-                            roughness_pow = nodeutils.get_node_input(shader_node, "Roughness Power", 1)
-                            if bake_values and (roughness_min > 0 or roughness_max < 1 or roughness_pow != 1.0 or roughness != 0.5):
+                            if bake_values and roughness_modified:
                                 bake_shader_output = True
                                 bake_shader_socket = "Roughness"
                             elif not bake_values:
@@ -777,6 +791,9 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                 # and baking is enabled: then bake the socket input into a texture for exporting:
                                 if tex_type == "NORMAL" and bump_combining:
                                     image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
+                                elif tex_type == "ROUGHNESS" and is_pbr_shader and roughness_modified:
+                                    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
+                                                                            size_override_node = shader_node, size_override_socket = "Roughness Map")
                                 else:
                                     image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
