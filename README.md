@@ -35,6 +35,9 @@ Links
 
 ## Changelog
 
+### 1.4.5
+- Fix for ActorCore / AccuRig import detection.
+
 ### 1.4.4
 - Missing bone chains from CC3 rig will hide corresponding control rig bones (e.g. missing fingers)
 - Export texture baking no longer duplicates baking on same materials across different objects.
