@@ -18,7 +18,7 @@ import os
 import shutil
 import bpy
 
-from . import (characters, imageutils, jsonutils, materials, modifiers, nodeutils, physics,
+from . import (characters, rigging, imageutils, jsonutils, materials, modifiers, nodeutils, physics,
                scene, channel_mixer, shaders, basic, properties, utils, vars)
 
 debug_counter = 0
@@ -617,7 +617,7 @@ class CC3Import(bpy.types.Operator):
         utils.log_info("Importing Character Model:")
         utils.log_info("--------------------------")
 
-        self.detect_import_mode()
+        self.detect_import_mode_from_files()
 
         import_anim = self.use_anim
 
@@ -638,6 +638,8 @@ class CC3Import(bpy.types.Operator):
             imported = utils.untagged_objects()
             actions = utils.untagged_actions()
             self.imported_images = utils.untagged_images()
+
+            self.detect_import_mode_from_objects(imported)
 
             # detect characters and objects
             if self.is_rl_character:
@@ -783,7 +785,7 @@ class CC3Import(bpy.types.Operator):
         utils.log_timer("Done Build.", "s")
 
 
-    def detect_import_mode(self):
+    def detect_import_mode_from_files(self):
         # detect if we are importing a character for morph/accessory editing (i.e. has a key file)
         dir, file = os.path.split(self.filepath)
         name, ext = os.path.splitext(file)
@@ -821,6 +823,15 @@ class CC3Import(bpy.types.Operator):
             utils.log_info("Importing generic character.")
 
         self.param = "IMPORT_QUALITY"
+
+
+    def detect_import_mode_from_objects(self, objects):
+        arm = utils.get_armature_in_objects(objects)
+        if arm:
+            if (rigging.is_GameBase_armature(arm) or
+                rigging.is_ActorCore_armature(arm) or
+                rigging.is_G3_armature(arm)):
+                self.is_rl_character = True
 
 
     def run_import(self, context):
