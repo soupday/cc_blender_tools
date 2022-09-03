@@ -634,6 +634,13 @@ def map_bone(cc3_rig, meta_rig, mapping):
                 src_bone_head_name = src_bone_head_name[1:]
                 reverse = True
             src_bone = bones.get_rl_bone(cc3_rig, src_bone_head_name)
+            if not src_bone and len(mapping) >= 6:
+                for alt_name in mapping[5]:
+                    print("########", alt_name)
+                    src_bone = bones.get_rl_bone(cc3_rig, alt_name)
+                    if src_bone:
+                        print("FOUND", alt_name)
+                        break
             if src_bone:
                 if reverse:
                     head_position = cc3_rig.matrix_world @ src_bone.tail_local
@@ -649,6 +656,11 @@ def map_bone(cc3_rig, meta_rig, mapping):
                 src_bone_tail_name = src_bone_tail_name[1:]
                 reverse = True
             src_bone = bones.get_rl_bone(cc3_rig, src_bone_tail_name)
+            if not src_bone and len(mapping) >= 6:
+                for alt_name in mapping[5]:
+                    src_bone = bones.get_rl_bone(cc3_rig, alt_name)
+                    if src_bone:
+                        break
             if src_bone:
                 if reverse:
                     tail_position = cc3_rig.matrix_world @ src_bone.head_local
@@ -660,7 +672,12 @@ def map_bone(cc3_rig, meta_rig, mapping):
         # lerp the start and end positions if supplied
         if src_bone:
 
-            if len(mapping) == 5 and src_bone_head_name != "" and src_bone_tail_name != "":
+            if (len(mapping) >= 5 and
+                mapping[3] is not None and
+                mapping[4] is not None and
+                src_bone_head_name != "" and
+                src_bone_tail_name != ""):
+
                 start = mapping[3]
                 end = mapping[4]
                 vec = tail_position - head_position

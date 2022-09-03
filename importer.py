@@ -830,7 +830,8 @@ class CC3Import(bpy.types.Operator):
         if arm:
             if (rigging.is_GameBase_armature(arm) or
                 rigging.is_ActorCore_armature(arm) or
-                rigging.is_G3_armature(arm)):
+                rigging.is_G3_armature(arm) or
+                rigging.is_iClone_armature(arm)):
                 self.is_rl_character = True
 
 
