@@ -35,6 +35,9 @@ Links
 
 ## Changelog
 
+### 1.4.6
+- Fix for palm control location with less than 5 fingers.
+
 ### 1.4.5
 - Fix for ActorCore / AccuRig import detection.
 
