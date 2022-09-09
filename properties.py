@@ -757,6 +757,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_anisotropic_shift_max: bpy.props.FloatProperty(default=0, min=-1, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_shift_max"))
     hair_anisotropic: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic"))
     hair_anisotropic_strength: bpy.props.FloatProperty(default=0.8, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength"))
+    hair_specular_blend: bpy.props.FloatProperty(default=0.75, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_specular_blend"))
     hair_anisotropic_strength2: bpy.props.FloatProperty(default=0.4, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength2"))
     hair_anisotropic_strength_cycles: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_strength_cycles"))
     hair_anisotropic_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
