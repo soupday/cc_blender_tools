@@ -87,30 +87,6 @@ def check_valid_export_fbx(chr_cache, objects):
     return check_valid, check_warn, report
 
 
-INVALID_EXPORT_CHARACTERS = "`¬!\"£$%^&*()+-=[]{}:@~;'#<>?,./\| "
-DIGITS = "0123456789"
-
-
-def is_invalid_export_name(name, is_material = False):
-    for char in INVALID_EXPORT_CHARACTERS:
-        if char in name:
-            return True
-    if is_material:
-        if name[0] in DIGITS:
-            return True
-    return False
-
-
-def safe_export_name(name, is_material = False):
-    for char in INVALID_EXPORT_CHARACTERS:
-        if char in name:
-            name = name.replace(char, "_")
-    if is_material:
-        if name[0] in DIGITS:
-            name = f"_{name}"
-    return name
-
-
 def remove_modifiers_for_export(chr_cache, objects, reset_pose):
     arm = utils.get_armature_in_objects(objects)
     arm.data.pose_position = "POSE"
@@ -245,7 +221,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         mat_count = {}
         for mat in export_mats:
             mat_name = mat.name
-            mat_safe_name = safe_export_name(utils.strip_name(mat_name), is_material=True)
+            mat_safe_name = utils.safe_export_name(utils.strip_name(mat_name), is_material=True)
             if mat_safe_name in mat_count.keys():
                 mat_count[mat_safe_name] += 1
             else:
@@ -280,16 +256,16 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         source_changed = False
         is_new_object = False
         if obj_cache:
-            obj_expected_source_name = safe_export_name(utils.strip_name(obj_name))
+            obj_expected_source_name = utils.safe_export_name(utils.strip_name(obj_name))
             obj_source_name = obj_cache.source_name
             source_changed = obj_expected_source_name != obj_source_name
             if source_changed:
-                obj_safe_name = safe_export_name(obj_name)
+                obj_safe_name = utils.safe_export_name(obj_name)
             else:
                 obj_safe_name = obj_source_name
         else:
             is_new_object = True
-            obj_safe_name = safe_export_name(obj_name)
+            obj_safe_name = utils.safe_export_name(obj_name)
             obj_source_name = obj_safe_name
 
         # if the Object name has been changed in some way
@@ -338,18 +314,18 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             mat_data = mats_processed[mat.name]
 
             if mat_cache:
-                mat_expected_source_name = (safe_export_name(utils.strip_name(mat_name), is_material=True)
+                mat_expected_source_name = (utils.safe_export_name(utils.strip_name(mat_name), is_material=True)
                                             if revert_duplicates else
-                                            safe_export_name(mat_name, is_material=True))
+                                            utils.safe_export_name(mat_name, is_material=True))
                 mat_source_name = mat_cache.source_name
                 source_changed = mat_expected_source_name != mat_source_name
                 if source_changed:
-                    mat_safe_name = safe_export_name(mat_name, is_material=True)
+                    mat_safe_name = utils.safe_export_name(mat_name, is_material=True)
                 else:
                     mat_safe_name = mat_source_name
             else:
                 new_material = True
-                mat_safe_name = safe_export_name(mat_name, is_material=True)
+                mat_safe_name = utils.safe_export_name(mat_name, is_material=True)
                 mat_source_name = mat_safe_name
 
             if mat_name != mat_safe_name:
@@ -1143,7 +1119,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
         if obj.type == "MESH" and obj not in done:
             done.append(obj)
             utils.log_info(f"Adding Object Json: {obj.name}")
-            export_name = safe_export_name(obj.name)
+            export_name = utils.safe_export_name(obj.name)
             if export_name != obj.name:
                 utils.log_info(f"Updating Object name: {obj.name} to {export_name}")
                 obj.name = export_name
@@ -1154,7 +1130,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
                 if mat not in done:
                     done.append(mat)
                     utils.log_info(f"Adding Material Json: {mat.name}")
-                    export_name = safe_export_name(mat.name, is_material=True)
+                    export_name = utils.safe_export_name(mat.name, is_material=True)
                     if export_name != mat.name:
                         utils.log_info(f"Updating Material name: {mat.name} to {export_name}")
                         mat.name = export_name

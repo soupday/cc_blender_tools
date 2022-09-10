@@ -308,7 +308,7 @@ def func_occlusion_strength(s):
     return pow(s, 1.0 / 3.0)
 
 def func_occlusion_color(c):
-    return utils.lerp_color(c, (0,0,0,1), 0.75)
+    return utils.lerp_color(c, (0,0,0,1), 0.5)
 
 def func_one_minus(v):
     return 1.0 - v

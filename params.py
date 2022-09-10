@@ -220,7 +220,7 @@ SHADER_MATRIX = [
             ["eye_occlusion_outer", 0.07, "", "Custom/Outer Corner Offset"],
             # non json properties (just defaults)
             ["eye_occlusion_tear_duct_width", 0.5, "DEF"],
-            ["eye_occlusion_power", 1.75, "DEF"],
+            ["eye_occlusion_power", 3, "DEF"],
         ],
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
@@ -1541,6 +1541,7 @@ SHADER_MATRIX = [
             ["Flow Invert Green", "", "hair_tangent_flip_green"],
             ["Anisotropic Roughness", "", "hair_anisotropic_roughness"],
             ["Anisotropic Strength", "", "hair_anisotropic_strength"],
+            ["Specular Blend", "", "hair_specular_blend"],
             ["Anisotropic Color", "", "hair_anisotropic_color"],
             ["Subsurface Scale", "func_sss_hair", "hair_subsurface_scale"],
             ["Diffuse Strength", "", "hair_diffuse_strength"],
@@ -1634,6 +1635,7 @@ SHADER_MATRIX = [
             ["hair_subsurface_radius", 1.5, "DEF"],
             ["hair_bump_strength", 1.0, "DEF"],
             ["hair_anisotropic_roughness", 0.0375, "DEF"],
+            ["hair_specular_blend", 0.9, "DEF"],
             ["hair_anisotropic_color", (1.000000, 0.798989, 0.689939, 1.000000), "DEF"],
         ],
         # export variables to update json file on export that need special conversion
@@ -1703,6 +1705,7 @@ SHADER_MATRIX = [
             ["PROP", "Anisotropic", "hair_anisotropic", True, "#CYCLES"],
             ["PROP", "*Anisotropic Roughness", "hair_anisotropic_roughness", True, "#EEVEE"],
             ["PROP", "Anisotropic Strength", "hair_anisotropic_strength", True, "#EEVEE"],
+            ["PROP", "*Specular Blend", "hair_specular_blend", True, "#EEVEE"],
             ["PROP", "*Anisotropic Color", "hair_anisotropic_color", False, "#EEVEE"],
             ["PROP", "Anisotropic Shift Min", "hair_anisotropic_shift_min", True],
             ["PROP", "Anisotropic Shift Max", "hair_anisotropic_shift_max", True],

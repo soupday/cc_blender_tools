@@ -333,12 +333,12 @@ def remap(edge0, edge1, min, max, x):
     return min + ((x - edge0) * (max - min) / (edge1 - edge0))
 
 
-def lerp(min, max, t):
-    return min + (max - min) * t
+def lerp(vmin, vmax, t):
+    return min(vmax, max(vmin, vmin + (vmax - vmin) * t))
 
 
-def inverse_lerp(min, max, value):
-    return (value - min) / (max - min)
+def inverse_lerp(vmin, vmax, value):
+    return min(1.0, max(0.0, (value - vmin) / (vmax - vmin)))
 
 
 def lerp_color(c0, c1, t):
@@ -346,6 +346,13 @@ def lerp_color(c0, c1, t):
             lerp(c0[1], c1[1], t),
             lerp(c0[2], c1[2], t),
             lerp(c0[3], c1[3], t))
+
+
+def inverse_lerp_color(min, max, value):
+    return (inverse_lerp(min[0], max[0], value[0]),
+            inverse_lerp(min[1], max[1], value[1]),
+            inverse_lerp(min[2], max[2], value[2]),
+            inverse_lerp(min[3], max[3], value[3]))
 
 
 def linear_to_srgbx(x):
@@ -1063,3 +1070,27 @@ def md5sum(filename):
         for chunk in iter(lambda: f.read(128 * hash.block_size), b""):
             hash.update(chunk)
     return hash.hexdigest()
+
+
+INVALID_EXPORT_CHARACTERS = "`¬!\"£$%^&*()+-=[]{}:@~;'#<>?,./\| "
+DIGITS = "0123456789"
+
+
+def is_invalid_export_name(name, is_material = False):
+    for char in INVALID_EXPORT_CHARACTERS:
+        if char in name:
+            return True
+    if is_material:
+        if name[0] in DIGITS:
+            return True
+    return False
+
+
+def safe_export_name(name, is_material = False):
+    for char in INVALID_EXPORT_CHARACTERS:
+        if char in name:
+            name = name.replace(char, "_")
+    if is_material:
+        if name[0] in DIGITS:
+            name = f"_{name}"
+    return name

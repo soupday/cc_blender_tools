@@ -963,6 +963,9 @@ class CC3RigifyPanel(bpy.types.Panel):
                     col_1.label(text = "Face Rig:")
                     col_2.label(text = "Full" if chr_cache.rigified_full_face_rig else "Basic")
 
+                if chr_cache.generation == "ActorCore":
+                    box.operator("cc3.character", icon="MATERIAL", text="Match Existing Materials").param = "MATCH_MATERIALS"
+
                 layout.separator()
 
                 if fake_drop_down(layout.box().row(),
@@ -1676,6 +1679,25 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             row.enabled = False
 
         column.separator()
+
+
+class CC3ToolsUtilityPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Utility_Panel"
+    bl_label = "Utilities"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = CREATE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        layout = self.layout
+        chr_cache = props.get_context_character_cache(context)
+
+        row = layout.row()
+        row.operator("cc3.character", icon="MATERIAL", text="Match Materials").param = "MATCH_MATERIALS"
+
 
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):
