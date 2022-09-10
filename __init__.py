@@ -152,6 +152,7 @@ classes = (
     panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
     panels.CC3ToolsSculptingPanel,
+    panels.CC3ToolsUtilityPanel,
 
     preferences.CC3ToolsAddonPreferences,
     preferences.MATERIAL_UL_weightedmatslots,

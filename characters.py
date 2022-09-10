@@ -726,6 +726,81 @@ def convert_to_non_standard(chr_cache):
     chr_cache.non_standard_type = "HUMANOID"
 
 
+def match_materials(chr_cache):
+
+    chr_objects = []
+    chr_materials = []
+
+    for obj_cache in chr_cache.object_cache:
+        obj = obj_cache.object
+        if utils.object_exists_is_mesh(obj):
+            chr_objects.append(obj)
+            for mat in obj.data.materials:
+                chr_materials.append(mat)
+
+    utils.log_info(f"Matching existing materials:")
+    utils.log_indent()
+
+    for obj in chr_objects:
+
+        # objects imported from accurig will cause a duplication of names, so strip the numerical suffix
+        # also accurig uses the *mesh* names, not the object names.
+        mesh_source_name = utils.strip_name(obj.data.name)
+
+        utils.log_info(f"Mesh: {obj.name} / {mesh_source_name}")
+        utils.log_indent()
+
+        for slot in obj.material_slots:
+            mat = slot.material
+
+            # again strip the numerical duplication suffix from the accurig imported material names
+            mat_source_name = utils.strip_name(mat.name)
+
+            slot_assigned = False
+
+            # try to match the materials from an object with a matching source name (not part of the imported character)
+            for existing_obj in bpy.data.objects:
+
+                # convert the existing object name into a reallusion safe name
+                existing_mesh_source_name = utils.safe_export_name(existing_obj.data.name)
+
+                if (existing_mesh_source_name == mesh_source_name and
+                    existing_obj not in chr_objects and
+                    existing_obj.type == "MESH"):
+
+                    utils.log_info(f"Existing mesh match: {existing_obj.name} / {existing_mesh_source_name}")
+
+                    for existing_mat in existing_obj.data.materials:
+
+                        # convert the existing material name into a reallusion safe name
+                        existing_mat_source_name = utils.safe_export_name(existing_mat.name, True)
+
+                        if existing_mat_source_name == mat_source_name:
+                            utils.log_info(f"Assigning existing object / material: {existing_mat.name}")
+                            slot.material = existing_mat
+                            slot_assigned = True
+                            break
+
+                if slot_assigned:
+                    break
+
+            # failing that, try to match any existing material by name (not part of the imported character)
+            if not slot_assigned:
+                for existing_mat in bpy.data.materials:
+                    if existing_mat not in chr_materials:
+                        existing_mat_source_name = utils.safe_export_name(existing_mat.name, True)
+                        if existing_mat_source_name == mat_source_name:
+                            utils.log_info(f"Assigning existing material: {existing_mat.name}")
+                            slot.material = existing_mat
+                            slot_assigned = True
+                            break
+
+        utils.log_recess()
+
+    utils.log_recess()
+
+
+
 class CC3OperatorCharacter(bpy.types.Operator):
     """CC3 Character Functions"""
     bl_idname = "cc3.character"
@@ -782,6 +857,10 @@ class CC3OperatorCharacter(bpy.types.Operator):
                 self.report({'INFO'}, message="Generic character converted to Non-Standard!")
             else:
                 self.report({'ERROR'}, message="Invalid generic character selection!")
+
+        elif self.param == "MATCH_MATERIALS":
+            chr_cache = props.get_context_character_cache(context)
+            match_materials(chr_cache)
 
         return {"FINISHED"}
 

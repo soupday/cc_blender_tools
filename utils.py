@@ -1070,3 +1070,27 @@ def md5sum(filename):
         for chunk in iter(lambda: f.read(128 * hash.block_size), b""):
             hash.update(chunk)
     return hash.hexdigest()
+
+
+INVALID_EXPORT_CHARACTERS = "`¬!\"£$%^&*()+-=[]{}:@~;'#<>?,./\| "
+DIGITS = "0123456789"
+
+
+def is_invalid_export_name(name, is_material = False):
+    for char in INVALID_EXPORT_CHARACTERS:
+        if char in name:
+            return True
+    if is_material:
+        if name[0] in DIGITS:
+            return True
+    return False
+
+
+def safe_export_name(name, is_material = False):
+    for char in INVALID_EXPORT_CHARACTERS:
+        if char in name:
+            name = name.replace(char, "_")
+    if is_material:
+        if name[0] in DIGITS:
+            name = f"_{name}"
+    return name
