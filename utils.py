@@ -1047,6 +1047,60 @@ def get_last_report():
     return lines[-1]
 
 
+def copy_collection_property(props_a, props_b):
+    props_a.clear()
+    for from_prop in props_b:
+        to_prop = props_a.add()
+        copy_property_group(to_prop, from_prop)
+
+
+def copy_property_group(props_a, props_b):
+    """Copy properties from collection b into collection a.
+    """
+    vars.block_property_update = True
+    log_indent()
+
+    # items contains only those properties changed from the detaults in the collection group
+    items = props_b.items()
+    prop_list = []
+
+    for i in items:
+        prop_list.append(i)
+
+    for i in range(0, len(prop_list)):
+
+        prop_name = prop_list[i][0]
+
+        if prop_name:
+
+            value = prop_list[i][1]
+            value_type = type(prop_list[i][1])
+
+            try:
+                # first try setting directly
+                code = f"props_a.{prop_name} = props_b.{prop_name}"
+                exec(code, None, locals())
+                log_info(f"{code} ({value})")
+            except:
+                props_to = eval(f"props_a.{prop_name}")
+                props_from = eval(f"props_b.{prop_name}")
+                try:
+                    # only collections (should) have clear() so copy the collection
+                    props_to.clear()
+                    log_info(f"Attepting to copy as collection property: {prop_name}")
+                    copy_collection_property(props_to, props_from)
+                except:
+                    try:
+                        # finally try copying as a property group
+                        log_info(f"Attepting to copy as property group: {prop_name}")
+                        copy_property_group(props_to, props_from)
+                    except:
+                        log_error(f"Unable to copy property {prop_name} / {value_type}")
+
+    log_recess()
+    vars.block_property_update = False
+
+
 def stop_now():
     raise Exception("STOP!")
 

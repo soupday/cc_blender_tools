@@ -1011,6 +1011,13 @@ class CC3MaterialCache:
         return (self.material_type == "TEARLINE_RIGHT"
                 or self.material_type == "TEARLINE_LEFT")
 
+    def copy_material_cache(self, mat_cache):
+        if mat_cache:
+            utils.copy_property_group(self, mat_cache)
+            #utils.copy_collection_property(self.texture_mappings, mat_cache.texture_mappings)
+            #utils.copy_collection_property(self.mixer_settings, mat_cache.mixer_settings)
+            #utils.copy_property_group(self.parameters, mat_cache.parameters)
+
 
 class CC3EyeMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3EyeParameters)
@@ -1495,43 +1502,53 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return collection.add()
 
 
-    def add_material_cache(self, mat, create_type = "DEFAULT"):
+    def get_material_cache_collection(self, material_type):
+        if material_type == "DEFAULT" or material_type == "SCALP" or material_type == "EYELASH":
+            return self.pbr_material_cache
+        elif material_type == "SSS":
+            return self.sss_material_cache
+        elif material_type == "SKIN_HEAD":
+            return self.head_material_cache
+        elif (material_type == "SKIN_BODY" or material_type == "SKIN_ARM" or
+              material_type == "SKIN_LEG" or material_type == "NAILS"):
+            return self.skin_material_cache
+        elif material_type == "TEETH_UPPER" or material_type == "TEETH_LOWER":
+            return self.teeth_material_cache
+        elif material_type == "TONGUE":
+            return self.tongue_material_cache
+        elif material_type == "HAIR":
+            return self.hair_material_cache
+        elif (material_type == "CORNEA_RIGHT" or material_type == "CORNEA_LEFT" or
+              material_type == "EYE_RIGHT" or material_type == "EYE_LEFT"):
+            return self.eye_material_cache
+        elif material_type == "OCCLUSION_RIGHT" or material_type == "OCCLUSION_LEFT":
+            return self.eye_occlusion_material_cache
+        elif material_type == "TEARLINE_RIGHT" or material_type == "TEARLINE_LEFT":
+            return self.tearline_material_cache
+        else:
+            return self.pbr_material_cache
+
+
+    def add_material_cache(self, mat, create_type = "DEFAULT", copy_from = None):
         """Returns the material cache for this material.
 
         Fetches the material cache for the material. Returns None if the material is not in the cache.
         """
 
+        if copy_from:
+            create_type = copy_from.material_type
+
         mat_cache = self.get_material_cache(mat)
         if mat_cache is None and mat:
             utils.log_info(f"Creating Material Cache for: {mat.name} (type = {create_type})")
-            if create_type == "DEFAULT" or create_type == "SCALP" or create_type == "EYELASH":
-                mat_cache = self.add_or_reuse_material_cache(self.pbr_material_cache)
-            elif create_type == "SSS":
-                mat_cache = self.add_or_reuse_material_cache(self.sss_material_cache)
-            elif create_type == "SKIN_HEAD":
-                mat_cache = self.add_or_reuse_material_cache(self.head_material_cache)
-            elif (create_type == "SKIN_BODY" or create_type == "SKIN_ARM"
-            or create_type == "SKIN_LEG" or create_type == "NAILS"):
-                mat_cache = self.add_or_reuse_material_cache(self.skin_material_cache)
-            elif create_type == "TEETH_UPPER" or create_type == "TEETH_LOWER":
-                mat_cache = self.add_or_reuse_material_cache(self.teeth_material_cache)
-            elif create_type == "TONGUE":
-                mat_cache = self.add_or_reuse_material_cache(self.tongue_material_cache)
-            elif create_type == "HAIR":
-                mat_cache = self.add_or_reuse_material_cache(self.hair_material_cache)
-            elif (create_type == "CORNEA_RIGHT" or create_type == "CORNEA_LEFT"
-            or create_type == "EYE_RIGHT" or create_type == "EYE_LEFT"):
-                mat_cache = self.add_or_reuse_material_cache(self.eye_material_cache)
-            elif create_type == "OCCLUSION_RIGHT" or create_type == "OCCLUSION_LEFT":
-                mat_cache = self.add_or_reuse_material_cache(self.eye_occlusion_material_cache)
-            elif create_type == "TEARLINE_RIGHT" or create_type == "TEARLINE_LEFT":
-                mat_cache = self.add_or_reuse_material_cache(self.tearline_material_cache)
-            else:
-                mat_cache = self.pbr_material_cache.add()
-                create_type = "DEFAULT"
+            collection = self.get_material_cache_collection(create_type)
+            mat_cache = self.add_or_reuse_material_cache(collection)
             mat_cache.material = mat
             mat_cache.source_name = utils.strip_name(mat.name)
             mat_cache.material_type = create_type
+            if copy_from:
+                utils.log_info(f"Copying material cache settings and parameters: {mat.name} (type = {create_type})")
+                mat_cache.copy_material_cache(copy_from)
         return mat_cache
 
     def get_json_data(self):

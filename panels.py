@@ -936,6 +936,12 @@ class CC3RigifyPanel(bpy.types.Panel):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        missing_materials = False
+        if chr_cache:
+            for obj_cache in chr_cache.object_cache:
+                obj = obj_cache.object
+                if obj and obj.type == "MESH" and not chr_cache.has_all_materials(obj.data.materials):
+                    missing_materials = True
 
         layout = self.layout
         layout.use_property_split = False
@@ -964,7 +970,9 @@ class CC3RigifyPanel(bpy.types.Panel):
                     col_2.label(text = "Full" if chr_cache.rigified_full_face_rig else "Basic")
 
                 if chr_cache.generation == "ActorCore":
-                    box.operator("cc3.character", icon="MATERIAL", text="Match Existing Materials").param = "MATCH_MATERIALS"
+                    box.row().operator("cc3.character", icon="MATERIAL", text="Match Existing Materials").param = "MATCH_MATERIALS"
+                    if missing_materials:
+                        box.row().operator("cc3.character", icon="ADD", text="Convert Materials").param = "ADD_MATERIALS"
 
                 layout.separator()
 

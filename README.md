@@ -36,7 +36,7 @@ Links
 ## Changelog
 
 ### 1.4.7
-- Match existing materials (for AccuRig imports)
+- Match existing materials (for AccuRig imports) button added to Create tab and Rigify info pane.
     - Attempts to assign existing materials to the AccuRig import that match the original export to AccurRig.
     - For a Blender > AccuRig / ActorCore > Blender round trip workflow.
 - Eye occlusion (Eevee) color darkened.
