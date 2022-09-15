@@ -384,18 +384,31 @@ def add_missing_materials_to_character(chr_cache, obj, obj_cache):
                 mat_cache = chr_cache.get_material_cache(mat)
 
                 if not mat_cache:
-                    add_material_to_character(chr_cache, obj, obj_cache, mat)
+                    add_material_to_character(chr_cache, obj, obj_cache, mat, update_name=True)
 
 
-def add_material_to_character(chr_cache, obj, obj_cache, mat):
+def add_material_to_character(chr_cache, obj, obj_cache, mat, update_name = False):
     props = bpy.context.scene.CC3ImportProps
 
     if chr_cache and obj and obj_cache and mat:
 
+        # find existing cache in character
+        mat_cache = chr_cache.get_material_cache(mat)
+        if mat_cache:
+            return mat_cache
+
+        # find existing cache in any other character
+        existing_mat_cache = props.get_material_cache(mat)
+        if existing_mat_cache:
+            # copy it
+            mat_cache = chr_cache.add_material_cache(mat, copy_from=existing_mat_cache)
+            return mat_cache
+
         # convert the material name to remove any duplicate suffixes:
-        mat_name = utils.unique_material_name(mat.name, mat)
-        if mat.name != mat_name:
-            mat.name = mat_name
+        if update_name:
+            mat_name = utils.unique_material_name(mat.name, mat)
+            if mat.name != mat_name:
+                mat.name = mat_name
 
         # make sure there are nodes:
         if not mat.use_nodes:
@@ -411,6 +424,8 @@ def add_material_to_character(chr_cache, obj, obj_cache, mat):
         # finally connect up the pbr shader...
         #shaders.connect_pbr_shader(obj, mat, None)
         convert_to_rl_pbr(mat, mat_cache)
+
+        return mat_cache
 
 
 def convert_to_rl_pbr(mat, mat_cache):
@@ -743,6 +758,8 @@ def match_materials(chr_cache):
 
     for obj in chr_objects:
 
+        obj_cache = chr_cache.get_object_cache(obj)
+
         # objects imported from accurig will cause a duplication of names, so strip the numerical suffix
         # also accurig uses the *mesh* names, not the object names.
         mesh_source_name = utils.strip_name(obj.data.name)
@@ -757,6 +774,7 @@ def match_materials(chr_cache):
             mat_source_name = utils.strip_name(mat.name)
 
             slot_assigned = False
+            assigned_mat = None
 
             # try to match the materials from an object with a matching source name (not part of the imported character)
             for existing_obj in bpy.data.objects:
@@ -779,10 +797,11 @@ def match_materials(chr_cache):
                             utils.log_info(f"Assigning existing object / material: {existing_mat.name}")
                             slot.material = existing_mat
                             slot_assigned = True
+                            assigned_mat = existing_mat
                             break
 
-                if slot_assigned:
-                    break
+                    if slot_assigned:
+                        break
 
             # failing that, try to match any existing material by name (not part of the imported character)
             if not slot_assigned:
@@ -793,7 +812,11 @@ def match_materials(chr_cache):
                             utils.log_info(f"Assigning existing material: {existing_mat.name}")
                             slot.material = existing_mat
                             slot_assigned = True
+                            assigned_mat = existing_mat
                             break
+
+            #if slot_assigned and assigned_mat:
+            #    add_material_to_character(chr_cache, obj, obj_cache, assigned_mat, update_name=False)
 
         utils.log_recess()
 
