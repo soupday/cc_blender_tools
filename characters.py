@@ -19,7 +19,7 @@ import re
 import mathutils
 import os
 
-from . import materials, modifiers, shaders, meshutils, nodeutils, utils, vars
+from . import materials, modifiers, meshutils, bones, shaders, nodeutils, utils, vars
 
 
 def get_character_objects(arm):
@@ -231,6 +231,39 @@ def convert_generic_to_non_standard(objects, file_path = None):
     return chr_cache
 
 
+def parent_to_rig(rig, obj):
+    """For if the object is not parented to the rig and/or does not have an armature modifier set to the rig.
+    """
+
+    if rig and obj and rig.type == "ARMATURE" and obj.type == "MESH":
+
+        if obj.parent != rig:
+
+            # clear any parenting
+            if obj.parent:
+                if utils.set_active_object(obj):
+                        bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
+
+            # parent to rig
+            if rig:
+                if utils.try_select_objects([rig, obj]):
+                    if utils.set_active_object(rig):
+                        bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
+
+        # add or update armature modifier
+        arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
+        if not arm_mod:
+            arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
+            modifiers.move_mod_first(obj, arm_mod)
+
+        # update armature modifier rig
+        if arm_mod and arm_mod.object != rig:
+            arm_mod.object = rig
+
+        utils.clear_selected_objects()
+        utils.set_active_object(obj)
+
+
 def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
     props = bpy.context.scene.CC3ImportProps
 
@@ -255,26 +288,8 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
         utils.clear_selected_objects()
 
         if reparent:
-            # clear any parenting
-            if obj.parent:
-                if utils.set_active_object(obj):
-                        bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
-
-            # parent to character
             arm = chr_cache.get_armature()
-            if arm:
-                if utils.try_select_objects([arm, obj]):
-                    if utils.set_active_object(arm):
-                        bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
-
-                        # add or update armature modifier
-                        arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
-                        if arm_mod:
-                            modifiers.move_mod_first(obj, arm_mod)
-                            arm_mod.object = arm
-
-                        utils.clear_selected_objects()
-                        utils.set_active_object(obj)
+            parent_to_rig(arm, obj)
 
 
 def remove_object_from_character(chr_cache, obj):
@@ -297,6 +312,143 @@ def remove_object_from_character(chr_cache, obj):
                 utils.clear_selected_objects()
                 # don't reselect the removed object as this may cause confusion when using checking function immediately after...
                 #utils.set_active_object(obj)
+
+
+def get_accessory_root(chr_cache, object):
+
+    if not chr_cache or not object or not utils.object_exists_is_mesh(object):
+        return None
+
+    rig = chr_cache.get_armature()
+    rigify_data = chr_cache.get_rig_mapping_data()
+    bone_mappings = rigify_data.bone_mapping
+
+    if not rig or not rigify_data or not bone_mappings:
+        return None
+
+    accessory_root = None
+
+    # accessories can be identified by them having only vertex groups not listed in the bone mappings for this generation.
+    for vg in object.vertex_groups:
+
+        # if even one vertex groups belongs to the character bones, it will not import into cc4 as an accessory
+        if bones.bone_mapping_contains_bone(bone_mappings, vg.name):
+            return
+
+        else:
+            bone = bones.get_bone(rig, vg.name)
+            if bone:
+                root = bones.get_accessory_root_bone(bone_mappings, bone)
+                if root:
+                    accessory_root = root
+
+    return accessory_root
+
+
+def make_accessory(chr_cache, objects):
+
+    rig = chr_cache.get_armature()
+
+    # store parent objects (as the parenting is destroyed when adding objects to character)
+    obj_data = {}
+    for obj in objects:
+        if obj.type == "MESH":
+            obj_data[obj] = {}
+            obj_data[obj]["parent_object"] = obj.parent
+
+    # add any non character objects to character
+    for obj in objects:
+        obj_cache = chr_cache.get_object_cache(obj)
+        if not obj_cache:
+            utils.log_info(f"Adding {obj.name} to character.")
+            add_object_to_character(chr_cache, obj, True)
+            obj_cache = chr_cache.get_object_cache(obj)
+        else:
+            parent_to_rig(rig, obj)
+
+    cursor_pos = bpy.context.scene.cursor.location
+    if utils.try_select_objects(objects, True, "MESH", True):
+        if utils.set_mode("EDIT"):
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.view3d.snap_cursor_to_selected()
+
+            if rig and utils.edit_mode_to(rig, only_this = True):
+
+                # add accessory named bone to rig
+                accessory_root = rig.data.edit_bones.new("Accessory")
+                root_head = rig.matrix_world.inverted() @ bpy.context.scene.cursor.location
+                root_tail = rig.matrix_world.inverted() @ (bpy.context.scene.cursor.location + mathutils.Vector((0, 1/4, 0)))
+                piv_tail = rig.matrix_world.inverted() @ (bpy.context.scene.cursor.location + mathutils.Vector((0, 1/10000, 0)))
+                utils.log_info(f"Adding accessory root bone: {accessory_root.name}/({root_head})")
+                accessory_root.head = root_head
+                accessory_root.tail = root_tail
+
+                default_parent = bones.get_rl_edit_bone(rig, chr_cache.accessory_parent_bone)
+                accessory_root.parent = default_parent
+
+                for obj in objects:
+                    if obj.type == "MESH":
+
+                        # add object bone to rig
+                        obj_bone = rig.data.edit_bones.new(obj.name)
+                        obj_head = rig.matrix_world.inverted() @ (obj.matrix_world @ mathutils.Vector((0, 0, 0)))
+                        obj_tail = rig.matrix_world.inverted() @ ((obj.matrix_world @ mathutils.Vector((0, 0, 0))) + mathutils.Vector((0, 1/8, 0)))
+                        utils.log_info(f"Adding object bone: {obj_bone.name}/({obj_head})")
+                        obj_bone.head = obj_head
+                        obj_bone.tail = obj_tail
+
+                        # add pivot bone to rig
+                        #piv_bone = rig.data.edit_bones.new("CC_Base_Pivot")
+                        #utils.log_info(f"Adding pivot bone: {piv_bone.name}/({root_head})")
+                        #piv_bone.head = root_head + mathutils.Vector((0, 1/100, 0))
+                        #piv_bone.tail = piv_tail + mathutils.Vector((0, 1/100, 0))
+                        #piv_bone.parent = obj_bone
+
+                        # add deformation bone to rig
+                        def_bone = rig.data.edit_bones.new(obj.name)
+                        utils.log_info(f"Adding deformation bone: {def_bone.name}/({obj_head})")
+                        def_head = rig.matrix_world.inverted() @ ((obj.matrix_world @ mathutils.Vector((0, 0, 0))) + mathutils.Vector((0, 1/32, 0)))
+                        def_tail = rig.matrix_world.inverted() @ ((obj.matrix_world @ mathutils.Vector((0, 0, 0))) + mathutils.Vector((0, 1/32 + 1/16, 0)))
+                        def_bone.head = def_head
+                        def_bone.tail = def_tail
+                        def_bone.parent = obj_bone
+
+                        # remove all vertex groups from object
+                        obj.vertex_groups.clear()
+
+                        # add vertex groups for object bone
+                        vg = meshutils.add_vertex_group(obj, def_bone.name)
+                        meshutils.set_vertex_group(obj, vg, 1.0)
+
+                        obj_data[obj]["bone"] = obj_bone
+                        obj_data[obj]["def_bone"] = def_bone
+
+                # parent the object bone to the accessory bone (or object transform parent bone)
+                for obj in objects:
+                    if obj.type == "MESH" and obj in obj_data.keys():
+                        # fetch the object's bone
+                        obj_bone = obj_data[obj]["bone"]
+                        # find the parent bone to the object (if exists)
+                        parent_bone = None
+                        obj_parent = obj_data[obj]["parent_object"]
+                        if obj_parent and obj_parent in obj_data.keys():
+                            parent_bone = obj_data[obj_parent]["bone"]
+                        # parent the bone
+                        if parent_bone:
+                            utils.log_info(f"Parenting {obj.name} to {parent_bone.name}")
+                            obj_bone.parent = parent_bone
+                        else:
+                            utils.log_info(f"Parenting {obj.name} to {accessory_root.name}")
+                            obj_bone.parent = accessory_root
+
+        # object mode to save new bones
+        utils.set_mode("OBJECT")
+
+
+    bpy.context.scene.cursor.location = cursor_pos
+
+
+    return
 
 
 
@@ -884,6 +1036,11 @@ class CC3OperatorCharacter(bpy.types.Operator):
         elif self.param == "MATCH_MATERIALS":
             chr_cache = props.get_context_character_cache(context)
             match_materials(chr_cache)
+
+        elif self.param == "CONVERT_ACCESSORY":
+            chr_cache = props.get_context_character_cache(context)
+            objects = bpy.context.selected_objects.copy()
+            make_accessory(chr_cache, objects)
 
         return {"FINISHED"}
 

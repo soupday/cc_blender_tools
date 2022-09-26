@@ -490,6 +490,11 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                 if socket_name == shader_input.name:
                     alpha_socket_name = texture_def[1]
                     tex_type = texture_def[2]
+                    sample_map = len(texture_def) == 5 and texture_def[3] == "SAMPLE"
+
+                    # there is no need to sample vertex colors for hair if there is Json Data present
+                    if mat_json and sample_map and tex_type == "HAIRVERTEXCOLOR":
+                        continue
 
                     json_id = imageutils.get_image_type_json_id(tex_type)
                     tex_json = jsonutils.get_texture_info(mat_json, json_id)
@@ -500,15 +505,17 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                     # for user added materials, don't mess with the users textures...
                     if image_node and image_node.image and mat_cache.user_added:
                         image = image_node.image
-                    else:
+                    elif tex_type == "HAIRVERTEXCOLOR" or tex_type == "WEIGHTMAP" or tex_type == "COLORID" or tex_type == "RGBMASK":
                         image = imageutils.find_material_image(mat, tex_type, processed_images, tex_json)
+                    else:
+                        image = imageutils.find_material_image(mat, tex_type, processed_images, tex_json, mat_json)
 
                     if image_node and image_node.image and image:
                         if image != image_node.image:
                             utils.log_info("Replacing image node image with: " + image.name)
                             image_node.image = image
 
-                    if len(texture_def) == 5 and texture_def[3] == "SAMPLE":
+                    if sample_map:
                         # SAMPLE is a special case where the texture is sampled into a color value property:
                         # e.g Vertex Color sampled into hair_vertex_color
 

@@ -35,6 +35,11 @@ Links
 
 ## Changelog
 
+### 1.4.9
+- Fix to embedded image correction and image filepath comparisons.
+- Fix to basic material texture loading.
+- Convert to Accessory function added to Object Management.
+
 ### 1.4.8
 - Adding existing RL material to a new character import will copy the material data.
 

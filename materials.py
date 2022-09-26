@@ -430,7 +430,7 @@ def detect_materials(chr_cache, obj, mat, obj_json):
 
 
 def detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache):
-    main_tex_dir = chr_cache.import_main_tex_dir
+    main_tex_dir = chr_cache.get_tex_dir()
     nodes = mat.node_tree.nodes
 
     # detect embedded textures
@@ -446,20 +446,22 @@ def detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache):
             # detect incorrect image paths for non packed (not embedded) images and attempt to correct...
             # (don't do this for user added materials)
             if not mat_cache.user_added and node.image.packed_file is None:
-                if os.path.normcase(dir) != os.path.normcase(main_tex_dir):
+                if os.path.normpath(dir) != os.path.normpath(main_tex_dir):
                     utils.log_warn("Import bug! Wrong image path detected: " + dir)
-                    utils.log_warn("    Attempting to correct...")
                     correct_path = os.path.join(main_tex_dir, name)
+                    utils.log_warn(f"Attempting to correct to: {correct_path}")
                     if os.path.exists(correct_path):
-                        utils.log_warn("    Correct image path found: " + correct_path)
+                        utils.log_warn(f"Correct image path found: {correct_path}")
                         node.image.filepath = correct_path
                     else:
                         correct_path = os.path.join(mat_cache.get_tex_dir(chr_cache), name)
+                        utils.log_warn(f"Attempting to correct to: {correct_path}")
                         if os.path.exists(correct_path):
-                            utils.log_warn("    Correct image path found: " + correct_path)
+                            utils.log_warn(f"Correct image path found: {correct_path}")
                             node.image.filepath = correct_path
                         else:
-                            utils.log_error("    Unable to find correct image!")
+                            utils.log_error("Unable to find correct image!")
+                            continue
 
             name = name.lower()
             color_node, color_socket = nodeutils.get_node_and_socket_connected_to_output(node, "Color")

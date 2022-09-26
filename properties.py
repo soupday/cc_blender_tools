@@ -14,10 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-from posixpath import isabs
 import bpy, os
 
-from . import channel_mixer, imageutils, meshutils, sculpting, materials, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
+from . import channel_mixer, imageutils, meshutils, sculpting, materials, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -1115,6 +1114,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     character_index: bpy.props.IntProperty(default=0)
     generation: bpy.props.StringProperty(default="None")
     parent_object: bpy.props.PointerProperty(type=bpy.types.Object)
+    # accessory parent bone selector
+    accessory_parent_bone: bpy.props.StringProperty(default="CC_Base_Head")
 
     setup_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic","Build basic PBR materials."),
@@ -1230,6 +1231,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 return self.rig_face_rig
             else:
                 return False
+
+    def get_rig_mapping_data(self):
+        return rigify_mapping_data.get_mapping_for_generation(self.generation)
 
     def get_all_materials_cache(self):
         cache_all = []

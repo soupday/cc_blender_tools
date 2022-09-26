@@ -2743,7 +2743,7 @@ class CC3Rigifier(bpy.types.Operator):
             props.store_ui_list_indices()
 
             self.cc3_rig = chr_cache.get_armature()
-            self.rigify_data = rigify_mapping_data.get_mapping_for_generation(chr_cache.generation)
+            self.rigify_data = chr_cache.get_rig_mapping_data()
 
             if self.param == "ALL":
 
