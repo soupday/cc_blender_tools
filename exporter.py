@@ -1397,7 +1397,7 @@ def export_arp(file_path, arm, objects):
         return False
 
 
-def export_standard(chr_cache, file_path, include_selected):
+def export_standard(self, chr_cache, file_path, include_selected):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -1453,6 +1453,7 @@ def export_standard(chr_cache, file_path, include_selected):
             bpy.ops.export_scene.fbx(filepath=file_path,
                     use_selection = True,
                     bake_anim = export_anim,
+                    bake_anim_simplify_factor=self.animation_simplify,
                     add_leaf_bones = False,
                     use_mesh_modifiers = False)
 
@@ -1503,7 +1504,7 @@ def export_standard(chr_cache, file_path, include_selected):
     utils.log_timer("Done Character Export.")
 
 
-def export_non_standard(file_path, include_selected):
+def export_non_standard(self, file_path, include_selected):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -1550,6 +1551,7 @@ def export_non_standard(file_path, include_selected):
         bpy.ops.export_scene.fbx(filepath=file_path,
                 use_selection = True,
                 bake_anim = export_anim,
+                bake_anim_simplify_factor=self.animation_simplify,
                 add_leaf_bones = False,
                 use_mesh_modifiers = True,
                 use_armature_deform_only = True)
@@ -1574,7 +1576,7 @@ def export_non_standard(file_path, include_selected):
     utils.log_timer("Done Non-standard Export.")
 
 
-def export_to_unity(chr_cache, export_anim, file_path, include_selected):
+def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -1652,6 +1654,7 @@ def export_to_unity(chr_cache, export_anim, file_path, include_selected):
                 bake_anim = export_anim,
                 bake_anim_use_all_actions=export_actions,
                 bake_anim_use_nla_strips=export_strips,
+                bake_anim_simplify_factor=self.animation_simplify,
                 use_armature_deform_only=True,
                 add_leaf_bones = False,
                 use_mesh_modifiers = True)
@@ -1828,6 +1831,13 @@ class CC3Export(bpy.types.Operator):
         options={"HIDDEN"},
         )
 
+    animation_simplify: bpy.props.FloatProperty(
+        default=1.0,
+        min=0.0, max=10.0,
+        name="Simplify Animation",
+        description="How much to simplify baked values (0.0 to disable, higher values for more simplification)",
+    )
+
     param: bpy.props.StringProperty(
             name = "param",
             default = "",
@@ -1855,13 +1865,13 @@ class CC3Export(bpy.types.Operator):
 
         if chr_cache and self.param == "EXPORT_CC3":
 
-            export_standard(chr_cache, self.filepath, self.include_selected)
+            export_standard(self, chr_cache, self.filepath, self.include_selected)
             self.report({'INFO'}, "Export to CC3 Done!")
             self.error_report()
 
         elif chr_cache and self.param == "EXPORT_UNITY":
 
-            export_to_unity(chr_cache, self.include_anim, self.filepath, self.include_selected)
+            export_to_unity(self, chr_cache, self.include_anim, self.filepath, self.include_selected)
             self.report({'INFO'}, "Export to Unity Done!")
             self.error_report()
 
@@ -1874,7 +1884,7 @@ class CC3Export(bpy.types.Operator):
 
         elif self.param == "EXPORT_NON_STANDARD":
 
-            export_non_standard(self.filepath, self.include_selected)
+            export_non_standard(self, self.filepath, self.include_selected)
             self.report({'INFO'}, "Export Non-standard Done!")
             self.error_report()
 

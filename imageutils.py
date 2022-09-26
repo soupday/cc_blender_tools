@@ -41,7 +41,7 @@ def load_image(filename, color_space, processed_images = None):
     for i in bpy.data.images:
         if i.type == "IMAGE" and i.filepath != "":
 
-            if os.path.normcase(os.path.abspath(i.filepath)) == os.path.normcase(os.path.abspath(filename)):
+            if os.path.normpath(bpy.path.abspath(i.filepath)) == os.path.normpath(os.path.abspath(filename)):
                 utils.log_info("Using existing image: " + i.filepath)
                 found = False
                 image_md5 = None
@@ -98,7 +98,7 @@ def find_image_file(base_dir, dirs, mat, texture_type):
 
             if os.path.exists(dir):
 
-                if last != dir and dir != "" and os.path.normcase(dir) != os.path.normcase(last):
+                if last != dir and dir != "" and os.path.normpath(dir) != os.path.normpath(last):
                     last = dir
                     files = os.listdir(dir)
                     for file in files:
@@ -135,7 +135,7 @@ def search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type):
     return find_image_file(chr_cache.import_dir, [mat_cache.get_tex_dir(chr_cache), chr_cache.get_tex_dir()], mat, texture_type)
 
 
-def find_material_image(mat, texture_type, processed_images = None, tex_json = None):
+def find_material_image(mat, texture_type, processed_images = None, tex_json = None, mat_json = None):
     """Try to find the texture for a material input by searching for the material name
        appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness
     """
@@ -174,6 +174,12 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
                     if texture_type == tex_mapping.texture_type:
                         if tex_mapping.image:
                             return tex_mapping.image
+        return None
+
+    # if there is a mat_json but no texture json, then there is no texture to use
+    # (so don't look for one as it could find the wrong one i.e. fbm files with duplicated names)
+    elif mat_json:
+
         return None
 
     # with no Json data, try to locate the images in the texture folders:

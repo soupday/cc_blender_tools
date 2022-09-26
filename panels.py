@@ -15,11 +15,10 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
-
 import textwrap
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, sculpting, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, rigify_mapping_data, characters, sculpting, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
@@ -487,6 +486,41 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
             row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
         if chr_cache or not bpy.context.selected_objects:
             row.enabled = False
+
+        column.separator()
+
+        # Accessory Management
+
+        column.box().label(text="Accessories", icon="GROUP_BONE")
+
+        accessory_root = characters.get_accessory_root(chr_cache, obj)
+        if accessory_root:
+
+            #column.box().label(text = f"Accessory: {accessory_root.name}")
+            box = column.box()
+            split = box.split(factor=0.375)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Accessory:")
+            col_2.prop(accessory_root, "name", text="")
+            col_1.label(text="Parent:")
+            col_2.prop(accessory_root, "parent", text="")
+        else:
+            split = None
+            if chr_cache and chr_rig:
+                split = column.split(factor=0.375)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Parent:")
+                col_2.prop_search(chr_cache, "accessory_parent_bone", chr_rig.data, "bones", text="")
+            row = column.row()
+            row.operator("cc3.character", icon="CONSTRAINT_BONE", text="Convert to Accessory").param = "CONVERT_ACCESSORY"
+            if not chr_cache or not obj or obj.type != "MESH" or (obj_cache and obj_cache.object_type == "BODY"):
+                row.enabled = False
+                if split:
+                    split.enabled = False
+
+        column.separator()
 
         # Checking
 

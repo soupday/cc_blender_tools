@@ -68,7 +68,9 @@ def log_warn(msg):
 
 def log_error(msg, e = None):
     """Log an error message to console and raise an exception."""
-    print("Error: " + msg)
+    indent = LOG_INDENT
+    if indent > 1: indent -= 1
+    print("*" + (" " * indent) + "Error: " + msg)
     if e is not None:
         print("    -> " + getattr(e, 'message', repr(e)))
 
@@ -142,7 +144,7 @@ def unique_object_name(name, obj = None):
 def is_same_path(pa, pb):
     try:
         if pa and pb:
-            return os.path.normcase(os.path.realpath(pa)) == os.path.normcase(os.path.realpath(pb))
+            return os.path.normpath(os.path.realpath(pa)) == os.path.normpath(os.path.realpath(pb))
         else:
             return False
     except:
@@ -153,7 +155,7 @@ def is_in_path(a, b):
     """Is path a in path b"""
     try:
         if a and b:
-            return os.path.normcase(os.path.realpath(a)) in os.path.normcase(os.path.realpath(b))
+            return os.path.normpath(os.path.realpath(a)) in os.path.normpath(os.path.realpath(b))
         else:
             return False
     except:
@@ -496,7 +498,9 @@ def get_mode():
         return "OBJECT"
 
 
-def edit_mode_to(obj):
+def edit_mode_to(obj, only_this = False):
+    if only_this and (get_active_object() != obj or len(bpy.context.selected_objects) > 1 or obj not in bpy.context.selected_objects):
+        set_only_active_object(obj)
     if obj in bpy.context.selected_objects and get_active_object() == obj and get_mode() == "EDIT":
         return True
     else:
@@ -690,13 +694,18 @@ def try_select_object(obj, clear_selection = False):
         return False
 
 
-def try_select_objects(objects, clear_selection = False):
+def try_select_objects(objects, clear_selection = False, object_type = None, make_active = False):
     if clear_selection:
         clear_selected_objects()
     result = True
     for obj in objects:
+        if object_type and obj.type != object_type:
+            continue
         if not try_select_object(obj):
             result = False
+        else:
+            if make_active:
+                bpy.context.view_layer.objects.active = obj
     return result
 
 

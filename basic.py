@@ -393,7 +393,7 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
 def find_material_image_basic(mat, tex_type, mat_json, processed_images):
     json_id = imageutils.get_image_type_json_id(tex_type)
     tex_json = jsonutils.get_texture_info(mat_json, json_id)
-    return imageutils.find_material_image(mat, tex_type, tex_json, processed_images)
+    return imageutils.find_material_image(mat, tex_type, processed_images, tex_json, mat_json)
 
 
 def update_basic_material(mat, mat_cache, prop):
