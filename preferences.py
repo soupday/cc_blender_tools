@@ -222,6 +222,14 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
     cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
 
+    # hair
+    hair_export_group_by: bpy.props.EnumProperty(items=[
+                        ("CURVE","Curve","Group by curve objects"),
+                        ("NAME","Name","Gropu by name"),
+                        ("NONE","Single","Don't export separate groups"),
+                    ], default="CURVE", name = "Export Hair Grouping",
+                       description="Export hair groups by...")
+
     # addon updater preferences
 
     auto_check_update: bpy.props.BoolProperty(

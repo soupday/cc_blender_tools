@@ -684,6 +684,18 @@ def try_select_child_objects(obj):
         return False
 
 
+def add_child_objects(obj, objects):
+    for child in obj.children:
+        if child not in objects:
+            objects.append(child)
+            add_child_objects(child, objects)
+
+
+def expand_with_child_objects(objects):
+    for obj in objects:
+        add_child_objects(obj, objects)
+
+
 def try_select_object(obj, clear_selection = False):
     if clear_selection:
         clear_selected_objects()
@@ -1157,3 +1169,27 @@ def safe_export_name(name, is_material = False):
         if name[0] in DIGITS:
             name = f"_{name}"
     return name
+
+
+def determine_object_export_name(chr_cache, obj, obj_cache = None):
+    """Work out what the object should be named when exporting
+       by comparing the current name with the original name when imported.
+    """
+    obj_name = obj.name
+    if not obj_cache:
+        obj_cache = chr_cache.get_object_cache(obj)
+    source_changed = False
+    is_new_object = False
+    if obj_cache:
+        obj_expected_source_name = safe_export_name(strip_name(obj_name))
+        obj_source_name = obj_cache.source_name
+        source_changed = obj_expected_source_name != obj_source_name
+        if source_changed:
+            obj_safe_name = safe_export_name(obj_name)
+        else:
+            obj_safe_name = obj_source_name
+    else:
+        is_new_object = True
+        obj_safe_name = safe_export_name(obj_name)
+        obj_source_name = obj_safe_name
+    return obj_safe_name

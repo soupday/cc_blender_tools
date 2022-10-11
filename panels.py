@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
+from cmath import exp
 import bpy
 import textwrap
 
@@ -583,6 +584,33 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         row.operator("cc3.character", icon="ORIENTATION_NORMAL", text="Normalize Weights").param = "NORMALIZE_WEIGHTS"
         if not weight_transferable:
             row.enabled = False
+
+
+class CC3HairPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Hair_Panel"
+    bl_label = "Blender Hair"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = CREATE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context, exact = True)
+
+        column = layout.column()
+
+        # Exporting
+
+        column.box().label(text="Exporting", icon="EXPORT")
+        column.row().operator("cc3.export_hair", icon=utils.check_icon("HAIR"), text="Export Hair")
+        column.row().prop(prefs, "hair_export_group_by", expand=True)
+
+        if not bpy.context.selected_objects:
+            column.enabled = False
 
 
 class CC3MaterialParametersPanel(bpy.types.Panel):

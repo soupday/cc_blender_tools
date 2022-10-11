@@ -254,7 +254,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         obj_name = obj.name
         obj_cache = chr_cache.get_object_cache(obj)
         source_changed = False
-        is_new_object = False
+
         if obj_cache:
             obj_expected_source_name = utils.safe_export_name(utils.strip_name(obj_name))
             obj_source_name = obj_cache.source_name
@@ -1435,9 +1435,8 @@ def export_standard(self, chr_cache, file_path, include_selected):
         remove_modifiers_for_export(chr_cache, objects, True)
 
         revert_duplicates = prefs.export_revert_names
-        copy_textures = chr_cache.generation == "NonStandardGeneric"
         export_changes = prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir,
-                                     dir, copy_textures, revert_duplicates, True, False, True)
+                                     dir, self.include_textures, revert_duplicates, True, False, True)
 
         # attempt any custom exports (ARP)
         custom_export = False
@@ -1455,6 +1454,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
                     bake_anim = export_anim,
                     bake_anim_simplify_factor=self.animation_simplify,
                     add_leaf_bones = False,
+                    mesh_smooth_type = self.export_face_smoothing,
                     use_mesh_modifiers = False)
 
         utils.log_recess()
@@ -1554,6 +1554,7 @@ def export_non_standard(self, file_path, include_selected):
                 bake_anim_simplify_factor=self.animation_simplify,
                 add_leaf_bones = False,
                 use_mesh_modifiers = True,
+                mesh_smooth_type = self.export_face_smoothing,
                 use_armature_deform_only = True)
 
     utils.log_recess()
@@ -1623,7 +1624,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True)
 
-    prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, True, False, False, as_blend_file, False)
+    prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, self.include_textures, False, False, as_blend_file, False)
 
     export_actions = prefs.export_animation_mode == "ACTIONS" or prefs.export_animation_mode == "BOTH"
     export_strips = prefs.export_animation_mode == "STRIPS" or prefs.export_animation_mode == "BOTH"
@@ -1657,6 +1658,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
                 bake_anim_simplify_factor=self.animation_simplify,
                 use_armature_deform_only=True,
                 add_leaf_bones = False,
+                mesh_smooth_type = self.export_face_smoothing,
                 use_mesh_modifiers = True)
 
         restore_modifiers(chr_cache, objects)
@@ -1844,8 +1846,14 @@ class CC3Export(bpy.types.Operator):
             options={"HIDDEN"}
         )
 
-    include_anim: bpy.props.BoolProperty(name = "Export Animation", default = True)
-    include_selected: bpy.props.BoolProperty(name = "Include Selected", default = True)
+    include_anim: bpy.props.BoolProperty(name = "Export Animation", default = True,
+        description="Export current timeline animation with the character")
+    include_selected: bpy.props.BoolProperty(name = "Include Selected", default = True,
+        description="Include any additional selected objects with the character. Note: They will need to be correctly parented and weighted")
+    include_textures: bpy.props.BoolProperty(name = "Include Textures", default = False,
+        description="Copy textures with the character, if exporting to a new location")
+    export_face_smoothing: bpy.props.BoolProperty(name = "Face Smoothing Groups", default = False,
+        description="Export FBX with face smoothing groups. (Can solve blocky faces / split normals issues in game engines)")
 
     check_valid = True
     check_report = []
@@ -1950,6 +1958,13 @@ class CC3Export(bpy.types.Operator):
                 export_format = "fbx"
         self.filename_ext = "." + export_format
         print(self.param, export_format, self.filename_ext)
+
+        if chr_cache.generation == "NonStandardGeneric":
+            self.include_textures = True
+        elif self.param == "EXPORT_UNITY":
+            self.include_textures = True
+            if export_format == "fbx":
+                self.export_face_smoothing = True
 
         # perform checks and validation
         require_export_check = (self.param == "EXPORT_CC3" or

@@ -43,6 +43,7 @@ if "bpy" in locals():
     importlib.reload(rigify_mapping_data)
     importlib.reload(rigging)
     importlib.reload(sculpting)
+    importlib.reload(hair)
 
 import bpy
 
@@ -73,6 +74,7 @@ from . import bones
 from . import rigify_mapping_data
 from . import rigging
 from . import sculpting
+from . import hair
 
 
 bl_info = {
@@ -137,6 +139,8 @@ classes = (
     preferences.CC3OperatorPreferences,
     channel_mixer.CC3OperatorChannelMixer,
     sculpting.CC3OperatorSculpt,
+    hair.CC3OperatorHair,
+    hair.CC3ExportHair,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
@@ -153,6 +157,7 @@ classes = (
     panels.CC3ToolsPhysicsPanel,
     panels.CC3ToolsSculptingPanel,
     panels.CC3ToolsUtilityPanel,
+    panels.CC3HairPanel,
 
     preferences.CC3ToolsAddonPreferences,
     preferences.MATERIAL_UL_weightedmatslots,

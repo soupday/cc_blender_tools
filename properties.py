@@ -1451,6 +1451,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return (self.get_material_cache(mat) is not None)
 
 
+    def has_any_materials(self, materials):
+        for mat in materials:
+            if mat and self.has_material(mat):
+                return True
+        return False
+
     def has_all_materials(self, materials):
         for mat in materials:
             if mat and not self.has_material(mat):
@@ -1713,11 +1719,22 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     rigified_action_list_index: bpy.props.IntProperty(default=-1)
     rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
 
-    def get_any_character_cache_from_objects(self, objects):
+    def get_any_character_cache_from_objects(self, objects, search_materials = False):
         chr_cache : CC3CharacterCache
-        for chr_cache in self.import_cache:
-            if chr_cache.has_objects(objects):
-                return chr_cache
+        if objects:
+            for chr_cache in self.import_cache:
+                if chr_cache.has_objects(objects):
+                    return chr_cache
+        if search_materials:
+            materials = []
+            for obj in objects:
+                if obj.type == "MESH":
+                    for mat in obj.data.materials:
+                        materials.append(mat)
+            if materials:
+                for chr_cache in self.import_cache:
+                    if chr_cache.has_any_materials(materials):
+                        return chr_cache
         return None
 
     def get_character_cache(self, obj, mat):
@@ -1748,7 +1765,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         # otherwise determine the context character cache:
         chr_cache = self.get_character_cache(obj, mat)
         if chr_cache is None and len(context.selected_objects) > 1:
-            chr_cache = self.get_any_character_cache_from_objects(context.selected_objects)
+            chr_cache = self.get_any_character_cache_from_objects(context.selected_objects, None)
         return chr_cache
 
     def get_object_cache(self, obj):
