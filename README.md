@@ -36,7 +36,7 @@ Links
 ## Changelog
 
 ### 1.5.0
-- Something something hair.
+- Curve based hair export.
 
 ### 1.4.9
 - Fix to embedded image correction and image filepath comparisons.

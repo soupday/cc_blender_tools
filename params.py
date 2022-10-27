@@ -1050,6 +1050,7 @@ SHADER_MATRIX = [
             ["eye_iris_cloudy_color", (0, 0, 0, 1.0), "func_color_bytes", "Custom/Iris Cloudy Color"],
             ["eye_limbus_width", 0.055, "", "Custom/Limbus UV Width Color"],
             ["eye_limbus_dark_radius", 0.13125, "func_limbus_dark_radius", "Custom/Limbus Dark Scale"],
+            ["eye_limbus_dark_width", 1.0 - 0.34375, "func_limbus_dark_width", "Custom/Limbus Dark Scale"],
             ["eye_sclera_brightness", 0.650, "", "Custom/ScleraBrightness"],
             ["eye_sclera_roughness", 0.2, "", "Custom/Sclera Roughness"],
             ["eye_sclera_normal_strength", 0.1, "func_one_minus", "Custom/Sclera Flatten Normal"],
@@ -1074,7 +1075,7 @@ SHADER_MATRIX = [
             ["eye_iris_hue", 0.5, "DEF"],
             ["eye_iris_saturation", 1, "DEF"],
             ["eye_iris_hsv", 1, "DEF"],
-            ["eye_limbus_dark_width", 1.0 - 0.34375, "DEF"],
+            #["eye_limbus_dark_width", 1.0 - 0.34375, "DEF"],
             ["eye_limbus_color", (0.0, 0.0, 0.0, 1), "DEF"],
         ],
         # export variables to update json file on export that need special conversion

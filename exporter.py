@@ -1454,7 +1454,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
                     bake_anim = export_anim,
                     bake_anim_simplify_factor=self.animation_simplify,
                     add_leaf_bones = False,
-                    mesh_smooth_type = self.export_face_smoothing,
+                    mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
                     use_mesh_modifiers = False)
 
         utils.log_recess()
@@ -1554,7 +1554,7 @@ def export_non_standard(self, file_path, include_selected):
                 bake_anim_simplify_factor=self.animation_simplify,
                 add_leaf_bones = False,
                 use_mesh_modifiers = True,
-                mesh_smooth_type = self.export_face_smoothing,
+                mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
                 use_armature_deform_only = True)
 
     utils.log_recess()
@@ -1658,7 +1658,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
                 bake_anim_simplify_factor=self.animation_simplify,
                 use_armature_deform_only=True,
                 add_leaf_bones = False,
-                mesh_smooth_type = self.export_face_smoothing,
+                mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
                 use_mesh_modifiers = True)
 
         restore_modifiers(chr_cache, objects)

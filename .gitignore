@@ -4,6 +4,7 @@ cc_blender_tools_updater
 cc_tools_updater
 cc3_tools_updater
 _LIB.blend1
+_HAIRLIB.blend1
 coordinate map.txt
 notes.txt
 todo.md

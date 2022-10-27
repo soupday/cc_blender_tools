@@ -92,7 +92,7 @@ def export_blender_hair(op, chr_cache, objects, base_path):
                 if obj.parent not in parents:
                     parents.append(obj.parent)
             else:
-                op.report({'ERROR'}, f"Curve: {obj.name} has no parent!")
+                op.report({'ERROR'}, f"Curve: {obj.data.name} has no parent!")
 
     json_data = { "Hair": { "Objects": { } } }
     export_id = 0
@@ -113,18 +113,18 @@ def export_blender_hair(op, chr_cache, objects, base_path):
                 for obj in objects:
                     if obj.type == "CURVES" and obj.parent == parent:
                         group = [obj]
-                        name = obj.name
+                        name = obj.data.name
                         groups[name] = group
-                        utils.log_info(f"Group: {name}, Object: {obj.name}")
+                        utils.log_info(f"Group: {name}, Object: {obj.data.name}")
 
             elif prefs.hair_export_group_by == "NAME":
                 for obj in objects:
                     if obj.type == "CURVES" and obj.parent == parent:
-                        name = utils.strip_name(obj.name)
+                        name = utils.strip_name(obj.data.name)
                         if name not in groups.keys():
                             groups[name] = []
                         groups[name].append(obj)
-                        utils.log_info(f"Group: {name}, Object: {obj.name}")
+                        utils.log_info(f"Group: {name}, Object: {obj.data.name}")
 
             else: #prefs.hair_export_group_by == "NONE":
                 if "Hair" not in groups.keys():
@@ -132,7 +132,7 @@ def export_blender_hair(op, chr_cache, objects, base_path):
                 for obj in objects:
                     if obj.type == "CURVES" and obj.parent == parent:
                         groups["Hair"].append(obj)
-                        utils.log_info(f"Group: Hair, Object: {obj.name}")
+                        utils.log_info(f"Group: Hair, Object: {obj.data.name}")
 
             for group_name in groups.keys():
                 file_name = f"{file}_{export_id}.abc"

@@ -353,14 +353,32 @@ def func_mul_2(v):
     return v * 2.0
 
 def func_limbus_dark_radius(limbus_dark_scale):
-    return 1 / limbus_dark_scale
+    #return 1 / limbus_dark_scale
     #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
     #return utils.lerp(0.155, 0.08, t) + 0.025
+    ds = pow(0.01, 0.2) / limbus_dark_scale
+    dm = pow(0.5, 0.2) / limbus_dark_scale
+    de = dm + (dm - ds)
+    return de
 
-def func_export_limbus_dark_scale(limbus_dark_radius):
-    return 1 / limbus_dark_radius
+def func_limbus_dark_width(limbus_dark_scale):
+    #return 1 / limbus_dark_scale
+    #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
+    #return utils.lerp(0.155, 0.08, t) + 0.025
+    ds = pow(0.01, 0.2) / limbus_dark_scale
+    dm = pow(0.5, 0.2) / limbus_dark_scale
+    de = dm + (dm - ds)
+    return ds / de
+
+def func_export_limbus_dark_scale(ldr):
+    #return 1 / limbus_dark_radius
     #t = utils.inverse_lerp(0.155, 0.08, limbus_dark_radius - 0.025)
     #return utils.clamp(utils.lerp(0.0, 10.0, t), 0, 10)
+    M = pow(0.5, 0.2)
+    S = pow(0.01, 0.2)
+    lds = (2 * M - S) / ldr
+    return lds
+
 
 def func_get_eye_depth(depth):
     return (depth / 3.0)
