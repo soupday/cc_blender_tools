@@ -24,7 +24,7 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import bake, shaders, physics, rigging, bones, modifiers, nodeutils, imageutils, jsonutils, utils, params, vars
+from . import bake, shaders, physics, rigging, bones, modifiers, meshutils, nodeutils, imageutils, jsonutils, utils, params, vars
 
 UNPACK_INDEX = 1001
 
@@ -1308,6 +1308,65 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, pat
         mat_json["Textures"][tex_id] = tex_info
 
 
+def update_facial_profile_json(chr_cache, all_objects, json_data, chr_name):
+    # for standard characters, ignore clothing, accessories and hair objects
+    if chr_cache:
+        objects = []
+        for obj in all_objects:
+            obj_cache = chr_cache.get_object_cache(obj)
+            if (obj_cache.object_type == "DEFAULT" or
+                obj_cache.object_type == "HAIR"):
+                continue
+            objects.append(obj)
+    # non-standard characters, consider everything
+    else:
+        objects = all_objects.copy()
+
+    categories_json = jsonutils.get_facial_profile_categories_json(json_data, chr_name)
+    new_categories = {}
+    done_shapes = []
+    # cull existing facial expressions
+    if categories_json:
+        for category in categories_json.keys():
+            new_shapes = []
+            new_categories[category] = new_shapes
+            shape_names = categories_json[category]
+            for shape_name in shape_names:
+                if shape_name not in done_shapes:
+                    if meshutils.objects_have_shape_key(objects, shape_name):
+                        new_shapes.append(shape_name)
+                        done_shapes.append(shape_name)
+
+    # add visemes
+    visemes = []
+    VISEME_NAMES = meshutils.get_viseme_profile(objects)
+    for viseme_name in VISEME_NAMES:
+        if viseme_name not in done_shapes:
+            if meshutils.objects_have_shape_key(objects, viseme_name):
+                visemes.append(viseme_name)
+                done_shapes.append(viseme_name)
+    if visemes:
+        new_categories["Visemes"] = visemes
+    # all remaining shapes go into custom expressions
+    custom = []
+    for obj in objects:
+        if obj.type == "MESH" and obj.data.shape_keys:
+            i = 0
+            for key_block in obj.data.shape_keys.key_blocks:
+                shape_name = key_block.name
+                # ignore tearline and eye occlusion adjustment shape keys (these are not facial expressions)
+                if chr_cache and (shape_name.startswith("TL ") or shape_name.startswith("EO ")):
+                    continue
+                if i > 0 and shape_name not in done_shapes:
+                    custom.append(shape_name)
+                    done_shapes.append(shape_name)
+                i += 1
+    if custom:
+        new_categories["Custom"] = custom
+    # apply changes
+    jsonutils.set_facial_profile_categories_json(json_data, chr_name, new_categories)
+
+
 def export_copy_fbx_key(chr_cache, dir, name):
     if chr_cache.import_has_key:
         try:
@@ -1466,6 +1525,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
         utils.log_info("Writing Json Data.")
 
         if json_data:
+            update_facial_profile_json(chr_cache, objects, json_data, name)
             new_json_path = os.path.join(dir, name + ".json")
             jsonutils.write_json(json_data, new_json_path)
 
@@ -1562,6 +1622,7 @@ def export_non_standard(self, file_path, include_selected):
     utils.log_info("Writing Json Data.")
 
     if json_data:
+        update_facial_profile_json(None, objects, json_data, name)
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
 
@@ -1681,6 +1742,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     utils.log_info("Writing Json Data.")
 
     if json_data:
+        update_facial_profile_json(chr_cache, objects, json_data, name)
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
 
@@ -1754,6 +1816,7 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     utils.log_info("Writing Json Data.")
 
     if json_data:
+        update_facial_profile_json(chr_cache, objects, json_data, name)
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
 

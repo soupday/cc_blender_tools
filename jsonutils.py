@@ -120,6 +120,31 @@ def get_character_json(json_data, character_id):
         utils.log_warn("Failed to get character Json data!")
         return None
 
+
+def get_facial_profile_json(json_data, character_id):
+    try:
+        return json_data[character_id]["Facial_Profile"]
+    except:
+        return None
+
+
+def get_facial_profile_categories_json(json_data, character_id):
+    try:
+        return json_data[character_id]["Facial_Profile"]["Categories"]
+    except:
+        return None
+
+
+def set_facial_profile_categories_json(json_data, character_id, categories_json):
+    try:
+        if "Facial_Profile" not in json_data[character_id].keys():
+            json_data[character_id]["Facial_Profile"] = {}
+        json_data[character_id]["Facial_Profile"]["Categories"] = categories_json
+        return True
+    except:
+        return False
+
+
 def get_object_json(chr_json, obj):
     if not chr_json:
         return None
