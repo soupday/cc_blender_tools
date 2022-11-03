@@ -2126,7 +2126,7 @@ def adv_retarget_shape_keys(op, chr_cache, report):
 #
 
 
-def generate_unity_export_rig(chr_cache):
+def generate_export_rig(chr_cache, force_t_pose = False):
     rigify_rig = chr_cache.get_armature()
     export_rig = utils.duplicate_object(rigify_rig)
     if export_rig:
@@ -2144,7 +2144,7 @@ def generate_unity_export_rig(chr_cache):
 
     # compile a list of all deformation bones
     def_bones = []
-    for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
+    for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
         def_bones.append(export_def[0])
 
     # remove all drivers
@@ -2170,7 +2170,7 @@ def generate_unity_export_rig(chr_cache):
         if world_x.dot(upper_arm_l.y_axis) < 0.9:
             a_pose = True
 
-        for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
+        for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
 
             bone_name = export_def[0]
             parent_name = export_def[1]
@@ -2207,8 +2207,8 @@ def generate_unity_export_rig(chr_cache):
             if edit_bone.name not in def_bones:
                 edit_bones.remove(edit_bone)
 
-        # rename bones for Unity
-        for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
+        # rename bones for export
+        for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
             bone_name = export_def[0]
             unity_name = export_def[2]
             if unity_name != "" and bone_name in edit_bones:
@@ -2224,7 +2224,7 @@ def generate_unity_export_rig(chr_cache):
     bones.clear_pose(export_rig)
 
     # Force T-pose
-    if a_pose:
+    if force_t_pose and a_pose:
         angle = 30.0 * math.pi / 180.0
         if "CC_Base_L_Upperarm" in export_rig.pose.bones and "CC_Base_R_Upperarm" in export_rig.pose.bones:
             left_arm_bone : bpy.types.PoseBone = export_rig.pose.bones["CC_Base_L_Upperarm"]
@@ -2239,7 +2239,7 @@ def generate_unity_export_rig(chr_cache):
     return export_rig
 
 
-def get_unity_bake_action(chr_cache):
+def get_bake_action(chr_cache):
     rigify_rig = chr_cache.get_armature()
     action = None
     source_type = "NONE"
@@ -2256,71 +2256,21 @@ def get_unity_bake_action(chr_cache):
     return action, source_type
 
 
-def adv_bake_rigify_to_unity(op, chr_cache):
+def adv_bake_rigify_for_export(chr_cache, export_rig):
+    props = bpy.context.scene.CC3ImportProps
 
+    action = None
+
+    # fetch rigify rig
     rigify_rig = chr_cache.get_armature()
     if rigify_rig.animation_data is None:
         rigify_rig.animation_data_create()
-
-    # determine the action on the rigify rig
-    action, source_type = get_unity_bake_action(chr_cache)
-
-    # if there is an action
-    if action:
-
-        # generate Unity export rig
-        export_rig = chr_cache.rig_export_rig
-        if utils.object_exists_is_armature(export_rig):
-            utils.delete_armature_object(export_rig)
-        export_rig = generate_unity_export_rig(chr_cache)
-        chr_cache.rig_export_rig = export_rig
-
-        if export_rig:
-
-            # copy constraints for baking animations
-            if select_rig(export_rig):
-                for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
-                    rigify_bone_name = export_def[0]
-                    unity_bone_name = export_def[2]
-                    flags = export_def[3]
-                    if unity_bone_name == "":
-                        unity_bone_name = rigify_bone_name
-                    if "T" in flags and len(export_def) > 4:
-                        rigify_bone_name = export_def[4]
-                    bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
-                    bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
-
-                # select all export rig bones
-                for bone in export_rig.data.bones:
-                    bone.select = True
-
-                # bake the action on the rigify rig into the export rig
-                bake_rig_animation(chr_cache, export_rig, action, None, True, True)
-
-            else:
-                op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
-    else:
-        op.report({'ERROR'}, "Rigify rig has no valid Armature Action to bake!")
-
-
-def adv_bake_rigify_NLA_to_unity(op, chr_cache):
-    props = bpy.context.scene.CC3ImportProps
-    rigify_rig = chr_cache.get_armature()
-    utils.safe_set_action(rigify_rig, None)
-    adv_retarget_remove_pair(op, chr_cache)
-
-    # generate Unity export rig
-    export_rig = chr_cache.rig_export_rig
-    if utils.object_exists_is_armature(export_rig):
-        utils.delete_armature_object(export_rig)
-    export_rig = generate_unity_export_rig(chr_cache)
-    chr_cache.rig_export_rig = export_rig
 
     if export_rig:
 
         # copy constraints for baking animations
         if select_rig(export_rig):
-            for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
+            for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
                 rigify_bone_name = export_def[0]
                 unity_bone_name = export_def[2]
                 flags = export_def[3]
@@ -2335,80 +2285,76 @@ def adv_bake_rigify_NLA_to_unity(op, chr_cache):
             for bone in export_rig.data.bones:
                 bone.select = True
 
-            shape_key_objects = []
-            if props.bake_nla_shape_keys:
-                for child in rigify_rig.children:
-                    if child.data.shape_keys and len(child.data.shape_keys) > 0:
-                        shape_key_objects.append(child)
-
             # bake the action on the rigify rig into the export rig
-            bake_rig_animation(chr_cache, export_rig, None, shape_key_objects, True, True, "NLA_Bake")
+            action = bake_rig_animation(chr_cache, export_rig, None, None, True, True, "NLA_Bake")
 
-        else:
-            op.report({'ERROR'}, "Unable to add copy constraints to Unity export rig!")
+    return action
 
 
-def prep_unity_export_rig(chr_cache):
+def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose = False):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     rigify_rig = chr_cache.get_armature()
 
-    # generate Unity export rig
-    export_rig = chr_cache.rig_export_rig
-    if utils.object_exists_is_armature(export_rig):
-        utils.delete_armature_object(export_rig)
-    export_rig = generate_unity_export_rig(chr_cache)
-    chr_cache.rig_export_rig = export_rig
+    # generate export rig
+    utils.delete_armature_object(chr_cache.rig_export_rig)
+    export_rig = chr_cache.rig_export_rig = generate_export_rig(chr_cache, force_t_pose = include_t_pose)
 
     if select_rig(export_rig):
         export_rig.data.pose_position = "POSE"
 
         # Clear the NLA track for this rig
-        if prefs.export_animation_mode == "STRIPS":
-            if len(export_rig.animation_data.nla_tracks) == 0:
-                track = export_rig.animation_data.nla_tracks.new()
-            else:
-                track = export_rig.animation_data.nla_tracks[0]
-            strips = []
-            for strip in track.strips:
-                strips.append(strip)
-            for strip in strips:
-                track.strips.remove(strip)
+        if len(export_rig.animation_data.nla_tracks) == 0:
+            track = export_rig.animation_data.nla_tracks.new()
+        else:
+            track = export_rig.animation_data.nla_tracks[0]
+        strips = []
+        for strip in track.strips:
+            strips.append(strip)
+        for strip in strips:
+            track.strips.remove(strip)
 
         if utils.set_mode("POSE"):
 
-            # create T-Pose action
-            if "0_T-Pose" in bpy.data.actions:
-                bpy.data.actions.remove(bpy.data.actions["0_T-Pose"])
-            action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
-            utils.safe_set_action(export_rig, action)
+            if include_t_pose:
+                # create T-Pose action
+                if "0_T-Pose" in bpy.data.actions:
+                    bpy.data.actions.remove(bpy.data.actions["0_T-Pose"])
+                t_pose_action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
+                utils.safe_set_action(export_rig, t_pose_action)
+                baked_actions.append(t_pose_action)
 
-            # go to first frame
-            bpy.data.scenes["Scene"].frame_current = 1
+                # go to first frame
+                bpy.data.scenes["Scene"].frame_current = 1
 
-            # apply first keyframe
-            bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
+                # apply first keyframe
+                bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
 
-            # make a second keyframe
-            bpy.data.scenes["Scene"].frame_current = 2
-            bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
+                # make a second keyframe
+                bpy.data.scenes["Scene"].frame_current = 2
+                bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
 
-            # push T-Pose to NLA if exporting only strips
-            if prefs.export_animation_mode == "STRIPS":
-                utils.log_info(f"Adding {action.name} to NLA strips")
+                # push T-Pose to NLA first
+                utils.log_info(f"Adding {t_pose_action.name} to NLA strips")
                 track = export_rig.animation_data.nla_tracks[0]
-                track.strips.new(action.name, int(action.frame_range[0]), action)
-                #export_rig.animation_data.action = None
+                track.strips.new(t_pose_action.name, int(t_pose_action.frame_range[0]), t_pose_action)
 
-            # push Unity action strips to NLA
-            if prefs.export_animation_mode == "STRIPS" or prefs.export_animation_mode == "BOTH":
-                for action in bpy.data.actions:
-                    if is_unity_action(action):
-                        utils.log_info(f"Adding {action.name} to NLA strips")
-                        track = export_rig.animation_data.nla_tracks.new()
-                        strip = track.strips.new(action.name, int(action.frame_range[0]), action)
+            # bake current timeline animation to export rig
+            action = None
+            if bake_animation:
+                action = adv_bake_rigify_for_export(chr_cache, export_rig)
+                baked_actions.append(action)
+                export_rig = chr_cache.rig_export_rig
 
-            # reparent the child objects
+            utils.safe_set_action(export_rig, None)
+
+            # push baked action to NLA strip
+            if bake_animation and action:
+                utils.log_info(f"Adding {action.name} to NLA strips")
+                track = export_rig.animation_data.nla_tracks.new()
+                strip = track.strips.new(action.name, int(action.frame_range[0]), action)
+
+            # reparent the child objects to the export rig
             for child in rigify_rig.children:
                 child.parent = export_rig
                 mod = modifiers.get_object_modifier(child, "ARMATURE")
@@ -2420,8 +2366,29 @@ def prep_unity_export_rig(chr_cache):
     return export_rig
 
 
+def select_motion_export_objects(objects):
+    for obj in objects:
+        if obj.type == "ARMATURE":
+            utils.try_select_object(obj)
+        elif obj.type == "MESH":
+            if obj.data.shape_keys and len(obj.data.shape_keys.key_blocks) > 0:
+                action = utils.safe_get_action(obj)
+                include = False
+                if action:
+                    # if there is a shape key action on this mesh, include it
+                    include = True
+                else:
+                    # if no action, but shape keys are set, include it
+                    for key in obj.data.shape_keys.key_blocks:
+                        if key.value != 0.0:
+                            include = True
+                            break
+                if include:
+                    utils.try_select_object(obj)
+
+
 def rename_to_unity_vertex_groups(obj):
-    for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
+    for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
         rigify_bone_name = export_def[0]
         unity_bone_name = export_def[2]
         if rigify_bone_name in obj.vertex_groups:
@@ -2429,25 +2396,31 @@ def rename_to_unity_vertex_groups(obj):
 
 
 def restore_from_unity_vertex_groups(obj):
-    for export_def in rigify_mapping_data.UNITY_EXPORT_RIG:
+    for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
         rigify_bone_name = export_def[0]
         unity_bone_name = export_def[2]
         if unity_bone_name in obj.vertex_groups:
             obj.vertex_groups[unity_bone_name].name = rigify_bone_name
 
 
-def finish_unity_export(chr_cache, export_rig):
+def finish_rigify_export(chr_cache, export_rig, export_actions):
     rigify_rig = chr_cache.get_armature()
+
     # un-reparent the child objects
     for child in export_rig.children:
         child.parent = rigify_rig
         mod = modifiers.get_object_modifier(child, "ARMATURE")
         mod.object = rigify_rig
         restore_from_unity_vertex_groups(child)
-    # remove the t_pose_action and the export rig
-    #t_pose_action = utils.safe_get_action(export_rig)
-    #if t_pose_action:
-    #    bpy.data.actions.remove(t_pose_action)
+
+    # remove the baked actions
+    if export_actions:
+        for action in export_actions:
+            bpy.data.actions.remove(action)
+
+    # remove the export rig
+    utils.delete_armature_object(export_rig)
+    chr_cache.rig_export_rig = None
 
 
 # Animation baking
@@ -2455,6 +2428,9 @@ def finish_unity_export(chr_cache, export_rig):
 #
 
 def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constraints, limit_view_layer, action_name = ""):
+
+    return_action = None
+
     if utils.try_select_object(rig, True) and utils.set_active_object(rig):
         if action_name == "" and action:
             action_name = action.name
@@ -2462,6 +2438,7 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
         # armature action
         baked_action = bpy.data.actions.new(f"{rig.name}|A|{name}")
         baked_action.use_fake_user = True
+        return_action = baked_action
         utils.safe_set_action(rig, baked_action)
         # shape key actions
         if shape_key_objects:
@@ -2496,6 +2473,9 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
             utils.restore_limited_view_layers(tmp_collection, layer_collections, to_hide)
         # turn on physics
         physics.enable_physics(chr_cache, physics_objects)
+
+    # return the baked actions
+    return return_action
 
 
 # Helper functions
@@ -2920,9 +2900,6 @@ class CC3Rigifier(bpy.types.Operator):
                 else:
                     self.report({'ERROR'}, "Face Re-parent Failed!. See console log.")
 
-            elif self.param == "BAKE_UNITY_ANIMATION":
-                adv_bake_rigify_to_unity(self, chr_cache)
-
             elif self.param == "RETARGET_CC_PAIR_RIGS":
                 adv_preview_retarget(self, chr_cache)
 
@@ -2934,9 +2911,6 @@ class CC3Rigifier(bpy.types.Operator):
 
             elif self.param == "NLA_CC_BAKE":
                 adv_bake_NLA_to_rigify(self, chr_cache)
-
-            elif self.param == "NLA_CC_BAKE_UNITY":
-                adv_bake_rigify_NLA_to_unity(self, chr_cache)
 
             elif self.param == "RETARGET_SHAPE_KEYS":
                 adv_retarget_shape_keys(self, chr_cache, True)
@@ -2974,8 +2948,8 @@ class CC3Rigifier(bpy.types.Operator):
                    "Only vertex groups in the face are affected by this reparenting, all others are locked during the process. " + \
                    "Automatic Weights sometimes fails, so if detected some measures are taken to try to clean up the mesh and try again"
 
-        elif properties.param == "BAKE_UNITY_ANIMATION":
-            return "Bake the current Rigify action (or Retarget action) to the Unity export rig"
+        elif properties.param == "BAKE_EXPORT_ANIMATION":
+            return "Bake the current timeline to the export rig"
 
         elif properties.param == "RETARGET_CC_PAIR_RIGS":
             return "Preview the retarget action on the rigify rig, for real time correction or baking to Unity"
@@ -2994,9 +2968,6 @@ class CC3Rigifier(bpy.types.Operator):
 
         elif properties.param == "NLA_CC_BAKE":
             return "Bake the NLA track to the character Rigify Rig using the global scene frame range."
-
-        elif properties.param == "NLA_CC_BAKE_UNITY":
-            return "Bake the NLA track to to the Unity export rig using the global scene frame range."
 
         return "Rigification!"
 

@@ -1309,22 +1309,28 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, pat
 
 
 def update_facial_profile_json(chr_cache, all_objects, json_data, chr_name):
+
     # for standard characters, ignore clothing, accessories and hair objects
+    objects = []
     if chr_cache:
-        objects = []
         for obj in all_objects:
-            obj_cache = chr_cache.get_object_cache(obj)
-            if (obj_cache.object_type == "DEFAULT" or
-                obj_cache.object_type == "HAIR"):
-                continue
-            objects.append(obj)
+            if utils.object_exists_is_mesh(obj):
+                obj_cache = chr_cache.get_object_cache(obj)
+                if obj_cache and (obj_cache.object_type == "DEFAULT" or
+                    obj_cache.object_type == "HAIR"):
+                    continue
+                objects.append(obj)
+
     # non-standard characters, consider everything
     else:
-        objects = all_objects.copy()
+        for obj in all_objects:
+            if utils.object_exists_is_mesh(obj):
+                objects.append(obj)
 
     categories_json = jsonutils.get_facial_profile_categories_json(json_data, chr_name)
     new_categories = {}
     done_shapes = []
+
     # cull existing facial expressions
     if categories_json:
         for category in categories_json.keys():
@@ -1347,6 +1353,7 @@ def update_facial_profile_json(chr_cache, all_objects, json_data, chr_name):
                 done_shapes.append(viseme_name)
     if visemes:
         new_categories["Visemes"] = visemes
+
     # all remaining shapes go into custom expressions
     custom = []
     for obj in objects:
@@ -1363,6 +1370,7 @@ def update_facial_profile_json(chr_cache, all_objects, json_data, chr_name):
                 i += 1
     if custom:
         new_categories["Custom"] = custom
+
     # apply changes
     jsonutils.set_facial_profile_categories_json(json_data, chr_name, new_categories)
 
@@ -1457,6 +1465,9 @@ def export_arp(file_path, arm, objects):
 
 
 def export_standard(self, chr_cache, file_path, include_selected):
+    """Exports standard character (not rigified) to CC3/4 with json data, texture paths are relative to source character, as an .fbx file.
+    """
+
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -1565,6 +1576,9 @@ def export_standard(self, chr_cache, file_path, include_selected):
 
 
 def export_non_standard(self, file_path, include_selected):
+    """Exports non-standard character (unconverted and not rigified) to CC4 with json data and textures, as an .fbx file.
+    """
+
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -1619,9 +1633,9 @@ def export_non_standard(self, file_path, include_selected):
 
     utils.log_recess()
     utils.log_info("")
-    utils.log_info("Writing Json Data.")
 
     if json_data:
+        utils.log_info("Writing Json Data.")
         update_facial_profile_json(None, objects, json_data, name)
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
@@ -1639,6 +1653,10 @@ def export_non_standard(self, file_path, include_selected):
 
 
 def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
+    """Exports CC3/4 character (not rigified) for Unity with json data and textures,
+       as either a .blend file or .fbx file.
+    """
+
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -1669,16 +1687,26 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
             utils.delete_mesh_object(chr_cache.collision_body)
             chr_cache.collision_body = None
 
-
     objects = get_export_objects(chr_cache, include_selected)
     export_rig = None
 
-    if chr_cache.rigified:
-        export_rig = rigging.prep_unity_export_rig(chr_cache)
-        if export_rig:
-            rigify_rig = chr_cache.get_armature()
-            objects.remove(rigify_rig)
-            objects.append(export_rig)
+    export_actions = False
+    export_strips = True
+    export_rig = None
+    baked_actions = []
+
+    # FBX exports only T-pose as a strip
+    if utils.is_file_ext(ext, "FBX"):
+        export_actions = False
+        export_strips = True
+    # blend file exports make the T-pose as an action
+    else:
+        export_actions = True
+        export_strips = False
+    arm = utils.get_armature_in_objects(objects)
+    utils.safe_set_action(arm, None)
+    set_T_pose(arm, json_data[name]["Object"][name])
+    create_T_pose_action(arm, objects, export_strips)
 
     as_blend_file = utils.is_file_ext(ext, "BLEND")
 
@@ -1686,23 +1714,6 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     remove_modifiers_for_export(chr_cache, objects, True)
 
     prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, self.include_textures, False, False, as_blend_file, False)
-
-    export_actions = prefs.export_animation_mode == "ACTIONS" or prefs.export_animation_mode == "BOTH"
-    export_strips = prefs.export_animation_mode == "STRIPS" or prefs.export_animation_mode == "BOTH"
-
-    if not chr_cache.rigified:
-        # non rigified FBX exports export only T-pose as a strip
-        if utils.is_file_ext(ext, "FBX"):
-            export_actions = False
-            export_strips = True
-        # blend file exports make the T-pose as an action
-        else:
-            export_actions = True
-            export_strips = False
-        arm = utils.get_armature_in_objects(objects)
-        utils.safe_set_action(arm, None)
-        set_T_pose(arm, json_data[name]["Object"][name])
-        create_T_pose_action(arm, objects, export_strips)
 
     # store Unity project paths
     if utils.is_file_ext(ext, "BLEND"):
@@ -1733,15 +1744,11 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
 
     export_copy_fbx_key(chr_cache, dir, name)
 
-    # clean up rigify export
-    if chr_cache.rigified:
-        rigging.finish_unity_export(chr_cache, export_rig)
-
     utils.log_recess()
     utils.log_info("")
-    utils.log_info("Writing Json Data.")
 
     if json_data:
+        utils.log_info("Writing Json Data.")
         update_facial_profile_json(chr_cache, objects, json_data, name)
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
@@ -1813,15 +1820,105 @@ def update_to_unity(chr_cache, export_anim, include_selected):
 
     utils.log_recess()
     utils.log_info("")
-    utils.log_info("Writing Json Data.")
 
     if json_data:
+        utils.log_info("Writing Json Data.")
         update_facial_profile_json(chr_cache, objects, json_data, name)
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
 
     utils.log_recess()
     utils.log_timer("Done Character Export.")
+
+
+def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    utils.start_timer()
+
+    utils.log_info("")
+    utils.log_info("Exporting Rigified Character Model:")
+    utils.log_info("-----------------------------------")
+
+    utils.set_mode("OBJECT")
+
+    dir, file = os.path.split(file_path)
+    name, ext = os.path.splitext(file)
+
+    utils.log_info("Export to: " + file_path)
+    utils.log_info("Exporting as: " + ext)
+
+    json_data = None
+    include_textures = self.include_textures
+    if props.export_rigify_mode == "MOTION":
+         include_textures = False
+    else:
+        json_data = chr_cache.get_json_data()
+
+    utils.log_info("Preparing character for export:")
+    utils.log_indent()
+
+    # remove the collision mesh proxy
+    if utils.is_file_ext(ext, "BLEND"):
+        if utils.object_exists_is_mesh(chr_cache.collision_body):
+            utils.delete_mesh_object(chr_cache.collision_body)
+            chr_cache.collision_body = None
+
+    objects = get_export_objects(chr_cache, include_selected)
+    export_rig = None
+
+    export_actions = False
+    export_strips = True
+    baked_actions = []
+    export_rig = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions, include_t_pose = True)
+    if export_rig:
+        rigify_rig = chr_cache.get_armature()
+        objects.remove(rigify_rig)
+        objects.append(export_rig)
+
+    use_anim = export_anim
+    if props.bake_unity_t_pose:
+        use_anim = True
+
+    # remove custom material modifiers
+    remove_modifiers_for_export(chr_cache, objects, True)
+
+    prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, include_textures, False, False, False, False)
+
+    # for motion only exports, select armature and any mesh objects that have shape key animations
+    if props.export_rigify_mode == "MOTION":
+        utils.clear_selected_objects()
+        rigging.select_motion_export_objects(objects)
+
+    # export as fbx
+    bpy.ops.export_scene.fbx(filepath=file_path,
+            use_selection = True,
+            bake_anim = use_anim,
+            bake_anim_use_all_actions=export_actions,
+            bake_anim_use_nla_strips=export_strips,
+            bake_anim_simplify_factor=self.animation_simplify,
+            use_armature_deform_only=True,
+            add_leaf_bones = False,
+            mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
+            use_mesh_modifiers = True)
+
+    restore_modifiers(chr_cache, objects)
+
+    # clean up rigify export
+    rigging.finish_rigify_export(chr_cache, export_rig, baked_actions)
+
+    utils.log_recess()
+    utils.log_info("")
+
+    if json_data:
+        utils.log_info("Writing Json Data.")
+        update_facial_profile_json(chr_cache, objects, json_data, name)
+        new_json_path = os.path.join(dir, name + ".json")
+        jsonutils.write_json(json_data, new_json_path)
+
+    utils.log_recess()
+    utils.log_timer("Done Rigify Export.")
 
 
 def export_as_accessory(file_path, filename_ext):
@@ -1953,6 +2050,12 @@ class CC3Export(bpy.types.Operator):
             self.report({'INFO'}, "Update to Unity Done!")
             self.error_report()
 
+        elif chr_cache and self.param == "EXPORT_RIGIFY":
+
+            export_rigify(self, chr_cache, self.include_anim, self.filepath, self.include_selected)
+            self.report({'INFO'}, "Export from Rigified Done!")
+            self.error_report()
+
         elif self.param == "EXPORT_NON_STANDARD":
 
             export_non_standard(self, self.filepath, self.include_selected)
@@ -2010,14 +2113,18 @@ class CC3Export(bpy.types.Operator):
             export_format = "obj"
         elif self.param == "EXPORT_NON_STANDARD":
             export_format = "fbx"
+        elif self.param == "EXPORT_RIGIFY":
+            export_format = "fbx"
         elif self.param == "EXPORT_UNITY":
-            if prefs.export_unity_mode == "FBX" or chr_cache.rigified:
+            if prefs.export_unity_mode == "FBX":
                 export_format = "fbx"
             else:
                 export_format = "blend"
         elif chr_cache:
             export_format = utils.get_file_ext(chr_cache.import_type)
             if export_format != "obj":
+                export_format = "fbx"
+            if chr_cache.rigified:
                 export_format = "fbx"
         self.filename_ext = "." + export_format
         print(self.param, export_format, self.filename_ext)
@@ -2028,10 +2135,23 @@ class CC3Export(bpy.types.Operator):
             self.include_textures = True
             if export_format == "fbx":
                 self.export_face_smoothing = True
+        elif self.param == "EXPORT_RIGIFY":
+            if props.export_rigify_mode == "MOTION":
+                self.include_textures = False
+                self.include_anim = True
+            elif props.export_rigify_mode == "MESH":
+                self.include_textures = True
+                self.include_anim = False
+                self.export_face_smoothing = True
+            else:
+                self.include_textures = True
+                self.include_anim = True
+                self.export_face_smoothing = True
 
         # perform checks and validation
         require_export_check = (self.param == "EXPORT_CC3" or
                                 self.param == "EXPORT_UNITY" or
+                                self.param == "EXPORT_RIGIFY" or
                                 self.param == "UPDATE_UNITY" or
                                 self.param == "EXPORT_NON_STANDARD")
         require_valid_export = (self.param == "EXPORT_CC3" or
@@ -2095,7 +2215,9 @@ class CC3Export(bpy.types.Operator):
             return "Export selected objects as a non-standard character (Humanoid, Creature or Prop) to CC4"
         elif properties.param == "EXPORT_UNITY":
             return "Export to / Save in Unity project.\n" \
-                   "**Note: Non-rigified exports to Unity are exporting without animations, with a T-Pose only**"
+                   "**Note: Pipeline Exports to Unity are exported as character only, without animations, with a T-Pose**"
+        elif properties.param == "EXPORT_RIGIFY":
+            return "Export rigified character and/or animation.\n"
         elif properties.param == "EXPORT_ACCESSORY":
             return "Export selected object(s) for import into CC3 as accessories"
         elif properties.param == "EXPORT_MESH":

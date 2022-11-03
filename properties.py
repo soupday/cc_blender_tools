@@ -1188,10 +1188,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def can_export(self):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        result = True
         if prefs.export_require_key:
-            if self.generation in vars.STANDARD_GENERATIONS:
-                return self.import_has_key
-        return True
+            if self.generation in vars.STANDARD_GENERATIONS and not self.import_has_key:
+                result = False
+        if self.rigified:
+            result = False
+        return result
 
     def is_morph(self):
         return utils.is_file_ext(self.import_type, "OBJ") and self.import_has_key
@@ -1698,7 +1701,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
     bake_nla_shape_keys: bpy.props.BoolProperty(default=True)
-    section_rigify_unity: bpy.props.BoolProperty(default=False)
+    bake_unity_t_pose: bpy.props.BoolProperty(default=False)
+    export_rigify_mode: bpy.props.EnumProperty(items=[
+                        ("MESH","Mesh","Export only the character mesh and materials, with no animation (other than a Unity T-pose)"),
+                        ("MOTION","Motion","Export the animation only, with minimal mesh and no materials. Shapekey animations will also export their requisite mesh objects"),
+                        ("BOTH","Both","Export both the character mesh with materials and the animation"),
+                    ], default="MOTION")
+    section_rigify_export: bpy.props.BoolProperty(default=False)
 
     skin_toggle: bpy.props.BoolProperty(default=True)
     eye_toggle: bpy.props.BoolProperty(default=True)
