@@ -1871,7 +1871,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     export_actions = False
     export_strips = True
     baked_actions = []
-    export_rig = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions, include_t_pose = True)
+    export_rig = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions, include_t_pose = props.bake_unity_t_pose)
     if export_rig:
         rigify_rig = chr_cache.get_armature()
         objects.remove(rigify_rig)
@@ -1891,6 +1891,8 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
         utils.clear_selected_objects()
         rigging.select_motion_export_objects(objects)
 
+    armature_object, armature_data = rigging.rename_armature(export_rig, name)
+
     # export as fbx
     bpy.ops.export_scene.fbx(filepath=file_path,
             use_selection = True,
@@ -1902,6 +1904,8 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
             add_leaf_bones = False,
             mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
             use_mesh_modifiers = True)
+
+    rigging.restore_armature_names(armature_object, armature_data, name)
 
     restore_modifiers(chr_cache, objects)
 

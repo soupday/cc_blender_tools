@@ -1701,13 +1701,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
     bake_nla_shape_keys: bpy.props.BoolProperty(default=True)
-    bake_unity_t_pose: bpy.props.BoolProperty(default=False)
+    bake_unity_t_pose: bpy.props.BoolProperty(default=True, name="Include T-Pose", description="Include a T-Pose as the first animation track. This is useful for correct avatar alignment in Unity and for importing animations back into CC4")
     export_rigify_mode: bpy.props.EnumProperty(items=[
                         ("MESH","Mesh","Export only the character mesh and materials, with no animation (other than a Unity T-pose)"),
                         ("MOTION","Motion","Export the animation only, with minimal mesh and no materials. Shapekey animations will also export their requisite mesh objects"),
                         ("BOTH","Both","Export both the character mesh with materials and the animation"),
                     ], default="MOTION")
-    section_rigify_export: bpy.props.BoolProperty(default=False)
+    section_rigify_export: bpy.props.BoolProperty(default=True)
 
     skin_toggle: bpy.props.BoolProperty(default=True)
     eye_toggle: bpy.props.BoolProperty(default=True)

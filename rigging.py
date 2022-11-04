@@ -2130,10 +2130,10 @@ def generate_export_rig(chr_cache, force_t_pose = False):
     rigify_rig = chr_cache.get_armature()
     export_rig = utils.duplicate_object(rigify_rig)
     if export_rig:
-        export_rig.name = chr_cache.character_name + "_Unity"
-        export_rig.name = chr_cache.character_name + "_Unity"
-        export_rig.data.name = chr_cache.character_name + "_Unity"
-        export_rig.data.name = chr_cache.character_name + "_Unity"
+        export_rig.name = chr_cache.character_name + "_Export"
+        export_rig.name = chr_cache.character_name + "_Export"
+        export_rig.data.name = chr_cache.character_name + "_Export"
+        export_rig.data.name = chr_cache.character_name + "_Export"
     else:
         return None
 
@@ -2240,6 +2240,9 @@ def generate_export_rig(chr_cache, force_t_pose = False):
 
 
 def get_bake_action(chr_cache):
+    """Determines the action that is currently active on the rigify armature.
+    """
+
     rigify_rig = chr_cache.get_armature()
     action = None
     source_type = "NONE"
@@ -2260,6 +2263,8 @@ def adv_bake_rigify_for_export(chr_cache, export_rig):
     props = bpy.context.scene.CC3ImportProps
 
     action = None
+
+    export_bake_action, export_bake_source_type = get_bake_action(chr_cache)
 
     # fetch rigify rig
     rigify_rig = chr_cache.get_armature()
@@ -2291,10 +2296,42 @@ def adv_bake_rigify_for_export(chr_cache, export_rig):
     return action
 
 
+def rename_armature(arm, name):
+    armature_object = None
+    armature_data = None
+    try:
+        armature_object = bpy.data.objects[name]
+    except:
+        pass
+    try:
+        armature_data = bpy.data.armatures[name]
+    except:
+        pass
+    arm.name = name
+    arm.name = name
+    arm.data.name = name
+    arm.data.name = name
+    return armature_object, armature_data
+
+
+def restore_armature_names(armature_object, armature_data, name):
+    if armature_object:
+        armature_object.name = name
+        armature_object.name = name
+    if armature_data:
+        armature_data.name = name
+        armature_data.name = name
+
+
 def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose = False):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     rigify_rig = chr_cache.get_armature()
+
+    action_name = "Export_NLA"
+    export_bake_action, export_bake_source_type = get_bake_action(chr_cache)
+    if export_bake_action:
+        action_name = export_bake_action.name.split("|")[-1]
 
     # generate export rig
     utils.delete_armature_object(chr_cache.rig_export_rig)
@@ -2343,6 +2380,7 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
             action = None
             if bake_animation:
                 action = adv_bake_rigify_for_export(chr_cache, export_rig)
+                action.name = action_name
                 baked_actions.append(action)
                 export_rig = chr_cache.rig_export_rig
 

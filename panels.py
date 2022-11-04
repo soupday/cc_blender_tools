@@ -154,12 +154,17 @@ def rigify_export_group(chr_cache, layout):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     row = layout.row()
-    row.label(text="Include T-Pose for Unity")
+    row.label(text="Include T-Pose")
     row.prop(props, "bake_unity_t_pose", text="")
 
     row = layout.row()
     row.scale_y = 2
-    row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Rigify").param = "EXPORT_RIGIFY"
+    if props.export_rigify_mode == "MESH":
+        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Rigify Mesh").param = "EXPORT_RIGIFY"
+    elif props.export_rigify_mode == "MOTION":
+        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Rigify Motion").param = "EXPORT_RIGIFY"
+    else:
+        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Rigify Mesh & Motion").param = "EXPORT_RIGIFY"
     layout.row().prop(props, "export_rigify_mode", expand=True)
 
 
@@ -1265,16 +1270,16 @@ class CC3RigifyPanel(bpy.types.Panel):
                                         "section_rigify_export",
                                         props.section_rigify_export):
 
-                        unity_bake_action, unity_bake_source_type = rigging.get_bake_action(chr_cache)
+                        export_bake_action, export_bake_source_type = rigging.get_bake_action(chr_cache)
                         box = layout.box()
-                        if unity_bake_source_type == "RIGIFY":
+                        if export_bake_source_type == "RIGIFY":
                             box.label(text="Export from: Rigify Action")
-                        elif unity_bake_source_type == "RETARGET":
+                        elif export_bake_source_type == "RETARGET":
                             box.label(text="Export from: Retarget Action")
                         else:
                             box.label(text="Export from: NLA")
-                        if unity_bake_action:
-                            box.row().label(text=unity_bake_action.name)
+                        if export_bake_action:
+                            box.row().label(text=export_bake_action.name)
 
                         rigify_export_group(chr_cache, layout)
 
