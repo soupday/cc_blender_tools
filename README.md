@@ -1,4 +1,4 @@
-# CC/iC Blender Tools
+# CC/iC Blender Tools (Installed in Blender)
 An add-on for importing and automatically setting up materials for Character Creator 3 & 4 and iClone 7 & 8 character exports.
 
 Using Blender in the Character Creator pipeline can often feel like hitting a brick wall. Spending potentially hours having to get the import settings correct and setting up the materials often with hundreds of textures.
