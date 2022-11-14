@@ -1703,10 +1703,6 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     else:
         export_actions = True
         export_strips = False
-    arm = utils.get_armature_in_objects(objects)
-    utils.safe_set_action(arm, None)
-    set_T_pose(arm, json_data[name]["Object"][name])
-    create_T_pose_action(arm, objects, export_strips)
 
     as_blend_file = utils.is_file_ext(ext, "BLEND")
 
@@ -1714,6 +1710,12 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     remove_modifiers_for_export(chr_cache, objects, True)
 
     prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, self.include_textures, False, False, as_blend_file, False)
+
+    # make the T-pose as an action
+    arm = utils.get_armature_in_objects(objects)
+    utils.safe_set_action(arm, None)
+    set_T_pose(arm, json_data[name]["Object"][name])
+    create_T_pose_action(arm, objects, export_strips)
 
     # store Unity project paths
     if utils.is_file_ext(ext, "BLEND"):
@@ -1731,7 +1733,12 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
                 use_armature_deform_only=True,
                 add_leaf_bones = False,
                 mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
-                use_mesh_modifiers = True)
+                use_mesh_modifiers = True,
+                #apply_scale_options="FBX_SCALE_UNITS",
+                object_types={'EMPTY', 'MESH', 'ARMATURE'},
+                use_space_transform=True,
+                #armature_nodetype="ROOT",
+                )
 
         restore_modifiers(chr_cache, objects)
 
@@ -1808,10 +1815,10 @@ def update_to_unity(chr_cache, export_anim, include_selected):
 
     prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, True, False, False, as_blend_file, False)
 
+    # make the T-pose as an action
     arm = utils.get_armature_in_objects(objects)
     utils.safe_set_action(arm, None)
     set_T_pose(arm, json_data[name]["Object"][name])
-    # make the T-pose as an action
     create_T_pose_action(arm, objects, False)
 
     # save blend file at filepath
