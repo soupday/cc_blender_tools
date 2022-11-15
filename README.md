@@ -36,7 +36,14 @@ Links
 ## Changelog
 
 ### 1.5.0
-- Curve based hair export.
+- Rigify export mesh and/or animation overhaul.
+- Smoothing groups added to export file dialog options.
+- Support for CC4 Plugin, facial expression and viseme data export.
+- Fix to legacy hair detection & scalp detection.
+- Very slight subsurface added to scalp to prevent the dark/blueish artifacts on skin.
+- Fix to bump maps connecting to normal sockets.
+- Eye limbus darkness recalculated.
+- Initial attempt at exporting Blender 3.3 Curve hair on characters via Alembic export.
 
 ### 1.4.9
 - Fix to embedded image correction and image filepath comparisons.
