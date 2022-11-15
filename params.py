@@ -1625,7 +1625,8 @@ SHADER_MATRIX = [
             ["hair_blend_multiply_strength", 0, "", "Pbr/Blend"],
             ["hair_alpha_strength", 1, "", "Pbr/Opacity"],
             ["hair_opacity", 1, "", "Base/Opacity"],
-            ["hair_normal_strength", 1, "", "Pbr/Normal"],
+            ["hair_normal_strength", 1.0, "", "Pbr/Normal"],
+            ["hair_bump_strength", 1.0, "", "Pbr/Normal"],
             ["hair_emission_strength", 0, "", "Pbr/Glow"],
             ["hair_displacement_strength", 1, "", "Pbr/Displacement"],
             # non json properties (just defaults)
@@ -1634,7 +1635,6 @@ SHADER_MATRIX = [
             ["hair_diffuse_brightness", 1, "DEF"],
             ["hair_diffuse_hsv_strength", 1, "DEF"],
             ["hair_subsurface_radius", 1.5, "DEF"],
-            ["hair_bump_strength", 1.0, "DEF"],
             ["hair_anisotropic_roughness", 0.0375, "DEF"],
             ["hair_specular_blend", 0.9, "DEF"],
             ["hair_anisotropic_color", (1.000000, 0.798989, 0.689939, 1.000000), "DEF"],

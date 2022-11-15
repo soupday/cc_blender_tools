@@ -338,7 +338,7 @@ def detect_materials_from_json(chr_cache, obj, mat, obj_json, mat_json):
             object_type = "HAIR"
             if detect_hair_material(obj, mat, tex_dirs, chr_cache.import_dir, mat_json) == "True":
                 material_type = "HAIR"
-            elif detect_scalp_material(mat) == "TRUE":
+            elif detect_scalp_material(mat) == "True":
                 material_type = "SCALP"
             else:
                 material_type = "DEFAULT"
