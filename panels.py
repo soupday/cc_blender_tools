@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
+from cmath import exp
 import bpy
 import textwrap
 
@@ -128,6 +129,45 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
         box.row().label(text=f"No Character")
 
 
+def pipeline_export_group(chr_cache, chr_rig, layout):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    character_info_box(chr_cache, chr_rig, layout)
+
+    if chr_cache and chr_cache.rigified:
+        row = layout.row()
+        row.alert = True
+        row.label(text="Export from Rigging & Animation", icon="ERROR")
+
+    # export to CC3
+    character_export_button(chr_cache, chr_rig, layout)
+
+    layout.separator()
+
+    # export to Unity
+    character_export_unity_button(chr_cache, layout)
+
+
+def rigify_export_group(chr_cache, layout):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    row = layout.row()
+    row.label(text="Include T-Pose")
+    row.prop(props, "bake_unity_t_pose", text="")
+
+    row = layout.row()
+    row.scale_y = 2
+    if props.export_rigify_mode == "MESH":
+        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Rigify Mesh").param = "EXPORT_RIGIFY"
+    elif props.export_rigify_mode == "MOTION":
+        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Rigify Motion").param = "EXPORT_RIGIFY"
+    else:
+        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Rigify Mesh & Motion").param = "EXPORT_RIGIFY"
+    layout.row().prop(props, "export_rigify_mode", expand=True)
+
+
 def character_export_button(chr_cache, chr_rig, layout):
     # export to CC3
     text = "Export to CC3/4"
@@ -166,6 +206,27 @@ def character_export_button(chr_cache, chr_rig, layout):
         row = layout.row()
         row.alert = True
         row.label(text="No current character!", icon="ERROR")
+
+
+def character_export_unity_button(chr_cache, layout):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    column = layout.column()
+
+    # export button
+    row = column.row()
+    row.scale_y = 2
+    if props.is_unity_project():
+        row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project").param = "UPDATE_UNITY"
+    else:
+        row.operator("cc3.exporter", icon="CUBE", text="Export To Unity").param = "EXPORT_UNITY"
+        # export mode
+        column.row().prop(prefs, "export_unity_mode", expand=True)
+
+    # disable if no character, or not an fbx import
+    if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
+        column.enabled = False
 
 
 class ARMATURE_UL_List(bpy.types.UIList):
@@ -583,6 +644,33 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         row.operator("cc3.character", icon="ORIENTATION_NORMAL", text="Normalize Weights").param = "NORMALIZE_WEIGHTS"
         if not weight_transferable:
             row.enabled = False
+
+
+class CC3HairPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Hair_Panel"
+    bl_label = "Blender Hair"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = CREATE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context, exact = True)
+
+        column = layout.column()
+
+        # Exporting
+
+        column.box().label(text="Exporting", icon="EXPORT")
+        column.row().operator("cc3.export_hair", icon=utils.check_icon("HAIR"), text="Export Hair")
+        column.row().prop(prefs, "hair_export_group_by", expand=True)
+
+        if not bpy.context.selected_objects:
+            column.enabled = False
 
 
 class CC3MaterialParametersPanel(bpy.types.Panel):
@@ -1178,54 +1266,22 @@ class CC3RigifyPanel(bpy.types.Panel):
                         layout.separator()
 
                     if fake_drop_down(layout.box().row(),
-                                        "Unity",
-                                        "section_rigify_unity",
-                                        props.section_rigify_unity):
-                        unity_bake_action, unity_bake_source_type = rigging.get_unity_bake_action(chr_cache)
-                        if unity_bake_action:
-                            if unity_bake_source_type == "RIGIFY":
-                                layout.label(text="Bake from Rigify Action:")
-                            elif unity_bake_source_type == "RETARGET":
-                                layout.label(text="Bake from Retarget Action:")
-                            layout.box().label(text=unity_bake_action.name)
+                                        "Export",
+                                        "section_rigify_export",
+                                        props.section_rigify_export):
+
+                        export_bake_action, export_bake_source_type = rigging.get_bake_action(chr_cache)
+                        box = layout.box()
+                        if export_bake_source_type == "RIGIFY":
+                            box.label(text="Export from: Rigify Action")
+                        elif export_bake_source_type == "RETARGET":
+                            box.label(text="Export from: Retarget Action")
                         else:
-                            layout.label(text="No action to bake.")
+                            box.label(text="Export from: NLA")
+                        if export_bake_action:
+                            box.row().label(text=export_bake_action.name)
 
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Unity Animation").param = "BAKE_UNITY_ANIMATION"
-                        row.enabled = unity_bake_source_type != "NONE"
-
-                        layout.separator()
-
-                        row = layout.row()
-                        row.label(text="Bake Shape-keys")
-                        row.prop(props, "bake_nla_shape_keys", text="")
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA to Unity").param = "NLA_CC_BAKE_UNITY"
-                        #row.enabled = unity_bake_source_type == "NONE"
-
-                        layout.box().row().label(text = "Unity Export", icon = "CUBE")
-
-                        has_unity_actions = False
-                        for action in bpy.data.actions:
-                            if "_Unity|A|" in action.name:
-                                has_unity_actions = True
-                                break
-                        if has_unity_actions:
-                            layout.template_list("UNITY_ACTION_UL_List", "unity_armature_list", bpy.data, "actions", props, "unity_action_list_index", rows=1, maxrows=4)
-
-                        row = layout.row()
-                        row.scale_y = 2
-                        op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
-                        op.param = "EXPORT_UNITY"
-                        row2 = layout.row()
-                        row2.prop(prefs, "export_animation_mode", expand=True)
-                        row3 = layout.row()
-                        row3.label(text="Rigged character FBX only", icon="INFO")
-                        if not chr_cache:
-                            row.enabled = False
-                            row2.enabled = False
-                            row3.enabled = False
+                        rigify_export_group(chr_cache, layout)
 
             else:
                 wrapped_text_box(layout, "No current character!", width, True)
@@ -1793,32 +1849,14 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         row.scale_y = 2
         op = row.operator("cc3.anim_importer", icon="ARMATURE_DATA", text="Import Animations")
 
-        box = layout.box()
-        box.label(text="Exporting", icon="EXPORT")
-
-        character_info_box(chr_cache, chr_rig, layout)
-
-        # export to CC3
-        character_export_button(chr_cache, chr_rig, layout)
-
-        layout.separator()
-
-        # export to Unity
-        column = layout.column()
-        # export button
-        row = column.row()
-        row.scale_y = 2
-        if not props.is_unity_project():
-            op = row.operator("cc3.exporter", icon="CUBE", text="Export To Unity")
-            op.param = "EXPORT_UNITY"
+        if chr_cache and chr_cache.rigified:
+            box = layout.box()
+            box.label(text="Exporting (Rigify)", icon="EXPORT")
+            rigify_export_group(chr_cache, layout)
         else:
-            op = row.operator("cc3.exporter", icon="CUBE", text="Update Unity Project")
-            op.param = "UPDATE_UNITY"
-        row = column.row()
-        row.prop(prefs, "export_unity_mode", expand=True)
-        # disable if no character, not an fbx import or is rigified
-        if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
-            column.enabled = False
+            box = layout.box()
+            box.label(text="Exporting", icon="EXPORT")
+            pipeline_export_group(chr_cache, chr_rig, layout)
 
         # export prefs
         box = layout.box()

@@ -148,4 +148,21 @@ ENUM_ACTION_TYPES = [
 
 ACCESORY_PIVOT_NAME = "CC_Base_Pivot"
 
+
+CC3_VISEME_NAMES = [
+    "Open", "Explosive", "Dental_Lip", "Tight-O", "Tight", "Wide", "Affricate", "Lip_Open",
+    "Tongue_up", "Tongue_Raise", "V_Tongue_Raise", "Tongue_Out", "Tongue_Narrow", "Tongue_Lower", "Tongue_Curl-U", "Tongue_Curl-D",
+]
+
+CC4_VISEME_NAMES = [
+    "V_Open", "V_Explosive", "V_Dental_Lip", "V_Tight_O", "V_Tight", "V_Wide", "V_Affricate", "V_Lip_Open",
+    "V_Tongue_up", "V_Tongue_Raise", "V_Tongue_Out", "V_Tongue_Narrow", "V_Tongue_Lower", "V_Tongue_Curl_U", "V_Tongue_Curl_D",
+]
+
+DIRECT_VISEME_NAMES = [
+    "EE", "Er", "IH", "Ah", "Oh", "W_OO", "S_Z", "Ch_J", "F_V", "TH", "T_L_D_N", "B_M_P", "K_G_H_NG", "AE", "R",
+]
+
+
+
 block_property_update = False

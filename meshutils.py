@@ -211,9 +211,28 @@ def remove_material_verts(obj, mat):
 
 
 def find_shape_key(obj : bpy.types.Object, shape_key_name):
-    if obj.type == "MESH":
-        if obj.data and obj.data.shape_keys:
-            for key_block in obj.data.shape_keys.key_blocks:
-                if key_block.name == shape_key_name:
-                    return key_block
-    return None
+    try:
+        return obj.data.shape_keys.key_blocks[shape_key_name]
+    except:
+        return None
+
+
+def objects_have_shape_key(objects, shape_key_name):
+    for obj in objects:
+        if find_shape_key(obj, shape_key_name) is not None:
+            return True
+    return False
+
+
+def get_viseme_profile(objects):
+    for key_name in vars.CC4_VISEME_NAMES:
+        if objects_have_shape_key(objects, key_name):
+            return vars.CC4_VISEME_NAMES
+
+    for key_name in vars.DIRECT_VISEME_NAMES:
+        if objects_have_shape_key(objects, key_name):
+            return vars.DIRECT_VISEME_NAMES
+
+    # there is some overlap between CC4 facial expression names and CC3 viseme names
+    # so consider CC3 visemes last
+    return vars.CC3_VISEME_NAMES

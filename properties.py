@@ -1188,10 +1188,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def can_export(self):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        result = True
         if prefs.export_require_key:
-            if self.generation in vars.STANDARD_GENERATIONS:
-                return self.import_has_key
-        return True
+            if self.generation in vars.STANDARD_GENERATIONS and not self.import_has_key:
+                result = False
+        if self.rigified:
+            result = False
+        return result
 
     def is_morph(self):
         return utils.is_file_ext(self.import_type, "OBJ") and self.import_has_key
@@ -1451,6 +1454,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return (self.get_material_cache(mat) is not None)
 
 
+    def has_any_materials(self, materials):
+        for mat in materials:
+            if mat and self.has_material(mat):
+                return True
+        return False
+
     def has_all_materials(self, materials):
         for mat in materials:
             if mat and not self.has_material(mat):
@@ -1692,7 +1701,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
     bake_nla_shape_keys: bpy.props.BoolProperty(default=True)
-    section_rigify_unity: bpy.props.BoolProperty(default=False)
+    bake_unity_t_pose: bpy.props.BoolProperty(default=True, name="Include T-Pose", description="Include a T-Pose as the first animation track. This is useful for correct avatar alignment in Unity and for importing animations back into CC4")
+    export_rigify_mode: bpy.props.EnumProperty(items=[
+                        ("MESH","Mesh","Export only the character mesh and materials, with no animation (other than a Unity T-pose)"),
+                        ("MOTION","Motion","Export the animation only, with minimal mesh and no materials. Shapekey animations will also export their requisite mesh objects"),
+                        ("BOTH","Both","Export both the character mesh with materials and the animation"),
+                    ], default="MOTION")
+    section_rigify_export: bpy.props.BoolProperty(default=True)
 
     skin_toggle: bpy.props.BoolProperty(default=True)
     eye_toggle: bpy.props.BoolProperty(default=True)
@@ -1713,11 +1728,22 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     rigified_action_list_index: bpy.props.IntProperty(default=-1)
     rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
 
-    def get_any_character_cache_from_objects(self, objects):
+    def get_any_character_cache_from_objects(self, objects, search_materials = False):
         chr_cache : CC3CharacterCache
-        for chr_cache in self.import_cache:
-            if chr_cache.has_objects(objects):
-                return chr_cache
+        if objects:
+            for chr_cache in self.import_cache:
+                if chr_cache.has_objects(objects):
+                    return chr_cache
+        if search_materials:
+            materials = []
+            for obj in objects:
+                if obj.type == "MESH":
+                    for mat in obj.data.materials:
+                        materials.append(mat)
+            if materials:
+                for chr_cache in self.import_cache:
+                    if chr_cache.has_any_materials(materials):
+                        return chr_cache
         return None
 
     def get_character_cache(self, obj, mat):
@@ -1748,7 +1774,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         # otherwise determine the context character cache:
         chr_cache = self.get_character_cache(obj, mat)
         if chr_cache is None and len(context.selected_objects) > 1:
-            chr_cache = self.get_any_character_cache_from_objects(context.selected_objects)
+            chr_cache = self.get_any_character_cache_from_objects(context.selected_objects, None)
         return chr_cache
 
     def get_object_cache(self, obj):

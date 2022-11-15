@@ -168,11 +168,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("BLEND","Blend File","Save the project as a blend file in a Unity project. All textures and folders will be copied to the new location and made relative to the blend file."),
                         ("FBX","FBX","Export the character as an .Fbx file to the specified location. All textures and folders will be copied."),
                     ], default="BLEND", name = "Unity Export")
-    export_animation_mode: bpy.props.EnumProperty(items=[
-                        ("ACTIONS","Actions", "Export all applicable actions with the character"),
-                        ("STRIPS","Strips", "Export only Unity actions via NLA strips"),
-                        ("BOTH","Both","Export both actions and NLA strips"),
-                    ], default="STRIPS", name = "Animation Export")
     export_non_standard_mode: bpy.props.EnumProperty(items=[
                         ("HUMANOID","Humanoid","Export the selected armature and objects as a humanoid .Fbx file, with generated .json data for import into CC4 (Only)"),
                         ("CREATURE","Creature","Export the selected armature and objects as a creature .Fbx file, with generated .json data for import into CC4 (Only)"),
@@ -221,6 +216,14 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     # old
     cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
     cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
+
+    # hair
+    hair_export_group_by: bpy.props.EnumProperty(items=[
+                        ("CURVE","Curve","Group by curve objects"),
+                        ("NAME","Name","Gropu by name"),
+                        ("NONE","Single","Don't export separate groups"),
+                    ], default="CURVE", name = "Export Hair Grouping",
+                       description="Export hair groups by...")
 
     # addon updater preferences
 

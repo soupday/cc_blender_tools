@@ -16,6 +16,7 @@
 
 import bpy
 import math
+import os
 
 from . import imageutils, jsonutils, materials, nodeutils, params, utils, vars
 
@@ -174,7 +175,41 @@ def fetch_prop_defaults(mat_cache, mat_json):
     if matrix_group and "vars" in matrix_group.keys():
         for var_def in matrix_group["vars"]:
             exec_var_param(var_def, mat_cache, mat_json)
+    if shader == "rl_hair_shader":
+        check_legacy_hair(mat_cache, mat_json)
     vars.block_property_update = False
+
+
+def check_legacy_hair(mat_cache, mat_json):
+    root_map_path = None
+    id_map_path = None
+    flow_map_path = None
+
+    try:
+        root_map_path = mat_json["Custom Shader"]["Image"]["Hair Root Map"]["Texture Path"]
+    except:
+        pass
+
+    try:
+        id_map_path = mat_json["Custom Shader"]["Image"]["Hair ID Map"]["Texture Path"]
+    except:
+        pass
+
+    try:
+        flow_map_path = mat_json["Custom Shader"]["Image"]["Hair Flow Map"]["Texture Path"]
+    except:
+        pass
+
+    # if hair does not have a root map or id map or flow map, then it is (probably) legacy and needs adjusting
+    if not root_map_path and not id_map_path and not flow_map_path:
+        mat_cache.parameters.hair_enable_color = 0.0
+        mat_cache.parameters.hair_vertex_color_strength = 0.0
+        mat_cache.parameters.hair_specular_blend = 1.0
+        mat_cache.parameters.hair_anisotropic_roughness = 0.05
+        mat_cache.parameters.hair_anisotropic_strength = 0.15
+        mat_cache.parameters.hair_anisotropic_strength2 = 0.15
+
+    return
 
 
 def apply_prop_matrix(bsdf_node, group_node, mat_cache, shader_name):
@@ -353,14 +388,32 @@ def func_mul_2(v):
     return v * 2.0
 
 def func_limbus_dark_radius(limbus_dark_scale):
-    return 1 / limbus_dark_scale
+    #return 1 / limbus_dark_scale
     #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
     #return utils.lerp(0.155, 0.08, t) + 0.025
+    ds = pow(0.01, 0.2) / limbus_dark_scale
+    dm = pow(0.5, 0.2) / limbus_dark_scale
+    de = dm + (dm - ds)
+    return de
 
-def func_export_limbus_dark_scale(limbus_dark_radius):
-    return 1 / limbus_dark_radius
+def func_limbus_dark_width(limbus_dark_scale):
+    #return 1 / limbus_dark_scale
+    #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
+    #return utils.lerp(0.155, 0.08, t) + 0.025
+    ds = pow(0.01, 0.2) / limbus_dark_scale
+    dm = pow(0.5, 0.2) / limbus_dark_scale
+    de = dm + (dm - ds)
+    return ds / de
+
+def func_export_limbus_dark_scale(ldr):
+    #return 1 / limbus_dark_radius
     #t = utils.inverse_lerp(0.155, 0.08, limbus_dark_radius - 0.025)
     #return utils.clamp(utils.lerp(0.0, 10.0, t), 0, 10)
+    M = pow(0.5, 0.2)
+    S = pow(0.01, 0.2)
+    lds = (2 * M - S) / ldr
+    return lds
+
 
 def func_get_eye_depth(depth):
     return (depth / 3.0)
@@ -482,12 +535,14 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
 
     if shader_def and "textures" in shader_def.keys():
 
-
-
         for shader_input in shader_node.inputs:
+
             for texture_def in shader_def["textures"]:
+
                 socket_name = texture_def[0]
+
                 if socket_name == shader_input.name:
+
                     alpha_socket_name = texture_def[1]
                     tex_type = texture_def[2]
                     sample_map = len(texture_def) == 5 and texture_def[3] == "SAMPLE"
@@ -498,6 +553,14 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
 
                     json_id = imageutils.get_image_type_json_id(tex_type)
                     tex_json = jsonutils.get_texture_info(mat_json, json_id)
+                    tex_path = None
+                    suffix = None
+                    try:
+                        tex_path = tex_json["Texture Path"]
+                        suffix = os.path.splitext(os.path.basename(tex_path))[0].split("_")[-1]
+                    except:
+                        pass
+
                     image_id = "(" + tex_type + ")"
 
                     image_node = nodeutils.get_node_by_id(nodes, image_id)
@@ -551,6 +614,10 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
 
                         set_image_node_tiling(nodes, links, image_node, mat_cache, texture_def,
                                             shader_name, tex_json)
+
+                        # ensure bump maps are connected to the correct socket
+                        if socket_name == "Normal Map" and suffix.lower() == "bump":
+                            socket_name = "Bump Map"
 
                         if socket_name:
                             if tex_type == "ALPHA" and "_diffuse" in image.name.lower():
@@ -850,10 +917,12 @@ def connect_pbr_shader(obj, mat, mat_json, processed_images):
     if mat_cache.is_eyelash():
         materials.set_material_alpha(mat, "HASHED")
         nodeutils.set_node_input(group, "Specular Scale", 0.25)
+        nodeutils.set_node_input(bsdf, "Subsurface", 0.001)
 
     elif mat_cache.is_scalp():
         materials.set_material_alpha(mat, "HASHED")
         nodeutils.set_node_input(group, "Specular Scale", 0)
+        nodeutils.set_node_input(bsdf, "Subsurface", 0.01)
 
     elif nodeutils.has_connected_input(group, "Alpha Map"):
         if materials.detect_cornea_material(mat):
