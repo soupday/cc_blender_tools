@@ -11,9 +11,9 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 Links
 =====
-[CC3 Round-trip Import Plugin](https://github.com/soupday/CC3-Blender-Tools-Plugin)
+[CC3 Blender Pipeline Tool (Installed in CC3)](https://github.com/soupday/CC3-Blender-Tools-Plugin)
 
-[CC4 Round-trip Import Plugin](https://github.com/soupday/CC4-Blender-Tools-Plugin)
+[CC4 Blender Pipeline Tool (Installed in CC4)](https://github.com/soupday/CC4-Blender-Tools-Plugin)
 
 [Baking Add-on](https://github.com/soupday/cc3_blender_bake)
 
@@ -23,10 +23,10 @@ Links
 - In Blender go to menu **Edit**->**Preferences** then select **Add-ons**.
 - Click the **Install** button at the top of the preferences window and navigate to where you downloaded the zip file, select the file and click **Install Add-on**.
 - Activate the add-on by ticking the checkbox next to **Edit**->**Preferences** then select **Add-ons**
-- The add-ons functionality is available through the **CC3** Tab in the tool menu to the right of the main viewport. Press _N_ to show the tools if they are hidden.
+- The add-ons functionality is available through the **CC/iC Blender Tools** Tab in the tool menu to the right of the main viewport. Press _N_ to show the tools if they are hidden.
 ### To Remove
 - From the menu: **Edit**->**Preferences** then select **Add-ons**
-- In the search box search **All** add-ons for **"CC3 Tools"**
+- In the search box search **All** add-ons for **"CC/iC Blender Tools"**
 - Deactivate the add-on by unticking the checbox next to **Edit**->**Preferences** then select **Add-ons**.
 - Then click the **Remove** button.
 ### To Update
