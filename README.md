@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 1.5.1
+- Fix to Generic character export.
+- Fix to Generic converted character export.
+
 ### 1.5.0
 - Rigify export mesh and/or animation overhaul.
 - Smoothing groups added to export file dialog options.

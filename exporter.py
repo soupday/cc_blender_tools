@@ -254,6 +254,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         obj_name = obj.name
         obj_cache = chr_cache.get_object_cache(obj)
         source_changed = False
+        is_new_object = False
 
         if obj_cache:
             obj_expected_source_name = utils.safe_export_name(utils.strip_name(obj_name))
@@ -930,7 +931,7 @@ def get_export_objects(chr_cache, include_selected = True):
     """Fetch all the objects in the character (or try to)"""
     objects = []
     if include_selected:
-        objects = bpy.context.selected_objects.copy()
+        objects.extend(bpy.context.selected_objects)
     if chr_cache:
         arm = chr_cache.get_armature()
         if arm:
@@ -948,16 +949,28 @@ def get_export_objects(chr_cache, include_selected = True):
                         if obj not in objects:
                             objects.append(obj)
     else:
-        for arm in bpy.context.selected_objects:
-            if arm.type == "ARMATURE":
-                arm.hide_set(False)
-                if arm not in objects:
-                    objects.append(arm)
-                for obj in arm.children:
-                    if utils.object_exists_is_mesh(obj): # and obj.visible_get():
-                        if obj not in objects:
-                            objects.append(obj)
-                break
+        arm = None
+        if bpy.context.active_object and bpy.context.active_object.type == "ARMATURE":
+            arm = bpy.context.active_object
+        if not arm:
+            for obj in bpy.context.selected_objects:
+                if obj.type == "ARMATURE":
+                    arm = obj
+        if not arm:
+            for obj in bpy.context.selected_objects:
+                if obj.parent and obj.parent.type == "ARMATURE":
+                    arm = obj.parent
+        if arm:
+            print(arm)
+            arm.hide_set(False)
+            if arm not in objects:
+                objects.append(arm)
+            utils.log_info(f"Character Armature: {arm.name}")
+            for obj in arm.children:
+                if utils.object_exists_is_mesh(obj): # and obj.visible_get():
+                    if obj not in objects:
+                        utils.log_info(f"   Including Object: {obj.name}")
+                        objects.append(obj)
     return objects
 
 
@@ -1113,30 +1126,47 @@ def prep_non_standard_export(objects, dir, name, character_type):
     #if arm:
     #    bones.reset_root_bone(arm)
 
-    done = []
+    done = {}
     objects_json = json_data[name]["Object"][name]["Meshes"]
+
     for obj in objects:
-        if obj.type == "MESH" and obj not in done:
-            done.append(obj)
+
+        if obj.type == "MESH" and obj not in done.keys():
+
             utils.log_info(f"Adding Object Json: {obj.name}")
             export_name = utils.safe_export_name(obj.name)
+
             if export_name != obj.name:
                 utils.log_info(f"Updating Object name: {obj.name} to {export_name}")
                 obj.name = export_name
+
             mesh_json = copy.deepcopy(params.JSON_MESH_DATA)
+            done[obj] = mesh_json
             objects_json[obj.name] = mesh_json
+
             for slot in obj.material_slots:
+
                 mat = slot.material
-                if mat not in done:
-                    done.append(mat)
+
+                if mat not in done.keys():
+
                     utils.log_info(f"Adding Material Json: {mat.name}")
+
                     export_name = utils.safe_export_name(mat.name, is_material=True)
                     if export_name != mat.name:
                         utils.log_info(f"Updating Material name: {mat.name} to {export_name}")
                         mat.name = export_name
+
                     mat_json = copy.deepcopy(params.JSON_PBR_MATERIAL)
+                    done[mat] = mat_json
+
                     mesh_json["Materials"][mat.name] = mat_json
+
                     write_pbr_material_to_json(mat, mat_json, dir, name, True)
+
+                else:
+
+                    mesh_json["Materials"][mat.name] = done[mat]
 
     # select all the export objects
     utils.try_select_objects(objects, True)
@@ -1277,7 +1307,7 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, pat
             continue
 
         node, socket, bake_value, strength = socket_mapping[tex_id]
-        utils.log_info(f"Adding Texture Chennel: {tex_id} strength - {strength}")
+        utils.log_info(f"Adding Texture Channel: {tex_id} strength - {strength}")
 
         tex_node = None
         image = None
@@ -1486,7 +1516,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
     name, ext = os.path.splitext(file)
 
     # store selection
-    old_selection = bpy.context.selected_objects
+    old_selection = bpy.context.selected_objects.copy()
     old_active = bpy.context.active_object
 
     if utils.is_file_ext(ext, "FBX"):
@@ -2140,7 +2170,7 @@ class CC3Export(bpy.types.Operator):
         self.filename_ext = "." + export_format
         print(self.param, export_format, self.filename_ext)
 
-        if chr_cache.generation == "NonStandardGeneric":
+        if chr_cache and chr_cache.generation == "NonStandardGeneric":
             self.include_textures = True
         elif self.param == "EXPORT_UNITY":
             self.include_textures = True
