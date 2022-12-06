@@ -559,7 +559,8 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                         tex_path = tex_json["Texture Path"]
                         suffix = os.path.splitext(os.path.basename(tex_path))[0].split("_")[-1]
                     except:
-                        pass
+                        tex_path = ""
+                        suffix = ""
 
                     image_id = "(" + tex_type + ")"
 
@@ -616,7 +617,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                                             shader_name, tex_json)
 
                         # ensure bump maps are connected to the correct socket
-                        if socket_name == "Normal Map" and suffix.lower() == "bump":
+                        if socket_name == "Normal Map" and suffix and suffix.lower() == "bump":
                             socket_name = "Bump Map"
 
                         if socket_name:

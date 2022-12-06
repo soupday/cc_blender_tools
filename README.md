@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 1.5.2
+- Rigify IK-FK influence controls replicated in Rigging panel.
+- Fix to material setup error caused by missing normal map.
+
 ### 1.5.1
 - Fix to Generic character export.
 - Fix to Generic converted character export.
