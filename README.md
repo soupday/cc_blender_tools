@@ -37,7 +37,7 @@ Links
 
 ### 1.5.2
 - Rigify IK-FK influence controls replicated in Rigging panel.
-- Fix to material setup error caused by missing normal map.
+- Fix to material setup error caused by missing normal map data.
 
 ### 1.5.1
 - Fix to Generic character export.
