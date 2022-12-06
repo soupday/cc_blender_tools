@@ -1077,6 +1077,8 @@ class CC3RigifyPanel(bpy.types.Panel):
 
             if chr_cache:
 
+                rig = chr_cache.get_armature()
+
                 box = layout.box()
                 split = box.split(factor=0.4)
                 col_1 = split.column()
@@ -1188,6 +1190,39 @@ class CC3RigifyPanel(bpy.types.Panel):
                         wrapped_text_box(layout, "This character can not be rigged.", width)
 
                 if chr_cache.rigified:
+
+                    if fake_drop_down(layout.box().row(),
+                                        "Rig Controls",
+                                        "section_rigify_controls",
+                                        props.section_rigify_controls):
+
+                        split = layout.split(factor=0.333)
+                        col_1 = split.column()
+                        col_2 = split.column()
+                        col_3 = split.column()
+
+                        for control_name in rigify_mapping_data.IKFK_RIG_CONTROLS:
+                            control_def = rigify_mapping_data.IKFK_RIG_CONTROLS[control_name]
+                            print(control_def)
+                            if len(control_def) == 3 and type(control_def[0]) is str:
+                                col_1.label(text=control_def[0])
+                                col_2.label(text=control_def[1])
+                                col_3.label(text=control_def[2])
+                            else:
+                                prop_def_1 = control_def[0]
+                                prop_def_2 = None
+                                if len(control_def) == 2:
+                                    prop_def_2 = control_def[1]
+
+                                col_1.label(text=control_name)
+                                if prop_def_1:
+                                    col_2.prop(rig.pose.bones[prop_def_1[0]], f"[\"{prop_def_1[1]}\"]", text="", slider=True)
+                                else:
+                                    col_2.label(text="")
+                                if prop_def_2:
+                                    col_3.prop(rig.pose.bones[prop_def_2[0]], f"[\"{prop_def_2[1]}\"]", text="", slider=True)
+                                else:
+                                    col_3.label(text="")
 
                     if fake_drop_down(layout.box().row(),
                                         "Retargeting",
