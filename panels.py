@@ -160,11 +160,11 @@ def rigify_export_group(chr_cache, layout):
     row = layout.row()
     row.scale_y = 2
     if props.export_rigify_mode == "MESH":
-        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Rigify Mesh").param = "EXPORT_RIGIFY"
+        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Mesh").param = "EXPORT_RIGIFY"
     elif props.export_rigify_mode == "MOTION":
-        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Rigify Motion").param = "EXPORT_RIGIFY"
+        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Motion").param = "EXPORT_RIGIFY"
     else:
-        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Rigify Mesh & Motion").param = "EXPORT_RIGIFY"
+        row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Mesh & Motion").param = "EXPORT_RIGIFY"
     layout.row().prop(props, "export_rigify_mode", expand=True)
 
 
@@ -661,16 +661,26 @@ class CC3HairPanel(bpy.types.Panel):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context, exact = True)
 
+        # Exporting Blender Curve Hair
+
         column = layout.column()
-
-        # Exporting
-
         column.box().label(text="Exporting", icon="EXPORT")
         column.row().operator("cc3.export_hair", icon=utils.check_icon("HAIR"), text="Export Hair")
         column.row().prop(prefs, "hair_export_group_by", expand=True)
 
         if not bpy.context.selected_objects:
             column.enabled = False
+
+        # Spring Bone Hair Rig
+
+        column = layout.column()
+        column.box().label(text="Hair Rig", icon="EXPORT")
+        column.row().operator("cc3.hair", icon=utils.check_icon("HAIR"), text="Test").param = "TEST"
+
+        if not bpy.context.selected_objects:
+            column.enabled = False
+
+
 
 
 class CC3MaterialParametersPanel(bpy.types.Panel):
