@@ -225,6 +225,15 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                     ], default="CURVE", name = "Export Hair Grouping",
                        description="Export hair groups by...")
 
+    hair_curve_dir_threshold: bpy.props.FloatProperty(default=0.9, min=0.0, max=1.0, name="Direction Threshold")
+    hair_curve_dir: bpy.props.EnumProperty(items=[
+                        ("UP","UV Direction: Up","Hair cards from bottom to top in UV map"),
+                        ("DOWN","UV Direction: Down","Hair cards from top to bottom in UV map"),
+                        ("LEFT","UV Direction: Left","Hair cards from right to left in UV map"),
+                        ("RIGHT","UV Direction: Right","Hair cards from left to right in UV map"),
+                    ], default="DOWN", name = "UV Direction",
+                       description="Export hair groups by...")
+
     # addon updater preferences
 
     auto_check_update: bpy.props.BoolProperty(

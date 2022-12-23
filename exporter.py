@@ -961,7 +961,6 @@ def get_export_objects(chr_cache, include_selected = True):
                 if obj.parent and obj.parent.type == "ARMATURE":
                     arm = obj.parent
         if arm:
-            print(arm)
             arm.hide_set(False)
             if arm not in objects:
                 objects.append(arm)
@@ -2168,7 +2167,6 @@ class CC3Export(bpy.types.Operator):
             if chr_cache.rigified:
                 export_format = "fbx"
         self.filename_ext = "." + export_format
-        print(self.param, export_format, self.filename_ext)
 
         if chr_cache and chr_cache.generation == "NonStandardGeneric":
             self.include_textures = True

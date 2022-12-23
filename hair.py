@@ -14,9 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy
-import os
-from . import utils, jsonutils
+import bpy, bmesh, bpy_extras.mesh_utils
+import os, math
+from mathutils import Vector
+from . import utils, jsonutils, bones
 
 
 def begin_hair_sculpt(chr_cache):
@@ -172,6 +173,359 @@ def export_blender_hair(op, chr_cache, objects, base_path):
     utils.try_select_objects(objects, True)
 
 
+def create_curve():
+    curve = bpy.data.curves.new("Hair Curve", type="CURVE")
+    curve.dimensions = "3D"
+    obj = bpy.data.objects.new("Hair Curve", curve)
+    bpy.context.collection.objects.link(obj)
+    return curve
+
+
+def create_hair_curves():
+    curves = bpy.data.hair_curves.new("Hair Curves")
+    obj = bpy.data.objects.new("Hair Curves", curves)
+    bpy.context.collection.objects.link(obj)
+    return curves
+
+
+def add_poly_spline(points, curve):
+    """Create a poly curve from a list of Vectors
+    """
+    spline : bpy.types.Spline = curve.splines.new("POLY")
+    spline.points.add(len(points) - 1)
+    for i in range(0, len(points)):
+        co = points[i]
+        spline.points[i].co = (co.x, co.y, co.z, 1.0)
+
+
+def parse_island_recursive(bm, face_index, faces_left, island, face_map, vert_map):
+    """Recursive way to parse the UV islands.
+       Can run out of recursion calls on large meshes.
+    """
+    if face_index in faces_left:
+        faces_left.remove(face_index)
+        island.append(face_index)
+        for uv_id in face_map[face_index]:
+            connected_faces = vert_map[uv_id]
+            if connected_faces:
+                for cf in connected_faces:
+                    parse_island_recursive(bm, cf, faces_left, island, face_map, vert_map)
+
+
+def parse_island_non_recursive(bm, face_indices, faces_left, island, face_map, vert_map):
+    """Non recursive way to parse UV islands.
+       Connected faces expand the island each iteration.
+       A Set of all currently considered faces is maintained each iteration.
+       More memory intensive, but doesn't fail.
+    """
+    levels = 0
+    while face_indices:
+        levels += 1
+        next_indices = set()
+        for face_index in face_indices:
+            faces_left.remove(face_index)
+            island.append(face_index)
+        for face_index in face_indices:
+            for uv_id in face_map[face_index]:
+                connected_faces = vert_map[uv_id]
+                if connected_faces:
+                    for cf_index in connected_faces:
+                        if cf_index not in island:
+                            next_indices.add(cf_index)
+        face_indices = next_indices
+
+
+def get_island_uv_map(bm, ul, island):
+    """Fetch the UV coords of each vertex in the UV/Mesh island.
+       Each island has a unique UV map so this must be called per island.
+    """
+    uv_map = {}
+    for face_index in island:
+        face = bm.faces[face_index]
+        for loop in face.loops:
+            uv_map[loop.vert.index] = loop[ul].uv
+    return uv_map
+
+
+def get_selected_islands(bm, ul):
+    face_map = {}
+    vert_map = {}
+    uv_map = {}
+
+    selected_faces = [f for f in bm.faces if f.select]
+
+    for face in selected_faces:
+        for loop in face.loops:
+            uv_id = loop[ul].uv.to_tuple(5), loop.vert.index
+            uv_map[loop.vert.index] = loop[ul].uv
+            if face.index not in face_map:
+                face_map[face.index] = set()
+            if uv_id not in vert_map:
+                vert_map[uv_id] = set()
+            face_map[face.index].add(uv_id)
+            vert_map[uv_id].add(face.index)
+
+    islands = []
+    faces_left = set(face_map.keys())
+
+    while len(faces_left) > 0:
+        current_island = []
+        face_index = list(faces_left)[0]
+        face_indices = set()
+        face_indices.add(face_index)
+        parse_island_non_recursive(bm, face_indices, faces_left, current_island, face_map, vert_map)
+        islands.append(current_island)
+
+    return islands
+
+
+def get_aligned_edges(bm, island, dir, uv_map):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    edge : bmesh.types.BMEdge
+    face : bmesh.types.BMFace
+
+    edges = set()
+
+    for i in island:
+        face = bm.faces[i]
+        for edge in face.edges:
+            edges.add(edge.index)
+
+    aligned = set()
+
+    DIR_THRESHOLD = prefs.hair_curve_dir_threshold
+
+    for e in edges:
+        edge = bm.edges[e]
+        uv0 = uv_map[edge.verts[0].index]
+        uv1 = uv_map[edge.verts[1].index]
+        V = Vector(uv1) - Vector(uv0)
+        V.normalize()
+        dot = dir.dot(V)
+        if abs(dot) >= DIR_THRESHOLD:
+            aligned.add(e)
+
+    return aligned
+
+
+def get_aligned_edge_map(bm, edges):
+    edge_map = {}
+    for e in edges:
+        edge = bm.edges[e]
+        for vert in edge.verts:
+            for linked_edge in vert.link_edges:
+                if linked_edge != edge and linked_edge.index in edges:
+                    if e not in edge_map:
+                        edge_map[e] = set()
+                    edge_map[e].add(linked_edge.index)
+    return edge_map
+
+
+def parse_loop(bm, edge_index, edges_left, loop, edge_map):
+    if edge_index in edges_left:
+        edges_left.remove(edge_index)
+        edge = bm.edges[edge_index]
+        loop.add(edge.verts[0].index)
+        loop.add(edge.verts[1].index)
+        if edge.index in edge_map:
+            for ce in edge_map[edge.index]:
+                parse_loop(bm, ce, edges_left, loop, edge_map)
+
+
+def sort_func_u(vert_uv_pair):
+    return vert_uv_pair[1].x
+
+
+def sort_func_v(vert_uv_pair):
+    return vert_uv_pair[1].y
+
+
+def sort_verts_by_uv(obj, bm, loop, uv_map, dir):
+    sorted = []
+    for vert in loop:
+        uv = uv_map[vert]
+        sorted.append([vert, uv])
+    if dir.x > 0:
+        sorted.sort(reverse=False, key=sort_func_u)
+    elif dir.x < 0:
+        sorted.sort(reverse=True, key=sort_func_u)
+    elif dir.y > 0:
+        sorted.sort(reverse=False, key=sort_func_v)
+    else:
+        sorted.sort(reverse=True, key=sort_func_v)
+    return [ obj.matrix_world @ bm.verts[v].co for v, uv in sorted]
+
+
+def get_ordered_vertex_loops(obj, bm, edges, dir, uv_map, edge_map):
+    edges_left = set(edges)
+    loops = []
+
+    # separate edges into vertex loops
+    while len(edges_left) > 0:
+        loop = set()
+        edge_index = list(edges_left)[0]
+        parse_loop(bm, edge_index, edges_left, loop, edge_map)
+        sorted = sort_verts_by_uv(obj, bm, loop, uv_map, dir)
+        loops.append(sorted)
+
+    return loops
+
+
+def merge_loops(loops):
+    size = len(loops[0])
+
+    for loop in loops:
+        if len(loop) != size:
+            return None
+
+    num = len(loops)
+    loop = []
+
+    for i in range(0, size):
+        co = Vector((0,0,0))
+        for l in range(0, num):
+            co += loops[l][i]
+        co /= num
+        loop.append(co)
+
+    return loop
+
+
+def selected_cards_to_loops(obj, card_dir : Vector, one_loop_per_card = True):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    # normalize card dir
+    card_dir.normalize()
+
+    # select linked and set to edge mode
+    utils.edit_mode_to(obj, only_this=True)
+    bpy.ops.mesh.select_linked(delimit={'UV'})
+    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+
+    # object mode to save edit changes
+    utils.object_mode_to(obj)
+
+    # get the bmesh
+    mesh = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.faces.ensure_lookup_table()
+    bm.edges.ensure_lookup_table()
+    bm.verts.ensure_lookup_table()
+    ul = bm.loops.layers.uv[0]
+
+    # get lists of the faces in each selected island
+    islands = get_selected_islands(bm, ul)
+
+    utils.log_info(f"{len(islands)} islands selected.")
+
+    all_loops = []
+
+    for island in islands:
+
+        utils.log_info(f"Processing island, faces: {len(island)}")
+        utils.log_indent()
+
+        # each island has a unique UV map
+        uv_map = get_island_uv_map(bm, ul, island)
+
+        # get all edges aligned with the card dir in the island
+        edges = get_aligned_edges(bm, island, card_dir, uv_map)
+
+        utils.log_info(f"{len(edges)} aligned edges.")
+
+        # map connected edges
+        edge_map = get_aligned_edge_map(bm, edges)
+
+        # separate into ordered vertex loops
+        loops = get_ordered_vertex_loops(obj, bm, edges, card_dir, uv_map, edge_map)
+
+        utils.log_info(f"{len(loops)} ordered loops.")
+
+        # (merge and) generate poly curves
+        if one_loop_per_card:
+            loop = merge_loops(loops)
+            if loop:
+                all_loops.append(loop)
+            else:
+                utils.log_info("Loops have differing lengths, skipping.")
+        else:
+            for loop in loops:
+                all_loops.append(loop)
+
+        utils.log_recess()
+
+    #for face in bm.faces: face.select = False
+    #for edge in bm.edges: edge.select = False
+    #for vert in bm.verts: vert.select = False
+    #for e in edges:
+    #    bm.edges[e].select = True
+
+    bm.to_mesh(mesh)
+
+    return all_loops
+
+
+def selected_cards_to_curves(obj, card_dir : Vector, one_loop_per_card = True):
+    curve = create_curve()
+    loops = selected_cards_to_loops(obj, card_dir, one_loop_per_card)
+    for loop in loops:
+        add_poly_spline(loop, curve)
+
+
+def loop_length(loop):
+    p0 = loop[0]
+    d = 0
+    for i in range(1, len(loop)):
+        p1 = loop[i]
+        d += (p1 - p0).length
+        p0 = p1
+    return d
+
+
+def eval_loop_at(loop, length, fac):
+    p0 = loop[0]
+    f0 = 0
+    for i in range(1, len(loop)):
+        p1 = loop[i]
+        v = p1 - p0
+        fl = v.length / length
+        f1 = f0 + fl
+        if fac <= f1 and fac >= f0:
+            df = fac - f0
+            return p0 + v * (df / fl)
+        f0 = f1
+        p0 = p1
+        f1 += fl
+    return p0
+
+
+def loop_to_bones(arm, parent_bone, loop, loop_index, length, segments):
+    fac = 0
+    df = 1.0 / segments
+    for s in range(0, segments):
+        bone_name = f"Hair_{loop_index}_{s}"
+        bone = bones.new_edit_bone(arm, bone_name, parent_bone.name)
+        bone.head = arm.matrix_world.inverted() @ eval_loop_at(loop, length, fac)
+        bone.tail = arm.matrix_world.inverted() @ eval_loop_at(loop, length, fac + df)
+        parent_bone = bone
+        fac += df
+
+
+def selected_cards_to_bones(arm, obj, card_dir : Vector, one_loop_per_card = True, bone_length = 0.05):
+    utils.object_mode_to(arm)
+    head_bone = bones.get_pose_bone(arm, "CC_Base_Head")
+    if head_bone:
+        loops = selected_cards_to_loops(obj, card_dir, one_loop_per_card)
+        loop_index = 0
+        for loop in loops:
+            length = loop_length(loop)
+            segments = round(length / bone_length)
+            loop_to_bones(arm, head_bone, loop, loop_index, length, segments)
+            loop_index += 1
+    utils.object_mode_to(arm)
+
 
 class CC3OperatorHair(bpy.types.Operator):
     """Blender Hair Functions"""
@@ -187,6 +541,14 @@ class CC3OperatorHair(bpy.types.Operator):
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        if self.param == "TEST":
+            selected_cards_to_curves(bpy.context.active_object, Vector((0, -1)), True)
+
+        if self.param == "TEST2":
+            chr_cache = props.get_context_character_cache(context)
+            arm = chr_cache.get_armature()
+            selected_cards_to_bones(arm, bpy.context.active_object, Vector((0, -1)), one_loop_per_card = True, bone_length = 0.05)
 
         return {"FINISHED"}
 

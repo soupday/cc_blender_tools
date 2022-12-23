@@ -555,15 +555,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                     tex_json = jsonutils.get_texture_info(mat_json, json_id)
                     tex_path = None
                     suffix = None
-                    try:
-                        tex_path = tex_json["Texture Path"]
-                        suffix = os.path.splitext(os.path.basename(tex_path))[0].split("_")[-1]
-                    except:
-                        tex_path = ""
-                        suffix = ""
-
                     image_id = "(" + tex_type + ")"
-
                     image_node = nodeutils.get_node_by_id(nodes, image_id)
 
                     # for user added materials, don't mess with the users textures...
@@ -578,6 +570,16 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                         if image != image_node.image:
                             utils.log_info("Replacing image node image with: " + image.name)
                             image_node.image = image
+
+                    try:
+                        if image and image.filepath:
+                            tex_path = image.filepath
+                        else:
+                            tex_path = tex_json["Texture Path"]
+                        suffix = os.path.splitext(os.path.basename(tex_path))[0].split("_")[-1]
+                    except:
+                        tex_path = ""
+                        suffix = ""
 
                     if sample_map:
                         # SAMPLE is a special case where the texture is sampled into a color value property:

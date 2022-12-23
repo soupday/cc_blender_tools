@@ -476,7 +476,6 @@ def detect_character(file_path, objects, actions, json_data, warn):
         arm = None
         arm_count = 0
         for arm in objects:
-            print(arm)
             if arm.type == "ARMATURE":
                 arm_count += 1
                 arm.name = name

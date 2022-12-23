@@ -636,10 +636,8 @@ def map_bone(cc3_rig, meta_rig, mapping):
             src_bone = bones.get_rl_bone(cc3_rig, src_bone_head_name)
             if not src_bone and len(mapping) >= 6:
                 for alt_name in mapping[5]:
-                    print("########", alt_name)
                     src_bone = bones.get_rl_bone(cc3_rig, alt_name)
                     if src_bone:
-                        print("FOUND", alt_name)
                         break
             if src_bone:
                 if reverse:
@@ -2473,8 +2471,10 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
         if action_name == "" and action:
             action_name = action.name
         name = action_name.split("|")[-1]
+        new_name = f"{rig.name}|A|{name}"
+        utils.log_info(f"Baking action: {name} to {new_name}")
         # armature action
-        baked_action = bpy.data.actions.new(f"{rig.name}|A|{name}")
+        baked_action = bpy.data.actions.new(new_name)
         baked_action.use_fake_user = True
         return_action = baked_action
         utils.safe_set_action(rig, baked_action)
@@ -2498,6 +2498,10 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
         # limit view layer (bakes faster)
         if limit_view_layer:
             tmp_collection, layer_collections, to_hide = utils.limit_view_layer_to_collection("TMP_BAKE", rig, shape_key_objects)
+
+        utils.set_active_object(rig)
+        utils.set_mode("POSE")
+
         # bake
         bpy.ops.nla.bake(frame_start=start_frame,
                          frame_end=end_frame,
@@ -2505,7 +2509,11 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
                          visual_keying=True,
                          use_current_action=True,
                          clear_constraints=clear_constraints,
-                         clean_curves=False)
+                         clean_curves=False,
+                         bake_types={'POSE'})
+
+        utils.set_mode("OBJECT")
+
         # restore view layers
         if limit_view_layer:
             utils.restore_limited_view_layers(tmp_collection, layer_collections, to_hide)
