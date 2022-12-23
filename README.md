@@ -37,6 +37,8 @@ Links
 
 ### 1.5.3
 - Fix to retarget baking in Blender 3.4 not baking pose bones to rigify armature action.
+- Fix to Rigify motion export bone root name.
+
 
 ### 1.5.2
 - Rigify IK-FK influence controls replicated in Rigging panel.
