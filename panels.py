@@ -286,6 +286,10 @@ class ACTION_UL_List(bpy.types.UIList):
                     if self.filter_name and self.filter_name != "*":
                         if self.filter_name not in item.name:
                             filtered[i] &= ~self.bitflag_filter_item
+                elif arm_name and item.name.startswith(arm_name + "|") and not item.name.startswith(arm_name + "|K"):
+                    if self.filter_name and self.filter_name != "*":
+                        if self.filter_name not in item.name:
+                            filtered[i] &= ~self.bitflag_filter_item
                 else:
                     filtered[i] &= ~self.bitflag_filter_item
             else:

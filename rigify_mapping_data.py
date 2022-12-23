@@ -795,7 +795,7 @@ NON_BASIC_FACE_BONES = [
 # [rigify bone name, rigify re-parent, unity bone name, instruction]
 GENERIC_EXPORT_RIG = [
     # Spine, Neck & Head:
-    ["root", "", "CC_Base_Root", "-"],
+    ["root", "", "CC_Base_BoneRoot", "-"],
     ["DEF-spine", "root", "CC_Base_Hip", "PLR"],
     ["DEF-pelvis", "DEF-spine", "CC_Base_Pelvis", "PLR"],
     ["DEF-spine.001", "DEF-spine", "CC_Base_Waist", "PLR"],
