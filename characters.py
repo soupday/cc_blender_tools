@@ -108,8 +108,6 @@ def make_prop_armature(objects):
     obj : bpy.types.Object
     for obj in objects:
         if obj.type == "MESH":
-            print(obj.name)
-            if obj.parent: print(obj.parent.name)
             if obj.parent and obj.parent.name in arm.data.bones:
                 parent_name = obj.parent.name
                 parent_bone : bpy.types.Bone = arm.data.bones[parent_name]
@@ -141,7 +139,6 @@ def make_prop_armature(objects):
 def add_child_objects(obj, objects):
     for child in obj.children:
         if child not in objects:
-            print(f"adding {child.name}")
             objects.append(child)
             add_child_objects(child, objects)
 
@@ -754,7 +751,7 @@ def convert_to_rl_pbr(mat, mat_cache):
         strength_prop = linked_info[3]
         nodeutils.link_nodes(links, linked_node, linked_socket, group_node, socket_name)
         if strength_prop:
-            print(f"setting {strength_prop} = {strength}")
+            utils.log_info(f"setting {strength_prop} = {strength}")
             shaders.exec_prop(strength_prop, mat_cache, strength)
 
     if bsdf_node and group_node and mat_cache:

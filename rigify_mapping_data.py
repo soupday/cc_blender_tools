@@ -1477,12 +1477,12 @@ RETARGET_CORRECTIONS = {
 
 
 IKFK_RIG_CONTROLS = {
-    "Limb Controls": ["Limbs", "IK-FK", "Follow"],
-    "Left Arm": [ ["upper_arm_parent.L", "IK_FK"], ["upper_arm_parent.L", "FK_limb_follow"] ],
-    "Right Arm": [ ["upper_arm_parent.R", "IK_FK"], ["upper_arm_parent.R", "FK_limb_follow"] ],
-    "Left Leg": [ ["thigh_parent.L", "IK_FK"], ["thigh_parent.L", "FK_limb_follow"]],
-    "Right Leg": [ ["thigh_parent.R", "IK_FK"], ["thigh_parent.R", "FK_limb_follow"]],
-    "Head Controls": ["Head", "Follow", ""],
+    "Limb Controls": ["IK-FK", "Follow", "Stretch"],
+    "Left Arm": [ ["upper_arm_parent.L", "IK_FK"], ["upper_arm_parent.L", "FK_limb_follow"], ["upper_arm_parent.L", "IK_Stretch"] ],
+    "Right Arm": [ ["upper_arm_parent.R", "IK_FK"], ["upper_arm_parent.R", "FK_limb_follow"], ["upper_arm_parent.R", "IK_Stretch"] ],
+    "Left Leg": [ ["thigh_parent.L", "IK_FK"], ["thigh_parent.L", "FK_limb_follow"], ["thigh_parent.L", "IK_Stretch"] ],
+    "Right Leg": [ ["thigh_parent.R", "IK_FK"], ["thigh_parent.R", "FK_limb_follow"], ["thigh_parent.R", "IK_Stretch"] ],
+    "Head Controls": ["Head Controls", "", ""],
     "Neck Follow": [ ["torso", "neck_follow"] ],
     "Head Follow": [ ["torso", "head_follow"] ],
     "Mouth Lock": [ ["jaw_master", "mouth_lock"] ],

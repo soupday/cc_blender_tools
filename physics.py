@@ -1100,9 +1100,7 @@ def set_physics_settings(op, param, context):
         op.report({'INFO'}, f"Physics applied to {chr_cache.character_name}")
 
     elif param == "PHYSICS_INC_STRENGTH":
-        print(props.physics_paint_strength)
         strength = float(round(props.physics_paint_strength * 10)) / 10.0
-        print(strength)
         props.physics_paint_strength = min(1.0, max(0.0, strength + 0.1))
 
     elif param == "PHYSICS_DEC_STRENGTH":

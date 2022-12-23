@@ -671,10 +671,20 @@ class CC3HairPanel(bpy.types.Panel):
         if not bpy.context.selected_objects:
             column.enabled = False
 
+        #return
+
         # Spring Bone Hair Rig
 
         column = layout.column()
         column.box().label(text="Hair Rig", icon="EXPORT")
+        column.row().operator("cc3.hair", icon=utils.check_icon("HAIR"), text="Test 2").param = "TEST2"
+
+
+        # Hair curve extraction
+        column = layout.column()
+        column.box().label(text="Extract Curves", icon="EXPORT")
+        column.row().prop(prefs, "hair_curve_dir", text="")
+        column.row().prop(prefs, "hair_curve_dir_threshold", text="Alignment Threshold", slider=True)
         column.row().operator("cc3.hair", icon=utils.check_icon("HAIR"), text="Test").param = "TEST"
 
         if not bpy.context.selected_objects:
@@ -1206,14 +1216,13 @@ class CC3RigifyPanel(bpy.types.Panel):
                                         "section_rigify_controls",
                                         props.section_rigify_controls):
 
-                        split = layout.split(factor=0.333)
+                        split = layout.split(factor=0.6)
                         col_1 = split.column()
                         col_2 = split.column()
                         col_3 = split.column()
 
                         for control_name in rigify_mapping_data.IKFK_RIG_CONTROLS:
                             control_def = rigify_mapping_data.IKFK_RIG_CONTROLS[control_name]
-                            print(control_def)
                             if len(control_def) == 3 and type(control_def[0]) is str:
                                 col_1.label(text=control_def[0])
                                 col_2.label(text=control_def[1])
@@ -1221,16 +1230,22 @@ class CC3RigifyPanel(bpy.types.Panel):
                             else:
                                 prop_def_1 = control_def[0]
                                 prop_def_2 = None
-                                if len(control_def) == 2:
+                                prop_def_3 = None
+                                if len(control_def) >= 2:
                                     prop_def_2 = control_def[1]
+                                if len(control_def) >= 3:
+                                    prop_def_3 = control_def[2]
 
-                                col_1.label(text=control_name)
                                 if prop_def_1:
-                                    col_2.prop(rig.pose.bones[prop_def_1[0]], f"[\"{prop_def_1[1]}\"]", text="", slider=True)
+                                    col_1.prop(rig.pose.bones[prop_def_1[0]], f"[\"{prop_def_1[1]}\"]", text=control_name, slider=True)
+                                else:
+                                    col_1.label(text="")
+                                if prop_def_2:
+                                    col_2.prop(rig.pose.bones[prop_def_2[0]], f"[\"{prop_def_2[1]}\"]", text="", slider=True)
                                 else:
                                     col_2.label(text="")
-                                if prop_def_2:
-                                    col_3.prop(rig.pose.bones[prop_def_2[0]], f"[\"{prop_def_2[1]}\"]", text="", slider=True)
+                                if prop_def_3:
+                                    col_3.prop(rig.pose.bones[prop_def_3[0]], f"[\"{prop_def_3[1]}\"]", text="", slider=True)
                                 else:
                                     col_3.label(text="")
 
