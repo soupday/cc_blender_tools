@@ -671,7 +671,7 @@ class CC3HairPanel(bpy.types.Panel):
         if not bpy.context.selected_objects:
             column.enabled = False
 
-        #return
+        return
 
         # Spring Bone Hair Rig
 
