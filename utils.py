@@ -884,6 +884,23 @@ def move_object_to_collection(obj, collection):
         collection.objects.link(obj)
 
 
+def store_mode_selection():
+    mode = get_mode()
+    active = get_active_object()
+    selection = bpy.context.selected_objects.copy()
+    return [mode, active, selection]
+
+
+def restore_mode_selection(store):
+    try:
+        set_mode("OBJECT")
+        try_select_objects(store[2], True)
+        set_active_object(store[1])
+        set_mode(store[0])
+    except:
+        pass
+
+
 def safe_index_of(text : str, search : str, start : int):
     try:
         return text.index(search, start)

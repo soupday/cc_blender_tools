@@ -30,6 +30,11 @@ def add_vertex_group(obj, name):
         return obj.vertex_groups[name]
 
 
+def remove_vertex_group(obj : bpy.types.Object, name):
+    if name in obj.vertex_groups:
+        obj.vertex_groups.remove(obj.vertex_groups[name])
+
+
 def get_vertex_group(obj, name):
     if name not in obj.vertex_groups:
         None
@@ -181,6 +186,7 @@ def get_material_vertex_indices(obj, mat):
 
 
 def get_material_vertices(obj, mat):
+    """Mesh Edit Mode"""
     verts = []
     mesh = obj.data
     for poly in mesh.polygons:
@@ -190,6 +196,17 @@ def get_material_vertices(obj, mat):
                 if vert_index not in verts:
                     verts.append(mesh.vertices[vert_index])
     return verts
+
+
+def select_material_faces(obj, mat, select = True, deselect_first = False):
+    mesh = obj.data
+    poly : bpy.types.MeshPolygon
+    for poly in mesh.polygons:
+        poly_mat = obj.material_slots[poly.material_index].material
+        if deselect_first:
+            poly.select = False
+        if poly_mat == mat:
+            poly.select = select
 
 
 def remove_material_verts(obj, mat):

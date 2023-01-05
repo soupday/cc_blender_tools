@@ -1718,6 +1718,9 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     hair_toggle: bpy.props.BoolProperty(default=True)
     default_toggle: bpy.props.BoolProperty(default=True)
 
+    section_hair_blender_curve: bpy.props.BoolProperty(default=True)
+    section_hair_rigging: bpy.props.BoolProperty(default=True)
+
     # UI List props
     armature_action_filter: bpy.props.BoolProperty(default=True)
     action_list_index: bpy.props.IntProperty(default=-1)

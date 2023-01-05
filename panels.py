@@ -652,7 +652,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
 class CC3HairPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Hair_Panel"
-    bl_label = "Blender Hair"
+    bl_label = "Hair (Experimental)"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -665,34 +665,70 @@ class CC3HairPanel(bpy.types.Panel):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context, exact = True)
 
-        # Exporting Blender Curve Hair
+        # Blender Curve Hair
 
-        column = layout.column()
-        column.box().label(text="Exporting", icon="EXPORT")
-        column.row().operator("cc3.export_hair", icon=utils.check_icon("HAIR"), text="Export Hair")
-        column.row().prop(prefs, "hair_export_group_by", expand=True)
+        if fake_drop_down(layout.box().row(),
+                "Blender Curve Hair",
+                "section_hair_blender_curve",
+                props.section_hair_blender_curve):
 
-        if not bpy.context.selected_objects:
-            column.enabled = False
+            column = layout.column()
+            column.box().label(text="Exporting", icon="EXPORT")
+            column.row().operator("cc3.export_hair", icon=utils.check_icon("HAIR"), text="Export Hair")
+            column.row().prop(prefs, "hair_export_group_by", expand=True)
 
-        return
+            if not bpy.context.selected_objects:
+                column.enabled = False
 
-        # Spring Bone Hair Rig
+        # Hair Cards & Spring Bone Rig
 
-        column = layout.column()
-        column.box().label(text="Hair Rig", icon="EXPORT")
-        column.row().operator("cc3.hair", icon=utils.check_icon("HAIR"), text="Test 2").param = "TEST2"
+        if fake_drop_down(layout.box().row(),
+                "Hair Rigging",
+                "section_hair_rigging",
+                props.section_hair_rigging):
 
+            column = layout.column()
+            column.row().prop(prefs, "hair_curve_dir", text="")
+            column.row().prop(prefs, "hair_curve_dir_threshold", text="Alignment Threshold", slider=True)
 
-        # Hair curve extraction
-        column = layout.column()
-        column.box().label(text="Extract Curves", icon="EXPORT")
-        column.row().prop(prefs, "hair_curve_dir", text="")
-        column.row().prop(prefs, "hair_curve_dir_threshold", text="Alignment Threshold", slider=True)
-        column.row().operator("cc3.hair", icon=utils.check_icon("HAIR"), text="Test").param = "TEST"
+            column.separator()
 
-        if not bpy.context.selected_objects:
-            column.enabled = False
+            column = layout.column()
+            column.box().label(text="Hair Spring Rig", icon="FORCE_MAGNETIC")
+            column.row().prop(prefs, "hair_rig_bone_length", text="Bone Length (cm)", slider=True)
+            column.row().prop(prefs, "hair_rig_bind_skip_count", text="Skip First Bones", slider=True)
+            column.separator()
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Add Hair Bones").param = "ADD_BONES"
+            row = column.row()
+            column.separator()
+            row.scale_y = 1.5
+            row.operator("cc3.hair", icon=utils.check_icon("X"), text="Clear Hair Bones").param = "REMOVE_HAIR_BONES"
+            column.separator()
+            column.row().prop(prefs, "hair_rig_bind_card_mode", expand=True)
+            column.row().prop(prefs, "hair_rig_bind_bone_mode", expand=True)
+            column.row().prop(prefs, "hair_rig_bind_bone_radius", text="Bind Radius (cm)", slider=True)
+            column.row().prop(prefs, "hair_rig_bind_bone_count", text="Bind Bones", slider=True)
+            column.row().prop(prefs, "hair_rig_bind_bone_weight", text="Weight Scale", slider=True)
+            column.row().prop(prefs, "hair_rig_bind_bone_variance", text="Weight Variance", slider=True)
+            column.row().prop(prefs, "hair_rig_bind_existing_scale", text="Scale Body Weights", slider=True)
+            column.row().prop(prefs, "hair_rig_bind_seed", text="Random Seed", slider=True)
+            column.separator()
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.hair", icon=utils.check_icon("MOD_VERTEX_WEIGHT"), text="Bind Hair").param = "BIND_TO_BONES"
+
+            column.separator()
+
+            # Hair curve extraction
+            column = layout.column()
+            column.box().label(text="Extract Curves", icon="EXPORT")
+            column.row().prop(prefs, "hair_curve_merge_loops", text="")
+            column.row().operator("cc3.hair", icon=utils.check_icon("HAIR"), text="Test").param = "CARDS_TO_CURVES"
+
+            if not bpy.context.selected_objects:
+                column.enabled = False
 
 
 

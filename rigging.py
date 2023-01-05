@@ -923,7 +923,7 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
     if utils.set_mode("OBJECT"):
 
         for obj in cc3_rig.children:
-            if obj.type == "MESH" and obj.parent == cc3_rig:
+            if utils.object_exists_is_mesh(obj) and obj.parent == cc3_rig:
 
                 hidden = not obj.visible_get()
                 if hidden:
