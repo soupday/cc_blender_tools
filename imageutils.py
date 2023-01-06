@@ -103,7 +103,7 @@ def find_image_file(base_dir, dirs, mat, texture_type):
                     files = os.listdir(dir)
                     for file in files:
                         file_name = file.lower()
-                        if file_name.startswith(material_name):
+                        if file_name.startswith(material_name + "_"):
                             for suffix in suffix_list:
                                 search = "_" + suffix + "."
                                 if search in file_name:
@@ -184,6 +184,17 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
 
     # with no Json data, try to locate the images in the texture folders:
     else:
+
+        # try to find the image in the texture_mappings (all embedded images should be here)
+        if mat_cache:
+            for tex_mapping in mat_cache.texture_mappings:
+                if tex_mapping:
+                    if texture_type == tex_mapping.texture_type:
+                        if tex_mapping.image:
+                            utils.log_info(f"Using embedded image: {tex_mapping.image.name}")
+                            return tex_mapping.image
+
+        # TODO fall back to images detected in mat_cache (nmot currently passed)
 
         image_file = search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type)
         if image_file:
