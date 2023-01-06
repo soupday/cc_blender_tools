@@ -464,10 +464,10 @@ def selected_cards_to_length_loops(chr_cache, obj, card_dir : Vector, one_loop_p
     bpy.ops.mesh.select_linked(delimit={'UV'})
     bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
 
-    deselect_invalid_materials(chr_cache, obj)
-
     # object mode to save edit changes
     utils.object_mode_to(obj)
+
+    deselect_invalid_materials(chr_cache, obj)
 
     # get the bmesh
     mesh = obj.data
@@ -605,12 +605,13 @@ def find_unused_hair_bone_index(arm, loop_index):
     return loop_index
 
 
-def loop_to_bones(arm, parent_bone, loop, loop_index, length, segments, skip_first_bones):
+def loop_to_bones(arm, head_bone, loop, loop_index, length, segments, skip_first_bones):
     """Edit mode"""
     fac = 0
     df = 1.0 / segments
     chain = []
     first = True
+    parent_bone = head_bone
 
     for s in range(0, segments):
         if s >= skip_first_bones:
@@ -618,6 +619,8 @@ def loop_to_bones(arm, parent_bone, loop, loop_index, length, segments, skip_fir
             bone : bpy.types.EditBone = bones.new_edit_bone(arm, bone_name, parent_bone.name)
             bone.head = arm.matrix_world.inverted() @ eval_loop_at(loop, length, fac)
             bone.tail = arm.matrix_world.inverted() @ eval_loop_at(loop, length, fac + df)
+            bone_z = (head_bone.head - bone.head).normalized()
+            bone.align_roll(bone_z)
             parent_bone = bone
             chain.append(bone_name)
             if first:
@@ -671,10 +674,10 @@ def get_hair_cards_lateral(chr_cache, obj, card_dir : Vector, card_selection_mod
 
     bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
 
-    deselect_invalid_materials(chr_cache, obj)
-
     # object mode to save edit changes
     utils.object_mode_to(obj)
+
+    deselect_invalid_materials(chr_cache, obj)
 
     # get the bmesh
     mesh = obj.data
@@ -765,7 +768,8 @@ def get_weighted_bone_distance(bone_chain, max_radius, median_loop, median_lengt
     return weighted_distance / len(median_loop)
 
 
-def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_radius, max_bones, max_weight, variance):
+def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_radius, max_bones, max_weight,
+                         curve, variance):
 
     # vertex weights are in the deform layer of the BMesh verts
 
@@ -786,7 +790,7 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
 
     for i, co in enumerate(median):
         ml = loop_length(median, i)
-        card_length_fac = math.sqrt(ml / median_length)
+        card_length_fac = math.pow(ml / median_length, curve)
         for b in range(0, max_bones):
             bone_chain = sorted_bones[b]["bones"]
             bone_def, bone_distance, bone_fac = get_closest_bone_def(bone_chain, co, max_radius)
@@ -808,7 +812,7 @@ def sort_func_weighted_distance(bone_weight_distance):
     return bone_weight_distance["distance"]
 
 
-def assign_bones(obj, bm, cards, bone_chains, max_radius, max_bones, max_weight, variance):
+def assign_bones(obj, bm, cards, bone_chains, max_radius, max_bones, max_weight, curve, variance):
     for i, card in enumerate(cards):
         median = card["median"]
         median_length = loop_length(median)
@@ -819,7 +823,7 @@ def assign_bones(obj, bm, cards, bone_chains, max_radius, max_bones, max_weight,
             bone_weight_distance = {"distance": weighted_distance, "bones": bone_chain}
             sorted_bones.append(bone_weight_distance)
         sorted_bones.sort(reverse=False, key=sort_func_weighted_distance)
-        weight_card_to_bones(obj, bm, card, sorted_bones, max_radius, max_bones, max_weight, variance)
+        weight_card_to_bones(obj, bm, card, sorted_bones, max_radius, max_bones, max_weight, curve, variance)
 
 
 def remove_hair_bone_weights(arm, obj : bpy.types.Object, scale_existing_weights = 1.0, selected_bone_chains = None):
@@ -928,6 +932,9 @@ def get_bone_chains(arm, bone_selection_mode):
 
 
 def smooth_hair_bone_weights(arm, obj, bone_chains, iterations):
+    if iterations == 0:
+        return
+
     for bone in arm.data.bones:
         bone.select = False
 
@@ -946,7 +953,7 @@ def smooth_hair_bone_weights(arm, obj, bone_chains, iterations):
     utils.object_mode_to(obj)
 
 
-def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector, max_radius, max_bones, max_weight, variance, existing_scale, card_mode, bone_mode):
+def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector, max_radius, max_bones, max_weight, curve, variance, existing_scale, card_mode, bone_mode, smoothing):
 
     reset_pose(arm)
 
@@ -957,16 +964,17 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector, max_radius, 
         remove_hair_bone_weights(arm, obj, bone_chains)
         bm, cards = get_hair_cards_lateral(chr_cache, obj, card_dir, card_mode)
         scale_existing_weights(obj, bm, existing_scale)
-        assign_bones(obj, bm, cards, bone_chains, max_radius, max_bones, max_weight, variance)
+        assign_bones(obj, bm, cards, bone_chains, max_radius, max_bones, max_weight, curve, variance)
         bm.to_mesh(obj.data)
 
-        smooth_hair_bone_weights(arm, obj, bone_chains, 5)
+        smooth_hair_bone_weights(arm, obj, bone_chains, smoothing)
 
     arm.data.pose_position = "POSE"
     utils.pose_mode_to(arm)
 
 
 def deselect_invalid_materials(chr_cache, obj):
+    """Mesh polygon selection only works in OBJECT mode"""
     if utils.object_exists_is_mesh(obj):
         for slot in obj.material_slots:
             mat = slot.material
@@ -1055,10 +1063,12 @@ class CC3OperatorHair(bpy.types.Operator):
                                     prefs.hair_rig_bind_bone_radius / 100,
                                     prefs.hair_rig_bind_bone_count,
                                     prefs.hair_rig_bind_bone_weight,
+                                    prefs.hair_rig_bind_weight_curve,
                                     prefs.hair_rig_bind_bone_variance,
                                     prefs.hair_rig_bind_existing_scale,
                                     prefs.hair_rig_bind_card_mode,
-                                    prefs.hair_rig_bind_bone_mode)
+                                    prefs.hair_rig_bind_bone_mode,
+                                    prefs.hair_rig_bind_smoothing)
             else:
                 self.report({"ERROR"}, "Selected Object(s) to bind must be Meshes!")
 

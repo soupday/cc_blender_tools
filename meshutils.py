@@ -198,15 +198,34 @@ def get_material_vertices(obj, mat):
     return verts
 
 
-def select_material_faces(obj, mat, select = True, deselect_first = False):
-    mesh = obj.data
+def select_material_faces(obj, mat, select = True, deselect_first = False, include_edges = True, include_vertices = True):
+    mesh : bpy.types.Mesh = obj.data
     poly : bpy.types.MeshPolygon
     for poly in mesh.polygons:
+
         poly_mat = obj.material_slots[poly.material_index].material
+
         if deselect_first:
             poly.select = False
         if poly_mat == mat:
             poly.select = select
+
+        if include_edges:
+            for edge_key in poly.edge_keys:
+                for edge_index in edge_key:
+                    edge = mesh.edges[edge_index]
+                    if deselect_first:
+                        edge.select = False
+                    if poly_mat == mat:
+                        edge.select = select
+
+        if include_vertices:
+            for vertex_index in poly.vertices:
+                vertex = mesh.vertices[vertex_index]
+                if deselect_first:
+                    vertex.select = False
+                if poly_mat == mat:
+                    vertex.select = select
 
 
 def remove_material_verts(obj, mat):

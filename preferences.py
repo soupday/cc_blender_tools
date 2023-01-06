@@ -247,7 +247,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     hair_rig_bind_bone_weight: bpy.props.FloatProperty(default=2.0, min=0.0, max=1.0)
     hair_rig_bind_bone_variance: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0)
     hair_rig_bind_existing_scale: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0)
-    hair_rig_bind_smoothing: bpy.props.IntProperty(default=5, min=1, max=10)
+    hair_rig_bind_weight_curve: bpy.props.FloatProperty(default=1.0, min=0.25, max=4.0)
+    hair_rig_bind_smoothing: bpy.props.IntProperty(default=5, min=0, max=10)
     hair_rig_bind_seed: bpy.props.IntProperty(default=1, min=1, max=10000)
     hair_rig_bind_card_mode: bpy.props.EnumProperty(items=[
                         ("ALL","All Cards","Bind all hair cards in the selected objects"),
