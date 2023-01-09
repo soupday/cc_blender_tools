@@ -574,18 +574,48 @@ def eval_loop_at(loop, length, fac):
     return p0
 
 
-def remove_existing_hair_bones(arm, objects):
-    to_remove = []
-    for bone in arm.data.bones:
-        if bone.name.startswith(HAIR_BONE_PREFIX):
-            to_remove.append(bone.name)
+def clear_hair_bone_weights(chr_cache, arm, objects, bone_mode):
+    utils.object_mode_to(arm)
 
-    if to_remove and utils.edit_mode_to(arm, True):
-        for bone_name in to_remove:
+    bone_chains = get_bone_chains(arm, bone_mode)
+
+    hair_bones = []
+    for bone_chain in bone_chains:
+        for bone_def in bone_chain:
+            hair_bones.append(bone_def["name"])
+
+    for obj in objects:
+        remove_hair_bone_weights(arm, obj, hair_bone_list=hair_bones)
+
+    arm.data.pose_position = "POSE"
+    utils.pose_mode_to(arm)
+
+
+def remove_hair_bones(chr_chache, arm, objects, bone_mode):
+    utils.object_mode_to(arm)
+
+    hair_bones = []
+    bone_chains = None
+    if bone_mode == "SELECTED":
+        # in selected bone mode, only remove the bones in the selected chains
+        bone_chains = get_bone_chains(arm, bone_mode)
+        for bone_chain in bone_chains:
+            for bone_def in bone_chain:
+                hair_bones.append(bone_def["name"])
+    else:
+        # otherwise remove all possible hair bones
+        for bone in arm.data.bones:
+            if bone.name.startswith(HAIR_BONE_PREFIX):
+                hair_bones.append(bone.name)
+
+    if hair_bones and utils.edit_mode_to(arm, True):
+        # remove the bones in edit mode
+        for bone_name in hair_bones:
             arm.data.edit_bones.remove(arm.data.edit_bones[bone_name])
 
     for obj in objects:
-        remove_hair_bone_weights(arm, obj)
+        #remove the weights from the selected meshes
+        remove_hair_bone_weights(arm, obj, hair_bone_list=hair_bones)
 
     utils.object_mode_to(arm)
 
@@ -826,34 +856,28 @@ def assign_bones(obj, bm, cards, bone_chains, max_radius, max_bones, max_weight,
         weight_card_to_bones(obj, bm, card, sorted_bones, max_radius, max_bones, max_weight, curve, variance)
 
 
-def remove_hair_bone_weights(arm, obj : bpy.types.Object, scale_existing_weights = 1.0, selected_bone_chains = None):
+def remove_hair_bone_weights(arm, obj : bpy.types.Object, scale_existing_weights = 1.0, hair_bone_list = None):
     """Remove all vertex groups starting with 'Hair'
-       TODO: limit to selected pose bones if only binding certain bones
     """
 
-    valid_bones = []
-    if selected_bone_chains:
-        for bone_chain in selected_bone_chains:
-            for bone_def in bone_chain:
-                valid_bones.append(bone_def["name"])
+    utils.object_mode_to(obj)
+
+    if hair_bone_list is None:
+        hair_bone_list = []
+        for vg in obj.vertex_groups:
+            if vg.name.startswith(HAIR_BONE_PREFIX):
+                hair_bone_list.append(vg.name)
 
     vg : bpy.types.VertexGroup
-    to_remove = []
     for vg in obj.vertex_groups:
+        if vg.name not in hair_bone_list and scale_existing_weights == 0.0:
+            hair_bone_list.append(vg.name)
 
-        is_hair_bone = vg.name.startswith(HAIR_BONE_PREFIX) or vg.name in valid_bones
-
-        if selected_bone_chains:
-            if vg.name in valid_bones:
-                to_remove.append(vg.name)
-        elif is_hair_bone:
-                to_remove.append(vg.name)
-
-        if scale_existing_weights == 0.0 and not is_hair_bone:
-            to_remove.append(vg.name)
-
-    for vg_name in to_remove:
+    for vg_name in hair_bone_list:
         meshutils.remove_vertex_group(obj, vg_name)
+
+    utils.edit_mode_to(obj)
+    utils.object_mode_to(obj)
 
 
 def scale_existing_weights(obj, bm, scale):
@@ -960,8 +984,13 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector, max_radius, 
     utils.object_mode_to(arm)
     bone_chains = get_bone_chains(arm, bone_mode)
 
+    hair_bones = []
+    for bone_chain in bone_chains:
+        for bone_def in bone_chain:
+            hair_bones.append(bone_def["name"])
+
     for obj in objects:
-        remove_hair_bone_weights(arm, obj, bone_chains)
+        remove_hair_bone_weights(arm, obj, hair_bone_list=hair_bones)
         bm, cards = get_hair_cards_lateral(chr_cache, obj, card_dir, card_mode)
         scale_existing_weights(obj, bm, existing_scale)
         assign_bones(obj, bm, cards, bone_chains, max_radius, max_bones, max_weight, curve, variance)
@@ -1042,7 +1071,7 @@ class CC3OperatorHair(bpy.types.Operator):
             objects = [ obj for obj in bpy.context.selected_objects if utils.object_exists_is_mesh(obj) ]
 
             if utils.object_exists_is_armature(arm):
-                remove_existing_hair_bones(arm, objects)
+                remove_hair_bones(chr_cache, arm, objects, prefs.hair_rig_bind_bone_mode)
 
         if self.param == "BIND_TO_BONES":
 
@@ -1073,6 +1102,21 @@ class CC3OperatorHair(bpy.types.Operator):
                 self.report({"ERROR"}, "Selected Object(s) to bind must be Meshes!")
 
             prefs.hair_rig_bind_existing_scale = 1.0
+
+        if self.param == "CLEAR_WEIGHTS":
+
+            chr_cache = props.get_context_character_cache(context)
+            arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+            if not arm:
+                arm = chr_cache.get_armature()
+
+            objects = [ obj for obj in bpy.context.selected_objects if utils.object_exists_is_mesh(obj) ]
+
+            if utils.object_exists_is_armature(arm) and objects:
+                clear_hair_bone_weights(chr_cache, arm, objects, prefs.hair_rig_bind_bone_mode)
+            else:
+                self.report({"ERROR"}, "Selected Object(s) to clear weights must be Meshes!")
+
 
         return {"FINISHED"}
 

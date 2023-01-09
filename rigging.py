@@ -308,6 +308,22 @@ def restore_bone_roll(meta_rig, roll_store):
     """
 
     if edit_rig(meta_rig):
+
+        steep_a_pose = False
+        world_x = mathutils.Vector((1, 0, 0))
+
+        # test upper arm for a steep A-pose (arms at more than 45 degrees down)
+        arm_l = bones.get_edit_bone(meta_rig, "upper_arm.L")
+        y_axis = arm_l.y_axis.normalized()
+        if world_x.dot(y_axis) < 0.707:
+            steep_a_pose = True
+
+        # test lower arm for a steep A-pose (for good measure)
+        arm_l = bones.get_edit_bone(meta_rig, "forearm.L")
+        y_axis = arm_l.y_axis.normalized()
+        if world_x.dot(y_axis) < 0.707:
+            steep_a_pose = True
+
         for bone in meta_rig.data.edit_bones:
             if bone.name in roll_store:
                 bone_roll = roll_store[bone.name][0]
@@ -315,7 +331,12 @@ def restore_bone_roll(meta_rig, roll_store):
                 bone.align_roll(bone_z_axis)
                 for correction in rigify_mapping_data.ROLL_CORRECTION:
                     if correction[0] == bone.name:
-                        axis = correction[1]
+
+                        if steep_a_pose:
+                            axis = correction[2]
+                        else:
+                            axis = correction[1]
+
                         if axis == "X":
                             bone.align_roll(mathutils.Vector((1,0,0)))
                         if axis == "Y":

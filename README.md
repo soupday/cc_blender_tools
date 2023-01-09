@@ -35,6 +35,12 @@ Links
 
 ## Changelog
 
+### 1.5.4
+- Fix to hand & finger bone roll alignment when bind pose has arms and hands at a steep downward angle.
+- Fix to partial material name matching errors from ActorCore and AccuRig.
+- Added initial Hair curve extraction from hair cards.
+- Spring bone hair rig extraction and weight binding functions.
+
 ### 1.5.3
 - Fix to retarget baking in Blender 3.4 not baking pose bones to rigify armature action.
 - Fix to Rigify motion export bone root name.

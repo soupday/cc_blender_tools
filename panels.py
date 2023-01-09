@@ -700,14 +700,18 @@ class CC3HairPanel(bpy.types.Panel):
             column.separator()
             row = column.row()
             row.scale_y = 1.5
-            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Add Hair Bones").param = "ADD_BONES"
+            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Add Bone(s)").param = "ADD_BONES"
+            column.separator()
             row = column.row()
-            column.separator()
-            row.scale_y = 1.5
+            row.scale_y = 1
             row.operator("cc3.hair", icon=utils.check_icon("X"), text="Clear Hair Bones").param = "REMOVE_HAIR_BONES"
+            row = column.row()
+            row.scale_y = 1
+            row.operator("cc3.hair", icon=utils.check_icon("X"), text="Clear Hair Weights").param = "CLEAR_WEIGHTS"
             column.separator()
-            column.row().prop(prefs, "hair_rig_bind_card_mode", expand=True)
             column.row().prop(prefs, "hair_rig_bind_bone_mode", expand=True)
+            column.row().prop(prefs, "hair_rig_bind_card_mode", expand=True)
+            column.separator()
             column.row().prop(prefs, "hair_rig_bind_bone_radius", text="Bind Radius (cm)", slider=True)
             column.row().prop(prefs, "hair_rig_bind_bone_count", text="Bind Bones", slider=True)
             column.row().prop(prefs, "hair_rig_bind_bone_weight", text="Weight Scale", slider=True)
