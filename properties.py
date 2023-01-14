@@ -15,6 +15,7 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy, os
+from mathutils import Vector
 
 from . import channel_mixer, imageutils, meshutils, sculpting, materials, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
@@ -425,6 +426,32 @@ def update_sculpt_layer_normal(self, context, prop_name):
         elif prop_name == "body_normal_strength":
             body = chr_cache.get_body()
             sculpting.update_layer_nodes(body, "BODY", "Strength", chr_cache.body_normal_strength)
+
+
+def update_rig_target(self, context):
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
+    if chr_cache:
+        if self.hair_rig_target == "CC4":
+            self.hair_rig_bind_skip_length = 0.0
+            self.hair_rig_bind_existing_scale = 0.0
+            self.hair_rig_bone_length = 7.5
+            self.hair_rig_bind_bone_radius = 7.5
+            self.hair_rig_bind_bone_count = 2
+            self.hair_rig_bind_bone_weight = 1.0
+            self.hair_rig_bind_smoothing = 5
+            self.hair_rig_bind_weight_curve = 0.5
+            self.hair_rig_bind_bone_variance = 0.75
+        elif self.hair_rig_target == "UNITY":
+            self.hair_rig_bind_skip_length = 7.5
+            self.hair_rig_bind_existing_scale = 1.0
+            self.hair_rig_bone_length = 7.5
+            self.hair_rig_bind_bone_radius = 7.5
+            self.hair_rig_bind_bone_count = 2
+            self.hair_rig_bind_bone_weight = 1.0
+            self.hair_rig_bind_smoothing = 5
+            self.hair_rig_bind_weight_curve = 0.5
+            self.hair_rig_bind_bone_variance = 0.75
 
 
 class CC3OperatorProperties(bpy.types.Operator):
@@ -1306,21 +1333,27 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 materials.append(mat_cache.material)
         return materials
 
-    def get_all_objects(self, include_armature = True, include_children = False):
+    def get_all_objects(self, include_armature = True, include_children = False, of_type = "ALL"):
+
         objects = []
         arm = None
+
         for obj_cache in self.object_cache:
-            if utils.still_exists(obj_cache.object) and obj_cache.object not in objects:
-                if obj_cache.object.type == "ARMATURE":
-                    arm = obj_cache.object
+            obj = obj_cache.object
+            if utils.still_exists(obj) and obj not in objects:
+                if obj.type == "ARMATURE":
+                    arm = obj
                     if include_armature:
-                        objects.append(obj_cache.object)
-                else:
-                    objects.append(obj_cache.object)
+                        if of_type == "ALL" or of_type == "ARMATURE":
+                            objects.append(obj)
+                elif of_type == "ALL" or of_type == obj.type:
+                    objects.append(obj)
+
         if include_children and arm:
             for child in arm.children:
-                if child.type == "MESH" and child not in objects:
-                    objects.append(child)
+                if utils.still_exists(child) and child not in objects:
+                    if of_type == "ALL" or child.type == of_type:
+                        objects.append(child)
         return objects
 
 
@@ -1721,6 +1754,78 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_hair_blender_curve: bpy.props.BoolProperty(default=True)
     section_hair_rigging: bpy.props.BoolProperty(default=True)
 
+    # Hair
+
+    hair_export_group_by: bpy.props.EnumProperty(items=[
+                        ("CURVE","Curve","Group by curve objects"),
+                        ("NAME","Name","Gropu by name"),
+                        ("NONE","Single","Don't export separate groups"),
+                    ], default="CURVE", name = "Export Hair Grouping",
+                       description="Export hair groups by...")
+
+    hair_curve_dir_threshold: bpy.props.FloatProperty(default=0.9, min=0.0, max=1.0, name="Direction Threshold")
+    hair_curve_dir: bpy.props.EnumProperty(items=[
+                        ("UP","Up","Hair cards from bottom to top in UV map"),
+                        ("DOWN","Down","Hair cards from top to bottom in UV map"),
+                        ("LEFT","Left","Hair cards from right to left in UV map"),
+                        ("RIGHT","Right","Hair cards from left to right in UV map"),
+                    ], default="DOWN", name = "UV Direction",
+                       description="Direction of hair cards in UV Map")
+    hair_curve_merge_loops: bpy.props.EnumProperty(items=[
+                        ("ALL","Use All Edge Loops","All edge loops in the cards will be converted into curves"),
+                        ("MERGE","Merge Edge Loops","Edge loops in each card will be merged into a single curve"),
+                    ], default="MERGE", name = "Merge Loops",
+                       description="Merge edge loops")
+
+    hair_rig_bind_skip_length: bpy.props.FloatProperty(default=7.5, min=0.0, max=25,
+            description="How far along the hair card to start generating bones, "
+            "as rooting the bones to the very start of the hair cards can produce unwanted results")
+    hair_rig_bone_length: bpy.props.FloatProperty(default=7.5, min=1, max=25,
+            description="How long a section of each hair card the bones should represent")
+    hair_rig_bind_bone_radius: bpy.props.FloatProperty(default=7.5, min=1, max=25,
+            description="How wide a radius around the bones should the hair cards bind vertex weights to")
+    hair_rig_bind_bone_count: bpy.props.IntProperty(default=2, min=1, max=4,
+            description="How many neighouring bones should each hair card bind to.\n\n"
+            "Note: More bones may produce smoother results but add to the overall mesh skinning performance cost")
+    hair_rig_bind_bone_weight: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0,
+            description="How much to scale the generated weights by")
+    hair_rig_bind_bone_variance: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0,
+            description="How much random variation in the generated weights.\n\n"
+            "Less variance will cause all the hair cards to the follow the bones more closely.\n\n"
+            "More variance will cause a wider spread of the cards as the bones move which gives the appearance of more volume")
+    hair_rig_bind_existing_scale: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0,
+            description="How much to scale any existing body weights on the hair.\n\n"
+            "Note: The spring bones vertex weights will compete with the body vertex weights. Scaling the body weights back (< 1.0) "
+            "will allow the hair to follow the spring bones more closely but will then conform less to the body.\n\n"
+            "Warning: This change will permanently alter the original body weights on the hair meshes. "
+            "After binding, this value resets to 1.0 to prevent successive weight scaling. "
+            "Setting this to zero will remove all body and other weights from the hair mesh")
+    hair_rig_bind_weight_curve: bpy.props.FloatProperty(default=0.5, min=0.25, max=4.0,
+            description="How to fade in the bone weights of each hair card from root to ends.\n\n"
+            "Larger values ( > 1.0) will push the weights down closer to the ends.\n\n"
+            "Smaller values ( < 1.0) will push the weights up closer to the roots")
+    hair_rig_bind_smoothing: bpy.props.IntProperty(default=5, min=0, max=10,
+            description="How much to smooth the generated weights after binding")
+    hair_rig_bind_seed: bpy.props.IntProperty(default=1, min=1, max=10000,
+            description="The random seed for generating the weight variance. The same seed should produce the same results each time")
+    hair_rig_bind_card_mode: bpy.props.EnumProperty(items=[
+                        ("ALL","All Cards","Bind all hair cards in the selected objects"),
+                        ("SELECTED","Selected Cards","Bind only the selected hair cards in each selected object"),
+                    ], default="ALL", name = "Hair Card Selection Mode")
+    hair_rig_bind_bone_mode: bpy.props.EnumProperty(items=[
+                        ("ALL","All Bones","Bind to all bones in the hair rig"),
+                        ("SELECTED","Selected Bones","Bind to only the selected bones of the hair rig"),
+                    ], default="ALL", name = "Bone Selection Mode")
+    hair_rig_bone_root: bpy.props.EnumProperty(items=[
+                        ("HEAD","Head Bone","Parent generated bones to the head bone"),
+                        ("JAW","Jaw Bone","Parent the generated bones to the jaw bone (for beards)"),
+                    ], default="HEAD", name = "Root bone for generated hair bones")
+    hair_rig_target: bpy.props.EnumProperty(items=[
+                        ("CC4","Rig For CC4","Generate a compatible spring rig for Character Creator and iClone.\n"
+                        "For Character Creator spring rigs, all other vertex weights are removed, and the first bone of each chain is fixed in place."),
+                        ("UNITY","Rig For Unity","Generate a spring rig for Unity"),
+                    ], default="UNITY", name = "Rig Target Application", update=update_rig_target)
+
     # UI List props
     armature_action_filter: bpy.props.BoolProperty(default=True)
     action_list_index: bpy.props.IntProperty(default=-1)
@@ -1763,16 +1868,14 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     return chr_cache
         return None
 
-    def get_context_character_cache(self, context = None, exact = False):
+    def get_context_character_cache(self, context = None):
         if not context:
             context = bpy.context
         obj = context.object
         mat = utils.context_material(context)
-        arm = utils.get_armature_in_objects(context.selected_objects)
 
         # if there is only one character in the scene, this is the only possible character cache:
-        # unless it's an armature...
-        if not exact and len(self.import_cache) == 1 and arm is None:
+        if len(self.import_cache) == 1:
             return self.import_cache[0]
 
         # otherwise determine the context character cache:
@@ -1822,3 +1925,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         if self.armature_list_object and self.armature_list_object.type != "ARMATURE":
             self.armature_list_object = None
             self.armature_list_index = -1
+
+    def hair_dir_vector(self):
+        if self.hair_curve_dir == "UP":
+            return Vector((0,1))
+        elif self.hair_curve_dir == "LEFT":
+            return Vector((-1,0))
+        elif self.hair_curve_dir == "RIGHT":
+            return Vector((1,0))
+        else: #if self.hair_curve_dir == "DOWN":
+            return Vector((0,-1))

@@ -39,6 +39,12 @@ def check_valid_export_fbx(chr_cache, objects):
     if chr_cache:
         standard = chr_cache.is_standard()
 
+    if not objects:
+        message = f"ERROR: Nothing to export!"
+        report.append(message)
+        utils.log_warn(message)
+        check_valid = False
+
     if standard and not arm:
         if chr_cache:
             message = f"ERROR: Character {chr_cache.character_name} has no armature!"
@@ -1938,6 +1944,8 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
             bake_anim_simplify_factor=self.animation_simplify,
             use_armature_deform_only=True,
             add_leaf_bones = False,
+            #axis_forward = "-Y",
+            #axis_up = "Z",
             mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
             use_mesh_modifiers = True)
 
@@ -2147,6 +2155,13 @@ class CC3Export(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
 
+        # menu export
+        if self.param == "EXPORT_MENU":
+            if chr_cache and chr_cache.rigified:
+                self.param = "EXPORT_RIGIFY"
+            else:
+                self.param = "EXPORT_CC3"
+
         # determine export format
         export_format = "fbx"
         if self.param == "EXPORT_MESH":
@@ -2170,11 +2185,13 @@ class CC3Export(bpy.types.Operator):
 
         if chr_cache and chr_cache.generation == "NonStandardGeneric":
             self.include_textures = True
-        elif self.param == "EXPORT_UNITY":
+
+        if self.param == "EXPORT_UNITY":
             self.include_textures = True
             if export_format == "fbx":
                 self.export_face_smoothing = True
-        elif self.param == "EXPORT_RIGIFY":
+
+        if self.param == "EXPORT_RIGIFY":
             if props.export_rigify_mode == "MOTION":
                 self.include_textures = False
                 self.include_anim = True
@@ -2265,3 +2282,8 @@ class CC3Export(bpy.types.Operator):
         elif properties.param == "CHECK_EXPORT":
             return "Check for issues with the character for export. *Note* This will also test any selected objects as well as all objects attached to the character, as selected objects can also be exported with the character"
         return ""
+
+
+def menu_func_export(self, context):
+    self.layout.operator(CC3Export.bl_idname, text="Reallusion Character (.fbx, .obj)").param = "EXPORT_MENU"
+

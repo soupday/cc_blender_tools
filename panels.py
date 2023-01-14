@@ -19,7 +19,7 @@ import bpy
 import textwrap
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, characters, sculpting, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, rigify_mapping_data, characters, sculpting, hair, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
@@ -27,9 +27,9 @@ CREATE_TAB_NAME = "CC/iC Create"
 # Panel button functions and operator
 #
 
-def context_character(context, exact = False):
+def context_character(context):
     props = bpy.context.scene.CC3ImportProps
-    chr_cache = props.get_context_character_cache(context, exact = exact)
+    chr_cache = props.get_context_character_cache(context)
 
     obj = None
     mat = None
@@ -41,6 +41,15 @@ def context_character(context, exact = False):
         mat = utils.context_material(context)
         obj_cache = chr_cache.get_object_cache(obj)
         mat_cache = chr_cache.get_material_cache(mat)
+        arm = chr_cache.get_armature()
+
+        # if the context object is an armature or child of armature that is not part of this chr_cache
+        # clear the chr_cache, as this is a separate generic character.
+        if obj and not obj_cache:
+            if obj.type == "ARMATURE" and obj != arm:
+                chr_cache = None
+            elif obj.type == "MESH" and obj.parent and obj.parent != arm:
+                chr_cache = None
 
     return chr_cache, obj, mat, obj_cache, mat_cache
 
@@ -495,41 +504,32 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context, exact = True)
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
         chr_rig = None
         if chr_cache:
             chr_rig = chr_cache.get_armature()
         elif context.selected_objects:
-            chr_rig = utils.get_generic_character_rig(context.selected_objects)
+            chr_rig = utils.get_armature_in_objects(context.selected_objects)
 
-        mesh_in_selection = False
-        all_mesh_in_selection = True
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                mesh_in_selection = True
-            else:
-                all_mesh_in_selection = False
-
-        missing_object = False
-        removable_object = False
-        missing_material = False
+        num_meshes_in_selection = 0
         weight_transferable = False
-        show_clean_up = chr_cache is not None
-        if bpy.context.selected_objects and bpy.context.active_object:
-            if chr_cache and obj_cache is None and obj and obj.type == "MESH":
-                missing_object = True
-            if obj != chr_rig and obj.parent != chr_rig:
-                missing_object = True
-            if chr_cache and obj_cache and obj.parent == chr_rig:
-                if (obj_cache.object_type != "BODY" and obj_cache.object_type != "EYE" and
-                    obj_cache.object_type != "TEETH" and obj_cache.object_type != "TONGUE"):
-                    removable_object = True
-            if chr_cache and obj and obj.type == "MESH" and not chr_cache.has_all_materials(obj.data.materials):
-                missing_material = True
-            if all_mesh_in_selection: # and arm.data.pose_position == "REST":
-                weight_transferable = True
-                if obj_cache and obj_cache.object_type == "BODY":
-                    weight_transferable = False
+        removable_objects = False
+        missing_materials = False
+        objects_addable = False
+        is_character = chr_cache is not None
+        for o in bpy.context.selected_objects:
+            if o.type == "MESH":
+                num_meshes_in_selection += 1
+                if chr_cache:
+                    oc = chr_cache.get_object_cache(o)
+                    if oc:
+                        if oc.object_type == "DEFAULT" or oc.object_type == "HAIR":
+                            weight_transferable = True
+                            removable_objects = True
+                        if not chr_cache.has_all_materials(o.data.materials):
+                            missing_materials = True
+                    else:
+                        objects_addable = True
 
         column = layout.column()
 
@@ -549,7 +549,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
             row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
         else:
             row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
-        if chr_cache or not bpy.context.selected_objects:
+        if chr_cache or not (chr_rig or num_meshes_in_selection > 0):
             row.enabled = False
 
         column.separator()
@@ -596,7 +596,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         row = column.row()
         row.operator("cc3.character", icon="REMOVE", text="Clean Up Data").param = "CLEAN_UP_DATA"
-        if not show_clean_up:
+        if not is_character:
             row.enabled = False
 
         column.separator()
@@ -617,17 +617,17 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         row = column.row()
         row.operator("cc3.character", icon="ADD", text="Add To Character").param = "ADD_PBR"
-        if not missing_object:
+        if not objects_addable:
             row.enabled = False
 
         row = column.row()
         row.operator("cc3.character", icon="REMOVE", text="Remove From Character").param = "REMOVE_OBJECT"
-        if not removable_object:
+        if not removable_objects:
             row.enabled = False
 
         row = column.row()
         row.operator("cc3.character", icon="ADD", text="Add New Materials").param = "ADD_MATERIALS"
-        if not missing_material:
+        if not missing_materials:
             row.enabled = False
 
         column.separator()
@@ -663,7 +663,7 @@ class CC3HairPanel(bpy.types.Panel):
 
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context, exact = True)
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
 
         # Blender Curve Hair
 
@@ -675,7 +675,7 @@ class CC3HairPanel(bpy.types.Panel):
             column = layout.column()
             column.box().label(text="Exporting", icon="EXPORT")
             column.row().operator("cc3.export_hair", icon=utils.check_icon("HAIR"), text="Export Hair")
-            column.row().prop(prefs, "hair_export_group_by", expand=True)
+            column.row().prop(props, "hair_export_group_by", expand=True)
 
             if not bpy.context.selected_objects:
                 column.enabled = False
@@ -687,16 +687,32 @@ class CC3HairPanel(bpy.types.Panel):
                 "section_hair_rigging",
                 props.section_hair_rigging):
 
+            is_hair_rig, is_accessory = hair.is_hair_rig_accessory(bpy.context.selected_objects)
+
             column = layout.column()
-            column.row().prop(prefs, "hair_curve_dir", text="")
-            column.row().prop(prefs, "hair_curve_dir_threshold", text="Alignment Threshold", slider=True)
+            split = column.split(factor=0.5)
+            split.column().label(text="UV Direction")
+            split.column().prop(props, "hair_curve_dir", text="")
+            column.row().prop(props, "hair_curve_dir_threshold", text="Alignment Threshold", slider=True)
 
             column.separator()
 
-            column = layout.column()
-            column.box().label(text="Hair Spring Rig", icon="FORCE_MAGNETIC")
-            column.row().prop(prefs, "hair_rig_bone_length", text="Bone Length (cm)", slider=True)
-            column.row().prop(prefs, "hair_rig_bind_skip_count", text="Skip First Bones", slider=True)
+            box = column.box()
+            box.label(text="Hair Spring Rig", icon="FORCE_MAGNETIC")
+            row = box.row()
+            row.prop(props, "hair_rig_target", expand=True)
+            row.scale_y = 2
+
+            column.separator()
+
+            column.row().prop(props, "hair_rig_bone_length", text="Bone Length (cm)", slider=True)
+            column.row().prop(props, "hair_rig_bind_skip_length", text="Skip Length (cm)", slider=True)
+
+            column.separator()
+
+            split = column.split(factor=0.3)
+            split.column().label(text="Hair Root")
+            split.column().prop(props, "hair_rig_bone_root", text="")
             column.separator()
             row = column.row()
             row.scale_y = 1.5
@@ -709,17 +725,18 @@ class CC3HairPanel(bpy.types.Panel):
             row.scale_y = 1
             row.operator("cc3.hair", icon=utils.check_icon("X"), text="Clear Hair Weights").param = "CLEAR_WEIGHTS"
             column.separator()
-            column.row().prop(prefs, "hair_rig_bind_bone_mode", expand=True)
-            column.row().prop(prefs, "hair_rig_bind_card_mode", expand=True)
+            column.row().prop(props, "hair_rig_bind_bone_mode", expand=True)
+            column.row().prop(props, "hair_rig_bind_card_mode", expand=True)
             column.separator()
-            column.row().prop(prefs, "hair_rig_bind_bone_radius", text="Bind Radius (cm)", slider=True)
-            column.row().prop(prefs, "hair_rig_bind_bone_count", text="Bind Bones", slider=True)
-            column.row().prop(prefs, "hair_rig_bind_bone_weight", text="Weight Scale", slider=True)
-            column.row().prop(prefs, "hair_rig_bind_weight_curve", text="Weight Curve", slider=True)
-            column.row().prop(prefs, "hair_rig_bind_bone_variance", text="Weight Variance", slider=True)
-            column.row().prop(prefs, "hair_rig_bind_existing_scale", text="Scale Body Weights", slider=True)
-            column.row().prop(prefs, "hair_rig_bind_smoothing", text="Smoothing", slider=True)
-            column.row().prop(prefs, "hair_rig_bind_seed", text="Random Seed", slider=True)
+            column.row().prop(props, "hair_rig_bind_bone_radius", text="Bind Radius (cm)", slider=True)
+            column.row().prop(props, "hair_rig_bind_bone_count", text="Bind Bones", slider=True)
+            column.row().prop(props, "hair_rig_bind_bone_weight", text="Weight Scale", slider=True)
+            column.row().prop(props, "hair_rig_bind_weight_curve", text="Weight Curve", slider=True)
+            column.row().prop(props, "hair_rig_bind_bone_variance", text="Weight Variance", slider=True)
+            if props.hair_rig_target != "CC4":
+                column.row().prop(props, "hair_rig_bind_existing_scale", text="Scale Body Weights", slider=True)
+            column.row().prop(props, "hair_rig_bind_smoothing", text="Smoothing", slider=True)
+            column.row().prop(props, "hair_rig_bind_seed", text="Random Seed", slider=True)
             column.separator()
             row = column.row()
             row.scale_y = 1.5
@@ -727,10 +744,19 @@ class CC3HairPanel(bpy.types.Panel):
 
             column.separator()
 
+            box = column.box()
+            box.label(text = "For CC4 Accessory Only", icon="INFO")
+            row = box.row()
+            row.operator("cc3.hair", icon=utils.check_icon("CONSTRAINT_BONE"), text="Make Accessory").param = "MAKE_ACCESSORY"
+            if not (is_hair_rig and not is_accessory):
+                row.enabled = False
+
+            column.separator()
+
             # Hair curve extraction
             column = layout.column()
             column.box().label(text="Extract Curves", icon="EXPORT")
-            column.row().prop(prefs, "hair_curve_merge_loops", text="")
+            column.row().prop(props, "hair_curve_merge_loops", text="")
             column.row().operator("cc3.hair", icon=utils.check_icon("HAIR"), text="Test").param = "CARDS_TO_CURVES"
 
             if not bpy.context.selected_objects:
@@ -1494,7 +1520,7 @@ class CC3ToolsCreatePanel(bpy.types.Panel):
         if chr_cache:
             chr_rig = chr_cache.get_armature()
         elif context.selected_objects:
-            chr_rig = utils.get_generic_character_rig(context.selected_objects)
+            chr_rig = utils.get_armature_in_objects(context.selected_objects)
 
         box = layout.box()
         box.label(text=f"Quick Export  ({vars.VERSION_STRING})", icon="EXPORT")
@@ -1929,7 +1955,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         if chr_cache:
             chr_rig = chr_cache.get_armature()
         elif context.selected_objects:
-            chr_rig = utils.get_generic_character_rig(context.selected_objects)
+            chr_rig = utils.get_armature_in_objects(context.selected_objects)
 
         layout = self.layout
         layout.use_property_split = False

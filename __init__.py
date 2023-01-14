@@ -172,11 +172,18 @@ def register():
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
+    bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import)
+    bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import_animation)
+    bpy.types.TOPBAR_MT_file_export.append(exporter.menu_func_export)
 
 
 def unregister():
 
     addon_updater_ops.unregister()
+
+    bpy.types.TOPBAR_MT_file_import.remove(importer.menu_func_import)
+    bpy.types.TOPBAR_MT_file_import.remove(importer.menu_func_import_animation)
+    bpy.types.TOPBAR_MT_file_export.remove(exporter.menu_func_export)
 
     for cls in classes:
         bpy.utils.unregister_class(cls)

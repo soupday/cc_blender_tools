@@ -23,6 +23,7 @@ from rna_prop_ui import rna_idprop_ui_create
 
 
 def cmp_rl_bone_names(name, bone_name):
+    """Reduce supplied bone names to their base form without prefixes and compare."""
     if bone_name.startswith("RL_"):
         bone_name = bone_name[3:]
     elif bone_name.startswith("CC_Base_"):
@@ -116,6 +117,21 @@ def get_pose_bone(rig, name):
             if name in rig.pose.bones:
                 return rig.pose.bones[name]
     return None
+
+
+def align_edit_bone_roll(edit_bone : bpy.types.EditBone, axis):
+    if axis == "X":
+        edit_bone.align_roll(mathutils.Vector((1,0,0)))
+    if axis == "Y":
+        edit_bone.align_roll(mathutils.Vector((0,1,0)))
+    if axis == "Z":
+        edit_bone.align_roll(mathutils.Vector((0,0,1)))
+    if axis == "-X":
+        edit_bone.align_roll(mathutils.Vector((-1,0,0)))
+    if axis == "-Y":
+        edit_bone.align_roll(mathutils.Vector((0,-1,0)))
+    if axis == "-Z":
+        edit_bone.align_roll(mathutils.Vector((0,0,-1)))
 
 
 def rename_bone(rig, from_name, to_name):
@@ -409,6 +425,35 @@ def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_local_location = True if "L" in flags else False
     edit_bone.use_inherit_rotation = True if "R" in flags else False
     edit_bone.use_deform = deform
+
+
+def show_armature_layers(rig : bpy.types.Object, layer_list : list, in_front = False, wireframe = False):
+    rig.show_in_front = in_front
+    rig.display_type = 'WIRE' if wireframe else 'SOLID'
+    armature : bpy.types.Armature = rig.data
+
+    utils.edit_mode_to(rig)
+    for i in range(0, 32):
+        if i in layer_list:
+            armature.layers[i] = True
+        else:
+            armature.layers[i] = False
+
+    utils.pose_mode_to(rig)
+    for i in range(0, 32):
+        if i in layer_list:
+            armature.layers[i] = True
+        else:
+            armature.layers[i] = False
+
+    utils.object_mode_to(rig)
+    for i in range(0, 32):
+        if i in layer_list:
+            armature.layers[i] = True
+        else:
+            armature.layers[i] = False
+
+    return
 
 
 def set_bone_layer(rig, bone_name, layer):

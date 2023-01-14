@@ -218,47 +218,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
     cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
 
-    # hair
-    hair_export_group_by: bpy.props.EnumProperty(items=[
-                        ("CURVE","Curve","Group by curve objects"),
-                        ("NAME","Name","Gropu by name"),
-                        ("NONE","Single","Don't export separate groups"),
-                    ], default="CURVE", name = "Export Hair Grouping",
-                       description="Export hair groups by...")
-
-    hair_curve_dir_threshold: bpy.props.FloatProperty(default=0.9, min=0.0, max=1.0, name="Direction Threshold")
-    hair_curve_dir: bpy.props.EnumProperty(items=[
-                        ("UP","UV Direction: Up","Hair cards from bottom to top in UV map"),
-                        ("DOWN","UV Direction: Down","Hair cards from top to bottom in UV map"),
-                        ("LEFT","UV Direction: Left","Hair cards from right to left in UV map"),
-                        ("RIGHT","UV Direction: Right","Hair cards from left to right in UV map"),
-                    ], default="DOWN", name = "UV Direction",
-                       description="Direction of hair cards in UV Map")
-    hair_curve_merge_loops: bpy.props.EnumProperty(items=[
-                        ("ALL","Use All Edge Loops","All edge loops in the cards will be converted into curves"),
-                        ("MERGE","Merge Edge Loops","Edge loops in each card will be merged into a single curve"),
-                    ], default="MERGE", name = "Merge Loops",
-                       description="Merge edge loops")
-
-    hair_rig_bind_skip_count: bpy.props.IntProperty(default=1, min=0, max=8)
-    hair_rig_bone_length: bpy.props.FloatProperty(default=7.5, min=1, max=25)
-    hair_rig_bind_bone_radius: bpy.props.FloatProperty(default=7.5, min=1, max=25)
-    hair_rig_bind_bone_count: bpy.props.IntProperty(default=2, min=1, max=4)
-    hair_rig_bind_bone_weight: bpy.props.FloatProperty(default=2.0, min=0.0, max=1.0)
-    hair_rig_bind_bone_variance: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0)
-    hair_rig_bind_existing_scale: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0)
-    hair_rig_bind_weight_curve: bpy.props.FloatProperty(default=1.0, min=0.25, max=4.0)
-    hair_rig_bind_smoothing: bpy.props.IntProperty(default=5, min=0, max=10)
-    hair_rig_bind_seed: bpy.props.IntProperty(default=1, min=1, max=10000)
-    hair_rig_bind_card_mode: bpy.props.EnumProperty(items=[
-                        ("ALL","All Cards","Bind all hair cards in the selected objects"),
-                        ("SELECTED","Selected Cards","Bind only the selected hair cards in each selected object"),
-                    ], default="ALL", name = "Hair Card Selection Mode")
-    hair_rig_bind_bone_mode: bpy.props.EnumProperty(items=[
-                        ("ALL","All Bones","Bind to all bones in the hair rig"),
-                        ("SELECTED","Selected Bones","Bind to only the selected bones of the hair rig"),
-                    ], default="ALL", name = "Bone Selection Mode")
-
     # addon updater preferences
 
     auto_check_update: bpy.props.BoolProperty(
@@ -293,17 +252,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 		min=0,
 		max=59
 		)
-
-
-    def hair_dir_vector(self):
-        if self.hair_curve_dir == "UP":
-            return Vector((0,1))
-        elif self.hair_curve_dir == "LEFT":
-            return Vector((-1,0))
-        elif self.hair_curve_dir == "RIGHT":
-            return Vector((1,0))
-        else: #if self.hair_curve_dir == "DOWN":
-            return Vector((0,-1))
 
 
     def draw(self, context):

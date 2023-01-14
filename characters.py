@@ -173,7 +173,7 @@ def convert_generic_to_non_standard(objects, file_path = None):
     objects = bpy.context.selected_objects
 
     # try to find a character armature
-    chr_rig = utils.get_generic_character_rig(objects)
+    chr_rig = utils.get_armature_in_objects(objects)
     chr_type = "HUMANOID"
 
     # if not generate one from the objects and empty parent transforms (Prop Only)
@@ -334,7 +334,7 @@ def get_accessory_root(chr_cache, object):
 
         # if even one vertex groups belongs to the character bones, it will not import into cc4 as an accessory
         if bones.bone_mapping_contains_bone(bone_mappings, vg.name):
-            return
+            return None
 
         else:
             bone = bones.get_bone(rig, vg.name)
@@ -423,6 +423,8 @@ def make_accessory(chr_cache, objects):
 
                         obj_data[obj]["bone"] = obj_bone
                         obj_data[obj]["def_bone"] = def_bone
+
+                utils.object_mode_to(rig)
 
                 # parent the object bone to the accessory bone (or object transform parent bone)
                 for obj in objects:

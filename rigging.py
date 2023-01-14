@@ -331,24 +331,11 @@ def restore_bone_roll(meta_rig, roll_store):
                 bone.align_roll(bone_z_axis)
                 for correction in rigify_mapping_data.ROLL_CORRECTION:
                     if correction[0] == bone.name:
-
                         if steep_a_pose:
                             axis = correction[2]
                         else:
                             axis = correction[1]
-
-                        if axis == "X":
-                            bone.align_roll(mathutils.Vector((1,0,0)))
-                        if axis == "Y":
-                            bone.align_roll(mathutils.Vector((0,1,0)))
-                        if axis == "Z":
-                            bone.align_roll(mathutils.Vector((0,0,1)))
-                        if axis == "-X":
-                            bone.align_roll(mathutils.Vector((-1,0,0)))
-                        if axis == "-Y":
-                            bone.align_roll(mathutils.Vector((0,-1,0)))
-                        if axis == "-Z":
-                            bone.align_roll(mathutils.Vector((0,0,-1)))
+                        bones.align_edit_bone_roll(bone, axis)
 
 
 def set_rigify_params(meta_rig):
@@ -2148,6 +2135,7 @@ def adv_retarget_shape_keys(op, chr_cache, report):
 def generate_export_rig(chr_cache, force_t_pose = False):
     rigify_rig = chr_cache.get_armature()
     export_rig = utils.duplicate_object(rigify_rig)
+
     if export_rig:
         export_rig.name = chr_cache.character_name + "_Export"
         export_rig.name = chr_cache.character_name + "_Export"
@@ -2179,6 +2167,9 @@ def generate_export_rig(chr_cache, force_t_pose = False):
     a_pose = False
     layer = 0
 
+    utils.set_mode("OBJECT")
+    utils.set_mode("EDIT")
+
     if edit_rig(export_rig):
 
         edit_bones = export_rig.data.edit_bones
@@ -2194,7 +2185,8 @@ def generate_export_rig(chr_cache, force_t_pose = False):
             bone_name = export_def[0]
             parent_name = export_def[1]
             unity_name = export_def[2]
-            flags = export_def[3]
+            axis = export_def[3]
+            flags = export_def[4]
             bone = None
             parent_bone = None
 
@@ -2206,8 +2198,8 @@ def generate_export_rig(chr_cache, force_t_pose = False):
                     parent_bone = edit_bones[parent_name]
                 if parent_bone:
                     bone.parent = parent_bone
-                if "T" in flags and len(export_def) > 4:
-                    copy_name = export_def[4]
+                if "T" in flags and len(export_def) > 5:
+                    copy_name = export_def[5]
                     if copy_name in edit_bones:
                         copy_bone = edit_bones[copy_name]
                         bone.head = copy_bone.head
@@ -2216,6 +2208,10 @@ def generate_export_rig(chr_cache, force_t_pose = False):
 
                 # set flags
                 bones.set_edit_bone_flags(bone, flags, True)
+
+                # align roll
+                # Dont do this...
+                #bones.align_edit_bone_roll(bone, axis)
 
                 # set layer
                 for l in range(0, 32):
@@ -2297,11 +2293,12 @@ def adv_bake_rigify_for_export(chr_cache, export_rig):
             for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
                 rigify_bone_name = export_def[0]
                 unity_bone_name = export_def[2]
-                flags = export_def[3]
+                axis = export_def[3]
+                flags = export_def[4]
                 if unity_bone_name == "":
                     unity_bone_name = rigify_bone_name
-                if "T" in flags and len(export_def) > 4:
-                    rigify_bone_name = export_def[4]
+                if "T" in flags and len(export_def) > 5:
+                    rigify_bone_name = export_def[5]
                 bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
                 bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
 

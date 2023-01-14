@@ -17,6 +17,7 @@
 import os
 import shutil
 import bpy
+import bpy_extras
 
 from . import (characters, rigging, imageutils, jsonutils, materials, modifiers, nodeutils, physics,
                scene, channel_mixer, shaders, basic, properties, utils, vars)
@@ -1042,7 +1043,7 @@ class CC3ImportAnimations(bpy.types.Operator):
     """Import CC3 animations"""
     bl_idname = "cc3.anim_importer"
     bl_label = "Import Animations"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER", "UNDO", 'PRESET'}
 
     filepath: bpy.props.StringProperty(
         name="Filepath",
@@ -1173,4 +1174,11 @@ class CC3ImportAnimations(bpy.types.Operator):
     def description(cls, context, properties):
         return ""
 
+
+def menu_func_import(self, context):
+    self.layout.operator(CC3Import.bl_idname, text="Reallusion Character (.fbx, .obj, .vrm)").param = "IMPORT_MENU"
+
+
+def menu_func_import_animation(self, context):
+    self.layout.operator(CC3ImportAnimations.bl_idname, text="Reallusion Animation (.fbx)")
 

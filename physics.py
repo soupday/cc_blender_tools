@@ -875,7 +875,7 @@ def separate_physics_materials(chr_cache, context):
 def disable_physics(chr_cache, physics_objects = None):
     changed_objects = []
     if not physics_objects:
-        physics_objects = chr_cache.get_all_objects(False, True)
+        physics_objects = chr_cache.get_all_objects(include_armature = False, include_children = True, of_type = "MESH")
     for obj in physics_objects:
         for mod in obj.modifiers:
             if mod.type == "CLOTH":
@@ -893,7 +893,7 @@ def disable_physics(chr_cache, physics_objects = None):
 
 def enable_physics(chr_cache, physics_objects = None):
     if not physics_objects:
-        physics_objects = chr_cache.get_all_objects(False, True)
+        physics_objects = chr_cache.get_all_objects(include_armature = False, include_children = True, of_type = "MESH")
     for obj in physics_objects:
         for mod in obj.modifiers:
             if mod.type == "CLOTH":
@@ -910,7 +910,7 @@ def add_all_physics(chr_cache):
         utils.log_info(f"Adding all Physics modifiers to: {chr_cache.character_name}")
         utils.log_indent()
         arm = chr_cache.get_armature()
-        objects = chr_cache.get_all_objects(False, False)
+        objects = chr_cache.get_all_objects(include_armature = False, include_children = False, of_type = "MESH")
         objects_processed = []
         accessory_colldiers = get_accessory_colliders(arm, objects, True)
         for obj_cache in chr_cache.object_cache:
