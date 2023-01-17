@@ -28,7 +28,7 @@ HEAD_BONE_NAMES = ["CC_Base_Head", "RL_Head", "Head", "head"]
 JAW_BONE_NAMES = ["CC_Base_JawRoot", "RL_JawRoot", "JawRoot"]
 EYE_BONE_NAMES = ["CC_Base_R_Eye", "CC_Base_L_Eye", "CC_Base_R_Eye", "CC_Base_L_Eye"]
 ROOT_BONE_NAMES = ["CC_Base_Head", "RL_Head", "Head", "head", "CC_Base_JawRoot", "RL_JawRoot", "JawRoot"]
-
+STROKE_JOIN_THRESHOLD = 1.0 / 100.0 # 1cm
 
 def begin_hair_sculpt(chr_cache):
     return
@@ -1220,8 +1220,6 @@ def find_stroke_set_root(stroke_set, stroke, done : list = []):
 
 
 def combine_strokes(strokes):
-    threshold = 0.01
-
     stroke_set = {}
 
     for stroke in strokes:
@@ -1233,9 +1231,9 @@ def combine_strokes(strokes):
         stroke_set[stroke] = [next_strokes, prev_strokes]
         for s in strokes:
             if s != stroke:
-                if (s.points[0].co - last).length < threshold:
+                if (s.points[0].co - last).length < STROKE_JOIN_THRESHOLD:
                     next_strokes.append(s)
-                if (s.points[-1].co - first).length < threshold:
+                if (s.points[-1].co - first).length < STROKE_JOIN_THRESHOLD:
                     prev_strokes.append(s)
 
     stroke_roots = set()
@@ -1257,12 +1255,23 @@ def stroke_root_to_loop(stroke_set, stroke, loop : list):
 
 # TODO if the loop length is less than 30? subdivide until it is greater, (so the smoothing works better)
 def subdivide_loop(loop):
-    pass
+    subd = []
+    for i in range(0, len(loop) - 1):
+        l0 = loop[i]
+        l2 = loop[i + 1]
+        l1 = (l0 + l2) * 0.5
+        subd.append(l0)
+        subd.append(l1)
+    subd.append(loop[-1])
+    loop.clear()
+    for co in subd:
+        loop.append(co)
 
 
 def smooth_loop(loop):
     strength = 0.5
-    iterations = min(10, max(1, int(len(loop) / 5)))
+    #iterations = min(10, max(1, int(len(loop) / 5)))
+    iterations = 10
     smoothed_loop = loop.copy()
     for i in range(0, iterations):
         for l in range(0, len(loop)):
@@ -1286,6 +1295,8 @@ def greased_pencil_to_length_loops(bone_length):
         loop = []
         stroke_root_to_loop(stroke_set, root, loop)
         if len(loop) > 1 and loop_length(loop) >= bone_length / 2:
+            while(len(loop) < 25):
+                subdivide_loop(loop)
             smooth_loop(loop)
             loops.append(loop)
 
