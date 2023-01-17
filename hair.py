@@ -674,6 +674,9 @@ def get_hair_rig(chr_cache, arm, parent_mode, create_if_missing = False):
 def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
     """Generate hair rig bones from vertex loops. Must be in edit mode on armature."""
 
+    if len(loop) < 2:
+        return False
+
     # minimum skip length of half the length
     skip_length = min(skip_length, 3.0 * length / 4.0)
     segments = max(1, round((length - skip_length) / bone_length))
@@ -716,7 +719,7 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_le
                 bone.use_connect = True
             fac += df
 
-    return chain
+    return True
 
 
 def get_root_edit_bone(chr_cache, arm, parent_mode):
@@ -786,8 +789,8 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
         for loop in loops:
             length = loop_length(loop)
             loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
-            loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones)
-            loop_index += 1
+            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
+                loop_index += 1
     utils.object_mode_to(arm)
 
     restore_pose(arm, arm_pose)
@@ -906,6 +909,7 @@ def get_weighted_bone_distance(bone_chain, max_radius, median_loop, median_lengt
 def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_radius, max_bones, max_weight,
                          curve, variance):
     props = bpy.context.scene.CC3ImportProps
+    CC4_SPRING_RIG = props.hair_rig_target == "CC4"
 
     # vertex weights are in the deform layer of the BMesh verts
 
@@ -919,12 +923,21 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
     if len(sorted_bones) < max_bones:
         max_bones = len(sorted_bones)
 
-    min_weight = 0.01 if props.hair_rig_target == "CC4" else 0.0
+    min_weight = 0.01 if CC4_SPRING_RIG else 0.0
 
-    bone_weight_mods = []
+    bone_weight_variance_mods = []
     min_weight = max_weight - max_weight * variance
     for i in range(0, max_bones):
-        bone_weight_mods.append(random.uniform(min_weight, max_weight))
+        bone_weight_variance_mods.append(random.uniform(min_weight, max_weight))
+
+    first_bone_groups = []
+    if CC4_SPRING_RIG:
+        for b in range(0, max_bones):
+            bone_chain = sorted_bones[b]["bones"]
+            bone_def = bone_chain[0]
+            bone_name = bone_def["name"]
+            vg = meshutils.add_vertex_group(obj, bone_name)
+            first_bone_groups.append(vg)
 
     for i, co in enumerate(median):
         ml = loop_length(median, i)
@@ -932,12 +945,18 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
         for b in range(0, max_bones):
             bone_chain = sorted_bones[b]["bones"]
             bone_def, bone_distance, bone_fac = get_closest_bone_def(bone_chain, co, max_radius)
+
             weight_distance = min(max_radius, max(0, max_radius - bone_distance))
-            weight = bone_weight_mods[b] * (weight_distance / max_radius) / max_bones
-            if bone_def != bone_chain[0]:
+            weight = bone_weight_variance_mods[b] * (weight_distance / max_radius) / max_bones
+
+            if CC4_SPRING_RIG:
                 bone_fac = 1.0
+            elif bone_def != bone_chain[0]:
+                bone_fac = 1.0
+
             weight *= max(0, min(bone_fac, card_length_fac))
             weight = max(min_weight, weight)
+
             bone_name = bone_def["name"]
             vg = meshutils.add_vertex_group(obj, bone_name)
             if vg:
@@ -945,6 +964,9 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
                 for vert_index in vert_loop:
                     vertex = bm.verts[vert_index]
                     vertex[dl][vg.index] = weight
+                    if CC4_SPRING_RIG:
+                        first_vg = first_bone_groups[b]
+                        vertex[dl][first_vg.index] = 1 - max_weight
 
 
 def sort_func_weighted_distance(bone_weight_distance):
@@ -1186,7 +1208,123 @@ def smooth_hair_bone_weights(arm, obj, bone_chains, iterations):
 
 
 
+def find_stroke_set_root(stroke_set, stroke, done : list = []):
+    done.append(stroke)
+    next_strokes, prev_strokes = stroke_set[stroke]
+    if not prev_strokes:
+        return stroke
+    elif prev_strokes not in done:
+        return find_stroke_set_root(stroke_set, prev_strokes[0], done)
+    else:
+        return None
 
+
+def combine_strokes(strokes):
+    threshold = 0.01
+
+    stroke_set = {}
+
+    for stroke in strokes:
+        # if the last position is near the first position of another stroke...
+        first = stroke.points[0].co
+        last = stroke.points[-1].co
+        next_strokes = []
+        prev_strokes = []
+        stroke_set[stroke] = [next_strokes, prev_strokes]
+        for s in strokes:
+            if s != stroke:
+                if (s.points[0].co - last).length < threshold:
+                    next_strokes.append(s)
+                if (s.points[-1].co - first).length < threshold:
+                    prev_strokes.append(s)
+
+    stroke_roots = set()
+    for stroke in strokes:
+        root = find_stroke_set_root(stroke_set, stroke)
+        if root:
+            stroke_roots.add(root)
+
+    return stroke_set, stroke_roots
+
+
+def stroke_root_to_loop(stroke_set, stroke, loop : list):
+    next_strokes, prev_strokes = stroke_set[stroke]
+    for p in stroke.points:
+        loop.append(p.co)
+    if next_strokes:
+        stroke_root_to_loop(stroke_set, next_strokes[0], loop)
+
+
+# TODO if the loop length is less than 30? subdivide until it is greater, (so the smoothing works better)
+def subdivide_loop(loop):
+    pass
+
+
+def smooth_loop(loop):
+    strength = 0.5
+    iterations = min(10, max(1, int(len(loop) / 5)))
+    smoothed_loop = loop.copy()
+    for i in range(0, iterations):
+        for l in range(0, len(loop)):
+            smoothed_loop[l] = loop[l]
+        for l in range(1, len(loop)-1):
+            smoothed = (loop[l - 1] + loop[l] + loop[l + 1]) / 3.0
+            original = loop[l]
+            smoothed_loop[l] = (smoothed - original) * strength + original
+        for l in range(0, len(loop)):
+            loop[l] = smoothed_loop[l]
+
+
+def greased_pencil_to_length_loops(bone_length):
+    current_frame = bpy.context.scene.frame_current
+    note_layer = bpy.data.grease_pencils['Annotations'].layers['Note']
+    frame = note_layer.active_frame
+    stroke_set, stroke_roots = combine_strokes(frame.strokes)
+
+    loops = []
+    for root in stroke_roots:
+        loop = []
+        stroke_root_to_loop(stroke_set, root, loop)
+        if len(loop) > 1 and loop_length(loop) >= bone_length / 2:
+            smooth_loop(loop)
+            loops.append(loop)
+
+    return loops
+
+
+def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
+
+    mode_selection = utils.store_mode_selection()
+    arm_pose = reset_pose(arm)
+
+    repair_orphaned_hair_bones(chr_cache, arm)
+
+    bones.show_armature_layers(arm, [25], in_front=True)
+
+    hair_bone_prefix = get_hair_bone_prefix(parent_mode)
+
+    # check root bone exists...
+    root_bone_name = get_root_bone_name(chr_cache, arm, parent_mode)
+    root_bone = bones.get_pose_bone(arm, root_bone_name)
+
+    if root_bone:
+        loops = greased_pencil_to_length_loops(bone_length)
+        utils.edit_mode_to(arm)
+        for edit_bone in arm.data.edit_bones:
+            edit_bone.select_head = False
+            edit_bone.select_tail = False
+            edit_bone.select = False
+        loop_index = 1
+        new_bones = []
+        for loop in loops:
+            length = loop_length(loop)
+            loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
+            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
+                loop_index += 1
+    utils.object_mode_to(arm)
+
+    restore_pose(arm, arm_pose)
+    utils.restore_mode_selection(mode_selection)
 
 
 def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector, max_radius, max_bones, max_weight, curve, variance, existing_scale, card_mode, bone_mode, smoothing):
@@ -1327,6 +1465,18 @@ class CC3OperatorHair(bpy.types.Operator):
                                         one_loop_per_card = True,
                                         bone_length = props.hair_rig_bone_length / 100.0,
                                         skip_length = props.hair_rig_bind_skip_length / 100.0)
+            else:
+                self.report({"ERROR"}, "Active Object must be a mesh!")
+
+        if self.param == "ADD_BONES_GREASE":
+
+            chr_cache = props.get_context_character_cache(context)
+            arm = chr_cache.get_armature()
+
+            if utils.object_exists_is_armature(arm):
+                grease_pencil_to_bones(chr_cache, arm, props.hair_rig_bone_root,
+                                       bone_length = props.hair_rig_bone_length / 100.0,
+                                       skip_length = props.hair_rig_bind_skip_length / 100.0)
             else:
                 self.report({"ERROR"}, "Active Object must be a mesh!")
 

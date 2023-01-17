@@ -716,7 +716,11 @@ class CC3HairPanel(bpy.types.Panel):
             column.separator()
             row = column.row()
             row.scale_y = 1.5
-            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Add Bone(s)").param = "ADD_BONES"
+            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Selected Cards to Bone(s)").param = "ADD_BONES"
+            column.separator()
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Grease Pencil to Bone(s)").param = "ADD_BONES_GREASE"
             column.separator()
             row = column.row()
             row.scale_y = 1
