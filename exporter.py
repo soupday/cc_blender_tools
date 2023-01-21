@@ -429,6 +429,10 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         copy_and_update_texture_path(mat_json["Custom Shader"]["Image"][channel], "Texture Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied)
                 if physics_mat_json:
                     copy_and_update_texture_path(physics_mat_json, "Weight Map Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied)
+                if "Wrinkle" in mat_json.keys():
+                    for channel in mat_json["Wrinkle"]["Textures"].keys():
+                        copy_and_update_texture_path(mat_json["Wrinkle"]["Textures"][channel], "Texture Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied)
+
 
             else:
                 for channel in mat_json["Textures"].keys():
@@ -438,6 +442,9 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         remap_texture_path(mat_json["Custom Shader"]["Image"][channel], "Texture Path", old_path, new_path, mat_data)
                 if physics_mat_json:
                     remap_texture_path(physics_mat_json, "Weight Map Path", old_path, new_path, mat_data)
+                if "Wrinkle" in mat_json.keys():
+                    for channel in mat_json["Wrinkle"]["Textures"].keys():
+                        remap_texture_path(mat_json["Wrinkle"]["Textures"][channel], "Texture Path", old_path, new_path, mat_data)
 
             mat_data["processed"] = True
             # texure paths
