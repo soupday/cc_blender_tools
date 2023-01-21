@@ -926,9 +926,8 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
     min_weight = 0.01 if CC4_SPRING_RIG else 0.0
 
     bone_weight_variance_mods = []
-    min_weight = max_weight - max_weight * variance
     for i in range(0, max_bones):
-        bone_weight_variance_mods.append(random.uniform(min_weight, max_weight))
+        bone_weight_variance_mods.append(random.uniform(max_weight * (1 - variance), max_weight))
 
     first_bone_groups = []
     if CC4_SPRING_RIG:
