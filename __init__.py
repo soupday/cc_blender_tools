@@ -40,6 +40,7 @@ if "bpy" in locals():
     importlib.reload(importer)
     importlib.reload(geom)
     importlib.reload(bones)
+    importlib.reload(drivers)
     importlib.reload(rigify_mapping_data)
     importlib.reload(rigging)
     importlib.reload(sculpting)
@@ -71,6 +72,7 @@ from . import exporter
 from . import importer
 from . import geom
 from . import bones
+from . import drivers
 from . import rigify_mapping_data
 from . import rigging
 from . import sculpting

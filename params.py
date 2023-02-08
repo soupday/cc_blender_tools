@@ -14,9 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-# [system_id, json_id, suffix_list]
-
-
+# [system_id, json_id, suffix_list, <library_file_name>]
 TEXTURE_TYPES = [
     # pbr textures
     ["DIFFUSE", "Base Color", ["diffuse", "albedo"]],
@@ -59,6 +57,20 @@ TEXTURE_TYPES = [
     # mixer mask textures
     ["COLORID", "ColorID", ["colorid"]],
     ["RGBMASK", "RGBMask", ["rgbmask"]],
+    # wrinkle maps
+    ["WRINKLEDIFFUSE1", "Diffuse_1", ["wrinkle_diffuse1"]],
+    ["WRINKLEDIFFUSE2", "Diffuse_2", ["wrinkle_diffuse2"]],
+    ["WRINKLEDIFFUSE3", "Diffuse_3", ["wrinkle_diffuse3"]],
+    ["WRINKLEROUGHNESS1", "Roughness_1", ["wrinkle_roughness1"]],
+    ["WRINKLEROUGHNESS2", "Roughness_2", ["wrinkle_roughness2"]],
+    ["WRINKLEROUGHNESS3", "Roughness_3", ["wrinkle_roughness3"]],
+    ["WRINKLENORMAL1", "Normal_1", ["wrinkle_normal1"]],
+    ["WRINKLENORMAL2", "Normal_2", ["wrinkle_normal2"]],
+    ["WRINKLENORMAL3", "Normal_3", ["wrinkle_normal3"]],
+    ["WRINKLEMASK11", "", [], "rl_wrinkle_mask_11"],
+    ["WRINKLEMASK12", "", [], "rl_wrinkle_mask_12"],
+    ["WRINKLEMASK2", "Mask_2", [], "rl_wrinkle_mask_2"],
+    ["WRINKLEMASK3", "Mask_3", [], "rl_wrinkle_mask_3"],
 ]
 
 PBR_TYPES = [
@@ -687,7 +699,7 @@ SHADER_MATRIX = [
             ["HSV Strength", "", "tongue_hsv_strength"],
             ["Front AO", "", "tongue_front_ao"],
             ["Rear AO", "", "tongue_rear_ao"],
-            ["AO Strength", "", "tongue_ao_strength"],
+            ["AO Strength", "func_set_third", "tongue_ao_strength"],
             ["Subsurface Scale", "func_sss_tongue", "tongue_subsurface_scatter"],
             ["Front Specular", "", "tongue_front_specular"],
             ["Rear Specular", "", "tongue_rear_specular"],
@@ -818,7 +830,7 @@ SHADER_MATRIX = [
             ["Teeth HSV Strength", "", "teeth_teeth_hsv_strength"],
             ["Front AO", "", "teeth_front_ao"],
             ["Rear AO", "", "teeth_rear_ao"],
-            ["AO Strength", "", "teeth_ao_strength"],
+            ["AO Strength", "func_set_third", "teeth_ao_strength"],
             ["Teeth Subsurface Scale", "func_sss_teeth", "teeth_teeth_subsurface_scatter"],
             ["Gums Subsurface Scale", "func_sss_teeth", "teeth_gums_subsurface_scatter"],
             ["Front Specular", "", "teeth_front_specular"],
@@ -1748,6 +1760,57 @@ SHADER_MATRIX = [
                 "Variable": {},
             },
         },
+
+
+    },
+
+    # Wrinkle Shader
+    #####################################
+
+    {   "name": "rl_wrinkle_shader",
+        "rl_shader": "Wrinkle",
+        "label": "Wrinkle Maps",
+        # property inputs:
+        # [input_socket, function, property_arg1, property_arg2...]
+        "inputs": [
+        ],
+        # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
+        "bsdf": [
+        ],
+        # texture inputs:
+        # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
+        "textures": [
+            ["Diffuse Map", "", "DIFFUSE"],
+            ["Roughness Map", "", "ROUGHNESS"],
+            ["Normal Map", "", "NORMAL"],
+            ["Diffuse Blend Map 1", "", "WRINKLEDIFFUSE1"],
+            ["Diffuse Blend Map 2", "", "WRINKLEDIFFUSE2"],
+            ["Diffuse Blend Map 3", "", "WRINKLEDIFFUSE3"],
+            ["Roughness Blend Map 1", "", "WRINKLEROUGHNESS1"],
+            ["Roughness Blend Map 2", "", "WRINKLEROUGHNESS2"],
+            ["Roughness Blend Map 3", "", "WRINKLEROUGHNESS3"],
+            ["Normal Blend Map 1", "", "WRINKLENORMAL1"],
+            ["Normal Blend Map 2", "", "WRINKLENORMAL2"],
+            ["Normal Blend Map 3", "", "WRINKLENORMAL3"],
+            ["Mask 11 RGB", "Mask 11 A", "WRINKLEMASK11"],
+            ["Mask 12 RGB", "Mask 12 A", "WRINKLEMASK12"],
+            ["Mask 2 RGB", "Mask 2 A", "WRINKLEMASK2"],
+            ["Mask 3 RGB", "Mask 3 A", "WRINKLEMASK3"],
+        ],
+        # shader variables:
+        # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
+        "vars": [
+        ],
+        # export variables to update json file on export that need special conversion
+        # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
+        "export": [
+        ],
+        "ui": [
+        ],
+        "basic": [
+        ],
+        "json_template": {
+        },
     },
 ]
 
@@ -1946,3 +2009,39 @@ JSON_PHYSICS_MATERIAL = {
     "Self Collision Margin": 0.0,
     "Stiffness Frequency": 10.0
 }
+
+WRINKLE_MAPPINGS = [
+    ["Value 11 Left X", ["Eye_Squint_L"]],
+    ["Value 11 Left Y", ["Brow_Raise_Inner_L"]],
+    ["Value 11 Left Z", ["Mouth_Pucker_Down_L", "Mouth_L"]],
+    ["Value 11 Left W", ["Mouth_Shrug_Lower", "Mouth_Up"]],
+    ["Value 12 Left X", ["Jaw_Open"]],
+    ["Value 12 Left Y", ["Eye_Blink_L"]],
+    ["Value 12 Left Z", ["Brow_Raise_Outer_L"]],
+    ["Value 12 Left W", ["Mouth_Pucker_Up_L", "Mouth_L"]],
+    ["Value 2 Left X",  ["Neck_Tighten_L"]],
+    ["Value 2 Left Y",  ["Brow_Drop_L", "Nose_Sneer_L"]],
+    ["Value 2 Left Z",  ["Nose_Sneer_L", "Nose_Nostril_Raise_L"]],
+    ["Value 2 Left W",  ["Mouth_Stretch_L", "Mouth_Frown_L"]],
+    ["Value 3 Left X",  ["Mouth_Smile_L", "Mouth_Smile_Sharp_L"]],
+    ["Value 3 Left Y",  ["Brow_Compress_L"]],
+    ["Value 3 Left Z",  ["Cheek_Raise_L", "Mouth_L"]],
+    ["Value 3 Left W",  ["Nose_Crease_L", "Mouth_Up_Upper_L", "Mouth_L"]],
+
+    ["Value 11 Right X", ["Eye_Squint_R"]],
+    ["Value 11 Right Y", ["Brow_Raise_Inner_R"]],
+    ["Value 11 Right Z", ["Mouth_Pucker_Down_R", "Mouth_R"]],
+    ["Value 11 Right W", ["Mouth_Shrug_Rower", "Mouth_Up"]],
+    ["Value 12 Right X", ["Jaw_Open"]],
+    ["Value 12 Right Y", ["Eye_Blink_R"]],
+    ["Value 12 Right Z", ["Brow_Raise_Outer_R"]],
+    ["Value 12 Right W", ["Mouth_Pucker_Up_R", "Mouth_R"]],
+    ["Value 2 Right X",  ["Neck_Tighten_R"]],
+    ["Value 2 Right Y",  ["Brow_Drop_R", "Nose_Sneer_R"]],
+    ["Value 2 Right Z",  ["Nose_Sneer_R", "Nose_Nostril_Raise_R"]],
+    ["Value 2 Right W",  ["Mouth_Stretch_R", "Mouth_Frown_R"]],
+    ["Value 3 Right X",  ["Mouth_Smile_R", "Mouth_Smile_Sharp_R"]],
+    ["Value 3 Right Y",  ["Brow_Compress_R"]],
+    ["Value 3 Right Z",  ["Cheek_Raise_R", "Mouth_R"]],
+    ["Value 3 Right W",  ["Nose_Crease_R", "Mouth_Up_Upper_R", "Mouth_R"]],
+]

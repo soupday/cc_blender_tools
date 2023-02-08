@@ -56,12 +56,13 @@ def eye_close_update(self, context):
     eo_object = None
     tearline_object = None
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.object_type == "BODY":
-            body_object = obj_cache.object
-        elif obj_cache.object_type == "EYE_OCCLUSION":
-            eo_object = obj_cache.object
-        elif obj_cache.object_type == "TEARLINE":
-            tearline_object = obj_cache.object
+        if obj_cache.is_mesh():
+            if obj_cache.object_type == "BODY":
+                body_object = obj_cache.get_object()
+            elif obj_cache.object_type == "EYE_OCCLUSION":
+                eo_object = obj_cache.get_object()
+            elif obj_cache.object_type == "TEARLINE":
+                tearline_object = obj_cache.get_object()
 
     if body_object:
         try:
@@ -312,45 +313,46 @@ def update_all_properties(context, update_mode = None):
         processed = []
 
         for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.object
-            if obj not in processed:
+            obj = obj_cache.get_object()
+            if obj_cache.is_mesh() and obj not in processed:
+
                 processed.append(obj)
-                if obj.type == "MESH":
-                    for mat in obj.data.materials:
-                        if mat and mat not in processed:
-                            processed.append(mat)
-                            mat_cache = chr_cache.get_material_cache(mat)
 
-                            if chr_cache.setup_mode == "BASIC":
+                for mat in obj.data.materials:
+                    if mat and mat not in processed:
+                        processed.append(mat)
+                        mat_cache = chr_cache.get_material_cache(mat)
 
-                                basic.update_basic_material(mat, mat_cache, "ALL")
+                        if chr_cache.setup_mode == "BASIC":
 
-                            else:
+                            basic.update_basic_material(mat, mat_cache, "ALL")
 
-                                shader_name = params.get_shader_name(mat_cache)
-                                bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
-                                shader_def = params.get_shader_def(shader_name)
+                        else:
 
-                                shaders.apply_prop_matrix(bsdf_node, shader_node, mat_cache, shader_name)
+                            shader_name = params.get_shader_name(mat_cache)
+                            bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
+                            shader_def = params.get_shader_def(shader_name)
 
-                                if "textures" in shader_def.keys():
-                                    for tex_def in shader_def["textures"]:
-                                        tiling_props = tex_def[5:]
-                                        for prop_name in tiling_props:
-                                            update_shader_property(obj, mat, mat_cache, prop_name)
+                            shaders.apply_prop_matrix(bsdf_node, shader_node, mat_cache, shader_name)
 
-                                if "modifiers" in shader_def.keys():
-                                    for mod_def in shader_def["modifiers"]:
-                                        prop_name = mod_def[0]
+                            if "textures" in shader_def.keys():
+                                for tex_def in shader_def["textures"]:
+                                    tiling_props = tex_def[5:]
+                                    for prop_name in tiling_props:
                                         update_shader_property(obj, mat, mat_cache, prop_name)
 
-                                if "settings" in shader_def.keys():
-                                    for mat_def in shader_def["settings"]:
-                                        prop_name = mat_def[0]
-                                        update_shader_property(obj, mat, mat_cache, prop_name)
+                            if "modifiers" in shader_def.keys():
+                                for mod_def in shader_def["modifiers"]:
+                                    prop_name = mod_def[0]
+                                    update_shader_property(obj, mat, mat_cache, prop_name)
 
-                    if obj_cache.is_eye():
-                        meshutils.rebuild_eye_vertex_groups(chr_cache)
+                            if "settings" in shader_def.keys():
+                                for mat_def in shader_def["settings"]:
+                                    prop_name = mat_def[0]
+                                    update_shader_property(obj, mat, mat_cache, prop_name)
+
+                if obj_cache.is_eye():
+                    meshutils.rebuild_eye_vertex_groups(chr_cache)
 
     utils.log_timer("update_all_properties()", "ms")
 
@@ -373,8 +375,8 @@ def init_character_property_defaults(chr_cache, chr_json):
 
     # Advanced properties
     for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if obj.type == "MESH" and obj not in processed:
+        obj = obj_cache.get_object()
+        if obj_cache.is_mesh() and obj not in processed:
             processed.append(obj)
 
             obj_json = jsonutils.get_object_json(chr_json, obj)
@@ -1106,6 +1108,28 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     def is_tearline(self):
         return self.object_type == "TEARLINE"
 
+    def is_mesh(self):
+        return utils.object_exists_is_mesh(self.object)
+
+    def is_armature(self):
+        return utils.object_exists_is_armature(self.object)
+
+    def is_valid(self):
+        return utils.object_exists(self.object)
+
+    def get_object(self, return_invalid = False):
+        if utils.object_exists(self.object):
+            return self.object
+        if return_invalid:
+            return self.object
+        return None
+
+    def set_object(self, obj):
+        if obj and utils.object_exists(obj):
+            self.object = obj
+        elif obj is None:
+            self.object = None
+
 
 class CC3CharacterCache(bpy.types.PropertyGroup):
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
@@ -1339,8 +1363,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         arm = None
 
         for obj_cache in self.object_cache:
-            obj = obj_cache.object
-            if utils.still_exists(obj) and obj not in objects:
+            obj = obj_cache.get_object()
+            if obj and obj not in objects:
                 if obj.type == "ARMATURE":
                     arm = obj
                     if include_armature:
@@ -1409,7 +1433,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         """
         if obj:
             for obj_cache in self.object_cache:
-                if obj_cache.object == obj:
+                cache_object = obj_cache.get_object()
+                if cache_object and cache_object == obj:
                     return obj_cache
         return None
 
@@ -1420,7 +1445,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         """
         if obj:
             for obj_cache in self.object_cache:
-                if obj_cache.object == obj:
+                cache_object = obj_cache.get_object()
+                if cache_object and cache_object == obj:
                     utils.remove_from_collection(self.object_cache, obj_cache)
                     return
 
@@ -1428,7 +1454,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         """Returns True if any of the objects are in the object cache.
         """
         for obj_cache in self.object_cache:
-            if obj_cache.object in objects:
+            cache_object = obj_cache.get_object()
+            if cache_object in objects:
                 return True
         return False
 
@@ -1436,15 +1463,17 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         """Returns True if any of the objects are in the object cache.
         """
         for obj_cache in self.object_cache:
-            if obj_cache.object == obj:
+            cache_object = obj_cache.get_object()
+            if cache_object == obj:
                 return True
         return False
 
     def get_armature(self):
         try:
             for obj_cache in self.object_cache:
-                if obj_cache.object and obj_cache.object.type == "ARMATURE":
-                    return obj_cache.object
+                cache_object = obj_cache.get_object()
+                if cache_object.type == "ARMATURE":
+                    return cache_object
         except:
             pass
         return None
@@ -1452,8 +1481,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_body(self):
         try:
             for obj_cache in self.object_cache:
-                if obj_cache.object and obj_cache.object_type == "BODY":
-                    return obj_cache.object
+                cache_object = obj_cache.get_object()
+                if cache_object and obj_cache.object_type == "BODY":
+                    return cache_object
         except:
             pass
         return None
@@ -1462,9 +1492,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.rigified = True
         try:
             for obj_cache in self.object_cache:
-                if obj_cache.object and obj_cache.object.type == "ARMATURE":
-                    self.rig_original_rig = obj_cache.object
-                    obj_cache.object = new_arm
+                cache_object = obj_cache.get_object()
+                if cache_object.type == "ARMATURE":
+                    self.rig_original_rig = cache_object
+                    obj_cache.set_object(new_arm)
         except:
             pass
 
@@ -1478,7 +1509,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if obj_cache is None:
             utils.log_info(f"Creating Object Cache for: {obj.name}")
             obj_cache = self.object_cache.add()
-            obj_cache.object = obj
+            obj_cache.set_object(obj)
             obj_cache.source_name = utils.strip_name(obj.name)
         return obj_cache
 
@@ -1625,8 +1656,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if not chr_json:
             chr_json = self.get_character_json()
         for obj_cache in self.object_cache:
-            obj = obj_cache.object
-            if obj.type == "MESH":
+            obj = obj_cache.get_object()
+            if obj_cache.is_mesh():
                 for m in obj.data.materials:
                     if m and m == mat:
                         new_mat_cache.dir = imageutils.get_material_tex_dir(self, obj, mat)

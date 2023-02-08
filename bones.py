@@ -18,7 +18,7 @@ import bpy
 import mathutils
 from math import pi, atan
 
-from . import utils, vars
+from . import drivers, utils, vars
 from rna_prop_ui import rna_idprop_ui_create
 
 
@@ -573,54 +573,11 @@ def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, var
             for con in pose_bone.constraints:
                 if con.type == constraint_type:
                     if expression:
-                        driver = make_driver(con, "influence", "SCRIPTED", expression)
+                        driver = drivers.make_driver(con, "influence", "SCRIPTED", expression)
                     else:
-                        driver = make_driver(con, "influence", "SUM")
+                        driver = drivers.make_driver(con, "influence", "SUM")
                     if driver:
-                        var = make_driver_var(driver, "SINGLE_PROP", variable_name, rig, data_path = data_path)
-
-
-def make_driver_var(driver, var_type, var_name, target, data_path = "", bone_target = "", transform_type = "", transform_space = ""):
-    """
-    var_type = "SINGLE_PROP", "TRANSFORMS"
-    var_name = variable name
-    target = target object/bone
-    target_data_path = "..."
-    """
-    var : bpy.types.DriverVariable = driver.variables.new()
-    var.name = var_name
-    if var_type == "SINGLE_PROP":
-        var.type = var_type
-        var.targets[0].id_type = "OBJECT"
-        var.targets[0].id = target.id_data
-        var.targets[0].data_path = data_path
-    elif var_type == "TRANSFORMS":
-        var.targets[0].id = target.id_data
-        var.targets[0].bone_target = bone_target
-        var.targets[0].rotation_mode = "AUTO"
-        var.targets[0].transform_type = transform_type
-        var.targets[0].transform_space = transform_space
-    return var
-
-
-def make_driver(source, prop_name, driver_type, driver_expression = ""):
-    """
-    prop_name = "value", "influence"
-    driver_type = "SUM", "SCRIPTED"
-    driver_expression = "..."
-    """
-    driver = None
-    if source:
-        fcurve : bpy.types.FCurve
-        fcurve = source.driver_add(prop_name)
-        driver : bpy.types.Driver = fcurve.driver
-        if driver_type == "SUM":
-            driver.type = driver_type
-        elif driver_type == "SCRIPTED":
-            driver.type = driver_type
-            driver.expression = driver_expression
-    return driver
-
+                        var = drivers.make_driver_var(driver, "SINGLE_PROP", variable_name, rig, target_type = "OBJECT", data_path = data_path)
 
 
 def get_data_path_pose_bone_property(pose_bone_name, variable_name):

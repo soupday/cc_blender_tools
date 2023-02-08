@@ -161,14 +161,8 @@ def camera_auto_target(camera, target):
     if chr_cache is None:
         chr_cache = props.import_cache[0]
 
-    arm = None
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if (obj.type == "ARMATURE"):
-            arm = obj
-            break
-
-    if arm is not None:
+    arm = chr_cache.get_armature()
+    if arm:
         left_eye = utils.find_pose_bone(chr_cache, "CC_Base_L_Eye", "L_Eye")
         right_eye = utils.find_pose_bone(chr_cache, "CC_Base_R_Eye", "R_Eye")
         head = utils.find_pose_bone(chr_cache, "CC_Base_FacialBone", "FacialBone")
@@ -589,7 +583,9 @@ def zoom_to_character(chr_cache):
     try:
         bpy.ops.object.select_all(action='DESELECT')
         for obj_cache in chr_cache.object_cache:
-            obj_cache.object.select_set(True)
+            obj = obj_cache.get_object()
+            if obj:
+                obj.select_set(True)
         bpy.ops.view3d.view_selected()
     except:
         pass
@@ -597,8 +593,8 @@ def zoom_to_character(chr_cache):
 
 def active_select_body(chr_cache):
     for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if obj.type == "MESH":
+        if obj_cache.is_mesh():
+            obj = obj_cache.get_object()
             if obj_cache.object_type == "BODY":
                 utils.set_active_object(obj)
 
@@ -619,24 +615,23 @@ def fetch_anim_range(context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
 
-    for obj_cache in chr_cache.object_cache:
-        if obj_cache.object is not None and obj_cache.object.type == "ARMATURE":
-            obj = obj_cache.object
-            action = utils.safe_get_action(obj)
-            if action:
-                frame_start = math.floor(action.frame_range[0])
-                frame_end = math.ceil(action.frame_range[1])
-                context.scene.frame_start = frame_start
-                context.scene.frame_end = frame_end
-                return
+    arm = chr_cache.get_armature()
+    if arm:
+        action = utils.safe_get_action(arm)
+        if action:
+            frame_start = math.floor(action.frame_range[0])
+            frame_end = math.ceil(action.frame_range[1])
+            context.scene.frame_start = frame_start
+            context.scene.frame_end = frame_end
+            return
 
 
 def cycles_setup(context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.object is not None and obj_cache.object.type == "MESH":
-            obj : bpy.types.Object = obj_cache.object
+        if obj_cache.is_mesh():
+            obj = obj_cache.get_object()
             if not modifiers.has_modifier(obj, "SUBSURF"):
                 mod = obj.modifiers.new(name = "Subdivision", type = "SUBSURF")
                 if utils.is_blender_version("2.91.0"):

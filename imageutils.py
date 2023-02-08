@@ -18,7 +18,7 @@ import os
 import filecmp
 import bpy
 
-from . import params, utils
+from . import nodeutils, params, utils
 
 
 def check_max_size(image):
@@ -114,6 +114,8 @@ def find_image_file(base_dir, dirs, mat, texture_type):
 def is_image_type_srgb(texture_type):
     if texture_type == "DIFFUSE" or texture_type == "SCLERA" or texture_type == "EMISSION":
         return True
+    if texture_type == "WRINKLEDIFFUSE1" or texture_type == "WRINKLEDIFFUSE2" or texture_type == "WRINKLEDIFFUSE3":
+        return True
     return False
 
 
@@ -128,6 +130,13 @@ def get_image_type_json_id(texture_type):
     for tex in params.TEXTURE_TYPES:
         if tex[0] == texture_type:
             return tex[1]
+    return None
+
+
+def get_image_type_lib_name(texture_type):
+    for tex in params.TEXTURE_TYPES:
+        if tex[0] == texture_type and len(tex) >= 4:
+            return tex[3]
     return None
 
 
@@ -151,6 +160,13 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
     # temp weight maps in the cache override weight maps on disk
     if texture_type == "WEIGHTMAP" and mat_cache.temp_weight_map is not None:
         return mat_cache.temp_weight_map
+
+    # try to find as library image
+    lib_name = get_image_type_lib_name(texture_type)
+    if lib_name:
+        image = nodeutils.fetch_lib_image(lib_name)
+        if image:
+            return image
 
     # try to find the image in the json data first:
     if tex_json:

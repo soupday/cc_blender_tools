@@ -952,15 +952,16 @@ def get_export_objects(chr_cache, include_selected = True):
             if arm not in objects:
                 objects.append(arm)
             for obj_cache in chr_cache.object_cache:
-                if utils.object_exists_is_mesh(obj_cache.object):
-                    if obj_cache.object.parent == arm:
-                        obj_cache.object.hide_set(False)
-                        if obj_cache.object not in objects:
-                            objects.append(obj_cache.object)
-            for obj in arm.children:
-                    if utils.object_exists_is_mesh(obj): # and obj.visible_get():
+                if obj_cache.is_mesh():
+                    obj = obj_cache.get_object()
+                    if obj.parent == arm:
+                        obj.hide_set(False)
                         if obj not in objects:
                             objects.append(obj)
+            for obj in arm.children:
+                if utils.object_exists_is_mesh(obj): # and obj.visible_get():
+                    if obj not in objects:
+                        objects.append(obj)
     else:
         arm = None
         if bpy.context.active_object and bpy.context.active_object.type == "ARMATURE":

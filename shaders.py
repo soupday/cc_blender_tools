@@ -17,8 +17,9 @@
 import bpy
 import math
 import os
+from mathutils import Vector
 
-from . import imageutils, jsonutils, materials, nodeutils, params, utils, vars
+from . import drivers, imageutils, jsonutils, materials, nodeutils, params, utils, vars
 
 
 def get_prop_value(mat_cache, prop_name):
@@ -366,6 +367,9 @@ def func_get_iris_scale(iris_uv_radius):
 def func_set_half(s):
     return s * 0.5
 
+def func_set_third(s):
+    return s * 0.3333
+
 def func_divide_1000(v):
     return v / 1000.0
 
@@ -525,13 +529,16 @@ def set_shader_input_props(shader_def, mat_cache, socket, value):
                 vars.block_property_update = False
 
 
-def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name, mat_json, obj, processed_images):
+def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name, mat_json, obj, processed_images,
+                         offset = Vector((0,0)), sub_shader = False):
     shader_def = params.get_shader_def(shader_name)
     location = shader_node.location
-    x = location[0] - 600
-    y = location[1] + 300
+    x = location[0] - 600 + offset.x
+    y = location[1] + 300 + offset.y
     c = 0
     image_nodes = []
+
+    textures = {}
 
     if shader_def and "textures" in shader_def.keys():
 
@@ -633,20 +640,24 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
 
                     if image_node and image_node.image:
                         image_nodes.append(image_node)
+                        textures[tex_type] = { "node": image_node, "image": image_node.image }
 
-    # remove any extra image nodes:
-    if not mat_cache.user_added:
-        for n in nodes:
-            if n.type == "TEX_IMAGE" and n not in image_nodes:
-                utils.log_info("Removing unused image node: " + n.name)
-                nodes.remove(n)
+    # main shader post processing
+    if not sub_shader:
 
-    # finally disconnect bump map if normal map is also present (this is only supposed to be one, but it is possible to bug CC3 and get both):
-    if nodeutils.has_connected_input(shader_node, "Bump Map") and nodeutils.has_connected_input(shader_node, "Normal Map"):
-        bump_node, bump_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Bump Map")
-        nodeutils.unlink_node(links, shader_node, "Bump Map")
+        # remove any extra image nodes:
+        if not mat_cache.user_added:
+            for n in nodes:
+                if n.type == "TEX_IMAGE" and n not in image_nodes:
+                    utils.log_info("Removing unused image node: " + n.name)
+                    nodes.remove(n)
 
-    return
+        # finally disconnect bump map if normal map is also present (this is only supposed to be one, but it is possible to bug CC3 and get both):
+        if nodeutils.has_connected_input(shader_node, "Bump Map") and nodeutils.has_connected_input(shader_node, "Normal Map"):
+            bump_node, bump_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Bump Map")
+            nodeutils.unlink_node(links, shader_node, "Bump Map")
+
+    return textures
 
 
 def connect_tearline_shader(obj, mat, mat_json, processed_images):
@@ -733,6 +744,9 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
     # use shader_group here instead of shader_name
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
+
+    if mat_json and "Wrinkle" in mat_json.keys():
+        apply_wrinkle_system(nodes, links, shader_name, mat, mat_cache, mat_json, obj, processed_images)
 
     nodeutils.clean_unused_image_nodes(nodes)
 
@@ -964,3 +978,12 @@ def fix_sss_method(bsdf):
     if prefs.render_target == "CYCLES" and utils.is_blender_version("3.0.0"):
         # Blender 3.0 defaults to random walk, which does not work well with hair
         bsdf.subsurface_method = "BURLEY"
+
+
+def apply_wrinkle_system(nodes, links, main_shader_name, mat, mat_cache, mat_json, obj, processed_images):
+    wrinkle_shader_name = "rl_wrinkle_shader"
+    wrinkle_shader_node = nodeutils.add_wrinkle_shader(nodes, links, obj, mat, main_shader_name, wrinkle_shader_name = wrinkle_shader_name)
+    apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle_shader_name, mat_json, obj,
+                         processed_images, sub_shader = True)
+
+

@@ -429,12 +429,10 @@ def context_material(context):
 def find_pose_bone(chr_cache, *name):
     props = bpy.context.scene.CC3ImportProps
 
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if (obj.type == "ARMATURE"):
-            for n in name:
-                if n in obj.pose.bones:
-                    return obj.pose.bones[n]
+    arm = chr_cache.get_armature()
+    for n in name:
+        if n in arm.pose.bones:
+            return arm.pose.bones[n]
     return None
 
 

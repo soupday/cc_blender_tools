@@ -29,8 +29,8 @@ def delete_import(chr_cache):
     props = bpy.context.scene.CC3ImportProps
 
     for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if props.paint_object == obj:
+        obj = obj_cache.get_object()
+        if obj and props.paint_object == obj:
             props.paint_object = None
             props.paint_material = None
             props.paint_image = None
@@ -169,6 +169,9 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
     obj_cache = chr_cache.get_object_cache(obj)
 
     if obj.type == "MESH":
+
+        # Turn off auto smoothing
+        obj.data.use_auto_smooth = False
 
         # remove any modifiers for refractive eyes
         modifiers.remove_eye_modifiers(obj)
@@ -323,8 +326,8 @@ def detect_generation(chr_cache, json_data):
 
     if generation == "Unknown":
         for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.object
-            if obj.type == "MESH":
+            obj = obj_cache.get_object()
+            if obj_cache.is_mesh():
                 name = obj.name.lower()
                 if "cc_game_body" in name or "cc_game_tongue" in name:
                     generation = "GameBase"
@@ -341,8 +344,8 @@ def detect_generation(chr_cache, json_data):
     if generation == "Unknown" or generation == "G3":
 
         for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.object
-            if obj.type == "MESH" and obj.name == "CC_Base_Body":
+            obj = obj_cache.get_object()
+            if obj_cache.is_mesh() and obj.name == "CC_Base_Body":
 
                 # try vertex count
                 if len(obj.data.vertices) == 14164:
@@ -515,8 +518,8 @@ def detect_character(file_path, objects, actions, json_data, warn):
 
         # cache materials
         for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.object
-            if obj.type == "MESH":
+            if obj_cache.is_mesh():
+                obj = obj_cache.get_object()
                 cache_object_materials(chr_cache, obj, chr_json, processed)
 
         properties.init_character_property_defaults(chr_cache, chr_json)
@@ -534,15 +537,16 @@ def detect_character(file_path, objects, actions, json_data, warn):
             chr_cache.import_main_tex_dir = ""
 
         for obj in objects:
-            if obj.type == "MESH":
+            if utils.object_exists_is_mesh(obj):
                 chr_cache.add_object_cache(obj)
 
         for obj_cache in chr_cache.object_cache:
             # scale obj import by 1/100
-            obj = obj_cache.object
-            obj.scale = (0.01, 0.01, 0.01)
-            if not chr_cache.import_has_key: # objkey import is a single mesh with no materials
-                cache_object_materials(chr_cache, obj, json_data, processed)
+            obj = obj_cache.get_object()
+            if obj:
+                obj.scale = (0.01, 0.01, 0.01)
+                if not chr_cache.import_has_key: # objkey import is a single mesh with no materials
+                    cache_object_materials(chr_cache, obj, json_data, processed)
 
         properties.init_character_property_defaults(chr_cache, chr_json)
 
@@ -763,14 +767,16 @@ class CC3Import(bpy.types.Operator):
 
             if props.build_mode == "IMPORTED":
                 for obj_cache in chr_cache.object_cache:
-                    if obj_cache.object:
-                        process_object(chr_cache, obj_cache.object, objects_processed, chr_json, processed_materials, processed_images)
+                    obj = obj_cache.get_object()
+                    if obj:
+                        process_object(chr_cache, obj, objects_processed, chr_json, processed_materials, processed_images)
 
             # only processes the selected objects that are listed in the import_cache (character)
             elif props.build_mode == "SELECTED":
                 for obj_cache in chr_cache.object_cache:
-                    if obj_cache.object and obj_cache.object in bpy.context.selected_objects:
-                        process_object(chr_cache, obj_cache.object, objects_processed, chr_json, processed_materials, processed_images)
+                    obj = obj_cache.get_object()
+                    if obj and obj in bpy.context.selected_objects:
+                        process_object(chr_cache, obj, objects_processed, chr_json, processed_materials, processed_images)
 
             # setup default physics
             if prefs.physics == "ENABLED" and props.physics_mode == "ON":
@@ -867,12 +873,14 @@ class CC3Import(bpy.types.Operator):
                 # for any objects with shape keys expand the slider range to -1.0 <> 1.0
                 # Character Creator and iClone both use negative ranges extensively.
                 for obj_cache in chr_cache.object_cache:
-                    init_shape_key_range(obj_cache.object)
+                    if obj_cache.is_mesh():
+                        init_shape_key_range(obj_cache.get_object())
 
                 if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
                     # for any objects with shape keys select basis and enable show in edit mode
                     for obj_cache in chr_cache.object_cache:
-                        apply_edit_shapekeys(obj_cache.object)
+                        if obj_cache.is_mesh():
+                            apply_edit_shapekeys(obj_cache.get_object())
 
                 if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
                     if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":

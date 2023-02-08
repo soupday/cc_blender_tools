@@ -835,8 +835,8 @@ def prepare_physics_bake(context):
 
     if chr_cache:
         for obj_cache in chr_cache.object_cache:
-            if obj_cache.object is not None and obj_cache.object.type == "MESH":
-                obj = obj_cache.object
+            if obj_cache.is_mesh():
+                obj = obj_cache.get_object()
                 set_physics_bake_range(obj, context.scene.frame_start, context.scene.frame_end)
 
 
@@ -914,8 +914,8 @@ def add_all_physics(chr_cache):
         objects_processed = []
         accessory_colldiers = get_accessory_colliders(arm, objects, True)
         for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.object
-            if utils.object_exists_is_mesh(obj) and obj not in objects_processed:
+            obj = obj_cache.get_object()
+            if obj and obj_cache.is_mesh() and obj not in objects_processed:
                 utils.log_info(f"Object: {obj.name}:")
                 utils.log_indent()
                 remove_all_physics_mods(obj)
@@ -941,8 +941,8 @@ def remove_all_physics(chr_cache):
         utils.log_indent()
         objects_processed = []
         for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.object
-            if utils.object_exists_is_mesh(obj) and obj not in objects_processed:
+            obj = obj_cache.get_object()
+            if obj and obj_cache.is_mesh() and obj not in objects_processed:
                 remove_all_physics_mods(obj)
         utils.delete_mesh_object(chr_cache.collision_body)
         chr_cache.physics_applied = False

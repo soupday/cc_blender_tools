@@ -19,7 +19,7 @@ import os
 import bpy
 import mathutils
 
-from . import utils, vars
+from . import drivers, utils, params, vars
 
 cursor = mathutils.Vector((0,0))
 cursor_top = mathutils.Vector((0,0))
@@ -508,6 +508,74 @@ def clean_unused_image_nodes(nodes):
         nodes.remove(node)
 
 
+def get_wrinkle_shader(obj, mat, shader_name = "rl_wrinkle_shader", create = True):
+    shader_id = "(" + str(shader_name) + ")"
+    wrinkle_node = None
+
+    # find existing wrinkle shader group node and remove any old or impostors
+    to_remove = []
+    if mat and mat.node_tree:
+        nodes = mat.node_tree.nodes
+        for n in nodes:
+            if n.type == "GROUP":
+                if shader_id in n.name and shader_name in n.node_tree.name:
+                    if vars.VERSION_STRING in n.name and vars.VERSION_STRING in n.node_tree.name:
+                        wrinkle_node = n
+                    else:
+                        to_remove.append(n)
+
+    for n in to_remove:
+        nodes.remove(n)
+
+    # create a new wrinkle shader group node if none
+    if create and not wrinkle_node:
+        group = get_node_group(shader_name)
+        wrinkle_node = make_node_group_node(nodes, group, "Wrinkle Map System", utils.unique_name(shader_id))
+        wrinkle_node.width = 240
+        utils.log_info("Creating new wrinkle system shader group: " + wrinkle_node.name)
+        add_wrinkle_mappings(wrinkle_node, obj)
+
+    return wrinkle_node
+
+
+def add_wrinkle_shader(nodes, links, obj, mat, main_shader_name, wrinkle_shader_name = "rl_wrinkle_shader"):
+    wrinkle_shader_node = get_wrinkle_shader(obj, mat, shader_name = wrinkle_shader_name)
+    bsdf_node, main_shader_node, mix_node = get_shader_nodes(mat, main_shader_name)
+    wrinkle_shader_node.location = (-2400, 0)
+    link_nodes(links, wrinkle_shader_node, "Diffuse Map", main_shader_node, "Diffuse Map")
+    link_nodes(links, wrinkle_shader_node, "Roughness Map", main_shader_node, "Roughness Map")
+    link_nodes(links, wrinkle_shader_node, "Normal Map", main_shader_node, "Normal Map")
+    return wrinkle_shader_node
+
+
+def add_wrinkle_mappings(node, obj):
+    for socket_name, shape_key_list in params.WRINKLE_MAPPINGS:
+        utils.log_info(f"Adding driver for {socket_name} -> {shape_key_list}")
+        add_shapekeys_wrinkle_node_driver(node, socket_name, obj, shape_key_list)
+
+
+def add_shapekeys_wrinkle_node_driver(node, wrinkle_value_socket_name, obj, shape_key_list):
+
+    # get lists of all the shapekeys that influence this wrinkle value
+    var_csv = ""
+    var_paths = []
+    var_names = []
+    for i, shape_key_name in enumerate(shape_key_list):
+        var_name = f"var{i}"
+        var_csv += f", {var_name}"
+        var_path = f"shape_keys.key_blocks[\"{shape_key_name}\"].value"
+        var_names.append(var_name)
+        var_paths.append(var_path)
+
+    # add a driver for the node socket input value: node.inputs[socket_name].default_value
+    socket = node.inputs[wrinkle_value_socket_name]
+    expr = f"max(0.0{var_csv})"
+    driver = drivers.make_driver(socket, "default_value", "SCRIPTED", expr)
+
+    # add shape key variables
+    for i, shape_key_name in enumerate(shape_key_list):
+        drivers.make_driver_var(driver, "SINGLE_PROP", var_names[i], obj.data, target_type = "MESH", data_path = var_paths[i])
+
 
 def get_node_group(name):
     for group in bpy.data.node_groups:
@@ -515,6 +583,14 @@ def get_node_group(name):
             if vars.VERSION_STRING in group.name:
                 return group
     return fetch_node_group(name)
+
+
+def get_lib_image(name):
+    for image in bpy.data.images:
+        if vars.NODE_PREFIX in image.name and name in image.name:
+            if vars.VERSION_STRING in image.name:
+                return image
+    return fetch_lib_image(name)
 
 
 def check_node_groups():
@@ -655,6 +731,7 @@ def append_lib_image(path, object_name):
 
         for i in bpy.data.images:
             if object_name in i.name and vars.NODE_PREFIX not in i.name:
+                utils.log_info("Trying to append image: " + path + " > " + object_name)
                 appended_image = i
                 i.name = utils.unique_name(object_name)
 
@@ -669,7 +746,6 @@ def fetch_lib_image(name):
     paths.append(os.path.dirname(os.path.realpath(__file__)))
 
     for path in paths:
-        utils.log_info("Trying to append image: " + path + " > " + name)
         if os.path.exists(path):
             image = append_lib_image(path, name)
             if image:

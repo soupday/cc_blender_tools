@@ -49,26 +49,29 @@ def find_obj_cache(chr_cache, obj):
         possible = []
         source_name = utils.strip_name(obj.name)
         for obj_cache in chr_cache.object_cache:
-            if obj_cache.source_name == source_name:
+            if obj_cache.is_mesh() and obj_cache.source_name == source_name:
                 possible.append(obj_cache)
         # if only one possibility return that
         if possible and len(possible) == 1:
             return possible[0]
         # try to find the correct object cache by matching the materials
-        if obj_cache.object.type == "MESH":
-            # try matching all the materials first
-            for obj_cache in possible:
+        # try matching all the materials first
+        for obj_cache in possible:
+            o = obj_cache.get_object()
+            if o:
                 found = True
                 for mat in obj.data.materials:
-                    if mat not in obj_cache.object.data.materials:
+                    if mat not in o.data.materials:
                         found = False
                 if found:
                     return obj_cache
-            # then try just matching any
-            for obj_cache in possible:
+        # then try just matching any
+        for obj_cache in possible:
+            o = obj_cache.get_object()
+            if o:
                 found = True
                 for mat in obj.data.materials:
-                    if mat in obj_cache.object.data.materials:
+                    if mat in o.data.materials:
                         return obj_cache
     return None
 

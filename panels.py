@@ -378,7 +378,8 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 col_2.prop(chr_cache, "import_has_key", text="")
                 box.prop(chr_cache, "import_file", text="")
                 for obj_cache in chr_cache.object_cache:
-                    if obj_cache.object:
+                    o = obj_cache.get_object()
+                    if o:
                         box.prop(obj_cache, "object", text="")
                 box.label(text="Collision Mesh")
                 box.prop(chr_cache, "collision_body", text="")
@@ -1157,7 +1158,7 @@ class CC3RigifyPanel(bpy.types.Panel):
         missing_materials = False
         if chr_cache:
             for obj_cache in chr_cache.object_cache:
-                obj = obj_cache.object
+                obj = obj_cache.get_object()
                 if obj and obj.type == "MESH" and not chr_cache.has_all_materials(obj.data.materials):
                     missing_materials = True
 

@@ -215,6 +215,8 @@ def get_texture_info(mat_json, texture_id):
     tex_info = get_pbr_texture_info(mat_json, texture_id)
     if tex_info is None:
         tex_info = get_shader_texture_info(mat_json, texture_id)
+    if tex_info is None:
+        tex_info = get_wrinkle_texture_info(mat_json, texture_id)
     return tex_info
 
 def get_pbr_texture_info(mat_json, texture_id):
@@ -230,6 +232,14 @@ def get_shader_texture_info(mat_json, texture_id):
         return None
     try:
         return mat_json["Custom Shader"]["Image"][texture_id]
+    except:
+        return None
+
+def get_wrinkle_texture_info(mat_json, texture_id):
+    if not mat_json:
+        return None
+    try:
+        return mat_json["Wrinkle"]["Textures"][texture_id]
     except:
         return None
 

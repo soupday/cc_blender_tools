@@ -479,16 +479,21 @@ def clean_up_character_data(chr_cache):
 
         for obj_cache in chr_cache.object_cache:
 
-            if obj_cache.object != arm:
+            obj = obj_cache.get_object()
 
-                if utils.object_exists_is_mesh(obj_cache.object):
+            if not obj_cache.is_valid():
+                    delete_objects.append(obj_cache.get_object(return_invalid = True))
+
+            elif obj != arm:
+
+                if obj_cache.is_mesh():
 
                     # be sure not to delete object and material cache data for objects still existing in the scene,
                     # but not currently attached to the character
-                    if obj_cache.object not in current_objects:
-                        unparented_objects.append(obj_cache.object)
-                        utils.log_info(f"Keeping unparented Object data: {obj_cache.object.name}")
-                        for mat in obj_cache.object.data.materials:
+                    if obj not in current_objects:
+                        unparented_objects.append(obj)
+                        utils.log_info(f"Keeping unparented Object data: {obj.name}")
+                        for mat in obj.data.materials:
                             if mat and mat not in unparented_materials:
                                 unparented_materials.append(mat)
                                 utils.log_info(f"Keeping unparented Material data: {mat.name}")
@@ -496,7 +501,7 @@ def clean_up_character_data(chr_cache):
                 else:
 
                     # add any invalid cached objects to the delete list
-                    delete_objects.append(obj_cache.object)
+                    delete_objects.append(obj)
 
         for obj in delete_objects:
             if obj and obj not in unparented_objects:
@@ -790,7 +795,7 @@ def transfer_skin_weights(chr_cache, objects):
     body = None
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type == "BODY":
-            body = obj_cache.object
+            body = obj_cache.get_object()
 
     if not body:
         return
@@ -869,7 +874,7 @@ def normalize_skin_weights(chr_cache, objects):
     body = None
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type == "BODY":
-            body = obj_cache.object
+            body = obj_cache.get_object()
 
     # don't allow normalize all to body mesh
     if body and body in objects:
@@ -902,8 +907,8 @@ def match_materials(chr_cache):
     chr_materials = []
 
     for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if utils.object_exists_is_mesh(obj):
+        obj = obj_cache.get_object()
+        if obj:
             chr_objects.append(obj)
             for mat in obj.data.materials:
                 chr_materials.append(mat)

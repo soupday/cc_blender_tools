@@ -362,8 +362,8 @@ def set_hide_character(chr_cache, hide, show_body = False):
             if utils.object_exists(child):
                 child.hide_set(hide)
     for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if utils.object_exists(obj):
+        obj = obj_cache.get_object()
+        if obj:
             if show_body and obj_cache.object_type == "BODY":
                 obj.hide_set(False)
             else:
