@@ -77,11 +77,11 @@ def connect_tearline_material(obj, mat, mat_json, processed_images):
 
     shader = reset_shader(nodes, links, "Tearline Shader", "basic_tearline")
 
-    nodeutils.set_node_input(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
-    nodeutils.set_node_input(shader, "Metallic", 1.0)
-    nodeutils.set_node_input(shader, "Specular", 1.0)
-    nodeutils.set_node_input(shader, "Roughness", parameters.tearline_roughness)
-    nodeutils.set_node_input(shader, "Alpha", parameters.tearline_alpha)
+    nodeutils.set_node_input_value(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
+    nodeutils.set_node_input_value(shader, "Metallic", 1.0)
+    nodeutils.set_node_input_value(shader, "Specular", 1.0)
+    nodeutils.set_node_input_value(shader, "Roughness", parameters.tearline_roughness)
+    nodeutils.set_node_input_value(shader, "Alpha", parameters.tearline_alpha)
     shader.name = utils.unique_name("eye_tearline_shader")
 
     materials.set_material_alpha(mat, "BLEND")
@@ -100,18 +100,18 @@ def connect_eye_occlusion_material(obj, mat, mat_json, processed_images):
     shader = reset_shader(nodes, links, "Eye Occlusion Shader", "basic_eye_occlusion")
 
     shader.name = utils.unique_name("eye_occlusion_shader")
-    nodeutils.set_node_input(shader, "Base Color", (0,0,0,1))
-    nodeutils.set_node_input(shader, "Metallic", 0.0)
-    nodeutils.set_node_input(shader, "Specular", 0.0)
-    nodeutils.set_node_input(shader, "Roughness", 1.0)
+    nodeutils.set_node_input_value(shader, "Base Color", (0,0,0,1))
+    nodeutils.set_node_input_value(shader, "Metallic", 0.0)
+    nodeutils.set_node_input_value(shader, "Specular", 0.0)
+    nodeutils.set_node_input_value(shader, "Roughness", 1.0)
     nodeutils.reset_cursor()
 
     # groups
     group = nodeutils.get_node_group("eye_occlusion_mask")
     occ_node = nodeutils.make_node_group_node(nodes, group, "Eye Occulsion Alpha", "eye_occlusion_mask")
     # values
-    nodeutils.set_node_input(occ_node, "Strength", parameters.eye_occlusion)
-    nodeutils.set_node_input(occ_node, "Hardness", parameters.eye_occlusion_power)
+    nodeutils.set_node_input_value(occ_node, "Strength", parameters.eye_occlusion)
+    nodeutils.set_node_input_value(occ_node, "Hardness", parameters.eye_occlusion_power)
     # links
     nodeutils.link_nodes(links, occ_node, "Alpha", shader, "Alpha")
 
@@ -140,7 +140,7 @@ def connect_basic_eye_material(obj, mat, mat_json, processed_images):
         hsv_node = nodeutils.make_shader_node(nodes, "ShaderNodeHueSaturation", 0.6)
         hsv_node.label = "HSV"
         hsv_node.name = utils.unique_name("eye_basic_hsv")
-        nodeutils.set_node_input(hsv_node, "Value", parameters.eye_brightness)
+        nodeutils.set_node_input_value(hsv_node, "Value", parameters.eye_brightness)
         # links
         nodeutils.link_nodes(links, diffuse_node, "Color", hsv_node, "Color")
         nodeutils.link_nodes(links, hsv_node, "Color", shader, "Base Color")
@@ -165,7 +165,7 @@ def connect_basic_eye_material(obj, mat, mat_json, processed_images):
 
     # Alpha
     #
-    nodeutils.set_node_input(shader, "Alpha", 1.0)
+    nodeutils.set_node_input_value(shader, "Alpha", 1.0)
 
     # Normal
     #
@@ -182,8 +182,8 @@ def connect_basic_eye_material(obj, mat, mat_json, processed_images):
 
     # Clearcoat
     #
-    nodeutils.set_node_input(shader, "Clearcoat", 1.0)
-    nodeutils.set_node_input(shader, "Clearcoat Roughness", 0.15)
+    nodeutils.set_node_input_value(shader, "Clearcoat", 1.0)
+    nodeutils.set_node_input_value(shader, "Clearcoat Roughness", 0.15)
     mat.use_screen_refraction = False
 
     return
@@ -311,7 +311,7 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
             nodeutils.advance_cursor()
             remap_node = nodeutils.make_shader_node(nodes, "ShaderNodeMapRange")
             remap_node.name = utils.unique_name(prop)
-            nodeutils.set_node_input(remap_node, "To Min", roughness)
+            nodeutils.set_node_input_value(remap_node, "To Min", roughness)
             nodeutils.link_nodes(links, roughness_node, "Color", remap_node, "Value")
             nodeutils.link_nodes(links, remap_node, "Result", shader, "Roughness")
         elif mat_cache.material_type.startswith("TEETH") or mat_cache.material_type == "TONGUE":
@@ -427,9 +427,9 @@ def update_basic_material(mat, mat_cache, prop):
                         prop_value = eval(prop_eval, None, scope)
 
                         if prop_dir == "IN":
-                            nodeutils.set_node_input(node, prop_socket, prop_value)
+                            nodeutils.set_node_input_value(node, prop_socket, prop_value)
                         elif prop_dir == "OUT":
-                            nodeutils.set_node_output(node, prop_socket, prop_value)
+                            nodeutils.set_node_output_value(node, prop_socket, prop_value)
                     except Exception as e:
                         utils.log_error("update_basic_materials(): Unable to evaluate or set: " + prop_eval, e)
 

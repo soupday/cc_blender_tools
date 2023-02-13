@@ -216,13 +216,13 @@ def update_shader_property(obj, mat, mat_cache, prop_name):
 def update_shader_input(shader_node, mat_cache, prop_name, input_defs):
     for input_def in input_defs:
         if prop_name in input_def[2:]:
-            nodeutils.set_node_input(shader_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
+            nodeutils.set_node_input_value(shader_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
 
 
 def update_bsdf_input(bsdf_node, mat_cache, prop_name, bsdf_defs):
     for input_def in bsdf_defs:
         if prop_name in input_def[2:]:
-            nodeutils.set_node_input(bsdf_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
+            nodeutils.set_node_input_value(bsdf_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
 
 
 def update_shader_tiling(shader_name, mat, mat_cache, prop_name, texture_defs):
@@ -232,7 +232,7 @@ def update_shader_tiling(shader_name, mat, mat_cache, prop_name, texture_defs):
             texture_type = texture_def[2]
             if prop_name in tiling_props:
                 tiling_node = nodeutils.get_tiling_node(mat, shader_name, texture_type)
-                nodeutils.set_node_input(tiling_node, "Tiling", shaders.eval_tiling_param(texture_def, mat_cache))
+                nodeutils.set_node_input_value(tiling_node, "Tiling", shaders.eval_tiling_param(texture_def, mat_cache))
 
 
 def update_shader_mapping(shader_name, mat, mat_cache, prop_name, mapping_defs):
@@ -245,7 +245,7 @@ def update_shader_mapping(shader_name, mat, mat_cache, prop_name, mapping_defs):
             tiling_props = mapping_def[3:]
             if prop_name in tiling_props:
                 socket_name = mapping_def[1]
-                nodeutils.set_node_input(mapping_node, socket_name, shaders.eval_tiling_param(mapping_def, mat_cache, 2))
+                nodeutils.set_node_input_value(mapping_node, socket_name, shaders.eval_tiling_param(mapping_def, mat_cache, 2))
 
 
 def update_object_modifier(obj, mat_cache, prop_name, mod_defs):

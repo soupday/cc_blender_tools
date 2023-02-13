@@ -67,10 +67,11 @@ TEXTURE_TYPES = [
     ["WRINKLENORMAL1", "Normal_1", ["wrinkle_normal1"]],
     ["WRINKLENORMAL2", "Normal_2", ["wrinkle_normal2"]],
     ["WRINKLENORMAL3", "Normal_3", ["wrinkle_normal3"]],
-    ["WRINKLEMASK11", "", [], "rl_wrinkle_mask_11"],
-    ["WRINKLEMASK12", "", [], "rl_wrinkle_mask_12"],
-    ["WRINKLEMASK2", "Mask_2", [], "rl_wrinkle_mask_2"],
-    ["WRINKLEMASK3", "Mask_3", [], "rl_wrinkle_mask_3"],
+    ["WRINKLEMASK1A", "", [], "RL_WrinkleMask_Set1A"],
+    ["WRINKLEMASK1B", "", [], "RL_WrinkleMask_Set1B"],
+    ["WRINKLEMASK2", "", [], "RL_WrinkleMask_Set2"],
+    ["WRINKLEMASK3", "", [], "RL_WrinkleMask_Set3"],
+    ["WRINKLEMASK123", "", [], "RL_WrinkleMask_Set123"],
 ]
 
 PBR_TYPES = [
@@ -1792,10 +1793,11 @@ SHADER_MATRIX = [
             ["Normal Blend Map 1", "", "WRINKLENORMAL1"],
             ["Normal Blend Map 2", "", "WRINKLENORMAL2"],
             ["Normal Blend Map 3", "", "WRINKLENORMAL3"],
-            ["Mask 11 RGB", "Mask 11 A", "WRINKLEMASK11"],
-            ["Mask 12 RGB", "Mask 12 A", "WRINKLEMASK12"],
+            ["Mask 1A RGB", "Mask 1A A", "WRINKLEMASK1A"],
+            ["Mask 1B RGB", "Mask 1B A", "WRINKLEMASK1B"],
             ["Mask 2 RGB", "Mask 2 A", "WRINKLEMASK2"],
             ["Mask 3 RGB", "Mask 3 A", "WRINKLEMASK3"],
+            ["Mask 123 RGB", "Mask 123 A", "WRINKLEMASK123"],
         ],
         # shader variables:
         # [prop_name, default_value, function, json_id_arg1, json_id_arg2...]
@@ -2010,38 +2012,338 @@ JSON_PHYSICS_MATERIAL = {
     "Stiffness Frequency": 10.0
 }
 
-WRINKLE_MAPPINGS = [
-    ["Value 11 Left X", ["Eye_Squint_L"]],
-    ["Value 11 Left Y", ["Brow_Raise_Inner_L"]],
-    ["Value 11 Left Z", ["Mouth_Pucker_Down_L", "Mouth_L"]],
-    ["Value 11 Left W", ["Mouth_Shrug_Lower", "Mouth_Up"]],
-    ["Value 12 Left X", ["Jaw_Open"]],
-    ["Value 12 Left Y", ["Eye_Blink_L"]],
-    ["Value 12 Left Z", ["Brow_Raise_Outer_L"]],
-    ["Value 12 Left W", ["Mouth_Pucker_Up_L", "Mouth_L"]],
-    ["Value 2 Left X",  ["Neck_Tighten_L"]],
-    ["Value 2 Left Y",  ["Brow_Drop_L", "Nose_Sneer_L"]],
-    ["Value 2 Left Z",  ["Nose_Sneer_L", "Nose_Nostril_Raise_L"]],
-    ["Value 2 Left W",  ["Mouth_Stretch_L", "Mouth_Frown_L"]],
-    ["Value 3 Left X",  ["Mouth_Smile_L", "Mouth_Smile_Sharp_L"]],
-    ["Value 3 Left Y",  ["Brow_Compress_L"]],
-    ["Value 3 Left Z",  ["Cheek_Raise_L", "Mouth_L"]],
-    ["Value 3 Left W",  ["Nose_Crease_L", "Mouth_Up_Upper_L", "Mouth_L"]],
+# the rules that map each wrinkle morph to the socket on the wrinkle shader node.
+# { wrinkle_morph_name: [node_socket, weight], }
+WRINKLE_RULES = {
 
-    ["Value 11 Right X", ["Eye_Squint_R"]],
-    ["Value 11 Right Y", ["Brow_Raise_Inner_R"]],
-    ["Value 11 Right Z", ["Mouth_Pucker_Down_R", "Mouth_R"]],
-    ["Value 11 Right W", ["Mouth_Shrug_Rower", "Mouth_Up"]],
-    ["Value 12 Right X", ["Jaw_Open"]],
-    ["Value 12 Right Y", ["Eye_Blink_R"]],
-    ["Value 12 Right Z", ["Brow_Raise_Outer_R"]],
-    ["Value 12 Right W", ["Mouth_Pucker_Up_R", "Mouth_R"]],
-    ["Value 2 Right X",  ["Neck_Tighten_R"]],
-    ["Value 2 Right Y",  ["Brow_Drop_R", "Nose_Sneer_R"]],
-    ["Value 2 Right Z",  ["Nose_Sneer_R", "Nose_Nostril_Raise_R"]],
-    ["Value 2 Right W",  ["Mouth_Stretch_R", "Mouth_Frown_R"]],
-    ["Value 3 Right X",  ["Mouth_Smile_R", "Mouth_Smile_Sharp_R"]],
-    ["Value 3 Right Y",  ["Brow_Compress_R"]],
-    ["Value 3 Right Z",  ["Cheek_Raise_R", "Mouth_R"]],
-    ["Value 3 Right W",  ["Nose_Crease_R", "Mouth_Up_Upper_R", "Mouth_R"]],
+    # Set 1A L/R
+    "head_wm1_normal_head_wm1_blink_L": ["Value 1AXL", 1],
+    "head_wm1_normal_head_wm1_blink_R": ["Value 1AXR", 1],
+
+    "head_wm1_normal_head_wm1_browRaiseInner_L": ["Value 1AYL", 1],
+    "head_wm1_normal_head_wm1_browRaiseInner_R": ["Value 1AYR", 1],
+
+    "head_wm1_normal_head_wm1_purse_DL": ["Value 1AZL", 1],
+    "head_wm1_normal_head_wm1_purse_DR": ["Value 1AZR", 1],
+
+    "head_wm1_normal_head_wm1_purse_UL": ["Value 1AWL", 1],
+    "head_wm1_normal_head_wm1_purse_UR": ["Value 1AWR", 1],
+
+    # Set 1B L/R
+    "head_wm1_normal_head_wm1_browRaiseOuter_L": ["Value 1BXL", 1],
+    "head_wm1_normal_head_wm1_browRaiseOuter_R": ["Value 1BXR", 1],
+
+    "head_wm1_normal_head_wm1_chinRaise_L": ["Value 1BYL", 1],
+    "head_wm1_normal_head_wm1_chinRaise_R": ["Value 1BYR", 1],
+
+    "head_wm1_normal_head_wm1_jawOpen_L": ["Value 1BZL", 1],
+    "head_wm1_normal_head_wm1_jawOpen_R": ["Value 1BZR", 1],
+
+    "head_wm1_normal_head_wm1_squintInner_L": ["Value 1BWL", 1],
+    "head_wm1_normal_head_wm1_squintInner_R": ["Value 1BWR", 1],
+
+    # Set 2 L/R
+    "head_wm2_normal_head_wm2_browsDown_L": ["Value 2XL", 1],
+    "head_wm2_normal_head_wm2_browsDown_R": ["Value 2XR", 1],
+
+    "head_wm2_normal_head_wm2_browsLateral_L": ["Value 2YL", 1],
+    "head_wm2_normal_head_wm2_browsLateral_R": ["Value 2YR", 1],
+
+    "head_wm2_normal_head_wm2_mouthStretch_L": ["Value 2ZL", 1],
+    "head_wm2_normal_head_wm2_mouthStretch_R": ["Value 2ZR", 1],
+
+    "head_wm2_normal_head_wm2_neckStretch_L": ["Value 2WL", 1],
+    "head_wm2_normal_head_wm2_neckStretch_R": ["Value 2WR", 1],
+
+    # Set 3 L/R
+    "head_wm3_normal_head_wm3_cheekRaiseInner_L": ["Value 3XL", 1],
+    "head_wm3_normal_head_wm3_cheekRaiseInner_R": ["Value 3XR", 1],
+
+    "head_wm3_normal_head_wm3_cheekRaiseOuter_L": ["Value 3YL", 1],
+    "head_wm3_normal_head_wm3_cheekRaiseOuter_R": ["Value 3YR", 1],
+
+    "head_wm3_normal_head_wm3_cheekRaiseUpper_L": ["Value 3ZL", 1],
+    "head_wm3_normal_head_wm3_cheekRaiseUpper_R": ["Value 3ZR", 1],
+
+    "head_wm3_normal_head_wm3_smile_L": ["Value 3WL", 1],
+    "head_wm3_normal_head_wm3_smile_R": ["Value 3WR", 1],
+
+    # Set 12C L/R
+    "head_wm1_normal_head_wm13_lips_DL": ["Value 12CXL", 1],
+    "head_wm1_normal_head_wm13_lips_DR": ["Value 12CXR", 1],
+
+    "head_wm1_normal_head_wm13_lips_UL": ["Value 12CYL", 1],
+    "head_wm1_normal_head_wm13_lips_UR": ["Value 12CYR", 1],
+
+    "head_wm2_normal_head_wm2_noseWrinkler_L": ["Value 12CZL", 1],
+    "head_wm2_normal_head_wm2_noseWrinkler_R": ["Value 12CZR", 1],
+
+    "head_wm2_normal_head_wm2_noseCrease_L": ["Value 12CWL", 1],
+    "head_wm2_normal_head_wm2_noseCrease_R": ["Value 12CWR", 1],
+
+    # Set 3D
+    "head_wm3_normal_head_wm13_lips_DL": ["Value 3DXL", 1],
+    "head_wm3_normal_head_wm13_lips_DR": ["Value 3DYL", 1],
+
+    "head_wm3_normal_head_wm13_lips_UL": ["Value 3DZR", 1],
+    "head_wm3_normal_head_wm13_lips_UR": ["Value 3DWR", 1],
+}
+
+# How each shape_key on the body mesh maps to each wrinkle morph.
+# When multiple shape_keys drive the same wrinkle morph, the result is averaged.
+# [ ["shape_key", "rule_name", range_min, range_max], ]
+WRINKLE_MAPPINGS = [
+    ["Brow_Raise_Inner_L", "head_wm1_normal_head_wm1_browRaiseInner_L", 0.0, 1.0],
+    ["Brow_Raise_Inner_L", "head_wm2_normal_head_wm2_browsLateral_L", 0.0, 0.03],
+
+    ["Brow_Raise_Inner_R", "head_wm1_normal_head_wm1_browRaiseInner_R", 0.0, 1.0],
+    ["Brow_Raise_Inner_R", "head_wm2_normal_head_wm2_browsLateral_R", 0.0, 0.03],
+
+    ["Brow_Raise_Outer_L", "head_wm1_normal_head_wm1_browRaiseOuter_L", 0.0, 1.0],
+
+    ["Brow_Raise_Outer_R", "head_wm1_normal_head_wm1_browRaiseOuter_R", 0.0, 1.0],
+
+    ["Brow_Drop_L", "head_wm2_normal_head_wm2_browsDown_L", 0.0, 0.1],
+    ["Brow_Drop_L", "head_wm2_normal_head_wm2_browsLateral_L", 0.0, 1.0],
+
+    ["Brow_Drop_R", "head_wm2_normal_head_wm2_browsDown_R", 0.0, 0.1],
+    ["Brow_Drop_R", "head_wm2_normal_head_wm2_browsLateral_R", 0.0, 1.0],
+
+    ["Brow_Compress_L", "head_wm2_normal_head_wm2_browsLateral_L", 0.0, 1.0],
+    ["Brow_Compress_R", "head_wm2_normal_head_wm2_browsLateral_R", 0.0, 1.0],
+
+    ["Eye_Blink_L", "head_wm1_normal_head_wm1_blink_L", 0.0, 1.0],
+    ["Eye_Blink_L", "head_wm1_normal_head_wm1_squintInner_L", 0.0, 0.3],
+
+    ["Eye_Blink_R", "head_wm1_normal_head_wm1_blink_R", 0.0, 1.0],
+    ["Eye_Blink_R", "head_wm1_normal_head_wm1_squintInner_R", 0.0, 0.3],
+
+    ["Eye_Squint_L", "head_wm1_normal_head_wm1_squintInner_L", 0.0, 1.0],
+    ["Eye_Squint_R", "head_wm1_normal_head_wm1_squintInner_R", 0.0, 1.0],
+
+    ["Eye_L_Look_Down", "head_wm1_normal_head_wm1_blink_L", 0.0, 1.0],
+    ["Eye_R_Look_Down", "head_wm1_normal_head_wm1_blink_R", 0.0, 1.0],
+
+    ["Nose_Sneer_L", "head_wm2_normal_head_wm2_browsDown_L", 0.0, 0.7],
+    ["Nose_Sneer_L", "head_wm2_normal_head_wm2_browsLateral_L", 0.0, 0.6],
+    ["Nose_Sneer_L", "head_wm2_normal_head_wm2_noseWrinkler_L", 0.0, 1.0],
+
+    ["Nose_Sneer_R", "head_wm2_normal_head_wm2_browsDown_R", 0.0, 0.7],
+    ["Nose_Sneer_R", "head_wm2_normal_head_wm2_browsLateral_R", 0.0, 0.6],
+    ["Nose_Sneer_R", "head_wm2_normal_head_wm2_noseWrinkler_R", 0.0, 1.0],
+
+    ["Nose_Nostril_Raise_L", "head_wm2_normal_head_wm2_noseWrinkler_L", 0.0, 0.6],
+    ["Nose_Nostril_Raise_R", "head_wm2_normal_head_wm2_noseWrinkler_R", 0.0, 0.6],
+
+    ["Nose_Crease_L", "head_wm2_normal_head_wm2_noseCrease_L", 0.0, 0.7],
+    ["Nose_Crease_R", "head_wm2_normal_head_wm2_noseCrease_R", 0.0, 0.7],
+
+    ["Cheek_Raise_L", "head_wm3_normal_head_wm3_cheekRaiseInner_L", 0.0, 1.0],
+    ["Cheek_Raise_L", "head_wm3_normal_head_wm3_cheekRaiseOuter_L", 0.0, 1.0],
+    ["Cheek_Raise_L", "head_wm3_normal_head_wm3_cheekRaiseUpper_L", 0.0, 1.0],
+
+    ["Cheek_Raise_R", "head_wm3_normal_head_wm3_cheekRaiseInner_R", 0.0, 1.0],
+    ["Cheek_Raise_R", "head_wm3_normal_head_wm3_cheekRaiseOuter_R", 0.0, 1.0],
+    ["Cheek_Raise_R", "head_wm3_normal_head_wm3_cheekRaiseUpper_R", 0.0, 1.0],
+
+    ["Jaw_Open", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 1.0],
+    ["Jaw_Open", "head_wm1_normal_head_wm1_jawOpen_R", 0.0, 1.0],
+
+    ["Jaw_L", "head_wm2_normal_head_wm2_neckStretch_L", 0.0, 1.0],
+    ["Jaw_R", "head_wm2_normal_head_wm2_neckStretch_R", 0.0, 1.0],
+
+    ["Mouth_Up", "head_wm1_normal_head_wm1_chinRaise_L", 0.0, 1.0],
+    ["Mouth_Up", "head_wm1_normal_head_wm1_chinRaise_R", 0.0, 1.0],
+
+    ["Mouth_L", "head_wm3_normal_head_wm3_smile_L", 0.0, 0.8],
+    ["Mouth_L", "head_wm3_normal_head_wm3_cheekRaiseOuter_L", 0.0, 0.6],
+    ["Mouth_L", "head_wm1_normal_head_wm13_lips_UL", 0.0, 0.7],
+    ["Mouth_L", "head_wm1_normal_head_wm13_lips_UR", 0.0, 0.7],
+    ["Mouth_L", "head_wm1_normal_head_wm13_lips_DL", 0.0, 0.7],
+    ["Mouth_L", "head_wm1_normal_head_wm13_lips_DR", 0.0, 0.7],
+
+    ["Mouth_R", "head_wm3_normal_head_wm3_smile_R", 0.0, 0.8],
+    ["Mouth_R", "head_wm3_normal_head_wm3_cheekRaiseOuter_R", 0.0, 0.6],
+    ["Mouth_R", "head_wm1_normal_head_wm13_lips_UL", 0.0, 0.7],
+    ["Mouth_R", "head_wm1_normal_head_wm13_lips_UR", 0.0, 0.7],
+    ["Mouth_R", "head_wm1_normal_head_wm13_lips_DL", 0.0, 0.7],
+    ["Mouth_R", "head_wm1_normal_head_wm13_lips_DR", 0.0, 0.7],
+
+    ["Mouth_Smile_L", "head_wm3_normal_head_wm3_cheekRaiseInner_L", 0.0, 0.6],
+    ["Mouth_Smile_L", "head_wm3_normal_head_wm3_cheekRaiseOuter_L", 0.0, 0.6],
+    ["Mouth_Smile_L", "head_wm3_normal_head_wm3_smile_L", 0.0, 1.0],
+    ["Mouth_Smile_L", "head_wm3_normal_head_wm13_lips_DL", 0.0, 1.0],
+    ["Mouth_Smile_L", "head_wm3_normal_head_wm13_lips_UL", 0.0, 1.0],
+
+    ["Mouth_Smile_R", "head_wm3_normal_head_wm3_cheekRaiseInner_R", 0.0, 0.6],
+    ["Mouth_Smile_R", "head_wm3_normal_head_wm3_cheekRaiseOuter_R", 0.0, 0.6],
+    ["Mouth_Smile_R", "head_wm3_normal_head_wm3_smile_R", 0.0, 1.0],
+    ["Mouth_Smile_R", "head_wm3_normal_head_wm13_lips_DR", 0.0, 1.0],
+    ["Mouth_Smile_R", "head_wm3_normal_head_wm13_lips_UR", 0.0, 1.0],
+
+    ["Mouth_Smile_Sharp_L", "head_wm3_normal_head_wm3_cheekRaiseInner_L", 0.0, 0.4],
+    ["Mouth_Smile_Sharp_L", "head_wm3_normal_head_wm3_cheekRaiseOuter_L", 0.0, 0.4],
+    ["Mouth_Smile_Sharp_L", "head_wm3_normal_head_wm3_smile_L", 0.0, 0.8],
+    ["Mouth_Smile_Sharp_L", "head_wm3_normal_head_wm13_lips_DL", 0.0, 0.8],
+    ["Mouth_Smile_Sharp_L", "head_wm3_normal_head_wm13_lips_UL", 0.0, 0.8],
+
+    ["Mouth_Smile_Sharp_R", "head_wm3_normal_head_wm3_cheekRaiseInner_R", 0.0, 0.4],
+    ["Mouth_Smile_Sharp_R", "head_wm3_normal_head_wm3_cheekRaiseOuter_R", 0.0, 0.4],
+    ["Mouth_Smile_Sharp_R", "head_wm3_normal_head_wm3_smile_R", 0.0, 0.8],
+    ["Mouth_Smile_Sharp_R", "head_wm3_normal_head_wm13_lips_DR", 0.0, 0.8],
+    ["Mouth_Smile_Sharp_R", "head_wm3_normal_head_wm13_lips_UR", 0.0, 0.8],
+
+    ["Mouth_Dimple_L", "head_wm3_normal_head_wm3_cheekRaiseInner_L", 0.0, 0.15],
+    ["Mouth_Dimple_L", "head_wm3_normal_head_wm3_cheekRaiseOuter_L", 0.0, 0.15],
+    ["Mouth_Dimple_L", "head_wm3_normal_head_wm3_smile_L", 0.0, 0.3],
+    ["Mouth_Dimple_L", "head_wm3_normal_head_wm13_lips_DL", 0.0, 0.3],
+    ["Mouth_Dimple_L", "head_wm3_normal_head_wm13_lips_UL", 0.0, 0.3],
+
+    ["Mouth_Dimple_R", "head_wm3_normal_head_wm3_cheekRaiseInner_R", 0.0, 0.15],
+    ["Mouth_Dimple_R", "head_wm3_normal_head_wm3_cheekRaiseOuter_R", 0.0, 0.15],
+    ["Mouth_Dimple_R", "head_wm3_normal_head_wm3_smile_R", 0.0, 0.3],
+    ["Mouth_Dimple_R", "head_wm3_normal_head_wm13_lips_DR", 0.0, 0.3],
+    ["Mouth_Dimple_R", "head_wm3_normal_head_wm13_lips_UR", 0.0, 0.3],
+
+    ["Mouth_Stretch_L", "head_wm2_normal_head_wm2_mouthStretch_L", 0.0, 1.0],
+    ["Mouth_Stretch_R", "head_wm2_normal_head_wm2_mouthStretch_R", 0.0, 1.0],
+
+    ["Mouth_Pucker_Up_L", "head_wm1_normal_head_wm1_purse_UL", 0.0, 1.0],
+    ["Mouth_Pucker_Up_L", "head_wm1_normal_head_wm13_lips_UL", 0.0, 1.0],
+
+    ["Mouth_Pucker_Up_R", "head_wm1_normal_head_wm1_purse_UR", 0.0, 1.0],
+    ["Mouth_Pucker_Up_R", "head_wm1_normal_head_wm13_lips_UR", 0.0, 1.0],
+
+    ["Mouth_Pucker_Down_L", "head_wm1_normal_head_wm1_chinRaise_L", 0.0, 0.5],
+    ["Mouth_Pucker_Down_L", "head_wm1_normal_head_wm1_purse_DL", 0.0, 1.0],
+    ["Mouth_Pucker_Down_L", "head_wm1_normal_head_wm13_lips_DL", 0.0, 1.0],
+
+    ["Mouth_Pucker_Down_R", "head_wm1_normal_head_wm1_chinRaise_R", 0.0, 0.5],
+    ["Mouth_Pucker_Down_R", "head_wm1_normal_head_wm1_purse_DR", 0.0, 1.0],
+    ["Mouth_Pucker_Down_R", "head_wm1_normal_head_wm13_lips_DR", 0.0, 1.0],
+
+    ["Mouth_Pucker", "head_wm1_normal_head_wm1_purse_DL", 0.0, 1.0],
+    ["Mouth_Pucker", "head_wm1_normal_head_wm1_purse_DR", 0.0, 1.0],
+    ["Mouth_Pucker", "head_wm1_normal_head_wm1_purse_UL", 0.0, 1.0],
+    ["Mouth_Pucker", "head_wm1_normal_head_wm1_purse_UR", 0.0, 1.0],
+    ["Mouth_Pucker", "head_wm1_normal_head_wm13_lips_DL", 0.0, 1.0],
+    ["Mouth_Pucker", "head_wm1_normal_head_wm13_lips_DR", 0.0, 1.0],
+    ["Mouth_Pucker", "head_wm1_normal_head_wm13_lips_UL", 0.0, 1.0],
+    ["Mouth_Pucker", "head_wm1_normal_head_wm13_lips_UR", 0.0, 1.0],
+    ["Mouth_Pucker", "head_wm1_normal_head_wm1_chinRaise_L", 0.0, 0.5],
+    ["Mouth_Pucker", "head_wm1_normal_head_wm1_chinRaise_R", 0.0, 0.5],
+
+    ["Mouth_Chin_Up", "head_wm1_normal_head_wm1_chinRaise_L", 0.0, 1.0],
+    ["Mouth_Chin_Up", "head_wm1_normal_head_wm1_chinRaise_R", 0.0, 1.0],
+
+    ["Mouth_Up_Upper_L", "head_wm2_normal_head_wm2_noseCrease_L", 0.0, 1.0],
+
+    ["Mouth_Up_Upper_R", "head_wm2_normal_head_wm2_noseCrease_R", 0.0, 1.0],
+
+    ["Neck_Tighten_L", "head_wm2_normal_head_wm2_neckStretch_L", 0.0, 1.0],
+
+    ["Neck_Tighten_R", "head_wm2_normal_head_wm2_neckStretch_R", 0.0, 1.0],
+
+    ["Head_Turn_L", "head_wm2_normal_head_wm2_neckStretch_R", 0.0, 0.6],
+
+    ["Head_Turn_R", "head_wm2_normal_head_wm2_neckStretch_L", 0.0, 0.6],
+
+    ["Head_Tilt_L", "head_wm2_normal_head_wm2_neckStretch_R", 0.0, 0.75],
+
+    ["Head_Tilt_R", "head_wm2_normal_head_wm2_neckStretch_L", 0.0, 0.75],
+
+    ["Head_Backward", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 0.5],
+    ["Head_Backward", "head_wm1_normal_head_wm1_jawOpen_R", 0.0, 0.5],
+
+    ["Mouth_Frown_L", "head_wm2_normal_head_wm2_mouthStretch_L", 0.0, 1.0],
+
+    ["Mouth_Frown_R", "head_wm2_normal_head_wm2_mouthStretch_R", 0.0, 1.0],
+
+    ["Mouth_Shrug_Lower", "head_wm1_normal_head_wm1_chinRaise_L", 0.0, 1.0],
+    ["Mouth_Shrug_Lower", "head_wm1_normal_head_wm1_chinRaise_R", 0.0, 1.0],
+
+    ["V_Open", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 1.0],
+    ["V_Open", "head_wm1_normal_head_wm1_jawOpen_R", 0.0, 1.0],
+
+    ["V_Tight_O", "head_wm1_normal_head_wm1_purse_DL", 0.0, 0.7],
+    ["V_Tight_O", "head_wm1_normal_head_wm1_purse_DR", 0.0, 0.7],
+    ["V_Tight_O", "head_wm1_normal_head_wm1_purse_UL", 0.0, 0.7],
+    ["V_Tight_O", "head_wm1_normal_head_wm1_purse_UR", 0.0, 0.7],
+    ["V_Tight_O", "head_wm1_normal_head_wm13_lips_DL", 0.0, 0.7],
+    ["V_Tight_O", "head_wm1_normal_head_wm13_lips_DR", 0.0, 0.7],
+    ["V_Tight_O", "head_wm1_normal_head_wm13_lips_UL", 0.0, 0.7],
+    ["V_Tight_O", "head_wm1_normal_head_wm13_lips_UR", 0.0, 0.7],
+
+    ["V_Tight", "head_wm1_normal_head_wm1_purse_DL", 0.0, 0.7],
+    ["V_Tight", "head_wm1_normal_head_wm1_purse_DR", 0.0, 0.7],
+    ["V_Tight", "head_wm1_normal_head_wm1_purse_UL", 0.0, 0.7],
+    ["V_Tight", "head_wm1_normal_head_wm1_purse_UR", 0.0, 0.7],
+    ["V_Tight", "head_wm1_normal_head_wm13_lips_DL", 0.0, 0.7],
+    ["V_Tight", "head_wm1_normal_head_wm13_lips_DR", 0.0, 0.7],
+    ["V_Tight", "head_wm1_normal_head_wm13_lips_UL", 0.0, 0.7],
+    ["V_Tight", "head_wm1_normal_head_wm13_lips_UR", 0.0, 0.7],
+
+    ["V_Wide", "head_wm3_normal_head_wm13_lips_DL", 0.0, 0.7],
+    ["V_Wide", "head_wm3_normal_head_wm13_lips_UL", 0.0, 0.7],
+    ["V_Wide", "head_wm3_normal_head_wm13_lips_DR", 0.0, 0.7],
+    ["V_Wide", "head_wm3_normal_head_wm13_lips_UR", 0.0, 0.7],
+
+    ["AE", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 0.24],
+    ["AE", "head_wm1_normal_head_wm1_jawOpen_R", 0.0, 0.24],
+
+    ["Ah", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 0.6],
+    ["Ah", "head_wm1_normal_head_wm1_jawOpen_R", 0.0, 0.6],
+
+    ["EE", "head_wm3_normal_head_wm13_lips_DL", 0.0, 0.7],
+    ["EE", "head_wm3_normal_head_wm13_lips_UL", 0.0, 0.7],
+    ["EE", "head_wm3_normal_head_wm13_lips_DR", 0.0, 0.7],
+    ["EE", "head_wm3_normal_head_wm13_lips_UR", 0.0, 0.7],
+
+    ["Ih", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 0.15],
+    ["Ih", "head_wm1_normal_head_wm1_jawOpen_R", 0.0, 0.15],
+
+    ["K_G_H_NG", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 0.065],
+    ["K_G_H_NG", "head_wm1_normal_head_wm1_jawOpen_R", 0.0, 0.065],
+
+    ["Oh", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 0.6025],
+    ["Oh", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 0.6025],
+    ["Oh", "head_wm1_normal_head_wm1_purse_DL", 0.0, 0.56],
+    ["Oh", "head_wm1_normal_head_wm1_purse_DR", 0.0, 0.56],
+    ["Oh", "head_wm1_normal_head_wm1_purse_UL", 0.0, 0.56],
+    ["Oh", "head_wm1_normal_head_wm1_purse_UR", 0.0, 0.56],
+    ["Oh", "head_wm1_normal_head_wm13_lips_DL", 0.0, 0.56],
+    ["Oh", "head_wm1_normal_head_wm13_lips_DR", 0.0, 0.56],
+    ["Oh", "head_wm1_normal_head_wm13_lips_UL", 0.0, 0.56],
+    ["Oh", "head_wm1_normal_head_wm13_lips_UR", 0.0, 0.56],
+
+    ["R", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 0.1],
+    ["R", "head_wm1_normal_head_wm1_jawOpen_R", 0.0, 0.1],
+    ["R", "head_wm1_normal_head_wm1_purse_DL", 0.0, 0.63],
+    ["R", "head_wm1_normal_head_wm1_purse_DR", 0.0, 0.63],
+    ["R", "head_wm1_normal_head_wm1_purse_UL", 0.0, 0.63],
+    ["R", "head_wm1_normal_head_wm1_purse_UR", 0.0, 0.63],
+    ["R", "head_wm1_normal_head_wm13_lips_DL", 0.0, 0.63],
+    ["R", "head_wm1_normal_head_wm13_lips_DR", 0.0, 0.63],
+    ["R", "head_wm1_normal_head_wm13_lips_UL", 0.0, 0.63],
+    ["R", "head_wm1_normal_head_wm13_lips_UR", 0.0, 0.63],
+
+    ["S_Z", "head_wm3_normal_head_wm13_lips_DL", 0.0, 0.14],
+    ["S_Z", "head_wm3_normal_head_wm13_lips_DR", 0.0, 0.14],
+    ["S_Z", "head_wm3_normal_head_wm13_lips_UL", 0.0, 0.14],
+    ["S_Z", "head_wm3_normal_head_wm13_lips_UR", 0.0, 0.14],
+
+    ["T_L_D_N", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 0.0426],
+    ["T_L_D_N", "head_wm1_normal_head_wm1_jawOpen_R", 0.0, 0.0426],
+
+    ["Th", "head_wm1_normal_head_wm1_jawOpen_L", 0.0, 0.1212],
+    ["Th", "head_wm1_normal_head_wm1_jawOpen_R", 0.0, 0.1212],
+
+    ["W_OO", "head_wm1_normal_head_wm1_purse_DL", 0.0, 0.56],
+    ["W_OO", "head_wm1_normal_head_wm1_purse_DR", 0.0, 0.56],
+    ["W_OO", "head_wm1_normal_head_wm1_purse_UL", 0.0, 0.56],
+    ["W_OO", "head_wm1_normal_head_wm1_purse_UR", 0.0, 0.56],
+    ["W_OO", "head_wm1_normal_head_wm13_lips_DL", 0.0, 0.56],
+    ["W_OO", "head_wm1_normal_head_wm13_lips_DR", 0.0, 0.56],
+    ["W_OO", "head_wm1_normal_head_wm13_lips_UL", 0.0, 0.56],
+    ["W_OO", "head_wm1_normal_head_wm13_lips_UR", 0.0, 0.56],
 ]

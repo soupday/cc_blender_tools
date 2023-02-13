@@ -36,122 +36,6 @@ def get_shader_input(mat, input):
     return None
 
 
-def get_socket_connected_to_output(node, socket):
-    try:
-        return node.outputs[socket].links[0].to_socket.name
-    except:
-        return None
-
-
-def get_socket_connected_to_input(node, socket):
-    try:
-        return node.inputs[socket].links[0].from_socket.name
-    except:
-        return None
-
-
-def get_node_connected_to_output(node, socket):
-    try:
-        return node.outputs[socket].links[0].to_node
-    except:
-        return None
-
-
-def get_node_connected_to_input(node, socket):
-    try:
-        return node.inputs[socket].links[0].from_node
-    except:
-        return None
-
-
-def get_node_and_socket_connected_to_output(node, socket):
-    try:
-        return node.outputs[socket].links[0].to_node, node.outputs[socket].links[0].to_socket.name
-    except:
-        return None, None
-
-
-def get_node_and_socket_connected_to_input(node, socket):
-    try:
-        return node.inputs[socket].links[0].from_node, node.inputs[socket].links[0].from_socket.name
-    except:
-        return None, None
-
-
-def has_connected_input(node, socket):
-    try:
-        socket : bpy.types.NodeSocket = node.inputs[socket]
-        if socket.is_linked:
-            return True
-    except:
-        pass
-    return False
-
-
-def get_node_by_id(nodes, id):
-    for node in nodes:
-        if vars.NODE_PREFIX in node.name and id in node.name:
-            return node
-    return None
-
-
-def get_node_by_id_and_type(nodes, id, type):
-    for node in nodes:
-        if vars.NODE_PREFIX in node.name and id in node.name and node.type == type:
-            return node
-    return None
-
-
-def get_default_shader_input(mat, input):
-    if mat.node_tree is not None:
-        for n in mat.node_tree.nodes:
-            if n.type == "BSDF_PRINCIPLED":
-                if input in n.inputs:
-                    return n.inputs[input].default_value
-    return 0.0
-
-
-def set_default_shader_input(mat, input, value):
-    if mat.node_tree is not None:
-        for n in mat.node_tree.nodes:
-            if n.type == "BSDF_PRINCIPLED":
-                if input in n.inputs:
-                    n.inputs[input].default_value = value
-
-
-def is_input_socket_connected(node, socket_name):
-    try:
-        return len(node.inputs[socket_name].links) > 0
-    except:
-        return False
-
-
-def is_node_connected_to_node(node, search, done):
-    socket : bpy.types.NodeSocket
-    for socket in node.inputs:
-        if socket.is_linked:
-            found = is_node_connected_to_socket(node, socket.name, search, done)
-            if found:
-                return True
-    return False
-
-
-def is_node_connected_to_socket(node, socket, search, done = None):
-    if done is None:
-        done = []
-
-    connected_node = get_node_connected_to_input(node, socket)
-    if connected_node is None or connected_node in done:
-        return False
-
-    done.append(connected_node)
-
-    if connected_node == search:
-        return True
-    else:
-        return is_node_connected_to_node(node, search, done)
-
-
 def clear_cursor():
     cursor_top.x = 0
     cursor_top.y = 0
@@ -282,86 +166,259 @@ def make_node_group_node(nodes, group, label, name):
     return group_node
 
 
-def get_node_input(node : bpy.types.Node, input, default):
-    if node is not None:
+## Node Socket Functions
+#
+
+
+def safe_node_output_socket(node, socket_or_name):
+    """Return the node's socket or named output socket."""
+
+    try:
+        if type(socket_or_name) == str or type(socket_or_name) == int:
+            return node.outputs[socket_or_name]
+        else:
+            return socket_or_name
+    except:
+        return None
+
+
+def safe_node_input_socket(node, socket_or_name):
+    """Return the node's socket or named input socket."""
+
+    try:
+        if type(socket_or_name) == str or type(socket_or_name) == int:
+            return node.inputs[socket_or_name]
+        else:
+            return socket_or_name
+    except:
+        return None
+
+
+def safe_socket_name(socket_or_name):
+    """Return the supplied name or socket's name."""
+
+    try:
+        if type(socket_or_name) == str:
+            return socket_or_name
+        elif type(socket_or_name) == int:
+            return int(socket_or_name)
+        else:
+            return socket_or_name.name
+    except:
+        return None
+
+
+def get_node_input_value(node : bpy.types.Node, socket, default = None):
+    """Returns the node's socket or named input sockets default value
+       or if linked to, the connecting node's default output value.\n
+       Returns the supplied default value if node/socket is invalid."""
+
+    socket = safe_node_input_socket(node, socket)
+    if node and socket:
         try:
-            if node.inputs[input].is_linked:
-                input_node, input_socket = get_node_and_socket_connected_to_input(node, input)
-                if input_node and input_socket:
-                    return input_node.outputs[input_socket].default_value
-            return node.inputs[input].default_value
+            if socket.is_linked:
+                connecting_node, connecting_socket = get_node_and_socket_connected_to_input(node, socket)
+                return get_node_output_value(connecting_node, connecting_socket, default)
+            return socket.default_value
         except:
             return default
     return default
 
 
-def get_node_input_default(node : bpy.types.Node, input, default):
-    if node is not None:
+def get_node_output_value(node, socket, default):
+    """Returns the node's socket or named output sockets default value.\n
+       Returns the supplied default value if node/socket is invalid."""
+
+    socket = safe_node_output_socket(node, socket)
+    if node and socket:
         try:
-            return node.inputs[input].default_value
+            return socket.default_value
         except:
             return default
     return default
 
 
-def get_node_output(node, output, default):
-    if node is not None:
+def set_node_input_value(node, socket, value):
+    """Sets the node's socket or named input socket's default value.\n
+       If the socket's value is multidimensional the value will be set in each dimension."""
+
+    socket = safe_node_input_socket(node, socket)
+    if node and socket:
         try:
-            return node.outputs[output].default_value
-        except:
-            return default
-    return default
-
-
-def set_node_input(node, socket, value):
-
-    if node is not None:
-        try:
-            node.inputs[socket].default_value = utils.match_dimensions(node.inputs[socket].default_value, value)
+            socket.default_value = utils.match_dimensions(socket.default_value, value)
         except:
             utils.log_detail("Unable to set input: " + node.name + "[" + str(socket) + "]")
 
 
-def set_node_output(node, socket, value):
-    if node is not None:
+def set_node_output_value(node, socket, value):
+    """Sets the node's socket or named output socket's default value.\n
+       If the socket's value is multidimensional the value will be set in each dimension."""
+
+    socket = safe_node_output_socket(node, socket)
+    if node and socket:
         try:
-            node.outputs[socket].default_value = utils.match_dimensions(node.outputs[socket].default_value, value)
+            socket.default_value = utils.match_dimensions(socket.default_value, value)
         except:
             utils.log_detail("Unable to set output: " + node.name + "[" + str(socket) + "]")
 
 
 def link_nodes(links, from_node, from_socket, to_node, to_socket):
-    if from_node is not None and to_node is not None:
+    """Create's a link between the supplied from_node and to_node's sockets (or named sockets)."""
+
+    if from_node and to_node:
         try:
-            links.new(from_node.outputs[from_socket], to_node.inputs[to_socket])
+            from_socket = safe_node_output_socket(from_node, from_socket)
+            to_socket = safe_node_input_socket(to_node, to_socket)
+            if from_socket and to_socket:
+                links.new(from_socket, to_socket)
         except:
-            utils.log_detail("Unable to link: " + from_node.name + "[" + str(from_socket) + "] to " +
-                  to_node.name + "[" + str(to_socket) + "]")
+            utils.log_detail(f"Unable to link: {from_node.name} [{str(from_socket)}] to {to_node.name} [{str(to_socket)}]")
 
 
-def unlink_node(links, node, socket):
-    if node is not None:
+def unlink_node_output(links, node, socket):
+    """Removes the link from the socket (or the node's named output socket)."""
+
+    socket = safe_node_output_socket(node, socket)
+    if node and socket:
         try:
-            socket_links = node.inputs[socket].links
-            for link in socket_links:
+            for link in socket.links:
                 if link is not None:
                     links.remove(link)
         except:
             utils.log_info("Unable to remove links from: " + node.name + "[" + str(socket) + "]")
 
 
+def get_socket_connected_to_output(node, socket):
+    """Returns the *first* linked socket connected from the supplied node's output socket (or named output socket)."""
+
+    socket = safe_node_output_socket(node, socket)
+    try:
+        return socket.links[0].to_socket
+    except:
+        return None
+
+
+def get_socket_connected_to_input(node, socket):
+    """Returns the linked socket connected to the supplied node's input socket (or named input socket)."""
+
+    socket = safe_node_input_socket(node, socket)
+    try:
+        return socket.links[0].from_socket
+    except:
+        return None
+
+
+def get_node_connected_to_output(node, socket):
+    """Returns the *first* linked node connected from the supplied node's input socket (or named input socket)."""
+
+    socket = safe_node_output_socket(node, socket)
+    try:
+        return socket.links[0].to_node
+    except:
+        return None
+
+
+def get_node_connected_to_input(node, socket):
+    """Returns the linked node connected to the supplied node's input socket (or named input socket)."""
+
+    socket = safe_node_input_socket(node, socket)
+    try:
+        return socket.links[0].from_node
+    except:
+        return None
+
+
+def get_node_and_socket_connected_to_output(node, socket):
+    """Returns the *first* linked node and socket connected from the supplied node's output socket
+       (or named output socket)."""
+
+    socket = safe_node_output_socket(node, socket)
+    try:
+        return socket.links[0].to_node, socket.links[0].to_socket
+    except:
+        return None, None
+
+
+def get_node_and_socket_connected_to_input(node, socket):
+    """Returns the linked node and socket connected to the the supplied node's input socket
+       (or named input socket)."""
+
+    socket = safe_node_input_socket(node, socket)
+    try:
+        return socket.links[0].from_node, socket.links[0].from_socket
+    except:
+        return None, None
+
+
+def has_connected_input(node, socket):
+    """Returns True if the node's input socket (or named input socket) is linked to from another node."""
+
+    socket = safe_node_input_socket(node, socket)
+    try:
+        return socket.is_linked
+    except:
+        pass
+    return False
+
+
+def is_image_node_connected_to_node(node, image, done = []):
+    """Returns True if there is a linked image node with the supplied image connecting the this node."""
+
+    for socket in node.inputs:
+        if socket.is_linked:
+            found = is_image_node_connected_to_socket(node, socket, image, done)
+            if found:
+                return True
+    return False
+
+
+def is_image_node_connected_to_socket(node, socket, image, done = []):
+    """Returns True if there is a linked image node with the supplied image connecting the this node and socket."""
+
+    connected_node = get_node_connected_to_input(node, socket)
+    if not connected_node or connected_node in done:
+        return False
+
+    done.append(connected_node)
+
+    if connected_node.type == "TEX_IMAGE" and connected_node.image == image:
+        return True
+    else:
+        return is_image_node_connected_to_node(node, image, done)
+
+
+def get_node_by_id(nodes, id_string):
+    """Find a node with a particular id string."""
+
+    for node in nodes:
+        if vars.NODE_PREFIX in node.name and id_string in node.name:
+            return node
+    return None
+
+
+def get_node_by_id_and_type(nodes, id, type):
+    """Find a node with a particular id string and node type."""
+
+    for node in nodes:
+        if vars.NODE_PREFIX in node.name and id in node.name and node.type == type:
+            return node
+    return None
+
+
 def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group):
     shader_id = "(" + str(shader_name) + ")"
     bsdf_id = "(" + str(shader_name) + "_BSDF)"
     mix_id = "(" + str(shader_name) + "_MIX)"
+    wrinkle_id = "(rl_wrinkle_shader)"
 
     group_node: bpy.types.Node = None
     mix_node: bpy.types.Node = None
     bsdf_node: bpy.types.Node = None
     output_node: bpy.types.Node = None
+    wrinkle_node: bpy.types.Node = None
 
-    has_bsdf = shader_group is not None and shader_group != ""
-    has_group_node = has_bsdf
+    has_group_node = shader_group is not None and shader_group != ""
+    has_bsdf = has_group_node
     has_mix_node = mix_shader_group is not None and mix_shader_group != ""
 
     links.clear()
@@ -378,7 +435,11 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
 
         elif n.type == "GROUP" and n.node_tree and shader_name in n.name and vars.VERSION_STRING in n.node_tree.name:
 
-            if has_group_node and shader_group in n.node_tree.name:
+            if wrinkle_id in n.node_tree.name:
+                utils.log_info("Keeping old wrinkle shader group: " + n.name)
+                wrinkle_node = n
+
+            elif has_group_node and shader_group in n.node_tree.name:
                 if not group_node:
                     utils.log_info("Keeping old shader group: " + n.name)
                     group_node = n
@@ -489,6 +550,8 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
     if has_group_node:
         link_nodes(links, group_node, "Displacement", output_node, "Displacement")
 
+    # don't do anything with the old wrinkle shader node yet
+
     return bsdf_node, group_node
 
 
@@ -549,27 +612,79 @@ def add_wrinkle_shader(nodes, links, obj, mat, main_shader_name, wrinkle_shader_
 
 
 def add_wrinkle_mappings(node, obj):
-    for socket_name, shape_key_list in params.WRINKLE_MAPPINGS:
-        utils.log_info(f"Adding driver for {socket_name} -> {shape_key_list}")
-        add_shapekeys_wrinkle_node_driver(node, socket_name, obj, shape_key_list)
+
+    if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
+        return
+
+    key_defs = {}
+
+    for wrinkle_name in params.WRINKLE_RULES.keys():
+        wrinkle_rule = params.WRINKLE_RULES[wrinkle_name]
+        socket = wrinkle_rule[0]
+        weight = wrinkle_rule[1]
+        key_def = { "name": wrinkle_name, "weight": weight, "keys": [] }
+        key_defs[socket] = key_def
+
+    for shape_key, morph_name, range_min, range_max in params.WRINKLE_MAPPINGS:
+        if shape_key in obj.data.shape_keys.key_blocks:
+            if morph_name in params.WRINKLE_RULES.keys():
+                wrinkle_rule = params.WRINKLE_RULES[morph_name]
+                socket = wrinkle_rule[0]
+                weight = wrinkle_rule[1]
+                key = [shape_key, range_min * weight, range_max * weight]
+                key_defs[socket]["keys"].append(key)
+            else:
+                utils.log_error(f"Wrinkle Morph Name: {morph_name} not found in Wrinkle Rules!")
+        else:
+            utils.log_info(f"Skipping shape key: {shape_key}, not found in body mesh.")
+
+    for socket_name in key_defs:
+        key_def = key_defs[socket_name]
+        keys = key_def["keys"]
+        if keys:
+            utils.log_info(f"Adding driver for wrinkle morph socket: {socket_name}")
+            add_shapekeys_wrinkle_node_driver(node, socket_name, obj, keys)
+        else:
+            utils.log_info(f"No shape keys found for wrinkle rule socket: {socket_name}")
 
 
 def add_shapekeys_wrinkle_node_driver(node, wrinkle_value_socket_name, obj, shape_key_list):
 
+    CALC_MODE = "MAX"
+
     # get lists of all the shapekeys that influence this wrinkle value
-    var_csv = ""
+    var_code = ""
     var_paths = []
     var_names = []
-    for i, shape_key_name in enumerate(shape_key_list):
+    num_vars = len(shape_key_list)
+    for i, key in enumerate(shape_key_list):
+        shape_key_name = key[0]
+        range_min = key[1]
+        range_max = key[2]
         var_name = f"var{i}"
-        var_csv += f", {var_name}"
+        if i > 0:
+            if CALC_MODE == "MAX":
+                var_code += ", "
+            else: # mode == "AVERAGE":
+                var_code += " + "
+        if range_min == 0 and range_max == 1:
+            var_range_expr = f"max(0, {var_name})"
+        elif range_min == 0:
+            var_range_expr = f"{range_max} * max(0, {var_name})"
+        else:
+            var_range_expr = f"{range_min} + ({range_max} - {range_min}) * max(0, {var_name})"
+        var_code += var_range_expr
         var_path = f"shape_keys.key_blocks[\"{shape_key_name}\"].value"
         var_names.append(var_name)
         var_paths.append(var_path)
 
     # add a driver for the node socket input value: node.inputs[socket_name].default_value
     socket = node.inputs[wrinkle_value_socket_name]
-    expr = f"max(0.0{var_csv})"
+    if CALC_MODE == "MAX":
+        expr = f"max({var_code})"
+    else: # mode == "AVERAGE":
+        expr = f"({var_code}) / {num_vars}"
+
     driver = drivers.make_driver(socket, "default_value", "SCRIPTED", expr)
 
     # add shape key variables
@@ -656,6 +771,8 @@ def find_node_group_by_keywords(nodes, *keywords):
 
 
 def get_image_node_mapping(image_node):
+    """Returns the location offset, rotation and scale vectors of any attached mapping node to the image node."""
+
     location = (0,0,0)
     rotation = (0,0,0)
     scale = (1,1,1)
@@ -663,12 +780,12 @@ def get_image_node_mapping(image_node):
         mapping_node = get_node_connected_to_input(image_node, "Vector")
         if mapping_node:
             if mapping_node.type == "MAPPING":
-                location = get_node_input(mapping_node, "Location", (0,0,0))
-                rotation = get_node_input(mapping_node, "Rotation", (0,0,0))
-                scale = get_node_input(mapping_node, "Scale", (1,1,1))
-            elif mapping_node.type == "GROUP":
-                location = get_node_input(mapping_node, "Offset", (0,0,0))
-                scale = get_node_input(mapping_node, "Tiling", (1,1,1))
+                location = get_node_input_value(mapping_node, "Location", (0,0,0))
+                rotation = get_node_input_value(mapping_node, "Rotation", (0,0,0))
+                scale = get_node_input_value(mapping_node, "Scale", (1,1,1))
+            elif mapping_node.type == "GROUP": # custom mapping group
+                location = get_node_input_value(mapping_node, "Offset", (0,0,0))
+                scale = get_node_input_value(mapping_node, "Tiling", (1,1,1))
     return location, rotation, scale
 
 

@@ -465,35 +465,33 @@ def detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache):
 
             name = name.lower()
             color_node, color_socket = nodeutils.get_node_and_socket_connected_to_output(node, "Color")
-            # the fbx importer in 2.91 makes a total balls up of the opacity
-            # and connects the alpha output to the socket and not the color output
             alpha_node, alpha_socket = nodeutils.get_node_and_socket_connected_to_output(node, "Alpha")
 
             if color_node and color_socket:
 
                 if color_node.type == "BSDF_PRINCIPLED":
 
-                    if color_socket == "Base Color":
+                    if color_socket.name == "Base Color":
                         nodeutils.store_texture_mapping(node, mat_cache, "DIFFUSE")
 
-                    elif color_socket == "Specular":
+                    elif color_socket.name == "Specular":
                         nodeutils.store_texture_mapping(node, mat_cache, "SPECULAR")
 
-                    elif color_socket == "Metallic":
+                    elif color_socket.name == "Metallic":
                         nodeutils.store_texture_mapping(node, mat_cache, "METALLIC")
 
-                    elif color_socket == "Roughness":
+                    elif color_socket.name == "Roughness":
                         nodeutils.store_texture_mapping(node, mat_cache, "ROUGHNESS")
 
-                    elif color_socket == "Emission":
+                    elif color_socket.name == "Emission":
                         nodeutils.store_texture_mapping(node, mat_cache, "EMISSION")
 
-                    elif color_socket == "Alpha":
+                    elif color_socket.name == "Alpha":
                         nodeutils.store_texture_mapping(node, mat_cache, "ALPHA")
                         if "diffuse" in name or "albedo" in name:
                             mat_cache.alpha_is_diffuse = True
 
-                    elif color_socket == "Subsurface":
+                    elif color_socket.name == "Subsurface":
                         nodeutils.store_texture_mapping(node, mat_cache, "SSS")
 
                 elif color_node.type == "NORMAL_MAP":
@@ -511,7 +509,7 @@ def detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache):
 
                 if alpha_node.type == "BSDF_PRINCIPLED":
 
-                    if alpha_socket == "Alpha":
+                    if alpha_socket.name == "Alpha":
                         nodeutils.store_texture_mapping(node, mat_cache, "ALPHA")
                         if "diffuse" in name or "albedo" in name:
                             mat_cache.alpha_is_diffuse = True

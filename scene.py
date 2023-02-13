@@ -213,7 +213,7 @@ def world_setup():
     et_node.location = (-300,320)
     bg_node.location = (10,300)
     wo_node.location = (300,300)
-    nodeutils.set_node_input(bg_node, "Strength", 0.5)
+    nodeutils.set_node_input_value(bg_node, "Strength", 0.5)
     nodeutils.link_nodes(links, tc_node, "Generated", mp_node, "Vector")
     nodeutils.link_nodes(links, mp_node, "Vector", et_node, "Vector")
     nodeutils.link_nodes(links, et_node, "Color", bg_node, "Color")

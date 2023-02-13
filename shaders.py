@@ -221,14 +221,14 @@ def apply_prop_matrix(bsdf_node, group_node, mat_cache, shader_name):
             if input_def[0] in group_node.inputs:
                 prop_value = eval_input_param(input_def, mat_cache)
                 if prop_value is not None:
-                    nodeutils.set_node_input(group_node, input_def[0], prop_value)
+                    nodeutils.set_node_input_value(group_node, input_def[0], prop_value)
 
     if bsdf_node and matrix_group and "bsdf" in matrix_group.keys():
         for input_def in matrix_group["bsdf"]:
             if input_def[0] in bsdf_node.inputs:
                 prop_value = eval_input_param(input_def, mat_cache)
                 if prop_value is not None:
-                    nodeutils.set_node_input(bsdf_node, input_def[0], prop_value)
+                    nodeutils.set_node_input_value(bsdf_node, input_def[0], prop_value)
 
 
 def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
@@ -238,7 +238,7 @@ def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
             if input[0] in node.inputs:
                 prop_value = eval_input_param(input, mat_cache)
                 if prop_value is not None:
-                    nodeutils.set_node_input(node, input[0], prop_value)
+                    nodeutils.set_node_input_value(node, input[0], prop_value)
 
 
 # Prop matrix eval, parameter conversion functions
@@ -489,16 +489,16 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
         node_group = nodeutils.get_node_group("tiling_pivot_mapping")
         tiling_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
         tiling_node.location = location
-        nodeutils.set_node_input(tiling_node, "Tiling", tiling)
-        nodeutils.set_node_input(tiling_node, "Pivot", (0.5, 0.5, 0))
+        nodeutils.set_node_input_value(tiling_node, "Tiling", tiling)
+        nodeutils.set_node_input_value(tiling_node, "Pivot", (0.5, 0.5, 0))
         nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
 
     elif tiling_mode == "OFFSET":
         node_group = nodeutils.get_node_group("tiling_offset_mapping")
         tiling_node = nodeutils.make_node_group_node(nodes, node_group, node_label, node_name)
         tiling_node.location = location
-        nodeutils.set_node_input(tiling_node, "Tiling", tiling)
-        nodeutils.set_node_input(tiling_node, "Offset", offset)
+        nodeutils.set_node_input_value(tiling_node, "Tiling", tiling)
+        nodeutils.set_node_input_value(tiling_node, "Offset", offset)
         nodeutils.link_nodes(links, tiling_node, "Vector", node, "Vector")
 
     elif tiling_mode == "EYE_PARALLAX":
@@ -513,7 +513,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
             for mapping_def in mapping_defs:
                 if len(mapping_def) > 1:
                     socket_name = mapping_def[1]
-                    nodeutils.set_node_input(mapping_node, socket_name, eval_tiling_param(mapping_def, mat_cache, 2))
+                    nodeutils.set_node_input_value(mapping_node, socket_name, eval_tiling_param(mapping_def, mat_cache, 2))
 
 
 def set_shader_input_props(shader_def, mat_cache, socket, value):
@@ -596,7 +596,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                             # if there is no sample map, set it's corresponding strength properties to zero:
                             # e.g. Vertex Color uses Vertex Color Strength with props: hair_vertex_color_strength
                             strength_socket_name = socket_name + " Strength"
-                            nodeutils.set_node_input(shader_node, strength_socket_name, 0.0)
+                            nodeutils.set_node_input_value(shader_node, strength_socket_name, 0.0)
                             set_shader_input_props(shader_def, mat_cache, strength_socket_name, 0.0)
 
                         else:
@@ -604,7 +604,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                             sample_prop = texture_def[4]
                             sample_color = [image.pixels[0], image.pixels[1], image.pixels[2], 1.0]
                             exec_prop(sample_prop, mat_cache, sample_color)
-                            nodeutils.set_node_input(shader_node, socket_name, sample_color)
+                            nodeutils.set_node_input_value(shader_node, socket_name, sample_color)
                             bpy.data.images.remove(image)
                             vars.block_property_update = False
 
@@ -655,7 +655,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
         # finally disconnect bump map if normal map is also present (this is only supposed to be one, but it is possible to bug CC3 and get both):
         if nodeutils.has_connected_input(shader_node, "Bump Map") and nodeutils.has_connected_input(shader_node, "Normal Map"):
             bump_node, bump_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Bump Map")
-            nodeutils.unlink_node(links, shader_node, "Bump Map")
+            nodeutils.unlink_node_output(links, shader_node, "Bump Map")
 
     return textures
 
@@ -799,9 +799,9 @@ def connect_teeth_shader(obj, mat, mat_json, processed_images):
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
     if mat_cache.is_upper_teeth():
-        nodeutils.set_node_input(group, "Is Upper Teeth", 1.0)
+        nodeutils.set_node_input_value(group, "Is Upper Teeth", 1.0)
     else:
-        nodeutils.set_node_input(group, "Is Upper Teeth", 0.0)
+        nodeutils.set_node_input_value(group, "Is Upper Teeth", 0.0)
 
     nodeutils.clean_unused_image_nodes(nodes)
 
@@ -933,13 +933,13 @@ def connect_pbr_shader(obj, mat, mat_json, processed_images):
 
     if mat_cache.is_eyelash():
         materials.set_material_alpha(mat, "HASHED")
-        nodeutils.set_node_input(group, "Specular Scale", 0.25)
-        nodeutils.set_node_input(bsdf, "Subsurface", 0.001)
+        nodeutils.set_node_input_value(group, "Specular Scale", 0.25)
+        nodeutils.set_node_input_value(bsdf, "Subsurface", 0.001)
 
     elif mat_cache.is_scalp():
         materials.set_material_alpha(mat, "HASHED")
-        nodeutils.set_node_input(group, "Specular Scale", 0)
-        nodeutils.set_node_input(bsdf, "Subsurface", 0.01)
+        nodeutils.set_node_input_value(group, "Specular Scale", 0)
+        nodeutils.set_node_input_value(bsdf, "Subsurface", 0.01)
 
     elif nodeutils.has_connected_input(group, "Alpha Map"):
         if materials.detect_cornea_material(mat):

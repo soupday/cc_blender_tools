@@ -230,7 +230,7 @@ def update_layer_nodes(body, layer_target, socket, value):
         for mat in body.data.materials:
             nodes = mat.node_tree.nodes
             mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
-            nodeutils.set_node_input(mix_node, socket, value)
+            nodeutils.set_node_input_value(mix_node, socket, value)
 
 
 def setup_bake_nodes(chr_cache, detail_body, layer_target):
@@ -318,7 +318,7 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
             nodeutils.link_nodes(links, mix_node, "Color", shader_node, "Normal Map")
 
         # disconnect the normals to the bsdf node (so they don't get included in the bake)
-        nodeutils.unlink_node(links, bsdf_node, "Normal")
+        nodeutils.unlink_node_output(links, bsdf_node, "Normal")
 
 
 def finish_bake(chr_cache, detail_body, layer_target):

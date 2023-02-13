@@ -125,26 +125,33 @@ def post_bake(bake_store):
     bpy.context.space_data.shading.type = bake_store.pop()
 
 
-def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bake_dir, name_prefix = ""):
+def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir, name_prefix = ""):
+    """Makes an image and image file to bake the shader socket to and returns the image and image name
+    """
+
     global BAKE_INDEX
 
     prefix_sep = ""
     if name_prefix:
         prefix_sep = "_"
+
     # determine image name and color space
+    socket_name = nodeutils.safe_socket_name(socket)
     image_name = "EXPORT_BAKE_" + name_prefix + prefix_sep + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
     BAKE_INDEX += 1
     is_data = True
     alpha = False
     if "Diffuse Map" in socket_name or channel_id == "Base Color":
         is_data = False
+
     # make (and save) the target image
     image = get_image_target(image_name, width, height, bake_dir, is_data, alpha)
+
     # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
     i = 0
     base_name = image_name
-    if shader_node and socket_name:
-        while is_image_node_connected_to_socket(shader_node, socket_name, image):
+    if shader_node and socket:
+        while nodeutils.is_image_node_connected_to_socket(shader_node, socket, image):
             i += 1
             old_name = image_name
             image_name = base_name + "_" + str(i)
@@ -154,23 +161,30 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket_name, bak
     return image, image_name
 
 
-def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, name_prefix = "",
+def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix = "",
                            override_size = 0, size_override_node = None, size_override_socket = None):
+    """Bakes the input to the supplied node and socket to an appropriate image.\n
+       Image size is determined by the sizes of the connected image nodes (or overriden).\n
+       Image name and path is determined by the texture channel id and material name and name prefix.\n
+       An alternative size override node and socket can be supplied to determine the size.
+       (e.g. matching image sizes with another texture channel)\n
+       Returns the image baked."""
+
     # determine the size of the image to bake onto
     size_node = node
-    size_socket = socket_name
+    size_socket = socket
     if size_override_node:
         size_node = size_override_node
     if size_override_socket:
         size_socket = size_override_socket
-    width, height = get_texture_size(size_node, override_size, size_socket)
+    width, height = get_connected_texture_size(size_node, override_size, size_socket)
 
     # get the node and output socket to bake from
-    source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(node, socket_name)
+    source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(node, socket)
 
     # bake the source node output onto the target image and re-save it
-    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir, name_prefix = name_prefix)
-    image_node = bake_output(mat, source_node, source_socket, image, image_name)
+    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir, name_prefix = name_prefix)
+    image_node = cycles_bake_color_output(mat, source_node, source_socket, image, image_name)
 
     # remove the image node
     nodes = mat.node_tree.nodes
@@ -179,20 +193,27 @@ def bake_node_socket_input(node, socket_name, mat, channel_id, bake_dir, name_pr
     return image
 
 
-def bake_node_socket_output(node, socket_name, mat, channel_id, bake_dir, name_prefix = "",
+def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix = "",
                             override_size = 0, size_override_node = None, size_override_socket = None):
+    """Bakes the output of the supplied node and socket to an appropriate image.\n
+       Image size is determined by the sizes of the connected image nodes (or overriden).\n
+       Image name and path is determined by the texture channel id, material name, bake dir and name prefix.\n
+       An alternative size override node and socket can be supplied to determine the size.
+       (e.g. matching image sizes with another texture channel)\n
+       Returns the image baked."""
+
     # determine the size of the image to bake onto
     size_node = node
-    size_socket = socket_name
+    size_socket = socket
     if size_override_node:
         size_node = size_override_node
     if size_override_socket:
         size_socket = size_override_socket
-    width, height = get_texture_size(size_node, override_size, size_socket)
+    width, height = get_connected_texture_size(size_node, override_size, size_socket)
 
     # bake the source node output onto the target image and re-save it
-    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket_name, bake_dir, name_prefix = name_prefix)
-    image_node = bake_output(mat, node, socket_name, image, image_name)
+    image, image_name = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir, name_prefix = name_prefix)
+    image_node = cycles_bake_color_output(mat, node, socket, image, image_name)
 
     # remove the image node
     nodes = mat.node_tree.nodes
@@ -201,11 +222,21 @@ def bake_node_socket_output(node, socket_name, mat, channel_id, bake_dir, name_p
     return image
 
 
-def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_socket_name,
-                            normal_strength_socket_name, bump_distance_socket_name,
-                            mat, channel_id, bake_dir, name_prefix = "", override_size = 0):
+def bake_rl_bump_and_normal(shader_node, bsdf_node, mat, channel_id, bake_dir,
+                            normal_socket_name = "Normal Map", bump_socket_name = "Bump Map",
+                            normal_strength_socket_name = "Normal Strength", bump_distance_socket_name = "Bump Strength",
+                            name_prefix = "", override_size = 0):
+    """Bakes the normal map and bump map inputs to the supplied RL master shader node, to a combined
+       normal map image which takes the normal and bump strengths into account.\n
+       If supplied socket names are empty they will not be included in the bake.\n
+       Image size is determined by the sizes of the connected image nodes (or overriden).\n
+       Image name and path is determined by the texture channel id, material name, bake dir and name prefix.\n
+       An alternative size override node and socket can be supplied to determine the size.
+       (e.g. matching image sizes with another texture channel)\n
+       Returns the normal image baked."""
+
     # determine the size of the image to bake onto
-    width, height = get_texture_size(shader_node, override_size, normal_socket_name, bump_socket_name)
+    width, height = get_connected_texture_size(shader_node, override_size, normal_socket_name, bump_socket_name)
 
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -213,21 +244,24 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_soc
     # store original links to BSDF normal socket
     bsdf_normal_node, bsdf_normal_socket = nodeutils.get_node_and_socket_connected_to_input(bsdf_node, "Normal")
     #
-    normal_source_node = normal_source_socket = None
-    bump_source_node = bump_source_socket = None
+    normal_source_node = None
+    normal_source_socket = None
+    bump_source_node = None
+    bump_source_socket = None
     bump_distance = 0.01
     normal_strength = 1.0
-    bump_map_node = normal_map_node = None
-    if bump_distance_socket_name:
-        bump_distance = nodeutils.get_node_input(shader_node, bump_distance_socket_name, 0.01) * BUMP_BAKE_MULTIPLIER
-    if normal_strength_socket_name:
-        normal_strength = nodeutils.get_node_input(shader_node, normal_strength_socket_name, 1.0)
+    bump_map_node = None
+    normal_map_node = None
     if normal_socket_name:
+        if normal_strength_socket_name:
+            normal_strength = nodeutils.get_node_input_value(shader_node, normal_strength_socket_name, 1.0)
         normal_source_node, normal_source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, normal_socket_name)
         normal_map_node = nodeutils.make_normal_map_node(nodes, normal_strength)
         nodeutils.link_nodes(links, normal_source_node, normal_source_socket, normal_map_node, "Color")
         nodeutils.link_nodes(links, normal_map_node, "Normal", bsdf_node, "Normal")
     if bump_socket_name:
+        if bump_distance_socket_name:
+            bump_distance = nodeutils.get_node_input_value(shader_node, bump_distance_socket_name, 0.01) * BUMP_BAKE_MULTIPLIER
         bump_source_node, bump_source_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, bump_socket_name)
         # the bump map bakes to a normal map quite a bit weaker than it looks on the bump node, so increase it's strength here
         bump_map_node = nodeutils.make_bump_node(nodes, 1, bump_distance)
@@ -238,7 +272,7 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_soc
 
     # bake the source node output onto the target image and re-save it
     image, image_name = get_bake_image(mat, channel_id, width, height, shader_node, normal_socket_name, bake_dir, name_prefix = name_prefix)
-    image_node = bake_normal_output(mat, bsdf_node, image, image_name)
+    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name)
 
     # remove the bake nodes and restore the normal links to the bsdf
     if bump_map_node:
@@ -253,8 +287,13 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, normal_socket_name, bump_soc
 
 
 def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", override_size = 0):
+    """Bakes the normal output of the supplied BSDF shader node, to a normal map image.\n
+       Image size is determined by the sizes of the connected image nodes (or overriden).\n
+       Image name and path is determined by the texture channel id, material name, bake dir and name prefix.\n
+       Returns the normal image baked."""
+
     # determine the size of the image to bake onto
-    width, height = get_texture_size(bsdf_node, override_size, "Normal")
+    width, height = get_connected_texture_size(bsdf_node, override_size, "Normal")
 
     # get the node and output socket to bake from
     nodes = mat.node_tree.nodes
@@ -268,7 +307,7 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", ove
 
     # bake the source node output onto the target image and re-save it
     image, image_name = get_bake_image(mat, channel_id, width, height, bsdf_node, "Normal", bake_dir, name_prefix = name_prefix)
-    image_node = bake_normal_output(mat, bsdf_node, image, image_name)
+    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name)
 
     if normal_input_node and normal_input_node.type == "BUMP":
         normal_input_node.inputs["Distance"].default_value = bump_distance
@@ -280,7 +319,11 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", ove
 
 
 def bake_value_image(value, mat, channel_id, bake_dir, name_prefix = "", size = 64):
-    width = height = size
+    """Generates a 64 x 64 texture of a single value. Linear or sRGB depending on channel id.\n
+       Image name and path is determined by the texture channel id, material name, bake dir and name prefix."""
+
+    width = size
+    height = size
     image, image_name = get_bake_image(mat, channel_id, width, height, None, "", bake_dir, name_prefix = name_prefix)
 
     image_pixels = list(image.pixels)
@@ -299,7 +342,10 @@ def bake_value_image(value, mat, channel_id, bake_dir, name_prefix = "", size = 
     return image
 
 
-def bake_output(mat, source_node, source_socket, image : bpy.types.Image, image_name):
+def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.Image, image_name):
+    """Runs a cycles bake of the supplied source node and socket output onto the supplied image.\n
+       Returns a new image node with the image."""
+
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -333,7 +379,10 @@ def bake_output(mat, source_node, source_socket, image : bpy.types.Image, image_
     return image_node
 
 
-def bake_normal_output(mat, bsdf_node, image, image_name):
+def cycles_bake_normal_output(mat, bsdf_node, image, image_name):
+    """Runs a cycles bake of the normal output of the supplied BSDF shader node to the supplied image.
+       Returns a new image node with the image."""
+
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
@@ -363,13 +412,15 @@ def bake_normal_output(mat, bsdf_node, image, image_name):
     return image_node
 
 
-def get_largest_texture_to_node(node, done):
+def get_largest_texture_to_node(node, done = []):
+    """Recursively traverses the input sockets to the supplied node and
+       returns the largest found texture dimensions, or [0, 0] if nothing found."""
+
     largest_width = 0
     largest_height = 0
-    socket : bpy.types.NodeSocket
     for socket in node.inputs:
         if socket.is_linked:
-            width, height = get_largest_texture_to_socket(node, socket.name, done)
+            width, height = get_largest_texture_to_socket(node, socket, done)
             if width > largest_width:
                 largest_width = width
             if height > largest_height:
@@ -377,72 +428,48 @@ def get_largest_texture_to_node(node, done):
     return largest_width, largest_height
 
 
-def get_largest_texture_to_socket(node, socket, done = None):
-    if done is None:
-        done = []
+def get_largest_texture_to_socket(node, socket, done = []):
+    """Recursively traverses the nodes connected to the supplied node's input socket and
+       returns the largest found texture dimensions, or [0, 0] if nothing found."""
 
     connected_node = nodeutils.get_node_connected_to_input(node, socket)
-    if connected_node is None or connected_node in done:
+    if not connected_node or connected_node in done:
         return 0, 0
 
     done.append(connected_node)
 
     if connected_node.type == "TEX_IMAGE":
-        return get_tex_image_size(connected_node)
+        if connected_node.image:
+            return connected_node.image.size[0], connected_node.image.size[1]
+        else:
+            return 0, 0
     else:
         return get_largest_texture_to_node(connected_node, done)
 
 
-def get_texture_size(node, override_size, *sockets):
+def get_connected_texture_size(node, override_size, *sockets):
+    """Recursively searches through all connected image nodes to the supplied node's input socket(s)
+       and returns the largest image dimensions found.\n
+       If no connected image nodes found then returns the preferences minimum export texture size.\n
+       Returned width and height can be overridden with override_size."""
+
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     width = 0
     height = 0
-    for socket_name in sockets:
-        w, h = get_largest_texture_to_socket(node, socket_name)
-        if w > width:
-            width = w
-        if h > height:
-            height = h
+    if override_size > 0:
+        return override_size, override_size
+    for socket in sockets:
+        if socket:
+            w, h = get_largest_texture_to_socket(node, socket)
+            if w > width:
+                width = w
+            if h > height:
+                height = h
     if width == 0:
         width = int(prefs.export_texture_size)
     if height == 0:
         height = int(prefs.export_texture_size)
-    if override_size > 0:
-        width = override_size
-        height = override_size
     return width, height
-
-
-def is_image_node_connected_to_node(node, image, done):
-    socket : bpy.types.NodeSocket
-    for socket in node.inputs:
-        if socket.is_linked:
-            found = is_image_node_connected_to_socket(node, socket.name, image, done)
-            if found:
-                return True
-    return False
-
-
-def is_image_node_connected_to_socket(node, socket, image, done = None):
-    if done is None:
-        done = []
-
-    connected_node = nodeutils.get_node_connected_to_input(node, socket)
-    if connected_node is None or connected_node in done:
-        return False
-
-    done.append(connected_node)
-
-    if connected_node.type == "TEX_IMAGE" and connected_node.image == image:
-        return True
-    else:
-        return is_image_node_connected_to_node(node, image, done)
-
-
-def get_tex_image_size(node):
-    if node is not None:
-        return node.image.size[0], node.image.size[1]
-    return 0, 0
 
 
 def get_image_target(image_name, width, height, dir, data = True, alpha = False, force_new = False):
@@ -503,6 +530,7 @@ def get_bake_dir(chr_cache):
 
 
 def combine_normal(chr_cache, mat_cache):
+    """Combines the normal and bump maps by baking and connecting a new normal map."""
 
     init_bake(5001)
 
@@ -526,32 +554,34 @@ def combine_normal(chr_cache, mat_cache):
 
         if normal_node and bump_node:
 
-            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, "Normal Map", "Bump Map", "Normal Strength", "Bump Strength", mat, "Normal", bake_path)
+            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, mat, "Normal", bake_path)
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
             nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
-            nodeutils.unlink_node(links, shader_node, "Bump Map")
+            nodeutils.unlink_node_output(links, shader_node, "Bump Map")
             mat_cache.parameters.default_normal_strength = 1.0
-            nodeutils.set_node_input(shader_node, "Normal Strength", 1.0)
+            nodeutils.set_node_input_value(shader_node, "Normal Strength", 1.0)
 
         elif bump_node:
 
-            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, "", "Bump Map", "", "Bump Strength", mat, "Normal", bake_path)
+            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, mat, "Normal", bake_path,
+                                                   normal_socket_name = "", bump_socket_name = "")
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
             nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
-            nodeutils.unlink_node(links, shader_node, "Bump Map")
+            nodeutils.unlink_node_output(links, shader_node, "Bump Map")
             mat_cache.parameters.default_normal_strength = 1.0
-            nodeutils.set_node_input(shader_node, "Normal Strength", 1.0)
+            nodeutils.set_node_input_value(shader_node, "Normal Strength", 1.0)
 
         elif normal_node and normal_node.type != "TEX_IMAGE":
 
-            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, "Normal Map", "", "Normal Strength", "", mat, "Normal", bake_path)
+            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, mat, "Normal", bake_path,
+                                                   bump_socket_name = "", bump_distance_socket_name = "")
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
             nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
             mat_cache.parameters.default_normal_strength = 1.0
-            nodeutils.set_node_input(shader_node, "Normal Strength", 1.0)
+            nodeutils.set_node_input_value(shader_node, "Normal Strength", 1.0)
 
     utils.try_select_objects(selection, True)
     if active:
@@ -559,6 +589,7 @@ def combine_normal(chr_cache, mat_cache):
 
 
 def bake_flow_to_normal(chr_cache, mat_cache):
+    """Convert's a hair shader's flow map into an approximate normal map."""
 
     init_bake(4001)
 
@@ -586,7 +617,7 @@ def bake_flow_to_normal(chr_cache, mat_cache):
         normal_node = None
         normal_image = None
 
-        # try to reuse normal map
+        # try to re-use normal map
         if nodeutils.has_connected_input(shader_node, "Normal Map"):
             normal_node = nodeutils.get_node_connected_to_input(shader_node, "Normal Map")
 
