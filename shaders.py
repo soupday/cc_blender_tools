@@ -19,7 +19,7 @@ import math
 import os
 from mathutils import Vector
 
-from . import drivers, imageutils, jsonutils, bake, materials, nodeutils, params, utils, vars
+from . import imageutils, jsonutils, materials, nodeutils, params, utils, vars
 
 
 def get_prop_value(mat_cache, prop_name):

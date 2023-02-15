@@ -24,7 +24,7 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import bake, shaders, physics, rigging, bones, modifiers, meshutils, nodeutils, imageutils, jsonutils, utils, params, vars
+from . import bake, shaders, physics, rigging, bones, modifiers, meshutils, nodeutils, jsonutils, utils, params, vars
 
 UNPACK_INDEX = 1001
 

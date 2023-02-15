@@ -17,7 +17,6 @@
 import os
 import shutil
 import bpy
-import bpy_extras
 
 from . import (characters, rigging, bake, imageutils, jsonutils, materials, modifiers, meshutils, nodeutils, physics,
                scene, channel_mixer, shaders, basic, properties, utils, vars)

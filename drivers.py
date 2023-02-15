@@ -15,9 +15,6 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
-import mathutils
-from math import pi, atan
-
 from . import utils, vars
 
 

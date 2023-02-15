@@ -15,7 +15,6 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
-import filecmp
 import bpy
 
 from . import nodeutils, params, utils
