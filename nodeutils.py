@@ -109,6 +109,13 @@ def make_image_node(nodes, image, name, scale = 1.0):
     return image_node
 
 
+def make_separate_rgb_node(nodes, label, name):
+    value_node = make_shader_node(nodes, "ShaderNodeSeparateRGB")
+    value_node.label = label
+    value_node.name = utils.unique_name(name)
+    return value_node
+
+
 def make_value_node(nodes, label, name, value = 0.0):
     value_node = make_shader_node(nodes, "ShaderNodeValue", 0.4)
     value_node.label = label
@@ -888,6 +895,16 @@ def get_shader_nodes(mat, shader_name):
                     mix_node = node
         return bsdf_node, shader_node, mix_node
     return None, None, None
+
+
+def get_wrinkle_shader_node(mat):
+    if mat and mat.node_tree:
+        nodes = mat.node_tree.nodes
+        wrinkle_shader_id = "(rl_wrinkle_shader)"
+        for node in nodes:
+            if vars.NODE_PREFIX in node.name:
+                if wrinkle_shader_id in node.name:
+                    return node
 
 
 def get_bsdf_node(mat):

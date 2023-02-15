@@ -272,3 +272,10 @@ def get_viseme_profile(objects):
     # there is some overlap between CC4 facial expression names and CC3 viseme names
     # so consider CC3 visemes last
     return vars.CC3_VISEME_NAMES
+
+
+def set_shading(obj, smooth=True):
+    if utils.object_exists_is_mesh(obj):
+        for poly in obj.data.polygons:
+            poly.use_smooth = smooth
+            obj.data.update()

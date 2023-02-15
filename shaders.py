@@ -19,7 +19,7 @@ import math
 import os
 from mathutils import Vector
 
-from . import drivers, imageutils, jsonutils, materials, nodeutils, params, utils, vars
+from . import drivers, imageutils, jsonutils, bake, materials, nodeutils, params, utils, vars
 
 
 def get_prop_value(mat_cache, prop_name):
@@ -530,15 +530,13 @@ def set_shader_input_props(shader_def, mat_cache, socket, value):
 
 
 def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name, mat_json, obj, processed_images,
-                         offset = Vector((0,0)), sub_shader = False):
+                         offset = Vector((0,0)), sub_shader = False, textures = {}):
     shader_def = params.get_shader_def(shader_name)
     location = shader_node.location
     x = location[0] - 600 + offset.x
     y = location[1] + 300 + offset.y
     c = 0
     image_nodes = []
-
-    textures = {}
 
     if shader_def and "textures" in shader_def.keys():
 
@@ -657,8 +655,6 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
             bump_node, bump_socket = nodeutils.get_node_and_socket_connected_to_input(shader_node, "Bump Map")
             nodeutils.unlink_node_output(links, shader_node, "Bump Map")
 
-    return textures
-
 
 def connect_tearline_shader(obj, mat, mat_json, processed_images):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -746,7 +742,7 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
     if mat_json and "Wrinkle" in mat_json.keys():
-        apply_wrinkle_system(nodes, links, shader_name, mat, mat_cache, mat_json, obj, processed_images)
+        apply_wrinkle_system(nodes, links, group, shader_name, mat, mat_cache, mat_json, obj, processed_images)
 
     nodeutils.clean_unused_image_nodes(nodes)
 
@@ -980,10 +976,15 @@ def fix_sss_method(bsdf):
         bsdf.subsurface_method = "BURLEY"
 
 
-def apply_wrinkle_system(nodes, links, main_shader_name, mat, mat_cache, mat_json, obj, processed_images):
+def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = {}):
     wrinkle_shader_name = "rl_wrinkle_shader"
     wrinkle_shader_node = nodeutils.add_wrinkle_shader(nodes, links, obj, mat, main_shader_name, wrinkle_shader_name = wrinkle_shader_name)
-    apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle_shader_name, mat_json, obj,
-                         processed_images, sub_shader = True)
+    textures = apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle_shader_name, mat_json, obj,
+                                    processed_images, sub_shader = True, textures = textures)
+
+
+
+
+
 
 

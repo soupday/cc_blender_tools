@@ -1337,7 +1337,7 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, pat
                 image = bake.bake_bsdf_normal(bsdf_node, mat, tex_id, bake_path)
             else:
                 if bake_value:
-                    image = bake.bake_value_image(node.inputs[socket].default_value, mat, tex_id, bake_path)
+                    image = bake.pack_value_image(node.inputs[socket].default_value, mat, tex_id, bake_path)
                 else:
                     image = bake.bake_node_socket_output(node, socket, mat, tex_id, bake_path)
 

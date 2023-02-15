@@ -19,7 +19,7 @@ import shutil
 import bpy
 import bpy_extras
 
-from . import (characters, rigging, imageutils, jsonutils, materials, modifiers, nodeutils, physics,
+from . import (characters, rigging, bake, imageutils, jsonutils, materials, modifiers, meshutils, nodeutils, physics,
                scene, channel_mixer, shaders, basic, properties, utils, vars)
 
 debug_counter = 0
@@ -100,6 +100,8 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
 
         elif mat_cache.is_skin() or mat_cache.is_nails():
             shaders.connect_skin_shader(obj, mat, mat_json, processed_images)
+            if mat_json and "Wrinkle" in mat_json.keys():
+                bake.channel_pack_wrinkle_shader(chr_cache, mat_cache)
 
         elif mat_cache.is_teeth():
             shaders.connect_teeth_shader(obj, mat, mat_json, processed_images)
@@ -170,8 +172,13 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
 
     if obj.type == "MESH":
 
+        mesh : bpy.types.Mesh = obj.data
+
         # Turn off auto smoothing
-        obj.data.use_auto_smooth = False
+        mesh.use_auto_smooth = False
+
+        # Set to smooth shading
+        meshutils.set_shading(obj, True)
 
         # remove any modifiers for refractive eyes
         modifiers.remove_eye_modifiers(obj)

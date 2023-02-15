@@ -125,7 +125,7 @@ def post_bake(bake_store):
     bpy.context.space_data.shading.type = bake_store.pop()
 
 
-def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir, name_prefix = ""):
+def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir, name_prefix = "", force_srgb = False, channel_pack = False):
     """Makes an image and image file to bake the shader socket to and returns the image and image name
     """
 
@@ -141,11 +141,13 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
     BAKE_INDEX += 1
     is_data = True
     alpha = False
-    if "Diffuse Map" in socket_name or channel_id == "Base Color":
+    if "Diffuse Map" in socket_name or channel_id == "Base Color" or force_srgb:
         is_data = False
+    if channel_pack:
+        alpha = True
 
     # make (and save) the target image
-    image = get_image_target(image_name, width, height, bake_dir, is_data, alpha)
+    image = get_image_target(image_name, width, height, bake_dir, is_data, alpha, channel_packed = channel_pack)
 
     # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
     i = 0
@@ -156,7 +158,7 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
             old_name = image_name
             image_name = base_name + "_" + str(i)
             utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
-            image = get_image_target(image_name, width, height, bake_dir, is_data, alpha)
+            image = get_image_target(image_name, width, height, bake_dir, is_data, alpha, channel_packed = channel_pack)
 
     return image, image_name
 
@@ -318,7 +320,7 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", ove
     return image
 
 
-def bake_value_image(value, mat, channel_id, bake_dir, name_prefix = "", size = 64):
+def pack_value_image(value, mat, channel_id, bake_dir, name_prefix = "", size = 64):
     """Generates a 64 x 64 texture of a single value. Linear or sRGB depending on channel id.\n
        Image name and path is determined by the texture channel id, material name, bake dir and name prefix."""
 
@@ -339,6 +341,126 @@ def bake_value_image(value, mat, channel_id, bake_dir, name_prefix = "", size = 
     image.pixels[:] = image_pixels
     image.update()
     image.save()
+    return image
+
+
+
+def pack_RGBA(mat, channel_id, bake_dir,
+              image_r = None, image_g = None, image_b = None, image_a = None,
+              value_r = 0, value_g = 0, value_b = 0, value_a = 0,
+              name_prefix = "", min_size = 64, srgb = False, max_size = 0):
+    """channel_id = [ "Diffuse Roughness Pack", "Wrinkle Roughness Pack", "MASM Pack", "SSTM Pack" ]"""
+
+    width = min_size
+    height = min_size
+
+    # get the largest dimensions
+    img : bpy.types.Image
+    for img in [ image_r, image_g, image_b, image_a ]:
+        if img:
+            if img.size[0] > width:
+                width = img.size[0]
+            if img.size[1] > height:
+                height = img.size[1]
+
+    if max_size > 0:
+        if width > max_size:
+            width = max_size
+        if height > max_size:
+            height = max_size
+
+    utils.log_info(f"Packing {mat.name} for {channel_id} ({width}x{height})")
+
+    remove_after = []
+
+    # if all images are not the same size, use resized copies
+
+    if image_r and (image_r.size[0] != width or image_r.size[1] != height):
+        image_r = image_r.copy()
+        utils.log_info(f"Resizing {image_r.name} for {channel_id}")
+        image_r.scale(width, height)
+        remove_after.append(image_r)
+
+    if image_g and (image_g.size[0] != width or image_g.size[1] != height):
+        image_g = image_g.copy()
+        utils.log_info(f"Resizing {image_g.name} for {channel_id}")
+        image_g.scale(width, height)
+        remove_after.append(image_g)
+
+    if image_b and (image_b.size[0] != width or image_b.size[1] != height):
+        image_b = image_b.copy()
+        utils.log_info(f"Resizing {image_b.name} for {channel_id}")
+        image_b.scale(width, height)
+        remove_after.append(image_b)
+
+    if image_a and (image_a.size[0] != width or image_a.size[1] != height):
+        image_a = image_a.copy()
+        utils.log_info(f"Resizing {image_a.name} for {channel_id}")
+        image_a.scale(width, height)
+        remove_after.append(image_a)
+
+    image, image_name = get_bake_image(mat, channel_id, width, height, None, "sRGB", bake_dir, name_prefix = name_prefix,
+                                       force_srgb=srgb, channel_pack=True)
+
+    r_data = None
+    g_data = None
+    b_data = None
+    a_data = None
+
+    if image_r:
+        r_data = image_r.pixels[:]
+    if image_g:
+        g_data = image_g.pixels[:]
+    if image_b:
+        b_data = image_b.pixels[:]
+    if image_a:
+        a_data = image_a.pixels[:]
+
+    image_pixels = list(image.pixels)
+
+    l = len(image_pixels)
+
+    if channel_id == "Diffuse Roughness Pack" or channel_id == "SSTM Pack" or channel_id.startswith("Diffuse Roughness Blend Pack"):
+        for i in range(0, l, 4):
+            if r_data:
+                image_pixels[i] = r_data[i]
+                image_pixels[i + 1] = r_data[i + 1]
+                image_pixels[i + 2] = r_data[i + 2]
+            else:
+                image_pixels[i] = value_r
+                image_pixels[i + 1] = value_g
+                image_pixels[i + 2] = value_b
+            if a_data:
+                image_pixels[i + 3] = a_data[i]
+            else:
+                image_pixels[i + 2] = value_a
+
+    elif channel_id == "Wrinkle Roughness Pack" or channel_id == "MASM Pack":
+        for i in range(0, l, 4):
+            if r_data:
+                image_pixels[i] = r_data[i]
+            else:
+                image_pixels[i] = value_r
+            if g_data:
+                image_pixels[i + 1] = g_data[i]
+            else:
+                image_pixels[i + 1] = value_g
+            if b_data:
+                image_pixels[i + 2] = b_data[i]
+            else:
+                image_pixels[i + 2] = value_b
+            if a_data:
+                image_pixels[i + 3] = a_data[i]
+            else:
+                image_pixels[i + 3] = value_a
+
+    image.pixels[:] = image_pixels
+    image.update()
+    image.save()
+
+    for img in remove_after:
+        bpy.data.images.remove(img)
+
     return image
 
 
@@ -472,7 +594,7 @@ def get_connected_texture_size(node, override_size, *sockets):
     return width, height
 
 
-def get_image_target(image_name, width, height, dir, data = True, alpha = False, force_new = False):
+def get_image_target(image_name, width, height, dir, data = True, alpha = False, force_new = False, channel_packed = False):
     format = IMAGE_FORMAT
     ext = IMAGE_EXT
     depth = 24
@@ -507,13 +629,16 @@ def get_image_target(image_name, width, height, dir, data = True, alpha = False,
 
     # or just make a new one:
     utils.log_info("Creating new image: " + image_name + " size: " + str(width))
-    img = make_new_image(image_name, width, height, format, ext, dir, data, alpha)
+    img = make_new_image(image_name, width, height, format, ext, dir, data, alpha, channel_packed)
     return img
 
 
-def make_new_image(name, width, height, format, ext, dir, data, has_alpha):
+def make_new_image(name, width, height, format, ext, dir, data, has_alpha, channel_packed):
     img = bpy.data.images.new(name, width, height, alpha=has_alpha, is_data=data)
     img.pixels[0] = 0
+    if has_alpha:
+        print("CHANNEL_PACKED", channel_packed)
+        img.alpha_mode = "STRAIGHT" if not channel_packed else "CHANNEL_PACKED"
     img.file_format = format
     full_dir = os.path.normpath(dir)
     full_path = os.path.normpath(os.path.join(full_dir, name + ext))
@@ -599,13 +724,13 @@ def bake_flow_to_normal(chr_cache, mat_cache):
     mat_name = utils.strip_name(mat.name)
     shader = params.get_shader_name(mat_cache)
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
+    bake_dir = mat_cache.get_tex_dir(chr_cache)
 
     if mat_cache.material_type == "HAIR":
 
         nodeutils.clear_cursor()
 
-        selection = bpy.context.selected_objects.copy()
-        active = bpy.context.active_object
+        mode_selection = utils.store_mode_selection()
 
         # get the flow map
         flow_node = nodeutils.get_node_connected_to_input(shader_node, "Flow Map")
@@ -639,7 +764,7 @@ def bake_flow_to_normal(chr_cache, mat_cache):
         # if no existing normal image, create one and link it to the shader
         if not normal_image:
             utils.log_info("Creating new normal image.")
-            normal_image = make_new_image(mat_name + "_Normal", width, height, "PNG", ".png", mat_cache.get_tex_dir(chr_cache), True, False)
+            normal_image = make_new_image(mat_name + "_Normal", width, height, "PNG", ".png", bake_dir, True, False, False)
         if not normal_node:
             utils.log_info("Creating new normal image node.")
             normal_node = nodeutils.make_image_node(nodes, normal_image, "Generated Normal Map")
@@ -651,9 +776,7 @@ def bake_flow_to_normal(chr_cache, mat_cache):
         utils.log_info("Converting Flow Map to Normal Map...")
         convert_flow_to_normal(flow_image, normal_image, tangent, flip_y)
 
-        utils.try_select_objects(selection, True)
-        if active:
-            utils.set_active_object(active)
+        utils.restore_mode_selection(mode_selection)
 
 
 def convert_flow_to_normal(flow_image: bpy.types.Image, normal_image: bpy.types.Image, tangent, flip_y):
@@ -695,6 +818,187 @@ def convert_flow_to_normal(flow_image: bpy.types.Image, normal_image: bpy.types.
     normal_image.pixels[:] = normal_pixels
     normal_image.update()
     normal_image.save()
+
+
+def channel_pack_wrinkle_shader(chr_cache, mat_cache):
+
+    init_bake(5001)
+
+    mat = mat_cache.material
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    mat_name = utils.strip_name(mat.name)
+    shader = params.get_shader_name(mat_cache)
+    bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
+    wrinkle_node = nodeutils.get_wrinkle_shader_node(mat)
+    bake_dir = mat_cache.get_tex_dir(chr_cache)
+
+    if mat_cache.material_type == "SKIN_HEAD":
+
+        nodeutils.clear_cursor()
+
+        mode_selection = utils.store_mode_selection()
+
+        loc_repos = Vector((-4200, -280))
+
+        #PACK_MODE = "DIFFUSE_ROUGHESS"
+        PACK_MODE = "ROUGHNESS_PACK"
+
+        if PACK_MODE == "DIFFUSE_ROUGHNESS":
+
+            # pack diffuse + roughness
+            diffuse_pack_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "DIFFUSE_ROUGHNESS_PACK")
+            if not diffuse_pack_node:
+                diffuse_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "DIFFUSE")
+                roughness_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "ROUGHNESS")
+                image = pack_RGBA(mat, "Diffuse Roughness Pack", bake_dir,
+                                image_r = diffuse_node.image, image_a = roughness_node.image,
+                                value_r = 1.0, value_g = 1.0, value_b = 1.0, value_a = 0.5, srgb = True)
+                pack_node = nodeutils.make_image_node(nodes, image, "DIFFUSE_ROUGHNESS_PACK")
+                pack_node.location = diffuse_node.location
+                nodeutils.link_nodes(links, pack_node, "Color", wrinkle_node, "Diffuse Map")
+                nodeutils.link_nodes(links, pack_node, "Alpha", wrinkle_node, "Roughness Map")
+                diffuse_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+                roughness_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+
+            # pack diffuse blend 1 + roughness blend 1
+            diffuse_blend_1_pack_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "DIFFUSE_ROUGHNESS_BLEND_1_PACK")
+            if not diffuse_blend_1_pack_node:
+                diffuse_blend_1_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "WRINKLEDIFFUSE1")
+                roughness_blend_1_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "WRINKLEROUGHNESS1")
+                image = pack_RGBA(mat, "Diffuse Roughness Blend Pack 1", bake_dir,
+                                image_r = diffuse_blend_1_node.image, image_a = roughness_blend_1_node.image,
+                                value_r = 1.0, value_g = 1.0, value_b = 1.0, value_a = 0.5, srgb = True)
+                pack_node = nodeutils.make_image_node(nodes, image, "DIFFUSE_ROUGHNESS_BLEND_1_PACK")
+                pack_node.location = diffuse_blend_1_node.location
+                nodeutils.link_nodes(links, pack_node, "Color", wrinkle_node, "Diffuse Blend Map 1")
+                nodeutils.link_nodes(links, pack_node, "Alpha", wrinkle_node, "Roughness Blend Map 1")
+                diffuse_blend_1_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+                roughness_blend_1_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+
+            # pack diffuse blend 2 + roughness blend 2
+            diffuse_blend_2_pack_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "DIFFUSE_ROUGHNESS_BLEND_2_PACK")
+            if not diffuse_blend_2_pack_node:
+                diffuse_blend_2_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "WRINKLEDIFFUSE2")
+                roughness_blend_2_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "WRINKLEROUGHNESS2")
+                image = pack_RGBA(mat, "Diffuse Roughness Blend Pack 2", bake_dir,
+                                image_r = diffuse_blend_2_node.image, image_a = roughness_blend_2_node.image,
+                                value_r = 1.0, value_g = 1.0, value_b = 1.0, value_a = 0.5, srgb = True)
+                pack_node = nodeutils.make_image_node(nodes, image, "DIFFUSE_ROUGHNESS_BLEND_2_PACK")
+                pack_node.location = diffuse_blend_2_node.location
+                nodeutils.link_nodes(links, pack_node, "Color", wrinkle_node, "Diffuse Blend Map 2")
+                nodeutils.link_nodes(links, pack_node, "Alpha", wrinkle_node, "Roughness Blend Map 2")
+                diffuse_blend_2_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+                roughness_blend_2_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+
+            # pack diffuse blend 3 + roughness blend 3
+            diffuse_blend_3_pack_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "DIFFUSE_ROUGHNESS_BLEND_3_PACK")
+            if not diffuse_blend_3_pack_node:
+                diffuse_blend_3_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "WRINKLEDIFFUSE3")
+                roughness_blend_3_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "WRINKLEROUGHNESS3")
+                image = pack_RGBA(mat, "Diffuse Roughness Blend Pack 3", bake_dir,
+                                image_r = diffuse_blend_3_node.image, image_a = roughness_blend_3_node.image,
+                                value_r = 1.0, value_g = 1.0, value_b = 1.0, value_a = 0.5, srgb = True)
+                pack_node = nodeutils.make_image_node(nodes, image, "DIFFUSE_ROUGHNESS_BLEND_3_PACK")
+                pack_node.location = diffuse_blend_3_node.location
+                nodeutils.link_nodes(links, pack_node, "Color", wrinkle_node, "Diffuse Blend Map 3")
+                nodeutils.link_nodes(links, pack_node, "Alpha", wrinkle_node, "Roughness Blend Map 3")
+                diffuse_blend_3_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+                roughness_blend_3_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+
+        else:
+
+            # pack all 4 roughness maps into one
+            roughness_pack_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "WRINKLE_ROUGHNESS_PACK")
+            if not roughness_pack_node:
+                roughness_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "ROUGHNESS")
+                roughness_blend_1_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "WRINKLEROUGHNESS1")
+                roughness_blend_2_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "WRINKLEROUGHNESS2")
+                roughness_blend_3_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "WRINKLEROUGHNESS3")
+                image = pack_RGBA(mat, "Wrinkle Roughness Pack", bake_dir,
+                                  image_r = roughness_blend_1_node.image, image_g = roughness_blend_2_node.image,
+                                  image_b = roughness_blend_3_node.image, image_a = roughness_node.image,
+                                  value_r = 0.5, value_g = 0.5, value_b = 0.5, value_a = 0.5, srgb = False)
+                pack_node = nodeutils.make_image_node(nodes, image, "WRINKLE_ROUGHNESS_PACK")
+                pack_node.location = roughness_blend_3_node.location
+                sep_node = nodeutils.make_separate_rgb_node(nodes, "Pack Split", "WRINKLE_ROUGHNESS_PACK_SPLIT")
+                sep_node.location = pack_node.location + Vector((355, -100))
+                nodeutils.link_nodes(links, pack_node, "Color", sep_node, "Image")
+                nodeutils.link_nodes(links, sep_node, "R", wrinkle_node, "Roughness Blend Map 1")
+                nodeutils.link_nodes(links, sep_node, "G", wrinkle_node, "Roughness Blend Map 2")
+                nodeutils.link_nodes(links, sep_node, "B", wrinkle_node, "Roughness Blend Map 3")
+                nodeutils.link_nodes(links, pack_node, "Alpha", wrinkle_node, "Roughness Map")
+                roughness_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+                roughness_blend_1_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+                roughness_blend_2_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+                roughness_blend_3_node.location = loc_repos
+                loc_repos += Vector((20,-20))
+
+        loc_repos = Vector((-1900, -450))
+
+        # pack SSS and Transmission
+        masm_pack_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "SSTM_PACK")
+        if not masm_pack_node:
+            sss_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "SSS")
+            transmission_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "TRANSMISSION")
+            image = pack_RGBA(mat, "SSTM Pack", bake_dir,
+                              image_r = sss_node.image,
+                              image_a = transmission_node.image,
+                              value_r = 1, value_g = 1, value_b = 1, value_a = 0, srgb = False, max_size = 1024)
+            pack_node = nodeutils.make_image_node(nodes, image, "SSTM_PACK")
+            pack_node.location = sss_node.location
+            nodeutils.link_nodes(links, pack_node, "Color", shader_node, "Subsurface Map")
+            nodeutils.link_nodes(links, pack_node, "Alpha", shader_node, "Transmission Map")
+            sss_node.location = loc_repos
+            loc_repos += Vector((20,-20))
+            transmission_node.location = loc_repos
+            loc_repos += Vector((20,-20))
+
+        # pack metallic, AO, Spec Mask, Micro Normal Mask
+        masm_pack_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "MASM_PACK")
+        if not masm_pack_node:
+            metallic_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "METALLIC")
+            ao_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "AO")
+            spec_mask_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "SPECMASK")
+            micro_normal_mask_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "MICRONMASK")
+            image = pack_RGBA(mat, "MASM Pack", bake_dir,
+                                image_r = metallic_node.image, image_g = spec_mask_node.image,
+                                image_b = micro_normal_mask_node.image, image_a = ao_node.image,
+                                value_r = 0, value_g = 1, value_b = 1, value_a = 1, srgb = False)
+            pack_node = nodeutils.make_image_node(nodes, image, "MASM_PACK")
+            pack_node.location = Vector((-1300, -450))
+            sep_node = nodeutils.make_separate_rgb_node(nodes, "Pack Split", "MASM_PACK_SPLIT")
+            sep_node.location = pack_node.location + Vector((355, -100))
+            nodeutils.link_nodes(links, pack_node, "Color", sep_node, "Image")
+            if metallic_node:
+                nodeutils.link_nodes(links, sep_node, "R", shader_node, "Metallic Map")
+            if spec_mask_node:
+                nodeutils.link_nodes(links, sep_node, "G", shader_node, "Specular Mask")
+            if micro_normal_mask_node:
+                nodeutils.link_nodes(links, sep_node, "B", shader_node, "Micro Normal Mask")
+            if ao_node:
+                nodeutils.link_nodes(links, pack_node, "Alpha", shader_node, "AO Map")
+            ao_node.location = loc_repos
+            loc_repos += Vector((20,-20))
+            metallic_node.location = loc_repos
+            loc_repos += Vector((20,-20))
+            spec_mask_node.location = loc_repos
+            loc_repos += Vector((20,-20))
+            micro_normal_mask_node.location = loc_repos
+            loc_repos += Vector((20,-20))
+
+        utils.restore_mode_selection(mode_selection)
 
 
 class CC3BakeOperator(bpy.types.Operator):
