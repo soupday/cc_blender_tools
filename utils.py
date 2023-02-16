@@ -1193,3 +1193,18 @@ def determine_object_export_name(chr_cache, obj, obj_cache = None):
         obj_safe_name = safe_export_name(obj_name)
         obj_source_name = obj_safe_name
     return obj_safe_name
+
+
+def furthest_from(p0, *points):
+    most = 0
+    result = p0
+    for p in points:
+        dp = (p - p0).length
+        if dp > most:
+            most = dp
+            result = p
+    return result
+
+
+def is_name_or_duplication(a, b):
+    return strip_name(a) == strip_name(b)

@@ -396,13 +396,20 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             layout.prop(props, "physics_mode", expand=True)
         layout.prop(prefs, "render_target", expand=True)
         layout.prop(prefs, "refractive_eyes", expand=True)
-        split = layout.split(factor=0.9)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text="De-duplicate Materials")
-        col_2.prop(prefs, "import_deduplicate", text="")
-        col_1.label(text="Auto Convert Generic")
-        col_2.prop(prefs, "import_auto_convert", text="")
+        # sub prefs
+        box = layout.box()
+        if fake_drop_down(box.row(), "Build Prefs", "show_build_prefs", props.show_build_prefs):
+            split = box.split(factor=0.9)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="De-duplicate Materials")
+            col_2.prop(prefs, "import_deduplicate", text="")
+            col_1.label(text="Auto Convert Generic")
+            col_2.prop(prefs, "import_auto_convert", text="")
+            col_1.label(text="Pack Texture Channels")
+            col_2.prop(prefs, "import_pack_texture_channels", text="")
+            col_1.label(text="Reuse Channel Packs")
+            col_2.prop(prefs, "import_reuse_baked_channel_packs", text="")
 
         # Cycles Prefs
 

@@ -75,6 +75,8 @@ def delete_import(chr_cache):
 
 def process_material(chr_cache, obj, mat, obj_json, processed_images):
     props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
     mat_cache = chr_cache.get_material_cache(mat)
     mat_json = jsonutils.get_material_json(obj_json, mat)
 
@@ -99,8 +101,6 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
 
         elif mat_cache.is_skin() or mat_cache.is_nails():
             shaders.connect_skin_shader(obj, mat, mat_json, processed_images)
-            if mat_json and "Wrinkle" in mat_json.keys():
-                bake.channel_pack_wrinkle_shader(chr_cache, mat_cache)
 
         elif mat_cache.is_teeth():
             shaders.connect_teeth_shader(obj, mat, mat_json, processed_images)
@@ -116,6 +116,10 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
 
         else:
             shaders.connect_pbr_shader(obj, mat, mat_json, processed_images)
+
+        # optional pack channels
+        if prefs.import_pack_texture_channels or (mat_json and "Wrinkle" in mat_json.keys()):
+            bake.pack_shader_channels(chr_cache, mat_cache)
 
     else:
 
@@ -794,6 +798,7 @@ class CC3Import(bpy.types.Operator):
                 bpy.context.scene.eevee.use_ssr = True
                 bpy.context.scene.eevee.use_ssr_refraction = True
 
+        chr_cache.build_count += 1
         utils.log_timer("Done Build.", "s")
 
 

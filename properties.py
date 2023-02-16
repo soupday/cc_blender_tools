@@ -1167,6 +1167,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     parent_object: bpy.props.PointerProperty(type=bpy.types.Object)
     # accessory parent bone selector
     accessory_parent_bone: bpy.props.StringProperty(default="CC_Base_Head")
+    # counter (how many times have the materials been built)
+    build_count: bpy.props.IntProperty(default=0)
 
     setup_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic","Build basic PBR materials."),
@@ -1761,6 +1763,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)
     stage_remapper: bpy.props.BoolProperty(default=False)
+    show_build_prefs: bpy.props.BoolProperty(default=False)
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     section_rigify_controls: bpy.props.BoolProperty(default=False)

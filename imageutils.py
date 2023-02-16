@@ -31,32 +31,35 @@ def check_max_size(image):
 
 
 # load an image from a file, but try to find it in the existing images first
-def load_image(filename, color_space, processed_images = None):
+def load_image(filename, color_space, processed_images = None, reuse_existing = True):
 
     i: bpy.types.Image = None
     # TODO: should the de-duplication only consider images brough in from the import.
     #       (but then the rebuild won't work...)
     #       or only consider images with the characters folder as a common path...
-    for i in bpy.data.images:
-        if i.type == "IMAGE" and i.filepath != "":
 
-            if os.path.normpath(bpy.path.abspath(i.filepath)) == os.path.normpath(os.path.abspath(filename)):
-                utils.log_info("Using existing image: " + i.filepath)
-                found = False
-                image_md5 = None
-                image_path = bpy.path.abspath(i.filepath)
-                if processed_images is not None and os.path.exists(image_path):
-                    image_md5 = utils.md5sum(image_path)
-                    for p in processed_images:
-                        if p[0] == image_md5:
-                            utils.log_info("Skipping duplicate existing image, reusing: " + p[1].filepath)
-                            i = p[1]
-                            found = True
-                if i.depth == 32 and i.alpha_mode != "CHANNEL_PACKED":
-                    i.alpha_mode = "CHANNEL_PACKED"
-                if processed_images is not None and i and image_md5 and not found:
-                    processed_images.append([image_md5, i])
-                return i
+    if reuse_existing:
+
+        for i in bpy.data.images:
+            if i.type == "IMAGE" and i.filepath != "":
+
+                if os.path.normpath(bpy.path.abspath(i.filepath)) == os.path.normpath(os.path.abspath(filename)):
+                    utils.log_info("Using existing image: " + i.filepath)
+                    found = False
+                    image_md5 = None
+                    image_path = bpy.path.abspath(i.filepath)
+                    if processed_images is not None and os.path.exists(image_path):
+                        image_md5 = utils.md5sum(image_path)
+                        for p in processed_images:
+                            if p[0] == image_md5:
+                                utils.log_info("Skipping duplicate existing image, reusing: " + p[1].filepath)
+                                i = p[1]
+                                found = True
+                    if i.depth == 32 and i.alpha_mode != "CHANNEL_PACKED":
+                        i.alpha_mode = "CHANNEL_PACKED"
+                    if processed_images is not None and i and image_md5 and not found:
+                        processed_images.append([image_md5, i])
+                    return i
 
     try:
         image_md5 = None
@@ -87,26 +90,36 @@ def find_image_file(base_dir, dirs, mat, texture_type):
     last = ""
 
     for dir in dirs:
-
         if dir:
-
             # if the texture folder does not exist, (e.g. files have been moved)
             # remap the relative path to the current blend file directory to try and find the images there
             if not os.path.exists(dir):
                 dir = utils.local_repath(dir, base_dir)
 
-            if os.path.exists(dir):
-
-                if last != dir and dir != "" and os.path.normpath(dir) != os.path.normpath(last):
+            dir = os.path.normpath(dir)
+            if dir and os.path.exists(dir):
+                if last != dir:
                     last = dir
-                    files = os.listdir(dir)
-                    for file in files:
-                        file_name = file.lower()
-                        if file_name.startswith(material_name + "_"):
-                            for suffix in suffix_list:
-                                search = "_" + suffix + "."
-                                if search in file_name:
-                                    return os.path.join(dir, file)
+                    for suffix in suffix_list:
+                        search = f"{material_name}_{suffix}"
+                        file = find_file_by_name(dir, search)
+                        if file:
+                            return file
+
+    return None
+
+
+def find_file_by_name(search_dir, search):
+    """Find the file by the name (without extension)."""
+
+    search = search.lower()
+    files = os.listdir(search_dir)
+    for f in files:
+        dir, file = os.path.split(f)
+        name, ext = os.path.splitext(file)
+        name = name.lower()
+        if name == search:
+            return os.path.join(search_dir, f)
     return None
 
 

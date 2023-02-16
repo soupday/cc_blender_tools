@@ -1016,3 +1016,29 @@ def set_trace_input_value(node, socket_trace, value):
     return False
 
 
+def furthest_from(n0, dir, *nodes):
+    dir.normalize()
+    most = 0
+    result = n0
+    for n in nodes:
+        if n and n0:
+            dn = (n.location - n0.location)
+            proj = dir.dot(dn)
+            if proj > most:
+                most = proj
+                result = n
+    return result
+
+
+def closest_to(n0, dir, *nodes):
+    dir.normalize()
+    least = 9999
+    result = n0
+    for n in nodes:
+        if n and n0:
+            dn = (n.location - n0.location)
+            proj = dir.dot(dn)
+            if proj < least:
+                least = proj
+                result = n
+    return result

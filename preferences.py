@@ -57,6 +57,9 @@ def reset_preferences():
     prefs.cycles_ssr_iris_brightness = 2.0
     prefs.import_auto_convert = True
     prefs.import_deduplicate = True
+    prefs.import_pack_texture_channels = False
+    prefs.import_pack_wrinkle_diffuse_roughness = False
+    prefs.import_reuse_baked_channel_packs = True
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -200,12 +203,22 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     #refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
 
+    import_pack_texture_channels: bpy.props.BoolProperty(default=False, name="Pack Texture Channels",
+                description="Pack compatible linear texture channels to reduce texture lookups.\n\n"
+                            "Note: This will significantly increase import time.\n\n"
+                            "Note: Wrinkle map textures are always channel packed to reduce texture load")
+    import_pack_wrinkle_diffuse_roughness: bpy.props.BoolProperty(default=False, name="Wrinkle Maps into Diffuse Alpha",
+                description="Packs wrinkle map roughness channels into the diffuse alpha channels. This will free up one more texture slot in the skin head material")
+    import_reuse_baked_channel_packs: bpy.props.BoolProperty(default=False, name="Reuse Channel Packs",
+                description="Reuse existing channel packs on material rebuild, otherwise rebake the texture channel packs")
 
     max_texture_size: bpy.props.FloatProperty(default=4096, min=512, max=4096)
 
-    import_deduplicate: bpy.props.BoolProperty(default=True, name="De-duplicate Materials", description="Detects and re-uses duplicate textures and consolidates materials with same name, textures and parameters into a single material")
-    import_auto_convert: bpy.props.BoolProperty(default=True, name="Auto Convert Generic", description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
-                "Which sets up Reallusion import compatible materials and material parameters.")
+    import_deduplicate: bpy.props.BoolProperty(default=True, name="De-duplicate Materials",
+                description="Detects and re-uses duplicate textures and consolidates materials with same name, textures and parameters into a single material")
+    import_auto_convert: bpy.props.BoolProperty(default=True, name="Auto Convert Generic",
+                description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
+                "Which sets up Reallusion import compatible materials and material parameters")
 
     cycles_sss_skin_v118: bpy.props.FloatProperty(default=0.35)
     cycles_sss_hair_v118: bpy.props.FloatProperty(default=0.025)
@@ -261,6 +274,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Import:")
         layout.prop(self, "import_deduplicate")
         layout.prop(self, "import_auto_convert")
+        layout.prop(self, "import_pack_texture_channels")
+        layout.prop(self, "import_pack_wrinkle_diffuse_roughness")
 
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")
