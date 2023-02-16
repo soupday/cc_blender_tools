@@ -682,7 +682,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                 tex_node = nodeutils.get_node_connected_to_input(shader_node, shader_socket)
 
                 tex_info = None
-                bake_shader_output = False
+                bake_value_texture = False
                 bake_shader_socket = ""
                 bake_shader_size = 64
 
@@ -705,12 +705,12 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                 # find or generate tex_info json.
                 if is_pbr_texture:
 
-                    # CC3 cannot set metallic or roughness values with no texture, so must bake a small value texture
+                    # CC3 cannot set metallic or roughness values without textures, so must bake a small value texture
                     if not tex_node and prefs.export_bake_nodes:
 
                         if tex_type == "ROUGHNESS":
                             if bake_values and roughness_modified:
-                                bake_shader_output = True
+                                bake_value_texture = True
                                 bake_shader_socket = "Roughness"
                             elif not bake_values:
                                 mat_json["Roughness_Value"] = roughness
@@ -718,7 +718,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                         elif tex_type == "METALLIC":
                             metallic = nodeutils.get_node_input_value(shader_node, "Metallic Map", 0)
                             if bake_values and metallic > 0:
-                                bake_shader_output = True
+                                bake_value_texture = True
                                 bake_shader_socket = "Metallic"
                             elif not bake_values:
                                 mat_json["Metallic_Value"] = metallic
@@ -728,7 +728,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                         tex_info = mat_json["Textures"][tex_id]
 
                     # or create a new tex_info if missing or baking a new texture
-                    elif tex_node or bake_shader_output:
+                    elif tex_node or bake_value_texture:
                         tex_info = copy.deepcopy(params.JSON_PBR_TEX_INFO)
                         location, rotation, scale = nodeutils.get_image_node_mapping(tex_node)
                         tex_info["Tiling"] = [scale[0], scale[1]]
@@ -756,9 +756,9 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                     if tex_type in mat_data.keys():
                         processed_image = mat_data[tex_type]
                         if processed_image:
-                            utils.log_info(f"Resusing already processed material image: {processed_image.name}")
+                            utils.log_info(f"Reusing already processed material image: {processed_image.name}")
 
-                    if tex_node or bake_shader_output:
+                    if tex_node or bake_value_texture:
 
                         image : bpy.types.Image = None
 
@@ -767,18 +767,31 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                             image = processed_image
 
                         else:
-                            if bake_shader_output:
+
+                            # if it needs a value texture, bake the value
+                            if bake_value_texture:
                                 image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_shader_size)
 
+                            # if there is an image texture link to the socket
                             elif tex_node and tex_node.type == "TEX_IMAGE":
+
+                                # if there is a normal and a bump map connected, combine into a normal
                                 if prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
                                     image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, mat, tex_id, bake_path,
                                                                          normal_socket_name = shader_socket,
                                                                          bump_socket_name = bump_socket)
+
+                                # otherwise use the image texture
                                 else:
                                     image = tex_node.image
 
+                            elif nodeutils.is_texture_pack_system(tex_node) or nodeutils.is_wrinkle_system(tex_node):
+
+                                # do nothing with attached wrinkle system nodes or texture packed nodes
+                                pass
+
                             elif prefs.export_bake_nodes:
+
                                 # if something is connected to the shader socket but is not a texture image
                                 # and baking is enabled: then bake the socket input into a texture for exporting:
                                 if tex_type == "NORMAL" and bump_combining:
@@ -1332,6 +1345,7 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, pat
             tex_node = node
             image = node.image
             try_unpack_image(image, unpack_path, True)
+
         else:
             if tex_id == "Normal" and combine_normals:
                 image = bake.bake_bsdf_normal(bsdf_node, mat, tex_id, bake_path)

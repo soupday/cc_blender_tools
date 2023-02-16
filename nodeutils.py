@@ -699,6 +699,32 @@ def add_shapekeys_wrinkle_node_driver(node, wrinkle_value_socket_name, obj, shap
         drivers.make_driver_var(driver, "SINGLE_PROP", var_names[i], obj.data, target_type = "MESH", data_path = var_paths[i])
 
 
+def is_wrinkle_system(node):
+    wrinkle_shader_id = "(rl_wrinkle_shader)"
+    if wrinkle_shader_id in node.name:
+        return True
+    else:
+        return False
+
+
+def is_texture_pack_system(node):
+    if (vars.PACK_DIFFUSEROUGHNESS_ID in node.name or
+        vars.PACK_DIFFUSEROUGHNESSBLEND1_ID in node.name or
+        vars.PACK_DIFFUSEROUGHNESSBLEND2_ID in node.name or
+        vars.PACK_DIFFUSEROUGHNESSBLEND3_ID in node.name or
+        vars.PACK_DIFFUSEALPHA_ID in node.name or
+        vars.PACK_MRSO_ID in node.name or
+        vars.PACK_SSTM_ID in node.name or
+        vars.PACK_MSMNAO_ID in node.name or
+        vars.PACK_WRINKLEROUGHNESS_ID in node.name or
+        vars.PACK_ROOTID_ID in node.name or
+        vars.PACK_SSTMMNM_ID in node.name or
+        "PACK_SPLIT" in node.name):
+        return True
+    else:
+        return False
+
+
 def get_node_group(name):
     for group in bpy.data.node_groups:
         if vars.NODE_PREFIX in group.name and name in group.name:

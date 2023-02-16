@@ -118,7 +118,9 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
             shaders.connect_pbr_shader(obj, mat, mat_json, processed_images)
 
         # optional pack channels
-        if prefs.import_pack_texture_channels or (mat_json and "Wrinkle" in mat_json.keys()):
+        if prefs.import_limit_textures or prefs.import_pack_texture_channels:
+            bake.pack_shader_channels(chr_cache, mat_cache)
+        elif prefs.import_build_wrinkle_maps and mat_json and "Wrinkle" in mat_json.keys():
             bake.pack_shader_channels(chr_cache, mat_cache)
 
     else:
@@ -377,7 +379,7 @@ def detect_generation(chr_cache, json_data):
 
 
 def is_iclone_temp_motion(name : str):
-    u_idx = utils.safe_index_of(name, '_', 0)
+    u_idx = name.find('_', 0)
     if u_idx == -1:
         return False
     if not name[:u_idx].isdigit():

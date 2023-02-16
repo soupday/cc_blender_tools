@@ -1866,13 +1866,15 @@ def get_shader_texture_socket(shader_def, tex_type):
 
 
 def get_shader_name(mat_cache):
+    material_type = mat_cache.get_material_type()
     for shader in SHADER_LOOKUP:
-        if shader[0] == mat_cache.material_type:
+        if shader[0] == material_type:
             return shader[2]
     return "rl_pbr_shader"
 
 
 def get_rl_shader_name(mat_cache):
+    material_type = mat_cache.get_material_type()
     for shader in SHADER_LOOKUP:
         if shader[0] == mat_cache.material_type:
             return shader[1]

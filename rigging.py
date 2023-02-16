@@ -2001,8 +2001,8 @@ def reset_shape_keys(chr_cache):
 
 def get_shape_key_name_from_data_path(data_path):
     if data_path.startswith("key_blocks[\""):
-        start = utils.safe_index_of(data_path, '"', 0) + 1
-        end = utils.safe_index_of(data_path, '"', start)
+        start = data_path.find('"', 0) + 1
+        end = data_path.find('"', start)
         return data_path[start:end]
     return None
 

@@ -60,6 +60,8 @@ def reset_preferences():
     prefs.import_pack_texture_channels = False
     prefs.import_pack_wrinkle_diffuse_roughness = False
     prefs.import_reuse_baked_channel_packs = True
+    prefs.import_limit_textures = False
+    prefs.import_build_wrinkle_maps = True
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -203,6 +205,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     #refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
 
+    import_build_wrinkle_maps: bpy.props.BoolProperty(default=True, name="Build Wrinkle Maps",
+                description="If present, build the wrinkle map system into the character")
+    import_limit_textures: bpy.props.BoolProperty(default=False, name="Limit Textures",
+                description="Attempt to limit the number of imported textures to 8 or less. This is to attempt to address problems with OSX hardware limitations allowing only 8 active textures in a material.\n"
+                            "Note: This will mean the head material will be simpler than intended and no wrinkle map system is possible. "
+                            "Also this will force on texture channel packing to reduce textures on all materials, which will slow down imports significantly")
     import_pack_texture_channels: bpy.props.BoolProperty(default=False, name="Pack Texture Channels",
                 description="Pack compatible linear texture channels to reduce texture lookups.\n\n"
                             "Note: This will significantly increase import time.\n\n"
@@ -274,6 +282,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Import:")
         layout.prop(self, "import_deduplicate")
         layout.prop(self, "import_auto_convert")
+        layout.prop(self, "import_build_wrinkle_maps")
+        layout.prop(self, "import_limit_textures")
         layout.prop(self, "import_pack_texture_channels")
         layout.prop(self, "import_pack_wrinkle_diffuse_roughness")
 

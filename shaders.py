@@ -531,6 +531,7 @@ def set_shader_input_props(shader_def, mat_cache, socket, value):
 
 def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name, mat_json, obj, processed_images,
                          offset = Vector((0,0)), sub_shader = False, textures = {}):
+
     shader_def = params.get_shader_def(shader_name)
     location = shader_node.location
     x = location[0] - 600 + offset.x
@@ -550,7 +551,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
 
                     alpha_socket_name = texture_def[1]
                     tex_type = texture_def[2]
-                    sample_map = len(texture_def) == 5 and texture_def[3] == "SAMPLE"
+                    sample_map = len(texture_def) > 3 and texture_def[3] == "SAMPLE"
 
                     # there is no need to sample vertex colors for hair if there is Json Data present
                     if mat_json and sample_map and tex_type == "HAIRVERTEXCOLOR":
@@ -710,6 +711,8 @@ def connect_eye_occlusion_shader(obj, mat, mat_json, processed_images):
 
 def connect_skin_shader(obj, mat, mat_json, processed_images):
     props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -733,6 +736,11 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
         shader_group = "rl_skin_shader"
     mix_shader_group = ""
 
+    # force only skin shader (not head) if limiting textures <= 8
+    if prefs.import_limit_textures:
+        shader_name = "rl_skin_shader"
+        shader_group = "rl_skin_shader"
+
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     nodeutils.reset_cursor()
@@ -741,8 +749,9 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
-    if mat_json and "Wrinkle" in mat_json.keys():
-        apply_wrinkle_system(nodes, links, group, shader_name, mat, mat_cache, mat_json, obj, processed_images)
+    if not prefs.import_limit_textures:
+        if prefs.import_build_wrinkle_maps and mat_json and "Wrinkle" in mat_json.keys():
+            apply_wrinkle_system(nodes, links, group, shader_name, mat, mat_cache, mat_json, obj, processed_images)
 
     nodeutils.clean_unused_image_nodes(nodes)
 
@@ -927,21 +936,17 @@ def connect_pbr_shader(obj, mat, mat_json, processed_images):
 
     nodeutils.clean_unused_image_nodes(nodes)
 
+    # material alpha blend settings
+    method = materials.determine_material_alpha(obj_cache, mat_cache, mat_json)
+    materials.set_material_alpha(mat, method)
+
     if mat_cache.is_eyelash():
-        materials.set_material_alpha(mat, "HASHED")
         nodeutils.set_node_input_value(group, "Specular Scale", 0.25)
         nodeutils.set_node_input_value(bsdf, "Subsurface", 0.001)
 
     elif mat_cache.is_scalp():
-        materials.set_material_alpha(mat, "HASHED")
         nodeutils.set_node_input_value(group, "Specular Scale", 0)
         nodeutils.set_node_input_value(bsdf, "Subsurface", 0.01)
-
-    elif nodeutils.has_connected_input(group, "Alpha Map"):
-        if materials.detect_cornea_material(mat):
-            materials.set_material_alpha(mat, "BLEND")
-        else:
-            materials.set_material_alpha(mat, "HASHED")
 
 
 def connect_sss_shader(obj, mat, mat_json, processed_images):

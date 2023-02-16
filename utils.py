@@ -884,13 +884,6 @@ def restore_mode_selection(store):
         pass
 
 
-def safe_index_of(text : str, search : str, start : int):
-    try:
-        return text.index(search, start)
-    except:
-        return -1
-
-
 def safe_get_action(obj):
     if obj:
         try:
@@ -1204,6 +1197,41 @@ def furthest_from(p0, *points):
             most = dp
             result = p
     return result
+
+
+def name_contains_distinct_keywords(name : str, *keywords : str):
+    """Does the name contain the supplied keywords in distinct form:\n
+       i.e. capitalized "OneTwoThree"\n
+            or hungarian notation "oneTwoThree"\n
+            or surrouned by underscores "one_two_three"
+    """
+
+    name_lower = name.lower()
+    name_length = len(name)
+
+    for k in keywords:
+        k_lower = k.lower()
+        k_length = len(k)
+
+        s = name_lower.find(k_lower)
+        e = s + k_length
+
+        if s >= 0:
+
+            # is keyword in name separated by underscores
+            if (name_lower.startswith(k_lower + "_") or
+                name_lower.endswith("_" + k_lower) or
+                "_" + k_lower + "_" in name_lower or
+                name_lower == k_lower):
+                return True
+
+            # match distinct keyword at start of name (any capitalization) or captitalized anywhere else
+            if s == 0 or name[s].isupper():
+                if e >= name_length or not name[e].islower():
+                    return True
+
+    return False
+
 
 
 def is_name_or_duplication(a, b):

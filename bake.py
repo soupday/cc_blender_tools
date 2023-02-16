@@ -17,7 +17,7 @@
 import bpy
 import os
 from mathutils import Vector
-from . import imageutils, nodeutils, utils, params
+from . import imageutils, nodeutils, utils, params, vars
 
 old_samples = 64
 old_file_format = "PNG"
@@ -893,11 +893,11 @@ def pack_rgb_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
         if rgb_node:
             nodeutils.link_nodes(links, pack_node, "Color", shader_node, rgb_socket)
             rgb_node.location = NODE_CURSOR
-            NODE_CURSOR += Vector((20,-20))
+            NODE_CURSOR += Vector((0,-300))
         if a_node:
             nodeutils.link_nodes(links, pack_node, "Alpha", shader_node, a_scoket)
             a_node.location = NODE_CURSOR
-            NODE_CURSOR += Vector((20,-20))
+            NODE_CURSOR += Vector((0,-300))
 
 
 
@@ -961,19 +961,19 @@ def pack_r_g_b_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
         if r_node:
             nodeutils.link_nodes(links, sep_node, "R", shader_node, r_socket)
             r_node.location = NODE_CURSOR
-            NODE_CURSOR += Vector((20,-20))
+            NODE_CURSOR += Vector((0,-300))
         if g_node:
             nodeutils.link_nodes(links, sep_node, "G", shader_node, g_socket)
             g_node.location = NODE_CURSOR
-            NODE_CURSOR += Vector((20,-20))
+            NODE_CURSOR += Vector((0,-300))
         if b_node:
             nodeutils.link_nodes(links, sep_node, "B", shader_node, b_socket)
             b_node.location = NODE_CURSOR
-            NODE_CURSOR += Vector((20,-20))
+            NODE_CURSOR += Vector((0,-300))
         if a_node:
             nodeutils.link_nodes(links, pack_node, "Alpha", shader_node, a_scoket)
             a_node.location = NODE_CURSOR
-            NODE_CURSOR += Vector((20,-20))
+            NODE_CURSOR += Vector((0,-300))
 
 
 def pack_skin_shader(chr_cache, mat_cache, shader_node):
@@ -989,42 +989,42 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node):
         if prefs.import_pack_wrinkle_diffuse_roughness:
 
             # this can free up 1 more texture, but takes longer.
-            pack_rgb_a(mat, bake_dir, "DR Pack", wrinkle_node, "DR_PACK",
+            pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESS_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESS_ID,
                     "DIFFUSE", "ROUGHNESS",
                     "Diffuse Map", "Roughness Map", 1.0, 0.5, srgb = True,
                     reuse_existing = reuse)
 
-            pack_rgb_a(mat, bake_dir, "DRB1 Pack", wrinkle_node, "DRB1_PACK",
+            pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESSBLEND1_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESSBLEND1_ID,
                     "WRINKLEDIFFUSE1", "WRINKLEROUGHNESS1",
                     "Diffuse Blend Map 1", "Roughness Blend Map 1", 1.0, 0.5, srgb = True,
                     reuse_existing = reuse)
 
-            pack_rgb_a(mat, bake_dir, "DRB2 Pack", wrinkle_node, "DRB2_PACK",
+            pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESSBLEND2_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESSBLEND2_ID,
                     "WRINKLEDIFFUSE2", "WRINKLEROUGHNESS2",
                     "Diffuse Blend Map 2", "Roughness Blend Map 2", 1.0, 0.5, srgb = True,
                     reuse_existing = reuse)
 
-            pack_rgb_a(mat, bake_dir, "DRB3 Pack", wrinkle_node, "DRB3_PACK",
+            pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESSBLEND3_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESSBLEND3_ID,
                     "WRINKLEDIFFUSE3", "WRINKLEROUGHNESS3",
                     "Diffuse Blend Map 3", "Roughness Blend Map 3", 1.0, 0.5, srgb = True,
                     reuse_existing = reuse)
         else:
 
             # otherwise pack the 4 roughness channels into a single RGBA texture
-            pack_r_g_b_a(mat, bake_dir, "Roughness Pack", wrinkle_node, "ROUGHNESS_PACK",
+            pack_r_g_b_a(mat, bake_dir, vars.PACK_WRINKLEROUGHNESS_NAME, wrinkle_node, vars.PACK_WRINKLEROUGHNESS_ID,
                         "WRINKLEROUGHNESS1", "WRINKLEROUGHNESS2", "WRINKLEROUGHNESS3", "ROUGHNESS",
                         "Roughness Blend Map 1", "Roughness Blend Map 2", "Roughness Blend Map 3", "Roughness Map",
                         0.5, 0.5, 0.5, 0.5,
                         reuse_existing = reuse)
 
     # pack SSS and Transmission
-    pack_rgb_a(mat, bake_dir, "SSTM Pack", shader_node, "SSTM_PACK",
+    pack_rgb_a(mat, bake_dir, vars.PACK_SSTM_NAME, shader_node, vars.PACK_SSTM_ID,
                "SSS", "TRANSMISSION",
                "Subsurface Map", "Transmission Map", 1.0, 0.0, max_size = 1024,
                 reuse_existing = reuse)
 
     # pack Metallic, Specular Mask, Micro Normal Mask and AO
-    pack_r_g_b_a(mat, bake_dir, "MSMNAO Pack", shader_node, "MSMNAO_Pack",
+    pack_r_g_b_a(mat, bake_dir, vars.PACK_MSMNAO_NAME, shader_node, vars.PACK_MSMNAO_ID,
                  "METALLIC", "SPECMASK", "MICRONMASK", "AO",
                  "Metallic Map", "Specular Mask", "Micro Normal Mask", "AO Map",
                  0.0, 1.0, 1.0, 1.0,
@@ -1039,14 +1039,14 @@ def pack_default_shader(chr_cache, mat_cache, shader_node):
     reuse = chr_cache.build_count > 0 and prefs.import_reuse_baked_channel_packs
 
     # pack diffuse + alpha
-    pack_rgb_a(mat, bake_dir, "DiffuseAlpha Pack", shader_node, "DIFFUSEALPHA_PACK",
+    pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
                "DIFFUSE", "ALPHA",
                "Diffuse Map", "Alpha Map",
                1.0, 1.0, srgb = True,
                reuse_existing = reuse)
 
     # pack Metallic, Specular Mask, Micro Normal Mask and AO
-    pack_r_g_b_a(mat, bake_dir, "MRSO Pack", shader_node, "MRSO_PACK",
+    pack_r_g_b_a(mat, bake_dir, vars.PACK_MRSO_NAME, shader_node, vars.PACK_MRSO_ID,
                  "METALLIC", "ROUGHNESS", "SPECULAR", "AO",
                  "Metallic Map", "Roughness Map", "Specular Map", "AO Map",
                  0.0, 0.5, 1.0, 1.0,
@@ -1061,21 +1061,21 @@ def pack_sss_shader(chr_cache, mat_cache, shader_node):
     reuse = chr_cache.build_count > 0 and prefs.import_reuse_baked_channel_packs
 
     # pack diffuse + alpha
-    pack_rgb_a(mat, bake_dir, "DiffuseAlpha Pack", shader_node, "DIFFUSEALPHA_PACK",
+    pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
                "DIFFUSE", "ALPHA",
                "Diffuse Map", "Alpha Map",
                1.0, 1.0, srgb = True,
                reuse_existing = reuse)
 
     # pack Metallic, Specular Mask, Micro Normal Mask and AO
-    pack_r_g_b_a(mat, bake_dir, "MRSO Pack", shader_node, "MRSO_PACK",
+    pack_r_g_b_a(mat, bake_dir, vars.PACK_MRSO_NAME, shader_node, vars.PACK_MRSO_ID,
                  "METALLIC", "ROUGHNESS", "SPECULAR", "AO",
                  "Metallic Map", "Roughness Map", "Specular Map", "AO Map",
                  0.0, 0.5, 1.0, 1.0,
                  reuse_existing = reuse)
 
     # pack SSS, Transmission, Micro Normal Mask
-    pack_r_g_b_a(mat, bake_dir, "SSTMMNM Pack", shader_node, "SSTMMNM_PACK",
+    pack_r_g_b_a(mat, bake_dir, vars.PACK_SSTMMNM_NAME, shader_node, vars.PACK_SSTMMNM_ID,
                  "SSS", "TRANSMISSION", "MICRONMASK", "",
                  "Subsurface Map", "Transmission Map", "Micro Normal Mask", "",
                  0.0, 1.0, 1.0, 1.0,
@@ -1090,21 +1090,21 @@ def pack_hair_shader(chr_cache, mat_cache, shader_node):
     reuse = chr_cache.build_count > 0 and prefs.import_reuse_baked_channel_packs
 
     # pack diffuse + alpha
-    pack_rgb_a(mat, bake_dir, "DiffuseAlpha Pack", shader_node, "DIFFUSEALPHA_PACK",
+    pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
                "DIFFUSE", "ALPHA",
                "Diffuse Map", "Alpha Map",
                1.0, 1.0, srgb = True,
                reuse_existing = reuse)
 
-    # pack Metallic, Specular Mask, Micro Normal Mask and AO
-    pack_r_g_b_a(mat, bake_dir, "MSMNAO Pack", shader_node, "MSMNAO_Pack",
+    # pack Metallic, Roughness, Specular and AO
+    pack_r_g_b_a(mat, bake_dir, vars.PACK_MRSO_NAME, shader_node, vars.PACK_MRSO_ID,
                  "METALLIC", "ROUGHNESS", "SPECULAR", "AO",
                  "Metallic Map", "Roughness Map", "Specular Map", "AO Map",
                  0.0, 0.5, 1.0, 1.0,
                  reuse_existing = reuse)
 
     # pack Root map, ID map
-    pack_rgb_a(mat, bake_dir, "RootID Pack", shader_node, "ROOTID_PACK",
+    pack_rgb_a(mat, bake_dir, vars.PACK_ROOTID_NAME, shader_node, vars.PACK_ROOTID_ID,
                "HAIRROOT", "HAIRID",
                "Root Map", "ID Map",
                0.5, 0.5,
@@ -1116,7 +1116,7 @@ def pack_shader_channels(chr_cache, mat_cache):
     init_bake(5001)
 
     nodeutils.clear_cursor()
-    NODE_CURSOR = Vector((-4200, -280))
+    NODE_CURSOR = Vector((-4500, 400))
 
     mode_selection = utils.store_mode_selection()
 

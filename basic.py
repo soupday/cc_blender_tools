@@ -348,12 +348,8 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
         nodeutils.link_nodes(links, diffuse_node, "Alpha", shader, "Alpha")
 
     # material alpha blend settings
-    if obj_cache.is_hair() or mat_cache.is_eyelash():
-        materials.set_material_alpha(mat, "HASHED")
-    elif shader.inputs["Alpha"].default_value < 1.0:
-        materials.set_material_alpha(mat, "HASHED")
-    else:
-        materials.set_material_alpha(mat, "OPAQUE")
+    method = materials.determine_material_alpha(obj_cache, mat_cache, mat_json)
+    materials.set_material_alpha(mat, method)
 
     # Normal
     #
