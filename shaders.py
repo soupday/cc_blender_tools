@@ -737,7 +737,7 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
     mix_shader_group = ""
 
     # force only skin shader (not head) if limiting textures <= 8
-    if prefs.import_limit_textures:
+    if prefs.build_limit_textures:
         shader_name = "rl_skin_shader"
         shader_group = "rl_skin_shader"
 
@@ -749,8 +749,8 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
     apply_prop_matrix(bsdf, group, mat_cache, shader_name)
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
-    if not prefs.import_limit_textures:
-        if prefs.import_build_wrinkle_maps and mat_json and "Wrinkle" in mat_json.keys():
+    if not prefs.build_limit_textures:
+        if prefs.build_wrinkle_maps and mat_json and "Wrinkle" in mat_json.keys():
             apply_wrinkle_system(nodes, links, group, shader_name, mat, mat_cache, mat_json, obj, processed_images)
 
     nodeutils.clean_unused_image_nodes(nodes)

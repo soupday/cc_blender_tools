@@ -982,11 +982,11 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node):
     mat = mat_cache.material
     wrinkle_node = nodeutils.get_wrinkle_shader_node(mat)
     bake_dir = mat_cache.get_tex_dir(chr_cache)
-    reuse = chr_cache.build_count > 0 and prefs.import_reuse_baked_channel_packs
+    reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 
     if wrinkle_node:
 
-        if prefs.import_pack_wrinkle_diffuse_roughness:
+        if prefs.build_pack_wrinkle_diffuse_roughness:
 
             # this can free up 1 more texture, but takes longer.
             pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEROUGHNESS_NAME, wrinkle_node, vars.PACK_DIFFUSEROUGHNESS_ID,
@@ -1036,7 +1036,7 @@ def pack_default_shader(chr_cache, mat_cache, shader_node):
 
     mat = mat_cache.material
     bake_dir = mat_cache.get_tex_dir(chr_cache)
-    reuse = chr_cache.build_count > 0 and prefs.import_reuse_baked_channel_packs
+    reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 
     # pack diffuse + alpha
     pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
@@ -1058,7 +1058,7 @@ def pack_sss_shader(chr_cache, mat_cache, shader_node):
 
     mat = mat_cache.material
     bake_dir = mat_cache.get_tex_dir(chr_cache)
-    reuse = chr_cache.build_count > 0 and prefs.import_reuse_baked_channel_packs
+    reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 
     # pack diffuse + alpha
     pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,
@@ -1087,7 +1087,7 @@ def pack_hair_shader(chr_cache, mat_cache, shader_node):
 
     mat = mat_cache.material
     bake_dir = mat_cache.get_tex_dir(chr_cache)
-    reuse = chr_cache.build_count > 0 and prefs.import_reuse_baked_channel_packs
+    reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 
     # pack diffuse + alpha
     pack_rgb_a(mat, bake_dir, vars.PACK_DIFFUSEALPHA_NAME, shader_node, vars.PACK_DIFFUSEALPHA_ID,

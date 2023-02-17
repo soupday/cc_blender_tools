@@ -118,9 +118,9 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
             shaders.connect_pbr_shader(obj, mat, mat_json, processed_images)
 
         # optional pack channels
-        if prefs.import_limit_textures or prefs.import_pack_texture_channels:
+        if prefs.build_limit_textures or prefs.build_pack_texture_channels:
             bake.pack_shader_channels(chr_cache, mat_cache)
-        elif prefs.import_build_wrinkle_maps and mat_json and "Wrinkle" in mat_json.keys():
+        elif prefs.build_wrinkle_maps and mat_json and "Wrinkle" in mat_json.keys():
             bake.pack_shader_channels(chr_cache, mat_cache)
 
     else:

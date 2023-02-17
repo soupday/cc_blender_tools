@@ -57,11 +57,11 @@ def reset_preferences():
     prefs.cycles_ssr_iris_brightness = 2.0
     prefs.import_auto_convert = True
     prefs.import_deduplicate = True
-    prefs.import_pack_texture_channels = False
-    prefs.import_pack_wrinkle_diffuse_roughness = False
-    prefs.import_reuse_baked_channel_packs = True
-    prefs.import_limit_textures = False
-    prefs.import_build_wrinkle_maps = True
+    prefs.build_pack_texture_channels = False
+    prefs.build_pack_wrinkle_diffuse_roughness = False
+    prefs.build_reuse_baked_channel_packs = True
+    prefs.build_limit_textures = False
+    prefs.build_wrinkle_maps = True
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -205,19 +205,19 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     #refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
 
-    import_build_wrinkle_maps: bpy.props.BoolProperty(default=True, name="Build Wrinkle Maps",
+    build_wrinkle_maps: bpy.props.BoolProperty(default=True, name="Build Wrinkle Maps",
                 description="If present, build the wrinkle map system into the character")
-    import_limit_textures: bpy.props.BoolProperty(default=False, name="Limit Textures",
+    build_limit_textures: bpy.props.BoolProperty(default=False, name="Limit Textures",
                 description="Attempt to limit the number of imported textures to 8 or less. This is to attempt to address problems with OSX hardware limitations allowing only 8 active textures in a material.\n"
                             "Note: This will mean the head material will be simpler than intended and no wrinkle map system is possible. "
                             "Also this will force on texture channel packing to reduce textures on all materials, which will slow down imports significantly")
-    import_pack_texture_channels: bpy.props.BoolProperty(default=False, name="Pack Texture Channels",
+    build_pack_texture_channels: bpy.props.BoolProperty(default=False, name="Pack Texture Channels",
                 description="Pack compatible linear texture channels to reduce texture lookups.\n\n"
                             "Note: This will significantly increase import time.\n\n"
                             "Note: Wrinkle map textures are always channel packed to reduce texture load")
-    import_pack_wrinkle_diffuse_roughness: bpy.props.BoolProperty(default=False, name="Wrinkle Maps into Diffuse Alpha",
+    build_pack_wrinkle_diffuse_roughness: bpy.props.BoolProperty(default=False, name="Wrinkle Maps into Diffuse Alpha",
                 description="Packs wrinkle map roughness channels into the diffuse alpha channels. This will free up one more texture slot in the skin head material")
-    import_reuse_baked_channel_packs: bpy.props.BoolProperty(default=False, name="Reuse Channel Packs",
+    build_reuse_baked_channel_packs: bpy.props.BoolProperty(default=True, name="Reuse Channel Packs",
                 description="Reuse existing channel packs on material rebuild, otherwise rebake the texture channel packs")
 
     max_texture_size: bpy.props.FloatProperty(default=4096, min=512, max=4096)
@@ -282,10 +282,10 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Import:")
         layout.prop(self, "import_deduplicate")
         layout.prop(self, "import_auto_convert")
-        layout.prop(self, "import_build_wrinkle_maps")
-        layout.prop(self, "import_limit_textures")
-        layout.prop(self, "import_pack_texture_channels")
-        layout.prop(self, "import_pack_wrinkle_diffuse_roughness")
+        layout.prop(self, "build_wrinkle_maps")
+        layout.prop(self, "build_limit_textures")
+        layout.prop(self, "build_pack_texture_channels")
+        layout.prop(self, "build_pack_wrinkle_diffuse_roughness")
 
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")

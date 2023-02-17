@@ -407,13 +407,13 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_1.label(text="Auto Convert Generic")
             col_2.prop(prefs, "import_auto_convert", text="")
             col_1.label(text="Build Wrinkle Maps")
-            col_2.prop(prefs, "import_build_wrinkle_maps", text="")
+            col_2.prop(prefs, "build_wrinkle_maps", text="")
             col_1.label(text="Limit Textures")
-            col_2.prop(prefs, "import_limit_textures", text="")
+            col_2.prop(prefs, "build_limit_textures", text="")
             col_1.label(text="Pack Texture Channels")
-            col_2.prop(prefs, "import_pack_texture_channels", text="")
+            col_2.prop(prefs, "build_pack_texture_channels", text="")
             col_1.label(text="Reuse Channel Packs")
-            col_2.prop(prefs, "import_reuse_baked_channel_packs", text="")
+            col_2.prop(prefs, "build_reuse_baked_channel_packs", text="")
 
         # Cycles Prefs
 
