@@ -292,6 +292,11 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")
 
+        if colorspace.is_aces():
+            layout.label(text="OpenColorIO ACES")
+            layout.prop(self, "aces_srgb_override")
+            layout.prop(self, "aces_data_override")
+
         layout.label(text="Material settings:")
         layout.prop(self, "quality_mode")
         layout.prop(self, "pipeline_mode")
@@ -307,7 +312,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Detection:")
         layout.prop(self, "hair_hint")
         layout.prop(self, "hair_scalp_hint")
-
 
         layout.label(text="Eyes:")
         layout.prop(self, "refractive_eyes")
