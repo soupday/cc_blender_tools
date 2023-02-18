@@ -19,7 +19,7 @@ import shutil
 import bpy
 
 from . import (characters, rigging, bake, imageutils, jsonutils, materials, modifiers, meshutils, nodeutils, physics,
-               scene, channel_mixer, shaders, basic, properties, utils, vars)
+               colorspace, scene, channel_mixer, shaders, basic, properties, utils, vars)
 
 debug_counter = 0
 
@@ -653,10 +653,13 @@ class CC3Import(bpy.types.Operator):
 
             # in ACES color space, this will fail trying to set up the textures as it tries to use 'Non-Color' space.
             # But the mesh is really all we need, so just keep going...
-            try:
+            if colorspace.is_aces():
+                try:
+                    bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim)
+                except:
+                    utils.log_warn("FBX Import Error: This may be due to color space differences. Continuing...")
+            else:
                 bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim)
-            except:
-                utils.log_warn("FBX Import Error: This may be due to color space differences. Continuing...")
 
             imported = utils.untagged_objects()
             actions = utils.untagged_actions()
