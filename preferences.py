@@ -17,8 +17,7 @@
 import bpy
 from mathutils import Vector
 
-from . import addon_updater_ops, utils, vars
-
+from . import addon_updater_ops, colorspace, utils, vars
 
 def reset_preferences():
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -201,6 +200,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     detail_normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="4096", description="Resolution of detail sculpt normals to bake")
     body_normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Resolution of full body sculpt normals to bake")
+
+    aces_srgb_override: bpy.props.EnumProperty(items=colorspace.fetch_all_color_spaces, default=0, description="ACES Color space to override for sRGB textures")
+    aces_data_override: bpy.props.EnumProperty(items=colorspace.fetch_data_color_spaces, default=0, description="ACES Color space to override for Non-Color or Linear textures")
 
     #refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")

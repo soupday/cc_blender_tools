@@ -36,10 +36,24 @@ Links
 ## Changelog
 
 ### 1.5.4
-- Fix to hand & finger bone roll alignment when bind pose has arms and hands at a steep downward angle.
-- Fix to partial material name matching errors from ActorCore and AccuRig.
-- Added initial Hair curve extraction from hair cards.
-- Spring bone hair rig extraction and weight binding functions.
+- Wrinkle Map system implemented.
+    - Characters with wrinkle maps will setup wrinkle shaders in the head material automatically.
+- OpenColorIO ACES color space support.
+- Optional Texture Packing and Texture limits added to reduce number of textures in imported materals.
+    - Some OSX systems have a very low texture limit (i.e. only 8) this can help import full CC4 characters.
+- Preferences for Build options added to Character Build Panel:
+    - Build Wrinkle Maps.
+    - Pack and/or limit textures.
+    - ACES color space overrides.
+- Fixes:
+    - Some extra transparency material detection.
+    - Fix to hand & finger bone roll alignment when bind pose has arms and hands at a steep downward angle.
+    - Fix to partial material name matching errors from ActorCore and AccuRig.
+    - Shapekey locks will be disabled and all shapekeys reset to zero on character export.
+- Spring Bone Hair Rigging
+    - Added initial Hair curve extraction from hair cards.
+    - Spring bone hair rig extraction and weight binding functions.
+    - Spring bone generation from grease pencil lines.
 
 ### 1.5.3
 - Fix to retarget baking in Blender 3.4 not baking pose bones to rigify armature action.

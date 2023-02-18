@@ -17,7 +17,7 @@
 import os
 import bpy
 
-from . import nodeutils, params, utils
+from . import colorspace, nodeutils, params, utils
 
 
 def check_max_size(image):
@@ -59,6 +59,7 @@ def load_image(filename, color_space, processed_images = None, reuse_existing = 
                         i.alpha_mode = "CHANNEL_PACKED"
                     if processed_images is not None and i and image_md5 and not found:
                         processed_images.append([image_md5, i])
+                    colorspace.set_image_color_space(i, color_space)
                     return i
 
     try:
@@ -71,7 +72,7 @@ def load_image(filename, color_space, processed_images = None, reuse_existing = 
                     return p[1]
         utils.log_info("Loading new image: " + filename)
         image = bpy.data.images.load(filename)
-        image.colorspace_settings.name = color_space
+        colorspace.set_image_color_space(image, color_space)
         if image.depth == 32:
             image.alpha_mode = "CHANNEL_PACKED"
         #check_max_size(image)
@@ -177,6 +178,7 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
     lib_name = get_image_type_lib_name(texture_type)
     if lib_name:
         image = nodeutils.fetch_lib_image(lib_name)
+        colorspace.set_image_color_space(image, color_space)
         if image:
             return image
 

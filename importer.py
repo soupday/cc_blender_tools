@@ -650,7 +650,14 @@ class CC3Import(bpy.types.Operator):
             utils.tag_objects()
             utils.tag_images()
             utils.tag_actions()
-            bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim)
+
+            # in ACES color space, this will fail trying to set up the textures as it tries to use 'Non-Color' space.
+            # But the mesh is really all we need, so just keep going...
+            try:
+                bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim)
+            except:
+                utils.log_warn("FBX Import Error: This may be due to color space differences. Continuing...")
+
             imported = utils.untagged_objects()
             actions = utils.untagged_actions()
             self.imported_images = utils.untagged_images()

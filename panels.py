@@ -19,7 +19,7 @@ import bpy
 import textwrap
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, characters, sculpting, hair, physics, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, rigify_mapping_data, characters, sculpting, hair, physics, colorspace, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
@@ -396,7 +396,8 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             layout.prop(props, "physics_mode", expand=True)
         layout.prop(prefs, "render_target", expand=True)
         layout.prop(prefs, "refractive_eyes", expand=True)
-        # sub prefs
+
+        # Build prefs
         box = layout.box()
         if fake_drop_down(box.row(), "Build Prefs", "show_build_prefs", props.show_build_prefs):
             split = box.split(factor=0.9)
@@ -416,6 +417,15 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_2.prop(prefs, "build_reuse_baked_channel_packs", text="")
 
         # Cycles Prefs
+        if colorspace.is_aces():
+            layout.box().label(text="ACES Settings", icon="COLOR")
+            split = layout.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="sRGB Override")
+            col_2.prop(prefs, "aces_srgb_override", text="")
+            col_1.label(text="Data Override")
+            col_2.prop(prefs, "aces_data_override", text="")
 
         if prefs.render_target == "CYCLES":
             box = layout.box()

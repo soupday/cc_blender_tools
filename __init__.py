@@ -45,6 +45,7 @@ if "bpy" in locals():
     importlib.reload(rigging)
     importlib.reload(sculpting)
     importlib.reload(hair)
+    importlib.reload(colorspace)
 
 import bpy
 
@@ -77,6 +78,7 @@ from . import rigify_mapping_data
 from . import rigging
 from . import sculpting
 from . import hair
+from . import colorspace
 
 
 bl_info = {

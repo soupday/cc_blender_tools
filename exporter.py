@@ -178,6 +178,13 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 if mat not in done:
                     changes.append(["MATERIAL_RENAME", mat, mat.name])
                     done.append(mat)
+            # disable shape key lock
+            obj.show_only_shape_key = False
+            # reset all shape keys to zero
+            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                for key in obj.data.shape_keys.key_blocks:
+                    key.value = 0.0
+
     done.clear()
 
     old_name = chr_cache.character_id
@@ -785,10 +792,15 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                 else:
                                     image = tex_node.image
 
-                            elif nodeutils.is_texture_pack_system(tex_node) or nodeutils.is_wrinkle_system(tex_node):
+                            elif nodeutils.is_texture_pack_system(tex_node):
 
-                                # do nothing with attached wrinkle system nodes or texture packed nodes
-                                pass
+                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to a texture pack. Skipping.")
+                                continue
+
+                            elif nodeutils.is_wrinkle_system(tex_node):
+
+                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to the wrinkle shader. Skipping.")
+                                continue
 
                             elif prefs.export_bake_nodes:
 

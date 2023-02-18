@@ -19,7 +19,7 @@ import os
 
 import bpy
 
-from . import imageutils, nodeutils, physics, modifiers, utils, vars
+from . import colorspace, imageutils, nodeutils, physics, modifiers, utils, vars
 
 
 def add_target(name, location):
@@ -250,10 +250,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            bpy.context.scene.view_settings.view_transform = "Filmic"
-            bpy.context.scene.view_settings.look = "None"
-            bpy.context.scene.view_settings.exposure = 0.0
-            bpy.context.scene.view_settings.gamma = 1.0
+            colorspace.set_view_settings("Filmic", "None", 0.0, 1.0)
             if bpy.context.scene.cycles.transparent_max_bounces < 50:
                 bpy.context.scene.cycles.transparent_max_bounces = 50
 
@@ -298,10 +295,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bloom_intensity = 0.1
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.view_settings.view_transform = "Filmic"
-            bpy.context.scene.view_settings.look = "Medium Contrast"
-            bpy.context.scene.view_settings.exposure = 0.5
-            bpy.context.scene.view_settings.gamma = 0.5
+            colorspace.set_view_settings("Filmic", "Medium Contrast", 0.5, 0.5)
 
             if bpy.context.scene.cycles.transparent_max_bounces < 50:
                 bpy.context.scene.cycles.transparent_max_bounces = 50
@@ -357,10 +351,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            bpy.context.scene.view_settings.view_transform = "Filmic"
-            bpy.context.scene.view_settings.look = "High Contrast"
-            bpy.context.scene.view_settings.exposure = 0.5
-            bpy.context.scene.view_settings.gamma = 1.0
+            colorspace.set_view_settings("Filmic", "High Contrast", 0.5, 1.0)
             if bpy.context.scene.cycles.transparent_max_bounces < 50:
                 bpy.context.scene.cycles.transparent_max_bounces = 50
 
@@ -409,10 +400,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            bpy.context.scene.view_settings.view_transform = "Filmic"
-            bpy.context.scene.view_settings.look = "Medium High Contrast"
-            bpy.context.scene.view_settings.exposure = 0.5
-            bpy.context.scene.view_settings.gamma = 0.6
+            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.5, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 50:
                 bpy.context.scene.cycles.transparent_max_bounces = 50
 
@@ -462,10 +450,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            bpy.context.scene.view_settings.view_transform = "Filmic"
-            bpy.context.scene.view_settings.look = "Medium High Contrast"
-            bpy.context.scene.view_settings.exposure = 0.5
-            bpy.context.scene.view_settings.gamma = 0.6
+            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.5, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 50:
                 bpy.context.scene.cycles.transparent_max_bounces = 50
 
@@ -518,10 +503,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            bpy.context.scene.view_settings.view_transform = "Filmic"
-            bpy.context.scene.view_settings.look = "Medium High Contrast"
-            bpy.context.scene.view_settings.exposure = 0.6
-            bpy.context.scene.view_settings.gamma = 0.6
+            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.6, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 50:
                 bpy.context.scene.cycles.transparent_max_bounces = 50
 
