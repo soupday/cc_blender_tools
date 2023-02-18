@@ -49,6 +49,7 @@ Links
     - Some extra transparency material detection.
     - Fix to hand & finger bone roll alignment when bind pose has arms and hands at a steep downward angle.
     - Fix to partial material name matching errors from ActorCore and AccuRig.
+    - Export bake socket fix for Blender 3.4+.
     - Shapekey locks will be disabled and all shapekeys reset to zero on character export.
 - Spring Bone Hair Rigging (Cloth Rigging to follow)
     - Added initial Hair curve extraction from hair cards.
