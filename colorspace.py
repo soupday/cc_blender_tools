@@ -60,8 +60,8 @@ def fetch_all_color_spaces(self, context):
     if not ALL_COLORSPACES:
         i = 0
         keys = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
-        if "aces" in keys:
-            ALL_COLORSPACES.append(("role_matte_paint", "sRGB", "Default Aces Color (Utility - sRGB or role_matte_paint)", i))
+        if "role_matte_paint" in keys:
+            ALL_COLORSPACES.append(("role_matte_paint", "sRGB", "Default Aces Color (Utility - Linear - sRGB or role_matte_paint)", i))
             i += 1
         for key in keys:
             if key != key.lower():
