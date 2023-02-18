@@ -31,9 +31,9 @@ def set_image_color_space(image : bpy.types.Image, ref_colorspace : str):
 
     if is_aces():
         if ref_colorspace == "Non-Color":
-            image.colorspace_settings.name = prefs.aces_srgb_override
-        else:
             image.colorspace_settings.name = prefs.aces_data_override
+        else:
+            image.colorspace_settings.name = prefs.aces_srgb_override
 
     else:
         image.colorspace_settings.name = ref_colorspace
@@ -61,7 +61,7 @@ def fetch_all_color_spaces(self, context):
         i = 0
         keys = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
         if "aces" in keys:
-            ALL_COLORSPACES.append(("aces", "Aces", "Default Aces Color", i))
+            ALL_COLORSPACES.append(("role_matte_paint", "sRGB", "Default Aces Color (Utility - sRGB or role_matte_paint)", i))
             i += 1
         for key in keys:
             if key != key.lower():
@@ -76,7 +76,7 @@ def fetch_data_color_spaces(self, context):
         i = 0
         keys = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
         if "role_data" in keys:
-            DATA_COLORSPACES.append(("role_data", "Data (role_data)", "Default Aces Non-Color", i))
+            DATA_COLORSPACES.append(("role_data", "Raw", "Default Aces Non-Color (Utility - Raw or role_data)", i))
             i += 1
         for key in keys:
             key_lower = key.lower()
