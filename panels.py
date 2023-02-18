@@ -416,7 +416,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_1.label(text="Reuse Channel Packs")
             col_2.prop(prefs, "build_reuse_baked_channel_packs", text="")
 
-        # Cycles Prefs
+        # ACES Prefs
         if colorspace.is_aces():
             layout.box().label(text="ACES Settings", icon="COLOR")
             split = layout.split(factor=0.5)
@@ -427,6 +427,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_1.label(text="Data Override")
             col_2.prop(prefs, "aces_data_override", text="")
 
+        # Cycles Prefs
         if prefs.render_target == "CYCLES":
             box = layout.box()
             if fake_drop_down(box.row(),
