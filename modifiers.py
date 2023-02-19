@@ -318,12 +318,18 @@ def add_decimate_modifier(obj, ratio):
     return mod
 
 
-def add_multi_res_modifier(obj, subdivisions):
+def add_multi_res_modifier(obj, subdivisions, use_custom_normals = False, uv_smooth = "PRESERVE_BOUNDARIES", quality = 4):
     if utils.set_active_object(obj):
         mod : bpy.types.MultiresModifier
         mod = get_object_modifier(obj, "MULTIRES", "Multi_Res_Sculpt")
         if not mod:
             mod = obj.modifiers.new(utils.unique_name("Multi_Res_Sculpt"), "MULTIRES")
+        try:
+            mod.use_custom_normals = use_custom_normals
+        except:
+            pass
+        mod.uv_smooth = uv_smooth
+        mod.quality = quality
         if mod:
             for i in range(0, subdivisions):
                 bpy.ops.object.multires_subdivide(modifier=mod.name, mode='CATMULL_CLARK')
@@ -336,3 +342,43 @@ def has_modifier(obj, modifier_type):
             if mod.type == modifier_type:
                 return True
     return False
+
+
+def add_vertex_weight_edit_modifier(obj, name, weight_map, vertex_group, default_weight = 0.0, invert = True,
+                                    apply = False, use_add = True, use_remove = False):
+    tex = None
+    for t in bpy.data.textures:
+        if t.name.startswith(vars.NODE_PREFIX + weight_map.name):
+            tex = t
+    if tex is None:
+        tex = bpy.data.textures.new(utils.unique_name(weight_map.name), "IMAGE")
+        utils.log_info("Texture: " + tex.name + " created for weight map transfer")
+    else:
+        utils.log_info("Texture: " + tex.name + " already exists for weight map transfer")
+    tex.image = weight_map
+
+    if vertex_group not in obj.vertex_groups:
+        vg = obj.vertex_groups.new(name = vertex_group)
+
+    edit_mod : bpy.types.VertexWeightEditModifier = obj.modifiers.new(utils.unique_name(name + "_WeightEdit"), "VERTEX_WEIGHT_EDIT")
+    # Use the texture as the modifiers vertex weight source
+    edit_mod.mask_texture = tex
+    # Setup the modifier to generate the inverse of the weight map in the vertex group
+    edit_mod.use_add = use_add
+    edit_mod.use_remove = use_remove
+    edit_mod.add_threshold = 0.0038
+    edit_mod.remove_threshold = 0.004
+    edit_mod.vertex_group = vertex_group
+    edit_mod.default_weight = default_weight
+    edit_mod.falloff_type = 'LINEAR'
+    edit_mod.invert_falloff = invert
+    edit_mod.mask_constant = 1
+    edit_mod.mask_tex_mapping = 'UV'
+    edit_mod.mask_tex_use_channel = 'INT'
+
+    if apply:
+        bpy.ops.object.modifier_apply(modifier=edit_mod.name)
+        bpy.data.textures.remove(tex)
+
+
+

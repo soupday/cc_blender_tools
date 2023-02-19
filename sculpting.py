@@ -75,62 +75,79 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     if utils.is_blender_version("2.92.0"):
         bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
 
-    utils.log_info("Duplicating body for baking")
-    norm_body = utils.duplicate_object(body)
-    norm_body.name = body.name + "_NORMBAKE"
-    apply_multi_res_shape(norm_body)
+    # reset UDIM uvs to normal range
+    utils.log_info("Normalizing UV's")
+    materials.normalize_udim_uvs(body)
+
+    # use cycles for baking
+    utils.log_info("Using Cycles render engine")
+    engine = bpy.context.scene.render.engine
+    bpy.context.scene.render.engine = 'CYCLES'
+
+    # Displacement Baking
+    select_bake_images(body, BAKE_TYPE_DISPLACEMENT, layer_target)
+
+    # copy the body for displacement baking
+    utils.log_info("Duplicating body for displacement baking")
     disp_body = utils.duplicate_object(body)
     disp_body.name = body.name + "_DISPBAKE"
 
-    if utils.set_only_active_object(norm_body):
-
-        # reset UDIM uvs to normal range
-        utils.log_info("Normalizing UV's")
-        materials.normalize_udim_uvs(norm_body)
-
-        # set multi-res levels for baking
-        utils.log_info("Setting multi-res levels for baking")
-        set_multi_res_level(norm_body, view_level=0, sculpt_level=9, render_level=9)
-
-        # use cycles for baking
-        utils.log_info("Using Cycles render engine")
-        engine = bpy.context.scene.render.engine
-        bpy.context.scene.render.engine = 'CYCLES'
-
-        # bake the normals
-        utils.log_info(f"Baking {layer_target} normals...")
-        select_bake_images(norm_body, BAKE_TYPE_NORMALS, layer_target)
-        bpy.context.scene.render.bake_type = BAKE_TYPE_NORMALS
+    # displacement maps *will not* bake if multiple materials in the mesh,
+    # so split by materials and bake each separately.
+    utils.log_info(f"Baking {layer_target} displacement...")
+    utils.clear_selected_objects()
+    utils.edit_mode_to(disp_body)
+    bpy.ops.mesh.separate(type='MATERIAL')
+    objects = bpy.context.selected_objects.copy()
+    for obj in objects:
+        # copying or splitting the mesh resets the multi-res levels...
+        set_multi_res_level(obj, view_level=0, sculpt_level=9, render_level=9)
+        # bake the displacement mask
+        utils.log_info(f"Baking {layer_target} sub displacement {obj.name}")
+        utils.set_only_active_object(obj)
+        bpy.context.scene.render.bake_type = BAKE_TYPE_DISPLACEMENT
         bpy.ops.object.bake_image()
+        utils.delete_mesh_object(obj)
 
-        # displacement maps *will not* bake if multiple materials in the mesh,
-        # so split by materials and bake each separately.
-        utils.log_info(f"Baking {layer_target} displacement...")
-        select_bake_images(norm_body, BAKE_TYPE_DISPLACEMENT, layer_target)
-        utils.clear_selected_objects()
-        utils.edit_mode_to(disp_body)
-        bpy.ops.mesh.separate(type='MATERIAL')
-        objects = bpy.context.selected_objects.copy()
-        for obj in objects:
-            # copying or splitting the mesh resets the multi-res levels...
-            set_multi_res_level(obj, view_level=0, sculpt_level=9, render_level=9)
-            # bake the displacement mask
-            utils.log_info(f"Baking {layer_target} sub displacement {obj.name}")
-            utils.set_only_active_object(obj)
-            bpy.context.scene.render.bake_type = BAKE_TYPE_DISPLACEMENT
-            bpy.ops.object.bake_image()
-            utils.delete_mesh_object(obj)
+    # Normal Baking
+    select_bake_images(body, BAKE_TYPE_NORMALS, layer_target)
 
-        # restore render engine
-        utils.log_info("Restoring render engine")
-        bpy.context.scene.render.engine = engine
+    # copy the body for normal baking
+    utils.log_info("Duplicating body for normal baking")
+    norm_body = utils.duplicate_object(body)
+    norm_body.name = body.name + "_NORMBAKE"
+    apply_multi_res_shape(norm_body)
 
-        utils.log_info("Baking complete!")
+    # set multi-res levels for normal baking
+    utils.log_info("Setting multi-res levels for baking")
+    set_multi_res_level(norm_body, view_level=0, sculpt_level=9, render_level=9)
 
-        if apply_shape and source_body:
-            utils.log_info("Copying shape to source body.")
-            # copy to source body
-            geom.copy_vert_positions_by_uv_id(norm_body.data, source_body.data, threshold = 5)
+    # bake the normals
+    utils.log_info(f"Baking {layer_target} normals...")
+    bpy.context.scene.render.bake_type = BAKE_TYPE_NORMALS
+    bpy.ops.object.bake_image()
+
+    # restore render engine
+    utils.log_info("Restoring render engine")
+    bpy.context.scene.render.engine = engine
+
+    utils.log_info("Baking complete!")
+
+    if apply_shape and source_body and utils.set_only_active_object(norm_body):
+
+        utils.log_info("Copying shape to source body.")
+
+        # generate vertex weights for mesh copy
+        #for mat in norm_body.data.materials:
+        #    displacement_map = nodeutils.get_node_by_id_and_type(mat.node_tree.nodes,
+        #                                                         f"{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}",
+        #                                                         "TEX_IMAGE")
+        #    if displacement_map and displacement_map.image:
+        #        modifiers.add_vertex_weight_edit_modifier(norm_body, "DMASK", displacement_map.image,
+        #                                                  "DISPLACEMENT_MASKED")
+        # copy to source body
+        #geom.copy_vert_positions_by_uv_id(norm_body, source_body, accuracy = 5, vertex_group = "DISPLACEMENT_MASKED", weight_level = 0.5)
+        geom.copy_vert_positions_by_uv_id(norm_body, source_body, accuracy = 5)
 
     utils.delete_mesh_object(norm_body)
 
@@ -319,7 +336,7 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
             mix_group = nodeutils.get_node_group("rl_tex_mod_normal_blend")
             mix_node = nodeutils.make_node_group_node(nodes, mix_group, "Normal Blend", mix_node_name)
         mix_node.inputs["Strength"].default_value = 2.5
-        mix_node.inputs["Threshold"].default_value = 1.01 / 256.0
+        mix_node.inputs["Definition"].default_value = 20
         mix_node.location = ref_location + mathutils.Vector((300 + delta, -1200))
 
         # if connecting the detail layer and there is also a sculpt layer, connect the normal input from the sculpt layer instead
@@ -535,7 +552,7 @@ def add_multires_mesh(chr_cache, layer_target, sub_target = "ALL"):
                 sculpt_level = 2
 
             # add multi-res modifier
-            modifiers.add_multi_res_modifier(multires_mesh, sculpt_level)
+            modifiers.add_multi_res_modifier(multires_mesh, sculpt_level, use_custom_normals=True, quality=6)
 
     # store the references
     if layer_target == LAYER_TARGET_DETAIL:

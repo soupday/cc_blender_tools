@@ -424,10 +424,10 @@ def update_sculpt_layer_normal(self, context, prop_name):
     if chr_cache:
         if prop_name == "detail_normal_strength":
             body = chr_cache.get_detail_body()
-            sculpting.update_layer_nodes(body, "DETAIL", "Strength", chr_cache.detail_normal_strength * 2.5)
+            sculpting.update_layer_nodes(body, "DETAIL", "Strength", chr_cache.detail_normal_strength * 2)
         elif prop_name == "body_normal_strength":
             body = chr_cache.get_body()
-            sculpting.update_layer_nodes(body, "BODY", "Strength", chr_cache.body_normal_strength * 2.5)
+            sculpting.update_layer_nodes(body, "BODY", "Strength", chr_cache.body_normal_strength * 2)
 
 
 def update_rig_target(self, context):

@@ -118,7 +118,10 @@ def nearest_vert_from_uv(obj, mesh, mat_slot, uv, thresh = 0):
         return None
 
 
-def copy_vert_positions_by_uv_id(src_mesh, dst_mesh, threshold = 5):
+def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = None, weight_level = 0):
+
+    src_mesh = src_obj.data
+    dst_mesh = dst_obj.data
 
     src_bm = bmesh.new()
     dst_bm = bmesh.new()
@@ -132,7 +135,6 @@ def copy_vert_positions_by_uv_id(src_mesh, dst_mesh, threshold = 5):
     dst_bm.verts.ensure_lookup_table()
 
     src_map = {}
-
     mat_map = {}
 
     for i, src_mat in enumerate(src_mesh.materials):
@@ -140,22 +142,35 @@ def copy_vert_positions_by_uv_id(src_mesh, dst_mesh, threshold = 5):
             if src_mat == dst_mat:
                 mat_map[i] = j
 
+    vg_index = -1
+    if vertex_group and vertex_group in src_obj.vertex_groups:
+        vg_index = src_obj.vertex_groups[vertex_group].index
+
     ul = src_bm.loops.layers.uv[0]
+    src_bm.verts.layers.deform.verify()
+    dl = src_bm.verts.layers.deform.active
     face : bmesh.types.BMFace
     loop : bmesh.types.BMLoop
     for face in src_bm.faces:
         if face.material_index in mat_map:
             dst_material_idx = mat_map[face.material_index]
             for loop in face.loops:
+                if vg_index >= 0:
+                    vert = src_bm.verts[loop.vert.index]
+                    weight = vert[dl][vg_index]
+                    if abs(weight - weight_level) < 0.004:
+                        continue
                 uv = loop[ul].uv
                 uv.x -= int(uv.x)
-                uv_id = uv.to_tuple(threshold), dst_material_idx
+                uv_id = uv.to_tuple(accuracy), dst_material_idx
                 src_map[uv_id] = loop.vert.index
 
     ul = dst_bm.loops.layers.uv[0]
     for face in dst_bm.faces:
         for loop in face.loops:
-            uv_id = loop[ul].uv.to_tuple(threshold), face.material_index
+            uv = loop[ul].uv
+            uv.x -= int(uv.x)
+            uv_id = uv.to_tuple(accuracy), face.material_index
             if uv_id in src_map:
                 src_vert = src_map[uv_id]
                 src_pos = src_bm.verts[src_vert].co

@@ -1870,16 +1870,20 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         split = row.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
-        col_1.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "BODY_BAKE"
-        row2 = column.row()
-        row2.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake & Apply").param = "BODY_BAKE_APPLY"
-        if not sculpt_body:
-            col_1.enabled = False
-            row2.enabled = False
+        col_1.label(text = "Normal Strength")
         if chr_cache:
             col_2.prop(chr_cache, "body_normal_strength", text="", slider=True)
-            if not has_body_overlay:
-                col_2.enabled = False
+        if not has_body_overlay:
+            row.enabled = False
+
+        row1 = column.row()
+        row1.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "BODY_BAKE"
+        row2 = column.row()
+        row2.scale_y = 1.5
+        row2.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake & Apply").param = "BODY_BAKE_APPLY"
+        if not sculpt_body:
+            row1.enabled = False
+            row2.enabled = False
 
         column.separator()
 
