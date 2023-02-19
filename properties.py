@@ -424,10 +424,10 @@ def update_sculpt_layer_normal(self, context, prop_name):
     if chr_cache:
         if prop_name == "detail_normal_strength":
             body = chr_cache.get_detail_body()
-            sculpting.update_layer_nodes(body, "DETAIL", "Strength", chr_cache.detail_normal_strength)
+            sculpting.update_layer_nodes(body, "DETAIL", "Strength", chr_cache.detail_normal_strength * 2.5)
         elif prop_name == "body_normal_strength":
             body = chr_cache.get_body()
-            sculpting.update_layer_nodes(body, "BODY", "Strength", chr_cache.body_normal_strength)
+            sculpting.update_layer_nodes(body, "BODY", "Strength", chr_cache.body_normal_strength * 2.5)
 
 
 def update_rig_target(self, context):
@@ -1214,16 +1214,17 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ("PROP","Prop","Non standard character is a Prop"),
                 ], default="HUMANOID", name = "Non-standard Character Type")
 
-    detail_sculpt_target: bpy.props.EnumProperty(items=[
+    detail_sculpt_sub_target: bpy.props.EnumProperty(items=[
                         ("HEAD","Head","Sculpt on the head only"),
                         ("BODY","Body","Sculpt on the body only"),
                         ("ALL","All","Sculpt the entire body"),
                     ], default="HEAD", name = "Sculpt Target")
 
-    detail_sculpt_body: bpy.props.PointerProperty(type=bpy.types.Object)
+    detail_multires_body: bpy.props.PointerProperty(type=bpy.types.Object)
+    sculpt_multires_body: bpy.props.PointerProperty(type=bpy.types.Object)
 
-    detail_normal_strength: bpy.props.FloatProperty(default=1.0, min = -5.0, max = 5.0, update=lambda s,c: update_sculpt_layer_normal(s,c,"detail_normal_strength"))
-    body_normal_strength: bpy.props.FloatProperty(default=1.0, min = -5.0, max = 5.0, update=lambda s,c: update_sculpt_layer_normal(s,c,"body_normal_strength"))
+    detail_normal_strength: bpy.props.FloatProperty(default=1.0, min = -4.0, max = 4.0, update=lambda s,c: update_sculpt_layer_normal(s,c,"detail_normal_strength"))
+    body_normal_strength: bpy.props.FloatProperty(default=1.0, min = -4.0, max = 4.0, update=lambda s,c: update_sculpt_layer_normal(s,c,"body_normal_strength"))
 
     def get_tex_dir(self):
         if os.path.isabs(self.import_main_tex_dir):
@@ -1697,10 +1698,22 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.check_type(self.sss_material_cache, recast, chr_json, "SSS")
 
     def get_detail_body(self):
-        if utils.object_exists_is_mesh(self.detail_sculpt_body):
-            return self.detail_sculpt_body
+        if utils.object_exists_is_mesh(self.detail_multires_body):
+            return self.detail_multires_body
         else:
             return None
+
+    def get_sculpt_body(self):
+        if utils.object_exists_is_mesh(self.sculpt_multires_body):
+            return self.sculpt_multires_body
+        else:
+            return None
+
+    def set_detail_body(self, mesh):
+        self.detail_multires_body = mesh
+
+    def set_sculpt_body(self, mesh):
+        self.sculpt_multires_body = mesh
 
 
 

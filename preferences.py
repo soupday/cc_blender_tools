@@ -187,16 +187,14 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("SSR","SSR Eye","Screen Space Refraction with a transmissive & transparent cornea material over an opaque eye (iris) material. SSR Materials do not receive full shadows and cannot have Subsurface scattering in Eevee."),
                     ], default="SSR", name = "Refractive Eyes")
 
-    detail_sculpt_target: bpy.props.EnumProperty(items=[
+    detail_sculpt_sub_target: bpy.props.EnumProperty(items=[
                         ("HEAD","Head","Sculpt on the head only"),
                         ("BODY","Body","Sculpt on the body only"),
                         ("ALL","All","Sculpt the entire body"),
                     ], default="HEAD", name = "Sculpt Target")
 
-    detail_sculpt_level: bpy.props.IntProperty(default=4, min = 1, max = 6, name="Level")
-    body_sculpt_level: bpy.props.IntProperty(default=2, min = 1, max = 6, name="Level")
-    body_sculpt_apply_base: bpy.props.BoolProperty(default=False, name="Apply Base Shape", description="Apply sculpted shape to base topology on bake.")
-
+    detail_multires_level: bpy.props.IntProperty(default=4, min = 1, max = 6, name="Level")
+    sculpt_multires_level: bpy.props.IntProperty(default=2, min = 1, max = 6, name="Level")
 
     detail_normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="4096", description="Resolution of detail sculpt normals to bake")
     body_normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Resolution of full body sculpt normals to bake")

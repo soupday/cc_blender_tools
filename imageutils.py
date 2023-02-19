@@ -114,13 +114,14 @@ def find_file_by_name(search_dir, search):
     """Find the file by the name (without extension)."""
 
     search = search.lower()
-    files = os.listdir(search_dir)
-    for f in files:
-        dir, file = os.path.split(f)
-        name, ext = os.path.splitext(file)
-        name = name.lower()
-        if name == search:
-            return os.path.join(search_dir, f)
+    if os.path.exists(search_dir):
+        files = os.listdir(search_dir)
+        for f in files:
+            dir, file = os.path.split(f)
+            name, ext = os.path.splitext(file)
+            name = name.lower()
+            if name == search:
+                return os.path.join(search_dir, f)
     return None
 
 

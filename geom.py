@@ -116,3 +116,49 @@ def nearest_vert_from_uv(obj, mesh, mat_slot, uv, thresh = 0):
         return obj.matrix_world @ near.co
     else:
         return None
+
+
+def copy_vert_positions_by_uv_id(src_mesh, dst_mesh, threshold = 5):
+
+    src_bm = bmesh.new()
+    dst_bm = bmesh.new()
+
+    src_bm.from_mesh(src_mesh)
+    src_bm.faces.ensure_lookup_table()
+    src_bm.verts.ensure_lookup_table()
+
+    dst_bm.from_mesh(dst_mesh)
+    dst_bm.faces.ensure_lookup_table()
+    dst_bm.verts.ensure_lookup_table()
+
+    src_map = {}
+
+    mat_map = {}
+
+    for i, src_mat in enumerate(src_mesh.materials):
+        for j, dst_mat in enumerate(dst_mesh.materials):
+            if src_mat == dst_mat:
+                mat_map[i] = j
+
+    ul = src_bm.loops.layers.uv[0]
+    face : bmesh.types.BMFace
+    loop : bmesh.types.BMLoop
+    for face in src_bm.faces:
+        if face.material_index in mat_map:
+            dst_material_idx = mat_map[face.material_index]
+            for loop in face.loops:
+                uv = loop[ul].uv
+                uv.x -= int(uv.x)
+                uv_id = uv.to_tuple(threshold), dst_material_idx
+                src_map[uv_id] = loop.vert.index
+
+    ul = dst_bm.loops.layers.uv[0]
+    for face in dst_bm.faces:
+        for loop in face.loops:
+            uv_id = loop[ul].uv.to_tuple(threshold), face.material_index
+            if uv_id in src_map:
+                src_vert = src_map[uv_id]
+                src_pos = src_bm.verts[src_vert].co
+                loop.vert.co = src_pos
+
+    dst_bm.to_mesh(dst_mesh)

@@ -1810,23 +1810,22 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         chr_cache = props.get_context_character_cache(context)
 
         detail_body = None
-        body = None
+        sculpt_body = None
         detail_sculpting = False
         body_sculpting = False
         if chr_cache:
             detail_body = chr_cache.get_detail_body()
-            body = chr_cache.get_body()
+            sculpt_body = chr_cache.get_sculpt_body()
             if detail_body:
                 if utils.get_active_object() == detail_body and utils.get_mode() == "SCULPT":
                     detail_sculpting = True
                 if detail_body.visible_get():
                     detail_sculpting = True
-            if body:
-                if utils.get_active_object() == body and utils.get_mode() == "SCULPT":
+            if sculpt_body:
+                if utils.get_active_object() == sculpt_body and utils.get_mode() == "SCULPT":
                     body_sculpting = True
-        has_body_overlay = sculpting.has_overlay_nodes(body, sculpting.LAYER_TARGET_SCULPT)
+        has_body_overlay = sculpting.has_overlay_nodes(sculpt_body, sculpting.LAYER_TARGET_SCULPT)
         has_detail_overlay = sculpting.has_overlay_nodes(detail_body, sculpting.LAYER_TARGET_DETAIL)
-        has_body_mod = sculpting.has_body_multires_mod(body)
 
         # Full Body Sculpting
 
@@ -1840,22 +1839,24 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         col_1 = split.column()
         col_2 = split.column()
         col_1.label(text = "Multi-res Level")
-        col_2.prop(prefs, "body_sculpt_level", slider=True)
+        col_2.prop(prefs, "sculpt_multires_level", slider=True)
         if body_sculpting:
             row.enabled = False
 
         row = column.row()
-        row.scale_y = 2.0
-        if not has_body_mod:
+        if not sculpt_body:
+            row.scale_y = 2
             row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
         elif not body_sculpting:
-            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Begin Body Sculpt").param = "BODY_BEGIN"
+            row.scale_y = 2
+            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Body Sculpt").param = "BODY_BEGIN"
         else:
+            row.scale_y = 2
             row.operator("cc3.sculpting", icon="X", text="End Body Sculpt").param = "BODY_END"
 
         row = column.row()
         row.operator("cc3.sculpting", icon="TRASH", text="Remove Body Sculpt").param = "BODY_CLEAN"
-        if not has_body_mod:
+        if not sculpt_body:
             row.enabled = False
 
         row = column.row()
@@ -1870,8 +1871,11 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         col_1 = split.column()
         col_2 = split.column()
         col_1.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "BODY_BAKE"
-        if not has_body_mod:
+        row2 = column.row()
+        row2.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake & Apply").param = "BODY_BAKE_APPLY"
+        if not sculpt_body:
             col_1.enabled = False
+            row2.enabled = False
         if chr_cache:
             col_2.prop(chr_cache, "body_normal_strength", text="", slider=True)
             if not has_body_overlay:
@@ -1882,7 +1886,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         row = column.row()
         row.scale_y = 2
         row.operator("cc3.sculpting", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
-        if not has_body_mod or not has_body_overlay:
+        if not sculpt_body or not has_body_overlay:
             row.enabled = False
 
         column.separator()
@@ -1896,7 +1900,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             column.enabled = False
 
         row = column.row()
-        row.prop(prefs, "detail_sculpt_target", expand=True)
+        row.prop(prefs, "detail_sculpt_sub_target", expand=True)
         if detail_body or detail_sculpting:
             row.enabled = False
 
@@ -1905,7 +1909,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         col_1 = split.column()
         col_2 = split.column()
         col_1.label(text = "Multi-res Level")
-        col_2.prop(prefs, "detail_sculpt_level", slider=True)
+        col_2.prop(prefs, "detail_multires_level", slider=True)
         if detail_body or detail_sculpting:
             row.enabled = False
 
@@ -1914,7 +1918,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         if not detail_body:
             row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
         elif not detail_sculpting:
-            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Begin Detail Sculpt").param = "DETAIL_BEGIN"
+            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Detail Sculpt").param = "DETAIL_BEGIN"
         else:
             row.operator("cc3.sculpting", icon="X", text="End Detail Sculpt").param = "DETAIL_END"
 
