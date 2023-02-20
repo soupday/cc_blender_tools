@@ -57,12 +57,12 @@ def move_mod_last(obj, mod):
             bpy.context.view_layer.objects.active = obj
         num_mods = len(obj.modifiers)
         if mod is not None:
-            max = 50
+            max = len(obj.modifiers) + 1
             while obj.modifiers.find(mod.name) < num_mods - 1:
                 bpy.ops.object.modifier_move_down(modifier=mod.name)
-            max -= 1
-            if max == 0:
-                return True
+                if max == 0:
+                    return True
+                max -= 1
     except Exception as e:
         utils.log_error("Unable to move to last, modifier: " + mod.name, e)
     return False
@@ -74,12 +74,12 @@ def move_mod_first(obj, mod):
             obj.select_set(True)
             bpy.context.view_layer.objects.active = obj
         if mod is not None:
-            max = 50
+            max = len(obj.modifiers) + 1
             while obj.modifiers.find(mod.name) > 0:
                 bpy.ops.object.modifier_move_up(modifier=mod.name)
-            max -= 1
-            if max == 0:
-                return True
+                if max == 0:
+                    return True
+                max -= 1
     except Exception as e:
         utils.log_error("Unable to move to first, modifier: " + mod.name, e)
     return False
@@ -336,12 +336,26 @@ def add_multi_res_modifier(obj, subdivisions, use_custom_normals = False, uv_smo
     return mod
 
 
+def get_multi_res_mod(obj):
+    if obj is not None:
+        for mod in obj.modifiers:
+            if mod.type == "MULTIRES":
+                return mod
+    return None
+
+
 def has_modifier(obj, modifier_type):
     if obj is not None:
         for mod in obj.modifiers:
             if mod.type == modifier_type:
                 return True
     return False
+
+
+def apply_modifier(obj : bpy.types.Object, mod):
+    utils.object_mode_to(obj)
+    utils.set_only_active_object(obj)
+    bpy.ops.object.modifier_apply(modifier = mod.name)
 
 
 def remove_material_weight_maps(obj, mat):
@@ -444,3 +458,5 @@ def add_material_weight_map_modifier(obj, mat, weight_map, vertex_group, normali
     mix_mod.mix_mode = 'SET'
     mix_mod.invert_mask_vertex_group = False
     utils.log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
+
+    return edit_mod, mix_mod

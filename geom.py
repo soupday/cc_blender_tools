@@ -118,7 +118,7 @@ def nearest_vert_from_uv(obj, mesh, mat_slot, uv, thresh = 0):
         return None
 
 
-def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = None, mid_level = 0, threshold = 0.004):
+def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = None, threshold = 0.004):
 
     src_mesh = src_obj.data
     dst_mesh = dst_obj.data
@@ -158,7 +158,7 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
                 if vg_index >= 0:
                     vert = src_bm.verts[loop.vert.index]
                     weight = vert[dl][vg_index]
-                    if abs(weight - mid_level) < threshold:
+                    if weight < threshold:
                         continue
                 uv = loop[ul].uv
                 uv.x -= int(uv.x)
@@ -177,3 +177,58 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
                 loop.vert.co = src_pos
 
     dst_bm.to_mesh(dst_mesh)
+
+
+def map_image_to_vertex_weights(obj, mat, image, vertex_group, func):
+    width = image.size[0]
+    height = image.size[1]
+    wmo = width - 1
+    hmo = height - 1
+    uhw = 1 / (wmo * 2)
+    vhw = 1 / (hmo * 2)
+    pixels = image.pixels[:]
+    if vertex_group in obj.vertex_groups:
+        vg = obj.vertex_groups[vertex_group]
+    else:
+        vg = obj.vertex_groups.new(name=vertex_group)
+    vg_index = vg.index
+
+    mat_index = -1
+    for i, slot in enumerate(obj.material_slots):
+        if slot.material == mat:
+            mat_index = i
+            break
+
+    mesh = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.faces.ensure_lookup_table()
+    bm.verts.ensure_lookup_table()
+
+    ul = bm.loops.layers.uv[0]
+    bm.verts.layers.deform.verify()
+    dl = bm.verts.layers.deform.active
+    for face in bm.faces:
+        if face.material_index == mat_index:
+            for loop in face.loops:
+                uv = loop[ul].uv
+                uv.x -= int(uv.x)
+                uv.y -= int(uv.y)
+                vert = bm.verts[loop.vert.index]
+                x = int((uv.x + uhw) * wmo)
+                y = int((uv.y + vhw) * hmo)
+                pixel_value = pixels[x * 4 + y * width * 4]
+                weight = func(pixel_value)
+                vert[dl][vg_index] = weight
+
+    bm.to_mesh(mesh)
+
+
+
+
+
+
+
+
+
+

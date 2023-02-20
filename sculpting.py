@@ -67,6 +67,10 @@ def apply_multi_res_shape(body):
             bpy.ops.object.multires_base_apply(modifier=mod.name)
 
 
+def displacement_map_func(value):
+    return abs(value - 0.5)
+
+
 def copy_base_shape(multi_res_object, source_body_obj, layer_target, by_vertex_group = False):
     utils.log_info("Copying shape to source body.")
 
@@ -77,15 +81,13 @@ def copy_base_shape(multi_res_object, source_body_obj, layer_target, by_vertex_g
             displacement_map = nodeutils.get_node_by_id_and_type(mat.node_tree.nodes,
                                                                  f"{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}",
                                                                  "TEX_IMAGE")
-            if displacement_map and displacement_map.image:
-                modifiers.add_material_weight_map_modifier(multi_res_object, mat,
-                                                           displacement_map.image,
-                                                           "DISPLACEMENT_MASKED", normalize=False)
+
+            geom.map_image_to_vertex_weights(multi_res_object, mat, displacement_map.image,
+                                             "DISPLACEMENT_MASKED", displacement_map_func)
 
         # copy to source body using vertex weights as a copy mask
         geom.copy_vert_positions_by_uv_id(multi_res_object, source_body_obj, accuracy = 5,
-                                          vertex_group = "DISPLACEMENT_MASKED",
-                                          mid_level = 0.5, threshold = 0.004)
+                                          vertex_group = "DISPLACEMENT_MASKED", threshold = 0.0038)
 
     else:
         # copy to source body

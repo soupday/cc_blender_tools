@@ -279,3 +279,12 @@ def set_shading(obj, smooth=True):
         for poly in obj.data.polygons:
             poly.use_smooth = smooth
             obj.data.update()
+
+
+
+
+
+
+
+
+
