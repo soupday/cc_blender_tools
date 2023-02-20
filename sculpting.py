@@ -355,8 +355,8 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
         if not mix_node:
             mix_group = nodeutils.get_node_group("rl_tex_mod_normal_blend")
             mix_node = nodeutils.make_node_group_node(nodes, mix_group, "Normal Blend", mix_node_name)
-        mix_node.inputs["Strength"].default_value = 2.5
-        mix_node.inputs["Definition"].default_value = 20
+        mix_node.inputs["Strength"].default_value = 1.0
+        mix_node.inputs["Definition"].default_value = 10
         mix_node.location = ref_location + mathutils.Vector((300 + delta, -1200))
 
         # if connecting the detail layer and there is also a sculpt layer, connect the normal input from the sculpt layer instead
