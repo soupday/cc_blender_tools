@@ -118,7 +118,7 @@ def nearest_vert_from_uv(obj, mesh, mat_slot, uv, thresh = 0):
         return None
 
 
-def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = None, weight_level = 0):
+def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = None, mid_level = 0, threshold = 0.004):
 
     src_mesh = src_obj.data
     dst_mesh = dst_obj.data
@@ -158,7 +158,7 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
                 if vg_index >= 0:
                     vert = src_bm.verts[loop.vert.index]
                     weight = vert[dl][vg_index]
-                    if abs(weight - weight_level) < 0.004:
+                    if abs(weight - mid_level) < threshold:
                         continue
                 uv = loop[ul].uv
                 uv.x -= int(uv.x)

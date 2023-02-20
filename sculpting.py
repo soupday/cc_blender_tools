@@ -67,6 +67,34 @@ def apply_multi_res_shape(body):
             bpy.ops.object.multires_base_apply(modifier=mod.name)
 
 
+def copy_base_shape(multi_res_object, source_body_obj, layer_target, by_vertex_group = False):
+    utils.log_info("Copying shape to source body.")
+
+    if by_vertex_group:
+
+        # generate vertex weights for mesh copy
+        for mat in multi_res_object.data.materials:
+            displacement_map = nodeutils.get_node_by_id_and_type(mat.node_tree.nodes,
+                                                                 f"{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}",
+                                                                 "TEX_IMAGE")
+            if displacement_map and displacement_map.image:
+                modifiers.add_material_weight_map_modifier(multi_res_object, mat,
+                                                           displacement_map.image,
+                                                           "DISPLACEMENT_MASKED", normalize=False)
+
+        utils.stop_now()
+        # copy to source body using vertex weights as a copy mask
+        geom.copy_vert_positions_by_uv_id(multi_res_object, source_body_obj, accuracy = 5,
+                                          vertex_group = "DISPLACEMENT_MASKED",
+                                          mid_level = 0.5, threshold = 0.004)
+
+    else:
+        # copy to source body
+        geom.copy_vert_positions_by_uv_id(multi_res_object, source_body_obj, accuracy = 5)
+
+    return
+
+
 def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_body = None):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -96,18 +124,21 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     # so split by materials and bake each separately.
     utils.log_info(f"Baking {layer_target} displacement...")
     utils.clear_selected_objects()
+    utils.set_only_active_object(disp_body)
     utils.edit_mode_to(disp_body)
     bpy.ops.mesh.separate(type='MATERIAL')
     objects = bpy.context.selected_objects.copy()
     for obj in objects:
+        utils.object_mode_to(obj)
+        utils.set_only_active_object(obj)
         # copying or splitting the mesh resets the multi-res levels...
         set_multi_res_level(obj, view_level=0, sculpt_level=9, render_level=9)
         # bake the displacement mask
         utils.log_info(f"Baking {layer_target} sub displacement {obj.name}")
-        utils.set_only_active_object(obj)
         bpy.context.scene.render.bake_type = BAKE_TYPE_DISPLACEMENT
         bpy.ops.object.bake_image()
-        utils.delete_mesh_object(obj)
+        #utils.delete_mesh_object(obj)
+    utils.stop_now()
 
     # Normal Baking
     select_bake_images(body, BAKE_TYPE_NORMALS, layer_target)
@@ -116,6 +147,8 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     utils.log_info("Duplicating body for normal baking")
     norm_body = utils.duplicate_object(body)
     norm_body.name = body.name + "_NORMBAKE"
+    utils.object_mode_to(norm_body)
+    utils.set_only_active_object(norm_body)
     apply_multi_res_shape(norm_body)
 
     # set multi-res levels for normal baking
@@ -135,19 +168,7 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
 
     if apply_shape and source_body and utils.set_only_active_object(norm_body):
 
-        utils.log_info("Copying shape to source body.")
-
-        # generate vertex weights for mesh copy
-        #for mat in norm_body.data.materials:
-        #    displacement_map = nodeutils.get_node_by_id_and_type(mat.node_tree.nodes,
-        #                                                         f"{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}",
-        #                                                         "TEX_IMAGE")
-        #    if displacement_map and displacement_map.image:
-        #        modifiers.add_vertex_weight_edit_modifier(norm_body, "DMASK", displacement_map.image,
-        #                                                  "DISPLACEMENT_MASKED")
-        # copy to source body
-        #geom.copy_vert_positions_by_uv_id(norm_body, source_body, accuracy = 5, vertex_group = "DISPLACEMENT_MASKED", weight_level = 0.5)
-        geom.copy_vert_positions_by_uv_id(norm_body, source_body, accuracy = 5)
+        copy_base_shape(norm_body, source_body, layer_target, True)
 
     utils.delete_mesh_object(norm_body)
 

@@ -547,10 +547,12 @@ def attach_material_weight_map(obj, mat, weight_map):
             weight_vertex_group = obj.vertex_groups.new(name = material_group)
         else:
             weight_vertex_group = obj.vertex_groups[material_group]
+
         # The material weight map group should contain only those vertices affected by the material, default weight to 1.0
         meshutils.clear_vertex_group(obj, weight_vertex_group)
         mat_vert_indices = meshutils.get_material_vertex_indices(obj, mat)
         weight_vertex_group.add(mat_vert_indices, 1.0, 'ADD')
+
         # The pin group should contain all vertices in the mesh default weighted to 1.0
         meshutils.set_vertex_group(obj, pin_vertex_group, 1.0)
 
