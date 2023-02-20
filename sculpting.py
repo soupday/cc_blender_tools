@@ -138,7 +138,6 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
         bpy.context.scene.render.bake_type = BAKE_TYPE_DISPLACEMENT
         bpy.ops.object.bake_image()
         #utils.delete_mesh_object(obj)
-    utils.stop_now()
 
     # Normal Baking
     select_bake_images(body, BAKE_TYPE_NORMALS, layer_target)
