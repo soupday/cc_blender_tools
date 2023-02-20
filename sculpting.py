@@ -82,7 +82,6 @@ def copy_base_shape(multi_res_object, source_body_obj, layer_target, by_vertex_g
                                                            displacement_map.image,
                                                            "DISPLACEMENT_MASKED", normalize=False)
 
-        utils.stop_now()
         # copy to source body using vertex weights as a copy mask
         geom.copy_vert_positions_by_uv_id(multi_res_object, source_body_obj, accuracy = 5,
                                           vertex_group = "DISPLACEMENT_MASKED",
@@ -137,7 +136,7 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
         utils.log_info(f"Baking {layer_target} sub displacement {obj.name}")
         bpy.context.scene.render.bake_type = BAKE_TYPE_DISPLACEMENT
         bpy.ops.object.bake_image()
-        #utils.delete_mesh_object(obj)
+        utils.delete_mesh_object(obj)
 
     # Normal Baking
     select_bake_images(body, BAKE_TYPE_NORMALS, layer_target)
@@ -166,7 +165,6 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     utils.log_info("Baking complete!")
 
     if apply_shape and source_body and utils.set_only_active_object(norm_body):
-
         copy_base_shape(norm_body, source_body, layer_target, True)
 
     utils.delete_mesh_object(norm_body)
