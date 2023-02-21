@@ -1835,6 +1835,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_hair_blender_curve: bpy.props.BoolProperty(default=True)
     section_hair_rigging: bpy.props.BoolProperty(default=True)
 
+    section_sculpt_body: bpy.props.BoolProperty(default=True)
+    section_sculpt_detail: bpy.props.BoolProperty(default=True)
+    section_sculpt_cleanup: bpy.props.BoolProperty(default=True)
+    section_sculpt_utilities: bpy.props.BoolProperty(default=True)
+
     # Hair
 
     hair_export_group_by: bpy.props.EnumProperty(items=[

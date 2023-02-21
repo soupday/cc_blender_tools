@@ -1074,9 +1074,15 @@ class CC3OperatorCharacter(bpy.types.Operator):
         return ""
 
 
-class CC3OperatorTransferGeometry(bpy.types.Operator):
-    """Transfer Character Geometry"""
-    bl_idname = "cc3.geom_transfer"
+class CC3OperatorTransferCharacterGeometry(bpy.types.Operator):
+    """Transfer Character Geometry:
+       Copy base mesh shapes (e.g. After Sculpting) from active character to
+       target character, for all *body* mesh objects in the characters, without
+       destroying existing facial expression shape keys in the target Character.
+       Source and target characters must have the same UV topology.
+    """
+
+    bl_idname = "cc3.transfer_character"
     bl_label = "Transfer Character Geometry"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -1094,10 +1100,7 @@ class CC3OperatorTransferGeometry(bpy.types.Operator):
             if selected_character not in selected_characters and selected_character != active_character:
                 selected_characters.append(selected_character)
 
-        if not active_character or not selected_characters:
-            self.report(type={"ERROR"}, message="Needs active and selected characters!")
-
-        else:
+        if active_character and selected_characters:
 
             src_body = active_character.get_body()
             src_eye = active_character.get_object_of_type("EYE")
@@ -1140,8 +1143,55 @@ class CC3OperatorTransferGeometry(bpy.types.Operator):
 
             self.report(type={"INFO"}, message="Done!")
 
+        else:
+            self.report(type={"ERROR"}, message="Needs active and other selected characters!")
+
+
         return {"FINISHED"}
 
     @classmethod
     def description(cls, context, properties):
-        return ""
+        return """Transfer Character Geometry:
+            Copy base mesh shapes (e.g. After Sculpting) from active character to
+            target character, for all *body* mesh objects in the characters, without
+            destroying existing facial expression shape keys in the target Character.
+            Source and target characters must have the same UV topology"""
+
+
+class CC3OperatorTransferMeshGeometry(bpy.types.Operator):
+    """Transfer Mesh Geometry:
+       Copy base mesh shape (e.g. After Sculpting) from active mesh to target
+       mesh without destroying any existing shape keys in the target mesh.
+       Source and target meshes must have the same UV topology.
+    """
+
+    bl_idname = "cc3.transfer_mesh"
+    bl_label = "Transfer Mesh Geometry"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        active = bpy.context.active_object
+        selected = bpy.context.selected_objects.copy()
+
+        utils.object_mode_to(active)
+
+        if active and len(selected) >= 2:
+            for obj in selected:
+                geom.copy_vert_positions_by_uv_id(active, obj, 5)
+
+            self.report(type={"INFO"}, message="Done!")
+
+        else:
+            self.report(type={"ERROR"}, message="Needs active and other selected meshes!")
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+        return """Transfer Mesh Geometry:
+            Copy base mesh shape (e.g. After Sculpting) from active mesh to target
+            mesh without destroying any existing shape keys in the target mesh.
+            Source and target meshes must have the same UV topology"""

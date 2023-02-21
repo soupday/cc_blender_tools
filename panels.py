@@ -57,10 +57,10 @@ def context_character(context):
 # Panel functions and classes
 #
 
-def fake_drop_down(row, label, prop_name, prop_bool_value):
+def fake_drop_down(row, label, prop_name, prop_bool_value, icon = "TRIA_DOWN"):
     props = bpy.context.scene.CC3ImportProps
     if prop_bool_value:
-        row.prop(props, prop_name, icon="TRIA_DOWN", icon_only=True, emboss=False)
+        row.prop(props, prop_name, icon=icon, icon_only=True, emboss=False)
     else:
         row.prop(props, prop_name, icon="TRIA_RIGHT", icon_only=True, emboss=False)
     row.label(text=label)
@@ -1809,6 +1809,15 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
 
+        target_cache = None
+        if chr_cache and len(bpy.context.selected_objects) >= 2:
+            for obj in bpy.context.selected_objects:
+                target_cache = props.get_character_cache(obj, None)
+                if target_cache != chr_cache:
+                    break
+                else:
+                    target_cache = None
+
         detail_body = None
         sculpt_body = None
         detail_sculpting = False
@@ -1829,160 +1838,178 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
         # Full Body Sculpting
 
-        layout.box().label(text = "Full Body Sculpting", icon = "OUTLINER_OB_ARMATURE")
-        column = layout.column()
-        if not chr_cache or detail_sculpting:
-            column.enabled = False
+        if fake_drop_down(layout.box().row(), "Full Body Sculpting", "section_sculpt_body",
+                          props.section_sculpt_body, icon = "OUTLINER_OB_ARMATURE"):
+            column = layout.column()
+            if not chr_cache or detail_sculpting:
+                column.enabled = False
 
-        row = column.row()
-        split = row.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text = "Multi-res Level")
-        col_2.prop(prefs, "sculpt_multires_level", slider=True)
-        if body_sculpting:
-            row.enabled = False
+            row = column.row()
+            split = row.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text = "Multi-res Level")
+            col_2.prop(prefs, "sculpt_multires_level", slider=True)
+            if body_sculpting:
+                row.enabled = False
 
-        row = column.row()
-        if not sculpt_body:
-            row.scale_y = 2
-            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
-        elif not body_sculpting:
-            row.scale_y = 2
-            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Body Sculpt").param = "BODY_BEGIN"
-        else:
-            row.scale_y = 2
-            row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
+            row = column.row()
+            if not sculpt_body:
+                row.scale_y = 2
+                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
+            elif not body_sculpting:
+                row.scale_y = 2
+                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Body Sculpt").param = "BODY_BEGIN"
+            else:
+                row.scale_y = 2
+                row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
 
-        column.separator()
+            column.separator()
 
-        row = column.row()
-        split = row.split(factor=0.4)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text = "Bake Size")
-        col_2.prop(prefs, "body_normal_bake_size", text = "")
+            row = column.row()
+            split = row.split(factor=0.4)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text = "Bake Size")
+            col_2.prop(prefs, "body_normal_bake_size", text = "")
 
-        row = column.row()
-        row.scale_y = 1.5
-        row.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "BODY_BAKE"
-        if chr_cache:
-            row.prop(chr_cache, "multires_bake_apply", text="", expand=True)
-        if not sculpt_body:
-            row.enabled = False
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "BODY_BAKE"
+            if chr_cache:
+                row.prop(chr_cache, "multires_bake_apply", text="", expand=True)
+            if not sculpt_body:
+                row.enabled = False
 
-        column.separator()
+            column.separator()
 
-        row = column.row()
-        split = row.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        if chr_cache:
-            col_1.prop(chr_cache, "body_normal_strength", text="Str", slider=True)
-            col_2.prop(chr_cache, "body_normal_definition", text="Def", slider=True)
-        if not has_body_overlay:
-            row.enabled = False
+            row = column.row()
+            split = row.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            if chr_cache:
+                col_1.prop(chr_cache, "body_normal_strength", text="Str", slider=True)
+                col_2.prop(chr_cache, "body_normal_definition", text="Def", slider=True)
+            if not has_body_overlay:
+                row.enabled = False
 
-        row = column.row()
-        row.scale_y = 1.5
-        row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
-        if not sculpt_body or not has_body_overlay:
-            row.enabled = False
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
+            if not sculpt_body or not has_body_overlay:
+                row.enabled = False
 
-        column.separator()
+            column.separator()
 
 
         # Detail Sculpting
 
-        layout.box().label(text = "Detail Sculpting", icon = "POSE_HLT")
-        column = layout.column()
-        if not chr_cache or body_sculpting:
-            column.enabled = False
+        if fake_drop_down(layout.box().row(), "Detail Sculpting", "section_sculpt_detail",
+                          props.section_sculpt_detail, icon = "POSE_HLT"):
+            column = layout.column()
+            if not chr_cache or body_sculpting:
+                column.enabled = False
 
-        row = column.row()
-        row.prop(prefs, "detail_sculpt_sub_target", expand=True)
-        if detail_body or detail_sculpting:
-            row.enabled = False
+            row = column.row()
+            row.prop(prefs, "detail_sculpt_sub_target", expand=True)
+            if detail_body or detail_sculpting:
+                row.enabled = False
 
-        row = column.row()
-        split = row.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text = "Multi-res Level")
-        col_2.prop(prefs, "detail_multires_level", slider=True)
-        if detail_body or detail_sculpting:
-            row.enabled = False
+            row = column.row()
+            split = row.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text = "Multi-res Level")
+            col_2.prop(prefs, "detail_multires_level", slider=True)
+            if detail_body or detail_sculpting:
+                row.enabled = False
 
-        row = column.row()
-        row.scale_y = 2.0
-        if not detail_body:
-            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
-        elif not detail_sculpting:
-            row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Detail Sculpt").param = "DETAIL_BEGIN"
-        else:
-            row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
+            row = column.row()
+            row.scale_y = 2.0
+            if not detail_body:
+                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
+            elif not detail_sculpting:
+                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Detail Sculpt").param = "DETAIL_BEGIN"
+            else:
+                row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
 
-        column.separator()
+            column.separator()
 
-        row = column.row()
-        split = row.split(factor=0.4)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text = "Bake Size")
-        col_2.prop(prefs, "detail_normal_bake_size", text = "")
+            row = column.row()
+            split = row.split(factor=0.4)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text = "Bake Size")
+            col_2.prop(prefs, "detail_normal_bake_size", text = "")
 
-        row1 = column.row()
-        row1.scale_y = 1.5
-        row1.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "DETAIL_BAKE"
-        if not sculpt_body:
-            row1.enabled = False
+            row1 = column.row()
+            row1.scale_y = 1.5
+            row1.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "DETAIL_BAKE"
+            if not sculpt_body:
+                row1.enabled = False
 
-        column.separator()
+            column.separator()
 
-        row = column.row()
-        split = row.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        if chr_cache:
-            col_1.prop(chr_cache, "detail_normal_strength", text="Str", slider=True)
-            col_2.prop(chr_cache, "detail_normal_definition", text="Def", slider=True)
-        if not has_body_overlay:
-            row.enabled = False
+            row = column.row()
+            split = row.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            if chr_cache:
+                col_1.prop(chr_cache, "detail_normal_strength", text="Str", slider=True)
+                col_2.prop(chr_cache, "detail_normal_definition", text="Def", slider=True)
+            if not has_body_overlay:
+                row.enabled = False
 
-        row = column.row()
-        row.scale_y = 1.5
-        row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "DETAIL_SKINGEN"
-        if not detail_body or not has_detail_overlay:
-            row.enabled = False
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "DETAIL_SKINGEN"
+            if not detail_body or not has_detail_overlay:
+                row.enabled = False
 
-        column.separator()
-
-        layout.box().label(text = "Clean Up", icon = "BRUSH_DATA")
-        column = layout.column()
-        if not chr_cache:
-            column.enabled = False
-
-        column.separator()
+            column.separator()
 
         # Clean Up
 
-        row = column.row()
-        if not sculpt_body:
-            row.enabled = False
-        else:
-            row.alert = True
-        row.operator("cc3.sculpting", icon="TRASH", text="Remove Body Sculpt").param = "BODY_CLEAN"
+        if fake_drop_down(layout.box().row(), "Clean Up", "section_sculpt_cleanup",
+                          props.section_sculpt_cleanup, icon = "BRUSH_DATA"):
+            column = layout.column()
+            if not chr_cache:
+                column.enabled = False
 
-        column.separator()
+            row = column.row()
+            if not sculpt_body:
+                row.enabled = False
+            else:
+                row.alert = True
+            row.operator("cc3.sculpting", icon="TRASH", text="Remove Body Sculpt").param = "BODY_CLEAN"
 
-        row = column.row()
-        if not detail_body:
-            row.enabled = False
-        else:
-            row.alert = True
-        row.operator("cc3.sculpting", icon="TRASH", text="Remove Detail Sculpt").param = "DETAIL_CLEAN"
+            column.separator()
 
-        column.separator()
+            row = column.row()
+            if not detail_body:
+                row.enabled = False
+            else:
+                row.alert = True
+            row.operator("cc3.sculpting", icon="TRASH", text="Remove Detail Sculpt").param = "DETAIL_CLEAN"
+
+            column.separator()
+
+        # Utilities
+
+        if fake_drop_down(layout.box().row(), "Utilities", "section_sculpt_utilities",
+                          props.section_sculpt_utilities, icon = "MODIFIER_DATA"):
+            column = layout.column()
+
+            row = column.row()
+            row.operator("cc3.transfer_character", icon="OUTLINER_OB_ARMATURE", text="Transfer Geometry")
+            if not (target_cache and chr_cache):
+                row.enabled = False
+
+            row = column.row()
+            row.operator("cc3.transfer_mesh", icon="MESH_ICOSPHERE", text="Transfer Geometry")
+            print(len(bpy.context.selected_objects))
+            if not bpy.context.active_object or len(bpy.context.selected_objects) < 2:
+                row.enabled = False
 
 
 class CC3ToolsUtilityPanel(bpy.types.Panel):
