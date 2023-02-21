@@ -132,22 +132,26 @@ def get_existing_bake_image(mat, channel_id, width, height, shader_node, socket,
     return None
 
 
-def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir, name_prefix = "", force_srgb = False, channel_pack = False, exact_name = False):
+def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir,
+                  name_prefix = "", force_srgb = False, channel_pack = False, exact_name = False, underscores = True):
     """Makes an image and image file to bake the shader socket to and returns the image and image name
     """
 
     global BAKE_INDEX
 
+    sep = " "
+    if underscores:
+        sep = "_"
     prefix_sep = ""
     if name_prefix:
-        prefix_sep = "_"
+        prefix_sep = sep
 
     # determine image name and color space
     socket_name = nodeutils.safe_socket_name(socket)
     if exact_name:
-        image_name = mat.name + "_" + channel_id
+        image_name = name_prefix + prefix_sep + mat.name + sep + channel_id
     else:
-        image_name = "EXPORT_BAKE_" + name_prefix + prefix_sep + mat.name + "_" + channel_id + "_" + str(BAKE_INDEX)
+        image_name = "EXPORT_BAKE" + sep + name_prefix + prefix_sep + mat.name + sep + channel_id + sep + str(BAKE_INDEX)
         BAKE_INDEX += 1
     is_data = True
     alpha = False
@@ -174,7 +178,8 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
 
 
 def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix = "",
-                           override_size = 0, size_override_node = None, size_override_socket = None):
+                           override_size = 0, size_override_node = None, size_override_socket = None,
+                           exact_name = False, underscores = True):
     """Bakes the input to the supplied node and socket to an appropriate image.\n
        Image size is determined by the sizes of the connected image nodes (or overriden).\n
        Image name and path is determined by the texture channel id and material name and name prefix.\n
@@ -195,7 +200,8 @@ def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix 
     source_node, source_socket = nodeutils.get_node_and_socket_connected_to_input(node, socket)
 
     # bake the source node output onto the target image and re-save it
-    image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir, name_prefix = name_prefix)
+    image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir,
+                                               name_prefix = name_prefix, exact_name = exact_name, underscores = underscores)
     image_node = cycles_bake_color_output(mat, source_node, source_socket, image, image_name)
 
     # remove the image node
@@ -206,7 +212,8 @@ def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix 
 
 
 def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix = "",
-                            override_size = 0, size_override_node = None, size_override_socket = None):
+                            override_size = 0, size_override_node = None, size_override_socket = None,
+                            exact_name = False, underscores = True):
     """Bakes the output of the supplied node and socket to an appropriate image.\n
        Image size is determined by the sizes of the connected image nodes (or overriden).\n
        Image name and path is determined by the texture channel id, material name, bake dir and name prefix.\n
@@ -224,7 +231,8 @@ def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix
     width, height = get_connected_texture_size(size_node, override_size, size_socket)
 
     # bake the source node output onto the target image and re-save it
-    image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir, name_prefix = name_prefix)
+    image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir,
+                                               name_prefix = name_prefix, exact_name = exact_name, underscores = underscores)
     image_node = cycles_bake_color_output(mat, node, socket, image, image_name)
 
     # remove the image node

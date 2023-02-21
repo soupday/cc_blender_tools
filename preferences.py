@@ -193,8 +193,10 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("ALL","All","Sculpt the entire body"),
                     ], default="HEAD", name = "Sculpt Target")
 
-    detail_multires_level: bpy.props.IntProperty(default=4, min = 1, max = 6, name="Level")
-    sculpt_multires_level: bpy.props.IntProperty(default=2, min = 1, max = 6, name="Level")
+    detail_multires_level: bpy.props.IntProperty(default=4, min = 1, max = 6, name="Level",
+                                                 description="Starting multi-resolution level for detail sculpting")
+    sculpt_multires_level: bpy.props.IntProperty(default=2, min = 1, max = 6, name="Level",
+                                                 description="Starting multi-resolution level for body sculpting")
 
     detail_normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="4096", description="Resolution of detail sculpt normals to bake")
     body_normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Resolution of full body sculpt normals to bake")

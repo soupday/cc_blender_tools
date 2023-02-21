@@ -1797,7 +1797,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
 class CC3ToolsSculptingPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Sculpting_Panel"
-    bl_label = "Detail Sculpting (WIP)"
+    bl_label = "Detail Sculpting"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -1831,7 +1831,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
         layout.box().label(text = "Full Body Sculpting", icon = "OUTLINER_OB_ARMATURE")
         column = layout.column()
-        if not chr_cache:
+        if not chr_cache or detail_sculpting:
             column.enabled = False
 
         row = column.row()
@@ -1852,44 +1852,40 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Body Sculpt").param = "BODY_BEGIN"
         else:
             row.scale_y = 2
-            row.operator("cc3.sculpting", icon="X", text="End Body Sculpt").param = "BODY_END"
+            row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
+
+        column.separator()
 
         row = column.row()
-        row.operator("cc3.sculpting", icon="TRASH", text="Remove Body Sculpt").param = "BODY_CLEAN"
-        if not sculpt_body:
-            row.enabled = False
-
-        row = column.row()
-        split = row.split(factor=0.5)
+        split = row.split(factor=0.4)
         col_1 = split.column()
         col_2 = split.column()
         col_1.label(text = "Bake Size")
         col_2.prop(prefs, "body_normal_bake_size", text = "")
 
         row = column.row()
-        split = row.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.label(text = "Normal Strength")
+        row.scale_y = 1.5
+        row.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "BODY_BAKE"
         if chr_cache:
-            col_2.prop(chr_cache, "body_normal_strength", text="", slider=True)
-        if not has_body_overlay:
-            row.enabled = False
-
-        row1 = column.row()
-        row1.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "BODY_BAKE"
-        row2 = column.row()
-        row2.scale_y = 1.5
-        row2.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake & Apply").param = "BODY_BAKE_APPLY"
+            row.prop(chr_cache, "multires_bake_apply", text="", expand=True)
         if not sculpt_body:
-            row1.enabled = False
-            row2.enabled = False
+            row.enabled = False
 
         column.separator()
 
         row = column.row()
-        row.scale_y = 2
-        row.operator("cc3.sculpting", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        if chr_cache:
+            col_1.prop(chr_cache, "body_normal_strength", text="Str", slider=True)
+            col_2.prop(chr_cache, "body_normal_definition", text="Def", slider=True)
+        if not has_body_overlay:
+            row.enabled = False
+
+        row = column.row()
+        row.scale_y = 1.5
+        row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
         if not sculpt_body or not has_body_overlay:
             row.enabled = False
 
@@ -1900,7 +1896,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
         layout.box().label(text = "Detail Sculpting", icon = "POSE_HLT")
         column = layout.column()
-        if not chr_cache:
+        if not chr_cache or body_sculpting:
             column.enabled = False
 
         row = column.row()
@@ -1924,39 +1920,67 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         elif not detail_sculpting:
             row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Detail Sculpt").param = "DETAIL_BEGIN"
         else:
-            row.operator("cc3.sculpting", icon="X", text="End Detail Sculpt").param = "DETAIL_END"
+            row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
+
+        column.separator()
 
         row = column.row()
-        row.operator("cc3.sculpting", icon="TRASH", text="Remove Detail Sculpt").param = "DETAIL_CLEAN"
-        if not detail_body:
-            row.enabled = False
-
-        row = column.row()
-        split = row.split(factor=0.5)
+        split = row.split(factor=0.4)
         col_1 = split.column()
         col_2 = split.column()
         col_1.label(text = "Bake Size")
         col_2.prop(prefs, "detail_normal_bake_size", text = "")
 
-        row = column.row()
-        split = row.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Bake").param = "DETAIL_BAKE"
-        if not detail_body:
-            col_1.enabled = False
-        if chr_cache:
-            col_2.prop(chr_cache, "detail_normal_strength", text="", slider=True)
-            if not has_detail_overlay:
-                col_2.enabled = False
+        row1 = column.row()
+        row1.scale_y = 1.5
+        row1.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "DETAIL_BAKE"
+        if not sculpt_body:
+            row1.enabled = False
 
         column.separator()
 
         row = column.row()
-        row.scale_y = 2
-        row.operator("cc3.sculpting", icon="EXPORT", text="Export Layer").param = "DETAIL_SKINGEN"
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        if chr_cache:
+            col_1.prop(chr_cache, "detail_normal_strength", text="Str", slider=True)
+            col_2.prop(chr_cache, "detail_normal_definition", text="Def", slider=True)
+        if not has_body_overlay:
+            row.enabled = False
+
+        row = column.row()
+        row.scale_y = 1.5
+        row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "DETAIL_SKINGEN"
         if not detail_body or not has_detail_overlay:
             row.enabled = False
+
+        column.separator()
+
+        layout.box().label(text = "Clean Up", icon = "BRUSH_DATA")
+        column = layout.column()
+        if not chr_cache:
+            column.enabled = False
+
+        column.separator()
+
+        # Clean Up
+
+        row = column.row()
+        if not sculpt_body:
+            row.enabled = False
+        else:
+            row.alert = True
+        row.operator("cc3.sculpting", icon="TRASH", text="Remove Body Sculpt").param = "BODY_CLEAN"
+
+        column.separator()
+
+        row = column.row()
+        if not detail_body:
+            row.enabled = False
+        else:
+            row.alert = True
+        row.operator("cc3.sculpting", icon="TRASH", text="Remove Detail Sculpt").param = "DETAIL_CLEAN"
 
         column.separator()
 
@@ -2067,7 +2091,9 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         box = layout.row()
         box.label(text = "Character: " + character_name)
         row = layout.row()
-        op = row.operator("cc3.importer", icon="REMOVE", text="Remove Character")
-        op.param ="DELETE_CHARACTER"
         if not chr_cache:
             row.enabled = False
+        else:
+            row.alert = True
+        row.operator("cc3.importer", icon="REMOVE", text="Remove Character").param ="DELETE_CHARACTER"
+

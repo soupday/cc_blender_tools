@@ -251,22 +251,20 @@ def has_body_multires_mod(body):
     return False
 
 
-def bake_skingen(chr_cache, layer_target):
+def bake_skingen(chr_cache, layer_target, export_path):
 
-    base_dir = utils.local_path()
-    if not base_dir:
-        base_dir = chr_cache.import_dir
+    export_dir, export_file = os.path.split(export_path)
+    export_name, export_ext = os.path.splitext(export_file)
 
-    skin_gen_dir = os.path.join(base_dir, SKINGEN_FOLDER)
-    utils.log_info(f"Texture save path: {skin_gen_dir}")
-    os.makedirs(skin_gen_dir, exist_ok=True)
+    utils.log_info(f"Texture save path: {export_dir}")
+    os.makedirs(export_dir, exist_ok=True)
 
     body = chr_cache.get_body()
 
     if layer_target == LAYER_TARGET_DETAIL:
-        channel_id = "Detail_Sculpt"
+        channel_id = "Detail"
     else:
-        channel_id = "Body_Sculpt"
+        channel_id = "Body"
 
     if body:
 
@@ -280,7 +278,11 @@ def bake_skingen(chr_cache, layer_target):
             mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
 
             if mix_node:
-                bake.bake_node_socket_output(mix_node, "Layer", mat, channel_id, skin_gen_dir, name_prefix = chr_cache.character_name)
+                bake.bake_node_socket_output(mix_node, "Layer", mat, channel_id + " Normal", export_dir,
+                                             name_prefix = export_name, exact_name=True, underscores=False)
+
+                bake.bake_node_socket_output(mix_node, "Mask", mat, channel_id + " Mask", export_dir,
+                                             name_prefix = export_name, exact_name=True, underscores=False)
 
 
 def update_layer_nodes(body, layer_target, socket, value):
@@ -355,8 +357,20 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
         if not mix_node:
             mix_group = nodeutils.get_node_group("rl_tex_mod_normal_blend")
             mix_node = nodeutils.make_node_group_node(nodes, mix_group, "Normal Blend", mix_node_name)
-        mix_node.inputs["Strength"].default_value = 1.0
-        mix_node.inputs["Definition"].default_value = 10
+            if layer_target == LAYER_TARGET_DETAIL:
+                chr_cache.detail_normal_strength = 1.0
+                chr_cache.detail_normal_definition = 15.0
+            elif layer_target == LAYER_TARGET_SCULPT:
+                chr_cache.body_normal_strength = 1.0
+                chr_cache.body_normal_definition = 15.0
+        if layer_target == LAYER_TARGET_DETAIL:
+            mix_node.inputs["Strength"].default_value = chr_cache.detail_normal_strength
+            mix_node.inputs["Definition"].default_value = chr_cache.detail_normal_definition
+        elif layer_target == LAYER_TARGET_SCULPT:
+            mix_node.inputs["Strength"].default_value = chr_cache.body_normal_strength
+            mix_node.inputs["Definition"].default_value = chr_cache.body_normal_definition
+
+
         mix_node.location = ref_location + mathutils.Vector((300 + delta, -1200))
 
         # if connecting the detail layer and there is also a sculpt layer, connect the normal input from the sculpt layer instead
@@ -392,6 +406,37 @@ def finish_bake(chr_cache, detail_body, layer_target):
             nodeutils.link_nodes(links, shader_node, "Normal", bsdf_node, "Normal")
 
 
+def remove_bake_nodes(chr_cache, layer_target):
+    body = chr_cache.get_body()
+    for mat in body.data.materials:
+        nodes = mat.node_tree.nodes
+        links = mat.node_tree.links
+
+        utils.log_info(f"Setting up {layer_target} bake and layer nodes for {mat.name}")
+
+        mix_node_name = f"{layer_target}_{LAYER_MIX_SUFFIX}"
+        normal_bake_node_name = f"{layer_target}_{BAKE_NORMAL_SUFFIX}"
+        displacement_bake_node_name = f"{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}"
+        normal_layer_node_name = f"{layer_target}_{LAYER_NORMAL_SUFFIX}"
+        displacement_layer_node_name = f"{layer_target}_{LAYER_DISPLACEMENT_SUFFIX}"
+
+        # remove the mix layer
+        mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
+        connected_to_node, connected_to_socket = nodeutils.get_node_and_socket_connected_to_output(mix_node, "Color")
+        connected_from_node, connected_from_socket = nodeutils.get_node_and_socket_connected_to_input(mix_node, "Color1")
+        if mix_node:
+            nodes.remove(mix_node)
+            if connected_from_socket and connected_to_socket:
+                nodeutils.link_nodes(links, connected_from_node, connected_from_socket, connected_to_node, connected_to_socket)
+
+        # remove the image nodes
+        for node_name in [normal_bake_node_name, normal_layer_node_name,
+                          displacement_bake_node_name, displacement_layer_node_name]:
+            node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", node_name)
+            if node:
+                nodes.remove(node)
+
+
 def get_layer_target_mesh(chr_cache, layer_target):
     mesh = None
     if layer_target == LAYER_TARGET_DETAIL:
@@ -403,6 +448,7 @@ def get_layer_target_mesh(chr_cache, layer_target):
 
 def bake_multires_sculpt(chr_cache, layer_target, apply_shape = False, source_body = None):
     multi_res_mesh = get_layer_target_mesh(chr_cache, layer_target)
+    multi_res_mesh.hide_set(False)
     # make sure to go into object mode otherwise the sculpt is not applied.
     if utils.object_mode_to(multi_res_mesh):
         setup_bake_nodes(chr_cache, multi_res_mesh, layer_target)
@@ -458,6 +504,7 @@ def end_multires_sculpting(chr_cache, layer_target, show_baked = False):
 def clean_multires_sculpt(chr_cache, layer_target):
     end_multires_sculpting(chr_cache, layer_target, show_baked = True)
     remove_multires_body(chr_cache, layer_target)
+    remove_bake_nodes(chr_cache, layer_target)
 
 
 def remove_multires_body(chr_cache, layer_target):
@@ -652,10 +699,6 @@ class CC3OperatorSculpt(bpy.types.Operator):
         elif self.param == "DETAIL_CLEAN":
             clean_multires_sculpt(chr_cache, LAYER_TARGET_DETAIL)
 
-        elif self.param == "DETAIL_SKINGEN":
-            bake_skingen(chr_cache, LAYER_TARGET_DETAIL)
-
-
         if self.param == "BODY_SETUP":
             setup_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT)
 
@@ -666,23 +709,146 @@ class CC3OperatorSculpt(bpy.types.Operator):
             end_multires_sculpting(chr_cache, LAYER_TARGET_SCULPT)
 
         elif self.param == "BODY_BAKE":
-            bake_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT)
-
-        elif self.param == "BODY_BAKE_APPLY":
-            bake_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT, apply_shape = True, source_body = body)
+            if chr_cache.multires_bake_apply == "APPLY":
+                bake_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT, apply_shape = True, source_body = body)
+            else:
+                bake_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT)
 
         elif self.param == "BODY_CLEAN":
             clean_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT)
-
-        elif self.param == "BODY_SKINGEN":
-            bake_skingen(chr_cache, LAYER_TARGET_SCULPT)
 
         return {"FINISHED"}
 
     @classmethod
     def description(cls, context, properties):
 
-        if properties.param == "":
-            return ""
+        if properties.param == "DETAIL_SETUP":
+            return "Set up and begin detail sculpting for the character.\n\n" \
+                   "Detail sculpting is done on a reduced copy of the character and sculpted normals are baked back and overlayed on the original character.\n\n" \
+                   "Note: This does not make any changes to the mesh of the original character.\n\n" \
+                   "Warning: It is very important that you *do not* apply the base shape yourself in the multi-res modifier"
+        elif properties.param == "DETAIL_BEGIN":
+            return "Resume detail sculpting for the character.\n\n" \
+                   "Detail sculpting is done on a reduced copy of the character and sculpted normals are baked back and overlayed on the original character.\n\n" \
+                   "Note: This does not make any changes to the mesh of the original character.\n\n" \
+                   "Warning: It is very important that you *do not* apply the base shape yourself in the multi-res modifier"
+        elif properties.param == "DETAIL_END":
+            return "Stop detail sculpting and return to the original character"
+        elif properties.param == "DETAIL_BAKE":
+            return "Bake the detail sculpt normals and masks and overlay on the original character.\n\n" \
+                   "The original character's mesh is *not* altered.\n\n" \
+                   "The normal overlays are masked to show only the areas that have been sculpted on, so minor changes due to multi-res subdivision should not cause any additional distortion.\n\n" \
+                   "Once baked, the detail normals can be exported as a separate layer for Skin-Gen in Charactrer Creator"
+        elif properties.param == "DETAIL_CLEAN":
+            return "Removes the detail sculpt and normal layers"
 
+        elif properties.param == "BODY_SETUP":
+            return "Set up and begin full body sculpting for the character.\n\n" \
+                   "Body sculpting is done on a reduced copy of the character (Only the Head, Body, Arms and Legs) and sculpted normals are baked back and overlayed on the original character.\n\n" \
+                   "Note: This does not make any changes to the mesh of the original character.\n\n" \
+                   "Warning: It is very important that you *do not* apply the base shape yourself in the multi-res modifier"
+        elif properties.param == "BODY_BEGIN":
+            return "Resume full body sculpting for the character.\n\n" \
+                   "Body sculpting is done on a reduced copy of the character (Only the Head, Body, Arms and Legs) and sculpted normals are baked back and overlayed on the original character.\n\n" \
+                   "Note: This does not make any changes to the mesh of the original character.\n\n" \
+                   "Warning: It is very important that you *do not* apply the base shape yourself in the multi-res modifier"
+        elif properties.param == "BODY_END":
+            return "Stop body sculpting and return to the original character"
+        elif properties.param == "BODY_BAKE":
+            return "Bake the body sculpt normals and masks and overlay on the original character.\n\n" \
+                   "Optionally, the multi-res base shape can by copied back to the original character, in a way that does not destroy the shape-keys.\n\n" \
+                   "The normal overlays are masked to show only the areas that have been sculpted on, so minor changes due to multi-res subdivision should not cause any additional distortion.\n\n" \
+                   "Once baked, the body normals can be exported as a separate layer for Skin-Gen in Charactrer Creator"
+        elif properties.param == "BODY_CLEAN":
+            return "Removes the body sculpt and normal layers"
+
+        return ""
+
+
+class CC3OperatorSculptExport(bpy.types.Operator):
+    """Export Sculpt Layers"""
+    bl_idname = "cc3.sculpt_export"
+    bl_label = "Export Layer"
+    bl_options = {"REGISTER"}
+
+    filepath: bpy.props.StringProperty(
+        name="File Path",
+        description="Filepath used for exporting the layers",
+        maxlen=1024,
+        subtype='FILE_PATH',
+        )
+
+    filename_ext = ".png"  # ExportHelper mixin class uses this
+
+    filter_glob: bpy.props.StringProperty(
+        default="*.png;*.jpg",
+        options={"HIDDEN"},
+        )
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = "",
+            options={"HIDDEN"}
+        )
+
+    def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        chr_cache = props.get_context_character_cache(context)
+        body = chr_cache.get_body()
+
+        if self.param == "DETAIL_SKINGEN":
+            bake_skingen(chr_cache, LAYER_TARGET_DETAIL, self.filepath)
+
+        elif self.param == "BODY_SKINGEN":
+            bake_skingen(chr_cache, LAYER_TARGET_SCULPT, self.filepath)
+
+        return {"FINISHED"}
+
+
+    def invoke(self, context, event):
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = bpy.context.scene.CC3ImportProps
+        chr_cache = props.get_context_character_cache(context)
+
+        export_format = "png"
+
+        # determine default file name
+        if not self.filepath:
+            default_file_path = context.blend_data.filepath
+            if not default_file_path:
+                if self.param == "DETAIL_SKINGEN":
+                    default_file_path = "detail_layer"
+                else:
+                    default_file_path = "body_layer"
+            else:
+                default_file_path = os.path.splitext(default_file_path)[0]
+            self.filepath = default_file_path + self.filename_ext
+
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+
+    def check(self, context):
+        change_ext = False
+        filepath = self.filepath
+        if os.path.basename(filepath):
+            base, ext = os.path.splitext(filepath)
+            if ext != self.filename_ext:
+                filepath = bpy.path.ensure_ext(base, self.filename_ext)
+            else:
+                filepath = bpy.path.ensure_ext(filepath, self.filename_ext)
+            if filepath != self.filepath:
+                self.filepath = filepath
+                change_ext = True
+        return change_ext
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "DETAIL_SKINGEN":
+            return "Export the detail sculpt layer normal maps and masks"
+        elif properties.param == "BODY_SKINGEN":
+            return "Export the body sculpt normal normal maps and masks"
         return ""

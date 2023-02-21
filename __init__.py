@@ -143,6 +143,7 @@ classes = (
     preferences.CC3OperatorPreferences,
     channel_mixer.CC3OperatorChannelMixer,
     sculpting.CC3OperatorSculpt,
+    sculpting.CC3OperatorSculptExport,
     hair.CC3OperatorHair,
     hair.CC3ExportHair,
 
