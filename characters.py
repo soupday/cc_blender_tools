@@ -19,7 +19,7 @@ import re
 import mathutils
 import os
 
-from . import materials, modifiers, meshutils, bones, shaders, nodeutils, utils, vars
+from . import materials, modifiers, meshutils, geom, bones, shaders, nodeutils, utils, vars
 
 
 def get_character_objects(arm):
@@ -1071,4 +1071,77 @@ class CC3OperatorCharacter(bpy.types.Operator):
             return "Convert character to a non-standard Humanoid, Creature or Prop"
         elif properties.param == "CONVERT_FROM_GENERIC":
             return "Convert character from generic armature and objects to Non-Standard character with Reallusion materials."
+        return ""
+
+
+class CC3OperatorTransferGeometry(bpy.types.Operator):
+    """Transfer Character Geometry"""
+    bl_idname = "cc3.geom_transfer"
+    bl_label = "Transfer Character Geometry"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        active = bpy.context.active_object
+        selected = bpy.context.selected_objects.copy()
+
+        active_character = props.get_character_cache(active, None)
+        selected_characters = []
+        for obj in selected:
+            selected_character = props.get_character_cache(obj, None)
+            if selected_character not in selected_characters and selected_character != active_character:
+                selected_characters.append(selected_character)
+
+        if not active_character or not selected_characters:
+            self.report(type={"ERROR"}, message="Needs active and selected characters!")
+
+        else:
+
+            src_body = active_character.get_body()
+            src_eye = active_character.get_object_of_type("EYE")
+            src_tearline = active_character.get_object_of_type("TEARLINE")
+            src_eye_occlusion = active_character.get_object_of_type("EYE_OCCLUSION")
+            src_tongue = active_character.get_object_of_type("TONGUE")
+            src_teeth = active_character.get_object_of_type("TEETH")
+            src_arm = active_character.get_armature()
+
+            for chr_cache in selected_characters:
+
+                dst_body = chr_cache.get_body()
+                dst_eye = chr_cache.get_object_of_type("EYE")
+                dst_tearline = chr_cache.get_object_of_type("TEARLINE")
+                dst_eye_occlusion = chr_cache.get_object_of_type("EYE_OCCLUSION")
+                dst_tongue = chr_cache.get_object_of_type("TONGUE")
+                dst_teeth = chr_cache.get_object_of_type("TEETH")
+                dst_arm = chr_cache.get_armature()
+
+                utils.object_mode_to(active)
+                utils.set_only_active_object(active)
+
+                if src_body and dst_body:
+                    geom.copy_vert_positions_by_uv_id(src_body, dst_body, 5)
+                if src_eye and dst_eye:
+                    geom.copy_vert_positions_by_uv_id(src_eye, dst_eye, 5)
+                if src_tearline and dst_tearline:
+                    geom.copy_vert_positions_by_uv_id(src_tearline, dst_tearline, 5)
+                if src_eye_occlusion and dst_eye_occlusion:
+                    geom.copy_vert_positions_by_uv_id(src_eye_occlusion, dst_eye_occlusion, 5)
+                if src_tongue and dst_tongue:
+                    geom.copy_vert_positions_by_uv_id(src_tongue, dst_tongue, 5)
+                if src_teeth and dst_teeth:
+                    geom.copy_vert_positions_by_uv_id(src_teeth, dst_teeth, 5)
+
+                bones.copy_rig_bind_pose(src_arm, dst_arm)
+
+                utils.object_mode_to(dst_arm)
+                utils.set_only_active_object(dst_arm)
+
+            self.report(type={"INFO"}, message="Done!")
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
         return ""

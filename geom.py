@@ -17,18 +17,31 @@
 import bpy
 import math
 import mathutils
+from mathutils import Vector
 import bmesh
 from . import utils
 
 # Code derived from: https://blenderartists.org/t/get-3d-location-of-mesh-surface-point-from-uv-parameter/649486/2
 
-def get_triangulated_bmesh(source_mesh):
-    """Be in object mode...
-    """
+def get_triangulated_bmesh(mesh):
+    """Be in object mode"""
     bm = bmesh.new()
-    bm.from_mesh(source_mesh)
+    bm.from_mesh(mesh)
     # viewport seems to use fixed / clipping instead of beauty
     bmesh.ops.triangulate(bm, faces=bm.faces, quad_method="BEAUTY", ngon_method="BEAUTY")
+    bm.faces.ensure_lookup_table()
+    bm.edges.ensure_lookup_table()
+    bm.verts.ensure_lookup_table()
+    return bm
+
+
+def get_bmesh(mesh):
+    """Be in object mode"""
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.faces.ensure_lookup_table()
+    bm.edges.ensure_lookup_table()
+    bm.verts.ensure_lookup_table()
     return bm
 
 
@@ -141,6 +154,8 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
         for j, dst_mat in enumerate(dst_mesh.materials):
             if src_mat == dst_mat:
                 mat_map[i] = j
+            elif utils.strip_name(src_mat.name) == utils.strip_name(dst_mat.name):
+                mat_map[i] = j
 
     vg_index = -1
     if vertex_group and vertex_group in src_obj.vertex_groups:
@@ -224,11 +239,133 @@ def map_image_to_vertex_weights(obj, mat, image, vertex_group, func):
     bm.to_mesh(mesh)
 
 
+def parse_island_recursive(bm, face_index, faces_left, island, face_map, vert_map):
+    """Recursive way to parse the UV islands.
+       Can run out of recursion calls on large meshes.
+    """
+    if face_index in faces_left:
+        faces_left.remove(face_index)
+        island.append(face_index)
+        for uv_id in face_map[face_index]:
+            connected_faces = vert_map[uv_id]
+            if connected_faces:
+                for cf in connected_faces:
+                    parse_island_recursive(bm, cf, faces_left, island, face_map, vert_map)
 
 
+def parse_island_non_recursive(bm, face_indices, faces_left, island, face_map, vert_map):
+    """Non recursive way to parse UV islands.
+       Connected faces expand the island each iteration.
+       A Set of all currently considered faces is maintained each iteration.
+       More memory intensive, but doesn't fail.
+    """
+    levels = 0
+    while face_indices:
+        levels += 1
+        next_indices = set()
+        for face_index in face_indices:
+            faces_left.remove(face_index)
+            island.append(face_index)
+        for face_index in face_indices:
+            for uv_id in face_map[face_index]:
+                connected_faces = vert_map[uv_id]
+                if connected_faces:
+                    for cf_index in connected_faces:
+                        if cf_index not in island:
+                            next_indices.add(cf_index)
+        face_indices = next_indices
 
 
+def get_uv_island_map(bm, uv_layer, island):
+    """Fetch the UV coords of each vertex in the UV/Mesh island.
+       Each island has a unique UV map so this must be called per island.
+    """
+    uv_map = {}
+    ul = bm.loops.layers.uv[uv_layer]
+    for face_index in island:
+        face = bm.faces[face_index]
+        for loop in face.loops:
+            uv_map[loop.vert.index] = loop[ul].uv
+    return uv_map
 
 
+def get_uv_islands(bm, uv_layer, use_selected = True):
+    """Return a list of faces in each distinct uv island."""
+    face_map = {}
+    vert_map = {}
+    uv_map = {}
+    ul = bm.loops.layers.uv[uv_layer]
 
+    if use_selected:
+        faces = [f for f in bm.faces if f.select]
+    else:
+        faces = [f for f in bm.faces]
+
+    for face in faces:
+        for loop in face.loops:
+            uv_id = loop[ul].uv.to_tuple(5), loop.vert.index
+            uv_map[loop.vert.index] = loop[ul].uv
+            if face.index not in face_map:
+                face_map[face.index] = set()
+            if uv_id not in vert_map:
+                vert_map[uv_id] = set()
+            face_map[face.index].add(uv_id)
+            vert_map[uv_id].add(face.index)
+
+    islands = []
+    faces_left = set(face_map.keys())
+
+    while len(faces_left) > 0:
+        current_island = []
+        face_index = list(faces_left)[0]
+        face_indices = set()
+        face_indices.add(face_index)
+        parse_island_non_recursive(bm, face_indices, faces_left, current_island, face_map, vert_map)
+        islands.append(current_island)
+
+    return islands
+
+
+def get_uv_aligned_edges(bm, island, dir, uv_map, get_non_aligned = False, dir_threshold = 0.9):
+    edge : bmesh.types.BMEdge
+    face : bmesh.types.BMFace
+
+    edges = set()
+
+    for i in island:
+        face = bm.faces[i]
+        for edge in face.edges:
+            edges.add(edge.index)
+
+    aligned = set()
+
+    for e in edges:
+        edge = bm.edges[e]
+        uv0 = uv_map[edge.verts[0].index]
+        uv1 = uv_map[edge.verts[1].index]
+        V = Vector(uv1) - Vector(uv0)
+        V.normalize()
+        dot = dir.dot(V)
+
+        if get_non_aligned:
+            if abs(dot) < dir_threshold:
+                aligned.add(e)
+        else:
+            if abs(dot) >= dir_threshold:
+                aligned.add(e)
+
+    return aligned
+
+
+def get_linked_edge_map(bm, edges):
+    edge_map = {}
+    for e in edges:
+        edge = bm.edges[e]
+        for vert in edge.verts:
+            for linked_edge in vert.link_edges:
+                if linked_edge != edge and linked_edge.index in edges:
+                    if e not in edge_map:
+                        edge_map[e] = set()
+                    edge_map[e].add(linked_edge.index)
+    return edge_map
 

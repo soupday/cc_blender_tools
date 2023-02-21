@@ -45,6 +45,7 @@ Links
     - Build Wrinkle Maps.
     - Pack and/or limit textures.
     - ACES color space overrides.
+- Body sculpting updated to apply base shape to original character and keep shape keys intact.
 - Fixes:
     - Some extra transparency material detection.
     - Fix to hand & finger bone roll alignment when bind pose has arms and hands at a steep downward angle.

@@ -1513,10 +1513,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return None
 
     def get_body(self):
+        return self.get_object_of_type("BODY")
+
+    def get_object_of_type(self, object_type):
         try:
             for obj_cache in self.object_cache:
                 cache_object = obj_cache.get_object()
-                if cache_object and obj_cache.object_type == "BODY":
+                if cache_object and obj_cache.object_type == object_type:
                     return cache_object
         except:
             pass

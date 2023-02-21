@@ -17,7 +17,7 @@
 import bpy, bmesh
 import os, math, random
 from mathutils import Vector
-from . import utils, jsonutils, bones, meshutils
+from . import geom, utils, jsonutils, bones, meshutils
 
 
 HEAD_RIG_NAME = "RL_Hair_Rig_Head"
@@ -210,139 +210,6 @@ def add_poly_spline(points, curve):
         spline.points[i].co = (co.x, co.y, co.z, 1.0)
 
 
-def parse_island_recursive(bm, face_index, faces_left, island, face_map, vert_map):
-    """Recursive way to parse the UV islands.
-       Can run out of recursion calls on large meshes.
-    """
-    if face_index in faces_left:
-        faces_left.remove(face_index)
-        island.append(face_index)
-        for uv_id in face_map[face_index]:
-            connected_faces = vert_map[uv_id]
-            if connected_faces:
-                for cf in connected_faces:
-                    parse_island_recursive(bm, cf, faces_left, island, face_map, vert_map)
-
-
-def parse_island_non_recursive(bm, face_indices, faces_left, island, face_map, vert_map):
-    """Non recursive way to parse UV islands.
-       Connected faces expand the island each iteration.
-       A Set of all currently considered faces is maintained each iteration.
-       More memory intensive, but doesn't fail.
-    """
-    levels = 0
-    while face_indices:
-        levels += 1
-        next_indices = set()
-        for face_index in face_indices:
-            faces_left.remove(face_index)
-            island.append(face_index)
-        for face_index in face_indices:
-            for uv_id in face_map[face_index]:
-                connected_faces = vert_map[uv_id]
-                if connected_faces:
-                    for cf_index in connected_faces:
-                        if cf_index not in island:
-                            next_indices.add(cf_index)
-        face_indices = next_indices
-
-
-def get_island_uv_map(bm, ul, island):
-    """Fetch the UV coords of each vertex in the UV/Mesh island.
-       Each island has a unique UV map so this must be called per island.
-    """
-    uv_map = {}
-    for face_index in island:
-        face = bm.faces[face_index]
-        for loop in face.loops:
-            uv_map[loop.vert.index] = loop[ul].uv
-    return uv_map
-
-
-def get_hair_card_islands(bm, ul, use_selected = True):
-    face_map = {}
-    vert_map = {}
-    uv_map = {}
-
-    if use_selected:
-        faces = [f for f in bm.faces if f.select]
-    else:
-        faces = [f for f in bm.faces]
-
-    for face in faces:
-        for loop in face.loops:
-            uv_id = loop[ul].uv.to_tuple(5), loop.vert.index
-            uv_map[loop.vert.index] = loop[ul].uv
-            if face.index not in face_map:
-                face_map[face.index] = set()
-            if uv_id not in vert_map:
-                vert_map[uv_id] = set()
-            face_map[face.index].add(uv_id)
-            vert_map[uv_id].add(face.index)
-
-    islands = []
-    faces_left = set(face_map.keys())
-
-    while len(faces_left) > 0:
-        current_island = []
-        face_index = list(faces_left)[0]
-        face_indices = set()
-        face_indices.add(face_index)
-        parse_island_non_recursive(bm, face_indices, faces_left, current_island, face_map, vert_map)
-        islands.append(current_island)
-
-    return islands
-
-
-def get_aligned_edges(bm, island, dir, uv_map, get_non_aligned = False):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-    edge : bmesh.types.BMEdge
-    face : bmesh.types.BMFace
-
-    edges = set()
-
-    for i in island:
-        face = bm.faces[i]
-        for edge in face.edges:
-            edges.add(edge.index)
-
-    aligned = set()
-
-    DIR_THRESHOLD = props.hair_curve_dir_threshold
-
-    for e in edges:
-        edge = bm.edges[e]
-        uv0 = uv_map[edge.verts[0].index]
-        uv1 = uv_map[edge.verts[1].index]
-        V = Vector(uv1) - Vector(uv0)
-        V.normalize()
-        dot = dir.dot(V)
-
-        if get_non_aligned:
-            if abs(dot) < DIR_THRESHOLD:
-                aligned.add(e)
-        else:
-            if abs(dot) >= DIR_THRESHOLD:
-                aligned.add(e)
-
-    return aligned
-
-
-def get_aligned_edge_map(bm, edges):
-    edge_map = {}
-    for e in edges:
-        edge = bm.edges[e]
-        for vert in edge.verts:
-            for linked_edge in vert.link_edges:
-                if linked_edge != edge and linked_edge.index in edges:
-                    if e not in edge_map:
-                        edge_map[e] = set()
-                    edge_map[e].add(linked_edge.index)
-    return edge_map
-
-
 def parse_loop(bm, edge_index, edges_left, loop, edge_map):
     """Returns a set of vertex indices in the edge loop
     """
@@ -464,6 +331,7 @@ def sort_lateral_card(obj, bm, loops, uv_map, dir):
 
 def selected_cards_to_length_loops(chr_cache, obj, card_dir : Vector, one_loop_per_card = True):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = bpy.context.scene.CC3ImportProps
 
     # normalize card dir
     card_dir.normalize()
@@ -480,15 +348,10 @@ def selected_cards_to_length_loops(chr_cache, obj, card_dir : Vector, one_loop_p
 
     # get the bmesh
     mesh = obj.data
-    bm = bmesh.new()
-    bm.from_mesh(mesh)
-    bm.faces.ensure_lookup_table()
-    bm.edges.ensure_lookup_table()
-    bm.verts.ensure_lookup_table()
-    ul = bm.loops.layers.uv[0]
+    bm = geom.get_bmesh(mesh)
 
     # get lists of the faces in each selected island
-    islands = get_hair_card_islands(bm, ul, use_selected=True)
+    islands = geom.get_uv_islands(bm, 0, use_selected=True)
 
     utils.log_info(f"{len(islands)} islands selected.")
 
@@ -500,15 +363,16 @@ def selected_cards_to_length_loops(chr_cache, obj, card_dir : Vector, one_loop_p
         utils.log_indent()
 
         # each island has a unique UV map
-        uv_map = get_island_uv_map(bm, ul, island)
+        uv_map = geom.get_uv_island_map(bm, 0, island)
 
         # get all edges aligned with the card dir in the island
-        edges = get_aligned_edges(bm, island, card_dir, uv_map)
+        edges, edge_map = geom.get_uv_aligned_edges(bm, island, card_dir, uv_map,
+                                          dir_threshold=props.hair_curve_dir_threshold)
 
         utils.log_info(f"{len(edges)} aligned edges.")
 
         # map connected edges
-        edge_map = get_aligned_edge_map(bm, edges)
+        edge_map = geom.get_linked_edge_map(bm, edges)
 
         # separate into ordered vertex loops
         loops = get_ordered_coordinate_loops(obj, bm, edges, card_dir, uv_map, edge_map)
@@ -802,6 +666,7 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
 
 def get_hair_cards_lateral(chr_cache, obj, card_dir : Vector, card_selection_mode):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = bpy.context.scene.CC3ImportProps
 
     # normalize card dir
     card_dir.normalize()
@@ -822,15 +687,10 @@ def get_hair_cards_lateral(chr_cache, obj, card_dir : Vector, card_selection_mod
 
     # get the bmesh
     mesh = obj.data
-    bm = bmesh.new()
-    bm.from_mesh(mesh)
-    bm.faces.ensure_lookup_table()
-    bm.edges.ensure_lookup_table()
-    bm.verts.ensure_lookup_table()
-    ul = bm.loops.layers.uv[0]
+    bm = geom.get_bmesh(mesh)
 
     # get lists of the faces in each selected island
-    islands = get_hair_card_islands(bm, ul, use_selected=True)
+    islands = geom.get_uv_islands(bm, 0, use_selected=True)
 
     utils.log_info(f"{len(islands)} islands selected.")
 
@@ -842,15 +702,16 @@ def get_hair_cards_lateral(chr_cache, obj, card_dir : Vector, card_selection_mod
         utils.log_indent()
 
         # each island has a unique UV map
-        uv_map = get_island_uv_map(bm, ul, island)
+        uv_map = geom.get_uv_island_map(bm, 0, island)
 
         # get all edges NOT aligned with the card dir in the island, i.e. the lateral edges
-        edges = get_aligned_edges(bm, island, card_dir, uv_map, get_non_aligned=True)
+        edges = geom.get_uv_aligned_edges(bm, island, card_dir, uv_map,
+                                          get_non_aligned=True, dir_threshold=props.hair_curve_dir_threshold)
 
         utils.log_info(f"{len(edges)} non-aligned edges.")
 
         # map connected edges
-        edge_map = get_aligned_edge_map(bm, edges)
+        edge_map = geom.get_linked_edge_map(bm, edges)
 
         # separate into lateral vertex loops
         vert_loops = get_vert_loops(obj, bm, edges, edge_map)

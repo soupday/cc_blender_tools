@@ -237,6 +237,26 @@ def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, sca
     return None
 
 
+def copy_rig_bind_pose(rig_from, rig_to):
+    rig_def = {}
+    utils.set_only_active_object(rig_from)
+    if utils.edit_mode_to(rig_from):
+        for edit_bone in rig_from.data.edit_bones:
+            rig_def[edit_bone.name] = {
+                "head": edit_bone.head.copy(),
+                "tail": edit_bone.tail.copy(),
+                "roll": edit_bone.roll,
+            }
+    utils.set_only_active_object(rig_to)
+    if utils.edit_mode_to(rig_to):
+        for edit_bone in rig_to.data.edit_bones:
+            if edit_bone.name in rig_def:
+                bone_def = rig_def[edit_bone.name]
+                edit_bone.head = bone_def["head"].copy()
+                edit_bone.tail = bone_def["tail"].copy()
+                edit_bone.roll = bone_def["roll"]
+
+
 def get_edit_bone_subtree_defs(rig, bone : bpy.types.EditBone, tree = None):
 
     if tree is None:
