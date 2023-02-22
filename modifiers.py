@@ -57,12 +57,12 @@ def move_mod_last(obj, mod):
             bpy.context.view_layer.objects.active = obj
         num_mods = len(obj.modifiers)
         if mod is not None:
-            max = 50
+            max = len(obj.modifiers) + 1
             while obj.modifiers.find(mod.name) < num_mods - 1:
                 bpy.ops.object.modifier_move_down(modifier=mod.name)
-            max -= 1
-            if max == 0:
-                return True
+                if max == 0:
+                    return True
+                max -= 1
     except Exception as e:
         utils.log_error("Unable to move to last, modifier: " + mod.name, e)
     return False
@@ -74,12 +74,12 @@ def move_mod_first(obj, mod):
             obj.select_set(True)
             bpy.context.view_layer.objects.active = obj
         if mod is not None:
-            max = 50
+            max = len(obj.modifiers) + 1
             while obj.modifiers.find(mod.name) > 0:
                 bpy.ops.object.modifier_move_up(modifier=mod.name)
-            max -= 1
-            if max == 0:
-                return True
+                if max == 0:
+                    return True
+                max -= 1
     except Exception as e:
         utils.log_error("Unable to move to first, modifier: " + mod.name, e)
     return False
@@ -318,16 +318,30 @@ def add_decimate_modifier(obj, ratio):
     return mod
 
 
-def add_multi_res_modifier(obj, subdivisions):
+def add_multi_res_modifier(obj, subdivisions, use_custom_normals = False, uv_smooth = "PRESERVE_BOUNDARIES", quality = 4):
     if utils.set_active_object(obj):
         mod : bpy.types.MultiresModifier
         mod = get_object_modifier(obj, "MULTIRES", "Multi_Res_Sculpt")
         if not mod:
             mod = obj.modifiers.new(utils.unique_name("Multi_Res_Sculpt"), "MULTIRES")
+        try:
+            mod.use_custom_normals = use_custom_normals
+        except:
+            pass
+        mod.uv_smooth = uv_smooth
+        mod.quality = quality
         if mod:
             for i in range(0, subdivisions):
                 bpy.ops.object.multires_subdivide(modifier=mod.name, mode='CATMULL_CLARK')
     return mod
+
+
+def get_multi_res_mod(obj):
+    if obj is not None:
+        for mod in obj.modifiers:
+            if mod.type == "MULTIRES":
+                return mod
+    return None
 
 
 def has_modifier(obj, modifier_type):
@@ -336,3 +350,113 @@ def has_modifier(obj, modifier_type):
             if mod.type == modifier_type:
                 return True
     return False
+
+
+def apply_modifier(obj : bpy.types.Object, mod):
+    utils.object_mode_to(obj)
+    utils.set_only_active_object(obj)
+    bpy.ops.object.modifier_apply(modifier = mod.name)
+
+
+def remove_material_weight_maps(obj, mat):
+    """Removes the weight map 'Vertex Weight Edit' modifier for the object's material.
+
+    This does not remove or delete the weight map image or temporary packed image,
+    or the texture based on the weight map image, just the modifier.
+    """
+
+    edit_mod, mix_mod = get_material_weight_map_mods(obj, mat)
+    if edit_mod is not None:
+        utils.log_info("Removing weight map vertex edit modifer: " + edit_mod.name)
+        obj.modifiers.remove(edit_mod)
+    if mix_mod is not None:
+        utils.log_info("Removing weight map vertex mix modifer: " + mix_mod.name)
+        obj.modifiers.remove(mix_mod)
+
+
+def add_material_weight_map_modifier(obj, mat, weight_map, vertex_group, normalize = False):
+    """Attaches a weight map to the object's material via a 'Vertex Weight Edit' modifier.
+
+    This will attach the supplied weight map or will try to find an existing weight map,
+    but will not create a new weight map if it doesn't already exist.
+    """
+
+    if obj is None or mat is None or weight_map is None or not vertex_group:
+        return
+
+    # Make or re-use a texture based on the weight map image
+    mat_name = utils.strip_name(mat.name)
+    tex_name = mat_name + "_Weight"
+    tex = None
+    for t in bpy.data.textures:
+        if t.name.startswith(vars.NODE_PREFIX + tex_name):
+            tex = t
+    if tex is None:
+        tex = bpy.data.textures.new(utils.unique_name(tex_name), "IMAGE")
+        utils.log_info("Texture: " + tex.name + " created for weight map transfer")
+    else:
+        utils.log_info("Texture: " + tex.name + " already exists for weight map transfer")
+    tex.image = weight_map
+
+    # Create the physics pin vertex group and the material weightmap group if they don't exist:
+    mix_group = vertex_group
+    material_group = vertex_group + "_" + mat_name
+    if mix_group not in obj.vertex_groups:
+        pin_vertex_group = obj.vertex_groups.new(name = mix_group)
+    else:
+        pin_vertex_group = obj.vertex_groups[mix_group]
+    if material_group not in obj.vertex_groups:
+        weight_vertex_group = obj.vertex_groups.new(name = material_group)
+    else:
+        weight_vertex_group = obj.vertex_groups[material_group]
+
+    # The material weight map group should contain only those vertices affected by the material, default weight to 1.0
+    meshutils.clear_vertex_group(obj, weight_vertex_group)
+    mat_vert_indices = meshutils.get_material_vertex_indices(obj, mat)
+    weight_vertex_group.add(mat_vert_indices, 1.0, 'ADD')
+
+    # The pin group should contain all vertices in the mesh default weighted to 1.0
+    meshutils.set_vertex_group(obj, pin_vertex_group, 1.0)
+
+    # set the pin group in the cloth physics modifier
+    mod_cloth = get_cloth_physics_mod(obj)
+    if mod_cloth is not None:
+        mod_cloth.settings.vertex_group_mass = mix_group
+
+    # re-create or create the Vertex Weight Edit modifier and the Vertex Weight Mix modifer
+    remove_material_weight_maps(obj, mat)
+    edit_mod : bpy.types.VertexWeightEditModifier
+    edit_mod = obj.modifiers.new(utils.unique_name(mat_name + "_WeightEdit"), "VERTEX_WEIGHT_EDIT")
+    mix_mod = obj.modifiers.new(utils.unique_name(mat_name + "_WeightMix"), "VERTEX_WEIGHT_MIX")
+    # Use the texture as the modifiers vertex weight source
+    edit_mod.mask_texture = tex
+    # Setup the modifier to generate the inverse of the weight map in the vertex group
+    edit_mod.use_add = False
+    edit_mod.use_remove = False
+    edit_mod.add_threshold = 0.01
+    edit_mod.remove_threshold = 0.01
+    edit_mod.vertex_group = material_group
+    edit_mod.default_weight = 1
+    edit_mod.falloff_type = 'LINEAR'
+    edit_mod.invert_falloff = True
+    edit_mod.mask_constant = 1
+    edit_mod.mask_tex_mapping = 'UV'
+    edit_mod.mask_tex_use_channel = 'INT'
+    try:
+        if normalize:
+            edit_mod.normalize = True
+    except:
+        pass
+    # The Vertex Weight Mix modifier takes the material weight map group and mixes it into the pin weight group:
+    # (this allows multiple weight maps from different materials and UV layouts to combine in the same mesh)
+    mix_mod.vertex_group_a = mix_group
+    mix_mod.vertex_group_b = material_group
+    mix_mod.invert_mask_vertex_group = True
+    mix_mod.default_weight_a = 1
+    mix_mod.default_weight_b = 1
+    mix_mod.mix_set = 'B' #'ALL'
+    mix_mod.mix_mode = 'SET'
+    mix_mod.invert_mask_vertex_group = False
+    utils.log_info("Weight map: " + weight_map.name + " applied to: " + obj.name + "/" + mat.name)
+
+    return edit_mod, mix_mod

@@ -48,6 +48,8 @@ NODE_GROUPS = ["tiling_pivot_mapping", "tiling_mapping",
                "rl_hair_shader", "rl_hair_cycles_shader",
                "rl_eye_occlusion_cycles_mix_shader", "rl_tearline_cycles_shader", "rl_tearline_cycles_mix_shader",
                "rl_rgb_mixer", "rl_id_mixer",
+               "rl_tex_mod_normal_ao_blend",
+               "rl_wrinkle_shader",
                ]
 
 
@@ -163,6 +165,28 @@ DIRECT_VISEME_NAMES = [
     "EE", "Er", "IH", "Ah", "Oh", "W_OO", "S_Z", "Ch_J", "F_V", "TH", "T_L_D_N", "B_M_P", "K_G_H_NG", "AE", "R",
 ]
 
-
+# channel packing node names and id's
+PACK_DIFFUSEROUGHNESS_NAME = "DR Pack"
+PACK_DIFFUSEROUGHNESS_ID = "DR_PACK"
+PACK_DIFFUSEROUGHNESSBLEND1_NAME = "DRB1 Pack"
+PACK_DIFFUSEROUGHNESSBLEND1_ID = "DRB1_PACK"
+PACK_DIFFUSEROUGHNESSBLEND2_NAME = "DRB1 Pack"
+PACK_DIFFUSEROUGHNESSBLEND2_ID = "DRB1_PACK"
+PACK_DIFFUSEROUGHNESSBLEND3_NAME = "DRB1 Pack"
+PACK_DIFFUSEROUGHNESSBLEND3_ID = "DRB1_PACK"
+PACK_WRINKLEROUGHNESS_NAME = "Roughness Pack"
+PACK_WRINKLEROUGHNESS_ID = "ROUGHNESS_PACK"
+PACK_SSTM_NAME = "SSTM Pack"
+PACK_SSTM_ID = "SSTM_PACK"
+PACK_MSMNAO_NAME = "MSMNAO Pack"
+PACK_MSMNAO_ID = "MSMNAO_PACK"
+PACK_DIFFUSEALPHA_NAME = "DiffuseAlpha Pack"
+PACK_DIFFUSEALPHA_ID = "DIFFUSEALPHA_PACK"
+PACK_ROOTID_NAME = "RootID Pack"
+PACK_ROOTID_ID = "ROOTID_PACK"
+PACK_MRSO_NAME = "MRSO Pack"
+PACK_MRSO_ID = "MRSO_PACK"
+PACK_SSTMMNM_NAME = "SSTMMNM Pack"
+PACK_SSTMMNM_ID = "SSTMMNM_PACK"
 
 block_property_update = False

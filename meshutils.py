@@ -30,6 +30,11 @@ def add_vertex_group(obj, name):
         return obj.vertex_groups[name]
 
 
+def remove_vertex_group(obj : bpy.types.Object, name):
+    if name in obj.vertex_groups:
+        obj.vertex_groups.remove(obj.vertex_groups[name])
+
+
 def get_vertex_group(obj, name):
     if name not in obj.vertex_groups:
         None
@@ -120,8 +125,8 @@ def generate_tearline_vertex_groups(obj, mat_left, mat_right):
 
 def rebuild_eye_vertex_groups(chr_cache):
     for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if obj_cache.is_eye():
+        obj = obj_cache.get_object()
+        if obj and obj_cache.is_eye():
             mat_left, mat_right = materials.get_left_right_eye_materials(obj)
             cache_left = chr_cache.get_material_cache(mat_left)
             cache_right = chr_cache.get_material_cache(mat_right)
@@ -181,6 +186,7 @@ def get_material_vertex_indices(obj, mat):
 
 
 def get_material_vertices(obj, mat):
+    """Mesh Edit Mode"""
     verts = []
     mesh = obj.data
     for poly in mesh.polygons:
@@ -190,6 +196,36 @@ def get_material_vertices(obj, mat):
                 if vert_index not in verts:
                     verts.append(mesh.vertices[vert_index])
     return verts
+
+
+def select_material_faces(obj, mat, select = True, deselect_first = False, include_edges = True, include_vertices = True):
+    mesh : bpy.types.Mesh = obj.data
+    poly : bpy.types.MeshPolygon
+    for poly in mesh.polygons:
+
+        poly_mat = obj.material_slots[poly.material_index].material
+
+        if deselect_first:
+            poly.select = False
+        if poly_mat == mat:
+            poly.select = select
+
+        if include_edges:
+            for edge_key in poly.edge_keys:
+                for edge_index in edge_key:
+                    edge = mesh.edges[edge_index]
+                    if deselect_first:
+                        edge.select = False
+                    if poly_mat == mat:
+                        edge.select = select
+
+        if include_vertices:
+            for vertex_index in poly.vertices:
+                vertex = mesh.vertices[vertex_index]
+                if deselect_first:
+                    vertex.select = False
+                if poly_mat == mat:
+                    vertex.select = select
 
 
 def remove_material_verts(obj, mat):
@@ -236,3 +272,19 @@ def get_viseme_profile(objects):
     # there is some overlap between CC4 facial expression names and CC3 viseme names
     # so consider CC3 visemes last
     return vars.CC3_VISEME_NAMES
+
+
+def set_shading(obj, smooth=True):
+    if utils.object_exists_is_mesh(obj):
+        for poly in obj.data.polygons:
+            poly.use_smooth = smooth
+            obj.data.update()
+
+
+
+
+
+
+
+
+

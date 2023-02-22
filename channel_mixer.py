@@ -239,11 +239,11 @@ def apply_mixer(mixer, mixer_node):
         try:
             eval_code = f"mixer.{prop}"
             value = eval(eval_code, None, locals())
-            nodeutils.set_node_input(mixer_node, socket, value)
+            nodeutils.set_node_input_value(mixer_node, socket, value)
         except:
             utils.log_error("Unable to evaluate: " + eval_code)
-        nodeutils.set_node_input(mixer_node, "Mask Color", mixer.mask)
-        nodeutils.set_node_input(mixer_node, "Id Color", mixer.mask)
+        nodeutils.set_node_input_value(mixer_node, "Mask Color", mixer.mask)
+        nodeutils.set_node_input_value(mixer_node, "Id Color", mixer.mask)
 
 
 def add_mixer_node(nodes, remap_type, remap_channel):

@@ -40,10 +40,12 @@ if "bpy" in locals():
     importlib.reload(importer)
     importlib.reload(geom)
     importlib.reload(bones)
+    importlib.reload(drivers)
     importlib.reload(rigify_mapping_data)
     importlib.reload(rigging)
     importlib.reload(sculpting)
     importlib.reload(hair)
+    importlib.reload(colorspace)
 
 import bpy
 
@@ -71,16 +73,18 @@ from . import exporter
 from . import importer
 from . import geom
 from . import bones
+from . import drivers
 from . import rigify_mapping_data
 from . import rigging
 from . import sculpting
 from . import hair
+from . import colorspace
 
 
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (1, 5, 3),
+    "version": (1, 5, 4),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -138,7 +142,10 @@ classes = (
     properties.CC3OperatorProperties,
     preferences.CC3OperatorPreferences,
     channel_mixer.CC3OperatorChannelMixer,
+    characters.CC3OperatorTransferCharacterGeometry,
+    characters.CC3OperatorTransferMeshGeometry,
     sculpting.CC3OperatorSculpt,
+    sculpting.CC3OperatorSculptExport,
     hair.CC3OperatorHair,
     hair.CC3ExportHair,
 
@@ -155,9 +162,11 @@ classes = (
     panels.CC3ToolsCreatePanel,
     panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
-    panels.CC3ToolsSculptingPanel,
     panels.CC3ToolsUtilityPanel,
+    panels.CC3ToolsSculptingPanel,
+    panels.CC3SpringRigPanel,
     panels.CC3HairPanel,
+
 
     preferences.CC3ToolsAddonPreferences,
     preferences.MATERIAL_UL_weightedmatslots,
@@ -172,11 +181,18 @@ def register():
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
+    bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import)
+    bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import_animation)
+    bpy.types.TOPBAR_MT_file_export.append(exporter.menu_func_export)
 
 
 def unregister():
 
     addon_updater_ops.unregister()
+
+    bpy.types.TOPBAR_MT_file_import.remove(importer.menu_func_import)
+    bpy.types.TOPBAR_MT_file_import.remove(importer.menu_func_import_animation)
+    bpy.types.TOPBAR_MT_file_export.remove(exporter.menu_func_export)
 
     for cls in classes:
         bpy.utils.unregister_class(cls)

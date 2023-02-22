@@ -15,9 +15,9 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
+from mathutils import Vector
 
-from . import addon_updater_ops, utils, vars
-
+from . import addon_updater_ops, colorspace, utils, vars
 
 def reset_preferences():
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -56,6 +56,12 @@ def reset_preferences():
     prefs.cycles_ssr_iris_brightness = 2.0
     prefs.import_auto_convert = True
     prefs.import_deduplicate = True
+    prefs.build_pack_texture_channels = False
+    prefs.build_pack_wrinkle_diffuse_roughness = False
+    prefs.build_reuse_baked_channel_packs = True
+    prefs.build_limit_textures = False
+    prefs.build_wrinkle_maps = True
+    prefs.bake_use_gpu = False
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -182,29 +188,48 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("SSR","SSR Eye","Screen Space Refraction with a transmissive & transparent cornea material over an opaque eye (iris) material. SSR Materials do not receive full shadows and cannot have Subsurface scattering in Eevee."),
                     ], default="SSR", name = "Refractive Eyes")
 
-    detail_sculpt_target: bpy.props.EnumProperty(items=[
+    detail_sculpt_sub_target: bpy.props.EnumProperty(items=[
                         ("HEAD","Head","Sculpt on the head only"),
                         ("BODY","Body","Sculpt on the body only"),
                         ("ALL","All","Sculpt the entire body"),
                     ], default="HEAD", name = "Sculpt Target")
 
-    detail_sculpt_level: bpy.props.IntProperty(default=4, min = 1, max = 6, name="Level")
-    body_sculpt_level: bpy.props.IntProperty(default=2, min = 1, max = 6, name="Level")
-    body_sculpt_apply_base: bpy.props.BoolProperty(default=False, name="Apply Base Shape", description="Apply sculpted shape to base topology on bake.")
-
+    detail_multires_level: bpy.props.IntProperty(default=4, min = 1, max = 6, name="Level",
+                                                 description="Starting multi-resolution level for detail sculpting")
+    sculpt_multires_level: bpy.props.IntProperty(default=2, min = 1, max = 6, name="Level",
+                                                 description="Starting multi-resolution level for body sculpting")
 
     detail_normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="4096", description="Resolution of detail sculpt normals to bake")
     body_normal_bake_size: bpy.props.EnumProperty(items=vars.ENUM_TEX_LIST, default="2048", description="Resolution of full body sculpt normals to bake")
 
+    aces_srgb_override: bpy.props.EnumProperty(items=colorspace.fetch_all_color_spaces, default=0, description="ACES Color space to override for sRGB textures")
+    aces_data_override: bpy.props.EnumProperty(items=colorspace.fetch_data_color_spaces, default=0, description="ACES Color space to override for Non-Color or Linear textures")
+
     #refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
 
+    build_wrinkle_maps: bpy.props.BoolProperty(default=True, name="Build Wrinkle Maps",
+                description="If present, build the wrinkle map system into the character")
+    build_limit_textures: bpy.props.BoolProperty(default=False, name="Limit Textures",
+                description="Attempt to limit the number of imported textures to 8 or less. This is to attempt to address problems with OSX hardware limitations allowing only 8 active textures in a material.\n"
+                            "Note: This will mean the head material will be simpler than intended and no wrinkle map system is possible. "
+                            "Also this will force on texture channel packing to reduce textures on all materials, which will slow down imports significantly")
+    build_pack_texture_channels: bpy.props.BoolProperty(default=False, name="Pack Texture Channels",
+                description="Pack compatible linear texture channels to reduce texture lookups.\n\n"
+                            "Note: This will significantly increase import time.\n\n"
+                            "Note: Wrinkle map textures are always channel packed to reduce texture load")
+    build_pack_wrinkle_diffuse_roughness: bpy.props.BoolProperty(default=False, name="Wrinkle Maps into Diffuse Alpha",
+                description="Packs wrinkle map roughness channels into the diffuse alpha channels. This will free up one more texture slot in the skin head material")
+    build_reuse_baked_channel_packs: bpy.props.BoolProperty(default=True, name="Reuse Channel Packs",
+                description="Reuse existing channel packs on material rebuild, otherwise rebake the texture channel packs")
 
     max_texture_size: bpy.props.FloatProperty(default=4096, min=512, max=4096)
 
-    import_deduplicate: bpy.props.BoolProperty(default=True, name="De-duplicate Materials", description="Detects and re-uses duplicate textures and consolidates materials with same name, textures and parameters into a single material")
-    import_auto_convert: bpy.props.BoolProperty(default=True, name="Auto Convert Generic", description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
-                "Which sets up Reallusion import compatible materials and material parameters.")
+    import_deduplicate: bpy.props.BoolProperty(default=True, name="De-duplicate Materials",
+                description="Detects and re-uses duplicate textures and consolidates materials with same name, textures and parameters into a single material")
+    import_auto_convert: bpy.props.BoolProperty(default=True, name="Auto Convert Generic",
+                description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
+                "Which sets up Reallusion import compatible materials and material parameters")
 
     cycles_sss_skin_v118: bpy.props.FloatProperty(default=0.35)
     cycles_sss_hair_v118: bpy.props.FloatProperty(default=0.025)
@@ -217,22 +242,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
     cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
 
-    # hair
-    hair_export_group_by: bpy.props.EnumProperty(items=[
-                        ("CURVE","Curve","Group by curve objects"),
-                        ("NAME","Name","Gropu by name"),
-                        ("NONE","Single","Don't export separate groups"),
-                    ], default="CURVE", name = "Export Hair Grouping",
-                       description="Export hair groups by...")
-
-    hair_curve_dir_threshold: bpy.props.FloatProperty(default=0.9, min=0.0, max=1.0, name="Direction Threshold")
-    hair_curve_dir: bpy.props.EnumProperty(items=[
-                        ("UP","UV Direction: Up","Hair cards from bottom to top in UV map"),
-                        ("DOWN","UV Direction: Down","Hair cards from top to bottom in UV map"),
-                        ("LEFT","UV Direction: Left","Hair cards from right to left in UV map"),
-                        ("RIGHT","UV Direction: Right","Hair cards from left to right in UV map"),
-                    ], default="DOWN", name = "UV Direction",
-                       description="Export hair groups by...")
+    bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
 
     # addon updater preferences
 
@@ -269,6 +279,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 		max=59
 		)
 
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -276,9 +287,19 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Import:")
         layout.prop(self, "import_deduplicate")
         layout.prop(self, "import_auto_convert")
+        layout.prop(self, "build_wrinkle_maps")
+        layout.prop(self, "build_limit_textures")
+        layout.prop(self, "build_pack_texture_channels")
+        layout.prop(self, "build_pack_wrinkle_diffuse_roughness")
 
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")
+        layout.prop(self, "bake_use_gpu")
+
+        if colorspace.is_aces():
+            layout.label(text="OpenColorIO ACES")
+            layout.prop(self, "aces_srgb_override")
+            layout.prop(self, "aces_data_override")
 
         layout.label(text="Material settings:")
         layout.prop(self, "quality_mode")
@@ -295,7 +316,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Detection:")
         layout.prop(self, "hair_hint")
         layout.prop(self, "hair_scalp_hint")
-
 
         layout.label(text="Eyes:")
         layout.prop(self, "refractive_eyes")

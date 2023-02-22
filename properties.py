@@ -15,6 +15,7 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy, os
+from mathutils import Vector
 
 from . import channel_mixer, imageutils, meshutils, sculpting, materials, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
@@ -55,12 +56,13 @@ def eye_close_update(self, context):
     eo_object = None
     tearline_object = None
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.object_type == "BODY":
-            body_object = obj_cache.object
-        elif obj_cache.object_type == "EYE_OCCLUSION":
-            eo_object = obj_cache.object
-        elif obj_cache.object_type == "TEARLINE":
-            tearline_object = obj_cache.object
+        if obj_cache.is_mesh():
+            if obj_cache.object_type == "BODY":
+                body_object = obj_cache.get_object()
+            elif obj_cache.object_type == "EYE_OCCLUSION":
+                eo_object = obj_cache.get_object()
+            elif obj_cache.object_type == "TEARLINE":
+                tearline_object = obj_cache.get_object()
 
     if body_object:
         try:
@@ -214,13 +216,13 @@ def update_shader_property(obj, mat, mat_cache, prop_name):
 def update_shader_input(shader_node, mat_cache, prop_name, input_defs):
     for input_def in input_defs:
         if prop_name in input_def[2:]:
-            nodeutils.set_node_input(shader_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
+            nodeutils.set_node_input_value(shader_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
 
 
 def update_bsdf_input(bsdf_node, mat_cache, prop_name, bsdf_defs):
     for input_def in bsdf_defs:
         if prop_name in input_def[2:]:
-            nodeutils.set_node_input(bsdf_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
+            nodeutils.set_node_input_value(bsdf_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
 
 
 def update_shader_tiling(shader_name, mat, mat_cache, prop_name, texture_defs):
@@ -230,7 +232,7 @@ def update_shader_tiling(shader_name, mat, mat_cache, prop_name, texture_defs):
             texture_type = texture_def[2]
             if prop_name in tiling_props:
                 tiling_node = nodeutils.get_tiling_node(mat, shader_name, texture_type)
-                nodeutils.set_node_input(tiling_node, "Tiling", shaders.eval_tiling_param(texture_def, mat_cache))
+                nodeutils.set_node_input_value(tiling_node, "Tiling", shaders.eval_tiling_param(texture_def, mat_cache))
 
 
 def update_shader_mapping(shader_name, mat, mat_cache, prop_name, mapping_defs):
@@ -243,7 +245,7 @@ def update_shader_mapping(shader_name, mat, mat_cache, prop_name, mapping_defs):
             tiling_props = mapping_def[3:]
             if prop_name in tiling_props:
                 socket_name = mapping_def[1]
-                nodeutils.set_node_input(mapping_node, socket_name, shaders.eval_tiling_param(mapping_def, mat_cache, 2))
+                nodeutils.set_node_input_value(mapping_node, socket_name, shaders.eval_tiling_param(mapping_def, mat_cache, 2))
 
 
 def update_object_modifier(obj, mat_cache, prop_name, mod_defs):
@@ -311,45 +313,46 @@ def update_all_properties(context, update_mode = None):
         processed = []
 
         for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.object
-            if obj not in processed:
+            obj = obj_cache.get_object()
+            if obj_cache.is_mesh() and obj not in processed:
+
                 processed.append(obj)
-                if obj.type == "MESH":
-                    for mat in obj.data.materials:
-                        if mat and mat not in processed:
-                            processed.append(mat)
-                            mat_cache = chr_cache.get_material_cache(mat)
 
-                            if chr_cache.setup_mode == "BASIC":
+                for mat in obj.data.materials:
+                    if mat and mat not in processed:
+                        processed.append(mat)
+                        mat_cache = chr_cache.get_material_cache(mat)
 
-                                basic.update_basic_material(mat, mat_cache, "ALL")
+                        if chr_cache.setup_mode == "BASIC":
 
-                            else:
+                            basic.update_basic_material(mat, mat_cache, "ALL")
 
-                                shader_name = params.get_shader_name(mat_cache)
-                                bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
-                                shader_def = params.get_shader_def(shader_name)
+                        else:
 
-                                shaders.apply_prop_matrix(bsdf_node, shader_node, mat_cache, shader_name)
+                            shader_name = params.get_shader_name(mat_cache)
+                            bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
+                            shader_def = params.get_shader_def(shader_name)
 
-                                if "textures" in shader_def.keys():
-                                    for tex_def in shader_def["textures"]:
-                                        tiling_props = tex_def[5:]
-                                        for prop_name in tiling_props:
-                                            update_shader_property(obj, mat, mat_cache, prop_name)
+                            shaders.apply_prop_matrix(bsdf_node, shader_node, mat_cache, shader_name)
 
-                                if "modifiers" in shader_def.keys():
-                                    for mod_def in shader_def["modifiers"]:
-                                        prop_name = mod_def[0]
+                            if "textures" in shader_def.keys():
+                                for tex_def in shader_def["textures"]:
+                                    tiling_props = tex_def[5:]
+                                    for prop_name in tiling_props:
                                         update_shader_property(obj, mat, mat_cache, prop_name)
 
-                                if "settings" in shader_def.keys():
-                                    for mat_def in shader_def["settings"]:
-                                        prop_name = mat_def[0]
-                                        update_shader_property(obj, mat, mat_cache, prop_name)
+                            if "modifiers" in shader_def.keys():
+                                for mod_def in shader_def["modifiers"]:
+                                    prop_name = mod_def[0]
+                                    update_shader_property(obj, mat, mat_cache, prop_name)
 
-                    if obj_cache.is_eye():
-                        meshutils.rebuild_eye_vertex_groups(chr_cache)
+                            if "settings" in shader_def.keys():
+                                for mat_def in shader_def["settings"]:
+                                    prop_name = mat_def[0]
+                                    update_shader_property(obj, mat, mat_cache, prop_name)
+
+                if obj_cache.is_eye():
+                    meshutils.rebuild_eye_vertex_groups(chr_cache)
 
     utils.log_timer("update_all_properties()", "ms")
 
@@ -372,8 +375,8 @@ def init_character_property_defaults(chr_cache, chr_json):
 
     # Advanced properties
     for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if obj.type == "MESH" and obj not in processed:
+        obj = obj_cache.get_object()
+        if obj_cache.is_mesh() and obj not in processed:
             processed.append(obj)
 
             obj_json = jsonutils.get_object_json(chr_json, obj)
@@ -414,17 +417,54 @@ def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, ma
         shaders.fetch_prop_defaults(mat_cache, mat_json)
 
 
-def update_sculpt_layer_normal(self, context, prop_name):
+def update_sculpt_mix_node(self, context, prop_name):
     if vars.block_property_update: return
     props = bpy.context.scene.CC3ImportProps
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
+    body = chr_cache.get_body()
     if chr_cache:
         if prop_name == "detail_normal_strength":
-            body = chr_cache.get_detail_body()
-            sculpting.update_layer_nodes(body, "DETAIL", "Strength", chr_cache.detail_normal_strength)
+            sculpting.update_layer_nodes(body, "DETAIL", "Normal Strength", chr_cache.detail_normal_strength * 1)
         elif prop_name == "body_normal_strength":
-            body = chr_cache.get_body()
-            sculpting.update_layer_nodes(body, "BODY", "Strength", chr_cache.body_normal_strength)
+            sculpting.update_layer_nodes(body, "BODY", "Normal Strength", chr_cache.body_normal_strength * 1)
+        elif prop_name == "detail_ao_strength":
+            sculpting.update_layer_nodes(body, "DETAIL", "AO Strength", chr_cache.detail_ao_strength * 1)
+        elif prop_name == "body_ao_strength":
+            sculpting.update_layer_nodes(body, "BODY", "AO Strength", chr_cache.body_ao_strength * 1)
+        elif prop_name == "detail_normal_definition":
+            sculpting.update_layer_nodes(body, "DETAIL", "Definition", chr_cache.detail_normal_definition * 1)
+        elif prop_name == "body_normal_definition":
+            sculpting.update_layer_nodes(body, "BODY", "Definition", chr_cache.body_normal_definition * 1)
+        elif prop_name == "detail_mix_mode":
+            sculpting.update_layer_nodes(body, "DETAIL", "Mix Mode", (1.0 if chr_cache.detail_mix_mode == "REPLACE" else 0.0))
+        elif prop_name == "body_mix_mode":
+            sculpting.update_layer_nodes(body, "BODY", "Mix Mode", (1.0 if chr_cache.body_mix_mode == "REPLACE" else 0.0))
+
+
+def update_rig_target(self, context):
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
+    if chr_cache:
+        if self.hair_rig_target == "CC4":
+            self.hair_rig_bind_skip_length = 0.0
+            self.hair_rig_bind_existing_scale = 0.0
+            self.hair_rig_bone_length = 7.5
+            self.hair_rig_bind_bone_radius = 7.5
+            self.hair_rig_bind_bone_count = 2
+            self.hair_rig_bind_bone_weight = 1.0
+            self.hair_rig_bind_smoothing = 5
+            self.hair_rig_bind_weight_curve = 0.5
+            self.hair_rig_bind_bone_variance = 0.75
+        elif self.hair_rig_target == "UNITY":
+            self.hair_rig_bind_skip_length = 7.5
+            self.hair_rig_bind_existing_scale = 1.0
+            self.hair_rig_bone_length = 7.5
+            self.hair_rig_bind_bone_radius = 7.5
+            self.hair_rig_bind_bone_count = 2
+            self.hair_rig_bind_bone_weight = 1.0
+            self.hair_rig_bind_smoothing = 5
+            self.hair_rig_bind_weight_curve = 0.5
+            self.hair_rig_bind_bone_variance = 0.75
 
 
 class CC3OperatorProperties(bpy.types.Operator):
@@ -1017,6 +1057,13 @@ class CC3MaterialCache:
             #utils.copy_collection_property(self.mixer_settings, mat_cache.mixer_settings)
             #utils.copy_property_group(self.parameters, mat_cache.parameters)
 
+    def get_material_type(self):
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        if prefs.build_limit_textures:
+            if self.material_type == "SKIN_HEAD":
+                return "SKIN_BODY"
+        return self.material_type
+
 
 class CC3EyeMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3EyeParameters)
@@ -1079,6 +1126,28 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     def is_tearline(self):
         return self.object_type == "TEARLINE"
 
+    def is_mesh(self):
+        return utils.object_exists_is_mesh(self.object)
+
+    def is_armature(self):
+        return utils.object_exists_is_armature(self.object)
+
+    def is_valid(self):
+        return utils.object_exists(self.object)
+
+    def get_object(self, return_invalid = False):
+        if utils.object_exists(self.object):
+            return self.object
+        if return_invalid:
+            return self.object
+        return None
+
+    def set_object(self, obj):
+        if obj and utils.object_exists(obj):
+            self.object = obj
+        elif obj is None:
+            self.object = None
+
 
 class CC3CharacterCache(bpy.types.PropertyGroup):
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
@@ -1116,6 +1185,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     parent_object: bpy.props.PointerProperty(type=bpy.types.Object)
     # accessory parent bone selector
     accessory_parent_bone: bpy.props.StringProperty(default="CC_Base_Head")
+    # counter (how many times have the materials been built)
+    build_count: bpy.props.IntProperty(default=0)
 
     setup_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic","Build basic PBR materials."),
@@ -1154,16 +1225,53 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ("PROP","Prop","Non standard character is a Prop"),
                 ], default="HUMANOID", name = "Non-standard Character Type")
 
-    detail_sculpt_target: bpy.props.EnumProperty(items=[
+    detail_sculpt_sub_target: bpy.props.EnumProperty(items=[
                         ("HEAD","Head","Sculpt on the head only"),
                         ("BODY","Body","Sculpt on the body only"),
                         ("ALL","All","Sculpt the entire body"),
                     ], default="HEAD", name = "Sculpt Target")
 
-    detail_sculpt_body: bpy.props.PointerProperty(type=bpy.types.Object)
+    detail_multires_body: bpy.props.PointerProperty(type=bpy.types.Object)
+    sculpt_multires_body: bpy.props.PointerProperty(type=bpy.types.Object)
 
-    detail_normal_strength: bpy.props.FloatProperty(default=1.0, min = -5.0, max = 5.0, update=lambda s,c: update_sculpt_layer_normal(s,c,"detail_normal_strength"))
-    body_normal_strength: bpy.props.FloatProperty(default=1.0, min = -5.0, max = 5.0, update=lambda s,c: update_sculpt_layer_normal(s,c,"body_normal_strength"))
+    detail_normal_strength: bpy.props.FloatProperty(default=1.0, min = -10.0, max = 10.0,
+                                                    description="Strength of the detail sculpt normal overlay.",
+                                                    update=lambda s,c: update_sculpt_mix_node(s,c,"detail_normal_strength"))
+    detail_ao_strength: bpy.props.FloatProperty(default=0.5, min = 0.0, max = 2.0,
+                                                    description="Strength of the detail sculpt ambient occlusion overlay.",
+                                                    update=lambda s,c: update_sculpt_mix_node(s,c,"detail_ao_strength"))
+    detail_normal_definition: bpy.props.FloatProperty(default=10, min = 0, max = 40.0,
+                                                      description="Mask definition of the detail sculpt normal overlay.\n"
+                                                                  "Lower definition shrinks the mask around the sculpted areas and smooths the transition between normal layers.",
+                                                      update=lambda s,c: update_sculpt_mix_node(s,c,"detail_normal_definition"))
+    body_normal_strength: bpy.props.FloatProperty(default=1.0, min = -10.0, max = 10.0,
+                                                  description="Strength of the body sculpt normal overlay.",
+                                                  update=lambda s,c: update_sculpt_mix_node(s,c,"body_normal_strength"))
+    body_ao_strength: bpy.props.FloatProperty(default=0.5, min = 0.0, max = 2.0,
+                                              description="Strength of the body sculpt ambient occlusion overlay.",
+                                              update=lambda s,c: update_sculpt_mix_node(s,c,"body_ao_strength"))
+    body_normal_definition: bpy.props.FloatProperty(default=10, min = 0, max = 40.0,
+                                                    description="Mask definition of the body sculpt normal overlay.\n"
+                                                                "Lower definition shrinks the mask around the sculpted areas and smooths the transition between normal layers.",
+                                                    update=lambda s,c: update_sculpt_mix_node(s,c,"body_normal_definition"))
+
+    multires_bake_apply: bpy.props.EnumProperty(items=[
+                        ("NONE","Keep","Don't change the original character mesh when baking the body sculpt normals.", "MESH_CIRCLE", 0),
+                        ("APPLY","Apply","Copy the multi-res base shape back to original character when baking the body sculpt normals.\n"
+                                         "Only the vertices affected by the sculpt are copied back and this does not destroy the original character's shapekeys.", "MESH_ICOSPHERE", 1),
+                    ], default="APPLY", name = "Apply Shape On Bake?")
+
+    detail_mix_mode: bpy.props.EnumProperty(items=[
+                        ("OVERLAY","Overlay","Sculpted normals and occlusion are overlayed on top of the base normals and occlusion."),
+                        ("REPLACE","Replace","Sculpted normals and occlusion replaces the base normals and occlusion."),
+                    ], default="OVERLAY", name = "Detail Mix Mode",
+                    update=lambda s,c: update_sculpt_mix_node(s,c,"detail_mix_mode"))
+
+    body_mix_mode: bpy.props.EnumProperty(items=[
+                        ("OVERLAY","Overlay","Sculpted normals and occlusion are overlayed on top of the base normals and occlusion."),
+                        ("REPLACE","Replace","Sculpted normals and occlusion replaces the base normals and occlusion."),
+                    ], default="OVERLAY", name = "Body Mix Mode",
+                    update=lambda s,c: update_sculpt_mix_node(s,c,"body_mix_mode"))
 
     def get_tex_dir(self):
         if os.path.isabs(self.import_main_tex_dir):
@@ -1306,21 +1414,27 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 materials.append(mat_cache.material)
         return materials
 
-    def get_all_objects(self, include_armature = True, include_children = False):
+    def get_all_objects(self, include_armature = True, include_children = False, of_type = "ALL"):
+
         objects = []
         arm = None
+
         for obj_cache in self.object_cache:
-            if utils.still_exists(obj_cache.object) and obj_cache.object not in objects:
-                if obj_cache.object.type == "ARMATURE":
-                    arm = obj_cache.object
+            obj = obj_cache.get_object()
+            if obj and obj not in objects:
+                if obj.type == "ARMATURE":
+                    arm = obj
                     if include_armature:
-                        objects.append(obj_cache.object)
-                else:
-                    objects.append(obj_cache.object)
+                        if of_type == "ALL" or of_type == "ARMATURE":
+                            objects.append(obj)
+                elif of_type == "ALL" or of_type == obj.type:
+                    objects.append(obj)
+
         if include_children and arm:
             for child in arm.children:
-                if child.type == "MESH" and child not in objects:
-                    objects.append(child)
+                if utils.still_exists(child) and child not in objects:
+                    if of_type == "ALL" or child.type == of_type:
+                        objects.append(child)
         return objects
 
 
@@ -1376,7 +1490,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         """
         if obj:
             for obj_cache in self.object_cache:
-                if obj_cache.object == obj:
+                cache_object = obj_cache.get_object()
+                if cache_object and cache_object == obj:
                     return obj_cache
         return None
 
@@ -1387,7 +1502,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         """
         if obj:
             for obj_cache in self.object_cache:
-                if obj_cache.object == obj:
+                cache_object = obj_cache.get_object()
+                if cache_object and cache_object == obj:
                     utils.remove_from_collection(self.object_cache, obj_cache)
                     return
 
@@ -1395,7 +1511,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         """Returns True if any of the objects are in the object cache.
         """
         for obj_cache in self.object_cache:
-            if obj_cache.object in objects:
+            cache_object = obj_cache.get_object()
+            if cache_object in objects:
                 return True
         return False
 
@@ -1403,24 +1520,30 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         """Returns True if any of the objects are in the object cache.
         """
         for obj_cache in self.object_cache:
-            if obj_cache.object == obj:
+            cache_object = obj_cache.get_object()
+            if cache_object == obj:
                 return True
         return False
 
     def get_armature(self):
         try:
             for obj_cache in self.object_cache:
-                if obj_cache.object and obj_cache.object.type == "ARMATURE":
-                    return obj_cache.object
+                cache_object = obj_cache.get_object()
+                if cache_object.type == "ARMATURE":
+                    return cache_object
         except:
             pass
         return None
 
     def get_body(self):
+        return self.get_object_of_type("BODY")
+
+    def get_object_of_type(self, object_type):
         try:
             for obj_cache in self.object_cache:
-                if obj_cache.object and obj_cache.object_type == "BODY":
-                    return obj_cache.object
+                cache_object = obj_cache.get_object()
+                if cache_object and obj_cache.object_type == object_type:
+                    return cache_object
         except:
             pass
         return None
@@ -1429,9 +1552,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.rigified = True
         try:
             for obj_cache in self.object_cache:
-                if obj_cache.object and obj_cache.object.type == "ARMATURE":
-                    self.rig_original_rig = obj_cache.object
-                    obj_cache.object = new_arm
+                cache_object = obj_cache.get_object()
+                if cache_object.type == "ARMATURE":
+                    self.rig_original_rig = cache_object
+                    obj_cache.set_object(new_arm)
         except:
             pass
 
@@ -1445,7 +1569,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if obj_cache is None:
             utils.log_info(f"Creating Object Cache for: {obj.name}")
             obj_cache = self.object_cache.add()
-            obj_cache.object = obj
+            obj_cache.set_object(obj)
             obj_cache.source_name = utils.strip_name(obj.name)
         return obj_cache
 
@@ -1592,8 +1716,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if not chr_json:
             chr_json = self.get_character_json()
         for obj_cache in self.object_cache:
-            obj = obj_cache.object
-            if obj.type == "MESH":
+            obj = obj_cache.get_object()
+            if obj_cache.is_mesh():
                 for m in obj.data.materials:
                     if m and m == mat:
                         new_mat_cache.dir = imageutils.get_material_tex_dir(self, obj, mat)
@@ -1624,10 +1748,22 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.check_type(self.sss_material_cache, recast, chr_json, "SSS")
 
     def get_detail_body(self):
-        if utils.object_exists_is_mesh(self.detail_sculpt_body):
-            return self.detail_sculpt_body
+        if utils.object_exists_is_mesh(self.detail_multires_body):
+            return self.detail_multires_body
         else:
             return None
+
+    def get_sculpt_body(self):
+        if utils.object_exists_is_mesh(self.sculpt_multires_body):
+            return self.sculpt_multires_body
+        else:
+            return None
+
+    def set_detail_body(self, mesh):
+        self.detail_multires_body = mesh
+
+    def set_sculpt_body(self, mesh):
+        self.sculpt_multires_body = mesh
 
 
 
@@ -1697,6 +1833,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)
     stage_remapper: bpy.props.BoolProperty(default=False)
+    show_build_prefs: bpy.props.BoolProperty(default=False)
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     section_rigify_controls: bpy.props.BoolProperty(default=False)
@@ -1717,6 +1854,90 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     nails_toggle: bpy.props.BoolProperty(default=True)
     hair_toggle: bpy.props.BoolProperty(default=True)
     default_toggle: bpy.props.BoolProperty(default=True)
+
+    section_hair_blender_curve: bpy.props.BoolProperty(default=True)
+    section_hair_rigging: bpy.props.BoolProperty(default=True)
+
+    section_sculpt_body: bpy.props.BoolProperty(default=True)
+    section_sculpt_detail: bpy.props.BoolProperty(default=True)
+    section_sculpt_cleanup: bpy.props.BoolProperty(default=True)
+    section_sculpt_utilities: bpy.props.BoolProperty(default=True)
+    sculpt_layer_tab: bpy.props.EnumProperty(items=[
+                        ("BODY","Body","Full body sculpt layer.", "OUTLINER_OB_ARMATURE", 0),
+                        ("DETAIL","Detail","Detail sculpt layer.", "MESH_MONKEY", 1),
+                    ], default="BODY", name = "Sculpt Layer")
+
+    # Hair
+
+    hair_export_group_by: bpy.props.EnumProperty(items=[
+                        ("CURVE","Curve","Group by curve objects"),
+                        ("NAME","Name","Gropu by name"),
+                        ("NONE","Single","Don't export separate groups"),
+                    ], default="CURVE", name = "Export Hair Grouping",
+                       description="Export hair groups by...")
+
+    hair_curve_dir_threshold: bpy.props.FloatProperty(default=0.9, min=0.0, max=1.0, name="Direction Threshold")
+    hair_curve_dir: bpy.props.EnumProperty(items=[
+                        ("UP","Up","Hair cards from bottom to top in UV map"),
+                        ("DOWN","Down","Hair cards from top to bottom in UV map"),
+                        ("LEFT","Left","Hair cards from right to left in UV map"),
+                        ("RIGHT","Right","Hair cards from left to right in UV map"),
+                    ], default="DOWN", name = "UV Direction",
+                       description="Direction of hair cards in UV Map")
+    hair_curve_merge_loops: bpy.props.EnumProperty(items=[
+                        ("ALL","Use All Edge Loops","All edge loops in the cards will be converted into curves"),
+                        ("MERGE","Merge Edge Loops","Edge loops in each card will be merged into a single curve"),
+                    ], default="MERGE", name = "Merge Loops",
+                       description="Merge edge loops")
+
+    hair_rig_bind_skip_length: bpy.props.FloatProperty(default=7.5, min=0.0, max=25,
+            description="How far along the hair card to start generating bones, "
+            "as rooting the bones to the very start of the hair cards can produce unwanted results")
+    hair_rig_bone_length: bpy.props.FloatProperty(default=7.5, min=1, max=25,
+            description="How long a section of each hair card the bones should represent")
+    hair_rig_bind_bone_radius: bpy.props.FloatProperty(default=7.5, min=1, max=25,
+            description="How wide a radius around the bones should the hair cards bind vertex weights to")
+    hair_rig_bind_bone_count: bpy.props.IntProperty(default=2, min=1, max=4,
+            description="How many neighouring bones should each hair card bind to.\n\n"
+            "Note: More bones may produce smoother results but add to the overall mesh skinning performance cost")
+    hair_rig_bind_bone_weight: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0,
+            description="How much to scale the generated weights by")
+    hair_rig_bind_bone_variance: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0,
+            description="How much random variation in the generated weights.\n\n"
+            "Less variance will cause all the hair cards to the follow the bones more closely.\n\n"
+            "More variance will cause a wider spread of the cards as the bones move which gives the appearance of more volume")
+    hair_rig_bind_existing_scale: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0,
+            description="How much to scale any existing body weights on the hair.\n\n"
+            "Note: The spring bones vertex weights will compete with the body vertex weights. Scaling the body weights back (< 1.0) "
+            "will allow the hair to follow the spring bones more closely but will then conform less to the body.\n\n"
+            "Warning: This change will permanently alter the original body weights on the hair meshes. "
+            "After binding, this value resets to 1.0 to prevent successive weight scaling. "
+            "Setting this to zero will remove all body and other weights from the hair mesh")
+    hair_rig_bind_weight_curve: bpy.props.FloatProperty(default=0.5, min=0.25, max=4.0,
+            description="How to fade in the bone weights of each hair card from root to ends.\n\n"
+            "Larger values ( > 1.0) will push the weights down closer to the ends.\n\n"
+            "Smaller values ( < 1.0) will push the weights up closer to the roots")
+    hair_rig_bind_smoothing: bpy.props.IntProperty(default=5, min=0, max=10,
+            description="How much to smooth the generated weights after binding")
+    hair_rig_bind_seed: bpy.props.IntProperty(default=1, min=1, max=10000,
+            description="The random seed for generating the weight variance. The same seed should produce the same results each time")
+    hair_rig_bind_card_mode: bpy.props.EnumProperty(items=[
+                        ("ALL","All Cards","Bind all hair cards in the selected objects"),
+                        ("SELECTED","Selected Cards","Bind only the selected hair cards in each selected object"),
+                    ], default="ALL", name = "Hair Card Selection Mode")
+    hair_rig_bind_bone_mode: bpy.props.EnumProperty(items=[
+                        ("ALL","All Bones","Bind to all bones in the hair rig"),
+                        ("SELECTED","Selected Bones","Bind to only the selected bones of the hair rig"),
+                    ], default="ALL", name = "Bone Selection Mode")
+    hair_rig_bone_root: bpy.props.EnumProperty(items=[
+                        ("HEAD","Head Bone","Parent generated bones to the head bone"),
+                        ("JAW","Jaw Bone","Parent the generated bones to the jaw bone (for beards)"),
+                    ], default="HEAD", name = "Root bone for generated hair bones")
+    hair_rig_target: bpy.props.EnumProperty(items=[
+                        ("CC4","Rig For CC4","Generate a compatible spring rig for Character Creator and iClone.\n"
+                        "For Character Creator spring rigs, all other vertex weights are removed, and the first bone of each chain is fixed in place."),
+                        ("UNITY","Rig For Unity","Generate a spring rig for Unity"),
+                    ], default="UNITY", name = "Rig Target Application", update=update_rig_target)
 
     # UI List props
     armature_action_filter: bpy.props.BoolProperty(default=True)
@@ -1760,16 +1981,14 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     return chr_cache
         return None
 
-    def get_context_character_cache(self, context = None, exact = False):
+    def get_context_character_cache(self, context = None):
         if not context:
             context = bpy.context
         obj = context.object
         mat = utils.context_material(context)
-        arm = utils.get_armature_in_objects(context.selected_objects)
 
         # if there is only one character in the scene, this is the only possible character cache:
-        # unless it's an armature...
-        if not exact and len(self.import_cache) == 1 and arm is None:
+        if len(self.import_cache) == 1:
             return self.import_cache[0]
 
         # otherwise determine the context character cache:
@@ -1819,3 +2038,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         if self.armature_list_object and self.armature_list_object.type != "ARMATURE":
             self.armature_list_object = None
             self.armature_list_index = -1
+
+    def hair_dir_vector(self):
+        if self.hair_curve_dir == "UP":
+            return Vector((0,1))
+        elif self.hair_curve_dir == "LEFT":
+            return Vector((-1,0))
+        elif self.hair_curve_dir == "RIGHT":
+            return Vector((1,0))
+        else: #if self.hair_curve_dir == "DOWN":
+            return Vector((0,-1))

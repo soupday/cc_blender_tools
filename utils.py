@@ -429,12 +429,10 @@ def context_material(context):
 def find_pose_bone(chr_cache, *name):
     props = bpy.context.scene.CC3ImportProps
 
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if (obj.type == "ARMATURE"):
-            for n in name:
-                if n in obj.pose.bones:
-                    return obj.pose.bones[n]
+    arm = chr_cache.get_armature()
+    for n in name:
+        if n in arm.pose.bones:
+            return arm.pose.bones[n]
     return None
 
 
@@ -741,21 +739,6 @@ def get_armature_in_objects(objects):
     return arm
 
 
-def is_possible_character(arm):
-    if arm:
-        for obj in arm.children:
-            if obj.type == "MESH" and obj.parent == arm:
-                return True
-    return False
-
-
-def get_generic_character_rig(objects):
-    arm = get_armature_in_objects(objects)
-    if is_possible_character(arm):
-        return arm
-    return None
-
-
 def float_equals(a, b):
     return abs(a - b) < 0.00001
 
@@ -884,11 +867,74 @@ def move_object_to_collection(obj, collection):
         collection.objects.link(obj)
 
 
-def safe_index_of(text : str, search : str, start : int):
+def store_mode_selection_state():
+    mode = get_mode()
+    active = get_active_object()
+    selection = bpy.context.selected_objects.copy()
+    return [mode, active, selection]
+
+
+def restore_mode_selection_state(store):
     try:
-        return text.index(search, start)
+        set_mode("OBJECT")
+        try_select_objects(store[2], True)
+        set_active_object(store[1])
+        set_mode(store[0])
     except:
-        return -1
+        pass
+
+
+def store_render_visibility_state():
+    rv = {}
+    obj : bpy.types.Object
+    for obj in bpy.data.objects:
+        if object_exists(obj):
+            visible = obj.visible_get()
+            render = not obj.hide_render
+            if render or visible:
+                rv[obj.name] = [visible, render]
+    return rv
+
+
+def restore_render_visibility_state(rv):
+    obj : bpy.types.Object
+    for obj in bpy.data.objects:
+        if object_exists(obj):
+            if obj.name in rv:
+                visible, render = rv[obj.name]
+                try:
+                    obj.hide_render = not render
+                    obj.hide_set(not visible)
+                except:
+                    pass
+
+            else:
+                try:
+                    obj.hide_render = False
+                    obj.hide_set(True)
+                except:
+                    pass
+
+
+
+def set_only_render_visible(object):
+    obj : bpy.types.Object
+    for obj in bpy.data.objects:
+        if object_exists(obj):
+            visible = obj.visible_get()
+            render = not obj.hide_render
+            if obj == object:
+                try:
+                    obj.hide_render = False
+                    obj.hide_set(False)
+                except:
+                    pass
+            else:
+                try:
+                    obj.hide_render = True
+                    obj.hide_set(True)
+                except:
+                    pass
 
 
 def safe_get_action(obj):
@@ -1193,3 +1239,53 @@ def determine_object_export_name(chr_cache, obj, obj_cache = None):
         obj_safe_name = safe_export_name(obj_name)
         obj_source_name = obj_safe_name
     return obj_safe_name
+
+
+def furthest_from(p0, *points):
+    most = 0
+    result = p0
+    for p in points:
+        dp = (p - p0).length
+        if dp > most:
+            most = dp
+            result = p
+    return result
+
+
+def name_contains_distinct_keywords(name : str, *keywords : str):
+    """Does the name contain the supplied keywords in distinct form:\n
+       i.e. capitalized "OneTwoThree"\n
+            or hungarian notation "oneTwoThree"\n
+            or surrouned by underscores "one_two_three"
+    """
+
+    name_lower = name.lower()
+    name_length = len(name)
+
+    for k in keywords:
+        k_lower = k.lower()
+        k_length = len(k)
+
+        s = name_lower.find(k_lower)
+        e = s + k_length
+
+        if s >= 0:
+
+            # is keyword in name separated by underscores
+            if (name_lower.startswith(k_lower + "_") or
+                name_lower.endswith("_" + k_lower) or
+                "_" + k_lower + "_" in name_lower or
+                name_lower == k_lower):
+                return True
+
+            # match distinct keyword at start of name (any capitalization) or captitalized anywhere else
+            if s == 0 or name[s].isupper():
+                if e >= name_length or not name[e].islower():
+                    return True
+
+    return False
+
+
+
+def is_name_or_duplication(a, b):
+    return strip_name(a) == strip_name(b)

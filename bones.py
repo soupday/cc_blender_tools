@@ -18,11 +18,12 @@ import bpy
 import mathutils
 from math import pi, atan
 
-from . import utils, vars
+from . import drivers, utils, vars
 from rna_prop_ui import rna_idprop_ui_create
 
 
 def cmp_rl_bone_names(name, bone_name):
+    """Reduce supplied bone names to their base form without prefixes and compare."""
     if bone_name.startswith("RL_"):
         bone_name = bone_name[3:]
     elif bone_name.startswith("CC_Base_"):
@@ -116,6 +117,21 @@ def get_pose_bone(rig, name):
             if name in rig.pose.bones:
                 return rig.pose.bones[name]
     return None
+
+
+def align_edit_bone_roll(edit_bone : bpy.types.EditBone, axis):
+    if axis == "X":
+        edit_bone.align_roll(mathutils.Vector((1,0,0)))
+    if axis == "Y":
+        edit_bone.align_roll(mathutils.Vector((0,1,0)))
+    if axis == "Z":
+        edit_bone.align_roll(mathutils.Vector((0,0,1)))
+    if axis == "-X":
+        edit_bone.align_roll(mathutils.Vector((-1,0,0)))
+    if axis == "-Y":
+        edit_bone.align_roll(mathutils.Vector((0,-1,0)))
+    if axis == "-Z":
+        edit_bone.align_roll(mathutils.Vector((0,0,-1)))
 
 
 def rename_bone(rig, from_name, to_name):
@@ -219,6 +235,26 @@ def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, sca
     else:
         utils.log_error(f"Unable to edit CC3 rig!")
     return None
+
+
+def copy_rig_bind_pose(rig_from, rig_to):
+    rig_def = {}
+    utils.set_only_active_object(rig_from)
+    if utils.edit_mode_to(rig_from):
+        for edit_bone in rig_from.data.edit_bones:
+            rig_def[edit_bone.name] = {
+                "head": edit_bone.head.copy(),
+                "tail": edit_bone.tail.copy(),
+                "roll": edit_bone.roll,
+            }
+    utils.set_only_active_object(rig_to)
+    if utils.edit_mode_to(rig_to):
+        for edit_bone in rig_to.data.edit_bones:
+            if edit_bone.name in rig_def:
+                bone_def = rig_def[edit_bone.name]
+                edit_bone.head = bone_def["head"].copy()
+                edit_bone.tail = bone_def["tail"].copy()
+                edit_bone.roll = bone_def["roll"]
 
 
 def get_edit_bone_subtree_defs(rig, bone : bpy.types.EditBone, tree = None):
@@ -411,6 +447,35 @@ def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_deform = deform
 
 
+def show_armature_layers(rig : bpy.types.Object, layer_list : list, in_front = False, wireframe = False):
+    rig.show_in_front = in_front
+    rig.display_type = 'WIRE' if wireframe else 'SOLID'
+    armature : bpy.types.Armature = rig.data
+
+    utils.edit_mode_to(rig)
+    for i in range(0, 32):
+        if i in layer_list:
+            armature.layers[i] = True
+        else:
+            armature.layers[i] = False
+
+    utils.pose_mode_to(rig)
+    for i in range(0, 32):
+        if i in layer_list:
+            armature.layers[i] = True
+        else:
+            armature.layers[i] = False
+
+    utils.object_mode_to(rig)
+    for i in range(0, 32):
+        if i in layer_list:
+            armature.layers[i] = True
+        else:
+            armature.layers[i] = False
+
+    return
+
+
 def set_bone_layer(rig, bone_name, layer):
     if utils.edit_mode_to(rig):
         set_edit_bone_layer(rig, bone_name, layer)
@@ -528,54 +593,11 @@ def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, var
             for con in pose_bone.constraints:
                 if con.type == constraint_type:
                     if expression:
-                        driver = make_driver(con, "influence", "SCRIPTED", expression)
+                        driver = drivers.make_driver(con, "influence", "SCRIPTED", expression)
                     else:
-                        driver = make_driver(con, "influence", "SUM")
+                        driver = drivers.make_driver(con, "influence", "SUM")
                     if driver:
-                        var = make_driver_var(driver, "SINGLE_PROP", variable_name, rig, data_path = data_path)
-
-
-def make_driver_var(driver, var_type, var_name, target, data_path = "", bone_target = "", transform_type = "", transform_space = ""):
-    """
-    var_type = "SINGLE_PROP", "TRANSFORMS"
-    var_name = variable name
-    target = target object/bone
-    target_data_path = "..."
-    """
-    var : bpy.types.DriverVariable = driver.variables.new()
-    var.name = var_name
-    if var_type == "SINGLE_PROP":
-        var.type = var_type
-        var.targets[0].id_type = "OBJECT"
-        var.targets[0].id = target.id_data
-        var.targets[0].data_path = data_path
-    elif var_type == "TRANSFORMS":
-        var.targets[0].id = target.id_data
-        var.targets[0].bone_target = bone_target
-        var.targets[0].rotation_mode = "AUTO"
-        var.targets[0].transform_type = transform_type
-        var.targets[0].transform_space = transform_space
-    return var
-
-
-def make_driver(source, prop_name, driver_type, driver_expression = ""):
-    """
-    prop_name = "value", "influence"
-    driver_type = "SUM", "SCRIPTED"
-    driver_expression = "..."
-    """
-    driver = None
-    if source:
-        fcurve : bpy.types.FCurve
-        fcurve = source.driver_add(prop_name)
-        driver : bpy.types.Driver = fcurve.driver
-        if driver_type == "SUM":
-            driver.type = driver_type
-        elif driver_type == "SCRIPTED":
-            driver.type = driver_type
-            driver.expression = driver_expression
-    return driver
-
+                        var = drivers.make_driver_var(driver, "SINGLE_PROP", variable_name, rig, target_type = "OBJECT", data_path = data_path)
 
 
 def get_data_path_pose_bone_property(pose_bone_name, variable_name):
@@ -644,10 +666,10 @@ def clear_drivers(rig):
             drivers.remove(fc)
 
 
-def get_bone_name_from_data_path(data_path):
+def get_bone_name_from_data_path(data_path : str):
     if data_path.startswith("pose.bones[\""):
-        start = utils.safe_index_of(data_path, '"', 0) + 1
-        end = utils.safe_index_of(data_path, '"', start)
+        start = data_path.find('"', 0) + 1
+        end = data_path.find('"', start)
         return data_path[start:end]
     return None
 

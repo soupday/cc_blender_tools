@@ -19,7 +19,7 @@ import re
 import mathutils
 import os
 
-from . import materials, modifiers, meshutils, bones, shaders, nodeutils, utils, vars
+from . import materials, modifiers, meshutils, geom, bones, shaders, nodeutils, utils, vars
 
 
 def get_character_objects(arm):
@@ -173,7 +173,7 @@ def convert_generic_to_non_standard(objects, file_path = None):
     objects = bpy.context.selected_objects
 
     # try to find a character armature
-    chr_rig = utils.get_generic_character_rig(objects)
+    chr_rig = utils.get_armature_in_objects(objects)
     chr_type = "HUMANOID"
 
     # if not generate one from the objects and empty parent transforms (Prop Only)
@@ -334,7 +334,7 @@ def get_accessory_root(chr_cache, object):
 
         # if even one vertex groups belongs to the character bones, it will not import into cc4 as an accessory
         if bones.bone_mapping_contains_bone(bone_mappings, vg.name):
-            return
+            return None
 
         else:
             bone = bones.get_bone(rig, vg.name)
@@ -424,6 +424,8 @@ def make_accessory(chr_cache, objects):
                         obj_data[obj]["bone"] = obj_bone
                         obj_data[obj]["def_bone"] = def_bone
 
+                utils.object_mode_to(rig)
+
                 # parent the object bone to the accessory bone (or object transform parent bone)
                 for obj in objects:
                     if obj.type == "MESH" and obj in obj_data.keys():
@@ -477,16 +479,21 @@ def clean_up_character_data(chr_cache):
 
         for obj_cache in chr_cache.object_cache:
 
-            if obj_cache.object != arm:
+            obj = obj_cache.get_object()
 
-                if utils.object_exists_is_mesh(obj_cache.object):
+            if not obj_cache.is_valid():
+                    delete_objects.append(obj_cache.get_object(return_invalid = True))
+
+            elif obj != arm:
+
+                if obj_cache.is_mesh():
 
                     # be sure not to delete object and material cache data for objects still existing in the scene,
                     # but not currently attached to the character
-                    if obj_cache.object not in current_objects:
-                        unparented_objects.append(obj_cache.object)
-                        utils.log_info(f"Keeping unparented Object data: {obj_cache.object.name}")
-                        for mat in obj_cache.object.data.materials:
+                    if obj not in current_objects:
+                        unparented_objects.append(obj)
+                        utils.log_info(f"Keeping unparented Object data: {obj.name}")
+                        for mat in obj.data.materials:
                             if mat and mat not in unparented_materials:
                                 unparented_materials.append(mat)
                                 utils.log_info(f"Keeping unparented Material data: {mat.name}")
@@ -494,7 +501,7 @@ def clean_up_character_data(chr_cache):
                 else:
 
                     # add any invalid cached objects to the delete list
-                    delete_objects.append(obj_cache.object)
+                    delete_objects.append(obj)
 
         for obj in delete_objects:
             if obj and obj not in unparented_objects:
@@ -788,7 +795,7 @@ def transfer_skin_weights(chr_cache, objects):
     body = None
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type == "BODY":
-            body = obj_cache.object
+            body = obj_cache.get_object()
 
     if not body:
         return
@@ -867,7 +874,7 @@ def normalize_skin_weights(chr_cache, objects):
     body = None
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type == "BODY":
-            body = obj_cache.object
+            body = obj_cache.get_object()
 
     # don't allow normalize all to body mesh
     if body and body in objects:
@@ -900,8 +907,8 @@ def match_materials(chr_cache):
     chr_materials = []
 
     for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.object
-        if utils.object_exists_is_mesh(obj):
+        obj = obj_cache.get_object()
+        if obj:
             chr_objects.append(obj)
             for mat in obj.data.materials:
                 chr_materials.append(mat)
@@ -1065,3 +1072,126 @@ class CC3OperatorCharacter(bpy.types.Operator):
         elif properties.param == "CONVERT_FROM_GENERIC":
             return "Convert character from generic armature and objects to Non-Standard character with Reallusion materials."
         return ""
+
+
+class CC3OperatorTransferCharacterGeometry(bpy.types.Operator):
+    """Transfer Character Geometry:
+       Copy base mesh shapes (e.g. After Sculpting) from active character to
+       target character, for all *body* mesh objects in the characters, without
+       destroying existing facial expression shape keys in the target Character.
+       Source and target characters must have the same UV topology.
+    """
+
+    bl_idname = "cc3.transfer_character"
+    bl_label = "Transfer Character Geometry"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        active = bpy.context.active_object
+        selected = bpy.context.selected_objects.copy()
+
+        active_character = props.get_character_cache(active, None)
+        selected_characters = []
+        for obj in selected:
+            selected_character = props.get_character_cache(obj, None)
+            if selected_character not in selected_characters and selected_character != active_character:
+                selected_characters.append(selected_character)
+
+        if active_character and selected_characters:
+
+            src_body = active_character.get_body()
+            src_eye = active_character.get_object_of_type("EYE")
+            src_tearline = active_character.get_object_of_type("TEARLINE")
+            src_eye_occlusion = active_character.get_object_of_type("EYE_OCCLUSION")
+            src_tongue = active_character.get_object_of_type("TONGUE")
+            src_teeth = active_character.get_object_of_type("TEETH")
+            src_arm = active_character.get_armature()
+
+            for chr_cache in selected_characters:
+
+                dst_body = chr_cache.get_body()
+                dst_eye = chr_cache.get_object_of_type("EYE")
+                dst_tearline = chr_cache.get_object_of_type("TEARLINE")
+                dst_eye_occlusion = chr_cache.get_object_of_type("EYE_OCCLUSION")
+                dst_tongue = chr_cache.get_object_of_type("TONGUE")
+                dst_teeth = chr_cache.get_object_of_type("TEETH")
+                dst_arm = chr_cache.get_armature()
+
+                utils.object_mode_to(active)
+                utils.set_only_active_object(active)
+
+                if src_body and dst_body:
+                    geom.copy_vert_positions_by_uv_id(src_body, dst_body, 5)
+                if src_eye and dst_eye:
+                    geom.copy_vert_positions_by_uv_id(src_eye, dst_eye, 5)
+                if src_tearline and dst_tearline:
+                    geom.copy_vert_positions_by_uv_id(src_tearline, dst_tearline, 5)
+                if src_eye_occlusion and dst_eye_occlusion:
+                    geom.copy_vert_positions_by_uv_id(src_eye_occlusion, dst_eye_occlusion, 5)
+                if src_tongue and dst_tongue:
+                    geom.copy_vert_positions_by_uv_id(src_tongue, dst_tongue, 5)
+                if src_teeth and dst_teeth:
+                    geom.copy_vert_positions_by_uv_id(src_teeth, dst_teeth, 5)
+
+                bones.copy_rig_bind_pose(src_arm, dst_arm)
+
+                utils.object_mode_to(dst_arm)
+                utils.set_only_active_object(dst_arm)
+
+            self.report(type={"INFO"}, message="Done!")
+
+        else:
+            self.report(type={"ERROR"}, message="Needs active and other selected characters!")
+
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+        return """Transfer Character Geometry:
+            Copy base mesh shapes (e.g. After Sculpting) from active character to
+            target character, for all *body* mesh objects in the characters, without
+            destroying existing facial expression shape keys in the target Character.
+            Source and target characters must have the same UV topology"""
+
+
+class CC3OperatorTransferMeshGeometry(bpy.types.Operator):
+    """Transfer Mesh Geometry:
+       Copy base mesh shape (e.g. After Sculpting) from active mesh to target
+       mesh without destroying any existing shape keys in the target mesh.
+       Source and target meshes must have the same UV topology.
+    """
+
+    bl_idname = "cc3.transfer_mesh"
+    bl_label = "Transfer Mesh Geometry"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        active = bpy.context.active_object
+        selected = bpy.context.selected_objects.copy()
+
+        utils.object_mode_to(active)
+
+        if active and len(selected) >= 2:
+            for obj in selected:
+                geom.copy_vert_positions_by_uv_id(active, obj, 5)
+
+            self.report(type={"INFO"}, message="Done!")
+
+        else:
+            self.report(type={"ERROR"}, message="Needs active and other selected meshes!")
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+        return """Transfer Mesh Geometry:
+            Copy base mesh shape (e.g. After Sculpting) from active mesh to target
+            mesh without destroying any existing shape keys in the target mesh.
+            Source and target meshes must have the same UV topology"""

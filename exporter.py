@@ -24,7 +24,7 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import bake, shaders, physics, rigging, bones, modifiers, meshutils, nodeutils, imageutils, jsonutils, utils, params, vars
+from . import bake, shaders, physics, rigging, bones, modifiers, meshutils, nodeutils, jsonutils, utils, params, vars
 
 UNPACK_INDEX = 1001
 
@@ -38,6 +38,12 @@ def check_valid_export_fbx(chr_cache, objects):
     standard = False
     if chr_cache:
         standard = chr_cache.is_standard()
+
+    if not objects:
+        message = f"ERROR: Nothing to export!"
+        report.append(message)
+        utils.log_warn(message)
+        check_valid = False
 
     if standard and not arm:
         if chr_cache:
@@ -172,6 +178,13 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 if mat not in done:
                     changes.append(["MATERIAL_RENAME", mat, mat.name])
                     done.append(mat)
+            # disable shape key lock
+            obj.show_only_shape_key = False
+            # reset all shape keys to zero
+            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                for key in obj.data.shape_keys.key_blocks:
+                    key.value = 0.0
+
     done.clear()
 
     old_name = chr_cache.character_id
@@ -423,6 +436,10 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         copy_and_update_texture_path(mat_json["Custom Shader"]["Image"][channel], "Texture Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied)
                 if physics_mat_json:
                     copy_and_update_texture_path(physics_mat_json, "Weight Map Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied)
+                if "Wrinkle" in mat_json.keys():
+                    for channel in mat_json["Wrinkle"]["Textures"].keys():
+                        copy_and_update_texture_path(mat_json["Wrinkle"]["Textures"][channel], "Texture Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied)
+
 
             else:
                 for channel in mat_json["Textures"].keys():
@@ -432,6 +449,9 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         remap_texture_path(mat_json["Custom Shader"]["Image"][channel], "Texture Path", old_path, new_path, mat_data)
                 if physics_mat_json:
                     remap_texture_path(physics_mat_json, "Weight Map Path", old_path, new_path, mat_data)
+                if "Wrinkle" in mat_json.keys():
+                    for channel in mat_json["Wrinkle"]["Textures"].keys():
+                        remap_texture_path(mat_json["Wrinkle"]["Textures"][channel], "Texture Path", old_path, new_path, mat_data)
 
             mat_data["processed"] = True
             # texure paths
@@ -669,43 +689,43 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                 tex_node = nodeutils.get_node_connected_to_input(shader_node, shader_socket)
 
                 tex_info = None
-                bake_shader_output = False
+                bake_value_texture = False
                 bake_shader_socket = ""
                 bake_shader_size = 64
 
                 roughness_modified = False
                 if tex_type == "ROUGHNESS":
                     roughness = 0.5
-                    if nodeutils.is_input_socket_connected(shader_node, "Roughness Map"):
-                        roughness = nodeutils.get_node_input(shader_node, "Roughness Map", 0.5)
+                    if nodeutils.has_connected_input(shader_node, "Roughness Map"):
+                        roughness = nodeutils.get_node_input_value(shader_node, "Roughness Map", 0.5)
                     def_min = 0
                     def_max = 1
                     def_pow = 1
                     if shader_name == "rl_skin_shader" or shader_name == "rl_head_shader":
                         def_min = 0.1
-                    roughness_min = nodeutils.get_node_input(shader_node, "Roughness Min", def_min)
-                    roughness_max = nodeutils.get_node_input(shader_node, "Roughness Max", def_max)
-                    roughness_pow = nodeutils.get_node_input(shader_node, "Roughness Power", def_pow)
+                    roughness_min = nodeutils.get_node_input_value(shader_node, "Roughness Min", def_min)
+                    roughness_max = nodeutils.get_node_input_value(shader_node, "Roughness Max", def_max)
+                    roughness_pow = nodeutils.get_node_input_value(shader_node, "Roughness Power", def_pow)
                     if roughness_min != def_min or roughness_max != def_max or roughness_pow != def_pow or roughness != 0.5:
                         roughness_modified = True
 
                 # find or generate tex_info json.
                 if is_pbr_texture:
 
-                    # CC3 cannot set metallic or roughness values with no texture, so must bake a small value texture
+                    # CC3 cannot set metallic or roughness values without textures, so must bake a small value texture
                     if not tex_node and prefs.export_bake_nodes:
 
                         if tex_type == "ROUGHNESS":
                             if bake_values and roughness_modified:
-                                bake_shader_output = True
+                                bake_value_texture = True
                                 bake_shader_socket = "Roughness"
                             elif not bake_values:
                                 mat_json["Roughness_Value"] = roughness
 
                         elif tex_type == "METALLIC":
-                            metallic = nodeutils.get_node_input(shader_node, "Metallic Map", 0)
+                            metallic = nodeutils.get_node_input_value(shader_node, "Metallic Map", 0)
                             if bake_values and metallic > 0:
-                                bake_shader_output = True
+                                bake_value_texture = True
                                 bake_shader_socket = "Metallic"
                             elif not bake_values:
                                 mat_json["Metallic_Value"] = metallic
@@ -715,7 +735,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                         tex_info = mat_json["Textures"][tex_id]
 
                     # or create a new tex_info if missing or baking a new texture
-                    elif tex_node or bake_shader_output:
+                    elif tex_node or bake_value_texture:
                         tex_info = copy.deepcopy(params.JSON_PBR_TEX_INFO)
                         location, rotation, scale = nodeutils.get_image_node_mapping(tex_node)
                         tex_info["Tiling"] = [scale[0], scale[1]]
@@ -743,9 +763,9 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                     if tex_type in mat_data.keys():
                         processed_image = mat_data[tex_type]
                         if processed_image:
-                            utils.log_info(f"Resusing already processed material image: {processed_image.name}")
+                            utils.log_info(f"Reusing already processed material image: {processed_image.name}")
 
-                    if tex_node or bake_shader_output:
+                    if tex_node or bake_value_texture:
 
                         image : bpy.types.Image = None
 
@@ -754,20 +774,42 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                             image = processed_image
 
                         else:
-                            if bake_shader_output:
+
+                            # if it needs a value texture, bake the value
+                            if bake_value_texture:
                                 image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_shader_size)
 
+                            # if there is an image texture link to the socket
                             elif tex_node and tex_node.type == "TEX_IMAGE":
+
+                                # if there is a normal and a bump map connected, combine into a normal
                                 if prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
-                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
+                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, mat, tex_id, bake_path,
+                                                                         normal_socket_name = shader_socket,
+                                                                         bump_socket_name = bump_socket)
+
+                                # otherwise use the image texture
                                 else:
                                     image = tex_node.image
 
+                            elif nodeutils.is_texture_pack_system(tex_node):
+
+                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to a texture pack. Skipping.")
+                                continue
+
+                            elif nodeutils.is_wrinkle_system(tex_node):
+
+                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to the wrinkle shader. Skipping.")
+                                continue
+
                             elif prefs.export_bake_nodes:
+
                                 # if something is connected to the shader socket but is not a texture image
                                 # and baking is enabled: then bake the socket input into a texture for exporting:
                                 if tex_type == "NORMAL" and bump_combining:
-                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, shader_socket, bump_socket, "Normal Strength", "Bump Strength", mat, tex_id, bake_path)
+                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, mat, tex_id, bake_path,
+                                                                         normal_socket_name = shader_socket,
+                                                                         bump_socket_name = bump_socket)
                                 elif tex_type == "ROUGHNESS" and is_pbr_shader and roughness_modified:
                                     image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
                                                                             size_override_node = shader_node, size_override_socket = "Roughness Map")
@@ -939,15 +981,16 @@ def get_export_objects(chr_cache, include_selected = True):
             if arm not in objects:
                 objects.append(arm)
             for obj_cache in chr_cache.object_cache:
-                if utils.object_exists_is_mesh(obj_cache.object):
-                    if obj_cache.object.parent == arm:
-                        obj_cache.object.hide_set(False)
-                        if obj_cache.object not in objects:
-                            objects.append(obj_cache.object)
-            for obj in arm.children:
-                    if utils.object_exists_is_mesh(obj): # and obj.visible_get():
+                if obj_cache.is_mesh():
+                    obj = obj_cache.get_object()
+                    if obj.parent == arm:
+                        obj.hide_set(False)
                         if obj not in objects:
                             objects.append(obj)
+            for obj in arm.children:
+                if utils.object_exists_is_mesh(obj): # and obj.visible_get():
+                    if obj not in objects:
+                        objects.append(obj)
     else:
         arm = None
         if bpy.context.active_object and bpy.context.active_object.type == "ARMATURE":
@@ -1314,12 +1357,13 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, pat
             tex_node = node
             image = node.image
             try_unpack_image(image, unpack_path, True)
+
         else:
             if tex_id == "Normal" and combine_normals:
                 image = bake.bake_bsdf_normal(bsdf_node, mat, tex_id, bake_path)
             else:
                 if bake_value:
-                    image = bake.bake_value_image(node.inputs[socket].default_value, mat, tex_id, bake_path)
+                    image = bake.pack_value_image(node.inputs[socket].default_value, mat, tex_id, bake_path)
                 else:
                     image = bake.bake_node_socket_output(node, socket, mat, tex_id, bake_path)
 
@@ -1938,6 +1982,8 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
             bake_anim_simplify_factor=self.animation_simplify,
             use_armature_deform_only=True,
             add_leaf_bones = False,
+            #axis_forward = "-Y",
+            #axis_up = "Z",
             mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
             use_mesh_modifiers = True)
 
@@ -2147,6 +2193,13 @@ class CC3Export(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
 
+        # menu export
+        if self.param == "EXPORT_MENU":
+            if chr_cache and chr_cache.rigified:
+                self.param = "EXPORT_RIGIFY"
+            else:
+                self.param = "EXPORT_CC3"
+
         # determine export format
         export_format = "fbx"
         if self.param == "EXPORT_MESH":
@@ -2170,11 +2223,13 @@ class CC3Export(bpy.types.Operator):
 
         if chr_cache and chr_cache.generation == "NonStandardGeneric":
             self.include_textures = True
-        elif self.param == "EXPORT_UNITY":
+
+        if self.param == "EXPORT_UNITY":
             self.include_textures = True
             if export_format == "fbx":
                 self.export_face_smoothing = True
-        elif self.param == "EXPORT_RIGIFY":
+
+        if self.param == "EXPORT_RIGIFY":
             if props.export_rigify_mode == "MOTION":
                 self.include_textures = False
                 self.include_anim = True
@@ -2265,3 +2320,8 @@ class CC3Export(bpy.types.Operator):
         elif properties.param == "CHECK_EXPORT":
             return "Check for issues with the character for export. *Note* This will also test any selected objects as well as all objects attached to the character, as selected objects can also be exported with the character"
         return ""
+
+
+def menu_func_export(self, context):
+    self.layout.operator(CC3Export.bl_idname, text="Reallusion Character (.fbx, .obj)").param = "EXPORT_MENU"
+
