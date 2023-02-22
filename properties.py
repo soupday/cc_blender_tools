@@ -417,23 +417,28 @@ def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, ma
         shaders.fetch_prop_defaults(mat_cache, mat_json)
 
 
-def update_sculpt_layer_normal(self, context, prop_name):
+def update_sculpt_mix_node(self, context, prop_name):
     if vars.block_property_update: return
     props = bpy.context.scene.CC3ImportProps
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
+    body = chr_cache.get_body()
     if chr_cache:
         if prop_name == "detail_normal_strength":
-            body = chr_cache.get_detail_body()
-            sculpting.update_layer_nodes(body, "DETAIL", "Strength", chr_cache.detail_normal_strength * 1)
+            sculpting.update_layer_nodes(body, "DETAIL", "Normal Strength", chr_cache.detail_normal_strength * 1)
         elif prop_name == "body_normal_strength":
-            body = chr_cache.get_body()
-            sculpting.update_layer_nodes(body, "BODY", "Strength", chr_cache.body_normal_strength * 1)
-        if prop_name == "detail_normal_definition":
-            body = chr_cache.get_detail_body()
+            sculpting.update_layer_nodes(body, "BODY", "Normal Strength", chr_cache.body_normal_strength * 1)
+        elif prop_name == "detail_ao_strength":
+            sculpting.update_layer_nodes(body, "DETAIL", "AO Strength", chr_cache.detail_ao_strength * 1)
+        elif prop_name == "body_ao_strength":
+            sculpting.update_layer_nodes(body, "BODY", "AO Strength", chr_cache.body_ao_strength * 1)
+        elif prop_name == "detail_normal_definition":
             sculpting.update_layer_nodes(body, "DETAIL", "Definition", chr_cache.detail_normal_definition * 1)
         elif prop_name == "body_normal_definition":
-            body = chr_cache.get_body()
             sculpting.update_layer_nodes(body, "BODY", "Definition", chr_cache.body_normal_definition * 1)
+        elif prop_name == "detail_mix_mode":
+            sculpting.update_layer_nodes(body, "DETAIL", "Mix Mode", (1.0 if chr_cache.detail_mix_mode == "REPLACE" else 0.0))
+        elif prop_name == "body_mix_mode":
+            sculpting.update_layer_nodes(body, "BODY", "Mix Mode", (1.0 if chr_cache.body_mix_mode == "REPLACE" else 0.0))
 
 
 def update_rig_target(self, context):
@@ -1231,24 +1236,42 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     detail_normal_strength: bpy.props.FloatProperty(default=1.0, min = -10.0, max = 10.0,
                                                     description="Strength of the detail sculpt normal overlay.",
-                                                    update=lambda s,c: update_sculpt_layer_normal(s,c,"detail_normal_strength"))
+                                                    update=lambda s,c: update_sculpt_mix_node(s,c,"detail_normal_strength"))
+    detail_ao_strength: bpy.props.FloatProperty(default=0.5, min = 0.0, max = 2.0,
+                                                    description="Strength of the detail sculpt ambient occlusion overlay.",
+                                                    update=lambda s,c: update_sculpt_mix_node(s,c,"detail_ao_strength"))
     detail_normal_definition: bpy.props.FloatProperty(default=10, min = 0, max = 40.0,
                                                       description="Mask definition of the detail sculpt normal overlay.\n"
                                                                   "Lower definition shrinks the mask around the sculpted areas and smooths the transition between normal layers.",
-                                                      update=lambda s,c: update_sculpt_layer_normal(s,c,"detail_normal_definition"))
+                                                      update=lambda s,c: update_sculpt_mix_node(s,c,"detail_normal_definition"))
     body_normal_strength: bpy.props.FloatProperty(default=1.0, min = -10.0, max = 10.0,
                                                   description="Strength of the body sculpt normal overlay.",
-                                                  update=lambda s,c: update_sculpt_layer_normal(s,c,"body_normal_strength"))
+                                                  update=lambda s,c: update_sculpt_mix_node(s,c,"body_normal_strength"))
+    body_ao_strength: bpy.props.FloatProperty(default=0.5, min = 0.0, max = 2.0,
+                                              description="Strength of the body sculpt ambient occlusion overlay.",
+                                              update=lambda s,c: update_sculpt_mix_node(s,c,"body_ao_strength"))
     body_normal_definition: bpy.props.FloatProperty(default=10, min = 0, max = 40.0,
                                                     description="Mask definition of the body sculpt normal overlay.\n"
                                                                 "Lower definition shrinks the mask around the sculpted areas and smooths the transition between normal layers.",
-                                                    update=lambda s,c: update_sculpt_layer_normal(s,c,"body_normal_definition"))
+                                                    update=lambda s,c: update_sculpt_mix_node(s,c,"body_normal_definition"))
 
     multires_bake_apply: bpy.props.EnumProperty(items=[
                         ("NONE","Keep","Don't change the original character mesh when baking the body sculpt normals.", "MESH_CIRCLE", 0),
                         ("APPLY","Apply","Copy the multi-res base shape back to original character when baking the body sculpt normals.\n"
                                          "Only the vertices affected by the sculpt are copied back and this does not destroy the original character's shapekeys.", "MESH_ICOSPHERE", 1),
                     ], default="APPLY", name = "Apply Shape On Bake?")
+
+    detail_mix_mode: bpy.props.EnumProperty(items=[
+                        ("OVERLAY","Overlay","Sculpted normals and occlusion are overlayed on top of the base normals and occlusion."),
+                        ("REPLACE","Replace","Sculpted normals and occlusion replaces the base normals and occlusion."),
+                    ], default="OVERLAY", name = "Detail Mix Mode",
+                    update=lambda s,c: update_sculpt_mix_node(s,c,"detail_mix_mode"))
+
+    body_mix_mode: bpy.props.EnumProperty(items=[
+                        ("OVERLAY","Overlay","Sculpted normals and occlusion are overlayed on top of the base normals and occlusion."),
+                        ("REPLACE","Replace","Sculpted normals and occlusion replaces the base normals and occlusion."),
+                    ], default="OVERLAY", name = "Body Mix Mode",
+                    update=lambda s,c: update_sculpt_mix_node(s,c,"body_mix_mode"))
 
     def get_tex_dir(self):
         if os.path.isabs(self.import_main_tex_dir):
@@ -1839,6 +1862,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_sculpt_detail: bpy.props.BoolProperty(default=True)
     section_sculpt_cleanup: bpy.props.BoolProperty(default=True)
     section_sculpt_utilities: bpy.props.BoolProperty(default=True)
+    sculpt_layer_tab: bpy.props.EnumProperty(items=[
+                        ("BODY","Body","Full body sculpt layer.", "OUTLINER_OB_ARMATURE", 0),
+                        ("DETAIL","Detail","Detail sculpt layer.", "MESH_MONKEY", 1),
+                    ], default="BODY", name = "Sculpt Layer")
 
     # Hair
 

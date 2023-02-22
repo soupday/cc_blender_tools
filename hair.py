@@ -366,8 +366,8 @@ def selected_cards_to_length_loops(chr_cache, obj, card_dir : Vector, one_loop_p
         uv_map = geom.get_uv_island_map(bm, 0, island)
 
         # get all edges aligned with the card dir in the island
-        edges, edge_map = geom.get_uv_aligned_edges(bm, island, card_dir, uv_map,
-                                          dir_threshold=props.hair_curve_dir_threshold)
+        edges = geom.get_uv_aligned_edges(bm, island, card_dir, uv_map,
+                                                    dir_threshold=props.hair_curve_dir_threshold)
 
         utils.log_info(f"{len(edges)} aligned edges.")
 
@@ -632,7 +632,7 @@ def is_hair_rig_bone(bone_name):
 def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
                             one_loop_per_card = True, bone_length = 0.05, skip_length = 0.0):
 
-    mode_selection = utils.store_mode_selection()
+    mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
     repair_orphaned_hair_bones(chr_cache, arm)
@@ -661,7 +661,7 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
     utils.object_mode_to(arm)
 
     restore_pose(arm, arm_pose)
-    utils.restore_mode_selection(mode_selection)
+    utils.restore_mode_selection_state(mode_selection)
 
 
 def get_hair_cards_lateral(chr_cache, obj, card_dir : Vector, card_selection_mode):
@@ -1168,7 +1168,7 @@ def greased_pencil_to_length_loops(bone_length):
 
 def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
 
-    mode_selection = utils.store_mode_selection()
+    mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
     repair_orphaned_hair_bones(chr_cache, arm)
@@ -1198,7 +1198,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     utils.object_mode_to(arm)
 
     restore_pose(arm, arm_pose)
-    utils.restore_mode_selection(mode_selection)
+    utils.restore_mode_selection_state(mode_selection)
 
 
 def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector, max_radius, max_bones, max_weight, curve, variance, existing_scale, card_mode, bone_mode, smoothing):
@@ -1356,7 +1356,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
         if self.param == "REMOVE_HAIR_BONES":
 
-            mode_selection = utils.store_mode_selection()
+            mode_selection = utils.store_mode_selection_state()
 
             chr_cache = props.get_context_character_cache(context)
             arm = utils.get_armature_in_objects(bpy.context.selected_objects)
@@ -1367,7 +1367,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
             if utils.object_exists_is_armature(arm):
                 remove_hair_bones(chr_cache, arm, objects, props.hair_rig_bind_bone_mode)
-                utils.restore_mode_selection(mode_selection)
+                utils.restore_mode_selection_state(mode_selection)
 
 
         if self.param == "BIND_TO_BONES":
@@ -1412,7 +1412,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
         if self.param == "CLEAR_WEIGHTS":
 
-            mode_selection = utils.store_mode_selection()
+            mode_selection = utils.store_mode_selection_state()
 
             chr_cache = props.get_context_character_cache(context)
             arm = utils.get_armature_in_objects(bpy.context.selected_objects)
@@ -1423,7 +1423,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
             if utils.object_exists_is_armature(arm) and objects:
                 clear_hair_bone_weights(chr_cache, arm, objects, props.hair_rig_bind_bone_mode)
-                utils.restore_mode_selection(mode_selection)
+                utils.restore_mode_selection_state(mode_selection)
             else:
                 self.report({"ERROR"}, "Selected Object(s) to clear weights must be Meshes!")
 

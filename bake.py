@@ -17,17 +17,8 @@
 import bpy
 import os
 from mathutils import Vector
-from . import imageutils, nodeutils, utils, params, vars
+from . import colorspace, imageutils, nodeutils, utils, params, vars
 
-old_samples = 64
-old_file_format = "PNG"
-old_view_transform = "Standard"
-old_look = "None"
-old_gamma = 1
-old_exposure = 0
-old_colorspace = "Raw"
-old_color_depth = "8"
-old_color_mode = "RGBA"
 BAKE_SAMPLES = 4
 IMAGE_FORMAT = "PNG"
 IMAGE_EXT = ".png"
@@ -40,89 +31,154 @@ def init_bake(id = 1001):
     BAKE_INDEX = id
 
 
-def prep_bake(mat):
-    global old_samples, old_file_format, old_color_depth, old_color_mode
-    global old_view_transform, old_look, old_gamma, old_exposure, old_colorspace
-
-    old_samples = bpy.context.scene.cycles.samples
-    old_file_format = bpy.context.scene.render.image_settings.file_format
-    old_color_depth = bpy.context.scene.render.image_settings.color_depth
-    old_color_mode = bpy.context.scene.render.image_settings.color_mode
-    old_view_transform = bpy.context.scene.view_settings.view_transform
-    old_look = bpy.context.scene.view_settings.look
-    old_gamma = bpy.context.scene.view_settings.gamma
-    old_exposure = bpy.context.scene.view_settings.exposure
-    old_colorspace = bpy.context.scene.sequencer_colorspace_settings.name
-
-    bpy.context.scene.cycles.samples = BAKE_SAMPLES
-
-    # blender 3.0
+def set_cycles_samples(samples, adaptive_samples = -1, denoising = False, time_limit = 0, use_gpu = False):
+    bpy.context.scene.cycles.samples = samples
     if utils.is_blender_version("3.0.0"):
-        bpy.context.scene.cycles.preview_samples = BAKE_SAMPLES
-        bpy.context.scene.cycles.use_adaptive_sampling = False
-        bpy.context.scene.cycles.use_preview_adaptive_sampling = False
-        bpy.context.scene.cycles.use_denoising = False
-        bpy.context.scene.cycles.use_preview_denoising = False
+        bpy.context.scene.cycles.device = 'GPU' if use_gpu else 'CPU'
+        bpy.context.scene.cycles.preview_samples = samples
+        bpy.context.scene.cycles.use_adaptive_sampling = adaptive_samples >= 0
+        bpy.context.scene.cycles.adaptive_threshold = adaptive_samples
+        bpy.context.scene.cycles.use_preview_adaptive_sampling = adaptive_samples >= 0
+        bpy.context.scene.cycles.preview_adaptive_threshold = adaptive_samples
+        bpy.context.scene.cycles.use_denoising = denoising
+        bpy.context.scene.cycles.use_preview_denoising = denoising
         bpy.context.scene.cycles.use_auto_tile = False
+        bpy.context.scene.cycles.time_limit = time_limit
 
+
+def prep_bake(mat = None, samples = BAKE_SAMPLES, image_format = IMAGE_FORMAT, make_surface = True):
+    state = {}
+
+    # cycles settings
+    state["samples"] = bpy.context.scene.cycles.samples
+    # Blender 3.0
+    if utils.is_blender_version("3.0.0"):
+        state["preview_samples"] = bpy.context.scene.cycles.preview_samples
+        state["use_adaptive_sampling"] = bpy.context.scene.cycles.use_adaptive_sampling
+        state["use_preview_adaptive_sampling"] = bpy.context.scene.cycles.use_preview_adaptive_sampling
+        state["use_denoising"] = bpy.context.scene.cycles.use_denoising
+        state["use_preview_denoising"] = bpy.context.scene.cycles.use_preview_denoising
+        state["use_auto_tile"] =  bpy.context.scene.cycles.use_auto_tile
+    # render settings
+    state["file_format"] = bpy.context.scene.render.image_settings.file_format
+    state["color_depth"] = bpy.context.scene.render.image_settings.color_depth
+    state["color_mode"] = bpy.context.scene.render.image_settings.color_mode
+    state["use_bake_multires"] =bpy.context.scene.render.use_bake_multires
+    state["use_selected_to_active"] = bpy.context.scene.render.bake.use_selected_to_active
+    state["use_pass_direct"] = bpy.context.scene.render.bake.use_pass_direct
+    state["use_pass_indirect"] = bpy.context.scene.render.bake.use_pass_indirect
+    state["margin"] = bpy.context.scene.render.bake.margin
+    state["use_clear"] = bpy.context.scene.render.bake.use_clear
+    # Blender 2.92
     if utils.is_blender_version("2.92.0"):
-        bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
+        state["target"] = bpy.context.scene.render.bake.target
+    # color management
+    state["view_transform"] = bpy.context.scene.view_settings.view_transform
+    state["look"] = bpy.context.scene.view_settings.look
+    state["gamma"] = bpy.context.scene.view_settings.gamma
+    state["exposure"] = bpy.context.scene.view_settings.exposure
+    state["colorspace"] = bpy.context.scene.sequencer_colorspace_settings.name
 
+    bpy.context.scene.cycles.samples = samples
+    bpy.context.scene.render.image_settings.file_format = image_format
     bpy.context.scene.render.use_bake_multires = False
     bpy.context.scene.render.bake.use_selected_to_active = False
     bpy.context.scene.render.bake.use_pass_direct = False
     bpy.context.scene.render.bake.use_pass_indirect = False
     bpy.context.scene.render.bake.margin = 16
     bpy.context.scene.render.bake.use_clear = True
-    bpy.context.scene.render.image_settings.file_format = IMAGE_FORMAT
     # color management settings affect the baked output so set them to standard/raw defaults:
     bpy.context.scene.view_settings.view_transform = 'Standard'
     bpy.context.scene.view_settings.look = 'None'
     bpy.context.scene.view_settings.gamma = 1
     bpy.context.scene.view_settings.exposure = 0
-    bpy.context.scene.sequencer_colorspace_settings.name = 'Raw'
+    colorspace.set_sequencer_color_space("Raw")
 
-    # deselect everything
-    bpy.ops.object.select_all(action='DESELECT')
-    # create the baking plane, a single quad baking surface for an even sampling across the entire texture
-    bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0))
-    bake_surface = bpy.context.active_object
+    # Blender 3.0
+    if utils.is_blender_version("3.0.0"):
+        bpy.context.scene.cycles.preview_samples = samples
+        bpy.context.scene.cycles.use_adaptive_sampling = False
+        bpy.context.scene.cycles.use_preview_adaptive_sampling = False
+        bpy.context.scene.cycles.use_denoising = False
+        bpy.context.scene.cycles.use_preview_denoising = False
+        bpy.context.scene.cycles.use_auto_tile = False
+
+    # Blender 2.92
+    if utils.is_blender_version("2.92.0"):
+        bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
 
     # go into wireframe mode (so Blender doesn't update or recompile the material shaders while
     # we manipulate them for baking, and also so Blender doesn't fire up the cycles viewport...):
-    shading = bpy.context.space_data.shading.type
+    state["shading"] = bpy.context.space_data.shading.type
     bpy.context.space_data.shading.type = 'WIREFRAME'
     # set cycles rendering mode for baking
-    engine = bpy.context.scene.render.engine
+    state["engine"] = bpy.context.scene.render.engine
     bpy.context.scene.render.engine = 'CYCLES'
-
-    # attach the material to bake to the baking surface plane
-    # (the baking plane also ensures that only one material is baked onto only one target image)
-    if len(bake_surface.data.materials) == 0:
-        bake_surface.data.materials.append(mat)
-    else:
-        bake_surface.data.materials[0] = mat
-    return [shading, engine, bake_surface]
+    state["cycles_bake_type"] = bpy.context.scene.cycles.bake_type
+    state["render_bake_type"] = bpy.context.scene.render.bake_type
+    bpy.context.scene.cycles.bake_type = "COMBINED"
 
 
-def post_bake(bake_store):
-    global old_samples, old_file_format, old_color_depth, old_color_mode
-    global old_view_transform, old_look, old_gamma, old_exposure, old_colorspace
+    if make_surface:
 
-    bpy.context.scene.cycles.samples = old_samples
-    bpy.context.scene.render.image_settings.file_format = old_file_format
-    bpy.context.scene.render.image_settings.color_depth = old_color_depth
-    bpy.context.scene.render.image_settings.color_mode = old_color_mode
-    bpy.context.scene.view_settings.view_transform = old_view_transform
-    bpy.context.scene.view_settings.look = old_look
-    bpy.context.scene.view_settings.gamma = old_gamma
-    bpy.context.scene.view_settings.exposure = old_exposure
-    bpy.context.scene.sequencer_colorspace_settings.name = old_colorspace
+        # deselect everything
+        bpy.ops.object.select_all(action='DESELECT')
+        # create the baking plane, a single quad baking surface for an even sampling across the entire texture
+        bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0))
+        bake_surface = bpy.context.active_object
 
-    # remove the bake surface and restore the render settings
-    bpy.data.objects.remove(bake_store.pop())
-    bpy.context.scene.render.engine = bake_store.pop()
-    bpy.context.space_data.shading.type = bake_store.pop()
+        # attach the material to bake to the baking surface plane
+        # (the baking plane also ensures that only one material is baked onto only one target image)
+        if len(bake_surface.data.materials) == 0:
+            bake_surface.data.materials.append(mat)
+        else:
+            bake_surface.data.materials[0] = mat
+        state["bake_surface"] = bake_surface
+
+    return state
+
+
+def post_bake(state):
+    # cycles settings
+    bpy.context.scene.cycles.samples = state["samples"]
+    # Blender 3.0
+    if utils.is_blender_version("3.0.0"):
+        bpy.context.scene.cycles.preview_samples = state["preview_samples"]
+        bpy.context.scene.cycles.use_adaptive_sampling = state["use_adaptive_sampling"]
+        bpy.context.scene.cycles.use_preview_adaptive_sampling = state["use_preview_adaptive_sampling"]
+        bpy.context.scene.cycles.use_denoising = state["use_denoising"]
+        bpy.context.scene.cycles.use_preview_denoising = state["use_preview_denoising"]
+        bpy.context.scene.cycles.use_auto_tile = state["use_auto_tile"]
+    # render settings
+    bpy.context.scene.render.image_settings.file_format = state["file_format"]
+    bpy.context.scene.render.image_settings.color_depth = state["color_depth"]
+    bpy.context.scene.render.image_settings.color_mode = state["color_mode"]
+    bpy.context.scene.render.use_bake_multires = state["use_bake_multires"]
+    bpy.context.scene.render.bake.use_selected_to_active = state["use_selected_to_active"]
+    bpy.context.scene.render.bake.use_pass_direct = state["use_pass_direct"]
+    bpy.context.scene.render.bake.use_pass_indirect = state["use_pass_indirect"]
+    bpy.context.scene.render.bake.margin = state["margin"]
+    bpy.context.scene.render.bake.use_clear = state["use_clear"]
+    # Blender 2.92
+    if utils.is_blender_version("2.92.0"):
+        bpy.context.scene.render.bake.target = state["target"]
+    # color management
+    bpy.context.scene.view_settings.view_transform = state["view_transform"]
+    bpy.context.scene.view_settings.look = state["look"]
+    bpy.context.scene.view_settings.gamma = state["gamma"]
+    bpy.context.scene.view_settings.exposure = state["exposure"]
+    bpy.context.scene.sequencer_colorspace_settings.name = state["colorspace"]
+    # render engine
+    bpy.context.scene.render.engine = state["engine"]
+    # viewport shading
+    bpy.context.space_data.shading.type = state["shading"]
+    # bake type
+    bpy.context.scene.cycles.bake_type = state["cycles_bake_type"]
+    bpy.context.scene.render.bake_type = state["render_bake_type"]
+
+    # remove the bake surface
+    if "bake_surface" in state:
+        bpy.data.objects.remove(state["bake_surface"])
 
 
 def get_existing_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir, name_prefix = "", force_srgb = False, channel_pack = False, exact_name = False):
@@ -503,7 +559,7 @@ def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.
     bpy.context.scene.cycles.samples = BAKE_SAMPLES
     utils.log_info("Baking: " + image_name)
 
-    bake = prep_bake(mat)
+    bake_surface = prep_bake(mat=mat, make_surface=True)
 
     nodeutils.link_nodes(links, source_node, source_socket, output_node, "Surface")
     image_node.select = True
@@ -519,7 +575,7 @@ def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.
     if output_source:
         nodeutils.link_nodes(links, output_source, output_source_socket, output_node, "Surface")
 
-    post_bake(bake)
+    post_bake(bake_surface)
 
     return image_node
 
@@ -539,7 +595,7 @@ def cycles_bake_normal_output(mat, bsdf_node, image, image_name):
     bpy.context.scene.cycles.samples = BAKE_SAMPLES
     utils.log_info("Baking normal: " + image_name)
 
-    bake = prep_bake(mat)
+    bake_surface = prep_bake(mat=mat, make_surface=True)
 
     nodeutils.link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
     image_node.select = True
@@ -552,7 +608,7 @@ def cycles_bake_normal_output(mat, bsdf_node, image, image_name):
     image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
     image.reload()
 
-    post_bake(bake)
+    post_bake(bake_surface)
 
     return image_node
 
@@ -774,7 +830,7 @@ def bake_flow_to_normal(chr_cache, mat_cache):
 
         nodeutils.clear_cursor()
 
-        mode_selection = utils.store_mode_selection()
+        mode_selection = utils.store_mode_selection_state()
 
         # get the flow map
         flow_node = nodeutils.get_node_connected_to_input(shader_node, "Flow Map")
@@ -820,7 +876,7 @@ def bake_flow_to_normal(chr_cache, mat_cache):
         utils.log_info("Converting Flow Map to Normal Map...")
         convert_flow_to_normal(flow_image, normal_image, tangent, flip_y)
 
-        utils.restore_mode_selection(mode_selection)
+        utils.restore_mode_selection_state(mode_selection)
 
 
 def convert_flow_to_normal(flow_image: bpy.types.Image, normal_image: bpy.types.Image, tangent, flip_y):
@@ -1126,7 +1182,7 @@ def pack_shader_channels(chr_cache, mat_cache):
     nodeutils.clear_cursor()
     NODE_CURSOR = Vector((-4500, 400))
 
-    mode_selection = utils.store_mode_selection()
+    mode_selection = utils.store_mode_selection_state()
 
     shader = params.get_shader_name(mat_cache)
     mat = mat_cache.material
@@ -1156,7 +1212,7 @@ def pack_shader_channels(chr_cache, mat_cache):
             pack_default_shader(chr_cache, mat_cache, shader_node)
 
 
-    utils.restore_mode_selection(mode_selection)
+    utils.restore_mode_selection_state(mode_selection)
 
 
 class CC3BakeOperator(bpy.types.Operator):

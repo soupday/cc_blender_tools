@@ -86,3 +86,13 @@ def fetch_data_color_spaces(self, context):
                     DATA_COLORSPACES.append((key, key, key, i))
                     i += 1
     return DATA_COLORSPACES
+
+
+def set_sequencer_color_space(color_space):
+    if is_aces():
+        if color_space == "Raw":
+            bpy.context.scene.sequencer_colorspace_settings.name = "Utility - Raw"
+        else:
+            bpy.context.scene.sequencer_colorspace_settings.name = "Utility - Linear - sRGB"
+    else:
+        bpy.context.scene.sequencer_colorspace_settings.name = color_space

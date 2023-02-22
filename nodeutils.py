@@ -295,6 +295,19 @@ def unlink_node_output(links, node, socket):
             utils.log_info("Unable to remove links from: " + node.name + "[" + str(socket) + "]")
 
 
+def unlink_node_input(links, node, socket):
+    """Removes the link from the socket (or the node's named output socket)."""
+
+    socket = safe_node_input_socket(node, socket)
+    if node and socket:
+        try:
+            for link in socket.links:
+                if link is not None:
+                    links.remove(link)
+        except:
+            utils.log_info("Unable to remove links from: " + node.name + "[" + str(socket) + "]")
+
+
 def get_socket_connected_to_output(node, socket):
     """Returns the *first* linked socket connected from the supplied node's output socket (or named output socket)."""
 
@@ -955,7 +968,7 @@ def get_tiling_node_from_nodes(nodes, shader_name, texture_type):
     return get_node_by_id(nodes, shader_id)
 
 
-def get_custom_image_node(nodes, node_name, image, location = (0, 0)):
+def create_custom_image_node(nodes, node_name, image, location = (0, 0)):
     # find or create the bake image node
     image_node = find_node_by_type_and_keywords(nodes, "TEX_IMAGE", node_name)
     if not image_node:

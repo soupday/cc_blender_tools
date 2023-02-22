@@ -61,6 +61,7 @@ def reset_preferences():
     prefs.build_reuse_baked_channel_packs = True
     prefs.build_limit_textures = False
     prefs.build_wrinkle_maps = True
+    prefs.bake_use_gpu = False
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -241,6 +242,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
     cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
 
+    bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
+
     # addon updater preferences
 
     auto_check_update: bpy.props.BoolProperty(
@@ -291,6 +294,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")
+        layout.prop(self, "bake_use_gpu")
 
         if colorspace.is_aces():
             layout.label(text="OpenColorIO ACES")

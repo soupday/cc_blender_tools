@@ -1797,7 +1797,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
 class CC3ToolsSculptingPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Sculpting_Panel"
-    bl_label = "Detail Sculpting"
+    bl_label = "Sculpting"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -1838,11 +1838,19 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
         # Full Body Sculpting
 
-        if fake_drop_down(layout.box().row(), "Full Body Sculpting", "section_sculpt_body",
-                          props.section_sculpt_body, icon = "OUTLINER_OB_ARMATURE"):
+        row = layout.row()
+        row.scale_y = 1.5
+        row.prop(props, "sculpt_layer_tab", expand=True)
+
+        #if fake_drop_down(layout.box().row(), "Full Body Sculpting", "section_sculpt_body",
+        #                  props.section_sculpt_body, icon = "OUTLINER_OB_ARMATURE"):
+        if props.sculpt_layer_tab == "BODY":
             column = layout.column()
             if not chr_cache or detail_sculpting:
                 column.enabled = False
+
+            column.box().row().label(text="Body Sculpting:", icon="OUTLINER_OB_ARMATURE")
+            column.separator()
 
             row = column.row()
             split = row.split(factor=0.5)
@@ -1866,11 +1874,14 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
             column.separator()
 
+            column.row().label(text="Bake Settings:")
+            column.separator()
+
             row = column.row()
             split = row.split(factor=0.4)
             col_1 = split.column()
             col_2 = split.column()
-            col_1.label(text = "Bake Size")
+            col_1.prop(prefs, "bake_use_gpu", text="GPU")
             col_2.prop(prefs, "body_normal_bake_size", text = "")
 
             row = column.row()
@@ -1883,15 +1894,22 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
             column.separator()
 
-            row = column.row()
-            split = row.split(factor=0.5)
+            column.row().label(text="Layer Settings:")
+            column.separator()
+
+            col = column.column()
+            split = col.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
             if chr_cache:
-                col_1.prop(chr_cache, "body_normal_strength", text="Str", slider=True)
+                col_1.prop(chr_cache, "body_normal_strength", text="Nrm", slider=True)
+                col_2.prop(chr_cache, "body_ao_strength", text="AO", slider=True)
+                col_1.prop(chr_cache, "body_mix_mode", text="")
                 col_2.prop(chr_cache, "body_normal_definition", text="Def", slider=True)
             if not has_body_overlay:
-                row.enabled = False
+                col.enabled = False
+
+            column.separator()
 
             row = column.row()
             row.scale_y = 1.5
@@ -1901,14 +1919,18 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
             column.separator()
 
-
         # Detail Sculpting
 
-        if fake_drop_down(layout.box().row(), "Detail Sculpting", "section_sculpt_detail",
-                          props.section_sculpt_detail, icon = "POSE_HLT"):
+        #if fake_drop_down(layout.box().row(), "Detail Sculpting", "section_sculpt_detail",
+        #                  props.section_sculpt_detail, icon = "POSE_HLT"):
+        elif props.sculpt_layer_tab == "DETAIL":
+
             column = layout.column()
             if not chr_cache or body_sculpting:
                 column.enabled = False
+
+            column.box().row().label(text="Detail Sculpting:", icon="MESH_MONKEY")
+            column.separator()
 
             row = column.row()
             row.prop(prefs, "detail_sculpt_sub_target", expand=True)
@@ -1935,30 +1957,40 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
             column.separator()
 
+            column.row().label(text="Bake Settings:")
+            column.separator()
+
             row = column.row()
             split = row.split(factor=0.4)
             col_1 = split.column()
             col_2 = split.column()
-            col_1.label(text = "Bake Size")
-            col_2.prop(prefs, "detail_normal_bake_size", text = "")
+            col_1.prop(prefs, "bake_use_gpu", text="GPU")
+            col_2.prop(prefs, "detail_normal_bake_size", text="")
 
             row1 = column.row()
             row1.scale_y = 1.5
             row1.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "DETAIL_BAKE"
-            if not sculpt_body:
+            if not detail_body:
                 row1.enabled = False
 
             column.separator()
 
-            row = column.row()
-            split = row.split(factor=0.5)
+            column.row().label(text="Layer Settings:")
+            column.separator()
+
+            col = column.column()
+            split = col.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
             if chr_cache:
-                col_1.prop(chr_cache, "detail_normal_strength", text="Str", slider=True)
+                col_1.prop(chr_cache, "detail_normal_strength", text="Nrm", slider=True)
+                col_2.prop(chr_cache, "detail_ao_strength", text="AO", slider=True)
+                col_1.prop(chr_cache, "detail_mix_mode", text="")
                 col_2.prop(chr_cache, "detail_normal_definition", text="Def", slider=True)
-            if not has_body_overlay:
-                row.enabled = False
+            if not has_detail_overlay:
+                col.enabled = False
+
+            column.separator()
 
             row = column.row()
             row.scale_y = 1.5
@@ -1968,13 +2000,24 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
             column.separator()
 
-        # Clean Up
+        # Tools
 
-        if fake_drop_down(layout.box().row(), "Clean Up", "section_sculpt_cleanup",
+        if fake_drop_down(layout.box().row(), "Tools", "section_sculpt_cleanup",
                           props.section_sculpt_cleanup, icon = "BRUSH_DATA"):
             column = layout.column()
             if not chr_cache:
                 column.enabled = False
+
+            column.separator()
+
+            column.row().operator("cc3.sculpting", icon="FORWARD", text="TODO: Sync Source Shape").param = "UPDATE_SHAPE"
+            column.row().operator("cc3.sculpting", icon="FORWARD", text="TODO: Reset Base Shapes").param = "RESET_SHAPE"
+
+            column.separator()
+
+            column.label(text="Remove Sculpts")
+
+            column.separator()
 
             row = column.row()
             if not sculpt_body:
@@ -1982,8 +2025,6 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             else:
                 row.alert = True
             row.operator("cc3.sculpting", icon="TRASH", text="Remove Body Sculpt").param = "BODY_CLEAN"
-
-            column.separator()
 
             row = column.row()
             if not detail_body:
@@ -1994,11 +2035,9 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
             column.separator()
 
-        # Utilities
+            column.label(text="Geometry Transfer")
 
-        if fake_drop_down(layout.box().row(), "Utilities", "section_sculpt_utilities",
-                          props.section_sculpt_utilities, icon = "MODIFIER_DATA"):
-            column = layout.column()
+            column.separator()
 
             row = column.row()
             row.operator("cc3.transfer_character", icon="OUTLINER_OB_ARMATURE", text="Transfer Geometry")
@@ -2007,7 +2046,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
             row = column.row()
             row.operator("cc3.transfer_mesh", icon="MESH_ICOSPHERE", text="Transfer Geometry")
-            print(len(bpy.context.selected_objects))
+
             if not bpy.context.active_object or len(bpy.context.selected_objects) < 2:
                 row.enabled = False
 

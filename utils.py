@@ -867,14 +867,14 @@ def move_object_to_collection(obj, collection):
         collection.objects.link(obj)
 
 
-def store_mode_selection():
+def store_mode_selection_state():
     mode = get_mode()
     active = get_active_object()
     selection = bpy.context.selected_objects.copy()
     return [mode, active, selection]
 
 
-def restore_mode_selection(store):
+def restore_mode_selection_state(store):
     try:
         set_mode("OBJECT")
         try_select_objects(store[2], True)
@@ -882,6 +882,59 @@ def restore_mode_selection(store):
         set_mode(store[0])
     except:
         pass
+
+
+def store_render_visibility_state():
+    rv = {}
+    obj : bpy.types.Object
+    for obj in bpy.data.objects:
+        if object_exists(obj):
+            visible = obj.visible_get()
+            render = not obj.hide_render
+            if render or visible:
+                rv[obj.name] = [visible, render]
+    return rv
+
+
+def restore_render_visibility_state(rv):
+    obj : bpy.types.Object
+    for obj in bpy.data.objects:
+        if object_exists(obj):
+            if obj.name in rv:
+                visible, render = rv[obj.name]
+                try:
+                    obj.hide_render = not render
+                    obj.hide_set(not visible)
+                except:
+                    pass
+
+            else:
+                try:
+                    obj.hide_render = False
+                    obj.hide_set(True)
+                except:
+                    pass
+
+
+
+def set_only_render_visible(object):
+    obj : bpy.types.Object
+    for obj in bpy.data.objects:
+        if object_exists(obj):
+            visible = obj.visible_get()
+            render = not obj.hide_render
+            if obj == object:
+                try:
+                    obj.hide_render = False
+                    obj.hide_set(False)
+                except:
+                    pass
+            else:
+                try:
+                    obj.hide_render = True
+                    obj.hide_set(True)
+                except:
+                    pass
 
 
 def safe_get_action(obj):

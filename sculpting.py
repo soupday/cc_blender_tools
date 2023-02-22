@@ -24,11 +24,14 @@ LAYER_TARGET_SCULPT = "BODY"
 LAYER_TARGET_DETAIL = "DETAIL"
 BAKE_TYPE_NORMALS = "NORMALS"
 BAKE_TYPE_DISPLACEMENT = "DISPLACEMENT"
+BAKE_TYPE_AO = "AO"
 LAYER_MIX_SUFFIX = "Layer_Mix"
 BAKE_NORMAL_SUFFIX = "Bake_Normal"
 BAKE_DISPLACEMENT_SUFFIX = "Bake_Displacement"
+BAKE_AO_SUFFIX = "Bake_AO"
 LAYER_NORMAL_SUFFIX = "Layer_Normal"
 LAYER_DISPLACEMENT_SUFFIX = "Layer_Displacement"
+LAYER_AO_SUFFIX = "Layer_AO"
 BAKE_FOLDER = "Sculpt Bake"
 SKINGEN_FOLDER = "Skingen"
 
@@ -99,7 +102,8 @@ def copy_base_shape(multi_res_object, source_body_obj, layer_target, by_vertex_g
 def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_body = None):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-    bpy.context.scene.render.use_bake_multires = True
+    utils.log_info(f"Begin Multi-Res Bake: Layer = {layer_target}")
+    utils.log_indent()
 
     if utils.is_blender_version("2.92.0"):
         bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
@@ -108,20 +112,39 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     utils.log_info("Normalizing UV's")
     materials.normalize_udim_uvs(body)
 
-    # use cycles for baking
-    utils.log_info("Using Cycles render engine")
-    engine = bpy.context.scene.render.engine
-    bpy.context.scene.render.engine = 'CYCLES'
+    # store object render visibility state
+    rv_state = utils.store_render_visibility_state()
+
+    # prep for baking directly onto body mesh surface
+    bake_state = bake.prep_bake(samples=32, make_surface=False)
+
+    # AO Baking (full res on body mesh)
+    utils.set_only_render_visible(body)
+    utils.object_mode_to(body)
+    utils.set_only_active_object(body)
+    select_bake_images(body, BAKE_TYPE_AO, layer_target)
+    set_multi_res_level(body, view_level=9, sculpt_level=9, render_level=9)
+    utils.log_info(f"Baking {layer_target} AO...")
+    bpy.context.scene.render.use_bake_multires = False
+    # *cycles* bake type to AO
+    bpy.context.scene.cycles.bake_type = "AO"
+    if prefs.bake_use_gpu:
+        bake.set_cycles_samples(samples=2048, adaptive_samples=0.1, time_limit=15, use_gpu=True)
+    else:
+        bake.set_cycles_samples(samples=16, time_limit=30, use_gpu=False)
+    bpy.ops.object.bake(type="AO")
 
     # Displacement Baking
     select_bake_images(body, BAKE_TYPE_DISPLACEMENT, layer_target)
+    bpy.context.scene.render.use_bake_multires = True
+    bake.set_cycles_samples(samples=2)
 
     # copy the body for displacement baking
     utils.log_info("Duplicating body for displacement baking")
     disp_body = utils.duplicate_object(body)
     disp_body.name = body.name + "_DISPBAKE"
 
-    # displacement maps *will not* bake if multiple materials in the mesh,
+    # displacement maps *will not* bake if multiple overlapping materials in the mesh,
     # so split by materials and bake each separately.
     utils.log_info(f"Baking {layer_target} displacement...")
     utils.clear_selected_objects()
@@ -130,6 +153,7 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     bpy.ops.mesh.separate(type='MATERIAL')
     objects = bpy.context.selected_objects.copy()
     for obj in objects:
+        utils.set_only_render_visible(obj)
         utils.object_mode_to(obj)
         utils.set_only_active_object(obj)
         # copying or splitting the mesh resets the multi-res levels...
@@ -144,9 +168,11 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     select_bake_images(body, BAKE_TYPE_NORMALS, layer_target)
 
     # copy the body for normal baking
+    utils.set_only_render_visible(body)
     utils.log_info("Duplicating body for normal baking")
     norm_body = utils.duplicate_object(body)
     norm_body.name = body.name + "_NORMBAKE"
+    utils.set_only_render_visible(norm_body)
     utils.object_mode_to(norm_body)
     utils.set_only_active_object(norm_body)
     apply_multi_res_shape(norm_body)
@@ -160,14 +186,27 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     bpy.context.scene.render.bake_type = BAKE_TYPE_NORMALS
     bpy.ops.object.bake_image()
 
-    # restore render engine
-    utils.log_info("Restoring render engine")
-    bpy.context.scene.render.engine = engine
-
+    utils.log_recess()
     utils.log_info("Baking complete!")
 
-    if apply_shape and source_body and utils.set_only_active_object(norm_body):
+    if layer_target == LAYER_TARGET_SCULPT and apply_shape and source_body:
+
+        utils.log_info("Transfering sculpt base shape to source body...")
+
+        norm_body.hide_set(False)
+        source_body.hide_set(False)
         copy_base_shape(norm_body, source_body, layer_target, True)
+
+        # if there is a detail sculpt body, update that with the new base shape too
+        detail_body = chr_cache.get_detail_body()
+        if detail_body:
+            copy_base_shape(norm_body, detail_body, layer_target, True)
+
+    # restore render engine
+    bake.post_bake(bake_state)
+
+    # restore object render visibilty state
+    utils.restore_render_visibility_state(rv_state)
 
     utils.delete_mesh_object(norm_body)
 
@@ -188,6 +227,7 @@ def save_skin_gen_bake(chr_cache, body, layer_target):
 
             normal_image_name = f"{character_name}_{mat.name}_{layer_target}_{BAKE_NORMAL_SUFFIX}"
             displacement_image_name = f"{character_name}_{mat.name}_{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}"
+            ao_image_name = f"{character_name}_{mat.name}_{layer_target}_{BAKE_AO_SUFFIX}"
 
             if normal_image_name in bpy.data.images:
                 normal_image = bpy.data.images[normal_image_name]
@@ -195,8 +235,12 @@ def save_skin_gen_bake(chr_cache, body, layer_target):
             if displacement_image_name in bpy.data.images:
                 displacement_image = bpy.data.images[displacement_image_name]
 
+            if ao_image_name in bpy.data.images:
+                ao_image = bpy.data.images[ao_image_name]
+
             images = [
                 [normal_image, normal_image_name, 'PNG', '8'],
+                [ao_image, ao_image_name, 'PNG', '8'],
                 [displacement_image, displacement_image_name, 'PNG', '16'],
             ]
 
@@ -220,8 +264,11 @@ def select_bake_images(body, bake_type, layer_target):
 
             if bake_type == BAKE_TYPE_NORMALS:
                 bake_node_name = f"{layer_target}_{BAKE_NORMAL_SUFFIX}"
+            elif bake_type == BAKE_TYPE_AO:
+                bake_node_name = f"{layer_target}_{BAKE_AO_SUFFIX}"
             else:
                 bake_node_name = f"{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}"
+
             bake_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", bake_node_name)
 
             if bake_node:
@@ -251,7 +298,7 @@ def has_body_multires_mod(body):
     return False
 
 
-def bake_skingen(chr_cache, layer_target, export_path):
+def export_skingen(chr_cache, layer_target, export_path):
 
     export_dir, export_file = os.path.split(export_path)
     export_name, export_ext = os.path.splitext(export_file)
@@ -278,7 +325,10 @@ def bake_skingen(chr_cache, layer_target, export_path):
             mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
 
             if mix_node:
-                bake.bake_node_socket_output(mix_node, "Layer", mat, channel_id + " Normal", export_dir,
+                bake.bake_node_socket_output(mix_node, "Normal Layer", mat, channel_id + " Normal", export_dir,
+                                             name_prefix = export_name, exact_name=True, underscores=False)
+
+                bake.bake_node_socket_output(mix_node, "AO Layer", mat, channel_id + " AO", export_dir,
                                              name_prefix = export_name, exact_name=True, underscores=False)
 
                 bake.bake_node_socket_output(mix_node, "Mask", mat, channel_id + " Mask", export_dir,
@@ -321,13 +371,18 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
         sculpt_mix_node_name = f"{LAYER_TARGET_SCULPT}_{LAYER_MIX_SUFFIX}"
         detail_mix_node_name = f"{LAYER_TARGET_DETAIL}_{LAYER_MIX_SUFFIX}"
         normal_image_name = f"{character_name}_{mat.name}_{layer_target}_{BAKE_NORMAL_SUFFIX}"
+        ao_image_name = f"{character_name}_{mat.name}_{layer_target}_{BAKE_AO_SUFFIX}"
         displacement_image_name = f"{character_name}_{mat.name}_{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}"
         normal_bake_node_name = f"{layer_target}_{BAKE_NORMAL_SUFFIX}"
+        ao_bake_node_name = f"{layer_target}_{BAKE_AO_SUFFIX}"
         displacement_bake_node_name = f"{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}"
-        layer_node_name = f"{layer_target}_{LAYER_NORMAL_SUFFIX}"
-        mask_node_name = f"{layer_target}_{LAYER_DISPLACEMENT_SUFFIX}"
+        normal_layer_node_name = f"{layer_target}_{LAYER_NORMAL_SUFFIX}"
+        ao_layer_node_name = f"{layer_target}_{LAYER_AO_SUFFIX}"
+        displacement_layer_node_name = f"{layer_target}_{LAYER_DISPLACEMENT_SUFFIX}"
         normal_image_file = normal_image_name + ".png"
         normal_image_path = os.path.normpath(os.path.join(bake_dir, normal_image_file))
+        ao_image_file = ao_image_name + ".png"
+        ao_image_path = os.path.normpath(os.path.join(bake_dir, ao_image_file))
         displacement_image_file = displacement_image_name + ".png"
         displacement_image_path = os.path.normpath(os.path.join(bake_dir, displacement_image_file))
 
@@ -337,39 +392,52 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
 
         if layer_target == LAYER_TARGET_DETAIL:
             normal_image = imageutils.get_custom_image(normal_image_name, int(prefs.detail_normal_bake_size), alpha = False, data = True, path = normal_image_path)
+            ao_image = imageutils.get_custom_image(ao_image_name, int(0.5 * int(prefs.detail_normal_bake_size)), alpha = False, data = True, path = ao_image_path)
             displacement_image = imageutils.get_custom_image(displacement_image_name, int(prefs.detail_normal_bake_size), alpha = False, data = True, float = True, path = displacement_image_path)
         else:
             normal_image = imageutils.get_custom_image(normal_image_name, int(prefs.body_normal_bake_size), alpha = False, data = True, path = normal_image_path)
+            ao_image = imageutils.get_custom_image(ao_image_name, int(0.5 * int(prefs.body_normal_bake_size)), alpha = False, data = True, path = ao_image_path)
             displacement_image = imageutils.get_custom_image(displacement_image_name, int(prefs.body_normal_bake_size), alpha = False, data = True, float = True, path = displacement_image_path)
 
         normal_tex_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "(NORMAL)")
+        ao_tex_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", "(AO)")
         ref_location = mathutils.Vector((-1600, -1100))
-        normal_bake_node = nodeutils.get_custom_image_node(nodes, normal_bake_node_name, normal_image, location = (1000 + delta, -1000))
-        displacement_bake_node = nodeutils.get_custom_image_node(nodes, displacement_bake_node_name, displacement_image,
-                                                                 location = (1000 + delta, -1300))
-        layer_node = nodeutils.get_custom_image_node(nodes, layer_node_name, normal_image,
+        normal_bake_node = nodeutils.create_custom_image_node(nodes, normal_bake_node_name, normal_image, location = (1000 + delta, -1000))
+        ao_bake_node = nodeutils.create_custom_image_node(nodes, ao_bake_node_name, ao_image, location = (1000 + delta, -1300))
+        displacement_bake_node = nodeutils.create_custom_image_node(nodes, displacement_bake_node_name, displacement_image,
+                                                                 location = (1000 + delta, -1600))
+        normal_layer_node = nodeutils.create_custom_image_node(nodes, normal_layer_node_name, normal_image,
                                                      location = ref_location + mathutils.Vector((delta, -1200)))
-        mask_node = nodeutils.get_custom_image_node(nodes, mask_node_name, displacement_image,
+        ao_layer_node = nodeutils.create_custom_image_node(nodes, ao_layer_node_name, ao_image,
                                                      location = ref_location + mathutils.Vector((delta, -1500)))
+        displacement_layer_node = nodeutils.create_custom_image_node(nodes, displacement_layer_node_name, displacement_image,
+                                                     location = ref_location + mathutils.Vector((delta, -1800)))
 
         # find or create the layer mix group
         mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
         if not mix_node:
-            mix_group = nodeutils.get_node_group("rl_tex_mod_normal_blend")
+            mix_group = nodeutils.get_node_group("rl_tex_mod_normal_ao_blend")
             mix_node = nodeutils.make_node_group_node(nodes, mix_group, "Normal Blend", mix_node_name)
             if layer_target == LAYER_TARGET_DETAIL:
                 chr_cache.detail_normal_strength = 1.0
+                chr_cache.detail_ao_strength = 0.5
                 chr_cache.detail_normal_definition = 15.0
+                chr_cache.detail_mix_mode = "OVERLAY"
             elif layer_target == LAYER_TARGET_SCULPT:
                 chr_cache.body_normal_strength = 1.0
+                chr_cache.body_ao_strength = 0.5
                 chr_cache.body_normal_definition = 15.0
+                chr_cache.body_mix_mode = "OVERLAY"
         if layer_target == LAYER_TARGET_DETAIL:
-            mix_node.inputs["Strength"].default_value = chr_cache.detail_normal_strength
+            mix_node.inputs["Normal Strength"].default_value = chr_cache.detail_normal_strength
+            mix_node.inputs["AO Strength"].default_value = chr_cache.detail_ao_strength
             mix_node.inputs["Definition"].default_value = chr_cache.detail_normal_definition
+            mix_node.inputs["Mix Mode"].default_value = 0.0
         elif layer_target == LAYER_TARGET_SCULPT:
-            mix_node.inputs["Strength"].default_value = chr_cache.body_normal_strength
+            mix_node.inputs["Normal Strength"].default_value = chr_cache.body_normal_strength
+            mix_node.inputs["AO Strength"].default_value = chr_cache.body_ao_strength
             mix_node.inputs["Definition"].default_value = chr_cache.body_normal_definition
-
+            mix_node.inputs["Mix Mode"].default_value = 0.0
 
         mix_node.location = ref_location + mathutils.Vector((300 + delta, -1200))
 
@@ -377,21 +445,26 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
         sculpt_mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", sculpt_mix_node_name)
         if layer_target == LAYER_TARGET_DETAIL and sculpt_mix_node:
             nodeutils.link_nodes(links, sculpt_mix_node, "Color", mix_node, "Color1")
+            nodeutils.link_nodes(links, sculpt_mix_node, "AO", mix_node, "AO1")
         else:
             nodeutils.link_nodes(links, normal_tex_node, "Color", mix_node, "Color1")
+            nodeutils.link_nodes(links, ao_tex_node, "Color", mix_node, "AO1")
 
-        nodeutils.link_nodes(links, layer_node, "Color", mix_node, "Color2")
-        nodeutils.link_nodes(links, mask_node, "Color", mix_node, "Displacement Mask")
+        nodeutils.link_nodes(links, normal_layer_node, "Color", mix_node, "Color2")
+        nodeutils.link_nodes(links, ao_layer_node, "Color", mix_node, "AO2")
+        nodeutils.link_nodes(links, displacement_layer_node, "Color", mix_node, "Displacement Mask")
 
         # if connecting the sculpt layer and there is also a detail layer, connect the normal output from the sculpt layer to detail layer input
         detail_mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", detail_mix_node_name)
         if layer_target == LAYER_TARGET_SCULPT and detail_mix_node:
             nodeutils.link_nodes(links, mix_node, "Color", detail_mix_node, "Color1")
+            nodeutils.link_nodes(links, mix_node, "AO", detail_mix_node, "AO1")
         else:
             nodeutils.link_nodes(links, mix_node, "Color", shader_node, "Normal Map")
+            nodeutils.link_nodes(links, mix_node, "AO", shader_node, "AO Map")
 
         # disconnect the normals to the bsdf node (so they don't get included in the bake)
-        nodeutils.unlink_node_output(links, bsdf_node, "Normal")
+        nodeutils.unlink_node_input(links, bsdf_node, "Normal")
 
 
 def finish_bake(chr_cache, detail_body, layer_target):
@@ -799,10 +872,10 @@ class CC3OperatorSculptExport(bpy.types.Operator):
         body = chr_cache.get_body()
 
         if self.param == "DETAIL_SKINGEN":
-            bake_skingen(chr_cache, LAYER_TARGET_DETAIL, self.filepath)
+            export_skingen(chr_cache, LAYER_TARGET_DETAIL, self.filepath)
 
         elif self.param == "BODY_SKINGEN":
-            bake_skingen(chr_cache, LAYER_TARGET_SCULPT, self.filepath)
+            export_skingen(chr_cache, LAYER_TARGET_SCULPT, self.filepath)
 
         return {"FINISHED"}
 
