@@ -514,17 +514,16 @@ def copy_and_update_texture_path(tex_info, path_key, old_path, new_path, old_nam
     if path_key in tex_info.keys():
 
         tex_path : str = tex_info[path_key]
-        if not os.path.isabs(tex_path):
-            tex_path = os.path.normpath(os.path.join(old_path, tex_path))
-
         if tex_path:
+
+            if not os.path.isabs(tex_path):
+                tex_path = os.path.normpath(os.path.join(old_path, tex_path))
 
             old_abs_path = os.path.normpath(tex_path)
 
             # old_path will only be set from a successful import from CC/iC
             # so it should have expected the CC/iC folder structure
             if old_path:
-
                 rel_tex_path = utils.relpath(os.path.normpath(tex_path), old_path)
 
                 # only remap the tex_path if it is inside the expected texture folders

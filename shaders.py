@@ -736,11 +736,6 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
         shader_group = "rl_skin_shader"
     mix_shader_group = ""
 
-    # force only skin shader (not head) if limiting textures <= 8
-    if prefs.build_limit_textures:
-        shader_name = "rl_skin_shader"
-        shader_group = "rl_skin_shader"
-
     bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
 
     nodeutils.reset_cursor()
@@ -823,6 +818,10 @@ def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
+
+    # there is no need to set up the eye_L/R materials for parallax eyes
+    if mat_cache.is_eye() and prefs.refractive_eyes == "PARALLAX":
+        return
 
     # to build eye materials we need some textures from the cornea:
     cornea_mat = mat
