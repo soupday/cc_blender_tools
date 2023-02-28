@@ -1040,13 +1040,30 @@ def pack_r_g_b_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
             NODE_CURSOR += Vector((0,-300))
 
 
-def pack_skin_shader(chr_cache, mat_cache, shader_node):
+def unlink_texture_nodes(mat, *tex_ids):
+    global NODE_CURSOR
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    for tex_id in tex_ids:
+        tex_node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", f"({tex_id})")
+        if tex_node:
+            nodeutils.unlink_node_output(links, tex_node, "Color")
+            nodeutils.unlink_node_output(links, tex_node, "Alpha")
+            tex_node.location = NODE_CURSOR
+            NODE_CURSOR += Vector((0,-300))
+
+
+def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     mat = mat_cache.material
     wrinkle_node = nodeutils.get_wrinkle_shader_node(mat)
     bake_dir = mat_cache.get_tex_dir(chr_cache)
     reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
+
+    if prefs.build_limit_textures:
+        unlink_texture_nodes(mat, "BLEND2", "NORMALBLEND", "CFULCMASK", "ENNASK")
 
     if wrinkle_node:
 
@@ -1177,6 +1194,8 @@ def pack_hair_shader(chr_cache, mat_cache, shader_node):
 
 def pack_shader_channels(chr_cache, mat_cache):
     global NODE_CURSOR
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
     init_bake(5001)
 
     nodeutils.clear_cursor()
@@ -1194,7 +1213,13 @@ def pack_shader_channels(chr_cache, mat_cache):
 
     if shader_node:
 
-        if shader == "rl_head_shader" or shader == "rl_skin_shader":
+        if shader == "rl_head_shader":
+            if prefs.build_limit_textures:
+                pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = True)
+            else:
+                pack_skin_shader(chr_cache, mat_cache, shader_node)
+
+        elif shader == "rl_skin_shader":
             pack_skin_shader(chr_cache, mat_cache, shader_node)
 
         elif shader == "rl_hair_shader":

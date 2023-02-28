@@ -35,12 +35,16 @@ Links
 
 ## Changelog
 
+### 1.5.5
+- Better texture limiting for the head material.
+- Fix to export crash when a texture field is missing in the JSON data.
+
 ### 1.5.4
 - Wrinkle Map system implemented.
     - Characters with wrinkle maps will setup wrinkle shaders in the head material automatically.
     - Preferences for Build Wrinkle Maps.
 - OpenColorIO ACES color space support.
-    - ACES color space overrides.
+    - Preferences for ACES color space overrides.
 - Optional Texture Packing and Texture limits added to reduce number of textures in imported materals.
     - Some systems can have very low texture limits (i.e. only 8 on some OSX systems) this can help import full CC4 characters.
     - Preferences for pack and/or limit textures.
@@ -48,7 +52,7 @@ Links
     - All sculpting modes work on a copy of the character.
     - Multi-res applied base shape copied back to original character in a way that preserves existing shape keys.
     - AO Map added to baking, layers and export.
-    - Additional strength, definiation and mix mode controls added to layer ui.
+    - Additional strength, definition and mix mode controls added to layer ui.
 - Spring Bone Hair Rigging (Cloth Rigging to follow)
     - Added initial Hair curve extraction from hair cards.
     - Spring bone hair generation from selected hair cards or greased pencil lines on surface.
@@ -65,7 +69,6 @@ Links
 ### 1.5.3
 - Fix to retarget baking in Blender 3.4 not baking pose bones to rigify armature action.
 - Fix to Rigify motion export bone root name.
-
 
 ### 1.5.2
 - Rigify IK-FK influence controls replicated in Rigging panel.

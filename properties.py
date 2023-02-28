@@ -1058,10 +1058,6 @@ class CC3MaterialCache:
             #utils.copy_property_group(self.parameters, mat_cache.parameters)
 
     def get_material_type(self):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        if prefs.build_limit_textures:
-            if self.material_type == "SKIN_HEAD":
-                return "SKIN_BODY"
         return self.material_type
 
 
