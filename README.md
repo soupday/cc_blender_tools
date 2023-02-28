@@ -36,6 +36,7 @@ Links
 ## Changelog
 
 ### 1.5.5
+- Flow maps added to wrinkle map system.
 - Better texture limiting for the head material.
 - Fix to export crash when a texture field is missing in the JSON data.
 - Corrupted JSON data detection and error report on import/build.

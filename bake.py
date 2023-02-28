@@ -1098,6 +1098,12 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
                         0.5, 0.5, 0.5, 0.5,
                         reuse_existing = reuse)
 
+    pack_r_g_b_a(mat, bake_dir, vars.PACK_WRINKLEFLOW_NAME, wrinkle_node, vars.PACK_WRINKLEFLOW_ID,
+                        "WRINKLEFLOW1", "WRINKLEFLOW2", "WRINKLEFLOW3", "",
+                        "Flow Map 1", "Flow Map 2", "Flow Map 3", "",
+                        1.0, 1.0, 1.0, 1.0,
+                        reuse_existing = reuse)
+
     # pack SSS and Transmission
     pack_rgb_a(mat, bake_dir, vars.PACK_SSTM_NAME, shader_node, vars.PACK_SSTM_ID,
                "SSS", "TRANSMISSION",
