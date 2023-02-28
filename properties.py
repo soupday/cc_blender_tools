@@ -1684,9 +1684,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 mat_cache.copy_material_cache(copy_from)
         return mat_cache
 
+
     def get_json_data(self):
-        json_data = jsonutils.read_json(self.import_file)
-        return json_data
+        return jsonutils.read_json(self.import_file)
+
 
     def change_import_file(self, filepath):
         dir, file = os.path.split(filepath)

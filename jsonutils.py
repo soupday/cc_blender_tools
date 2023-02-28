@@ -21,7 +21,8 @@ import bpy
 from . import utils
 
 
-def read_json(fbx_path):
+def read_json(fbx_path, errors = []):
+    json_file_exists = False
     try:
         fbx_file = os.path.basename(fbx_path)
         fbx_folder = os.path.dirname(fbx_path)
@@ -32,6 +33,7 @@ def read_json(fbx_path):
             json_path = utils.local_path(fbx_name + ".json")
 
         if json_path and os.path.exists(json_path):
+            json_file_exists = True
 
             # determine start of json text data
             file_bytes = open(json_path, "rb")
@@ -52,9 +54,14 @@ def read_json(fbx_path):
             return json_data
 
         utils.log_info("No Json data to parse, using defaults...")
+        errors.append("NO_JSON")
         return None
     except:
         utils.log_warn("Failed to read Json data: " + json_path)
+        if json_file_exists:
+            errors.append("CORRUPT")
+        else:
+            errors.append("PATH_FAILED")
         return None
 
 

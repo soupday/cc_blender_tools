@@ -430,7 +430,7 @@ def remap_action_names(actions, objects, name):
     return armature_actions, shapekey_actions
 
 
-def detect_character(file_path, objects, actions, json_data, warn):
+def detect_character(file_path, objects, actions, json_data, report):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -444,6 +444,7 @@ def detect_character(file_path, objects, actions, json_data, warn):
     import_dir = dir
 
     if not objects:
+        report.append("No objects in import!")
         utils.log_error("No objects in import!")
         return None
 
@@ -505,9 +506,9 @@ def detect_character(file_path, objects, actions, json_data, warn):
                 break
 
         if arm_count > 1:
-            warn.append("Multiple characters detected in Fbx.")
-            warn.append("Character exports from iClone to Blender do not fully support multiple characters.")
-            warn.append("Characters should be exported individually for best results.")
+            report.append("Multiple characters detected in Fbx.")
+            report.append("Character exports from iClone to Blender do not fully support multiple characters.")
+            report.append("Characters should be exported individually for best results.")
 
         # delete accessory colliders, currently they are useless as
         # accessories don't export with any physics data or weightmaps.
@@ -621,9 +622,35 @@ class CC3Import(bpy.types.Operator):
     imported_materials = []
     imported_images = []
     is_rl_character = False
+    import_report = []
+    import_warn_level = 0
 
 
-    def import_character(self, warn):
+    def read_json_data(self, file_path, stage = 0):
+        errors = []
+        json_data = jsonutils.read_json(file_path, errors)
+
+        msg = None
+        if "NO_JSON" in errors:
+            msg = "Character has no Json data, using default values."
+        elif "CORRUPT" in errors:
+            if stage == 0:
+                msg = "Corrupted Json data! \nThis character will not set up correctly!"
+            else:
+                msg = "Corrupted Json data! \nThis character will not have been set up correctly!"
+        elif "PATH_FAILED" in errors:
+            if stage == 0:
+                msg = "Unable to locate Json file path! \nThis character will not set up correctly!"
+            else:
+                msg = "Unable to locate Json file path! \nThis character will not have been set up correctly!"
+
+        if msg and msg not in self.import_report:
+            self.import_report.append(msg)
+
+        return json_data
+
+
+    def import_character(self):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -642,7 +669,7 @@ class CC3Import(bpy.types.Operator):
         imported = None
         actions = None
 
-        json_data = jsonutils.read_json(self.filepath)
+        json_data = self.read_json_data(self.filepath, stage = 0)
 
         if utils.is_file_ext(ext, "FBX"):
 
@@ -669,7 +696,7 @@ class CC3Import(bpy.types.Operator):
 
             # detect characters and objects
             if self.is_rl_character:
-                self.imported_character = detect_character(self.filepath, imported, actions, json_data, warn)
+                self.imported_character = detect_character(self.filepath, imported, actions, json_data, self.import_report)
             elif prefs.import_auto_convert:
                 self.imported_characterer = characters.convert_generic_to_non_standard(imported, self.filepath)
 
@@ -694,7 +721,7 @@ class CC3Import(bpy.types.Operator):
 
             # detect characters and objects
             if self.is_rl_character:
-                self.imported_character = detect_character(self.filepath, imported, actions, json_data, warn)
+                self.imported_character = detect_character(self.filepath, imported, actions, json_data, self.import_report)
             elif prefs.import_auto_convert:
                 self.imported_characterer = characters.convert_generic_to_non_standard(imported, self.filepath)
 
@@ -764,12 +791,12 @@ class CC3Import(bpy.types.Operator):
         chr_cache: properties.CC3CharacterCache = None
         if self.imported_character:
             chr_cache = self.imported_character
-            json_data = jsonutils.read_json(self.filepath)
+            json_data = self.read_json_data(self.filepath, stage = 1)
         else:
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
                 self.imported_character = chr_cache
-                json_data = jsonutils.read_json(chr_cache.import_file)
+                json_data = self.read_json_data(chr_cache.import_file, stage = 1)
                 # when rebuilding, use the currently selected render target
                 chr_cache.render_target = prefs.render_target
 
@@ -864,22 +891,26 @@ class CC3Import(bpy.types.Operator):
                 self.is_rl_character = True
 
 
+    def do_import_report(self, context, stage = 0):
+        if stage == 0: # FBX import and JSON report
+            if self.import_report:
+                utils.report_multi(self, "ERROR", self.import_report)
+        elif stage == 1:
+            if self.import_report:
+                utils.report_multi(self, "ERROR", self.import_report)
+            else:
+                self.report({'INFO'}, "All Done!")
+        self.import_report = []
+
+
     def run_import(self, context):
-
-        warn = []
-        self.import_character(warn)
-
-        if len(warn) > 0:
-            utils.message_box_multi("Import Warning!", "ERROR", warn)
-
+        self.import_character()
         self.imported = True
 
 
     def run_build(self, context):
-
         if self.is_rl_character and self.imported_character:
             self.build_materials(context)
-
         self.built = True
 
 
@@ -957,7 +988,7 @@ class CC3Import(bpy.types.Operator):
                 self.report({'INFO'}, "Import operator timed out!")
                 return {'CANCELLED'}
 
-        if event.type == 'TIMER' and not self.running:
+        if event.type == 'TIMER' and self.clock > 10 and not self.running:
             if not self.imported:
                 self.running = True
                 self.run_import(context)
@@ -965,8 +996,10 @@ class CC3Import(bpy.types.Operator):
                 #    self.cancel(context)
                 #    self.report({'INFO'}, "None Standard Character Done!")
                 #    return {'FINISHED'}
+                self.do_import_report(context, stage = 0)
                 self.clock = 0
                 self.running = False
+
             elif not self.built:
                 self.running = True
                 self.run_build(context)
@@ -980,7 +1013,7 @@ class CC3Import(bpy.types.Operator):
 
             if self.imported and self.built and self.lighting:
                 self.cancel(context)
-                self.report({'INFO'}, "All Done!")
+                self.do_import_report(context, stage = 1)
                 return {'FINISHED'}
 
         return {'PASS_THROUGH'}
@@ -998,6 +1031,7 @@ class CC3Import(bpy.types.Operator):
         self.imported_character = None
         self.imported_materials = []
         self.imported_images = []
+        self.import_report = []
 
         # import character
         if "IMPORT" in self.param:
@@ -1010,13 +1044,14 @@ class CC3Import(bpy.types.Operator):
                     self.clock = 0
                     self.report({'INFO'}, "Importing Character, please wait for import to finish and materials to build...")
                     bpy.context.window_manager.modal_handler_add(self)
-                    self.timer = context.window_manager.event_timer_add(1.0, window = bpy.context.window)
+                    self.timer = context.window_manager.event_timer_add(0.1, window = bpy.context.window)
                     return {'PASS_THROUGH'}
                 elif not self.invoked:
                     self.run_import(context)
                     if self.is_rl_character:
                         self.run_build(context)
                         self.run_finish(context)
+                    self.do_import_report(context, stage = 1)
                     return {'FINISHED'}
             else:
                 utils.log_error("No valid filepath to import!")
@@ -1024,6 +1059,7 @@ class CC3Import(bpy.types.Operator):
         # build materials
         elif self.param == "BUILD":
             self.build_materials(context)
+            self.do_import_report(context, stage = 1)
 
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":

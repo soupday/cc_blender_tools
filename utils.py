@@ -100,6 +100,15 @@ def message_box(message = "", title = "Info", icon = 'INFO'):
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
 
 
+def report_multi(op, icon = 'INFO', messages = None):
+    if messages:
+        text = ""
+        for msg in messages:
+            text += msg + " \n"
+        if text:
+            op.report({icon}, text)
+
+
 def message_box_multi(title = "Info", icon = 'INFO', messages = None):
     def draw(self, context):
         if messages:

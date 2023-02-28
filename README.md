@@ -38,6 +38,8 @@ Links
 ### 1.5.5
 - Better texture limiting for the head material.
 - Fix to export crash when a texture field is missing in the JSON data.
+- Corrupted JSON data detection and error report on import/build.
+    - In some cases resetting the collision shapes in CC4 will fix corrupted JSON data.
 
 ### 1.5.4
 - Wrinkle Map system implemented.
