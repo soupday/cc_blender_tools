@@ -657,6 +657,7 @@ def get_wrinkle_params(mat_json):
     return wrinkle_params, overall_weight
 
 WRINKLE_STRENGTH_PROP = "wrinkle_strength"
+WRINKLE_CURVE_PROP = "wrinkle_curve"
 
 def add_wrinkle_mappings(node, body_obj, mat_json):
 
@@ -667,7 +668,8 @@ def add_wrinkle_mappings(node, body_obj, mat_json):
 
     wrinkle_params, overall_weight = get_wrinkle_params(mat_json)
 
-    drivers.add_custom_float_property(body_obj, WRINKLE_STRENGTH_PROP, overall_weight, value_min=0.0, value_max=1.0)
+    drivers.add_custom_float_property(body_obj, WRINKLE_STRENGTH_PROP, overall_weight, value_min=0.0, value_max=2.0)
+    drivers.add_custom_float_property(body_obj, WRINKLE_CURVE_PROP, 1.0, value_min=0.25, value_max=2.0)
 
     for wrinkle_name in params.WRINKLE_RULES.keys():
         wrinkle_rule = params.WRINKLE_RULES[wrinkle_name]
@@ -734,14 +736,17 @@ def add_shapekeys_wrinkle_node_driver(node, wrinkle_value_socket_name, obj, shap
     # add a driver for the node socket input value: node.inputs[socket_name].default_value
     socket = node.inputs[wrinkle_value_socket_name]
     if CALC_MODE == "MAX":
-        expr = f"min(1, var_strength * max({var_code}))"
+        expr = f"min(1, var_strength * pow(max({var_code}), var_curve))"
     else: # mode == "AVERAGE":
-        expr = f"min(1, var_strength * (({var_code}) / {num_vars}))"
+        expr = f"min(1, var_strength * pow(({var_code}) / {num_vars}, var_curve))"
 
     driver = drivers.make_driver(socket, "default_value", "SCRIPTED", expr)
 
     drivers.make_driver_var(driver, "SINGLE_PROP", "var_strength", obj,
                             data_path = f"[\"{WRINKLE_STRENGTH_PROP}\"]")
+
+    drivers.make_driver_var(driver, "SINGLE_PROP", "var_curve", obj,
+                            data_path = f"[\"{WRINKLE_CURVE_PROP}\"]")
 
     # add shape key variables
     for i, shape_key_name in enumerate(shape_key_list):

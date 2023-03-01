@@ -874,14 +874,18 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
                         elif ui_row[0] == "WRINKLE_CONTROLS":
                             body_object = chr_cache.get_body()
-                            if body_object and "wrinkle_strength" in body_object:
+                            if body_object and ("wrinkle_strength" in body_object or "wrinkle_curve" in body_object):
                                 column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
                                 row = column.row()
                                 split = row.split(factor=0.5)
                                 col_1 = row.column()
                                 col_2 = row.column()
-                                col_1.label(text="Strength")
-                                col_2.prop(body_object, "[\"wrinkle_strength\"]", text="", slider=True)
+                                if "wrinkle_strength" in body_object:
+                                    col_1.label(text="Strength")
+                                    col_2.prop(body_object, "[\"wrinkle_strength\"]", text="", slider=True)
+                                if "wrinkle_curve" in body_object:
+                                    col_1.label(text="Curve")
+                                    col_2.prop(body_object, "[\"wrinkle_curve\"]", text="", slider=True)
 
                         elif ui_row[0] == "PROP":
 
