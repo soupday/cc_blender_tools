@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 1.5.6
+- Relative wrinkle strengths for individual wrinkle maps implemented.
+- Overall wrinkle strength slider added the head material parameters.
+
 ### 1.5.5
 - Flow maps added to wrinkle map system.
 - Better texture limiting for the head material.

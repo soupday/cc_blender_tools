@@ -16,6 +16,7 @@
 
 import bpy
 from . import utils, vars
+from rna_prop_ui import rna_idprop_ui_create
 
 
 def make_driver_var(driver, var_type, var_name, target, target_type = "OBJECT", data_path = "", bone_target = "", transform_type = "", transform_space = ""):
@@ -59,3 +60,7 @@ def make_driver(source, prop_name, driver_type, driver_expression = ""):
             driver.type = driver_type
             driver.expression = driver_expression
     return driver
+
+
+def add_custom_float_property(object, prop_name, prop_value, value_min = 0, value_max = 1, overridable = True):
+    rna_idprop_ui_create(object, prop_name, default=prop_value, overridable=overridable, min=value_min, max=value_max)

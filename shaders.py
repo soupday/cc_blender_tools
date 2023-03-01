@@ -982,7 +982,7 @@ def fix_sss_method(bsdf):
 
 def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = {}):
     wrinkle_shader_name = "rl_wrinkle_shader"
-    wrinkle_shader_node = nodeutils.add_wrinkle_shader(nodes, links, obj, mat, main_shader_name, wrinkle_shader_name = wrinkle_shader_name)
+    wrinkle_shader_node = nodeutils.add_wrinkle_shader(nodes, links, obj, mat, mat_json, main_shader_name, wrinkle_shader_name = wrinkle_shader_name)
     textures = apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle_shader_name, mat_json, obj,
                                     processed_images, sub_shader = True, textures = textures)
 

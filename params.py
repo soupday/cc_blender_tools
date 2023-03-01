@@ -606,6 +606,7 @@ SHADER_MATRIX = [
         "ui": [
             # ["HEADER", label, icon]
             # ["PROP", labe, prop_name, (slider=)True|False]
+            ["WRINKLE_CONTROLS",  "Wrinkle Maps", "MOD_INSTANCE"],
             ["HEADER",  "Base Color", "COLOR"],
             ["PROP", "Color", "skin_diffuse_color", True],
             ["PROP", "*Hue", "skin_diffuse_hue", True, "Diffuse Map"],

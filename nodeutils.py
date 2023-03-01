@@ -591,7 +591,7 @@ def clean_unused_image_nodes(nodes):
         nodes.remove(node)
 
 
-def get_wrinkle_shader(obj, mat, shader_name = "rl_wrinkle_shader", create = True):
+def get_wrinkle_shader(obj, mat, mat_json, shader_name = "rl_wrinkle_shader", create = True):
     shader_id = "(" + str(shader_name) + ")"
     wrinkle_node = None
 
@@ -616,13 +616,13 @@ def get_wrinkle_shader(obj, mat, shader_name = "rl_wrinkle_shader", create = Tru
         wrinkle_node = make_node_group_node(nodes, group, "Wrinkle Map System", utils.unique_name(shader_id))
         wrinkle_node.width = 240
         utils.log_info("Creating new wrinkle system shader group: " + wrinkle_node.name)
-        add_wrinkle_mappings(wrinkle_node, obj)
+        add_wrinkle_mappings(wrinkle_node, obj, mat_json)
 
     return wrinkle_node
 
 
-def add_wrinkle_shader(nodes, links, obj, mat, main_shader_name, wrinkle_shader_name = "rl_wrinkle_shader"):
-    wrinkle_shader_node = get_wrinkle_shader(obj, mat, shader_name = wrinkle_shader_name)
+def add_wrinkle_shader(nodes, links, obj, mat, mat_json, main_shader_name, wrinkle_shader_name = "rl_wrinkle_shader"):
+    wrinkle_shader_node = get_wrinkle_shader(obj, mat, mat_json, shader_name = wrinkle_shader_name)
     bsdf_node, main_shader_node, mix_node = get_shader_nodes(mat, main_shader_name)
     wrinkle_shader_node.location = (-2400, 0)
     link_nodes(links, wrinkle_shader_node, "Diffuse Map", main_shader_node, "Diffuse Map")
@@ -631,22 +631,55 @@ def add_wrinkle_shader(nodes, links, obj, mat, main_shader_name, wrinkle_shader_
     return wrinkle_shader_node
 
 
-def add_wrinkle_mappings(node, obj):
+def get_wrinkle_params(mat_json):
 
-    if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
+    wrinkle_params = {}
+    overall_weight = 1.0
+
+    if "Wrinkle" in mat_json.keys():
+
+        wrinkle_json = mat_json["Wrinkle"]
+
+        if ("WrinkleRules" in wrinkle_json.keys() and
+            "WrinkleEaseStrength" in wrinkle_json.keys() and
+            "WrinkleRuleWeights" in wrinkle_json.keys()):
+
+            rule_names = wrinkle_json["WrinkleRules"]
+            ease_strengths = wrinkle_json["WrinkleEaseStrength"]
+            weights = wrinkle_json["WrinkleRuleWeights"]
+
+            for i in range(0, len(rule_names)):
+                wrinkle_params[rule_names[i]] = { "ease_strength": ease_strengths[i], "weight": weights[i] }
+
+            if "WrinkleOverallWeight" in wrinkle_json.keys():
+                overall_weight = wrinkle_json["WrinkleOverallWeight"]
+
+    return wrinkle_params, overall_weight
+
+WRINKLE_STRENGTH_PROP = "wrinkle_strength"
+
+def add_wrinkle_mappings(node, body_obj, mat_json):
+
+    if not body_obj.data.shape_keys or not body_obj.data.shape_keys.key_blocks:
         return
 
     key_defs = {}
+
+    wrinkle_params, overall_weight = get_wrinkle_params(mat_json)
+
+    drivers.add_custom_float_property(body_obj, WRINKLE_STRENGTH_PROP, overall_weight, value_min=0.0, value_max=1.0)
 
     for wrinkle_name in params.WRINKLE_RULES.keys():
         wrinkle_rule = params.WRINKLE_RULES[wrinkle_name]
         socket = wrinkle_rule[0]
         weight = wrinkle_rule[1]
+        if wrinkle_name in wrinkle_params.keys():
+            weight *= wrinkle_params[wrinkle_name]["weight"]
         key_def = { "name": wrinkle_name, "weight": weight, "keys": [] }
         key_defs[socket] = key_def
 
     for shape_key, morph_name, range_min, range_max in params.WRINKLE_MAPPINGS:
-        if shape_key in obj.data.shape_keys.key_blocks:
+        if shape_key in body_obj.data.shape_keys.key_blocks:
             if morph_name in params.WRINKLE_RULES.keys():
                 wrinkle_rule = params.WRINKLE_RULES[morph_name]
                 socket = wrinkle_rule[0]
@@ -663,7 +696,7 @@ def add_wrinkle_mappings(node, obj):
         keys = key_def["keys"]
         if keys:
             utils.log_info(f"Adding driver for wrinkle morph socket: {socket_name}")
-            add_shapekeys_wrinkle_node_driver(node, socket_name, obj, keys)
+            add_shapekeys_wrinkle_node_driver(node, socket_name, body_obj, keys)
         else:
             utils.log_info(f"No shape keys found for wrinkle rule socket: {socket_name}")
 
@@ -701,11 +734,14 @@ def add_shapekeys_wrinkle_node_driver(node, wrinkle_value_socket_name, obj, shap
     # add a driver for the node socket input value: node.inputs[socket_name].default_value
     socket = node.inputs[wrinkle_value_socket_name]
     if CALC_MODE == "MAX":
-        expr = f"max({var_code})"
+        expr = f"min(1, var_strength * max({var_code}))"
     else: # mode == "AVERAGE":
-        expr = f"({var_code}) / {num_vars}"
+        expr = f"min(1, var_strength * (({var_code}) / {num_vars}))"
 
     driver = drivers.make_driver(socket, "default_value", "SCRIPTED", expr)
+
+    drivers.make_driver_var(driver, "SINGLE_PROP", "var_strength", obj,
+                            data_path = f"[\"{WRINKLE_STRENGTH_PROP}\"]")
 
     # add shape key variables
     for i, shape_key_name in enumerate(shape_key_list):
