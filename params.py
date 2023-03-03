@@ -2021,87 +2021,166 @@ JSON_PHYSICS_MATERIAL = {
     "Stiffness Frequency": 10.0
 }
 
+# { socket_name: expr_macro,  }
+WRINKLE_DRIVERS = {
+    "Value 1AXL": r"{head_wm1_normal_head_wm1_blink_L}",
+    "Value 1AXL": r"{head_wm1_normal_head_wm1_blink_L}",
+    "Value 1AXR": r"{head_wm1_normal_head_wm1_blink_R}",
+
+    "Value 1AYL": r"{head_wm1_normal_head_wm1_browRaiseInner_L} - min({head_wm1_normal_head_wm1_browRaiseInner_L}, {head_wm2_normal_head_wm2_browsLateral_L})",
+    "Value 1AYR": r"{head_wm1_normal_head_wm1_browRaiseInner_R} - min({head_wm1_normal_head_wm1_browRaiseInner_R}, {head_wm2_normal_head_wm2_browsLateral_R})",
+
+    "Value 1AZL": r"{head_wm1_normal_head_wm1_purse_DL}",
+    "Value 1AZR": r"{head_wm1_normal_head_wm1_purse_DR}",
+
+    "Value 1AWL": r"{head_wm1_normal_head_wm1_purse_UL}",
+    "Value 1AWR": r"{head_wm1_normal_head_wm1_purse_UR}",
+
+    # Set 1B L/R
+    "Value 1BXL": r"{head_wm1_normal_head_wm1_browRaiseOuter_L}",
+    "Value 1BXR": r"{head_wm1_normal_head_wm1_browRaiseOuter_R}",
+
+    "Value 1BYL": r"{head_wm1_normal_head_wm1_chinRaise_L}",
+    "Value 1BYR": r"{head_wm1_normal_head_wm1_chinRaise_R}",
+
+    "Value 1BZL": r"{head_wm1_normal_head_wm1_jawOpen_L}",
+    "Value 1BZR": r"{head_wm1_normal_head_wm1_jawOpen_R}",
+
+    "Value 1BWL": r"{head_wm1_normal_head_wm1_squintInner_L}",
+    "Value 1BWR": r"{head_wm1_normal_head_wm1_squintInner_R}",
+
+    # Set 2 L/R
+    "Value 2XL": r"{head_wm2_normal_head_wm2_browsDown_L}",
+    "Value 2XR": r"{head_wm2_normal_head_wm2_browsDown_R}",
+
+    "Value 2YL": r"{head_wm2_normal_head_wm2_browsLateral_L} - min({head_wm1_normal_head_wm1_browRaiseInner_L}, {head_wm2_normal_head_wm2_browsLateral_L})",
+    "Value 2YR": r"{head_wm2_normal_head_wm2_browsLateral_R} - min({head_wm1_normal_head_wm1_browRaiseInner_R}, {head_wm2_normal_head_wm2_browsLateral_R})",
+
+    "Value 2ZL": r"{head_wm2_normal_head_wm2_mouthStretch_L}",
+    "Value 2ZR": r"{head_wm2_normal_head_wm2_mouthStretch_R}",
+
+    "Value 2WL": r"{head_wm2_normal_head_wm2_neckStretch_L}",
+    "Value 2WR": r"{head_wm2_normal_head_wm2_neckStretch_R}",
+
+    # Set 3 L/R
+    "Value 3XL": r"{head_wm3_normal_head_wm3_cheekRaiseInner_L}",
+    "Value 3XR": r"{head_wm3_normal_head_wm3_cheekRaiseInner_R}",
+
+    "Value 3YL": r"{head_wm3_normal_head_wm3_cheekRaiseOuter_L}",
+    "Value 3YR": r"{head_wm3_normal_head_wm3_cheekRaiseOuter_R}",
+
+    "Value 3ZL": r"{head_wm3_normal_head_wm3_cheekRaiseUpper_L}",
+    "Value 3ZR": r"{head_wm3_normal_head_wm3_cheekRaiseUpper_R}",
+
+    "Value 3WL": r"{head_wm3_normal_head_wm3_smile_L}",
+    "Value 3WR": r"{head_wm3_normal_head_wm3_smile_R}",
+
+    # Set 12C L/R
+    "Value 12CXL": r"{head_wm1_normal_head_wm13_lips_DL}",
+    "Value 12CXR": r"{head_wm1_normal_head_wm13_lips_DR}",
+
+    "Value 12CYL": r"{head_wm1_normal_head_wm13_lips_UL}",
+    "Value 12CYR": r"{head_wm1_normal_head_wm13_lips_UR}",
+
+    "Value 12CZL": r"{head_wm2_normal_head_wm2_noseWrinkler_L}",
+    "Value 12CZR": r"{head_wm2_normal_head_wm2_noseWrinkler_R}",
+
+    "Value 12CWL": r"{head_wm2_normal_head_wm2_noseCrease_L}",
+    "Value 12CWR": r"{head_wm2_normal_head_wm2_noseCrease_R}",
+
+    # Set 3D
+    "Value 3DXL": r"{head_wm3_normal_head_wm13_lips_DL}",
+    "Value 3DYL": r"{head_wm3_normal_head_wm13_lips_DR}",
+
+    "Value 3DZR": r"{head_wm3_normal_head_wm13_lips_UL}",
+    "Value 3DWR": r"{head_wm3_normal_head_wm13_lips_UR}",
+
+    "Value BCCL": r"min({head_wm1_normal_head_wm1_browRaiseInner_L}, {head_wm2_normal_head_wm2_browsLateral_L})",
+    "Value BCCR": r"min({head_wm1_normal_head_wm1_browRaiseInner_R}, {head_wm2_normal_head_wm2_browsLateral_R})",
+}
+
 # the rules that map each wrinkle morph to the socket on the wrinkle shader node.
-# { wrinkle_morph_name: [node_socket, weight], }
+# { wrinkle_morph_name: [node_socket, weight, <blend_func>, extra_data], }
 WRINKLE_RULES = {
 
     # Set 1A L/R
-    "head_wm1_normal_head_wm1_blink_L": ["Value 1AXL", 1],
-    "head_wm1_normal_head_wm1_blink_R": ["Value 1AXR", 1],
+    "head_wm1_normal_head_wm1_blink_L": [1, "ADD"],
+    "head_wm1_normal_head_wm1_blink_R": [1, "ADD"],
 
-    "head_wm1_normal_head_wm1_browRaiseInner_L": ["Value 1AYL", 1],
-    "head_wm1_normal_head_wm1_browRaiseInner_R": ["Value 1AYR", 1],
+    "head_wm1_normal_head_wm1_browRaiseInner_L": [1, "ADD"],
+    "head_wm1_normal_head_wm1_browRaiseInner_R": [1, "ADD"],
 
-    "head_wm1_normal_head_wm1_purse_DL": ["Value 1AZL", 1],
-    "head_wm1_normal_head_wm1_purse_DR": ["Value 1AZR", 1],
+    "head_wm1_normal_head_wm1_purse_DL": [1, "ADD"],
+    "head_wm1_normal_head_wm1_purse_DR": [1, "ADD"],
 
-    "head_wm1_normal_head_wm1_purse_UL": ["Value 1AWL", 1],
-    "head_wm1_normal_head_wm1_purse_UR": ["Value 1AWR", 1],
+    "head_wm1_normal_head_wm1_purse_UL": [1, "ADD"],
+    "head_wm1_normal_head_wm1_purse_UR": [1, "ADD"],
 
     # Set 1B L/R
-    "head_wm1_normal_head_wm1_browRaiseOuter_L": ["Value 1BXL", 1],
-    "head_wm1_normal_head_wm1_browRaiseOuter_R": ["Value 1BXR", 1],
+    "head_wm1_normal_head_wm1_browRaiseOuter_L": [1, "ADD"],
+    "head_wm1_normal_head_wm1_browRaiseOuter_R": [1, "ADD"],
 
-    "head_wm1_normal_head_wm1_chinRaise_L": ["Value 1BYL", 1],
-    "head_wm1_normal_head_wm1_chinRaise_R": ["Value 1BYR", 1],
+    "head_wm1_normal_head_wm1_chinRaise_L": [1, "ADD"],
+    "head_wm1_normal_head_wm1_chinRaise_R": [1, "ADD"],
 
-    "head_wm1_normal_head_wm1_jawOpen_L": ["Value 1BZL", 1],
-    "head_wm1_normal_head_wm1_jawOpen_R": ["Value 1BZR", 1],
+    "head_wm1_normal_head_wm1_jawOpen_L": [1, "ADD"],
+    "head_wm1_normal_head_wm1_jawOpen_R": [1, "ADD"],
 
-    "head_wm1_normal_head_wm1_squintInner_L": ["Value 1BWL", 1],
-    "head_wm1_normal_head_wm1_squintInner_R": ["Value 1BWR", 1],
+    "head_wm1_normal_head_wm1_squintInner_L": [1, "ADD"],
+    "head_wm1_normal_head_wm1_squintInner_R": [1, "ADD"],
 
     # Set 2 L/R
-    "head_wm2_normal_head_wm2_browsDown_L": ["Value 2XL", 1],
-    "head_wm2_normal_head_wm2_browsDown_R": ["Value 2XR", 1],
+    "head_wm2_normal_head_wm2_browsDown_L": [1, "ADD"],
+    "head_wm2_normal_head_wm2_browsDown_R": [1, "ADD"],
 
-    "head_wm2_normal_head_wm2_browsLateral_L": ["Value 2YL", 1],
-    "head_wm2_normal_head_wm2_browsLateral_R": ["Value 2YR", 1],
+    "head_wm2_normal_head_wm2_browsLateral_L": [1, "ADD"],
+    "head_wm2_normal_head_wm2_browsLateral_R": [1, "ADD"],
 
-    "head_wm2_normal_head_wm2_mouthStretch_L": ["Value 2ZL", 1],
-    "head_wm2_normal_head_wm2_mouthStretch_R": ["Value 2ZR", 1],
+    "head_wm2_normal_head_wm2_mouthStretch_L": [1, "ADD"],
+    "head_wm2_normal_head_wm2_mouthStretch_R": [1, "ADD"],
 
-    "head_wm2_normal_head_wm2_neckStretch_L": ["Value 2WL", 1],
-    "head_wm2_normal_head_wm2_neckStretch_R": ["Value 2WR", 1],
+    "head_wm2_normal_head_wm2_neckStretch_L": [1, "ADD"],
+    "head_wm2_normal_head_wm2_neckStretch_R": [1, "ADD"],
 
     # Set 3 L/R
-    "head_wm3_normal_head_wm3_cheekRaiseInner_L": ["Value 3XL", 1],
-    "head_wm3_normal_head_wm3_cheekRaiseInner_R": ["Value 3XR", 1],
+    "head_wm3_normal_head_wm3_cheekRaiseInner_L": [1, "ADD"],
+    "head_wm3_normal_head_wm3_cheekRaiseInner_R": [1, "ADD"],
 
-    "head_wm3_normal_head_wm3_cheekRaiseOuter_L": ["Value 3YL", 1],
-    "head_wm3_normal_head_wm3_cheekRaiseOuter_R": ["Value 3YR", 1],
+    "head_wm3_normal_head_wm3_cheekRaiseOuter_L": [1, "ADD"],
+    "head_wm3_normal_head_wm3_cheekRaiseOuter_R": [1, "ADD"],
 
-    "head_wm3_normal_head_wm3_cheekRaiseUpper_L": ["Value 3ZL", 1],
-    "head_wm3_normal_head_wm3_cheekRaiseUpper_R": ["Value 3ZR", 1],
+    "head_wm3_normal_head_wm3_cheekRaiseUpper_L": [1, "ADD"],
+    "head_wm3_normal_head_wm3_cheekRaiseUpper_R": [1, "ADD"],
 
-    "head_wm3_normal_head_wm3_smile_L": ["Value 3WL", 1],
-    "head_wm3_normal_head_wm3_smile_R": ["Value 3WR", 1],
+    "head_wm3_normal_head_wm3_smile_L": [1, "ADD"],
+    "head_wm3_normal_head_wm3_smile_R": [1, "ADD"],
 
     # Set 12C L/R
-    "head_wm1_normal_head_wm13_lips_DL": ["Value 12CXL", 1],
-    "head_wm1_normal_head_wm13_lips_DR": ["Value 12CXR", 1],
+    "head_wm1_normal_head_wm13_lips_DL": [1, "ADD"],
+    "head_wm1_normal_head_wm13_lips_DR": [1, "ADD"],
 
-    "head_wm1_normal_head_wm13_lips_UL": ["Value 12CYL", 1],
-    "head_wm1_normal_head_wm13_lips_UR": ["Value 12CYR", 1],
+    "head_wm1_normal_head_wm13_lips_UL": [1, "ADD"],
+    "head_wm1_normal_head_wm13_lips_UR": [1, "ADD"],
 
-    "head_wm2_normal_head_wm2_noseWrinkler_L": ["Value 12CZL", 1],
-    "head_wm2_normal_head_wm2_noseWrinkler_R": ["Value 12CZR", 1],
+    "head_wm2_normal_head_wm2_noseWrinkler_L": [1, "ADD"],
+    "head_wm2_normal_head_wm2_noseWrinkler_R": [1, "ADD"],
 
-    "head_wm2_normal_head_wm2_noseCrease_L": ["Value 12CWL", 1],
-    "head_wm2_normal_head_wm2_noseCrease_R": ["Value 12CWR", 1],
+    "head_wm2_normal_head_wm2_noseCrease_L": [1, "ADD"],
+    "head_wm2_normal_head_wm2_noseCrease_R": [1, "ADD"],
 
     # Set 3D
-    "head_wm3_normal_head_wm13_lips_DL": ["Value 3DXL", 1],
-    "head_wm3_normal_head_wm13_lips_DR": ["Value 3DYL", 1],
+    "head_wm3_normal_head_wm13_lips_DL": [1, "ADD"],
+    "head_wm3_normal_head_wm13_lips_DR": [1, "ADD"],
 
-    "head_wm3_normal_head_wm13_lips_UL": ["Value 3DZR", 1],
-    "head_wm3_normal_head_wm13_lips_UR": ["Value 3DWR", 1],
+    "head_wm3_normal_head_wm13_lips_UL": [1, "ADD"],
+    "head_wm3_normal_head_wm13_lips_UR": [1, "ADD"],
 }
 
 # How each shape_key on the body mesh maps to each wrinkle morph.
 # When multiple shape_keys drive the same wrinkle morph, the result is averaged.
 # [ ["shape_key", "rule_name", range_min, range_max], ]
 WRINKLE_MAPPINGS = [
+
     ["Brow_Raise_Inner_L", "head_wm1_normal_head_wm1_browRaiseInner_L", 0.0, 1.0],
     ["Brow_Raise_Inner_L", "head_wm2_normal_head_wm2_browsLateral_L", 0.0, 0.03],
 
@@ -2119,6 +2198,7 @@ WRINKLE_MAPPINGS = [
     ["Brow_Drop_R", "head_wm2_normal_head_wm2_browsLateral_R", 0.0, 1.0],
 
     ["Brow_Compress_L", "head_wm2_normal_head_wm2_browsLateral_L", 0.0, 1.0],
+
     ["Brow_Compress_R", "head_wm2_normal_head_wm2_browsLateral_R", 0.0, 1.0],
 
     ["Eye_Blink_L", "head_wm1_normal_head_wm1_blink_L", 0.0, 1.0],

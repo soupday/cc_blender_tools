@@ -616,7 +616,7 @@ def get_wrinkle_shader(obj, mat, mat_json, shader_name = "rl_wrinkle_shader", cr
         wrinkle_node = make_node_group_node(nodes, group, "Wrinkle Map System", utils.unique_name(shader_id))
         wrinkle_node.width = 240
         utils.log_info("Creating new wrinkle system shader group: " + wrinkle_node.name)
-        add_wrinkle_mappings(wrinkle_node, obj, mat_json)
+        add_wrinkle_mappings(mat, wrinkle_node, obj, mat_json)
 
     return wrinkle_node
 
@@ -659,12 +659,12 @@ def get_wrinkle_params(mat_json):
 WRINKLE_STRENGTH_PROP = "wrinkle_strength"
 WRINKLE_CURVE_PROP = "wrinkle_curve"
 
-def add_wrinkle_mappings(node, body_obj, mat_json):
+def add_wrinkle_mappings(mat, node, body_obj, mat_json):
 
     if not body_obj.data.shape_keys or not body_obj.data.shape_keys.key_blocks:
         return
 
-    key_defs = {}
+    wrinkle_defs = {}
 
     wrinkle_params, overall_weight = get_wrinkle_params(mat_json)
 
@@ -672,85 +672,125 @@ def add_wrinkle_mappings(node, body_obj, mat_json):
     drivers.add_custom_float_property(body_obj, WRINKLE_CURVE_PROP, 1.0, value_min=0.25, value_max=2.0)
 
     for wrinkle_name in params.WRINKLE_RULES.keys():
-        wrinkle_rule = params.WRINKLE_RULES[wrinkle_name]
-        socket = wrinkle_rule[0]
-        weight = wrinkle_rule[1]
+        weight, func = params.WRINKLE_RULES[wrinkle_name]
         if wrinkle_name in wrinkle_params.keys():
             weight *= wrinkle_params[wrinkle_name]["weight"]
-        key_def = { "name": wrinkle_name, "weight": weight, "keys": [] }
-        key_defs[socket] = key_def
+        wrinkle_def = { "weight": weight, "func": func, "keys": [] }
+        wrinkle_defs[wrinkle_name] = wrinkle_def
 
-    for shape_key, morph_name, range_min, range_max in params.WRINKLE_MAPPINGS:
+    for shape_key, wrinkle_name, range_min, range_max in params.WRINKLE_MAPPINGS:
         if shape_key in body_obj.data.shape_keys.key_blocks:
-            if morph_name in params.WRINKLE_RULES.keys():
-                wrinkle_rule = params.WRINKLE_RULES[morph_name]
-                socket = wrinkle_rule[0]
-                weight = wrinkle_rule[1]
-                key = [shape_key, range_min * weight, range_max * weight]
-                key_defs[socket]["keys"].append(key)
+            if wrinkle_name in params.WRINKLE_RULES.keys():
+                weight, func = params.WRINKLE_RULES[wrinkle_name]
+                key_def = [shape_key, range_min * weight, range_max * weight]
+                wrinkle_defs[wrinkle_name]["keys"].append(key_def)
             else:
-                utils.log_error(f"Wrinkle Morph Name: {morph_name} not found in Wrinkle Rules!")
+                utils.log_error(f"Wrinkle Morph Name: {wrinkle_name} not found in Wrinkle Rules!")
         else:
             utils.log_info(f"Skipping shape key: {shape_key}, not found in body mesh.")
 
-    for socket_name in key_defs:
-        key_def = key_defs[socket_name]
-        keys = key_def["keys"]
-        if keys:
-            utils.log_info(f"Adding driver for wrinkle morph socket: {socket_name}")
-            add_shapekeys_wrinkle_node_driver(node, socket_name, body_obj, keys)
+    for socket_name in params.WRINKLE_DRIVERS:
+        expr_macro = params.WRINKLE_DRIVERS[socket_name]
+        add_wrinkle_node_driver(mat, node, socket_name, body_obj, expr_macro, wrinkle_defs)
+
+
+def add_wrinkle_node_driver(mat, node, socket_name, obj, expr_macro : str, wrinkle_defs):
+
+    s = expr_macro.find(r"{")
+    if s == -1:
+        utils.log_error(f"No braces in wrinkle macro expression! {expr_macro}")
+        return
+
+    var_defs = []
+
+    while s > -1:
+        e = expr_macro.find(r"}", s)
+        if e > -1:
+            rule_name = expr_macro[s+1:e]
+            expr = get_driver_expression(obj, mat, rule_name, wrinkle_defs, var_defs)
+            expr_macro = expr_macro.replace(r"{" + rule_name + r"}", expr)
         else:
-            utils.log_info(f"No shape keys found for wrinkle rule socket: {socket_name}")
+            utils.log_error(f"No end braces in wrinkle macro expression! {expr_macro}")
+            return
+        s = expr_macro.find(r"{", e)
 
+    if len(var_defs) == 0:
+        return
 
-def add_shapekeys_wrinkle_node_driver(node, wrinkle_value_socket_name, obj, shape_key_list):
+    socket = node.inputs[socket_name]
+    driver = drivers.make_driver(socket, "default_value", "SCRIPTED", expr_macro)
 
-    CALC_MODE = "MAX"
-
-    # get lists of all the shapekeys that influence this wrinkle value
-    var_code = ""
-    var_paths = []
-    var_names = []
-    num_vars = len(shape_key_list)
-    for i, key in enumerate(shape_key_list):
-        shape_key_name = key[0]
-        range_min = key[1]
-        range_max = key[2]
-        var_name = f"var{i}"
-        if i > 0:
-            if CALC_MODE == "MAX":
-                var_code += ", "
-            else: # mode == "AVERAGE":
-                var_code += " + "
-        if range_min == 0 and range_max == 1:
-            var_range_expr = f"max(0, {var_name})"
-        elif range_min == 0:
-            var_range_expr = f"{range_max} * max(0, {var_name})"
-        else:
-            var_range_expr = f"{range_min} + ({range_max} - {range_min}) * max(0, {var_name})"
-        var_code += var_range_expr
-        var_path = f"shape_keys.key_blocks[\"{shape_key_name}\"].value"
-        var_names.append(var_name)
-        var_paths.append(var_path)
-
-    # add a driver for the node socket input value: node.inputs[socket_name].default_value
-    socket = node.inputs[wrinkle_value_socket_name]
-    if CALC_MODE == "MAX":
-        expr = f"min(1, var_strength * pow(max({var_code}), var_curve))"
-    else: # mode == "AVERAGE":
-        expr = f"min(1, var_strength * pow(({var_code}) / {num_vars}, var_curve))"
-
-    driver = drivers.make_driver(socket, "default_value", "SCRIPTED", expr)
-
+    # global vars
     drivers.make_driver_var(driver, "SINGLE_PROP", "var_strength", obj,
                             data_path = f"[\"{WRINKLE_STRENGTH_PROP}\"]")
 
     drivers.make_driver_var(driver, "SINGLE_PROP", "var_curve", obj,
                             data_path = f"[\"{WRINKLE_CURVE_PROP}\"]")
 
-    # add shape key variables
-    for i, shape_key_name in enumerate(shape_key_list):
-        drivers.make_driver_var(driver, "SINGLE_PROP", var_names[i], obj.data, target_type = "MESH", data_path = var_paths[i])
+    # add driver variables
+    for i, var_def in enumerate(var_defs):
+        print(var_def)
+        drivers.make_driver_var(driver, "SINGLE_PROP", var_def["name"], var_def["target"],
+                                target_type = var_def["target_type"], data_path = var_def["data_path"])
+
+
+def get_driver_expression(obj, mat, rule_name, wrinkle_defs : dict, var_defs : list):
+    # wrinkle_defs = { wrinkle_name: { "weight": weight, "func": func, "keys": [ [shape_key_name, range_min, range_max], ] } }
+    # var_defs = [ { "name": name, "shape_key": shape_key_name, "target": target, "target_type": type, "data_path": data_path }, ]
+
+    if rule_name in wrinkle_defs:
+        var_id = len(var_defs) + 1
+        var_code = ""
+        wrinkle_def = wrinkle_defs[rule_name]
+        weight = wrinkle_def["weight"]
+        func = wrinkle_def["func"]
+        key_defs = wrinkle_def["keys"]
+
+        for i, key_def in enumerate(key_defs):
+            shape_key_name = key_def[0]
+            range_min = key_def[1]
+            range_max = key_def[2]
+            var_def = {}
+            for vdef in var_defs:
+                if vdef["shape_key"] == shape_key_name:
+                    var_def = vdef
+                    break
+            if not var_def:
+                var_def["name"] = f"var{var_id}"
+                var_id += 1
+                var_def["shape_key"] = shape_key_name
+                var_def["target"] = obj.data
+                var_def["target_type"] = "MESH"
+                var_def["data_path"] = f"shape_keys.key_blocks[\"{shape_key_name}\"].value"
+                var_defs.append(var_def)
+
+            var_name = var_def["name"]
+            if i > 0:
+                if func == "MAX" or func == "MIN":
+                    var_code += ", "
+                elif func == "ADD":
+                    var_code += " + "
+
+            if range_min == 0 and range_max == 1:
+                var_range_expr = f"{var_name}"
+            elif range_min == 0:
+                var_range_expr = f"{range_max * weight} * min(1, {var_name})"
+            else:
+                var_range_expr = f"{range_min * weight} + ({range_max * weight} - {range_min * weight}) * min(1, max(0, {var_name}))"
+
+            var_code += var_range_expr
+
+        # add a driver for the node socket input value: node.inputs[socket_name].default_value
+        if func == "MAX":
+            expr = f"var_strength * pow(min(1, max({var_code})), var_curve)"
+        elif func == "MIN":
+            expr = f"var_strength * pow(max(0, min({var_code})), var_curve)"
+        elif func == "ADD":
+            expr = f"var_strength * pow(min(1, max(0, {var_code})), var_curve)"
+
+        return f"({expr})"
+
+    return "0"
 
 
 def is_wrinkle_system(node):
