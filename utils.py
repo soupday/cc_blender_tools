@@ -1295,6 +1295,5 @@ def name_contains_distinct_keywords(name : str, *keywords : str):
     return False
 
 
-
 def is_name_or_duplication(a, b):
     return strip_name(a) == strip_name(b)

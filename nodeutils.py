@@ -709,27 +709,27 @@ def add_wrinkle_node_driver(mat, node, socket_name, obj, expr_macro : str, wrink
             rule_name = expr_macro[s+1:e]
             expr = get_driver_expression(obj, mat, rule_name, wrinkle_defs, var_defs)
             expr_macro = expr_macro.replace(r"{" + rule_name + r"}", expr)
+            s = expr_macro.find(r"{", s + len(expr))
         else:
             utils.log_error(f"No end braces in wrinkle macro expression! {expr_macro}")
             return
-        s = expr_macro.find(r"{", e)
 
     if len(var_defs) == 0:
         return
 
     socket = node.inputs[socket_name]
-    driver = drivers.make_driver(socket, "default_value", "SCRIPTED", expr_macro)
+    expr_code = f"vstr * pow({expr_macro}, vcrv)"
+    driver = drivers.make_driver(socket, "default_value", "SCRIPTED", expr_code)
 
     # global vars
-    drivers.make_driver_var(driver, "SINGLE_PROP", "var_strength", obj,
+    drivers.make_driver_var(driver, "SINGLE_PROP", "vstr", obj,
                             data_path = f"[\"{WRINKLE_STRENGTH_PROP}\"]")
 
-    drivers.make_driver_var(driver, "SINGLE_PROP", "var_curve", obj,
+    drivers.make_driver_var(driver, "SINGLE_PROP", "vcrv", obj,
                             data_path = f"[\"{WRINKLE_CURVE_PROP}\"]")
 
     # add driver variables
     for i, var_def in enumerate(var_defs):
-        print(var_def)
         drivers.make_driver_var(driver, "SINGLE_PROP", var_def["name"], var_def["target"],
                                 target_type = var_def["target_type"], data_path = var_def["data_path"])
 
@@ -774,21 +774,21 @@ def get_driver_expression(obj, mat, rule_name, wrinkle_defs : dict, var_defs : l
             if range_min == 0 and range_max == 1:
                 var_range_expr = f"{var_name}"
             elif range_min == 0:
-                var_range_expr = f"{range_max * weight} * min(1, {var_name})"
+                var_range_expr = f"{range_max * weight} * {var_name}"
             else:
-                var_range_expr = f"{range_min * weight} + ({range_max * weight} - {range_min * weight}) * min(1, max(0, {var_name}))"
+                var_range_expr = f"{range_min * weight} + ({range_max * weight} - {range_min * weight}) * {var_name}"
 
             var_code += var_range_expr
 
         # add a driver for the node socket input value: node.inputs[socket_name].default_value
         if func == "MAX":
-            expr = f"var_strength * pow(min(1, max({var_code})), var_curve)"
+            expr = f"max({var_code})"
         elif func == "MIN":
-            expr = f"var_strength * pow(max(0, min({var_code})), var_curve)"
+            expr = f"min({var_code})"
         elif func == "ADD":
-            expr = f"var_strength * pow(min(1, max(0, {var_code})), var_curve)"
+            expr = f"({var_code})"
 
-        return f"({expr})"
+        return f"max(0, {expr})"
 
     return "0"
 
