@@ -17,7 +17,7 @@
 import bpy
 import os
 from mathutils import Vector
-from . import colorspace, imageutils, nodeutils, utils, params, vars
+from . import colorspace, imageutils, wrinkle, nodeutils, utils, params, vars
 
 BAKE_SAMPLES = 4
 IMAGE_FORMAT = "PNG"
@@ -1058,7 +1058,7 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     mat = mat_cache.material
-    wrinkle_node = nodeutils.get_wrinkle_shader_node(mat)
+    wrinkle_node = wrinkle.get_wrinkle_shader_node(mat)
     bake_dir = mat_cache.get_tex_dir(chr_cache)
     reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 

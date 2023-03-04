@@ -24,7 +24,7 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import bake, shaders, physics, rigging, bones, modifiers, meshutils, nodeutils, jsonutils, utils, params, vars
+from . import bake, shaders, physics, rigging, wrinkle, bones, modifiers, meshutils, nodeutils, jsonutils, utils, params, vars
 
 UNPACK_INDEX = 1001
 
@@ -796,7 +796,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                 utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to a texture pack. Skipping.")
                                 continue
 
-                            elif nodeutils.is_wrinkle_system(tex_node):
+                            elif wrinkle.is_wrinkle_system(tex_node):
 
                                 utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to the wrinkle shader. Skipping.")
                                 continue

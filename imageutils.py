@@ -126,17 +126,16 @@ def find_file_by_name(search_dir, search):
 
 
 def is_image_type_srgb(texture_type):
-    if texture_type == "DIFFUSE" or texture_type == "SCLERA" or texture_type == "EMISSION":
-        return True
-    if texture_type == "WRINKLEDIFFUSE1" or texture_type == "WRINKLEDIFFUSE2" or texture_type == "WRINKLEDIFFUSE3":
-        return True
+    for tex in params.TEXTURE_TYPES:
+        if tex[0] == texture_type:
+            return tex[2]
     return False
 
 
 def get_image_type_suffix_list(texture_type):
     for tex in params.TEXTURE_TYPES:
         if tex[0] == texture_type:
-            return tex[2]
+            return tex[3]
     return []
 
 
@@ -149,8 +148,8 @@ def get_image_type_json_id(texture_type):
 
 def get_image_type_lib_name(texture_type):
     for tex in params.TEXTURE_TYPES:
-        if tex[0] == texture_type and len(tex) >= 4:
-            return tex[3]
+        if tex[0] == texture_type and len(tex) > 4:
+            return tex[4]
     return None
 
 
