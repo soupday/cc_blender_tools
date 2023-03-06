@@ -1397,7 +1397,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     if not grease_pencil_layer:
         return
 
-    mode_selection = utils.store_mode_selection_state()
+    #mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
     repair_orphaned_hair_bones(chr_cache, arm)
@@ -1431,7 +1431,8 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     utils.object_mode_to(arm)
 
     restore_pose(arm, arm_pose)
-    utils.restore_mode_selection_state(mode_selection)
+    #utils.restore_mode_selection_state(mode_selection)
+    utils.edit_mode_to(arm)
 
 
 def get_active_grease_pencil_layer():
