@@ -530,7 +530,10 @@ def set_shader_input_props(shader_def, mat_cache, socket, value):
 
 
 def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name, mat_json, obj, processed_images,
-                         offset = Vector((0,0)), sub_shader = False, textures = {}):
+                         offset = Vector((0,0)), sub_shader = False, textures = None):
+
+    if textures is None:
+        textures = {}
 
     shader_def = params.get_shader_def(shader_name)
     location = shader_node.location
@@ -980,11 +983,11 @@ def fix_sss_method(bsdf):
         bsdf.subsurface_method = "BURLEY"
 
 
-def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = {}):
+def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = None):
     wrinkle_shader_name = "rl_wrinkle_shader"
     wrinkle_shader_node = wrinkle.add_wrinkle_shader(nodes, links, obj, mat, mat_json, main_shader_name, wrinkle_shader_name = wrinkle_shader_name)
-    textures = apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle_shader_name, mat_json, obj,
-                                    processed_images, sub_shader = True, textures = textures)
+    apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle_shader_name, mat_json, obj,
+                         processed_images, sub_shader = True, textures = textures)
 
 
 

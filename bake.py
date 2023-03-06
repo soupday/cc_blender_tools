@@ -222,7 +222,7 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
     i = 0
     base_name = image_name
     if shader_node and socket:
-        while nodeutils.is_image_node_connected_to_socket(shader_node, socket, image):
+        while nodeutils.is_image_node_connected_to_socket(shader_node, socket, image, []):
             i += 1
             old_name = image_name
             image_name = base_name + "_" + str(i)
@@ -612,7 +612,7 @@ def cycles_bake_normal_output(mat, bsdf_node, image, image_name):
     return image_node
 
 
-def get_largest_texture_to_node(node, done = []):
+def get_largest_texture_to_node(node, done):
     """Recursively traverses the input sockets to the supplied node and
        returns the largest found texture dimensions, or [0, 0] if nothing found."""
 
@@ -628,7 +628,7 @@ def get_largest_texture_to_node(node, done = []):
     return largest_width, largest_height
 
 
-def get_largest_texture_to_socket(node, socket, done = []):
+def get_largest_texture_to_socket(node, socket, done):
     """Recursively traverses the nodes connected to the supplied node's input socket and
        returns the largest found texture dimensions, or [0, 0] if nothing found."""
 
@@ -660,7 +660,7 @@ def get_connected_texture_size(node, override_size, *sockets):
         return override_size, override_size
     for socket in sockets:
         if socket:
-            w, h = get_largest_texture_to_socket(node, socket)
+            w, h = get_largest_texture_to_socket(node, socket, [])
             if w > width:
                 width = w
             if h > height:

@@ -381,7 +381,7 @@ def has_connected_input(node, socket):
     return False
 
 
-def is_image_node_connected_to_node(node, image, done = []):
+def is_image_node_connected_to_node(node, image, done):
     """Returns True if there is a linked image node with the supplied image connecting the this node."""
 
     for socket in node.inputs:
@@ -392,7 +392,7 @@ def is_image_node_connected_to_node(node, image, done = []):
     return False
 
 
-def is_image_node_connected_to_socket(node, socket, image, done = []):
+def is_image_node_connected_to_socket(node, socket, image, done):
     """Returns True if there is a linked image node with the supplied image connecting the this node and socket."""
 
     connected_node = get_node_connected_to_input(node, socket)
