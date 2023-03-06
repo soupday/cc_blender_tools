@@ -19,7 +19,7 @@ import os
 import bpy
 import mathutils
 
-from . import drivers, utils, params, vars
+from . import utils, vars
 
 cursor = mathutils.Vector((0,0))
 cursor_top = mathutils.Vector((0,0))
@@ -591,135 +591,6 @@ def clean_unused_image_nodes(nodes):
         nodes.remove(node)
 
 
-def get_wrinkle_shader(obj, mat, shader_name = "rl_wrinkle_shader", create = True):
-    shader_id = "(" + str(shader_name) + ")"
-    wrinkle_node = None
-
-    # find existing wrinkle shader group node and remove any old or impostors
-    to_remove = []
-    if mat and mat.node_tree:
-        nodes = mat.node_tree.nodes
-        for n in nodes:
-            if n.type == "GROUP":
-                if shader_id in n.name and shader_name in n.node_tree.name:
-                    if vars.VERSION_STRING in n.name and vars.VERSION_STRING in n.node_tree.name:
-                        wrinkle_node = n
-                    else:
-                        to_remove.append(n)
-
-    for n in to_remove:
-        nodes.remove(n)
-
-    # create a new wrinkle shader group node if none
-    if create and not wrinkle_node:
-        group = get_node_group(shader_name)
-        wrinkle_node = make_node_group_node(nodes, group, "Wrinkle Map System", utils.unique_name(shader_id))
-        wrinkle_node.width = 240
-        utils.log_info("Creating new wrinkle system shader group: " + wrinkle_node.name)
-        add_wrinkle_mappings(wrinkle_node, obj)
-
-    return wrinkle_node
-
-
-def add_wrinkle_shader(nodes, links, obj, mat, main_shader_name, wrinkle_shader_name = "rl_wrinkle_shader"):
-    wrinkle_shader_node = get_wrinkle_shader(obj, mat, shader_name = wrinkle_shader_name)
-    bsdf_node, main_shader_node, mix_node = get_shader_nodes(mat, main_shader_name)
-    wrinkle_shader_node.location = (-2400, 0)
-    link_nodes(links, wrinkle_shader_node, "Diffuse Map", main_shader_node, "Diffuse Map")
-    link_nodes(links, wrinkle_shader_node, "Roughness Map", main_shader_node, "Roughness Map")
-    link_nodes(links, wrinkle_shader_node, "Normal Map", main_shader_node, "Normal Map")
-    return wrinkle_shader_node
-
-
-def add_wrinkle_mappings(node, obj):
-
-    if not obj.data.shape_keys or not obj.data.shape_keys.key_blocks:
-        return
-
-    key_defs = {}
-
-    for wrinkle_name in params.WRINKLE_RULES.keys():
-        wrinkle_rule = params.WRINKLE_RULES[wrinkle_name]
-        socket = wrinkle_rule[0]
-        weight = wrinkle_rule[1]
-        key_def = { "name": wrinkle_name, "weight": weight, "keys": [] }
-        key_defs[socket] = key_def
-
-    for shape_key, morph_name, range_min, range_max in params.WRINKLE_MAPPINGS:
-        if shape_key in obj.data.shape_keys.key_blocks:
-            if morph_name in params.WRINKLE_RULES.keys():
-                wrinkle_rule = params.WRINKLE_RULES[morph_name]
-                socket = wrinkle_rule[0]
-                weight = wrinkle_rule[1]
-                key = [shape_key, range_min * weight, range_max * weight]
-                key_defs[socket]["keys"].append(key)
-            else:
-                utils.log_error(f"Wrinkle Morph Name: {morph_name} not found in Wrinkle Rules!")
-        else:
-            utils.log_info(f"Skipping shape key: {shape_key}, not found in body mesh.")
-
-    for socket_name in key_defs:
-        key_def = key_defs[socket_name]
-        keys = key_def["keys"]
-        if keys:
-            utils.log_info(f"Adding driver for wrinkle morph socket: {socket_name}")
-            add_shapekeys_wrinkle_node_driver(node, socket_name, obj, keys)
-        else:
-            utils.log_info(f"No shape keys found for wrinkle rule socket: {socket_name}")
-
-
-def add_shapekeys_wrinkle_node_driver(node, wrinkle_value_socket_name, obj, shape_key_list):
-
-    CALC_MODE = "MAX"
-
-    # get lists of all the shapekeys that influence this wrinkle value
-    var_code = ""
-    var_paths = []
-    var_names = []
-    num_vars = len(shape_key_list)
-    for i, key in enumerate(shape_key_list):
-        shape_key_name = key[0]
-        range_min = key[1]
-        range_max = key[2]
-        var_name = f"var{i}"
-        if i > 0:
-            if CALC_MODE == "MAX":
-                var_code += ", "
-            else: # mode == "AVERAGE":
-                var_code += " + "
-        if range_min == 0 and range_max == 1:
-            var_range_expr = f"max(0, {var_name})"
-        elif range_min == 0:
-            var_range_expr = f"{range_max} * max(0, {var_name})"
-        else:
-            var_range_expr = f"{range_min} + ({range_max} - {range_min}) * max(0, {var_name})"
-        var_code += var_range_expr
-        var_path = f"shape_keys.key_blocks[\"{shape_key_name}\"].value"
-        var_names.append(var_name)
-        var_paths.append(var_path)
-
-    # add a driver for the node socket input value: node.inputs[socket_name].default_value
-    socket = node.inputs[wrinkle_value_socket_name]
-    if CALC_MODE == "MAX":
-        expr = f"max({var_code})"
-    else: # mode == "AVERAGE":
-        expr = f"({var_code}) / {num_vars}"
-
-    driver = drivers.make_driver(socket, "default_value", "SCRIPTED", expr)
-
-    # add shape key variables
-    for i, shape_key_name in enumerate(shape_key_list):
-        drivers.make_driver_var(driver, "SINGLE_PROP", var_names[i], obj.data, target_type = "MESH", data_path = var_paths[i])
-
-
-def is_wrinkle_system(node):
-    wrinkle_shader_id = "(rl_wrinkle_shader)"
-    if wrinkle_shader_id in node.name:
-        return True
-    else:
-        return False
-
-
 def is_texture_pack_system(node):
     if (vars.PACK_DIFFUSEROUGHNESS_ID in node.name or
         vars.PACK_DIFFUSEROUGHNESSBLEND1_ID in node.name or
@@ -934,16 +805,6 @@ def get_shader_nodes(mat, shader_name):
                     mix_node = node
         return bsdf_node, shader_node, mix_node
     return None, None, None
-
-
-def get_wrinkle_shader_node(mat):
-    if mat and mat.node_tree:
-        nodes = mat.node_tree.nodes
-        wrinkle_shader_id = "(rl_wrinkle_shader)"
-        for node in nodes:
-            if vars.NODE_PREFIX in node.name:
-                if wrinkle_shader_id in node.name:
-                    return node
 
 
 def get_bsdf_node(mat):

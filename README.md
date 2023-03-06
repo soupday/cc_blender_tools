@@ -35,6 +35,14 @@ Links
 
 ## Changelog
 
+### 1.5.6
+- Relative wrinkle strengths for individual wrinkle maps implemented.
+- Overall wrinkle strength and curve power slider added the head material parameters.
+- Competing wrinkle maps now use additive blending to solve overlap.
+- Brow correction added for brow raise + brow compress wrinkles.
+- Generated images not yet saves are autosaved for export (so they get included).
+- Add custom bone function for hair rigging.
+
 ### 1.5.5
 - Flow maps added to wrinkle map system.
 - Better texture limiting for the head material.

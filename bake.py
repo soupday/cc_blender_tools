@@ -17,11 +17,10 @@
 import bpy
 import os
 from mathutils import Vector
-from . import colorspace, imageutils, nodeutils, utils, params, vars
+from . import colorspace, imageutils, wrinkle, nodeutils, utils, params, vars
 
 BAKE_SAMPLES = 4
 IMAGE_FORMAT = "PNG"
-IMAGE_EXT = ".png"
 BAKE_INDEX = 1001
 BUMP_BAKE_MULTIPLIER = 2.0
 NODE_CURSOR = Vector((0, 0))
@@ -675,7 +674,6 @@ def get_connected_texture_size(node, override_size, *sockets):
 
 def get_image_target(image_name, width, height, image_dir, is_data = True, has_alpha = False, force_new = False, channel_packed = False):
     format = IMAGE_FORMAT
-    ext = IMAGE_EXT
     depth = 24
     if has_alpha:
         depth = 32
@@ -730,23 +728,8 @@ def get_image_target(image_name, width, height, image_dir, is_data = True, has_a
 
     # or just make a new one:
     utils.log_info("Creating new image: " + image_name + " size: " + str(width))
-    img = make_new_image(image_name, width, height, format, ext, image_dir, is_data, has_alpha, channel_packed)
+    img = imageutils.make_new_image(image_name, width, height, format, image_dir, is_data, has_alpha, channel_packed)
     return img, False
-
-
-def make_new_image(name, width, height, format, ext, dir, data, has_alpha, channel_packed):
-    img = bpy.data.images.new(name, width, height, alpha=has_alpha, is_data=data)
-    img.pixels[0] = 0
-    if has_alpha:
-        img.alpha_mode = "STRAIGHT" if not channel_packed else "CHANNEL_PACKED"
-    img.file_format = format
-    full_dir = os.path.normpath(dir)
-    full_path = os.path.normpath(os.path.join(full_dir, name + ext))
-    utils.log_info(f"   Path: {full_path}")
-    os.makedirs(full_dir, exist_ok=True)
-    img.filepath_raw = full_path
-    img.save()
-    return img
 
 
 def get_bake_dir(chr_cache):
@@ -864,7 +847,7 @@ def bake_flow_to_normal(chr_cache, mat_cache):
         # if no existing normal image, create one and link it to the shader
         if not normal_image:
             utils.log_info("Creating new normal image.")
-            normal_image = make_new_image(mat_name + "_Normal", width, height, "PNG", ".png", bake_dir, True, False, False)
+            normal_image = imageutils.make_new_image(mat_name + "_Normal", width, height, "PNG", bake_dir, True, False, False)
         if not normal_node:
             utils.log_info("Creating new normal image node.")
             normal_node = nodeutils.make_image_node(nodes, normal_image, "Generated Normal Map")
@@ -1058,7 +1041,7 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     mat = mat_cache.material
-    wrinkle_node = nodeutils.get_wrinkle_shader_node(mat)
+    wrinkle_node = wrinkle.get_wrinkle_shader_node(mat)
     bake_dir = mat_cache.get_tex_dir(chr_cache)
     reuse = chr_cache.build_count > 0 and prefs.build_reuse_baked_channel_packs
 

@@ -24,7 +24,7 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import bake, shaders, physics, rigging, bones, modifiers, meshutils, nodeutils, jsonutils, utils, params, vars
+from . import bake, shaders, physics, rigging, wrinkle, bones, modifiers, imageutils, meshutils, nodeutils, jsonutils, utils, params, vars
 
 UNPACK_INDEX = 1001
 
@@ -663,6 +663,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
     unpack_path = os.path.join(base_path, "textures", old_name, "Unpack")
     bake_path = os.path.join(base_path, "textures", old_name, "Baked")
+    custom_path = os.path.join(base_path, "textures", old_name, "Custom")
 
     bake.init_bake()
     UNPACK_INDEX = 1001
@@ -796,7 +797,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                 utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to a texture pack. Skipping.")
                                 continue
 
-                            elif nodeutils.is_wrinkle_system(tex_node):
+                            elif wrinkle.is_wrinkle_system(tex_node):
 
                                 utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to the wrinkle shader. Skipping.")
                                 continue
@@ -821,6 +822,17 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                         if image:
 
                             try_unpack_image(image, unpack_path, True)
+
+                            if not image.filepath:
+                                try:
+                                    # image is not saved?
+                                    if image.file_format:
+                                        format = image.file_format
+                                    else:
+                                        format = "PNG"
+                                    imageutils.save_image_to_format_dir(image, format, custom_path, image.name)
+                                except:
+                                    utils.log_warn(f"Unable to save unsaved image: {image.name} to custom image dir!")
 
                             if image.filepath:
 

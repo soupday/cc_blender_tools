@@ -724,18 +724,31 @@ class CC3SpringRigPanel(bpy.types.Panel):
             column.separator()
             row = column.row()
             row.scale_y = 1.5
-            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Selected Cards to Bone(s)").param = "ADD_BONES"
+            row.operator("cc3.hair", icon=utils.check_icon("MOD_LATTICE"), text="Bones from Cards").param = "ADD_BONES"
             column.separator()
             row = column.row()
             row.scale_y = 1.5
-            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Grease Pencil to Bone(s)").param = "ADD_BONES_GREASE"
+            row.operator("cc3.hair", icon=utils.check_icon("GREASEPENCIL"), text="Bones from Grease Pencil").param = "ADD_BONES_GREASE"
+            column.separator()
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Add Custom Bone").param = "ADD_BONES_CUSTOM"
             column.separator()
             row = column.row()
             row.scale_y = 1
-            row.operator("cc3.hair", icon=utils.check_icon("X"), text="Clear Hair Bones").param = "REMOVE_HAIR_BONES"
+            row.alert = True
+            op_text = "Clear All Hair Bones" if props.hair_rig_bind_bone_mode == "ALL" else "Clear Selected Bones"
+            row.operator("cc3.hair", icon=utils.check_icon("BONE_DATA"), text=op_text).param = "REMOVE_HAIR_BONES"
             row = column.row()
             row.scale_y = 1
-            row.operator("cc3.hair", icon=utils.check_icon("X"), text="Clear Hair Weights").param = "CLEAR_WEIGHTS"
+            row.alert = True
+            op_text = "Clear All Hair Weights" if props.hair_rig_bind_card_mode == "ALL" else "Clear Selected Weights"
+            row.operator("cc3.hair", icon=utils.check_icon("MOD_VERTEX_WEIGHT"), text=op_text).param = "CLEAR_WEIGHTS"
+            row = column.row()
+            row.scale_y = 1
+            row.alert = True
+            op_text = "Clear Grease Pencil"
+            row.operator("cc3.hair", icon=utils.check_icon("OUTLINER_OB_GREASEPENCIL"), text=op_text).param = "CLEAR_GREASE_PENCIL"
             column.separator()
             column.row().prop(props, "hair_rig_bind_bone_mode", expand=True)
             column.row().prop(props, "hair_rig_bind_card_mode", expand=True)
@@ -863,7 +876,6 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                     box.row().label(text = matrix["label"] + " Parameters", icon="MOD_HUE_SATURATION")
                     box.row().label(text = f"Material: {mat.name}", icon="SHADING_TEXTURE")
 
-
                     for ui_row in ui_matrix:
 
                         split = False
@@ -872,6 +884,21 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
                         if ui_row[0] == "HEADER":
                             column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
+
+                        elif ui_row[0] == "WRINKLE_CONTROLS":
+                            body_object = chr_cache.get_body()
+                            if body_object and ("wrinkle_strength" in body_object or "wrinkle_curve" in body_object):
+                                column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
+                                row = column.row()
+                                split = row.split(factor=0.5)
+                                col_1 = row.column()
+                                col_2 = row.column()
+                                if "wrinkle_strength" in body_object:
+                                    col_1.label(text="Strength")
+                                    col_2.prop(body_object, "[\"wrinkle_strength\"]", text="", slider=True)
+                                if "wrinkle_curve" in body_object:
+                                    col_1.label(text="Curve")
+                                    col_2.prop(body_object, "[\"wrinkle_curve\"]", text="", slider=True)
 
                         elif ui_row[0] == "PROP":
 
