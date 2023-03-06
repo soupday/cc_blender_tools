@@ -1371,11 +1371,11 @@ def smooth_loop(loop):
 def greased_pencil_to_length_loops(bone_length):
     current_frame = bpy.context.scene.frame_current
 
-    if 'Annotations' not in bpy.data.grease_pencils or 'Note' not in bpy.data.grease_pencils['Annotations'].layers:
+    grease_pencil_layer = get_active_grease_pencil_layer()
+    if not grease_pencil_layer:
         return
 
-    note_layer = bpy.data.grease_pencils['Annotations'].layers['Note']
-    frame = note_layer.active_frame
+    frame = grease_pencil_layer.active_frame
     stroke_set, stroke_roots = combine_strokes(frame.strokes)
 
     loops = []
@@ -1393,7 +1393,8 @@ def greased_pencil_to_length_loops(bone_length):
 
 def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
 
-    if 'Annotations' not in bpy.data.grease_pencils or 'Note' not in bpy.data.grease_pencils['Annotations'].layers:
+    grease_pencil_layer = get_active_grease_pencil_layer()
+    if not grease_pencil_layer:
         return
 
     mode_selection = utils.store_mode_selection_state()
@@ -1433,11 +1434,19 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     utils.restore_mode_selection_state(mode_selection)
 
 
+def get_active_grease_pencil_layer():
+    #current_frame = bpy.context.scene.frame_current
+    #note_layer = bpy.data.grease_pencils['Annotations'].layers.active
+    #frame = note_layer.active_frame
+    try:
+        return bpy.context.scene.grease_pencil.layers.active
+    except:
+        return None
+
+
 def clear_greased_pencil():
-    current_frame = bpy.context.scene.frame_current
-    note_layer = bpy.data.grease_pencils['Annotations'].layers['Note']
-    frame = note_layer.active_frame
-    note_layer.active_frame.clear()
+    active_layer = get_active_grease_pencil_layer()
+    active_layer.active_frame.clear()
 
 
 def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
