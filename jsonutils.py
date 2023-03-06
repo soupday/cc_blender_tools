@@ -21,7 +21,7 @@ import bpy
 from . import utils
 
 
-def read_json(fbx_path, errors = []):
+def read_json(fbx_path, errors):
     json_file_exists = False
     try:
         fbx_file = os.path.basename(fbx_path)

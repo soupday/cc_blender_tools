@@ -582,6 +582,63 @@ def custom_bone(chr_cache, arm, parent_mode, loop_index, bone_length, new_bones)
     return False
 
 
+def get_linked_bones(edit_bone, bone_list):
+    if edit_bone.name not in bone_list:
+        bone_list.append(edit_bone.name)
+        for child_bone in edit_bone.children:
+            get_linked_bones(child_bone, bone_list)
+    return bone_list
+
+
+def bones_match(arm, bone_list_a, bone_list_b, tolerance = 0.001):
+
+    tolerance /= ((arm.scale[0] + arm.scale[1] + arm.scale[2]) / 3.0)
+
+    for bone_name_a in bone_list_a:
+        edit_bone_a = arm.data.edit_bones[bone_name_a]
+        has_match = False
+        for bone_name_b in bone_list_b:
+            edit_bone_b = arm.data.edit_bones[bone_name_b]
+            delta = (edit_bone_a.head - edit_bone_b.head).length + (edit_bone_a.tail - edit_bone_b.tail).length
+            if (delta < tolerance):
+                has_match = True
+        if not has_match:
+            return False
+    return True
+
+
+def remove_duplicate_bones(chr_cache, arm, parent_mode):
+
+    hair_rig = get_hair_rig(chr_cache, arm, parent_mode, create_if_missing=True)
+
+    remove_list = []
+    removed_roots = []
+
+    if (hair_rig):
+
+        for chain_root in hair_rig.children:
+            if chain_root not in removed_roots:
+                chain_bones = get_linked_bones(chain_root, [])
+                for i in range(len(hair_rig.children)-1, 0, -1):
+                    test_chain_root = hair_rig.children[i]
+                    if test_chain_root not in removed_roots:
+                        test_chain_bones = get_linked_bones(test_chain_root, [])
+                        if chain_root == test_chain_root:
+                            break
+                        if bones_match(arm, test_chain_bones, chain_bones, 0.001):
+                            remove_list.extend(test_chain_bones)
+                            removed_roots.append(test_chain_root)
+
+        for bone_name in remove_list:
+            if bone_name in arm.data.edit_bones:
+                utils.log_info(f"Removing duplicate bone: {bone_name}")
+                arm.data.edit_bones.remove(arm.data.edit_bones[bone_name])
+            else:
+                utils.log_info(f"Already deleted: {bone_name} ?")
+
+    return
+
+
 def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
     """Generate hair rig bones from vertex loops. Must be in edit mode on armature."""
 
@@ -629,6 +686,8 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_le
             else:
                 bone.use_connect = True
             fac += df
+
+        remove_duplicate_bones(chr_cache, arm, parent_mode)
 
         return True
 
@@ -1117,7 +1176,7 @@ def smooth_hair_bone_weights(arm, obj, bone_chains, iterations):
 
 
 
-def find_stroke_set_root(stroke_set, stroke, done : list = []):
+def find_stroke_set_root(stroke_set, stroke, done : list):
     done.append(stroke)
     next_strokes, prev_strokes = stroke_set[stroke]
     if not prev_strokes:
@@ -1147,7 +1206,7 @@ def combine_strokes(strokes):
 
     stroke_roots = set()
     for stroke in strokes:
-        root = find_stroke_set_root(stroke_set, stroke)
+        root = find_stroke_set_root(stroke_set, stroke, [])
         if root:
             stroke_roots.add(root)
 
