@@ -538,6 +538,50 @@ def get_hair_rig(chr_cache, arm, parent_mode, create_if_missing = False):
     return hair_rig
 
 
+def is_nearby_bone(arm, world_pos):
+    """Edit mode"""
+    for edit_bone in arm.data.edit_bones:
+        length = (world_pos - arm.matrix_world @ edit_bone.head).length
+        print(length)
+        if length < 0.01:
+            return True
+    return False
+
+
+def custom_bone(chr_cache, arm, parent_mode, loop_index, bone_length, new_bones):
+    hair_rig = get_hair_rig(chr_cache, arm, parent_mode, create_if_missing=True)
+
+    hair_bone_prefix = get_hair_bone_prefix(parent_mode)
+
+    if hair_rig:
+
+        parent_bone = hair_rig
+
+        bone_name = f"{hair_bone_prefix}_{loop_index}_0"
+        bone : bpy.types.EditBone = bones.new_edit_bone(arm, bone_name, parent_bone.name)
+        new_bones.append(bone_name)
+        bone.select = True
+        bone.select_head = True
+        bone.select_tail = True
+        world_origin = arm.matrix_world @ hair_rig.head
+        world_pos = world_origin + Vector((0, 0.05, 0.15))
+        while is_nearby_bone(arm, world_pos):
+            world_pos += Vector((0, 0.0175, 0))
+        world_head = world_pos
+        world_tail = world_pos + Vector((0, 0, bone_length))
+        bone.head = arm.matrix_world.inverted() @ world_head
+        bone.tail = arm.matrix_world.inverted() @ world_tail
+        bone_z = (((world_head + world_tail) * 0.5) - world_origin).normalized()
+        bone.align_roll(bone_z)
+        # set bone layer to 25, so we can show only the added hair bones 'in front'
+        bones.set_edit_bone_layer(arm, bone_name, 25)
+        # don't directly connect first bone in a chain
+        bone.use_connect = False
+        return True
+
+    return False
+
+
 def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
     """Generate hair rig bones from vertex loops. Must be in edit mode on armature."""
 
@@ -586,7 +630,9 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_le
                 bone.use_connect = True
             fac += df
 
-    return True
+        return True
+
+    return False
 
 
 def get_root_edit_bone(chr_cache, arm, parent_mode):
@@ -1201,6 +1247,44 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     utils.restore_mode_selection_state(mode_selection)
 
 
+def clear_greased_pencil():
+    current_frame = bpy.context.scene.frame_current
+    note_layer = bpy.data.grease_pencils['Annotations'].layers['Note']
+    frame = note_layer.active_frame
+    note_layer.active_frame.clear()
+
+
+def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
+
+    arm_pose = reset_pose(arm)
+
+    repair_orphaned_hair_bones(chr_cache, arm)
+
+    bones.show_armature_layers(arm, [25], in_front=True)
+
+    hair_bone_prefix = get_hair_bone_prefix(parent_mode)
+
+    # check root bone exists...
+    root_bone_name = get_root_bone_name(chr_cache, arm, parent_mode)
+    root_bone = bones.get_pose_bone(arm, root_bone_name)
+
+    if root_bone:
+        utils.edit_mode_to(arm)
+        for edit_bone in arm.data.edit_bones:
+            edit_bone.select_head = False
+            edit_bone.select_tail = False
+            edit_bone.select = False
+        loop_index = 1
+        new_bones = []
+        loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
+        if custom_bone(chr_cache, arm, parent_mode, loop_index, bone_length, new_bones):
+            loop_index += 1
+    utils.object_mode_to(arm)
+    restore_pose(arm, arm_pose)
+
+    utils.edit_mode_to(arm)
+
+
 def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector, max_radius, max_bones, max_weight, curve, variance, existing_scale, card_mode, bone_mode, smoothing):
 
     reset_pose(arm)
@@ -1347,12 +1431,24 @@ class CC3OperatorHair(bpy.types.Operator):
             chr_cache = props.get_context_character_cache(context)
             arm = chr_cache.get_armature()
 
-            if utils.object_exists_is_armature(arm):
+            if chr_cache and utils.object_exists_is_armature(arm):
                 grease_pencil_to_bones(chr_cache, arm, props.hair_rig_bone_root,
                                        bone_length = props.hair_rig_bone_length / 100.0,
                                        skip_length = props.hair_rig_bind_skip_length / 100.0)
             else:
-                self.report({"ERROR"}, "Active Object must be a mesh!")
+                self.report({"ERROR"}, "Active Object be part of the character!")
+
+        if self.param == "ADD_BONES_CUSTOM":
+
+            chr_cache = props.get_context_character_cache(context)
+            arm = chr_cache.get_armature()
+
+            if chr_cache and utils.object_exists_is_armature(arm):
+                add_custom_bone(chr_cache, arm, props.hair_rig_bone_root,
+                                bone_length = props.hair_rig_bone_length / 100.0)
+
+            else:
+                self.report({"ERROR"}, "Active Object be part of the character!")
 
         if self.param == "REMOVE_HAIR_BONES":
 
@@ -1368,7 +1464,6 @@ class CC3OperatorHair(bpy.types.Operator):
             if utils.object_exists_is_armature(arm):
                 remove_hair_bones(chr_cache, arm, objects, props.hair_rig_bind_bone_mode)
                 utils.restore_mode_selection_state(mode_selection)
-
 
         if self.param == "BIND_TO_BONES":
 
@@ -1427,6 +1522,10 @@ class CC3OperatorHair(bpy.types.Operator):
             else:
                 self.report({"ERROR"}, "Selected Object(s) to clear weights must be Meshes!")
 
+        if self.param == "CLEAR_GREASE_PENCIL":
+
+            clear_greased_pencil()
+
         if self.param == "MAKE_ACCESSORY":
 
             chr_cache = props.get_context_character_cache(context)
@@ -1439,7 +1538,6 @@ class CC3OperatorHair(bpy.types.Operator):
             if utils.object_exists_is_armature(arm) and objects:
                 convert_hair_rigs_to_accessory(chr_cache, arm, objects)
 
-
         return {"FINISHED"}
 
     @classmethod
@@ -1447,6 +1545,11 @@ class CC3OperatorHair(bpy.types.Operator):
 
         if properties.param == "ADD_BONES":
             return "Add bones to the hair rig, generated from the selected hair cards in the active mesh"
+        elif properties.param == "ADD_BONES_CUSTOM":
+            return "Add a single custom bone to the hair rig"
+        elif properties.param == "ADD_BONES_GREASE":
+            return "Add bones generated from grease pencil lines drawn in the current annotation layer.\n\n" \
+                   "Note: For best results draw lines onto the hair in Surface placement mode."
         elif properties.param == "REMOVE_HAIR_BONES":
             return "Remove bones from the hair rig.\n\n" \
                    "Bone selection mode determines if only selected bones are removed or if all bones are removed.\n\n" \
@@ -1462,6 +1565,8 @@ class CC3OperatorHair(bpy.types.Operator):
                    "Bone selection mode determines if only the selected bones weights are removed or if all the hair rig bones weights are removed.\n\n" \
                    "If no meshes are selected then *all* meshes in the character will be cleared of the hair rig vertex weights.\n\n" \
                    "Note: Selecting any bone in a chain will use the entire chain of bones"
+        elif properties.param == "CLEAR_GREASE_PENCIL":
+            return "Remove all grease pencil lines from the current annotation layer"
         elif properties.param == "CARDS_TO_CURVES":
             return "Convert all the hair cards into curves"
         elif properties.param == "MAKE_ACCESSORY":

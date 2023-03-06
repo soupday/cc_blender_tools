@@ -20,6 +20,24 @@ import bpy
 from . import colorspace, nodeutils, params, utils
 
 
+IMAGE_FORMATS = {
+    "PNG": ".png",
+    "JPEG": ".jpg",
+    "BMP": ".bmp",
+    "TARGA": ".tga",
+    "JPEG2000": "jp2",
+    "IRIS": ".rgb",
+    "TARGA_RAW": ".tga",
+    "CINEON": ".cin",
+    "DPX": ".dpx",
+    "OPEN_EXR_MULTILAYER": ".exr",
+    "OPEN_EXR": ".exr",
+    "HDR": ".hdr",
+    "TIFF": ".tif",
+    "WEBP": ".webp",
+}
+
+
 def check_max_size(image):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -331,3 +349,28 @@ def save_scene_image(image : bpy.types.Image, file_path, file_format = 'PNG', co
     if image.filepath:
         image.reload()
     bpy.data.scenes.remove(scene)
+
+
+def make_new_image(name, width, height, format, dir, data, has_alpha, channel_packed):
+    img = bpy.data.images.new(name, width, height, alpha=has_alpha, is_data=data)
+    img.pixels[0] = 0
+    if has_alpha:
+        img.alpha_mode = "STRAIGHT" if not channel_packed else "CHANNEL_PACKED"
+
+    return save_image_to_format_dir(img, format, dir, name)
+
+
+def save_image_to_format_dir(img, format, dir, name):
+    if format in IMAGE_FORMATS:
+        ext = IMAGE_FORMATS[format]
+    else:
+        format = "PNG"
+        ext = ".png"
+    img.file_format = format
+    full_dir = os.path.normpath(dir)
+    full_path = os.path.normpath(os.path.join(full_dir, name + ext))
+    utils.log_info(f"   Path: {full_path}")
+    os.makedirs(full_dir, exist_ok=True)
+    img.filepath_raw = full_path
+    img.save()
+    return img
