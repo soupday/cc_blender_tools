@@ -41,6 +41,7 @@ if "bpy" in locals():
     importlib.reload(geom)
     importlib.reload(bones)
     importlib.reload(drivers)
+    importlib.reload(wrinkle)
     importlib.reload(rigify_mapping_data)
     importlib.reload(rigging)
     importlib.reload(sculpting)
@@ -74,6 +75,7 @@ from . import importer
 from . import geom
 from . import bones
 from . import drivers
+from . import wrinkle
 from . import rigify_mapping_data
 from . import rigging
 from . import sculpting
@@ -84,7 +86,7 @@ from . import colorspace
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (1, 5, 6),
+    "version": (1, 5, 7),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
