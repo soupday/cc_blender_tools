@@ -1370,6 +1370,10 @@ def smooth_loop(loop):
 
 def greased_pencil_to_length_loops(bone_length):
     current_frame = bpy.context.scene.frame_current
+
+    if 'Annotations' not in bpy.data.grease_pencils or 'Note' not in bpy.data.grease_pencils['Annotations'].layers:
+        return
+
     note_layer = bpy.data.grease_pencils['Annotations'].layers['Note']
     frame = note_layer.active_frame
     stroke_set, stroke_roots = combine_strokes(frame.strokes)
@@ -1388,6 +1392,9 @@ def greased_pencil_to_length_loops(bone_length):
 
 
 def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
+
+    if 'Annotations' not in bpy.data.grease_pencils or 'Note' not in bpy.data.grease_pencils['Annotations'].layers:
+        return
 
     mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
@@ -1418,7 +1425,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
             if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
                 loop_index += 1
 
-    remove_duplicate_bones(chr_cache, arm, parent_mode)
+    remove_duplicate_bones(chr_cache, arm)
 
     utils.object_mode_to(arm)
 
