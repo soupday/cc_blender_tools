@@ -1433,6 +1433,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     restore_pose(arm, arm_pose)
     #utils.restore_mode_selection_state(mode_selection)
     utils.edit_mode_to(arm)
+    bpy.ops.wm.tool_set_by_id(name="builtin.annotate")
 
 
 def get_active_grease_pencil_layer():
