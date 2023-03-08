@@ -667,7 +667,6 @@ def remove_existing_loop_bones(chr_cache, arm, loops):
                     chain_bones = get_linked_bones(chain_root, [])
                     for loop in loops:
                         if bone_chain_matches_loop(arm, chain_bones, loop, 0.001):
-                            print("MATCH")
                             remove_bones = False
                             remove_loop = False
                             if bone_selection_mode == "SELECTED":
@@ -748,13 +747,15 @@ def remove_duplicate_bones(chr_cache, arm):
     return
 
 
-def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
+def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
     """Generate hair rig bones from vertex loops. Must be in edit mode on armature."""
 
     if len(loop) < 2:
         return False
 
-    # minimum skip length of half the length
+    length = loop_length(loop)
+
+    # maximum skip length of 3/4 length
     skip_length = min(skip_length, 3.0 * length / 4.0)
     segments = max(1, round((length - skip_length) / bone_length))
 
@@ -842,7 +843,8 @@ def is_hair_rig_bone(bone_name):
 
 
 def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
-                            one_loop_per_card = True, bone_length = 0.05, skip_length = 0.0):
+                            one_loop_per_card = True, bone_length = 0.075, skip_length = 0.075):
+    """Lengths in world space units (m)."""
 
     mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
@@ -867,9 +869,8 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
         loop_index = 1
         new_bones = []
         for loop in loops:
-            length = loop_length(loop)
             loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
-            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
+            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
                 loop_index += 1
 
     remove_duplicate_bones(chr_cache, arm)
@@ -1421,9 +1422,8 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
         loop_index = 1
         new_bones = []
         for loop in loops:
-            length = loop_length(loop)
             loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
-            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
+            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
                 loop_index += 1
 
     remove_duplicate_bones(chr_cache, arm)
@@ -1448,7 +1448,8 @@ def get_active_grease_pencil_layer():
 
 def clear_greased_pencil():
     active_layer = get_active_grease_pencil_layer()
-    active_layer.active_frame.clear()
+    if active_layer:
+        active_layer.active_frame.clear()
 
 
 def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):

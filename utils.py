@@ -1297,3 +1297,10 @@ def name_contains_distinct_keywords(name : str, *keywords : str):
 
 def is_name_or_duplication(a, b):
     return strip_name(a) == strip_name(b)
+
+
+def object_scale(obj):
+    try:
+        return (obj.scale[0] + obj.scale[1] + obj.scale[2]) / 3.0
+    except:
+        return 1.0

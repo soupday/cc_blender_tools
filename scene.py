@@ -432,7 +432,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studio_light = 'courtyard.exr'
             bpy.context.space_data.shading.studiolight_rotate_z = 2.00713
             bpy.context.space_data.shading.studiolight_intensity = 0.35
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.1
+            bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
 
             bpy.context.space_data.clip_start = 0.01

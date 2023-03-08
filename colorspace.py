@@ -26,31 +26,97 @@ def is_aces():
     return bpy.context.scene.display_settings.display_device == "ACES"
 
 
+def try_set_color_space(color_space_settings, color_space_ref):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    try:
+        color_space_settings.name = color_space_ref
+        return True
+    except:
+        pass
+
+    if color_space_ref == "sRGB" or color_space_ref == prefs.aces_srgb_override:
+        rgb_color_spaces = ["sRGB", "srgb", "role_matte_paint", "Utility - Linear - sRGB"]
+        for color_space in rgb_color_spaces:
+            try:
+                color_space_settings.name = color_space
+                return True
+            except:
+                pass
+
+    else:
+        rgb_color_spaces = ["Non-Color", "non-color", "role_data", "Linear", "linear", "Utility - Raw",
+                            "Generic Data", "generic data", "Linear BT.709", "Raw", "raw",
+                            "Linear Tristimulus", "linear tristimulus"]
+        for color_space in rgb_color_spaces:
+            try:
+                color_space_settings.name = color_space
+                return True
+            except:
+                pass
+
+    return False
+
+
 def set_image_color_space(image : bpy.types.Image, ref_colorspace : str):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     if is_aces():
         if ref_colorspace == "Non-Color":
-            image.colorspace_settings.name = prefs.aces_data_override
+            try_set_color_space(image, prefs.aces_data_override)
         else:
-            image.colorspace_settings.name = prefs.aces_srgb_override
+            try_set_color_space(image, prefs.aces_srgb_override)
 
     else:
-        image.colorspace_settings.name = ref_colorspace
+        try_set_color_space(image.colorspace_settings, ref_colorspace)
+
+
+def try_set_view_transform(view_transform):
+    try:
+        bpy.context.scene.view_settings.view_transform = view_transform
+        return True
+    except:
+        pass
+
+    try:
+        bpy.context.scene.view_settings.view_transform = "sRGB"
+        return True
+    except:
+        pass
+
+    return False
+
+
+def try_set_look(look):
+    try:
+        bpy.context.scene.view_settings.look = look
+        return True
+    except:
+        pass
+
+    try:
+        bpy.context.scene.view_settings.look = "NONE"
+        return True
+    except:
+        pass
+
+    return False
+
+
 
 
 def set_view_settings(view_transform, look, exposure, gamma):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     if is_aces():
-        bpy.context.scene.view_settings.view_transform = "sRGB"
-        bpy.context.scene.view_settings.look = "None"
+        try_set_view_transform("sRGB")
+        try_set_look("None")
         bpy.context.scene.view_settings.exposure = 0.0
         bpy.context.scene.view_settings.gamma = 1.0
 
     else:
-        bpy.context.scene.view_settings.view_transform = view_transform
-        bpy.context.scene.view_settings.look = look
+        try_set_view_transform(view_transform)
+        try_set_look(look)
         bpy.context.scene.view_settings.exposure = exposure
         bpy.context.scene.view_settings.gamma = gamma
 
