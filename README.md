@@ -39,6 +39,7 @@ Links
 - Hair bone de-duplication.
 - Bones from grease pencil lines or hair card generation now replaces (matching) existing bones.
 - Grease Pencil lines generated only from active grease pencil layer, allowing for better organization.
+- Added some color space fallbacks when using different color space configurations.
 
 ### 1.5.6
 - Relative wrinkle strengths for individual wrinkle maps implemented.
