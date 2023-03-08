@@ -447,6 +447,22 @@ def eval_loop_at(loop, length, fac):
     return p0
 
 
+def is_on_loop(co, loop, threshold = 0.001):
+    """Is the coordinate on the loop.
+       (All coordintes should be in world space)"""
+    p0 = loop[0]
+    min_distance = threshold + 1.0
+    for i in range(1, len(loop)):
+        p1 = loop[i]
+        dist, fac = distance_from_line(co, p0, p1)
+        if dist < min_distance:
+            min_distance = dist
+        if min_distance < threshold:
+            return True
+        p0 = p1
+    return min_distance < threshold
+
+
 def clear_hair_bone_weights(chr_cache, arm, objects, bone_mode):
     utils.object_mode_to(arm)
 
@@ -590,7 +606,7 @@ def get_linked_bones(edit_bone, bone_list):
     return bone_list
 
 
-def bones_match(arm, bone_list_a, bone_list_b, tolerance = 0.001):
+def bone_chains_match(arm, bone_list_a, bone_list_b, tolerance = 0.001):
 
     tolerance /= ((arm.scale[0] + arm.scale[1] + arm.scale[2]) / 3.0)
 
@@ -607,28 +623,117 @@ def bones_match(arm, bone_list_a, bone_list_b, tolerance = 0.001):
     return True
 
 
-def remove_duplicate_bones(chr_cache, arm, parent_mode):
+def bone_chain_matches_loop(arm, bone_list, loop, threshold = 0.001):
+    for bone_name in bone_list:
+        if bone_name in arm.data.edit_bones:
+            edit_bone = arm.data.edit_bones[bone_name]
+            if not is_on_loop(arm.matrix_world @ edit_bone.head, loop, threshold):
+                return False
+            if not is_on_loop(arm.matrix_world @ edit_bone.tail, loop, threshold):
+                return False
+        else:
+            return False
+    return True
 
-    hair_rig = get_hair_rig(chr_cache, arm, parent_mode, create_if_missing=True)
+
+def remove_existing_loop_bones(chr_cache, arm, loops):
+    """Removes any bone chains in the hair rig that align with the loops"""
+
+    props = bpy.context.scene.CC3ImportProps
+    bone_selection_mode = props.hair_rig_bind_bone_mode
+
+    if bone_selection_mode == "SELECTED":
+        # select all linked bones
+        utils.edit_mode_to(arm)
+        bpy.ops.armature.select_linked()
+        utils.object_mode_to(arm)
+
+    utils.edit_mode_to(arm)
+
+    head_rig = get_hair_rig(chr_cache, arm, "HEAD")
+    jaw_rig = get_hair_rig(chr_cache, arm, "JAW")
+    hair_rigs = [head_rig, jaw_rig]
+
+    remove_bone_list = []
+    remove_loop_list = []
+    removed_roots = []
+
+    for hair_rig in hair_rigs:
+        if hair_rig:
+
+            for chain_root in hair_rig.children:
+                chain_root : bpy.types.EditBone
+                if chain_root not in removed_roots:
+                    chain_bones = get_linked_bones(chain_root, [])
+                    for loop in loops:
+                        if bone_chain_matches_loop(arm, chain_bones, loop, 0.001):
+                            remove_bones = False
+                            remove_loop = False
+                            if bone_selection_mode == "SELECTED":
+                                if chain_root.select:
+                                    # if the chain is selected, then it is to be replaced, so remove it.
+                                    remove_bones = True
+                                else:
+                                    # otherwise remove the loop, so it won't generate new bones over the existing bones.
+                                    remove_loop = True
+                            else:
+                                remove_bones = True
+
+                            if remove_bones:
+                                utils.log_info(f"Existing bone chain starting: {chain_root.name} is to be re-generated.")
+                                remove_bone_list.extend(chain_bones)
+                                removed_roots.append(chain_root)
+                            if remove_loop:
+                                utils.log_info(f"Existing bone chain starting: {chain_root.name} will not be replaced.")
+                                remove_loop_list.append(loop)
+
+        if remove_bone_list:
+            for bone_name in remove_bone_list:
+                if bone_name in arm.data.edit_bones:
+                    utils.log_info(f"Removing bone on generating loop: {bone_name}")
+                    arm.data.edit_bones.remove(arm.data.edit_bones[bone_name])
+                else:
+                    utils.log_info(f"Already deleted: {bone_name} ?")
+
+        if remove_loop_list:
+            for loop in remove_loop_list:
+                if loop in loops:
+                    loops.remove(loop)
+                    utils.log_info(f"Removing loop from generation list")
+
+    return
+
+
+def remove_duplicate_bones(chr_cache, arm):
+    """Remove any duplicate bone chains"""
+
+    head_rig = get_hair_rig(chr_cache, arm, "HEAD")
+    jaw_rig = get_hair_rig(chr_cache, arm, "JAW")
+    hair_rigs = [head_rig, jaw_rig]
 
     remove_list = []
     removed_roots = []
 
-    if (hair_rig):
+    utils.edit_mode_to(arm)
 
-        for chain_root in hair_rig.children:
-            if chain_root not in removed_roots:
-                chain_bones = get_linked_bones(chain_root, [])
-                for i in range(len(hair_rig.children)-1, 0, -1):
-                    test_chain_root = hair_rig.children[i]
-                    if test_chain_root not in removed_roots:
-                        test_chain_bones = get_linked_bones(test_chain_root, [])
-                        if chain_root == test_chain_root:
-                            break
-                        if bones_match(arm, test_chain_bones, chain_bones, 0.001):
-                            remove_list.extend(test_chain_bones)
-                            removed_roots.append(test_chain_root)
+    for hair_rig in hair_rigs:
 
+        if hair_rig:
+
+            for chain_root in hair_rig.children:
+                if chain_root not in removed_roots:
+                    chain_bones = get_linked_bones(chain_root, [])
+                    for i in range(len(hair_rig.children)-1, 0, -1):
+                        test_chain_root = hair_rig.children[i]
+                        if test_chain_root not in removed_roots:
+                            test_chain_bones = get_linked_bones(test_chain_root, [])
+                            if chain_root == test_chain_root:
+                                break
+                            if bone_chains_match(arm, test_chain_bones, chain_bones, 0.001):
+                                remove_list.extend(test_chain_bones)
+                                removed_roots.append(test_chain_root)
+
+    if remove_list:
         for bone_name in remove_list:
             if bone_name in arm.data.edit_bones:
                 utils.log_info(f"Removing duplicate bone: {bone_name}")
@@ -636,16 +741,21 @@ def remove_duplicate_bones(chr_cache, arm, parent_mode):
             else:
                 utils.log_info(f"Already deleted: {bone_name} ?")
 
+    # object mode to save changes to edit bones
+    utils.object_mode_to(arm)
+
     return
 
 
-def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
+def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
     """Generate hair rig bones from vertex loops. Must be in edit mode on armature."""
 
     if len(loop) < 2:
         return False
 
-    # minimum skip length of half the length
+    length = loop_length(loop)
+
+    # maximum skip length of 3/4 length
     skip_length = min(skip_length, 3.0 * length / 4.0)
     segments = max(1, round((length - skip_length) / bone_length))
 
@@ -686,8 +796,6 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_le
             else:
                 bone.use_connect = True
             fac += df
-
-        remove_duplicate_bones(chr_cache, arm, parent_mode)
 
         return True
 
@@ -735,7 +843,8 @@ def is_hair_rig_bone(bone_name):
 
 
 def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
-                            one_loop_per_card = True, bone_length = 0.05, skip_length = 0.0):
+                            one_loop_per_card = True, bone_length = 0.075, skip_length = 0.075):
+    """Lengths in world space units (m)."""
 
     mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
@@ -752,6 +861,7 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
     if root_bone:
         loops = selected_cards_to_length_loops(chr_cache, obj, card_dir, one_loop_per_card)
         utils.edit_mode_to(arm)
+        remove_existing_loop_bones(chr_cache, arm, loops)
         for edit_bone in arm.data.edit_bones:
             edit_bone.select_head = False
             edit_bone.select_tail = False
@@ -759,10 +869,12 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
         loop_index = 1
         new_bones = []
         for loop in loops:
-            length = loop_length(loop)
             loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
-            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
+            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
                 loop_index += 1
+
+    remove_duplicate_bones(chr_cache, arm)
+
     utils.object_mode_to(arm)
 
     restore_pose(arm, arm_pose)
@@ -833,21 +945,26 @@ def get_hair_cards_lateral(chr_cache, obj, card_dir : Vector, card_selection_mod
     return bm, cards
 
 
+def distance_from_line(co, start, end):
+    """Returns the distance from the line and where along the line it is closest."""
+    line = end - start
+    dir = line.normalized()
+    length = line.length
+    from_start : Vector = co - start
+    from_end : Vector = co - end
+    if line.dot(from_start) <= 0:
+        return (co - start).length, 0.0
+    elif line.dot(from_end) >= 0:
+        return (co - end).length, 1.0
+    else:
+        return (line.cross(from_start) / length).length, min(1.0, max(0.0, dir.dot(from_start) / length))
+
+
 def get_distance_to_bone_def(bone_def, co : Vector):
     #bone_def = { "name": pose_bone.name, "head": head, "tail": tail, "line": line, "dir": dir }
     head : Vector = bone_def["head"]
     tail : Vector = bone_def["tail"]
-    line : Vector = bone_def["line"]
-    dir : Vector = bone_def["dir"]
-    length = bone_def["length"]
-    from_head : Vector = co - head
-    from_tail : Vector = co - tail
-    if line.dot(from_head) <= 0:
-        return (co - head).length, 0.0
-    elif line.dot(from_tail) >= 0:
-        return (co - tail).length, 1.0
-    else:
-        return (line.cross(from_head) / length).length, min(1.0, max(0.0, dir.dot(from_head) / length))
+    return distance_from_line(co, head, tail)
 
 
 def get_closest_bone_def(bone_chain, co, max_radius):
@@ -1254,8 +1371,12 @@ def smooth_loop(loop):
 
 def greased_pencil_to_length_loops(bone_length):
     current_frame = bpy.context.scene.frame_current
-    note_layer = bpy.data.grease_pencils['Annotations'].layers['Note']
-    frame = note_layer.active_frame
+
+    grease_pencil_layer = get_active_grease_pencil_layer()
+    if not grease_pencil_layer:
+        return
+
+    frame = grease_pencil_layer.active_frame
     stroke_set, stroke_roots = combine_strokes(frame.strokes)
 
     loops = []
@@ -1273,7 +1394,11 @@ def greased_pencil_to_length_loops(bone_length):
 
 def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
 
-    mode_selection = utils.store_mode_selection_state()
+    grease_pencil_layer = get_active_grease_pencil_layer()
+    if not grease_pencil_layer:
+        return
+
+    #mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
     repair_orphaned_hair_bones(chr_cache, arm)
@@ -1289,6 +1414,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     if root_bone:
         loops = greased_pencil_to_length_loops(bone_length)
         utils.edit_mode_to(arm)
+        remove_existing_loop_bones(chr_cache, arm, loops)
         for edit_bone in arm.data.edit_bones:
             edit_bone.select_head = False
             edit_bone.select_tail = False
@@ -1296,21 +1422,34 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
         loop_index = 1
         new_bones = []
         for loop in loops:
-            length = loop_length(loop)
             loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
-            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, length, bone_length, skip_length, new_bones):
+            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
                 loop_index += 1
+
+    remove_duplicate_bones(chr_cache, arm)
+
     utils.object_mode_to(arm)
 
     restore_pose(arm, arm_pose)
-    utils.restore_mode_selection_state(mode_selection)
+    #utils.restore_mode_selection_state(mode_selection)
+    utils.edit_mode_to(arm)
+    bpy.ops.wm.tool_set_by_id(name="builtin.annotate")
+
+
+def get_active_grease_pencil_layer():
+    #current_frame = bpy.context.scene.frame_current
+    #note_layer = bpy.data.grease_pencils['Annotations'].layers.active
+    #frame = note_layer.active_frame
+    try:
+        return bpy.context.scene.grease_pencil.layers.active
+    except:
+        return None
 
 
 def clear_greased_pencil():
-    current_frame = bpy.context.scene.frame_current
-    note_layer = bpy.data.grease_pencils['Annotations'].layers['Note']
-    frame = note_layer.active_frame
-    note_layer.active_frame.clear()
+    active_layer = get_active_grease_pencil_layer()
+    if active_layer:
+        active_layer.active_frame.clear()
 
 
 def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
@@ -1338,17 +1477,20 @@ def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length
         loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
         if custom_bone(chr_cache, arm, parent_mode, loop_index, bone_length, new_bones):
             loop_index += 1
+
     utils.object_mode_to(arm)
     restore_pose(arm, arm_pose)
+
+    remove_duplicate_bones(chr_cache, arm)
 
     utils.edit_mode_to(arm)
 
 
 def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector, max_radius, max_bones, max_weight, curve, variance, existing_scale, card_mode, bone_mode, smoothing):
 
-    reset_pose(arm)
-
     utils.object_mode_to(arm)
+    reset_pose(arm)
+    remove_duplicate_bones(chr_cache, arm)
     bone_chains = get_bone_chains(chr_cache, arm, bone_mode)
 
     hair_bones = []

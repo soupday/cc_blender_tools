@@ -675,7 +675,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
 class CC3SpringRigPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_SpringRig_Panel"
-    bl_label = "Spring Rig (WIP)"
+    bl_label = "Spring Rig"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME

@@ -35,6 +35,11 @@ Links
 
 ## Changelog
 
+### 1.5.7
+- Hair bone de-duplication.
+- Bones from grease pencil lines or hair card generation now replaces (matching) existing bones.
+- Grease Pencil lines generated only from active grease pencil layer, allowing for better organization.
+
 ### 1.5.6
 - Relative wrinkle strengths for individual wrinkle maps implemented.
 - Overall wrinkle strength and curve power slider added the head material parameters.
