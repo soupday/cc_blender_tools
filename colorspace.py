@@ -26,11 +26,11 @@ def is_aces():
     return bpy.context.scene.display_settings.display_device == "ACES"
 
 
-def try_set_color_space(color_space_settings, color_space_ref):
+def try_set_color_space(image : bpy.types.Image, color_space_ref):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     try:
-        color_space_settings.name = color_space_ref
+        image.colorspace_settings.name = color_space_ref
         return True
     except:
         pass
@@ -39,7 +39,7 @@ def try_set_color_space(color_space_settings, color_space_ref):
         rgb_color_spaces = ["sRGB", "srgb", "role_matte_paint", "Utility - Linear - sRGB"]
         for color_space in rgb_color_spaces:
             try:
-                color_space_settings.name = color_space
+                image.colorspace_settings.name = color_space
                 return True
             except:
                 pass
@@ -50,7 +50,7 @@ def try_set_color_space(color_space_settings, color_space_ref):
                             "Linear Tristimulus", "linear tristimulus"]
         for color_space in rgb_color_spaces:
             try:
-                color_space_settings.name = color_space
+                image.colorspace_settings.name = color_space
                 return True
             except:
                 pass
@@ -68,7 +68,7 @@ def set_image_color_space(image : bpy.types.Image, ref_colorspace : str):
             try_set_color_space(image, prefs.aces_srgb_override)
 
     else:
-        try_set_color_space(image.colorspace_settings, ref_colorspace)
+        try_set_color_space(image, ref_colorspace)
 
 
 def try_set_view_transform(view_transform):
