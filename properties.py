@@ -52,33 +52,26 @@ def eye_close_update(self, context):
     chr_cache = props.get_context_character_cache(context)
     value = chr_cache.eye_close
 
-    body_object = None
-    eo_object = None
-    tearline_object = None
+    objects = []
     for obj_cache in chr_cache.object_cache:
         if obj_cache.is_mesh():
             if obj_cache.object_type == "BODY":
-                body_object = obj_cache.get_object()
+                objects.append(obj_cache.get_object())
             elif obj_cache.object_type == "EYE_OCCLUSION":
-                eo_object = obj_cache.get_object()
+                objects.append(obj_cache.get_object())
             elif obj_cache.object_type == "TEARLINE":
-                tearline_object = obj_cache.get_object()
+                objects.append(obj_cache.get_object())
 
-    if body_object:
-        try:
-            body_object.data.shape_keys.key_blocks['Eye_Blink'].value = value
-        except:
-            pass
-    if eo_object:
-        try:
-            eo_object.data.shape_keys.key_blocks['Eye_Blink'].value = value
-        except:
-            pass
-    if tearline_object:
-        try:
-            tearline_object.data.shape_keys.key_blocks['Eye_Blink'].value = value
-        except:
-            pass
+    blink_shapes = ["Eye_Blink", "Eye_Blink_L", "Eye_Blink_R"]
+
+    for obj in objects:
+        if obj and obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            for key in blink_shapes:
+                if key in obj.data.shape_keys.key_blocks:
+                    try:
+                        obj.data.shape_keys.key_blocks[key].value = value
+                    except:
+                        pass
 
 
 def update_property(self, context, prop_name, update_mode = None):
@@ -449,7 +442,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_skip_length = 0.0
             self.hair_rig_bind_existing_scale = 0.0
             self.hair_rig_bone_length = 7.5
-            self.hair_rig_bind_bone_radius = 7.5
+            self.hair_rig_bind_bone_radius = 11.75
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
@@ -459,7 +452,17 @@ def update_rig_target(self, context):
             self.hair_rig_bind_skip_length = 7.5
             self.hair_rig_bind_existing_scale = 1.0
             self.hair_rig_bone_length = 7.5
-            self.hair_rig_bind_bone_radius = 7.5
+            self.hair_rig_bind_bone_radius = 11.75
+            self.hair_rig_bind_bone_count = 2
+            self.hair_rig_bind_bone_weight = 1.0
+            self.hair_rig_bind_smoothing = 5
+            self.hair_rig_bind_weight_curve = 0.5
+            self.hair_rig_bind_bone_variance = 0.75
+        elif self.hair_rig_target == "BLENDER":
+            self.hair_rig_bind_skip_length = 8
+            self.hair_rig_bind_existing_scale = 1.0
+            self.hair_rig_bone_length = 4
+            self.hair_rig_bind_bone_radius = 12
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
@@ -1928,14 +1931,30 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("SELECTED","Selected Bones","Bind to only the selected bones of the hair rig"),
                     ], default="ALL", name = "Bone Selection Mode")
     hair_rig_bone_root: bpy.props.EnumProperty(items=[
-                        ("HEAD","Head Bone","Parent generated bones to the head bone"),
-                        ("JAW","Jaw Bone","Parent the generated bones to the jaw bone (for beards)"),
+                        ("HEAD","Head Hair","Parent generated bones to the head bone"),
+                        ("JAW","Beard Hair","Parent the generated bones to the jaw bone, for beards"),
                     ], default="HEAD", name = "Root bone for generated hair bones")
     hair_rig_target: bpy.props.EnumProperty(items=[
-                        ("CC4","Rig For CC4","Generate a compatible spring rig for Character Creator and iClone.\n"
+                        ("BLENDER","Blender","Generate a spring rig for Blender"),
+                        ("CC4","CC4","Generate a compatible spring rig for Character Creator and iClone.\n"
                         "For Character Creator spring rigs, all other vertex weights are removed, and the first bone of each chain is fixed in place."),
-                        ("UNITY","Rig For Unity","Generate a spring rig for Unity"),
+                        ("UNITY","Unity","Generate a spring rig for Unity"),
                     ], default="UNITY", name = "Rig Target Application", update=update_rig_target)
+
+    hair_rigid_body_influence: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0, name = "Influence",
+                                                       description = "How much of the simulation is copied into the pose bones")
+    hair_rigid_body_limit: bpy.props.FloatProperty(default=25, min=0, max=50, name = "Rigid Body Dampening Range",
+                                                       description = "How big a dampening range to apply to the rigid body. More range gives more movement")
+    hair_rigid_body_curve: bpy.props.FloatProperty(default=0.5, min=1/8, max=2, name = "Length Dampening Curve",
+                                                       description = "The dampening curve factor along the length of the spring bone chains. Less curve gives more movement near the roots")
+    hair_rigid_body_mass: bpy.props.FloatProperty(default=1.0, min=0.0, max=5.0, name = "Hair Node Mass",
+                                                       description = "Mass of the rigid body particles representing the bones. More mass, more inertia")
+    hair_rigid_body_dampening: bpy.props.FloatProperty(default=10.0, min=0.0, max=10000.0, name = "Spring Dampening",
+                                                       description = "Spring dampening. (Makes very little difference)")
+    hair_rigid_body_stiffness: bpy.props.FloatProperty(default=50.0, min=0.0, max=100.0, name = "Spring Stiffness",
+                                                       description = "Spring stiffness. (Makes very little difference)")
+    hair_rigid_body_radius: bpy.props.FloatProperty(default=0.05, min=0.0125, max=0.1, name = "Hair Node Collision Radius",
+                                                       description = "Collision radius of the rigid body partivles representing the bones. Note: Too much and the rigid body system will start colliding with itself")
 
     # UI List props
     armature_action_filter: bpy.props.BoolProperty(default=True)

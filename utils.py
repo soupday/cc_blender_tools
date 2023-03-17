@@ -16,6 +16,7 @@
 
 import os
 import time
+import difflib
 from hashlib import md5
 import bpy
 
@@ -257,6 +258,16 @@ def object_exists(obj):
         return len(obj.users_scene) > 0
     except:
         return False
+
+
+def get_selected_mesh():
+    if object_exists_is_mesh(bpy.context.active_object):
+        return bpy.context.active_object
+    elif bpy.context.selected_objects:
+        for obj in bpy.context.selected_objects:
+            if object_exists_is_mesh(obj):
+                return obj
+    return None
 
 
 def try_remove(item, force = False):
@@ -596,6 +607,24 @@ def partial_match(text, search, start = 0):
     return False
 
 
+def get_longest_alpha_match(a : str, b : str):
+    match = difflib.SequenceMatcher(lambda x: x in " 0123456789", a, b).find_longest_match()
+    if match[2] == 0:
+        return ""
+    else:
+        return a[match[0]:(match[0] + match[2])]
+
+
+def get_common_name(names):
+    common_name = names[0]
+    for i in range(1, len(names)):
+        common_name = get_longest_alpha_match(common_name, names[i])
+    while common_name[-1] in "_0123456789":
+        common_name = common_name[:-1]
+    print(common_name)
+    return common_name
+
+
 def get_dot_file_ext(ext):
     if ext[0] == ".":
         return ext.lower()
@@ -780,6 +809,44 @@ def delete_mesh_object(obj):
         bpy.data.objects.remove(obj)
         if data:
             bpy.data.meshes.remove(data)
+
+
+def get_object_tree(obj, objects = None):
+    if objects is None:
+        objects = []
+    if object_exists(obj):
+        objects.append(obj)
+        for child_obj in obj.children:
+            get_object_tree(child_obj, objects)
+    return objects
+
+
+def delete_object_tree(obj):
+    objects = get_object_tree(obj)
+    for obj in objects:
+        if obj.type == "MESH" and obj.data:
+            try:
+                bpy.data.meshes.remove(obj.data)
+            except:
+                pass
+        elif obj.type == "ARMATURE" and obj.data:
+            try:
+                bpy.data.armatures.remove(obj.data)
+            except:
+                pass
+        try:
+            bpy.data.objects.remove(obj)
+        except:
+            pass
+
+
+def hide_tree(obj, hide = True):
+    objects = get_object_tree(obj)
+    for obj in objects:
+        try:
+            obj.hide_set(hide)
+        except:
+            pass
 
 
 def get_context_area(context, area_type):

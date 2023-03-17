@@ -168,9 +168,10 @@ def copy_edit_bone(rig, src_name, dst_name, parent_name, scale):
     return None
 
 
-def new_edit_bone(rig, bone_name, parent_name):
+def new_edit_bone(rig, bone_name, parent_name, allow_existing = True):
     if utils.edit_mode_to(rig):
-        if bone_name not in rig.data.edit_bones:
+        can_add = allow_existing or bone_name not in rig.data.edit_bones
+        if can_add:
             bone = rig.data.edit_bones.new(bone_name)
             bone.head = mathutils.Vector((0,0,0))
             bone.tail = bone.head + mathutils.Vector((0,0,0.05))
@@ -255,6 +256,15 @@ def copy_rig_bind_pose(rig_from, rig_to):
                 edit_bone.head = bone_def["head"].copy()
                 edit_bone.tail = bone_def["tail"].copy()
                 edit_bone.roll = bone_def["roll"]
+
+
+def get_edit_bone_children(bone, bone_list = None):
+    if bone_list is None:
+        bone_list = []
+    bone_list.append(bone)
+    for child in bone.children:
+        get_edit_bone_children(bone, bone_list)
+    return bone_list
 
 
 def get_edit_bone_subtree_defs(rig, bone : bpy.types.EditBone, tree = None):
@@ -440,6 +450,47 @@ def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance
         return None
 
 
+def add_child_of_constraint(parent_rig, child_rig, parent_bone, child_bone, influence = 1.0, space="WORLD"):
+    try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = child_rig.pose.bones[child_bone]
+            c : bpy.types.ChildOfConstraint = to_pose_bone.constraints.new(type="CHILD_OF")
+            c.target = parent_rig
+            c.subtarget = parent_bone
+            c.target_space = space
+            c.owner_space = space
+            c.influence = influence
+            return c
+    except:
+        utils.log_error(f"Unable to add child of constraint: {child_bone} {parent_bone}")
+        return None
+
+
+def add_inverse_kinematic_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD",
+                                     use_tail = True, use_stretch = True, use_rotation = True, use_location = True,
+                                     weight = 1.0, orient_weight = 0.0, chain_count = 1):
+    #try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            c : bpy.types.KinematicConstraint = to_pose_bone.constraints.new(type="IK")
+            c.target = from_rig
+            c.subtarget = from_bone
+            c.use_tail = use_tail
+            c.use_stretch = use_stretch
+            c.use_rotation = use_rotation
+            c.use_location = use_location
+            c.weight = weight
+            c.chain_count = chain_count
+            c.orient_weight = orient_weight
+            c.target_space = space
+            c.owner_space = space
+            c.influence = influence
+            return c
+    #except:
+    #    utils.log_error(f"Unable to add inverse kinematic constraint: {to_bone} {from_bone}")
+    #    return None
+
+
 def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_connect = True if "C" in flags else False
     edit_bone.use_local_location = True if "L" in flags else False
@@ -528,7 +579,20 @@ def set_bone_group(rig, bone, group):
         else:
             utils.log_error(f"Cannot find pose bone {bone} in rig!")
     else:
-        utils.log_error("Unable to edit rig!")
+        utils.log_error("Unable to select rig!")
+
+
+def set_pose_bone_custom_scale(rig, bone_name, scale):
+    if type(scale) is not list:
+        scale = [float(scale), float(scale), float(scale)]
+    try:
+        rig.pose.bones[bone_name].custom_shape_scale = scale
+    except:
+        pass
+    try:
+        rig.pose.bones[bone_name].custom_shape_scale_xyz = scale
+    except:
+        pass
 
 
 def get_distance_between(rig, bone_a_name, bone_b_name):
@@ -575,6 +639,28 @@ def generate_eye_widget(rig, bone_name, bones, distance, scale):
                 pose_bone = rig.pose.bones[bone_name]
                 pose_bone.custom_shape = wgt
                 wgt.name = "WGT-rig_" + bone_name
+    return wgt
+
+
+def generate_spring_widget(rig, name, scale):
+    wgt : bpy.types.Object = None
+    wgt_name = "WGT-rig_" + name
+    if wgt_name in bpy.data.objects:
+        return bpy.data.objects[wgt_name]
+
+    if utils.set_mode("OBJECT"):
+        bpy.ops.mesh.primitive_circle_add(vertices=16, radius=scale,
+                                          rotation=[0,0,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt = utils.get_active_object()
+        wgt.name = wgt_name
+        if wgt:
+            collection : bpy.types.Collection
+            for collection in bpy.data.collections:
+                if collection.name.startswith("WGTS_rig"):
+                    collection.objects.link(wgt)
+                elif wgt.name in collection.objects:
+                    collection.objects.unlink(wgt)
     return wgt
 
 

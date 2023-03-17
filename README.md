@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 1.5.8
+- Fix to eye close slider.
+- Blender spring bone rigid body simulation added for spring bone hair rigs.
+
 ### 1.5.7
 - Hair bone de-duplication.
 - Bones from grease pencil lines or hair card generation now replaces (matching) existing bones.

@@ -59,6 +59,8 @@ def apply_cloth_settings(obj, cloth_type):
         # collision
         mod.collision_settings.distance_min = HAIR_THICKNESS
         mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.0005 # 0.5mm
+        mod.collision_settings.self_friction = 1
     elif cloth_type == "SILK":
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.05
@@ -79,6 +81,8 @@ def apply_cloth_settings(obj, cloth_type):
         # collision
         mod.collision_settings.distance_min = CLOTH_THICKNESS
         mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.0025 # 2.5mm
+        mod.collision_settings.self_friction = 1
     elif cloth_type == "DENIM":
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.5
@@ -99,6 +103,8 @@ def apply_cloth_settings(obj, cloth_type):
         # collision
         mod.collision_settings.distance_min = CLOTH_THICKNESS
         mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.005 # 5mm
+        mod.collision_settings.self_friction = 10
     elif cloth_type == "LEATHER":
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 1
@@ -119,6 +125,8 @@ def apply_cloth_settings(obj, cloth_type):
         # collision
         mod.collision_settings.distance_min = CLOTH_THICKNESS
         mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.005 # 5mm
+        mod.collision_settings.self_friction = 15
     elif cloth_type == "RUBBER":
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.5
@@ -139,6 +147,8 @@ def apply_cloth_settings(obj, cloth_type):
         # collision
         mod.collision_settings.distance_min = CLOTH_THICKNESS
         mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.0025 # 2.5mm
+        mod.collision_settings.self_friction = 20
     else: #cotton
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.1
@@ -159,6 +169,8 @@ def apply_cloth_settings(obj, cloth_type):
         # collision
         mod.collision_settings.distance_min = CLOTH_THICKNESS
         mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.0025 # 2.5mm
+        mod.collision_settings.self_friction = 5
 
 
 def add_collision_physics(chr_cache, obj, obj_cache):
@@ -167,24 +179,28 @@ def add_collision_physics(chr_cache, obj, obj_cache):
     Does not overwrite or re-create any existing Collision modifier.
     """
 
-    if (obj_cache.collision_physics == "ON" or
-        (obj_cache.collision_physics == "DEFAULT" and
-            (obj_cache.object_type == "BODY" or obj_cache.object_type == "OCCLUSION")
-        )):
+    if obj_cache is None:
+        obj_cache = chr_cache.get_object_cache(obj)
 
-        if obj_cache.object_type == "BODY":
-            obj = create_body_collision_mesh(chr_cache, obj)
+    if obj_cache:
+        if (obj_cache.collision_physics == "ON" or
+            (obj_cache.collision_physics == "DEFAULT" and
+                (obj_cache.object_type == "BODY" or obj_cache.object_type == "OCCLUSION")
+            )):
 
-        collision_mod = modifiers.get_collision_physics_mod(chr_cache, obj)
-        if not collision_mod:
-            collision_mod = obj.modifiers.new(utils.unique_name("Collision"), type="COLLISION")
-        collision_mod.settings.thickness_outer = COLLISION_THICKESS
-        utils.log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
+            if obj_cache.object_type == "BODY":
+                obj = create_body_collision_mesh(chr_cache, obj)
 
-    elif obj_cache.collision_physics == "OFF":
+            collision_mod = modifiers.get_collision_physics_mod(chr_cache, obj)
+            if not collision_mod:
+                collision_mod = obj.modifiers.new(utils.unique_name("Collision"), type="COLLISION")
+            collision_mod.settings.thickness_outer = COLLISION_THICKESS
+            utils.log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
 
-        remove_collision_physics(chr_cache, obj, obj_cache)
-        utils.log_info("Collision Physics disabled for: " + obj.name)
+        elif obj_cache.collision_physics == "OFF":
+
+            remove_collision_physics(chr_cache, obj, obj_cache)
+            utils.log_info("Collision Physics disabled for: " + obj.name)
 
 
 def remove_collision_physics(chr_cache, obj, obj_cache):
@@ -316,6 +332,8 @@ def remove_all_physics_mods(obj):
 
 
 def enable_collision_physics(chr_cache, obj):
+    if obj == chr_cache.collision_body:
+        obj = chr_cache.get_body()
     props = bpy.context.scene.CC3ImportProps
     obj_cache = chr_cache.get_object_cache(obj)
     obj_cache.collision_physics = "ON"
@@ -324,6 +342,8 @@ def enable_collision_physics(chr_cache, obj):
 
 
 def disable_collision_physics(chr_cache, obj):
+    if obj == chr_cache.collision_body:
+        obj = chr_cache.get_body()
     props = bpy.context.scene.CC3ImportProps
     obj_cache = chr_cache.get_object_cache(obj)
     obj_cache.collision_physics = "OFF"
@@ -369,6 +389,9 @@ def create_body_collision_mesh(chr_cache, obj):
         modifiers.move_mod_first(collision_body, mod)
         # remove materials
         collision_body.data.materials.clear()
+        # apply decimate modifier
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+
     utils.log_info(f"Storing collision mesh: {collision_body.name}")
     chr_cache.collision_body = collision_body
     collision_body.hide_set(True)
@@ -813,37 +836,48 @@ def delete_selected_weight_map(chr_cache, obj, mat):
             obj.modifiers.remove(mix_mod)
 
 
-def set_physics_bake_range(obj, start, end):
+def reset_physics_cache(obj, start, end):
     cloth_mod = modifiers.get_cloth_physics_mod(obj)
-
     if cloth_mod is not None:
-        if obj.parent is not None and obj.parent.type == "ARMATURE":
-            arm = obj.parent
-            action = utils.safe_get_action(arm)
-            if action:
-                frame_start = math.floor(action.frame_range[0])
-                frame_end = math.ceil(action.frame_range[1])
-                if frame_start < start:
-                    start = frame_start
-                if frame_end > end:
-                    end = frame_end
-
-            utils.log_info("Setting " + obj.name + " bake cache frame range to [" + str(start) + " -" + str(end) + "]")
-            cloth_mod.point_cache.frame_start = start
-            cloth_mod.point_cache.frame_end = end
-            return True
+        # invalidate the cache
+        qs = cloth_mod.settings.quality
+        cloth_mod.point_cache.frame_start = 1
+        cloth_mod.point_cache.frame_end = 1
+        cloth_mod.settings.quality = 1
+        # reset the cache
+        utils.log_info("Setting " + obj.name + " bake cache frame range to [" + str(start) + " -" + str(end) + "]")
+        cloth_mod.point_cache.frame_start = start
+        cloth_mod.point_cache.frame_end = end
+        cloth_mod.settings.quality = qs
+        return True
     return False
 
 
-def prepare_physics_bake(context):
+def reset_cache(context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
+    arm = chr_cache.get_armature()
+
+    # adjust scene frame range from character armature action range
+    # (widen the range if it doesn't cover the armature action)
+    action = utils.safe_get_action(arm)
+    start = bpy.context.scene.frame_start
+    end = bpy.context.scene.frame_end
+    if action:
+        action_start = math.floor(action.frame_range[0])
+        action_end = math.ceil(action.frame_range[1])
+        if action_start < start:
+            start = action_start
+        if action_end > end:
+            end = action_end
+    bpy.context.scene.frame_start = start
+    bpy.context.scene.frame_end = end
 
     if chr_cache:
         for obj_cache in chr_cache.object_cache:
             if obj_cache.is_mesh():
                 obj = obj_cache.get_object()
-                set_physics_bake_range(obj, context.scene.frame_start, context.scene.frame_end)
+                reset_physics_cache(obj, start, end)
 
 
 def separate_physics_materials(chr_cache, context):

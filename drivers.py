@@ -62,5 +62,10 @@ def make_driver(source, prop_name, driver_type, driver_expression = ""):
     return driver
 
 
-def add_custom_float_property(object, prop_name, prop_value, value_min = 0, value_max = 1, overridable = True):
-    rna_idprop_ui_create(object, prop_name, default=prop_value, overridable=overridable, min=value_min, max=value_max)
+def add_custom_float_property(object, prop_name, prop_value : float,
+                              value_min : float = 0.0, value_max : float = 1.0,
+                              overridable = True,
+                              description : str = ""):
+
+    rna_idprop_ui_create(object, prop_name, default=prop_value, overridable=overridable,
+                         min=value_min, max=value_max, description=description)

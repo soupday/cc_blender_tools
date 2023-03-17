@@ -17,17 +17,9 @@
 import bpy, bmesh
 import os, math, random
 from mathutils import Vector
-from . import geom, utils, jsonutils, bones, meshutils
+from . import physics, rigidbody, springbones, geom, utils, jsonutils, bones, meshutils
 
 
-HEAD_RIG_NAME = "RL_Hair_Rig_Head"
-JAW_RIG_NAME = "RL_Hair_Rig_Jaw"
-HAIR_BONE_PREFIX = "RL_Hair"
-BEARD_BONE_PREFIX = "RL_Beard"
-HEAD_BONE_NAMES = ["CC_Base_Head", "RL_Head", "Head", "head"]
-JAW_BONE_NAMES = ["CC_Base_JawRoot", "RL_JawRoot", "JawRoot"]
-EYE_BONE_NAMES = ["CC_Base_R_Eye", "CC_Base_L_Eye", "CC_Base_R_Eye", "CC_Base_L_Eye"]
-ROOT_BONE_NAMES = ["CC_Base_Head", "RL_Head", "Head", "head", "CC_Base_JawRoot", "RL_JawRoot", "JawRoot"]
 STROKE_JOIN_THRESHOLD = 1.0 / 100.0 # 1cm
 
 def begin_hair_sculpt(chr_cache):
@@ -466,10 +458,10 @@ def is_on_loop(co, loop, threshold = 0.001):
 def clear_hair_bone_weights(chr_cache, arm, objects, bone_mode):
     utils.object_mode_to(arm)
 
-    bone_chains = get_bone_chains(chr_cache, arm, bone_mode)
+    bone_chain_defs = get_bone_chain_defs(chr_cache, arm, bone_mode)
 
     hair_bones = []
-    for bone_chain in bone_chains:
+    for bone_chain in bone_chain_defs:
         for bone_def in bone_chain:
             hair_bones.append(bone_def["name"])
 
@@ -484,18 +476,18 @@ def remove_hair_bones(chr_cache, arm, objects, bone_mode):
     utils.object_mode_to(arm)
 
     hair_bones = []
-    bone_chains = None
+    bone_chain_defs = None
 
     if bone_mode == "SELECTED":
         # in selected bone mode, only remove the bones in the selected chains
-        bone_chains = get_bone_chains(chr_cache, arm, bone_mode)
-        for bone_chain in bone_chains:
+        bone_chain_defs = get_bone_chain_defs(chr_cache, arm, bone_mode)
+        for bone_chain in bone_chain_defs:
             for bone_def in bone_chain:
                 hair_bones.append(bone_def["name"])
     else:
         # otherwise remove all possible hair bones
         for bone in arm.data.bones:
-            if is_hair_bone(bone.name) and not is_hair_rig_bone(bone.name):
+            if springbones.is_hair_bone(bone.name) and not springbones.is_hair_rig_bone(bone.name):
                 hair_bones.append(bone.name)
 
     # remove the bones in edit mode
@@ -504,8 +496,8 @@ def remove_hair_bones(chr_cache, arm, objects, bone_mode):
             arm.data.edit_bones.remove(arm.data.edit_bones[bone_name])
 
     # remove the hair rigs if there are no child bones left
-    head_rig = get_hair_rig(chr_cache, arm, "HEAD")
-    jaw_rig = get_hair_rig(chr_cache, arm, "JAW")
+    head_rig = springbones.get_edit_spring_rig(chr_cache, arm, "HEAD")
+    jaw_rig = springbones.get_edit_spring_rig(chr_cache, arm, "JAW")
     if head_rig and not head_rig.children and utils.edit_mode_to(arm):
         arm.data.edit_bones.remove(head_rig)
     if jaw_rig and not jaw_rig.children and utils.edit_mode_to(arm):
@@ -537,37 +529,19 @@ def find_unused_hair_bone_index(arm, loop_index, prefix):
     return loop_index
 
 
-def get_hair_rig(chr_cache, arm, parent_mode, create_if_missing = False):
-    root_bone_name = get_root_bone_name(chr_cache, arm, parent_mode)
-    if parent_mode == "JAW":
-        hair_rig_name = JAW_RIG_NAME
-    else:
-        hair_rig_name = HEAD_RIG_NAME
-    hair_rig = bones.get_edit_bone(arm, hair_rig_name)
-    if not hair_rig and create_if_missing:
-        head_center_position = get_hair_rig_position(chr_cache, arm, parent_mode)
-        hair_rig = bones.new_edit_bone(arm, hair_rig_name, root_bone_name)
-        hair_rig.head = arm.matrix_world.inverted() @ head_center_position
-        hair_rig.tail = arm.matrix_world.inverted() @ (head_center_position + Vector((0,1/32,0)))
-        hair_rig.align_roll(Vector((0,0,1)))
-        bones.set_edit_bone_layer(arm, hair_rig_name, 24)
-    return hair_rig
-
-
 def is_nearby_bone(arm, world_pos):
     """Edit mode"""
     for edit_bone in arm.data.edit_bones:
         length = (world_pos - arm.matrix_world @ edit_bone.head).length
-        print(length)
         if length < 0.01:
             return True
     return False
 
 
 def custom_bone(chr_cache, arm, parent_mode, loop_index, bone_length, new_bones):
-    hair_rig = get_hair_rig(chr_cache, arm, parent_mode, create_if_missing=True)
+    hair_rig = springbones.get_edit_spring_rig(chr_cache, arm, parent_mode, create_if_missing=True)
 
-    hair_bone_prefix = get_hair_bone_prefix(parent_mode)
+    hair_bone_prefix = springbones.get_spring_bone_prefix(parent_mode)
 
     if hair_rig:
 
@@ -650,15 +624,15 @@ def remove_existing_loop_bones(chr_cache, arm, loops):
 
     utils.edit_mode_to(arm)
 
-    head_rig = get_hair_rig(chr_cache, arm, "HEAD")
-    jaw_rig = get_hair_rig(chr_cache, arm, "JAW")
-    hair_rigs = [head_rig, jaw_rig]
+    hair_rigs = springbones.get_edit_spring_rigs(chr_cache, arm, ["HEAD", "JAW"])
 
     remove_bone_list = []
     remove_loop_list = []
     removed_roots = []
 
-    for hair_rig in hair_rigs:
+    for parent_mode in hair_rigs:
+
+        hair_rig = hair_rigs[parent_mode]["edit_bone"]
         if hair_rig:
 
             for chain_root in hair_rig.children:
@@ -707,17 +681,16 @@ def remove_existing_loop_bones(chr_cache, arm, loops):
 def remove_duplicate_bones(chr_cache, arm):
     """Remove any duplicate bone chains"""
 
-    head_rig = get_hair_rig(chr_cache, arm, "HEAD")
-    jaw_rig = get_hair_rig(chr_cache, arm, "JAW")
-    hair_rigs = [head_rig, jaw_rig]
+    hair_rigs = springbones.get_edit_spring_rigs(chr_cache, arm, ["HEAD", "JAW"])
 
     remove_list = []
     removed_roots = []
 
     utils.edit_mode_to(arm)
 
-    for hair_rig in hair_rigs:
+    for parent_mode in hair_rigs:
 
+        hair_rig = hair_rigs[parent_mode]["edit_bone"]
         if hair_rig:
 
             for chain_root in hair_rig.children:
@@ -764,9 +737,9 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, sk
     chain = []
     first = True
 
-    hair_rig = get_hair_rig(chr_cache, arm, parent_mode, create_if_missing=True)
+    hair_rig = springbones.get_edit_spring_rig(chr_cache, arm, parent_mode, create_if_missing=True)
 
-    hair_bone_prefix = get_hair_bone_prefix(parent_mode)
+    hair_bone_prefix = springbones.get_spring_bone_prefix(parent_mode)
 
     if hair_rig:
 
@@ -802,46 +775,6 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, sk
     return False
 
 
-def get_root_edit_bone(chr_cache, arm, parent_mode):
-    try:
-        return arm.data.edit_bones[get_root_bone_name(chr_cache, arm, parent_mode)]
-    except:
-        return None
-
-
-def get_root_bone_name(chr_cache, arm, parent_mode):
-    if parent_mode == "HEAD":
-        possible_head_bones = HEAD_BONE_NAMES
-        for name in possible_head_bones:
-            if name in arm.data.bones:
-                return name
-        return None
-    elif parent_mode == "JAW":
-        possible_jaw_bones = JAW_BONE_NAMES
-        for name in possible_jaw_bones:
-            if name in arm.data.bones:
-                return name
-        return None
-
-
-def get_hair_bone_prefix(parent_mode):
-    return BEARD_BONE_PREFIX if parent_mode == "JAW" else HAIR_BONE_PREFIX
-
-
-def is_hair_bone(bone_name):
-    if bone_name.startswith(HAIR_BONE_PREFIX) or bone_name.startswith(BEARD_BONE_PREFIX):
-        return True
-    else:
-        return False
-
-
-def is_hair_rig_bone(bone_name):
-    if bone_name.startswith(HEAD_RIG_NAME) or bone_name.startswith(JAW_RIG_NAME):
-        return True
-    else:
-        return False
-
-
 def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
                             one_loop_per_card = True, bone_length = 0.075, skip_length = 0.075):
     """Lengths in world space units (m)."""
@@ -849,14 +782,13 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
     mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
-    repair_orphaned_hair_bones(chr_cache, arm)
+    if not chr_cache.rigified:
+        bones.show_armature_layers(arm, [25], in_front=True)
 
-    bones.show_armature_layers(arm, [25], in_front=True)
-
-    hair_bone_prefix = get_hair_bone_prefix(parent_mode)
+    hair_bone_prefix = springbones.get_spring_bone_prefix(parent_mode)
 
     # check root bone exists...
-    root_bone_name = get_root_bone_name(chr_cache, arm, parent_mode)
+    root_bone_name = springbones.get_spring_root_name(chr_cache, arm, parent_mode)
     root_bone = bones.get_pose_bone(arm, root_bone_name)
     if root_bone:
         loops = selected_cards_to_length_loops(chr_cache, obj, card_dir, one_loop_per_card)
@@ -1080,7 +1012,7 @@ def remove_hair_bone_weights(arm, obj : bpy.types.Object, scale_existing_weights
 
     all_hair_groups = []
     for vg in obj.vertex_groups:
-            if is_hair_bone(vg.name):
+            if springbones.is_hair_bone(vg.name):
                 all_hair_groups.append(vg.name)
 
     if not hair_bone_list:
@@ -1108,86 +1040,7 @@ def scale_existing_weights(obj, bm, scale):
                 vert[dl][vg.index] *= scale
 
 
-def get_hair_rig_position(chr_cache, arm, root_mode):
-    """Returns the approximate position inside the head between the ears at nose height."""
-
-    head_edit_bone = get_root_edit_bone(chr_cache, arm, "HEAD")
-
-    if head_edit_bone:
-        head_pos = arm.matrix_world @ head_edit_bone.head
-
-        eye_pos = Vector((0,0,0))
-        count = 0
-        for eye_bone_name in EYE_BONE_NAMES:
-            eye_edit_bone = bones.get_edit_bone(arm, eye_bone_name)
-            if eye_edit_bone:
-                count += 1
-                eye_pos += arm.matrix_world @ eye_edit_bone.head
-
-        if count > 0:
-            eye_pos /= count
-
-            if root_mode == "HEAD":
-                return Vector((head_pos[0], head_pos[1], eye_pos[2]))
-            elif root_mode == "JAW":
-                return Vector((head_pos[0], (head_pos[1] + 2 * eye_pos[1]) / 3, head_pos[2]))
-        else:
-            return head_pos
-
-    return None
-
-
-def repair_orphaned_hair_bones(chr_cache, arm):
-
-    utils.edit_mode_to(arm, True)
-
-    head_rig = get_hair_rig(chr_cache, arm, "HEAD")
-    jaw_rig = get_hair_rig(chr_cache, arm, "JAW")
-
-    # find hair and beard bones and orphaned bones therein
-    reparent_list = []
-    bone_list = []
-    for bone in arm.data.edit_bones:
-        if head_rig and bone.name.startswith(HAIR_BONE_PREFIX) and bone != head_rig:
-            bone_list.append([bone.name, head_rig])
-            if not bone.parent:
-                reparent_list.append([bone.name, head_rig])
-            for child in bone.children:
-                if not child.name.startswith(HAIR_BONE_PREFIX):
-                    child.name = f"{HAIR_BONE_PREFIX}_{child.name}"
-        elif jaw_rig and bone.name.startswith(BEARD_BONE_PREFIX) and bone != jaw_rig:
-            bone_list.append([bone.name, jaw_rig])
-            if not bone.parent:
-                reparent_list.append([bone.name, jaw_rig])
-            for child in bone.children:
-                if not child.name.startswith(BEARD_BONE_PREFIX):
-                    child.name = f"{BEARD_BONE_PREFIX}_{child.name}"
-
-    # align bones roll z-axis away from rig bone
-    if bone_list:
-        for bone_pair in bone_list:
-            bone_name = bone_pair[0]
-            hair_rig = bone_pair[1]
-            edit_bone = bones.get_edit_bone(arm, bone_name)
-            if edit_bone:
-                head = arm.matrix_world @ edit_bone.head
-                tail = arm.matrix_world @ edit_bone.tail
-                origin = arm.matrix_world @ hair_rig.head
-                z_axis = (((head + tail) * 0.5) - origin).normalized()
-                edit_bone.align_roll(z_axis)
-
-    # reparent orphanded bones to root
-    if reparent_list:
-        for bone_pair in reparent_list:
-            bone_name = bone_pair[0]
-            hair_rig = bone_pair[1]
-            arm.data.edit_bones[bone_name].parent = hair_rig
-
-    # save edit mode changes
-    utils.object_mode_to(arm)
-
-
-def add_bone_chain(arm, edit_bone : bpy.types.EditBone, chain):
+def add_bone_chain_def(arm, edit_bone : bpy.types.EditBone, chain):
 
     if edit_bone.children and len(edit_bone.children) > 1:
         return False
@@ -1206,16 +1059,13 @@ def add_bone_chain(arm, edit_bone : bpy.types.EditBone, chain):
     chain.append(bone_def)
 
     if edit_bone.children and len(edit_bone.children) == 1:
-        return add_bone_chain(arm, edit_bone.children[0], chain)
+        return add_bone_chain_def(arm, edit_bone.children[0], chain)
 
     return True
 
 
-def get_bone_chains(chr_cache, arm, bone_selection_mode):
-    """Get each bone chain from the armature that contains the keyword HAIR_BONE_PREFIX, child of HEAD_BONE_NAME
-    """
-
-    repair_orphaned_hair_bones(chr_cache, arm)
+def get_bone_chain_defs(chr_cache, arm, bone_selection_mode):
+    """Get each bone chain from the hair and beard spring bone rigs."""
 
     utils.edit_mode_to(arm)
 
@@ -1229,19 +1079,17 @@ def get_bone_chains(chr_cache, arm, bone_selection_mode):
     # NOTE: remember edit bones do not survive mode changes...
     bone_chains = []
 
-    head_rig = get_hair_rig(chr_cache, arm, "HEAD")
-    jaw_rig = get_hair_rig(chr_cache, arm, "JAW")
-    hair_rigs = [head_rig, jaw_rig]
+    hair_rigs = springbones.get_edit_spring_rigs(chr_cache, arm, ["HEAD", "JAW"])
 
-    for hair_rig in hair_rigs:
+    for parent_mode in hair_rigs:
+        hair_rig = hair_rigs[parent_mode]["edit_bone"]
         if hair_rig:
             for child_bone in hair_rig.children:
-                if child_bone.name.startswith(HAIR_BONE_PREFIX) or child_bone.name.startswith(BEARD_BONE_PREFIX):
-                    if arm.data.bones[child_bone.name].select or bone_selection_mode == "ALL":
-                        chain = []
-                        if not add_bone_chain(arm, child_bone, chain):
-                            continue
-                        bone_chains.append(chain)
+                if arm.data.bones[child_bone.name].select or bone_selection_mode == "ALL":
+                    chain = []
+                    if not add_bone_chain_def(arm, child_bone, chain):
+                        continue
+                    bone_chains.append(chain)
 
     utils.object_mode_to(arm)
 
@@ -1338,7 +1186,6 @@ def stroke_root_to_loop(stroke_set, stroke, loop : list):
         stroke_root_to_loop(stroke_set, next_strokes[0], loop)
 
 
-# TODO if the loop length is less than 30? subdivide until it is greater, (so the smoothing works better)
 def subdivide_loop(loop):
     subd = []
     for i in range(0, len(loop) - 1):
@@ -1401,14 +1248,13 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     #mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
-    repair_orphaned_hair_bones(chr_cache, arm)
+    if not chr_cache.rigified:
+        bones.show_armature_layers(arm, [25], in_front=True)
 
-    bones.show_armature_layers(arm, [25], in_front=True)
-
-    hair_bone_prefix = get_hair_bone_prefix(parent_mode)
+    hair_bone_prefix = springbones.get_spring_bone_prefix(parent_mode)
 
     # check root bone exists...
-    root_bone_name = get_root_bone_name(chr_cache, arm, parent_mode)
+    root_bone_name = springbones.get_spring_root_name(chr_cache, arm, parent_mode)
     root_bone = bones.get_pose_bone(arm, root_bone_name)
 
     if root_bone:
@@ -1456,14 +1302,15 @@ def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length
 
     arm_pose = reset_pose(arm)
 
-    repair_orphaned_hair_bones(chr_cache, arm)
+    springbones.realign_spring_bones_axis(chr_cache, arm)
 
-    bones.show_armature_layers(arm, [25], in_front=True)
+    if not chr_cache.rigified:
+        bones.show_armature_layers(arm, [25], in_front=True)
 
-    hair_bone_prefix = get_hair_bone_prefix(parent_mode)
+    hair_bone_prefix = springbones.get_spring_bone_prefix(parent_mode)
 
     # check root bone exists...
-    root_bone_name = get_root_bone_name(chr_cache, arm, parent_mode)
+    root_bone_name = springbones.get_spring_root_name(chr_cache, arm, parent_mode)
     root_bone = bones.get_pose_bone(arm, root_bone_name)
 
     if root_bone:
@@ -1491,10 +1338,10 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector, max_radius, 
     utils.object_mode_to(arm)
     reset_pose(arm)
     remove_duplicate_bones(chr_cache, arm)
-    bone_chains = get_bone_chains(chr_cache, arm, bone_mode)
+    bone_chain_defs = get_bone_chain_defs(chr_cache, arm, bone_mode)
 
     hair_bones = []
-    for bone_chain in bone_chains:
+    for bone_chain in bone_chain_defs:
         for bone_def in bone_chain:
             hair_bones.append(bone_def["name"])
 
@@ -1502,10 +1349,10 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector, max_radius, 
         remove_hair_bone_weights(arm, obj, hair_bone_list=hair_bones)
         bm, cards = get_hair_cards_lateral(chr_cache, obj, card_dir, card_mode)
         scale_existing_weights(obj, bm, existing_scale)
-        assign_bones(obj, bm, cards, bone_chains, max_radius, max_bones, max_weight, curve, variance)
+        assign_bones(obj, bm, cards, bone_chain_defs, max_radius, max_bones, max_weight, curve, variance)
         bm.to_mesh(obj.data)
 
-        smooth_hair_bone_weights(arm, obj, bone_chains, smoothing)
+        smooth_hair_bone_weights(arm, obj, bone_chain_defs, smoothing)
 
     arm.data.pose_position = "POSE"
     utils.pose_mode_to(arm)
@@ -1521,7 +1368,7 @@ def is_hair_rig_accessory(objects):
         for obj in objects:
             if obj.type == "MESH":
                 for vg in obj.vertex_groups:
-                    if is_hair_bone(vg.name):
+                    if springbones.is_hair_bone(vg.name):
                         is_hair_rig = True
                     else:
                         is_accessory = False
@@ -1529,7 +1376,7 @@ def is_hair_rig_accessory(objects):
     else:
 
         for vg in objects.vertex_groups:
-            if is_hair_bone(vg.name):
+            if springbones.is_hair_bone(vg.name):
                 is_hair_rig = True
             else:
                 is_accessory = False
@@ -1557,7 +1404,7 @@ def convert_hair_rigs_to_accessory(chr_cache, arm, objects):
         # determine non-hair rig vertex groups
         if is_hair_rig and not is_accessory:
             for vg in obj.vertex_groups:
-                if not is_hair_bone(vg.name):
+                if not springbones.is_hair_bone(vg.name):
                     groups_to_remove.append(vg)
 
     # remove non-hair rig vertex groups
@@ -1606,9 +1453,12 @@ class CC3OperatorHair(bpy.types.Operator):
         if self.param == "CARDS_TO_CURVES":
 
             chr_cache = props.get_context_character_cache(context)
-            selected_cards_to_curves(chr_cache, bpy.context.active_object,
-                                     props.hair_dir_vector(),
-                                     one_loop_per_card = props.hair_curve_merge_loops == "MERGE")
+            hair_mesh = utils.get_selected_mesh()
+
+            if hair_mesh:
+                selected_cards_to_curves(chr_cache, bpy.context.active_object,
+                                         props.hair_dir_vector(),
+                                         one_loop_per_card = props.hair_curve_merge_loops == "MERGE")
 
         if self.param == "ADD_BONES":
 
@@ -1617,6 +1467,7 @@ class CC3OperatorHair(bpy.types.Operator):
             hair_obj = bpy.context.active_object
 
             if utils.object_exists_is_mesh(hair_obj) and utils.object_exists_is_armature(arm):
+                arm.hide_set(False)
                 selected_cards_to_bones(chr_cache, arm,
                                         hair_obj,
                                         props.hair_rig_bone_root,
@@ -1633,6 +1484,7 @@ class CC3OperatorHair(bpy.types.Operator):
             arm = chr_cache.get_armature()
 
             if chr_cache and utils.object_exists_is_armature(arm):
+                arm.hide_set(False)
                 grease_pencil_to_bones(chr_cache, arm, props.hair_rig_bone_root,
                                        bone_length = props.hair_rig_bone_length / 100.0,
                                        skip_length = props.hair_rig_bind_skip_length / 100.0)
@@ -1645,6 +1497,7 @@ class CC3OperatorHair(bpy.types.Operator):
             arm = chr_cache.get_armature()
 
             if chr_cache and utils.object_exists_is_armature(arm):
+                arm.hide_set(False)
                 add_custom_bone(chr_cache, arm, props.hair_rig_bone_root,
                                 bone_length = props.hair_rig_bone_length / 100.0)
 
@@ -1663,6 +1516,7 @@ class CC3OperatorHair(bpy.types.Operator):
             objects = [ obj for obj in bpy.context.selected_objects if utils.object_exists_is_mesh(obj) ]
 
             if utils.object_exists_is_armature(arm):
+                arm.hide_set(False)
                 remove_hair_bones(chr_cache, arm, objects, props.hair_rig_bind_bone_mode)
                 utils.restore_mode_selection_state(mode_selection)
 
@@ -1683,6 +1537,7 @@ class CC3OperatorHair(bpy.types.Operator):
                 existing_scale = 0.0
 
             if utils.object_exists_is_armature(arm) and objects:
+                arm.hide_set(False)
                 bind_cards_to_bones(chr_cache, arm,
                                     objects,
                                     props.hair_dir_vector(),
@@ -1695,16 +1550,17 @@ class CC3OperatorHair(bpy.types.Operator):
                                     props.hair_rig_bind_card_mode,
                                     props.hair_rig_bind_bone_mode,
                                     props.hair_rig_bind_smoothing)
+
+                if props.hair_rig_target == "CC4":
+                    props.hair_rig_bind_existing_scale = 0.0
+
+                    # for CC4 rigs, convert the hair meshes to accesories
+                    convert_hair_rigs_to_accessory(chr_cache, arm, objects)
+                else:
+                    props.hair_rig_bind_existing_scale = 1.0
+
             else:
                 self.report({"ERROR"}, "Selected Object(s) to bind must be Meshes!")
-
-            if props.hair_rig_target == "CC4":
-                props.hair_rig_bind_existing_scale = 0.0
-
-                # for CC4 rigs, convert the hair meshes to accesories
-                convert_hair_rigs_to_accessory(chr_cache, arm, objects)
-            else:
-                props.hair_rig_bind_existing_scale = 1.0
 
         if self.param == "CLEAR_WEIGHTS":
 
@@ -1718,6 +1574,7 @@ class CC3OperatorHair(bpy.types.Operator):
             objects = [ obj for obj in bpy.context.selected_objects if utils.object_exists_is_mesh(obj) ]
 
             if utils.object_exists_is_armature(arm) and objects:
+                arm.hide_set(False)
                 clear_hair_bone_weights(chr_cache, arm, objects, props.hair_rig_bind_bone_mode)
                 utils.restore_mode_selection_state(mode_selection)
             else:
@@ -1737,7 +1594,134 @@ class CC3OperatorHair(bpy.types.Operator):
             objects = [ obj for obj in bpy.context.selected_objects if utils.object_exists_is_mesh(obj) ]
 
             if utils.object_exists_is_armature(arm) and objects:
+                arm.hide_set(False)
                 convert_hair_rigs_to_accessory(chr_cache, arm, objects)
+
+        if self.param == "MAKE_RIGID_BODY_SYSTEM":
+
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+
+            # reset the animation (it is very unstable if we don't do this)
+            bpy.ops.screen.frame_jump(end = False)
+
+            chr_cache = props.get_context_character_cache(context)
+            arm = chr_cache.get_armature()
+            parent_mode = props.hair_rig_bone_root
+            hair_rig_name = springbones.get_spring_rig_name(parent_mode)
+            hair_rig_prefix = springbones.get_spring_bone_prefix(parent_mode)
+
+            if chr_cache and utils.object_exists_is_armature(arm):
+                rigidbody.build_spring_rigid_body_system(chr_cache, hair_rig_prefix, hair_rig_name)
+                body = chr_cache.get_body()
+                if chr_cache.collision_body is None:
+                    physics.add_collision_physics(chr_cache, body, None)
+                rigidbody.enable_rigid_body_collision_mesh(chr_cache, body)
+
+            # reset the rigid body world point cache
+            bpy.context.scene.frame_current = 2
+            rigidbody.reset_cache(context)
+            bpy.context.scene.frame_current = 1
+            rigidbody.reset_cache(context)
+
+            # reset the animation again for good measure...
+            bpy.ops.screen.frame_jump(end = False)
+
+        if self.param == "REMOVE_RIGID_BODY_SYSTEM":
+
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+
+            # reset the animation (it is very unstable if we don't do this)
+            bpy.ops.screen.frame_jump(end = False)
+
+            chr_cache = props.get_context_character_cache(context)
+            arm = chr_cache.get_armature()
+            parent_mode = props.hair_rig_bone_root
+            hair_rig_name = springbones.get_spring_rig_name(parent_mode)
+            hair_rig_prefix = springbones.get_spring_bone_prefix(parent_mode)
+
+            if chr_cache and utils.object_exists_is_armature(arm):
+                rigidbody.remove_existing_rigid_body_system(arm, hair_rig_prefix)
+
+            # reset the rigid body world point cache
+            bpy.context.scene.frame_current = 2
+            rigidbody.reset_cache(context)
+            bpy.context.scene.frame_current = 1
+            rigidbody.reset_cache(context)
+
+            # reset the animation again for good measure...
+            bpy.ops.screen.frame_jump(end = False)
+
+        if self.param == "ENABLE_RIGID_BODY_COLLISION":
+
+            mode_selection = utils.store_mode_selection_state()
+
+            chr_cache = props.get_context_character_cache(context)
+
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+
+            # reset the animation (it is very unstable if we don't do this)
+            bpy.ops.screen.frame_jump(end = False)
+
+            objects = [ obj for obj in bpy.context.selected_objects if utils.object_exists_is_mesh(obj) ]
+            for obj in objects:
+                rigidbody.enable_rigid_body_collision_mesh(chr_cache, obj)
+
+            utils.restore_mode_selection_state(mode_selection)
+
+            # reset the animation again for good measure...
+            bpy.ops.screen.frame_jump(end = False)
+
+        if self.param == "DISABLE_RIGID_BODY_COLLISION":
+
+            mode_selection = utils.store_mode_selection_state()
+
+            chr_cache = props.get_context_character_cache(context)
+
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+
+            # reset the animation (it is very unstable if we don't do this)
+            bpy.ops.screen.frame_jump(end = False)
+
+            objects = [ obj for obj in bpy.context.selected_objects if utils.object_exists_is_mesh(obj) ]
+            for obj in objects:
+                rigidbody.disable_rigid_body_collision_mesh(chr_cache, obj)
+
+            utils.restore_mode_selection_state(mode_selection)
+
+            # reset the animation again for good measure...
+            bpy.ops.screen.frame_jump(end = False)
+
+        if self.param == "RESET_PHYSICS":
+
+            mode_selection = utils.store_mode_selection_state()
+
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+
+            # reset the animation (it is very unstable if we don't do this)
+            bpy.ops.screen.frame_jump(end = False)
+
+            # reset the physics cache
+            bpy.context.scene.frame_current = 2
+            rigidbody.reset_cache(context)
+            physics.reset_cache(context)
+            bpy.context.scene.frame_current = 1
+            rigidbody.reset_cache(context)
+            physics.reset_cache(context)
+
+            utils.restore_mode_selection_state(mode_selection)
+
+            # reset the animation again for good measure...
+            bpy.ops.screen.frame_jump(end = False)
 
         return {"FINISHED"}
 

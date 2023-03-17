@@ -25,8 +25,9 @@ from . import geom
 from . import meshutils
 from . import properties
 from . import modifiers
+from . import springbones, rigidbody
 from . import physics
-from . import bones
+from . import drivers, bones
 from . import rigify_mapping_data
 
 
@@ -188,6 +189,141 @@ def add_accessory_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings):
 
             utils.log_info(f"Copying accessory bone tree into rigify rig: {bone.name} parent: {rigify_parent_name}")
             bones.copy_rl_edit_bone_subtree(cc3_rig, rigify_rig, bone.name, bone.name, rigify_parent_name, 23)
+
+
+def add_spring_chain_ik(rig, ik_parent, length, bone, fk_bones, ik_bones):
+    length += 1
+    fk_bones.append(bone.name)
+
+    for child in bone.children:
+        add_spring_chain_ik(rig, ik_parent, length, child, fk_bones, ik_bones)
+
+    if len(bone.children) == 0 and length > 0:
+        ik_bone = bones.new_edit_bone(rig, f"{bone.name}_ik", ik_parent.name)
+        ik_bone.head = bone.tail
+        ik_bone.tail = bone.tail + 0.5 * (bone.tail - bone.head)
+        ik_bone.roll = bone.roll
+        ik_bones.append([bone.name, ik_bone.name, length])
+
+
+def add_spring_group_ik(rig, spring_rig, ik_groups, ik_controls):
+    scale = 1.0
+    if edit_rig(rig):
+        for group_name in ik_groups:
+            ik_names = ik_groups[group_name]
+            pos_head = mathutils.Vector((0,0,0))
+            pos_tail = mathutils.Vector((0,0,0))
+            for ik_bone_name in ik_names:
+                ik_bone = rig.data.edit_bones[ik_bone_name]
+                pos_head += ik_bone.head
+                pos_tail += ik_bone.tail
+            pos_head /= len(ik_names)
+            pos_tail /= len(ik_names)
+
+            radius = 0
+            for ik_bone_name in ik_names:
+                ik_bone = rig.data.edit_bones[ik_bone_name]
+                r = (ik_bone.head - pos_head).length
+                if r > radius:
+                    radius = r
+
+            scale = max(5, radius * 40.0)
+
+            group_ik_bone : bpy.types.EditBone
+            group_ik_bone = bones.new_edit_bone(rig, f"{group_name}_ik", spring_rig.name)
+            group_ik_bone.head = pos_head
+            length = (pos_head - pos_tail).length
+            group_ik_bone.tail = pos_head + mathutils.Vector((0,0,-length))
+            ik_controls[group_name] = [group_ik_bone.name, scale]
+
+
+def set_spring_fk_ik_constraints(rig, fk_bones, ik_bones, ik_groups, ik_controls, custom_shape):
+    fk_bone : bpy.types.PoseBone
+    ik_bone : bpy.types.PoseBone
+
+    if select_rig(rig):
+
+        for bone_name in fk_bones:
+            fk_bone = rig.pose.bones[bone_name]
+            fk_bone.custom_shape = custom_shape
+            fk_bone.use_custom_shape_bone_size = False
+            fk_bone.lock_scale[1] = True
+            fk_bone.lock_location[0] = True
+            fk_bone.lock_location[1] = True
+            fk_bone.lock_location[2] = True
+            fk_bone.custom_shape_rotation_euler[0] = 1.570796
+            #bones.set_pose_bone_custom_scale(rig, bone_name, 0.25)
+            bones.set_bone_group(rig, bone_name, "FK")
+            bones.set_pose_bone_layer(rig, bone_name, 3)
+
+        for group_name in ik_groups:
+            group_ik_bone_name = ik_controls[group_name][0]
+            scale = ik_controls[group_name][1]
+            group_bone : bpy.types.PoseBone
+            group_bone = rig.pose.bones[group_ik_bone_name]
+            group_bone.custom_shape = custom_shape
+            group_bone.use_custom_shape_bone_size = False
+            bones.set_pose_bone_custom_scale(rig, group_ik_bone_name, scale)
+            group_bone.custom_shape_rotation_euler[0] = 1.570796
+            bones.set_bone_group(rig, group_ik_bone_name, "Special")
+            bones.set_pose_bone_layer(rig, group_ik_bone_name, 3)
+            drivers.add_custom_float_property(group_bone, "fk_ik", 1.0, 0.0, 1.0)
+
+            ik_names = ik_groups[group_name]
+
+            for bone_name, ik_bone_name, length in ik_bones:
+
+                if ik_bone_name in ik_names:
+
+                    ik_bone = rig.pose.bones[ik_bone_name]
+                    ik_bone.custom_shape = custom_shape
+                    ik_bone.use_custom_shape_bone_size = False
+                    ik_bone.lock_scale[1] = True
+                    ik_bone.custom_shape_rotation_euler[0] = 1.570796
+                    group_bone.lock_scale[1] = True
+                    group_bone.custom_shape = custom_shape
+                    group_bone.custom_shape_rotation_euler[0] = 1.570796
+                    coc = bones.add_child_of_constraint(rig, rig, group_ik_bone_name, ik_bone_name)
+                    bones.set_bone_group(rig, ik_bone_name, "IK")
+                    bones.set_pose_bone_layer(rig, ik_bone_name, 3)
+                    ikc = bones.add_inverse_kinematic_constraint(rig, rig, ik_bone_name, bone_name,
+                                                        use_tail=True, use_stretch=True,
+                                                        use_location=True, use_rotation=True,
+                                                        orient_weight=1.0, chain_count=length)
+
+                    data_path = bones.get_data_path_pose_bone_property(group_ik_bone_name, "fk_ik")
+                    driver = drivers.make_driver(ikc, "influence", "SUM")
+                    drivers.make_driver_var(driver, "SINGLE_PROP", "fk_ik", group_bone, "OBJECT", data_path)
+
+
+def add_spring_controls(chr_cache, rigify_rig):
+    custom_shape = bones.generate_spring_widget(rigify_rig, "SpringBone", 0.025)
+    spring_rigs = springbones.get_pose_spring_rigs(chr_cache, rigify_rig)
+    for parent_mode in spring_rigs:
+        if edit_rig(rigify_rig):
+            spring_rig_bone_name = spring_rigs[parent_mode]["bone_name"]
+            spring_rig = rigify_rig.data.edit_bones[spring_rig_bone_name]
+            fk_bones = []
+            ik_bones = []
+            ik_groups = {}
+            for chain_root in spring_rig.children:
+                fk = []
+                ik = []
+                add_spring_chain_ik(rigify_rig, spring_rig, 0, chain_root, fk, ik)
+                fk_bones.extend(fk)
+                ik_bones.extend(ik)
+                if fk and ik:
+                    names = [ n for n in fk ]
+                    chain_name = utils.get_common_name(names)
+                    if not chain_name:
+                        chain_name = "NONE"
+                    if chain_name not in ik_groups:
+                        ik_groups[chain_name] = []
+                    for bone_name, ik_bone_name, length in ik:
+                        ik_groups[chain_name].append(ik_bone_name)
+            ik_controls = {}
+            add_spring_group_ik(rigify_rig, spring_rig, ik_groups, ik_controls)
+            set_spring_fk_ik_constraints(rigify_rig, fk_bones, ik_bones, ik_groups, ik_controls, custom_shape)
 
 
 def rl_vertex_group(obj, group):
@@ -2750,6 +2886,7 @@ class CC3Rigifier(bpy.types.Operator):
     rigify_rig = None
     auto_weight_failed = False
     auto_weight_report = ""
+    rigid_body_systems = {}
 
     def add_meta_rig(self, chr_cache):
 
@@ -2777,6 +2914,22 @@ class CC3Rigifier(bpy.types.Operator):
             utils.log_error("Not in OBJECT mode!", self)
 
         utils.log_recess()
+
+    def remove_cc3_rigid_body_systems(self):
+        self.rigid_body_systems.clear()
+        rig_modes= ["HEAD", "JAW"]
+        for parent_mode in rig_modes:
+            rig_prefix = springbones.get_spring_bone_prefix(parent_mode)
+            settings = rigidbody.remove_existing_rigid_body_system(self.cc3_rig, rig_prefix)
+            if settings:
+                self.rigid_body_systems[parent_mode] = settings
+
+    def restore_rigify_rigid_body_systems(self, chr_cache):
+        for parent_mode in self.rigid_body_systems.keys():
+            rig_name = springbones.get_spring_rig_name(parent_mode)
+            rig_prefix = springbones.get_spring_bone_prefix(parent_mode)
+            settings = self.rigid_body_systems[parent_mode]
+            rigidbody.build_spring_rigid_body_system(chr_cache, rig_prefix, rig_name, settings)
 
     def execute(self, context):
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
@@ -2807,6 +2960,7 @@ class CC3Rigifier(bpy.types.Operator):
 
                     olc = utils.set_active_layer_collection_from(self.cc3_rig)
 
+                    self.remove_cc3_rigid_body_systems()
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
@@ -2836,9 +2990,11 @@ class CC3Rigifier(bpy.types.Operator):
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                            add_spring_controls(chr_cache, self.rigify_rig)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
+                            self.restore_rigify_rigid_body_systems(chr_cache)
 
                     chr_cache.rig_meta_rig = None
                     if face_result == 1:
@@ -2864,6 +3020,7 @@ class CC3Rigifier(bpy.types.Operator):
 
                     olc = utils.set_active_layer_collection_from(self.cc3_rig)
 
+                    self.remove_cc3_rigid_body_systems()
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
@@ -2909,9 +3066,11 @@ class CC3Rigifier(bpy.types.Operator):
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                            add_spring_controls(chr_cache, self.rigify_rig)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
+                            self.restore_rigify_rigid_body_systems(chr_cache)
 
                     utils.set_active_layer_collection(olc)
 
@@ -2936,6 +3095,9 @@ class CC3Rigifier(bpy.types.Operator):
                             obj = o
                     if rig and obj:
                         report_uv_face_targets(obj, rig)
+
+            elif self.param == "BUILD_SPRING_RIG":
+                add_spring_controls(chr_cache, chr_cache.get_armature())
 
             elif self.param == "LOCK_NON_FACE_VGROUPS":
                 lock_non_face_vgroups(chr_cache)

@@ -19,7 +19,7 @@ import os
 
 import bpy
 
-from . import colorspace, imageutils, nodeutils, physics, modifiers, utils, vars
+from . import colorspace, imageutils, nodeutils, rigidbody, physics, modifiers, utils, vars
 
 
 def add_target(name, location):
@@ -642,7 +642,16 @@ class CC3Scene(bpy.types.Operator):
         elif self.param == "ANIM_RANGE":
             fetch_anim_range(context)
         elif self.param == "PHYSICS_PREP":
-            physics.prepare_physics_bake(context)
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+            # reset the animation
+            bpy.ops.screen.frame_jump(end = False)
+            # reset the physics
+            physics.reset_cache(context)
+            rigidbody.reset_cache(context)
+            # reset the animation again
+            bpy.ops.screen.frame_jump(end = False)
         elif self.param == "CYCLES_SETUP":
             cycles_setup(context)
         else:

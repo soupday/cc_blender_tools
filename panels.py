@@ -19,7 +19,7 @@ import bpy
 import textwrap
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, characters, sculpting, hair, physics, colorspace, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, rigify_mapping_data, characters, sculpting, springbones, hair, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
@@ -687,6 +687,9 @@ class CC3SpringRigPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        arm = None
+        if chr_cache:
+            arm = chr_cache.get_armature()
 
         # Hair Cards & Spring Bone Rig
 
@@ -718,8 +721,8 @@ class CC3SpringRigPanel(bpy.types.Panel):
 
             column.separator()
 
-            split = column.split(factor=0.3)
-            split.column().label(text="Hair Root")
+            split = column.split(factor=0.45)
+            split.column().label(text="Hair System")
             split.column().prop(props, "hair_rig_bone_root", text="")
             column.separator()
             row = column.row()
@@ -776,6 +779,72 @@ class CC3SpringRigPanel(bpy.types.Panel):
             row.operator("cc3.hair", icon=utils.check_icon("CONSTRAINT_BONE"), text="Make Accessory").param = "MAKE_ACCESSORY"
             if not (is_hair_rig and not is_accessory):
                 row.enabled = False
+
+            column.separator()
+
+            has_rigid_body = rigidbody.is_rigid_body(chr_cache, obj)
+            rigid_body_sim = None
+            has_hair_rig = False
+            if chr_cache and arm:
+                parent_mode = props.hair_rig_bone_root
+                prefix = springbones.get_spring_bone_prefix(parent_mode)
+                rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
+                has_hair_rig = springbones.has_spring_rig(chr_cache, arm, parent_mode)
+
+            box = column.box()
+            box.label(text = "Blender Rigid Body Sim", icon="BLENDER")
+            split = box.split(factor=0.45)
+            split.column().label(text="Hair System")
+            split.column().prop(props, "hair_rig_bone_root", text="")
+            if not has_hair_rig:
+                row = box.row()
+                row.label(text = "No Hair Rig", icon="ERROR")
+            if rigid_body_sim:
+                row = box.row()
+                column = box.column()
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Influence")
+                col_2.prop(rigid_body_sim, "[\"rigid_body_influence\"]", text="", slider=True)
+                col_1.label(text="Limit")
+                col_2.prop(rigid_body_sim, "[\"rigid_body_limit\"]", text="", slider=True)
+                col_1.label(text="Curve")
+                col_2.prop(rigid_body_sim, "[\"rigid_body_curve\"]", text="", slider=True)
+                col_1.label(text="Mass")
+                col_2.prop(rigid_body_sim, "[\"rigid_body_mass\"]", text="", slider=True)
+                col_1.label(text="Radius")
+                col_2.prop(rigid_body_sim, "[\"rigid_body_radius\"]", text="", slider=True)
+                col_1.label(text="Dampening")
+                col_2.prop(rigid_body_sim, "[\"rigid_body_dampening\"]", text="", slider=True)
+                col_1.label(text="Stiffness")
+                col_2.prop(rigid_body_sim, "[\"rigid_body_stiffness\"]", text="", slider=True)
+                column.separator()
+            if not rigid_body_sim:
+                row = column.row()
+                row.scale_y = 2.0
+                row.operator("cc3.hair", icon=utils.check_icon("RIGID_BODY"), text="Build Spring System").param = "MAKE_RIGID_BODY_SYSTEM"
+                column.separator()
+                if not has_hair_rig:
+                    row.enabled = False
+            else:
+                row = column.row()
+                row.scale_y = 2.0
+                row.alert = True
+                row.operator("cc3.hair", icon=utils.check_icon("X"), text="Remove Spring System").param = "REMOVE_RIGID_BODY_SYSTEM"
+                column.separator()
+            row = column.row()
+            row.operator("cc3.hair", icon=utils.check_icon("MOD_PHYSICS"), text="Enable Collision Body").param = "ENABLE_RIGID_BODY_COLLISION"
+            if has_rigid_body:
+                row.enabled = False
+            row = column.row()
+            row.operator("cc3.hair", icon=utils.check_icon("X"), text="Disable Collision Body").param = "DISABLE_RIGID_BODY_COLLISION"
+            if not has_rigid_body:
+                row.enabled = False
+            row = column.row()
+            row.operator("cc3.hair", icon=utils.check_icon("LOOP_BACK"), text="Reset Physics").param = "RESET_PHYSICS"
+            if not chr_cache:
+                box.enabled = False
 
 
 class CC3HairPanel(bpy.types.Panel):
@@ -1271,6 +1340,11 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     layout.separator()
 
+                    row = layout.row()
+                    row.operator("cc3.rigifier", icon="LOCKED", text="Spring Rig").param = "BUILD_SPRING_RIG"
+
+                    layout.separator()
+
                     if chr_cache.rigified:
 
                         if chr_cache.rigified_full_face_rig:
@@ -1542,7 +1616,7 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         column.separator()
         op = column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character")
         op.param = "ANIM_RANGE"
-        op = column.operator("cc3.scene", icon="ANIM", text="Sync Physics Range")
+        op = column.operator("cc3.scene", icon="ANIM", text="Reset Physics")
         op.param = "PHYSICS_PREP"
         column.separator()
         split = column.split(factor=0.0)
@@ -1728,6 +1802,13 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             col_2.prop(cloth_mod.collision_settings, "collision_quality", text="", slider=True)
             col_1.label(text="Distance")
             col_2.prop(cloth_mod.collision_settings, "distance_min", text="", slider=True)
+            col_1.label(text="Self Collision")
+            col_2.prop(cloth_mod.collision_settings, "use_self_collision", text="", slider=False)
+            if cloth_mod.collision_settings.use_self_collision:
+                col_1.label(text="Friction")
+                col_2.prop(cloth_mod.collision_settings, "self_friction", text="", slider=True)
+                col_1.label(text="Distance")
+                col_2.prop(cloth_mod.collision_settings, "self_distance_min", text="", slider=True)
         # Collision Physics Settings
         if coll_mod is not None:
             box = layout.box()
@@ -1760,9 +1841,11 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         if cloth_mod is None:
             col.enabled = False
 
-        weight_map : bpy.types.Image = physics.get_weight_map_from_modifiers(obj, mat)
-        weight_map_size = int(props.physics_tex_size)
+        weight_map = None
+        if obj and mat:
+            weight_map : bpy.types.Image = physics.get_weight_map_from_modifiers(obj, mat)
         if weight_map:
+            weight_map_size = int(props.physics_tex_size)
             split = col.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
