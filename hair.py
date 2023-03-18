@@ -496,12 +496,13 @@ def remove_hair_bones(chr_cache, arm, objects, bone_mode):
             arm.data.edit_bones.remove(arm.data.edit_bones[bone_name])
 
     # remove the hair rigs if there are no child bones left
-    head_rig = springbones.get_edit_spring_rig(chr_cache, arm, "HEAD")
-    jaw_rig = springbones.get_edit_spring_rig(chr_cache, arm, "JAW")
-    if head_rig and not head_rig.children and utils.edit_mode_to(arm):
-        arm.data.edit_bones.remove(head_rig)
-    if jaw_rig and not jaw_rig.children and utils.edit_mode_to(arm):
-        arm.data.edit_bones.remove(jaw_rig)
+    if utils.edit_mode_to(arm):
+        head_rig = springbones.get_spring_rig(chr_cache, arm, "HEAD")
+        jaw_rig = springbones.get_spring_rig(chr_cache, arm, "JAW")
+        if head_rig and not head_rig.children:
+            arm.data.edit_bones.remove(head_rig)
+        if jaw_rig and not jaw_rig.children:
+            arm.data.edit_bones.remove(jaw_rig)
 
     #if no objects selected, use all mesh objects in the character
     if not objects:
@@ -539,7 +540,9 @@ def is_nearby_bone(arm, world_pos):
 
 
 def custom_bone(chr_cache, arm, parent_mode, loop_index, bone_length, new_bones):
-    hair_rig = springbones.get_edit_spring_rig(chr_cache, arm, parent_mode, create_if_missing=True)
+    """Must be in edit mode on the armature."""
+
+    hair_rig = springbones.get_spring_rig(chr_cache, arm, parent_mode, create_if_missing=True)
 
     hair_bone_prefix = springbones.get_spring_bone_prefix(parent_mode)
 
@@ -624,7 +627,7 @@ def remove_existing_loop_bones(chr_cache, arm, loops):
 
     utils.edit_mode_to(arm)
 
-    hair_rigs = springbones.get_edit_spring_rigs(chr_cache, arm, ["HEAD", "JAW"])
+    hair_rigs = springbones.get_spring_rigs(chr_cache, arm, ["HEAD", "JAW"])
 
     remove_bone_list = []
     remove_loop_list = []
@@ -681,7 +684,7 @@ def remove_existing_loop_bones(chr_cache, arm, loops):
 def remove_duplicate_bones(chr_cache, arm):
     """Remove any duplicate bone chains"""
 
-    hair_rigs = springbones.get_edit_spring_rigs(chr_cache, arm, ["HEAD", "JAW"])
+    hair_rigs = springbones.get_spring_rigs(chr_cache, arm, ["HEAD", "JAW"])
 
     remove_list = []
     removed_roots = []
@@ -737,7 +740,7 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, sk
     chain = []
     first = True
 
-    hair_rig = springbones.get_edit_spring_rig(chr_cache, arm, parent_mode, create_if_missing=True)
+    hair_rig = springbones.get_spring_rig(chr_cache, arm, parent_mode, create_if_missing=True)
 
     hair_bone_prefix = springbones.get_spring_bone_prefix(parent_mode)
 
@@ -1079,7 +1082,7 @@ def get_bone_chain_defs(chr_cache, arm, bone_selection_mode):
     # NOTE: remember edit bones do not survive mode changes...
     bone_chains = []
 
-    hair_rigs = springbones.get_edit_spring_rigs(chr_cache, arm, ["HEAD", "JAW"])
+    hair_rigs = springbones.get_spring_rigs(chr_cache, arm, ["HEAD", "JAW"])
 
     for parent_mode in hair_rigs:
         hair_rig = hair_rigs[parent_mode]["edit_bone"]

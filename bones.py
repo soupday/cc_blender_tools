@@ -416,6 +416,25 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
         return None
 
 
+def add_stretch_to_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, head_tail = 0.0, space="WORLD"):
+    try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            c : bpy.types.StretchToConstraint = to_pose_bone.constraints.new(type="STRETCH_TO")
+            c.target = from_rig
+            c.subtarget = from_bone
+            c.head_tail = head_tail
+            c.target_space = space
+            if space == "LOCAL_OWNER_ORIENT":
+                space = "LOCAL"
+            c.owner_space = space
+            c.influence = influence
+            return c
+    except:
+        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+        return None
+
+
 def add_damped_track_constraint(rig, bone_name, target_name, influence):
     try:
         if utils.set_mode("OBJECT"):
@@ -469,7 +488,7 @@ def add_child_of_constraint(parent_rig, child_rig, parent_bone, child_bone, infl
 def add_inverse_kinematic_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD",
                                      use_tail = True, use_stretch = True, use_rotation = True, use_location = True,
                                      weight = 1.0, orient_weight = 0.0, chain_count = 1):
-    #try:
+    try:
         if utils.set_mode("OBJECT"):
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.KinematicConstraint = to_pose_bone.constraints.new(type="IK")
@@ -486,9 +505,32 @@ def add_inverse_kinematic_constraint(from_rig, to_rig, from_bone, to_bone, influ
             c.owner_space = space
             c.influence = influence
             return c
-    #except:
-    #    utils.log_error(f"Unable to add inverse kinematic constraint: {to_bone} {from_bone}")
-    #    return None
+    except:
+        utils.log_error(f"Unable to add inverse kinematic constraint: {to_bone} {from_bone}")
+        return None
+
+
+def set_pose_bone_lock(pose_bone : bpy.types.PoseBone,
+                       lock_ik = [0, 0, 0],
+                       lock_location = [0, 0, 0],
+                       lock_rotation = [0, 0, 0, 0],
+                       lock_scale = [0, 0, 0],):
+
+    for i, lock in enumerate(lock_location):
+        pose_bone.lock_location[i] = lock > 0
+
+    for i, lock in enumerate(lock_rotation):
+        if i == 3:
+            pose_bone.lock_rotation_w = lock > 0
+        else:
+            pose_bone.lock_rotation[i] = lock > 0
+
+    pose_bone.lock_ik_x = lock_ik[0] > 0
+    pose_bone.lock_ik_y = lock_ik[1] > 0
+    pose_bone.lock_ik_z = lock_ik[2] > 0
+
+    for i, lock in enumerate(lock_scale):
+        pose_bone.lock_scale[i] = lock > 0
 
 
 def set_edit_bone_flags(edit_bone, flags, deform):
@@ -642,17 +684,81 @@ def generate_eye_widget(rig, bone_name, bones, distance, scale):
     return wgt
 
 
-def generate_spring_widget(rig, name, scale):
+def generate_spring_widget(rig, name, type, scale):
     wgt : bpy.types.Object = None
     wgt_name = "WGT-rig_" + name
     if wgt_name in bpy.data.objects:
         return bpy.data.objects[wgt_name]
 
     if utils.set_mode("OBJECT"):
-        bpy.ops.mesh.primitive_circle_add(vertices=16, radius=scale,
-                                          rotation=[0,0,0])
-        bpy.ops.object.transform_apply(rotation=True)
-        wgt = utils.get_active_object()
+
+        if type == "FK":
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=scale,
+                                            rotation=[1.570796,0,0], location=[0,scale,0])
+            bpy.ops.object.transform_apply(rotation=True)
+            wgt1 = utils.get_active_object()
+            mesh = bpy.data.meshes.new(name+"WGT2")
+            mesh.from_pydata([(0, 0, 0), (0, 1, 0)],
+                             [(0, 1)],
+                             [])
+            mesh.update()
+            wgt2 = bpy.data.objects.new(name+"WGT2", mesh)
+            wgt2.location = [0,0,0]
+            bpy.context.collection.objects.link(wgt2)
+            utils.try_select_objects([wgt1, wgt2], True)
+            utils.set_active_object(wgt1)
+            bpy.ops.object.join()
+            wgt = utils.get_active_object()
+
+        if type == "IK":
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=scale,
+                                            rotation=[1.570796,0,0], location=[0,0,0])
+            bpy.ops.object.transform_apply(rotation=True)
+            wgt1 = utils.get_active_object()
+            mesh = bpy.data.meshes.new(name+"WGT2")
+            mesh.from_pydata([(0, scale*2, 0), (0, 0, scale), (scale, 0, 0), (-scale, 0, 0), (0, 0, -scale)],
+                             [(0, 1), (0, 2), (0, 3), (0, 4)],
+                             [])
+            mesh.update()
+            wgt2 = bpy.data.objects.new(name+"WGT2", mesh)
+            wgt2.location = [0,0,0]
+            bpy.context.collection.objects.link(wgt2)
+            utils.try_select_objects([wgt1, wgt2], True)
+            utils.set_active_object(wgt1)
+            bpy.ops.object.join()
+            wgt = utils.get_active_object()
+
+        if type == "GRP":
+            bpy.ops.mesh.primitive_circle_add(vertices=64, radius=scale,
+                                            rotation=[1.570796,0,0], location=[0,0,0])
+            bpy.ops.object.transform_apply(rotation=True)
+            wgt1 = utils.get_active_object()
+            bpy.ops.mesh.primitive_circle_add(vertices=64, radius=scale * 1.025,
+                                            rotation=[1.570796,0,0], location=[0,0,0])
+            bpy.ops.object.transform_apply(rotation=True)
+            wgt2 = utils.get_active_object()
+            utils.try_select_objects([wgt1, wgt2], True)
+            utils.set_active_object(wgt1)
+            bpy.ops.object.join()
+            wgt = utils.get_active_object()
+
+        if type == "TWK":
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=scale,
+                                            rotation=[0,0,0], location=[0,0,0])
+            wgt1 = utils.get_active_object()
+            bpy.ops.object.transform_apply(rotation=True)
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=scale,
+                                            rotation=[1.570796,0,0], location=[0,0,0])
+            wgt2 = utils.get_active_object()
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=scale,
+                                            rotation=[0,1.570796,0], location=[0,0,0])
+            wgt3 = utils.get_active_object()
+            bpy.ops.object.transform_apply(rotation=True)
+            utils.try_select_objects([wgt1, wgt2, wgt3], True)
+            utils.set_active_object(wgt1)
+            bpy.ops.object.join()
+            wgt = utils.get_active_object()
+
         wgt.name = wgt_name
         if wgt:
             collection : bpy.types.Collection
@@ -671,19 +777,24 @@ def add_pose_bone_custom_property(rig, pose_bone_name, prop_name, prop_value):
             rna_idprop_ui_create(pose_bone, prop_name, default=prop_value, overridable=True, min=0, max=1)
 
 
-def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, variable_name, constraint_type, expression = ""):
+def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, variable_name, constraint = None, constraint_type = "", expression = ""):
     if utils.set_mode("OBJECT"):
         if pose_bone_name in rig.pose.bones:
             pose_bone = rig.pose.bones[pose_bone_name]
-            con : bpy.types.Constraint = None
-            for con in pose_bone.constraints:
-                if con.type == constraint_type:
-                    if expression:
-                        driver = drivers.make_driver(con, "influence", "SCRIPTED", expression)
-                    else:
-                        driver = drivers.make_driver(con, "influence", "SUM")
-                    if driver:
-                        var = drivers.make_driver_var(driver, "SINGLE_PROP", variable_name, rig, target_type = "OBJECT", data_path = data_path)
+            cons = []
+            if constraint:
+                cons.append(constraint)
+            elif constraint_type:
+                for con in pose_bone.constraints:
+                    if con.type == constraint_type:
+                        cons.append(con)
+            for con in cons:
+                if expression:
+                    driver = drivers.make_driver(con, "influence", "SCRIPTED", expression)
+                else:
+                    driver = drivers.make_driver(con, "influence", "SUM")
+                if driver:
+                    var = drivers.make_driver_var(driver, "SINGLE_PROP", variable_name, rig, target_type = "OBJECT", data_path = data_path)
 
 
 def get_data_path_pose_bone_property(pose_bone_name, variable_name):
