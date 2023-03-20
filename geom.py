@@ -239,6 +239,43 @@ def map_image_to_vertex_weights(obj, mat, image, vertex_group, func):
     bm.to_mesh(mesh)
 
 
+def remove_vertex_groups_from_selected(obj, vertex_groups):
+    # get the bmesh
+    mesh = obj.data
+    bm = get_bmesh(mesh)
+    bm.verts.layers.deform.verify()
+    dl = bm.verts.layers.deform.active
+
+    # get the vertex group indices
+    vg_indices = []
+    vg_map = {}
+    for i, vg in enumerate(obj.vertex_groups):
+        if vg.name in vertex_groups:
+            vg_indices.append(i)
+            vg_map[i] = { "name": vg.name, "sum": 0 }
+
+    # set the weights for the vertex groups in each selected vertex to zero
+    for vert in bm.verts:
+        for vg_index in vg_indices:
+            if vg_index in vert[dl]:
+                if vert.select:
+                    vert[dl][vg_index] = 0.0
+                else:
+                    weight = vert[dl][vg_index]
+                    vg_map[vg_index]["sum"] += weight
+
+    # apply the changes
+    bm.to_mesh(mesh)
+
+    # remove empty groups
+    for vg_index in vg_map:
+        if vg_map[vg_index]["sum"] < 0.0001:
+            vg_name = vg_map[vg_index]["name"]
+            vg = obj.vertex_groups[vg_name]
+            utils.log_info(f"Removing empty vertex group: {vg_name} from: {obj.name}")
+            obj.vertex_groups.remove(vg)
+
+
 def parse_island_recursive(bm, face_index, faces_left, island, face_map, vert_map):
     """Recursive way to parse the UV islands.
        Can run out of recursion calls on large meshes.

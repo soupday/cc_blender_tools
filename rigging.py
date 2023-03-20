@@ -208,81 +208,87 @@ def lookup_bone_def_child(bone_defs, def_bone):
     return None
 
 
-def rigify_spring_chain(rig, spring_root, length, def_bone, bone_defs, ik_targets):
+def rigify_spring_chain(rig, spring_root, length, def_bone, bone_defs, ik_targets, mch_root = None):
 
     length += 1
 
+    if mch_root is None:
+        mch_root = bones.copy_edit_bone(rig, def_bone.name, f"MCH-{def_bone.name}_parent", spring_root.name, 1.0)
+        mch_root.parent = spring_root
+
     parent_def = lookup_bone_def_parent(bone_defs, def_bone)
     if not parent_def:
-        parent_def = [def_bone.parent.name, def_bone.parent.name, "", "", "", 0]
+        parent_def = [mch_root.name, mch_root.name, mch_root.name, "", "", spring_root.name, 0]
 
     fk_bone = bones.copy_edit_bone(rig, def_bone.name, f"{def_bone.name}_fk", parent_def[0], 1.0)
     mch_bone = bones.copy_edit_bone(rig, def_bone.name, f"MCH-{def_bone.name}_ik", parent_def[1], 1.0)
-    org_bone = bones.copy_edit_bone(rig, def_bone.name, f"ORG-{def_bone.name}", spring_root.name, 1.0)
+    org_bone = bones.copy_edit_bone(rig, def_bone.name, f"ORG-{def_bone.name}", parent_def[2], 1.0)
     twk_bone = bones.copy_edit_bone(rig, def_bone.name, f"{def_bone.name}_tweak", org_bone.name, 1.0)
-    bone_def = [fk_bone.name, mch_bone.name, org_bone.name, twk_bone.name, def_bone.name, length]
+    sim_bone = bones.copy_edit_bone(rig, def_bone.name, f"SIM-{def_bone.name}", parent_def[5], 1.0)
+    if not def_bone.name.startswith("DEF-"):
+        def_bone.name = f"DEF-{def_bone.name}"
+    bone_def = [fk_bone.name, mch_bone.name, org_bone.name, twk_bone.name, def_bone.name, sim_bone.name, length]
     bones.set_edit_bone_layer(rig, fk_bone.name, 3)
     bones.set_edit_bone_layer(rig, mch_bone.name, 30)
     bones.set_edit_bone_layer(rig, org_bone.name, 31)
     bones.set_edit_bone_layer(rig, twk_bone.name, 4)
     bones.set_edit_bone_layer(rig, def_bone.name, 29)
+    bones.set_edit_bone_layer(rig, sim_bone.name, 27)
     fk_bone.use_connect = True if length > 1 else False
     mch_bone.use_connect = True if length > 1 else False
     bone_defs.append(bone_def)
 
     for child_def_bone in def_bone.children:
-        rigify_spring_chain(rig, spring_root, length, child_def_bone, bone_defs, ik_targets)
+        rigify_spring_chain(rig, spring_root, length, child_def_bone, bone_defs, ik_targets, mch_root = mch_root)
 
     if len(def_bone.children) == 0 and length > 0:
-        ik_target_bone = bones.new_edit_bone(rig, f"{def_bone.name}_target_ik", spring_root.name)
+        ik_target_bone = bones.new_edit_bone(rig, f"{mch_root.name}_target_ik", mch_bone.name)
         ik_target_bone.head = def_bone.tail
         ik_target_bone.tail = def_bone.tail + 0.5 * (def_bone.tail - def_bone.head)
         ik_target_bone.roll = def_bone.roll
+        ik_target_bone.parent = mch_root
         ik_targets.append([mch_bone.name, ik_target_bone.name, length])
+
+    return mch_root.name
 
 
 def process_spring_groups(rig, spring_rig, ik_groups):
     scale = 1.0
-    ik_controls = {}
 
     if edit_rig(rig):
         for group_name in ik_groups:
-            ik_names = ik_groups[group_name]
-            pos_head = mathutils.Vector((0,0,0))
-            pos_tail = mathutils.Vector((0,0,0))
-            for ik_bone_name in ik_names:
-                ik_bone = rig.data.edit_bones[ik_bone_name]
-                pos_head += ik_bone.head
-                pos_tail += ik_bone.tail
-            pos_head /= len(ik_names)
-            pos_tail /= len(ik_names)
+            ik_names = ik_groups[group_name]["targets"]
+            if len(ik_names) > 1:
+                pos_head = mathutils.Vector((0,0,0))
+                pos_tail = mathutils.Vector((0,0,0))
+                for ik_bone_name in ik_names:
+                    ik_bone = rig.data.edit_bones[ik_bone_name]
+                    pos_head += ik_bone.head
+                    pos_tail += ik_bone.tail
+                pos_head /= len(ik_names)
+                pos_tail /= len(ik_names)
 
-            radius = 0
-            for ik_bone_name in ik_names:
-                ik_bone = rig.data.edit_bones[ik_bone_name]
-                r = (ik_bone.head - pos_head).length
-                if r > radius:
-                    radius = r
+                radius = 0
+                for ik_bone_name in ik_names:
+                    ik_bone = rig.data.edit_bones[ik_bone_name]
+                    r = (ik_bone.head - pos_head).length
+                    if r > radius:
+                        radius = r
 
-            scale = max(5, radius * 40.0)
+                scale = max(2, radius * 100.0)
 
-            group_ik_bone : bpy.types.EditBone
-            group_ik_bone = bones.new_edit_bone(rig, f"{group_name}_ik", spring_rig.name)
-            group_ik_bone.head = pos_head
-            length = (pos_head - pos_tail).length
-            dir = pos_tail - pos_head
-            dir[0] = 0
-            group_ik_bone.tail = pos_head + dir
-            ik_controls[group_name] = [group_ik_bone.name, scale]
-
-            for ik_bone_name in ik_names:
-                ik_bone = rig.data.edit_bones[ik_bone_name]
-                ik_bone.parent = group_ik_bone
-
-    return ik_controls
+                group_ik_bone = bones.new_edit_bone(rig, f"{group_name}_group_ik", spring_rig.name)
+                group_ik_bone.head = pos_head
+                dir = pos_tail - pos_head
+                dir[0] = 0
+                group_ik_bone.tail = pos_head + dir
+                ik_groups[group_name]["control"] = { "bone_name": group_ik_bone.name, "scale": scale }
+                for ik_bone_name in ik_names:
+                    ik_bone = rig.data.edit_bones[ik_bone_name]
+                    ik_bone.parent = group_ik_bone
 
 
-def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, group_ik_controls):
+def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots):
     fk_bone : bpy.types.PoseBone
     twk_bone : bpy.types.PoseBone
 
@@ -293,22 +299,54 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, group_ik_c
 
     if select_rig(rig):
 
+        for group_name in ik_groups:
+            if ik_groups[group_name]["control"]:
+                ik_group_bone_name = ik_groups[group_name]["control"]["bone_name"]
+                ik_group_bone_scale = ik_groups[group_name]["control"]["scale"]
+                ik_group_bone = rig.pose.bones[ik_group_bone_name]
+                ik_group_bone.custom_shape = shape_grp
+                ik_group_bone.use_custom_shape_bone_size = False
+                ik_group_bone.lock_scale[1] = True
+                bones.set_pose_bone_custom_scale(rig, ik_group_bone_name, ik_group_bone_scale)
+                bones.set_pose_bone_lock(ik_group_bone, lock_scale = [0,1,0])
+                bones.set_bone_group(rig, ik_group_bone_name, "IK")
+                bones.set_pose_bone_layer(rig, ik_group_bone_name, 3)
+                drivers.add_custom_float_property(ik_group_bone, "IK_FK", 0.0, 0.0, 1.0, description="Group FK Influence")
+                drivers.add_custom_float_property(ik_group_bone, "SIM", 0.0, 0.0, 1.0, description="Group Simulation Influence")
+
         for chain_root_name in bone_defs:
+
+            # find the ik group the chain belongs and it's IK->FK data path
+            group_ik_fk_data_path = None
+            group_sim_data_path = None
+            for group_name in ik_groups:
+                for crn in ik_groups[group_name]["chain_root_names"]:
+                    if crn == chain_root_name:
+                        if ik_groups[group_name]["control"]:
+                            ik_group_bone_name = ik_groups[group_name]["control"]["bone_name"]
+                            group_ik_fk_data_path = bones.get_data_path_pose_bone_property(ik_group_bone_name, "IK_FK")
+                            group_sim_data_path = bones.get_data_path_pose_bone_property(ik_group_bone_name, "SIM")
+
             chain_bone_defs = bone_defs[chain_root_name]
-            chain_root = bones.get_pose_bone(rig, chain_root_name)
-            drivers.add_custom_float_property(chain_root, "IK_FK", 0.0, 0.0, 1.0, description="FK Influence settings")
-            ik_fk_data_path = bones.get_data_path_pose_bone_property(chain_root_name, "IK_FK")
+            mch_root_name = mch_roots[chain_root_name]
+            mch_root = bones.get_pose_bone(rig, mch_root_name)
+            drivers.add_custom_float_property(mch_root, "IK_FK", 0.0, 0.0, 1.0, description="FK Influence")
+            drivers.add_custom_float_property(mch_root, "SIM", 0.0, 0.0, 1.0, description="Simulation Influence")
+            ik_fk_data_path = bones.get_data_path_pose_bone_property(mch_root_name, "IK_FK")
+            sim_data_path = bones.get_data_path_pose_bone_property(mch_root_name, "SIM")
             for bone_def in chain_bone_defs:
                 fk_bone_name = bone_def[0]
                 mch_bone_name = bone_def[1]
                 org_bone_name = bone_def[2]
                 twk_bone_name = bone_def[3]
                 def_bone_name = bone_def[4]
-                length = bone_def[5]
+                sim_bone_name = bone_def[5]
+                length = bone_def[6]
                 fk_bone = rig.pose.bones[fk_bone_name]
                 twk_bone = rig.pose.bones[twk_bone_name]
                 mch_bone = rig.pose.bones[mch_bone_name]
                 def_bone = rig.pose.bones[def_bone_name]
+                sim_bone = rig.pose.bones[sim_bone_name]
                 fk_bone.custom_shape = shape_fk
                 fk_bone.use_custom_shape_bone_size = True
                 twk_bone.custom_shape = shape_twk
@@ -330,9 +368,22 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, group_ik_c
                 fkc = bones.add_copy_transforms_constraint(rig, rig, fk_bone_name, org_bone_name, 1.0)
                 # mch -> org (influence driver)
                 mchc = bones.add_copy_transforms_constraint(rig, rig, mch_bone_name, org_bone_name, 1.0)
-                bones.add_constraint_scripted_influence_driver(rig, org_bone_name, ik_fk_data_path, "IK_FK",
-                                                               constraint = mchc, expression = "1.0 - IK_FK")
-                # rigid_body_sim > mch (influence driver) (Done by rigid body setup)
+                if group_ik_fk_data_path:
+                    mchc_driver = drivers.make_driver(mchc, "influence", "SCRIPTED", "(1.0 - g_ikfk)*(1.0 - ikfk)")
+                    drivers.make_driver_var(mchc_driver, "SINGLE_PROP", "ikfk", rig, "OBJECT", ik_fk_data_path)
+                    drivers.make_driver_var(mchc_driver, "SINGLE_PROP", "g_ikfk", rig, "OBJECT", group_ik_fk_data_path)
+                else:
+                    mchc_driver = drivers.make_driver(mchc, "influence", "SCRIPTED", "(1.0 - ikfk)")
+                    drivers.make_driver_var(mchc_driver, "SINGLE_PROP", "ikfk", rig, "OBJECT", ik_fk_data_path)
+                # sim > mch (influence driver)
+                simc = bones.add_copy_transforms_constraint(rig, rig, sim_bone_name, org_bone_name, 0.0)
+                if group_ik_fk_data_path:
+                    simc_driver = drivers.make_driver(simc, "influence", "SCRIPTED", "sim*g_sim")
+                    drivers.make_driver_var(simc_driver, "SINGLE_PROP", "sim", rig, "OBJECT", sim_data_path)
+                    drivers.make_driver_var(simc_driver, "SINGLE_PROP", "g_sim", rig, "OBJECT", group_sim_data_path)
+                else:
+                    simc_driver = drivers.make_driver(mchc, "influence", "SCRIPTED", "sim")
+                    drivers.make_driver_var(simc_driver, "SINGLE_PROP", "sim", rig, "OBJECT", sim_data_path)
                 # twk (parented to mch) -> def
                 defc1 = bones.add_copy_transforms_constraint(rig, rig, twk_bone_name, def_bone_name, 1.0)
                 # finally: def > stretch_to def.child:twk
@@ -343,18 +394,7 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, group_ik_c
                         defc2 = bones.add_stretch_to_constraint(rig, rig, twk_child_bone_name, def_bone_name, 1.0)
 
         for group_name in ik_groups:
-            group_ik_bone_name = group_ik_controls[group_name][0]
-            scale = group_ik_controls[group_name][1]
-            group_bone = rig.pose.bones[group_ik_bone_name]
-            group_bone.custom_shape = shape_grp
-            group_bone.use_custom_shape_bone_size = False
-            group_bone.lock_scale[1] = True
-            bones.set_pose_bone_custom_scale(rig, group_ik_bone_name, scale)
-            bones.set_pose_bone_lock(group_bone, lock_scale = [0,1,0])
-            bones.set_bone_group(rig, group_ik_bone_name, "IK")
-            bones.set_pose_bone_layer(rig, group_ik_bone_name, 3)
-
-            ik_names = ik_groups[group_name]
+            ik_names = ik_groups[group_name]["targets"]
             for chain_root_name in ik_targets:
                 ik_target_def = ik_targets[chain_root_name]
                 for mch_bone_name, ik_bone_name, length in ik_target_def:
@@ -363,7 +403,6 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, group_ik_c
                         ik_bone.custom_shape = shape_ik
                         ik_bone.use_custom_shape_bone_size = False
                         ik_bone.lock_scale[1] = True
-                        #bones.add_child_of_constraint(rig, rig, group_ik_bone_name, ik_bone_name)
                         bones.set_bone_group(rig, ik_bone_name, "IK")
                         bones.set_pose_bone_layer(rig, ik_bone_name, 3)
                         bones.add_inverse_kinematic_constraint(rig, rig, ik_bone_name, mch_bone_name,
@@ -372,32 +411,77 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, group_ik_c
                                                         orient_weight=1.0, chain_count=length)
 
 
+def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
+    if edit_rig(rigify_rig):
+        spring_rig = springbones.get_spring_rig(chr_cache, rigify_rig, parent_mode, mode = "EDIT")
+        spring_rig_name = spring_rig.name
+        bone_defs = {}
+        ik_targets = {}
+        ik_groups = {}
+        mch_roots = {}
+        for chain_root in spring_rig.children:
+            chain_bone_defs = []
+            chain_ik_targets = []
+            mch_root_name = rigify_spring_chain(rigify_rig, spring_rig, 0, chain_root, chain_bone_defs, chain_ik_targets)
+            bone_defs[chain_root.name] = chain_bone_defs
+            ik_targets[chain_root.name] = chain_ik_targets
+            mch_roots[chain_root.name] = mch_root_name
+            if chain_bone_defs and chain_ik_targets:
+                names = [ bone_def[4] for bone_def in chain_bone_defs ]
+                chain_name = utils.get_common_name(names)
+                if not chain_name:
+                    chain_name = "NONE"
+                if chain_name not in ik_groups:
+                    ik_groups[chain_name] = { "targets": [],
+                                              "chain_root_names": [],
+                                              "control": None }
+                ik_groups[chain_name]["targets"].extend([ ik_target_def[1] for ik_target_def in chain_ik_targets ])
+                ik_groups[chain_name]["chain_root_names"].append(chain_root.name)
+        process_spring_groups(rigify_rig, spring_rig, ik_groups)
+        set_spring_rig_constraints(rigify_rig, bone_defs, ik_groups, ik_targets, mch_roots)
+        drivers.add_custom_float_property(rigify_rig.pose.bones[spring_rig_name], "rigified", 1.0)
+
+
 def rigify_spring_rigs(chr_cache, rigify_rig):
     select_rig(rigify_rig)
-    spring_rigs = springbones.get_spring_rigs(chr_cache, rigify_rig, prefer_pose = True)
+    spring_rigs = springbones.get_spring_rigs(chr_cache, rigify_rig, mode = "POSE")
     for parent_mode in spring_rigs:
+        rigify_spring_rig(chr_cache, rigify_rig, parent_mode)
+
+
+def derigify_spring_rig(chr_cache, rigify_rig, parent_mode):
+    to_remove = []
+    DRIVER_PROPS = [ "influence" ]
+
+    if select_rig(rigify_rig):
+        spring_rig = springbones.get_spring_rig(chr_cache, rigify_rig, parent_mode, mode = "POSE")
+        child_bones = bones.get_bone_children(spring_rig)
+        for bone in child_bones:
+            if (bone.name.endswith("_ik") or bone.name.endswith("_fk") or
+                bone.name.startswith("MCH-") or bone.name.endswith("_tweak") or
+                bone.name.startswith("_group_ik") or bone.name.endswith("_target_ik") or
+                bone.name.startswith("ORG-") or bone.name.endswith("_tweak")):
+                to_remove.append(bone.name)
+                # remove any drivers on the contraints
+                for c in bone.constraints:
+                    for prop in DRIVER_PROPS:
+                        c.driver_remove(prop)
+            elif bone.name.startswith("DEF-"):
+                bone.name = bone.name[4:]
+
+            # remove all constraints from the spring rig bones
+            while bone.constraints:
+                bone.constraints.remove(bone.constraints[0])
+
         if edit_rig(rigify_rig):
-            spring_rig_bone_name = spring_rigs[parent_mode]["bone_name"]
-            spring_rig = rigify_rig.data.edit_bones[spring_rig_bone_name]
-            bone_defs = {}
-            ik_targets = {}
-            ik_groups = {}
-            for chain_root in spring_rig.children:
-                chain_bone_defs = []
-                chain_ik_targets = []
-                rigify_spring_chain(rigify_rig, spring_rig, 0, chain_root, chain_bone_defs, chain_ik_targets)
-                bone_defs[chain_root.name] = chain_bone_defs
-                ik_targets[chain_root.name] = chain_ik_targets
-                if chain_bone_defs and chain_ik_targets:
-                    names = [ bone_def[4] for bone_def in chain_bone_defs ]
-                    chain_name = utils.get_common_name(names)
-                    if not chain_name:
-                        chain_name = "NONE"
-                    if chain_name not in ik_groups:
-                        ik_groups[chain_name] = []
-                    ik_groups[chain_name].extend([ ik_target_def[1] for ik_target_def in chain_ik_targets ])
-            group_ik_controls = process_spring_groups(rigify_rig, spring_rig, ik_groups)
-            set_spring_rig_constraints(rigify_rig, bone_defs, ik_groups, ik_targets, group_ik_controls)
+            for bone_name in to_remove:
+                bone = rigify_rig.data.edit_bones[bone_name]
+                rigify_rig.data.edit_bones.remove(bone)
+
+        if "rigified" in spring_rig:
+            spring_rig["rigified"] = False
+
+        select_rig(rigify_rig)
 
 
 def rl_vertex_group(obj, group):
@@ -2995,7 +3079,7 @@ class CC3Rigifier(bpy.types.Operator):
         self.rigid_body_systems.clear()
         rig_modes= ["HEAD", "JAW"]
         for parent_mode in rig_modes:
-            rig_prefix = springbones.get_spring_bone_prefix(parent_mode)
+            rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
             settings = rigidbody.remove_existing_rigid_body_system(self.cc3_rig, rig_prefix)
             if settings:
                 self.rigid_body_systems[parent_mode] = settings
@@ -3003,7 +3087,7 @@ class CC3Rigifier(bpy.types.Operator):
     def restore_rigify_rigid_body_systems(self, chr_cache):
         for parent_mode in self.rigid_body_systems.keys():
             rig_name = springbones.get_spring_rig_name(parent_mode)
-            rig_prefix = springbones.get_spring_bone_prefix(parent_mode)
+            rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
             settings = self.rigid_body_systems[parent_mode]
             rigidbody.build_spring_rigid_body_system(chr_cache, rig_prefix, rig_name, settings)
 
@@ -3172,8 +3256,16 @@ class CC3Rigifier(bpy.types.Operator):
                     if rig and obj:
                         report_uv_face_targets(obj, rig)
 
-            elif self.param == "BUILD_SPRING_RIG":
+            elif self.param == "BUILD_SPRING_RIGS":
                 rigify_spring_rigs(chr_cache, chr_cache.get_armature())
+
+            elif self.param == "BUILD_SPRING_RIG":
+                parent_mode = chr_cache.available_spring_rigs
+                rigify_spring_rig(chr_cache, chr_cache.get_armature(), parent_mode)
+
+            elif self.param == "REMOVE_SPRING_RIG":
+                parent_mode = chr_cache.available_spring_rigs
+                derigify_spring_rig(chr_cache, chr_cache.get_armature(), parent_mode)
 
             elif self.param == "LOCK_NON_FACE_VGROUPS":
                 lock_non_face_vgroups(chr_cache)

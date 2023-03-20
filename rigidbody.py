@@ -17,12 +17,12 @@
 import bpy
 import math
 
-from . import drivers, utils, vars
+from . import drivers, bones, utils, vars
 
 # these must be floats
 MIN_COLLISION_MARGIN = 0.001
-BASE_COLLISION_SIZE = 0.025 - MIN_COLLISION_MARGIN
-SIZE = 0.05
+BASE_COLLISION_SIZE = 0.0125 - MIN_COLLISION_MARGIN
+SIZE = 0.025
 MASS = 1.0
 STIFFNESS = 50.0
 DAMPENING = 1000.0
@@ -239,14 +239,15 @@ def connect_fixed(arm, bone_name, head_body, tail_body, parent_object, copy_loca
         c.influence = 1.0
     return
 
-def build_bone_map(arm, edit_bone : bpy.types.EditBone, bone_map : dict = None, length = 0):
+def build_bone_map(arm, edit_bone : bpy.types.EditBone, bone_map : dict = None, length = 0, rigified = False):
 
     if bone_map is None:
         bone_map = {}
 
-    # ignore ik control bones
-    if edit_bone.name.endswith("_ik"):
-        return bone_map
+    if length > 0 and rigified:
+        # for rigified spring rigs, we only want to use the SIM bones (and the spring rig root)
+        if not edit_bone.name.startswith("SIM-"):
+            return False
 
     index = len(bone_map)
 
@@ -272,8 +273,8 @@ def build_bone_map(arm, edit_bone : bpy.types.EditBone, bone_map : dict = None, 
 
     children = []
     for child_bone in edit_bone.children:
-        build_bone_map(arm, child_bone, bone_map, length)
-        children.append(child_bone.name)
+        if build_bone_map(arm, child_bone, bone_map, length, rigified):
+            children.append(child_bone.name)
 
     mapping["children"] = children
 
@@ -290,7 +291,7 @@ def build_bone_map(arm, edit_bone : bpy.types.EditBone, bone_map : dict = None, 
             else:
                 break
 
-    return bone_map
+    return True
 
 
 def remove_existing_rigid_body_system(arm, rig_prefix):
@@ -486,51 +487,55 @@ def get_spring_rigid_body_system(arm, rig_prefix):
     return None
 
 
-def build_spring_rigid_body_system(chr_cache, rig_prefix, rig_bone_name, settings = None):
+def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone_name, settings = None):
     props = bpy.context.scene.CC3ImportProps
 
     arm = chr_cache.get_armature()
-    if not arm or rig_bone_name not in arm.data.bones:
+    if not arm or spring_rig_bone_name not in arm.data.bones:
         return False
+
+    spring_rig_bone = arm.pose.bones[spring_rig_bone_name]
+    rigified = "rigified" in spring_rig_bone and spring_rig_bone["rigified"]
 
     # generate a map of the spring rig bones
     utils.edit_mode_to(arm)
-    root_bone = arm.data.edit_bones[rig_bone_name]
-    bone_map = build_bone_map(arm, root_bone)
+    root_bone = arm.data.edit_bones[spring_rig_bone_name]
+    bone_map = {}
+    build_bone_map(arm, root_bone, rigified = rigified, bone_map = bone_map)
     utils.object_mode_to(arm)
 
     # remove any existing rig and store it's settings
-    rigid_body_system = get_spring_rigid_body_system(arm, rig_prefix)
+    rigid_body_system = get_spring_rigid_body_system(arm, spring_rig_prefix)
     if rigid_body_system:
         if not settings:
-            settings = remove_existing_rigid_body_system(arm, rig_prefix)
+            settings = remove_existing_rigid_body_system(arm, spring_rig_prefix)
         else:
-            remove_existing_rigid_body_system(arm, rig_prefix)
+            remove_existing_rigid_body_system(arm, spring_rig_prefix)
 
     # create a new spring rig
-    utils.log_info(f"Building Rigid Body System from: {rig_bone_name}")
-    rigid_body_system = add_rigid_body_system(arm, rig_prefix, settings)
+    utils.log_info(f"Building Rigid Body System from: {spring_rig_bone_name}")
+    rigid_body_system = add_rigid_body_system(arm, spring_rig_prefix, settings)
 
     # add the root node for the spring rig
-    root_body = add_body_node(bone_map[rig_bone_name]["head"],
+    root_body = add_body_node(bone_map[spring_rig_bone_name]["head"],
                               parent_object=rigid_body_system,
-                              name = f"{rig_prefix}_{rig_bone_name}",
+                              name = f"{spring_rig_prefix}_{spring_rig_bone_name}",
                               enabled = False, kinematic = True,
-                              location_target = arm, location_sub_target = rig_bone_name,
+                              location_target = arm, location_sub_target = spring_rig_bone_name,
                               dampening_driver = False, mass_driver = False, margin_driver = False)
 
     # from the bone map, generate the rigid body nodes and their spring constraints
     for bone_name in bone_map:
 
-        if bone_name == rig_bone_name:
+        if bone_name == spring_rig_bone_name:
             continue
 
         mapping = bone_map[bone_name]
         parent_name = mapping["parent"]
 
         # anything connected to the rig bone is fixed in place, these are the roots of the bone chains
-        if parent_name == rig_bone_name:
-            head_body = add_body_node(mapping["head"], name = f"{rig_prefix}_{bone_name}_Head",
+        if parent_name == spring_rig_bone_name:
+            head_body = add_body_node(mapping["head"], name = f"{spring_rig_prefix}_{bone_name}_Head",
                                       parent_object = rigid_body_system)
             mapping["head_body"] = head_body
             connect_fixed(arm, bone_name, root_body, head_body, parent_object = rigid_body_system)
@@ -541,22 +546,29 @@ def build_spring_rigid_body_system(chr_cache, rig_prefix, rig_bone_name, setting
             head_body = parent_mapping["tail_body"]
             if not head_body:
                 dampening_fac = 1.0 - parent_mapping["fac"]
-                head_body = add_body_node(parent_mapping["tail"], name = f"{rig_prefix}_{parent_name}_Tail",
+                head_body = add_body_node(parent_mapping["tail"], name = f"{spring_rig_prefix}_{parent_name}_Tail",
                                           parent_object = rigid_body_system, dampening_fac = dampening_fac)
                 parent_mapping["tail_body"] = head_body
 
         # add the tail node rigid body
         dampening_fac = 1.0 - mapping["fac"]
-        tail_body = add_body_node(mapping["tail"], name = f"{rig_prefix}_{bone_name}_Tail",
+        tail_body = add_body_node(mapping["tail"], name = f"{spring_rig_prefix}_{bone_name}_Tail",
                                   parent_object = rigid_body_system, dampening_fac = dampening_fac)
 
         mapping["head_body"] = head_body
         mapping["tail_body"] = tail_body
 
         # connect the head and the tail together with a generic spring constraint
-        connect_spring(arm, rig_prefix, bone_name, head_body, tail_body,
+        connect_spring(arm, spring_rig_prefix, bone_name, head_body, tail_body,
                        parent_object = rigid_body_system,
                        movement_limit = 0, angular_limit = 45)
+
+    # activate the simulation constraint influence
+    spring_rig_bone = arm.pose.bones[spring_rig_bone_name]
+    child_bones = bones.get_bone_children(spring_rig_bone)
+    for child_bone in child_bones:
+        if "SIM" in child_bone:
+            child_bone["SIM"] = 1.0
 
     utils.hide_tree(rigid_body_system)
 

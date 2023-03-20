@@ -281,6 +281,23 @@ def set_shading(obj, smooth=True):
             obj.data.update()
 
 
+def get_child_objects_with_vertex_groups(parent, group_names, objects = None):
+    if objects is None:
+        objects = []
+
+    for vg in parent.vertex_groups:
+        if vg.name in group_names:
+            objects.append(parent)
+            break
+
+    for child in parent.children:
+        get_child_objects_with_vertex_groups(child, group_names, objects)
+
+    return objects
+
+
+
+
 
 
 

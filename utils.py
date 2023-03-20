@@ -270,6 +270,10 @@ def get_selected_mesh():
     return None
 
 
+def get_selected_meshes():
+    return [ obj for obj in bpy.context.selected_objects if object_exists_is_mesh(obj) ]
+
+
 def try_remove(item, force = False):
 
     if still_exists(item):
@@ -621,7 +625,6 @@ def get_common_name(names):
         common_name = get_longest_alpha_match(common_name, names[i])
     while common_name[-1] in "_0123456789":
         common_name = common_name[:-1]
-    print(common_name)
     return common_name
 
 

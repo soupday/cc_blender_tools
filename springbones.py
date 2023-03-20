@@ -28,6 +28,8 @@ JAW_BONE_NAMES = ["ORG-jaw", "CC_Base_JawRoot", "RL_JawRoot", "JawRoot", "teeth.
 EYE_BONE_NAMES = ["ORG-eye.R", "ORG-eye.L", "CC_Base_R_Eye", "CC_Base_L_Eye", "CC_Base_R_Eye", "CC_Base_L_Eye"]
 ROOT_BONE_NAMES = HEAD_BONE_NAMES.copy().extend(JAW_BONE_NAMES.copy())
 
+AVAILABLE_SPRING_RIG_LIST = []
+
 
 def get_spring_rig_name(parent_mode):
     if parent_mode == "JAW":
@@ -43,7 +45,7 @@ def has_spring_rig(chr_cache, arm, parent_mode):
     return hair_rig is not None
 
 
-def get_spring_rigs(chr_cache, arm, parent_modes : list = None, prefer_pose = True, ):
+def get_spring_rigs(chr_cache, arm, parent_modes : list = None, mode = "POSE"):
     """Returns { parent_mode: {
                     "name": rig_name,
                     "bone_name": rig_root.name,
@@ -57,7 +59,7 @@ def get_spring_rigs(chr_cache, arm, parent_modes : list = None, prefer_pose = Tr
     spring_rigs = {}
     for parent_mode in parent_modes:
         rig_name = get_spring_rig_name(parent_mode)
-        rig_root = get_spring_rig(chr_cache, arm, parent_mode, prefer_pose = prefer_pose)
+        rig_root = get_spring_rig(chr_cache, arm, parent_mode, mode)
         if rig_root:
             spring_rigs[parent_mode] = { "name": rig_name,
                                          "bone_name" : rig_root.name,
@@ -65,33 +67,61 @@ def get_spring_rigs(chr_cache, arm, parent_modes : list = None, prefer_pose = Tr
     return spring_rigs
 
 
-def get_spring_rig(chr_cache, arm, parent_mode, prefer_pose = True, create_if_missing = False):
+def get_spring_rig_from_child(chr_cache, arm, bone_name, prefer_pose = True):
+
+    try:
+        if prefer_pose or utils.get_mode() == "POSE":
+            bone = arm.pose.bones[bone_name]
+        elif utils.get_mode() == "EDIT":
+            bone = arm.data.edit_bones[bone_name]
+        else:
+            bone = arm.data.bones[bone_name]
+    except:
+        bone = None
+
+    if bone:
+
+        spring_rigs = get_spring_rigs(chr_cache, arm, mode = "POSE")
+
+        while bone.parent:
+            for parent_mode in spring_rigs:
+                if spring_rigs[parent_mode]["bone"] == bone.parent:
+                    return spring_rigs[parent_mode], bone.name
+            bone = bone.parent
+
+    return None, None
+
+
+def get_spring_rig(chr_cache, arm, parent_mode, mode = "POSE", create_if_missing = False):
     """This will return either the edit bone, pose bone or bone depending on which mode Blender is in.
        (or the pose if preferred)
        """
     spring_rig_name = get_spring_rig_name(parent_mode)
     spring_rig = None
-    if prefer_pose or utils.get_mode() == "POSE":
+    if mode == "EDIT" and utils.get_mode() != "EDIT":
+        utils.edit_mode_to(arm)
+    if mode == "POSE" or utils.get_mode() == "POSE":
         if spring_rig_name in arm.pose.bones:
             return arm.pose.bones[spring_rig_name]
-    elif utils.get_mode() == "EDIT":
+    elif mode == "EDIT" and utils.get_mode() == "EDIT":
         if spring_rig_name in arm.data.edit_bones:
             spring_rig = arm.data.edit_bones[spring_rig_name]
-            if not spring_rig and create_if_missing:
-                root_bone_name = get_spring_root_name(chr_cache, arm, parent_mode)
-                center_position = get_spring_rig_position(chr_cache, arm, parent_mode)
-                spring_rig = bones.new_edit_bone(arm, spring_rig_name, root_bone_name)
-                spring_rig.head = arm.matrix_world.inverted() @ center_position
-                spring_rig.tail = arm.matrix_world.inverted() @ (center_position + Vector((0,1/32,0)))
-                spring_rig.align_roll(Vector((0,0,1)))
-                bones.set_edit_bone_layer(arm, spring_rig_name, 24)
+        if not spring_rig and create_if_missing:
+            root_bone_name = get_spring_root_name(chr_cache, arm, parent_mode)
+            center_position = get_spring_rig_position(chr_cache, arm, parent_mode)
+            spring_rig = bones.new_edit_bone(arm, spring_rig_name, root_bone_name)
+            spring_rig.head = arm.matrix_world.inverted() @ center_position
+            spring_rig.tail = arm.matrix_world.inverted() @ (center_position + Vector((0,1/32,0)))
+            spring_rig.align_roll(Vector((0,0,1)))
+            bones.set_edit_bone_layer(arm, spring_rig_name, 24)
+        return spring_rig
     else:
         if spring_rig_name in arm.data.bones:
             return arm.data.bones[spring_rig_name]
     return None
 
 
-def get_spring_bone_prefix(parent_mode):
+def get_spring_rig_prefix(parent_mode):
     if parent_mode == "HAIR":
         return HAIR_BONE_PREFIX
     elif parent_mode == "JAW":
@@ -170,10 +200,10 @@ def realign_spring_bones_axis(chr_cache, arm):
     utils.edit_mode_to(arm, True)
 
     # align z-axis away from the spring roots
-    spring_rigs = get_spring_rigs(chr_cache, arm)
+    spring_rigs = get_spring_rigs(chr_cache, arm, mode = "EDIT")
     for parent_mode in spring_rigs:
-        spring_root = spring_rigs[parent_mode]["edit_bone"]
-        spring_bones = bones.get_edit_bone_children(spring_root)
+        spring_root = spring_rigs[parent_mode]["bone"]
+        spring_bones = bones.get_bone_children(spring_root)
         for bone in spring_bones:
             if bone != spring_root:
                 head = arm.matrix_world @ bone.head
@@ -184,3 +214,21 @@ def realign_spring_bones_axis(chr_cache, arm):
 
     # save edit mode changes
     utils.object_mode_to(arm)
+
+
+def enumerate_spring_rigs(self, context):
+    global AVAILABLE_SPRING_RIG_LIST
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache = props.get_context_character_cache(context)
+
+    if chr_cache:
+        arm = chr_cache.get_armature()
+
+        spring_rigs = get_spring_rigs(chr_cache, arm, mode = "POSE")
+        AVAILABLE_SPRING_RIG_LIST.clear()
+        for i, parent_mode in enumerate(spring_rigs):
+            list_entry = (parent_mode, f"{parent_mode} Rig", f"{parent_mode} Rig")
+            AVAILABLE_SPRING_RIG_LIST.append(list_entry)
+
+    return AVAILABLE_SPRING_RIG_LIST
+

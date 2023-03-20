@@ -172,6 +172,8 @@ classes = (
     panels.CC3ToolsSculptingPanel,
     panels.CC3SpringRigPanel,
     panels.CC3HairPanel,
+    # control panels
+    panels.CC3SpringControlPanel,
 
 
     preferences.CC3ToolsAddonPreferences,

@@ -17,7 +17,7 @@
 import bpy, os
 from mathutils import Vector
 
-from . import channel_mixer, imageutils, meshutils, sculpting, materials, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
+from . import channel_mixer, imageutils, meshutils, sculpting, materials, springbones, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -442,7 +442,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_skip_length = 0.0
             self.hair_rig_bind_existing_scale = 0.0
             self.hair_rig_bone_length = 7.5
-            self.hair_rig_bind_bone_radius = 11.75
+            self.hair_rig_bind_bone_radius = 11.25
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
@@ -452,17 +452,17 @@ def update_rig_target(self, context):
             self.hair_rig_bind_skip_length = 7.5
             self.hair_rig_bind_existing_scale = 1.0
             self.hair_rig_bone_length = 7.5
-            self.hair_rig_bind_bone_radius = 11.75
+            self.hair_rig_bind_bone_radius = 11.25
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
             self.hair_rig_bind_bone_variance = 0.75
         elif self.hair_rig_target == "BLENDER":
-            self.hair_rig_bind_skip_length = 8
+            self.hair_rig_bind_skip_length = 5
             self.hair_rig_bind_existing_scale = 1.0
-            self.hair_rig_bone_length = 4
-            self.hair_rig_bind_bone_radius = 12
+            self.hair_rig_bone_length = 5
+            self.hair_rig_bind_bone_radius = 7.5
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
@@ -1272,6 +1272,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ], default="OVERLAY", name = "Body Mix Mode",
                     update=lambda s,c: update_sculpt_mix_node(s,c,"body_mix_mode"))
 
+    available_spring_rigs: bpy.props.EnumProperty(items=springbones.enumerate_spring_rigs, default=0, name="Available Spring Rigs")
+
     def get_tex_dir(self):
         if os.path.isabs(self.import_main_tex_dir):
             return os.path.normpath(self.import_main_tex_dir)
@@ -1528,7 +1530,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         try:
             for obj_cache in self.object_cache:
                 cache_object = obj_cache.get_object()
-                if cache_object.type == "ARMATURE":
+                if utils.object_exists_is_armature(cache_object):
                     return cache_object
         except:
             pass
@@ -1927,8 +1929,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("SELECTED","Selected Cards","Bind only the selected hair cards in each selected object"),
                     ], default="ALL", name = "Hair Card Selection Mode")
     hair_rig_bind_bone_mode: bpy.props.EnumProperty(items=[
-                        ("ALL","All Bones","Bind to all bones in the hair rig"),
-                        ("SELECTED","Selected Bones","Bind to only the selected bones of the hair rig"),
+                        ("ALL","All Bones","Operate on all bones in the hair rig"),
+                        ("SELECTED","Selected Bones","Operate on only the currently selected bones of the hair rig"),
                     ], default="ALL", name = "Bone Selection Mode")
     hair_rig_bone_root: bpy.props.EnumProperty(items=[
                         ("HEAD","Head Hair","Parent generated bones to the head bone"),
@@ -1940,6 +1942,9 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         "For Character Creator spring rigs, all other vertex weights are removed, and the first bone of each chain is fixed in place."),
                         ("UNITY","Unity","Generate a spring rig for Unity"),
                     ], default="UNITY", name = "Rig Target Application", update=update_rig_target)
+
+    hair_rig_group_name: bpy.props.StringProperty(name="Group Name", default="RL_Hair",
+                                                  description="Name to assign to selected bone chains as a separate group")
 
     hair_rigid_body_influence: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0, name = "Influence",
                                                        description = "How much of the simulation is copied into the pose bones")

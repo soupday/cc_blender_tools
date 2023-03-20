@@ -258,12 +258,12 @@ def copy_rig_bind_pose(rig_from, rig_to):
                 edit_bone.roll = bone_def["roll"]
 
 
-def get_edit_bone_children(bone, bone_list = None):
+def get_bone_children(bone, bone_list = None):
     if bone_list is None:
         bone_list = []
     bone_list.append(bone)
     for child in bone.children:
-        get_edit_bone_children(bone, bone_list)
+        get_bone_children(child, bone_list)
     return bone_list
 
 
