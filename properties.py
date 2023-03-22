@@ -439,30 +439,30 @@ def update_rig_target(self, context):
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         if self.hair_rig_target == "CC4":
-            self.hair_rig_bind_skip_length = 0.0
-            self.hair_rig_bind_existing_scale = 0.0
             self.hair_rig_bone_length = 7.5
+            self.hair_rig_bind_skip_length = 0.0
             self.hair_rig_bind_bone_radius = 11.25
+            self.hair_rig_bind_existing_scale = 0.0
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
             self.hair_rig_bind_bone_variance = 0.75
         elif self.hair_rig_target == "UNITY":
-            self.hair_rig_bind_skip_length = 7.5
-            self.hair_rig_bind_existing_scale = 1.0
             self.hair_rig_bone_length = 7.5
+            self.hair_rig_bind_skip_length = 7.5
             self.hair_rig_bind_bone_radius = 11.25
+            self.hair_rig_bind_existing_scale = 1.0
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
             self.hair_rig_bind_bone_variance = 0.75
         elif self.hair_rig_target == "BLENDER":
-            self.hair_rig_bind_skip_length = 5
+            self.hair_rig_bone_length = 7.5
+            self.hair_rig_bind_skip_length = 7.5
+            self.hair_rig_bind_bone_radius = 11.25
             self.hair_rig_bind_existing_scale = 1.0
-            self.hair_rig_bone_length = 5
-            self.hair_rig_bind_bone_radius = 7.5
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
@@ -1840,6 +1840,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     section_rigify_controls: bpy.props.BoolProperty(default=False)
+    section_rigify_spring: bpy.props.BoolProperty(default=False)
+    section_rigidbody_spring_ui: bpy.props.BoolProperty(default=True)
     retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
     bake_nla_shape_keys: bpy.props.BoolProperty(default=True)
     bake_unity_t_pose: bpy.props.BoolProperty(default=True, name="Include T-Pose", description="Include a T-Pose as the first animation track. This is useful for correct avatar alignment in Unity and for importing animations back into CC4")
@@ -1896,7 +1898,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     hair_rig_bind_skip_length: bpy.props.FloatProperty(default=7.5, min=0.0, max=25,
             description="How far along the hair card to start generating bones, "
             "as rooting the bones to the very start of the hair cards can produce unwanted results")
-    hair_rig_bone_length: bpy.props.FloatProperty(default=7.5, min=1, max=25,
+    hair_rig_bone_length: bpy.props.FloatProperty(default=7.5, min=5, max=25,
             description="How long a section of each hair card the bones should represent")
     hair_rig_bind_bone_radius: bpy.props.FloatProperty(default=7.5, min=1, max=25,
             description="How wide a radius around the bones should the hair cards bind vertex weights to")

@@ -69,3 +69,15 @@ def add_custom_float_property(object, prop_name, prop_value : float,
 
     rna_idprop_ui_create(object, prop_name, default=prop_value, overridable=overridable,
                          min=value_min, max=value_max, description=description)
+
+
+def add_custom_string_property(object, prop_name, prop_value : str,
+                              overridable = True,
+                              description : str = ""):
+
+    object[prop_name] = prop_value
+    try:
+        id_props = object.id_properties_ui(prop_name)
+        id_props.update(default=prop_value, description=description)
+    except:
+        pass

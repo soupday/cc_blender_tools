@@ -86,10 +86,10 @@ def get_spring_rig_from_child(chr_cache, arm, bone_name, prefer_pose = True):
         while bone.parent:
             for parent_mode in spring_rigs:
                 if spring_rigs[parent_mode]["bone"] == bone.parent:
-                    return spring_rigs[parent_mode], bone.name
+                    return spring_rigs[parent_mode], bone.name, parent_mode
             bone = bone.parent
 
-    return None, None
+    return None, None, None
 
 
 def get_spring_rig(chr_cache, arm, parent_mode, mode = "POSE", create_if_missing = False):
@@ -203,14 +203,13 @@ def realign_spring_bones_axis(chr_cache, arm):
     spring_rigs = get_spring_rigs(chr_cache, arm, mode = "EDIT")
     for parent_mode in spring_rigs:
         spring_root = spring_rigs[parent_mode]["bone"]
-        spring_bones = bones.get_bone_children(spring_root)
+        spring_bones = bones.get_bone_children(spring_root, include_root=False)
         for bone in spring_bones:
-            if bone != spring_root:
-                head = arm.matrix_world @ bone.head
-                tail = arm.matrix_world @ bone.tail
-                origin = arm.matrix_world @ spring_root.head
-                z_axis = (((head + tail) * 0.5) - origin).normalized()
-                bone.align_roll(z_axis)
+            head = arm.matrix_world @ bone.head
+            tail = arm.matrix_world @ bone.tail
+            origin = arm.matrix_world @ spring_root.head
+            z_axis = (((head + tail) * 0.5) - origin).normalized()
+            bone.align_roll(z_axis)
 
     # save edit mode changes
     utils.object_mode_to(arm)

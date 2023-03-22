@@ -475,7 +475,7 @@ def clear_hair_bone_weights(chr_cache, arm, objects, card_mode, bone_mode, paren
     utils.pose_mode_to(arm)
 
 
-def remove_hair_bones(chr_cache, arm, objects, bone_mode, parent_mode):
+def remove_hair_bones(chr_cache, arm, bone_mode, parent_mode):
     utils.object_mode_to(arm)
 
     hair_bones = []
@@ -495,9 +495,8 @@ def remove_hair_bones(chr_cache, arm, objects, bone_mode, parent_mode):
         if spring_rig and not spring_rig.children:
             arm.data.edit_bones.remove(spring_rig)
 
-    #if no objects selected, use all mesh objects in the character with matching vertex groups
-    if not objects:
-        objects = meshutils.get_child_objects_with_vertex_groups(arm, hair_bones)
+    #use all mesh objects in the character with matching vertex groups
+    objects = meshutils.get_child_objects_with_vertex_groups(arm, hair_bones)
 
     #remove the weights from the character meshes
     for obj in objects:
@@ -819,8 +818,7 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
     mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
-    if not chr_cache.rigified:
-        bones.show_armature_layers(arm, [25], in_front=True)
+    bones.show_armature_layers(arm, [25], in_front=True)
 
     hair_bone_prefix = props.hair_rig_group_name
 
@@ -1281,8 +1279,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     #mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
-    if not chr_cache.rigified:
-        bones.show_armature_layers(arm, [25], in_front=True)
+    bones.show_armature_layers(arm, [25], in_front=True)
 
     hair_bone_prefix = props.hair_rig_group_name
 
@@ -1338,8 +1335,7 @@ def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
-    if not chr_cache.rigified:
-        bones.show_armature_layers(arm, [25], in_front=True)
+    bones.show_armature_layers(arm, [25], in_front=True)
 
     hair_bone_prefix = props.hair_rig_group_name
 
@@ -1548,11 +1544,9 @@ class CC3OperatorHair(bpy.types.Operator):
 
         if self.param == "REMOVE_HAIR_BONES":
 
-            objects = utils.get_selected_meshes()
-
-            if arm and objects:
+            if arm:
                 arm.hide_set(False)
-                remove_hair_bones(chr_cache, arm, objects,
+                remove_hair_bones(chr_cache, arm,
                                   props.hair_rig_bind_bone_mode,
                                   props.hair_rig_bone_root)
 
@@ -1629,12 +1623,12 @@ class CC3OperatorHair(bpy.types.Operator):
             # reset the animation (it is very unstable if we don't do this)
             bpy.ops.screen.frame_jump(end = False)
 
-            parent_mode = props.hair_rig_bone_root
-            hair_rig_name = springbones.get_spring_rig_name(parent_mode)
+            parent_mode = chr_cache.available_spring_rigs
+            hair_rig_bone_name = springbones.get_spring_rig_name(parent_mode)
             hair_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
 
             if arm:
-                rigidbody.build_spring_rigid_body_system(chr_cache, hair_rig_prefix, hair_rig_name)
+                rigidbody.build_spring_rigid_body_system(chr_cache, hair_rig_prefix, hair_rig_bone_name)
                 body = chr_cache.get_body()
                 if chr_cache.collision_body is None:
                     physics.add_collision_physics(chr_cache, body, None)
@@ -1645,6 +1639,8 @@ class CC3OperatorHair(bpy.types.Operator):
             rigidbody.reset_cache(context)
             bpy.context.scene.frame_current = 1
             rigidbody.reset_cache(context)
+
+            utils.restore_mode_selection_state(mode_selection)
 
             # reset the animation again for good measure...
             bpy.ops.screen.frame_jump(end = False)
@@ -1659,11 +1655,11 @@ class CC3OperatorHair(bpy.types.Operator):
             bpy.ops.screen.frame_jump(end = False)
 
             parent_mode = props.hair_rig_bone_root
-            hair_rig_name = springbones.get_spring_rig_name(parent_mode)
+            hair_rig_bone_name = springbones.get_spring_rig_name(parent_mode)
             hair_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
 
             if arm:
-                rigidbody.remove_existing_rigid_body_system(arm, hair_rig_prefix)
+                rigidbody.remove_existing_rigid_body_system(arm, hair_rig_prefix, hair_rig_bone_name)
 
             # reset the rigid body world point cache
             bpy.context.scene.frame_current = 2

@@ -182,6 +182,16 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
         # Turn off auto smoothing
         mesh.use_auto_smooth = False
 
+        # Auto apply armature modifier settings
+        if prefs.build_armature_edit_modifier or prefs.build_armature_preserve_volume:
+            mod_arm = modifiers.get_object_modifier(obj, "ARMATURE")
+            if mod_arm:
+                if prefs.build_armature_edit_modifier:
+                    mod_arm.show_in_editmode = True
+                    mod_arm.show_on_cage = True
+                if prefs.build_armature_preserve_volume:
+                    mod_arm.use_deform_preserve_volume = True
+
         # Set to smooth shading
         meshutils.set_shading(obj, True)
 

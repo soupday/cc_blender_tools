@@ -62,6 +62,8 @@ def reset_preferences():
     prefs.build_limit_textures = False
     prefs.build_wrinkle_maps = True
     prefs.bake_use_gpu = False
+    prefs.build_armature_edit_modifier = True
+    prefs.build_armature_preserve_volume = False
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -223,6 +225,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     build_reuse_baked_channel_packs: bpy.props.BoolProperty(default=True, name="Reuse Channel Packs",
                 description="Reuse existing channel packs on material rebuild, otherwise rebake the texture channel packs")
 
+
+    build_armature_edit_modifier: bpy.props.BoolProperty(default=True, name="Use Edit Modifier",
+                                                         description="Automatically set to use armature modifier in mesh edit mode for all armature modifiers in the character. (i.e. edit in place)")
+    build_armature_preserve_volume: bpy.props.BoolProperty(default=False, name="Preserve Volume",
+                                                         description="Automatically set use preserve volume for all armature modifiers in the character.")
+
     max_texture_size: bpy.props.FloatProperty(default=4096, min=512, max=4096)
 
     import_deduplicate: bpy.props.BoolProperty(default=True, name="De-duplicate Materials",
@@ -291,6 +299,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "build_limit_textures")
         layout.prop(self, "build_pack_texture_channels")
         layout.prop(self, "build_pack_wrinkle_diffuse_roughness")
+        layout.prop(self, "build_armature_edit_modifier")
+        layout.prop(self, "build_armature_preserve_volume")
 
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")

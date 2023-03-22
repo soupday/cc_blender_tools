@@ -31,6 +31,18 @@ from . import drivers, bones
 from . import rigify_mapping_data
 
 
+SPRING_IK_LAYER = 19
+SPRING_FK_LAYER = 20
+SPRING_TWEAK_LAYER = 21
+ORG_BONE_LAYER = 31
+MCH_BONE_LAYER = 30
+DEF_BONE_LAYER = 29
+ROOT_BONE_LAYER = 28
+SIM_BONE_LAYER = 27
+HIDE_BONE_LAYER = 23
+SPRING_EDIT_LAYER = 25
+
+
 class BoundingBox:
     box_min = [ float('inf'), float('inf'), float('inf')]
     box_max = [-float('inf'),-float('inf'),-float('inf')]
@@ -214,6 +226,7 @@ def rigify_spring_chain(rig, spring_root, length, def_bone, bone_defs, ik_target
 
     if mch_root is None:
         mch_root = bones.copy_edit_bone(rig, def_bone.name, f"MCH-{def_bone.name}_parent", spring_root.name, 1.0)
+        bones.set_edit_bone_layer(rig, mch_root.name, MCH_BONE_LAYER)
         mch_root.parent = spring_root
 
     parent_def = lookup_bone_def_parent(bone_defs, def_bone)
@@ -228,12 +241,12 @@ def rigify_spring_chain(rig, spring_root, length, def_bone, bone_defs, ik_target
     if not def_bone.name.startswith("DEF-"):
         def_bone.name = f"DEF-{def_bone.name}"
     bone_def = [fk_bone.name, mch_bone.name, org_bone.name, twk_bone.name, def_bone.name, sim_bone.name, length]
-    bones.set_edit_bone_layer(rig, fk_bone.name, 3)
-    bones.set_edit_bone_layer(rig, mch_bone.name, 30)
-    bones.set_edit_bone_layer(rig, org_bone.name, 31)
-    bones.set_edit_bone_layer(rig, twk_bone.name, 4)
-    bones.set_edit_bone_layer(rig, def_bone.name, 29)
-    bones.set_edit_bone_layer(rig, sim_bone.name, 27)
+    bones.set_edit_bone_layer(rig, fk_bone.name, SPRING_FK_LAYER)
+    bones.set_edit_bone_layer(rig, mch_bone.name, MCH_BONE_LAYER)
+    bones.set_edit_bone_layer(rig, org_bone.name, ORG_BONE_LAYER)
+    bones.set_edit_bone_layer(rig, twk_bone.name, SPRING_TWEAK_LAYER)
+    bones.set_edit_bone_layer(rig, def_bone.name, DEF_BONE_LAYER)
+    bones.set_edit_bone_layer(rig, sim_bone.name, SIM_BONE_LAYER)
     fk_bone.use_connect = True if length > 1 else False
     mch_bone.use_connect = True if length > 1 else False
     bone_defs.append(bone_def)
@@ -242,7 +255,12 @@ def rigify_spring_chain(rig, spring_root, length, def_bone, bone_defs, ik_target
         rigify_spring_chain(rig, spring_root, length, child_def_bone, bone_defs, ik_targets, mch_root = mch_root)
 
     if len(def_bone.children) == 0 and length > 0:
-        ik_target_bone = bones.new_edit_bone(rig, f"{mch_root.name}_target_ik", mch_bone.name)
+        ik_target_name = mch_root.name
+        if ik_target_name.startswith("MCH-"):
+            ik_target_name = ik_target_name[4:]
+        if ik_target_name.endswith("_parent"):
+            ik_target_name = ik_target_name[:-7]
+        ik_target_bone = bones.new_edit_bone(rig, f"{ik_target_name}_target_ik", mch_bone.name)
         ik_target_bone.head = def_bone.tail
         ik_target_bone.tail = def_bone.tail + 0.5 * (def_bone.tail - def_bone.head)
         ik_target_bone.roll = def_bone.roll
@@ -279,6 +297,7 @@ def process_spring_groups(rig, spring_rig, ik_groups):
 
                 group_ik_bone = bones.new_edit_bone(rig, f"{group_name}_group_ik", spring_rig.name)
                 group_ik_bone.head = pos_head
+                bones.set_edit_bone_layer(rig, group_ik_bone.name, SPRING_IK_LAYER)
                 dir = pos_tail - pos_head
                 dir[0] = 0
                 group_ik_bone.tail = pos_head + dir
@@ -310,7 +329,7 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
                 bones.set_pose_bone_custom_scale(rig, ik_group_bone_name, ik_group_bone_scale)
                 bones.set_pose_bone_lock(ik_group_bone, lock_scale = [0,1,0])
                 bones.set_bone_group(rig, ik_group_bone_name, "IK")
-                bones.set_pose_bone_layer(rig, ik_group_bone_name, 3)
+                bones.set_pose_bone_layer(rig, ik_group_bone_name, SPRING_IK_LAYER)
                 drivers.add_custom_float_property(ik_group_bone, "IK_FK", 0.0, 0.0, 1.0, description="Group FK Influence")
                 drivers.add_custom_float_property(ik_group_bone, "SIM", 0.0, 0.0, 1.0, description="Group Simulation Influence")
 
@@ -330,6 +349,7 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
             chain_bone_defs = bone_defs[chain_root_name]
             mch_root_name = mch_roots[chain_root_name]
             mch_root = bones.get_pose_bone(rig, mch_root_name)
+            bones.set_pose_bone_layer(rig, mch_root_name, MCH_BONE_LAYER)
             drivers.add_custom_float_property(mch_root, "IK_FK", 0.0, 0.0, 1.0, description="FK Influence")
             drivers.add_custom_float_property(mch_root, "SIM", 0.0, 0.0, 1.0, description="Simulation Influence")
             ik_fk_data_path = bones.get_data_path_pose_bone_property(mch_root_name, "IK_FK")
@@ -359,11 +379,11 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
                 bones.set_pose_bone_lock(twk_bone, lock_rotation = [1,0,1,1], lock_scale = [0,1,0])
                 bones.set_bone_group(rig, fk_bone_name, "FK")
                 bones.set_bone_group(rig, twk_bone_name, "Tweak")
-                bones.set_pose_bone_layer(rig, fk_bone_name, 3)
-                bones.set_pose_bone_layer(rig, mch_bone_name, 30)
-                bones.set_pose_bone_layer(rig, org_bone_name, 31)
-                bones.set_pose_bone_layer(rig, twk_bone_name, 4)
-                bones.set_pose_bone_layer(rig, def_bone_name, 29)
+                bones.set_pose_bone_layer(rig, fk_bone_name, SPRING_FK_LAYER)
+                bones.set_pose_bone_layer(rig, mch_bone_name, MCH_BONE_LAYER)
+                bones.set_pose_bone_layer(rig, org_bone_name, ORG_BONE_LAYER)
+                bones.set_pose_bone_layer(rig, twk_bone_name, SPRING_TWEAK_LAYER)
+                bones.set_pose_bone_layer(rig, def_bone_name, DEF_BONE_LAYER)
                 # fk -> org
                 fkc = bones.add_copy_transforms_constraint(rig, rig, fk_bone_name, org_bone_name, 1.0)
                 # mch -> org (influence driver)
@@ -404,11 +424,12 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
                         ik_bone.use_custom_shape_bone_size = False
                         ik_bone.lock_scale[1] = True
                         bones.set_bone_group(rig, ik_bone_name, "IK")
-                        bones.set_pose_bone_layer(rig, ik_bone_name, 3)
+                        bones.set_pose_bone_layer(rig, ik_bone_name, SPRING_IK_LAYER)
                         bones.add_inverse_kinematic_constraint(rig, rig, ik_bone_name, mch_bone_name,
                                                         use_tail=True, use_stretch=True, influence=1.0,
                                                         use_location=True, use_rotation=True,
                                                         orient_weight=1.0, chain_count=length)
+                        drivers.add_custom_string_property(ik_bone, "ik_root", str(mch_bone_name))
 
 
 def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
@@ -431,6 +452,8 @@ def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
                 chain_name = utils.get_common_name(names)
                 if not chain_name:
                     chain_name = "NONE"
+                if chain_name.startswith("DEF-"):
+                    chain_name = chain_name[4:]
                 if chain_name not in ik_groups:
                     ik_groups[chain_name] = { "targets": [],
                                               "chain_root_names": [],
@@ -440,6 +463,9 @@ def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
         process_spring_groups(rigify_rig, spring_rig, ik_groups)
         set_spring_rig_constraints(rigify_rig, bone_defs, ik_groups, ik_targets, mch_roots)
         drivers.add_custom_float_property(rigify_rig.pose.bones[spring_rig_name], "rigified", 1.0)
+        rigify_rig.data.layers[SPRING_FK_LAYER] = True
+        rigify_rig.data.layers[SPRING_IK_LAYER] = True
+        rigify_rig.data.layers[SPRING_TWEAK_LAYER] = True
 
 
 def rigify_spring_rigs(chr_cache, rigify_rig):
@@ -451,23 +477,24 @@ def rigify_spring_rigs(chr_cache, rigify_rig):
 
 def derigify_spring_rig(chr_cache, rigify_rig, parent_mode):
     to_remove = []
+    to_layer = []
     DRIVER_PROPS = [ "influence" ]
 
     if select_rig(rigify_rig):
         spring_rig = springbones.get_spring_rig(chr_cache, rigify_rig, parent_mode, mode = "POSE")
-        child_bones = bones.get_bone_children(spring_rig)
+        child_bones = bones.get_bone_children(spring_rig, include_root=False)
         for bone in child_bones:
-            if (bone.name.endswith("_ik") or bone.name.endswith("_fk") or
-                bone.name.startswith("MCH-") or bone.name.endswith("_tweak") or
-                bone.name.startswith("_group_ik") or bone.name.endswith("_target_ik") or
-                bone.name.startswith("ORG-") or bone.name.endswith("_tweak")):
+            # keep only the DEF- bones and revert back to non rigified name
+            if bone.name.startswith("DEF-"):
+                bone.name = bone.name[4:]
+                bones.set_pose_bone_layer(rigify_rig, bone.name, SPRING_EDIT_LAYER)
+                to_layer.append(bone.name)
+            else:
                 to_remove.append(bone.name)
                 # remove any drivers on the contraints
                 for c in bone.constraints:
                     for prop in DRIVER_PROPS:
                         c.driver_remove(prop)
-            elif bone.name.startswith("DEF-"):
-                bone.name = bone.name[4:]
 
             # remove all constraints from the spring rig bones
             while bone.constraints:
@@ -475,13 +502,18 @@ def derigify_spring_rig(chr_cache, rigify_rig, parent_mode):
 
         if edit_rig(rigify_rig):
             for bone_name in to_remove:
+                utils.log_info(f"Removing spring rigify bone: {bone_name}")
                 bone = rigify_rig.data.edit_bones[bone_name]
                 rigify_rig.data.edit_bones.remove(bone)
+            for bone_name in to_layer:
+                utils.log_info(f"Keeping spring rig bone: {bone_name}")
+                bones.set_edit_bone_layer(rigify_rig, bone_name, SPRING_EDIT_LAYER)
 
         if "rigified" in spring_rig:
             spring_rig["rigified"] = False
 
         select_rig(rigify_rig)
+        rigify_rig.data.layers[SPRING_EDIT_LAYER] = True
 
 
 def rl_vertex_group(obj, group):
@@ -1200,12 +1232,12 @@ def modify_rigify_rig(cc3_rig, rigify_rig, rigify_data):
                     for bone in rigify_rig.data.bones:
                         if re.match(regex, bone.name):
                             utils.log_info(f"Hiding control rig bone: {bone.name}")
-                            bones.set_pose_bone_layer(rigify_rig, bone.name, 22)
+                            bones.set_pose_bone_layer(rigify_rig, bone.name, HIDE_BONE_LAYER)
                             bone_list.append(bone.name)
                 utils.log_recess()
         if bone_list and edit_rig(rigify_rig):
             for bone_name in bone_list:
-                bones.set_edit_bone_layer(rigify_rig, bone_name, 22)
+                bones.set_edit_bone_layer(rigify_rig, bone_name, HIDE_BONE_LAYER)
             select_rig(rigify_rig)
 
 
@@ -3079,17 +3111,18 @@ class CC3Rigifier(bpy.types.Operator):
         self.rigid_body_systems.clear()
         rig_modes= ["HEAD", "JAW"]
         for parent_mode in rig_modes:
-            rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
-            settings = rigidbody.remove_existing_rigid_body_system(self.cc3_rig, rig_prefix)
+            spring_rig_bone_name = springbones.get_spring_rig_name(parent_mode)
+            spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+            settings = rigidbody.remove_existing_rigid_body_system(self.cc3_rig, spring_rig_prefix, spring_rig_bone_name)
             if settings:
                 self.rigid_body_systems[parent_mode] = settings
 
     def restore_rigify_rigid_body_systems(self, chr_cache):
         for parent_mode in self.rigid_body_systems.keys():
-            rig_name = springbones.get_spring_rig_name(parent_mode)
-            rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+            spring_rig_bone_name = springbones.get_spring_rig_name(parent_mode)
+            spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
             settings = self.rigid_body_systems[parent_mode]
-            rigidbody.build_spring_rigid_body_system(chr_cache, rig_prefix, rig_name, settings)
+            rigidbody.build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone_name, settings)
 
     def execute(self, context):
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
@@ -3261,11 +3294,23 @@ class CC3Rigifier(bpy.types.Operator):
 
             elif self.param == "BUILD_SPRING_RIG":
                 parent_mode = chr_cache.available_spring_rigs
+                spring_rig_bone_name = springbones.get_spring_rig_name(parent_mode)
+                spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+                arm = chr_cache.get_armature()
+                settings = rigidbody.remove_existing_rigid_body_system(arm, spring_rig_prefix, spring_rig_bone_name)
                 rigify_spring_rig(chr_cache, chr_cache.get_armature(), parent_mode)
+                if settings:
+                    rigidbody.build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone_name, settings)
 
             elif self.param == "REMOVE_SPRING_RIG":
                 parent_mode = chr_cache.available_spring_rigs
+                spring_rig_bone_name = springbones.get_spring_rig_name(parent_mode)
+                spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+                arm = chr_cache.get_armature()
+                settings = rigidbody.remove_existing_rigid_body_system(arm, spring_rig_prefix, spring_rig_bone_name)
                 derigify_spring_rig(chr_cache, chr_cache.get_armature(), parent_mode)
+                if settings:
+                    rigidbody.build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone_name, settings)
 
             elif self.param == "LOCK_NON_FACE_VGROUPS":
                 lock_non_face_vgroups(chr_cache)

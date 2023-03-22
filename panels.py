@@ -56,13 +56,20 @@ def context_character(context):
 # Panel functions and classes
 #
 
-def fake_drop_down(row, label, prop_name, prop_bool_value, icon = "TRIA_DOWN"):
+def fake_drop_down(row, label, prop_name, prop_bool_value, icon = "TRIA_DOWN", icon_closed = "TRIA_RIGHT"):
     props = bpy.context.scene.CC3ImportProps
+    row.alignment="LEFT"
+
     if prop_bool_value:
-        row.prop(props, prop_name, icon=icon, icon_only=True, emboss=False)
+        row.prop(props, prop_name, icon=icon, text=label, emboss=False)
     else:
-        row.prop(props, prop_name, icon="TRIA_RIGHT", icon_only=True, emboss=False)
-    row.label(text=label)
+        row.prop(props, prop_name, icon=icon_closed, text=label, emboss=False)
+
+    if icon != "TRIA_DOWN":
+        if prop_bool_value:
+            row.prop(props, prop_name, icon="TRIA_DOWN", icon_only=True, emboss=False)
+        else:
+            row.prop(props, prop_name, icon="TRIA_RIGHT", icon_only=True, emboss=False)
     return prop_bool_value
 
 
@@ -237,6 +244,89 @@ def character_export_unity_button(chr_cache, layout):
         column.enabled = False
 
 
+def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_parent_mode = None, show_selector = True):
+    props = bpy.context.scene.CC3ImportProps
+
+    if not chr_cache or not arm:
+        return
+
+    has_rigid_body = rigidbody.is_rigid_body(chr_cache, obj)
+    rigid_body_sim = None
+    parent_mode = chr_cache.available_spring_rigs
+    if fixed_parent:
+        parent_mode = only_parent_mode
+    prefix = springbones.get_spring_rig_prefix(parent_mode)
+    rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
+    has_spring_rig = springbones.has_spring_rig(chr_cache, arm, parent_mode)
+
+
+    if fake_drop_down(column.box().row(),
+            "Rigid Body Sim",
+            "section_rigidbody_spring_ui",
+            props.section_rigidbody_spring_ui,
+            icon="BLENDER", icon_closed="BLENDER"):
+
+        if not fixed_parent and show_selector:
+            split = column.split(factor=0.45)
+            split.column().label(text="Hair System")
+            #split.column().prop(props, "hair_rig_bone_root", text="")
+            split.column().prop(chr_cache, "available_spring_rigs", text="")
+
+        if not has_spring_rig:
+            row = column.row()
+            row.label(text = "No Spring Rig", icon="ERROR")
+
+        if rigid_body_sim:
+            split = column.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Influence")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_influence\"]", text="", slider=True)
+            col_1.label(text="Limit")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_limit\"]", text="", slider=True)
+            col_1.label(text="Curve")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_curve\"]", text="", slider=True)
+            col_1.label(text="Mass")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_mass\"]", text="", slider=True)
+            col_1.label(text="Radius")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_radius\"]", text="", slider=True)
+            col_1.label(text="Dampening")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_dampening\"]", text="", slider=True)
+            col_1.label(text="Stiffness")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_stiffness\"]", text="", slider=True)
+            column.separator()
+
+        if parent_mode:
+            if not rigid_body_sim:
+                row = column.row()
+                row.scale_y = 2.0
+                row.operator("cc3.hair", icon=utils.check_icon("RIGID_BODY"), text="Build Spring System").param = "MAKE_RIGID_BODY_SYSTEM"
+                column.separator()
+                if not has_spring_rig:
+                    row.enabled = False
+            else:
+                row = column.row()
+                row.scale_y = 2.0
+                row.alert = True
+                row.operator("cc3.hair", icon=utils.check_icon("X"), text="Remove Spring System").param = "REMOVE_RIGID_BODY_SYSTEM"
+                column.separator()
+        else:
+            column.row().label(text = "No spring rig selected", icon="ERROR")
+
+        column.row().label(text="Physics Tools:")
+
+        row = column.row()
+        row.operator("cc3.hair", icon=utils.check_icon("MOD_PHYSICS"), text="Enable Collision Body").param = "ENABLE_RIGID_BODY_COLLISION"
+        if has_rigid_body:
+            row.enabled = False
+        row = column.row()
+        row.operator("cc3.hair", icon=utils.check_icon("X"), text="Disable Collision Body").param = "DISABLE_RIGID_BODY_COLLISION"
+        if not has_rigid_body:
+            row.enabled = False
+        row = column.row()
+        row.operator("cc3.hair", icon=utils.check_icon("LOOP_BACK"), text="Reset Physics").param = "RESET_PHYSICS"
+
+
 class ARMATURE_UL_List(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -390,15 +480,10 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
 
         # Build Settings
 
-        layout.box().label(text="Build Settings", icon="TOOL_SETTINGS")
-        if prefs.physics == "ENABLED":
-            layout.prop(props, "physics_mode", expand=True)
-        layout.prop(prefs, "render_target", expand=True)
-        layout.prop(prefs, "refractive_eyes", expand=True)
-
-        # Build prefs
+        # Build prefs in title
         box = layout.box()
-        if fake_drop_down(box.row(), "Build Prefs", "show_build_prefs", props.show_build_prefs):
+        if fake_drop_down(box.row(), "Build Settings", "show_build_prefs", props.show_build_prefs,
+                          icon="TOOL_SETTINGS", icon_closed="TOOL_SETTINGS"):
             split = box.split(factor=0.9)
             col_1 = split.column()
             col_2 = split.column()
@@ -414,6 +499,16 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_2.prop(prefs, "build_pack_texture_channels", text="")
             col_1.label(text="Reuse Channel Packs")
             col_2.prop(prefs, "build_reuse_baked_channel_packs", text="")
+            col_1.label(text="Use Edit Modifier")
+            col_2.prop(prefs, "build_armature_edit_modifier", text="")
+            col_1.label(text="Use Preserve Volume")
+            col_2.prop(prefs, "build_armature_preserve_volume", text="")
+
+        if prefs.physics == "ENABLED":
+            layout.prop(props, "physics_mode", expand=True)
+        layout.prop(prefs, "render_target", expand=True)
+        layout.prop(prefs, "refractive_eyes", expand=True)
+        layout.prop(prefs, "build_wrinkle_maps", toggle=True)
 
         # ACES Prefs
         if colorspace.is_aces():
@@ -695,7 +790,8 @@ class CC3SpringRigPanel(bpy.types.Panel):
         if fake_drop_down(layout.box().row(),
                 "Hair Rigging",
                 "section_hair_rigging",
-                props.section_hair_rigging):
+                props.section_hair_rigging,
+                icon="OUTLINER_OB_CURVES", icon_closed="OUTLINER_OB_CURVES"):
 
             is_hair_rig, is_accessory = hair.is_hair_rig_accessory(bpy.context.selected_objects)
 
@@ -788,69 +884,8 @@ class CC3SpringRigPanel(bpy.types.Panel):
 
             column.separator()
 
-            has_rigid_body = rigidbody.is_rigid_body(chr_cache, obj)
-            rigid_body_sim = None
-            has_hair_rig = False
-            if chr_cache and arm:
-                parent_mode = props.hair_rig_bone_root
-                prefix = springbones.get_spring_rig_prefix(parent_mode)
-                rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
-                has_hair_rig = springbones.has_spring_rig(chr_cache, arm, parent_mode)
-
-            box = column.box()
-            box.label(text = "Blender Rigid Body Sim", icon="BLENDER")
-            split = box.split(factor=0.45)
-            split.column().label(text="Hair System")
-            split.column().prop(props, "hair_rig_bone_root", text="")
-            if not has_hair_rig:
-                row = box.row()
-                row.label(text = "No Hair Rig", icon="ERROR")
-            if rigid_body_sim:
-                row = box.row()
-                column = box.column()
-                split = column.split(factor=0.5)
-                col_1 = split.column()
-                col_2 = split.column()
-                col_1.label(text="Influence")
-                col_2.prop(rigid_body_sim, "[\"rigid_body_influence\"]", text="", slider=True)
-                col_1.label(text="Limit")
-                col_2.prop(rigid_body_sim, "[\"rigid_body_limit\"]", text="", slider=True)
-                col_1.label(text="Curve")
-                col_2.prop(rigid_body_sim, "[\"rigid_body_curve\"]", text="", slider=True)
-                col_1.label(text="Mass")
-                col_2.prop(rigid_body_sim, "[\"rigid_body_mass\"]", text="", slider=True)
-                col_1.label(text="Radius")
-                col_2.prop(rigid_body_sim, "[\"rigid_body_radius\"]", text="", slider=True)
-                col_1.label(text="Dampening")
-                col_2.prop(rigid_body_sim, "[\"rigid_body_dampening\"]", text="", slider=True)
-                col_1.label(text="Stiffness")
-                col_2.prop(rigid_body_sim, "[\"rigid_body_stiffness\"]", text="", slider=True)
-                column.separator()
-            if not rigid_body_sim:
-                row = column.row()
-                row.scale_y = 2.0
-                row.operator("cc3.hair", icon=utils.check_icon("RIGID_BODY"), text="Build Spring System").param = "MAKE_RIGID_BODY_SYSTEM"
-                column.separator()
-                if not has_hair_rig:
-                    row.enabled = False
-            else:
-                row = column.row()
-                row.scale_y = 2.0
-                row.alert = True
-                row.operator("cc3.hair", icon=utils.check_icon("X"), text="Remove Spring System").param = "REMOVE_RIGID_BODY_SYSTEM"
-                column.separator()
-            row = column.row()
-            row.operator("cc3.hair", icon=utils.check_icon("MOD_PHYSICS"), text="Enable Collision Body").param = "ENABLE_RIGID_BODY_COLLISION"
-            if has_rigid_body:
-                row.enabled = False
-            row = column.row()
-            row.operator("cc3.hair", icon=utils.check_icon("X"), text="Disable Collision Body").param = "DISABLE_RIGID_BODY_COLLISION"
-            if not has_rigid_body:
-                row.enabled = False
-            row = column.row()
-            row.operator("cc3.hair", icon=utils.check_icon("LOOP_BACK"), text="Reset Physics").param = "RESET_PHYSICS"
-            if not chr_cache:
-                box.enabled = False
+            if chr_cache and arm and obj:
+                rigid_body_sim_ui(chr_cache, arm, obj, column)
 
 
 class CC3HairPanel(bpy.types.Panel):
@@ -1339,7 +1374,8 @@ class CC3RigifyPanel(bpy.types.Panel):
                 if fake_drop_down(layout.box().row(),
                                           "Rigify Setup",
                                           "section_rigify_setup",
-                                          props.section_rigify_setup):
+                                          props.section_rigify_setup,
+                                          icon="OUTLINER_OB_ARMATURE", icon_closed="OUTLINER_OB_ARMATURE"):
 
                     row = layout.row()
                     row.prop(chr_cache, "rig_mode", expand=True)
@@ -1388,23 +1424,6 @@ class CC3RigifyPanel(bpy.types.Panel):
                             layout.row().label(text = "Rigging Done.", icon = "INFO")
                             layout.separator()
 
-                        split = layout.split(factor=0.45)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Spring Rig")
-                        col_2.prop(chr_cache, "available_spring_rigs", text="")
-
-                        spring_rig = springbones.get_spring_rig(chr_cache, rig, chr_cache.available_spring_rigs)
-                        pose_bone = rig.pose.bones[spring_rig.name]
-                        if "rigified" in pose_bone and pose_bone["rigified"]:
-                            row = layout.row()
-                            row.operator("cc3.rigifier", icon="X", text="Remove Spring Rig").param = "REMOVE_SPRING_RIG"
-                        else:
-                            row = layout.row()
-                            row.operator("cc3.rigifier", icon="ADD", text="Build Spring Rig").param = "BUILD_SPRING_RIG"
-
-                        layout.separator()
-
                     elif chr_cache.can_be_rigged():
 
                         if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
@@ -1444,10 +1463,41 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                 if chr_cache.rigified:
 
+                    spring_rigs = springbones.get_spring_rigs(chr_cache, rig)
+                    if spring_rigs:
+
+                        if fake_drop_down(layout.box().row(),
+                                    "Spring Rigs",
+                                    "section_rigify_spring",
+                                    props.section_rigify_spring,
+                                    icon="FORCE_MAGNETIC", icon_closed="FORCE_MAGNETIC"):
+
+                            split = layout.split(factor=0.45)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Spring Rig")
+                            col_2.prop(chr_cache, "available_spring_rigs", text="")
+
+                            spring_rig = springbones.get_spring_rig(chr_cache, rig, chr_cache.available_spring_rigs)
+                            pose_bone = rig.pose.bones[spring_rig.name]
+                            row = layout.row()
+                            row.scale_y = 2
+                            if "rigified" in pose_bone and pose_bone["rigified"]:
+                                row.operator("cc3.rigifier", icon="X", text="Remove Spring Rig").param = "REMOVE_SPRING_RIG"
+                            else:
+                                row.operator("cc3.rigifier", icon="ADD", text="Build Spring Rig").param = "BUILD_SPRING_RIG"
+
+                            layout.separator()
+
+                            rigid_body_sim_ui(chr_cache, rig, obj, layout, show_selector=False)
+
+                            layout.separator()
+
                     if fake_drop_down(layout.box().row(),
                                         "Rig Controls",
                                         "section_rigify_controls",
-                                        props.section_rigify_controls):
+                                        props.section_rigify_controls,
+                                        icon="TOOL_SETTINGS", icon_closed="TOOL_SETTINGS"):
 
                         split = layout.split(factor=0.6)
                         col_1 = split.column()
@@ -1485,7 +1535,8 @@ class CC3RigifyPanel(bpy.types.Panel):
                     if fake_drop_down(layout.box().row(),
                                         "Retargeting",
                                         "section_rigify_retarget",
-                                        props.section_rigify_retarget):
+                                        props.section_rigify_retarget,
+                                        icon="ARMATURE_DATA", icon_closed="ARMATURE_DATA"):
                         row = layout.row()
                         row.scale_y = 2
                         #row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Imp. Character").param = "IMPORT"
@@ -1561,7 +1612,8 @@ class CC3RigifyPanel(bpy.types.Panel):
                     if fake_drop_down(layout.box().row(),
                                         "Export",
                                         "section_rigify_export",
-                                        props.section_rigify_export):
+                                        props.section_rigify_export,
+                                        icon="EXPORT", icon_closed="EXPORT"):
 
                         export_bake_action, export_bake_source_type = rigging.get_bake_action(chr_cache)
                         box = layout.box()
@@ -1597,64 +1649,103 @@ class CC3SpringControlPanel(bpy.types.Panel):
         layout = self.layout
 
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+
+        if not chr_cache or not chr_cache.rigified:
+            return
+
+        arm = chr_cache.get_armature()
+
+        if not arm:
+            return
+
+        box = layout.box()
+        box.label(text="Spring Rig Layers", icon="NODE_COMPOSITING")
+        row = layout.row()
+        row.prop(arm.data, "layers", index = rigging.SPRING_FK_LAYER, text="FK", toggle=True)
+        row.prop(arm.data, "layers", index = rigging.SPRING_IK_LAYER, text="IK", toggle=True)
+        row.prop(arm.data, "layers", index = rigging.SPRING_TWEAK_LAYER, text="Tweak", toggle=True)
+
         control_bone = None
         active_pose_bone = context.active_pose_bone
         single_chain_bone_name = None
         chain_group_bone_name = None
         if active_pose_bone:
             if active_pose_bone.name.endswith("_target_ik"):
-                single_chain_bone_name = active_pose_bone.name[:-10]
+                single_chain_bone_name = "MCH-" + active_pose_bone.name[:-10]
             elif active_pose_bone.name.endswith("_group_ik"):
                 chain_group_bone_name = active_pose_bone.name[:-9]
             else:
                 single_chain_bone_name = active_pose_bone.name
 
-        if chr_cache:
-            arm = chr_cache.get_armature()
+        parent_mode = None
 
-            if arm and single_chain_bone_name:
-
-                spring_rig_def, mch_root_name = springbones.get_spring_rig_from_child(chr_cache, arm, single_chain_bone_name)
-                chain_name = single_chain_bone_name
-                if chain_name.startswith("MCH-"):
-                    chain_name = chain_name[4:]
-                if chain_name.endswith("_tweak"):
-                    chain_name = chain_name[:-6]
-                if chain_name.endswith("_fk"):
-                    chain_name = chain_name[:-3]
-                if chain_name.startswith("DEF-"):
-                    chain_name = chain_name[4:]
-                if spring_rig_def and "IK_FK" in arm.pose.bones[mch_root_name]:
-                    control_bone = arm.pose.bones[mch_root_name]
-                    box = layout.box()
-                    box.label(text="Spring Chain", icon="LIGHT")
-                    layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
+        if single_chain_bone_name:
+            if "ik_root" in active_pose_bone:
+                search_bone_name = active_pose_bone["ik_root"]
+            else:
+                search_bone_name = active_pose_bone.name
+            spring_rig_def, mch_root_name, parent_mode = springbones.get_spring_rig_from_child(chr_cache, arm, search_bone_name)
+            prefix = springbones.get_spring_rig_prefix(parent_mode)
+            rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
+            chain_name = single_chain_bone_name
+            if chain_name.startswith("MCH-"):
+                chain_name = chain_name[4:]
+            if chain_name.endswith("_tweak"):
+                chain_name = chain_name[:-6]
+            if chain_name.endswith("_fk"):
+                chain_name = chain_name[:-3]
+            if chain_name.startswith("DEF-"):
+                chain_name = chain_name[4:]
+            if spring_rig_def and "IK_FK" in arm.pose.bones[mch_root_name]:
+                control_bone = arm.pose.bones[mch_root_name]
+                box = layout.box()
+                box.label(text="Spring Chain", icon="LINKED")
+                layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
+                if rigid_body_sim:
                     layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation ({chain_name})", slider=True)
 
-            if arm and chain_group_bone_name:
+            layout.separator()
 
-                box = layout.box()
-                box.label(text="Spring Chain Group", icon="LIGHT")
-                group_name = active_pose_bone.name
-                if group_name.endswith("_group_ik"):
-                    group_name = group_name[:-9]
-                if group_name.startswith("DEF-"):
-                    group_name = group_name[4:]
-                layout.label(text="Group IK > FK")
-                layout.prop(active_pose_bone, "[\"IK_FK\"]", text=f"IK-FK ({group_name})", slider=True)
+        if chain_group_bone_name:
+
+            spring_rig_def, mch_root_name, parent_mode = springbones.get_spring_rig_from_child(chr_cache, arm, active_pose_bone.name)
+            prefix = springbones.get_spring_rig_prefix(parent_mode)
+            rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
+
+            box = layout.box()
+            box.label(text="Spring Chain Group", icon="PROP_CON")
+            group_name = active_pose_bone.name
+            if group_name.endswith("_group_ik"):
+                group_name = group_name[:-9]
+            if group_name.startswith("DEF-"):
+                group_name = group_name[4:]
+            layout.prop(active_pose_bone, "[\"IK_FK\"]", text=f"IK-FK ({group_name})", slider=True)
+            if rigid_body_sim:
                 layout.prop(active_pose_bone, "[\"SIM\"]", text=f"Simulation ({group_name})", slider=True)
-                layout.separator()
-                layout.label(text="Child IK > FK")
-                for child in active_pose_bone.children:
-                    if child.name.endswith("_target_ik"):
-                        child_chain_bone_name = child.name[:-10]
-                        spring_rig_def, mch_root_name = springbones.get_spring_rig_from_child(chr_cache, arm, child_chain_bone_name)
-                        chain_name = child_chain_bone_name[4:]
-                        if spring_rig_def and "IK_FK" in arm.pose.bones[mch_root_name]:
-                            control_bone = arm.pose.bones[mch_root_name]
-                            layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
+            layout.separator()
+
+            box = layout.box()
+            box.label(text="Spring Chains", icon="LINKED")
+            for child in active_pose_bone.children:
+                if child.name.endswith("_target_ik"):
+                    child_chain_bone_name = child.name[:-10]
+                    if "ik_root" in child:
+                        search_bone_name = child["ik_root"]
+                    else:
+                        search_bone_name = child.name
+                    spring_rig_def, mch_root_name, parent_mode = springbones.get_spring_rig_from_child(chr_cache, arm, search_bone_name)
+                    prefix = springbones.get_spring_rig_prefix(parent_mode)
+                    rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
+                    chain_name = child_chain_bone_name[4:]
+                    if spring_rig_def and "IK_FK" in arm.pose.bones[mch_root_name]:
+                        control_bone = arm.pose.bones[mch_root_name]
+                        layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
+                        if rigid_body_sim:
                             layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation ({chain_name})", slider=True)
-                            layout.separator()
+                        layout.separator()
+
+        if chr_cache and arm and obj:
+            rigid_body_sim_ui(chr_cache, arm, obj, layout, True, parent_mode)
 
 
 class CC3ToolsScenePanel(bpy.types.Panel):
@@ -2311,9 +2402,32 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                 layout.prop(props, "lighting_mode", expand=True)
             if prefs.physics == "ENABLED":
                 layout.prop(props, "physics_mode", expand=True)
+        layout.prop(prefs, "build_wrinkle_maps", toggle=True)
 
+        # Build prefs in title
         box = layout.box()
-        box.label(text="Importing", icon="IMPORT")
+        if fake_drop_down(box.row(), "Importing", "show_build_prefs", props.show_build_prefs,
+                          icon="IMPORT", icon_closed="IMPORT"):
+            split = box.split(factor=0.9)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="De-duplicate Materials")
+            col_2.prop(prefs, "import_deduplicate", text="")
+            col_1.label(text="Auto Convert Generic")
+            col_2.prop(prefs, "import_auto_convert", text="")
+            col_1.label(text="Build Wrinkle Maps")
+            col_2.prop(prefs, "build_wrinkle_maps", text="")
+            col_1.label(text="Limit Textures")
+            col_2.prop(prefs, "build_limit_textures", text="")
+            col_1.label(text="Pack Texture Channels")
+            col_2.prop(prefs, "build_pack_texture_channels", text="")
+            col_1.label(text="Reuse Channel Packs")
+            col_2.prop(prefs, "build_reuse_baked_channel_packs", text="")
+            col_1.label(text="Use Edit Modifier")
+            col_2.prop(prefs, "build_armature_edit_modifier", text="")
+            col_1.label(text="Use Preserve Volume")
+            col_2.prop(prefs, "build_armature_preserve_volume", text="")
+
         row = layout.row()
         row.scale_y = 2
         op = row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Import Character")
@@ -2324,20 +2438,16 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         op = row.operator("cc3.anim_importer", icon="ARMATURE_DATA", text="Import Animations")
 
         if chr_cache and chr_cache.rigified:
-            box = layout.box()
-            box.label(text="Exporting (Rigify)", icon="EXPORT")
-            rigify_export_group(chr_cache, layout)
+            export_label = "Exporting (Rigify)"
         else:
-            box = layout.box()
-            box.label(text="Exporting", icon="EXPORT")
-            pipeline_export_group(chr_cache, chr_rig, layout)
+            export_label = "Exporting"
 
-        # export prefs
+        # export prefs in box title
         box = layout.box()
         if fake_drop_down(box.row(),
-                "Export Prefs",
+                export_label,
                 "export_options",
-                props.export_options):
+                props.export_options, icon="EXPORT", icon_closed="EXPORT"):
             box.row().prop(prefs, "export_json_changes", expand=True)
             box.row().prop(prefs, "export_texture_changes", expand=True)
             if prefs.export_texture_changes:
@@ -2346,7 +2456,11 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                     box.row().prop(prefs, "export_bake_bump_to_normal", expand=True)
             box.row().prop(prefs, "export_bone_roll_fix", expand=True)
             box.row().prop(prefs, "export_revert_names", expand=True)
-        row = layout.row()
+
+        if chr_cache and chr_cache.rigified:
+            rigify_export_group(chr_cache, layout)
+        else:
+            pipeline_export_group(chr_cache, chr_rig, layout)
 
         # export extras
         op = layout.row().operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
@@ -2364,4 +2478,3 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         else:
             row.alert = True
         row.operator("cc3.importer", icon="REMOVE", text="Remove Character").param ="DELETE_CHARACTER"
-

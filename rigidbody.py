@@ -26,7 +26,7 @@ SIZE = 0.025
 MASS = 1.0
 STIFFNESS = 50.0
 DAMPENING = 1000.0
-LIMIT = 0.9
+LIMIT = 0.99
 CURVE = 0.5
 INFLUENCE = 1.0
 
@@ -294,7 +294,10 @@ def build_bone_map(arm, edit_bone : bpy.types.EditBone, bone_map : dict = None, 
     return True
 
 
-def remove_existing_rigid_body_system(arm, rig_prefix):
+def remove_existing_rigid_body_system(arm, rig_prefix, spring_rig_bone_name):
+
+    if not arm:
+        return None
 
     rigid_body_system_name = get_rigid_body_system_name(arm, rig_prefix)
     settings = None
@@ -353,6 +356,8 @@ def remove_existing_rigid_body_system(arm, rig_prefix):
 
     utils.log_recess()
 
+    set_rigify_simulation_influence(arm, spring_rig_bone_name, 0.0)
+
     return settings
 
 
@@ -382,7 +387,7 @@ def add_rigid_body_system(arm, rig_prefix, settings = None):
 
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_influence", influence, 0.0, 1.0,
                                       description = "How much of the simulation is copied into the pose bones")
-    drivers.add_custom_float_property(rigid_body_system, "rigid_body_limit", limit, 0.5, 0.999,
+    drivers.add_custom_float_property(rigid_body_system, "rigid_body_limit", limit, 0.95, 0.999,
                                       description = "How much to dampen the overall movement of the simulation")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_curve", curve, 1.0/8.0, 2.0,
                                       description = "The dampening curve factor along the length of the spring bone chains. Less curve gives more movement near the roots")
@@ -508,9 +513,9 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
     rigid_body_system = get_spring_rigid_body_system(arm, spring_rig_prefix)
     if rigid_body_system:
         if not settings:
-            settings = remove_existing_rigid_body_system(arm, spring_rig_prefix)
+            settings = remove_existing_rigid_body_system(arm, spring_rig_prefix, spring_rig_bone_name)
         else:
-            remove_existing_rigid_body_system(arm, spring_rig_prefix)
+            remove_existing_rigid_body_system(arm, spring_rig_prefix, spring_rig_bone_name)
 
     # create a new spring rig
     utils.log_info(f"Building Rigid Body System from: {spring_rig_bone_name}")
@@ -563,14 +568,19 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
                        parent_object = rigid_body_system,
                        movement_limit = 0, angular_limit = 45)
 
-    # activate the simulation constraint influence
-    spring_rig_bone = arm.pose.bones[spring_rig_bone_name]
-    child_bones = bones.get_bone_children(spring_rig_bone)
-    for child_bone in child_bones:
-        if "SIM" in child_bone:
-            child_bone["SIM"] = 1.0
+    set_rigify_simulation_influence(arm, spring_rig_bone_name, 1.0)
 
     utils.hide_tree(rigid_body_system)
+
+
+def set_rigify_simulation_influence(arm, spring_rig_bone_name, value):
+    # activate the simulation constraint influence
+    if arm and spring_rig_bone_name in arm.pose.bones:
+        spring_rig_bone = arm.pose.bones[spring_rig_bone_name]
+        child_bones = bones.get_bone_children(spring_rig_bone, include_root=False)
+        for child_bone in child_bones:
+            if "SIM" in child_bone:
+                child_bone["SIM"] = value
 
 
 def reset_cache(context):

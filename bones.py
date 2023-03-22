@@ -258,12 +258,15 @@ def copy_rig_bind_pose(rig_from, rig_to):
                 edit_bone.roll = bone_def["roll"]
 
 
-def get_bone_children(bone, bone_list = None):
+def get_bone_children(bone, bone_list = None, include_root = False):
+    is_root = False
     if bone_list is None:
+        is_root = True
         bone_list = []
-    bone_list.append(bone)
+    if include_root or not is_root:
+        bone_list.append(bone)
     for child in bone.children:
-        get_bone_children(child, bone_list)
+        get_bone_children(child, bone_list, include_root)
     return bone_list
 
 
