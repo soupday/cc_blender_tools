@@ -397,12 +397,12 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
                     drivers.make_driver_var(mchc_driver, "SINGLE_PROP", "ikfk", rig, "OBJECT", ik_fk_data_path)
                 # sim > mch (influence driver)
                 simc = bones.add_copy_transforms_constraint(rig, rig, sim_bone_name, org_bone_name, 0.0)
-                if group_ik_fk_data_path:
+                if group_sim_data_path:
                     simc_driver = drivers.make_driver(simc, "influence", "SCRIPTED", "sim*g_sim")
                     drivers.make_driver_var(simc_driver, "SINGLE_PROP", "sim", rig, "OBJECT", sim_data_path)
                     drivers.make_driver_var(simc_driver, "SINGLE_PROP", "g_sim", rig, "OBJECT", group_sim_data_path)
                 else:
-                    simc_driver = drivers.make_driver(mchc, "influence", "SCRIPTED", "sim")
+                    simc_driver = drivers.make_driver(simc, "influence", "SCRIPTED", "sim")
                     drivers.make_driver_var(simc_driver, "SINGLE_PROP", "sim", rig, "OBJECT", sim_data_path)
                 # twk (parented to mch) -> def
                 defc1 = bones.add_copy_transforms_constraint(rig, rig, twk_bone_name, def_bone_name, 1.0)
