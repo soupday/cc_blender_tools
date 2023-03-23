@@ -686,7 +686,7 @@ def generate_eye_widget(rig, bone_name, bones, distance, scale):
     return wgt
 
 
-def generate_spring_widget(rig, name, type, scale):
+def generate_spring_widget(rig, name, type, size):
     wgt : bpy.types.Object = None
     wgt_name = "WGT-rig_" + name
     if wgt_name in bpy.data.objects:
@@ -695,8 +695,8 @@ def generate_spring_widget(rig, name, type, scale):
     if utils.set_mode("OBJECT"):
 
         if type == "FK":
-            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=scale,
-                                            rotation=[1.570796,0,0], location=[0,scale,0])
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                            rotation=[1.570796,0,0], location=[0,size,0])
             bpy.ops.object.transform_apply(rotation=True)
             wgt1 = utils.get_active_object()
             mesh = bpy.data.meshes.new(name+"WGT2")
@@ -713,12 +713,12 @@ def generate_spring_widget(rig, name, type, scale):
             wgt = utils.get_active_object()
 
         if type == "IK":
-            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=scale,
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
                                             rotation=[1.570796,0,0], location=[0,0,0])
             bpy.ops.object.transform_apply(rotation=True)
             wgt1 = utils.get_active_object()
             mesh = bpy.data.meshes.new(name+"WGT2")
-            mesh.from_pydata([(0, scale*2, 0), (0, 0, scale), (scale, 0, 0), (-scale, 0, 0), (0, 0, -scale)],
+            mesh.from_pydata([(0, size*2, 0), (0, 0, size), (size, 0, 0), (-size, 0, 0), (0, 0, -size)],
                              [(0, 1), (0, 2), (0, 3), (0, 4)],
                              [])
             mesh.update()
@@ -731,11 +731,11 @@ def generate_spring_widget(rig, name, type, scale):
             wgt = utils.get_active_object()
 
         if type == "GRP":
-            bpy.ops.mesh.primitive_circle_add(vertices=64, radius=scale,
+            bpy.ops.mesh.primitive_circle_add(vertices=64, radius=size,
                                             rotation=[1.570796,0,0], location=[0,0,0])
             bpy.ops.object.transform_apply(rotation=True)
             wgt1 = utils.get_active_object()
-            bpy.ops.mesh.primitive_circle_add(vertices=64, radius=scale * 1.025,
+            bpy.ops.mesh.primitive_circle_add(vertices=64, radius=size * 1.025,
                                             rotation=[1.570796,0,0], location=[0,0,0])
             bpy.ops.object.transform_apply(rotation=True)
             wgt2 = utils.get_active_object()
@@ -745,14 +745,14 @@ def generate_spring_widget(rig, name, type, scale):
             wgt = utils.get_active_object()
 
         if type == "TWK":
-            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=scale,
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
                                             rotation=[0,0,0], location=[0,0,0])
             wgt1 = utils.get_active_object()
             bpy.ops.object.transform_apply(rotation=True)
-            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=scale,
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
                                             rotation=[1.570796,0,0], location=[0,0,0])
             wgt2 = utils.get_active_object()
-            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=scale,
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
                                             rotation=[0,1.570796,0], location=[0,0,0])
             wgt3 = utils.get_active_object()
             bpy.ops.object.transform_apply(rotation=True)

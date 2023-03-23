@@ -1740,7 +1740,7 @@ class CC3SpringControlPanel(bpy.types.Panel):
                     spring_rig_def, mch_root_name, parent_mode = springbones.get_spring_rig_from_child(chr_cache, arm, search_bone_name)
                     prefix = springbones.get_spring_rig_prefix(parent_mode)
                     rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
-                    chain_name = child_chain_bone_name[4:]
+                    chain_name = child_chain_bone_name
                     if spring_rig_def and "IK_FK" in arm.pose.bones[mch_root_name]:
                         control_bone = arm.pose.bones[mch_root_name]
                         layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)

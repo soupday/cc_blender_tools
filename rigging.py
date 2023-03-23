@@ -306,7 +306,7 @@ def process_spring_groups(rig, spring_rig, ik_groups):
                     if r > radius:
                         radius = r
 
-                scale = max(2, radius * 100.0)
+                radius = max(0.05, r)
 
                 group_ik_bone = bones.new_edit_bone(rig, f"{group_name}_group_ik", spring_rig.name)
                 group_ik_bone.head = pos_head
@@ -314,7 +314,7 @@ def process_spring_groups(rig, spring_rig, ik_groups):
                 dir = pos_tail - pos_head
                 dir[0] = 0
                 group_ik_bone.tail = pos_head + dir
-                ik_groups[group_name]["control"] = { "bone_name": group_ik_bone.name, "scale": scale }
+                ik_groups[group_name]["control"] = { "bone_name": group_ik_bone.name, "radius": radius }
                 for ik_bone_name in ik_names:
                     ik_bone = rig.data.edit_bones[ik_bone_name]
                     ik_bone.parent = group_ik_bone
@@ -334,12 +334,13 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
         for group_name in ik_groups:
             if ik_groups[group_name]["control"]:
                 ik_group_bone_name = ik_groups[group_name]["control"]["bone_name"]
-                ik_group_bone_scale = ik_groups[group_name]["control"]["scale"]
+                ik_group_bone_radius = ik_groups[group_name]["control"]["radius"]
                 ik_group_bone = rig.pose.bones[ik_group_bone_name]
                 ik_group_bone.custom_shape = shape_grp
                 ik_group_bone.use_custom_shape_bone_size = False
                 ik_group_bone.lock_scale[1] = True
-                bones.set_pose_bone_custom_scale(rig, ik_group_bone_name, ik_group_bone_scale)
+                scale = (ik_group_bone_radius + 0.05) / 0.025
+                bones.set_pose_bone_custom_scale(rig, ik_group_bone_name, scale)
                 bones.set_pose_bone_lock(ik_group_bone, lock_scale = [0,1,0])
                 bones.set_bone_group(rig, ik_group_bone_name, "IK")
                 bones.set_pose_bone_layer(rig, ik_group_bone_name, SPRING_IK_LAYER)
