@@ -387,7 +387,7 @@ def add_rigid_body_system(arm, rig_prefix, settings = None):
 
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_influence", influence, 0.0, 1.0,
                                       description = "How much of the simulation is copied into the pose bones")
-    drivers.add_custom_float_property(rigid_body_system, "rigid_body_limit", limit, 0.95, 0.999,
+    drivers.add_custom_float_property(rigid_body_system, "rigid_body_limit", limit, 0.9, 0.999,
                                       description = "How much to dampen the overall movement of the simulation")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_curve", curve, 1.0/8.0, 2.0,
                                       description = "The dampening curve factor along the length of the spring bone chains. Less curve gives more movement near the roots")

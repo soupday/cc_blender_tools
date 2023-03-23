@@ -1968,7 +1968,8 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     export_actions = False
     export_strips = True
     baked_actions = []
-    export_rig = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions, include_t_pose = props.bake_unity_t_pose)
+    export_rig, vertex_group_map = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions,
+                                                              include_t_pose = props.bake_unity_t_pose)
     if export_rig:
         rigify_rig = chr_cache.get_armature()
         objects.remove(rigify_rig)
@@ -1981,7 +1982,8 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True)
 
-    prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, include_textures, False, False, False, False)
+    prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir,
+                include_textures, False, False, False, False)
 
     # for motion only exports, select armature and any mesh objects that have shape key animations
     if props.export_rigify_mode == "MOTION":
@@ -2009,7 +2011,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     restore_modifiers(chr_cache, objects)
 
     # clean up rigify export
-    rigging.finish_rigify_export(chr_cache, export_rig, baked_actions)
+    rigging.finish_rigify_export(chr_cache, export_rig, baked_actions, vertex_group_map)
 
     utils.log_recess()
     utils.log_info("")

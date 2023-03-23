@@ -652,57 +652,61 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         # Converting
 
-        column.box().label(text="Converting", icon="DRIVER")
+        if not (chr_cache and chr_cache.rigified):
 
-        character_info_box(chr_cache, chr_rig, column)
+            column.box().label(text="Converting", icon="DRIVER")
 
-        row = column.row()
-        row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
-        if not chr_cache or chr_cache.is_non_standard():
-            row.enabled = False
+            character_info_box(chr_cache, chr_rig, column)
 
-        row = column.row()
-        if chr_rig:
-            row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
-        else:
-            row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
-        if chr_cache or not (chr_rig or num_meshes_in_selection > 0):
-            row.enabled = False
+            row = column.row()
+            row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
+            if not chr_cache or chr_cache.is_non_standard():
+                row.enabled = False
 
-        column.separator()
+            row = column.row()
+            if chr_rig:
+                row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
+            else:
+                row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
+            if chr_cache or not (chr_rig or num_meshes_in_selection > 0):
+                row.enabled = False
+
+            column.separator()
 
         # Accessory Management
 
-        column.box().label(text="Accessories", icon="GROUP_BONE")
+        if not (chr_cache and chr_cache.rigified):
 
-        accessory_root = characters.get_accessory_root(chr_cache, obj)
-        if accessory_root:
+            column.box().label(text="Accessories", icon="GROUP_BONE")
 
-            #column.box().label(text = f"Accessory: {accessory_root.name}")
-            box = column.box()
-            split = box.split(factor=0.375)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Accessory:")
-            col_2.prop(accessory_root, "name", text="")
-            col_1.label(text="Parent:")
-            col_2.prop(accessory_root, "parent", text="")
-        else:
-            split = None
-            if chr_cache and chr_rig:
-                split = column.split(factor=0.375)
+            accessory_root = characters.get_accessory_root(chr_cache, obj)
+            if accessory_root:
+
+                #column.box().label(text = f"Accessory: {accessory_root.name}")
+                box = column.box()
+                split = box.split(factor=0.375)
                 col_1 = split.column()
                 col_2 = split.column()
+                col_1.label(text="Accessory:")
+                col_2.prop(accessory_root, "name", text="")
                 col_1.label(text="Parent:")
-                col_2.prop_search(chr_cache, "accessory_parent_bone", chr_rig.data, "bones", text="")
-            row = column.row()
-            row.operator("cc3.character", icon="CONSTRAINT_BONE", text="Convert to Accessory").param = "CONVERT_ACCESSORY"
-            if not chr_cache or not obj or obj.type != "MESH" or (obj_cache and obj_cache.object_type == "BODY"):
-                row.enabled = False
-                if split:
-                    split.enabled = False
+                col_2.prop(accessory_root, "parent", text="")
+            else:
+                split = None
+                if chr_cache and chr_rig:
+                    split = column.split(factor=0.375)
+                    col_1 = split.column()
+                    col_2 = split.column()
+                    col_1.label(text="Parent:")
+                    col_2.prop_search(chr_cache, "accessory_parent_bone", chr_rig.data, "bones", text="")
+                row = column.row()
+                row.operator("cc3.character", icon="CONSTRAINT_BONE", text="Convert to Accessory").param = "CONVERT_ACCESSORY"
+                if not chr_cache or not obj or obj.type != "MESH" or (obj_cache and obj_cache.object_type == "BODY"):
+                    row.enabled = False
+                    if split:
+                        split.enabled = False
 
-        column.separator()
+            column.separator()
 
         # Checking
 

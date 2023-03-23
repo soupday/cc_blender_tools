@@ -818,6 +818,8 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
     mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
+    springbones.realign_spring_bones_axis(chr_cache, arm)
+
     bones.show_armature_layers(arm, [25], in_front=True)
 
     hair_bone_prefix = props.hair_rig_group_name
@@ -1246,7 +1248,7 @@ def smooth_loop(loop):
             loop[l] = smoothed_loop[l]
 
 
-def greased_pencil_to_length_loops(bone_length):
+def grease_pencil_to_length_loops(bone_length):
     current_frame = bpy.context.scene.frame_current
 
     grease_pencil_layer = get_active_grease_pencil_layer()
@@ -1279,6 +1281,8 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     #mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
+    springbones.realign_spring_bones_axis(chr_cache, arm)
+
     bones.show_armature_layers(arm, [25], in_front=True)
 
     hair_bone_prefix = props.hair_rig_group_name
@@ -1288,7 +1292,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     root_bone = bones.get_pose_bone(arm, root_bone_name)
 
     if root_bone:
-        loops = greased_pencil_to_length_loops(bone_length)
+        loops = grease_pencil_to_length_loops(bone_length)
         utils.edit_mode_to(arm)
         remove_existing_loop_bones(chr_cache, arm, loops)
         for edit_bone in arm.data.edit_bones:
@@ -1322,7 +1326,7 @@ def get_active_grease_pencil_layer():
         return None
 
 
-def clear_greased_pencil():
+def clear_grease_pencil():
     active_layer = get_active_grease_pencil_layer()
     if active_layer:
         active_layer.active_frame.clear()
@@ -1371,6 +1375,9 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector,
     utils.object_mode_to(arm)
     reset_pose(arm)
     remove_duplicate_bones(chr_cache, arm)
+
+    springbones.realign_spring_bones_axis(chr_cache, arm)
+
     bone_chain_defs = get_bone_chain_defs(chr_cache, arm, bone_mode, parent_mode)
 
     hair_bones = []
@@ -1604,7 +1611,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
         if self.param == "CLEAR_GREASE_PENCIL":
 
-            clear_greased_pencil()
+            clear_grease_pencil()
 
         if self.param == "MAKE_ACCESSORY":
 

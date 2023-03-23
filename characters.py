@@ -313,6 +313,10 @@ def remove_object_from_character(chr_cache, obj):
 
 def get_accessory_root(chr_cache, object):
 
+    # none of this works if rigified...
+    if chr_cache.rigified:
+        return None
+
     if not chr_cache or not object or not utils.object_exists_is_mesh(object):
         return None
 

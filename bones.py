@@ -294,7 +294,7 @@ def get_edit_bone_subtree_defs(rig, bone : bpy.types.EditBone, tree = None):
     return tree
 
 
-def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, layer):
+def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, dst_prefix, layer, vertex_group_map):
 
     src_bone_defs = None
 
@@ -306,15 +306,19 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
         if utils.edit_mode_to(dst_rig):
 
             for bone_def in src_bone_defs:
-                name = bone_def[0]
-                if name == cc3_name:
+                src_name = bone_def[0]
+                if src_name == cc3_name:
                     name = dst_name
+                    parent_name = dst_parent_name
+                else:
+                    name = f"{dst_prefix}{bone_def[0]}"
+                    src_parent_name = bone_def[6]
+                    parent_name = vertex_group_map[src_parent_name]
                 head = bone_def[1]
                 tail = bone_def[2]
                 head_radius = bone_def[3]
                 tail_radius = bone_def[4]
                 roll = bone_def[5]
-                parent_name = bone_def[6]
 
                 bone : bpy.types.EditBone = dst_rig.data.edit_bones.new(name)
                 bone.head = head
@@ -324,6 +328,7 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                 bone.roll = roll
 
                 # store the name of the newly created bone (in case Blender has changed it)
+                vertex_group_map[src_name] = bone.name
                 bone_def.append(bone.name)
 
                 # set the edit bone layers
@@ -335,13 +340,7 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                 if parent_bone:
                     bone.parent = parent_bone
 
-            # set the tree parent
-            dst_bone = get_edit_bone(dst_rig, dst_name)
-            dst_parent_bone = get_edit_bone(dst_rig, dst_parent_name)
-            if dst_bone and dst_parent_bone:
-                dst_bone.parent = dst_parent_bone
-
-            # finally set pose bone layers
+            # set pose bone layers
             if utils.set_mode("OBJECT"):
                 for bone_def in src_bone_defs:
                     name = bone_def[7]
@@ -945,9 +944,9 @@ def bone_parent_in_list(bone_list, bone):
     return False
 
 
-def find_accessory_bones(bone_mappings, rig):
+def find_accessory_bones(bone_mappings, cc3_rig):
     accessory_bones = []
-    for bone in rig.data.bones:
+    for bone in cc3_rig.data.bones:
         bone_name = bone.name
         if not bone_mapping_contains_bone(bone_mappings, bone_name):
             if bone_name not in accessory_bones and not bone_parent_in_list(accessory_bones, bone):

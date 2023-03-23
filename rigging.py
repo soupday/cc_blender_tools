@@ -168,7 +168,11 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
     utils.log_recess()
 
 
-def add_accessory_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings):
+def add_accessory_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings, vertex_group_map):
+
+    # TODO also, when importing, must rename any accessory bones to DEF bones and rename the vertex groups too...
+    # (to maintain a consistent behaviour between accessories and spring rigs...)
+
 
     # find all the accessories in the armature
     accessory_bone_names = bones.find_accessory_bones(bone_mappings, cc3_rig)
@@ -200,7 +204,16 @@ def add_accessory_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings):
                 utils.log_error(f"Unable to find matching accessory bone tree parent: {cc3_parent_name} in rigify bones!")
 
             utils.log_info(f"Copying accessory bone tree into rigify rig: {bone.name} parent: {rigify_parent_name}")
-            bones.copy_rl_edit_bone_subtree(cc3_rig, rigify_rig, bone.name, bone.name, rigify_parent_name, 23)
+
+            if bone.name.startswith("RL_"):
+                dst_name = bone.name
+            else:
+                dst_name = f"RL_{bone.name}"
+
+            bones.copy_rl_edit_bone_subtree(cc3_rig, rigify_rig, bone.name,
+                                            dst_name, rigify_parent_name, "DEF-",
+                                            DEF_BONE_LAYER, vertex_group_map)
+
 
 def lookup_bone_def_parent(bone_defs, def_bone):
     if def_bone.parent:
@@ -224,8 +237,12 @@ def rigify_spring_chain(rig, spring_root, length, def_bone, bone_defs, ik_target
 
     length += 1
 
+    base_name = def_bone.name
+    if base_name.startswith("DEF-"):
+        base_name = base_name[4:]
+
     if mch_root is None:
-        mch_root = bones.copy_edit_bone(rig, def_bone.name, f"MCH-{def_bone.name}_parent", spring_root.name, 1.0)
+        mch_root = bones.copy_edit_bone(rig, def_bone.name, f"MCH-{base_name}_parent", spring_root.name, 1.0)
         bones.set_edit_bone_layer(rig, mch_root.name, MCH_BONE_LAYER)
         mch_root.parent = spring_root
 
@@ -233,11 +250,11 @@ def rigify_spring_chain(rig, spring_root, length, def_bone, bone_defs, ik_target
     if not parent_def:
         parent_def = [mch_root.name, mch_root.name, mch_root.name, "", "", spring_root.name, 0]
 
-    fk_bone = bones.copy_edit_bone(rig, def_bone.name, f"{def_bone.name}_fk", parent_def[0], 1.0)
-    mch_bone = bones.copy_edit_bone(rig, def_bone.name, f"MCH-{def_bone.name}_ik", parent_def[1], 1.0)
-    org_bone = bones.copy_edit_bone(rig, def_bone.name, f"ORG-{def_bone.name}", parent_def[2], 1.0)
-    twk_bone = bones.copy_edit_bone(rig, def_bone.name, f"{def_bone.name}_tweak", org_bone.name, 1.0)
-    sim_bone = bones.copy_edit_bone(rig, def_bone.name, f"SIM-{def_bone.name}", parent_def[5], 1.0)
+    fk_bone = bones.copy_edit_bone(rig, def_bone.name, f"{base_name}_fk", parent_def[0], 1.0)
+    mch_bone = bones.copy_edit_bone(rig, def_bone.name, f"MCH-{base_name}_ik", parent_def[1], 1.0)
+    org_bone = bones.copy_edit_bone(rig, def_bone.name, f"ORG-{base_name}", parent_def[2], 1.0)
+    twk_bone = bones.copy_edit_bone(rig, def_bone.name, f"{base_name}_tweak", org_bone.name, 1.0)
+    sim_bone = bones.copy_edit_bone(rig, def_bone.name, f"SIM-{base_name}", parent_def[5], 1.0)
     if not def_bone.name.startswith("DEF-"):
         def_bone.name = f"DEF-{def_bone.name}"
     bone_def = [fk_bone.name, mch_bone.name, org_bone.name, twk_bone.name, def_bone.name, sim_bone.name, length]
@@ -255,11 +272,7 @@ def rigify_spring_chain(rig, spring_root, length, def_bone, bone_defs, ik_target
         rigify_spring_chain(rig, spring_root, length, child_def_bone, bone_defs, ik_targets, mch_root = mch_root)
 
     if len(def_bone.children) == 0 and length > 0:
-        ik_target_name = mch_root.name
-        if ik_target_name.startswith("MCH-"):
-            ik_target_name = ik_target_name[4:]
-        if ik_target_name.endswith("_parent"):
-            ik_target_name = ik_target_name[:-7]
+        ik_target_name = mch_root.name[4:-7]
         ik_target_bone = bones.new_edit_bone(rig, f"{ik_target_name}_target_ik", mch_bone.name)
         ik_target_bone.head = def_bone.tail
         ik_target_bone.tail = def_bone.tail + 0.5 * (def_bone.tail - def_bone.head)
@@ -484,9 +497,8 @@ def derigify_spring_rig(chr_cache, rigify_rig, parent_mode):
         spring_rig = springbones.get_spring_rig(chr_cache, rigify_rig, parent_mode, mode = "POSE")
         child_bones = bones.get_bone_children(spring_rig, include_root=False)
         for bone in child_bones:
-            # keep only the DEF- bones and revert back to non rigified name
+            # keep only the DEF bones (and the RL_ spring root):
             if bone.name.startswith("DEF-"):
-                bone.name = bone.name[4:]
                 bones.set_pose_bone_layer(rigify_rig, bone.name, SPRING_EDIT_LAYER)
                 to_layer.append(bone.name)
             else:
@@ -528,7 +540,7 @@ def rl_vertex_group(obj, group):
     return None
 
 
-def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups):
+def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups, acc_vertex_group_map):
     """Rename the CC3 rig vertex weight groups to the Rigify deformation bone names,
        removes matching existing vertex groups created by parent with automatic weights.
        Thus leaving just the automatic face rig weights.
@@ -542,6 +554,8 @@ def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups):
 
         utils.log_info(f"Remapping groups for: {obj.name}")
 
+        # remove the destination vertex groups (these will have been created by the parenting operation)
+        # and rename the source vertex groups to the destination groups
         for vgrn in vertex_groups:
 
             vg_to = vgrn[0]
@@ -560,6 +574,12 @@ def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups):
                         obj.vertex_groups[vg_from].name = vg_to
                 except:
                     pass
+
+        # rename accessory vertex groups
+        for vg in obj.vertex_groups:
+            if vg.name in acc_vertex_group_map:
+                dst_vg_name = acc_vertex_group_map[vg.name]
+                vg.name = dst_vg_name
 
         for mod in obj.modifiers:
             if mod.type == "ARMATURE":
@@ -2465,10 +2485,24 @@ def adv_retarget_shape_keys(op, chr_cache, report):
 #
 #
 
+def get_accessory_export_bones(export_rig):
+    accessory_bones = []
+    def_bones = []
+    for bone in export_rig.data.bones:
+        if bone.name.startswith("RL_"):
+            accessory_bones.append(bone.name)
+            bone_list = bones.get_bone_children(bone, include_root=False)
+            for b in bone_list:
+                if b.name.startswith("DEF-"):
+                    def_bones.append(b.name)
+    return accessory_bones, def_bones
+
 
 def generate_export_rig(chr_cache, force_t_pose = False):
     rigify_rig = chr_cache.get_armature()
     export_rig = utils.duplicate_object(rigify_rig)
+
+    vertex_group_map = {}
 
     if export_rig:
         export_rig.name = chr_cache.character_name + "_Export"
@@ -2484,9 +2518,14 @@ def generate_export_rig(chr_cache, force_t_pose = False):
         export_rig.data.layers_protected[l] = False
 
     # compile a list of all deformation bones
-    def_bones = []
+    export_bones = []
     for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
-        def_bones.append(export_def[0])
+        export_bones.append(export_def[0])
+    accessory_bones, accessory_def_bones = get_accessory_export_bones(export_rig)
+    if accessory_bones:
+        export_bones.extend(accessory_bones)
+    if accessory_def_bones:
+        export_bones.extend(accessory_def_bones)
 
     # remove all drivers
     if select_rig(export_rig):
@@ -2508,6 +2547,17 @@ def generate_export_rig(chr_cache, force_t_pose = False):
 
         edit_bones = export_rig.data.edit_bones
 
+        # reparent accessory root bones to the corresponding DEF bone
+        # (rigified accessories should normally be parented to ORG bones)
+        for bone_name in accessory_bones:
+            accessory_bone = edit_bones[bone_name]
+            if accessory_bone.parent:
+                parent_name = accessory_bone.parent.name
+                if parent_name.startswith("ORG-"):
+                    parent_name = "DEF-" + parent_name[4:]
+                    if parent_name in edit_bones:
+                        accessory_bone.parent = edit_bones[parent_name]
+
         # test for A-pose
         upper_arm_l = edit_bones['DEF-upper_arm.L']
         world_x = mathutils.Vector((1, 0, 0))
@@ -2518,7 +2568,7 @@ def generate_export_rig(chr_cache, force_t_pose = False):
 
             bone_name = export_def[0]
             parent_name = export_def[1]
-            unity_name = export_def[2]
+            export_name = export_def[2]
             axis = export_def[3]
             flags = export_def[4]
             bone = None
@@ -2553,15 +2603,23 @@ def generate_export_rig(chr_cache, force_t_pose = False):
 
         # remove all non-deformation bones
         for edit_bone in edit_bones:
-            if edit_bone.name not in def_bones:
+            if edit_bone.name not in export_bones:
                 edit_bones.remove(edit_bone)
+
+        # remove the DEF- tag from the accessory bone names (if needed)
+        for bone_name in accessory_def_bones:
+            if bone_name.startswith("DEF-"):
+                export_name = bone_name[4:]
+                vertex_group_map[bone_name] = export_name
+                edit_bones[bone_name].name = bone_name[4:]
 
         # rename bones for export
         for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
             bone_name = export_def[0]
-            unity_name = export_def[2]
-            if unity_name != "" and bone_name in edit_bones:
-                edit_bones[bone_name].name = unity_name
+            export_name = export_def[2]
+            if export_name != "" and bone_name in edit_bones:
+                vertex_group_map[bone_name] = export_name
+                edit_bones[bone_name].name = export_name
 
     # set pose bone layers
     if select_rig(export_rig):
@@ -2585,7 +2643,7 @@ def generate_export_rig(chr_cache, force_t_pose = False):
             right_arm_bone.rotation_euler = [0,0,-angle]
             right_arm_bone.rotation_mode = "QUATERNION"
 
-    return export_rig
+    return export_rig, vertex_group_map
 
 
 def get_bake_action(chr_cache):
@@ -2685,7 +2743,8 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
 
     # generate export rig
     utils.delete_armature_object(chr_cache.rig_export_rig)
-    export_rig = chr_cache.rig_export_rig = generate_export_rig(chr_cache, force_t_pose = include_t_pose)
+    export_rig, vertex_group_map = generate_export_rig(chr_cache, force_t_pose = include_t_pose)
+    chr_cache.rig_export_rig = export_rig
 
     if select_rig(export_rig):
         export_rig.data.pose_position = "POSE"
@@ -2747,11 +2806,11 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
                 child.parent = export_rig
                 mod = modifiers.get_object_modifier(child, "ARMATURE")
                 mod.object = export_rig
-                rename_to_unity_vertex_groups(child)
+                rename_to_unity_vertex_groups(child, vertex_group_map)
 
     select_rig(export_rig)
 
-    return export_rig
+    return export_rig, vertex_group_map
 
 
 def select_motion_export_objects(objects):
@@ -2775,15 +2834,20 @@ def select_motion_export_objects(objects):
                     utils.try_select_object(obj)
 
 
-def rename_to_unity_vertex_groups(obj):
-    for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
-        rigify_bone_name = export_def[0]
-        unity_bone_name = export_def[2]
-        if rigify_bone_name in obj.vertex_groups:
-            obj.vertex_groups[rigify_bone_name].name = unity_bone_name
+def rename_to_unity_vertex_groups(obj, vertex_group_map):
+    for vg in obj.vertex_groups:
+        if vg.name in vertex_group_map:
+            vg.name = vertex_group_map[vg.name]
 
 
-def restore_from_unity_vertex_groups(obj):
+def restore_from_unity_vertex_groups(obj, vertex_group_map):
+    for vg in obj.vertex_groups:
+        for rigify_name in vertex_group_map:
+            if vertex_group_map[rigify_name] == vg.name:
+                vg.name = rigify_name
+                break
+
+
     for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
         rigify_bone_name = export_def[0]
         unity_bone_name = export_def[2]
@@ -2791,7 +2855,7 @@ def restore_from_unity_vertex_groups(obj):
             obj.vertex_groups[unity_bone_name].name = rigify_bone_name
 
 
-def finish_rigify_export(chr_cache, export_rig, export_actions):
+def finish_rigify_export(chr_cache, export_rig, export_actions, vertex_group_map):
     rigify_rig = chr_cache.get_armature()
 
     # un-reparent the child objects
@@ -3181,11 +3245,12 @@ class CC3Rigifier(bpy.types.Operator):
                                 chr_cache.rigified_full_face_rig = False
                             modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
+                            acc_vertex_group_map = {}
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
-                            add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                            add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
                             rigify_spring_rigs(chr_cache, self.rigify_rig)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
-                            rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
+                            rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
                             self.restore_rigify_rigid_body_systems(chr_cache)
 
@@ -3257,11 +3322,12 @@ class CC3Rigifier(bpy.types.Operator):
                                 chr_cache.rigified_full_face_rig = False
                             modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
                             face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
+                            acc_vertex_group_map = {}
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
-                            add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                            add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
                             rigify_spring_rigs(chr_cache, self.rigify_rig)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
-                            rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
+                            rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
                             self.restore_rigify_rigid_body_systems(chr_cache)
 
