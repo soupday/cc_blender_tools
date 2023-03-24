@@ -848,7 +848,8 @@ class CC3SpringRigPanel(bpy.types.Panel):
                     tool_row.operator("cc3.hair", icon=utils.check_icon("ARMATURE_DATA"), text="", emboss=False).param = "ARMATURE_SHOW_REST"
                 else:
                     tool_row.operator("cc3.hair", icon=utils.check_icon("OUTLINER_DATA_ARMATURE"), text="", emboss=False).param = "ARMATURE_SHOW_POSE"
-                if "builtin.annotate" in bpy.context.workspace.tools:
+                tool_idname = utils.get_current_tool_idname(context)
+                if "builtin.annotate" in tool_idname:
                     icon = "GREASEPENCIL"
                 else:
                     icon = "RESTRICT_SELECT_OFF"

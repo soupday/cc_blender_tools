@@ -859,6 +859,13 @@ def get_context_area(context, area_type):
     return None
 
 
+def get_current_tool_idname(context = None):
+    if context is None:
+        context = bpy.context
+    tool_idname = context.workspace.tools.from_space_view3d_mode(context.mode).idname
+    return tool_idname
+
+
 # C.scene.view_layers[0].layer_collection.children[0].exclude
 def limit_view_layer_to_collection(collection_name, *items):
     layer_collections = []

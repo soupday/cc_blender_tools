@@ -1807,21 +1807,32 @@ class CC3OperatorHair(bpy.types.Operator):
                     arm.display_type = 'SOLID'
 
         if self.param == "TOGGLE_GREASE_PENCIL":
-            if "builtin.annotate" in bpy.context.workspace.tools:
+            tool_idname = utils.get_current_tool_idname(context)
+            if "builtin.annotate" in tool_idname:
                 mode = utils.get_mode()
-                utils.set_mode("EDIT")
+                if mode != "OBJECT":
+                    utils.set_mode("OBJECT")
+                    bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+                    utils.set_mode(mode)
                 bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
-                utils.set_mode("OBJECT")
-                bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
-                utils.set_mode(mode)
+                if arm:
+                    arm.data.pose_position = "POSE"
             else:
                 mode = utils.get_mode()
-                utils.set_mode("EDIT")
+                if mode != "OBJECT":
+                    utils.set_mode("OBJECT")
+                    bpy.ops.wm.tool_set_by_id(name="builtin.annotate")
+                    utils.set_mode(mode)
                 bpy.ops.wm.tool_set_by_id(name="builtin.annotate")
-                utils.set_mode("OBJECT")
-                bpy.ops.wm.tool_set_by_id(name="builtin.annotate")
-                utils.set_mode(mode)
                 bpy.context.scene.tool_settings.annotation_stroke_placement_view3d = 'SURFACE'
+                try:
+                    props = bpy.context.workspace.tools["builtin.annotate"].operator_properties("gpencil.annotate")
+                    props.use_stabilizer = True
+                except:
+                    pass
+                # only use rest position to draw grease pencil on surface of hair
+                if arm:
+                    arm.data.pose_position = "REST"
 
         return {"FINISHED"}
 
