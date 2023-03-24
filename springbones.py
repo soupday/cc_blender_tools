@@ -122,7 +122,7 @@ def get_spring_rig(chr_cache, arm, parent_mode, mode = "POSE", create_if_missing
 
 
 def get_spring_rig_prefix(parent_mode):
-    if parent_mode == "HAIR":
+    if parent_mode == "HEAD":
         return HAIR_BONE_PREFIX
     elif parent_mode == "JAW":
         return BEARD_BONE_PREFIX

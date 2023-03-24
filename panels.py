@@ -300,7 +300,7 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
             if not rigid_body_sim:
                 row = column.row()
                 row.scale_y = 2.0
-                row.operator("cc3.hair", icon=utils.check_icon("RIGID_BODY"), text="Build Spring System").param = "MAKE_RIGID_BODY_SYSTEM"
+                row.operator("cc3.hair", icon=utils.check_icon("CON_KINEMATIC"), text="Build Spring System").param = "MAKE_RIGID_BODY_SYSTEM"
                 column.separator()
                 if not has_spring_rig:
                     row.enabled = False
@@ -827,7 +827,26 @@ class CC3SpringRigPanel(bpy.types.Panel):
             col_2.prop(props, "hair_rig_bone_root", text="")
             col_1.label(text="Group Name")
             col_2.prop(props, "hair_rig_group_name", text="")
-            col_1.label(text="")
+            tool_row = col_1.row()
+            if arm:
+                if arm.data.layers[rigging.SPRING_EDIT_LAYER]:
+                    tool_row.operator("cc3.hair", icon=utils.check_icon("HIDE_OFF"), text="", emboss=False).param = "SPRING_BONES_HIDE"
+                else:
+                    tool_row.operator("cc3.hair", icon=utils.check_icon("HIDE_ON"), text="", emboss=False).param = "SPRING_BONES_SHOW"
+                if arm.data.display_type == 'WIRE':
+                    icon = "IPO_LINEAR"
+                elif arm.data.display_type == 'OCTAHEDRAL' and arm.display_type == 'SOLID':
+                    icon = "PMARKER_ACT"
+                elif arm.data.display_type == 'OCTAHEDRAL' and arm.display_type == 'WIRE':
+                    icon = "PMARKER_SEL"
+                elif arm.data.display_type == 'STICK':
+                    icon = "FIXED_SIZE"
+                tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", emboss=False).param = "CYCLE_BONE_STYLE"
+                if arm.data.pose_position == "POSE":
+                    tool_row.operator("cc3.hair", icon=utils.check_icon("ARMATURE_DATA"), text="", emboss=False).param = "ARMATURE_SHOW_REST"
+                else:
+                    tool_row.operator("cc3.hair", icon=utils.check_icon("OUTLINER_DATA_ARMATURE"), text="", emboss=False).param = "ARMATURE_SHOW_POSE"
+            #tool_row.operator("cc3.hair", icon=utils.check_icon("ARMATURE_DATA"), text="").param = "HIDE_OFF"
             col_2.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
             column.separator()
             row = column.row()
@@ -1662,8 +1681,9 @@ class CC3SpringControlPanel(bpy.types.Panel):
         if not arm:
             return
 
-        box = layout.box()
-        box.label(text="Spring Rig Layers", icon="NODE_COMPOSITING")
+        #box = layout.box()
+        #box.label(text="Spring Rig Layers", icon="XRAY")
+        layout.row().label(text="Spring Rig Layers:", icon="XRAY")
         row = layout.row()
         row.prop(arm.data, "layers", index = rigging.SPRING_FK_LAYER, text="FK", toggle=True)
         row.prop(arm.data, "layers", index = rigging.SPRING_IK_LAYER, text="IK", toggle=True)
@@ -1702,8 +1722,9 @@ class CC3SpringControlPanel(bpy.types.Panel):
                 chain_name = chain_name[4:]
             if spring_rig_def and "IK_FK" in arm.pose.bones[mch_root_name]:
                 control_bone = arm.pose.bones[mch_root_name]
-                box = layout.box()
-                box.label(text="Spring Chain", icon="LINKED")
+                #box = layout.box()
+                #box.label(text="Spring Chain", icon="LINKED")
+                layout.row().label(text="Spring Chain:", icon="LINKED")
                 layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
                 if rigid_body_sim:
                     layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation ({chain_name})", slider=True)
@@ -1716,8 +1737,9 @@ class CC3SpringControlPanel(bpy.types.Panel):
             prefix = springbones.get_spring_rig_prefix(parent_mode)
             rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
 
-            box = layout.box()
-            box.label(text="Spring Chain Group", icon="PROP_CON")
+            #box = layout.box()
+            #box.label(text="Spring Chain Group", icon="PROP_CON")
+            layout.row().label(text="Spring Chain Group:", icon="PROP_CON")
             group_name = active_pose_bone.name
             if group_name.endswith("_group_ik"):
                 group_name = group_name[:-9]
@@ -1726,10 +1748,10 @@ class CC3SpringControlPanel(bpy.types.Panel):
             layout.prop(active_pose_bone, "[\"IK_FK\"]", text=f"IK-FK ({group_name})", slider=True)
             if rigid_body_sim:
                 layout.prop(active_pose_bone, "[\"SIM\"]", text=f"Simulation ({group_name})", slider=True)
-            layout.separator()
 
-            box = layout.box()
-            box.label(text="Spring Chains", icon="LINKED")
+            #box = layout.box()
+            #box.label(text="Spring Chains", icon="LINKED")
+            layout.row().label(text="Spring Chains:", icon="LINKED")
             for child in active_pose_bone.children:
                 if child.name.endswith("_target_ik"):
                     child_chain_bone_name = child.name[:-10]

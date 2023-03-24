@@ -820,7 +820,7 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
-    bones.show_armature_layers(arm, [25], in_front=True)
+    show_spring_bone_edit_layer(chr_cache, arm, True)
 
     hair_bone_prefix = props.hair_rig_group_name
 
@@ -848,6 +848,7 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
 
     restore_pose(arm, arm_pose)
     utils.restore_mode_selection_state(mode_selection)
+    utils.try_select_object(arm)
 
 
 def get_hair_cards_lateral(chr_cache, obj, card_dir : Vector, card_selection_mode):
@@ -1283,7 +1284,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
-    bones.show_armature_layers(arm, [25], in_front=True)
+    show_spring_bone_edit_layer(chr_cache, arm, True)
 
     hair_bone_prefix = props.hair_rig_group_name
 
@@ -1339,7 +1340,7 @@ def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
-    bones.show_armature_layers(arm, [25], in_front=True)
+    show_spring_bone_edit_layer(chr_cache, arm, True)
 
     hair_bone_prefix = props.hair_rig_group_name
 
@@ -1485,6 +1486,30 @@ def reset_pose(arm):
 
 def restore_pose(arm, arm_pose):
     arm.data.pose_position = arm_pose
+
+
+def show_spring_bone_edit_layer(chr_cache, arm, show):
+    if arm:
+        if show:
+            arm.data.layers[25] = True
+            for i in range(0, 32):
+                arm.data.layers[i] = (i == 25)
+            arm.show_in_front = True
+            arm.display_type = 'SOLID'
+            #arm.data.display_type = 'STICK'
+
+        else:
+            for i in range(0, 32):
+                if chr_cache.rigified:
+                    arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
+                else:
+                    arm.data.layers[i] = (i == 0)
+            arm.show_in_front = False
+            if chr_cache.rigified:
+                arm.display_type = 'WIRE'
+            else:
+                arm.display_type = 'SOLID'
+            #arm.data.display_type = 'OCTAHEDRAL'
 
 
 class CC3OperatorHair(bpy.types.Operator):
@@ -1746,6 +1771,37 @@ class CC3OperatorHair(bpy.types.Operator):
                 rename_hair_bones(chr_cache, arm, group_name, parent_mode)
 
             utils.restore_mode_selection_state(mode_selection)
+
+        if self.param == "SPRING_BONES_HIDE":
+            if arm:
+                show_spring_bone_edit_layer(chr_cache, arm, False)
+
+        if self.param == "SPRING_BONES_SHOW":
+            if arm:
+                show_spring_bone_edit_layer(chr_cache, arm, True)
+
+        if self.param == "ARMATURE_SHOW_POSE":
+            if arm:
+                arm.data.pose_position = "POSE"
+
+        if self.param == "ARMATURE_SHOW_REST":
+            if arm:
+                arm.data.pose_position = "REST"
+
+        if self.param == "CYCLE_BONE_STYLE":
+            if arm:
+                if arm.data.display_type == 'WIRE':
+                    arm.data.display_type = 'OCTAHEDRAL'
+                    arm.display_type = 'SOLID'
+                elif arm.data.display_type == 'OCTAHEDRAL' and arm.display_type == 'SOLID':
+                    arm.data.display_type = 'OCTAHEDRAL'
+                    arm.display_type = 'WIRE'
+                elif arm.data.display_type == 'OCTAHEDRAL' and arm.display_type == 'WIRE':
+                    arm.data.display_type = 'STICK'
+                    arm.display_type = 'SOLID'
+                elif arm.data.display_type == 'STICK':
+                    arm.data.display_type = 'WIRE'
+                    arm.display_type = 'SOLID'
 
         return {"FINISHED"}
 
