@@ -16,6 +16,7 @@
 
 import bpy
 import math
+from mathutils import Vector
 
 from . import drivers, bones, utils, vars
 
@@ -26,7 +27,7 @@ SIZE = 0.025
 MASS = 1.0
 STIFFNESS = 50.0
 DAMPENING = 1000.0
-LIMIT = 0.99
+LIMIT = 2.0
 CURVE = 0.5
 INFLUENCE = 1.0
 
@@ -61,11 +62,10 @@ def add_body_node(co, name,
     body_node.rigid_body.friction = 0
     body_node.rigid_body.restitution = 0
     #body_node.rigid_body.collision_margin = margin
-    # add constraint: copy_location
-
     if parent_object:
+        body_node.location = co
         body_node.parent = parent_object
-        body_node.location = parent_object.matrix_world.inverted() @ co
+        body_node.matrix_parent_inverse = parent_object.matrix_world.inverted()
 
     if location_target:
         c : bpy.types.CopyTransformsConstraint = body_node.constraints.new(type="COPY_TRANSFORMS")
@@ -89,7 +89,9 @@ def add_body_node(co, name,
 
     if dampening_driver:
         # L + (1 - L)t
-        dampening_expr = f"limit + (1.0 - limit) * pow({dampening_fac}, curve)"
+        expr_limit = "(1.0 - (1.0 / pow(10.0, limit)))"
+        expr_fac = f"pow({dampening_fac}, curve)"
+        dampening_expr = f"({expr_limit} * (1.0 - {expr_fac})) + (1.0 * {expr_fac})"
 
         driver = drivers.make_driver(body_node.rigid_body, "linear_damping", "SCRIPTED",
                                      dampening_expr)
@@ -120,8 +122,10 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
     bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius = BASE_COLLISION_SIZE * 1.5, location=head_body.location)
     constraint_object = bpy.context.active_object
     if parent_object:
-        constraint_object.parent = parent_object
-        constraint_object.location = parent_object.matrix_world.inverted() @ head_body.location
+        constraint_object.location = head_body.location
+        constraint_object.parent = head_body
+        constraint_object.matrix_parent_inverse = head_body.matrix_world.inverted()
+
     constraint_object.name = utils.unique_name(f"{prefix}_{bone_name}_Spring")
     # add rigid body constraint
     bpy.ops.rigidbody.constraint_add()
@@ -169,16 +173,6 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
     rbc.spring_stiffness_y = STIFFNESS
     rbc.spring_stiffness_z = STIFFNESS
     #rbc.spring_type = 'SPRING1'
-    # add constraint: copy_location
-    c = constraint_object.constraints.new(type="COPY_LOCATION")
-    c.target = head_body
-    c.use_x = True
-    c.use_y = True
-    c.use_z = True
-    c.invert_x = False
-    c.invert_y = False
-    c.invert_z = False
-    c.influence = 1.0
     # add pose bone constraint to stretch to tail_body
     pose_bone : bpy.types.PoseBone = arm.pose.bones[bone_name]
     c : bpy.types.StretchToConstraint = pose_bone.constraints.new(type="STRETCH_TO")
@@ -215,8 +209,8 @@ def connect_fixed(arm, bone_name, head_body, tail_body, parent_object, copy_loca
     bpy.ops.object.empty_add(type='CIRCLE', align='WORLD', location=head_body.location, radius = size)
     constraint_object = bpy.context.active_object
     if parent_object:
-        constraint_object.parent = parent_object
-        constraint_object.location = parent_object.matrix_world.inverted() @ head_body.location
+        constraint_object.parent = head_body
+        constraint_object.location = Vector((0,0,0))
     # add rigid body constraint
     bpy.ops.rigidbody.constraint_add()
     # configure constraint
@@ -226,17 +220,6 @@ def connect_fixed(arm, bone_name, head_body, tail_body, parent_object, copy_loca
     rbc.object2 = tail_body
     rbc.enabled = True
     rbc.disable_collisions = True
-    # add constraint: copy_location
-    if copy_location:
-        c = constraint_object.constraints.new(type="COPY_LOCATION")
-        c.target = head_body
-        c.use_x = True
-        c.use_y = True
-        c.use_z = True
-        c.invert_x = False
-        c.invert_y = False
-        c.invert_z = False
-        c.influence = 1.0
     return
 
 def build_bone_map(arm, edit_bone : bpy.types.EditBone, bone_map : dict = None, length = 0, rigified = False):
@@ -361,11 +344,16 @@ def remove_existing_rigid_body_system(arm, rig_prefix, spring_rig_bone_name):
     return settings
 
 
-def add_rigid_body_system(arm, rig_prefix, settings = None):
+def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
     rigid_body_system_name = get_rigid_body_system_name(arm, rig_prefix)
     bpy.ops.object.empty_add(type='SINGLE_ARROW', align='WORLD', location=(0,0,0))
     rigid_body_system = bpy.context.active_object
+    rigid_body_system.parent = arm
+    rigid_body_system.parent_type = "BONE"
+    rigid_body_system.parent_bone = parent_bone_name
+    rigid_body_system.location = Vector((0,0,0))
     rigid_body_system.name = utils.unique_name(rigid_body_system_name)
+
 
     if settings:
         # these aren't declared global so it shouldn't overwrite them permamently...
@@ -387,7 +375,7 @@ def add_rigid_body_system(arm, rig_prefix, settings = None):
 
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_influence", influence, 0.0, 1.0,
                                       description = "How much of the simulation is copied into the pose bones")
-    drivers.add_custom_float_property(rigid_body_system, "rigid_body_limit", limit, 0.9, 0.999,
+    drivers.add_custom_float_property(rigid_body_system, "rigid_body_limit", limit, 0.0, 4.0,
                                       description = "How much to dampen the overall movement of the simulation")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_curve", curve, 1.0/8.0, 2.0,
                                       description = "The dampening curve factor along the length of the spring bone chains. Less curve gives more movement near the roots")
@@ -519,14 +507,14 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
 
     # create a new spring rig
     utils.log_info(f"Building Rigid Body System from: {spring_rig_bone_name}")
-    rigid_body_system = add_rigid_body_system(arm, spring_rig_prefix, settings)
+    rigid_body_system = add_rigid_body_system(arm, spring_rig_bone_name, spring_rig_prefix, settings)
 
     # add the root node for the spring rig
     root_body = add_body_node(bone_map[spring_rig_bone_name]["head"],
                               parent_object=rigid_body_system,
                               name = f"{spring_rig_prefix}_{spring_rig_bone_name}",
                               enabled = False, kinematic = True,
-                              location_target = arm, location_sub_target = spring_rig_bone_name,
+                              #location_target = arm, location_sub_target = spring_rig_bone_name,
                               dampening_driver = False, mass_driver = False, margin_driver = False)
 
     # from the bone map, generate the rigid body nodes and their spring constraints
@@ -569,6 +557,9 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
                        movement_limit = 0, angular_limit = 45)
 
     set_rigify_simulation_influence(arm, spring_rig_bone_name, 1.0)
+    if bpy.context.scene.rigidbody_world.solver_iterations < 100:
+        bpy.context.scene.rigidbody_world.solver_iterations = 100
+
 
     utils.hide_tree(rigid_body_system)
 
