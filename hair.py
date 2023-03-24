@@ -1806,6 +1806,23 @@ class CC3OperatorHair(bpy.types.Operator):
                     arm.data.display_type = 'OCTAHEDRAL'
                     arm.display_type = 'SOLID'
 
+        if self.param == "TOGGLE_GREASE_PENCIL":
+            if "builtin.annotate" in bpy.context.workspace.tools:
+                mode = utils.get_mode()
+                utils.set_mode("EDIT")
+                bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+                utils.set_mode("OBJECT")
+                bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+                utils.set_mode(mode)
+            else:
+                mode = utils.get_mode()
+                utils.set_mode("EDIT")
+                bpy.ops.wm.tool_set_by_id(name="builtin.annotate")
+                utils.set_mode("OBJECT")
+                bpy.ops.wm.tool_set_by_id(name="builtin.annotate")
+                utils.set_mode(mode)
+                bpy.context.scene.tool_settings.annotation_stroke_placement_view3d = 'SURFACE'
+
         return {"FINISHED"}
 
     @classmethod

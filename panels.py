@@ -848,6 +848,11 @@ class CC3SpringRigPanel(bpy.types.Panel):
                     tool_row.operator("cc3.hair", icon=utils.check_icon("ARMATURE_DATA"), text="", emboss=False).param = "ARMATURE_SHOW_REST"
                 else:
                     tool_row.operator("cc3.hair", icon=utils.check_icon("OUTLINER_DATA_ARMATURE"), text="", emboss=False).param = "ARMATURE_SHOW_POSE"
+                if "builtin.annotate" in bpy.context.workspace.tools:
+                    icon = "GREASEPENCIL"
+                else:
+                    icon = "RESTRICT_SELECT_OFF"
+                tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", emboss=False).param = "TOGGLE_GREASE_PENCIL"
             col_2.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
             column.separator()
             row = column.row()
