@@ -841,12 +841,13 @@ class CC3SpringRigPanel(bpy.types.Panel):
                     icon = "PMARKER_SEL"
                 elif arm.data.display_type == 'STICK':
                     icon = "FIXED_SIZE"
+                else:
+                    icon = "BONE_DATA"
                 tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", emboss=False).param = "CYCLE_BONE_STYLE"
                 if arm.data.pose_position == "POSE":
                     tool_row.operator("cc3.hair", icon=utils.check_icon("ARMATURE_DATA"), text="", emboss=False).param = "ARMATURE_SHOW_REST"
                 else:
                     tool_row.operator("cc3.hair", icon=utils.check_icon("OUTLINER_DATA_ARMATURE"), text="", emboss=False).param = "ARMATURE_SHOW_POSE"
-            #tool_row.operator("cc3.hair", icon=utils.check_icon("ARMATURE_DATA"), text="").param = "HIDE_OFF"
             col_2.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
             column.separator()
             row = column.row()

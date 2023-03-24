@@ -1802,6 +1802,9 @@ class CC3OperatorHair(bpy.types.Operator):
                 elif arm.data.display_type == 'STICK':
                     arm.data.display_type = 'WIRE'
                     arm.display_type = 'SOLID'
+                else:
+                    arm.data.display_type = 'OCTAHEDRAL'
+                    arm.display_type = 'SOLID'
 
         return {"FINISHED"}
 
