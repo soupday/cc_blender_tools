@@ -294,6 +294,9 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
             col_2.prop(rigid_body_sim, "[\"rigid_body_dampening\"]", text="", slider=True)
             col_1.label(text="Stiffness")
             col_2.prop(rigid_body_sim, "[\"rigid_body_stiffness\"]", text="", slider=True)
+            col_1.label(text="Angle Range")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_angle_limit\"]", text="", slider=True)
+
             column.separator()
 
         if parent_mode:

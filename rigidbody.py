@@ -27,7 +27,9 @@ SIZE = 0.025
 MASS = 1.0
 STIFFNESS = 50.0
 DAMPENING = 1000.0
-LIMIT = 2.0
+LIMIT = 1.5
+ANGLE_RANGE = 60.0
+LINEAR_LIMIT = 0.0
 CURVE = 0.5
 INFLUENCE = 1.0
 
@@ -113,10 +115,14 @@ def add_body_node(co, name,
 
 def connect_spring(arm, prefix, bone_name, head_body, tail_body,
                    parent_object = None,
-                   movement_limit = 0, angular_limit = 45,
+                   use_linear_limit = True,
+                   use_angular_limit = True,
+                   use_linear_spring = False,
+                   use_angular_spring = True,
                    dampening_driver = True,
                    stiffness_driver = True,
-                   influence_driver = True):
+                   influence_driver = True,
+                   angular_limit_driver = True):
 
     # add an empty
     bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius = BASE_COLLISION_SIZE * 1.5, location=head_body.location)
@@ -136,42 +142,67 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
     rbc.disable_collisions = True
     rbc.object1 = head_body
     rbc.object2 = tail_body
-    rbc.use_limit_lin_x = True
-    rbc.use_limit_lin_y = True
-    rbc.use_limit_lin_z = True
-    rbc.limit_lin_x_lower = -movement_limit
-    rbc.limit_lin_y_lower = -movement_limit
-    rbc.limit_lin_z_lower = -movement_limit
-    rbc.limit_lin_x_upper = movement_limit
-    rbc.limit_lin_y_upper = movement_limit
-    rbc.limit_lin_z_upper = movement_limit
-    rbc.use_limit_ang_x = False
-    rbc.use_limit_ang_y = False
-    rbc.use_limit_ang_z = False
-    rbc.limit_ang_x_lower = -angular_limit * 0.01745329
-    rbc.limit_ang_y_lower = -angular_limit * 0.01745329
-    rbc.limit_ang_z_lower = -angular_limit * 0.01745329
-    rbc.limit_ang_x_upper = angular_limit * 0.01745329
-    rbc.limit_ang_y_upper = angular_limit * 0.01745329
-    rbc.limit_ang_z_upper = angular_limit * 0.01745329
-    rbc.use_spring_ang_x = True
-    rbc.use_spring_ang_y = True
-    rbc.use_spring_ang_z = True
-    rbc.use_spring_x = True
-    rbc.use_spring_y = True
-    rbc.use_spring_z = True
-    rbc.spring_damping_ang_x = DAMPENING
-    rbc.spring_damping_ang_y = DAMPENING
-    rbc.spring_damping_ang_z = DAMPENING
-    rbc.spring_damping_x = DAMPENING
-    rbc.spring_damping_y = DAMPENING
-    rbc.spring_damping_z = DAMPENING
-    rbc.spring_stiffness_ang_x = STIFFNESS
-    rbc.spring_stiffness_ang_y = STIFFNESS
-    rbc.spring_stiffness_ang_z = STIFFNESS
-    rbc.spring_stiffness_x = STIFFNESS
-    rbc.spring_stiffness_y = STIFFNESS
-    rbc.spring_stiffness_z = STIFFNESS
+
+    if use_linear_limit:
+        rbc.use_limit_lin_x = True
+        rbc.use_limit_lin_y = True
+        rbc.use_limit_lin_z = True
+        rbc.limit_lin_x_lower = -LINEAR_LIMIT
+        rbc.limit_lin_y_lower = -LINEAR_LIMIT
+        rbc.limit_lin_z_lower = -LINEAR_LIMIT
+        rbc.limit_lin_x_upper = LINEAR_LIMIT
+        rbc.limit_lin_y_upper = LINEAR_LIMIT
+        rbc.limit_lin_z_upper = LINEAR_LIMIT
+    else:
+        rbc.use_limit_lin_x = False
+        rbc.use_limit_lin_y = False
+        rbc.use_limit_lin_z = False
+
+    if use_angular_limit:
+        rbc.use_limit_ang_x = True
+        rbc.use_limit_ang_y = True
+        rbc.use_limit_ang_z = True
+        rbc.limit_ang_x_lower = -ANGLE_RANGE * 0.008726645
+        rbc.limit_ang_y_lower = -ANGLE_RANGE * 0.008726645
+        rbc.limit_ang_z_lower = -ANGLE_RANGE * 0.008726645
+        rbc.limit_ang_x_upper = ANGLE_RANGE * 0.008726645
+        rbc.limit_ang_y_upper = ANGLE_RANGE * 0.008726645
+        rbc.limit_ang_z_upper = ANGLE_RANGE * 0.008726645
+    else:
+        rbc.use_limit_ang_x = False
+        rbc.use_limit_ang_y = False
+        rbc.use_limit_ang_z = False
+
+    if use_angular_spring:
+        rbc.use_spring_ang_x = True
+        rbc.use_spring_ang_y = True
+        rbc.use_spring_ang_z = True
+        rbc.spring_damping_ang_x = DAMPENING
+        rbc.spring_damping_ang_y = DAMPENING
+        rbc.spring_damping_ang_z = DAMPENING
+        rbc.spring_stiffness_ang_x = STIFFNESS
+        rbc.spring_stiffness_ang_y = STIFFNESS
+        rbc.spring_stiffness_ang_z = STIFFNESS
+    else:
+        rbc.use_spring_ang_x = False
+        rbc.use_spring_ang_y = False
+        rbc.use_spring_ang_z = False
+
+    if use_linear_spring:
+        rbc.use_spring_x = True
+        rbc.use_spring_y = True
+        rbc.use_spring_z = True
+        rbc.spring_damping_x = DAMPENING
+        rbc.spring_damping_y = DAMPENING
+        rbc.spring_damping_z = DAMPENING
+        rbc.spring_stiffness_x = STIFFNESS
+        rbc.spring_stiffness_y = STIFFNESS
+        rbc.spring_stiffness_z = STIFFNESS
+    else:
+        rbc.use_spring_x = False
+        rbc.use_spring_y = False
+        rbc.use_spring_z = False
+
     #rbc.spring_type = 'SPRING1'
     # add pose bone constraint to stretch to tail_body
     pose_bone : bpy.types.PoseBone = arm.pose.bones[bone_name]
@@ -181,20 +212,48 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
     c.influence = INFLUENCE
 
     if dampening_driver:
-        dampening_props = ["spring_damping_ang_x", "spring_damping_ang_y", "spring_damping_ang_z",
-                           "spring_damping_x", "spring_damping_y", "spring_damping_z"]
-        for prop in dampening_props:
-            driver = drivers.make_driver(rbc, prop, "SUM")
-            drivers.make_driver_var(driver, "SINGLE_PROP", "dampening", parent_object,
-                                    data_path = f"[\"rigid_body_dampening\"]")
+
+        if use_linear_spring:
+            dampening_props = ["spring_damping_x", "spring_damping_y", "spring_damping_z"]
+            for prop in dampening_props:
+                driver = drivers.make_driver(rbc, prop, "SUM")
+                drivers.make_driver_var(driver, "SINGLE_PROP", "dampening", parent_object,
+                                        data_path = f"[\"rigid_body_dampening\"]")
+
+        if use_angular_spring:
+            dampening_props = ["spring_damping_ang_x", "spring_damping_ang_y", "spring_damping_ang_z"]
+            for prop in dampening_props:
+                driver = drivers.make_driver(rbc, prop, "SUM")
+                drivers.make_driver_var(driver, "SINGLE_PROP", "dampening", parent_object,
+                                        data_path = f"[\"rigid_body_dampening\"]")
 
     if stiffness_driver:
-        stiffness_props = ["spring_stiffness_ang_x", "spring_stiffness_ang_y", "spring_stiffness_ang_z",
-                           "spring_stiffness_x", "spring_stiffness_y", "spring_stiffness_z"]
-        for prop in stiffness_props:
-            driver = drivers.make_driver(rbc, prop, "SUM")
-            drivers.make_driver_var(driver, "SINGLE_PROP", "stiffnes", parent_object,
-                                    data_path = f"[\"rigid_body_stiffness\"]")
+
+        if use_linear_spring:
+            stiffness_props = ["spring_stiffness_x", "spring_stiffness_y", "spring_stiffness_z"]
+            for prop in stiffness_props:
+                driver = drivers.make_driver(rbc, prop, "SUM")
+                drivers.make_driver_var(driver, "SINGLE_PROP", "stiffnes", parent_object,
+                                        data_path = f"[\"rigid_body_stiffness\"]")
+
+        if use_angular_spring:
+            stiffness_props = ["spring_stiffness_ang_x", "spring_stiffness_ang_y", "spring_stiffness_ang_z"]
+            for prop in stiffness_props:
+                driver = drivers.make_driver(rbc, prop, "SUM")
+                drivers.make_driver_var(driver, "SINGLE_PROP", "stiffnes", parent_object,
+                                        data_path = f"[\"rigid_body_stiffness\"]")
+
+    if angular_limit_driver and use_angular_limit:
+        ang_limit_props = ["limit_ang_x_lower", "limit_ang_y_lower", "limit_ang_z_lower",
+                           "limit_ang_x_upper", "limit_ang_y_upper", "limit_ang_z_upper"]
+        for prop in ang_limit_props:
+            if "lower" in prop:
+                expr = "-limit * 0.008726645"
+            else:
+                expr = "limit * 0.008726645"
+            driver = drivers.make_driver(rbc, prop, "SCRIPTED", expr)
+            drivers.make_driver_var(driver, "SINGLE_PROP", "limit", parent_object,
+                                    data_path = f"[\"rigid_body_angle_limit\"]")
 
     if influence_driver:
         driver = drivers.make_driver(c, "influence", "SUM")
@@ -291,6 +350,8 @@ def remove_existing_rigid_body_system(arm, rig_prefix, spring_rig_bone_name):
         "spring_damping_x", "spring_damping_y", "spring_damping_z",
         "spring_stiffness_ang_x", "spring_stiffness_ang_y", "spring_stiffness_ang_z",
         "spring_stiffness_x", "spring_stiffness_y", "spring_stiffness_z",
+        "limit_ang_x_lower", "limit_ang_y_lower", "limit_ang_z_lower",
+        "limit_ang_x_upper", "limit_ang_y_upper", "limit_ang_z_upper",
         ]
 
     to_delete = []
@@ -315,6 +376,7 @@ def remove_existing_rigid_body_system(arm, rig_prefix, spring_rig_bone_name):
                     "rigid_body_dampening": obj["rigid_body_dampening"],
                     "rigid_body_stiffness": obj["rigid_body_stiffness"],
                     "rigid_body_radius": obj["rigid_body_radius"],
+                    "rigid_body_angle_limit": obj["rigid_body_angle_limit"],
                 }
 
     utils.log_indent()
@@ -364,6 +426,7 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
         dampening = settings["rigid_body_dampening"]
         stiffness = settings["rigid_body_stiffness"]
         size = settings["rigid_body_radius"]
+        angle_limit = settings["rigid_body_angle_limit"]
     else:
         influence = INFLUENCE
         limit = LIMIT
@@ -372,6 +435,7 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
         dampening = DAMPENING
         stiffness = STIFFNESS
         size = SIZE
+        angle_limit = ANGLE_RANGE
 
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_influence", influence, 0.0, 1.0,
                                       description = "How much of the simulation is copied into the pose bones")
@@ -387,6 +451,8 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
                                       description = "Spring stiffness, how resistant to movement.\nThis value only really takes effect at very high limit values")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_radius", size, 0.025, 0.1,
                                       description = "Collision radius of the rigid body particles representing the bones. Note: Too much and the hair will be pushed away from the body")
+    drivers.add_custom_float_property(rigid_body_system, "rigid_body_angle_limit", angle_limit, 0, 120,
+                                      description = "Angular limit of movement")
 
     return rigid_body_system
 
@@ -554,7 +620,11 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
         # connect the head and the tail together with a generic spring constraint
         connect_spring(arm, spring_rig_prefix, bone_name, head_body, tail_body,
                        parent_object = rigid_body_system,
-                       movement_limit = 0, angular_limit = 45)
+                       use_angular_spring= True,
+                       use_linear_spring= False,
+                       use_angular_limit= True,
+                       use_linear_limit= True,
+                       )
 
     set_rigify_simulation_influence(arm, spring_rig_bone_name, 1.0)
     if bpy.context.scene.rigidbody_world.solver_iterations < 100:
