@@ -460,7 +460,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_variance = 0.75
         elif self.hair_rig_target == "BLENDER":
             self.hair_rig_bone_length = 7.5
-            self.hair_rig_bind_skip_length = 7.5
+            self.hair_rig_bind_skip_length = 0.0
             self.hair_rig_bind_bone_radius = 11.25
             self.hair_rig_bind_existing_scale = 1.0
             self.hair_rig_bind_bone_count = 2
@@ -1898,7 +1898,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     hair_rig_bind_skip_length: bpy.props.FloatProperty(default=7.5, min=0.0, max=25,
             description="How far along the hair card to start generating bones, "
             "as rooting the bones to the very start of the hair cards can produce unwanted results")
-    hair_rig_bone_length: bpy.props.FloatProperty(default=7.5, min=5, max=25,
+    hair_rig_bone_length: bpy.props.FloatProperty(default=7.5, min=2.5, max=25,
             description="How long a section of each hair card the bones should represent")
     hair_rig_bind_bone_radius: bpy.props.FloatProperty(default=7.5, min=1, max=25,
             description="How wide a radius around the bones should the hair cards bind vertex weights to")

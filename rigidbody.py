@@ -21,16 +21,15 @@ from mathutils import Vector
 from . import drivers, bones, utils, vars
 
 # these must be floats
-MIN_COLLISION_MARGIN = 0.001
-BASE_COLLISION_SIZE = 0.0125 - MIN_COLLISION_MARGIN
-SIZE = 0.025
+BASE_COLLISION_SIZE = 0.0125
+SIZE = 0.0125
 MASS = 1.0
 STIFFNESS = 50.0
 DAMPENING = 1000.0
 LIMIT = 1.5
-ANGLE_RANGE = 60.0
+ANGLE_RANGE = 90.0
 LINEAR_LIMIT = 0.0
-CURVE = 0.5
+CURVE = 0.75
 INFLUENCE = 1.0
 
 def add_body_node(co, name,
@@ -41,7 +40,7 @@ def add_body_node(co, name,
                   kinematic = False,
                   mass_driver = True,
                   dampening_driver = True, dampening_fac = 1.0,
-                  margin_driver = True):
+                  radius_driver = True):
 
     bpy.ops.mesh.primitive_ico_sphere_add(subdivisions = 1, radius = BASE_COLLISION_SIZE,
                                           enter_editmode = False,
@@ -82,12 +81,19 @@ def add_body_node(co, name,
         drivers.make_driver_var(driver, "SINGLE_PROP", "mass", parent_object,
                                 data_path = f"[\"rigid_body_mass\"]")
 
-    if margin_driver:
-        margin_expr = f"max({MIN_COLLISION_MARGIN}, radius - {BASE_COLLISION_SIZE})"
+    if radius_driver:
+        # sphere colliders use embedded margins (i.e. the margin shrinks the radius)
+        margin_expr = f"(radius / {BASE_COLLISION_SIZE})"
+        for i in range(0, 3):
+            driver = drivers.make_driver(body_node, "scale", "SCRIPTED", margin_expr, index=i)
+            drivers.make_driver_var(driver, "SINGLE_PROP", "radius", parent_object,
+                                    data_path = f"[\"rigid_body_radius\"]")
+        margin_expr = f"(0.5 * radius)"
         driver = drivers.make_driver(body_node.rigid_body, "collision_margin", "SCRIPTED",
                                      margin_expr)
         drivers.make_driver_var(driver, "SINGLE_PROP", "radius", parent_object,
-                                data_path = f"[\"rigid_body_radius\"]")
+                                    data_path = f"[\"rigid_body_radius\"]")
+
 
     if dampening_driver:
         # L + (1 - L)t
@@ -116,7 +122,7 @@ def add_body_node(co, name,
 def connect_spring(arm, prefix, bone_name, head_body, tail_body,
                    parent_object = None,
                    use_linear_limit = True,
-                   use_angular_limit = True,
+                   use_angular_limit = True, angular_limit_fac = 1.0,
                    use_linear_spring = False,
                    use_angular_spring = True,
                    dampening_driver = True,
@@ -248,9 +254,9 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
                            "limit_ang_x_upper", "limit_ang_y_upper", "limit_ang_z_upper"]
         for prop in ang_limit_props:
             if "lower" in prop:
-                expr = "-limit * 0.008726645"
+                expr = f"-limit * 0.008726645 * {angular_limit_fac}"
             else:
-                expr = "limit * 0.008726645"
+                expr = f"limit * 0.008726645 * {angular_limit_fac}"
             driver = drivers.make_driver(rbc, prop, "SCRIPTED", expr)
             drivers.make_driver_var(driver, "SINGLE_PROP", "limit", parent_object,
                                     data_path = f"[\"rigid_body_angle_limit\"]")
@@ -443,13 +449,13 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
                                       description = "How much to dampen the overall movement of the simulation")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_curve", curve, 1.0/8.0, 2.0,
                                       description = "The dampening curve factor along the length of the spring bone chains. Less curve gives more movement near the roots")
-    drivers.add_custom_float_property(rigid_body_system, "rigid_body_mass", mass, 0.0, 5.0,
+    drivers.add_custom_float_property(rigid_body_system, "rigid_body_mass", mass, 0.0, 1.0,
                                       description = "Mass of the rigid body particles representing the bones. More mass, more inertia")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_dampening", dampening, 0.0, 10000.0,
                                       description = "Spring dampening, how quickly the hair slows down.\nThis value only really takes effect at very high limit values")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_stiffness", stiffness, 0.0, 100.0,
                                       description = "Spring stiffness, how resistant to movement.\nThis value only really takes effect at very high limit values")
-    drivers.add_custom_float_property(rigid_body_system, "rigid_body_radius", size, 0.025, 0.1,
+    drivers.add_custom_float_property(rigid_body_system, "rigid_body_radius", size, 0.001, 0.025,
                                       description = "Collision radius of the rigid body particles representing the bones. Note: Too much and the hair will be pushed away from the body")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_angle_limit", angle_limit, 0, 120,
                                       description = "Angular limit of movement")
@@ -549,6 +555,8 @@ def get_spring_rigid_body_system(arm, rig_prefix):
 def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone_name, settings = None):
     props = bpy.context.scene.CC3ImportProps
 
+    # TODO: Align the body nodes & constraints with the bone y axis...
+
     arm = chr_cache.get_armature()
     if not arm or spring_rig_bone_name not in arm.data.bones:
         return False
@@ -581,7 +589,7 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
                               name = f"{spring_rig_prefix}_{spring_rig_bone_name}",
                               enabled = False, kinematic = True,
                               #location_target = arm, location_sub_target = spring_rig_bone_name,
-                              dampening_driver = False, mass_driver = False, margin_driver = False)
+                              dampening_driver = False, mass_driver = False, radius_driver = False)
 
     # from the bone map, generate the rigid body nodes and their spring constraints
     for bone_name in bone_map:
@@ -610,7 +618,8 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
                 parent_mapping["tail_body"] = head_body
 
         # add the tail node rigid body
-        dampening_fac = 1.0 - mapping["fac"]
+        fac = mapping["fac"]
+        dampening_fac = 1.0 - fac
         tail_body = add_body_node(mapping["tail"], name = f"{spring_rig_prefix}_{bone_name}_Tail",
                                   parent_object = rigid_body_system, dampening_fac = dampening_fac)
 
@@ -620,7 +629,7 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
         # connect the head and the tail together with a generic spring constraint
         connect_spring(arm, spring_rig_prefix, bone_name, head_body, tail_body,
                        parent_object = rigid_body_system,
-                       use_angular_spring= True,
+                       use_angular_spring= True, angular_limit_fac = fac,
                        use_linear_spring= False,
                        use_angular_limit= True,
                        use_linear_limit= True,

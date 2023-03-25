@@ -43,7 +43,7 @@ def make_driver_var(driver, var_type, var_name, target, target_type = "OBJECT", 
     return var
 
 
-def make_driver(source, prop_name, driver_type, driver_expression = ""):
+def make_driver(source, prop_name, driver_type, driver_expression = "", index = -1):
     """
     prop_name = "value", "influence"\n
     driver_type = "SUM", "SCRIPTED"\n
@@ -52,7 +52,10 @@ def make_driver(source, prop_name, driver_type, driver_expression = ""):
     driver = None
     if source:
         fcurve : bpy.types.FCurve
-        fcurve = source.driver_add(prop_name)
+        if index > -1:
+            fcurve = source.driver_add(prop_name, index)
+        else:
+            fcurve = source.driver_add(prop_name)
         driver : bpy.types.Driver = fcurve.driver
         if driver_type == "SUM":
             driver.type = driver_type
