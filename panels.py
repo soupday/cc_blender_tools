@@ -1638,7 +1638,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.prop(props, "bake_nla_shape_keys", text="")
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
-                        row.enabled = chr_cache.rig_retarget_rig is None
+                        #row.enabled = chr_cache.rig_retarget_rig is None
 
                         layout.separator()
 
@@ -1736,8 +1736,7 @@ class CC3SpringControlPanel(bpy.types.Panel):
                 #box.label(text="Spring Chain", icon="LINKED")
                 layout.row().label(text="Spring Chain:", icon="LINKED")
                 layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
-                if rigid_body_sim:
-                    layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation ({chain_name})", slider=True)
+                layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation ({chain_name})", slider=True)
 
             layout.separator()
 
@@ -1756,8 +1755,7 @@ class CC3SpringControlPanel(bpy.types.Panel):
             if group_name.startswith("DEF-"):
                 group_name = group_name[4:]
             layout.prop(active_pose_bone, "[\"IK_FK\"]", text=f"IK-FK ({group_name})", slider=True)
-            if rigid_body_sim:
-                layout.prop(active_pose_bone, "[\"SIM\"]", text=f"Simulation ({group_name})", slider=True)
+            layout.prop(active_pose_bone, "[\"SIM\"]", text=f"Simulation ({group_name})", slider=True)
 
             #box = layout.box()
             #box.label(text="Spring Chains", icon="LINKED")
@@ -1776,8 +1774,7 @@ class CC3SpringControlPanel(bpy.types.Panel):
                     if spring_rig_def and "IK_FK" in arm.pose.bones[mch_root_name]:
                         control_bone = arm.pose.bones[mch_root_name]
                         layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
-                        if rigid_body_sim:
-                            layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation ({chain_name})", slider=True)
+                        layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation ({chain_name})", slider=True)
                         layout.separator()
 
         if chr_cache and arm and obj:

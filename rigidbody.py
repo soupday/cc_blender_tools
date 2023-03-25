@@ -653,6 +653,12 @@ def set_rigify_simulation_influence(arm, spring_rig_bone_name, value):
                 child_bone["SIM"] = value
 
 
+def add_simulation_bone_group(arm):
+    if "Simulation" not in arm.pose.bone_groups:
+        bone_group = arm.pose.bone_groups.new(name="Simulation")
+        bone_group.color_set = "THEME02"
+
+
 def reset_cache(context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)

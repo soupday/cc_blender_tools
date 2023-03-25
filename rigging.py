@@ -324,6 +324,8 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
     fk_bone : bpy.types.PoseBone
     twk_bone : bpy.types.PoseBone
 
+    rigidbody.add_simulation_bone_group(rig)
+
     shape_fk = bones.generate_spring_widget(rig, "SpringBoneFK", "FK", 0.5)
     shape_ik = bones.generate_spring_widget(rig, "SpringBoneIK", "IK", 0.025)
     shape_grp = bones.generate_spring_widget(rig, "SpringBoneGRP", "GRP", 0.025)
@@ -393,6 +395,7 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
                 bones.set_pose_bone_lock(twk_bone, lock_rotation = [1,0,1,1], lock_scale = [0,1,0])
                 bones.set_bone_group(rig, fk_bone_name, "FK")
                 bones.set_bone_group(rig, twk_bone_name, "Tweak")
+                bones.set_bone_group(rig, sim_bone_name, "Simulation")
                 bones.set_pose_bone_layer(rig, fk_bone_name, SPRING_FK_LAYER)
                 bones.set_pose_bone_layer(rig, mch_bone_name, MCH_BONE_LAYER)
                 bones.set_pose_bone_layer(rig, org_bone_name, ORG_BONE_LAYER)
@@ -2288,10 +2291,17 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 
         # select just the retargeted bones in the rigify rig, to bake:
         if select_rig(rigify_rig):
+            bone : bpy.types.Bone
             for bone in rigify_rig.data.bones:
                 bone.select = False
                 if bone.name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
+                    # make sure the layers the bone occupies are visible and selectable
+                    for l in bone.layers:
+                        if l:
+                            rigify_rig.data.layers[l] = True
+                    bone.hide = False
                     bone.select = True
+
 
             bake_rig_animation(chr_cache, rigify_rig, source_action, None, True, True)
 
@@ -2304,10 +2314,10 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
     rigify_rig = chr_cache.get_armature()
     utils.safe_set_action(rigify_rig, None)
-    adv_retarget_remove_pair(op, chr_cache)
+    #adv_retarget_remove_pair(op, chr_cache)
 
     # select all possible control bones in the rigify rig, to bake:
-    BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
+    BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root", "Simulation"]
     if select_rig(rigify_rig):
         bone : bpy.types.Bone
         for bone in rigify_rig.data.bones:
@@ -2315,7 +2325,13 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
             pose_bone = bones.get_pose_bone(rigify_rig, bone.name)
             if pose_bone and pose_bone.bone_group:
                 if pose_bone.bone_group.name in BAKE_BONE_GROUPS:
+                    # make sure the layers the bone occupies are visible and selectable
+                    for l in bone.layers:
+                        if l:
+                            rigify_rig.data.layers[l] = True
+                    bone.hide = False
                     bone.select = True
+
         shape_key_objects = []
         if props.bake_nla_shape_keys:
             for child in rigify_rig.children:
@@ -2697,6 +2713,11 @@ def adv_bake_rigify_for_export(chr_cache, export_rig):
 
             # select all export rig bones
             for bone in export_rig.data.bones:
+                # make sure the layers the bone occupies are visible and selectable
+                for l in bone.layers:
+                    if l:
+                        export_rig.data.layers[l] = True
+                bone.hide = False
                 bone.select = True
 
             # bake the action on the rigify rig into the export rig
