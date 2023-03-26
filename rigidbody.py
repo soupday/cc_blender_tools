@@ -23,11 +23,11 @@ from . import drivers, bones, utils, vars
 # these must be floats
 BASE_COLLISION_SIZE = 0.0125
 SIZE = 0.0125
-MASS = 1.0
-STIFFNESS = 50.0
-DAMPENING = 1000.0
-LIMIT = 1.5
-ANGLE_RANGE = 90.0
+MASS = 0.25
+STIFFNESS = 100.0
+DAMPENING = 1.0
+LIMIT = 2.0
+ANGLE_RANGE = 60.0
 LINEAR_LIMIT = 0.0
 CURVE = 0.75
 INFLUENCE = 1.0
@@ -47,6 +47,7 @@ def add_body_node(co, name,
                                           align = 'WORLD', location = co)
 
     body_node = bpy.context.active_object
+    body_node.hide_render = True
     body_node.name = utils.unique_name(name)
 
     # add rigid body
@@ -133,6 +134,7 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
     # add an empty
     bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius = BASE_COLLISION_SIZE * 1.5, location=head_body.location)
     constraint_object = bpy.context.active_object
+    constraint_object.hide_render = True
     if parent_object:
         constraint_object.location = head_body.location
         constraint_object.parent = head_body
@@ -216,6 +218,7 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
     c.name = utils.unique_name("Spring_StretchTo")
     c.target = tail_body
     c.influence = INFLUENCE
+    c.rest_length = (tail_body.location - head_body.location).length
 
     if dampening_driver:
 
@@ -273,6 +276,7 @@ def connect_fixed(arm, bone_name, head_body, tail_body, parent_object, copy_loca
     # add an empty
     bpy.ops.object.empty_add(type='CIRCLE', align='WORLD', location=head_body.location, radius = size)
     constraint_object = bpy.context.active_object
+    constraint_object.hide_render = True
     if parent_object:
         constraint_object.parent = head_body
         constraint_object.location = Vector((0,0,0))
@@ -407,7 +411,7 @@ def remove_existing_rigid_body_system(arm, rig_prefix, spring_rig_bone_name):
 
     utils.log_recess()
 
-    set_rigify_simulation_influence(arm, spring_rig_bone_name, 0.0)
+    set_rigify_simulation_influence(arm, spring_rig_bone_name, 0.0, 1.0)
 
     return settings
 
@@ -416,6 +420,7 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
     rigid_body_system_name = get_rigid_body_system_name(arm, rig_prefix)
     bpy.ops.object.empty_add(type='SINGLE_ARROW', align='WORLD', location=(0,0,0))
     rigid_body_system = bpy.context.active_object
+    rigid_body_system.hide_render = True
     rigid_body_system.parent = arm
     rigid_body_system.parent_type = "BONE"
     rigid_body_system.parent_bone = parent_bone_name
@@ -451,7 +456,7 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
                                       description = "The dampening curve factor along the length of the spring bone chains. Less curve gives more movement near the roots")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_mass", mass, 0.0, 1.0,
                                       description = "Mass of the rigid body particles representing the bones. More mass, more inertia")
-    drivers.add_custom_float_property(rigid_body_system, "rigid_body_dampening", dampening, 0.0, 10000.0,
+    drivers.add_custom_float_property(rigid_body_system, "rigid_body_dampening", dampening, 0.0, 100.0,
                                       description = "Spring dampening, how quickly the hair slows down.\nThis value only really takes effect at very high limit values")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_stiffness", stiffness, 0.0, 100.0,
                                       description = "Spring stiffness, how resistant to movement.\nThis value only really takes effect at very high limit values")
@@ -470,6 +475,16 @@ def is_rigid_body(chr_cache, obj):
             if utils.object_exists_is_mesh(chr_cache.collision_body):
                 obj = chr_cache.collision_body
     return obj and obj.rigid_body is not None
+
+
+def get_rigid_body(chr_cache, obj):
+    if chr_cache and obj:
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and obj_cache.object_type == "BODY":
+            if utils.object_exists_is_mesh(chr_cache.collision_body):
+                obj = chr_cache.collision_body
+                return obj.rigid_body
+    return None
 
 
 def enable_rigid_body_collision_mesh(chr_cache, obj):
@@ -507,7 +522,7 @@ def enable_rigid_body_collision_mesh(chr_cache, obj):
     obj.rigid_body.use_deform = True
     obj.rigid_body.friction = 0
     obj.rigid_body.restitution = 0
-    obj.rigid_body.collision_margin = 0.025
+    obj.rigid_body.collision_margin = 0.05
     obj.rigid_body.linear_damping = 0
     obj.rigid_body.angular_damping = 0
 
@@ -635,22 +650,23 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
                        use_linear_limit= True,
                        )
 
-    set_rigify_simulation_influence(arm, spring_rig_bone_name, 1.0)
+    set_rigify_simulation_influence(arm, spring_rig_bone_name, 1.0, 1.0)
     if bpy.context.scene.rigidbody_world.solver_iterations < 100:
         bpy.context.scene.rigidbody_world.solver_iterations = 100
-
 
     utils.hide_tree(rigid_body_system)
 
 
-def set_rigify_simulation_influence(arm, spring_rig_bone_name, value):
+def set_rigify_simulation_influence(arm, spring_rig_bone_name, sim_value, ik_fk_value):
     # activate the simulation constraint influence
     if arm and spring_rig_bone_name in arm.pose.bones:
         spring_rig_bone = arm.pose.bones[spring_rig_bone_name]
         child_bones = bones.get_bone_children(spring_rig_bone, include_root=False)
         for child_bone in child_bones:
             if "SIM" in child_bone:
-                child_bone["SIM"] = value
+                child_bone["SIM"] = sim_value
+            if "IK_FK" in child_bone:
+                child_bone["IK_FK"] = ik_fk_value
 
 
 def add_simulation_bone_group(arm):

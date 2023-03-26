@@ -525,8 +525,10 @@ def rename_hair_bones(chr_cache, arm, base_name, parent_mode):
         for bone_def in bone_chain:
             old_name = bone_def["name"]
             new_name = f"{base_name}_{loop_index}_{chain_index}"
+            edit_bone : bpy.types.EditBone
             edit_bone = arm.data.edit_bones[old_name]
             edit_bone.name = new_name
+            edit_bone.select = True
             bone_remap[old_name] = edit_bone.name
             chain_index += 1
 
@@ -802,6 +804,7 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, sk
                 first = False
             else:
                 bone.use_connect = True
+            first = False
             fac += df
 
         return True
@@ -820,7 +823,7 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
-    show_spring_bone_edit_layer(chr_cache, arm, True)
+    springbones.show_spring_bone_edit_layer(chr_cache, arm, True)
 
     hair_bone_prefix = props.hair_rig_group_name
 
@@ -1284,7 +1287,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
-    show_spring_bone_edit_layer(chr_cache, arm, True)
+    springbones.show_spring_bone_edit_layer(chr_cache, arm, True)
 
     hair_bone_prefix = props.hair_rig_group_name
 
@@ -1340,7 +1343,7 @@ def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
-    show_spring_bone_edit_layer(chr_cache, arm, True)
+    springbones.show_spring_bone_edit_layer(chr_cache, arm, True)
 
     hair_bone_prefix = props.hair_rig_group_name
 
@@ -1486,30 +1489,6 @@ def reset_pose(arm):
 
 def restore_pose(arm, arm_pose):
     arm.data.pose_position = arm_pose
-
-
-def show_spring_bone_edit_layer(chr_cache, arm, show):
-    if arm:
-        if show:
-            arm.data.layers[25] = True
-            for i in range(0, 32):
-                arm.data.layers[i] = (i == 25)
-            arm.show_in_front = True
-            arm.display_type = 'SOLID'
-            #arm.data.display_type = 'STICK'
-
-        else:
-            for i in range(0, 32):
-                if chr_cache.rigified:
-                    arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
-                else:
-                    arm.data.layers[i] = (i == 0)
-            arm.show_in_front = False
-            if chr_cache.rigified:
-                arm.display_type = 'WIRE'
-            else:
-                arm.display_type = 'SOLID'
-            #arm.data.display_type = 'OCTAHEDRAL'
 
 
 class CC3OperatorHair(bpy.types.Operator):
@@ -1772,13 +1751,13 @@ class CC3OperatorHair(bpy.types.Operator):
 
             utils.restore_mode_selection_state(mode_selection)
 
-        if self.param == "SPRING_BONES_HIDE":
+        if self.param == "SPRING_BONES_TOGGLE":
             if arm:
-                show_spring_bone_edit_layer(chr_cache, arm, False)
+                springbones.show_spring_bone_edit_layer(chr_cache, arm, False)
 
         if self.param == "SPRING_BONES_SHOW":
             if arm:
-                show_spring_bone_edit_layer(chr_cache, arm, True)
+                springbones.show_spring_bone_edit_layer(chr_cache, arm, True)
 
         if self.param == "ARMATURE_SHOW_POSE":
             if arm:

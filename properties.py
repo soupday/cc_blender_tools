@@ -1141,6 +1141,11 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
             return self.object
         return None
 
+    def get_mesh(self):
+        if utils.object_exists_is_mesh(self.object):
+            return self.object
+        return None
+
     def set_object(self, obj):
         if obj and utils.object_exists(obj):
             self.object = obj

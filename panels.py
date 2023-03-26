@@ -94,6 +94,12 @@ def wrapped_text_box(layout, info_text, width, alert = False):
         box.label(text=text)
 
 
+def warn_icon(row, icon = "ERROR"):
+    col = row.column()
+    col.alert = True
+    col.label(text="", icon=icon)
+
+
 def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type = True, show_type_selector = True):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -250,7 +256,7 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
     if not chr_cache or not arm:
         return
 
-    has_rigid_body = rigidbody.is_rigid_body(chr_cache, obj)
+    rigid_body = rigidbody.get_rigid_body(chr_cache, obj)
     rigid_body_sim = None
     parent_mode = chr_cache.available_spring_rigs
     if fixed_parent:
@@ -260,7 +266,7 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
     has_spring_rig = springbones.has_spring_rig(chr_cache, arm, parent_mode)
 
 
-    if fake_drop_down(column.box().row(),
+    if fake_drop_down(column.row(),
             "Rigid Body Sim",
             "section_rigidbody_spring_ui",
             props.section_rigidbody_spring_ui,
@@ -303,29 +309,29 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
             if not rigid_body_sim:
                 row = column.row()
                 row.scale_y = 2.0
-                row.operator("cc3.hair", icon=utils.check_icon("CON_KINEMATIC"), text="Build Spring System").param = "MAKE_RIGID_BODY_SYSTEM"
+                row.operator("cc3.hair", icon=utils.check_icon("CON_KINEMATIC"), text="Build Simulation").param = "MAKE_RIGID_BODY_SYSTEM"
                 column.separator()
                 if not has_spring_rig:
                     row.enabled = False
             else:
                 row = column.row()
                 row.scale_y = 2.0
-                row.alert = True
-                row.operator("cc3.hair", icon=utils.check_icon("X"), text="Remove Spring System").param = "REMOVE_RIGID_BODY_SYSTEM"
+                warn_icon(row)
+                row.operator("cc3.hair", icon=utils.check_icon("X"), text="Remove Simulation").param = "REMOVE_RIGID_BODY_SYSTEM"
                 column.separator()
         else:
             column.row().label(text = "No spring rig selected", icon="ERROR")
 
         column.row().label(text="Physics Tools:")
 
-        row = column.row()
-        row.operator("cc3.hair", icon=utils.check_icon("MOD_PHYSICS"), text="Enable Collision Body").param = "ENABLE_RIGID_BODY_COLLISION"
-        if has_rigid_body:
-            row.enabled = False
-        row = column.row()
-        row.operator("cc3.hair", icon=utils.check_icon("X"), text="Disable Collision Body").param = "DISABLE_RIGID_BODY_COLLISION"
-        if not has_rigid_body:
-            row.enabled = False
+        if rigid_body:
+            row = column.row()
+            warn_icon(row)
+            row.operator("cc3.hair", icon=utils.check_icon("X"), text="Disable Collision Body").param = "DISABLE_RIGID_BODY_COLLISION"
+            column.row().prop(rigid_body, "collision_margin", text="Collision Margin", slider=True)
+        else:
+            column.row().operator("cc3.hair", icon=utils.check_icon("MOD_PHYSICS"), text="Enable Collision Body").param = "ENABLE_RIGID_BODY_COLLISION"
+
         row = column.row()
         row.operator("cc3.hair", icon=utils.check_icon("LOOP_BACK"), text="Reset Physics").param = "RESET_PHYSICS"
 
@@ -832,31 +838,26 @@ class CC3SpringRigPanel(bpy.types.Panel):
             col_2.prop(props, "hair_rig_group_name", text="")
             tool_row = col_1.row()
             if arm:
-                if arm.data.layers[rigging.SPRING_EDIT_LAYER]:
-                    tool_row.operator("cc3.hair", icon=utils.check_icon("HIDE_OFF"), text="", emboss=False).param = "SPRING_BONES_HIDE"
-                else:
-                    tool_row.operator("cc3.hair", icon=utils.check_icon("HIDE_ON"), text="", emboss=False).param = "SPRING_BONES_SHOW"
+                tool_row.operator("cc3.rigifier", icon=utils.check_icon("HIDE_OFF"), text="",
+                                  depress=arm.data.layers[rigging.SPRING_EDIT_LAYER]).param = "TOGGLE_SHOW_SPRING_BONES"
+
+                is_grease_pencil_tool = "builtin.annotate" in utils.get_current_tool_idname(context)
+                tool_row.operator("cc3.hair", icon=utils.check_icon("GREASEPENCIL"), text="", depress=is_grease_pencil_tool).param = "TOGGLE_GREASE_PENCIL"
+
+                is_default_bone = False
                 if arm.data.display_type == 'WIRE':
                     icon = "IPO_LINEAR"
                 elif arm.data.display_type == 'OCTAHEDRAL' and arm.display_type == 'SOLID':
                     icon = "PMARKER_ACT"
+                    is_default_bone = True
                 elif arm.data.display_type == 'OCTAHEDRAL' and arm.display_type == 'WIRE':
                     icon = "PMARKER_SEL"
                 elif arm.data.display_type == 'STICK':
                     icon = "FIXED_SIZE"
                 else:
                     icon = "BONE_DATA"
-                tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", emboss=False).param = "CYCLE_BONE_STYLE"
-                if arm.data.pose_position == "POSE":
-                    tool_row.operator("cc3.hair", icon=utils.check_icon("ARMATURE_DATA"), text="", emboss=False).param = "ARMATURE_SHOW_REST"
-                else:
-                    tool_row.operator("cc3.hair", icon=utils.check_icon("OUTLINER_DATA_ARMATURE"), text="", emboss=False).param = "ARMATURE_SHOW_POSE"
-                tool_idname = utils.get_current_tool_idname(context)
-                if "builtin.annotate" in tool_idname:
-                    icon = "GREASEPENCIL"
-                else:
-                    icon = "RESTRICT_SELECT_OFF"
-                tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", emboss=False).param = "TOGGLE_GREASE_PENCIL"
+                tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", depress=False).param = "CYCLE_BONE_STYLE"
+
             col_2.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
             column.separator()
             row = column.row()
@@ -873,17 +874,17 @@ class CC3SpringRigPanel(bpy.types.Panel):
             column.separator()
             row = column.row()
             row.scale_y = 1
-            row.alert = True
+            warn_icon(row, "X")
             op_text = "Clear All Hair Bones" if props.hair_rig_bind_bone_mode == "ALL" else "Clear Selected Bones"
             row.operator("cc3.hair", icon=utils.check_icon("BONE_DATA"), text=op_text).param = "REMOVE_HAIR_BONES"
             row = column.row()
             row.scale_y = 1
-            row.alert = True
+            warn_icon(row, "X")
             op_text = "Clear All Hair Weights" if props.hair_rig_bind_bone_mode == "ALL" and props.hair_rig_bind_card_mode == "ALL" else "Clear Selected Weights"
             row.operator("cc3.hair", icon=utils.check_icon("MOD_VERTEX_WEIGHT"), text=op_text).param = "CLEAR_WEIGHTS"
             row = column.row()
             row.scale_y = 1
-            row.alert = True
+            warn_icon(row, "X")
             op_text = "Clear Grease Pencil"
             row.operator("cc3.hair", icon=utils.check_icon("OUTLINER_OB_GREASEPENCIL"), text=op_text).param = "CLEAR_GREASE_PENCIL"
             column.separator()
@@ -1362,12 +1363,7 @@ class CC3RigifyPanel(bpy.types.Panel):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
-        missing_materials = False
-        if chr_cache:
-            for obj_cache in chr_cache.object_cache:
-                obj = obj_cache.get_object()
-                if obj and obj.type == "MESH" and not chr_cache.has_all_materials(obj.data.materials):
-                    missing_materials = True
+        missing_materials = characters.has_missing_materials(chr_cache)
 
         layout = self.layout
         layout.use_property_split = False
@@ -1497,6 +1493,19 @@ class CC3RigifyPanel(bpy.types.Panel):
                 if chr_cache.rigified:
 
                     spring_rigs = springbones.get_spring_rigs(chr_cache, rig)
+
+                    # utility widgets
+                    box_row = layout.box().row()
+                    is_full_rig_show = rigging.is_full_rig_shown(chr_cache)
+                    box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
+                    if spring_rigs:
+                        is_base_rig_show = rigging.is_base_rig_shown(chr_cache)
+                        box_row.operator("cc3.rigifier", icon="ARMATURE_DATA", text="", depress=is_base_rig_show).param = "TOGGLE_SHOW_BASE_RIG"
+                        is_spring_rig_show = rigging.is_spring_rig_shown(chr_cache)
+                        box_row.operator("cc3.rigifier", icon="FORCE_MAGNETIC", text="", depress=is_spring_rig_show).param = "TOGGLE_SHOW_SPRING_RIG"
+                    is_pose_position = rigging.is_rig_rest_position(chr_cache)
+                    box_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+
                     if spring_rigs:
 
                         if fake_drop_down(layout.box().row(),
@@ -1516,9 +1525,10 @@ class CC3RigifyPanel(bpy.types.Panel):
                             row = layout.row()
                             row.scale_y = 2
                             if "rigified" in pose_bone and pose_bone["rigified"]:
-                                row.operator("cc3.rigifier", icon="X", text="Remove Spring Rig").param = "REMOVE_SPRING_RIG"
+                                warn_icon(row)
+                                row.operator("cc3.rigifier", icon="X", text="Remove Control Rig").param = "REMOVE_SPRING_RIG"
                             else:
-                                row.operator("cc3.rigifier", icon="ADD", text="Build Spring Rig").param = "BUILD_SPRING_RIG"
+                                row.operator("cc3.rigifier", icon="MOD_SCREW", text="Build Control Rig").param = "BUILD_SPRING_RIG"
 
                             layout.separator()
 
@@ -1526,7 +1536,8 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                             layout.separator()
 
-                    if fake_drop_down(layout.box().row(),
+                    box_row = layout.box().row()
+                    if fake_drop_down(box_row,
                                         "Rig Controls",
                                         "section_rigify_controls",
                                         props.section_rigify_controls,
@@ -1565,7 +1576,8 @@ class CC3RigifyPanel(bpy.types.Panel):
                                 else:
                                     col_3.label(text="")
 
-                    if fake_drop_down(layout.box().row(),
+                    box_row = layout.box().row()
+                    if fake_drop_down(box_row,
                                         "Retargeting",
                                         "section_rigify_retarget",
                                         props.section_rigify_retarget,
@@ -1735,8 +1747,9 @@ class CC3SpringControlPanel(bpy.types.Panel):
                 #box = layout.box()
                 #box.label(text="Spring Chain", icon="LINKED")
                 layout.row().label(text="Spring Chain:", icon="LINKED")
+                if rigid_body_sim:
+                    layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation-FK ({chain_name})", slider=True)
                 layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
-                layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation ({chain_name})", slider=True)
 
             layout.separator()
 
@@ -1746,19 +1759,18 @@ class CC3SpringControlPanel(bpy.types.Panel):
             prefix = springbones.get_spring_rig_prefix(parent_mode)
             rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
 
-            #box = layout.box()
-            #box.label(text="Spring Chain Group", icon="PROP_CON")
             layout.row().label(text="Spring Chain Group:", icon="PROP_CON")
             group_name = active_pose_bone.name
             if group_name.endswith("_group_ik"):
                 group_name = group_name[:-9]
             if group_name.startswith("DEF-"):
                 group_name = group_name[4:]
-            layout.prop(active_pose_bone, "[\"IK_FK\"]", text=f"IK-FK ({group_name})", slider=True)
-            layout.prop(active_pose_bone, "[\"SIM\"]", text=f"Simulation ({group_name})", slider=True)
+            row = layout.row()
+            row.operator("cc3.rigifier", icon="BACK", text="IK").param = "SPRING_GROUP_TO_IK"
+            row.operator("cc3.rigifier", icon="FORWARD", text="FK").param = "SPRING_GROUP_TO_FK"
+            if rigid_body_sim:
+                row.operator("cc3.rigifier", icon="ANIM_DATA", text="SIM").param = "SPRING_GROUP_TO_SIM"
 
-            #box = layout.box()
-            #box.label(text="Spring Chains", icon="LINKED")
             layout.row().label(text="Spring Chains:", icon="LINKED")
             for child in active_pose_bone.children:
                 if child.name.endswith("_target_ik"):
@@ -1773,8 +1785,9 @@ class CC3SpringControlPanel(bpy.types.Panel):
                     chain_name = child_chain_bone_name
                     if spring_rig_def and "IK_FK" in arm.pose.bones[mch_root_name]:
                         control_bone = arm.pose.bones[mch_root_name]
+                        if rigid_body_sim:
+                            layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation-FK ({chain_name})", slider=True)
                         layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
-                        layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation ({chain_name})", slider=True)
                         layout.separator()
 
         if chr_cache and arm and obj:
@@ -2346,17 +2359,15 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             column.separator()
 
             row = column.row()
+            warn_icon(row)
             if not sculpt_body:
                 row.enabled = False
-            else:
-                row.alert = True
             row.operator("cc3.sculpting", icon="TRASH", text="Remove Body Sculpt").param = "BODY_CLEAN"
 
             row = column.row()
+            warn_icon(row)
             if not detail_body:
                 row.enabled = False
-            else:
-                row.alert = True
             row.operator("cc3.sculpting", icon="TRASH", text="Remove Detail Sculpt").param = "DETAIL_CLEAN"
 
             column.separator()
@@ -2506,8 +2517,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         box = layout.row()
         box.label(text = "Character: " + character_name)
         row = layout.row()
+        warn_icon(row)
         if not chr_cache:
             row.enabled = False
-        else:
-            row.alert = True
         row.operator("cc3.importer", icon="REMOVE", text="Remove Character").param ="DELETE_CHARACTER"

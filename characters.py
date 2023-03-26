@@ -530,6 +530,16 @@ def clean_up_character_data(chr_cache):
             utils.message_box("Nothing to clean up.", "Cleanup Report", "INFO")
 
 
+def has_missing_materials(chr_cache):
+    missing_materials = False
+    if chr_cache:
+        for obj_cache in chr_cache.object_cache:
+            obj = obj_cache.get_mesh()
+            if obj and not chr_cache.has_all_materials(obj.data.materials):
+                missing_materials = True
+    return missing_materials
+
+
 def add_missing_materials_to_character(chr_cache, obj, obj_cache):
     props  = bpy.context.scene.CC3ImportProps
 

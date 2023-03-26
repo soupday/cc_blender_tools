@@ -30,6 +30,10 @@ ROOT_BONE_NAMES = HEAD_BONE_NAMES.copy().extend(JAW_BONE_NAMES.copy())
 
 AVAILABLE_SPRING_RIG_LIST = []
 
+SPRING_IK_LAYER = 19
+SPRING_FK_LAYER = 20
+SPRING_TWEAK_LAYER = 21
+SPRING_EDIT_LAYER = 25
 
 def get_spring_rig_name(parent_mode):
     if parent_mode == "JAW":
@@ -210,6 +214,8 @@ def realign_spring_bones_axis(chr_cache, arm):
             origin = arm.matrix_world @ spring_root.head
             z_axis = (((head + tail) * 0.5) - origin).normalized()
             bone.align_roll(z_axis)
+            if bone.parent != spring_root:
+                bone.use_connect = True
 
     # save edit mode changes
     utils.object_mode_to(arm)
@@ -231,3 +237,48 @@ def enumerate_spring_rigs(self, context):
 
     return AVAILABLE_SPRING_RIG_LIST
 
+
+def show_spring_bone_edit_layer(chr_cache, arm, show):
+    if arm:
+        if show:
+            arm.data.layers[SPRING_EDIT_LAYER] = True
+            for i in range(0, 32):
+                arm.data.layers[i] = (i == SPRING_EDIT_LAYER)
+            arm.show_in_front = True
+            arm.display_type = 'SOLID'
+            #arm.data.display_type = 'STICK'
+
+        else:
+            for i in range(0, 32):
+                if chr_cache.rigified:
+                    arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
+                else:
+                    arm.data.layers[i] = (i == 0)
+            arm.show_in_front = False
+            if chr_cache.rigified:
+                arm.display_type = 'WIRE'
+            else:
+                arm.display_type = 'SOLID'
+            #arm.data.display_type = 'OCTAHEDRAL'
+
+
+def show_spring_bone_rig_layers(chr_cache, arm, show):
+    if arm:
+        if show:
+            arm.data.layers[SPRING_FK_LAYER] = True
+            for i in range(0, 32):
+                arm.data.layers[i] = (i == SPRING_FK_LAYER or i == SPRING_IK_LAYER or i == SPRING_TWEAK_LAYER)
+            arm.show_in_front = False
+
+        else:
+            for i in range(0, 32):
+                if chr_cache.rigified:
+                    arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
+                else:
+                    arm.data.layers[i] = (i == 0)
+            arm.show_in_front = False
+            if chr_cache.rigified:
+                arm.display_type = 'WIRE'
+            else:
+                arm.display_type = 'SOLID'
+            #arm.data.display_type = 'OCTAHEDRAL'
