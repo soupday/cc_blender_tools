@@ -352,6 +352,9 @@ def remove_existing_rigid_body_system(arm, rig_prefix, spring_rig_bone_name):
     if not arm:
         return None
 
+    pose_position = arm.data.pose_position
+    arm.data.pose_position = "REST"
+
     rigid_body_system_name = get_rigid_body_system_name(arm, rig_prefix)
     settings = None
 
@@ -413,6 +416,8 @@ def remove_existing_rigid_body_system(arm, rig_prefix, spring_rig_bone_name):
     utils.log_recess()
 
     set_rigify_simulation_influence(arm, spring_rig_bone_name, 0.0, 1.0)
+
+    arm.data.pose_position = pose_position
 
     return settings
 
@@ -491,7 +496,13 @@ def get_rigid_body(chr_cache, obj):
 
 
 def enable_rigid_body_collision_mesh(chr_cache, obj):
+    arm = None
     if chr_cache:
+        arm = chr_cache.get_armature()
+        if arm:
+            pose_position = arm.data.pose_position
+            arm.data.pose_position = "REST"
+
         obj_cache = chr_cache.get_object_cache(obj)
         if obj_cache and obj_cache.object_type == "BODY":
             if utils.object_exists_is_mesh(chr_cache.collision_body):
@@ -531,9 +542,18 @@ def enable_rigid_body_collision_mesh(chr_cache, obj):
     obj.rigid_body.linear_damping = 0
     obj.rigid_body.angular_damping = 0
 
+    if arm:
+        arm.data.pose_position = pose_position
+
 
 def disable_rigid_body_collision_mesh(chr_cache, obj):
+    arm = None
     if chr_cache:
+        arm = chr_cache.get_armature()
+        if arm:
+            pose_position = arm.data.pose_position
+            arm.data.pose_position = "REST"
+
         obj_cache = chr_cache.get_object_cache(obj)
         if obj_cache and obj_cache.object_type == "BODY":
             if utils.object_exists_is_mesh(chr_cache.collision_body):
@@ -558,6 +578,9 @@ def disable_rigid_body_collision_mesh(chr_cache, obj):
         if hidden:
             obj.hide_set(True)
 
+    if arm:
+        arm.data.pose_position = pose_position
+
 
 def get_rigid_body_system_name(arm, rig_prefix):
     return f"{arm.name}_{rig_prefix}_RigidBody"
@@ -580,6 +603,9 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
     arm = chr_cache.get_armature()
     if not arm or spring_rig_bone_name not in arm.data.bones:
         return False
+
+    pose_position = arm.data.pose_position
+    arm.data.pose_position = "REST"
 
     spring_rig_bone = arm.pose.bones[spring_rig_bone_name]
     rigified = "rigified" in spring_rig_bone and spring_rig_bone["rigified"]
@@ -660,6 +686,8 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
         bpy.context.scene.rigidbody_world.solver_iterations = 100
 
     utils.hide_tree(rigid_body_system)
+
+    arm.data.pose_position = pose_position
 
 
 def set_rigify_simulation_influence(arm, spring_rig_bone_name, sim_value, ik_fk_value):

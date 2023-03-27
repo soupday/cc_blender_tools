@@ -179,6 +179,13 @@ def add_collision_physics(chr_cache, obj, obj_cache):
     Does not overwrite or re-create any existing Collision modifier.
     """
 
+    # physics seem to apply better if done in rest pose
+    if chr_cache:
+        arm = chr_cache.get_armature()
+        if arm:
+            pose_position = arm.data.pose_position
+            arm.data.pose_position = "REST"
+
     if obj_cache is None:
         obj_cache = chr_cache.get_object_cache(obj)
 
@@ -201,6 +208,9 @@ def add_collision_physics(chr_cache, obj, obj_cache):
 
             remove_collision_physics(chr_cache, obj, obj_cache)
             utils.log_info("Collision Physics disabled for: " + obj.name)
+
+    if arm:
+        arm.data.pose_position = pose_position
 
 
 def remove_collision_physics(chr_cache, obj, obj_cache):
