@@ -218,7 +218,8 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
     c.name = utils.unique_name("Spring_StretchTo")
     c.target = tail_body
     c.influence = INFLUENCE
-    c.rest_length = (tail_body.location - head_body.location).length
+    c.rest_length = (parent_object.matrix_world.inverted() @ tail_body.location -
+                     parent_object.matrix_world.inverted() @ head_body.location).length
 
     if dampening_driver:
 
@@ -420,6 +421,8 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
     rigid_body_system_name = get_rigid_body_system_name(arm, rig_prefix)
     bpy.ops.object.empty_add(type='SINGLE_ARROW', align='WORLD', location=(0,0,0))
     rigid_body_system = bpy.context.active_object
+    collections = utils.get_object_scene_collections(arm)
+    utils.move_object_to_scene_collections(rigid_body_system, collections)
     rigid_body_system.hide_render = True
     rigid_body_system.parent = arm
     rigid_body_system.parent_type = "BONE"
@@ -483,7 +486,7 @@ def get_rigid_body(chr_cache, obj):
         if obj_cache and obj_cache.object_type == "BODY":
             if utils.object_exists_is_mesh(chr_cache.collision_body):
                 obj = chr_cache.collision_body
-                return obj.rigid_body
+        return obj.rigid_body
     return None
 
 
@@ -492,6 +495,8 @@ def enable_rigid_body_collision_mesh(chr_cache, obj):
         obj_cache = chr_cache.get_object_cache(obj)
         if obj_cache and obj_cache.object_type == "BODY":
             if utils.object_exists_is_mesh(chr_cache.collision_body):
+                # if there is a collision body proxy but
+                # there is a rigid body mod on the real body, remove it:
                 if obj.rigid_body:
                     utils.set_active_object(obj)
                     hidden = False

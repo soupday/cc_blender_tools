@@ -933,24 +933,38 @@ def restore_visible_in_scene(tmp_collection : bpy.types.Collection):
     bpy.data.collections.remove(tmp_collection)
 
 
-def get_object_collection(obj):
+def get_object_scene_collections(obj):
+    collections = []
     if obj.name in bpy.context.scene.collection.objects:
-        return bpy.context.scene.collection
+        collections.append(bpy.context.scene.collection)
     for col in bpy.data.collections:
+        if col != bpy.context.scene.collection and obj.name in col.objects:
+            collections.append(col)
+    return collections
+
+
+def get_all_scene_collections():
+    collections = []
+    collections.append(bpy.context.scene.collection)
+    for col in bpy.data.collections:
+        if col != bpy.context.scene.collection:
+            collections.append(col)
+    return collections
+
+
+def remove_from_scene_collections(obj, collections = None):
+    if collections is None:
+        collections = get_all_scene_collections()
+    for col in collections:
         if obj.name in col.objects:
-            return col
-    return None
-
-
-def move_object_to_collection(obj, collection):
-    col : bpy.types.Collection
-    if obj.name in bpy.context.scene.collection.objects:
-        bpy.context.scene.collection.objects.unlink(obj)
-    for col in bpy.data.collections:
-        if col != collection and obj.name in col.objects:
             col.objects.unlink(obj)
-    if obj.name not in collection.objects:
-        collection.objects.link(obj)
+
+
+def move_object_to_scene_collections(obj, collections):
+    remove_from_scene_collections(obj)
+    for col in collections:
+        if obj.name not in col.objects:
+            col.objects.link(obj)
 
 
 def store_mode_selection_state():

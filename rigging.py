@@ -2331,7 +2331,7 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 def adv_bake_NLA_to_rigify(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
     rigify_rig = chr_cache.get_armature()
-    utils.safe_set_action(rigify_rig, None)
+    #utils.safe_set_action(rigify_rig, None)
     #adv_retarget_remove_pair(op, chr_cache)
 
     # select all possible control bones in the rigify rig, to bake:
@@ -2927,21 +2927,8 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
         if action_name == "" and action:
             action_name = action.name
         name = action_name.split("|")[-1]
-        new_name = f"{rig.name}|A|{name}"
-        utils.log_info(f"Baking action: {name} to {new_name}")
-        # armature action
-        baked_action = bpy.data.actions.new(new_name)
-        baked_action.use_fake_user = True
-        return_action = baked_action
-        utils.safe_set_action(rig, baked_action)
-        # shape key actions
-        if shape_key_objects:
-            for obj in shape_key_objects:
-                obj_name = utils.get_action_shape_key_object_name(obj.name)
-                baked_action = bpy.data.actions.new(f"{rig.name}|K|{obj_name}|{name}")
-                baked_action.use_fake_user = True
-                utils.safe_set_action(obj.data.shape_keys, baked_action)
-            utils.try_select_objects(shape_key_objects)
+        armature_action_name = f"{rig.name}|A|{name}"
+        utils.log_info(f"Baking action: {name} to {armature_action_name}")
         # frame range
         if action:
             start_frame = int(action.frame_range[0])
@@ -2963,10 +2950,29 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
                          frame_end=end_frame,
                          only_selected=True,
                          visual_keying=True,
-                         use_current_action=True,
+                         use_current_action=False,
                          clear_constraints=clear_constraints,
                          clean_curves=False,
                          bake_types={'POSE'})
+
+        # armature action
+        baked_action = utils.safe_get_action(rig)
+        if baked_action:
+            baked_action.name = armature_action_name
+            baked_action.use_fake_user = True
+            return_action = baked_action
+            utils.log_info(f"Baked armature action: {baked_action.name}")
+        # shape key actions
+        if shape_key_objects:
+            for obj in shape_key_objects:
+                obj_name = utils.get_action_shape_key_object_name(obj.name)
+                baked_action = utils.safe_get_action(obj.data.shape_keys)
+                if baked_action:
+                    shape_key_action_name = f"{rig.name}|K|{obj_name}|{name}"
+                    baked_action.name = shape_key_action_name
+                    baked_action.use_fake_user = True
+                    utils.log_info(f" - Baked shape-key action: {baked_action.name}")
+            utils.try_select_objects(shape_key_objects)
 
         utils.set_mode("OBJECT")
 

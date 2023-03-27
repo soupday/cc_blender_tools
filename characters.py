@@ -123,12 +123,12 @@ def make_prop_armature(objects):
                 obj.matrix_parent_inverse = parent_bone.matrix_local.inverted() @ tail_translate
 
     # remove the empties and move all objects into the same collection as the armature
-    collection = utils.get_object_collection(arm)
+    collections = utils.get_object_scene_collections(arm)
     for obj in objects:
         if obj.type == "EMPTY":
             bpy.data.objects.remove(obj)
         else:
-            utils.move_object_to_collection(obj, collection)
+            utils.move_object_to_scene_collections(obj, collections)
 
     # finally force the armature name again (as it may have been taken by the original object)
     arm.name = arm_name
