@@ -16,7 +16,7 @@
 
 import bpy
 from mathutils import Vector
-from . import utils, bones, vars
+from . import physics, rigidbody, utils, bones, vars
 
 
 HEAD_RIG_NAME = "RL_Hair_Rig_Head"
@@ -282,3 +282,185 @@ def show_spring_bone_rig_layers(chr_cache, arm, show):
             else:
                 arm.display_type = 'SOLID'
             #arm.data.display_type = 'OCTAHEDRAL'
+
+
+def stop_spring_animation(context):
+    # stop any playing animation
+    if context.screen.is_animation_playing:
+        bpy.ops.screen.animation_cancel(restore_frame=False)
+
+    # reset the animation (it is very unstable if we don't do this)
+    bpy.ops.screen.frame_jump(end = False)
+
+
+def reset_spring_physics(context):
+    # reset the physics cache
+    bpy.context.scene.frame_current = bpy.context.scene.frame_current + 1
+    rigidbody.reset_cache(context)
+    #physics.reset_cache(context)
+
+    # reset the animation again for good measure...
+    bpy.ops.screen.frame_jump(end = False)
+    rigidbody.reset_cache(context)
+    #physics.reset_cache(context)
+
+
+class CC3OperatorSpringBones(bpy.types.Operator):
+    """Blender Spring Bone Functions"""
+    bl_idname = "cc3.springbones"
+    bl_label = "Blender Spring Bone Functions"
+    #bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = ""
+        )
+
+    def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        mode_selection = utils.store_mode_selection_state()
+
+        chr_cache = props.get_context_character_cache(context)
+        arm = chr_cache.get_armature()
+
+        if self.param == "MAKE_RIGID_BODY_SYSTEM":
+            stop_spring_animation(context)
+
+            parent_mode = chr_cache.available_spring_rigs
+            hair_rig_bone_name = get_spring_rig_name(parent_mode)
+            hair_rig_prefix = get_spring_rig_prefix(parent_mode)
+
+            if arm:
+                rigidbody.build_spring_rigid_body_system(chr_cache, hair_rig_prefix, hair_rig_bone_name)
+                body = chr_cache.get_body()
+                if chr_cache.collision_body is None:
+                    physics.add_collision_physics(chr_cache, body, None)
+                rigidbody.enable_rigid_body_collision_mesh(chr_cache, body)
+
+            reset_spring_physics(context)
+
+            utils.restore_mode_selection_state(mode_selection)
+
+        if self.param == "REMOVE_RIGID_BODY_SYSTEM":
+            stop_spring_animation(context)
+
+            parent_mode = props.hair_rig_bone_root
+            hair_rig_bone_name = get_spring_rig_name(parent_mode)
+            hair_rig_prefix = get_spring_rig_prefix(parent_mode)
+
+            if arm:
+                rigidbody.remove_existing_rigid_body_system(arm, hair_rig_prefix, hair_rig_bone_name)
+
+            reset_spring_physics(context)
+
+        if self.param == "ENABLE_RIGID_BODY_COLLISION":
+            stop_spring_animation(context)
+
+            objects = utils.get_selected_meshes()
+            for obj in objects:
+                rigidbody.enable_rigid_body_collision_mesh(chr_cache, obj)
+
+            reset_spring_physics(context)
+
+            utils.restore_mode_selection_state(mode_selection)
+
+        if self.param == "DISABLE_RIGID_BODY_COLLISION":
+            stop_spring_animation(context)
+
+            objects = utils.get_selected_meshes()
+            for obj in objects:
+                rigidbody.disable_rigid_body_collision_mesh(chr_cache, obj)
+
+            reset_spring_physics(context)
+
+            utils.restore_mode_selection_state(mode_selection)
+
+        if self.param == "RESET_PHYSICS":
+            stop_spring_animation(context)
+            reset_spring_physics(context)
+
+            utils.restore_mode_selection_state(mode_selection)
+
+
+        if self.param == "BAKE_PHYSICS":
+            utils.object_mode_to(arm)
+            stop_spring_animation(context)
+            bpy.ops.screen.frame_jump(end = True)
+            rigidbody.bake_rigid_body_simulation(context)
+
+            utils.restore_mode_selection_state(mode_selection)
+
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+        props = bpy.context.scene.CC3ImportProps
+
+        if properties.param == "ADD_BONES":
+            return "Add bones to the hair rig, generated from the selected hair cards in the active mesh"
+        elif properties.param == "ADD_BONES_CUSTOM":
+            return "Add a single custom bone to the hair rig"
+        elif properties.param == "ADD_BONES_GREASE":
+            return "Add bones generated from grease pencil lines drawn in the current annotation layer.\n\n" \
+                   "Note: For best results draw lines onto the hair in Surface placement mode."
+        elif properties.param == "REMOVE_HAIR_BONES":
+                if props.hair_rig_bind_bone_mode == "ALL":
+                    return "Remove all bones from the hair rig.\n\n" \
+                           "All associated vertex weights will also be removed from the hair meshes"
+                else:
+                    return "Remove only the selected bones from the hair rig.\n\n" \
+                           "The vertex weights for the removed bones will also be removed from the hair meshes\n\n" \
+                           "Note: Selecting any bone in a chain will use the entire chain of bones"
+        elif properties.param == "BIND_TO_BONES":
+            if props.hair_rig_bind_card_mode == "ALL":
+                if props.hair_rig_bind_bone_mode == "ALL":
+                    return "Bind the selected hair meshes to all of the hair rig bones.\n\n" \
+                           "If no meshes are selected then *all* meshes in the character will be considered"
+                else:
+                    return "Bind the selected hair meshes to only the selected hair rig bones.\n\n" \
+                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
+                           "Note: Selecting any bone in a chain will use the entire chain of bones"
+            else:
+                if props.hair_rig_bind_bone_mode == "ALL":
+                    return "Bind only the selected hair cards in the selected hair meshes to all of the hair rig bones.\n\n" \
+                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
+                           "Note: Selecting any part of a hair card will use the entire card island"
+                else:
+                    return "Bind only the selected hair cards in the selected hair meshes to only the selected hair rig bones.\n\n" \
+                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
+                           "Note: Selecting any bone in a chain will use the entire chain of bones and selecting any part of a hair card will select the whole har card island"
+        elif properties.param == "CLEAR_WEIGHTS":
+            if props.hair_rig_bind_card_mode == "ALL":
+                if props.hair_rig_bind_bone_mode == "ALL":
+                    return "Clear all the hair rig bone vertex weights from the selected hair meshes.\n\n" \
+                           "If no meshes are selected then *all* meshes in the character will be considered"
+                else:
+                    return "Clear only the selected hair rig bone vertex weights from the selected hair meshes.\n\n" \
+                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
+                           "Note: Selecting any bone in a chain will use the entire chain of bones"
+            else:
+                if props.hair_rig_bind_bone_mode == "ALL":
+                    return "Clear all the hair rig bone vertex weights from only the selected hair cards in the selected meshes.\n\n" \
+                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
+                           "Note: Selecting any part of a hair card will select the whole har card island"
+                else:
+                    return "Clear only the selected hair rig bone vertex weights from only the selected hair cards in the selected meshes.\n\n" \
+                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
+                           "Note: Selecting any bone in a chain will use the entire chain of bones and selecting any part of a hair card will select the whole har card island"
+
+        elif properties.param == "CLEAR_GREASE_PENCIL":
+            return "Remove all grease pencil lines from the current annotation layer"
+        elif properties.param == "CARDS_TO_CURVES":
+            return "Convert all the hair cards into curves"
+        elif properties.param == "MAKE_ACCESSORY":
+            return "Removes all none hair rig vertex groups from objects so that CC4 recognizes them as accessories and not cloth or hair.\n\n" \
+                   "Accessories are categorized by:\n" \
+                   "    1. A bone representing the accessory parented to a CC Base bone.\n" \
+                   "    2. Child accessory deformation bone(s) parented to the accessory bone in 1.\n" \
+                   "    3. Object(s) with vertex weights to ONLY these accessory deformation bones in 2.\n" \
+                   "    4. All vertices in the accessory must be weighted"
+
+        return ""

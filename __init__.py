@@ -142,6 +142,7 @@ classes = (
     rigging.CC3Rigifier,
     rigging.CC3RigifierModal,
 
+    springbones.CC3OperatorSpringBones,
     physics.CC3OperatorPhysics,
     materials.CC3OperatorMaterial,
     characters.CC3OperatorCharacter,

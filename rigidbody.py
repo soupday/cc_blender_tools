@@ -522,7 +522,7 @@ def enable_rigid_body_collision_mesh(chr_cache, obj):
     obj.rigid_body.use_deform = True
     obj.rigid_body.friction = 0
     obj.rigid_body.restitution = 0
-    obj.rigid_body.collision_margin = 0.05
+    obj.rigid_body.collision_margin = 0.025
     obj.rigid_body.linear_damping = 0
     obj.rigid_body.angular_damping = 0
 
@@ -734,3 +734,11 @@ def reset_cache(context):
         except:
             pass
         rigidbody_world.solver_iterations = interations
+
+
+def bake_rigid_body_simulation(context):
+    # NOTE: unstable
+    point_cache = bpy.context.scene.rigidbody_world.point_cache
+    override = { "point_cache": point_cache }
+    # 'INVOKE_DEFAULT' is required to show the bake progress bar.
+    bpy.ops.ptcache.bake(override, "INVOKE_DEFAULT", bake=True)

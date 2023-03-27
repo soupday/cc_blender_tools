@@ -309,7 +309,7 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
             if not rigid_body_sim:
                 row = column.row()
                 row.scale_y = 2.0
-                row.operator("cc3.hair", icon=utils.check_icon("CON_KINEMATIC"), text="Build Simulation").param = "MAKE_RIGID_BODY_SYSTEM"
+                row.operator("cc3.springbones", icon=utils.check_icon("CON_KINEMATIC"), text="Build Simulation").param = "MAKE_RIGID_BODY_SYSTEM"
                 column.separator()
                 if not has_spring_rig:
                     row.enabled = False
@@ -317,7 +317,7 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
                 row = column.row()
                 row.scale_y = 2.0
                 warn_icon(row)
-                row.operator("cc3.hair", icon=utils.check_icon("X"), text="Remove Simulation").param = "REMOVE_RIGID_BODY_SYSTEM"
+                row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Remove Simulation").param = "REMOVE_RIGID_BODY_SYSTEM"
                 column.separator()
         else:
             column.row().label(text = "No spring rig selected", icon="ERROR")
@@ -327,13 +327,13 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
         if rigid_body:
             row = column.row()
             warn_icon(row)
-            row.operator("cc3.hair", icon=utils.check_icon("X"), text="Disable Collision Body").param = "DISABLE_RIGID_BODY_COLLISION"
+            row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Disable Collision Body").param = "DISABLE_RIGID_BODY_COLLISION"
             column.row().prop(rigid_body, "collision_margin", text="Collision Margin", slider=True)
         else:
-            column.row().operator("cc3.hair", icon=utils.check_icon("MOD_PHYSICS"), text="Enable Collision Body").param = "ENABLE_RIGID_BODY_COLLISION"
+            column.row().operator("cc3.springbones", icon=utils.check_icon("MOD_PHYSICS"), text="Enable Collision Body").param = "ENABLE_RIGID_BODY_COLLISION"
 
         row = column.row()
-        row.operator("cc3.hair", icon=utils.check_icon("LOOP_BACK"), text="Reset Physics").param = "RESET_PHYSICS"
+        row.operator("cc3.springbones", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "RESET_PHYSICS"
 
 
 class ARMATURE_UL_List(bpy.types.UIList):
@@ -909,12 +909,12 @@ class CC3SpringRigPanel(bpy.types.Panel):
 
             column.separator()
 
-            box = column.box()
-            box.label(text = "For CC4 Accessory Only", icon="INFO")
-            row = box.row()
-            row.operator("cc3.hair", icon=utils.check_icon("CONSTRAINT_BONE"), text="Make Accessory").param = "MAKE_ACCESSORY"
-            if not (is_hair_rig and not is_accessory):
-                row.enabled = False
+            if props.hair_rig_target == "CC4":
+                column.row().label(text = "For CC4 Accessory Only", icon="INFO")
+                row = column.row()
+                row.operator("cc3.hair", icon=utils.check_icon("CONSTRAINT_BONE"), text="Make Accessory").param = "MAKE_ACCESSORY"
+                if not (is_hair_rig and not is_accessory):
+                    row.enabled = False
 
             column.separator()
 
