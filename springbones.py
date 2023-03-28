@@ -19,10 +19,10 @@ from mathutils import Vector
 from . import physics, rigidbody, utils, bones, vars
 
 
-HEAD_RIG_NAME = "RL_Hair_Rig_Head"
-JAW_RIG_NAME = "RL_Hair_Rig_Jaw"
-HAIR_BONE_PREFIX = "RL_Hair"
-BEARD_BONE_PREFIX = "RL_Beard"
+HEAD_RIG_NAME = "RLS_Hair_Rig_Head"
+JAW_RIG_NAME = "RLS_Hair_Rig_Jaw"
+HAIR_BONE_PREFIX = "Hair"
+BEARD_BONE_PREFIX = "Beard"
 HEAD_BONE_NAMES = ["ORG-spine.006", "CC_Base_Head", "RL_Head", "Head", "head"]
 JAW_BONE_NAMES = ["ORG-jaw", "CC_Base_JawRoot", "RL_JawRoot", "JawRoot", "teeth.B"]
 EYE_BONE_NAMES = ["ORG-eye.R", "ORG-eye.L", "CC_Base_R_Eye", "CC_Base_L_Eye", "CC_Base_R_Eye", "CC_Base_L_Eye"]
@@ -35,18 +35,24 @@ SPRING_FK_LAYER = 20
 SPRING_TWEAK_LAYER = 21
 SPRING_EDIT_LAYER = 25
 
-def get_spring_rig_name(parent_mode):
+def get_spring_rig_name(arm, parent_mode):
     if parent_mode == "JAW":
-        hair_rig_name = JAW_RIG_NAME
+        spring_rig_name = JAW_RIG_NAME
     else:
-        hair_rig_name = HEAD_RIG_NAME
-    return hair_rig_name
+        spring_rig_name = HEAD_RIG_NAME
+
+    # fix any old spring bone rig names
+    old_spring_rig_name = "RL_" + spring_rig_name[4:]
+    if old_spring_rig_name in arm.data.bones:
+        return old_spring_rig_name
+
+    return spring_rig_name
 
 
 def has_spring_rig(chr_cache, arm, parent_mode):
-    hair_rig_name = get_spring_rig_name(parent_mode)
-    hair_rig = bones.get_bone(arm, hair_rig_name)
-    return hair_rig is not None
+    spring_rig_name = get_spring_rig_name(arm, parent_mode)
+    spring_rig = bones.get_bone(arm, spring_rig_name)
+    return spring_rig is not None
 
 
 def get_spring_rigs(chr_cache, arm, parent_modes : list = None, mode = "POSE"):
@@ -62,13 +68,18 @@ def get_spring_rigs(chr_cache, arm, parent_modes : list = None, mode = "POSE"):
         parent_modes = ["HEAD", "JAW"]
     spring_rigs = {}
     for parent_mode in parent_modes:
-        rig_name = get_spring_rig_name(parent_mode)
-        rig_root = get_spring_rig(chr_cache, arm, parent_mode, mode)
-        if rig_root:
-            spring_rigs[parent_mode] = { "name": rig_name,
-                                         "bone_name" : rig_root.name,
-                                         "bone": rig_root }
+        spring_rig_name = get_spring_rig_name(arm, parent_mode)
+        spring_rig_bone = get_spring_rig(chr_cache, arm, parent_mode, mode)
+        if spring_rig_bone:
+            spring_rigs[parent_mode] = { "name": spring_rig_name,
+                                         "bone_name" : spring_rig_bone.name,
+                                         "bone": spring_rig_bone }
     return spring_rigs
+
+
+def get_spring_rig_names(chr_cache, arm, parent_modes = None, mode = "POSE"):
+    spring_rigs = get_spring_rigs(chr_cache, arm, parent_modes, mode)
+    return [v["bone_name"] for v in spring_rigs.values()]
 
 
 def get_spring_rig_from_child(chr_cache, arm, bone_name, prefer_pose = True):
@@ -100,7 +111,7 @@ def get_spring_rig(chr_cache, arm, parent_mode, mode = "POSE", create_if_missing
     """This will return either the edit bone, pose bone or bone depending on which mode Blender is in.
        (or the pose if preferred)
        """
-    spring_rig_name = get_spring_rig_name(parent_mode)
+    spring_rig_name = get_spring_rig_name(arm, parent_mode)
     spring_rig = None
     if mode == "EDIT" and utils.get_mode() != "EDIT":
         utils.edit_mode_to(arm)
@@ -111,9 +122,9 @@ def get_spring_rig(chr_cache, arm, parent_mode, mode = "POSE", create_if_missing
         if spring_rig_name in arm.data.edit_bones:
             spring_rig = arm.data.edit_bones[spring_rig_name]
         if not spring_rig and create_if_missing:
-            root_bone_name = get_spring_root_name(chr_cache, arm, parent_mode)
+            anchor_bone_name = get_spring_anchor_name(chr_cache, arm, parent_mode)
             center_position = get_spring_rig_position(chr_cache, arm, parent_mode)
-            spring_rig = bones.new_edit_bone(arm, spring_rig_name, root_bone_name)
+            spring_rig = bones.new_edit_bone(arm, spring_rig_name, anchor_bone_name)
             spring_rig.head = arm.matrix_world.inverted() @ center_position
             spring_rig.tail = arm.matrix_world.inverted() @ (center_position + Vector((0,1/32,0)))
             spring_rig.align_roll(Vector((0,0,1)))
@@ -134,7 +145,7 @@ def get_spring_rig_prefix(parent_mode):
         return "NONE"
 
 
-def get_spring_root_name(chr_cache, arm, parent_mode):
+def get_spring_anchor_name(chr_cache, arm, parent_mode):
     if parent_mode == "HEAD":
         possible_head_bones = HEAD_BONE_NAMES
         for name in possible_head_bones:
@@ -152,7 +163,7 @@ def get_spring_root_name(chr_cache, arm, parent_mode):
 def get_spring_rig_position(chr_cache, arm, root_mode):
     """Returns the approximate position inside the head between the ears at nose height."""
 
-    head_edit_bone = get_root_edit_bone(chr_cache, arm, "HEAD")
+    head_edit_bone = get_spring_anchor_edit_bone(chr_cache, arm, "HEAD")
 
     if head_edit_bone:
         head_pos = arm.matrix_world @ head_edit_bone.head
@@ -178,9 +189,9 @@ def get_spring_rig_position(chr_cache, arm, root_mode):
     return None
 
 
-def get_root_edit_bone(chr_cache, arm, parent_mode):
+def get_spring_anchor_edit_bone(chr_cache, arm, parent_mode):
     try:
-        return arm.data.edit_bones[get_spring_root_name(chr_cache, arm, parent_mode)]
+        return arm.data.edit_bones[get_spring_anchor_name(chr_cache, arm, parent_mode)]
     except:
         return None
 
@@ -329,11 +340,12 @@ class CC3OperatorSpringBones(bpy.types.Operator):
             stop_spring_animation(context)
 
             parent_mode = chr_cache.available_spring_rigs
-            hair_rig_bone_name = get_spring_rig_name(parent_mode)
-            hair_rig_prefix = get_spring_rig_prefix(parent_mode)
+            spring_rig_name = get_spring_rig_name(arm, parent_mode)
+            print(spring_rig_name)
+            spring_rig_prefix = get_spring_rig_prefix(parent_mode)
 
             if arm:
-                rigidbody.build_spring_rigid_body_system(chr_cache, hair_rig_prefix, hair_rig_bone_name)
+                rigidbody.build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_name)
                 body = chr_cache.get_body()
                 if chr_cache.collision_body is None:
                     physics.add_collision_physics(chr_cache, body, None)
@@ -347,11 +359,11 @@ class CC3OperatorSpringBones(bpy.types.Operator):
             stop_spring_animation(context)
 
             parent_mode = props.hair_rig_bone_root
-            hair_rig_bone_name = get_spring_rig_name(parent_mode)
-            hair_rig_prefix = get_spring_rig_prefix(parent_mode)
+            spring_rig_name = get_spring_rig_name(arm, parent_mode)
+            spring_rig_prefix = get_spring_rig_prefix(parent_mode)
 
             if arm:
-                rigidbody.remove_existing_rigid_body_system(arm, hair_rig_prefix, hair_rig_bone_name)
+                rigidbody.remove_existing_rigid_body_system(arm, spring_rig_prefix, spring_rig_name)
 
             reset_spring_physics(context)
 

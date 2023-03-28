@@ -598,8 +598,6 @@ def get_spring_rigid_body_system(arm, rig_prefix):
 def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone_name, settings = None):
     props = bpy.context.scene.CC3ImportProps
 
-    # TODO: Align the body nodes & constraints with the bone y axis...
-
     arm = chr_cache.get_armature()
     if not arm or spring_rig_bone_name not in arm.data.bones:
         return False
@@ -613,6 +611,13 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
     # generate a map of the spring rig bones
     utils.edit_mode_to(arm)
     root_bone = arm.data.edit_bones[spring_rig_bone_name]
+
+    # fix old spring rig bone name
+    if spring_rig_bone_name.startswith("RL_"):
+        root_bone.name = "RLS_" + spring_rig_bone_name[3:]
+        spring_rig_bone_name = root_bone.name
+        utils.log_info(f"Updating spring rig name to {spring_rig_bone_name}")
+
     bone_map = {}
     build_bone_map(arm, root_bone, rigified = rigified, bone_map = bone_map)
     utils.object_mode_to(arm)

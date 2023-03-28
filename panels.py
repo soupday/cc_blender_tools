@@ -1627,7 +1627,11 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.label(text="Preview Shape-keys")
                         row.prop(props, "retarget_preview_shape_keys", text="")
                         row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Retarget").param = "RETARGET_CC_PAIR_RIGS"
+                        retarget_rig = chr_cache.rig_retarget_rig
+                        depress = False
+                        if utils.still_exists(retarget_rig):
+                            depress = True
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Retarget", depress=depress).param = "RETARGET_CC_PAIR_RIGS"
                         row.enabled = source_type != "Unknown"
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="X", text="Stop Preview").param = "RETARGET_CC_REMOVE_PAIR"

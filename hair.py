@@ -827,10 +827,10 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
 
     hair_bone_prefix = props.hair_rig_group_name
 
-    # check root bone exists...
-    root_bone_name = springbones.get_spring_root_name(chr_cache, arm, parent_mode)
-    root_bone = bones.get_pose_bone(arm, root_bone_name)
-    if root_bone:
+    # check anchor bone exists...
+    anchor_bone_name = springbones.get_spring_anchor_name(chr_cache, arm, parent_mode)
+    anchor_bone = bones.get_pose_bone(arm, anchor_bone_name)
+    if anchor_bone:
         loops = selected_cards_to_length_loops(chr_cache, obj, card_dir, one_loop_per_card)
         utils.edit_mode_to(arm)
         remove_existing_loop_bones(chr_cache, arm, loops)
@@ -1292,10 +1292,10 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     hair_bone_prefix = props.hair_rig_group_name
 
     # check root bone exists...
-    root_bone_name = springbones.get_spring_root_name(chr_cache, arm, parent_mode)
-    root_bone = bones.get_pose_bone(arm, root_bone_name)
+    anchor_bone_name = springbones.get_spring_anchor_name(chr_cache, arm, parent_mode)
+    anchor_bone = bones.get_pose_bone(arm, anchor_bone_name)
 
-    if root_bone:
+    if anchor_bone:
         loops = grease_pencil_to_length_loops(bone_length)
         utils.edit_mode_to(arm)
         remove_existing_loop_bones(chr_cache, arm, loops)
@@ -1348,10 +1348,10 @@ def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length
     hair_bone_prefix = props.hair_rig_group_name
 
     # check root bone exists...
-    root_bone_name = springbones.get_spring_root_name(chr_cache, arm, parent_mode)
-    root_bone = bones.get_pose_bone(arm, root_bone_name)
+    anchor_bone_name = springbones.get_spring_anchor_name(chr_cache, arm, parent_mode)
+    anchor_bone = bones.get_pose_bone(arm, anchor_bone_name)
 
-    if root_bone:
+    if anchor_bone:
         utils.edit_mode_to(arm)
         for edit_bone in arm.data.edit_bones:
             edit_bone.select_head = False
