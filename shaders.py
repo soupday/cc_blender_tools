@@ -748,7 +748,7 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
     apply_texture_matrix(nodes, links, group, mat, mat_cache, shader_name, mat_json, obj, processed_images)
 
     if not prefs.build_limit_textures:
-        if prefs.build_wrinkle_maps and mat_json and "Wrinkle" in mat_json.keys():
+        if props.wrinkle_mode == "ON" and mat_json and "Wrinkle" in mat_json.keys():
             apply_wrinkle_system(nodes, links, group, shader_name, mat, mat_cache, mat_json, obj, processed_images)
 
     nodeutils.clean_unused_image_nodes(nodes)

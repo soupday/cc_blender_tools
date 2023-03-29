@@ -60,7 +60,6 @@ def reset_preferences():
     prefs.build_pack_wrinkle_diffuse_roughness = False
     prefs.build_reuse_baked_channel_packs = True
     prefs.build_limit_textures = False
-    prefs.build_wrinkle_maps = True
     prefs.bake_use_gpu = False
     prefs.build_armature_edit_modifier = True
     prefs.build_armature_preserve_volume = False
@@ -210,8 +209,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     #refractive_eyes: bpy.props.BoolProperty(default=True, name="Refractive Eyes", description="Generate refractive eyes with iris depth and pupil scale parameters")
     eye_displacement_group: bpy.props.StringProperty(default="CC_Eye_Displacement", name="Eye Displacement Group", description="Eye Iris displacement vertex group name")
 
-    build_wrinkle_maps: bpy.props.BoolProperty(default=True, name="Build Wrinkle Maps",
-                description="If present, build the wrinkle map system into the character")
     build_limit_textures: bpy.props.BoolProperty(default=False, name="Limit Textures",
                 description="Attempt to limit the number of imported textures to 8 or less. This is to attempt to address problems with OSX hardware limitations allowing only 8 active textures in a material.\n"
                             "Note: This will mean the head material will be simpler than intended and no wrinkle map system is possible. "
@@ -295,7 +292,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Import:")
         layout.prop(self, "import_deduplicate")
         layout.prop(self, "import_auto_convert")
-        layout.prop(self, "build_wrinkle_maps")
         layout.prop(self, "build_limit_textures")
         layout.prop(self, "build_pack_texture_channels")
         layout.prop(self, "build_pack_wrinkle_diffuse_roughness")

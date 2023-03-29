@@ -1834,6 +1834,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("OFF","No Physics","No generated physics."),
                         ("ON","Physics","Automatically generates physics vertex groups and settings."),
                     ], default="OFF")
+    wrinkle_mode: bpy.props.EnumProperty(items=[
+                        ("OFF","No Wrinkle","No wrinkle maps will be set up for this character."),
+                        ("ON","Wrinkle Maps","Automatically generates wrinkle maps for this character (if available)."),
+                    ], default="ON")
+
 
     export_options: bpy.props.BoolProperty(default=False)
     cycles_options: bpy.props.BoolProperty(default=False)

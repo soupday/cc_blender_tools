@@ -120,7 +120,7 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
         # optional pack channels
         if prefs.build_limit_textures or prefs.build_pack_texture_channels:
             bake.pack_shader_channels(chr_cache, mat_cache)
-        elif prefs.build_wrinkle_maps and mat_json and "Wrinkle" in mat_json.keys():
+        elif props.wrinkle_mode == "ON" and mat_json and "Wrinkle" in mat_json.keys():
             bake.pack_shader_channels(chr_cache, mat_cache)
 
     else:

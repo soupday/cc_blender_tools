@@ -288,14 +288,14 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
             col_2 = split.column()
             col_1.label(text="Influence")
             col_2.prop(rigid_body_sim, "[\"rigid_body_influence\"]", text="", slider=True)
-            col_1.label(text="Limit")
+            col_1.label(text="Restrain")
             col_2.prop(rigid_body_sim, "[\"rigid_body_limit\"]", text="", slider=True)
             col_1.label(text="Curve")
             col_2.prop(rigid_body_sim, "[\"rigid_body_curve\"]", text="", slider=True)
             col_1.label(text="Mass")
             col_2.prop(rigid_body_sim, "[\"rigid_body_mass\"]", text="", slider=True)
-            col_1.label(text="Radius")
-            col_2.prop(rigid_body_sim, "[\"rigid_body_radius\"]", text="", slider=True)
+            col_1.label(text="Margin")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_margin\"]", text="", slider=True)
             col_1.label(text="Dampening")
             col_2.prop(rigid_body_sim, "[\"rigid_body_dampening\"]", text="", slider=True)
             col_1.label(text="Stiffness")
@@ -500,8 +500,6 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_2.prop(prefs, "import_deduplicate", text="")
             col_1.label(text="Auto Convert Generic")
             col_2.prop(prefs, "import_auto_convert", text="")
-            col_1.label(text="Build Wrinkle Maps")
-            col_2.prop(prefs, "build_wrinkle_maps", text="")
             col_1.label(text="Limit Textures")
             col_2.prop(prefs, "build_limit_textures", text="")
             col_1.label(text="Pack Texture Channels")
@@ -517,7 +515,6 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             layout.prop(props, "physics_mode", expand=True)
         layout.prop(prefs, "render_target", expand=True)
         layout.prop(prefs, "refractive_eyes", expand=True)
-        layout.prop(prefs, "build_wrinkle_maps", toggle=True)
 
         # ACES Prefs
         if colorspace.is_aces():
@@ -2450,7 +2447,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                 layout.prop(props, "lighting_mode", expand=True)
             if prefs.physics == "ENABLED":
                 layout.prop(props, "physics_mode", expand=True)
-        layout.prop(prefs, "build_wrinkle_maps", toggle=True)
+            layout.prop(props, "wrinkle_mode", expand=True)
 
         # Build prefs in title
         box = layout.box()
@@ -2463,8 +2460,6 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             col_2.prop(prefs, "import_deduplicate", text="")
             col_1.label(text="Auto Convert Generic")
             col_2.prop(prefs, "import_auto_convert", text="")
-            col_1.label(text="Build Wrinkle Maps")
-            col_2.prop(prefs, "build_wrinkle_maps", text="")
             col_1.label(text="Limit Textures")
             col_2.prop(prefs, "build_limit_textures", text="")
             col_1.label(text="Pack Texture Channels")
