@@ -334,6 +334,14 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
 
         row = column.row()
         row.operator("cc3.springbones", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "RESET_PHYSICS"
+        row = column.row()
+        depress = False
+        if bpy.context.scene.rigidbody_world.point_cache.is_baking:
+            depress = True
+        if bpy.context.scene.rigidbody_world.point_cache.is_baked:
+            row.alert = True
+        row.operator("cc3.springbones", icon=utils.check_icon("REC"), text="Bake Simulation", depress=depress).param = "BAKE_PHYSICS"
+
 
 
 class ARMATURE_UL_List(bpy.types.UIList):

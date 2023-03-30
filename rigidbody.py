@@ -780,7 +780,10 @@ def reset_cache(context):
 
 def bake_rigid_body_simulation(context):
     # NOTE: unstable
-    point_cache = bpy.context.scene.rigidbody_world.point_cache
-    override = { "point_cache": point_cache }
     # 'INVOKE_DEFAULT' is required to show the bake progress bar.
-    bpy.ops.ptcache.bake(override, "INVOKE_DEFAULT", bake=True)
+    override = {'scene': bpy.context.scene,
+                'point_cache': bpy.context.scene.rigidbody_world.point_cache}
+    override = bpy.context.copy()
+    override["point_cache"] = bpy.context.scene.rigidbody_world.point_cache
+    # bake to current frame
+    bpy.ops.ptcache.bake({"point_cache": bpy.context.scene.rigidbody_world.point_cache}, "INVOKE_DEFAULT", bake=True)

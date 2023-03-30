@@ -395,15 +395,14 @@ class CC3OperatorSpringBones(bpy.types.Operator):
 
             utils.restore_mode_selection_state(mode_selection)
 
-
         if self.param == "BAKE_PHYSICS":
             utils.object_mode_to(arm)
-            stop_spring_animation(context)
-            bpy.ops.screen.frame_jump(end = True)
-            rigidbody.bake_rigid_body_simulation(context)
-
-            utils.restore_mode_selection_state(mode_selection)
-
+            reset_spring_physics(context)
+            bpy.ops.ptcache.bake({"point_cache": bpy.context.scene.rigidbody_world.point_cache},
+                                 "INVOKE_DEFAULT", bake=True)
+            # as py.ops.ptcache.bake is a modal operator, don't do *anything* afterwards,
+            # or Blender will crash...
+            return {"FINISHED"}
 
         return {"FINISHED"}
 
