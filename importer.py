@@ -120,7 +120,7 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
         # optional pack channels
         if prefs.build_limit_textures or prefs.build_pack_texture_channels:
             bake.pack_shader_channels(chr_cache, mat_cache)
-        elif props.wrinkle_mode == "ON" and mat_json and "Wrinkle" in mat_json.keys():
+        elif props.wrinkle_mode and mat_json and "Wrinkle" in mat_json.keys():
             bake.pack_shader_channels(chr_cache, mat_cache)
 
     else:
@@ -230,7 +230,7 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
     elif obj.type == "ARMATURE":
 
         # set the frame range of the scene to the active action on the armature
-        if prefs.physics == "ENABLED" and props.physics_mode == "ON":
+        if props.physics_mode:
             scene.fetch_anim_range(bpy.context)
 
     utils.log_recess()
@@ -838,7 +838,7 @@ class CC3Import(bpy.types.Operator):
                         process_object(chr_cache, obj, objects_processed, chr_json, processed_materials, processed_images)
 
             # setup default physics
-            if prefs.physics == "ENABLED" and props.physics_mode == "ON":
+            if props.physics_mode:
                 utils.log_info("")
                 physics.add_all_physics(chr_cache)
 
@@ -947,7 +947,7 @@ class CC3Import(bpy.types.Operator):
                             apply_edit_shapekeys(obj_cache.get_object())
 
                 if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-                    if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
+                    if props.lighting_mode:
                         if utils.is_file_ext(chr_cache.import_type, "FBX"):
                             scene.setup_scene_default(prefs.pipeline_lighting)
                         else:
@@ -955,7 +955,7 @@ class CC3Import(bpy.types.Operator):
 
             # use portrait lighting for quality mode
             if self.param == "IMPORT_QUALITY":
-                if prefs.lighting == "ENABLED" and props.lighting_mode == "ON":
+                if props.lighting_mode:
                     scene.setup_scene_default(prefs.quality_lighting)
 
             if prefs.refractive_eyes == "SSR":
@@ -980,7 +980,15 @@ class CC3Import(bpy.types.Operator):
                         bpy.data.images.remove(img)
             utils.clean_collection(bpy.data.images)
 
-            props.lighting_mode = "OFF"
+            props.lighting_mode = False
+
+            if props.rigify_mode:
+                if chr_cache.can_be_rigged():
+                    cc3_rig = chr_cache.get_armature()
+                    bpy.ops.cc3.rigifier(param="ALL")
+                    props.armature_list_object = cc3_rig
+                    props.action_list_action = utils.safe_get_action(cc3_rig)
+                    rigging.adv_bake_retarget_to_rigify(self, chr_cache)
 
         self.imported_character = None
         self.imported_materials = []

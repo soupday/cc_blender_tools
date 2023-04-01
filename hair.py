@@ -1492,9 +1492,9 @@ def restore_pose(arm, arm_pose):
 
 
 class CC3OperatorHair(bpy.types.Operator):
-    """Blender Hair Functions"""
+    """Hair Spring Rigging"""
     bl_idname = "cc3.hair"
-    bl_label = "Blender Hair Functions"
+    bl_label = "Hair Spring Rigging"
     #bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     param: bpy.props.StringProperty(
@@ -1772,6 +1772,15 @@ class CC3OperatorHair(bpy.types.Operator):
                    "    2. Child accessory deformation bone(s) parented to the accessory bone in 1.\n" \
                    "    3. Object(s) with vertex weights to ONLY these accessory deformation bones in 2.\n" \
                    "    4. All vertices in the accessory must be weighted"
+
+        elif properties.param == "GROUP_NAME_BONES":
+            return "Rename the bones in the selected chain so they all belong to the same group name"
+
+        elif properties.param == "TOGGLE_GREASE_PENCIL":
+            return "Quick toggle grease pencil mode with surface draw and stabilze stroke"
+
+        elif properties.param == "CYCLE_BONE_STYLE":
+            return "Cycle through armature bone styles"
 
         return ""
 

@@ -305,6 +305,13 @@ def stop_spring_animation(context):
 
 
 def reset_spring_physics(context):
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache = props.get_context_character_cache(context)
+    if chr_cache:
+        arm = chr_cache.get_armature()
+        if arm:
+            arm.data.pose_position = "POSE"
+
     # reset the physics cache
     bpy.context.scene.frame_current = bpy.context.scene.frame_current + 1
     rigidbody.reset_cache(context)
@@ -319,7 +326,7 @@ def reset_spring_physics(context):
 class CC3OperatorSpringBones(bpy.types.Operator):
     """Blender Spring Bone Functions"""
     bl_idname = "cc3.springbones"
-    bl_label = "Blender Spring Bone Functions"
+    bl_label = "Spring Bone Simulation"
     #bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     param: bpy.props.StringProperty(
@@ -410,68 +417,16 @@ class CC3OperatorSpringBones(bpy.types.Operator):
     def description(cls, context, properties):
         props = bpy.context.scene.CC3ImportProps
 
-        if properties.param == "ADD_BONES":
-            return "Add bones to the hair rig, generated from the selected hair cards in the active mesh"
-        elif properties.param == "ADD_BONES_CUSTOM":
-            return "Add a single custom bone to the hair rig"
-        elif properties.param == "ADD_BONES_GREASE":
-            return "Add bones generated from grease pencil lines drawn in the current annotation layer.\n\n" \
-                   "Note: For best results draw lines onto the hair in Surface placement mode."
-        elif properties.param == "REMOVE_HAIR_BONES":
-                if props.hair_rig_bind_bone_mode == "ALL":
-                    return "Remove all bones from the hair rig.\n\n" \
-                           "All associated vertex weights will also be removed from the hair meshes"
-                else:
-                    return "Remove only the selected bones from the hair rig.\n\n" \
-                           "The vertex weights for the removed bones will also be removed from the hair meshes\n\n" \
-                           "Note: Selecting any bone in a chain will use the entire chain of bones"
-        elif properties.param == "BIND_TO_BONES":
-            if props.hair_rig_bind_card_mode == "ALL":
-                if props.hair_rig_bind_bone_mode == "ALL":
-                    return "Bind the selected hair meshes to all of the hair rig bones.\n\n" \
-                           "If no meshes are selected then *all* meshes in the character will be considered"
-                else:
-                    return "Bind the selected hair meshes to only the selected hair rig bones.\n\n" \
-                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
-                           "Note: Selecting any bone in a chain will use the entire chain of bones"
-            else:
-                if props.hair_rig_bind_bone_mode == "ALL":
-                    return "Bind only the selected hair cards in the selected hair meshes to all of the hair rig bones.\n\n" \
-                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
-                           "Note: Selecting any part of a hair card will use the entire card island"
-                else:
-                    return "Bind only the selected hair cards in the selected hair meshes to only the selected hair rig bones.\n\n" \
-                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
-                           "Note: Selecting any bone in a chain will use the entire chain of bones and selecting any part of a hair card will select the whole har card island"
-        elif properties.param == "CLEAR_WEIGHTS":
-            if props.hair_rig_bind_card_mode == "ALL":
-                if props.hair_rig_bind_bone_mode == "ALL":
-                    return "Clear all the hair rig bone vertex weights from the selected hair meshes.\n\n" \
-                           "If no meshes are selected then *all* meshes in the character will be considered"
-                else:
-                    return "Clear only the selected hair rig bone vertex weights from the selected hair meshes.\n\n" \
-                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
-                           "Note: Selecting any bone in a chain will use the entire chain of bones"
-            else:
-                if props.hair_rig_bind_bone_mode == "ALL":
-                    return "Clear all the hair rig bone vertex weights from only the selected hair cards in the selected meshes.\n\n" \
-                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
-                           "Note: Selecting any part of a hair card will select the whole har card island"
-                else:
-                    return "Clear only the selected hair rig bone vertex weights from only the selected hair cards in the selected meshes.\n\n" \
-                           "If no meshes are selected then *all* meshes in the character will be considered.\n\n" \
-                           "Note: Selecting any bone in a chain will use the entire chain of bones and selecting any part of a hair card will select the whole har card island"
-
-        elif properties.param == "CLEAR_GREASE_PENCIL":
-            return "Remove all grease pencil lines from the current annotation layer"
-        elif properties.param == "CARDS_TO_CURVES":
-            return "Convert all the hair cards into curves"
-        elif properties.param == "MAKE_ACCESSORY":
-            return "Removes all none hair rig vertex groups from objects so that CC4 recognizes them as accessories and not cloth or hair.\n\n" \
-                   "Accessories are categorized by:\n" \
-                   "    1. A bone representing the accessory parented to a CC Base bone.\n" \
-                   "    2. Child accessory deformation bone(s) parented to the accessory bone in 1.\n" \
-                   "    3. Object(s) with vertex weights to ONLY these accessory deformation bones in 2.\n" \
-                   "    4. All vertices in the accessory must be weighted"
-
+        if properties.param == "MAKE_RIGID_BODY_SYSTEM":
+            return "Build the rigid body simulation for the selected spring rig and sets contraints to copy the simulation to the spring bones"
+        elif properties.param == "REMOVE_RIGID_BODY_SYSTEM":
+            return "Removes the rigid body simulation for the selected spring rig and removes all constraints"
+        elif properties.param == "ENABLE_RIGID_BODY_COLLISION":
+            return "Enables rigid body collision for the selected mesh (or it's collision proxy mesh), so it can interact with the spring bone simulation"
+        elif properties.param == "DISABLE_RIGID_BODY_COLLISION":
+            return "Removes rigid body collision for the selected mesh (or it's collision proxy mesh), so it can interact with the spring bone simulation"
+        elif properties.param == "RESET_PHYSICS":
+            return "Resets the spring bone physics rigid body world point cache and synchronizes the cache range with the current scene or preview range"
+        elif properties.param == "BAKE_PHYSICS":
+            return "Bakes the rigid body world point cache for all spring bone simulations"
         return ""

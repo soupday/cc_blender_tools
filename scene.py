@@ -641,7 +641,7 @@ class CC3Scene(bpy.types.Operator):
             render_animation(context)
         elif self.param == "ANIM_RANGE":
             fetch_anim_range(context)
-        elif self.param == "PHYSICS_PREP":
+        elif self.param == "PHYSICS_PREP_CLOTH":
             # stop any playing animation
             if context.screen.is_animation_playing:
                 bpy.ops.screen.animation_cancel(restore_frame=False)
@@ -649,6 +649,15 @@ class CC3Scene(bpy.types.Operator):
             bpy.ops.screen.frame_jump(end = False)
             # reset the physics
             physics.reset_cache(context)
+            # reset the animation again
+            bpy.ops.screen.frame_jump(end = False)
+        elif self.param == "PHYSICS_PREP_RBW":
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+            # reset the animation
+            bpy.ops.screen.frame_jump(end = False)
+            # reset the physics
             rigidbody.reset_cache(context)
             # reset the animation again
             bpy.ops.screen.frame_jump(end = False)
@@ -683,8 +692,14 @@ class CC3Scene(bpy.types.Operator):
             return "Renders the current animation range"
         elif properties.param == "ANIM_RANGE":
             return "Sets the animation range to the same range as the Action on the current character"
-        elif properties.param == "PHYSICS_PREP":
-            return "Sets all the physics bake ranges to the same as the current scene animation range"
+        elif properties.param == "PHYSICS_PREP_CLOTH":
+            return "Resets the physics point cache on all cloth objects and synchronizes the physics point cache ranges " \
+                   "on all cloth objects to fit the current scene animation range.\n\n" \
+                   "i.e. if the point cache frame range does not cover the current scene range (or preview range) it will be extended to fit"
+        elif properties.param == "PHYSICS_PREP_RBW":
+            return "Resets the physics point cache for the rigid body world and synchronizes the physics point cache range " \
+                   "to fit the current scene animation range.\n\n" \
+                   "i.e. if the point cache frame range does not cover the current scene range (or preview range) it will be extended to fit"
         elif properties.param == "CYCLES_SETUP":
             return "Applies Shader Terminator Offset and subdivision to all meshes"
 

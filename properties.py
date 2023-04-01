@@ -1277,7 +1277,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ], default="OVERLAY", name = "Body Mix Mode",
                     update=lambda s,c: update_sculpt_mix_node(s,c,"body_mix_mode"))
 
-    available_spring_rigs: bpy.props.EnumProperty(items=springbones.enumerate_spring_rigs, default=0, name="Available Spring Rigs")
+    available_spring_rigs: bpy.props.EnumProperty(items=springbones.enumerate_spring_rigs,
+                    default=0,
+                    name="Available Spring Rigs",
+                    description="A list of all the spring rigs on the character")
 
     def get_tex_dir(self):
         if os.path.isabs(self.import_main_tex_dir):
@@ -1327,6 +1330,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return False
 
     def can_be_rigged(self):
+        """Returns True if the character can be rigified."""
         if self.generation == "G3" or self.generation == "G3Plus" or self.generation == "NonStandardG3":
             return True
         elif self.is_actor_core():
@@ -1826,19 +1830,14 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("MATERIAL","Material","Set the alpha blend mode and backface culling only to the selected material on the active object"),
                     ], default="MATERIAL")
 
-    lighting_mode: bpy.props.EnumProperty(items=[
-                        ("OFF","No Lighting","No automatic lighting and render settings."),
-                        ("ON","Lighting","Automatically sets lighting and render settings, depending on use."),
-                    ], default="OFF")
-    physics_mode: bpy.props.EnumProperty(items=[
-                        ("OFF","No Physics","No generated physics."),
-                        ("ON","Physics","Automatically generates physics vertex groups and settings."),
-                    ], default="OFF")
-    wrinkle_mode: bpy.props.EnumProperty(items=[
-                        ("OFF","No Wrinkle","No wrinkle maps will be set up for this character."),
-                        ("ON","Wrinkle Maps","Automatically generates wrinkle maps for this character (if available)."),
-                    ], default="ON")
-
+    lighting_mode: bpy.props.BoolProperty(default=False,
+                                          description="Automatically sets lighting and render settings, depending on use.")
+    physics_mode: bpy.props.BoolProperty(default=False,
+                                         description="Automatically generates physics vertex groups and settings.")
+    wrinkle_mode: bpy.props.BoolProperty(default=True,
+                                         description="Automatically generates wrinkle maps for this character (if available).")
+    rigify_mode: bpy.props.BoolProperty(default=False,
+                                        description="Automatically rigify the character and retarget any animations or poses that came with the character.")
 
     export_options: bpy.props.BoolProperty(default=False)
     cycles_options: bpy.props.BoolProperty(default=False)
@@ -1873,8 +1872,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_hair_blender_curve: bpy.props.BoolProperty(default=True)
     section_hair_rigging: bpy.props.BoolProperty(default=True)
 
-    section_sculpt_body: bpy.props.BoolProperty(default=True)
-    section_sculpt_detail: bpy.props.BoolProperty(default=True)
+    section_sculpt_setup: bpy.props.BoolProperty(default=True)
     section_sculpt_cleanup: bpy.props.BoolProperty(default=True)
     section_sculpt_utilities: bpy.props.BoolProperty(default=True)
     sculpt_layer_tab: bpy.props.EnumProperty(items=[

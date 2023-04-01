@@ -519,8 +519,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_1.label(text="Use Preserve Volume")
             col_2.prop(prefs, "build_armature_preserve_volume", text="")
 
-        if prefs.physics == "ENABLED":
-            layout.prop(props, "physics_mode", expand=True)
+        layout.prop(props, "physics_mode", toggle=True, text="Build Physics")
         layout.prop(prefs, "render_target", expand=True)
         layout.prop(prefs, "refractive_eyes", expand=True)
 
@@ -841,14 +840,12 @@ class CC3SpringRigPanel(bpy.types.Panel):
             col_2.prop(props, "hair_rig_bone_root", text="")
             col_1.label(text="Group Name")
             col_2.prop(props, "hair_rig_group_name", text="")
-            tool_row = col_1.row()
+            tool_row = col_1.row(align=True)
             if arm:
                 tool_row.operator("cc3.rigifier", icon=utils.check_icon("HIDE_OFF"), text="",
                                   depress=arm.data.layers[rigging.SPRING_EDIT_LAYER]).param = "TOGGLE_SHOW_SPRING_BONES"
-
                 is_grease_pencil_tool = "builtin.annotate" in utils.get_current_tool_idname(context)
                 tool_row.operator("cc3.hair", icon=utils.check_icon("GREASEPENCIL"), text="", depress=is_grease_pencil_tool).param = "TOGGLE_GREASE_PENCIL"
-
                 is_default_bone = False
                 if arm.data.display_type == 'WIRE':
                     icon = "IPO_LINEAR"
@@ -862,6 +859,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 else:
                     icon = "BONE_DATA"
                 tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", depress=False).param = "CYCLE_BONE_STYLE"
+                tool_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
 
             col_2.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
             column.separator()
@@ -1500,7 +1498,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                     spring_rigs = springbones.get_spring_rigs(chr_cache, rig)
 
                     # utility widgets
-                    box_row = layout.box().row()
+                    box_row = layout.box().row(align=True)
                     is_full_rig_show = rigging.is_full_rig_shown(chr_cache)
                     box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
                     if spring_rigs:
@@ -1510,6 +1508,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         box_row.operator("cc3.rigifier", icon="FORCE_MAGNETIC", text="", depress=is_spring_rig_show).param = "TOGGLE_SHOW_SPRING_RIG"
                     is_pose_position = rigging.is_rig_rest_position(chr_cache)
                     box_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+                    box_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
 
                     if spring_rigs:
 
@@ -1820,15 +1819,13 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         box.label(text="Scene Lighting", icon="LIGHT")
 
         column = layout.column()
-        split = column.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
-        col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
-        col_1.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
-        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
-        col_1.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
-        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+        grid = column.grid_flow(row_major=True, columns=2, align=True)
+        grid.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
+        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
+        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
 
         box = layout.box()
         box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
@@ -1845,34 +1842,38 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         #op.param = "RENDER_IMAGE"
         #op = col.operator("cc3.scene", icon="RENDER_ANIMATION", text="Render Animation")
         #op.param = "RENDER_ANIMATION"
-        split = layout.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.prop(scene, "frame_start", text="Start")
-        col_2.prop(scene, "frame_end", text="End")
-        column = layout.column()
+        row = column.row(align=True)
+        row.prop(scene, "use_preview_range", text="", toggle=True)
+        sub = row.row(align=True)
+        sub.scale_x = 0.8
+        if not scene.use_preview_range:
+            sub.prop(scene, "frame_start", text="Start")
+            sub.prop(scene, "frame_end", text="End")
+        else:
+            sub.prop(scene, "frame_preview_start", text="Start")
+            sub.prop(scene, "frame_preview_end", text="End")
         column.separator()
-        op = column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character")
-        op.param = "ANIM_RANGE"
-        op = column.operator("cc3.scene", icon="ANIM", text="Reset Physics")
-        op.param = "PHYSICS_PREP"
+        column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
+        row = column.row()
+        warn_icon(row, "X")
+        row.operator("cc3.scene", icon="MOD_CLOTH", text="Reset Cloth").param = "PHYSICS_PREP_CLOTH"
+        row = column.row()
+        warn_icon(row, "X")
+        row.operator("cc3.scene", icon="CON_KINEMATIC", text="Reset Rigid Body").param = "PHYSICS_PREP_RBW"
         column.separator()
-        split = column.split(factor=0.0)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_3 = split.column()
+        grid = column.grid_flow(columns=3, align=True)
         if not context.screen.is_animation_playing:
             #op = col_1.operator("screen.animation_manager", icon="PLAY", text="Play")
             #op.mode = "PLAY"
-            col_1.operator("screen.animation_play", text="Play", icon='PLAY')
+            grid.operator("screen.animation_play", text="Play", icon='PLAY')
         else:
             #op = col_1.operator("screen.animation_manager", icon="PAUSE", text="Pause")
             #op.mode = "PLAY"
-            col_1.operator("screen.animation_play", text="Pause", icon='PAUSE')
+            grid.operator("screen.animation_play", text="Pause", icon='PAUSE')
         #op = col_2.operator("screen.animation_manager", icon="REW", text="Reset")
         #op.mode = "STOP"
-        col_2.operator("screen.frame_jump", text="Start", icon='REW').end = False
-        col_3.operator("screen.frame_jump", text="End", icon='FF').end = True
+        grid.operator("screen.frame_jump", text="Start", icon='REW').end = False
+        grid.operator("screen.frame_jump", text="End", icon='FF').end = True
 
         chr_cache = props.get_context_character_cache(context)
         if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
@@ -1911,15 +1912,13 @@ class CC3ToolsCreatePanel(bpy.types.Panel):
         box = layout.box()
         box.label(text="Lighting Presets", icon="LIGHT")
         column = layout.column()
-        split = column.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
-        col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
-        col_1.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
-        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
-        col_1.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
-        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+        grid = column.grid_flow(row_major=True, align=True, columns=2)
+        grid.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
+        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
+        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
 
 
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
@@ -2190,82 +2189,85 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         row.scale_y = 1.5
         row.prop(props, "sculpt_layer_tab", expand=True)
 
+        column = layout.column()
+
         #if fake_drop_down(layout.box().row(), "Full Body Sculpting", "section_sculpt_body",
         #                  props.section_sculpt_body, icon = "OUTLINER_OB_ARMATURE"):
         if props.sculpt_layer_tab == "BODY":
-            column = layout.column()
-            if not chr_cache or detail_sculpting:
-                column.enabled = False
 
-            column.box().row().label(text="Body Sculpting:", icon="OUTLINER_OB_ARMATURE")
-            column.separator()
+            if fake_drop_down(column.box().row(), "Body Sculpting", "section_sculpt_setup",
+                              props.section_sculpt_setup,
+                              icon="OUTLINER_OB_ARMATURE", icon_closed="OUTLINER_OB_ARMATURE"):
 
-            row = column.row()
-            split = row.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text = "Multi-res Level")
-            col_2.prop(prefs, "sculpt_multires_level", slider=True)
-            if body_sculpting:
-                row.enabled = False
+                if not chr_cache or detail_sculpting:
+                    column.enabled = False
 
-            row = column.row()
-            if not sculpt_body:
-                row.scale_y = 2
-                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
-            elif not body_sculpting:
-                row.scale_y = 2
-                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Body Sculpt").param = "BODY_BEGIN"
-            else:
-                row.scale_y = 2
-                row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
+                row = column.row()
+                split = row.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text = "Multi-res Level")
+                col_2.prop(prefs, "sculpt_multires_level", slider=True)
+                if body_sculpting:
+                    row.enabled = False
 
-            column.separator()
+                row = column.row()
+                if not sculpt_body:
+                    row.scale_y = 2
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
+                elif not body_sculpting:
+                    row.scale_y = 2
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Body Sculpt").param = "BODY_BEGIN"
+                else:
+                    row.scale_y = 2
+                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
 
-            column.row().label(text="Bake Settings:")
-            column.separator()
+                column.separator()
 
-            row = column.row()
-            split = row.split(factor=0.4)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.prop(prefs, "bake_use_gpu", text="GPU")
-            col_2.prop(prefs, "body_normal_bake_size", text = "")
+                column.row().label(text="Bake Settings:")
+                column.separator()
 
-            row = column.row()
-            row.scale_y = 1.5
-            row.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "BODY_BAKE"
-            if chr_cache:
-                row.prop(chr_cache, "multires_bake_apply", text="", expand=True)
-            if not sculpt_body:
-                row.enabled = False
+                row = column.row()
+                split = row.split(factor=0.4)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.prop(prefs, "bake_use_gpu", text="GPU", toggle=True)
+                col_2.prop(prefs, "body_normal_bake_size", text = "")
 
-            column.separator()
+                row = column.row()
+                row.scale_y = 1.5
+                row.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "BODY_BAKE"
+                if chr_cache:
+                    row.prop(chr_cache, "multires_bake_apply", text="", expand=True)
+                if not sculpt_body:
+                    row.enabled = False
 
-            column.row().label(text="Layer Settings:")
-            column.separator()
+                column.separator()
 
-            col = column.column()
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            if chr_cache:
-                col_1.prop(chr_cache, "body_normal_strength", text="Nrm", slider=True)
-                col_2.prop(chr_cache, "body_ao_strength", text="AO", slider=True)
-                col_1.prop(chr_cache, "body_mix_mode", text="")
-                col_2.prop(chr_cache, "body_normal_definition", text="Def", slider=True)
-            if not has_body_overlay:
-                col.enabled = False
+                column.row().label(text="Layer Settings:")
+                column.separator()
 
-            column.separator()
+                col = column.column()
+                split = col.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                if chr_cache:
+                    col_1.prop(chr_cache, "body_normal_strength", text="Nrm", slider=True)
+                    col_2.prop(chr_cache, "body_ao_strength", text="AO", slider=True)
+                    col_1.prop(chr_cache, "body_mix_mode", text="")
+                    col_2.prop(chr_cache, "body_normal_definition", text="Def", slider=True)
+                if not has_body_overlay:
+                    col.enabled = False
 
-            row = column.row()
-            row.scale_y = 1.5
-            row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
-            if not sculpt_body or not has_body_overlay:
-                row.enabled = False
+                column.separator()
 
-            column.separator()
+                row = column.row()
+                row.scale_y = 1.5
+                row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
+                if not sculpt_body or not has_body_overlay:
+                    row.enabled = False
+
+                column.separator()
 
         # Detail Sculpting
 
@@ -2273,80 +2275,80 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         #                  props.section_sculpt_detail, icon = "POSE_HLT"):
         elif props.sculpt_layer_tab == "DETAIL":
 
-            column = layout.column()
-            if not chr_cache or body_sculpting:
-                column.enabled = False
+            if fake_drop_down(column.box().row(), "Detail Sculpting", "section_sculpt_setup",
+                              props.section_sculpt_setup,
+                              icon="MESH_MONKEY", icon_closed="MESH_MONKEY"):
 
-            column.box().row().label(text="Detail Sculpting:", icon="MESH_MONKEY")
-            column.separator()
+                if not chr_cache or body_sculpting:
+                    column.enabled = False
 
-            row = column.row()
-            row.prop(prefs, "detail_sculpt_sub_target", expand=True)
-            if detail_body or detail_sculpting:
-                row.enabled = False
+                row = column.row()
+                row.prop(prefs, "detail_sculpt_sub_target", expand=True)
+                if detail_body or detail_sculpting:
+                    row.enabled = False
 
-            row = column.row()
-            split = row.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text = "Multi-res Level")
-            col_2.prop(prefs, "detail_multires_level", slider=True)
-            if detail_body or detail_sculpting:
-                row.enabled = False
+                row = column.row()
+                split = row.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text = "Multi-res Level")
+                col_2.prop(prefs, "detail_multires_level", slider=True)
+                if detail_body or detail_sculpting:
+                    row.enabled = False
 
-            row = column.row()
-            row.scale_y = 2.0
-            if not detail_body:
-                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
-            elif not detail_sculpting:
-                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Detail Sculpt").param = "DETAIL_BEGIN"
-            else:
-                row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
+                row = column.row()
+                row.scale_y = 2.0
+                if not detail_body:
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
+                elif not detail_sculpting:
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Detail Sculpt").param = "DETAIL_BEGIN"
+                else:
+                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
 
-            column.separator()
+                column.separator()
 
-            column.row().label(text="Bake Settings:")
-            column.separator()
+                column.row().label(text="Bake Settings:")
+                column.separator()
 
-            row = column.row()
-            split = row.split(factor=0.4)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.prop(prefs, "bake_use_gpu", text="GPU")
-            col_2.prop(prefs, "detail_normal_bake_size", text="")
+                row = column.row()
+                split = row.split(factor=0.4)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.prop(prefs, "bake_use_gpu", text="GPU", toggle=True)
+                col_2.prop(prefs, "detail_normal_bake_size", text="")
 
-            row1 = column.row()
-            row1.scale_y = 1.5
-            row1.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "DETAIL_BAKE"
-            if not detail_body:
-                row1.enabled = False
+                row1 = column.row()
+                row1.scale_y = 1.5
+                row1.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "DETAIL_BAKE"
+                if not detail_body:
+                    row1.enabled = False
 
-            column.separator()
+                column.separator()
 
-            column.row().label(text="Layer Settings:")
-            column.separator()
+                column.row().label(text="Layer Settings:")
+                column.separator()
 
-            col = column.column()
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            if chr_cache:
-                col_1.prop(chr_cache, "detail_normal_strength", text="Nrm", slider=True)
-                col_2.prop(chr_cache, "detail_ao_strength", text="AO", slider=True)
-                col_1.prop(chr_cache, "detail_mix_mode", text="")
-                col_2.prop(chr_cache, "detail_normal_definition", text="Def", slider=True)
-            if not has_detail_overlay:
-                col.enabled = False
+                col = column.column()
+                split = col.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                if chr_cache:
+                    col_1.prop(chr_cache, "detail_normal_strength", text="Nrm", slider=True)
+                    col_2.prop(chr_cache, "detail_ao_strength", text="AO", slider=True)
+                    col_1.prop(chr_cache, "detail_mix_mode", text="")
+                    col_2.prop(chr_cache, "detail_normal_definition", text="Def", slider=True)
+                if not has_detail_overlay:
+                    col.enabled = False
 
-            column.separator()
+                column.separator()
 
-            row = column.row()
-            row.scale_y = 1.5
-            row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "DETAIL_SKINGEN"
-            if not detail_body or not has_detail_overlay:
-                row.enabled = False
+                row = column.row()
+                row.scale_y = 1.5
+                row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "DETAIL_SKINGEN"
+                if not detail_body or not has_detail_overlay:
+                    row.enabled = False
 
-            column.separator()
+                column.separator()
 
         # Tools
 
@@ -2363,7 +2365,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
             column.separator()
 
-            column.label(text="Remove Sculpts")
+            column.label(text="Remove Sculpts:")
 
             column.separator()
 
@@ -2381,7 +2383,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
             column.separator()
 
-            column.label(text="Geometry Transfer")
+            column.label(text="Geometry Transfer:")
 
             column.separator()
 
@@ -2450,12 +2452,11 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         box = layout.box()
         box.label(text=f"Settings  ({vars.VERSION_STRING})", icon="TOOL_SETTINGS")
 
-        if prefs.lighting == "ENABLED" or prefs.physics == "ENABLED":
-            if prefs.lighting == "ENABLED":
-                layout.prop(props, "lighting_mode", expand=True)
-            if prefs.physics == "ENABLED":
-                layout.prop(props, "physics_mode", expand=True)
-            layout.prop(props, "wrinkle_mode", expand=True)
+        grid = layout.grid_flow(columns=2, align=True)
+        grid.prop(props, "lighting_mode", toggle=True, text="Lighting")
+        grid.prop(props, "physics_mode", toggle=True, text="Physics")
+        grid.prop(props, "wrinkle_mode", toggle=True, text="Wrinkles")
+        grid.prop(props, "rigify_mode", toggle=True, text="Rigify")
 
         # Build prefs in title
         box = layout.box()

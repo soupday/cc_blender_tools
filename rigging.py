@@ -3318,13 +3318,13 @@ def toggle_show_spring_rig(chr_cache):
         if show:
             arm.data.layers[19] = True
         else:
-            arm.data.layers[SPRING_EDIT_LAYER] = True
+            arm.data.layers[DEF_BONE_LAYER] = True
 
         for i in range(0, 32):
             if show:
                 arm.data.layers[i] = (i >= 19 and i <= 21)
             else:
-                arm.data.layers[i] = (i == SPRING_EDIT_LAYER)
+                arm.data.layers[i] = (i == DEF_BONE_LAYER)
 
 
 def toggle_show_spring_bones(chr_cache):
@@ -3337,6 +3337,25 @@ def toggle_show_spring_bones(chr_cache):
             springbones.show_spring_bone_edit_layer(chr_cache, arm, False)
         else:
             springbones.show_spring_bone_edit_layer(chr_cache, arm, True)
+
+
+def reset_pose(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+    if arm:
+            utils.pose_mode_to(arm)
+            arm.data.pose_position = "POSE"
+            selected_bones = [ b for b in arm.data.bones if b.select ]
+            for b in arm.data.bones:
+                b.select = True
+            bpy.ops.pose.transforms_clear()
+            for b in arm.data.bones:
+                if b in selected_bones:
+                    b.select = True
+                else:
+                    b.select = False
 
 
 def is_rig_rest_position(chr_cache):
@@ -3366,7 +3385,7 @@ def toggle_rig_rest_position(chr_cache):
 class CC3Rigifier(bpy.types.Operator):
     """Rigify CC3 Character"""
     bl_idname = "cc3.rigifier"
-    bl_label = "Rigifier"
+    bl_label = "Character Rigging"
     bl_options = {"REGISTER"}
 
     param: bpy.props.StringProperty(
@@ -3691,6 +3710,11 @@ class CC3Rigifier(bpy.types.Operator):
             elif self.param == "TOGGLE_SHOW_SPRING_BONES":
                 toggle_show_spring_bones(chr_cache)
 
+            elif self.param == "BUTTON_RESET_POSE":
+                mode_selection = utils.store_mode_selection_state()
+                reset_pose(chr_cache)
+                utils.restore_mode_selection_state(mode_selection)
+
             props.restore_ui_list_indices()
 
         return {"FINISHED"}
@@ -3744,6 +3768,30 @@ class CC3Rigifier(bpy.types.Operator):
 
         elif properties.param == "NLA_CC_BAKE":
             return "Bake the NLA track to the character Rigify Rig using the global scene frame range."
+
+        elif properties.param == "TOGGLE_SHOW_SPRING_BONES":
+            return "Quick toggle for the armature layers to show just the spring bones or just the body bones"
+
+        elif properties.param == "BUILD_SPRING_RIG":
+            return "Builds the spring rig controls for the currently selected spring rig"
+
+        elif properties.param == "REMOVE_SPRING_RIG":
+            return "Removes the spring rig controls for the currently selected spring rig"
+
+        elif properties.param == "TOGGLE_SHOW_FULL_RIG":
+            return "Toggles showing all the rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_BASE_RIG":
+            return "Toggles showing the base rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_SPRING_RIG":
+            return "Toggles showing just the spring rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_RIG_POSE":
+            return "Toggles the rig between pose mode and rest pose"
+
+        elif properties.param == "BUTTON_RESET_POSE":
+            return "Clears all pose transforms"
 
         return "Rigification!"
 

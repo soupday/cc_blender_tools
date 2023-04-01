@@ -779,6 +779,16 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                             if bake_value_texture:
                                 image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_shader_size)
 
+                            elif nodeutils.is_texture_pack_system(tex_node):
+
+                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to a texture pack. Skipping.")
+                                continue
+
+                            elif wrinkle.is_wrinkle_system(tex_node):
+
+                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to the wrinkle shader. Skipping.")
+                                continue
+
                             # if there is an image texture link to the socket
                             elif tex_node and tex_node.type == "TEX_IMAGE":
 
@@ -791,16 +801,6 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                 # otherwise use the image texture
                                 else:
                                     image = tex_node.image
-
-                            elif nodeutils.is_texture_pack_system(tex_node):
-
-                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to a texture pack. Skipping.")
-                                continue
-
-                            elif wrinkle.is_wrinkle_system(tex_node):
-
-                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to the wrinkle shader. Skipping.")
-                                continue
 
                             elif prefs.export_bake_nodes:
 

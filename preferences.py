@@ -22,8 +22,6 @@ from . import addon_updater_ops, colorspace, utils, vars
 def reset_preferences():
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     prefs.render_target = "EEVEE"
-    prefs.lighting = "ENABLED"
-    prefs.physics = "ENABLED"
     prefs.quality_lighting = "CC3"
     prefs.pipeline_lighting = "CC3"
     prefs.morph_lighting = "MATCAP"
@@ -95,16 +93,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     # this must match the add-on name, use '__package__'
     # when defining this in a submodule of a python package.
     bl_idname = __name__.partition(".")[0]
-
-    lighting: bpy.props.EnumProperty(items=[
-                        ("DISABLED","Disabled","No automatic lighting and render settings."),
-                        ("ENABLED","Enabled","Allows automatic lighting and render settings."),
-                    ], default="ENABLED", name = "Automatic Lighting")
-
-    physics: bpy.props.EnumProperty(items=[
-                        ("DISABLED","Disabled","No physics auto setup."),
-                        ("ENABLED","Enabled","Allows automatic physics setup from physX weight maps."),
-                    ], default="ENABLED", name = "Generate Physics")
 
     quality_lighting: bpy.props.EnumProperty(items=[
                         ("BLENDER","Blender Default","Blenders default lighting setup"),
@@ -313,11 +301,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "morph_mode")
 
         layout.label(text="Lighting:")
-        layout.prop(self, "lighting")
-        if self.lighting == "ENABLED":
-            layout.prop(self, "quality_lighting")
-            layout.prop(self, "pipeline_lighting")
-            layout.prop(self, "morph_lighting")
+        layout.prop(self, "quality_lighting")
+        layout.prop(self, "pipeline_lighting")
+        layout.prop(self, "morph_lighting")
 
         layout.label(text="Detection:")
         layout.prop(self, "hair_hint")
@@ -337,7 +323,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "cycles_ssr_iris_brightness")
 
         layout.label(text="Physics:")
-        layout.prop(self, "physics")
         layout.prop(self, "physics_group")
 
         layout.label(text="Export:")
