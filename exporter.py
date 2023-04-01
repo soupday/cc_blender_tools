@@ -1054,9 +1054,11 @@ def set_T_pose(arm, chr_json):
                 right_arm_pose.rotation_mode = "XYZ"
                 right_arm_pose.rotation_euler = [0,0,-angle]
                 right_arm_pose.rotation_mode = "QUATERNION"
-            chr_json["Bind_Pose"] = "APose"
+            if chr_json:
+                chr_json["Bind_Pose"] = "APose"
             return True
-        chr_json["Bind_Pose"] = "TPose"
+        if chr_json:
+            chr_json["Bind_Pose"] = "TPose"
     return False
 
 
@@ -1767,6 +1769,9 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     utils.log_info("Exporting as: " + ext)
 
     json_data = chr_cache.get_json_data()
+    if not json_data:
+        json_data = jsonutils.generate_character_json_data(name)
+        set_character_generation(json_data, chr_cache, name)
 
     utils.log_info("Preparing character for export:")
     utils.log_indent()
@@ -1804,7 +1809,12 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     # make the T-pose as an action
     arm = utils.get_armature_in_objects(objects)
     utils.safe_set_action(arm, None)
-    set_T_pose(arm, json_data[name]["Object"][name])
+    chr_json = None
+    if json_data:
+        try:
+            chr_json = json_data[name]["Object"][name]
+        except: pass
+    set_T_pose(arm, )
     create_T_pose_action(arm, objects, export_strips)
 
     # store Unity project paths
