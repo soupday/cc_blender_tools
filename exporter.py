@@ -1814,7 +1814,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
         try:
             chr_json = json_data[name]["Object"][name]
         except: pass
-    set_T_pose(arm, )
+    set_T_pose(arm, chr_json)
     create_T_pose_action(arm, objects, export_strips)
 
     # store Unity project paths
@@ -1918,7 +1918,12 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     # make the T-pose as an action
     arm = utils.get_armature_in_objects(objects)
     utils.safe_set_action(arm, None)
-    set_T_pose(arm, json_data[name]["Object"][name])
+    chr_json = None
+    if json_data:
+        try:
+            chr_json = json_data[name]["Object"][name]
+        except: pass
+    set_T_pose(arm, chr_json)
     create_T_pose_action(arm, objects, False)
 
     # save blend file at filepath

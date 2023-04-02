@@ -970,9 +970,8 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
     props = bpy.context.scene.CC3ImportProps
     CC4_SPRING_RIG = props.hair_rig_target == "CC4"
 
-    # vertex weights are in the deform layer of the BMesh verts
-
     bm.verts.layers.deform.verify()
+    # vertex weights are in the deform layer of the BMesh verts
     dl = bm.verts.layers.deform.active
 
     median = card["median"]
@@ -983,7 +982,7 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
         max_bones = len(sorted_bones)
 
     min_weight = 0.01 if CC4_SPRING_RIG else 0.0
-
+    acc_root_weight = (1.0 - max_weight) / max_bones
     bone_weight_variance_mods = []
     for i in range(0, max_bones):
         bone_weight_variance_mods.append(random.uniform(max_weight * (1 - variance), max_weight))
@@ -1007,6 +1006,8 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
             weight_distance = min(max_radius, max(0, max_radius - bone_distance))
             weight = bone_weight_variance_mods[b] * (weight_distance / max_radius) / max_bones
 
+            # bone_fac is used to scale the weights, on the very first bone in the chain, from 0 to 1
+            # (unless it's for a CC4 accessory)
             if CC4_SPRING_RIG:
                 bone_fac = 1.0
             elif bone_def != bone_chain[0]:
@@ -1022,9 +1023,15 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
                 for vert_index in vert_loop:
                     vertex = bm.verts[vert_index]
                     vertex[dl][vg.index] = weight
+                    # if the weight's are scaled back, they need to be scaled back
+                    # against the root bone's weights, unless this is for the root bone
+                    # in which case we need to add the root weight
                     if CC4_SPRING_RIG:
                         first_vg = first_bone_groups[b]
-                        vertex[dl][first_vg.index] = 1 - max_weight
+                        if vg.index != first_vg.index:
+                            vertex[dl][first_vg.index] = acc_root_weight
+                        else:
+                            vertex[dl][first_vg.index] = weight + acc_root_weight
 
 
 def sort_func_weighted_distance(bone_weight_distance):
@@ -1414,62 +1421,6 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector,
     utils.pose_mode_to(arm)
 
 
-def is_hair_rig_accessory(objects):
-
-    is_hair_rig = False
-    is_accessory = True
-
-    if type(objects) is list:
-
-        for obj in objects:
-            if obj.type == "MESH":
-                for vg in obj.vertex_groups:
-                    if springbones.is_hair_bone(vg.name):
-                        is_hair_rig = True
-                    else:
-                        is_accessory = False
-
-    else:
-
-        for vg in objects.vertex_groups:
-            if springbones.is_hair_bone(vg.name):
-                is_hair_rig = True
-            else:
-                is_accessory = False
-
-    return is_hair_rig, is_accessory
-
-
-
-def convert_hair_rigs_to_accessory(chr_cache, arm, objects):
-    """Removes all none hair rig vertex groups from objects so that CC4 recognizes them as accessories
-       and not cloth or hair.\n\n
-       Accessories are categorized by:\n
-            1. A bone representing the accessory parented to a CC Base bone.
-            2. Child accessory deformation bone(s) parented to the accessory bone in 1.
-            3. Object(s) with vertex weights to ONLY these accessory deformation bones in 2.
-            4. All vertices in the accessory must be weighted.
-    """
-    groups_to_remove = []
-
-    for obj in objects:
-
-        # make sure it's a hair rig
-        is_hair_rig, is_accessory = is_hair_rig_accessory(obj)
-
-        # determine non-hair rig vertex groups
-        if is_hair_rig and not is_accessory:
-            for vg in obj.vertex_groups:
-                if not springbones.is_hair_bone(vg.name):
-                    groups_to_remove.append(vg)
-
-    # remove non-hair rig vertex groups
-    for vg in groups_to_remove:
-        obj.vertex_groups.remove(vg)
-
-    return
-
-
 def deselect_invalid_materials(chr_cache, obj):
     """Mesh polygon selection only works in OBJECT mode"""
     if utils.object_exists_is_mesh(obj):
@@ -1594,7 +1545,7 @@ class CC3OperatorHair(bpy.types.Operator):
                     props.hair_rig_bind_existing_scale = 0.0
 
                     # for CC4 rigs, convert the hair meshes to accesories
-                    convert_hair_rigs_to_accessory(chr_cache, arm, objects)
+                    springbones.convert_spring_rig_to_accessory(chr_cache, arm, props.hair_rig_bone_root)
                 else:
                     props.hair_rig_bind_existing_scale = 1.0
 
@@ -1623,11 +1574,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
             if arm and objects:
                 arm.hide_set(False)
-                convert_hair_rigs_to_accessory(chr_cache, arm, objects)
-
-
-
-
+                springbones.convert_spring_rig_to_accessory(chr_cache, arm, props.hair_rig_bone_root)
 
         if self.param == "GROUP_NAME_BONES":
 

@@ -460,7 +460,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_variance = 0.75
         elif self.hair_rig_target == "BLENDER":
             self.hair_rig_bone_length = 7.5
-            self.hair_rig_bind_skip_length = 0.0
+            self.hair_rig_bind_skip_length = 7.5/2.0
             self.hair_rig_bind_bone_radius = 11.25
             self.hair_rig_bind_existing_scale = 1.0
             self.hair_rig_bind_bone_count = 2

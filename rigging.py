@@ -3428,10 +3428,10 @@ class CC3Rigifier(bpy.types.Operator):
 
         utils.log_recess()
 
-    def remove_cc3_rigid_body_systems(self):
+    def remove_cc3_rigid_body_systems(self, chr_cache):
         self.rigid_body_systems.clear()
-        rig_modes= ["HEAD", "JAW"]
-        for parent_mode in rig_modes:
+        spring_rig_modes= springbones.get_all_parent_modes(chr_cache, self.cc3_rig)
+        for parent_mode in spring_rig_modes:
             spring_rig_name = springbones.get_spring_rig_name(self.cc3_rig, parent_mode)
             spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
             settings = rigidbody.remove_existing_rigid_body_system(self.cc3_rig, spring_rig_prefix, spring_rig_name)
@@ -3475,7 +3475,7 @@ class CC3Rigifier(bpy.types.Operator):
 
                     olc = utils.set_active_layer_collection_from(self.cc3_rig)
 
-                    self.remove_cc3_rigid_body_systems()
+                    self.remove_cc3_rigid_body_systems(chr_cache)
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
@@ -3536,7 +3536,7 @@ class CC3Rigifier(bpy.types.Operator):
 
                     olc = utils.set_active_layer_collection_from(self.cc3_rig)
 
-                    self.remove_cc3_rigid_body_systems()
+                    self.remove_cc3_rigid_body_systems(chr_cache)
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:

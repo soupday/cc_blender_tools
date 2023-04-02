@@ -250,7 +250,7 @@ def character_export_unity_button(chr_cache, layout):
         column.enabled = False
 
 
-def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_parent_mode = None, show_selector = True):
+def rigid_body_sim_ui(chr_cache, arm , obj, layout, fixed_parent=False, only_parent_mode=None, show_selector=True, enabled=True):
     props = bpy.context.scene.CC3ImportProps
 
     if not chr_cache or not arm:
@@ -265,12 +265,14 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
     rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
     has_spring_rig = springbones.has_spring_rig(chr_cache, arm, parent_mode)
 
-
-    if fake_drop_down(column.row(),
+    if fake_drop_down(layout.row(),
             "Rigid Body Sim",
             "section_rigidbody_spring_ui",
             props.section_rigidbody_spring_ui,
             icon="BLENDER", icon_closed="BLENDER"):
+
+        column = layout.column()
+        column.enabled = enabled
 
         if not fixed_parent and show_selector:
             split = column.split(factor=0.45)
@@ -336,10 +338,12 @@ def rigid_body_sim_ui(chr_cache, arm , obj, column, fixed_parent = False, only_p
         row.operator("cc3.springbones", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "RESET_PHYSICS"
         row = column.row()
         depress = False
-        if bpy.context.scene.rigidbody_world.point_cache.is_baking:
-            depress = True
-        if bpy.context.scene.rigidbody_world.point_cache.is_baked:
-            row.alert = True
+        rigidbody_world = bpy.context.scene.rigidbody_world
+        if rigidbody_world:
+            if rigidbody_world.point_cache.is_baking:
+                depress = True
+            if rigidbody_world.point_cache.is_baked:
+                row.alert = True
         row.operator("cc3.springbones", icon=utils.check_icon("REC"), text="Bake Simulation", depress=depress).param = "BAKE_PHYSICS"
 
 
@@ -810,9 +814,12 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 props.section_hair_rigging,
                 icon="OUTLINER_OB_CURVES", icon_closed="OUTLINER_OB_CURVES"):
 
-            is_hair_rig, is_accessory = hair.is_hair_rig_accessory(bpy.context.selected_objects)
+            edit_enabled = True
+            if chr_cache.rigified and springbones.is_rigified(chr_cache, arm, props.hair_rig_bone_root):
+                edit_enabled = False
 
             column = layout.column()
+
             split = column.split(factor=0.5)
             split.column().label(text="UV Direction")
             split.column().prop(props, "hair_curve_dir", text="")
@@ -861,36 +868,55 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", depress=False).param = "CYCLE_BONE_STYLE"
                 tool_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
 
-            col_2.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
+            row = col_2.row()
+            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
+            row.enabled = edit_enabled
             column.separator()
+
             row = column.row()
             row.scale_y = 1.5
             row.operator("cc3.hair", icon=utils.check_icon("MOD_LATTICE"), text="Bones from Cards").param = "ADD_BONES"
+            row.enabled = edit_enabled
+
             column.separator()
+
             row = column.row()
             row.scale_y = 1.5
             row.operator("cc3.hair", icon=utils.check_icon("GREASEPENCIL"), text="Bones from Grease Pencil").param = "ADD_BONES_GREASE"
+            row.enabled = edit_enabled
+
             column.separator()
+
             row = column.row()
             row.scale_y = 1.5
             row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Add Custom Bone").param = "ADD_BONES_CUSTOM"
+            row.enabled = edit_enabled
+
             column.separator()
+
             row = column.row()
             row.scale_y = 1
             warn_icon(row, "X")
             op_text = "Clear All Hair Bones" if props.hair_rig_bind_bone_mode == "ALL" else "Clear Selected Bones"
             row.operator("cc3.hair", icon=utils.check_icon("BONE_DATA"), text=op_text).param = "REMOVE_HAIR_BONES"
+            row.enabled = edit_enabled
+
             row = column.row()
             row.scale_y = 1
             warn_icon(row, "X")
             op_text = "Clear All Hair Weights" if props.hair_rig_bind_bone_mode == "ALL" and props.hair_rig_bind_card_mode == "ALL" else "Clear Selected Weights"
             row.operator("cc3.hair", icon=utils.check_icon("MOD_VERTEX_WEIGHT"), text=op_text).param = "CLEAR_WEIGHTS"
+            row.enabled = edit_enabled
+
             row = column.row()
             row.scale_y = 1
             warn_icon(row, "X")
             op_text = "Clear Grease Pencil"
             row.operator("cc3.hair", icon=utils.check_icon("OUTLINER_OB_GREASEPENCIL"), text=op_text).param = "CLEAR_GREASE_PENCIL"
+            row.enabled = edit_enabled
+
             column.separator()
+
             column.row().prop(props, "hair_rig_bind_bone_mode", expand=True)
             column.row().prop(props, "hair_rig_bind_card_mode", expand=True)
             column.separator()
@@ -909,20 +935,36 @@ class CC3SpringRigPanel(bpy.types.Panel):
             row.scale_y = 1.5
             op_text = "Bind Hair" if props.hair_rig_bind_card_mode == "ALL" and props.hair_rig_bind_bone_mode == "ALL" else "Bind Selected Hair"
             row.operator("cc3.hair", icon=utils.check_icon("MOD_VERTEX_WEIGHT"), text=op_text).param = "BIND_TO_BONES"
+            row.enabled = edit_enabled
 
             column.separator()
 
-            if props.hair_rig_target == "CC4":
+            if not chr_cache.rigified and props.hair_rig_target == "CC4":
+                is_accessory = characters.get_accessory_root(chr_cache, obj) is not None
+                can_make_accessory = not chr_cache.rigified and edit_enabled and not is_accessory
                 column.row().label(text = "For CC4 Accessory Only", icon="INFO")
                 row = column.row()
                 row.operator("cc3.hair", icon=utils.check_icon("CONSTRAINT_BONE"), text="Make Accessory").param = "MAKE_ACCESSORY"
-                if not (is_hair_rig and not is_accessory):
-                    row.enabled = False
-
-            column.separator()
+                row.enabled = can_make_accessory
+                column.separator()
 
             if chr_cache and arm and obj:
-                rigid_body_sim_ui(chr_cache, arm, obj, column)
+                rigified_spring_rig = False
+                if chr_cache.rigified:
+                    rigified_spring_rig = springbones.is_rigified(chr_cache, arm, chr_cache.available_spring_rigs)
+                    column.row().label(text="Rigify:", icon="OUTLINER_OB_ARMATURE")
+                    row = column.row()
+                    row.scale_y = 2
+                    if rigified_spring_rig:
+                        warn_icon(row)
+                        row.operator("cc3.rigifier", icon="X", text="Remove Control Rig").param = "REMOVE_SPRING_RIG"
+                    else:
+                        row.operator("cc3.rigifier", icon="MOD_SCREW", text="Build Control Rig").param = "BUILD_SPRING_RIG"
+                column.separator()
+                build_allowed = True
+                if chr_cache.rigified and not rigified_spring_rig:
+                    build_allowed = False
+                rigid_body_sim_ui(chr_cache, arm, obj, column, enabled=build_allowed)
 
 
 class CC3HairPanel(bpy.types.Panel):
@@ -1495,13 +1537,13 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                 if chr_cache.rigified:
 
-                    spring_rigs = springbones.get_spring_rigs(chr_cache, rig)
+                    has_spring_rigs = springbones.has_spring_rigs(chr_cache, rig)
 
                     # utility widgets
                     box_row = layout.box().row(align=True)
                     is_full_rig_show = rigging.is_full_rig_shown(chr_cache)
                     box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
-                    if spring_rigs:
+                    if has_spring_rigs:
                         is_base_rig_show = rigging.is_base_rig_shown(chr_cache)
                         box_row.operator("cc3.rigifier", icon="ARMATURE_DATA", text="", depress=is_base_rig_show).param = "TOGGLE_SHOW_BASE_RIG"
                         is_spring_rig_show = rigging.is_spring_rig_shown(chr_cache)
@@ -1510,7 +1552,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                     box_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
                     box_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
 
-                    if spring_rigs:
+                    if has_spring_rigs:
 
                         if fake_drop_down(layout.box().row(),
                                     "Spring Rigs",
@@ -1524,11 +1566,10 @@ class CC3RigifyPanel(bpy.types.Panel):
                             col_1.label(text="Spring Rig")
                             col_2.prop(chr_cache, "available_spring_rigs", text="")
 
-                            spring_rig = springbones.get_spring_rig(chr_cache, rig, chr_cache.available_spring_rigs)
-                            pose_bone = rig.pose.bones[spring_rig.name]
                             row = layout.row()
                             row.scale_y = 2
-                            if "rigified" in pose_bone and pose_bone["rigified"]:
+                            rigified_control_rig = springbones.is_rigified(chr_cache, rig, chr_cache.available_spring_rigs)
+                            if rigified_control_rig:
                                 warn_icon(row)
                                 row.operator("cc3.rigifier", icon="X", text="Remove Control Rig").param = "REMOVE_SPRING_RIG"
                             else:
@@ -1536,7 +1577,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                             layout.separator()
 
-                            rigid_body_sim_ui(chr_cache, rig, obj, layout, show_selector=False)
+                            rigid_body_sim_ui(chr_cache, rig, obj, layout, show_selector=False, enabled=rigified_control_rig)
 
                             layout.separator()
 
@@ -1799,7 +1840,12 @@ class CC3SpringControlPanel(bpy.types.Panel):
                         layout.separator()
 
         if chr_cache and arm and obj:
-            rigid_body_sim_ui(chr_cache, arm, obj, layout, True, parent_mode)
+            if springbones.has_spring_rigs(chr_cache, arm):
+                build_allowed = True
+                rigified_spring_rig = springbones.is_rigified(chr_cache, arm, parent_mode)
+                if chr_cache.rigified and not rigified_spring_rig:
+                    build_allowed = False
+                rigid_body_sim_ui(chr_cache, arm, obj, layout, True, parent_mode, enabled=build_allowed)
 
 
 class CC3ToolsScenePanel(bpy.types.Panel):

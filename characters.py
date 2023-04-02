@@ -312,6 +312,7 @@ def remove_object_from_character(chr_cache, obj):
 
 
 def get_accessory_root(chr_cache, object):
+    """Accessories can be identified by them having only vertex groups not listed in the bone mappings for this generation."""
 
     # none of this works if rigified...
     if chr_cache.rigified:

@@ -430,8 +430,6 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
     rigid_body_system_name = get_rigid_body_system_name(arm, rig_prefix)
     bpy.ops.object.empty_add(type='SINGLE_ARROW', align='WORLD', location=(0,0,0))
     rigid_body_system = bpy.context.active_object
-    collections = utils.get_object_scene_collections(arm)
-    utils.move_object_to_scene_collections(rigid_body_system, collections)
     rigid_body_system.hide_render = True
     rigid_body_system.parent = arm
     rigid_body_system.parent_type = "BONE"
@@ -694,7 +692,11 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
     if bpy.context.scene.rigidbody_world.solver_iterations < 100:
         bpy.context.scene.rigidbody_world.solver_iterations = 100
 
-    utils.hide_tree(rigid_body_system)
+    collections = utils.get_object_scene_collections(arm)
+    system_objects = utils.get_object_tree(rigid_body_system)
+    for obj in system_objects:
+        utils.move_object_to_scene_collections(obj, collections)
+        obj.hide_set(True)
 
     arm.data.pose_position = pose_position
 

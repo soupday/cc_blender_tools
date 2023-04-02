@@ -933,36 +933,52 @@ def restore_visible_in_scene(tmp_collection : bpy.types.Collection):
     bpy.data.collections.remove(tmp_collection)
 
 
-def get_object_scene_collections(obj):
+def get_object_scene_collections(obj, exclude_rbw = True):
     collections = []
     if obj.name in bpy.context.scene.collection.objects:
         collections.append(bpy.context.scene.collection)
+    rbw = bpy.context.scene.rigidbody_world
     for col in bpy.data.collections:
+        # exclude rigid body world collections
+        if exclude_rbw and rbw and (col == rbw.collection or col == rbw.constraints):
+            continue
         if col != bpy.context.scene.collection and obj.name in col.objects:
             collections.append(col)
     return collections
 
 
-def get_all_scene_collections():
+def get_all_scene_collections(exclude_rbw = True):
     collections = []
     collections.append(bpy.context.scene.collection)
+    rbw = bpy.context.scene.rigidbody_world
     for col in bpy.data.collections:
+        # exclude rigid body world collections
+        if exclude_rbw and rbw and (col == rbw.collection or col == rbw.constraints):
+            continue
         if col != bpy.context.scene.collection:
             collections.append(col)
     return collections
 
 
-def remove_from_scene_collections(obj, collections = None):
+def remove_from_scene_collections(obj, collections = None, exclude_rbw = True):
     if collections is None:
         collections = get_all_scene_collections()
+    rbw = bpy.context.scene.rigidbody_world
     for col in collections:
+        # exclude rigid body world collections
+        if exclude_rbw and rbw and (col == rbw.collection or col == rbw.constraints):
+            continue
         if obj.name in col.objects:
             col.objects.unlink(obj)
 
 
-def move_object_to_scene_collections(obj, collections):
+def move_object_to_scene_collections(obj, collections, exclude_rbw = True):
     remove_from_scene_collections(obj)
+    rbw = bpy.context.scene.rigidbody_world
     for col in collections:
+        # exclude rigid body world collections
+        if exclude_rbw and rbw and (col == rbw.collection or col == rbw.constraints):
+            continue
         if obj.name not in col.objects:
             col.objects.link(obj)
 
