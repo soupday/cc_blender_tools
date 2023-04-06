@@ -1108,53 +1108,50 @@ class CC3OperatorTransferCharacterGeometry(bpy.types.Operator):
         active = bpy.context.active_object
         selected = bpy.context.selected_objects.copy()
 
-        active_character = props.get_character_cache(active, None)
+        shape_key_name = None
+        if props.geom_transfer_layer == "SHAPE_KEY":
+            shape_key_name = props.geom_transfer_layer_name
+
+        src_chr = props.get_character_cache(active, None)
         selected_characters = []
-        for obj in selected:
-            selected_character = props.get_character_cache(obj, None)
-            if selected_character not in selected_characters and selected_character != active_character:
+        for dst_obj in selected:
+            selected_character = props.get_character_cache(dst_obj, None)
+            if selected_character not in selected_characters and selected_character != src_chr:
                 selected_characters.append(selected_character)
 
-        if active_character and selected_characters:
+        if src_chr and selected_characters:
 
-            src_body = active_character.get_body()
-            src_eye = active_character.get_object_of_type("EYE")
-            src_tearline = active_character.get_object_of_type("TEARLINE")
-            src_eye_occlusion = active_character.get_object_of_type("EYE_OCCLUSION")
-            src_tongue = active_character.get_object_of_type("TONGUE")
-            src_teeth = active_character.get_object_of_type("TEETH")
-            src_arm = active_character.get_armature()
+            src_objects = src_chr.get_all_objects(include_armature = False, include_children = True, of_type = "MESH")
+            src_arm = src_chr.get_armature()
+            utils.object_mode_to(src_arm)
+            utils.clear_selected_objects()
+            dst_objects_transferred = []
 
-            for chr_cache in selected_characters:
+            for src_obj in src_objects:
+                src_base_name = utils.strip_name(src_obj.name)
+                for dst_chr in selected_characters:
+                    dst_objects = dst_chr.get_all_objects(include_armature = False, include_children = True, of_type = "MESH")
+                    dst_arm = dst_chr.get_armature()
+                    for dst_obj in dst_objects:
+                        dst_base_name = utils.strip_name(dst_obj.name)
+                        if src_base_name == dst_base_name:
+                            if len(src_obj.data.vertices) == len(dst_obj.data.vertices):
+                                if len(src_obj.data.polygons) == len(dst_obj.data.polygons):
+                                    geom.copy_vert_positions_by_uv_id(src_obj, dst_obj, 5, shape_key_name=shape_key_name)
+                                    if shape_key_name:
+                                        for sk in dst_obj.data.shape_keys.key_blocks:
+                                            sk.value = 0.0
+                                        dst_obj.data.shape_keys.key_blocks[-1].value = 1.0
+                                    dst_objects_transferred.append(dst_obj)
 
-                dst_body = chr_cache.get_body()
-                dst_eye = chr_cache.get_object_of_type("EYE")
-                dst_tearline = chr_cache.get_object_of_type("TEARLINE")
-                dst_eye_occlusion = chr_cache.get_object_of_type("EYE_OCCLUSION")
-                dst_tongue = chr_cache.get_object_of_type("TONGUE")
-                dst_teeth = chr_cache.get_object_of_type("TEETH")
-                dst_arm = chr_cache.get_armature()
+                    # shape key copy does not support copying the bind pose
+                    if not shape_key_name:
+                        bones.copy_rig_bind_pose(src_arm, dst_arm)
+                        dst_objects_transferred.append(dst_arm)
 
-                utils.object_mode_to(active)
-                utils.set_only_active_object(active)
-
-                if src_body and dst_body:
-                    geom.copy_vert_positions_by_uv_id(src_body, dst_body, 5)
-                if src_eye and dst_eye:
-                    geom.copy_vert_positions_by_uv_id(src_eye, dst_eye, 5)
-                if src_tearline and dst_tearline:
-                    geom.copy_vert_positions_by_uv_id(src_tearline, dst_tearline, 5)
-                if src_eye_occlusion and dst_eye_occlusion:
-                    geom.copy_vert_positions_by_uv_id(src_eye_occlusion, dst_eye_occlusion, 5)
-                if src_tongue and dst_tongue:
-                    geom.copy_vert_positions_by_uv_id(src_tongue, dst_tongue, 5)
-                if src_teeth and dst_teeth:
-                    geom.copy_vert_positions_by_uv_id(src_teeth, dst_teeth, 5)
-
-                bones.copy_rig_bind_pose(src_arm, dst_arm)
-
-                utils.object_mode_to(dst_arm)
-                utils.set_only_active_object(dst_arm)
+            utils.object_mode_to(dst_arm)
+            utils.try_select_objects(dst_objects_transferred, clear_selection=True)
+            utils.set_active_object(dst_arm)
 
             self.report(type={"INFO"}, message="Done!")
 
@@ -1193,9 +1190,13 @@ class CC3OperatorTransferMeshGeometry(bpy.types.Operator):
 
         utils.object_mode_to(active)
 
+        shape_key_name = None
+        if props.geom_transfer_layer == "SHAPE_KEY":
+            shape_key_name = props.geom_transfer_layer_name
+
         if active and len(selected) >= 2:
             for obj in selected:
-                geom.copy_vert_positions_by_uv_id(active, obj, 5)
+                geom.copy_vert_positions_by_uv_id(active, obj, 5, shape_key_name=shape_key_name)
 
             self.report(type={"INFO"}, message="Done!")
 

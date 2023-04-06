@@ -202,6 +202,23 @@ def add_poly_spline(points, curve):
         spline.points[i].co = (co.x, co.y, co.z, 1.0)
 
 
+def card_dir_from_uv_map(card_dirs, uv_map):
+    # analyse uv bounds
+    uv_min, uv_max = geom.get_uv_bounds(uv_map)
+    uv_extent = uv_max - uv_min
+    uv_aspect = uv_extent.x / uv_extent.y
+
+    # only deal with vertical or horizontal cards
+    # squarish cards are patches of hair that shouldn't be weighted
+    if uv_aspect >= 2.0:
+        uv_orient = "HORIZONTAL"
+    elif uv_aspect <= 0.5:
+        uv_orient = "VERTICAL"
+    else:
+        uv_orient = "SQUARE"
+    return card_dirs[uv_orient]
+
+
 def parse_loop(bm, edge_index, edges_left, loop, edge_map):
     """Returns a set of vertex indices in the edge loop
     """
@@ -321,16 +338,204 @@ def sort_lateral_card(obj, bm, loops, uv_map, dir):
     return card
 
 
-def selected_cards_to_length_loops(chr_cache, obj, card_dir : Vector, one_loop_per_card = True):
+def grid_to_loops(obj, bm, island, card_dirs, one_loop_per_card):
+    props = bpy.context.scene.CC3ImportProps
+
+    # each island has a unique UV map
+    uv_map = geom.get_uv_island_map(bm, 0, island)
+
+    card_dir = card_dir_from_uv_map(card_dirs, uv_map)
+
+    # get all edges aligned with the card dir in the island
+    edges = geom.get_uv_aligned_edges(bm, island, card_dir, uv_map, dir_threshold=props.hair_card_dir_threshold)
+    utils.log_info(f"{len(edges)} aligned edges.")
+
+    # map connected edges
+    edge_map = geom.get_linked_edge_map(bm, edges)
+
+    # separate into ordered vertex loops
+    loops = get_ordered_coordinate_loops(obj, bm, edges, card_dir, uv_map, edge_map)
+
+    utils.log_info(f"{len(loops)} ordered loops.")
+
+    # (merge and) generate poly curves
+    if one_loop_per_card:
+        loop = merge_length_coordinate_loops(loops)
+        if loop:
+            return [loop]
+        else:
+            utils.log_info("Loops have differing lengths, grid extraction failed.")
+            return None
+    else:
+        return loops
+
+    return True
+
+
+def get_vert_loop_to(obj, bm, from_index, to_index, edges, reverse = False):
+    verts = []
+    co_loop = []
+    following = False
+    for edge_index in edges:
+        if edge_index == from_index:
+            following = True
+        if edge_index == to_index:
+            following = False
+        if following:
+            edge = bm.edges[edge_index]
+            for vert in edge.verts:
+                if vert.index not in verts:
+                    verts.append(vert.index)
+                    if reverse:
+                        co_loop.insert(0, obj.matrix_world @ vert.co)
+                    else:
+                        co_loop.append(obj.matrix_world @ vert.co)
+    return verts, co_loop
+
+
+def sort_boundary_edges(bm, edges : set, start_index):
+    edge = bm.edges[start_index]
+    vert = edge.verts[1]
+    edge_loop = [start_index]
+    edges.remove(start_index)
+    following = True
+    while following:
+        following = False
+        for next_edge in vert.link_edges:
+            if next_edge != edge and next_edge.index in edges:
+                edge_loop.append(next_edge.index)
+                edges.remove(next_edge.index)
+                for next_vert in next_edge.verts:
+                    if next_vert.index != vert.index:
+                        edge = next_edge
+                        vert = next_vert
+                        following = True
+                        break
+            if following:
+                break
+    return edge_loop
+
+
+def split_boundary_loops(obj, bm, boundary_edges, card_dir, uv_map):
+    edge : bmesh.types.BMEdge
+    min_proj = math.inf
+    max_proj = -math.inf
+    list_edges = list(boundary_edges)
+    min_edge_index = list_edges[0]
+    max_edge_index = list_edges[-1]
+    for edge_index in boundary_edges:
+        edge = bm.edges[edge_index]
+        vert = edge.verts[0]
+        uv = uv_map[vert.index]
+        proj = -card_dir.dot(uv)
+        if proj < min_proj:
+            min_proj = proj
+            min_edge_index = edge.index
+        if proj > max_proj:
+            max_proj = proj
+            max_edge_index = edge.index
+    # sort the boundary edges in order, starting from max_edge (the top most UV edge)
+    num_edges = len(boundary_edges)
+    edge_loop = sort_boundary_edges(bm, boundary_edges, max_edge_index)
+    # return nothing if the sorted boundary edge does not contain all the edges
+    # (i.e. there are breaks in the edges)
+    if len(edge_loop) != num_edges:
+        utils.log_info(f"Unable to sort boundary edges: {len(edge_loop)} != {num_edges}")
+        return None, None
+    # extract the left and right coordinate loops
+    left_verts, left_coords = get_vert_loop_to(obj, bm, max_edge_index, min_edge_index, edge_loop)
+    right_verts, right_coords = get_vert_loop_to(obj, bm, min_edge_index, max_edge_index, edge_loop, reverse=True)
+    # need to reverse the order of one of these... but which one
+
+    return left_coords, right_coords
+
+
+def get_projection_on_loop(loop, co):
+    p0 = loop[0]
+    min_distance = math.inf
+    projected_point = p0
+    projected_length = 0.0
+    length = 0.0
+    for i in range(1, len(loop)):
+        p1 = loop[i]
+        segment_length = (p1 - p0).length
+        dist, fac = distance_from_line(co, p0, p1)
+        if dist < min_distance:
+            min_distance = dist
+            projected_point = p0 * (1.0 - fac) + p1 * fac
+            projected_length = length + segment_length * fac
+        length += segment_length
+        p0 = p1
+    return projected_point, projected_length
+
+
+def proj_loop_sort_func(co_len_pair):
+    return co_len_pair[1]
+
+
+def project_boundary_loop(src_loop, dst_loop):
+    """Projects the source loop onto the destination loop."""
+    sort_points = []
+    # add the original points & lengths
+    for i in range(0, len(dst_loop)):
+        sort_points.append([dst_loop[i], loop_length(dst_loop, i)])
+    # add the projected points & lengths
+    for co in src_loop:
+        projected_point, projected_length = get_projection_on_loop(dst_loop, co)
+        sort_points.append([projected_point, projected_length])
+    # sort by length
+    sort_points.sort(key=proj_loop_sort_func)
+    # return the coordinate loop
+    loop = [ pair[0] for pair in sort_points ]
+    return loop
+
+
+def mesh_to_loops(obj, bm, island, card_dirs):
+    props = bpy.context.scene.CC3ImportProps
+
+    # each island has a unique UV map
+    uv_map = geom.get_uv_island_map(bm, 0, island)
+
+    card_dir = card_dir_from_uv_map(card_dirs, uv_map)
+
+    # find the boundary edges
+    boundary_edges = geom.get_boundary_edges(bm, island)
+
+    # the top most UV in the boundary edge is the start of the left hand side
+    # the bottom most UV in the boundary edge is the end of the right hand side
+    # split the boundary edge into two loops left and right
+    left_loop, right_loop = split_boundary_loops(obj, bm, boundary_edges, card_dir, uv_map)
+
+    if left_loop and right_loop:
+
+        # project each vertex in loop_left into loop_right, order by projected length
+        projected_right_loop = project_boundary_loop(left_loop, right_loop)
+
+        # project each vertex in loop_right into loop_left, order by projected length
+        projected_left_loop = project_boundary_loop(right_loop, left_loop)
+
+        # the two loops should now be the same length and each index in the loops represents
+        # a point in one loop and/or it's projection in the other
+        # now average the loops into one loop representing the mesh hair card
+        loop = merge_length_coordinate_loops([projected_left_loop, projected_right_loop])
+
+        if loop:
+            return [loop]
+
+    utils.log_info("Loops have differing lengths or breaks, mesh extraction failed.")
+    return None
+
+
+def selected_cards_to_length_loops(chr_cache, obj, card_dirs, one_loop_per_card = True, card_selection_mode = "SELECTED"):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     props = bpy.context.scene.CC3ImportProps
 
-    # normalize card dir
-    card_dir.normalize()
-
     # select linked and set to edge mode
     utils.edit_mode_to(obj, only_this=True)
-    bpy.ops.mesh.select_linked(delimit={'UV'})
+    if card_selection_mode == "ALL":
+        bpy.ops.mesh.select_all(action='SELECT')
+    else:
+        bpy.ops.mesh.select_linked(delimit={'UV'})
     bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
 
     # object mode to save edit changes
@@ -348,58 +553,54 @@ def selected_cards_to_length_loops(chr_cache, obj, card_dir : Vector, one_loop_p
     utils.log_info(f"{len(islands)} islands selected.")
 
     all_loops = []
+    cards = []
 
     for island in islands:
 
         utils.log_info(f"Processing island, faces: {len(island)}")
         utils.log_indent()
 
-        # each island has a unique UV map
-        uv_map = geom.get_uv_island_map(bm, 0, island)
+        is_grid = geom.is_island_grid(bm, island)
+        loops = None
+        if is_grid:
+            loops = grid_to_loops(obj, bm, island, card_dirs, one_loop_per_card)
 
-        # get all edges aligned with the card dir in the island
-        edges = geom.get_uv_aligned_edges(bm, island, card_dir, uv_map,
-                                                    dir_threshold=props.hair_curve_dir_threshold)
+        if not loops:
+            is_grid = False
+            loops = mesh_to_loops(obj, bm, island, card_dirs)
 
-        utils.log_info(f"{len(edges)} aligned edges.")
-
-        # map connected edges
-        edge_map = geom.get_linked_edge_map(bm, edges)
-
-        # separate into ordered vertex loops
-        loops = get_ordered_coordinate_loops(obj, bm, edges, card_dir, uv_map, edge_map)
-
-        utils.log_info(f"{len(loops)} ordered loops.")
-
-        # (merge and) generate poly curves
-        if one_loop_per_card:
-            loop = merge_length_coordinate_loops(loops)
-            if loop:
-                all_loops.append(loop)
-            else:
-                utils.log_info("Loops have differing lengths, skipping.")
+        if is_grid:
+            utils.log_info("Grid")
         else:
-            for loop in loops:
-                all_loops.append(loop)
+            utils.log_info("Polymesh")
+
+        face : bmesh.types.BMFace
+        verts = set()
+        for face_index in island:
+            face = bm.faces[face_index]
+            for vert in face.verts:
+                verts.add(vert)
+
+        card = { "verts": verts, "loops": loops }
+        cards.append(card)
 
         utils.log_recess()
 
-    #for face in bm.faces: face.select = False
-    #for edge in bm.edges: edge.select = False
-    #for vert in bm.verts: vert.select = False
-    #for e in edges:
-    #    bm.edges[e].select = True
-
-    bm.to_mesh(mesh)
-
-    return all_loops
+    return cards, bm
 
 
-def selected_cards_to_curves(chr_cache, obj, card_dir : Vector, one_loop_per_card = True):
+def debug_loop(loop):
     curve = create_curve()
-    loops = selected_cards_to_length_loops(chr_cache, obj, card_dir, one_loop_per_card)
-    for loop in loops:
-        add_poly_spline(loop, curve)
+    add_poly_spline(loop, curve)
+
+
+def selected_cards_to_curves(chr_cache, obj, card_dirs, one_loop_per_card = True):
+    curve = create_curve()
+    cards, bm = selected_cards_to_length_loops(chr_cache, obj, card_dirs, one_loop_per_card)
+    for card in cards:
+        loops = card["loops"]
+        for loop in loops:
+            add_poly_spline(loop, curve)
     # TODO
     # Put the curve object to the same scale as the body mesh
     # With roots above the scalp plant the root of the curves into the scalp? (within tolerance)
@@ -812,7 +1013,7 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, sk
     return False
 
 
-def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
+def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dirs,
                             one_loop_per_card = True, bone_length = 0.075, skip_length = 0.075):
     """Lengths in world space units (m)."""
 
@@ -831,19 +1032,21 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
     anchor_bone_name = springbones.get_spring_anchor_name(chr_cache, arm, parent_mode)
     anchor_bone = bones.get_pose_bone(arm, anchor_bone_name)
     if anchor_bone:
-        loops = selected_cards_to_length_loops(chr_cache, obj, card_dir, one_loop_per_card)
+        cards, bm = selected_cards_to_length_loops(chr_cache, obj, card_dirs, one_loop_per_card)
         utils.edit_mode_to(arm)
-        remove_existing_loop_bones(chr_cache, arm, loops)
-        for edit_bone in arm.data.edit_bones:
-            edit_bone.select_head = False
-            edit_bone.select_tail = False
-            edit_bone.select = False
-        loop_index = 1
-        new_bones = []
-        for loop in loops:
-            loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
-            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
-                loop_index += 1
+        for card in cards:
+            loops = card["loops"]
+            remove_existing_loop_bones(chr_cache, arm, loops)
+            for edit_bone in arm.data.edit_bones:
+                edit_bone.select_head = False
+                edit_bone.select_tail = False
+                edit_bone.select = False
+            loop_index = 1
+            new_bones = []
+            for loop in loops:
+                loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
+                if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
+                    loop_index += 1
 
     remove_duplicate_bones(chr_cache, arm)
 
@@ -854,12 +1057,9 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dir : Vector,
     utils.try_select_object(arm)
 
 
-def get_hair_cards_lateral(chr_cache, obj, card_dir : Vector, card_selection_mode):
+def get_hair_cards_lateral(chr_cache, obj, card_dirs, card_selection_mode):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     props = bpy.context.scene.CC3ImportProps
-
-    # normalize card dir
-    card_dir.normalize()
 
     # select linked and set to edge mode
     utils.edit_mode_to(obj, only_this=True)
@@ -894,9 +1094,11 @@ def get_hair_cards_lateral(chr_cache, obj, card_dir : Vector, card_selection_mod
         # each island has a unique UV map
         uv_map = geom.get_uv_island_map(bm, 0, island)
 
+        card_dir = card_dir_from_uv_map(card_dirs, uv_map)
+
         # get all edges NOT aligned with the card dir in the island, i.e. the lateral edges
         edges = geom.get_uv_aligned_edges(bm, island, card_dir, uv_map,
-                                          get_non_aligned=True, dir_threshold=props.hair_curve_dir_threshold)
+                                          get_non_aligned=True, dir_threshold=props.hair_card_dir_threshold)
 
         utils.log_info(f"{len(edges)} non-aligned edges.")
 
@@ -974,9 +1176,8 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
     # vertex weights are in the deform layer of the BMesh verts
     dl = bm.verts.layers.deform.active
 
-    median = card["median"]
-
-    median_length = loop_length(median)
+    card_loop = card["loops"][0]
+    card_loop_length = loop_length(card_loop)
 
     if len(sorted_bones) < max_bones:
         max_bones = len(sorted_bones)
@@ -996,9 +1197,12 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
             vg = meshutils.add_vertex_group(obj, bone_name)
             first_bone_groups.append(vg)
 
-    for i, co in enumerate(median):
-        ml = loop_length(median, i)
-        card_length_fac = math.pow(ml / median_length, curve)
+    card_verts = card["verts"]
+    for vertex in card_verts:
+        co = obj.matrix_world @ vertex.co
+        proj_point, proj_length = get_projection_on_loop(card_loop, co)
+        card_length_fac = math.pow(proj_length / card_loop_length, curve)
+
         for b in range(0, max_bones):
             bone_chain = sorted_bones[b]["bones"]
             bone_def, bone_distance, bone_fac = get_closest_bone_def(bone_chain, co, max_radius)
@@ -1019,19 +1223,16 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
             bone_name = bone_def["name"]
             vg = meshutils.add_vertex_group(obj, bone_name)
             if vg:
-                vert_loop = card["loops"][i]
-                for vert_index in vert_loop:
-                    vertex = bm.verts[vert_index]
-                    vertex[dl][vg.index] = weight
-                    # if the weight's are scaled back, they need to be scaled back
-                    # against the root bone's weights, unless this is for the root bone
-                    # in which case we need to add the root weight
-                    if CC4_SPRING_RIG:
-                        first_vg = first_bone_groups[b]
-                        if vg.index != first_vg.index:
-                            vertex[dl][first_vg.index] = acc_root_weight
-                        else:
-                            vertex[dl][first_vg.index] = weight + acc_root_weight
+                vertex[dl][vg.index] = weight
+                # if the weight's are scaled back, they need to be scaled back
+                # against the root bone's weights, unless this is for the root bone
+                # in which case we need to add the root weight
+                if CC4_SPRING_RIG:
+                    first_vg = first_bone_groups[b]
+                    if vg.index != first_vg.index:
+                        vertex[dl][first_vg.index] = acc_root_weight
+                    else:
+                        vertex[dl][first_vg.index] = weight + acc_root_weight
 
 
 def sort_func_weighted_distance(bone_weight_distance):
@@ -1040,16 +1241,17 @@ def sort_func_weighted_distance(bone_weight_distance):
 
 def assign_bones(obj, bm, cards, bone_chains, max_radius, max_bones, max_weight, curve, variance):
     for i, card in enumerate(cards):
-        median = card["median"]
-        median_length = loop_length(median)
-        sorted_bones = []
-        for bone_chain in bone_chains:
-            weighted_distance = get_weighted_bone_distance(bone_chain, max_radius, median, median_length)
-            #if weighted_distance < max_radius:
-            bone_weight_distance = {"distance": weighted_distance, "bones": bone_chain}
-            sorted_bones.append(bone_weight_distance)
-        sorted_bones.sort(reverse=False, key=sort_func_weighted_distance)
-        weight_card_to_bones(obj, bm, card, sorted_bones, max_radius, max_bones, max_weight, curve, variance)
+        loops = card["loops"]
+        if loops:
+            card_loop = loops[0]
+            card_loop_length = loop_length(card_loop)
+            sorted_bones = []
+            for bone_chain in bone_chains:
+                weighted_distance = get_weighted_bone_distance(bone_chain, max_radius, card_loop, card_loop_length)
+                bone_weight_distance = { "distance": weighted_distance, "bones": bone_chain }
+                sorted_bones.append(bone_weight_distance)
+            sorted_bones.sort(reverse=False, key=sort_func_weighted_distance)
+            weight_card_to_bones(obj, bm, card, sorted_bones, max_radius, max_bones, max_weight, curve, variance)
 
 
 def remove_hair_bone_weights(obj, hair_bone_list, card_mode):
@@ -1378,7 +1580,7 @@ def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length
     utils.edit_mode_to(arm)
 
 
-def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector,
+def bind_cards_to_bones(chr_cache, arm, objects, card_dirs,
                         max_radius, max_bones, max_weight,
                         curve, variance, existing_scale,
                         card_mode, bone_mode, smoothing, parent_mode):
@@ -1391,31 +1593,38 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dir : Vector,
 
     bone_chain_defs = get_bone_chain_defs(chr_cache, arm, bone_mode, parent_mode)
 
-    hair_bones = []
-    for bone_chain in bone_chain_defs:
-        for bone_def in bone_chain:
-            hair_bones.append(bone_def["name"])
+    if bone_chain_defs:
 
-    # if no meshes selected, get a list of all hair objects
-    if not objects:
-        objects = []
-        for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.get_object()
-            if obj:
-                for mat in obj.data.materials:
-                    mat_cache = chr_cache.get_material_cache(mat)
-                    if mat_cache and mat_cache.material_type == "HAIR" and obj not in objects:
-                        objects.append(obj)
-                        break
+        hair_bones = []
+        for bone_chain in bone_chain_defs:
+            for bone_def in bone_chain:
+                hair_bones.append(bone_def["name"])
 
-    for obj in objects:
-        remove_hair_bone_weights(obj, hair_bones, card_mode)
-        bm, cards = get_hair_cards_lateral(chr_cache, obj, card_dir, card_mode)
-        scale_existing_weights(obj, bm, existing_scale)
-        assign_bones(obj, bm, cards, bone_chain_defs, max_radius, max_bones, max_weight, curve, variance)
-        bm.to_mesh(obj.data)
+        # if no meshes selected, get a list of all hair objects
+        if not objects:
+            objects = []
+            for obj_cache in chr_cache.object_cache:
+                obj = obj_cache.get_object()
+                if obj:
+                    for mat in obj.data.materials:
+                        mat_cache = chr_cache.get_material_cache(mat)
+                        if mat_cache and mat_cache.material_type == "HAIR" and obj not in objects:
+                            objects.append(obj)
+                            break
 
-        smooth_hair_bone_weights(arm, obj, bone_chain_defs, smoothing)
+        for obj in objects:
+            remove_hair_bone_weights(obj, hair_bones, card_mode)
+            cards, bm = selected_cards_to_length_loops(chr_cache, obj, card_dirs,
+                                                    one_loop_per_card=True, card_selection_mode=card_mode)
+            scale_existing_weights(obj, bm, existing_scale)
+            assign_bones(obj, bm, cards, bone_chain_defs, max_radius, max_bones, max_weight, curve, variance)
+            bm.to_mesh(obj.data)
+
+            smooth_hair_bone_weights(arm, obj, bone_chain_defs, smoothing)
+
+    else:
+
+        utils.log_error("No bones selected!")
 
     arm.data.pose_position = "POSE"
     utils.pose_mode_to(arm)
@@ -1467,7 +1676,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
             if hair_mesh:
                 selected_cards_to_curves(chr_cache, bpy.context.active_object,
-                                         props.hair_dir_vector(),
+                                         props.hair_dir_vectors(),
                                          one_loop_per_card = props.hair_curve_merge_loops == "MERGE")
 
         if self.param == "ADD_BONES":
@@ -1477,7 +1686,7 @@ class CC3OperatorHair(bpy.types.Operator):
                 selected_cards_to_bones(chr_cache, arm,
                                         hair_mesh,
                                         props.hair_rig_bone_root,
-                                        props.hair_dir_vector(),
+                                        props.hair_dir_vectors(),
                                         one_loop_per_card = True,
                                         bone_length = props.hair_rig_bone_length / 100.0,
                                         skip_length = props.hair_rig_bind_skip_length / 100.0)
@@ -1529,7 +1738,7 @@ class CC3OperatorHair(bpy.types.Operator):
                 arm.hide_set(False)
                 bind_cards_to_bones(chr_cache, arm,
                                     objects,
-                                    props.hair_dir_vector(),
+                                    props.hair_dir_vectors(),
                                     props.hair_rig_bind_bone_radius / 100.0,
                                     props.hair_rig_bind_bone_count,
                                     props.hair_rig_bind_bone_weight,

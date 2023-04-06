@@ -409,7 +409,6 @@ class CC3OperatorSpringBones(bpy.types.Operator):
 
             parent_mode = chr_cache.available_spring_rigs
             spring_rig_name = get_spring_rig_name(arm, parent_mode)
-            print(spring_rig_name)
             spring_rig_prefix = get_spring_rig_prefix(parent_mode)
 
             if arm:

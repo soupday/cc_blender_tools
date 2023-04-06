@@ -815,15 +815,22 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 icon="OUTLINER_OB_CURVES", icon_closed="OUTLINER_OB_CURVES"):
 
             edit_enabled = True
-            if chr_cache.rigified and springbones.is_rigified(chr_cache, arm, props.hair_rig_bone_root):
+            if (chr_cache and chr_cache.rigified and
+                springbones.is_rigified(chr_cache, arm, props.hair_rig_bone_root)):
                 edit_enabled = False
 
             column = layout.column()
-
+            column.label(text="Hair Card UV Directions:", icon="OUTLINER_OB_LATTICE")
             split = column.split(factor=0.5)
-            split.column().label(text="UV Direction")
-            split.column().prop(props, "hair_curve_dir", text="")
-            column.row().prop(props, "hair_curve_dir_threshold", text="Alignment Threshold", slider=True)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Vertical Cards")
+            col_2.row().prop(props, "hair_card_vertical_dir", text="", expand=True)
+            col_1.label(text="Horizontal Cards")
+            col_2.row().prop(props, "hair_card_horizontal_dir", text="", expand=True)
+            col_1.label(text="Square Cards")
+            col_2.row().prop(props, "hair_card_square_dir", text="", expand=True)
+            column.row().prop(props, "hair_card_dir_threshold", text="Alignment Threshold", slider=True)
 
             column.separator()
 
@@ -939,7 +946,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
 
             column.separator()
 
-            if not chr_cache.rigified and props.hair_rig_target == "CC4":
+            if chr_cache and not chr_cache.rigified and props.hair_rig_target == "CC4":
                 is_accessory = characters.get_accessory_root(chr_cache, obj) is not None
                 can_make_accessory = not chr_cache.rigified and edit_enabled and not is_accessory
                 column.row().label(text = "For CC4 Accessory Only", icon="INFO")
@@ -2432,6 +2439,10 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             column.label(text="Geometry Transfer:")
 
             column.separator()
+
+            column.row().prop(props, "geom_transfer_layer", expand=True)
+            if props.geom_transfer_layer == "SHAPE_KEY":
+                column.row().prop(props, "geom_transfer_layer_name")
 
             row = column.row()
             row.operator("cc3.transfer_character", icon="OUTLINER_OB_ARMATURE", text="Transfer Geometry")

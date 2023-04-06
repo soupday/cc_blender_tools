@@ -131,7 +131,15 @@ def nearest_vert_from_uv(obj, mesh, mat_slot, uv, thresh = 0):
         return None
 
 
-def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = None, threshold = 0.004):
+def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = None, threshold = 0.004, shape_key_name = None):
+
+    mesh : bpy.types.Mesh = dst_obj.data
+    if shape_key_name:
+        if not mesh.shape_keys:
+            dst_obj.shape_key_add(name = "Basis")
+        if shape_key_name not in mesh.shape_keys.key_blocks:
+            shape_key = dst_obj.shape_key_add(name = shape_key_name)
+            shape_key_name = shape_key.name
 
     src_mesh = src_obj.data
     dst_mesh = dst_obj.data
@@ -149,6 +157,7 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
 
     src_map = {}
     mat_map = {}
+    overlapping = {}
 
     for i, src_mat in enumerate(src_mesh.materials):
         for j, dst_mat in enumerate(dst_mesh.materials):
@@ -166,6 +175,7 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
     dl = src_bm.verts.layers.deform.active
     face : bmesh.types.BMFace
     loop : bmesh.types.BMLoop
+
     for face in src_bm.faces:
         if face.material_index in mat_map:
             dst_material_idx = mat_map[face.material_index]
@@ -178,18 +188,34 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
                 uv = loop[ul].uv
                 uv.x -= int(uv.x)
                 uv_id = uv.to_tuple(accuracy), dst_material_idx
+                if uv_id in src_map:
+                    overlapping[uv_id] = True
                 src_map[uv_id] = loop.vert.index
 
     ul = dst_bm.loops.layers.uv[0]
+    sl = None
+    if shape_key_name:
+        sl = dst_bm.verts.layers.shape.get(shape_key_name)
     for face in dst_bm.faces:
         for loop in face.loops:
             uv = loop[ul].uv
             uv.x -= int(uv.x)
             uv_id = uv.to_tuple(accuracy), face.material_index
-            if uv_id in src_map:
+            # overlapping UV's can't be detected correctly so try to copy from just the index position
+            if uv_id in overlapping:
+                vert_index = loop.vert.index
+                src_pos = src_bm.verts[vert_index].co
+                if sl:
+                    loop.vert[sl] = src_pos
+                else:
+                    loop.vert.co = src_pos
+            elif uv_id in src_map:
                 src_vert = src_map[uv_id]
                 src_pos = src_bm.verts[src_vert].co
-                loop.vert.co = src_pos
+                if sl:
+                    loop.vert[sl] = src_pos
+                else:
+                    loop.vert.co = src_pos
 
     dst_bm.to_mesh(dst_mesh)
 
@@ -316,6 +342,7 @@ def parse_island_non_recursive(bm, face_indices, faces_left, island, face_map, v
 def get_uv_island_map(bm, uv_layer, island):
     """Fetch the UV coords of each vertex in the UV/Mesh island.
        Each island has a unique UV map so this must be called per island.
+       uv_map = { vert_index: loop.uv, ... }
     """
     uv_map = {}
     ul = bm.loops.layers.uv[uv_layer]
@@ -334,9 +361,9 @@ def get_uv_islands(bm, uv_layer, use_selected = True):
     ul = bm.loops.layers.uv[uv_layer]
 
     if use_selected:
-        faces = [f for f in bm.faces if f.select]
+        faces = [f for f in bm.faces if f.select and not f.hide]
     else:
-        faces = [f for f in bm.faces]
+        faces = [f for f in bm.faces if not f.hide]
 
     for face in faces:
         for loop in face.loops:
@@ -363,10 +390,9 @@ def get_uv_islands(bm, uv_layer, use_selected = True):
     return islands
 
 
-def get_uv_aligned_edges(bm, island, dir, uv_map, get_non_aligned = False, dir_threshold = 0.9):
+def get_uv_aligned_edges(bm, island, card_dir, uv_map, get_non_aligned = False, dir_threshold = 0.9):
     edge : bmesh.types.BMEdge
     face : bmesh.types.BMFace
-
     edges = set()
 
     for i in island:
@@ -382,7 +408,7 @@ def get_uv_aligned_edges(bm, island, dir, uv_map, get_non_aligned = False, dir_t
         uv1 = uv_map[edge.verts[1].index]
         V = Vector(uv1) - Vector(uv0)
         V.normalize()
-        dot = dir.dot(V)
+        dot = card_dir.dot(V)
 
         if get_non_aligned:
             if abs(dot) < dir_threshold:
@@ -406,3 +432,67 @@ def get_linked_edge_map(bm, edges):
                     edge_map[e].add(linked_edge.index)
     return edge_map
 
+
+def get_boundary_edges(bm, island):
+    face : bmesh.types.BMFace
+    edge : bmesh.types.BMEdge
+    edges = set()
+    for face_index in island:
+        face = bm.faces[face_index]
+        for edge in face.edges:
+            if edge.is_boundary:
+                edges.add(edge.index)
+    return edges
+
+
+def count_adjacent_faces(face : bmesh.types.BMFace):
+    edge : bmesh.types.BMEdge
+    count = 0
+    for edge in face.edges:
+        for f in edge.link_faces:
+            if f != face:
+                count += 1
+    return count
+
+
+def get_uv_bounds(uv_map):
+    min = Vector((9999,9999))
+    max = Vector((-9999,-9999))
+    for vert_index in uv_map:
+        uv = uv_map[vert_index]
+        if uv.x < min.x: min.x = uv.x
+        if uv.x > max.x: max.x = uv.x
+        if uv.y < min.y: min.y = uv.y
+        if uv.y > max.y: max.y = uv.y
+    return min, max
+
+
+
+def is_island_grid(bm : bmesh.types.BMesh, island : list):
+    """island: list of face indices"""
+    adjacent_count = {}
+    for face_index in island:
+        face = bm.faces[face_index]
+        count = count_adjacent_faces(face)
+        if count not in adjacent_count:
+            adjacent_count[count] = 0
+        adjacent_count[count] += 1
+
+    num_faces = len(island)
+
+    # test for a 1 x N strip
+    if len(adjacent_count) == 2 and 1 in adjacent_count and 2 in adjacent_count:
+        if adjacent_count[1] == 2 and adjacent_count[2] == num_faces - 2:
+            return True
+
+    # test for a 2 x N grid
+    elif len(adjacent_count) == 2 and 2 in adjacent_count and 3 in adjacent_count:
+        if adjacent_count[2] == 4 and adjacent_count[3] == num_faces - 4:
+            return True
+
+    # test for a N x M grid
+    elif len(adjacent_count) == 3 and 2 in adjacent_count and 3 in adjacent_count and 4 in adjacent_count:
+        if adjacent_count[2] == 4 and adjacent_count[3] + adjacent_count [4] == num_faces - 4:
+            return True
+
+    return False

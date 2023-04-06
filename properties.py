@@ -1880,6 +1880,16 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("DETAIL","Detail","Detail sculpt layer.", "MESH_MONKEY", 1),
                     ], default="BODY", name = "Sculpt Layer")
 
+    geom_transfer_layer: bpy.props.EnumProperty(items=[
+                        ("BASE","Base","Transfer geometry to the base mesh."),
+                        ("SHAPE_KEY","Shape Key","Transfer geometry to a new shape key. This will *not* alter the bones."),
+                    ], default="BASE", name = "Transfer Layer")
+
+    geom_transfer_layer_name: bpy.props.StringProperty(name="Name", default="New Shape",
+                                                       description="Name to assign to transferred shape key")
+
+
+
     # Hair
 
     hair_export_group_by: bpy.props.EnumProperty(items=[
@@ -1889,14 +1899,24 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     ], default="CURVE", name = "Export Hair Grouping",
                        description="Export hair groups by...")
 
-    hair_curve_dir_threshold: bpy.props.FloatProperty(default=0.9, min=0.0, max=1.0, name="Direction Threshold")
-    hair_curve_dir: bpy.props.EnumProperty(items=[
-                        ("UP","Up","Hair cards from bottom to top in UV map"),
-                        ("DOWN","Down","Hair cards from top to bottom in UV map"),
-                        ("LEFT","Left","Hair cards from right to left in UV map"),
-                        ("RIGHT","Right","Hair cards from left to right in UV map"),
+    hair_card_dir_threshold: bpy.props.FloatProperty(default=0.9, min=0.0, max=1.0, name="Direction Threshold")
+    hair_card_vertical_dir: bpy.props.EnumProperty(items=[
+                        ("DOWN","Down","Hair cards from top to bottom in UV map", "SORT_ASC", 0),
+                        ("UP","Up","Hair cards from bottom to top in UV map", "SORT_DESC", 1),
                     ], default="DOWN", name = "UV Direction",
-                       description="Direction of hair cards in UV Map")
+                       description="Direction of vertical hair cards in UV Map")
+    hair_card_horizontal_dir: bpy.props.EnumProperty(items=[
+                        ("RIGHT","Right","Hair cards from left to right in UV map", "FORWARD", 2),
+                        ("LEFT","Left","Hair cards from right to left in UV map", "BACK", 3),
+                    ], default="RIGHT", name = "UV Direction",
+                       description="Direction of horizontal hair cards in UV Map")
+    hair_card_square_dir: bpy.props.EnumProperty(items=[
+                        ("DOWN","Down","Hair cards from top to bottom in UV map", "SORT_ASC", 0),
+                        ("UP","Up","Hair cards from bottom to top in UV map", "SORT_DESC", 1),
+                        ("RIGHT","Right","Hair cards from left to right in UV map", "FORWARD", 2),
+                        ("LEFT","Left","Hair cards from right to left in UV map", "BACK", 3),
+                    ], default="DOWN", name = "UV Direction",
+                       description="Direction of square(ish) hair cards in UV Map")
     hair_curve_merge_loops: bpy.props.EnumProperty(items=[
                         ("ALL","Use All Edge Loops","All edge loops in the cards will be converted into curves"),
                         ("MERGE","Merge Edge Loops","Edge loops in each card will be merged into a single curve"),
@@ -2071,12 +2091,22 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             self.armature_list_object = None
             self.armature_list_index = -1
 
-    def hair_dir_vector(self):
-        if self.hair_curve_dir == "UP":
-            return Vector((0,1))
-        elif self.hair_curve_dir == "LEFT":
-            return Vector((-1,0))
-        elif self.hair_curve_dir == "RIGHT":
-            return Vector((1,0))
-        else: #if self.hair_curve_dir == "DOWN":
-            return Vector((0,-1))
+    def hair_dir_vectors(self):
+        dirs = { "VERTICAL": self.hair_card_vertical_dir,
+                 "HORIZONTAL": self.hair_card_horizontal_dir,
+                 "SQUARE": self.hair_card_square_dir }
+        dir_vectors = {}
+        for aspect in dirs:
+            dir = dirs[aspect]
+            vector = Vector((0,0))
+            if dir == "UP":
+                vector = Vector((0,1)).normalized()
+            elif dir == "LEFT":
+                vector = Vector((-1,0)).normalized()
+            elif dir == "RIGHT":
+                vector = Vector((1,0)).normalized()
+            else: #if dir == "DOWN":
+                vector = Vector((0,-1)).normalized()
+            dir_vectors[aspect] = vector
+        return dir_vectors
+
