@@ -402,21 +402,25 @@ class CC3OperatorSpringBones(bpy.types.Operator):
         mode_selection = utils.store_mode_selection_state()
 
         chr_cache = props.get_context_character_cache(context)
-        arm = chr_cache.get_armature()
+        arm = None
+        if chr_cache:
+            arm = chr_cache.get_armature()
 
         if self.param == "MAKE_RIGID_BODY_SYSTEM":
             stop_spring_animation(context)
 
-            parent_mode = chr_cache.available_spring_rigs
-            spring_rig_name = get_spring_rig_name(arm, parent_mode)
-            spring_rig_prefix = get_spring_rig_prefix(parent_mode)
-
             if arm:
+                parent_mode = chr_cache.available_spring_rigs
+                spring_rig_name = get_spring_rig_name(arm, parent_mode)
+                spring_rig_prefix = get_spring_rig_prefix(parent_mode)
+
                 rigidbody.build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_name)
                 body = chr_cache.get_body()
-                if chr_cache.collision_body is None:
-                    physics.apply_collision_physics(chr_cache, body, None)
-                rigidbody.enable_rigid_body_collision_mesh(chr_cache, body)
+                if body:
+                    obj_cache = chr_cache.get_object_cache(body)
+                    if not obj_cache.has_collision_physics():
+                        physics.apply_collision_physics(chr_cache, body, obj_cache)
+                    rigidbody.enable_rigid_body_collision_mesh(chr_cache, body)
 
             reset_spring_physics(context)
 
@@ -425,11 +429,11 @@ class CC3OperatorSpringBones(bpy.types.Operator):
         if self.param == "REMOVE_RIGID_BODY_SYSTEM":
             stop_spring_animation(context)
 
-            parent_mode = props.hair_rig_bone_root
-            spring_rig_name = get_spring_rig_name(arm, parent_mode)
-            spring_rig_prefix = get_spring_rig_prefix(parent_mode)
-
             if arm:
+                parent_mode = props.hair_rig_bone_root
+                spring_rig_name = get_spring_rig_name(arm, parent_mode)
+                spring_rig_prefix = get_spring_rig_prefix(parent_mode)
+
                 rigidbody.remove_existing_rigid_body_system(arm, spring_rig_prefix, spring_rig_name)
 
             reset_spring_physics(context)
@@ -437,9 +441,9 @@ class CC3OperatorSpringBones(bpy.types.Operator):
         if self.param == "ENABLE_RIGID_BODY_COLLISION":
             stop_spring_animation(context)
 
-            objects = utils.get_selected_meshes()
-            for obj in objects:
-                rigidbody.enable_rigid_body_collision_mesh(chr_cache, obj)
+            objects = utils.get_selected_meshes(context)
+            for body in objects:
+                rigidbody.enable_rigid_body_collision_mesh(chr_cache, body)
 
             reset_spring_physics(context)
 
@@ -448,7 +452,7 @@ class CC3OperatorSpringBones(bpy.types.Operator):
         if self.param == "DISABLE_RIGID_BODY_COLLISION":
             stop_spring_animation(context)
 
-            objects = utils.get_selected_meshes()
+            objects = utils.get_selected_meshes(context)
             for obj in objects:
                 rigidbody.disable_rigid_body_collision_mesh(chr_cache, obj)
 

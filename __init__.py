@@ -176,7 +176,6 @@ classes = (
     # control panels
     panels.CC3SpringControlPanel,
 
-
     preferences.CC3ToolsAddonPreferences,
     preferences.MATERIAL_UL_weightedmatslots,
 

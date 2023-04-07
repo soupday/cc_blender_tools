@@ -250,7 +250,7 @@ def character_export_unity_button(chr_cache, layout):
         column.enabled = False
 
 
-def rigid_body_sim_ui(chr_cache, arm , obj, layout, fixed_parent=False, only_parent_mode=None, show_selector=True, enabled=True):
+def rigid_body_sim_ui(chr_cache, arm, obj, layout, fixed_parent=False, only_parent_mode=None, show_selector=True, enabled=True):
     props = bpy.context.scene.CC3ImportProps
 
     if not chr_cache or not arm:
@@ -491,9 +491,6 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                     o = obj_cache.get_object()
                     if o:
                         box.prop(obj_cache, "object", text="")
-                box.label(text="Collision Mesh")
-                box.prop(chr_cache, "collision_body", text="")
-
             else:
                 box.label(text="Name: " + chr_cache.character_name)
         else:
@@ -1851,13 +1848,13 @@ class CC3SpringControlPanel(bpy.types.Panel):
                         layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
                         layout.separator()
 
-        if chr_cache and arm and obj:
-            if springbones.has_spring_rigs(chr_cache, arm):
-                build_allowed = True
-                rigified_spring_rig = springbones.is_rigified(chr_cache, arm, parent_mode)
-                if chr_cache.rigified and not rigified_spring_rig:
-                    build_allowed = False
-                rigid_body_sim_ui(chr_cache, arm, obj, layout, True, parent_mode, enabled=build_allowed)
+        #if chr_cache and arm and obj:
+        #    if springbones.has_spring_rigs(chr_cache, arm):
+        #        build_allowed = True
+        #        rigified_spring_rig = springbones.is_rigified(chr_cache, arm, parent_mode)
+        #        if chr_cache.rigified and not rigified_spring_rig:
+        #            build_allowed = False
+        #        rigid_body_sim_ui(chr_cache, arm, obj, layout, True, parent_mode, enabled=build_allowed)
 
 
 class CC3ToolsScenePanel(bpy.types.Panel):
@@ -1885,6 +1882,8 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
         grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
 
+        column.separator()
+
         box = layout.box()
         box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
         column = layout.column()
@@ -1892,46 +1891,7 @@ class CC3ToolsScenePanel(bpy.types.Panel):
         op = column.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
         op.param = "TEMPLATE"
 
-        box = layout.box()
-        box.label(text="Animation", icon="RENDER_ANIMATION")
-        column = layout.column()
-        scene = context.scene
-        #op = col.operator("cc3.scene", icon="RENDER_STILL", text="Render Image")
-        #op.param = "RENDER_IMAGE"
-        #op = col.operator("cc3.scene", icon="RENDER_ANIMATION", text="Render Animation")
-        #op.param = "RENDER_ANIMATION"
-        row = column.row(align=True)
-        row.prop(scene, "use_preview_range", text="", toggle=True)
-        sub = row.row(align=True)
-        sub.scale_x = 0.8
-        if not scene.use_preview_range:
-            sub.prop(scene, "frame_start", text="Start")
-            sub.prop(scene, "frame_end", text="End")
-        else:
-            sub.prop(scene, "frame_preview_start", text="Start")
-            sub.prop(scene, "frame_preview_end", text="End")
         column.separator()
-        column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
-        row = column.row()
-        warn_icon(row, "X")
-        row.operator("cc3.scene", icon="MOD_CLOTH", text="Reset Cloth").param = "PHYSICS_PREP_CLOTH"
-        row = column.row()
-        warn_icon(row, "X")
-        row.operator("cc3.scene", icon="CON_KINEMATIC", text="Reset Rigid Body").param = "PHYSICS_PREP_RBW"
-        column.separator()
-        grid = column.grid_flow(columns=3, align=True)
-        if not context.screen.is_animation_playing:
-            #op = col_1.operator("screen.animation_manager", icon="PLAY", text="Play")
-            #op.mode = "PLAY"
-            grid.operator("screen.animation_play", text="Play", icon='PLAY')
-        else:
-            #op = col_1.operator("screen.animation_manager", icon="PAUSE", text="Pause")
-            #op.mode = "PLAY"
-            grid.operator("screen.animation_play", text="Pause", icon='PAUSE')
-        #op = col_2.operator("screen.animation_manager", icon="REW", text="Reset")
-        #op.mode = "STOP"
-        grid.operator("screen.frame_jump", text="Start", icon='REW').end = False
-        grid.operator("screen.frame_jump", text="End", icon='FF').end = True
 
         chr_cache = props.get_context_character_cache(context)
         if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
@@ -1940,7 +1900,40 @@ class CC3ToolsScenePanel(bpy.types.Panel):
             column = layout.column()
             op = column.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
             op.param = "CYCLES_SETUP"
+            column.separator()
 
+        cache_timeline_physics_ui(layout)
+
+
+def cache_timeline_physics_ui(layout):
+    layout.box().label(text="Physics Cache", icon="PREVIEW_RANGE")
+    column = layout.column()
+    column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
+
+    column.separator()
+
+    row = column.row()
+    warn_icon(row, "X")
+    row.operator("cc3.scene", icon="MOD_CLOTH", text="Reset Cloth").param = "PHYSICS_PREP_CLOTH"
+    row = column.row()
+    warn_icon(row, "X")
+    row.operator("cc3.scene", icon="CON_KINEMATIC", text="Reset Rigid Body").param = "PHYSICS_PREP_RBW"
+
+    column.separator()
+
+    grid = column.grid_flow(row_major=True, columns=1, align=True)
+    grid.scale_y = 1.5
+
+    grid.operator("cc3.setphysics", icon=utils.check_icon("MOD_CLOTH"), text="Bake Cloth Physics").param = "BAKE_PHYSICS"
+
+    depress = False
+    rigidbody_world = bpy.context.scene.rigidbody_world
+    if rigidbody_world:
+        if rigidbody_world.point_cache.is_baking:
+            depress = True
+        if rigidbody_world.point_cache.is_baked:
+            grid.alert = True
+    grid.operator("cc3.springbones", icon=utils.check_icon("CON_KINEMATIC"), text="Bake Spring Physics", depress=depress).param = "BAKE_PHYSICS"
 
 
 class CC3ToolsCreatePanel(bpy.types.Panel):
@@ -1978,6 +1971,10 @@ class CC3ToolsCreatePanel(bpy.types.Panel):
         grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
         grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
 
+        column.separator()
+
+        cache_timeline_physics_ui(layout)
+
 
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Physics_Panel"
@@ -1993,48 +1990,21 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         layout = self.layout
 
         chr_cache = props.get_context_character_cache(context)
-        missing_cloth = False
-        has_cloth = False
-        missing_coll = False
-        cloth_mod = None
-        coll_mod = None
-        meshes_selected = 0
-        obj_cache = None
-        for obj in bpy.context.selected_objects:
-            if chr_cache:
-                obj_cache = chr_cache.get_object_cache(obj)
-            if obj.type == "MESH":
-                meshes_selected += 1
-                clm = modifiers.get_cloth_physics_mod(obj)
-                proxy = None
-                if obj_cache and chr_cache:
-                    if utils.still_exists(obj_cache.collision_proxy):
-                        proxy = obj_cache.collision_proxy
-                    if utils.still_exists(chr_cache.collision_body):
-                        proxy = chr_cache.collision_body
-                if proxy:
-                    com = modifiers.get_collision_physics_mod(chr_cache, proxy)
-                else:
-                    com = modifiers.get_collision_physics_mod(chr_cache, obj)
-                if clm is None:
-                    missing_cloth = True
-                else:
-                    if context.object == obj:
-                        cloth_mod = clm
-                    has_cloth = True
-                if com is None:
-                    missing_coll = True
-                else:
-                    if context.object == obj:
-                        coll_mod = com
-
         obj = context.object
         obj_cache = None
         proxy = None
         is_proxy_active = False
+        cloth_mod = None
+        coll_mod = None
         if chr_cache and obj:
             obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
             obj_cache = chr_cache.get_object_cache(obj)
+            cloth_mod = modifiers.get_cloth_physics_mod(obj)
+            if proxy:
+                coll_mod = modifiers.get_collision_physics_mod(chr_cache, proxy)
+            else:
+                coll_mod = modifiers.get_collision_physics_mod(chr_cache, obj)
+
 
         mat = utils.context_material(context)
         edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
@@ -2054,15 +2024,6 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         column.separator()
 
-        layout.box().label(text="Cache & Timeline", icon="PREVIEW_RANGE")
-        column = layout.column()
-        column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
-        row = column.row()
-        warn_icon(row, "X")
-        row.operator("cc3.scene", text="Reset Cloth Physics").param = "PHYSICS_PREP_CLOTH"
-
-        column.separator()
-
         # Cloth Physics Foldout
         #
 
@@ -2074,7 +2035,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
             row = column.row()
             row.scale_y = 2.0
-            if not missing_cloth:
+            if cloth_mod:
                 warn_icon(row, "REMOVE")
                 row.operator("cc3.setphysics", text="Remove Cloth Physics").param = "PHYSICS_REMOVE_CLOTH"
             else:
@@ -2137,7 +2098,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         layout.box().label(text="Cloth Collision", icon="MOD_PHYSICS")
 
         column = layout.column()
-        if meshes_selected == 0:
+        if obj is None:
             column.enabled = False
 
         if obj_cache and cloth_mod is None:
@@ -2152,7 +2113,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         row = column.row()
         row.scale_y = 2.0
-        if not missing_coll:
+        if coll_mod:
             warn_icon(row, "REMOVE")
             row.operator("cc3.setphysics", text="Remove Cloth Collision").param = "PHYSICS_REMOVE_COLLISION"
         else:
@@ -2199,7 +2160,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
-            if not has_cloth:
+            if cloth_mod is None:
                 col_1.enabled = False
                 col_2.enabled = False
             col_1.label(text="WeightMap Size")

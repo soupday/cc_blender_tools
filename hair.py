@@ -1725,7 +1725,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
         if self.param == "BIND_TO_BONES":
 
-            objects = utils.get_selected_meshes()
+            objects = utils.get_selected_meshes(context)
 
             seed = props.hair_rig_bind_seed
             random.seed(seed)
@@ -1763,7 +1763,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
         if self.param == "CLEAR_WEIGHTS":
 
-            objects = utils.get_selected_meshes()
+            objects = utils.get_selected_meshes(context)
 
             if arm:
                 arm.hide_set(False)
@@ -1779,7 +1779,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
         if self.param == "MAKE_ACCESSORY":
 
-            objects = utils.get_selected_meshes()
+            objects = utils.get_selected_meshes(context)
 
             if arm and objects:
                 arm.hide_set(False)
@@ -1790,7 +1790,7 @@ class CC3OperatorHair(bpy.types.Operator):
             group_name = props.hair_rig_group_name
             parent_mode = props.hair_rig_bone_root
 
-            objects = utils.get_selected_meshes()
+            objects = utils.get_selected_meshes(context)
             if arm:
                 arm.hide_set(False)
                 rename_hair_bones(chr_cache, arm, group_name, parent_mode)

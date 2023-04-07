@@ -347,8 +347,7 @@ def remove_all_physics_mods(obj):
 
 
 def enable_collision_physics(chr_cache, obj):
-    if obj == chr_cache.collision_body:
-        obj = chr_cache.get_body()
+    obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
     props = bpy.context.scene.CC3ImportProps
     obj_cache = chr_cache.get_object_cache(obj)
     has_cloth = modifiers.get_cloth_physics_mod(obj) is not None
@@ -358,8 +357,6 @@ def enable_collision_physics(chr_cache, obj):
 
 
 def disable_collision_physics(chr_cache, obj):
-    if obj == chr_cache.collision_body:
-        obj = chr_cache.get_body()
     obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
     props = bpy.context.scene.CC3ImportProps
     obj_cache = chr_cache.get_object_cache(obj)
@@ -1026,6 +1023,7 @@ def remove_all_physics(chr_cache):
             obj = obj_cache.get_object()
             if obj and obj_cache.is_mesh() and obj not in objects_processed:
                 remove_all_physics_mods(obj)
+            utils.delete_mesh_object(obj_cache.collision_proxy)
         utils.delete_mesh_object(chr_cache.collision_body)
         chr_cache.physics_applied = False
         utils.log_recess()
@@ -1096,41 +1094,40 @@ def should_separate_materials(context):
 def set_physics_settings(op, param, context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
+    obj = None
+    if context.object and context.object.type == "MESH":
+        obj = context.object
 
     if param == "PHYSICS_ADD_CLOTH":
         utils.fix_local_view(context)
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                enable_cloth_physics(chr_cache, obj, True)
+        if obj:
+            enable_cloth_physics(chr_cache, obj, True)
 
     elif param == "PHYSICS_REMOVE_CLOTH":
         utils.fix_local_view(context)
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                disable_cloth_physics(chr_cache, obj)
+        if obj:
+            disable_cloth_physics(chr_cache, obj)
 
     elif param == "PHYSICS_ADD_COLLISION":
         utils.fix_local_view(context)
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                enable_collision_physics(chr_cache, obj)
+        if obj:
+            enable_collision_physics(chr_cache, obj)
 
     elif param == "PHYSICS_REMOVE_COLLISION":
         utils.fix_local_view(context)
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                disable_collision_physics(chr_cache, obj)
+        if obj:
+            disable_collision_physics(chr_cache, obj)
 
     elif param == "PHYSICS_ADD_WEIGHTMAP":
-        if context.object is not None and context.object.type == "MESH":
-            enable_material_weight_map(chr_cache, context.object, utils.context_material(context))
+        if obj:
+            enable_material_weight_map(chr_cache, obj, utils.context_material(context))
 
     elif param == "PHYSICS_REMOVE_WEIGHTMAP":
-        if context.object is not None and context.object.type == "MESH":
+        if obj:
             disable_material_weight_map(chr_cache, context.object, utils.context_material(context))
 
     elif param == "PHYSICS_RESIZE_WEIGHTMAP":
-        if context.object is not None and context.object.type == "MESH":
+        if obj:
             resize_weight_map(chr_cache, context, op)
 
     elif param == "PHYSICS_HAIR":
@@ -1164,7 +1161,7 @@ def set_physics_settings(op, param, context):
                 apply_cloth_settings(obj, "SILK")
 
     elif param == "PHYSICS_PAINT":
-        if context.object is not None and context.object.type == "MESH":
+        if obj:
             begin_paint_weight_map(chr_cache, context)
 
     elif param == "PHYSICS_DONE_PAINTING":
@@ -1174,13 +1171,14 @@ def set_physics_settings(op, param, context):
         save_dirty_weight_maps(chr_cache, bpy.context.selected_objects)
 
     elif param == "PHYSICS_DELETE":
-        delete_selected_weight_map(chr_cache, context.object, utils.context_material(context))
+        if obj:
+            delete_selected_weight_map(chr_cache, obj, utils.context_material(context))
 
     elif param == "PHYSICS_SEPARATE":
         separate_physics_materials(chr_cache, context)
 
     elif param == "PHYSICS_FIX_DEGENERATE":
-        if context.object is not None:
+        if obj:
             if bpy.context.object.mode != "EDIT" and bpy.context.object.mode != "OBJECT":
                 bpy.ops.object.mode_set(mode = 'OBJECT')
             if bpy.context.object.mode != "EDIT":
@@ -1189,27 +1187,31 @@ def set_physics_settings(op, param, context):
                 bpy.ops.mesh.select_all(action = 'SELECT')
                 bpy.ops.mesh.dissolve_degenerate()
             bpy.ops.object.mode_set(mode = 'OBJECT')
-            op.report({'INFO'}, f"Degenerate elements removed for {context.object.name}")
+            op.report({'INFO'}, f"Degenerate elements removed for {obj.name}")
 
     elif param == "DISABLE_PHYSICS":
-        utils.fix_local_view(context)
-        disable_physics(chr_cache)
-        op.report({'INFO'}, f"Physics disabled for {chr_cache.character_name}")
+        if chr_cache:
+            utils.fix_local_view(context)
+            disable_physics(chr_cache)
+            op.report({'INFO'}, f"Physics disabled for {chr_cache.character_name}")
 
     elif param == "ENABLE_PHYSICS":
-        utils.fix_local_view(context)
-        enable_physics(chr_cache)
-        op.report({'INFO'}, f"Physics enabled for {chr_cache.character_name}")
+        if chr_cache:
+            utils.fix_local_view(context)
+            enable_physics(chr_cache)
+            op.report({'INFO'}, f"Physics enabled for {chr_cache.character_name}")
 
     elif param == "REMOVE_PHYSICS":
-        utils.fix_local_view(context)
-        remove_all_physics(chr_cache)
-        op.report({'INFO'}, f"Physics removed for {chr_cache.character_name}")
+        if chr_cache:
+            utils.fix_local_view(context)
+            remove_all_physics(chr_cache)
+            op.report({'INFO'}, f"Physics removed for {chr_cache.character_name}")
 
     elif param == "APPLY_PHYSICS":
-        utils.fix_local_view(context)
-        apply_all_physics(chr_cache)
-        op.report({'INFO'}, f"Physics applied to {chr_cache.character_name}")
+        if chr_cache:
+            utils.fix_local_view(context)
+            apply_all_physics(chr_cache)
+            op.report({'INFO'}, f"Physics applied to {chr_cache.character_name}")
 
     elif param == "PHYSICS_INC_STRENGTH":
         strength = float(round(props.physics_paint_strength * 10)) / 10.0
@@ -1220,8 +1222,8 @@ def set_physics_settings(op, param, context):
         props.physics_paint_strength = min(1.0, max(0.0, strength - 0.1))
 
     elif param == "TOGGLE_SHOW_PROXY":
-        if chr_cache and context.object:
-                obj, proxy, is_proxy_active = chr_cache.get_physics_objects(context.object)
+        if chr_cache and obj:
+                obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
         if utils.is_local_view(context):
             if proxy:
                 proxy.hide_set(True)

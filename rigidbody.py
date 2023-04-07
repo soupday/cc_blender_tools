@@ -22,13 +22,13 @@ from . import drivers, bones, utils, vars
 
 # these must be floats
 BASE_COLLISION_RADIUS = 0.015
-MARGIN = 0.01
+MARGIN = BASE_COLLISION_RADIUS * 2.0 / 3.0
 MASS = 0.5
 STIFFNESS = 1.0
 DAMPENING = 0.5
 LIMIT = 1.0
 ANGLE_RANGE = 90.0
-LINEAR_LIMIT = 0.0
+LINEAR_LIMIT = 0.001
 CURVE = 0.5
 INFLUENCE = 1.0
 UPSCALE = 5.0
@@ -480,19 +480,17 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
 
 def is_rigid_body(chr_cache, obj):
     if chr_cache and obj:
-        obj_cache = chr_cache.get_object_cache(obj)
-        if obj_cache and obj_cache.object_type == "BODY":
-            if utils.object_exists_is_mesh(chr_cache.collision_body):
-                obj = chr_cache.collision_body
+        obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+        if proxy:
+            obj = proxy
     return obj and obj.rigid_body is not None
 
 
 def get_rigid_body(chr_cache, obj):
     if chr_cache and obj:
-        obj_cache = chr_cache.get_object_cache(obj)
-        if obj_cache and obj_cache.object_type == "BODY":
-            if utils.object_exists_is_mesh(chr_cache.collision_body):
-                obj = chr_cache.collision_body
+        obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+        if proxy:
+            obj = proxy
         return obj.rigid_body
     return None
 
@@ -505,21 +503,20 @@ def enable_rigid_body_collision_mesh(chr_cache, obj):
             pose_position = arm.data.pose_position
             arm.data.pose_position = "REST"
 
-        obj_cache = chr_cache.get_object_cache(obj)
-        if obj_cache and obj_cache.object_type == "BODY":
-            if utils.object_exists_is_mesh(chr_cache.collision_body):
+        obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+        if proxy:
+            if obj.rigid_body:
                 # if there is a collision body proxy but
                 # there is a rigid body mod on the real body, remove it:
-                if obj.rigid_body:
-                    utils.set_active_object(obj)
-                    hidden = False
-                    if not obj.visible_get():
-                        hidden = True
-                        obj.hide_set(False)
-                    bpy.ops.rigidbody.object_remove()
-                    if hidden:
-                        obj.hide_set(True)
-                obj = chr_cache.collision_body
+                utils.set_active_object(obj)
+                hidden = False
+                if not obj.visible_get():
+                    hidden = True
+                    obj.hide_set(False)
+                bpy.ops.rigidbody.object_remove()
+                if hidden:
+                    obj.hide_set(True)
+            obj = proxy
 
     if obj.rigid_body is None:
         utils.set_active_object(obj)
@@ -530,6 +527,7 @@ def enable_rigid_body_collision_mesh(chr_cache, obj):
         bpy.ops.rigidbody.object_add()
         if hidden:
             obj.hide_set(True)
+
     obj.rigid_body.collision_shape = 'MESH'
     obj.rigid_body.type = "PASSIVE"
     obj.rigid_body.enabled = True
@@ -556,19 +554,18 @@ def disable_rigid_body_collision_mesh(chr_cache, obj):
             pose_position = arm.data.pose_position
             arm.data.pose_position = "REST"
 
-        obj_cache = chr_cache.get_object_cache(obj)
-        if obj_cache and obj_cache.object_type == "BODY":
-            if utils.object_exists_is_mesh(chr_cache.collision_body):
-                if obj.rigid_body:
-                    utils.set_active_object(obj)
-                    hidden = False
-                    if not obj.visible_get():
-                        hidden = True
-                        obj.hide_set(False)
-                    bpy.ops.rigidbody.object_remove()
-                    if hidden:
-                        obj.hide_set(True)
-                obj = chr_cache.collision_body
+        obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+        if proxy:
+            if obj.rigid_body:
+                utils.set_active_object(obj)
+                hidden = False
+                if not obj.visible_get():
+                    hidden = True
+                    obj.hide_set(False)
+                bpy.ops.rigidbody.object_remove()
+                if hidden:
+                    obj.hide_set(True)
+            obj = proxy
 
     if obj.rigid_body is not None:
         utils.set_active_object(obj)
@@ -682,10 +679,10 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
         # connect the head and the tail together with a generic spring constraint
         connect_spring(arm, spring_rig_prefix, bone_name, head_body, tail_body,
                        parent_object = rigid_body_system,
-                       use_angular_spring= True, angular_limit_fac = fac,
-                       use_linear_spring= False,
-                       use_angular_limit= True,
-                       use_linear_limit= True,
+                       use_angular_spring=True, angular_limit_fac = fac,
+                       use_linear_spring=False,
+                       use_angular_limit=True,
+                       use_linear_limit=True,
                        )
 
     set_rigify_simulation_influence(arm, spring_rig_bone_name, 1.0, 1.0)

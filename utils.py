@@ -270,8 +270,13 @@ def get_selected_mesh():
     return None
 
 
-def get_selected_meshes():
-    return [ obj for obj in bpy.context.selected_objects if object_exists_is_mesh(obj) ]
+def get_selected_meshes(context = None):
+    objects = [ obj for obj in bpy.context.selected_objects if object_exists_is_mesh(obj) ]
+    if context and context.object:
+        if object_exists_is_mesh(context.object):
+            if context.object not in objects:
+                objects.append(context.object)
+    return objects
 
 
 def try_remove(item, force = False):
