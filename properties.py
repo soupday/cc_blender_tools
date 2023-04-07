@@ -1099,10 +1099,13 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
     source_name: bpy.props.StringProperty(default="")
     object_type: bpy.props.EnumProperty(items=vars.ENUM_OBJECT_TYPES, default="DEFAULT")
-    collision_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
+    collision_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON, PROXY
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_settings: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, HAIR, COTTON, DENIM, LEATHER, RUBBER, SILK
     user_added: bpy.props.BoolProperty(default=False)
+    collision_proxy: bpy.props.PointerProperty(type=bpy.types.Object)
+    use_collision_proxy: bpy.props.BoolProperty(default=False)
+    collision_proxy_decimate: bpy.props.FloatProperty(default=0.125, min=0.0, max=1.0)
 
     def is_body(self):
         return self.object_type == "BODY"
@@ -1151,6 +1154,26 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
             self.object = obj
         elif obj is None:
             self.object = None
+
+    def set_object_type(self, type):
+        if type is not None:
+            self.object_type = type
+            if type == "BODY":
+                self.use_collision_proxy = True
+
+    def has_collision_physics(self):
+        if self.collision_physics == "ON" or self.collision_physics == "PROXY":
+            return True
+        if self.collision_physics == "DEFAULT" and \
+           (self.object_type == "BODY" or self.object_type == "OCCLUSION"):
+            return True
+        return False
+
+    def get_collision_proxy(self):
+        if utils.still_exists(self.collision_proxy):
+            return self.collision_proxy
+        else:
+            return None
 
 
 class CC3CharacterCache(bpy.types.PropertyGroup):
@@ -1777,6 +1800,29 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def set_sculpt_body(self, mesh):
         self.sculpt_multires_body = mesh
 
+    def get_physics_objects(self, obj):
+        proxy = None
+        is_proxy_active = False
+        if obj:
+            obj_cache = self.get_object_cache(obj)
+            if obj_cache:
+                proxy = obj_cache.get_collision_proxy()
+            else:
+                proxy_obj = self.find_object_from_proxy(obj)
+                if proxy_obj:
+                    proxy = obj
+                    obj = proxy_obj
+                    is_proxy_active = True
+        return obj, proxy, is_proxy_active
+
+    def find_object_from_proxy(self, proxy):
+        for obj_cache in self.object_cache:
+            if obj_cache.collision_proxy == proxy:
+                return obj_cache.object
+        if self.collision_body == proxy:
+            body = self.get_body()
+            return body
+        return None
 
 
 class CC3ImportProps(bpy.types.PropertyGroup):

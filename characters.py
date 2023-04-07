@@ -277,7 +277,7 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
 
             # add the object into the object cache
             obj_cache = chr_cache.add_object_cache(obj)
-            obj_cache.object_type = "DEFAULT"
+            obj_cache.set_object_type("DEFAULT")
             obj_cache.user_added = True
 
         add_missing_materials_to_character(chr_cache, obj, obj_cache)

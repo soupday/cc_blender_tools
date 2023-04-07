@@ -415,7 +415,7 @@ class CC3OperatorSpringBones(bpy.types.Operator):
                 rigidbody.build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_name)
                 body = chr_cache.get_body()
                 if chr_cache.collision_body is None:
-                    physics.add_collision_physics(chr_cache, body, None)
+                    physics.apply_collision_physics(chr_cache, body, None)
                 rigidbody.enable_rigid_body_collision_mesh(chr_cache, body)
 
             reset_spring_physics(context)

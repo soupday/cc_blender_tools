@@ -255,7 +255,7 @@ def cache_object_materials(chr_cache, obj, chr_json, processed):
             if mat and mat.node_tree is not None and not mat in processed:
 
                 object_type, material_type = materials.detect_materials(chr_cache, obj, mat, obj_json)
-                obj_cache.object_type = object_type
+                obj_cache.set_object_type(object_type)
                 mat_cache = chr_cache.add_material_cache(mat, material_type)
                 mat_cache.dir = imageutils.get_material_tex_dir(chr_cache, obj, mat)
                 utils.log_indent()
@@ -267,7 +267,7 @@ def cache_object_materials(chr_cache, obj, chr_json, processed):
             elif mat in processed:
 
                 object_type, material_type = materials.detect_materials(chr_cache, obj, mat, obj_json)
-                obj_cache.object_type = object_type
+                obj_cache.set_object_type(object_type)
 
         utils.log_recess()
 
@@ -840,7 +840,7 @@ class CC3Import(bpy.types.Operator):
             # setup default physics
             if props.physics_mode:
                 utils.log_info("")
-                physics.add_all_physics(chr_cache)
+                physics.apply_all_physics(chr_cache)
 
             # enable SSR
             if prefs.refractive_eyes == "SSR":

@@ -627,7 +627,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
 
 class CC3ObjectManagementPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Object_Management_Panel"
-    bl_label = "Object Management"
+    bl_label = "Character Management"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -770,6 +770,11 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column.separator()
 
+        row = column.row()
+        row.operator("cc3.character", icon="MATERIAL", text="Match Materials").param = "MATCH_MATERIALS"
+
+        column.separator()
+
         # Armature & Weights
 
         column.box().label(text = "Armature & Weights", icon = "ARMATURE_DATA")
@@ -790,7 +795,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
 class CC3SpringRigPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_SpringRig_Panel"
-    bl_label = "Spring Rig"
+    bl_label = "Spring Rigging"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -1976,7 +1981,7 @@ class CC3ToolsCreatePanel(bpy.types.Panel):
 
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Physics_Panel"
-    bl_label = "Physics Settings"
+    bl_label = "Cloth Physics Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -1994,11 +1999,23 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         cloth_mod = None
         coll_mod = None
         meshes_selected = 0
+        obj_cache = None
         for obj in bpy.context.selected_objects:
+            if chr_cache:
+                obj_cache = chr_cache.get_object_cache(obj)
             if obj.type == "MESH":
                 meshes_selected += 1
                 clm = modifiers.get_cloth_physics_mod(obj)
-                com = modifiers.get_collision_physics_mod(chr_cache, obj)
+                proxy = None
+                if obj_cache and chr_cache:
+                    if utils.still_exists(obj_cache.collision_proxy):
+                        proxy = obj_cache.collision_proxy
+                    if utils.still_exists(chr_cache.collision_body):
+                        proxy = chr_cache.collision_body
+                if proxy:
+                    com = modifiers.get_collision_physics_mod(chr_cache, proxy)
+                else:
+                    com = modifiers.get_collision_physics_mod(chr_cache, obj)
                 if clm is None:
                     missing_cloth = True
                 else:
@@ -2012,99 +2029,141 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                         coll_mod = com
 
         obj = context.object
+        obj_cache = None
+        proxy = None
+        is_proxy_active = False
+        if chr_cache and obj:
+            obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+            obj_cache = chr_cache.get_object_cache(obj)
+
         mat = utils.context_material(context)
         edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
 
+        column = layout.column()
+
         if chr_cache:
-            layout.box().label(text="Character Physics", icon="FORCE_CURVE")
+            column.box().label(text="Character Physics", icon="PHYSICS")
             if chr_cache.physics_applied:
-                layout.row().operator("cc3.setphysics", icon="REMOVE", text="Remove All Physics").param = "REMOVE_PHYSICS"
+                column.row().operator("cc3.setphysics", icon="REMOVE", text="Remove All Physics").param = "REMOVE_PHYSICS"
             else:
-                layout.row().operator("cc3.setphysics", icon="ADD", text="Apply All Physics").param = "APPLY_PHYSICS"
+                column.row().operator("cc3.setphysics", icon="ADD", text="Apply All Physics").param = "APPLY_PHYSICS"
             if chr_cache.physics_disabled:
-                layout.row().operator("cc3.setphysics", icon="PLAY", text="Re-enable Physics").param = "ENABLE_PHYSICS"
+                column.row().operator("cc3.setphysics", icon="PLAY", text="Re-enable Physics").param = "ENABLE_PHYSICS"
             else:
-                layout.row().operator("cc3.setphysics", icon="PAUSE", text="Disable Physics").param = "DISABLE_PHYSICS"
+                column.row().operator("cc3.setphysics", icon="PAUSE", text="Disable Physics").param = "DISABLE_PHYSICS"
 
-        box = layout.box()
-        box.label(text="Create / Remove", icon="PHYSICS")
+        column.separator()
 
-        col = layout.column()
-        if not missing_cloth:
-            op = col.operator("cc3.setphysics", icon="REMOVE", text="Remove Cloth Physics")
-            op.param = "PHYSICS_REMOVE_CLOTH"
-        else:
-            op = col.operator("cc3.setphysics", icon="ADD", text="Add Cloth Physics")
-            op.param = "PHYSICS_ADD_CLOTH"
-        if not missing_coll:
-            op = col.operator("cc3.setphysics", icon="REMOVE", text="Remove Collision Physics")
-            op.param = "PHYSICS_REMOVE_COLLISION"
-        else:
-            op = col.operator("cc3.setphysics", icon="ADD", text="Add Collision Physics")
-            op.param = "PHYSICS_ADD_COLLISION"
-        if meshes_selected == 0:
-            col.enabled = False
+        layout.box().label(text="Cache & Timeline", icon="PREVIEW_RANGE")
+        column = layout.column()
+        column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
+        row = column.row()
+        warn_icon(row, "X")
+        row.operator("cc3.scene", text="Reset Cloth Physics").param = "PHYSICS_PREP_CLOTH"
 
-        box = layout.box()
-        box.label(text="Mesh Correction", icon="MESH_DATA")
-        col = layout.column()
-        op = col.operator("cc3.setphysics", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh")
-        op.param = "PHYSICS_FIX_DEGENERATE"
-        op = col.operator("cc3.setphysics", icon="FACE_MAPS", text="Separate Physics Materials")
-        op.param = "PHYSICS_SEPARATE"
+        column.separator()
 
-        # Cloth Physics Presets
-        box = layout.box()
-        box.label(text="Presets", icon="PRESET")
-        col = layout.column()
-        if cloth_mod is None:
-            col.enabled = False
-        op = col.operator("cc3.setphysics", icon="USER", text="Hair")
-        op.param = "PHYSICS_HAIR"
-        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Cotton")
-        op.param = "PHYSICS_COTTON"
-        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Denim")
-        op.param = "PHYSICS_DENIM"
-        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Leather")
-        op.param = "PHYSICS_LEATHER"
-        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Rubber")
-        op.param = "PHYSICS_RUBBER"
-        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Silk")
-        op.param = "PHYSICS_SILK"
+        # Cloth Physics Foldout
+        #
 
-        # Cloth Physics Settings
-        if cloth_mod is not None:
-            box = layout.box()
-            box.label(text="Cloth Settings", icon="OPTIONS")
-            col = layout.column()
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Weight")
-            col_2.prop(cloth_mod.settings, "mass", text="", slider=True)
-            col_1.label(text="Bend Resist")
-            col_2.prop(cloth_mod.settings, "bending_stiffness", text="", slider=True)
-            col_1.label(text="Pin Stiffness")
-            col_2.prop(cloth_mod.settings, "pin_stiffness", text="", slider=True)
-            col_1.label(text="Quality")
-            col_2.prop(cloth_mod.settings, "quality", text="", slider=True)
-            col_1.label(text="Collision")
-            col_2.prop(cloth_mod.collision_settings, "collision_quality", text="", slider=True)
-            col_1.label(text="Distance")
-            col_2.prop(cloth_mod.collision_settings, "distance_min", text="", slider=True)
-            col_1.label(text="Self Collision")
-            col_2.prop(cloth_mod.collision_settings, "use_self_collision", text="", slider=False)
-            if cloth_mod.collision_settings.use_self_collision:
-                col_1.label(text="Friction")
-                col_2.prop(cloth_mod.collision_settings, "self_friction", text="", slider=True)
+        if not is_proxy_active:
+
+            layout.box().label(text="Cloth Simulation", icon="MOD_CLOTH")
+
+            column = layout.column()
+
+            row = column.row()
+            row.scale_y = 2.0
+            if not missing_cloth:
+                warn_icon(row, "REMOVE")
+                row.operator("cc3.setphysics", text="Remove Cloth Physics").param = "PHYSICS_REMOVE_CLOTH"
+            else:
+                row.operator("cc3.setphysics", icon="ADD", text="Add Cloth Physics").param = "PHYSICS_ADD_CLOTH"
+
+            column.separator()
+
+            # Cloth Physics Settings
+            if cloth_mod is not None:
+
+                column = layout.column()
+
+                if cloth_mod is None:
+                    column.enabled = False
+
+                # Cloth Physics Presets
+                column.label(text="Presets", icon="PRESET")
+                op = column.operator("cc3.setphysics", icon="USER", text="Hair")
+                op.param = "PHYSICS_HAIR"
+                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Cotton")
+                op.param = "PHYSICS_COTTON"
+                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Denim")
+                op.param = "PHYSICS_DENIM"
+                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Leather")
+                op.param = "PHYSICS_LEATHER"
+                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Rubber")
+                op.param = "PHYSICS_RUBBER"
+                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Silk")
+                op.param = "PHYSICS_SILK"
+
+                column.separator()
+
+                column.label(text="Cloth Settings", icon="OPTIONS")
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Weight")
+                col_2.prop(cloth_mod.settings, "mass", text="", slider=True)
+                col_1.label(text="Bend Resist")
+                col_2.prop(cloth_mod.settings, "bending_stiffness", text="", slider=True)
+                col_1.label(text="Pin Stiffness")
+                col_2.prop(cloth_mod.settings, "pin_stiffness", text="", slider=True)
+                col_1.label(text="Quality")
+                col_2.prop(cloth_mod.settings, "quality", text="", slider=True)
+                col_1.label(text="Collision")
+                col_2.prop(cloth_mod.collision_settings, "collision_quality", text="", slider=True)
                 col_1.label(text="Distance")
-                col_2.prop(cloth_mod.collision_settings, "self_distance_min", text="", slider=True)
+                col_2.prop(cloth_mod.collision_settings, "distance_min", text="", slider=True)
+                col_1.label(text="Self Collision")
+                col_2.prop(cloth_mod.collision_settings, "use_self_collision", text="", slider=False)
+                if cloth_mod.collision_settings.use_self_collision:
+                    col_1.label(text="Friction")
+                    col_2.prop(cloth_mod.collision_settings, "self_friction", text="", slider=True)
+                    col_1.label(text="Distance")
+                    col_2.prop(cloth_mod.collision_settings, "self_distance_min", text="", slider=True)
+
+                column.separator()
+
+        # Cloth Collision Physics
+        layout.box().label(text="Cloth Collision", icon="MOD_PHYSICS")
+
+        column = layout.column()
+        if meshes_selected == 0:
+            column.enabled = False
+
+        if obj_cache and cloth_mod is None:
+            if proxy:
+                local_view = utils.is_local_view(context) and proxy is not None and proxy.visible_get()
+                column.row().operator("cc3.setphysics", icon=utils.check_icon("HIDE_OFF"), text="Show Collision Proxy",
+                                  depress=local_view).param = "TOGGLE_SHOW_PROXY"
+            else:
+                grid = column.grid_flow(columns=2, align=True)
+                grid.prop(obj_cache, "use_collision_proxy", toggle=True, text="Use Proxy")
+                grid.prop(obj_cache, "collision_proxy_decimate", text="Decimate", slider=True)
+
+        row = column.row()
+        row.scale_y = 2.0
+        if not missing_coll:
+            warn_icon(row, "REMOVE")
+            row.operator("cc3.setphysics", text="Remove Cloth Collision").param = "PHYSICS_REMOVE_COLLISION"
+        else:
+            row.operator("cc3.setphysics", icon="ADD", text="Add Cloth Collision").param = "PHYSICS_ADD_COLLISION"
+
+        column.separator()
+
         # Collision Physics Settings
         if coll_mod is not None:
-            box = layout.box()
-            box.label(text="Collision Settings", icon="OPTIONS")
-            col = layout.column()
-            split = col.split(factor=0.5)
+            column.label(text="Collision Settings", icon="OPTIONS")
+            split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
             col_1.label(text="Damping")
@@ -2116,83 +2175,102 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             col_1.label(text="Friction")
             col_2.prop(coll_mod.settings, "cloth_friction", text="", slider=True)
 
-        box = layout.box()
-        box.label(text="Weight Maps", icon="TEXTURE_DATA")
-        split = layout.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        if not has_cloth:
-            col_1.enabled = False
-            col_2.enabled = False
-        col_1.label(text="WeightMap Size")
-        col_2.prop(props, "physics_tex_size", text="")
+            column.separator()
 
-        col = layout.column()
-        if cloth_mod is None:
-            col.enabled = False
+        # Physics Mesh Tools
+        layout.box().label(text="Mesh Correction", icon="MESH_DATA")
 
-        weight_map = None
-        if obj and mat:
-            weight_map : bpy.types.Image = physics.get_weight_map_from_modifiers(obj, mat)
-        if weight_map:
-            weight_map_size = int(props.physics_tex_size)
-            split = col.split(factor=0.5)
+        column = layout.column()
+
+        op = column.operator("cc3.setphysics", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh")
+        op.param = "PHYSICS_FIX_DEGENERATE"
+        op = column.operator("cc3.setphysics", icon="FACE_MAPS", text="Separate Physics Materials")
+        op.param = "PHYSICS_SEPARATE"
+
+        column.separator()
+
+        # Weight Maps
+        if not is_proxy_active:
+
+            layout.box().label(text="Weight Maps", icon="TEXTURE_DATA")
+
+            column = layout.column()
+
+            split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
-            col_1.label(text="Current Size:")
-            col_2.label(text=f"{weight_map.size[0]} x {weight_map.size[1]}")
-            row = col.row()
-            row.operator("cc3.setphysics", icon="MOD_LENGTH", text="Resize Weightmap").param = "PHYSICS_RESIZE_WEIGHTMAP"
-            if (weight_map and
-               (weight_map.size[0] != weight_map_size or weight_map.size[1] != weight_map_size) and
-               bpy.context.mode != "PAINT_TEXTURE"):
-                row.enabled = True
+            if not has_cloth:
+                col_1.enabled = False
+                col_2.enabled = False
+            col_1.label(text="WeightMap Size")
+            col_2.prop(props, "physics_tex_size", text="")
+
+            column = layout.column()
+            if cloth_mod is None:
+                column.enabled = False
+
+            weight_map = None
+            if obj and mat:
+                weight_map : bpy.types.Image = physics.get_weight_map_from_modifiers(obj, mat)
+            if weight_map:
+                weight_map_size = int(props.physics_tex_size)
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Current Size:")
+                col_2.label(text=f"{weight_map.size[0]} x {weight_map.size[1]}")
+                row = column.row()
+                row.operator("cc3.setphysics", icon="MOD_LENGTH", text="Resize Weightmap").param = "PHYSICS_RESIZE_WEIGHTMAP"
+                if (weight_map and
+                (weight_map.size[0] != weight_map_size or weight_map.size[1] != weight_map_size) and
+                bpy.context.mode != "PAINT_TEXTURE"):
+                    row.enabled = True
+                else:
+                    row.enabled = False
+
+            if obj is not None:
+                column.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
+            if edit_mod is not None:
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Influence")
+                col_2.prop(mix_mod, "mask_constant", text="", slider=True)
+            column.separator()
+            if bpy.context.mode == "PAINT_TEXTURE":
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Strength")
+                row = col_2.row()
+                row.operator("cc3.setphysics", text="", icon='TRIA_LEFT').param = "PHYSICS_DEC_STRENGTH"
+                row.prop(props, "physics_paint_strength", text="", slider=True)
+                row.operator("cc3.setphysics", text="", icon='TRIA_RIGHT').param = "PHYSICS_INC_STRENGTH"
+                row = column.row()
+                row.scale_y = 2
+                op = row.operator("cc3.setphysics", icon="CHECKMARK", text="Done Weight Painting!")
+                op.param = "PHYSICS_DONE_PAINTING"
             else:
-                row.enabled = False
-
-        if obj is not None:
-            col.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
-        if edit_mod is not None:
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Influence")
-            col_2.prop(mix_mod, "mask_constant", text="", slider=True)
-        col.separator()
-        if bpy.context.mode == "PAINT_TEXTURE":
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Strength")
-            row = col_2.row()
-            row.operator("cc3.setphysics", text="", icon='TRIA_LEFT').param = "PHYSICS_DEC_STRENGTH"
-            row.prop(props, "physics_paint_strength", text="", slider=True)
-            row.operator("cc3.setphysics", text="", icon='TRIA_RIGHT').param = "PHYSICS_INC_STRENGTH"
-            row = col.row()
-            row.scale_y = 2
-            op = row.operator("cc3.setphysics", icon="CHECKMARK", text="Done Weight Painting!")
-            op.param = "PHYSICS_DONE_PAINTING"
-        else:
-            if edit_mod is None:
-                row = col.row()
-                op = row.operator("cc3.setphysics", icon="ADD", text="Add Weight Map")
-                op.param = "PHYSICS_ADD_WEIGHTMAP"
-            else:
-                row = col.row()
-                op = row.operator("cc3.setphysics", icon="REMOVE", text="Remove Weight Map")
-                op.param = "PHYSICS_REMOVE_WEIGHTMAP"
-            col = layout.column()
-            if edit_mod is None:
-                col.enabled = False
-            op = col.operator("cc3.setphysics", icon="BRUSH_DATA", text="Paint Weight Map")
-            op.param = "PHYSICS_PAINT"
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            op = col_1.operator("cc3.setphysics", icon="FILE_TICK", text="Save")
-            op.param = "PHYSICS_SAVE"
-            op = col_2.operator("cc3.setphysics", icon="ERROR", text="Delete")
-            op.param = "PHYSICS_DELETE"
+                if edit_mod is None:
+                    row = column.row()
+                    op = row.operator("cc3.setphysics", icon="ADD", text="Add Weight Map")
+                    op.param = "PHYSICS_ADD_WEIGHTMAP"
+                else:
+                    row = column.row()
+                    op = row.operator("cc3.setphysics", icon="REMOVE", text="Remove Weight Map")
+                    op.param = "PHYSICS_REMOVE_WEIGHTMAP"
+                column = layout.column()
+                if edit_mod is None:
+                    column.enabled = False
+                op = column.operator("cc3.setphysics", icon="BRUSH_DATA", text="Paint Weight Map")
+                op.param = "PHYSICS_PAINT"
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                op = col_1.operator("cc3.setphysics", icon="FILE_TICK", text="Save")
+                op.param = "PHYSICS_SAVE"
+                op = col_2.operator("cc3.setphysics", icon="ERROR", text="Delete")
+                op.param = "PHYSICS_DELETE"
 
 
 class CC3ToolsSculptingPanel(bpy.types.Panel):

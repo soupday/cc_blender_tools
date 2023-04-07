@@ -173,10 +173,9 @@ def apply_cloth_settings(obj, cloth_type):
         mod.collision_settings.self_friction = 5
 
 
-def add_collision_physics(chr_cache, obj, obj_cache):
+def apply_collision_physics(chr_cache, obj, obj_cache):
     """Adds a Collision modifier to the object, depending on the object cache settings.
-
-    Does not overwrite or re-create any existing Collision modifier.
+       Does not overwrite or re-create any existing Collision modifier.
     """
 
     # physics seem to apply better if done in rest pose
@@ -189,15 +188,18 @@ def add_collision_physics(chr_cache, obj, obj_cache):
     if obj_cache is None:
         obj_cache = chr_cache.get_object_cache(obj)
 
+    has_cloth = modifiers.get_cloth_physics_mod(obj) is not None
+
     if obj_cache:
-        if (obj_cache.collision_physics == "ON" or
-            (obj_cache.collision_physics == "DEFAULT" and
-                (obj_cache.object_type == "BODY" or obj_cache.object_type == "OCCLUSION")
-            )):
-
-            if obj_cache.object_type == "BODY":
-                obj = create_body_collision_mesh(chr_cache, obj)
-
+        if obj_cache.has_collision_physics():
+            if obj_cache.use_collision_proxy and not has_cloth:
+                proxy = get_collision_proxy(chr_cache, obj_cache)
+                if not proxy:
+                    proxy = create_collision_proxy(chr_cache, obj_cache, obj)
+                if proxy:
+                    obj = proxy
+            else:
+                remove_collision_proxy(chr_cache, obj_cache)
             collision_mod = modifiers.get_collision_physics_mod(chr_cache, obj)
             if not collision_mod:
                 collision_mod = obj.modifiers.new(utils.unique_name("Collision"), type="COLLISION")
@@ -205,7 +207,6 @@ def add_collision_physics(chr_cache, obj, obj_cache):
             utils.log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
 
         elif obj_cache.collision_physics == "OFF":
-
             remove_collision_physics(chr_cache, obj, obj_cache)
             utils.log_info("Collision Physics disabled for: " + obj.name)
 
@@ -220,6 +221,10 @@ def remove_collision_physics(chr_cache, obj, obj_cache):
     if obj_cache.object_type == "BODY" and utils.still_exists(chr_cache.collision_body):
         utils.delete_mesh_object(chr_cache.collision_body)
         chr_cache.collision_body = None
+
+    if utils.still_exists(obj_cache.collision_proxy):
+        utils.delete_mesh_object(obj_cache.collision_proxy)
+        obj_cache.collision_proxy = None
 
     for mod in obj.modifiers:
         if mod.type == "COLLISION":
@@ -346,14 +351,16 @@ def enable_collision_physics(chr_cache, obj):
         obj = chr_cache.get_body()
     props = bpy.context.scene.CC3ImportProps
     obj_cache = chr_cache.get_object_cache(obj)
-    obj_cache.collision_physics = "ON"
+    has_cloth = modifiers.get_cloth_physics_mod(obj) is not None
+    obj_cache.collision_physics = "PROXY" if (obj_cache.use_collision_proxy and not has_cloth) else "ON"
     utils.log_info("Enabling Collision physics for: " + obj.name)
-    add_collision_physics(chr_cache, obj, obj_cache)
+    apply_collision_physics(chr_cache, obj, obj_cache)
 
 
 def disable_collision_physics(chr_cache, obj):
     if obj == chr_cache.collision_body:
         obj = chr_cache.get_body()
+    obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
     props = bpy.context.scene.CC3ImportProps
     obj_cache = chr_cache.get_object_cache(obj)
     obj_cache.collision_physics = "OFF"
@@ -377,37 +384,60 @@ def disable_cloth_physics(chr_cache, obj):
     remove_cloth_physics(obj)
 
 
-def create_body_collision_mesh(chr_cache, obj):
-    utils.log_info(f"Creating body collision mesh from: {obj.name}")
-    # remove old collsion mesh
-    collision_body = None
-    if utils.object_exists_is_mesh(chr_cache.collision_body) and collision_body != obj:
-        utils.log_info(f"Removing old collision mesh: {chr_cache.collision_body}")
-        utils.delete_mesh_object(chr_cache.collision_body)
-    # clone obj
-    collision_body = utils.duplicate_object(obj)
-    collision_body.name = chr_cache.character_name + "_Collider"
-    if utils.set_only_active_object(collision_body):
-        # remove shape keys
-        bpy.ops.object.shape_key_remove(all=True)
-        # remove eye-lashes
-        eye_lash_mat = materials.get_material_by_type(chr_cache, collision_body, "EYELASH")
-        if eye_lash_mat:
-            meshutils.remove_material_verts(collision_body, eye_lash_mat)
-        # add decimate modifier
-        mod = modifiers.add_decimate_modifier(collision_body, 0.125)
-        modifiers.move_mod_first(collision_body, mod)
-        # remove materials
-        collision_body.data.materials.clear()
-        # apply decimate modifier
-        bpy.ops.object.modifier_apply(modifier=mod.name)
+def get_collision_proxy(chr_cache, obj_cache):
+    if utils.object_exists_is_mesh(obj_cache.collision_proxy):
+        return obj_cache.collision_proxy
+    if utils.object_exists_is_mesh(chr_cache.collision_body):
+        return chr_cache.collision_body
 
-    utils.log_info(f"Storing collision mesh: {collision_body.name}")
-    chr_cache.collision_body = collision_body
-    collision_body.hide_set(True)
-    collision_body.hide_render = True
+
+def remove_collision_proxy(chr_cache, obj_cache):
+    # remove legacy collision body
+    if utils.object_exists_is_mesh(chr_cache.collision_body):
+        utils.log_info(f"Removing legacy collision body mesh: {chr_cache.collision_body}")
+        utils.delete_mesh_object(chr_cache.collision_body)
+    # remove existing collision proxy
+    if utils.object_exists_is_mesh(obj_cache.collision_proxy):
+        utils.log_info(f"Removing existing collision proxy: {obj_cache.collision_proxy}")
+        utils.delete_mesh_object(obj_cache.collision_proxy)
+
+
+def create_collision_proxy(chr_cache, obj_cache, obj):
+    utils.log_info(f"Creating collision proxy mesh from: {obj.name}")
+    # remove old proxy
+    remove_collision_proxy(chr_cache, obj_cache)
+    # clone obj to proxy
+    collision_proxy = utils.duplicate_object(obj)
+    collision_proxy.name = obj.name + ".Collision_Proxy"
+    if utils.object_mode_to(collision_proxy) and utils.set_only_active_object(collision_proxy):
+        # remove shape keys
+        collision_proxy.shape_key_clear()
+        # remove eye-lashes
+        eye_lash_mat = materials.get_material_by_type(chr_cache, collision_proxy, "EYELASH")
+        if eye_lash_mat:
+            meshutils.remove_material_verts(collision_proxy, eye_lash_mat)
+        # remove materials
+        collision_proxy.data.materials.clear()
+        # delete loose
+        utils.edit_mode_to(collision_proxy)
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=True)
+        utils.object_mode_to(collision_proxy)
+        if obj_cache.collision_proxy_decimate < 1.0:
+            # add decimate modifier
+            mod = modifiers.add_decimate_modifier(collision_proxy, obj_cache.collision_proxy_decimate)
+            modifiers.move_mod_first(collision_proxy, mod)
+            # apply decimate modifier
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+
+    utils.log_info(f"Storing collision mesh: {collision_proxy.name}")
+    obj_cache.use_collision_proxy = True
+    obj_cache.collision_proxy = collision_proxy
+    obj_cache.collision_physics = "PROXY"
+    collision_proxy.hide_set(True)
+    collision_proxy.hide_render = True
     utils.set_only_active_object(obj)
-    return collision_body
+    return collision_proxy
 
 
 def get_weight_map_from_modifiers(obj, mat):
@@ -943,7 +973,9 @@ def disable_physics(chr_cache, physics_objects = None):
 
 def enable_physics(chr_cache, physics_objects = None):
     if not physics_objects:
-        physics_objects = chr_cache.get_all_objects(include_armature = False, include_children = True, of_type = "MESH")
+        physics_objects = chr_cache.get_all_objects(include_armature = False,
+                                                    include_children = True,
+                                                    of_type = "MESH")
     for obj in physics_objects:
         for mod in obj.modifiers:
             if mod.type == "CLOTH":
@@ -955,7 +987,7 @@ def enable_physics(chr_cache, physics_objects = None):
     chr_cache.physics_disabled = False
 
 
-def add_all_physics(chr_cache):
+def apply_all_physics(chr_cache):
     if chr_cache:
         utils.log_info(f"Adding all Physics modifiers to: {chr_cache.character_name}")
         utils.log_indent()
@@ -974,9 +1006,9 @@ def add_all_physics(chr_cache):
                         add_material_weight_map(chr_cache, obj, mat, create = False)
                     objects_processed.append(mat)
                 objects_processed.append(obj)
-                add_collision_physics(chr_cache, obj, obj_cache)
+                apply_collision_physics(chr_cache, obj, obj_cache)
                 if obj in accessory_colldiers:
-                    add_collision_physics(chr_cache, obj, obj_cache)
+                    apply_collision_physics(chr_cache, obj, obj_cache)
                 edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
                 if len(edit_mods) + len(mix_mods) > 0:
                     enable_cloth_physics(chr_cache, obj, False)
@@ -1066,65 +1098,87 @@ def set_physics_settings(op, param, context):
     chr_cache = props.get_context_character_cache(context)
 
     if param == "PHYSICS_ADD_CLOTH":
+        utils.fix_local_view(context)
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 enable_cloth_physics(chr_cache, obj, True)
+
     elif param == "PHYSICS_REMOVE_CLOTH":
+        utils.fix_local_view(context)
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 disable_cloth_physics(chr_cache, obj)
+
     elif param == "PHYSICS_ADD_COLLISION":
+        utils.fix_local_view(context)
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 enable_collision_physics(chr_cache, obj)
+
     elif param == "PHYSICS_REMOVE_COLLISION":
+        utils.fix_local_view(context)
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 disable_collision_physics(chr_cache, obj)
+
     elif param == "PHYSICS_ADD_WEIGHTMAP":
         if context.object is not None and context.object.type == "MESH":
             enable_material_weight_map(chr_cache, context.object, utils.context_material(context))
+
     elif param == "PHYSICS_REMOVE_WEIGHTMAP":
         if context.object is not None and context.object.type == "MESH":
             disable_material_weight_map(chr_cache, context.object, utils.context_material(context))
+
     elif param == "PHYSICS_RESIZE_WEIGHTMAP":
         if context.object is not None and context.object.type == "MESH":
             resize_weight_map(chr_cache, context, op)
+
     elif param == "PHYSICS_HAIR":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 apply_cloth_settings(obj, "HAIR")
+
     elif param == "PHYSICS_COTTON":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 apply_cloth_settings(obj, "COTTON")
+
     elif param == "PHYSICS_DENIM":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 apply_cloth_settings(obj, "DENIM")
+
     elif param == "PHYSICS_LEATHER":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 apply_cloth_settings(obj, "LEATHER")
+
     elif param == "PHYSICS_RUBBER":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 apply_cloth_settings(obj, "RUBBER")
+
     elif param == "PHYSICS_SILK":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
                 apply_cloth_settings(obj, "SILK")
+
     elif param == "PHYSICS_PAINT":
         if context.object is not None and context.object.type == "MESH":
             begin_paint_weight_map(chr_cache, context)
+
     elif param == "PHYSICS_DONE_PAINTING":
         end_paint_weight_map(chr_cache, op)
+
     elif param == "PHYSICS_SAVE":
         save_dirty_weight_maps(chr_cache, bpy.context.selected_objects)
+
     elif param == "PHYSICS_DELETE":
         delete_selected_weight_map(chr_cache, context.object, utils.context_material(context))
+
     elif param == "PHYSICS_SEPARATE":
         separate_physics_materials(chr_cache, context)
+
     elif param == "PHYSICS_FIX_DEGENERATE":
         if context.object is not None:
             if bpy.context.object.mode != "EDIT" and bpy.context.object.mode != "OBJECT":
@@ -1136,17 +1190,25 @@ def set_physics_settings(op, param, context):
                 bpy.ops.mesh.dissolve_degenerate()
             bpy.ops.object.mode_set(mode = 'OBJECT')
             op.report({'INFO'}, f"Degenerate elements removed for {context.object.name}")
+
     elif param == "DISABLE_PHYSICS":
+        utils.fix_local_view(context)
         disable_physics(chr_cache)
         op.report({'INFO'}, f"Physics disabled for {chr_cache.character_name}")
+
     elif param == "ENABLE_PHYSICS":
+        utils.fix_local_view(context)
         enable_physics(chr_cache)
         op.report({'INFO'}, f"Physics enabled for {chr_cache.character_name}")
+
     elif param == "REMOVE_PHYSICS":
+        utils.fix_local_view(context)
         remove_all_physics(chr_cache)
         op.report({'INFO'}, f"Physics removed for {chr_cache.character_name}")
+
     elif param == "APPLY_PHYSICS":
-        add_all_physics(chr_cache)
+        utils.fix_local_view(context)
+        apply_all_physics(chr_cache)
         op.report({'INFO'}, f"Physics applied to {chr_cache.character_name}")
 
     elif param == "PHYSICS_INC_STRENGTH":
@@ -1156,6 +1218,22 @@ def set_physics_settings(op, param, context):
     elif param == "PHYSICS_DEC_STRENGTH":
         strength = float(round(props.physics_paint_strength * 10)) / 10.0
         props.physics_paint_strength = min(1.0, max(0.0, strength - 0.1))
+
+    elif param == "TOGGLE_SHOW_PROXY":
+        if chr_cache and context.object:
+                obj, proxy, is_proxy_active = chr_cache.get_physics_objects(context.object)
+        if utils.is_local_view(context):
+            if proxy:
+                proxy.hide_set(True)
+            bpy.ops.view3d.localview()
+            utils.object_mode_to(obj)
+            utils.set_only_active_object(obj)
+        else:
+            if proxy:
+                proxy.hide_set(False)
+                utils.set_only_active_object(proxy)
+                bpy.ops.view3d.localview()
+
 
 
 class CC3OperatorPhysics(bpy.types.Operator):

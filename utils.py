@@ -1411,3 +1411,15 @@ def object_scale(obj):
         return (obj.scale[0] + obj.scale[1] + obj.scale[2]) / 3.0
     except:
         return 1.0
+
+
+def is_local_view(context):
+    try:
+        return context.space_data.local_view is not None
+    except:
+        return False
+
+
+def fix_local_view(context):
+    if is_local_view(context):
+        bpy.ops.view3d.localview()

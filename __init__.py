@@ -169,9 +169,9 @@ classes = (
     panels.CC3ToolsCreatePanel,
     panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
-    panels.CC3ToolsUtilityPanel,
-    panels.CC3ToolsSculptingPanel,
     panels.CC3SpringRigPanel,
+    #panels.CC3ToolsUtilityPanel,
+    panels.CC3ToolsSculptingPanel,
     panels.CC3HairPanel,
     # control panels
     panels.CC3SpringControlPanel,
