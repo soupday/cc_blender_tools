@@ -19,7 +19,7 @@ import os
 
 import bpy
 
-from . import imageutils, meshutils, materials, modifiers, utils, vars
+from . import bones, imageutils, meshutils, materials, modifiers, utils, vars
 
 COLLISION_THICKESS = 0.001
 HAIR_THICKNESS = 0.001
@@ -200,7 +200,7 @@ def apply_collision_physics(chr_cache, obj, obj_cache):
                     obj = proxy
             else:
                 remove_collision_proxy(chr_cache, obj_cache)
-            collision_mod = modifiers.get_collision_physics_mod(chr_cache, obj)
+            collision_mod = modifiers.get_collision_physics_mod(obj)
             if not collision_mod:
                 collision_mod = obj.modifiers.new(utils.unique_name("Collision"), type="COLLISION")
             collision_mod.settings.thickness_outer = COLLISION_THICKESS
@@ -265,7 +265,7 @@ def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
         if parent_action:
             frame_start = math.floor(parent_action.frame_range[0])
             frame_count = math.ceil(parent_action.frame_range[1])
-        utils.log_info("Setting " + obj.name + " bake cache frame range to [1-" + str(frame_count) + "]")
+        utils.log_info("Setting " + obj.name + " bake cache frame range to [1 - " + str(frame_count) + "]")
         cloth_mod.point_cache.frame_start = frame_start
         cloth_mod.point_cache.frame_end = frame_count
 
@@ -347,7 +347,7 @@ def remove_all_physics_mods(obj):
 
 
 def enable_collision_physics(chr_cache, obj):
-    obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+    obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
     props = bpy.context.scene.CC3ImportProps
     obj_cache = chr_cache.get_object_cache(obj)
     has_cloth = modifiers.get_cloth_physics_mod(obj) is not None
@@ -357,7 +357,7 @@ def enable_collision_physics(chr_cache, obj):
 
 
 def disable_collision_physics(chr_cache, obj):
-    obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+    obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
     props = bpy.context.scene.CC3ImportProps
     obj_cache = chr_cache.get_object_cache(obj)
     obj_cache.collision_physics = "OFF"
@@ -540,7 +540,7 @@ def disable_material_weight_map(chr_cache, obj, mat):
 
 def collision_physics_available(chr_cache, obj):
     obj_cache = chr_cache.get_object_cache(obj)
-    collision_mod = modifiers.get_collision_physics_mod(chr_cache, obj)
+    collision_mod = modifiers.get_collision_physics_mod(obj)
     if collision_mod is None:
         if obj_cache.collision_physics == "OFF":
             return False
@@ -873,48 +873,130 @@ def delete_selected_weight_map(chr_cache, obj, mat):
             obj.modifiers.remove(mix_mod)
 
 
+def cloth_physics_point_cache_override(mod):
+    override = bpy.context.copy()
+    override["point_cache"] = mod.point_cache
+    return override
+
+
+def get_context_physics_objects(context, from_selected = False):
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache = props.get_context_character_cache(context)
+    physics_objects = []
+    if chr_cache:
+        if from_selected:
+            objects = context.selected_objects.copy()
+        else:
+            objects = chr_cache.get_all_objects(include_armature = False,
+                                                include_children = True,
+                                                of_type = "MESH")
+        for obj in objects:
+            cloth_mod = modifiers.get_cloth_physics_mod(obj)
+            coll_mod = modifiers.get_collision_physics_mod(obj)
+            if cloth_mod or coll_mod:
+                physics_objects.append(obj)
+
+    return physics_objects
+
+
+def get_scene_physics_state():
+    has_cloth = False
+    has_collision = False
+    has_rigidbody = False
+    all_baked = True
+    all_baking = True
+    any_baked = False
+    any_baking = False
+
+    for scene in bpy.data.scenes:
+        for object in scene.objects:
+            for modifier in object.modifiers:
+                if modifier.type == 'CLOTH':
+                    has_cloth = True
+                    if modifier.point_cache.is_baked:
+                        any_baked = True
+                    else:
+                        all_baked = False
+                    if modifier.point_cache.is_baking:
+                        any_baking = True
+                    else:
+                        all_baking = False
+                elif modifier.type == 'COLLISION':
+                    has_collision = True
+
+    all_baked = has_cloth and all_baked
+    all_baking = has_cloth and all_baking
+
+    if bpy.context.scene.rigidbody_world:
+        rbw = bpy.context.scene.rigidbody_world
+        has_rigidbody = True
+        if rbw.point_cache.is_baked:
+            any_baked = True
+        else:
+            all_baked = False
+        if rbw.point_cache.is_baking:
+            any_baking = True
+        else:
+            all_baking = False
+
+    return has_cloth, has_collision, has_rigidbody, all_baked, any_baked, all_baking, any_baking
+
+
 def reset_physics_cache(obj, start, end):
+    cloth_mod : bpy.types.ClothModifier
     cloth_mod = modifiers.get_cloth_physics_mod(obj)
     if cloth_mod is not None:
+        # free the baked cache
+        if cloth_mod.point_cache.is_baked:
+            free_cache(obj)
         # invalidate the cache
+        utils.log_info("Invalidating point cache...")
         qs = cloth_mod.settings.quality
         cloth_mod.point_cache.frame_start = 1
         cloth_mod.point_cache.frame_end = 1
         cloth_mod.settings.quality = 1
         # reset the cache
-        utils.log_info("Setting " + obj.name + " bake cache frame range to [" + str(start) + " -" + str(end) + "]")
+        utils.log_info("Setting " + obj.name + " bake cache frame range to [" + str(start) + " - " + str(end) + "]")
         cloth_mod.point_cache.frame_start = start
         cloth_mod.point_cache.frame_end = end
         cloth_mod.settings.quality = qs
+        # use disk cache if the blend file is saved
+        if bpy.data.filepath:
+            cloth_mod.point_cache.use_disk_cache = True
         return True
     return False
 
 
-def reset_cache(context):
-    props = bpy.context.scene.CC3ImportProps
-    chr_cache = props.get_context_character_cache(context)
-    arm = chr_cache.get_armature()
+def reset_cache(context, all_objects = False):
+    if bpy.context.scene.use_preview_range:
+        start = bpy.context.scene.frame_preview_start
+        end = bpy.context.scene.frame_preview_end
+    else:
+        start = bpy.context.scene.frame_start
+        end = bpy.context.scene.frame_end
 
-    # adjust scene frame range from character armature action range
-    # (widen the range if it doesn't cover the armature action)
-    action = utils.safe_get_action(arm)
-    start = bpy.context.scene.frame_start
-    end = bpy.context.scene.frame_end
-    if action:
-        action_start = math.floor(action.frame_range[0])
-        action_end = math.ceil(action.frame_range[1])
-        if action_start < start:
-            start = action_start
-        if action_end > end:
-            end = action_end
-    bpy.context.scene.frame_start = start
-    bpy.context.scene.frame_end = end
+    if all_objects:
+        objects = get_context_physics_objects(context)
+    else:
+        objects = [ context.object ]
 
-    if chr_cache:
-        for obj_cache in chr_cache.object_cache:
-            if obj_cache.is_mesh():
-                obj = obj_cache.get_object()
-                reset_physics_cache(obj, start, end)
+    for obj in objects:
+        if utils.object_exists_is_mesh(obj):
+            reset_physics_cache(obj, start, end)
+
+
+def free_cache(obj):
+    cloth_mod = modifiers.get_cloth_physics_mod(obj)
+    if cloth_mod is not None:
+        # free the baked cache
+        if cloth_mod.point_cache.is_baked:
+            utils.log_info("Freeing point cache...")
+            if utils.is_blender_version("3.2.0"):
+                with bpy.context.temp_override(point_cache=cloth_mod.point_cache):
+                    bpy.ops.ptcache.free_bake()
+            else:
+                context_override = cloth_physics_point_cache_override(cloth_mod)
+                bpy.ops.ptcache.free_bake(context_override)
 
 
 def separate_physics_materials(chr_cache, context):
@@ -982,6 +1064,24 @@ def enable_physics(chr_cache, physics_objects = None):
                 if obj.collision:
                     obj.collision.use = True
     chr_cache.physics_disabled = False
+
+
+def cloth_physics_state(obj):
+    has_cloth = False
+    is_baked = False
+    is_baking = False
+    point_cache = None
+    mod : bpy.types.ClothModifier
+    if obj:
+        for mod in obj.modifiers:
+            if mod.type == "CLOTH":
+                point_cache = mod.point_cache
+                has_cloth = True
+                if point_cache.is_baked:
+                    is_baked = True
+                if point_cache.is_baking:
+                    is_baking = True
+    return has_cloth, is_baked, is_baking, point_cache
 
 
 def apply_all_physics(chr_cache):
@@ -1223,7 +1323,7 @@ def set_physics_settings(op, param, context):
 
     elif param == "TOGGLE_SHOW_PROXY":
         if chr_cache and obj:
-                obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+                obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
         if utils.is_local_view(context):
             if proxy:
                 proxy.hide_set(True)
@@ -1235,7 +1335,6 @@ def set_physics_settings(op, param, context):
                 proxy.hide_set(False)
                 utils.set_only_active_object(proxy)
                 bpy.ops.view3d.localview()
-
 
 
 class CC3OperatorPhysics(bpy.types.Operator):

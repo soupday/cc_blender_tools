@@ -322,14 +322,9 @@ def get_accessory_root(chr_cache, object):
         return None
 
     rig = chr_cache.get_armature()
-    rigify_data = chr_cache.get_rig_mapping_data()
+    bone_mappings = chr_cache.get_rig_bone_mappings()
 
-    if not rigify_data:
-        return None
-
-    bone_mappings = rigify_data.bone_mapping
-
-    if not rig or not rigify_data or not bone_mappings:
+    if not rig or not bone_mappings:
         return None
 
     accessory_root = None

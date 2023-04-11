@@ -871,6 +871,29 @@ def get_current_tool_idname(context = None):
     return tool_idname
 
 
+
+def add_layer_collections(layer_collection : bpy.types.LayerCollection, layer_collections, search = None):
+    if search:
+        if search in layer_collection.name:
+            layer_collections.append(layer_collection)
+    else:
+        layer_collections.append(layer_collection)
+    child_collection : bpy.types.LayerCollection
+    for child_collection in layer_collection.children:
+        if not child_collection.exclude:
+            add_layer_collections(layer_collection, layer_collections, search)
+
+
+def get_view_layer_collections(search = None):
+    layer_collections = []
+    for view_layer in bpy.context.scene.view_layers:
+        layer_collection : bpy.types.LayerCollection
+        for layer_collection in view_layer.layer_collection.children:
+            if not layer_collection.exclude:
+                add_layer_collections(layer_collection, layer_collections, search)
+    return layer_collections
+
+
 # C.scene.view_layers[0].layer_collection.children[0].exclude
 def limit_view_layer_to_collection(collection_name, *items):
     layer_collections = []
@@ -899,6 +922,15 @@ def limit_view_layer_to_collection(collection_name, *items):
                 item.hide_set(False)
     # return the temp collection and the layers exlcuded
     return tmp_collection, layer_collections, to_hide
+
+
+def create_collection(name):
+    if name in bpy.data.collections:
+        return bpy.data.collections[name]
+    else:
+        collection = bpy.data.collections.new(name)
+        bpy.context.scene.collection.children.link(collection)
+        return collection
 
 
 def restore_limited_view_layers(tmp_collection, layer_collections, to_hide):

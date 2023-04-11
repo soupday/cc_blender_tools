@@ -104,20 +104,11 @@ def get_cloth_physics_mod(obj):
     return None
 
 
-def get_collision_physics_mod(chr_cache, obj):
-    obj_cache = chr_cache.get_object_cache(obj)
+def get_collision_physics_mod(obj):
     if obj is not None:
         for mod in obj.modifiers:
             if mod.type == "COLLISION":
                 return mod
-        if obj_cache and obj_cache.object_type == "BODY":
-            if chr_cache.collision_body:
-                try:
-                    for mod in chr_cache.collision_body.modifiers:
-                        if mod.type == "COLLISION":
-                            return mod
-                except:
-                    pass
     return None
 
 

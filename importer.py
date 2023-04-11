@@ -19,7 +19,7 @@ import shutil
 import bpy
 
 from . import (characters, rigging, bake, imageutils, jsonutils, materials, modifiers, meshutils, nodeutils, physics,
-               colorspace, scene, channel_mixer, shaders, basic, properties, utils, vars)
+               rigidbody, colorspace, scene, channel_mixer, shaders, basic, properties, utils, vars)
 
 debug_counter = 0
 
@@ -709,6 +709,13 @@ class CC3Import(bpy.types.Operator):
                 self.imported_character = detect_character(self.filepath, imported, actions, json_data, self.import_report)
             elif prefs.import_auto_convert:
                 self.imported_characterer = characters.convert_generic_to_non_standard(imported, self.filepath)
+
+            # set up the collision shapes and store their bind positions in the json data
+            rigidbody.build_rigid_body_colliders(self.imported_character, json_data, first_import = True)
+            # if not using physics, remove the colliders
+            if not props.physics_mode:
+                rigidbody.remove_rigid_body_colliders(self.imported_character.get_armature())
+
 
             utils.log_timer("Done .Fbx Import.")
 

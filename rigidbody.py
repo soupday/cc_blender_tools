@@ -16,9 +16,11 @@
 
 import bpy
 import math
-from mathutils import Vector
+import bmesh
+from mathutils import Vector, Matrix, Quaternion
+from math import radians
 
-from . import drivers, bones, utils, vars
+from . import jsonutils, drivers, bones, utils, vars
 
 # these must be floats
 BASE_COLLISION_RADIUS = 0.015
@@ -27,11 +29,14 @@ MASS = 0.5
 STIFFNESS = 1.0
 DAMPENING = 0.5
 LIMIT = 1.0
-ANGLE_RANGE = 90.0
+ANGLE_RANGE = 120.0
 LINEAR_LIMIT = 0.001
 CURVE = 0.5
 INFLUENCE = 1.0
 UPSCALE = 5.0
+
+COLLIDER_PREFIX = "COLLIDER"
+COLLIDER_COLLECTION_NAME = "Rigid Body Colliders"
 
 def add_body_node(co, name,
                   enabled = True,
@@ -480,7 +485,7 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
 
 def is_rigid_body(chr_cache, obj):
     if chr_cache and obj:
-        obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+        obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
         if proxy:
             obj = proxy
     return obj and obj.rigid_body is not None
@@ -488,7 +493,7 @@ def is_rigid_body(chr_cache, obj):
 
 def get_rigid_body(chr_cache, obj):
     if chr_cache and obj:
-        obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+        obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
         if proxy:
             obj = proxy
         return obj.rigid_body
@@ -503,7 +508,7 @@ def enable_rigid_body_collision_mesh(chr_cache, obj):
             pose_position = arm.data.pose_position
             arm.data.pose_position = "REST"
 
-        obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+        obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
         if proxy:
             if obj.rigid_body:
                 # if there is a collision body proxy but
@@ -554,7 +559,7 @@ def disable_rigid_body_collision_mesh(chr_cache, obj):
             pose_position = arm.data.pose_position
             arm.data.pose_position = "REST"
 
-        obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+        obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
         if proxy:
             if obj.rigid_body:
                 utils.set_active_object(obj)
@@ -717,34 +722,26 @@ def add_simulation_bone_group(arm):
 
 
 def reset_cache(context):
-    props = bpy.context.scene.CC3ImportProps
-    chr_cache = props.get_context_character_cache(context)
-    arm = chr_cache.get_armature()
 
-    # adjust scene frame range from character armature action range
-    # (widen the range if it doesn't cover the armature action)
-    action = utils.safe_get_action(arm)
-    start = bpy.context.scene.frame_start
-    end = bpy.context.scene.frame_end
-    if action:
-        action_start = math.floor(action.frame_range[0])
-        action_end = math.ceil(action.frame_range[1])
-        if action_start < start:
-            start = action_start
-        if action_end > end:
-            end = action_end
-    bpy.context.scene.frame_start = start
-    bpy.context.scene.frame_end = end
+    if bpy.context.scene.use_preview_range:
+        start = bpy.context.scene.frame_preview_start
+        end = bpy.context.scene.frame_preview_end
+    else:
+        start = bpy.context.scene.frame_start
+        end = bpy.context.scene.frame_end
 
-    # free the bakes
-    bpy.ops.ptcache.free_bake_all()
-    #
     rigidbody_world = bpy.context.scene.rigidbody_world
-
     if rigidbody_world:
         cache = rigidbody_world.point_cache
 
+        # free the bake
+        if cache.is_baked:
+            utils.log_info("Freeing baked point cache...")
+            context_override = {"point_cache": bpy.context.scene.rigidbody_world.point_cache}
+            bpy.ops.ptcache.free_bake(context_override)
+
         # invalidate the cache
+        utils.log_info("Invalidating point cache...")
         steps = 10
         interations = rigidbody_world.solver_iterations
         if cache:
@@ -763,6 +760,7 @@ def reset_cache(context):
         rigidbody_world.solver_iterations = 1
 
         # reset the cache
+        utils.log_info("Setting rigid body world bake cache frame range to [" + str(start) + " - " + str(end) + "]")
         if cache:
             cache.frame_start = start
             cache.frame_end = end
@@ -777,12 +775,314 @@ def reset_cache(context):
         rigidbody_world.solver_iterations = interations
 
 
-def bake_rigid_body_simulation(context):
-    # NOTE: unstable
-    # 'INVOKE_DEFAULT' is required to show the bake progress bar.
-    override = {'scene': bpy.context.scene,
-                'point_cache': bpy.context.scene.rigidbody_world.point_cache}
-    override = bpy.context.copy()
-    override["point_cache"] = bpy.context.scene.rigidbody_world.point_cache
-    # bake to current frame
-    bpy.ops.ptcache.bake({"point_cache": bpy.context.scene.rigidbody_world.point_cache}, "INVOKE_DEFAULT", bake=True)
+def create_capsule_collider(name, location, rotation, scale, radius, length, axis):
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, radius=radius)
+    bm.verts.ensure_lookup_table()
+
+    i = 2
+    for vert in bm.verts:
+        if vert.co[i] < 0:
+            vert.co[i] -= length * 0.5
+        elif vert.co[i] > 0:
+            vert.co[i] += length * 0.5
+
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    mesh.update()
+    bm.free()
+
+    object = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(object)
+    object.display_type = 'WIRE'
+
+    print(name, location)
+    object.location = location
+    object.rotation_mode = "QUATERNION"
+    r = Quaternion()
+    r.identity()
+    if axis == "X":
+        mat_rot_y = Matrix.Rotation(radians(90), 4, 'Y')
+        mat_rot_z = Matrix.Rotation(radians(90), 4, 'Z')
+        r.rotate(mat_rot_z)
+        r.rotate(mat_rot_y)
+    if axis == "Y":
+        mat_rot_x = Matrix.Rotation(radians(90), 4, 'X')
+        mat_rot_z = Matrix.Rotation(radians(90), 4, 'Z')
+        r.rotate(mat_rot_z)
+        r.rotate(mat_rot_x)
+
+    r.rotate(rotation)
+    object.rotation_quaternion = r
+    object.scale = scale
+    return object
+
+
+def create_box_collider(name, location, rotation, scale, extents, axis):
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    bm.verts.ensure_lookup_table()
+
+    for vert in bm.verts:
+        for i, extent in enumerate(extents):
+            if vert.co[i] < 0:
+                vert.co[i] = -extent
+            elif vert.co[i] > 0:
+                vert.co[i] = extent
+
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    mesh.update()
+    bm.free()
+
+    object = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(object)
+    object.display_type = 'WIRE'
+
+    object.location = location
+    object.rotation_mode = "QUATERNION"
+    object.rotation_quaternion = rotation
+    object.scale = scale
+    return object
+
+
+def fix_quat(q):
+    return [q[3], q[0], q[1], q[2]]
+
+def unfix_quat(q):
+    return [q[1], q[2], q[3], q[0]]
+
+
+def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_mappings = None):
+    physics_json = None
+    if json_data:
+        physics_json = jsonutils.get_physics_json(json_data, chr_cache.import_name)
+
+    if not chr_cache or not json_data or not physics_json:
+        utils.log_error("Invalid character data for collider setup!")
+        return False
+
+    if "Collision Shapes" not in physics_json:
+        utils.log_error("No collision shapes in json data!")
+        return False
+
+    arm = chr_cache.get_armature()
+    if not arm:
+        utils.log_error("No armature in character!")
+        return False
+
+    collection = utils.create_collection(COLLIDER_COLLECTION_NAME)
+    collection.hide_render = True
+
+    use_bind_data = False
+    if not first_import and "Has BindPose Data" in physics_json:
+        use_bind_data = True
+
+    utils.object_mode_to(arm)
+    arm_settings = bones.store_armature_settings(arm)
+    bones.show_all_layers(arm)
+
+    old_action = utils.safe_get_action(arm)
+    old_pose = arm.data.pose_position
+
+    if use_bind_data:
+        bones.set_rig_bind_pose(arm)
+    else:
+        # reset the existing action back to the first frame
+        # (the colliders in the json data are posed to the first frame)
+        arm.data.pose_position = "POSE"
+        bpy.ops.screen.animation_cancel(restore_frame=False)
+        bpy.ops.screen.frame_jump(end = False)
+
+    # build and attach the colliders
+    collider_cache = []
+    utils.set_active_object(arm, True)
+    collider_json = physics_json["Collision Shapes"]
+    for bone_name in collider_json:
+        for shape_name in collider_json[bone_name]:
+            target_bone_name = bone_name
+            if bone_mappings:
+                target_bone_name = bones.get_rigify_meta_bone(arm, bone_mappings, bone_name)
+            if target_bone_name not in arm.data.bones:
+                continue
+            name = f"{COLLIDER_PREFIX}_{bone_name}_{shape_name}"
+            shape_data = collider_json[bone_name][shape_name]
+            active = shape_data["Bone Active"]
+            shape = shape_data["Bound Type"]
+            axis = shape_data["Bound Axis"]
+            margin = shape_data["Margin"] * 0.01
+            friction = shape_data["Friction"]
+            elasticity = shape_data["Elasticity"] / 10.0
+            translate = Vector(shape_data["WorldTranslate"]) * 0.01
+            rotate = Quaternion(fix_quat(shape_data["WorldRotationQ"]))
+            scale = shape_data["WorldScale"]
+            if use_bind_data:
+                translate = Vector(shape_data["BindPose WorldTranslate"]) * 0.01
+                rotate = Quaternion(fix_quat(shape_data["BindPose WorldRotationQ"]))
+                scale = shape_data["BindPose WorldScale"]
+                axis = shape_data["BindPose Bound Axis"]
+            obj : bpy.types.Object = None
+            if shape == "Box":
+                extent = Vector(shape_data["Extent"]) * 0.01 / 2.0
+                obj = create_box_collider(name, translate, rotate, scale, extent, axis)
+            elif shape == "Capsule":
+                radius = shape_data["Radius"] * 0.01
+                length = shape_data["Capsule Length"] * 0.01
+                obj = create_capsule_collider(name, translate, rotate, scale, radius, length, axis)
+
+            # using operators to parent because matrix_parent_inverse doesn't work correctly
+            bone : bpy.types.Bone = arm.data.bones[target_bone_name]
+            arm.data.bones.active = bone
+            utils.set_active_object(arm, True)
+            obj.select_set(True)
+            bpy.ops.object.parent_set(type='BONE', keep_transform=True)
+
+            if active:
+                utils.set_active_object(obj)
+                # enable cloth collision
+                # NOTE: Disabled, cloth collisions with the primitive colliders is bad...
+                if False:
+                    collision_mod = obj.modifiers.new(utils.unique_name("Collision"), type="COLLISION")
+                    collision_mod.settings.thickness_outer = margin
+                    collision_mod.settings.thickness_inner = margin
+                    collision_mod.settings.cloth_friction = friction
+                    collision_mod.settings.damping = 0.0
+                # enable rigid body collision
+                bpy.ops.rigidbody.object_add()
+                if shape == "Capsule":
+                    obj.rigid_body.collision_shape = 'CAPSULE'
+                elif shape == "Box":
+                    obj.rigid_body.collision_shape = 'BOX'
+                obj.rigid_body.type = "PASSIVE"
+                obj.rigid_body.kinematic = True
+                obj.rigid_body.use_margin = True
+                obj.rigid_body.friction = friction
+                obj.rigid_body.restitution = elasticity
+                obj.rigid_body.collision_margin = margin
+                obj.rigid_body.linear_damping = 0
+                obj.rigid_body.angular_damping = 0
+            utils.move_object_to_scene_collections(obj, [collection])
+            obj.hide_set(True)
+            obj.hide_render = True
+
+            cache = {"bone_name": bone_name, "shape_name": shape_name, "object": obj }
+            collider_cache.append(cache)
+
+    # save the bind pose collider transforms to the json data so they can be
+    # reconstructed later without needing the original pose:
+    if not use_bind_data:
+
+        # set to bind pose
+        bones.set_rig_bind_pose(arm)
+
+        # write the bind translation, rotation quaternion, scale and axis of the colliders to the json data
+        for cache in collider_cache:
+            bone_name = cache["bone_name"]
+            shape_name = cache["shape_name"]
+            obj = cache["object"]
+            shape_data = collider_json[bone_name][shape_name]
+            shape_data["BindPose WorldTranslate"] = list(obj.matrix_world.translation * 100.0)
+            shape_data["BindPose WorldRotationQ"] = unfix_quat(list(obj.matrix_world.to_quaternion()))
+            shape_data["BindPose WorldScale"] = list(obj.scale)
+            # bind posed collider data is always in Z axis
+            shape_data["BindPose Bound Axis"] = "Z"
+
+        physics_json["Has BindPose Data"] = True
+
+        # write back the updated json data
+        chr_cache.write_json_data(json_data)
+
+    # restore the original action
+    utils.safe_set_action(arm, old_action)
+    arm.data.pose_position = old_pose
+    bones.restore_armature_settings(arm, arm_settings)
+
+    return True
+
+
+def get_rigid_body_colliders(arm):
+    colliders = []
+    if arm:
+        for obj in arm.children:
+            if utils.object_exists_is_mesh(obj) and obj.name.startswith(COLLIDER_PREFIX):
+                if obj.rigid_body is not None and obj.rigid_body.type == "PASSIVE" and obj.parent_type == "BONE":
+                    if obj.rigid_body.collision_shape == "BOX" or obj.rigid_body.collision_shape == "CAPSULE":
+                        colliders.append(obj)
+    return colliders
+
+
+def has_rigid_body_colliders(arm):
+    obj : bpy.types.Object
+    if arm:
+        for obj in arm.children:
+            if utils.object_exists_is_mesh(obj) and obj.name.startswith(COLLIDER_PREFIX):
+                if obj.rigid_body is not None and obj.rigid_body.type == "PASSIVE" and obj.parent_type == "BONE":
+                    if obj.rigid_body.collision_shape == "BOX" or obj.rigid_body.collision_shape == "CAPSULE":
+                        return True
+    return False
+
+
+def remove_rigid_body_colliders(arm):
+    if COLLIDER_COLLECTION_NAME in bpy.data.collections:
+        collection = bpy.data.collections[COLLIDER_COLLECTION_NAME]
+
+    colliders = get_rigid_body_colliders(arm)
+    for collider in colliders:
+        utils.delete_mesh_object(collider)
+
+    if collection and len(collection.objects) == 0:
+        bpy.data.collections.remove(collection)
+
+
+def colliders_visible(arm, colliders = None):
+    if not colliders:
+        colliders = get_rigid_body_colliders(arm)
+    for collider in colliders:
+        if not collider.visible_get():
+            return False
+    return True
+
+
+def toggle_show_colliders(arm):
+    colliders = get_rigid_body_colliders(arm)
+    hide_state = colliders_visible(arm, colliders)
+    layer_collections = utils.get_view_layer_collections(search = COLLIDER_COLLECTION_NAME)
+    for collection in layer_collections:
+        collection.hide_viewport = False
+    for collider in colliders:
+        collider.hide_set(hide_state)
+
+
+def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
+    obj : bpy.types.Object
+    if cc3_rig and rigify_rig:
+
+        utils.object_mode_to(rigify_rig)
+        cc3_arm_settings = bones.store_armature_settings(cc3_rig)
+        rigify_arm_settings = bones.store_armature_settings(rigify_rig)
+        cc3_rig.location = (0,0,0)
+        rigify_rig.location = (0,0,0)
+        bones.set_rig_bind_pose(cc3_rig)
+        bones.set_rig_bind_pose(rigify_rig)
+        bones.show_all_layers(rigify_rig)
+
+        for obj in cc3_rig.children:
+            if utils.object_exists_is_mesh(obj) and obj.name.startswith(COLLIDER_PREFIX):
+                if obj.rigid_body is not None and obj.rigid_body.type == "PASSIVE" and obj.parent_type == "BONE":
+                    bone_name = obj.parent_bone
+                    rigify_bone_name = bones.get_rigify_meta_bone(rigify_rig, bone_mappings, bone_name)
+
+                    if rigify_bone_name:
+                        # using operators to parent because matrix_parent_inverse doesn't work correctly
+                        bone : bpy.types.Bone = rigify_rig.data.bones[rigify_bone_name]
+                        rigify_rig.data.bones.active = bone
+                        utils.set_active_object(rigify_rig, True)
+                        obj.select_set(True)
+                        bpy.ops.object.parent_set(type='BONE', keep_transform=True)
+                    else:
+                        utils.log_error(f"Unable to map {bone_name} to rigify bone!")
+                        utils.delete_mesh_object(obj)
+
+        bones.restore_armature_settings(cc3_arm_settings)
+        bones.restore_armature_settings(rigify_arm_settings)
+

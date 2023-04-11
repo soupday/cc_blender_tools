@@ -16,6 +16,7 @@
 
 import math
 import os
+import time
 
 import bpy
 
@@ -596,16 +597,20 @@ def fetch_anim_range(context):
     """
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
-
     arm = chr_cache.get_armature()
     if arm:
         action = utils.safe_get_action(arm)
         if action:
-            frame_start = math.floor(action.frame_range[0])
-            frame_end = math.ceil(action.frame_range[1])
-            context.scene.frame_start = frame_start
-            context.scene.frame_end = frame_end
-            return
+            start = bpy.context.scene.frame_start
+            end = bpy.context.scene.frame_end
+            action_start = math.floor(action.frame_range[0])
+            action_end = math.ceil(action.frame_range[1])
+            if action_start < start:
+                start = action_start
+            if action_end > end:
+                end = action_end
+            bpy.context.scene.frame_start = start
+            bpy.context.scene.frame_end = end
 
 
 def cycles_setup(context):
@@ -635,32 +640,48 @@ class CC3Scene(bpy.types.Operator):
         )
 
     def execute(self, context):
+
         if self.param == "RENDER_IMAGE":
             render_image(context)
+
         elif self.param == "RENDER_ANIMATION":
             render_animation(context)
+
         elif self.param == "ANIM_RANGE":
             fetch_anim_range(context)
+
         elif self.param == "PHYSICS_PREP_CLOTH":
             # stop any playing animation
             if context.screen.is_animation_playing:
                 bpy.ops.screen.animation_cancel(restore_frame=False)
-            # reset the animation
-            bpy.ops.screen.frame_jump(end = False)
             # reset the physics
             physics.reset_cache(context)
-            # reset the animation again
+            # reset the animation
             bpy.ops.screen.frame_jump(end = False)
+
         elif self.param == "PHYSICS_PREP_RBW":
             # stop any playing animation
             if context.screen.is_animation_playing:
                 bpy.ops.screen.animation_cancel(restore_frame=False)
-            # reset the animation
-            bpy.ops.screen.frame_jump(end = False)
             # reset the physics
             rigidbody.reset_cache(context)
-            # reset the animation again
+            # reset the animation
             bpy.ops.screen.frame_jump(end = False)
+
+        elif self.param == "PHYSICS_PREP_ALL":
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+            # jump to end
+            bpy.ops.screen.frame_jump(end = True)
+            # reset the physics
+            physics.reset_cache(context, all_objects=True)
+            rigidbody.reset_cache(context)
+            bpy.ops.ptcache.free_bake_all()
+            # reset the animation
+            bpy.ops.screen.frame_jump(end = False)
+            bpy.context.view_layer.update()
+
         elif self.param == "CYCLES_SETUP":
             cycles_setup(context)
         else:
@@ -669,6 +690,7 @@ class CC3Scene(bpy.types.Operator):
                 compositor_setup()
                 world_setup()
                 utils.message_box("World nodes and compositor template set up.")
+
         return {"FINISHED"}
 
     @classmethod

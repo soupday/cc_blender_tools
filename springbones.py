@@ -68,6 +68,33 @@ def has_spring_rigs(chr_cache, arm):
     return False
 
 
+def has_spring_systems(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+        if arm:
+            parent_modes = get_all_parent_modes(chr_cache, arm)
+            for parent_mode in parent_modes:
+                rig_prefix = get_spring_rig_prefix(parent_mode)
+                rigid_body_system = rigidbody.get_spring_rigid_body_system(arm, rig_prefix)
+                if rigid_body_system:
+                    return True
+    return False
+
+
+def rigidbody_state():
+    has_rigidbody = False
+    is_baked = False
+    is_baking = False
+    point_cache = None
+    rigidbody_world = bpy.context.scene.rigidbody_world
+    if rigidbody_world:
+        has_rigidbody = True
+        point_cache = rigidbody_world.point_cache
+        is_baked = point_cache.is_baked
+        is_baking = point_cache.is_baking
+    return has_rigidbody, is_baked, is_baking, point_cache
+
+
 def get_spring_rigs(chr_cache, arm, parent_modes : list = None, mode = "POSE"):
     """Returns { parent_mode: {
                     "name": rig_name,
@@ -376,12 +403,20 @@ def reset_spring_physics(context):
     # reset the physics cache
     bpy.context.scene.frame_current = bpy.context.scene.frame_current + 1
     rigidbody.reset_cache(context)
-    #physics.reset_cache(context)
 
     # reset the animation again for good measure...
+    bpy.ops.screen.frame_jump(end = True)
     bpy.ops.screen.frame_jump(end = False)
-    rigidbody.reset_cache(context)
-    #physics.reset_cache(context)
+
+
+def add_spring_colliders(chr_cache):
+    arm = chr_cache.get_armature()
+    if not rigidbody.has_rigid_body_colliders(arm):
+        json_data = chr_cache.get_json_data()
+        bone_mappings = None
+        if chr_cache.rigified:
+            bone_mappings = chr_cache.get_rig_bone_mappings()
+        rigidbody.build_rigid_body_colliders(chr_cache, json_data, bone_mappings=bone_mappings)
 
 
 class CC3OperatorSpringBones(bpy.types.Operator):
@@ -415,12 +450,7 @@ class CC3OperatorSpringBones(bpy.types.Operator):
                 spring_rig_prefix = get_spring_rig_prefix(parent_mode)
 
                 rigidbody.build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_name)
-                body = chr_cache.get_body()
-                if body:
-                    obj_cache = chr_cache.get_object_cache(body)
-                    if not obj_cache.has_collision_physics():
-                        physics.apply_collision_physics(chr_cache, body, obj_cache)
-                    rigidbody.enable_rigid_body_collision_mesh(chr_cache, body)
+                add_spring_colliders(chr_cache)
 
             reset_spring_physics(context)
 
@@ -466,9 +496,27 @@ class CC3OperatorSpringBones(bpy.types.Operator):
 
             utils.restore_mode_selection_state(mode_selection)
 
+        elif self.param == "BUILD_COLLIDERS":
+            stop_spring_animation(context)
+            reset_spring_physics(context)
+            add_spring_colliders(chr_cache)
+            rigidbody.toggle_show_colliders(arm)
+            utils.restore_mode_selection_state(mode_selection)
+
+        elif self.param == "REMOVE_COLLIDERS":
+            stop_spring_animation(context)
+            reset_spring_physics(context)
+            rigidbody.remove_rigid_body_colliders(arm)
+            #utils.restore_mode_selection_state(mode_selection)
+
+        elif self.param == "TOGGLE_SHOW_COLLIDERS":
+            rigidbody.toggle_show_colliders(arm)
+            #utils.restore_mode_selection_state(mode_selection)
+
         if self.param == "BAKE_PHYSICS":
             utils.object_mode_to(arm)
             reset_spring_physics(context)
+            utils.log_info("Baking rigid body world point cache...")
             bpy.ops.ptcache.bake({"point_cache": bpy.context.scene.rigidbody_world.point_cache},
                                  "INVOKE_DEFAULT", bake=True)
             # as py.ops.ptcache.bake is a modal operator, don't do *anything* afterwards,

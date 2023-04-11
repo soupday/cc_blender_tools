@@ -84,14 +84,19 @@ def get_layout_width(region_type = "UI"):
     return width
 
 
-def wrapped_text_box(layout, info_text, width, alert = False):
+def wrapped_text_box(layout, info_text, width, alert = False, icon = None):
     wrapper = textwrap.TextWrapper(width=width)
     info_list = wrapper.wrap(info_text)
 
     box = layout.box()
     box.alert = alert
+    first = True
     for text in info_list:
-        box.label(text=text)
+        if first and icon:
+            box.label(text=text, icon=icon)
+        else:
+            box.label(text=text)
+        first = False
 
 
 def warn_icon(row, icon = "ERROR"):
@@ -318,33 +323,119 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout, fixed_parent=False, only_pare
             else:
                 row = column.row()
                 row.scale_y = 2.0
-                warn_icon(row)
+                warn_icon(row, "X")
                 row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Remove Simulation").param = "REMOVE_RIGID_BODY_SYSTEM"
                 column.separator()
         else:
             column.row().label(text = "No spring rig selected", icon="ERROR")
 
-        column.row().label(text="Physics Tools:")
+        column.row().label(text="Rigid Body Colliders:")
 
-        if rigid_body:
-            row = column.row()
-            warn_icon(row)
-            row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Disable Collision Body").param = "DISABLE_RIGID_BODY_COLLISION"
-            column.row().prop(rigid_body, "collision_margin", text="Collision Margin", slider=True)
+        if rigidbody.has_rigid_body_colliders(arm):
+            row = column.row(align=True)
+            colliders_visible = rigidbody.colliders_visible(arm)
+            row.operator("cc3.springbones", icon=utils.check_icon("HIDE_OFF"), text="", depress=colliders_visible).param = "TOGGLE_SHOW_COLLIDERS"
+            is_pose_position = rigging.is_rig_rest_position(chr_cache)
+            row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+            row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Remove Colliders").param = "REMOVE_COLLIDERS"
+            #column.row().prop(rigid_body, "collision_margin", text="Collision Margin", slider=True)
         else:
-            column.row().operator("cc3.springbones", icon=utils.check_icon("MOD_PHYSICS"), text="Enable Collision Body").param = "ENABLE_RIGID_BODY_COLLISION"
+            column.row().operator("cc3.springbones", icon=utils.check_icon("META_CAPSULE"), text="Add Colliders").param = "BUILD_COLLIDERS"
 
+        column.separator()
+
+        column.row().label(text="Rigid Body Cache:")
+        has_rigidbody, rigidbody_baked, rigidbody_baking, rigidbody_point_cache = springbones.rigidbody_state()
+
+        column.row().operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
         row = column.row()
         row.operator("cc3.springbones", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "RESET_PHYSICS"
         row = column.row()
-        depress = False
-        rigidbody_world = bpy.context.scene.rigidbody_world
-        if rigidbody_world:
-            if rigidbody_world.point_cache.is_baking:
-                depress = True
-            if rigidbody_world.point_cache.is_baked:
-                row.alert = True
-        row.operator("cc3.springbones", icon=utils.check_icon("REC"), text="Bake Simulation", depress=depress).param = "BAKE_PHYSICS"
+        row.context_pointer_set("point_cache", rigidbody_point_cache)
+        depress = rigidbody_baking
+        row.alert = rigidbody_baked
+        if rigidbody_baked:
+            row.operator("ptcache.free_bake", text="Free Simulation", icon="REC")
+        else:
+            row.operator("ptcache.bake", text="Bake Simulation", icon="REC", depress=rigidbody_baking).bake = True
+
+
+def cache_timeline_physics_ui(chr_cache, layout):
+
+    if not chr_cache:
+        return
+
+    layout.box().label(text="Timeline & Physics Cache", icon="PREVIEW_RANGE")
+    layout.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
+
+    layout.separator()
+    width = get_layout_width("UI")
+
+    if not bpy.data.filepath:
+        row = layout.row()
+        row.alert = True
+        row.label(text="Blendfile should be saved", icon="ERROR")
+        row = layout.row()
+        row.alert = True
+        row.label(text="before baking physics", icon="REMOVE")
+        layout.separator()
+
+
+    has_cloth, cloth_baked, cloth_baking, cloth_point_cache = physics.cloth_physics_state(bpy.context.object)
+    has_rigidbody, rigidbody_baked, rigidbody_baking, rigidbody_point_cache = springbones.rigidbody_state()
+
+    grid = layout.grid_flow(row_major=True, columns=2)
+
+    grid_column = grid.column(align=True)
+    grid_column.label(text="Cloth Physics", icon="MOD_CLOTH")
+
+    row = grid_column.row(align=True)
+    row.operator("cc3.scene", icon="LOOP_BACK", text="Reset").param = "PHYSICS_PREP_CLOTH"
+    row = grid_column.row(align=True)
+    row.context_pointer_set("point_cache", cloth_point_cache)
+    row.scale_y = 1.5
+    row.alert = cloth_baked
+    if cloth_baked:
+        row.operator("ptcache.free_bake", text="Free", icon="REC")
+    else:
+        row.operator("ptcache.bake", text="Bake", icon="REC", depress=cloth_baking).bake = True
+
+    if not has_cloth:
+        grid_column.enabled = False
+
+    grid_column = grid.column(align=True)
+    grid_column.label(text="Spring Physics", icon="CON_KINEMATIC")
+
+    row = grid_column.row(align=True)
+    row.operator("cc3.scene", icon="LOOP_BACK", text="Reset").param = "PHYSICS_PREP_RBW"
+    row = grid_column.row(align=True)
+    row.context_pointer_set("point_cache", rigidbody_point_cache)
+    row.scale_y = 1.5
+    row.alert = rigidbody_baked
+    if rigidbody_baked:
+        row.operator("ptcache.free_bake", text="Free", icon="REC")
+    else:
+        row.operator("ptcache.bake", text="Bake", icon="REC", depress=rigidbody_baking).bake = True
+
+    if not has_rigidbody:
+        grid_column.enabled = False
+
+    layout.separator()
+
+    has_cloth, has_collision, has_rigidbody, all_baked, any_baked, all_baking, any_baking = physics.get_scene_physics_state()
+
+    layout.label(text="All Dynamics:", icon="PHYSICS")
+
+    column = layout.column(align=True)
+    column.operator("cc3.scene", icon="LOOP_BACK", text="Reset All").param = "PHYSICS_PREP_ALL"
+    row = column.row(align=True)
+    row.scale_y = 1.5
+    row.alert = all_baked
+    all_depress = all_baking
+    if any_baked:
+        row.operator("ptcache.free_bake_all", text="Free All Dynamics", icon="REC")
+    else:
+        row.operator("ptcache.bake_all", text="Bake All Dynamics", icon="REC", depress=all_depress).bake = True
 
 
 
@@ -875,7 +966,8 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 else:
                     icon = "BONE_DATA"
                 tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", depress=False).param = "CYCLE_BONE_STYLE"
-                tool_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
+                is_pose_position = rigging.is_rig_rest_position(chr_cache)
+                tool_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
 
             row = col_2.row()
             row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
@@ -1902,38 +1994,7 @@ class CC3ToolsScenePanel(bpy.types.Panel):
             op.param = "CYCLES_SETUP"
             column.separator()
 
-        cache_timeline_physics_ui(layout)
-
-
-def cache_timeline_physics_ui(layout):
-    layout.box().label(text="Physics Cache", icon="PREVIEW_RANGE")
-    column = layout.column()
-    column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
-
-    column.separator()
-
-    row = column.row()
-    warn_icon(row, "X")
-    row.operator("cc3.scene", icon="MOD_CLOTH", text="Reset Cloth").param = "PHYSICS_PREP_CLOTH"
-    row = column.row()
-    warn_icon(row, "X")
-    row.operator("cc3.scene", icon="CON_KINEMATIC", text="Reset Rigid Body").param = "PHYSICS_PREP_RBW"
-
-    column.separator()
-
-    grid = column.grid_flow(row_major=True, columns=1, align=True)
-    grid.scale_y = 1.5
-
-    grid.operator("cc3.setphysics", icon=utils.check_icon("MOD_CLOTH"), text="Bake Cloth Physics").param = "BAKE_PHYSICS"
-
-    depress = False
-    rigidbody_world = bpy.context.scene.rigidbody_world
-    if rigidbody_world:
-        if rigidbody_world.point_cache.is_baking:
-            depress = True
-        if rigidbody_world.point_cache.is_baked:
-            grid.alert = True
-    grid.operator("cc3.springbones", icon=utils.check_icon("CON_KINEMATIC"), text="Bake Spring Physics", depress=depress).param = "BAKE_PHYSICS"
+        cache_timeline_physics_ui(chr_cache, layout)
 
 
 class CC3ToolsCreatePanel(bpy.types.Panel):
@@ -1973,12 +2034,12 @@ class CC3ToolsCreatePanel(bpy.types.Panel):
 
         column.separator()
 
-        cache_timeline_physics_ui(layout)
+        cache_timeline_physics_ui(chr_cache, layout)
 
 
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Physics_Panel"
-    bl_label = "Cloth Physics Settings"
+    bl_label = "Cloth Physics"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -1997,13 +2058,13 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         cloth_mod = None
         coll_mod = None
         if chr_cache and obj:
-            obj, proxy, is_proxy_active = chr_cache.get_physics_objects(obj)
+            obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
             obj_cache = chr_cache.get_object_cache(obj)
             cloth_mod = modifiers.get_cloth_physics_mod(obj)
             if proxy:
-                coll_mod = modifiers.get_collision_physics_mod(chr_cache, proxy)
+                coll_mod = modifiers.get_collision_physics_mod(proxy)
             else:
-                coll_mod = modifiers.get_collision_physics_mod(chr_cache, obj)
+                coll_mod = modifiers.get_collision_physics_mod(obj)
 
 
         mat = utils.context_material(context)
@@ -2143,10 +2204,11 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         column = layout.column()
 
-        op = column.operator("cc3.setphysics", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh")
-        op.param = "PHYSICS_FIX_DEGENERATE"
-        op = column.operator("cc3.setphysics", icon="FACE_MAPS", text="Separate Physics Materials")
-        op.param = "PHYSICS_SEPARATE"
+        column.operator("cc3.setphysics", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh").param = "PHYSICS_FIX_DEGENERATE"
+        column.operator("cc3.setphysics", icon="FACE_MAPS", text="Separate Physics Materials").param = "PHYSICS_SEPARATE"
+        column.operator("cc3.springbones", icon="FACE_MAPS", text="COLLIDIFY FIRST").param = "PHYSICS_BUILD_COLLIDERS_FIRST"
+        column.operator("cc3.springbones", icon="FACE_MAPS", text="COLLIDIFY").param = "PHYSICS_BUILD_COLLIDERS"
+
 
         column.separator()
 

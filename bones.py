@@ -119,6 +119,20 @@ def get_pose_bone(rig, name):
     return None
 
 
+def get_rigify_meta_bone(rigify_rig, bone_mappings, cc3_bone_name):
+    for bone_map in bone_mappings:
+        if bone_map[1] == cc3_bone_name:
+            # try to find the parent in the ORG bones
+            org_bone_name = f"ORG-{bone_map[0]}"
+            if org_bone_name in rigify_rig.data.bones:
+                return org_bone_name
+            # then try the DEF bones
+            def_bone_name = f"DEF-{bone_map[0]}"
+            if def_bone_name not in rigify_rig.data.bones:
+                return def_bone_name
+    return None
+
+
 def align_edit_bone_roll(edit_bone : bpy.types.EditBone, axis):
     if axis == "X":
         edit_bone.align_roll(mathutils.Vector((1,0,0)))
@@ -540,6 +554,47 @@ def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_local_location = True if "L" in flags else False
     edit_bone.use_inherit_rotation = True if "R" in flags else False
     edit_bone.use_deform = deform
+
+
+def show_bone_layers(rig, bone):
+    for i in range(0, 32):
+        if bone.layers[i]:
+            rig.data.layers[i] = True
+
+
+def show_all_layers(rig):
+    for i in range(0, 32):
+        rig.data.layers[i] = True
+
+
+def store_armature_settings(rig):
+    layers = []
+    for i in range(0, 32):
+        layers.append(rig.data.layers[i])
+    visibility = { "layers": layers,
+                   "show_in_front": rig.show_in_front,
+                   "display_type": rig.display_type,
+                   "pose_position": rig.data.pose_position,
+                   "action": utils.safe_get_action(rig),
+                   "location": rig.location }
+    return visibility
+
+
+def restore_armature_settings(rig, visibility):
+    layers = visibility["layers"]
+    for i in range(0, 32):
+        rig.data.layers[i] = layers[i]
+    rig.show_in_front = visibility["show_in_front"]
+    rig.display_type = visibility["display_type"]
+    rig.data.pose_position = visibility["pose_position"]
+    utils.safe_set_action(rig, visibility["action"])
+    rig.location = visibility["location"]
+
+
+def set_rig_bind_pose(rig):
+    rig.data.pose_position = "POSE"
+    utils.safe_set_action(rig, None)
+    clear_pose(rig)
 
 
 def show_armature_layers(rig : bpy.types.Object, layer_list : list, in_front = False, wireframe = False):

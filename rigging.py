@@ -200,15 +200,7 @@ def add_extension_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings, vertex_gr
 
             if bone.parent:
                 cc3_parent_name = bone.parent.name
-                for bone_map in bone_mappings:
-                    if bone_map[1] == cc3_parent_name:
-                        # try to find the parent in the ORG bones
-                        rigify_parent_name = f"ORG-{bone_map[0]}"
-                        if rigify_parent_name not in rigify_rig.data.bones:
-                            # then try the DEF bones
-                            rigify_parent_name = f"DEF-{bone_map[0]}"
-                        if rigify_parent_name not in rigify_rig.data.bones:
-                            rigify_parent_name = None
+                rigify_parent_name = bones.get_rigify_meta_bone(rigify_rig, bone_mappings, cc3_parent_name)
 
             if not (rigify_parent_name and rigify_parent_name in rigify_rig.data.bones):
                 utils.log_error(f"Unable to find matching accessory/spring bone tree parent: {cc3_parent_name} in rigify bones!")
@@ -497,7 +489,7 @@ def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
     rigify_rig.data.pose_position = pose_position
 
 
-def rigify_spring_rigs(chr_cache, rigify_rig):
+def rigify_spring_rigs(chr_cache, cc3_rig, rigify_rig, bone_mappings):
     props = bpy.context.scene.CC3ImportProps
     select_rig(rigify_rig)
     pose_position = rigify_rig.data.pose_position
@@ -1305,7 +1297,7 @@ def modify_rigify_rig(cc3_rig, rigify_rig, rigify_data):
 
 
 
-def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
+def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mappings):
     """Unparent (with transform) from the original CC3 rig and reparent to the new rigify rig (with automatic weights for the body),
        setting the armature modifiers to the new rig.
 
@@ -1320,6 +1312,9 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
     result = 1
 
     if utils.set_mode("OBJECT"):
+
+        # first move rigidbody colliders over
+        rigidbody.convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings)
 
         for obj in cc3_rig.children:
             if utils.object_exists_is_mesh(obj) and obj.parent == cc3_rig:
@@ -3502,11 +3497,11 @@ class CC3Rigifier(bpy.types.Operator):
                                 convert_to_basic_face_rig(self.rigify_rig)
                                 chr_cache.rigified_full_face_rig = False
                             modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
-                            face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
+                            face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                             acc_vertex_group_map = {}
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
-                            rigify_spring_rigs(chr_cache, self.rigify_rig)
+                            rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
@@ -3579,11 +3574,11 @@ class CC3Rigifier(bpy.types.Operator):
                                 convert_to_basic_face_rig(self.rigify_rig)
                                 chr_cache.rigified_full_face_rig = False
                             modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
-                            face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
+                            face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                             acc_vertex_group_map = {}
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                             add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
-                            rigify_spring_rigs(chr_cache, self.rigify_rig)
+                            rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
                             rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
@@ -3612,9 +3607,6 @@ class CC3Rigifier(bpy.types.Operator):
                             obj = o
                     if rig and obj:
                         report_uv_face_targets(obj, rig)
-
-            elif self.param == "BUILD_ALL_SPRING_RIGS":
-                rigify_spring_rigs(chr_cache, chr_cache.get_armature())
 
             elif self.param == "BUILD_SPRING_RIG":
                 rig = chr_cache.get_armature()

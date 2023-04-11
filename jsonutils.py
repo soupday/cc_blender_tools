@@ -65,7 +65,12 @@ def read_json(fbx_path, errors):
         return None
 
 
-def write_json(json_data, path):
+def write_json(json_data, path, is_fbx_path = False):
+    if is_fbx_path:
+        file = os.path.basename(path)
+        folder = os.path.dirname(path)
+        name = os.path.splitext(file)[0]
+        path = os.path.join(folder, name + ".json")
     json_object = json.dumps(json_data, indent = 4)
     with open(path, "w") as write_file:
         write_file.write(json_object)
@@ -165,6 +170,14 @@ def get_object_json(chr_json, obj):
     except:
         utils.log_warn("Failed to get object Json data!")
         return None
+
+
+def get_physics_json(json_data, character_id):
+    try:
+        return json_data[character_id]["Object"][character_id]["Physics"]
+    except:
+        return None
+
 
 def get_physics_mesh_json(physics_json, obj):
     if not physics_json:

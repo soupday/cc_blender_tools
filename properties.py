@@ -1379,6 +1379,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_rig_mapping_data(self):
         return rigify_mapping_data.get_mapping_for_generation(self.generation)
 
+    def get_rig_bone_mappings(self):
+        rigify_data = rigify_mapping_data.get_mapping_for_generation(self.generation)
+        if rigify_data:
+            return rigify_data.bone_mapping
+        return None
+
     def get_all_materials_cache(self):
         cache_all = []
         for mat_cache in self.tongue_material_cache:
@@ -1721,11 +1727,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 mat_cache.copy_material_cache(copy_from)
         return mat_cache
 
-
     def get_json_data(self):
         errors = []
         return jsonutils.read_json(self.import_file, errors)
 
+    def write_json_data(self, json_data):
+        jsonutils.write_json(json_data, self.import_file, is_fbx_path=True)
 
     def change_import_file(self, filepath):
         dir, file = os.path.split(filepath)
@@ -1800,7 +1807,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def set_sculpt_body(self, mesh):
         self.sculpt_multires_body = mesh
 
-    def get_physics_objects(self, obj):
+    def get_related_physics_objects(self, obj):
         proxy = None
         is_proxy_active = False
         if obj:
