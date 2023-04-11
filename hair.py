@@ -1034,13 +1034,13 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dirs,
     if anchor_bone:
         cards, bm = selected_cards_to_length_loops(chr_cache, obj, card_dirs, one_loop_per_card)
         utils.edit_mode_to(arm)
-        for card in cards:
-            loops = card["loops"]
-            remove_existing_loop_bones(chr_cache, arm, loops)
-            for edit_bone in arm.data.edit_bones:
+        for edit_bone in arm.data.edit_bones:
                 edit_bone.select_head = False
                 edit_bone.select_tail = False
                 edit_bone.select = False
+        for card in cards:
+            loops = card["loops"]
+            remove_existing_loop_bones(chr_cache, arm, loops)
             loop_index = 1
             new_bones = []
             for loop in loops:
