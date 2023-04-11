@@ -2000,7 +2000,9 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     export_strips = True
     baked_actions = []
     export_rig, vertex_group_map = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions,
-                                                              include_t_pose = props.bake_unity_t_pose)
+                                                              include_t_pose = props.bake_unity_t_pose,
+                                                              objects=objects)
+
     if export_rig:
         rigify_rig = chr_cache.get_armature()
         objects.remove(rigify_rig)
@@ -2042,7 +2044,8 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     restore_modifiers(chr_cache, objects)
 
     # clean up rigify export
-    rigging.finish_rigify_export(chr_cache, export_rig, baked_actions, vertex_group_map)
+    rigging.finish_rigify_export(chr_cache, export_rig, baked_actions, vertex_group_map,
+                                 objects=objects)
 
     utils.log_recess()
     utils.log_info("")

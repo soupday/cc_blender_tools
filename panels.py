@@ -1053,14 +1053,15 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 rigified_spring_rig = False
                 if chr_cache.rigified:
                     rigified_spring_rig = springbones.is_rigified(chr_cache, arm, chr_cache.available_spring_rigs)
-                    column.row().label(text="Rigify:", icon="OUTLINER_OB_ARMATURE")
-                    row = column.row()
-                    row.scale_y = 2
-                    if rigified_spring_rig:
-                        warn_icon(row)
-                        row.operator("cc3.rigifier", icon="X", text="Remove Control Rig").param = "REMOVE_SPRING_RIG"
-                    else:
-                        row.operator("cc3.rigifier", icon="MOD_SCREW", text="Build Control Rig").param = "BUILD_SPRING_RIG"
+                    if rigified_spring_rig is not None:
+                        column.row().label(text="Rigify:", icon="OUTLINER_OB_ARMATURE")
+                        row = column.row()
+                        row.scale_y = 2
+                        if rigified_spring_rig == True:
+                            warn_icon(row)
+                            row.operator("cc3.rigifier", icon="X", text="Remove Control Rig").param = "REMOVE_SPRING_RIG"
+                        else:
+                            row.operator("cc3.rigifier", icon="MOD_SCREW", text="Build Control Rig").param = "BUILD_SPRING_RIG"
                 column.separator()
                 build_allowed = True
                 if chr_cache.rigified and not rigified_spring_rig:

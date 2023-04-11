@@ -292,7 +292,9 @@ def is_rigified(chr_cache, rig, parent_mode):
             pose_bone = rig.pose.bones[spring_rig.name]
             if "rigified" in pose_bone and pose_bone["rigified"]:
                 return True
-    return False
+            else:
+                return False
+    return None
 
 
 def realign_spring_bones_axis(chr_cache, arm):

@@ -911,6 +911,7 @@ def clear_constraints(rig, pose_bone_name):
 
 
 def clear_drivers(rig):
+    # rig object drivers (pose bone drivers)
     drivers = rig.animation_data.drivers
     if drivers:
         fcurves = []
@@ -918,6 +919,18 @@ def clear_drivers(rig):
             fcurves.append(fc)
         for fc in fcurves:
             drivers.remove(fc)
+
+    # rig armature drivers (bone drivers)
+    drivers = rig.data.animation_data.drivers
+    if drivers:
+        fcurves = []
+        for fc in drivers:
+            fcurves.append(fc)
+        for fc in fcurves:
+            drivers.remove(fc)
+
+
+
 
 
 def get_bone_name_from_data_path(data_path : str):

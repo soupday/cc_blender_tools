@@ -454,6 +454,8 @@ def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
 
     if edit_rig(rigify_rig):
         spring_rig = springbones.get_spring_rig(chr_cache, rigify_rig, parent_mode, mode = "EDIT")
+        if not spring_rig:
+            return
         spring_rig_name = spring_rig.name
         bone_defs = {}
         ik_targets = {}
@@ -2799,7 +2801,7 @@ def restore_armature_names(armature_object, armature_data, name):
         armature_data.name = name
 
 
-def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose = False):
+def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose = False, objects=None):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     rigify_rig = chr_cache.get_armature()
@@ -2856,6 +2858,7 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
             # bake current timeline animation to export rig
             action = None
             if bake_animation:
+                utils.log_info(f"Baking NLA timeline to export rig...")
                 action, key_actions = adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map)
                 action.name = action_name
                 baked_actions.append(action)
@@ -2874,9 +2877,10 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
                     track = key_obj.data.shape_keys.animation_data.nla_tracks.new()
                     strip = track.strips.new(key_action.name, int(key_action.frame_range[0]), key_action)
 
-
             # reparent the child objects to the export rig
             for child in rigify_rig.children:
+                if objects and child not in objects:
+                    continue
                 child.parent = export_rig
                 mod = modifiers.get_object_modifier(child, "ARMATURE")
                 if mod:
@@ -2930,11 +2934,13 @@ def restore_from_unity_vertex_groups(obj, vertex_group_map):
             obj.vertex_groups[unity_bone_name].name = rigify_bone_name
 
 
-def finish_rigify_export(chr_cache, export_rig, export_actions, vertex_group_map):
+def finish_rigify_export(chr_cache, export_rig, export_actions, vertex_group_map, objects = None):
     rigify_rig = chr_cache.get_armature()
 
     # un-reparent the child objects
     for child in export_rig.children:
+        if objects and child not in objects:
+            continue
         child.parent = rigify_rig
         mod = modifiers.get_object_modifier(child, "ARMATURE")
         mod.object = rigify_rig
@@ -3612,19 +3618,21 @@ class CC3Rigifier(bpy.types.Operator):
                 rig = chr_cache.get_armature()
                 parent_mode = chr_cache.available_spring_rigs
                 spring_rig_name = springbones.get_spring_rig_name(rig, parent_mode)
-                spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
-                rigidbody.remove_existing_rigid_body_system(rig, spring_rig_prefix, spring_rig_name)
-                rigify_spring_rig(chr_cache, chr_cache.get_armature(), parent_mode)
-                springbones.show_spring_bone_rig_layers(chr_cache, rig, True)
+                if spring_rig_name in rig.data.bones:
+                    spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+                    rigidbody.remove_existing_rigid_body_system(rig, spring_rig_prefix, spring_rig_name)
+                    rigify_spring_rig(chr_cache, chr_cache.get_armature(), parent_mode)
+                    springbones.show_spring_bone_rig_layers(chr_cache, rig, True)
 
             elif self.param == "REMOVE_SPRING_RIG":
                 rig = chr_cache.get_armature()
                 parent_mode = chr_cache.available_spring_rigs
                 spring_rig_name = springbones.get_spring_rig_name(rig, parent_mode)
-                spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
-                rigidbody.remove_existing_rigid_body_system(rig, spring_rig_prefix, spring_rig_name)
-                #springbones.show_spring_bone_rig_layers(chr_cache, arm, False)
-                derigify_spring_rig(chr_cache, chr_cache.get_armature(), parent_mode)
+                if spring_rig_name in rig.data.bones:
+                    spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+                    rigidbody.remove_existing_rigid_body_system(rig, spring_rig_prefix, spring_rig_name)
+                    #springbones.show_spring_bone_rig_layers(chr_cache, arm, False)
+                    derigify_spring_rig(chr_cache, chr_cache.get_armature(), parent_mode)
 
 
             elif self.param == "LOCK_NON_FACE_VGROUPS":
