@@ -501,6 +501,10 @@ def mesh_to_loops(obj, bm, island, card_dirs):
     # find the boundary edges
     boundary_edges = geom.get_boundary_edges(bm, island)
 
+    # check for minimum bound edges
+    if len(boundary_edges) < 4:
+        return None
+
     # the top most UV in the boundary edge is the start of the left hand side
     # the bottom most UV in the boundary edge is the end of the right hand side
     # split the boundary edge into two loops left and right
