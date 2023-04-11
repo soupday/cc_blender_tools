@@ -347,7 +347,7 @@ def remove_all_physics_mods(obj):
 
 
 def enable_collision_physics(chr_cache, obj):
-    obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
+    obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
     props = bpy.context.scene.CC3ImportProps
     obj_cache = chr_cache.get_object_cache(obj)
     has_cloth = modifiers.get_cloth_physics_mod(obj) is not None
@@ -357,7 +357,7 @@ def enable_collision_physics(chr_cache, obj):
 
 
 def disable_collision_physics(chr_cache, obj):
-    obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
+    obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
     props = bpy.context.scene.CC3ImportProps
     obj_cache = chr_cache.get_object_cache(obj)
     obj_cache.collision_physics = "OFF"
@@ -1323,7 +1323,7 @@ def set_physics_settings(op, param, context):
 
     elif param == "TOGGLE_SHOW_PROXY":
         if chr_cache and obj:
-                obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
+                obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
         if utils.is_local_view(context):
             if proxy:
                 proxy.hide_set(True)

@@ -485,7 +485,7 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
 
 def is_rigid_body(chr_cache, obj):
     if chr_cache and obj:
-        obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
+        obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
         if proxy:
             obj = proxy
     return obj and obj.rigid_body is not None
@@ -493,7 +493,7 @@ def is_rigid_body(chr_cache, obj):
 
 def get_rigid_body(chr_cache, obj):
     if chr_cache and obj:
-        obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
+        obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
         if proxy:
             obj = proxy
         return obj.rigid_body
@@ -508,7 +508,7 @@ def enable_rigid_body_collision_mesh(chr_cache, obj):
             pose_position = arm.data.pose_position
             arm.data.pose_position = "REST"
 
-        obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
+        obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
         if proxy:
             if obj.rigid_body:
                 # if there is a collision body proxy but
@@ -559,7 +559,7 @@ def disable_rigid_body_collision_mesh(chr_cache, obj):
             pose_position = arm.data.pose_position
             arm.data.pose_position = "REST"
 
-        obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
+        obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
         if proxy:
             if obj.rigid_body:
                 utils.set_active_object(obj)
@@ -1022,14 +1022,18 @@ def has_rigid_body_colliders(arm):
     return False
 
 
-def remove_rigid_body_colliders(arm):
+def get_rigidbody_collider_collection():
+    collection = None
     if COLLIDER_COLLECTION_NAME in bpy.data.collections:
         collection = bpy.data.collections[COLLIDER_COLLECTION_NAME]
+    return collection
 
+
+def remove_rigid_body_colliders(arm):
+    collection = get_rigidbody_collider_collection()
     colliders = get_rigid_body_colliders(arm)
     for collider in colliders:
         utils.delete_mesh_object(collider)
-
     if collection and len(collection.objects) == 0:
         bpy.data.collections.remove(collection)
 
@@ -1083,6 +1087,6 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
                         utils.log_error(f"Unable to map {bone_name} to rigify bone!")
                         utils.delete_mesh_object(obj)
 
-        bones.restore_armature_settings(cc3_arm_settings)
-        bones.restore_armature_settings(rigify_arm_settings)
+        bones.restore_armature_settings(cc3_rig, cc3_arm_settings)
+        bones.restore_armature_settings(rigify_rig, rigify_arm_settings)
 

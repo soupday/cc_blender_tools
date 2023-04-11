@@ -1809,7 +1809,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def get_related_physics_objects(self, obj):
         proxy = None
-        is_proxy_active = False
+        is_proxy = False
         if obj:
             obj_cache = self.get_object_cache(obj)
             if obj_cache:
@@ -1819,8 +1819,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 if proxy_obj:
                     proxy = obj
                     obj = proxy_obj
-                    is_proxy_active = True
-        return obj, proxy, is_proxy_active
+                    is_proxy = True
+        return obj, proxy, is_proxy
 
     def find_object_from_proxy(self, proxy):
         for obj_cache in self.object_cache:

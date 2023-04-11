@@ -2054,11 +2054,11 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         obj = context.object
         obj_cache = None
         proxy = None
-        is_proxy_active = False
+        is_proxy = False
         cloth_mod = None
         coll_mod = None
         if chr_cache and obj:
-            obj, proxy, is_proxy_active = chr_cache.get_related_physics_objects(obj)
+            obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
             obj_cache = chr_cache.get_object_cache(obj)
             cloth_mod = modifiers.get_cloth_physics_mod(obj)
             if proxy:
@@ -2088,7 +2088,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         # Cloth Physics Foldout
         #
 
-        if not is_proxy_active:
+        if not is_proxy:
 
             layout.box().label(text="Cloth Simulation", icon="MOD_CLOTH")
 
@@ -2213,7 +2213,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         column.separator()
 
         # Weight Maps
-        if not is_proxy_active:
+        if not is_proxy:
 
             layout.box().label(text="Weight Maps", icon="TEXTURE_DATA")
 

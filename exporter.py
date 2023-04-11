@@ -24,7 +24,7 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import bake, shaders, physics, rigging, wrinkle, bones, modifiers, imageutils, meshutils, nodeutils, jsonutils, utils, params, vars
+from . import bake, shaders, physics, rigidbody, rigging, wrinkle, bones, modifiers, imageutils, meshutils, nodeutils, jsonutils, utils, params, vars
 
 UNPACK_INDEX = 1001
 
@@ -982,6 +982,7 @@ def unpack_embedded_textures(chr_cache, chr_json, objects, base_path):
 
 def get_export_objects(chr_cache, include_selected = True):
     """Fetch all the objects in the character (or try to)"""
+    collider_collection = rigidbody.get_rigidbody_collider_collection()
     objects = []
     if include_selected:
         objects.extend(bpy.context.selected_objects)
@@ -999,8 +1000,19 @@ def get_export_objects(chr_cache, include_selected = True):
                         if obj not in objects:
                             objects.append(obj)
             for obj in arm.children:
-                if utils.object_exists_is_mesh(obj): # and obj.visible_get():
+                if utils.object_exists_is_mesh(obj):
+                    # exclude rigid body colliders (parented to armature)
+                    if collider_collection and obj.name in collider_collection.objects:
+                        utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
+                        continue
+                    # exclude collider proxies
+                    source, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
+                    if is_proxy:
+                        utils.log_info(f"   Excluding Collider Proxy Object: {obj.name}")
+                        continue
+                    # add child mesh objects
                     if obj not in objects:
+                        utils.log_info(f"   Including Object: {obj.name}")
                         objects.append(obj)
     else:
         arm = None
@@ -1020,8 +1032,12 @@ def get_export_objects(chr_cache, include_selected = True):
                 objects.append(arm)
             utils.log_info(f"Character Armature: {arm.name}")
             for obj in arm.children:
-                if utils.object_exists_is_mesh(obj): # and obj.visible_get():
+                if utils.object_exists_is_mesh(obj):
                     if obj not in objects:
+                        # exclude rigid body colliders (parented to armature)
+                        if collider_collection and obj.name in collider_collection.objects:
+                            utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
+                            continue
                         utils.log_info(f"   Including Object: {obj.name}")
                         objects.append(obj)
     return objects
