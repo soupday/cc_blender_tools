@@ -739,6 +739,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         missing_materials = False
         objects_addable = False
         is_character = chr_cache is not None
+        from_other_character = False
         for o in bpy.context.selected_objects:
             if o.type == "MESH":
                 num_meshes_in_selection += 1
@@ -752,6 +753,10 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
                             missing_materials = True
                     else:
                         objects_addable = True
+                    if not from_other_character:
+                        cc = props.get_character_cache(o, None)
+                        if cc != chr_cache:
+                            from_other_character = True
 
         column = layout.column()
 
@@ -841,13 +846,19 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column.box().label(text="Objects & Materials", icon="OBJECT_HIDDEN")
 
-        row = column.row()
-        row.operator("cc3.character", icon="ADD", text="Add To Character").param = "ADD_PBR"
-        if not objects_addable:
-            row.enabled = False
+        if from_other_character:
+            row = column.row()
+            row.operator("cc3.character", icon="PASTEDOWN", text="Copy to Character").param = "COPY_TO_CHARACTER"
+            if not objects_addable:
+                row.enabled = False
+        else:
+            row = column.row()
+            row.operator("cc3.character", icon="ADD", text="Add to Character").param = "ADD_PBR"
+            if not objects_addable:
+                row.enabled = False
 
         row = column.row()
-        row.operator("cc3.character", icon="REMOVE", text="Remove From Character").param = "REMOVE_OBJECT"
+        row.operator("cc3.character", icon="REMOVE", text="Remove from Character").param = "REMOVE_OBJECT"
         if not removable_objects:
             row.enabled = False
 
@@ -2207,9 +2218,6 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         column.operator("cc3.setphysics", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh").param = "PHYSICS_FIX_DEGENERATE"
         column.operator("cc3.setphysics", icon="FACE_MAPS", text="Separate Physics Materials").param = "PHYSICS_SEPARATE"
-        column.operator("cc3.springbones", icon="FACE_MAPS", text="COLLIDIFY FIRST").param = "PHYSICS_BUILD_COLLIDERS_FIRST"
-        column.operator("cc3.springbones", icon="FACE_MAPS", text="COLLIDIFY").param = "PHYSICS_BUILD_COLLIDERS"
-
 
         column.separator()
 

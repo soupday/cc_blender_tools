@@ -571,7 +571,7 @@ def is_cloth_physics_enabled(mat_cache, mat, obj):
     cloth_mod = modifiers.get_cloth_physics_mod(obj)
     edit_mods, mix_mods = modifiers.get_material_weight_map_mods(obj, mat)
     if cloth_mod and edit_mods and mix_mods:
-        if mat_cache.cloth_physics != "OFF":
+        if mat_cache and mat_cache.cloth_physics != "OFF":
             return True
     return False
 

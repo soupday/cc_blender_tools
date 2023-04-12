@@ -286,7 +286,8 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
 
         if reparent:
             arm = chr_cache.get_armature()
-            parent_to_rig(arm, obj)
+            if arm:
+                parent_to_rig(arm, obj)
 
 
 def remove_object_from_character(chr_cache, obj):
@@ -311,8 +312,58 @@ def remove_object_from_character(chr_cache, obj):
                 #utils.set_active_object(obj)
 
 
+def copy_objects_character_to_character(context_obj, chr_cache, objects, reparent = True):
+    props = bpy.context.scene.CC3ImportProps
+
+    arm = chr_cache.get_armature()
+    if not arm:
+        return
+
+    context_collections = utils.get_object_scene_collections(context_obj)
+
+    to_copy = {}
+    for obj in objects:
+        if utils.object_exists_is_mesh(obj):
+            cc = props.get_character_cache(obj, None)
+            if cc != chr_cache:
+                if cc not in to_copy:
+                    to_copy[cc] = []
+                to_copy[cc].append(obj)
+
+    copied_objects = []
+
+    for cc in to_copy:
+        for o in to_copy[cc]:
+            oc = cc.get_object_cache(o)
+
+            # copy object
+            obj = utils.duplicate_object(o)
+            utils.move_object_to_scene_collections(obj, context_collections)
+            copied_objects.append(obj)
+
+            # convert the object name to remove any duplicate suffixes:
+            obj_name = utils.unique_object_name(obj.name, obj)
+            if obj.name != obj_name:
+                obj.name = obj_name
+
+            # add the object into the object cache
+            obj_cache = chr_cache.add_object_cache(obj, copy_from=oc)
+            obj_cache.user_added = True
+
+            add_missing_materials_to_character(chr_cache, obj, obj_cache)
+
+            if reparent:
+                parent_to_rig(arm, obj)
+
+    utils.clear_selected_objects()
+    utils.try_select_objects(copied_objects, make_active=True)
+
+
 def get_accessory_root(chr_cache, object):
     """Accessories can be identified by them having only vertex groups not listed in the bone mappings for this generation."""
+
+    if not chr_cache or not object:
+        return None
 
     # none of this works if rigified...
     if chr_cache.rigified:
@@ -813,60 +864,125 @@ def transfer_skin_weights(chr_cache, objects):
     if body in objects:
         objects.remove(body)
 
-    # TODO figure out a way to transfer weights in POSE mode...
-    # almost there but need to copy the armature and set the bind pose to the current pose,
-    # transfer weights from the posed-bind-pose body
-    # then construct the origin rest pose in the baked armature's pose by setting the bone positions/roll directly.
-    # then can apply that pose to get the item into the origin rest pose.
-    # (maybe transfer weights again?)
-    # in pose mode, use a copy of the body with it's armature modifier applied (shapekeys must be removed for this.)
-    #if arm.data.pose_position == "POSE":
-    #    body_copy = body.copy()
-    #    body_copy.name = body.name + "_TEMP_COPY"
-    #    body_copy.data = body.data.copy()
-    #    bpy.context.collection.objects.link(body_copy)
-    #
-    #    if utils.try_select_object(body_copy, True) and utils.set_active_object(body_copy):
-    #
-    #        bpy.ops.object.shape_key_remove(all=True)
-    #        mod : bpy.types.Modifier
-    #        for mod in body_copy.modifiers:
-    #            if mod.type == "ARMATURE":
-    #                bpy.ops.object.modifier_apply(modifier=mod.name)
-    #
-    #        body = body_copy
-    #    else:
-    #        return
-
     selected = bpy.context.selected_objects.copy()
 
-    for obj in objects:
-        if obj.type == "MESH":
+    if arm.data.pose_position == "POSE":
 
-            if utils.try_select_object(body, True) and utils.set_active_object(obj):
+        # Transfer weights in place (in pose mode)
 
-                bpy.ops.object.data_transfer(use_reverse_transfer=True,
-                                            data_type='VGROUP_WEIGHTS',
-                                            use_create=True,
-                                            vert_mapping='POLYINTERP_NEAREST',
-                                            use_object_transform=True,
-                                            layers_select_src='NAME',
-                                            layers_select_dst='ALL',
-                                            mix_mode='REPLACE')
+        # apply pose to the body mesh (copy)
+        body_copy = utils.duplicate_object(body)
+        body_copy.shape_key_clear()
+        modifiers.apply_modifier(body_copy, type="ARMATURE")
 
-                if obj.parent != arm:
-                    if utils.try_select_objects([arm, obj]) and utils.set_active_object(arm):
-                        bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
+        # apply pose to the object meshes (copies)
+        objects_copy = []
+        for obj in objects:
+            obj_copy = utils.duplicate_object(obj)
+            obj_copy.shape_key_clear()
+            modifiers.apply_modifier(obj_copy, type="ARMATURE")
+            objects_copy.append(obj_copy)
 
-                # add or update armature modifier
-                arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
-                if arm_mod:
-                    modifiers.move_mod_first(obj, arm_mod)
-                    arm_mod.object = arm
+            # transfer weights from body_copy to obj_copy
+            utils.set_only_active_object(obj_copy)
+            utils.try_select_object(body_copy)
+            bpy.ops.object.data_transfer(use_reverse_transfer=True,
+                                         data_type='VGROUP_WEIGHTS',
+                                         use_create=True,
+                                         vert_mapping='POLYINTERP_NEAREST',
+                                         use_object_transform=True,
+                                         layers_select_src='NAME',
+                                         layers_select_dst='ALL',
+                                         mix_mode='REPLACE')
+            #utils.set_mode("WEIGHT_PAINT")
+            #bpy.ops.object.vertex_group_smooth(group_select_mode='ALL',
+            #                                   factor=0.5, repeat=6, expand=0.5)
+            #utils.set_mode("OBJECT")
 
-    # remove the copy of the body if in pose mode
-    #if arm.data.pose_position == "POSE":
-    #    bpy.data.objects.remove(body)
+        # make a copy of the armature and apply the current pose as the rest pose
+        arm_posed = utils.duplicate_object(arm)
+        utils.set_only_active_object(arm_posed)
+        utils.pose_mode_to(arm_posed)
+        bpy.ops.pose.armature_apply(selected=False)
+
+        # parent all the copied meshes to the posed armature
+        utils.try_select_object(body_copy, True)
+        utils.try_select_objects(objects_copy)
+        utils.set_active_object(arm_posed)
+        bpy.ops.object.parent_set(type="OBJECT", keep_transform=True)
+        # and add armature modifiers
+        modifiers.add_armature_modifier(body_copy, create=True, armature=arm_posed)
+        for obj_copy in objects_copy:
+            modifiers.add_armature_modifier(obj_copy, create=True, armature=arm_posed)
+
+        # make another copy of the armature and clear the pose
+        arm_rest = utils.duplicate_object(arm)
+        utils.set_only_active_object(arm_rest)
+        utils.safe_set_action(arm_rest, None)
+        utils.pose_mode_to(arm_rest)
+        bpy.ops.pose.select_all(action='SELECT')
+        bpy.ops.pose.transforms_clear()
+
+        # constrain the pose on the posed armature to the rest pose on the rest armature
+        # this poses the pose armature in the original bind pose
+        utils.set_only_active_object(arm_posed)
+        utils.pose_mode_to(arm_posed)
+        for pose_bone in arm_posed.pose.bones:
+            bones.add_copy_transforms_constraint(arm_rest, arm_posed, pose_bone.name, pose_bone.name)
+
+        # then visually apply that pose
+        # (this should pose the posed armature in the same pose as the original bind pose)
+        #bpy.ops.pose.select_all(action='SELECT')
+        #bpy.ops.pose.visual_transform_apply()
+
+        # now apply the armature modifiers on the copied meshes
+        # so their base shape is now in the original bind pose
+        utils.set_only_active_object(body_copy)
+        modifiers.apply_modifier(body_copy, type="ARMATURE")
+        for obj_copy in objects_copy:
+            utils.set_only_active_object(obj_copy)
+            modifiers.apply_modifier(obj_copy, type="ARMATURE")
+
+        # parent the objects back to the original armature
+        utils.try_select_object(body_copy, True)
+        utils.try_select_objects(objects_copy)
+        utils.set_active_object(arm)
+        bpy.ops.object.parent_set(type="OBJECT", keep_transform=True)
+        # and add armature modifiers
+        modifiers.add_armature_modifier(body_copy, create=True, armature=arm)
+        for obj_copy in objects_copy:
+            modifiers.add_armature_modifier(obj_copy, create=True, armature=arm)
+
+        # done!
+        utils.delete_armature_object(arm_posed)
+        utils.delete_armature_object(arm_rest)
+        utils.delete_armature_object(body_copy)
+
+    else:
+
+        for obj in objects:
+            if obj.type == "MESH":
+
+                if utils.try_select_object(body, True) and utils.set_active_object(obj):
+
+                    bpy.ops.object.data_transfer(use_reverse_transfer=True,
+                                                data_type='VGROUP_WEIGHTS',
+                                                use_create=True,
+                                                vert_mapping='POLYINTERP_NEAREST',
+                                                use_object_transform=True,
+                                                layers_select_src='NAME',
+                                                layers_select_dst='ALL',
+                                                mix_mode='REPLACE')
+
+                    if obj.parent != arm:
+                        if utils.try_select_objects([arm, obj]) and utils.set_active_object(arm):
+                            bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
+
+                    # add or update armature modifier
+                    arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
+                    if arm_mod:
+                        modifiers.move_mod_first(obj, arm_mod)
+                        arm_mod.object = arm
 
     utils.clear_selected_objects()
     utils.try_select_objects(selected)
@@ -1013,7 +1129,12 @@ class CC3OperatorCharacter(bpy.types.Operator):
             obj = context.active_object
             add_object_to_character(chr_cache, obj)
 
-        if self.param == "REMOVE_OBJECT":
+        elif self.param == "COPY_TO_CHARACTER":
+            chr_cache = props.get_context_character_cache(context)
+            objects = context.selected_objects.copy()
+            copy_objects_character_to_character(context.object, chr_cache, objects)
+
+        elif self.param == "REMOVE_OBJECT":
             chr_cache = props.get_context_character_cache(context)
             obj = context.active_object
             remove_object_from_character(chr_cache, obj)
@@ -1067,6 +1188,8 @@ class CC3OperatorCharacter(bpy.types.Operator):
 
         if properties.param == "ADD_PBR":
             return "Add object to the character with pbr materials and parent to the character armature with an armature modifier"
+        elif properties.param == "COPY_TO_CHARACTER":
+            return "Copy the objects from another character into the active selected character"
         elif properties.param == "REMOVE_OBJECT":
             return "Unparent the object from the character and automatically hide it. Unparented objects will *not* be included in the export"
         elif properties.param == "ADD_MATERIALS":

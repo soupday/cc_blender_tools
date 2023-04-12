@@ -85,12 +85,17 @@ def move_mod_first(obj, mod):
     return False
 
 
-def add_armature_modifier(obj, create = False):
+def add_armature_modifier(obj, create = False, armature = None):
+    mod = None
     if obj is not None:
         for mod in obj.modifiers:
             if mod.type == "ARMATURE":
-                return mod
-    return obj.modifiers.new(name = "Armature", type = "ARMATURE")
+                break
+    if not mod:
+        mod = obj.modifiers.new(name = "Armature", type = "ARMATURE")
+    if mod and armature:
+        mod.object = armature
+    return mod
 
 
 # Physics modifiers
@@ -343,10 +348,17 @@ def has_modifier(obj, modifier_type):
     return False
 
 
-def apply_modifier(obj : bpy.types.Object, mod):
-    utils.object_mode_to(obj)
-    utils.set_only_active_object(obj)
-    bpy.ops.object.modifier_apply(modifier = mod.name)
+def apply_modifier(obj, modifier = None, type = None):
+    if obj:
+        if type:
+            for mod in obj.modifiers:
+                if mod.type == type:
+                    modifier = mod
+                    break
+        if modifier:
+            utils.object_mode_to(obj)
+            utils.set_only_active_object(obj)
+            bpy.ops.object.modifier_apply(modifier = mod.name)
 
 
 def remove_material_weight_maps(obj, mat):

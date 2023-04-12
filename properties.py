@@ -1598,7 +1598,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         except:
             pass
 
-    def add_object_cache(self, obj):
+    def add_object_cache(self, obj, copy_from = None):
         """Returns the object cache for this object.
 
         Fetches or creates an object cache for the object. Always returns an object cache collection.
@@ -1610,6 +1610,16 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             obj_cache = self.object_cache.add()
             obj_cache.set_object(obj)
             obj_cache.source_name = utils.strip_name(obj.name)
+            if copy_from:
+                obj_cache.source_name = obj.name
+                obj_cache.object_type = copy_from.object_type
+                obj_cache.collision_physics = copy_from.collision_physics
+                obj_cache.cloth_physics = copy_from.cloth_physics
+                obj_cache.cloth_settings = copy_from.cloth_settings
+                obj_cache.collision_proxy = None
+                obj_cache.use_collision_proxy = copy_from.use_collision_proxy
+                obj_cache.collision_proxy_decimate = copy_from.collision_proxy_decimate
+                obj_cache.user_added = True
         return obj_cache
 
 
