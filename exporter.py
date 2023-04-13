@@ -322,7 +322,6 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
 
             utils.log_info(f"Material: {mat.name}")
             utils.log_indent()
-            print(mat_cache)
 
             if mat.name not in mats_processed.keys():
                 mats_processed[mat.name] = { "processed": False, "write_back": False, "copied": False, "remapped": False }
@@ -994,7 +993,7 @@ def get_export_objects(chr_cache, include_selected = True):
             if arm not in objects:
                 objects.append(arm)
             for obj_cache in chr_cache.object_cache:
-                if obj_cache.is_mesh():
+                if obj_cache.is_mesh() and not obj_cache.disabled:
                     obj = obj_cache.get_object()
                     if obj.parent == arm:
                         obj.hide_set(False)

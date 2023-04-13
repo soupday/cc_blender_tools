@@ -15,6 +15,8 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
+import platform
+import subprocess
 import time
 import difflib
 from hashlib import md5
@@ -1460,3 +1462,12 @@ def is_local_view(context):
 def fix_local_view(context):
     if is_local_view(context):
         bpy.ops.view3d.localview()
+
+
+def show_system_file_browser(path):
+    if platform.system() == "Windows":
+        try:
+            explorer_path = os.path.join(os.getenv("WINDIR"), "explorer.exe")
+            subprocess.Popen((explorer_path, "/select,", path))
+        except:
+            pass

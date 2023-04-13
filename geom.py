@@ -496,3 +496,20 @@ def is_island_grid(bm : bmesh.types.BMesh, island : list):
             return True
 
     return False
+
+
+def get_average_edge_length(obj):
+    avg = 0.0
+    if utils.object_exists_is_mesh(obj):
+        bm = get_bmesh(obj.data)
+        edge : bmesh.types.BMEdge
+        l = 0.0
+        n = 0
+        for edge in bm.edges:
+            l += edge.calc_length()
+            n += 1
+        if n > 0:
+            avg = l / n
+        bm.free()
+        avg *= obj.matrix_world.median_scale
+    return avg

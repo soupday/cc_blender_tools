@@ -19,7 +19,7 @@ import os
 
 import bpy
 
-from . import bones, imageutils, meshutils, materials, modifiers, utils, vars
+from . import geom, bones, imageutils, meshutils, materials, modifiers, utils, vars
 
 COLLISION_THICKESS = 0.001
 HAIR_THICKNESS = 0.001
@@ -39,11 +39,20 @@ def apply_cloth_settings(obj, cloth_type):
     utils.log_info("Setting " + obj.name + " cloth settings to: " + cloth_type)
     mod.settings.vertex_group_mass = prefs.physics_group + "_Pin"
     mod.settings.time_scale = 1
+
+    cloth_edge_length = geom.get_average_edge_length(obj)
+    if cloth_edge_length == 0.0:
+        cloth_edge_length = 0.02
+    cloth_edge_length = min(0.1, max(0.001, cloth_edge_length))
+    verts_sqm = pow((1.0 / cloth_edge_length), 2)
+    utils.log_info(f"Using cloth edge length of: {cloth_edge_length * 100} cm = {verts_sqm} verts/sqm")
+    BASE_GSM = 0.4 / verts_sqm
+
     if cloth_type == "HAIR":
-        mod.settings.quality = 4
+        mod.settings.quality = 6
         mod.settings.pin_stiffness = 0.025
         # physical properties
-        mod.settings.mass = 0.1
+        mod.settings.mass = 50 * BASE_GSM
         mod.settings.air_damping = 2.0
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
@@ -66,8 +75,8 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.5
         # physical properties
-        mod.settings.mass = 1.0
-        mod.settings.air_damping = 2.0
+        mod.settings.mass = 400 * BASE_GSM
+        mod.settings.air_damping = 1.0
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 40.0
@@ -89,8 +98,8 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.5
         # physical properties
-        mod.settings.mass = 2.0
-        mod.settings.air_damping = 2.0
+        mod.settings.mass = 800 * BASE_GSM
+        mod.settings.air_damping = 1.0
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 80.0
@@ -112,7 +121,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.25
         # physical properties
-        mod.settings.mass = 1.0
+        mod.settings.mass = 650 * BASE_GSM
         mod.settings.air_damping = 1.0
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
@@ -133,39 +142,16 @@ def apply_cloth_settings(obj, cloth_type):
 
     elif cloth_type == "LINEN":
         mod.settings.quality = 8
-        mod.settings.pin_stiffness = 0.15
-        # physical properties
-        mod.settings.mass = 0.5
-        mod.settings.air_damping = 2.0
-        mod.settings.bending_model = 'ANGULAR'
-        # stiffness
-        mod.settings.tension_stiffness = 5.0
-        mod.settings.compression_stiffness = 5.0
-        mod.settings.shear_stiffness = 5.0
-        mod.settings.bending_stiffness = 10.0
-        # dampening
-        mod.settings.tension_damping = 5.0
-        mod.settings.compression_damping = 5.0
-        mod.settings.shear_damping = 5.0
-        mod.settings.bending_damping = 0.0
-        # collision
-        mod.collision_settings.distance_min = CLOTH_THICKNESS
-        mod.collision_settings.collision_quality = 4
-        mod.collision_settings.self_distance_min = 0.0025 # 2.5mm
-        mod.collision_settings.self_friction = 5.0
-
-    elif cloth_type == "COTTON":
-        mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.1
         # physical properties
-        mod.settings.mass = 0.25
-        mod.settings.air_damping = 2.5
+        mod.settings.mass = 160 * BASE_GSM
+        mod.settings.air_damping = 1.0
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 2.0
         mod.settings.compression_stiffness = 2.0
         mod.settings.shear_stiffness = 2.0
-        mod.settings.bending_stiffness = 5.0
+        mod.settings.bending_stiffness = 4.0
         # dampening
         mod.settings.tension_damping = 2.0
         mod.settings.compression_damping = 2.0
@@ -177,18 +163,41 @@ def apply_cloth_settings(obj, cloth_type):
         mod.collision_settings.self_distance_min = 0.0025 # 2.5mm
         mod.collision_settings.self_friction = 5.0
 
-    elif cloth_type == "SILK":
+    elif cloth_type == "COTTON":
         mod.settings.quality = 8
-        mod.settings.pin_stiffness = 0.05
+        mod.settings.pin_stiffness = 0.075
         # physical properties
-        mod.settings.mass = 0.125
-        mod.settings.air_damping = 3.0
+        mod.settings.mass = 140 * BASE_GSM
+        mod.settings.air_damping = 1.25
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 1.0
         mod.settings.compression_stiffness = 1.0
         mod.settings.shear_stiffness = 1.0
-        mod.settings.bending_stiffness = 5.0
+        mod.settings.bending_stiffness = 2.0
+        # dampening
+        mod.settings.tension_damping = 1.0
+        mod.settings.compression_damping = 1.0
+        mod.settings.shear_damping = 1.0
+        mod.settings.bending_damping = 0.0
+        # collision
+        mod.collision_settings.distance_min = CLOTH_THICKNESS
+        mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.0025 # 2.5mm
+        mod.collision_settings.self_friction = 5.0
+
+    elif cloth_type == "SILK":
+        mod.settings.quality = 8
+        mod.settings.pin_stiffness = 0.05
+        # physical properties
+        mod.settings.mass = 120 * BASE_GSM
+        mod.settings.air_damping = 1.5
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 0.5
+        mod.settings.compression_stiffness = 0.5
+        mod.settings.shear_stiffness = 0.5
+        mod.settings.bending_stiffness = 1.0
         # dampening
         mod.settings.tension_damping = 0.0
         mod.settings.compression_damping = 0.0
@@ -803,6 +812,16 @@ def weight_strength_update(self, context):
     mix_mod.mask_constant = influence
 
 
+def browse_weight_map(chr_cache, context):
+    obj = context.object
+    mat = utils.context_material(context)
+    if obj and mat:
+        weight_map = get_weight_map_image(chr_cache, obj, mat)
+        if weight_map:
+            path = bpy.path.abspath(weight_map.filepath)
+            utils.show_system_file_browser(path)
+
+
 def begin_paint_weight_map(chr_cache, context):
     obj = context.object
     mat = utils.context_material(context)
@@ -1302,6 +1321,9 @@ def set_physics_settings(op, param, context):
 
     elif param == "PHYSICS_SAVE":
         save_dirty_weight_maps(chr_cache, bpy.context.selected_objects)
+
+    elif param == "BROWSE_WEIGHTMAP":
+        browse_weight_map(chr_cache, context)
 
     elif param == "PHYSICS_DELETE":
         if obj:

@@ -344,6 +344,8 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout, fixed_parent=False, only_pare
 
         column.separator()
 
+        # Cache
+
         column.row().label(text="Rigid Body Cache:")
         has_rigidbody, rigidbody_baked, rigidbody_baking, rigidbody_point_cache = springbones.rigidbody_state()
 
@@ -351,6 +353,7 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout, fixed_parent=False, only_pare
         row = column.row()
         row.operator("cc3.springbones", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "RESET_PHYSICS"
         row = column.row()
+        row.scale_y = 1.5
         row.context_pointer_set("point_cache", rigidbody_point_cache)
         depress = rigidbody_baking
         row.alert = rigidbody_baked
@@ -727,11 +730,13 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
-        chr_rig = None
+
+        generic_rig = None
+        arm = None
         if chr_cache:
-            chr_rig = chr_cache.get_armature()
-        elif context.selected_objects:
-            chr_rig = utils.get_armature_in_objects(context.selected_objects)
+            arm = chr_cache.get_armature()
+        else:
+            generic_rig = characters.get_generic_rig(context.selected_objects)
 
         num_meshes_in_selection = 0
         weight_transferable = False
@@ -745,17 +750,17 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
                 num_meshes_in_selection += 1
                 if chr_cache:
                     oc = chr_cache.get_object_cache(o)
-                    if oc:
+                    if oc and not oc.disabled:
                         if oc.object_type == "DEFAULT" or oc.object_type == "HAIR":
                             weight_transferable = True
                             removable_objects = True
                         if not chr_cache.has_all_materials(o.data.materials):
                             missing_materials = True
-                    else:
+                    if not oc or oc.disabled:
                         objects_addable = True
                     if not from_other_character:
                         cc = props.get_character_cache(o, None)
-                        if cc != chr_cache:
+                        if cc is not None and cc != chr_cache:
                             from_other_character = True
 
         column = layout.column()
@@ -766,7 +771,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
             column.box().label(text="Converting", icon="DRIVER")
 
-            character_info_box(chr_cache, chr_rig, column)
+            character_info_box(chr_cache, generic_rig, column)
 
             row = column.row()
             row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
@@ -774,11 +779,11 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
                 row.enabled = False
 
             row = column.row()
-            if chr_rig:
+            if generic_rig:
                 row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
             else:
                 row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
-            if chr_cache or not (chr_rig or num_meshes_in_selection > 0):
+            if chr_cache or not (generic_rig or num_meshes_in_selection > 0):
                 row.enabled = False
 
             column.separator()
@@ -803,12 +808,12 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
                 col_2.prop(accessory_root, "parent", text="")
             else:
                 split = None
-                if chr_cache and chr_rig:
+                if chr_cache and generic_rig:
                     split = column.split(factor=0.375)
                     col_1 = split.column()
                     col_2 = split.column()
                     col_1.label(text="Parent:")
-                    col_2.prop_search(chr_cache, "accessory_parent_bone", chr_rig.data, "bones", text="")
+                    col_2.prop_search(chr_cache, "accessory_parent_bone", generic_rig.data, "bones", text="")
                 row = column.row()
                 row.operator("cc3.character", icon="CONSTRAINT_BONE", text="Convert to Accessory").param = "CONVERT_ACCESSORY"
                 if not chr_cache or not obj or obj.type != "MESH" or (obj_cache and obj_cache.object_type == "BODY"):
@@ -878,8 +883,8 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column.box().label(text = "Armature & Weights", icon = "ARMATURE_DATA")
 
-        if chr_rig:
-            column.row().prop(chr_rig.data, "pose_position", expand=True)
+        if generic_rig:
+            column.row().prop(generic_rig.data, "pose_position", expand=True)
 
         row = column.row()
         row.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
@@ -2214,6 +2219,30 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
             column.separator()
 
+        # Cache
+        column.box().row().label(text="Rigid Body Cache:", icon="PREVIEW_RANGE")
+        has_cloth, cloth_baked, cloth_baking, cloth_point_cache = physics.cloth_physics_state(bpy.context.object)
+
+        column.row().operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
+        row = column.row()
+        row.operator("cc3.scene", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "PHYSICS_PREP_CLOTH"
+        if not has_cloth:
+            row.enabled = False
+        row = column.row()
+        row.scale_y = 1.5
+        row.context_pointer_set("point_cache", cloth_point_cache)
+        depress = cloth_baking
+        row.alert = cloth_baked
+        if cloth_baked:
+            row.operator("ptcache.free_bake", text="Free Simulation", icon="REC")
+        else:
+            row.operator("ptcache.bake", text="Bake Simulation", icon="REC", depress=cloth_baking).bake = True
+        if not has_cloth:
+            row.enabled = False
+
+        column.separator()
+
+
         # Physics Mesh Tools
         layout.box().label(text="Mesh Correction", icon="MESH_DATA")
 
@@ -2245,8 +2274,10 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                 column.enabled = False
 
             weight_map = None
+            not_saved = False
             if obj and mat:
                 weight_map : bpy.types.Image = physics.get_weight_map_from_modifiers(obj, mat)
+                not_saved = weight_map.is_dirty
             if weight_map:
                 weight_map_size = int(props.physics_tex_size)
                 split = column.split(factor=0.5)
@@ -2302,10 +2333,12 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                 split = column.split(factor=0.5)
                 col_1 = split.column()
                 col_2 = split.column()
-                op = col_1.operator("cc3.setphysics", icon="FILE_TICK", text="Save")
-                op.param = "PHYSICS_SAVE"
-                op = col_2.operator("cc3.setphysics", icon="ERROR", text="Delete")
-                op.param = "PHYSICS_DELETE"
+                r1 = col_1.row(align=True)
+                r1.operator("cc3.setphysics", icon="FILEBROWSER", text="").param = "BROWSE_WEIGHTMAP"
+                r2 = r1.row()
+                r2.alert = not_saved
+                r2.operator("cc3.setphysics", icon="FILE_TICK", text="Save").param = "PHYSICS_SAVE"
+                col_2.operator("cc3.setphysics", icon="ERROR", text="Delete").param = "PHYSICS_DELETE"
 
 
 class CC3ToolsSculptingPanel(bpy.types.Panel):

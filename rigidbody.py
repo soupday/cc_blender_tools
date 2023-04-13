@@ -796,7 +796,6 @@ def create_capsule_collider(name, location, rotation, scale, radius, length, axi
     bpy.context.scene.collection.objects.link(object)
     object.display_type = 'WIRE'
 
-    print(name, location)
     object.location = location
     object.rotation_mode = "QUATERNION"
     r = Quaternion()

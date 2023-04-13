@@ -21,9 +21,11 @@ from . import materials, meshutils, utils, vars
 MOD_MULTIRES = "MULTIRES"
 MOD_MULTIRES_NAME = "Multi_Res_Sculpt"
 
-def get_object_modifier(obj, type, name = ""):
+def get_object_modifier(obj, type, name = "", before_type=None):
     if obj is not None:
         for mod in obj.modifiers:
+            if before_type and mod.type == before_type:
+                return None
             if name == "":
                 if mod.type == type:
                     return mod

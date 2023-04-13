@@ -21,6 +21,8 @@ import os
 
 from . import materials, modifiers, meshutils, geom, bones, shaders, nodeutils, utils, vars
 
+MANDATORY_OBJECTS = ["BODY", "TEETH", "TONGUE", "TEARLINE", "OCCLUSION", "EYE"]
+
 
 def get_character_objects(arm):
     """Fetch all the objects in the character (or try to)"""
@@ -32,6 +34,16 @@ def get_character_objects(arm):
                 if obj not in objects:
                     objects.append(obj)
     return objects
+
+
+def get_generic_rig(objects):
+    props = bpy.context.scene.CC3ImportProps
+    arm = utils.get_armature_in_objects(objects)
+    if arm:
+        chr_cache = props.get_character_cache(arm, None)
+        if not chr_cache:
+            return arm
+    return None
 
 
 def make_prop_armature(objects):
@@ -220,7 +232,7 @@ def convert_generic_to_non_standard(objects, file_path = None):
 
     chr_cache.add_object_cache(chr_rig)
 
-    # add child objects to object_cache
+    # add child objects to chr_cache
     for obj in objects:
         if utils.object_exists_is_mesh(obj):
             add_object_to_character(chr_cache, obj, reparent=False)
@@ -264,7 +276,7 @@ def parent_to_rig(rig, obj):
 def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
     props = bpy.context.scene.CC3ImportProps
 
-    if chr_cache and obj and obj.type == "MESH":
+    if chr_cache and utils.object_exists_is_mesh(obj):
 
         obj_cache = chr_cache.get_object_cache(obj)
 
@@ -280,6 +292,8 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
             obj_cache.set_object_type("DEFAULT")
             obj_cache.user_added = True
 
+        obj_cache.disabled = False
+
         add_missing_materials_to_character(chr_cache, obj, obj_cache)
 
         utils.clear_selected_objects()
@@ -293,23 +307,32 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
 def remove_object_from_character(chr_cache, obj):
     props = bpy.context.scene.CC3ImportProps
 
-    # unparent from character
-    arm = chr_cache.get_armature()
-    if arm:
-        if utils.try_select_objects([arm, obj]):
-            if utils.set_active_object(arm):
-                bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
+    if utils.object_exists_is_mesh(obj):
 
-                # remove armature modifier
-                arm_mod : bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
-                if arm_mod:
-                    obj.modifiers.remove(arm_mod)
+        obj_cache = chr_cache.get_object_cache(obj)
 
-                obj.hide_set(True)
+        if obj_cache and obj_cache.object_type not in MANDATORY_OBJECTS:
 
-                utils.clear_selected_objects()
-                # don't reselect the removed object as this may cause confusion when using checking function immediately after...
-                #utils.set_active_object(obj)
+            obj_cache.disabled = True
+
+            # unparent from character
+            arm = chr_cache.get_armature()
+            if arm:
+                if utils.try_select_objects([arm, obj]):
+                    if utils.set_active_object(arm):
+                        bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
+
+                        # remove armature modifier
+                        arm_mod : bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
+                        if arm_mod:
+                            obj.modifiers.remove(arm_mod)
+
+                        obj.hide_set(True)
+
+                        utils.clear_selected_objects()
+                        # don't reselect the removed object as this may cause
+                        # onfusion when using checking function immediately after...
+                        #utils.set_active_object(obj)
 
 
 def copy_objects_character_to_character(context_obj, chr_cache, objects, reparent = True):
@@ -349,6 +372,7 @@ def copy_objects_character_to_character(context_obj, chr_cache, objects, reparen
             # add the object into the object cache
             obj_cache = chr_cache.add_object_cache(obj, copy_from=oc)
             obj_cache.user_added = True
+            obj_cache.disabled = False
 
             add_missing_materials_to_character(chr_cache, obj, obj_cache)
 
@@ -1126,8 +1150,9 @@ class CC3OperatorCharacter(bpy.types.Operator):
 
         if self.param == "ADD_PBR":
             chr_cache = props.get_context_character_cache(context)
-            obj = context.active_object
-            add_object_to_character(chr_cache, obj)
+            objects = context.selected_objects.copy()
+            for obj in objects:
+                add_object_to_character(chr_cache, obj)
 
         elif self.param == "COPY_TO_CHARACTER":
             chr_cache = props.get_context_character_cache(context)
@@ -1136,8 +1161,9 @@ class CC3OperatorCharacter(bpy.types.Operator):
 
         elif self.param == "REMOVE_OBJECT":
             chr_cache = props.get_context_character_cache(context)
-            obj = context.active_object
-            remove_object_from_character(chr_cache, obj)
+            objects = context.selected_objects.copy()
+            for obj in objects:
+                remove_object_from_character(chr_cache, obj)
 
         elif self.param == "ADD_MATERIALS":
             chr_cache = props.get_context_character_cache(context)

@@ -959,6 +959,7 @@ class CC3MaterialCache:
     alpha_mode: bpy.props.StringProperty(default="NONE") # NONE, BLEND, HASHED, OPAQUE
     culling_sides: bpy.props.IntProperty(default=0) # 0 - default, 1 - single sided, 2 - double sided
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
+    disabled: bpy.props.BoolProperty(default=False)
 
     def set_texture_mapping(self, texture_type, texture_path, embedded, image, location, rotation, scale):
         mapping = self.get_texture_mapping(texture_type)
@@ -1106,6 +1107,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     collision_proxy: bpy.props.PointerProperty(type=bpy.types.Object)
     use_collision_proxy: bpy.props.BoolProperty(default=False)
     collision_proxy_decimate: bpy.props.FloatProperty(default=0.125, min=0.0, max=1.0)
+    disabled: bpy.props.BoolProperty(default=False)
 
     def is_body(self):
         return self.object_type == "BODY"
@@ -1546,13 +1548,22 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     utils.remove_from_collection(self.object_cache, obj_cache)
                     return
 
-    def has_objects(self, objects):
-        """Returns True if any of the objects are in the object cache.
+    def has_cache_objects(self, objects):
+        """Returns True if any of the objects are actively the object cache.
         """
         for obj_cache in self.object_cache:
-            cache_object = obj_cache.get_object()
-            if cache_object in objects:
-                return True
+            if not obj_cache.disabled:
+                cache_object = obj_cache.get_object()
+                if cache_object in objects:
+                    return True
+        return False
+
+    def has_child_objects(self, objects):
+        arm = self.get_armature()
+        if arm:
+            for obj in objects:
+                if obj.parent == arm:
+                    return True
         return False
 
     def has_object(self, obj):
@@ -2067,10 +2078,12 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     def get_any_character_cache_from_objects(self, objects, search_materials = False):
         chr_cache : CC3CharacterCache
+
         if objects:
             for chr_cache in self.import_cache:
-                if chr_cache.has_objects(objects):
+                if chr_cache.has_cache_objects(objects):
                     return chr_cache
+
         if search_materials:
             materials = []
             for obj in objects:
@@ -2087,29 +2100,34 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         if obj:
             for chr_cache in self.import_cache:
                 obj_cache = chr_cache.get_object_cache(obj)
-                if obj_cache:
+                if obj_cache and not obj_cache.disabled:
                     return chr_cache
         if mat:
             for chr_cache in self.import_cache:
                 mat_cache = chr_cache.get_material_cache(mat)
-                if mat_cache:
+                if mat_cache and not mat_cache.disabled:
                     return chr_cache
         return None
 
     def get_context_character_cache(self, context = None):
         if not context:
             context = bpy.context
-        obj = context.object
-        mat = utils.context_material(context)
+
+        chr_cache = None
 
         # if there is only one character in the scene, this is the only possible character cache:
         if len(self.import_cache) == 1:
             return self.import_cache[0]
 
+        obj = context.object
+
         # otherwise determine the context character cache:
-        chr_cache = self.get_character_cache(obj, mat)
+        chr_cache = self.get_character_cache(obj, None)
+
+        # try to find a character from the selected obejcts
         if chr_cache is None and len(context.selected_objects) > 1:
-            chr_cache = self.get_any_character_cache_from_objects(context.selected_objects, None)
+            chr_cache = self.get_any_character_cache_from_objects(context.selected_objects, False)
+
         return chr_cache
 
     def get_object_cache(self, obj):
