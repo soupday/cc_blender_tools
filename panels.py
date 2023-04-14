@@ -53,6 +53,18 @@ def context_character(context):
     return chr_cache, obj, mat, obj_cache, mat_cache
 
 
+def context_mesh_object(context):
+    if utils.object_exists_is_mesh(context.object):
+        return context.object
+    return None
+
+
+def context_armature_object(context):
+    if utils.object_exists_is_armature(context.object):
+        return context.object
+    return None
+
+
 # Panel functions and classes
 #
 
@@ -2068,7 +2080,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         layout = self.layout
 
         chr_cache = props.get_context_character_cache(context)
-        obj = context.object
+        obj = context_mesh_object(context)
         obj_cache = None
         proxy = None
         is_proxy = False
@@ -2110,6 +2122,8 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             layout.box().label(text="Cloth Simulation", icon="MOD_CLOTH")
 
             column = layout.column()
+            if not obj:
+                column.enabled = False
 
             row = column.row()
             row.scale_y = 2.0
@@ -2179,7 +2193,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         layout.box().label(text="Cloth Collision", icon="MOD_PHYSICS")
 
         column = layout.column()
-        if obj is None:
+        if not obj:
             column.enabled = False
 
         if obj_cache and cloth_mod is None:
@@ -2247,9 +2261,14 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         layout.box().label(text="Mesh Correction", icon="MESH_DATA")
 
         column = layout.column()
+        if not obj:
+            column.enabled = False
 
         column.operator("cc3.setphysics", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh").param = "PHYSICS_FIX_DEGENERATE"
-        column.operator("cc3.setphysics", icon="FACE_MAPS", text="Separate Physics Materials").param = "PHYSICS_SEPARATE"
+        row = column.row()
+        if obj and len(obj.material_slots) < 2:
+                row.enabled = False
+        row.operator("cc3.setphysics", icon="FACE_MAPS", text="Separate Physics Materials").param = "PHYSICS_SEPARATE"
 
         column.separator()
 
@@ -2277,7 +2296,8 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             not_saved = False
             if obj and mat:
                 weight_map : bpy.types.Image = physics.get_weight_map_from_modifiers(obj, mat)
-                not_saved = weight_map.is_dirty
+                if weight_map:
+                    not_saved = weight_map.is_dirty
             if weight_map:
                 weight_map_size = int(props.physics_tex_size)
                 split = column.split(factor=0.5)
