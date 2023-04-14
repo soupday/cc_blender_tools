@@ -513,3 +513,15 @@ def get_average_edge_length(obj):
         bm.free()
         avg *= obj.matrix_world.median_scale
     return avg
+
+
+def get_area(obj):
+    area = 0.0
+    if utils.object_exists_is_mesh(obj):
+        bm = get_bmesh(obj.data)
+        face : bmesh.types.BMFace
+        for face in bm.faces:
+            area += face.calc_area()
+        bm.free()
+        area *= pow(obj.matrix_world.median_scale, 2)
+    return area

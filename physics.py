@@ -40,13 +40,10 @@ def apply_cloth_settings(obj, cloth_type):
     mod.settings.vertex_group_mass = prefs.physics_group + "_Pin"
     mod.settings.time_scale = 1
 
-    cloth_edge_length = geom.get_average_edge_length(obj)
-    if cloth_edge_length == 0.0:
-        cloth_edge_length = 0.02
-    cloth_edge_length = min(0.1, max(0.001, cloth_edge_length))
-    verts_sqm = pow((1.0 / cloth_edge_length), 2)
-    utils.log_info(f"Using cloth edge length of: {cloth_edge_length * 100} cm = {verts_sqm} verts/sqm")
-    BASE_GSM = 0.4 / verts_sqm
+    cloth_area = geom.get_area(obj)
+    air_dampening_mod = cloth_area / 2.0
+    utils.log_info(f"Using cloth area: {cloth_area} sqm, air dampening mod: {air_dampening_mod}")
+    BASE_GSM = 1.0 / 2666
 
     if cloth_type == "HAIR":
         mod.settings.quality = 6
@@ -76,7 +73,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.pin_stiffness = 0.5
         # physical properties
         mod.settings.mass = 400 * BASE_GSM
-        mod.settings.air_damping = 1.0
+        mod.settings.air_damping = 1.0 + 0.35 * air_dampening_mod
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 40.0
@@ -99,7 +96,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.pin_stiffness = 0.5
         # physical properties
         mod.settings.mass = 800 * BASE_GSM
-        mod.settings.air_damping = 1.0
+        mod.settings.air_damping = 1.0 + 0.25 * air_dampening_mod
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 80.0
@@ -122,7 +119,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.pin_stiffness = 0.25
         # physical properties
         mod.settings.mass = 650 * BASE_GSM
-        mod.settings.air_damping = 1.0
+        mod.settings.air_damping = 1.0 + 0.25 * air_dampening_mod
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 15.0
@@ -145,7 +142,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.pin_stiffness = 0.1
         # physical properties
         mod.settings.mass = 160 * BASE_GSM
-        mod.settings.air_damping = 1.0
+        mod.settings.air_damping = 1.0 + 0.5 * air_dampening_mod
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 5.0
@@ -168,7 +165,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.pin_stiffness = 0.075
         # physical properties
         mod.settings.mass = 140 * BASE_GSM
-        mod.settings.air_damping = 1.25
+        mod.settings.air_damping = 1.0 + 0.75 * air_dampening_mod
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 2.0
@@ -191,7 +188,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.pin_stiffness = 0.05
         # physical properties
         mod.settings.mass = 120 * BASE_GSM
-        mod.settings.air_damping = 1.5
+        mod.settings.air_damping = 1.0 + 1.0 * air_dampening_mod
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
         mod.settings.tension_stiffness = 0.5

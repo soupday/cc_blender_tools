@@ -2187,6 +2187,8 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                     col_2 = split.column()
                     col_1.label(text="Weight")
                     col_2.prop(cloth_mod.settings, "mass", text="", slider=True)
+                    col_1.label(text="Air Damping")
+                    col_2.prop(cloth_mod.settings, "air_damping", text="", slider=True)
                     col_1.label(text="Bend Resist")
                     col_2.prop(cloth_mod.settings, "bending_stiffness", text="", slider=True)
                     col_1.label(text="Pin Stiffness")
