@@ -592,7 +592,7 @@ def render_animation(context):
     pass
 
 
-def fetch_anim_range(context):
+def fetch_anim_range(context, expand = False, fit = True):
     """Fetch anim range from character animation.
     """
     props = bpy.context.scene.CC3ImportProps
@@ -601,16 +601,28 @@ def fetch_anim_range(context):
     if arm:
         action = utils.safe_get_action(arm)
         if action:
-            start = bpy.context.scene.frame_start
-            end = bpy.context.scene.frame_end
+            if bpy.context.scene.use_preview_range:
+                start = bpy.context.scene.frame_preview_start
+                end = bpy.context.scene.frame_preview_end
+            else:
+                start = bpy.context.scene.frame_start
+                end = bpy.context.scene.frame_end
             action_start = math.floor(action.frame_range[0])
             action_end = math.ceil(action.frame_range[1])
-            if action_start < start:
+            if expand:
+                if action_start < start:
+                    start = action_start
+                if action_end > end:
+                    end = action_end
+            elif fit:
                 start = action_start
-            if action_end > end:
                 end = action_end
-            bpy.context.scene.frame_start = start
-            bpy.context.scene.frame_end = end
+            if bpy.context.scene.use_preview_range:
+                bpy.context.scene.frame_preview_start = start
+                bpy.context.scene.frame_preview_end = end
+            else:
+                bpy.context.scene.frame_start = start
+                bpy.context.scene.frame_end = end
 
 
 def cycles_setup(context):
@@ -647,8 +659,11 @@ class CC3Scene(bpy.types.Operator):
         elif self.param == "RENDER_ANIMATION":
             render_animation(context)
 
-        elif self.param == "ANIM_RANGE":
-            fetch_anim_range(context)
+        elif self.param == "ANIM_RANGE_EXPAND":
+            fetch_anim_range(context, expand=True)
+
+        elif self.param == "ANIM_RANGE_FIT":
+            fetch_anim_range(context, fit=True)
 
         elif self.param == "PHYSICS_PREP_CLOTH":
             # stop any playing animation
@@ -712,7 +727,9 @@ class CC3Scene(bpy.types.Operator):
             return "Renders a single image"
         elif properties.param == "RENDER_ANIMATION":
             return "Renders the current animation range"
-        elif properties.param == "ANIM_RANGE":
+        elif properties.param == "ANIM_RANGE_EXPAND":
+            return "Expands the animation range to include the range on the Action on the current character"
+        elif properties.param == "ANIM_RANGE_FIT":
             return "Sets the animation range to the same range as the Action on the current character"
         elif properties.param == "PHYSICS_PREP_CLOTH":
             return "Resets the physics point cache on all cloth objects and synchronizes the physics point cache ranges " \

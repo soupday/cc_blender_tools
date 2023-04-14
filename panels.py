@@ -357,11 +357,15 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout, fixed_parent=False, only_pare
         column.separator()
 
         # Cache
-
-        column.row().label(text="Rigid Body Cache:")
         has_rigidbody, rigidbody_baked, rigidbody_baking, rigidbody_point_cache = springbones.rigidbody_state()
 
-        column.row().operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
+        column.row().label(text="Animation Range:")
+        row = column.row(align=True)
+        row.prop(bpy.context.scene, "use_preview_range", text="", toggle=True)
+        grid = row.grid_flow(columns=2, align=True)
+        grid.operator("cc3.scene", icon="FULLSCREEN_ENTER", text="Expand").param = "ANIM_RANGE_EXPAND"
+        grid.operator("cc3.scene", icon="FULLSCREEN_EXIT", text="Fit").param = "ANIM_RANGE_FIT"
+        column.row().label(text="Rigid Body Cache:")
         row = column.row()
         row.operator("cc3.springbones", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "RESET_PHYSICS"
         row = column.row()
@@ -381,11 +385,17 @@ def cache_timeline_physics_ui(chr_cache, layout):
         return
 
     layout.box().label(text="Timeline & Physics Cache", icon="PREVIEW_RANGE")
-    layout.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
+    layout.row().label(text="Animation Range:")
+    row = layout.row(align=True)
+    row.prop(bpy.context.scene, "use_preview_range", text="", toggle=True)
+    grid = row.grid_flow(columns=2, align=True)
+    grid.operator("cc3.scene", icon="FULLSCREEN_ENTER", text="Expand").param = "ANIM_RANGE_EXPAND"
+    grid.operator("cc3.scene", icon="FULLSCREEN_EXIT", text="Fit").param = "ANIM_RANGE_FIT"
 
     layout.separator()
     width = get_layout_width("UI")
 
+    """
     if not bpy.data.filepath:
         row = layout.row()
         row.alert = True
@@ -394,6 +404,7 @@ def cache_timeline_physics_ui(chr_cache, layout):
         row.alert = True
         row.label(text="before baking physics", icon="REMOVE")
         layout.separator()
+    """
 
 
     has_cloth, cloth_baked, cloth_baking, cloth_point_cache = physics.cloth_physics_state(bpy.context.object)
@@ -2162,29 +2173,34 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
                 column.separator()
 
-                column.label(text="Cloth Settings", icon="OPTIONS")
-                split = column.split(factor=0.5)
-                col_1 = split.column()
-                col_2 = split.column()
-                col_1.label(text="Weight")
-                col_2.prop(cloth_mod.settings, "mass", text="", slider=True)
-                col_1.label(text="Bend Resist")
-                col_2.prop(cloth_mod.settings, "bending_stiffness", text="", slider=True)
-                col_1.label(text="Pin Stiffness")
-                col_2.prop(cloth_mod.settings, "pin_stiffness", text="", slider=True)
-                col_1.label(text="Quality")
-                col_2.prop(cloth_mod.settings, "quality", text="", slider=True)
-                col_1.label(text="Collision")
-                col_2.prop(cloth_mod.collision_settings, "collision_quality", text="", slider=True)
-                col_1.label(text="Distance")
-                col_2.prop(cloth_mod.collision_settings, "distance_min", text="", slider=True)
-                col_1.label(text="Self Collision")
-                col_2.prop(cloth_mod.collision_settings, "use_self_collision", text="", slider=False)
-                if cloth_mod.collision_settings.use_self_collision:
-                    col_1.label(text="Friction")
-                    col_2.prop(cloth_mod.collision_settings, "self_friction", text="", slider=True)
+                if fake_drop_down(column.row(),
+                            "Cloth Settings",
+                            "section_physics_cloth_settings",
+                            props.section_physics_cloth_settings,
+                            icon="OPTIONS", icon_closed="OPTIONS"):
+
+                    split = column.split(factor=0.5)
+                    col_1 = split.column()
+                    col_2 = split.column()
+                    col_1.label(text="Weight")
+                    col_2.prop(cloth_mod.settings, "mass", text="", slider=True)
+                    col_1.label(text="Bend Resist")
+                    col_2.prop(cloth_mod.settings, "bending_stiffness", text="", slider=True)
+                    col_1.label(text="Pin Stiffness")
+                    col_2.prop(cloth_mod.settings, "pin_stiffness", text="", slider=True)
+                    col_1.label(text="Quality")
+                    col_2.prop(cloth_mod.settings, "quality", text="", slider=True)
+                    col_1.label(text="Collision")
+                    col_2.prop(cloth_mod.collision_settings, "collision_quality", text="", slider=True)
                     col_1.label(text="Distance")
-                    col_2.prop(cloth_mod.collision_settings, "self_distance_min", text="", slider=True)
+                    col_2.prop(cloth_mod.collision_settings, "distance_min", text="", slider=True)
+                    col_1.label(text="Self Collision")
+                    col_2.prop(cloth_mod.collision_settings, "use_self_collision", text="", slider=False)
+                    if cloth_mod.collision_settings.use_self_collision:
+                        col_1.label(text="Friction")
+                        col_2.prop(cloth_mod.collision_settings, "self_friction", text="", slider=True)
+                        col_1.label(text="Distance")
+                        col_2.prop(cloth_mod.collision_settings, "self_distance_min", text="", slider=True)
 
                 column.separator()
 
@@ -2217,18 +2233,23 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         # Collision Physics Settings
         if coll_mod is not None:
-            column.label(text="Collision Settings", icon="OPTIONS")
-            split = column.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Damping")
-            col_2.prop(coll_mod.settings, "damping", text="", slider=True)
-            col_1.label(text="Outer Thickness")
-            col_2.prop(coll_mod.settings, "thickness_outer", text="", slider=True)
-            col_1.label(text="Inner Thickness")
-            col_2.prop(coll_mod.settings, "thickness_inner", text="", slider=True)
-            col_1.label(text="Friction")
-            col_2.prop(coll_mod.settings, "cloth_friction", text="", slider=True)
+
+            if fake_drop_down(column.row(),
+                              "Collision Settings",
+                              "section_physics_collision_settings",
+                              props.section_physics_collision_settings,
+                              icon="OPTIONS", icon_closed="OPTIONS"):
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Damping")
+                col_2.prop(coll_mod.settings, "damping", text="", slider=True)
+                col_1.label(text="Outer Thickness")
+                col_2.prop(coll_mod.settings, "thickness_outer", text="", slider=True)
+                col_1.label(text="Inner Thickness")
+                col_2.prop(coll_mod.settings, "thickness_inner", text="", slider=True)
+                col_1.label(text="Friction")
+                col_2.prop(coll_mod.settings, "cloth_friction", text="", slider=True)
 
             column.separator()
 
@@ -2236,7 +2257,13 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         column.box().row().label(text="Rigid Body Cache:", icon="PREVIEW_RANGE")
         has_cloth, cloth_baked, cloth_baking, cloth_point_cache = physics.cloth_physics_state(bpy.context.object)
 
-        column.row().operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character").param = "ANIM_RANGE"
+        column.row().label(text="Animation Range:")
+        row = column.row(align=True)
+        row.prop(bpy.context.scene, "use_preview_range", text="", toggle=True)
+        grid = row.grid_flow(columns=2, align=True)
+        grid.operator("cc3.scene", icon="FULLSCREEN_ENTER", text="Expand").param = "ANIM_RANGE_EXPAND"
+        grid.operator("cc3.scene", icon="FULLSCREEN_EXIT", text="Fit").param = "ANIM_RANGE_FIT"
+        column.row().label(text="Cloth Simulation:")
         row = column.row()
         row.operator("cc3.scene", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "PHYSICS_PREP_CLOTH"
         if not has_cloth:
@@ -2308,7 +2335,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                 row.operator("cc3.setphysics", icon="MOD_LENGTH", text="Resize Weightmap").param = "PHYSICS_RESIZE_WEIGHTMAP"
                 if (weight_map and
                    (weight_map.size[0] != weight_map_size or weight_map.size[1] != weight_map_size) and
-                   bpy.context.mode != "PAINT_TEXTURE"):
+                    bpy.context.mode != "PAINT_TEXTURE"):
                     row.enabled = True
                 else:
                     row.enabled = False

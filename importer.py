@@ -231,7 +231,7 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
 
         # set the frame range of the scene to the active action on the armature
         if props.physics_mode:
-            scene.fetch_anim_range(bpy.context)
+            scene.fetch_anim_range(bpy.context, expand=True)
 
     utils.log_recess()
 
