@@ -2122,7 +2122,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             layout.box().label(text="Cloth Simulation", icon="MOD_CLOTH")
 
             column = layout.column()
-            if not obj:
+            if not obj_cache:
                 column.enabled = False
 
             row = column.row()
@@ -2139,8 +2139,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             if cloth_mod is not None:
 
                 column = layout.column()
-
-                if cloth_mod is None:
+                if not obj_cache or cloth_mod is None:
                     column.enabled = False
 
                 # Cloth Physics Presets
@@ -2193,7 +2192,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         layout.box().label(text="Cloth Collision", icon="MOD_PHYSICS")
 
         column = layout.column()
-        if not obj:
+        if not obj_cache:
             column.enabled = False
 
         if obj_cache and cloth_mod is None:
@@ -2289,7 +2288,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             col_2.prop(props, "physics_tex_size", text="")
 
             column = layout.column()
-            if cloth_mod is None:
+            if not cloth_mod or not obj_cache:
                 column.enabled = False
 
             weight_map = None
@@ -2308,8 +2307,8 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                 row = column.row()
                 row.operator("cc3.setphysics", icon="MOD_LENGTH", text="Resize Weightmap").param = "PHYSICS_RESIZE_WEIGHTMAP"
                 if (weight_map and
-                (weight_map.size[0] != weight_map_size or weight_map.size[1] != weight_map_size) and
-                bpy.context.mode != "PAINT_TEXTURE"):
+                   (weight_map.size[0] != weight_map_size or weight_map.size[1] != weight_map_size) and
+                   bpy.context.mode != "PAINT_TEXTURE"):
                     row.enabled = True
                 else:
                     row.enabled = False
