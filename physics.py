@@ -49,7 +49,7 @@ def apply_cloth_settings(obj, cloth_type):
         mod.settings.quality = 6
         mod.settings.pin_stiffness = 0.025
         # physical properties
-        mod.settings.mass = 250 * BASE_GSM
+        mod.settings.mass = 267 * BASE_GSM
         mod.settings.air_damping = 1.0
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
