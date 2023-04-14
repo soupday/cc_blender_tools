@@ -410,8 +410,8 @@ def disable_collision_physics(chr_cache, obj):
     props = bpy.context.scene.CC3ImportProps
     if chr_cache and obj:
         obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
+        obj_cache = chr_cache.get_object_cache(obj)
         if obj_cache:
-            obj_cache = chr_cache.get_object_cache(obj)
             obj_cache.collision_physics = "OFF"
             utils.log_info("Disabling Collision physics for: " + obj.name)
             remove_collision_physics(chr_cache, obj, obj_cache)
