@@ -513,25 +513,29 @@ def get_weight_map_image(chr_cache, obj, mat, create = False):
     """
 
     props = bpy.context.scene.CC3ImportProps
+    mat_cache = props.get_material_cache(mat)
     weight_map = imageutils.find_material_image(mat, "WEIGHTMAP")
 
-    if weight_map:
-        if weight_map.size[0] == 0 or weight_map.size[1] == 0:
-            weight_map = None
+    if mat_cache:
 
-    if weight_map is None and create:
-        mat_cache = props.get_material_cache(mat)
-        name = utils.strip_name(mat.name) + "_WeightMap"
-        tex_size = int(props.physics_tex_size)
-        weight_map = bpy.data.images.new(name, tex_size, tex_size, is_data=False)
-        # make the image 'dirty' so it converts to a file based image which can be saved:
-        weight_map.pixels[0] = 0.0
-        weight_map.file_format = "PNG"
-        weight_map.filepath_raw = os.path.join(mat_cache.get_tex_dir(chr_cache), name + ".png")
-        weight_map.save()
-        # keep track of which weight maps we created:
-        mat_cache.temp_weight_map = weight_map
-        utils.log_info("Weight-map image: " + weight_map.name + " created and saved.")
+        if weight_map:
+            if weight_map.size[0] == 0 or weight_map.size[1] == 0:
+                weight_map = None
+            else:
+                mat_cache.temp_weight_map = weight_map
+
+        if weight_map is None and create:
+            name = utils.strip_name(mat.name) + "_WeightMap"
+            tex_size = int(props.physics_tex_size)
+            weight_map = bpy.data.images.new(name, tex_size, tex_size, is_data=False)
+            # make the image 'dirty' so it converts to a file based image which can be saved:
+            weight_map.pixels[0] = 0.0
+            weight_map.file_format = "PNG"
+            weight_map.filepath_raw = os.path.join(mat_cache.get_tex_dir(chr_cache), name + ".png")
+            weight_map.save()
+            # keep track of which weight maps we created:
+            mat_cache.temp_weight_map = weight_map
+            utils.log_info("Weight-map image: " + weight_map.name + " created and saved.")
 
     return weight_map
 

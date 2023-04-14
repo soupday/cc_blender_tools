@@ -183,6 +183,8 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
     mat_cache = props.get_material_cache(mat)
     chr_cache = props.get_character_cache(None, mat)
 
+    print(f"Find material image: {mat} {texture_type}")
+
     image_file = None
     color_space = "Non-Color"
     if is_image_type_srgb(texture_type):
@@ -190,6 +192,7 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
 
     # temp weight maps in the cache override weight maps on disk
     if texture_type == "WEIGHTMAP" and mat_cache.temp_weight_map is not None:
+        utils.log_info(f"Using material cache user weightmap: {mat_cache.temp_weight_map.name}")
         return mat_cache.temp_weight_map
 
     # try to find as library image
