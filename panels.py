@@ -2114,6 +2114,9 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         if chr_cache:
             column.box().label(text="Character Physics", icon="PHYSICS")
+            row = column.row(align=True)
+            row.prop(prefs, "physics_cloth_hair", text="Hair", toggle=True)
+            row.prop(prefs, "physics_cloth_clothing", text="Clothing", toggle=True)
             if chr_cache.physics_applied:
                 column.row().operator("cc3.setphysics", icon="REMOVE", text="Remove All Physics").param = "REMOVE_PHYSICS"
             else:
@@ -2728,6 +2731,10 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             col_2.prop(prefs, "build_armature_edit_modifier", text="")
             col_1.label(text="Use Preserve Volume")
             col_2.prop(prefs, "build_armature_preserve_volume", text="")
+            col_1.label(text="Clothing Physics")
+            col_2.prop(prefs, "physics_cloth_clothing", text="")
+            col_1.label(text="Hair Cloth Physics")
+            col_2.prop(prefs, "physics_cloth_hair", text="")
 
         row = layout.row()
         row.scale_y = 2

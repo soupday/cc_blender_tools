@@ -237,6 +237,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
 
+    physics_cloth_hair: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the hair objects.", name="Hair Cloth Physics")
+    physics_cloth_clothing: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the clothing and accessory objects.", name="Clothing Cloth Physics")
+
     # addon updater preferences
 
     auto_check_update: bpy.props.BoolProperty(
