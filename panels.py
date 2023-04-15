@@ -2157,21 +2157,16 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                     column.enabled = False
 
                 # Cloth Physics Presets
-                column.label(text="Presets", icon="PRESET")
-                op = column.operator("cc3.setphysics", icon="USER", text="Hair")
-                op.param = "PHYSICS_HAIR"
-                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Denim")
-                op.param = "PHYSICS_DENIM"
-                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Leather")
-                op.param = "PHYSICS_LEATHER"
-                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Rubber")
-                op.param = "PHYSICS_RUBBER"
-                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Linen")
-                op.param = "PHYSICS_LINEN"
-                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Cotton")
-                op.param = "PHYSICS_COTTON"
-                op = column.operator("cc3.setphysics", icon="MATCLOTH", text="Silk")
-                op.param = "PHYSICS_SILK"
+                sub_column = column.column(align=True)
+                sub_column.row().label(text="Presets", icon="PRESET")
+                sub_column.operator("cc3.setphysics", icon="USER", text="Hair").param = "PHYSICS_HAIR"
+                grid = sub_column.grid_flow(columns=2, row_major=True, align=True)
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Denim").param = "PHYSICS_DENIM"
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Leather").param = "PHYSICS_LEATHER"
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Rubber").param = "PHYSICS_RUBBER"
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Linen").param = "PHYSICS_LINEN"
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Cotton").param = "PHYSICS_COTTON"
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Silk").param = "PHYSICS_SILK"
 
 
                 column.separator()

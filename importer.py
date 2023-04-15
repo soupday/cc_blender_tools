@@ -261,6 +261,7 @@ def cache_object_materials(chr_cache, obj, chr_json, processed):
                 utils.log_indent()
                 materials.detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache)
                 materials.detect_mixer_masks(chr_cache, obj, obj_cache, mat, mat_cache)
+                physics.detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json)
                 utils.log_recess()
                 processed.append(mat)
 

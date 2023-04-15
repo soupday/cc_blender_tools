@@ -16,17 +16,18 @@
 
 import math
 import os
+import mathutils
 
 import bpy
 
-from . import geom, bones, imageutils, meshutils, materials, modifiers, utils, vars
+from . import geom, bones, imageutils, meshutils, materials, modifiers, utils, jsonutils, vars
 
 COLLISION_THICKESS = 0.001
 HAIR_THICKNESS = 0.001
 CLOTH_THICKNESS = 0.004
 
 
-def apply_cloth_settings(obj, cloth_type):
+def apply_cloth_settings(obj, cloth_type, self_collision = False):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -39,6 +40,7 @@ def apply_cloth_settings(obj, cloth_type):
     utils.log_info("Setting " + obj.name + " cloth settings to: " + cloth_type)
     mod.settings.vertex_group_mass = prefs.physics_group + "_Pin"
     mod.settings.time_scale = 1
+    mod.collision_settings.use_self_collision = self_collision
 
     cloth_area = geom.get_area(obj)
     air_dampening_mod = cloth_area / 2.0
@@ -316,8 +318,11 @@ def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
             cloth_mod.point_cache.name = cache_id
 
         # Apply cloth settings
+        print("APPLY", obj_cache.cloth_settings, obj_cache.cloth_self_collision)
         if obj_cache.cloth_settings != "DEFAULT":
-            apply_cloth_settings(obj, obj_cache.cloth_settings)
+            apply_cloth_settings(obj,
+                                 obj_cache.cloth_settings,
+                                 self_collision = obj_cache.cloth_self_collision)
         elif obj_cache.object_type == "HAIR":
             apply_cloth_settings(obj, "HAIR")
         else:
@@ -1186,6 +1191,61 @@ def cloth_physics_state(obj):
                 if point_cache.is_baking:
                     is_baking = True
     return has_cloth, is_baked, is_baking, point_cache
+
+
+def detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json):
+    physics_json = jsonutils.get_physics_json(chr_json)
+    soft_physics_json = jsonutils.get_soft_physics_json(physics_json, obj, mat)
+    if soft_physics_json:
+        active = soft_physics_json["Activate Physics"]
+        mass = soft_physics_json["Mass"]
+        friction = soft_physics_json["Friction"]
+        damping = soft_physics_json["Damping"]
+        drag = soft_physics_json["Drag"]
+        elasticity = soft_physics_json["Elasticity"]
+        stretch = soft_physics_json["Stretch"]
+        bending = soft_physics_json["Bending"]
+        self_collision = soft_physics_json["Self Collision"]
+
+        cmp = mathutils.Vector((elasticity, bending))
+        presets = {
+            "DEFAULT": mathutils.Vector((10, 30)),
+            "SILK": mathutils.Vector((50, 80)),
+            "COTTON": mathutils.Vector((30, 40)),
+            "LINEN": mathutils.Vector((10, 0)),
+            "DENIM": mathutils.Vector((1, 0)),
+            "LEATHER": mathutils.Vector((10, 10)),
+            "RUBBER": mathutils.Vector((20, 20)),
+        }
+
+        best_dif = 1000
+        best_preset = "DEFAULT"
+        for preset in presets:
+            test = (cmp - presets[preset]).length
+            print(preset, cmp, presets[preset], test)
+            if test < best_dif:
+                best_preset = preset
+                best_dif = test
+
+        if obj_cache.object_type == "HAIR":
+            best_preset = "HAIR"
+
+        utils.log_info(f"Cloth Physics settings detected as: {best_preset}")
+        obj_cache.cloth_settings = best_preset
+        obj_cache.cloth_self_collision = self_collision
+        print(self_collision)
+
+        if active:
+            obj_cache.cloth_physics = "ON"
+            mat_cache.cloth_physics = "ON"
+            utils.log_info(f"Activating cloth physics on {obj.name} / {mat.name}")
+        else:
+            if obj_cache.cloth_physics == "DEFAULT":
+                obj_cache.cloth_physics = "OFF"
+                utils.log_info(f"Deactivating cloth physics on object {obj.name}")
+            if mat_cache.cloth_settings == "DEFAULT":
+                mat_cache.cloth_physics = "OFF"
+                utils.log_info(f"Deactivating cloth physics on material {mat.name}")
 
 
 def apply_all_physics(chr_cache):

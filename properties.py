@@ -1103,6 +1103,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     collision_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON, PROXY
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_settings: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, HAIR, COTTON, DENIM, LEATHER, RUBBER, SILK
+    cloth_self_collision: bpy.props.BoolProperty(default=False)
     user_added: bpy.props.BoolProperty(default=False)
     collision_proxy: bpy.props.PointerProperty(type=bpy.types.Object)
     use_collision_proxy: bpy.props.BoolProperty(default=False)

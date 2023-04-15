@@ -172,10 +172,27 @@ def get_object_json(chr_json, obj):
         return None
 
 
-def get_physics_json(json_data, character_id):
+def get_physics_json(chr_json):
     try:
-        return json_data[character_id]["Object"][character_id]["Physics"]
+        return chr_json["Physics"]
     except:
+        return None
+
+
+def get_soft_physics_json(physics_json, obj, mat):
+    try:
+        obj_name = utils.strip_name(obj.name).lower()
+        mat_name = utils.strip_name(mat.name).lower()
+        soft_physics_mesh_json = physics_json["Soft Physics"]["Meshes"]
+        for object_name in soft_physics_mesh_json:
+            if object_name.lower() == obj_name:
+                materials_json = soft_physics_mesh_json[object_name]["Materials"]
+                for material_name in materials_json:
+                    if material_name.lower() == mat_name:
+                        return materials_json[material_name]
+        return None
+    except:
+        utils.log_warn("Failed to get soft physics material Json data!")
         return None
 
 
