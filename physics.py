@@ -1396,6 +1396,14 @@ def delete_accessory_colliders(arm, objects):
         objects.remove(collider)
 
 
+def get_self_collision(chr_cache, obj):
+    if chr_cache and obj:
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache:
+            return obj_cache.cloth_self_collision
+    return False
+
+
 def set_physics_settings(op, param, context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
@@ -1438,37 +1446,37 @@ def set_physics_settings(op, param, context):
     elif param == "PHYSICS_HAIR":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "HAIR")
+                apply_cloth_settings(obj, "HAIR", False)
 
     elif param == "PHYSICS_DENIM":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "DENIM")
+                apply_cloth_settings(obj, "DENIM", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_LEATHER":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "LEATHER")
+                apply_cloth_settings(obj, "LEATHER", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_RUBBER":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "RUBBER")
+                apply_cloth_settings(obj, "RUBBER", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_SILK":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "SILK")
+                apply_cloth_settings(obj, "SILK", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_COTTON":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "COTTON")
+                apply_cloth_settings(obj, "COTTON", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_LINEN":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "LINEN")
+                apply_cloth_settings(obj, "LINEN", get_self_collision(chr_cache, obj))
 
     elif param == "PHYSICS_PAINT":
         if obj:
