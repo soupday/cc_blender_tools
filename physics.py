@@ -51,7 +51,7 @@ def apply_cloth_settings(obj, cloth_type, self_collision = False):
         mod.settings.quality = 6
         mod.settings.pin_stiffness = 0.025
         # physical properties
-        mod.settings.mass = 267 * BASE_GSM
+        mod.settings.mass = 0.05
         mod.settings.air_damping = 1.0
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
@@ -1306,32 +1306,34 @@ def apply_all_physics(chr_cache):
 def arrange_physics_modifiers(obj):
     cloth_mod = None
     remap_mod = None
-    subd_mod = None
-    subd_before_cloth = False
+    subd_mods = []
+    before_cloth = True
     for mod in obj.modifiers:
         if mod.type == "CLOTH":
             cloth_mod = mod
+            before_cloth = False
         if mod.type == "SUBSURF":
-            subd_mod = mod
-            if not cloth_mod:
-                subd_before_cloth = True
+            subd_mods.append([mod, before_cloth])
         if mod.type == "VERTEX_WEIGHT_EDIT" and "WeightEditRemap" in mod.name:
             remap_map = mod
 
     # order is:
     #       weight map edit/mix mods
+    #       ...
     #       weight map edit remap mod
-    #       subd mod (if before cloth)
+    #       subd mods before cloth)
     #       cloth mod
-    #       subd mod (if after cloth)
+    #       subd mods after cloth
 
     if remap_mod:
         modifiers.move_mod_last(obj, remap_mod)
-    if subd_mod and subd_before_cloth:
-        modifiers.move_mod_last(obj, subd_mod)
+    for mod, before_cloth in subd_mods:
+        if before_cloth:
+            modifiers.move_mod_last(obj, mod)
     modifiers.move_mod_last(obj, cloth_mod)
-    if subd_mod and not subd_before_cloth:
-        modifiers.move_mod_last(obj, subd_mod)
+    for mod, before_cloth in subd_mods:
+        if not before_cloth:
+            modifiers.move_mod_last(obj, mod)
 
 
 def remove_all_physics(chr_cache):
