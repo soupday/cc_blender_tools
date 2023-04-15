@@ -318,7 +318,6 @@ def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
             cloth_mod.point_cache.name = cache_id
 
         # Apply cloth settings
-        print("APPLY", obj_cache.cloth_settings, obj_cache.cloth_self_collision)
         if obj_cache.cloth_settings != "DEFAULT":
             apply_cloth_settings(obj,
                                  obj_cache.cloth_settings,
@@ -1194,6 +1193,11 @@ def cloth_physics_state(obj):
 
 
 def detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json):
+    """Detect the physics material presets."""
+
+    if not (obj and mat and obj_cache and mat_cache and chr_json):
+        return
+
     physics_json = jsonutils.get_physics_json(chr_json)
     soft_physics_json = jsonutils.get_soft_physics_json(physics_json, obj, mat)
     if soft_physics_json:
@@ -1222,7 +1226,6 @@ def detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json):
         best_preset = "DEFAULT"
         for preset in presets:
             test = (cmp - presets[preset]).length
-            print(preset, cmp, presets[preset], test)
             if test < best_dif:
                 best_preset = preset
                 best_dif = test
@@ -1233,7 +1236,6 @@ def detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json):
         utils.log_info(f"Cloth Physics settings detected as: {best_preset}")
         obj_cache.cloth_settings = best_preset
         obj_cache.cloth_self_collision = self_collision
-        print(self_collision)
 
         if active:
             obj_cache.cloth_physics = "ON"
