@@ -635,7 +635,7 @@ def eval_loop_at(loop, length, fac):
         v = p1 - p0
         fl = v.length / length
         f1 = f0 + fl
-        if fac <= f1 and fac >= f0:
+        if fl > 0 and fac <= f1 and fac >= f0:
             df = fac - f0
             return p0 + v * (df / fl)
         f0 = f1
