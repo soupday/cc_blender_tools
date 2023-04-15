@@ -61,6 +61,7 @@ def reset_preferences():
     prefs.bake_use_gpu = False
     prefs.build_armature_edit_modifier = True
     prefs.build_armature_preserve_volume = False
+    prefs.physics_weightmap_curve = 5.0
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -239,6 +240,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     physics_cloth_hair: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the hair objects.", name="Hair Cloth Physics")
     physics_cloth_clothing: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the clothing and accessory objects.", name="Clothing Cloth Physics")
+    physics_weightmap_curve: bpy.props.FloatProperty(default=5.0, min=1.0, max=10.0, name="Physics Weightmap Curve",
+                                                     description="Power curve used to convert PhysX weightmaps to blender vertex pin weights.")
 
     # addon updater preferences
 
@@ -327,6 +330,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
         layout.label(text="Physics:")
         layout.prop(self, "physics_group")
+        layout.prop(self, "physics_weightmap_curve")
 
         layout.label(text="Export:")
         layout.prop(self, "export_json_changes")

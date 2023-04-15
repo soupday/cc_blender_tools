@@ -294,7 +294,7 @@ def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
                 if mat:
                     add_material_weight_map(chr_cache, obj, mat, create = False)
             if modifiers.has_cloth_weight_map_mods(obj):
-                attach_cloth_weight_map_remap(obj)
+                attach_cloth_weight_map_remap(obj, prefs.physics_weightmap_curve)
 
         cloth_mod = modifiers.get_cloth_physics_mod(obj)
 
@@ -578,6 +578,9 @@ def enable_material_weight_map(chr_cache, obj, mat):
     """Enables the weight map for the object's material and (re)creates the Vertex Weight Edit modifier.
     """
 
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = bpy.context.scene.CC3ImportProps
+
     if chr_cache and obj and mat:
 
         mat_cache = chr_cache.get_material_cache(mat)
@@ -586,7 +589,7 @@ def enable_material_weight_map(chr_cache, obj, mat):
                 mat_cache.cloth_physics = "ON"
             add_material_weight_map(chr_cache, obj, mat, True)
             if modifiers.has_cloth_weight_map_mods(obj):
-                attach_cloth_weight_map_remap(obj)
+                attach_cloth_weight_map_remap(obj, prefs.physics_weightmap_curve)
             # fix mod order
             arrange_physics_modifiers(obj)
 
@@ -1187,6 +1190,7 @@ def cloth_physics_state(obj):
 
 def apply_all_physics(chr_cache):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = bpy.context.scene.CC3ImportProps
 
     if chr_cache:
         utils.log_info(f"Adding all Physics modifiers to: {chr_cache.character_name}")
@@ -1228,7 +1232,7 @@ def apply_all_physics(chr_cache):
 
                 if cloth_allowed:
                     if modifiers.has_cloth_weight_map_mods(obj):
-                        attach_cloth_weight_map_remap(obj)
+                        attach_cloth_weight_map_remap(obj, prefs.physics_weightmap_curve)
                         enable_cloth_physics(chr_cache, obj, False)
 
                 utils.log_recess()

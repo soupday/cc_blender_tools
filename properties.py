@@ -1893,7 +1893,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("4096","4096 x 4096","4096 x 4096 texture size"),
                     ], default="1024")
 
-
     paint_object: bpy.props.PointerProperty(type=bpy.types.Object)
     paint_material: bpy.props.PointerProperty(type=bpy.types.Material)
     paint_image: bpy.props.PointerProperty(type=bpy.types.Image)
