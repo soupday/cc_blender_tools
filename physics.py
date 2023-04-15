@@ -284,30 +284,36 @@ def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
     obj_cache = chr_cache.get_object_cache(obj)
 
     if (obj_cache and
-        obj_cache.cloth_physics == "ON" and
-        modifiers.get_cloth_physics_mod(obj) is None):
+        obj_cache.cloth_physics == "ON"):
 
-        # Create the Cloth modifier
         utils.object_mode_to(obj)
-        cloth_mod = obj.modifiers.new(utils.unique_name("Cloth"), type="CLOTH")
-        utils.log_info("Cloth Modifier: " + cloth_mod.name + " applied to " + obj.name)
 
-        # Create the physics pin vertex group if it doesn't exist
-        pin_group = prefs.physics_group + "_Pin"
-        if pin_group not in obj.vertex_groups:
-            obj.vertex_groups.new(name = pin_group)
+        # Add weight maps
+        if add_weight_maps:
+            for mat in obj.data.materials:
+                if mat:
+                    add_material_weight_map(chr_cache, obj, mat, create = False)
+            if modifiers.has_cloth_weight_map_mods(obj):
+                attach_cloth_weight_map_remap(obj)
+
+        cloth_mod = modifiers.get_cloth_physics_mod(obj)
+
+        if not cloth_mod:
+            # Create the Cloth modifier
+            cloth_mod : bpy.types.ClothModifier
+            cloth_mod_id = utils.unique_name("Cloth")
+            cloth_mod = obj.modifiers.new(cloth_mod_id, type="CLOTH")
+            utils.log_info("Cloth Modifier: " + cloth_mod.name + " applied to " + obj.name)
 
         # Set cache bake frame range
-        frame_count = 250
-        parent_action = utils.safe_get_action(obj.parent)
-        frame_start = 1
-        frame_count = 1
-        if parent_action:
-            frame_start = math.floor(parent_action.frame_range[0])
-            frame_count = math.ceil(parent_action.frame_range[1])
-        utils.log_info("Setting " + obj.name + " bake cache frame range to [1 - " + str(frame_count) + "]")
+        frame_start, frame_end = utils.get_scene_frame_range()
+        utils.log_info(f"Setting {obj.name} bake cache frame range to [{str(frame_start)} - {str(frame_end)}]")
         cloth_mod.point_cache.frame_start = frame_start
-        cloth_mod.point_cache.frame_end = frame_count
+        cloth_mod.point_cache.frame_end = frame_end
+        if not cloth_mod.point_cache.name:
+            random_id = utils.generate_random_id(10)
+            cache_id = f"{obj.name}_{random_id}"
+            cloth_mod.point_cache.name = cache_id
 
         # Apply cloth settings
         if obj_cache.cloth_settings != "DEFAULT":
@@ -317,18 +323,8 @@ def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
         else:
             apply_cloth_settings(obj, "COTTON")
 
-        # Add any existing weight maps
-        if add_weight_maps:
-            for mat in obj.data.materials:
-                if mat:
-                    add_material_weight_map(chr_cache, obj, mat, create = False)
-
-        #weight_min, weight_max = get_physx_weight_range(obj)
-        #cloth_mod.settings.pin_stiffness = 1.0 # some function of weight_min and weight_max
-
-
         # fix mod order
-        modifiers.move_mod_last(obj, cloth_mod)
+        arrange_physics_modifiers(obj)
 
     elif obj_cache.cloth_physics == "OFF":
         utils.log_info("Cloth Physics disabled for: " + obj.name)
@@ -360,6 +356,7 @@ def remove_cloth_physics(obj):
             weight_group = prefs.physics_group + "_" + utils.strip_name(mat.name)
             if weight_group in obj.vertex_groups:
                 obj.vertex_groups.remove(obj.vertex_groups[weight_group])
+        remove_cloth_weight_map_remap(obj)
 
     # If there are no weight maps left on the object, remove the vertex group
     mods = 0
@@ -588,9 +585,10 @@ def enable_material_weight_map(chr_cache, obj, mat):
             if mat_cache.cloth_physics == "OFF":
                 mat_cache.cloth_physics = "ON"
             add_material_weight_map(chr_cache, obj, mat, True)
+            if modifiers.has_cloth_weight_map_mods(obj):
+                attach_cloth_weight_map_remap(obj)
             # fix mod order
-            cloth_mod = modifiers.get_cloth_physics_mod(obj)
-            modifiers.move_mod_last(obj, cloth_mod)
+            arrange_physics_modifiers(obj)
 
 
 def disable_material_weight_map(chr_cache, obj, mat):
@@ -658,6 +656,40 @@ def is_cloth_physics_enabled(mat_cache, mat, obj):
     return False
 
 
+def attach_cloth_weight_map_remap(obj, replace = True, curve_power = 5.0):
+    """Attach the final remap vertex weight edit to convert the physx weight
+       map values to something more blender physics friendly."""
+
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    remap_mod : bpy.types.VertexWeightEditModifier
+
+    if replace:
+        modifiers.remove_object_modifiers(obj, "VERTEX_WEIGHT_EDIT", "_WeightEditRemap")
+    else:
+        remap_mod = modifiers.get_object_modifier(obj, "VERTEX_WEIGHT_EDIT", "_WeightEditRemap")
+        if remap_mod:
+            return
+
+    pin_group = prefs.physics_group + "_Pin"
+    obj_name = utils.safe_export_name(obj.name)
+
+    remap_mod = obj.modifiers.new(utils.unique_name(obj_name + "_WeightEditRemap"), "VERTEX_WEIGHT_EDIT")
+    remap_mod.use_add = False
+    remap_mod.use_remove = False
+    remap_mod.vertex_group = pin_group
+    remap_mod.default_weight = 0.0
+    remap_mod.falloff_type = 'CURVE'
+    remap_mod.invert_falloff = False
+    #remap_mod.map_curve.curves[0].points.new(0.25, pow(0.25, curve_power))
+    #remap_mod.map_curve.curves[0].points.new(0.5, pow(0.5, curve_power))
+    remap_mod.map_curve.curves[0].points.new(0.75, pow(0.75, curve_power))
+    remap_mod.map_curve.update()
+
+
+def remove_cloth_weight_map_remap(obj):
+    modifiers.remove_object_modifiers(obj, "VERTEX_WEIGHT_EDIT", "_WeightEditRemap")
+
+
 def attach_material_weight_map(obj, mat, weight_map):
     """Attaches a weight map to the object's material via a 'Vertex Weight Edit' modifier.
 
@@ -670,7 +702,9 @@ def attach_material_weight_map(obj, mat, weight_map):
     if obj and mat and weight_map:
 
         # Make a texture based on the weight map image
-        mat_name = utils.strip_name(mat.name)
+        # As we are matching names to find existing textures,
+        # get a name that keeps the duplication suffix
+        mat_name = utils.safe_export_name(mat.name)
         tex_name = mat_name + "_Weight"
         tex = None
         for t in bpy.data.textures:
@@ -728,7 +762,7 @@ def attach_material_weight_map(obj, mat, weight_map):
         edit_mod.mask_tex_mapping = 'UV'
         edit_mod.mask_tex_use_channel = 'INT'
         try:
-            edit_mod.normalize = True
+            edit_mod.normalize = False
         except:
             pass
         # The Vertex Weight Mix modifier takes the material weight map group and mixes it into the pin weight group:
@@ -774,49 +808,6 @@ def get_physx_weight_range(obj):
                             weight_max = max(w, weight_max)
 
     return weight_min, weight_max
-
-
-def normalize_physx_weight_maps(obj):
-    """Not used."""
-
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-    if obj:
-
-        vertex_group_name = prefs.physics_group + "_Pin"
-
-        if obj.type == "MESH" and vertex_group_name in obj.vertex_groups:
-
-            if utils.set_active_object(obj):
-
-                # apply vg mods
-                edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
-                for mod in edit_mods:
-                    bpy.ops.object.modifier_apply(modifier=mod.name)
-                for mod in mix_mods:
-                    bpy.ops.object.modifier_apply(modifier=mod.name)
-
-                # normalize pin vertex group range
-                pin_vg = obj.vertex_groups[vertex_group_name]
-                pin_vg_index = pin_vg.index
-                weight_min = 1.0
-                weight_max = 0.0
-
-                # determine range
-                for vertex in obj.data.vertices:
-                    for vg in vertex.groups:
-                        if vg.group == pin_vg_index:
-                            w = vg.weight
-                            weight_min = min(w, weight_min)
-                            weight_max = max(w, weight_max)
-
-                # remap range to 0->1
-                for vertex in obj.data.vertices:
-                    for vg in vertex.groups:
-                        if vg.group == pin_vg_index:
-                            w = utils.inverse_lerp(weight_min, weight_max, vg.weight)
-                            vg.weight = w
 
 
 def count_weightmaps(objects):
@@ -1223,6 +1214,7 @@ def apply_all_physics(chr_cache):
                 remove_all_physics_mods(obj)
 
                 if cloth_allowed:
+
                     for mat in obj.data.materials:
                         if mat and mat not in objects_processed:
                             add_material_weight_map(chr_cache, obj, mat, create = False)
@@ -1235,14 +1227,45 @@ def apply_all_physics(chr_cache):
                     apply_collision_physics(chr_cache, obj, obj_cache)
 
                 if cloth_allowed:
-                    edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
-                    if len(edit_mods) + len(mix_mods) > 0:
+                    if modifiers.has_cloth_weight_map_mods(obj):
+                        attach_cloth_weight_map_remap(obj)
                         enable_cloth_physics(chr_cache, obj, False)
 
                 utils.log_recess()
 
         chr_cache.physics_applied = True
         utils.log_recess()
+
+
+def arrange_physics_modifiers(obj):
+    cloth_mod = None
+    remap_mod = None
+    subd_mod = None
+    subd_before_cloth = False
+    for mod in obj.modifiers:
+        if mod.type == "CLOTH":
+            cloth_mod = mod
+        if mod.type == "SUBSURF":
+            subd_mod = mod
+            if not cloth_mod:
+                subd_before_cloth = True
+        if mod.type == "VERTEX_WEIGHT_EDIT" and "WeightEditRemap" in mod.name:
+            remap_map = mod
+
+    # order is:
+    #       weight map edit/mix mods
+    #       weight map edit remap mod
+    #       subd mod (if before cloth)
+    #       cloth mod
+    #       subd mod (if after cloth)
+
+    if remap_mod:
+        modifiers.move_mod_last(obj, remap_mod)
+    if subd_mod and subd_before_cloth:
+        modifiers.move_mod_last(obj, subd_mod)
+    modifiers.move_mod_last(obj, cloth_mod)
+    if subd_mod and not subd_before_cloth:
+        modifiers.move_mod_last(obj, subd_mod)
 
 
 def remove_all_physics(chr_cache):
@@ -1305,21 +1328,6 @@ def delete_accessory_colliders(arm, objects):
     for collider in colliders:
         utils.delete_mesh_object(collider)
         objects.remove(collider)
-
-
-def should_separate_materials(context):
-    """Check to see if the current object has a weight map for each material.
-    If not separating the mesh by material could improve performance.
-    """
-    obj = context.object
-    if obj is not None and obj.type == "MESH":
-
-        cloth_mod = modifiers.get_cloth_physics_mod(obj)
-        if cloth_mod is not None:
-            edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
-            if len(edit_mods) != len(obj.data.materials):
-                return True
-        return False
 
 
 def set_physics_settings(op, param, context):

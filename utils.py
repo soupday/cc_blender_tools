@@ -19,6 +19,7 @@ import platform
 import subprocess
 import time
 import difflib
+import random
 from hashlib import md5
 import bpy
 
@@ -593,7 +594,8 @@ def is_blender_duplicate(name):
     return False
 
 
-def make_unique_name(name, keys):
+def make_unique_name_in(name, keys):
+    """"""
     if name in keys:
         i = 1
         while name + "_" + str(i) in keys:
@@ -1471,3 +1473,29 @@ def show_system_file_browser(path):
             subprocess.Popen((explorer_path, "/select,", path))
         except:
             pass
+
+
+def get_scene_frame_range():
+    scene = bpy.context.scene
+    if scene.use_preview_range:
+        return scene.frame_preview_start, scene.frame_preview_end
+    else:
+        return scene.frame_start, scene.frame_end
+
+
+def set_scene_frame_range(start, end):
+    scene = bpy.context.scene
+    if scene.use_preview_range:
+        scene.frame_preview_start = start
+        scene.frame_preview_end = end
+    else:
+        scene.frame_start = start
+        scene.frame_end = end
+
+
+def generate_random_id(length):
+    CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    id = ""
+    for i in range(0, length):
+        id += random.choice(CHARS)
+    return id

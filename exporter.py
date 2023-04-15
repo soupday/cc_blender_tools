@@ -286,7 +286,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         if obj_name != obj_safe_name or obj.data.name != obj_safe_name:
             new_obj_name = obj_safe_name
             if is_new_object or source_changed:
-                new_obj_name = utils.make_unique_name(obj_safe_name, bpy.data.objects.keys())
+                new_obj_name = utils.make_unique_name_in(obj_safe_name, bpy.data.objects.keys())
             utils.log_info(f"Using new safe Object & Mesh name: {obj_name} to {new_obj_name}")
             if source_changed:
                 if jsonutils.rename_json_key(chr_json["Meshes"], obj_source_name, new_obj_name):
@@ -345,7 +345,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             if mat_name != mat_safe_name:
                 new_mat_name = mat_safe_name
                 if new_material or source_changed:
-                    new_mat_name = utils.make_unique_name(mat_safe_name, bpy.data.materials.keys())
+                    new_mat_name = utils.make_unique_name_in(mat_safe_name, bpy.data.materials.keys())
                 utils.log_info(f"Using new safe Material name: {mat_name} to {new_mat_name}")
                 if source_changed:
                     if jsonutils.rename_json_key(obj_json["Materials"], mat_source_name, new_mat_name):

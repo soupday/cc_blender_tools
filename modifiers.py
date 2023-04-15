@@ -119,23 +119,21 @@ def get_collision_physics_mod(obj):
     return None
 
 
-def get_weight_map_mods(obj):
-    edit_mods = []
-    mix_mods = []
+def has_cloth_weight_map_mods(obj):
     if obj is not None:
         for mod in obj.modifiers:
             if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name:
-                edit_mods.append(mod)
+                return True
             if mod.type == "VERTEX_WEIGHT_MIX" and vars.NODE_PREFIX in mod.name:
-                mix_mods.append(mod)
-    return edit_mods, mix_mods
+                return True
+    return False
 
 
 def get_material_weight_map_mods(obj, mat):
     edit_mod = None
     mix_mod = None
     if obj is not None and mat is not None:
-        mat_name = utils.strip_name(mat.name)
+        mat_name = utils.safe_export_name(mat.name)
         for mod in obj.modifiers:
             if mod.type == "VERTEX_WEIGHT_EDIT" and (vars.NODE_PREFIX + mat_name + "_WeightEdit") in mod.name:
                 edit_mod = mod
