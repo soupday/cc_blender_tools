@@ -25,7 +25,7 @@ from . import jsonutils, drivers, bones, utils, vars
 # these must be floats
 BASE_COLLISION_RADIUS = 0.015
 MARGIN = BASE_COLLISION_RADIUS * 2.0 / 3.0
-MASS = 0.5
+MASS = 5.0 #0.5
 STIFFNESS = 1.0
 DAMPENING = 0.5
 LIMIT = 1.0
@@ -469,7 +469,7 @@ def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
                                       description = "How much to restrain the overall movement of the rigid body simulation")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_curve", curve, 1.0/8.0, 8.0, 1.0/8.0, 2.0,
                                       description = "The dampening curve factor along the length of the spring bone chains. Less curve gives more movement near the roots")
-    drivers.add_custom_float_property(rigid_body_system, "rigid_body_mass", mass, 0.0, 100.0, 0.001, 1.0,
+    drivers.add_custom_float_property(rigid_body_system, "rigid_body_mass", mass, 0.0, 100.0, 0.1, 10.0,
                                       description = "Mass of the rigid body particles representing the bones. More mass, more inertia")
     drivers.add_custom_float_property(rigid_body_system, "rigid_body_dampening", dampening, 0.0, 10000.0, 0.0, 10.0,
                                       description = "Spring dampening, how quickly the hair movement slows down.")
