@@ -159,12 +159,17 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
     mat_map = {}
     overlapping = {}
 
+    matching_vert_count = len(src_bm.verts) == len(dst_bm.verts)
+
     for i, src_mat in enumerate(src_mesh.materials):
         for j, dst_mat in enumerate(dst_mesh.materials):
             if src_mat == dst_mat:
                 mat_map[i] = j
             elif utils.strip_name(src_mat.name) == utils.strip_name(dst_mat.name):
                 mat_map[i] = j
+
+    if len(src_mesh.materials) == 0:
+        mat_map[0] = 0
 
     vg_index = -1
     if vertex_group and vertex_group in src_obj.vertex_groups:
@@ -188,7 +193,7 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
                 uv = loop[ul].uv
                 uv.x -= int(uv.x)
                 uv_id = uv.to_tuple(accuracy), dst_material_idx
-                if uv_id in src_map:
+                if uv_id in src_map and src_map[uv_id] != loop.vert.index:
                     overlapping[uv_id] = True
                 src_map[uv_id] = loop.vert.index
 
@@ -202,7 +207,7 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
             uv.x -= int(uv.x)
             uv_id = uv.to_tuple(accuracy), face.material_index
             # overlapping UV's can't be detected correctly so try to copy from just the index position
-            if uv_id in overlapping:
+            if matching_vert_count and uv_id in overlapping:
                 vert_index = loop.vert.index
                 src_pos = src_bm.verts[vert_index].co
                 if sl:

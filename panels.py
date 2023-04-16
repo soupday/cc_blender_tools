@@ -2500,11 +2500,11 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
                 col_1.prop(prefs, "bake_use_gpu", text="GPU", toggle=True)
                 col_2.prop(prefs, "body_normal_bake_size", text = "")
 
-                row = column.row()
+                row = column.row(align=True)
                 row.scale_y = 1.5
-                row.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "BODY_BAKE"
+                row.operator("cc3.sculpting", icon="RESTRICT_RENDER_OFF", text="Bake").param = "BODY_BAKE"
                 if chr_cache:
-                    row.prop(chr_cache, "multires_bake_apply", text="", expand=True)
+                    row.prop(chr_cache, "multires_bake_apply", text="", toggle=True, icon="MESH_ICOSPHERE")
                 if not sculpt_body:
                     row.enabled = False
 
@@ -2513,17 +2513,14 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
                 column.row().label(text="Layer Settings:")
                 column.separator()
 
-                col = column.column()
-                split = col.split(factor=0.5)
-                col_1 = split.column()
-                col_2 = split.column()
+                grid = column.grid_flow(row_major=True, columns=2, align=True)
                 if chr_cache:
-                    col_1.prop(chr_cache, "body_normal_strength", text="Nrm", slider=True)
-                    col_2.prop(chr_cache, "body_ao_strength", text="AO", slider=True)
-                    col_1.prop(chr_cache, "body_mix_mode", text="")
-                    col_2.prop(chr_cache, "body_normal_definition", text="Def", slider=True)
+                    grid.prop(chr_cache, "body_normal_strength", text="Nrm", slider=True)
+                    grid.prop(chr_cache, "body_ao_strength", text="AO", slider=True)
+                    grid.prop(chr_cache, "body_mix_mode", text="")
+                    grid.prop(chr_cache, "body_normal_definition", text="Def", slider=True)
                 if not has_body_overlay:
-                    col.enabled = False
+                    grid.enabled = False
 
                 column.separator()
 
@@ -2585,7 +2582,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
                 row1 = column.row()
                 row1.scale_y = 1.5
-                row1.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "DETAIL_BAKE"
+                row1.operator("cc3.sculpting", icon="RESTRICT_RENDER_OFF", text="Bake").param = "DETAIL_BAKE"
                 if not detail_body:
                     row1.enabled = False
 
@@ -2594,17 +2591,14 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
                 column.row().label(text="Layer Settings:")
                 column.separator()
 
-                col = column.column()
-                split = col.split(factor=0.5)
-                col_1 = split.column()
-                col_2 = split.column()
+                grid = column.grid_flow(row_major=True, columns=2, align=True)
                 if chr_cache:
-                    col_1.prop(chr_cache, "detail_normal_strength", text="Nrm", slider=True)
-                    col_2.prop(chr_cache, "detail_ao_strength", text="AO", slider=True)
-                    col_1.prop(chr_cache, "detail_mix_mode", text="")
-                    col_2.prop(chr_cache, "detail_normal_definition", text="Def", slider=True)
+                    grid.prop(chr_cache, "detail_normal_strength", text="Nrm", slider=True)
+                    grid.prop(chr_cache, "detail_ao_strength", text="AO", slider=True)
+                    grid.prop(chr_cache, "detail_mix_mode", text="")
+                    grid.prop(chr_cache, "detail_normal_definition", text="Def", slider=True)
                 if not has_detail_overlay:
-                    col.enabled = False
+                    grid.enabled = False
 
                 column.separator()
 
@@ -2658,13 +2652,13 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
                 column.row().prop(props, "geom_transfer_layer_name")
 
             row = column.row()
-            row.operator("cc3.transfer_character", icon="OUTLINER_OB_ARMATURE", text="Transfer Geometry")
+            row.operator("cc3.transfer_character", icon="OUTLINER_OB_ARMATURE", text="Transfer Character")
             if not (target_cache and chr_cache):
                 row.enabled = False
 
+            column = layout.column()
             row = column.row()
-            row.operator("cc3.transfer_mesh", icon="MESH_ICOSPHERE", text="Transfer Geometry")
-
+            row.operator("cc3.transfer_mesh", icon="MESH_ICOSPHERE", text="Transfer Mesh")
             if not bpy.context.active_object or len(bpy.context.selected_objects) < 2:
                 row.enabled = False
 

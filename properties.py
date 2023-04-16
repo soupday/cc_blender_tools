@@ -1285,11 +1285,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                                                                 "Lower definition shrinks the mask around the sculpted areas and smooths the transition between normal layers.",
                                                     update=lambda s,c: update_sculpt_mix_node(s,c,"body_normal_definition"))
 
-    multires_bake_apply: bpy.props.EnumProperty(items=[
-                        ("NONE","Keep","Don't change the original character mesh when baking the body sculpt normals.", "MESH_CIRCLE", 0),
-                        ("APPLY","Apply","Copy the multi-res base shape back to original character when baking the body sculpt normals.\n"
-                                         "Only the vertices affected by the sculpt are copied back and this does not destroy the original character's shapekeys.", "MESH_ICOSPHERE", 1),
-                    ], default="APPLY", name = "Apply Shape On Bake?")
+    multires_bake_apply: bpy.props.BoolProperty(default=True, name="Apply Multi-res Base Shape",
+                                                description="Copy the multi-res base shape back to original character when baking the body sculpt normals.\n"
+                                                            "Only the vertices affected by the sculpt are copied back and this does not destroy the original character's shapekeys.")
 
     detail_mix_mode: bpy.props.EnumProperty(items=[
                         ("OVERLAY","Overlay","Sculpted normals and occlusion are overlayed on top of the base normals and occlusion."),

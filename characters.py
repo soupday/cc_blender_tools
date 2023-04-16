@@ -1340,7 +1340,8 @@ class CC3OperatorTransferMeshGeometry(bpy.types.Operator):
 
         if active and len(selected) >= 2:
             for obj in selected:
-                geom.copy_vert_positions_by_uv_id(active, obj, 5, shape_key_name=shape_key_name)
+                if obj != active:
+                    geom.copy_vert_positions_by_uv_id(active, obj, 5, shape_key_name=shape_key_name)
 
             self.report(type={"INFO"}, message="Done!")
 
