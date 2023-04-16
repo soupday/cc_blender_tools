@@ -36,8 +36,38 @@ Links
 ## Changelog
 
 ### 1.5.8
-- Fix to eye close slider.
-- Blender spring bone rigid body simulation added for spring bone hair rigs.
+- Spring Bones:
+    - Blender spring bone rigid body simulation added for spring bone hair rigs.
+    - Spring bone simulation controls.
+    - Spring bone chain renaming.
+    - Added support for not quad grid poly mesh hair cards, should work with any hair mesh.
+    - Rigid body colliders for the spring bones that use the collision shapes from character creator.
+    - Rigify update for spring bone system.
+    - FK, IK and tweak bones for spring rigs.
+    - Rigify and spring bone UI updates.
+    - Baking spring bone simulation and animation into new animations
+    - Exporting rigified spring bone animations, including the rigid body simulation as animation.
+- Cloth Physics overhaul:
+    - Physics UI update.
+    - Better mapping of PhysX weight map to blender vertex pin weights.
+    - Physics presets updates, mass, tension and bending to better simulate the cloth type and work more consistently with external forces.
+    - Cloth physics preset detection on import.
+    - UI tools for point cache baking.
+    - Fixes to weightmap paint mode resetting texture.
+    - Browse button for painted weightmap, so you can find it.
+    - Weightmap assignment fix for materials with the same base name.
+- Sculpt / Mesh:
+    - Character geometry transfer to shape-keys function.
+- Character Objects:
+    - Add object to character (from another character) now copies the object into the new character.
+    - Transfer weight maps now works when posed to effectively parent in place target mesh.
+- Other:
+    - Fix to eye close slider.
+
+
+
+
+
 
 ### 1.5.7
 - Hair bone de-duplication.
