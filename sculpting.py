@@ -782,7 +782,7 @@ class CC3OperatorSculpt(bpy.types.Operator):
             end_multires_sculpting(chr_cache, LAYER_TARGET_SCULPT)
 
         elif self.param == "BODY_BAKE":
-            if chr_cache.multires_bake_apply == "APPLY":
+            if chr_cache.multires_bake_apply:
                 bake_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT, apply_shape = True, source_body = body)
             else:
                 bake_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT)
