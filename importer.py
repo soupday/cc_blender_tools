@@ -713,10 +713,8 @@ class CC3Import(bpy.types.Operator):
 
             # set up the collision shapes and store their bind positions in the json data
             rigidbody.build_rigid_body_colliders(self.imported_character, json_data, first_import = True)
-            # if not using physics, remove the colliders
-            if not props.physics_mode:
-                rigidbody.remove_rigid_body_colliders(self.imported_character.get_armature())
-
+            # remove the colliders for now (only needed for spring bones)
+            rigidbody.remove_rigid_body_colliders(self.imported_character.get_armature())
 
             utils.log_timer("Done .Fbx Import.")
 

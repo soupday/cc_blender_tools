@@ -1004,10 +1004,8 @@ def get_rigid_body_colliders(arm):
     colliders = []
     if arm:
         for obj in arm.children:
-            if utils.object_exists_is_mesh(obj) and obj.name.startswith(COLLIDER_PREFIX):
-                if obj.rigid_body is not None and obj.rigid_body.type == "PASSIVE" and obj.parent_type == "BONE":
-                    if obj.rigid_body.collision_shape == "BOX" or obj.rigid_body.collision_shape == "CAPSULE":
-                        colliders.append(obj)
+            if is_rigid_body_collider(obj):
+                colliders.append(obj)
     return colliders
 
 
@@ -1015,11 +1013,13 @@ def has_rigid_body_colliders(arm):
     obj : bpy.types.Object
     if arm:
         for obj in arm.children:
-            if utils.object_exists_is_mesh(obj) and obj.name.startswith(COLLIDER_PREFIX):
-                if obj.rigid_body is not None and obj.rigid_body.type == "PASSIVE" and obj.parent_type == "BONE":
-                    if obj.rigid_body.collision_shape == "BOX" or obj.rigid_body.collision_shape == "CAPSULE":
-                        return True
+            if is_rigid_body_collider(obj):
+                return True
     return False
+
+
+def is_rigid_body_collider(obj):
+    return utils.object_exists_is_mesh(obj) and obj.name.startswith(COLLIDER_PREFIX)
 
 
 def get_rigidbody_collider_collection():
@@ -1070,22 +1070,21 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
         bones.set_rig_bind_pose(rigify_rig)
         bones.show_all_layers(rigify_rig)
 
-        for obj in cc3_rig.children:
-            if utils.object_exists_is_mesh(obj) and obj.name.startswith(COLLIDER_PREFIX):
-                if obj.rigid_body is not None and obj.rigid_body.type == "PASSIVE" and obj.parent_type == "BONE":
-                    bone_name = obj.parent_bone
-                    rigify_bone_name = bones.get_rigify_meta_bone(rigify_rig, bone_mappings, bone_name)
+        colliders = get_rigid_body_colliders(cc3_rig)
+        for obj in colliders:
+            bone_name = obj.parent_bone
+            rigify_bone_name = bones.get_rigify_meta_bone(rigify_rig, bone_mappings, bone_name)
 
-                    if rigify_bone_name:
-                        # using operators to parent because matrix_parent_inverse doesn't work correctly
-                        bone : bpy.types.Bone = rigify_rig.data.bones[rigify_bone_name]
-                        rigify_rig.data.bones.active = bone
-                        utils.set_active_object(rigify_rig, True)
-                        obj.select_set(True)
-                        bpy.ops.object.parent_set(type='BONE', keep_transform=True)
-                    else:
-                        utils.log_error(f"Unable to map {bone_name} to rigify bone!")
-                        utils.delete_mesh_object(obj)
+            if rigify_bone_name:
+                # using operators to parent because matrix_parent_inverse doesn't work correctly
+                bone : bpy.types.Bone = rigify_rig.data.bones[rigify_bone_name]
+                rigify_rig.data.bones.active = bone
+                utils.set_active_object(rigify_rig, True)
+                obj.select_set(True)
+                bpy.ops.object.parent_set(type='BONE', keep_transform=True)
+            else:
+                utils.log_error(f"Unable to map {bone_name} to rigify bone!")
+                utils.delete_mesh_object(obj)
 
         bones.restore_armature_settings(cc3_rig, cc3_arm_settings)
         bones.restore_armature_settings(rigify_rig, rigify_arm_settings)
