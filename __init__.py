@@ -164,15 +164,15 @@ classes = (
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
     panels.CC3RigifyPanel,
-    panels.CC3ToolsScenePanel,
+    panels.CC3PipelineScenePanel,
     # create panels
     panels.CC3ToolsCreatePanel,
     panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
     panels.CC3SpringRigPanel,
-    #panels.CC3ToolsUtilityPanel,
     panels.CC3ToolsSculptingPanel,
     panels.CC3HairPanel,
+    panels.CC3CreateScenePanel,
     # control panels
     panels.CC3SpringControlPanel,
 

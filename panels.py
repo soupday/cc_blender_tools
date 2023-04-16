@@ -206,7 +206,7 @@ def rigify_export_group(chr_cache, layout):
     layout.row().prop(props, "export_rigify_mode", expand=True)
 
 
-def character_export_button(chr_cache, chr_rig, layout):
+def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, scale=2, warn=True):
     # export to CC3
     text = "Export to CC3/4"
     icon = "MOD_ARMATURE"
@@ -216,14 +216,14 @@ def character_export_button(chr_cache, chr_rig, layout):
 
     if chr_cache:
         row = layout.row()
-        row.scale_y = 2
+        row.scale_y = scale
         if chr_cache and utils.is_file_ext(chr_cache.import_type, "OBJ"):
             text = "Export Morph Target"
             icon = "ARROW_LEFTRIGHT"
-        op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
+        row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
         if not chr_cache.can_export():
             row.enabled = False
-            if not chr_cache.import_has_key:
+            if warn and not chr_cache.import_has_key:
                 if utils.is_file_ext(chr_cache.import_type, "FBX"):
                     layout.row().label(text="No Fbx-Key file!", icon="ERROR")
                 elif utils.is_file_ext(chr_cache.import_type, "OBJ"):
@@ -231,19 +231,20 @@ def character_export_button(chr_cache, chr_rig, layout):
 
     elif chr_rig:
         row = layout.row()
-        row.scale_y = 2
+        row.scale_y = scale
         text = "Export Non-Standard"
         icon = "MONKEY"
-        op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_NON_STANDARD"
+        row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_NON_STANDARD"
 
     else:
         row = layout.row()
-        row.scale_y = 2
+        row.scale_y = scale
         row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
         row.enabled = False
-        row = layout.row()
-        row.alert = True
-        row.label(text="No current character!", icon="ERROR")
+        if warn:
+            row = layout.row()
+            row.alert = True
+            row.label(text="No current character!", icon="ERROR")
 
 
 def character_export_unity_button(chr_cache, layout):
@@ -267,7 +268,10 @@ def character_export_unity_button(chr_cache, layout):
         column.enabled = False
 
 
-def rigid_body_sim_ui(chr_cache, arm, obj, layout, fixed_parent=False, only_parent_mode=None, show_selector=True, enabled=True):
+def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
+                      fixed_parent=False, only_parent_mode=None,
+                      show_selector=True, enabled=True):
+
     props = bpy.context.scene.CC3ImportProps
 
     if not chr_cache or not arm:
@@ -282,13 +286,14 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout, fixed_parent=False, only_pare
     rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
     has_spring_rig = springbones.has_spring_rig(chr_cache, arm, parent_mode)
 
-    if fake_drop_down(layout.row(),
+    box = layout.box()
+    if fake_drop_down(box.row(),
             "Rigid Body Sim",
             "section_rigidbody_spring_ui",
             props.section_rigidbody_spring_ui,
             icon="BLENDER", icon_closed="BLENDER"):
 
-        column = layout.column()
+        column = box.column()
         column.enabled = enabled
 
         if not fixed_parent and show_selector:
@@ -379,11 +384,9 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout, fixed_parent=False, only_pare
             row.operator("ptcache.bake", text="Bake Simulation", icon="REC", depress=rigidbody_baking).bake = True
 
 
-def cache_timeline_physics_ui(chr_cache, layout):
-
+def cache_timeline_physics_ui(chr_cache, layout : bpy.types.UILayout):
     if not chr_cache:
         return
-
     layout.box().label(text="Timeline & Physics Cache", icon="PREVIEW_RANGE")
     layout.row().label(text="Animation Range:")
     row = layout.row(align=True)
@@ -393,7 +396,6 @@ def cache_timeline_physics_ui(chr_cache, layout):
     grid.operator("cc3.scene", icon="FULLSCREEN_EXIT", text="Fit").param = "ANIM_RANGE_FIT"
 
     layout.separator()
-    width = get_layout_width("UI")
 
     """
     if not bpy.data.filepath:
@@ -406,6 +408,8 @@ def cache_timeline_physics_ui(chr_cache, layout):
         layout.separator()
     """
 
+    if bpy.context.object:
+        layout.label(text=bpy.context.object.name, icon="OBJECT_DATA")
 
     has_cloth, cloth_baked, cloth_baking, cloth_point_cache = physics.cloth_physics_state(bpy.context.object)
     has_rigidbody, rigidbody_baked, rigidbody_baking, rigidbody_point_cache = springbones.rigidbody_state()
@@ -1989,8 +1993,47 @@ class CC3SpringControlPanel(bpy.types.Panel):
         #        rigid_body_sim_ui(chr_cache, arm, obj, layout, True, parent_mode, enabled=build_allowed)
 
 
-class CC3ToolsScenePanel(bpy.types.Panel):
-    bl_idname = "CC3_PT_Scene_Panel"
+def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    layout = self.layout
+
+    box = layout.box()
+    box.label(text="Scene Lighting", icon="LIGHT")
+
+    column = layout.column()
+    grid = column.grid_flow(row_major=True, columns=2, align=True)
+    grid.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+
+    column.separator()
+
+    box = layout.box()
+    box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
+    column = layout.column()
+
+    op = column.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
+    op.param = "TEMPLATE"
+
+    column.separator()
+
+    chr_cache = props.get_context_character_cache(context)
+    if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
+        box = layout.box()
+        box.label(text="Cycles", icon="SHADING_RENDERED")
+        column = layout.column()
+        op = column.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
+        op.param = "CYCLES_SETUP"
+        column.separator()
+
+    cache_timeline_physics_ui(chr_cache, layout)
+
+class CC3PipelineScenePanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_PipelineScene_Panel"
     bl_label = "Scene Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -1998,43 +2041,19 @@ class CC3ToolsScenePanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        layout = self.layout
+        scene_panel_draw(self, context)
 
-        box = layout.box()
-        box.label(text="Scene Lighting", icon="LIGHT")
 
-        column = layout.column()
-        grid = column.grid_flow(row_major=True, columns=2, align=True)
-        grid.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
-        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
-        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
-        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
-        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
-        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+class CC3CreateScenePanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_CreateScene_Panel"
+    bl_label = "Scene Tools"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = CREATE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
 
-        column.separator()
-
-        box = layout.box()
-        box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
-        column = layout.column()
-
-        op = column.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
-        op.param = "TEMPLATE"
-
-        column.separator()
-
-        chr_cache = props.get_context_character_cache(context)
-        if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
-            box = layout.box()
-            box.label(text="Cycles", icon="SHADING_RENDERED")
-            column = layout.column()
-            op = column.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
-            op.param = "CYCLES_SETUP"
-            column.separator()
-
-        cache_timeline_physics_ui(chr_cache, layout)
+    def draw(self, context):
+        scene_panel_draw(self, context)
 
 
 class CC3ToolsCreatePanel(bpy.types.Panel):
@@ -2058,23 +2077,17 @@ class CC3ToolsCreatePanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text=f"Quick Export  ({vars.VERSION_STRING})", icon="EXPORT")
+        column = layout.column(align=True)
         # export to CC3
-        character_export_button(chr_cache, chr_rig, layout)
-
-        box = layout.box()
-        box.label(text="Lighting Presets", icon="LIGHT")
-        column = layout.column()
-        grid = column.grid_flow(row_major=True, align=True, columns=2)
-        grid.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
-        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
-        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
-        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
-        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
-        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
-
-        column.separator()
-
-        cache_timeline_physics_ui(chr_cache, layout)
+        character_export_button(chr_cache, chr_rig, column, scale=1, warn=False)
+        # export extras
+        row1 = column.row(align=True)
+        row1.operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
+        row2 = column.row(align=True)
+        row2.operator("cc3.exporter", icon="MESH_DATA", text="Export Replace Mesh").param = "EXPORT_MESH"
+        if not utils.get_active_object():
+            row1.enabled = False
+            row2.enabled = False
 
 
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
@@ -2254,7 +2267,9 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             column.separator()
 
         # Cache
-        column.box().row().label(text="Rigid Body Cache:", icon="PREVIEW_RANGE")
+        box = column.box()
+        box.row().label(text="Cloth Physics Cache:", icon="PREVIEW_RANGE")
+
         has_cloth, cloth_baked, cloth_baking, cloth_point_cache = physics.cloth_physics_state(bpy.context.object)
 
         column.row().label(text="Animation Range:")
@@ -2263,7 +2278,13 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         grid = row.grid_flow(columns=2, align=True)
         grid.operator("cc3.scene", icon="FULLSCREEN_ENTER", text="Expand").param = "ANIM_RANGE_EXPAND"
         grid.operator("cc3.scene", icon="FULLSCREEN_EXIT", text="Fit").param = "ANIM_RANGE_FIT"
+
+        column.separator()
+
         column.row().label(text="Cloth Simulation:")
+        if bpy.context.object:
+            column.label(text=bpy.context.object.name, icon="OBJECT_DATA")
+
         row = column.row()
         row.operator("cc3.scene", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "PHYSICS_PREP_CLOTH"
         if not has_cloth:
@@ -2768,8 +2789,8 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             pipeline_export_group(chr_cache, chr_rig, layout)
 
         # export extras
-        op = layout.row().operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
-        op = layout.row().operator("cc3.exporter", icon="MESH_DATA", text="Export Replace Mesh").param = "EXPORT_MESH"
+        layout.row().operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
+        layout.row().operator("cc3.exporter", icon="MESH_DATA", text="Export Replace Mesh").param = "EXPORT_MESH"
 
         layout.separator()
         box = layout.box()

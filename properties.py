@@ -1925,8 +1925,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_controls: bpy.props.BoolProperty(default=False)
     section_rigify_spring: bpy.props.BoolProperty(default=False)
     section_rigidbody_spring_ui: bpy.props.BoolProperty(default=True)
-    section_physics_cloth_settings: bpy.props.BoolProperty(default=True)
-    section_physics_collision_settings: bpy.props.BoolProperty(default=True)
+    section_physics_cloth_settings: bpy.props.BoolProperty(default=False)
+    section_physics_collision_settings: bpy.props.BoolProperty(default=False)
 
     retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
     bake_nla_shape_keys: bpy.props.BoolProperty(default=True)

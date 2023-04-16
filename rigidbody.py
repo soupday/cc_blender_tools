@@ -31,7 +31,7 @@ DAMPENING = 0.5
 LIMIT = 1.0
 ANGLE_RANGE = 120.0
 LINEAR_LIMIT = 0.001
-CURVE = 0.5
+CURVE = 1.0
 INFLUENCE = 1.0
 UPSCALE = 5.0
 
@@ -267,12 +267,14 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
                            "limit_ang_x_upper", "limit_ang_y_upper", "limit_ang_z_upper"]
         for prop in ang_limit_props:
             if "lower" in prop:
-                expr = f"-limit * 0.008726645 * {angular_limit_fac}"
+                expr = f"-limit * 0.008726645 * pow({angular_limit_fac}, curve)"
             else:
-                expr = f"limit * 0.008726645 * {angular_limit_fac}"
+                expr = f"limit * 0.008726645 * pow({angular_limit_fac}, curve)"
             driver = drivers.make_driver(rbc, prop, "SCRIPTED", expr)
             drivers.make_driver_var(driver, "SINGLE_PROP", "limit", parent_object,
                                     data_path = f"[\"rigid_body_angle_limit\"]")
+            drivers.make_driver_var(driver, "SINGLE_PROP", "curve", parent_object,
+                                    data_path = f"[\"rigid_body_curve\"]")
 
     if influence_driver:
         driver = drivers.make_driver(c, "influence", "SUM")
@@ -684,9 +686,9 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
         # connect the head and the tail together with a generic spring constraint
         connect_spring(arm, spring_rig_prefix, bone_name, head_body, tail_body,
                        parent_object = rigid_body_system,
-                       use_angular_spring=True, angular_limit_fac = fac,
+                       use_angular_spring=True,
                        use_linear_spring=False,
-                       use_angular_limit=True,
+                       use_angular_limit=True, angular_limit_fac = fac,
                        use_linear_limit=True,
                        )
 
@@ -1052,6 +1054,7 @@ def toggle_show_colliders(arm):
     hide_state = colliders_visible(arm, colliders)
     layer_collections = utils.get_view_layer_collections(search = COLLIDER_COLLECTION_NAME)
     for collection in layer_collections:
+        collection.exclude = False
         collection.hide_viewport = False
     for collider in colliders:
         collider.hide_set(hide_state)
@@ -1070,6 +1073,12 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
         bones.set_rig_bind_pose(rigify_rig)
         bones.show_all_layers(rigify_rig)
 
+        # make sure the colliders can be make visible and selectable
+        layer_collections = utils.get_view_layer_collections(search = COLLIDER_COLLECTION_NAME)
+        for collection in layer_collections:
+            collection.exclude = False
+            collection.hide_viewport = False
+
         colliders = get_rigid_body_colliders(cc3_rig)
         for obj in colliders:
             bone_name = obj.parent_bone
@@ -1080,11 +1089,18 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
                 bone : bpy.types.Bone = rigify_rig.data.bones[rigify_bone_name]
                 rigify_rig.data.bones.active = bone
                 utils.set_active_object(rigify_rig, True)
+                obj.hide_set(False)
                 obj.select_set(True)
                 bpy.ops.object.parent_set(type='BONE', keep_transform=True)
             else:
                 utils.log_error(f"Unable to map {bone_name} to rigify bone!")
                 utils.delete_mesh_object(obj)
+
+        # hide the colliders
+        for obj in colliders:
+            obj.hide_set(True)
+        for collection in layer_collections:
+            collection.hide_viewport = True
 
         bones.restore_armature_settings(cc3_rig, cc3_arm_settings)
         bones.restore_armature_settings(rigify_rig, rigify_arm_settings)

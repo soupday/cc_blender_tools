@@ -884,17 +884,14 @@ def add_layer_collections(layer_collection : bpy.types.LayerCollection, layer_co
         layer_collections.append(layer_collection)
     child_collection : bpy.types.LayerCollection
     for child_collection in layer_collection.children:
-        if not child_collection.exclude:
-            add_layer_collections(layer_collection, layer_collections, search)
+        add_layer_collections(child_collection, layer_collections, search)
 
 
 def get_view_layer_collections(search = None):
     layer_collections = []
     for view_layer in bpy.context.scene.view_layers:
-        layer_collection : bpy.types.LayerCollection
         for layer_collection in view_layer.layer_collection.children:
-            if not layer_collection.exclude:
-                add_layer_collections(layer_collection, layer_collections, search)
+            add_layer_collections(layer_collection, layer_collections, search)
     return layer_collections
 
 
