@@ -46,7 +46,7 @@ Links
     - FK, IK and tweak bones for spring rigs.
     - Rigify and spring bone UI updates.
     - Baking spring bone simulation and animation into new animations
-    - Exporting rigified spring bone animations, including the rigid body simulation as animation.
+    - Exporting rigified spring bone characters and animations, including the rigid body simulation as animation.
 - Cloth Physics overhaul:
     - Physics UI update.
     - Better mapping of PhysX weight map to blender vertex pin weights.
