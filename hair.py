@@ -1495,6 +1495,16 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     if not grease_pencil_layer:
         return
 
+    # turn off grease pencil on current object / mode (including object mode)
+    # (this is expected to be object mode on a hair mesh)
+    tool_idname = utils.get_current_tool_idname(bpy.context)
+    if "builtin.annotate" in tool_idname:
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+        mode = utils.get_mode()
+        if mode != "OBJECT":
+            utils.set_mode("OBJECT")
+            bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+
     #mode_selection = utils.store_mode_selection_state()
     arm_pose = reset_pose(arm)
 
@@ -1526,10 +1536,14 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
     remove_duplicate_bones(chr_cache, arm)
 
     utils.object_mode_to(arm)
+    # turn OFF grease pencil on armature : object mode
+    bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
 
     restore_pose(arm, arm_pose)
     #utils.restore_mode_selection_state(mode_selection)
     utils.edit_mode_to(arm)
+    # turn ON grease pencil on armature : edit mode
+    # (hopefully at this point grease pencil will only be on the armature in edit mode)
     bpy.ops.wm.tool_set_by_id(name="builtin.annotate")
 
 
