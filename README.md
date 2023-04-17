@@ -65,11 +65,6 @@ Links
 - Other:
     - Fix to eye close slider.
 
-
-
-
-
-
 ### 1.5.7
 - Hair bone de-duplication.
 - Bones from grease pencil lines or hair card generation now replaces (matching) existing bones.
