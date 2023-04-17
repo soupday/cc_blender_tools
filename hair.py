@@ -21,6 +21,7 @@ from . import physics, rigidbody, springbones, geom, utils, jsonutils, bones, me
 
 
 STROKE_JOIN_THRESHOLD = 1.0 / 100.0 # 1cm
+BONE_SMOOTH_LEVEL_CUSTOM_PROP = "rl_generated_smoothing_level"
 
 def begin_hair_sculpt(chr_cache):
     return
@@ -849,7 +850,7 @@ def bone_chain_matches_loop(arm, bone_list, loop, threshold = 0.001):
     return True
 
 
-def remove_existing_loop_bones(chr_cache, arm, loops):
+def remove_existing_loop_bones(chr_cache, arm, smoothed_loops):
     """Removes any bone chains in the hair rig that align with the loops"""
 
     props = bpy.context.scene.CC3ImportProps
@@ -866,7 +867,7 @@ def remove_existing_loop_bones(chr_cache, arm, loops):
     hair_rigs = springbones.get_spring_rigs(chr_cache, arm, ["HEAD", "JAW"], mode="EDIT")
 
     remove_bone_list = []
-    remove_loop_list = []
+    remove_loop_set_list = []
     removed_roots = []
 
     for parent_mode in hair_rigs:
@@ -878,8 +879,13 @@ def remove_existing_loop_bones(chr_cache, arm, loops):
                 chain_root : bpy.types.EditBone
                 if chain_root not in removed_roots:
                     chain_bones = get_linked_bones(chain_root, [])
-                    for loop in loops:
-                        if bone_chain_matches_loop(arm, chain_bones, loop, 0.001):
+                    for smoothed_loop_set in smoothed_loops:
+                        bone_smooth_level = 0
+                        if BONE_SMOOTH_LEVEL_CUSTOM_PROP in chain_root:
+                            bone_smooth_level = chain_root[BONE_SMOOTH_LEVEL_CUSTOM_PROP]
+                        bone_smooth_loop = smoothed_loop_set[bone_smooth_level]
+                        # compare the bone chain with the loop at it's generated smoothing level
+                        if bone_chain_matches_loop(arm, chain_bones, bone_smooth_loop, 0.001):
                             remove_bones = False
                             remove_loop = False
                             if bone_selection_mode == "SELECTED":
@@ -898,7 +904,7 @@ def remove_existing_loop_bones(chr_cache, arm, loops):
                                 removed_roots.append(chain_root)
                             if remove_loop:
                                 utils.log_info(f"Existing bone chain starting: {chain_root.name} will not be replaced.")
-                                remove_loop_list.append(loop)
+                                remove_loop_set_list.append(smoothed_loop_set)
 
         if remove_bone_list:
             for bone_name in remove_bone_list:
@@ -908,10 +914,10 @@ def remove_existing_loop_bones(chr_cache, arm, loops):
                 else:
                     utils.log_info(f"Already deleted: {bone_name} ?")
 
-        if remove_loop_list:
-            for loop in remove_loop_list:
-                if loop in loops:
-                    loops.remove(loop)
+        if remove_loop_set_list:
+            for smoothed_loop_set in remove_loop_set_list:
+                if smoothed_loop_set in smoothed_loops:
+                    smoothed_loops.remove(smoothed_loop_set)
                     utils.log_info(f"Removing loop from generation list")
 
     return
@@ -959,7 +965,8 @@ def remove_duplicate_bones(chr_cache, arm):
     return
 
 
-def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
+def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length,
+                  skip_length, trunc_length, smooth_level, new_bones):
     """Generate hair rig bones from vertex loops. Must be in edit mode on armature."""
 
     props = bpy.context.scene.CC3ImportProps
@@ -969,12 +976,20 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, sk
 
     length = loop_length(loop)
 
-    # maximum skip length of 3/4 length
-    skip_length = min(skip_length, 3.0 * length / 4.0)
-    segments = max(1, round((length - skip_length) / bone_length))
+    # maximum skip length of half the length
+    skip_length = min(skip_length, length / 2.0)
+    # maximum trunc length of half the remaining length
+    trunc_length = min(trunc_length, (length - skip_length) / 2.0)
+
+    # skip zero length loops
+    if length < 0.001:
+        return False
+
+    segments = max(1, round((length - skip_length - trunc_length) / bone_length))
 
     fac = skip_length / length
-    df = (1.0 - fac) / segments
+    max_fac = (length - trunc_length) / length
+    df = (max_fac - fac) / segments
     chain = []
     first = True
 
@@ -989,6 +1004,7 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, sk
         for s in range(0, segments):
             bone_name = f"{hair_bone_prefix}_{loop_index}_{s}"
             bone : bpy.types.EditBone = bones.new_edit_bone(arm, bone_name, parent_bone.name)
+            bone[BONE_SMOOTH_LEVEL_CUSTOM_PROP] = smooth_level
             new_bones.append(bone_name)
             bone.select = True
             bone.select_head = True
@@ -1017,8 +1033,16 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, sk
     return False
 
 
+def get_smoothed_loops_set(loops):
+    smoothed_loops_set = []
+    for loop in loops:
+        smoothed_loops_set.append(generate_smoothed_loop_levels(loop))
+    return smoothed_loops_set
+
+
 def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dirs,
-                            one_loop_per_card = True, bone_length = 0.075, skip_length = 0.075):
+                            one_loop_per_card = True, bone_length = 0.075,
+                            skip_length = 0.075, trunc_length = 0.0, smooth_level = 0):
     """Lengths in world space units (m)."""
 
     props = bpy.context.scene.CC3ImportProps
@@ -1044,12 +1068,15 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dirs,
                 edit_bone.select = False
         for card in cards:
             loops = card["loops"]
-            remove_existing_loop_bones(chr_cache, arm, loops)
+            smoothed_loops_set = get_smoothed_loops_set(loops)
+            remove_existing_loop_bones(chr_cache, arm, smoothed_loops_set)
             loop_index = 1
             new_bones = []
-            for loop in loops:
+            for smoothed_loop in smoothed_loops_set:
+                loop = smoothed_loop[smooth_level]
                 loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
-                if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
+                if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index,
+                                 bone_length, skip_length, trunc_length, smooth_level, new_bones):
                     loop_index += 1
 
     remove_duplicate_bones(chr_cache, arm)
@@ -1449,20 +1476,19 @@ def subdivide_loop(loop):
         loop.append(co)
 
 
-def smooth_loop(loop):
-    strength = 0.5
-    #iterations = min(10, max(1, int(len(loop) / 5)))
-    iterations = 10
-    smoothed_loop = loop.copy()
-    for i in range(0, iterations):
-        for l in range(0, len(loop)):
-            smoothed_loop[l] = loop[l]
-        for l in range(1, len(loop)-1):
-            smoothed = (loop[l - 1] + loop[l] + loop[l + 1]) / 3.0
-            original = loop[l]
-            smoothed_loop[l] = (smoothed - original) * strength + original
-        for l in range(0, len(loop)):
-            loop[l] = smoothed_loop[l]
+def generate_smoothed_loop_levels(loop, strength = 0.5, max_iterations = 10):
+    """Returns a dictionary { iteration_level: smoothed_loop, ... } of loops smoothed by iteration level (0 to max_iterations+1)"""
+    smoothed_levels = {}
+    for i in range(0, max_iterations + 1):
+        smooth_level = loop.copy()
+        smoothed_levels[i] = smooth_level
+        if i > 0:
+            for l in range(1, len(loop)-1):
+                smoothed = (loop[l - 1] + loop[l] + loop[l + 1]) / 3.0
+                original = loop[l]
+                smooth_level[l] = (smoothed - original) * strength + original
+        loop = smooth_level
+    return smoothed_levels
 
 
 def grease_pencil_to_length_loops(bone_length):
@@ -1482,13 +1508,14 @@ def grease_pencil_to_length_loops(bone_length):
         if len(loop) > 1 and loop_length(loop) >= bone_length / 2:
             while(len(loop) < 25):
                 subdivide_loop(loop)
-            smooth_loop(loop)
+            generate_smoothed_loop_levels(loop, max_iterations=5)
             loops.append(loop)
 
     return loops
 
 
-def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
+def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05,
+                           skip_length = 0.0, trunc_length = 0.0, smooth_level = 0):
     props = bpy.context.scene.CC3ImportProps
 
     grease_pencil_layer = get_active_grease_pencil_layer()
@@ -1520,8 +1547,9 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
 
     if anchor_bone:
         loops = grease_pencil_to_length_loops(bone_length)
+        smoothed_loops_set = get_smoothed_loops_set(loops)
         utils.edit_mode_to(arm)
-        remove_existing_loop_bones(chr_cache, arm, loops)
+        remove_existing_loop_bones(chr_cache, arm, smoothed_loops_set)
         for edit_bone in arm.data.edit_bones:
             edit_bone.select_head = False
             edit_bone.select_tail = False
@@ -1530,7 +1558,8 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05, skip
         new_bones = []
         for loop in loops:
             loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
-            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length, skip_length, new_bones):
+            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index,
+                             bone_length, skip_length, trunc_length, smooth_level, new_bones):
                 loop_index += 1
 
     remove_duplicate_bones(chr_cache, arm)
@@ -1707,7 +1736,9 @@ class CC3OperatorHair(bpy.types.Operator):
                                         props.hair_dir_vectors(),
                                         one_loop_per_card = True,
                                         bone_length = props.hair_rig_bone_length / 100.0,
-                                        skip_length = props.hair_rig_bind_skip_length / 100.0)
+                                        skip_length = props.hair_rig_bind_skip_length / 100.0,
+                                        trunc_length = props.hair_rig_bind_trunc_length / 100.0,
+                                        smooth_level = props.hair_rig_bone_smoothing)
             else:
                 self.report({"ERROR"}, "Active Object must be a mesh!")
 
@@ -1717,7 +1748,9 @@ class CC3OperatorHair(bpy.types.Operator):
                 arm.hide_set(False)
                 grease_pencil_to_bones(chr_cache, arm, props.hair_rig_bone_root,
                                        bone_length = props.hair_rig_bone_length / 100.0,
-                                       skip_length = props.hair_rig_bind_skip_length / 100.0)
+                                       skip_length = props.hair_rig_bind_skip_length / 100.0,
+                                       trunc_length = props.hair_rig_bind_trunc_length / 100.0,
+                                       smooth_level = props.hair_rig_bone_smoothing)
             else:
                 self.report({"ERROR"}, "Active Object be part of the character!")
 

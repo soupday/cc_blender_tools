@@ -978,8 +978,12 @@ class CC3SpringRigPanel(bpy.types.Panel):
 
             column.separator()
 
-            column.row().prop(props, "hair_rig_bone_length", text="Bone Length (cm)", slider=True)
-            column.row().prop(props, "hair_rig_bind_skip_length", text="Skip Length (cm)", slider=True)
+            grid = column.grid_flow(columns=1)
+            grid.prop(props, "hair_rig_bone_length", text="Bone Length (cm)", slider=True)
+            grid.prop(props, "hair_rig_bind_skip_length", text="Skip Length (cm)", slider=True)
+            grid.prop(props, "hair_rig_bind_trunc_length", text="Truncate Length (cm)", slider=True)
+            grid.prop(props, "hair_rig_bone_smoothing", text="Smoothing Steps", slider=True)
+
 
             column.separator()
 
@@ -1061,19 +1065,20 @@ class CC3SpringRigPanel(bpy.types.Panel):
 
             column.separator()
 
-            column.row().prop(props, "hair_rig_bind_bone_mode", expand=True)
-            column.row().prop(props, "hair_rig_bind_card_mode", expand=True)
-            column.separator()
-            column.row().prop(props, "hair_rig_bind_bone_radius", text="Bind Radius (cm)", slider=True)
-            column.row().prop(props, "hair_rig_bind_bone_count", text="Bind Bones", slider=True)
-            column.row().prop(props, "hair_rig_bind_bone_weight", text="Weight Scale", slider=True)
-            column.row().prop(props, "hair_rig_bind_weight_curve", text="Weight Curve", slider=True)
-            column.row().prop(props, "hair_rig_bind_bone_variance", text="Weight Variance", slider=True)
-            column.row().prop(props, "hair_rig_bind_smoothing", text="Smoothing", slider=True)
-            column.row().prop(props, "hair_rig_bind_seed", text="Random Seed", slider=True)
+            grid = column.grid_flow(columns=1)
+            grid.row().prop(props, "hair_rig_bind_bone_mode", expand=True)
+            grid.row().prop(props, "hair_rig_bind_card_mode", expand=True)
+            grid.separator()
+            grid.prop(props, "hair_rig_bind_bone_radius", text="Bind Radius (cm)", slider=True)
+            grid.prop(props, "hair_rig_bind_bone_count", text="Bind Bones", slider=True)
+            grid.prop(props, "hair_rig_bind_bone_weight", text="Weight Scale", slider=True)
+            grid.prop(props, "hair_rig_bind_weight_curve", text="Weight Curve", slider=True)
+            grid.prop(props, "hair_rig_bind_bone_variance", text="Weight Variance", slider=True)
+            grid.prop(props, "hair_rig_bind_smoothing", text="Smoothing", slider=True)
+            grid.prop(props, "hair_rig_bind_seed", text="Random Seed", slider=True)
             if props.hair_rig_target != "CC4":
-                column.separator()
-                column.row().prop(props, "hair_rig_bind_existing_scale", text="Scale Body Weights", slider=True)
+                grid.separator()
+                grid.prop(props, "hair_rig_bind_existing_scale", text="Scale Body Weights", slider=True)
             column.separator()
             row = column.row()
             row.scale_y = 1.5
