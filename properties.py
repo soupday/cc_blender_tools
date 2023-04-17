@@ -2053,7 +2053,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("CC4","CC4","Generate a compatible spring rig for Character Creator and iClone.\n"
                         "For Character Creator spring rigs, all other vertex weights are removed, and the first bone of each chain is fixed in place."),
                         ("UNITY","Unity","Generate a spring rig for Unity"),
-                    ], default="UNITY", name = "Rig Target Application", update=update_rig_target)
+                    ], default="BLENDER", name = "Rig Target Application", update=update_rig_target)
 
     hair_rig_group_name: bpy.props.StringProperty(name="Group Name", default="RL_Hair",
                                                   description="Name to assign to selected bone chains as a separate group")
