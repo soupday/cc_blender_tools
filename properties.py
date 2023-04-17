@@ -463,7 +463,7 @@ def update_rig_target(self, context):
         elif self.hair_rig_target == "BLENDER":
             self.hair_rig_bone_length = 7.5
             self.hair_rig_bind_skip_length = 7.5/2.0
-            self.hair_rig_bind_trunc_length = 2.0
+            self.hair_rig_bind_trunc_length = 2.5
             self.hair_rig_bind_bone_radius = 11.25
             self.hair_rig_bind_existing_scale = 1.0
             self.hair_rig_bind_bone_count = 2
@@ -2003,10 +2003,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     hair_rig_bone_smoothing: bpy.props.IntProperty(default=5, min=0, max=10,
             description="How much to smooth the curve of the generated bones from hair cards or greased pencil")
-    hair_rig_bind_skip_length: bpy.props.FloatProperty(default=7.5, min=0.0, max=20.0,
+    hair_rig_bind_skip_length: bpy.props.FloatProperty(default=3.75, min=0.0, max=20.0,
             description="How far along the hair card to start generating bones, "
             "as rooting the bones to the very start of the hair cards can produce unwanted results")
-    hair_rig_bind_trunc_length: bpy.props.FloatProperty(default=2.0, min=0.0, max=10.0,
+    hair_rig_bind_trunc_length: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0,
             description="How far from the end of the hair card to stop generating bones")
     hair_rig_bone_length: bpy.props.FloatProperty(default=7.5, min=2.5, max=25,
             description="How long a section of each hair card the bones should represent")

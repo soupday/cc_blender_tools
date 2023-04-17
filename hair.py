@@ -1476,7 +1476,7 @@ def subdivide_loop(loop):
         loop.append(co)
 
 
-def generate_smoothed_loop_levels(loop, strength = 0.5, max_iterations = 10):
+def generate_smoothed_loop_levels(loop, strength = 1.0, max_iterations = 10):
     """Returns a dictionary { iteration_level: smoothed_loop, ... } of loops smoothed by iteration level (0 to max_iterations+1)"""
     smoothed_levels = {}
     for i in range(0, max_iterations + 1):
@@ -1508,7 +1508,6 @@ def grease_pencil_to_length_loops(bone_length):
         if len(loop) > 1 and loop_length(loop) >= bone_length / 2:
             while(len(loop) < 25):
                 subdivide_loop(loop)
-            generate_smoothed_loop_levels(loop, max_iterations=5)
             loops.append(loop)
 
     return loops
@@ -1556,7 +1555,8 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05,
             edit_bone.select = False
         loop_index = 1
         new_bones = []
-        for loop in loops:
+        for smoothed_loop in smoothed_loops_set:
+            loop = smoothed_loop[smooth_level]
             loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
             if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index,
                              bone_length, skip_length, trunc_length, smooth_level, new_bones):

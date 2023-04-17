@@ -39,7 +39,8 @@ Links
 - Spring Bones:
     - Blender spring bone rigid body simulation added for spring bone hair rigs.
     - Spring bone simulation controls.
-    - Spring bone chain renaming.
+    - Hair spring bone chain renaming.
+    - Bone generation truncate and smoothing parameters.
     - Added support for not quad grid poly mesh hair cards, should work with any hair mesh.
     - Rigid body colliders for the spring bones that use the collision shapes from character creator.
     - Rigify update for spring bone system.
