@@ -65,7 +65,12 @@ def read_json(fbx_path, errors):
         return None
 
 
-def write_json(json_data, path):
+def write_json(json_data, path, is_fbx_path = False):
+    if is_fbx_path:
+        file = os.path.basename(path)
+        folder = os.path.dirname(path)
+        name = os.path.splitext(file)[0]
+        path = os.path.join(folder, name + ".json")
     json_object = json.dumps(json_data, indent = 4)
     with open(path, "w") as write_file:
         write_file.write(json_object)
@@ -165,6 +170,31 @@ def get_object_json(chr_json, obj):
     except:
         utils.log_warn("Failed to get object Json data!")
         return None
+
+
+def get_physics_json(chr_json):
+    try:
+        return chr_json["Physics"]
+    except:
+        return None
+
+
+def get_soft_physics_json(physics_json, obj, mat):
+    try:
+        obj_name = utils.strip_name(obj.name).lower()
+        mat_name = utils.strip_name(mat.name).lower()
+        soft_physics_mesh_json = physics_json["Soft Physics"]["Meshes"]
+        for object_name in soft_physics_mesh_json:
+            if object_name.lower() == obj_name:
+                materials_json = soft_physics_mesh_json[object_name]["Materials"]
+                for material_name in materials_json:
+                    if material_name.lower() == mat_name:
+                        return materials_json[material_name]
+        return None
+    except:
+        utils.log_warn("Failed to get soft physics material Json data!")
+        return None
+
 
 def get_physics_mesh_json(physics_json, obj):
     if not physics_json:

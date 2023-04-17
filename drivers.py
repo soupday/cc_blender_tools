@@ -43,7 +43,7 @@ def make_driver_var(driver, var_type, var_name, target, target_type = "OBJECT", 
     return var
 
 
-def make_driver(source, prop_name, driver_type, driver_expression = ""):
+def make_driver(source, prop_name, driver_type, driver_expression = "", index = -1):
     """
     prop_name = "value", "influence"\n
     driver_type = "SUM", "SCRIPTED"\n
@@ -52,7 +52,10 @@ def make_driver(source, prop_name, driver_type, driver_expression = ""):
     driver = None
     if source:
         fcurve : bpy.types.FCurve
-        fcurve = source.driver_add(prop_name)
+        if index > -1:
+            fcurve = source.driver_add(prop_name, index)
+        else:
+            fcurve = source.driver_add(prop_name)
         driver : bpy.types.Driver = fcurve.driver
         if driver_type == "SUM":
             driver.type = driver_type
@@ -62,5 +65,28 @@ def make_driver(source, prop_name, driver_type, driver_expression = ""):
     return driver
 
 
-def add_custom_float_property(object, prop_name, prop_value, value_min = 0, value_max = 1, overridable = True):
-    rna_idprop_ui_create(object, prop_name, default=prop_value, overridable=overridable, min=value_min, max=value_max)
+def add_custom_float_property(object, prop_name, prop_value : float,
+                              value_min : float = 0.0, value_max : float = 1.0,
+                              soft_min = None, soft_max = None,
+                              overridable = True,
+                              description : str = ""):
+
+    if soft_max is None:
+        soft_max = value_max
+    if soft_min is None:
+        soft_min = value_min
+
+    rna_idprop_ui_create(object, prop_name, default=prop_value, overridable=overridable,
+                         min=value_min, max=value_max, soft_min=soft_min, soft_max=soft_max, description=description)
+
+
+def add_custom_string_property(object, prop_name, prop_value : str,
+                              overridable = True,
+                              description : str = ""):
+
+    object[prop_name] = prop_value
+    try:
+        id_props = object.id_properties_ui(prop_name)
+        id_props.update(default=prop_value, description=description)
+    except:
+        pass

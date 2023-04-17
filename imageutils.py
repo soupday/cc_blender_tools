@@ -190,6 +190,7 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
 
     # temp weight maps in the cache override weight maps on disk
     if texture_type == "WEIGHTMAP" and mat_cache.temp_weight_map is not None:
+        utils.log_info(f"Using material cache user weightmap: {mat_cache.temp_weight_map.name}")
         return mat_cache.temp_weight_map
 
     # try to find as library image

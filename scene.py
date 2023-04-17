@@ -16,10 +16,11 @@
 
 import math
 import os
+import time
 
 import bpy
 
-from . import colorspace, imageutils, nodeutils, physics, modifiers, utils, vars
+from . import colorspace, imageutils, nodeutils, rigidbody, physics, modifiers, utils, vars
 
 
 def add_target(name, location):
@@ -591,21 +592,37 @@ def render_animation(context):
     pass
 
 
-def fetch_anim_range(context):
+def fetch_anim_range(context, expand = False, fit = True):
     """Fetch anim range from character animation.
     """
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
-
     arm = chr_cache.get_armature()
     if arm:
         action = utils.safe_get_action(arm)
         if action:
-            frame_start = math.floor(action.frame_range[0])
-            frame_end = math.ceil(action.frame_range[1])
-            context.scene.frame_start = frame_start
-            context.scene.frame_end = frame_end
-            return
+            if bpy.context.scene.use_preview_range:
+                start = bpy.context.scene.frame_preview_start
+                end = bpy.context.scene.frame_preview_end
+            else:
+                start = bpy.context.scene.frame_start
+                end = bpy.context.scene.frame_end
+            action_start = math.floor(action.frame_range[0])
+            action_end = math.ceil(action.frame_range[1])
+            if expand:
+                if action_start < start:
+                    start = action_start
+                if action_end > end:
+                    end = action_end
+            elif fit:
+                start = action_start
+                end = action_end
+            if bpy.context.scene.use_preview_range:
+                bpy.context.scene.frame_preview_start = start
+                bpy.context.scene.frame_preview_end = end
+            else:
+                bpy.context.scene.frame_start = start
+                bpy.context.scene.frame_end = end
 
 
 def cycles_setup(context):
@@ -635,14 +652,51 @@ class CC3Scene(bpy.types.Operator):
         )
 
     def execute(self, context):
+
         if self.param == "RENDER_IMAGE":
             render_image(context)
+
         elif self.param == "RENDER_ANIMATION":
             render_animation(context)
-        elif self.param == "ANIM_RANGE":
-            fetch_anim_range(context)
-        elif self.param == "PHYSICS_PREP":
-            physics.prepare_physics_bake(context)
+
+        elif self.param == "ANIM_RANGE_EXPAND":
+            fetch_anim_range(context, expand=True)
+
+        elif self.param == "ANIM_RANGE_FIT":
+            fetch_anim_range(context, fit=True)
+
+        elif self.param == "PHYSICS_PREP_CLOTH":
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+            # reset the physics
+            physics.reset_cache(context)
+            # reset the animation
+            bpy.ops.screen.frame_jump(end = False)
+
+        elif self.param == "PHYSICS_PREP_RBW":
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+            # reset the physics
+            rigidbody.reset_cache(context)
+            # reset the animation
+            bpy.ops.screen.frame_jump(end = False)
+
+        elif self.param == "PHYSICS_PREP_ALL":
+            # stop any playing animation
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+            # jump to end
+            bpy.ops.screen.frame_jump(end = True)
+            # reset the physics
+            physics.reset_cache(context, all_objects=True)
+            rigidbody.reset_cache(context)
+            bpy.ops.ptcache.free_bake_all()
+            # reset the animation
+            bpy.ops.screen.frame_jump(end = False)
+            bpy.context.view_layer.update()
+
         elif self.param == "CYCLES_SETUP":
             cycles_setup(context)
         else:
@@ -651,6 +705,7 @@ class CC3Scene(bpy.types.Operator):
                 compositor_setup()
                 world_setup()
                 utils.message_box("World nodes and compositor template set up.")
+
         return {"FINISHED"}
 
     @classmethod
@@ -672,10 +727,18 @@ class CC3Scene(bpy.types.Operator):
             return "Renders a single image"
         elif properties.param == "RENDER_ANIMATION":
             return "Renders the current animation range"
-        elif properties.param == "ANIM_RANGE":
+        elif properties.param == "ANIM_RANGE_EXPAND":
+            return "Expands the animation range to include the range on the Action on the current character"
+        elif properties.param == "ANIM_RANGE_FIT":
             return "Sets the animation range to the same range as the Action on the current character"
-        elif properties.param == "PHYSICS_PREP":
-            return "Sets all the physics bake ranges to the same as the current scene animation range"
+        elif properties.param == "PHYSICS_PREP_CLOTH":
+            return "Resets the physics point cache on all cloth objects and synchronizes the physics point cache ranges " \
+                   "on all cloth objects to fit the current scene animation range.\n\n" \
+                   "i.e. if the point cache frame range does not cover the current scene range (or preview range) it will be extended to fit"
+        elif properties.param == "PHYSICS_PREP_RBW":
+            return "Resets the physics point cache for the rigid body world and synchronizes the physics point cache range " \
+                   "to fit the current scene animation range.\n\n" \
+                   "i.e. if the point cache frame range does not cover the current scene range (or preview range) it will be extended to fit"
         elif properties.param == "CYCLES_SETUP":
             return "Applies Shader Terminator Offset and subdivision to all meshes"
 

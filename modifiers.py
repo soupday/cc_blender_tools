@@ -21,9 +21,11 @@ from . import materials, meshutils, utils, vars
 MOD_MULTIRES = "MULTIRES"
 MOD_MULTIRES_NAME = "Multi_Res_Sculpt"
 
-def get_object_modifier(obj, type, name = ""):
+def get_object_modifier(obj, type, name = "", before_type=None):
     if obj is not None:
         for mod in obj.modifiers:
+            if before_type and mod.type == before_type:
+                return None
             if name == "":
                 if mod.type == type:
                     return mod
@@ -85,12 +87,17 @@ def move_mod_first(obj, mod):
     return False
 
 
-def add_armature_modifier(obj, create = False):
+def add_armature_modifier(obj, create = False, armature = None):
+    mod = None
     if obj is not None:
         for mod in obj.modifiers:
             if mod.type == "ARMATURE":
-                return mod
-    return obj.modifiers.new(name = "Armature", type = "ARMATURE")
+                break
+    if not mod:
+        mod = obj.modifiers.new(name = "Armature", type = "ARMATURE")
+    if mod and armature:
+        mod.object = armature
+    return mod
 
 
 # Physics modifiers
@@ -104,40 +111,29 @@ def get_cloth_physics_mod(obj):
     return None
 
 
-def get_collision_physics_mod(chr_cache, obj):
-    obj_cache = chr_cache.get_object_cache(obj)
+def get_collision_physics_mod(obj):
     if obj is not None:
         for mod in obj.modifiers:
             if mod.type == "COLLISION":
                 return mod
-        if obj_cache and obj_cache.object_type == "BODY":
-            if chr_cache.collision_body:
-                try:
-                    for mod in chr_cache.collision_body.modifiers:
-                        if mod.type == "COLLISION":
-                            return mod
-                except:
-                    pass
     return None
 
 
-def get_weight_map_mods(obj):
-    edit_mods = []
-    mix_mods = []
+def has_cloth_weight_map_mods(obj):
     if obj is not None:
         for mod in obj.modifiers:
             if mod.type == "VERTEX_WEIGHT_EDIT" and vars.NODE_PREFIX in mod.name:
-                edit_mods.append(mod)
+                return True
             if mod.type == "VERTEX_WEIGHT_MIX" and vars.NODE_PREFIX in mod.name:
-                mix_mods.append(mod)
-    return edit_mods, mix_mods
+                return True
+    return False
 
 
 def get_material_weight_map_mods(obj, mat):
     edit_mod = None
     mix_mod = None
     if obj is not None and mat is not None:
-        mat_name = utils.strip_name(mat.name)
+        mat_name = utils.safe_export_name(mat.name)
         for mod in obj.modifiers:
             if mod.type == "VERTEX_WEIGHT_EDIT" and (vars.NODE_PREFIX + mat_name + "_WeightEdit") in mod.name:
                 edit_mod = mod
@@ -352,10 +348,17 @@ def has_modifier(obj, modifier_type):
     return False
 
 
-def apply_modifier(obj : bpy.types.Object, mod):
-    utils.object_mode_to(obj)
-    utils.set_only_active_object(obj)
-    bpy.ops.object.modifier_apply(modifier = mod.name)
+def apply_modifier(obj, modifier = None, type = None):
+    if obj:
+        if type:
+            for mod in obj.modifiers:
+                if mod.type == type:
+                    modifier = mod
+                    break
+        if modifier:
+            utils.object_mode_to(obj)
+            utils.set_only_active_object(obj)
+            bpy.ops.object.modifier_apply(modifier = mod.name)
 
 
 def remove_material_weight_maps(obj, mat):

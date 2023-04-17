@@ -14,12 +14,11 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-from cmath import exp
 import bpy
 import textwrap
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, characters, sculpting, hair, physics, colorspace, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, rigify_mapping_data, characters, sculpting, springbones, hair, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
@@ -54,16 +53,35 @@ def context_character(context):
     return chr_cache, obj, mat, obj_cache, mat_cache
 
 
+def context_mesh_object(context):
+    if utils.object_exists_is_mesh(context.object):
+        return context.object
+    return None
+
+
+def context_armature_object(context):
+    if utils.object_exists_is_armature(context.object):
+        return context.object
+    return None
+
+
 # Panel functions and classes
 #
 
-def fake_drop_down(row, label, prop_name, prop_bool_value, icon = "TRIA_DOWN"):
+def fake_drop_down(row, label, prop_name, prop_bool_value, icon = "TRIA_DOWN", icon_closed = "TRIA_RIGHT"):
     props = bpy.context.scene.CC3ImportProps
+    row.alignment="LEFT"
+
     if prop_bool_value:
-        row.prop(props, prop_name, icon=icon, icon_only=True, emboss=False)
+        row.prop(props, prop_name, icon=icon, text=label, emboss=False)
     else:
-        row.prop(props, prop_name, icon="TRIA_RIGHT", icon_only=True, emboss=False)
-    row.label(text=label)
+        row.prop(props, prop_name, icon=icon_closed, text=label, emboss=False)
+
+    if icon != "TRIA_DOWN":
+        if prop_bool_value:
+            row.prop(props, prop_name, icon="TRIA_DOWN", icon_only=True, emboss=False)
+        else:
+            row.prop(props, prop_name, icon="TRIA_RIGHT", icon_only=True, emboss=False)
     return prop_bool_value
 
 
@@ -78,14 +96,25 @@ def get_layout_width(region_type = "UI"):
     return width
 
 
-def wrapped_text_box(layout, info_text, width, alert = False):
+def wrapped_text_box(layout, info_text, width, alert = False, icon = None):
     wrapper = textwrap.TextWrapper(width=width)
     info_list = wrapper.wrap(info_text)
 
     box = layout.box()
     box.alert = alert
+    first = True
     for text in info_list:
-        box.label(text=text)
+        if first and icon:
+            box.label(text=text, icon=icon)
+        else:
+            box.label(text=text)
+        first = False
+
+
+def warn_icon(row, icon = "ERROR"):
+    col = row.column()
+    col.alert = True
+    col.label(text="", icon=icon)
 
 
 def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type = True, show_type_selector = True):
@@ -177,7 +206,7 @@ def rigify_export_group(chr_cache, layout):
     layout.row().prop(props, "export_rigify_mode", expand=True)
 
 
-def character_export_button(chr_cache, chr_rig, layout):
+def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, scale=2, warn=True):
     # export to CC3
     text = "Export to CC3/4"
     icon = "MOD_ARMATURE"
@@ -187,14 +216,14 @@ def character_export_button(chr_cache, chr_rig, layout):
 
     if chr_cache:
         row = layout.row()
-        row.scale_y = 2
+        row.scale_y = scale
         if chr_cache and utils.is_file_ext(chr_cache.import_type, "OBJ"):
             text = "Export Morph Target"
             icon = "ARROW_LEFTRIGHT"
-        op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
+        row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
         if not chr_cache.can_export():
             row.enabled = False
-            if not chr_cache.import_has_key:
+            if warn and not chr_cache.import_has_key:
                 if utils.is_file_ext(chr_cache.import_type, "FBX"):
                     layout.row().label(text="No Fbx-Key file!", icon="ERROR")
                 elif utils.is_file_ext(chr_cache.import_type, "OBJ"):
@@ -202,19 +231,20 @@ def character_export_button(chr_cache, chr_rig, layout):
 
     elif chr_rig:
         row = layout.row()
-        row.scale_y = 2
+        row.scale_y = scale
         text = "Export Non-Standard"
         icon = "MONKEY"
-        op = row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_NON_STANDARD"
+        row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_NON_STANDARD"
 
     else:
         row = layout.row()
-        row.scale_y = 2
+        row.scale_y = scale
         row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
         row.enabled = False
-        row = layout.row()
-        row.alert = True
-        row.label(text="No current character!", icon="ERROR")
+        if warn:
+            row = layout.row()
+            row.alert = True
+            row.label(text="No current character!", icon="ERROR")
 
 
 def character_export_unity_button(chr_cache, layout):
@@ -236,6 +266,207 @@ def character_export_unity_button(chr_cache, layout):
     # disable if no character, or not an fbx import
     if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
         column.enabled = False
+
+
+def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
+                      fixed_parent=False, only_parent_mode=None,
+                      show_selector=True, enabled=True):
+
+    props = bpy.context.scene.CC3ImportProps
+
+    if not chr_cache or not arm:
+        return
+
+    rigid_body = rigidbody.get_rigid_body(chr_cache, obj)
+    rigid_body_sim = None
+    parent_mode = chr_cache.available_spring_rigs
+    if fixed_parent:
+        parent_mode = only_parent_mode
+    prefix = springbones.get_spring_rig_prefix(parent_mode)
+    rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
+    has_spring_rig = springbones.has_spring_rig(chr_cache, arm, parent_mode)
+
+    box = layout.box()
+    if fake_drop_down(box.row(),
+            "Rigid Body Sim",
+            "section_rigidbody_spring_ui",
+            props.section_rigidbody_spring_ui,
+            icon="BLENDER", icon_closed="BLENDER"):
+
+        column = box.column()
+        column.enabled = enabled
+
+        if not fixed_parent and show_selector:
+            split = column.split(factor=0.45)
+            split.column().label(text="Hair System")
+            #split.column().prop(props, "hair_rig_bone_root", text="")
+            split.column().prop(chr_cache, "available_spring_rigs", text="")
+
+        if not has_spring_rig:
+            row = column.row()
+            row.label(text = "No Spring Rig", icon="ERROR")
+
+        if rigid_body_sim:
+            split = column.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Influence")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_influence\"]", text="", slider=True)
+            col_1.label(text="Restrain")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_limit\"]", text="", slider=True)
+            col_1.label(text="Curve")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_curve\"]", text="", slider=True)
+            col_1.label(text="Mass")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_mass\"]", text="", slider=True)
+            col_1.label(text="Margin")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_margin\"]", text="", slider=True)
+            col_1.label(text="Dampening")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_dampening\"]", text="", slider=True)
+            col_1.label(text="Stiffness")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_stiffness\"]", text="", slider=True)
+            col_1.label(text="Angle Range")
+            col_2.prop(rigid_body_sim, "[\"rigid_body_angle_limit\"]", text="", slider=True)
+
+            column.separator()
+
+        if parent_mode:
+            if not rigid_body_sim:
+                row = column.row()
+                row.scale_y = 2.0
+                row.operator("cc3.springbones", icon=utils.check_icon("CON_KINEMATIC"), text="Build Simulation").param = "MAKE_RIGID_BODY_SYSTEM"
+                column.separator()
+                if not has_spring_rig:
+                    row.enabled = False
+            else:
+                row = column.row()
+                row.scale_y = 2.0
+                warn_icon(row, "X")
+                row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Remove Simulation").param = "REMOVE_RIGID_BODY_SYSTEM"
+                column.separator()
+        else:
+            column.row().label(text = "No spring rig selected", icon="ERROR")
+
+        column.row().label(text="Rigid Body Colliders:")
+
+        if rigidbody.has_rigid_body_colliders(arm):
+            row = column.row(align=True)
+            colliders_visible = rigidbody.colliders_visible(arm)
+            row.operator("cc3.springbones", icon=utils.check_icon("HIDE_OFF"), text="", depress=colliders_visible).param = "TOGGLE_SHOW_COLLIDERS"
+            is_pose_position = rigging.is_rig_rest_position(chr_cache)
+            row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+            row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Remove Colliders").param = "REMOVE_COLLIDERS"
+            #column.row().prop(rigid_body, "collision_margin", text="Collision Margin", slider=True)
+        else:
+            column.row().operator("cc3.springbones", icon=utils.check_icon("META_CAPSULE"), text="Add Colliders").param = "BUILD_COLLIDERS"
+
+        column.separator()
+
+        # Cache
+        has_rigidbody, rigidbody_baked, rigidbody_baking, rigidbody_point_cache = springbones.rigidbody_state()
+
+        column.row().label(text="Animation Range:")
+        row = column.row(align=True)
+        row.prop(bpy.context.scene, "use_preview_range", text="", toggle=True)
+        grid = row.grid_flow(columns=2, align=True)
+        grid.operator("cc3.scene", icon="FULLSCREEN_ENTER", text="Expand").param = "ANIM_RANGE_EXPAND"
+        grid.operator("cc3.scene", icon="FULLSCREEN_EXIT", text="Fit").param = "ANIM_RANGE_FIT"
+        column.row().label(text="Rigid Body Cache:")
+        row = column.row()
+        row.operator("cc3.springbones", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "RESET_PHYSICS"
+        row = column.row()
+        row.scale_y = 1.5
+        row.context_pointer_set("point_cache", rigidbody_point_cache)
+        depress = rigidbody_baking
+        row.alert = rigidbody_baked
+        if rigidbody_baked:
+            row.operator("ptcache.free_bake", text="Free Simulation", icon="REC")
+        else:
+            row.operator("ptcache.bake", text="Bake Simulation", icon="REC", depress=rigidbody_baking).bake = True
+
+
+def cache_timeline_physics_ui(chr_cache, layout : bpy.types.UILayout):
+    if not chr_cache:
+        return
+    layout.box().label(text="Timeline & Physics Cache", icon="PREVIEW_RANGE")
+    layout.row().label(text="Animation Range:")
+    row = layout.row(align=True)
+    row.prop(bpy.context.scene, "use_preview_range", text="", toggle=True)
+    grid = row.grid_flow(columns=2, align=True)
+    grid.operator("cc3.scene", icon="FULLSCREEN_ENTER", text="Expand").param = "ANIM_RANGE_EXPAND"
+    grid.operator("cc3.scene", icon="FULLSCREEN_EXIT", text="Fit").param = "ANIM_RANGE_FIT"
+
+    layout.separator()
+
+    """
+    if not bpy.data.filepath:
+        row = layout.row()
+        row.alert = True
+        row.label(text="Blendfile should be saved", icon="ERROR")
+        row = layout.row()
+        row.alert = True
+        row.label(text="before baking physics", icon="REMOVE")
+        layout.separator()
+    """
+
+    if bpy.context.object:
+        layout.label(text=bpy.context.object.name, icon="OBJECT_DATA")
+
+    has_cloth, cloth_baked, cloth_baking, cloth_point_cache = physics.cloth_physics_state(bpy.context.object)
+    has_rigidbody, rigidbody_baked, rigidbody_baking, rigidbody_point_cache = springbones.rigidbody_state()
+
+    grid = layout.grid_flow(row_major=True, columns=2)
+
+    grid_column = grid.column(align=True)
+    grid_column.label(text="Cloth Physics", icon="MOD_CLOTH")
+
+    row = grid_column.row(align=True)
+    row.operator("cc3.scene", icon="LOOP_BACK", text="Reset").param = "PHYSICS_PREP_CLOTH"
+    row = grid_column.row(align=True)
+    row.context_pointer_set("point_cache", cloth_point_cache)
+    row.scale_y = 1.5
+    row.alert = cloth_baked
+    if cloth_baked:
+        row.operator("ptcache.free_bake", text="Free", icon="REC")
+    else:
+        row.operator("ptcache.bake", text="Bake", icon="REC", depress=cloth_baking).bake = True
+
+    if not has_cloth:
+        grid_column.enabled = False
+
+    grid_column = grid.column(align=True)
+    grid_column.label(text="Spring Physics", icon="CON_KINEMATIC")
+
+    row = grid_column.row(align=True)
+    row.operator("cc3.scene", icon="LOOP_BACK", text="Reset").param = "PHYSICS_PREP_RBW"
+    row = grid_column.row(align=True)
+    row.context_pointer_set("point_cache", rigidbody_point_cache)
+    row.scale_y = 1.5
+    row.alert = rigidbody_baked
+    if rigidbody_baked:
+        row.operator("ptcache.free_bake", text="Free", icon="REC")
+    else:
+        row.operator("ptcache.bake", text="Bake", icon="REC", depress=rigidbody_baking).bake = True
+
+    if not has_rigidbody:
+        grid_column.enabled = False
+
+    layout.separator()
+
+    has_cloth, has_collision, has_rigidbody, all_baked, any_baked, all_baking, any_baking = physics.get_scene_physics_state()
+
+    layout.label(text="All Dynamics:", icon="PHYSICS")
+
+    column = layout.column(align=True)
+    column.operator("cc3.scene", icon="LOOP_BACK", text="Reset All").param = "PHYSICS_PREP_ALL"
+    row = column.row(align=True)
+    row.scale_y = 1.5
+    row.alert = all_baked
+    all_depress = all_baking
+    if any_baked:
+        row.operator("ptcache.free_bake_all", text="Free All Dynamics", icon="REC")
+    else:
+        row.operator("ptcache.bake_all", text="Bake All Dynamics", icon="REC", depress=all_depress).bake = True
+
 
 
 class ARMATURE_UL_List(bpy.types.UIList):
@@ -381,9 +612,6 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                     o = obj_cache.get_object()
                     if o:
                         box.prop(obj_cache, "object", text="")
-                box.label(text="Collision Mesh")
-                box.prop(chr_cache, "collision_body", text="")
-
             else:
                 box.label(text="Name: " + chr_cache.character_name)
         else:
@@ -391,15 +619,10 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
 
         # Build Settings
 
-        layout.box().label(text="Build Settings", icon="TOOL_SETTINGS")
-        if prefs.physics == "ENABLED":
-            layout.prop(props, "physics_mode", expand=True)
-        layout.prop(prefs, "render_target", expand=True)
-        layout.prop(prefs, "refractive_eyes", expand=True)
-
-        # Build prefs
+        # Build prefs in title
         box = layout.box()
-        if fake_drop_down(box.row(), "Build Prefs", "show_build_prefs", props.show_build_prefs):
+        if fake_drop_down(box.row(), "Build Settings", "show_build_prefs", props.show_build_prefs,
+                          icon="TOOL_SETTINGS", icon_closed="TOOL_SETTINGS"):
             split = box.split(factor=0.9)
             col_1 = split.column()
             col_2 = split.column()
@@ -407,14 +630,20 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_2.prop(prefs, "import_deduplicate", text="")
             col_1.label(text="Auto Convert Generic")
             col_2.prop(prefs, "import_auto_convert", text="")
-            col_1.label(text="Build Wrinkle Maps")
-            col_2.prop(prefs, "build_wrinkle_maps", text="")
             col_1.label(text="Limit Textures")
             col_2.prop(prefs, "build_limit_textures", text="")
             col_1.label(text="Pack Texture Channels")
             col_2.prop(prefs, "build_pack_texture_channels", text="")
             col_1.label(text="Reuse Channel Packs")
             col_2.prop(prefs, "build_reuse_baked_channel_packs", text="")
+            col_1.label(text="Use Edit Modifier")
+            col_2.prop(prefs, "build_armature_edit_modifier", text="")
+            col_1.label(text="Use Preserve Volume")
+            col_2.prop(prefs, "build_armature_preserve_volume", text="")
+
+        layout.prop(props, "physics_mode", toggle=True, text="Build Physics")
+        layout.prop(prefs, "render_target", expand=True)
+        layout.prop(prefs, "refractive_eyes", expand=True)
 
         # ACES Prefs
         if colorspace.is_aces():
@@ -516,7 +745,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
 
 class CC3ObjectManagementPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Object_Management_Panel"
-    bl_label = "Object Management"
+    bl_label = "Character Management"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -528,11 +757,13 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
-        chr_rig = None
+
+        generic_rig = None
+        arm = None
         if chr_cache:
-            chr_rig = chr_cache.get_armature()
-        elif context.selected_objects:
-            chr_rig = utils.get_armature_in_objects(context.selected_objects)
+            arm = chr_cache.get_armature()
+        else:
+            generic_rig = characters.get_generic_rig(context.selected_objects)
 
         num_meshes_in_selection = 0
         weight_transferable = False
@@ -540,75 +771,84 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         missing_materials = False
         objects_addable = False
         is_character = chr_cache is not None
+        from_other_character = False
         for o in bpy.context.selected_objects:
             if o.type == "MESH":
                 num_meshes_in_selection += 1
                 if chr_cache:
                     oc = chr_cache.get_object_cache(o)
-                    if oc:
+                    if oc and not oc.disabled:
                         if oc.object_type == "DEFAULT" or oc.object_type == "HAIR":
                             weight_transferable = True
                             removable_objects = True
                         if not chr_cache.has_all_materials(o.data.materials):
                             missing_materials = True
-                    else:
+                    if not oc or oc.disabled:
                         objects_addable = True
+                    if not from_other_character:
+                        cc = props.get_character_cache(o, None)
+                        if cc is not None and cc != chr_cache:
+                            from_other_character = True
 
         column = layout.column()
 
         # Converting
 
-        column.box().label(text="Converting", icon="DRIVER")
+        if not (chr_cache and chr_cache.rigified):
 
-        character_info_box(chr_cache, chr_rig, column)
+            column.box().label(text="Converting", icon="DRIVER")
 
-        row = column.row()
-        row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
-        if not chr_cache or chr_cache.is_non_standard():
-            row.enabled = False
+            character_info_box(chr_cache, generic_rig, column)
 
-        row = column.row()
-        if chr_rig:
-            row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
-        else:
-            row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
-        if chr_cache or not (chr_rig or num_meshes_in_selection > 0):
-            row.enabled = False
+            row = column.row()
+            row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
+            if not chr_cache or chr_cache.is_non_standard():
+                row.enabled = False
 
-        column.separator()
+            row = column.row()
+            if generic_rig:
+                row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
+            else:
+                row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
+            if chr_cache or not (generic_rig or num_meshes_in_selection > 0):
+                row.enabled = False
+
+            column.separator()
 
         # Accessory Management
 
-        column.box().label(text="Accessories", icon="GROUP_BONE")
+        if not (chr_cache and chr_cache.rigified):
 
-        accessory_root = characters.get_accessory_root(chr_cache, obj)
-        if accessory_root:
+            column.box().label(text="Accessories", icon="GROUP_BONE")
 
-            #column.box().label(text = f"Accessory: {accessory_root.name}")
-            box = column.box()
-            split = box.split(factor=0.375)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Accessory:")
-            col_2.prop(accessory_root, "name", text="")
-            col_1.label(text="Parent:")
-            col_2.prop(accessory_root, "parent", text="")
-        else:
-            split = None
-            if chr_cache and chr_rig:
-                split = column.split(factor=0.375)
+            accessory_root = characters.get_accessory_root(chr_cache, obj)
+            if accessory_root:
+
+                #column.box().label(text = f"Accessory: {accessory_root.name}")
+                box = column.box()
+                split = box.split(factor=0.375)
                 col_1 = split.column()
                 col_2 = split.column()
+                col_1.label(text="Accessory:")
+                col_2.prop(accessory_root, "name", text="")
                 col_1.label(text="Parent:")
-                col_2.prop_search(chr_cache, "accessory_parent_bone", chr_rig.data, "bones", text="")
-            row = column.row()
-            row.operator("cc3.character", icon="CONSTRAINT_BONE", text="Convert to Accessory").param = "CONVERT_ACCESSORY"
-            if not chr_cache or not obj or obj.type != "MESH" or (obj_cache and obj_cache.object_type == "BODY"):
-                row.enabled = False
-                if split:
-                    split.enabled = False
+                col_2.prop(accessory_root, "parent", text="")
+            else:
+                split = None
+                if chr_cache and generic_rig:
+                    split = column.split(factor=0.375)
+                    col_1 = split.column()
+                    col_2 = split.column()
+                    col_1.label(text="Parent:")
+                    col_2.prop_search(chr_cache, "accessory_parent_bone", generic_rig.data, "bones", text="")
+                row = column.row()
+                row.operator("cc3.character", icon="CONSTRAINT_BONE", text="Convert to Accessory").param = "CONVERT_ACCESSORY"
+                if not chr_cache or not obj or obj.type != "MESH" or (obj_cache and obj_cache.object_type == "BODY"):
+                    row.enabled = False
+                    if split:
+                        split.enabled = False
 
-        column.separator()
+            column.separator()
 
         # Checking
 
@@ -638,13 +878,19 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column.box().label(text="Objects & Materials", icon="OBJECT_HIDDEN")
 
-        row = column.row()
-        row.operator("cc3.character", icon="ADD", text="Add To Character").param = "ADD_PBR"
-        if not objects_addable:
-            row.enabled = False
+        if from_other_character:
+            row = column.row()
+            row.operator("cc3.character", icon="PASTEDOWN", text="Copy to Character").param = "COPY_TO_CHARACTER"
+            if not objects_addable:
+                row.enabled = False
+        else:
+            row = column.row()
+            row.operator("cc3.character", icon="ADD", text="Add to Character").param = "ADD_PBR"
+            if not objects_addable:
+                row.enabled = False
 
         row = column.row()
-        row.operator("cc3.character", icon="REMOVE", text="Remove From Character").param = "REMOVE_OBJECT"
+        row.operator("cc3.character", icon="REMOVE", text="Remove from Character").param = "REMOVE_OBJECT"
         if not removable_objects:
             row.enabled = False
 
@@ -655,12 +901,17 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column.separator()
 
+        row = column.row()
+        row.operator("cc3.character", icon="MATERIAL", text="Match Materials").param = "MATCH_MATERIALS"
+
+        column.separator()
+
         # Armature & Weights
 
         column.box().label(text = "Armature & Weights", icon = "ARMATURE_DATA")
 
-        if chr_rig:
-            column.row().prop(chr_rig.data, "pose_position", expand=True)
+        if generic_rig:
+            column.row().prop(generic_rig.data, "pose_position", expand=True)
 
         row = column.row()
         row.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
@@ -675,7 +926,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
 class CC3SpringRigPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_SpringRig_Panel"
-    bl_label = "Spring Rig"
+    bl_label = "Spring Rigging"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -687,21 +938,35 @@ class CC3SpringRigPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        arm = None
+        if chr_cache:
+            arm = chr_cache.get_armature()
 
         # Hair Cards & Spring Bone Rig
 
         if fake_drop_down(layout.box().row(),
                 "Hair Rigging",
                 "section_hair_rigging",
-                props.section_hair_rigging):
+                props.section_hair_rigging,
+                icon="OUTLINER_OB_CURVES", icon_closed="OUTLINER_OB_CURVES"):
 
-            is_hair_rig, is_accessory = hair.is_hair_rig_accessory(bpy.context.selected_objects)
+            edit_enabled = True
+            if (chr_cache and chr_cache.rigified and
+                springbones.is_rigified(chr_cache, arm, props.hair_rig_bone_root)):
+                edit_enabled = False
 
             column = layout.column()
+            column.label(text="Hair Card UV Directions:", icon="OUTLINER_OB_LATTICE")
             split = column.split(factor=0.5)
-            split.column().label(text="UV Direction")
-            split.column().prop(props, "hair_curve_dir", text="")
-            column.row().prop(props, "hair_curve_dir_threshold", text="Alignment Threshold", slider=True)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Vertical Cards")
+            col_2.row().prop(props, "hair_card_vertical_dir", text="", expand=True)
+            col_1.label(text="Horizontal Cards")
+            col_2.row().prop(props, "hair_card_horizontal_dir", text="", expand=True)
+            col_1.label(text="Square Cards")
+            col_2.row().prop(props, "hair_card_square_dir", text="", expand=True)
+            column.row().prop(props, "hair_card_dir_threshold", text="Alignment Threshold", slider=True)
 
             column.separator()
 
@@ -713,69 +978,143 @@ class CC3SpringRigPanel(bpy.types.Panel):
 
             column.separator()
 
-            column.row().prop(props, "hair_rig_bone_length", text="Bone Length (cm)", slider=True)
-            column.row().prop(props, "hair_rig_bind_skip_length", text="Skip Length (cm)", slider=True)
+            grid = column.grid_flow(columns=1)
+            grid.prop(props, "hair_rig_bone_length", text="Bone Length (cm)", slider=True)
+            grid.prop(props, "hair_rig_bind_skip_length", text="Skip Length (cm)", slider=True)
+            grid.prop(props, "hair_rig_bind_trunc_length", text="Truncate Length (cm)", slider=True)
+            grid.prop(props, "hair_rig_bone_smoothing", text="Smoothing Steps", slider=True)
+
 
             column.separator()
 
-            split = column.split(factor=0.3)
-            split.column().label(text="Hair Root")
-            split.column().prop(props, "hair_rig_bone_root", text="")
+            split = column.split(factor=0.45)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Hair System")
+            col_2.prop(props, "hair_rig_bone_root", text="")
+            col_1.label(text="Group Name")
+            col_2.prop(props, "hair_rig_group_name", text="")
+            tool_row = col_1.row(align=True)
+            if arm:
+                tool_row.operator("cc3.rigifier", icon=utils.check_icon("HIDE_OFF"), text="",
+                                  depress=arm.data.layers[rigging.SPRING_EDIT_LAYER]).param = "TOGGLE_SHOW_SPRING_BONES"
+                is_grease_pencil_tool = "builtin.annotate" in utils.get_current_tool_idname(context)
+                tool_row.operator("cc3.hair", icon=utils.check_icon("GREASEPENCIL"), text="", depress=is_grease_pencil_tool).param = "TOGGLE_GREASE_PENCIL"
+                is_default_bone = False
+                if arm.data.display_type == 'WIRE':
+                    icon = "IPO_LINEAR"
+                elif arm.data.display_type == 'OCTAHEDRAL' and arm.display_type == 'SOLID':
+                    icon = "PMARKER_ACT"
+                    is_default_bone = True
+                elif arm.data.display_type == 'OCTAHEDRAL' and arm.display_type == 'WIRE':
+                    icon = "PMARKER_SEL"
+                elif arm.data.display_type == 'STICK':
+                    icon = "FIXED_SIZE"
+                else:
+                    icon = "BONE_DATA"
+                tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", depress=False).param = "CYCLE_BONE_STYLE"
+                is_pose_position = rigging.is_rig_rest_position(chr_cache)
+                tool_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+
+            row = col_2.row()
+            row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
+            row.enabled = edit_enabled
             column.separator()
+
             row = column.row()
             row.scale_y = 1.5
             row.operator("cc3.hair", icon=utils.check_icon("MOD_LATTICE"), text="Bones from Cards").param = "ADD_BONES"
+            row.enabled = edit_enabled
+
             column.separator()
+
             row = column.row()
             row.scale_y = 1.5
             row.operator("cc3.hair", icon=utils.check_icon("GREASEPENCIL"), text="Bones from Grease Pencil").param = "ADD_BONES_GREASE"
+            row.enabled = edit_enabled
+
             column.separator()
+
             row = column.row()
             row.scale_y = 1.5
             row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Add Custom Bone").param = "ADD_BONES_CUSTOM"
+            row.enabled = edit_enabled
+
             column.separator()
+
             row = column.row()
             row.scale_y = 1
-            row.alert = True
+            warn_icon(row, "X")
             op_text = "Clear All Hair Bones" if props.hair_rig_bind_bone_mode == "ALL" else "Clear Selected Bones"
             row.operator("cc3.hair", icon=utils.check_icon("BONE_DATA"), text=op_text).param = "REMOVE_HAIR_BONES"
+            row.enabled = edit_enabled
+
             row = column.row()
             row.scale_y = 1
-            row.alert = True
-            op_text = "Clear All Hair Weights" if props.hair_rig_bind_card_mode == "ALL" else "Clear Selected Weights"
+            warn_icon(row, "X")
+            op_text = "Clear All Hair Weights" if props.hair_rig_bind_bone_mode == "ALL" and props.hair_rig_bind_card_mode == "ALL" else "Clear Selected Weights"
             row.operator("cc3.hair", icon=utils.check_icon("MOD_VERTEX_WEIGHT"), text=op_text).param = "CLEAR_WEIGHTS"
+            row.enabled = edit_enabled
+
             row = column.row()
             row.scale_y = 1
-            row.alert = True
+            warn_icon(row, "X")
             op_text = "Clear Grease Pencil"
             row.operator("cc3.hair", icon=utils.check_icon("OUTLINER_OB_GREASEPENCIL"), text=op_text).param = "CLEAR_GREASE_PENCIL"
+            row.enabled = edit_enabled
+
             column.separator()
-            column.row().prop(props, "hair_rig_bind_bone_mode", expand=True)
-            column.row().prop(props, "hair_rig_bind_card_mode", expand=True)
-            column.separator()
-            column.row().prop(props, "hair_rig_bind_bone_radius", text="Bind Radius (cm)", slider=True)
-            column.row().prop(props, "hair_rig_bind_bone_count", text="Bind Bones", slider=True)
-            column.row().prop(props, "hair_rig_bind_bone_weight", text="Weight Scale", slider=True)
-            column.row().prop(props, "hair_rig_bind_weight_curve", text="Weight Curve", slider=True)
-            column.row().prop(props, "hair_rig_bind_bone_variance", text="Weight Variance", slider=True)
-            column.row().prop(props, "hair_rig_bind_smoothing", text="Smoothing", slider=True)
-            column.row().prop(props, "hair_rig_bind_seed", text="Random Seed", slider=True)
+
+            grid = column.grid_flow(columns=1)
+            grid.row().prop(props, "hair_rig_bind_bone_mode", expand=True)
+            grid.row().prop(props, "hair_rig_bind_card_mode", expand=True)
+            grid.separator()
+            grid.prop(props, "hair_rig_bind_bone_radius", text="Bind Radius (cm)", slider=True)
+            grid.prop(props, "hair_rig_bind_bone_count", text="Bind Bones", slider=True)
+            grid.prop(props, "hair_rig_bind_bone_weight", text="Weight Scale", slider=True)
+            grid.prop(props, "hair_rig_bind_weight_curve", text="Weight Curve", slider=True)
+            grid.prop(props, "hair_rig_bind_bone_variance", text="Weight Variance", slider=True)
+            grid.prop(props, "hair_rig_bind_smoothing", text="Smoothing", slider=True)
+            grid.prop(props, "hair_rig_bind_seed", text="Random Seed", slider=True)
             if props.hair_rig_target != "CC4":
-                column.separator()
-                column.row().prop(props, "hair_rig_bind_existing_scale", text="Scale Body Weights", slider=True)
+                grid.separator()
+                grid.prop(props, "hair_rig_bind_existing_scale", text="Scale Body Weights", slider=True)
             column.separator()
             row = column.row()
             row.scale_y = 1.5
-            row.operator("cc3.hair", icon=utils.check_icon("MOD_VERTEX_WEIGHT"), text="Bind Hair").param = "BIND_TO_BONES"
+            op_text = "Bind Hair" if props.hair_rig_bind_card_mode == "ALL" and props.hair_rig_bind_bone_mode == "ALL" else "Bind Selected Hair"
+            row.operator("cc3.hair", icon=utils.check_icon("MOD_VERTEX_WEIGHT"), text=op_text).param = "BIND_TO_BONES"
+            row.enabled = edit_enabled
 
             column.separator()
 
-            box = column.box()
-            box.label(text = "For CC4 Accessory Only", icon="INFO")
-            row = box.row()
-            row.operator("cc3.hair", icon=utils.check_icon("CONSTRAINT_BONE"), text="Make Accessory").param = "MAKE_ACCESSORY"
-            if not (is_hair_rig and not is_accessory):
-                row.enabled = False
+            if chr_cache and not chr_cache.rigified and props.hair_rig_target == "CC4":
+                is_accessory = characters.get_accessory_root(chr_cache, obj) is not None
+                can_make_accessory = not chr_cache.rigified and edit_enabled and not is_accessory
+                column.row().label(text = "For CC4 Accessory Only", icon="INFO")
+                row = column.row()
+                row.operator("cc3.hair", icon=utils.check_icon("CONSTRAINT_BONE"), text="Make Accessory").param = "MAKE_ACCESSORY"
+                row.enabled = can_make_accessory
+                column.separator()
+
+            if chr_cache and arm and obj:
+                rigified_spring_rig = False
+                if chr_cache.rigified:
+                    rigified_spring_rig = springbones.is_rigified(chr_cache, arm, chr_cache.available_spring_rigs)
+                    if rigified_spring_rig is not None:
+                        column.row().label(text="Rigify:", icon="OUTLINER_OB_ARMATURE")
+                        row = column.row()
+                        row.scale_y = 2
+                        if rigified_spring_rig == True:
+                            warn_icon(row)
+                            row.operator("cc3.rigifier", icon="X", text="Remove Control Rig").param = "REMOVE_SPRING_RIG"
+                        else:
+                            row.operator("cc3.rigifier", icon="MOD_SCREW", text="Build Control Rig").param = "BUILD_SPRING_RIG"
+                column.separator()
+                build_allowed = True
+                if chr_cache.rigified and not rigified_spring_rig:
+                    build_allowed = False
+                rigid_body_sim_ui(chr_cache, arm, obj, column, enabled=build_allowed)
 
 
 class CC3HairPanel(bpy.types.Panel):
@@ -1219,12 +1558,7 @@ class CC3RigifyPanel(bpy.types.Panel):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
-        missing_materials = False
-        if chr_cache:
-            for obj_cache in chr_cache.object_cache:
-                obj = obj_cache.get_object()
-                if obj and obj.type == "MESH" and not chr_cache.has_all_materials(obj.data.materials):
-                    missing_materials = True
+        missing_materials = characters.has_missing_materials(chr_cache)
 
         layout = self.layout
         layout.use_property_split = False
@@ -1264,7 +1598,8 @@ class CC3RigifyPanel(bpy.types.Panel):
                 if fake_drop_down(layout.box().row(),
                                           "Rigify Setup",
                                           "section_rigify_setup",
-                                          props.section_rigify_setup):
+                                          props.section_rigify_setup,
+                                          icon="OUTLINER_OB_ARMATURE", icon_closed="OUTLINER_OB_ARMATURE"):
 
                     row = layout.row()
                     row.prop(chr_cache, "rig_mode", expand=True)
@@ -1352,10 +1687,56 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                 if chr_cache.rigified:
 
-                    if fake_drop_down(layout.box().row(),
+                    has_spring_rigs = springbones.has_spring_rigs(chr_cache, rig)
+
+                    # utility widgets
+                    box_row = layout.box().row(align=True)
+                    is_full_rig_show = rigging.is_full_rig_shown(chr_cache)
+                    box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
+                    if has_spring_rigs:
+                        is_base_rig_show = rigging.is_base_rig_shown(chr_cache)
+                        box_row.operator("cc3.rigifier", icon="ARMATURE_DATA", text="", depress=is_base_rig_show).param = "TOGGLE_SHOW_BASE_RIG"
+                        is_spring_rig_show = rigging.is_spring_rig_shown(chr_cache)
+                        box_row.operator("cc3.rigifier", icon="FORCE_MAGNETIC", text="", depress=is_spring_rig_show).param = "TOGGLE_SHOW_SPRING_RIG"
+                    is_pose_position = rigging.is_rig_rest_position(chr_cache)
+                    box_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+                    box_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
+
+                    if has_spring_rigs:
+
+                        if fake_drop_down(layout.box().row(),
+                                    "Spring Rigs",
+                                    "section_rigify_spring",
+                                    props.section_rigify_spring,
+                                    icon="FORCE_MAGNETIC", icon_closed="FORCE_MAGNETIC"):
+
+                            split = layout.split(factor=0.45)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Spring Rig")
+                            col_2.prop(chr_cache, "available_spring_rigs", text="")
+
+                            row = layout.row()
+                            row.scale_y = 2
+                            rigified_control_rig = springbones.is_rigified(chr_cache, rig, chr_cache.available_spring_rigs)
+                            if rigified_control_rig:
+                                warn_icon(row)
+                                row.operator("cc3.rigifier", icon="X", text="Remove Control Rig").param = "REMOVE_SPRING_RIG"
+                            else:
+                                row.operator("cc3.rigifier", icon="MOD_SCREW", text="Build Control Rig").param = "BUILD_SPRING_RIG"
+
+                            layout.separator()
+
+                            rigid_body_sim_ui(chr_cache, rig, obj, layout, show_selector=False, enabled=rigified_control_rig)
+
+                            layout.separator()
+
+                    box_row = layout.box().row()
+                    if fake_drop_down(box_row,
                                         "Rig Controls",
                                         "section_rigify_controls",
-                                        props.section_rigify_controls):
+                                        props.section_rigify_controls,
+                                        icon="TOOL_SETTINGS", icon_closed="TOOL_SETTINGS"):
 
                         split = layout.split(factor=0.6)
                         col_1 = split.column()
@@ -1390,10 +1771,12 @@ class CC3RigifyPanel(bpy.types.Panel):
                                 else:
                                     col_3.label(text="")
 
-                    if fake_drop_down(layout.box().row(),
+                    box_row = layout.box().row()
+                    if fake_drop_down(box_row,
                                         "Retargeting",
                                         "section_rigify_retarget",
-                                        props.section_rigify_retarget):
+                                        props.section_rigify_retarget,
+                                        icon="ARMATURE_DATA", icon_closed="ARMATURE_DATA"):
                         row = layout.row()
                         row.scale_y = 2
                         #row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Imp. Character").param = "IMPORT"
@@ -1439,7 +1822,11 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.label(text="Preview Shape-keys")
                         row.prop(props, "retarget_preview_shape_keys", text="")
                         row = layout.row()
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Retarget").param = "RETARGET_CC_PAIR_RIGS"
+                        retarget_rig = chr_cache.rig_retarget_rig
+                        depress = False
+                        if utils.still_exists(retarget_rig):
+                            depress = True
+                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Retarget", depress=depress).param = "RETARGET_CC_PAIR_RIGS"
                         row.enabled = source_type != "Unknown"
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="X", text="Stop Preview").param = "RETARGET_CC_REMOVE_PAIR"
@@ -1462,14 +1849,15 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.prop(props, "bake_nla_shape_keys", text="")
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
-                        row.enabled = chr_cache.rig_retarget_rig is None
+                        #row.enabled = chr_cache.rig_retarget_rig is None
 
                         layout.separator()
 
                     if fake_drop_down(layout.box().row(),
                                         "Export",
                                         "section_rigify_export",
-                                        props.section_rigify_export):
+                                        props.section_rigify_export,
+                                        icon="EXPORT", icon_closed="EXPORT"):
 
                         export_bake_action, export_bake_source_type = rigging.get_bake_action(chr_cache)
                         box = layout.box()
@@ -1491,8 +1879,166 @@ class CC3RigifyPanel(bpy.types.Panel):
             wrapped_text_box(layout, "Rigify add-on is not installed.", width, True)
 
 
-class CC3ToolsScenePanel(bpy.types.Panel):
-    bl_idname = "CC3_PT_Scene_Panel"
+class CC3SpringControlPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_SpringControl_Panel"
+    bl_label = "Spring Rig Properties"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Item"
+
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        layout = self.layout
+
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+
+        if not chr_cache or not chr_cache.rigified:
+            return
+
+        arm = chr_cache.get_armature()
+
+        if not arm:
+            return
+
+        #box = layout.box()
+        #box.label(text="Spring Rig Layers", icon="XRAY")
+        layout.row().label(text="Spring Rig Layers:", icon="XRAY")
+        row = layout.row()
+        row.prop(arm.data, "layers", index = rigging.SPRING_FK_LAYER, text="FK", toggle=True)
+        row.prop(arm.data, "layers", index = rigging.SPRING_IK_LAYER, text="IK", toggle=True)
+        row.prop(arm.data, "layers", index = rigging.SPRING_TWEAK_LAYER, text="Tweak", toggle=True)
+
+        control_bone = None
+        active_pose_bone = context.active_pose_bone
+        single_chain_bone_name = None
+        chain_group_bone_name = None
+        if active_pose_bone:
+            if active_pose_bone.name.endswith("_target_ik"):
+                single_chain_bone_name = "MCH-" + active_pose_bone.name[:-10]
+            elif active_pose_bone.name.endswith("_group_ik"):
+                chain_group_bone_name = active_pose_bone.name[:-9]
+            else:
+                single_chain_bone_name = active_pose_bone.name
+
+        parent_mode = None
+
+        if single_chain_bone_name:
+            if "ik_root" in active_pose_bone:
+                search_bone_name = active_pose_bone["ik_root"]
+            else:
+                search_bone_name = active_pose_bone.name
+            spring_rig_def, mch_root_name, parent_mode = springbones.get_spring_rig_from_child(chr_cache, arm, search_bone_name)
+            prefix = springbones.get_spring_rig_prefix(parent_mode)
+            rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
+            chain_name = single_chain_bone_name
+            if chain_name.startswith("MCH-"):
+                chain_name = chain_name[4:]
+            if chain_name.endswith("_tweak"):
+                chain_name = chain_name[:-6]
+            if chain_name.endswith("_fk"):
+                chain_name = chain_name[:-3]
+            if chain_name.startswith("DEF-"):
+                chain_name = chain_name[4:]
+            if spring_rig_def and "IK_FK" in arm.pose.bones[mch_root_name]:
+                control_bone = arm.pose.bones[mch_root_name]
+                #box = layout.box()
+                #box.label(text="Spring Chain", icon="LINKED")
+                layout.row().label(text="Spring Chain:", icon="LINKED")
+                if rigid_body_sim:
+                    layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation-FK ({chain_name})", slider=True)
+                layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
+
+            layout.separator()
+
+        if chain_group_bone_name:
+
+            spring_rig_def, mch_root_name, parent_mode = springbones.get_spring_rig_from_child(chr_cache, arm, active_pose_bone.name)
+            prefix = springbones.get_spring_rig_prefix(parent_mode)
+            rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
+
+            layout.row().label(text="Spring Chain Group:", icon="PROP_CON")
+            group_name = active_pose_bone.name
+            if group_name.endswith("_group_ik"):
+                group_name = group_name[:-9]
+            if group_name.startswith("DEF-"):
+                group_name = group_name[4:]
+            row = layout.row()
+            row.operator("cc3.rigifier", icon="BACK", text="IK").param = "SPRING_GROUP_TO_IK"
+            row.operator("cc3.rigifier", icon="FORWARD", text="FK").param = "SPRING_GROUP_TO_FK"
+            if rigid_body_sim:
+                row.operator("cc3.rigifier", icon="ANIM_DATA", text="SIM").param = "SPRING_GROUP_TO_SIM"
+
+            layout.row().label(text="Spring Chains:", icon="LINKED")
+            for child in active_pose_bone.children:
+                if child.name.endswith("_target_ik"):
+                    child_chain_bone_name = child.name[:-10]
+                    if "ik_root" in child:
+                        search_bone_name = child["ik_root"]
+                    else:
+                        search_bone_name = child.name
+                    spring_rig_def, mch_root_name, parent_mode = springbones.get_spring_rig_from_child(chr_cache, arm, search_bone_name)
+                    prefix = springbones.get_spring_rig_prefix(parent_mode)
+                    rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
+                    chain_name = child_chain_bone_name
+                    if spring_rig_def and "IK_FK" in arm.pose.bones[mch_root_name]:
+                        control_bone = arm.pose.bones[mch_root_name]
+                        if rigid_body_sim:
+                            layout.prop(control_bone, "[\"SIM\"]", text=f"Simulation-FK ({chain_name})", slider=True)
+                        layout.prop(control_bone, "[\"IK_FK\"]", text=f"IK-FK ({chain_name})", slider=True)
+                        layout.separator()
+
+        #if chr_cache and arm and obj:
+        #    if springbones.has_spring_rigs(chr_cache, arm):
+        #        build_allowed = True
+        #        rigified_spring_rig = springbones.is_rigified(chr_cache, arm, parent_mode)
+        #        if chr_cache.rigified and not rigified_spring_rig:
+        #            build_allowed = False
+        #        rigid_body_sim_ui(chr_cache, arm, obj, layout, True, parent_mode, enabled=build_allowed)
+
+
+def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    layout = self.layout
+
+    box = layout.box()
+    box.label(text="Scene Lighting", icon="LIGHT")
+
+    column = layout.column()
+    grid = column.grid_flow(row_major=True, columns=2, align=True)
+    grid.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+
+    column.separator()
+
+    box = layout.box()
+    box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
+    column = layout.column()
+
+    op = column.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
+    op.param = "TEMPLATE"
+
+    column.separator()
+
+    chr_cache = props.get_context_character_cache(context)
+    if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
+        box = layout.box()
+        box.label(text="Cycles", icon="SHADING_RENDERED")
+        column = layout.column()
+        op = column.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
+        op.param = "CYCLES_SETUP"
+        column.separator()
+
+    cache_timeline_physics_ui(chr_cache, layout)
+
+class CC3PipelineScenePanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_PipelineScene_Panel"
     bl_label = "Scene Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -1500,76 +2046,19 @@ class CC3ToolsScenePanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        layout = self.layout
+        scene_panel_draw(self, context)
 
-        box = layout.box()
-        box.label(text="Scene Lighting", icon="LIGHT")
 
-        column = layout.column()
-        split = column.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
-        col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
-        col_1.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
-        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
-        col_1.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
-        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+class CC3CreateScenePanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_CreateScene_Panel"
+    bl_label = "Scene Tools"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = CREATE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
 
-        box = layout.box()
-        box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
-        column = layout.column()
-
-        op = column.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
-        op.param = "TEMPLATE"
-
-        box = layout.box()
-        box.label(text="Animation", icon="RENDER_ANIMATION")
-        column = layout.column()
-        scene = context.scene
-        #op = col.operator("cc3.scene", icon="RENDER_STILL", text="Render Image")
-        #op.param = "RENDER_IMAGE"
-        #op = col.operator("cc3.scene", icon="RENDER_ANIMATION", text="Render Animation")
-        #op.param = "RENDER_ANIMATION"
-        split = layout.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.prop(scene, "frame_start", text="Start")
-        col_2.prop(scene, "frame_end", text="End")
-        column = layout.column()
-        column.separator()
-        op = column.operator("cc3.scene", icon="ARROW_LEFTRIGHT", text="Range From Character")
-        op.param = "ANIM_RANGE"
-        op = column.operator("cc3.scene", icon="ANIM", text="Sync Physics Range")
-        op.param = "PHYSICS_PREP"
-        column.separator()
-        split = column.split(factor=0.0)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_3 = split.column()
-        if not context.screen.is_animation_playing:
-            #op = col_1.operator("screen.animation_manager", icon="PLAY", text="Play")
-            #op.mode = "PLAY"
-            col_1.operator("screen.animation_play", text="Play", icon='PLAY')
-        else:
-            #op = col_1.operator("screen.animation_manager", icon="PAUSE", text="Pause")
-            #op.mode = "PLAY"
-            col_1.operator("screen.animation_play", text="Pause", icon='PAUSE')
-        #op = col_2.operator("screen.animation_manager", icon="REW", text="Reset")
-        #op.mode = "STOP"
-        col_2.operator("screen.frame_jump", text="Start", icon='REW').end = False
-        col_3.operator("screen.frame_jump", text="End", icon='FF').end = True
-
-        chr_cache = props.get_context_character_cache(context)
-        if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
-            box = layout.box()
-            box.label(text="Cycles", icon="SHADING_RENDERED")
-            column = layout.column()
-            op = column.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
-            op.param = "CYCLES_SETUP"
-
+    def draw(self, context):
+        scene_panel_draw(self, context)
 
 
 class CC3ToolsCreatePanel(bpy.types.Panel):
@@ -1593,26 +2082,22 @@ class CC3ToolsCreatePanel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text=f"Quick Export  ({vars.VERSION_STRING})", icon="EXPORT")
+        column = layout.column(align=True)
         # export to CC3
-        character_export_button(chr_cache, chr_rig, layout)
-
-        box = layout.box()
-        box.label(text="Lighting Presets", icon="LIGHT")
-        column = layout.column()
-        split = column.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
-        col_1.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
-        col_2.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
-        col_1.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
-        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
-        col_1.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
-        col_2.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+        character_export_button(chr_cache, chr_rig, column, scale=1, warn=False)
+        # export extras
+        row1 = column.row(align=True)
+        row1.operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
+        row2 = column.row(align=True)
+        row2.operator("cc3.exporter", icon="MESH_DATA", text="Export Replace Mesh").param = "EXPORT_MESH"
+        if not utils.get_active_object():
+            row1.enabled = False
+            row2.enabled = False
 
 
 class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Physics_Panel"
-    bl_label = "Physics Settings"
+    bl_label = "Cloth Physics"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = CREATE_TAB_NAME
@@ -1624,202 +2109,308 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         layout = self.layout
 
         chr_cache = props.get_context_character_cache(context)
-        missing_cloth = False
-        has_cloth = False
-        missing_coll = False
+        obj = context_mesh_object(context)
+        obj_cache = None
+        proxy = None
+        is_proxy = False
         cloth_mod = None
         coll_mod = None
-        meshes_selected = 0
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                meshes_selected += 1
-                clm = modifiers.get_cloth_physics_mod(obj)
-                com = modifiers.get_collision_physics_mod(chr_cache, obj)
-                if clm is None:
-                    missing_cloth = True
-                else:
-                    if context.object == obj:
-                        cloth_mod = clm
-                    has_cloth = True
-                if com is None:
-                    missing_coll = True
-                else:
-                    if context.object == obj:
-                        coll_mod = com
+        if chr_cache and obj:
+            obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
+            obj_cache = chr_cache.get_object_cache(obj)
+            cloth_mod = modifiers.get_cloth_physics_mod(obj)
+            if proxy:
+                coll_mod = modifiers.get_collision_physics_mod(proxy)
+            else:
+                coll_mod = modifiers.get_collision_physics_mod(obj)
 
-        obj = context.object
+
         mat = utils.context_material(context)
         edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
 
+        column = layout.column()
+
         if chr_cache:
-            layout.box().label(text="Character Physics", icon="FORCE_CURVE")
+            column.box().label(text="Character Physics", icon="PHYSICS")
+            row = column.row(align=True)
+            row.prop(prefs, "physics_cloth_hair", text="Hair", toggle=True)
+            row.prop(prefs, "physics_cloth_clothing", text="Clothing", toggle=True)
             if chr_cache.physics_applied:
-                layout.row().operator("cc3.setphysics", icon="REMOVE", text="Remove All Physics").param = "REMOVE_PHYSICS"
+                column.row().operator("cc3.setphysics", icon="REMOVE", text="Remove All Physics").param = "REMOVE_PHYSICS"
             else:
-                layout.row().operator("cc3.setphysics", icon="ADD", text="Apply All Physics").param = "APPLY_PHYSICS"
+                column.row().operator("cc3.setphysics", icon="ADD", text="Apply All Physics").param = "APPLY_PHYSICS"
             if chr_cache.physics_disabled:
-                layout.row().operator("cc3.setphysics", icon="PLAY", text="Re-enable Physics").param = "ENABLE_PHYSICS"
+                column.row().operator("cc3.setphysics", icon="PLAY", text="Re-enable Physics").param = "ENABLE_PHYSICS"
             else:
-                layout.row().operator("cc3.setphysics", icon="PAUSE", text="Disable Physics").param = "DISABLE_PHYSICS"
+                column.row().operator("cc3.setphysics", icon="PAUSE", text="Disable Physics").param = "DISABLE_PHYSICS"
 
-        box = layout.box()
-        box.label(text="Create / Remove", icon="PHYSICS")
+        column.separator()
 
-        col = layout.column()
-        if not missing_cloth:
-            op = col.operator("cc3.setphysics", icon="REMOVE", text="Remove Cloth Physics")
-            op.param = "PHYSICS_REMOVE_CLOTH"
+        # Cloth Physics Foldout
+        #
+
+        if not is_proxy:
+
+            layout.box().label(text="Cloth Simulation", icon="MOD_CLOTH")
+
+            column = layout.column()
+            if not obj_cache:
+                column.enabled = False
+
+            row = column.row()
+            row.scale_y = 2.0
+            if cloth_mod:
+                warn_icon(row, "REMOVE")
+                row.operator("cc3.setphysics", text="Remove Cloth Physics").param = "PHYSICS_REMOVE_CLOTH"
+            else:
+                row.operator("cc3.setphysics", icon="ADD", text="Add Cloth Physics").param = "PHYSICS_ADD_CLOTH"
+
+            column.separator()
+
+            # Cloth Physics Settings
+            if cloth_mod is not None:
+
+                column = layout.column()
+                if not obj_cache or cloth_mod is None:
+                    column.enabled = False
+
+                # Cloth Physics Presets
+                sub_column = column.column(align=True)
+                sub_column.row().label(text="Presets", icon="PRESET")
+                sub_column.operator("cc3.setphysics", icon="USER", text="Hair").param = "PHYSICS_HAIR"
+                grid = sub_column.grid_flow(columns=2, row_major=True, align=True)
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Denim").param = "PHYSICS_DENIM"
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Leather").param = "PHYSICS_LEATHER"
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Rubber").param = "PHYSICS_RUBBER"
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Linen").param = "PHYSICS_LINEN"
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Cotton").param = "PHYSICS_COTTON"
+                grid.operator("cc3.setphysics", icon="MATCLOTH", text="Silk").param = "PHYSICS_SILK"
+
+
+                column.separator()
+
+                if fake_drop_down(column.row(),
+                            "Cloth Settings",
+                            "section_physics_cloth_settings",
+                            props.section_physics_cloth_settings,
+                            icon="OPTIONS", icon_closed="OPTIONS"):
+
+                    split = column.split(factor=0.5)
+                    col_1 = split.column()
+                    col_2 = split.column()
+                    col_1.label(text="Weight")
+                    col_2.prop(cloth_mod.settings, "mass", text="", slider=True)
+                    col_1.label(text="Air Damping")
+                    col_2.prop(cloth_mod.settings, "air_damping", text="", slider=True)
+                    col_1.label(text="Bend Resist")
+                    col_2.prop(cloth_mod.settings, "bending_stiffness", text="", slider=True)
+                    col_1.label(text="Pin Stiffness")
+                    col_2.prop(cloth_mod.settings, "pin_stiffness", text="", slider=True)
+                    col_1.label(text="Quality")
+                    col_2.prop(cloth_mod.settings, "quality", text="", slider=True)
+                    col_1.label(text="Collision")
+                    col_2.prop(cloth_mod.collision_settings, "collision_quality", text="", slider=True)
+                    col_1.label(text="Distance")
+                    col_2.prop(cloth_mod.collision_settings, "distance_min", text="", slider=True)
+                    col_1.label(text="Self Collision")
+                    col_2.prop(cloth_mod.collision_settings, "use_self_collision", text="", slider=False)
+                    if cloth_mod.collision_settings.use_self_collision:
+                        col_1.label(text="Friction")
+                        col_2.prop(cloth_mod.collision_settings, "self_friction", text="", slider=True)
+                        col_1.label(text="Distance")
+                        col_2.prop(cloth_mod.collision_settings, "self_distance_min", text="", slider=True)
+
+                column.separator()
+
+        # Cloth Collision Physics
+        layout.box().label(text="Cloth Collision", icon="MOD_PHYSICS")
+
+        column = layout.column()
+        if not obj_cache:
+            column.enabled = False
+
+        if obj_cache and cloth_mod is None:
+            if proxy:
+                local_view = utils.is_local_view(context) and proxy is not None and proxy.visible_get()
+                column.row().operator("cc3.setphysics", icon=utils.check_icon("HIDE_OFF"), text="Show Collision Proxy",
+                                  depress=local_view).param = "TOGGLE_SHOW_PROXY"
+            else:
+                grid = column.grid_flow(columns=2, align=True)
+                grid.prop(obj_cache, "use_collision_proxy", toggle=True, text="Use Proxy")
+                grid.prop(obj_cache, "collision_proxy_decimate", text="Decimate", slider=True)
+
+        row = column.row()
+        row.scale_y = 2.0
+        if coll_mod:
+            warn_icon(row, "REMOVE")
+            row.operator("cc3.setphysics", text="Remove Cloth Collision").param = "PHYSICS_REMOVE_COLLISION"
         else:
-            op = col.operator("cc3.setphysics", icon="ADD", text="Add Cloth Physics")
-            op.param = "PHYSICS_ADD_CLOTH"
-        if not missing_coll:
-            op = col.operator("cc3.setphysics", icon="REMOVE", text="Remove Collision Physics")
-            op.param = "PHYSICS_REMOVE_COLLISION"
-        else:
-            op = col.operator("cc3.setphysics", icon="ADD", text="Add Collision Physics")
-            op.param = "PHYSICS_ADD_COLLISION"
-        if meshes_selected == 0:
-            col.enabled = False
+            row.operator("cc3.setphysics", icon="ADD", text="Add Cloth Collision").param = "PHYSICS_ADD_COLLISION"
 
-        box = layout.box()
-        box.label(text="Mesh Correction", icon="MESH_DATA")
-        col = layout.column()
-        op = col.operator("cc3.setphysics", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh")
-        op.param = "PHYSICS_FIX_DEGENERATE"
-        op = col.operator("cc3.setphysics", icon="FACE_MAPS", text="Separate Physics Materials")
-        op.param = "PHYSICS_SEPARATE"
+        column.separator()
 
-        # Cloth Physics Presets
-        box = layout.box()
-        box.label(text="Presets", icon="PRESET")
-        col = layout.column()
-        if cloth_mod is None:
-            col.enabled = False
-        op = col.operator("cc3.setphysics", icon="USER", text="Hair")
-        op.param = "PHYSICS_HAIR"
-        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Cotton")
-        op.param = "PHYSICS_COTTON"
-        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Denim")
-        op.param = "PHYSICS_DENIM"
-        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Leather")
-        op.param = "PHYSICS_LEATHER"
-        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Rubber")
-        op.param = "PHYSICS_RUBBER"
-        op = col.operator("cc3.setphysics", icon="MATCLOTH", text="Silk")
-        op.param = "PHYSICS_SILK"
-
-        # Cloth Physics Settings
-        if cloth_mod is not None:
-            box = layout.box()
-            box.label(text="Cloth Settings", icon="OPTIONS")
-            col = layout.column()
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Weight")
-            col_2.prop(cloth_mod.settings, "mass", text="", slider=True)
-            col_1.label(text="Bend Resist")
-            col_2.prop(cloth_mod.settings, "bending_stiffness", text="", slider=True)
-            col_1.label(text="Pin Stiffness")
-            col_2.prop(cloth_mod.settings, "pin_stiffness", text="", slider=True)
-            col_1.label(text="Quality")
-            col_2.prop(cloth_mod.settings, "quality", text="", slider=True)
-            col_1.label(text="Collision")
-            col_2.prop(cloth_mod.collision_settings, "collision_quality", text="", slider=True)
-            col_1.label(text="Distance")
-            col_2.prop(cloth_mod.collision_settings, "distance_min", text="", slider=True)
         # Collision Physics Settings
         if coll_mod is not None:
-            box = layout.box()
-            box.label(text="Collision Settings", icon="OPTIONS")
-            col = layout.column()
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Damping")
-            col_2.prop(coll_mod.settings, "damping", text="", slider=True)
-            col_1.label(text="Outer Thickness")
-            col_2.prop(coll_mod.settings, "thickness_outer", text="", slider=True)
-            col_1.label(text="Inner Thickness")
-            col_2.prop(coll_mod.settings, "thickness_inner", text="", slider=True)
-            col_1.label(text="Friction")
-            col_2.prop(coll_mod.settings, "cloth_friction", text="", slider=True)
 
-        box = layout.box()
-        box.label(text="Weight Maps", icon="TEXTURE_DATA")
-        split = layout.split(factor=0.5)
-        col_1 = split.column()
-        col_2 = split.column()
+            if fake_drop_down(column.row(),
+                              "Collision Settings",
+                              "section_physics_collision_settings",
+                              props.section_physics_collision_settings,
+                              icon="OPTIONS", icon_closed="OPTIONS"):
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Damping")
+                col_2.prop(coll_mod.settings, "damping", text="", slider=True)
+                col_1.label(text="Outer Thickness")
+                col_2.prop(coll_mod.settings, "thickness_outer", text="", slider=True)
+                col_1.label(text="Inner Thickness")
+                col_2.prop(coll_mod.settings, "thickness_inner", text="", slider=True)
+                col_1.label(text="Friction")
+                col_2.prop(coll_mod.settings, "cloth_friction", text="", slider=True)
+
+            column.separator()
+
+        # Cache
+        box = column.box()
+        box.row().label(text="Cloth Physics Cache:", icon="PREVIEW_RANGE")
+
+        has_cloth, cloth_baked, cloth_baking, cloth_point_cache = physics.cloth_physics_state(bpy.context.object)
+
+        column.row().label(text="Animation Range:")
+        row = column.row(align=True)
+        row.prop(bpy.context.scene, "use_preview_range", text="", toggle=True)
+        grid = row.grid_flow(columns=2, align=True)
+        grid.operator("cc3.scene", icon="FULLSCREEN_ENTER", text="Expand").param = "ANIM_RANGE_EXPAND"
+        grid.operator("cc3.scene", icon="FULLSCREEN_EXIT", text="Fit").param = "ANIM_RANGE_FIT"
+
+        column.separator()
+
+        column.row().label(text="Cloth Simulation:")
+        if bpy.context.object:
+            column.label(text=bpy.context.object.name, icon="OBJECT_DATA")
+
+        row = column.row()
+        row.operator("cc3.scene", icon=utils.check_icon("LOOP_BACK"), text="Reset Simulation").param = "PHYSICS_PREP_CLOTH"
         if not has_cloth:
-            col_1.enabled = False
-            col_2.enabled = False
-        col_1.label(text="WeightMap Size")
-        col_2.prop(props, "physics_tex_size", text="")
-
-        col = layout.column()
-        if cloth_mod is None:
-            col.enabled = False
-
-        weight_map : bpy.types.Image = physics.get_weight_map_from_modifiers(obj, mat)
-        weight_map_size = int(props.physics_tex_size)
-        if weight_map:
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Current Size:")
-            col_2.label(text=f"{weight_map.size[0]} x {weight_map.size[1]}")
-            row = col.row()
-            row.operator("cc3.setphysics", icon="MOD_LENGTH", text="Resize Weightmap").param = "PHYSICS_RESIZE_WEIGHTMAP"
-            if (weight_map and
-               (weight_map.size[0] != weight_map_size or weight_map.size[1] != weight_map_size) and
-               bpy.context.mode != "PAINT_TEXTURE"):
-                row.enabled = True
-            else:
-                row.enabled = False
-
-        if obj is not None:
-            col.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
-        if edit_mod is not None:
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Influence")
-            col_2.prop(mix_mod, "mask_constant", text="", slider=True)
-        col.separator()
-        if bpy.context.mode == "PAINT_TEXTURE":
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="Strength")
-            row = col_2.row()
-            row.operator("cc3.setphysics", text="", icon='TRIA_LEFT').param = "PHYSICS_DEC_STRENGTH"
-            row.prop(props, "physics_paint_strength", text="", slider=True)
-            row.operator("cc3.setphysics", text="", icon='TRIA_RIGHT').param = "PHYSICS_INC_STRENGTH"
-            row = col.row()
-            row.scale_y = 2
-            op = row.operator("cc3.setphysics", icon="CHECKMARK", text="Done Weight Painting!")
-            op.param = "PHYSICS_DONE_PAINTING"
+            row.enabled = False
+        row = column.row()
+        row.scale_y = 1.5
+        row.context_pointer_set("point_cache", cloth_point_cache)
+        depress = cloth_baking
+        row.alert = cloth_baked
+        if cloth_baked:
+            row.operator("ptcache.free_bake", text="Free Simulation", icon="REC")
         else:
-            if edit_mod is None:
-                row = col.row()
-                op = row.operator("cc3.setphysics", icon="ADD", text="Add Weight Map")
-                op.param = "PHYSICS_ADD_WEIGHTMAP"
-            else:
-                row = col.row()
-                op = row.operator("cc3.setphysics", icon="REMOVE", text="Remove Weight Map")
-                op.param = "PHYSICS_REMOVE_WEIGHTMAP"
-            col = layout.column()
-            if edit_mod is None:
-                col.enabled = False
-            op = col.operator("cc3.setphysics", icon="BRUSH_DATA", text="Paint Weight Map")
-            op.param = "PHYSICS_PAINT"
-            split = col.split(factor=0.5)
+            row.operator("ptcache.bake", text="Bake Simulation", icon="REC", depress=cloth_baking).bake = True
+        if not has_cloth:
+            row.enabled = False
+
+        column.separator()
+
+
+        # Physics Mesh Tools
+        layout.box().label(text="Mesh Correction", icon="MESH_DATA")
+
+        column = layout.column()
+        if not obj:
+            column.enabled = False
+
+        column.operator("cc3.setphysics", icon="MOD_EDGESPLIT", text="Fix Degenerate Mesh").param = "PHYSICS_FIX_DEGENERATE"
+        row = column.row()
+        if obj and len(obj.material_slots) < 2:
+                row.enabled = False
+        row.operator("cc3.setphysics", icon="FACE_MAPS", text="Separate Physics Materials").param = "PHYSICS_SEPARATE"
+
+        column.separator()
+
+        # Weight Maps
+        if not is_proxy:
+
+            layout.box().label(text="Weight Maps", icon="TEXTURE_DATA")
+
+            column = layout.column()
+
+            split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
-            op = col_1.operator("cc3.setphysics", icon="FILE_TICK", text="Save")
-            op.param = "PHYSICS_SAVE"
-            op = col_2.operator("cc3.setphysics", icon="ERROR", text="Delete")
-            op.param = "PHYSICS_DELETE"
+            if cloth_mod is None:
+                col_1.enabled = False
+                col_2.enabled = False
+            col_1.label(text="WeightMap Size")
+            col_2.prop(props, "physics_tex_size", text="")
+
+            column = layout.column()
+            if not cloth_mod or not obj_cache:
+                column.enabled = False
+
+            weight_map = None
+            not_saved = False
+            if obj and mat:
+                weight_map : bpy.types.Image = physics.get_weight_map_from_modifiers(obj, mat)
+                if weight_map:
+                    not_saved = weight_map.is_dirty
+            if weight_map:
+                weight_map_size = int(props.physics_tex_size)
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Current Size:")
+                col_2.label(text=f"{weight_map.size[0]} x {weight_map.size[1]}")
+                row = column.row()
+                row.operator("cc3.setphysics", icon="MOD_LENGTH", text="Resize Weightmap").param = "PHYSICS_RESIZE_WEIGHTMAP"
+                if (weight_map and
+                   (weight_map.size[0] != weight_map_size or weight_map.size[1] != weight_map_size) and
+                    bpy.context.mode != "PAINT_TEXTURE"):
+                    row.enabled = True
+                else:
+                    row.enabled = False
+
+            if obj is not None:
+                column.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
+            if edit_mod is not None:
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Influence")
+                col_2.prop(mix_mod, "mask_constant", text="", slider=True)
+            column.separator()
+            if bpy.context.mode == "PAINT_TEXTURE":
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text="Strength")
+                row = col_2.row()
+                row.operator("cc3.setphysics", text="", icon='TRIA_LEFT').param = "PHYSICS_DEC_STRENGTH"
+                row.prop(props, "physics_paint_strength", text="", slider=True)
+                row.operator("cc3.setphysics", text="", icon='TRIA_RIGHT').param = "PHYSICS_INC_STRENGTH"
+                row = column.row()
+                row.scale_y = 2
+                op = row.operator("cc3.setphysics", icon="CHECKMARK", text="Done Weight Painting!")
+                op.param = "PHYSICS_DONE_PAINTING"
+            else:
+                if edit_mod is None:
+                    row = column.row()
+                    op = row.operator("cc3.setphysics", icon="ADD", text="Add Weight Map")
+                    op.param = "PHYSICS_ADD_WEIGHTMAP"
+                else:
+                    row = column.row()
+                    op = row.operator("cc3.setphysics", icon="REMOVE", text="Remove Weight Map")
+                    op.param = "PHYSICS_REMOVE_WEIGHTMAP"
+                column = layout.column()
+                if edit_mod is None:
+                    column.enabled = False
+                op = column.operator("cc3.setphysics", icon="BRUSH_DATA", text="Paint Weight Map")
+                op.param = "PHYSICS_PAINT"
+                split = column.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                r1 = col_1.row(align=True)
+                r1.operator("cc3.setphysics", icon="FILEBROWSER", text="").param = "BROWSE_WEIGHTMAP"
+                r2 = r1.row()
+                r2.alert = not_saved
+                r2.operator("cc3.setphysics", icon="FILE_TICK", text="Save").param = "PHYSICS_SAVE"
+                col_2.operator("cc3.setphysics", icon="ERROR", text="Delete").param = "PHYSICS_DELETE"
 
 
 class CC3ToolsSculptingPanel(bpy.types.Panel):
@@ -1869,82 +2460,82 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         row.scale_y = 1.5
         row.prop(props, "sculpt_layer_tab", expand=True)
 
+        column = layout.column()
+
         #if fake_drop_down(layout.box().row(), "Full Body Sculpting", "section_sculpt_body",
         #                  props.section_sculpt_body, icon = "OUTLINER_OB_ARMATURE"):
         if props.sculpt_layer_tab == "BODY":
-            column = layout.column()
-            if not chr_cache or detail_sculpting:
-                column.enabled = False
 
-            column.box().row().label(text="Body Sculpting:", icon="OUTLINER_OB_ARMATURE")
-            column.separator()
+            if fake_drop_down(column.box().row(), "Body Sculpting", "section_sculpt_setup",
+                              props.section_sculpt_setup,
+                              icon="OUTLINER_OB_ARMATURE", icon_closed="OUTLINER_OB_ARMATURE"):
 
-            row = column.row()
-            split = row.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text = "Multi-res Level")
-            col_2.prop(prefs, "sculpt_multires_level", slider=True)
-            if body_sculpting:
-                row.enabled = False
+                if not chr_cache or detail_sculpting:
+                    column.enabled = False
 
-            row = column.row()
-            if not sculpt_body:
-                row.scale_y = 2
-                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
-            elif not body_sculpting:
-                row.scale_y = 2
-                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Body Sculpt").param = "BODY_BEGIN"
-            else:
-                row.scale_y = 2
-                row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
+                row = column.row()
+                split = row.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text = "Multi-res Level")
+                col_2.prop(prefs, "sculpt_multires_level", slider=True)
+                if body_sculpting:
+                    row.enabled = False
 
-            column.separator()
+                row = column.row()
+                if not sculpt_body:
+                    row.scale_y = 2
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
+                elif not body_sculpting:
+                    row.scale_y = 2
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Body Sculpt").param = "BODY_BEGIN"
+                else:
+                    row.scale_y = 2
+                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
 
-            column.row().label(text="Bake Settings:")
-            column.separator()
+                column.separator()
 
-            row = column.row()
-            split = row.split(factor=0.4)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.prop(prefs, "bake_use_gpu", text="GPU")
-            col_2.prop(prefs, "body_normal_bake_size", text = "")
+                column.row().label(text="Bake Settings:")
+                column.separator()
 
-            row = column.row()
-            row.scale_y = 1.5
-            row.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "BODY_BAKE"
-            if chr_cache:
-                row.prop(chr_cache, "multires_bake_apply", text="", expand=True)
-            if not sculpt_body:
-                row.enabled = False
+                row = column.row()
+                split = row.split(factor=0.4)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.prop(prefs, "bake_use_gpu", text="GPU", toggle=True)
+                col_2.prop(prefs, "body_normal_bake_size", text = "")
 
-            column.separator()
+                row = column.row(align=True)
+                row.scale_y = 1.5
+                row.operator("cc3.sculpting", icon="RESTRICT_RENDER_OFF", text="Bake").param = "BODY_BAKE"
+                if chr_cache:
+                    row.prop(chr_cache, "multires_bake_apply", text="", toggle=True, icon="MESH_ICOSPHERE")
+                if not sculpt_body:
+                    row.enabled = False
 
-            column.row().label(text="Layer Settings:")
-            column.separator()
+                column.separator()
 
-            col = column.column()
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            if chr_cache:
-                col_1.prop(chr_cache, "body_normal_strength", text="Nrm", slider=True)
-                col_2.prop(chr_cache, "body_ao_strength", text="AO", slider=True)
-                col_1.prop(chr_cache, "body_mix_mode", text="")
-                col_2.prop(chr_cache, "body_normal_definition", text="Def", slider=True)
-            if not has_body_overlay:
-                col.enabled = False
+                column.row().label(text="Layer Settings:")
+                column.separator()
 
-            column.separator()
+                grid = column.grid_flow(row_major=True, columns=2, align=True)
+                if chr_cache:
+                    grid.prop(chr_cache, "body_normal_strength", text="Nrm", slider=True)
+                    grid.prop(chr_cache, "body_ao_strength", text="AO", slider=True)
+                    grid.prop(chr_cache, "body_mix_mode", text="")
+                    grid.prop(chr_cache, "body_normal_definition", text="Def", slider=True)
+                if not has_body_overlay:
+                    grid.enabled = False
 
-            row = column.row()
-            row.scale_y = 1.5
-            row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
-            if not sculpt_body or not has_body_overlay:
-                row.enabled = False
+                column.separator()
 
-            column.separator()
+                row = column.row()
+                row.scale_y = 1.5
+                row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "BODY_SKINGEN"
+                if not sculpt_body or not has_body_overlay:
+                    row.enabled = False
+
+                column.separator()
 
         # Detail Sculpting
 
@@ -1952,80 +2543,77 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         #                  props.section_sculpt_detail, icon = "POSE_HLT"):
         elif props.sculpt_layer_tab == "DETAIL":
 
-            column = layout.column()
-            if not chr_cache or body_sculpting:
-                column.enabled = False
+            if fake_drop_down(column.box().row(), "Detail Sculpting", "section_sculpt_setup",
+                              props.section_sculpt_setup,
+                              icon="MESH_MONKEY", icon_closed="MESH_MONKEY"):
 
-            column.box().row().label(text="Detail Sculpting:", icon="MESH_MONKEY")
-            column.separator()
+                if not chr_cache or body_sculpting:
+                    column.enabled = False
 
-            row = column.row()
-            row.prop(prefs, "detail_sculpt_sub_target", expand=True)
-            if detail_body or detail_sculpting:
-                row.enabled = False
+                row = column.row()
+                row.prop(prefs, "detail_sculpt_sub_target", expand=True)
+                if detail_body or detail_sculpting:
+                    row.enabled = False
 
-            row = column.row()
-            split = row.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text = "Multi-res Level")
-            col_2.prop(prefs, "detail_multires_level", slider=True)
-            if detail_body or detail_sculpting:
-                row.enabled = False
+                row = column.row()
+                split = row.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.label(text = "Multi-res Level")
+                col_2.prop(prefs, "detail_multires_level", slider=True)
+                if detail_body or detail_sculpting:
+                    row.enabled = False
 
-            row = column.row()
-            row.scale_y = 2.0
-            if not detail_body:
-                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
-            elif not detail_sculpting:
-                row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Detail Sculpt").param = "DETAIL_BEGIN"
-            else:
-                row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
+                row = column.row()
+                row.scale_y = 2.0
+                if not detail_body:
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
+                elif not detail_sculpting:
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Detail Sculpt").param = "DETAIL_BEGIN"
+                else:
+                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
 
-            column.separator()
+                column.separator()
 
-            column.row().label(text="Bake Settings:")
-            column.separator()
+                column.row().label(text="Bake Settings:")
+                column.separator()
 
-            row = column.row()
-            split = row.split(factor=0.4)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.prop(prefs, "bake_use_gpu", text="GPU")
-            col_2.prop(prefs, "detail_normal_bake_size", text="")
+                row = column.row()
+                split = row.split(factor=0.4)
+                col_1 = split.column()
+                col_2 = split.column()
+                col_1.prop(prefs, "bake_use_gpu", text="GPU", toggle=True)
+                col_2.prop(prefs, "detail_normal_bake_size", text="")
 
-            row1 = column.row()
-            row1.scale_y = 1.5
-            row1.operator("cc3.sculpting", icon="PASTEDOWN", text="Bake").param = "DETAIL_BAKE"
-            if not detail_body:
-                row1.enabled = False
+                row1 = column.row()
+                row1.scale_y = 1.5
+                row1.operator("cc3.sculpting", icon="RESTRICT_RENDER_OFF", text="Bake").param = "DETAIL_BAKE"
+                if not detail_body:
+                    row1.enabled = False
 
-            column.separator()
+                column.separator()
 
-            column.row().label(text="Layer Settings:")
-            column.separator()
+                column.row().label(text="Layer Settings:")
+                column.separator()
 
-            col = column.column()
-            split = col.split(factor=0.5)
-            col_1 = split.column()
-            col_2 = split.column()
-            if chr_cache:
-                col_1.prop(chr_cache, "detail_normal_strength", text="Nrm", slider=True)
-                col_2.prop(chr_cache, "detail_ao_strength", text="AO", slider=True)
-                col_1.prop(chr_cache, "detail_mix_mode", text="")
-                col_2.prop(chr_cache, "detail_normal_definition", text="Def", slider=True)
-            if not has_detail_overlay:
-                col.enabled = False
+                grid = column.grid_flow(row_major=True, columns=2, align=True)
+                if chr_cache:
+                    grid.prop(chr_cache, "detail_normal_strength", text="Nrm", slider=True)
+                    grid.prop(chr_cache, "detail_ao_strength", text="AO", slider=True)
+                    grid.prop(chr_cache, "detail_mix_mode", text="")
+                    grid.prop(chr_cache, "detail_normal_definition", text="Def", slider=True)
+                if not has_detail_overlay:
+                    grid.enabled = False
 
-            column.separator()
+                column.separator()
 
-            row = column.row()
-            row.scale_y = 1.5
-            row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "DETAIL_SKINGEN"
-            if not detail_body or not has_detail_overlay:
-                row.enabled = False
+                row = column.row()
+                row.scale_y = 1.5
+                row.operator("cc3.sculpt_export", icon="EXPORT", text="Export Layer").param = "DETAIL_SKINGEN"
+                if not detail_body or not has_detail_overlay:
+                    row.enabled = False
 
-            column.separator()
+                column.separator()
 
         # Tools
 
@@ -2042,38 +2630,40 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
             column.separator()
 
-            column.label(text="Remove Sculpts")
+            column.label(text="Remove Sculpts:")
 
             column.separator()
 
             row = column.row()
+            warn_icon(row)
             if not sculpt_body:
                 row.enabled = False
-            else:
-                row.alert = True
             row.operator("cc3.sculpting", icon="TRASH", text="Remove Body Sculpt").param = "BODY_CLEAN"
 
             row = column.row()
+            warn_icon(row)
             if not detail_body:
                 row.enabled = False
-            else:
-                row.alert = True
             row.operator("cc3.sculpting", icon="TRASH", text="Remove Detail Sculpt").param = "DETAIL_CLEAN"
 
             column.separator()
 
-            column.label(text="Geometry Transfer")
+            column.label(text="Geometry Transfer:")
 
             column.separator()
 
+            column.row().prop(props, "geom_transfer_layer", expand=True)
+            if props.geom_transfer_layer == "SHAPE_KEY":
+                column.row().prop(props, "geom_transfer_layer_name")
+
             row = column.row()
-            row.operator("cc3.transfer_character", icon="OUTLINER_OB_ARMATURE", text="Transfer Geometry")
+            row.operator("cc3.transfer_character", icon="OUTLINER_OB_ARMATURE", text="Transfer Character")
             if not (target_cache and chr_cache):
                 row.enabled = False
 
+            column = layout.column()
             row = column.row()
-            row.operator("cc3.transfer_mesh", icon="MESH_ICOSPHERE", text="Transfer Geometry")
-
+            row.operator("cc3.transfer_mesh", icon="MESH_ICOSPHERE", text="Transfer Mesh")
             if not bpy.context.active_object or len(bpy.context.selected_objects) < 2:
                 row.enabled = False
 
@@ -2131,14 +2721,38 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         box = layout.box()
         box.label(text=f"Settings  ({vars.VERSION_STRING})", icon="TOOL_SETTINGS")
 
-        if prefs.lighting == "ENABLED" or prefs.physics == "ENABLED":
-            if prefs.lighting == "ENABLED":
-                layout.prop(props, "lighting_mode", expand=True)
-            if prefs.physics == "ENABLED":
-                layout.prop(props, "physics_mode", expand=True)
+        grid = layout.grid_flow(columns=2, align=True)
+        grid.prop(props, "lighting_mode", toggle=True, text="Lighting")
+        grid.prop(props, "physics_mode", toggle=True, text="Physics")
+        grid.prop(props, "wrinkle_mode", toggle=True, text="Wrinkles")
+        grid.prop(props, "rigify_mode", toggle=True, text="Rigify")
 
+        # Build prefs in title
         box = layout.box()
-        box.label(text="Importing", icon="IMPORT")
+        if fake_drop_down(box.row(), "Importing", "show_build_prefs", props.show_build_prefs,
+                          icon="IMPORT", icon_closed="IMPORT"):
+            split = box.split(factor=0.9)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="De-duplicate Materials")
+            col_2.prop(prefs, "import_deduplicate", text="")
+            col_1.label(text="Auto Convert Generic")
+            col_2.prop(prefs, "import_auto_convert", text="")
+            col_1.label(text="Limit Textures")
+            col_2.prop(prefs, "build_limit_textures", text="")
+            col_1.label(text="Pack Texture Channels")
+            col_2.prop(prefs, "build_pack_texture_channels", text="")
+            col_1.label(text="Reuse Channel Packs")
+            col_2.prop(prefs, "build_reuse_baked_channel_packs", text="")
+            col_1.label(text="Use Edit Modifier")
+            col_2.prop(prefs, "build_armature_edit_modifier", text="")
+            col_1.label(text="Use Preserve Volume")
+            col_2.prop(prefs, "build_armature_preserve_volume", text="")
+            col_1.label(text="Clothing Physics")
+            col_2.prop(prefs, "physics_cloth_clothing", text="")
+            col_1.label(text="Hair Cloth Physics")
+            col_2.prop(prefs, "physics_cloth_hair", text="")
+
         row = layout.row()
         row.scale_y = 2
         op = row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Import Character")
@@ -2149,20 +2763,16 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         op = row.operator("cc3.anim_importer", icon="ARMATURE_DATA", text="Import Animations")
 
         if chr_cache and chr_cache.rigified:
-            box = layout.box()
-            box.label(text="Exporting (Rigify)", icon="EXPORT")
-            rigify_export_group(chr_cache, layout)
+            export_label = "Exporting (Rigify)"
         else:
-            box = layout.box()
-            box.label(text="Exporting", icon="EXPORT")
-            pipeline_export_group(chr_cache, chr_rig, layout)
+            export_label = "Exporting"
 
-        # export prefs
+        # export prefs in box title
         box = layout.box()
         if fake_drop_down(box.row(),
-                "Export Prefs",
+                export_label,
                 "export_options",
-                props.export_options):
+                props.export_options, icon="EXPORT", icon_closed="EXPORT"):
             box.row().prop(prefs, "export_json_changes", expand=True)
             box.row().prop(prefs, "export_texture_changes", expand=True)
             if prefs.export_texture_changes:
@@ -2171,11 +2781,15 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
                     box.row().prop(prefs, "export_bake_bump_to_normal", expand=True)
             box.row().prop(prefs, "export_bone_roll_fix", expand=True)
             box.row().prop(prefs, "export_revert_names", expand=True)
-        row = layout.row()
+
+        if chr_cache and chr_cache.rigified:
+            rigify_export_group(chr_cache, layout)
+        else:
+            pipeline_export_group(chr_cache, chr_rig, layout)
 
         # export extras
-        op = layout.row().operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
-        op = layout.row().operator("cc3.exporter", icon="MESH_DATA", text="Export Replace Mesh").param = "EXPORT_MESH"
+        layout.row().operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
+        layout.row().operator("cc3.exporter", icon="MESH_DATA", text="Export Replace Mesh").param = "EXPORT_MESH"
 
         layout.separator()
         box = layout.box()
@@ -2184,9 +2798,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         box = layout.row()
         box.label(text = "Character: " + character_name)
         row = layout.row()
+        warn_icon(row)
         if not chr_cache:
             row.enabled = False
-        else:
-            row.alert = True
         row.operator("cc3.importer", icon="REMOVE", text="Remove Character").param ="DELETE_CHARACTER"
-

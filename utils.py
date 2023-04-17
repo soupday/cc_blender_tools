@@ -15,7 +15,11 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
+import platform
+import subprocess
 import time
+import difflib
+import random
 from hashlib import md5
 import bpy
 
@@ -257,6 +261,25 @@ def object_exists(obj):
         return len(obj.users_scene) > 0
     except:
         return False
+
+
+def get_selected_mesh():
+    if object_exists_is_mesh(bpy.context.active_object):
+        return bpy.context.active_object
+    elif bpy.context.selected_objects:
+        for obj in bpy.context.selected_objects:
+            if object_exists_is_mesh(obj):
+                return obj
+    return None
+
+
+def get_selected_meshes(context = None):
+    objects = [ obj for obj in bpy.context.selected_objects if object_exists_is_mesh(obj) ]
+    if context and context.object:
+        if object_exists_is_mesh(context.object):
+            if context.object not in objects:
+                objects.append(context.object)
+    return objects
 
 
 def try_remove(item, force = False):
@@ -571,7 +594,8 @@ def is_blender_duplicate(name):
     return False
 
 
-def make_unique_name(name, keys):
+def make_unique_name_in(name, keys):
+    """"""
     if name in keys:
         i = 1
         while name + "_" + str(i) in keys:
@@ -594,6 +618,23 @@ def partial_match(text, search, start = 0):
                 j += 1
             return True
     return False
+
+
+def get_longest_alpha_match(a : str, b : str):
+    match = difflib.SequenceMatcher(lambda x: x in " 0123456789", a, b).find_longest_match()
+    if match[2] == 0:
+        return ""
+    else:
+        return a[match[0]:(match[0] + match[2])]
+
+
+def get_common_name(names):
+    common_name = names[0]
+    for i in range(1, len(names)):
+        common_name = get_longest_alpha_match(common_name, names[i])
+    while common_name[-1] in "_0123456789":
+        common_name = common_name[:-1]
+    return common_name
 
 
 def get_dot_file_ext(ext):
@@ -782,11 +823,76 @@ def delete_mesh_object(obj):
             bpy.data.meshes.remove(data)
 
 
+def get_object_tree(obj, objects = None):
+    if objects is None:
+        objects = []
+    if object_exists(obj):
+        objects.append(obj)
+        for child_obj in obj.children:
+            get_object_tree(child_obj, objects)
+    return objects
+
+
+def delete_object_tree(obj):
+    objects = get_object_tree(obj)
+    for obj in objects:
+        if obj.type == "MESH" and obj.data:
+            try:
+                bpy.data.meshes.remove(obj.data)
+            except:
+                pass
+        elif obj.type == "ARMATURE" and obj.data:
+            try:
+                bpy.data.armatures.remove(obj.data)
+            except:
+                pass
+        try:
+            bpy.data.objects.remove(obj)
+        except:
+            pass
+
+
+def hide_tree(obj, hide = True):
+    objects = get_object_tree(obj)
+    for obj in objects:
+        try:
+            obj.hide_set(hide)
+        except:
+            pass
+
+
 def get_context_area(context, area_type):
     for area in context.screen.areas:
         if area.type == area_type:
             return area
     return None
+
+
+def get_current_tool_idname(context = None):
+    if context is None:
+        context = bpy.context
+    tool_idname = context.workspace.tools.from_space_view3d_mode(context.mode).idname
+    return tool_idname
+
+
+
+def add_layer_collections(layer_collection : bpy.types.LayerCollection, layer_collections, search = None):
+    if search:
+        if search in layer_collection.name:
+            layer_collections.append(layer_collection)
+    else:
+        layer_collections.append(layer_collection)
+    child_collection : bpy.types.LayerCollection
+    for child_collection in layer_collection.children:
+        add_layer_collections(child_collection, layer_collections, search)
+
+
+def get_view_layer_collections(search = None):
+    layer_collections = []
+    for view_layer in bpy.context.scene.view_layers:
+        for layer_collection in view_layer.layer_collection.children:
+            add_layer_collections(layer_collection, layer_collections, search)
+    return layer_collections
 
 
 # C.scene.view_layers[0].layer_collection.children[0].exclude
@@ -817,6 +923,15 @@ def limit_view_layer_to_collection(collection_name, *items):
                 item.hide_set(False)
     # return the temp collection and the layers exlcuded
     return tmp_collection, layer_collections, to_hide
+
+
+def create_collection(name):
+    if name in bpy.data.collections:
+        return bpy.data.collections[name]
+    else:
+        collection = bpy.data.collections.new(name)
+        bpy.context.scene.collection.children.link(collection)
+        return collection
 
 
 def restore_limited_view_layers(tmp_collection, layer_collections, to_hide):
@@ -856,24 +971,54 @@ def restore_visible_in_scene(tmp_collection : bpy.types.Collection):
     bpy.data.collections.remove(tmp_collection)
 
 
-def get_object_collection(obj):
+def get_object_scene_collections(obj, exclude_rbw = True):
+    collections = []
     if obj.name in bpy.context.scene.collection.objects:
-        return bpy.context.scene.collection
+        collections.append(bpy.context.scene.collection)
+    rbw = bpy.context.scene.rigidbody_world
     for col in bpy.data.collections:
+        # exclude rigid body world collections
+        if exclude_rbw and rbw and (col == rbw.collection or col == rbw.constraints):
+            continue
+        if col != bpy.context.scene.collection and obj.name in col.objects:
+            collections.append(col)
+    return collections
+
+
+def get_all_scene_collections(exclude_rbw = True):
+    collections = []
+    collections.append(bpy.context.scene.collection)
+    rbw = bpy.context.scene.rigidbody_world
+    for col in bpy.data.collections:
+        # exclude rigid body world collections
+        if exclude_rbw and rbw and (col == rbw.collection or col == rbw.constraints):
+            continue
+        if col != bpy.context.scene.collection:
+            collections.append(col)
+    return collections
+
+
+def remove_from_scene_collections(obj, collections = None, exclude_rbw = True):
+    if collections is None:
+        collections = get_all_scene_collections()
+    rbw = bpy.context.scene.rigidbody_world
+    for col in collections:
+        # exclude rigid body world collections
+        if exclude_rbw and rbw and (col == rbw.collection or col == rbw.constraints):
+            continue
         if obj.name in col.objects:
-            return col
-    return None
-
-
-def move_object_to_collection(obj, collection):
-    col : bpy.types.Collection
-    if obj.name in bpy.context.scene.collection.objects:
-        bpy.context.scene.collection.objects.unlink(obj)
-    for col in bpy.data.collections:
-        if col != collection and obj.name in col.objects:
             col.objects.unlink(obj)
-    if obj.name not in collection.objects:
-        collection.objects.link(obj)
+
+
+def move_object_to_scene_collections(obj, collections, exclude_rbw = True):
+    remove_from_scene_collections(obj)
+    rbw = bpy.context.scene.rigidbody_world
+    for col in collections:
+        # exclude rigid body world collections
+        if exclude_rbw and rbw and (col == rbw.collection or col == rbw.constraints):
+            continue
+        if obj.name not in col.objects:
+            col.objects.link(obj)
 
 
 def store_mode_selection_state():
@@ -1304,3 +1449,50 @@ def object_scale(obj):
         return (obj.scale[0] + obj.scale[1] + obj.scale[2]) / 3.0
     except:
         return 1.0
+
+
+def is_local_view(context):
+    try:
+        return context.space_data.local_view is not None
+    except:
+        return False
+
+
+def fix_local_view(context):
+    if is_local_view(context):
+        bpy.ops.view3d.localview()
+
+
+def show_system_file_browser(path):
+    if platform.system() == "Windows":
+        try:
+            explorer_path = os.path.join(os.getenv("WINDIR"), "explorer.exe")
+            subprocess.Popen((explorer_path, "/select,", path))
+        except:
+            pass
+
+
+def get_scene_frame_range():
+    scene = bpy.context.scene
+    if scene.use_preview_range:
+        return scene.frame_preview_start, scene.frame_preview_end
+    else:
+        return scene.frame_start, scene.frame_end
+
+
+def set_scene_frame_range(start, end):
+    scene = bpy.context.scene
+    if scene.use_preview_range:
+        scene.frame_preview_start = start
+        scene.frame_preview_end = end
+    else:
+        scene.frame_start = start
+        scene.frame_end = end
+
+
+def generate_random_id(length):
+    CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    id = ""
+    for i in range(0, length):
+        id += random.choice(CHARS)
+    return id

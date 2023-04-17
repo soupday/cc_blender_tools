@@ -16,17 +16,18 @@
 
 import math
 import os
+import mathutils
 
 import bpy
 
-from . import imageutils, meshutils, materials, modifiers, utils, vars
+from . import geom, bones, imageutils, meshutils, materials, modifiers, utils, jsonutils, vars
 
 COLLISION_THICKESS = 0.001
 HAIR_THICKNESS = 0.001
 CLOTH_THICKNESS = 0.004
 
 
-def apply_cloth_settings(obj, cloth_type):
+def apply_cloth_settings(obj, cloth_type, self_collision = False):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -39,166 +40,232 @@ def apply_cloth_settings(obj, cloth_type):
     utils.log_info("Setting " + obj.name + " cloth settings to: " + cloth_type)
     mod.settings.vertex_group_mass = prefs.physics_group + "_Pin"
     mod.settings.time_scale = 1
+    mod.collision_settings.use_self_collision = self_collision
+
+    cloth_area = geom.get_area(obj)
+    air_dampening_mod = cloth_area / 2.0
+    utils.log_info(f"Using cloth area: {cloth_area} sqm, air dampening mod: {air_dampening_mod}")
+    BASE_GSM = 1.0 / 2666
+
     if cloth_type == "HAIR":
-        mod.settings.quality = 4
-        mod.settings.pin_stiffness = 0.05
+        mod.settings.quality = 6
+        mod.settings.pin_stiffness = 0.025
         # physical properties
-        mod.settings.mass = 0.1
-        mod.settings.air_damping = 1
+        mod.settings.mass = 0.05
+        mod.settings.air_damping = 1.0
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
-        mod.settings.tension_stiffness = 5
-        mod.settings.compression_stiffness = 5
-        mod.settings.shear_stiffness = 5
-        mod.settings.bending_stiffness = 5
+        mod.settings.tension_stiffness = 5.0
+        mod.settings.compression_stiffness = 5.0
+        mod.settings.shear_stiffness = 5.0
+        mod.settings.bending_stiffness = 5.0
         # dampening
-        mod.settings.tension_damping = 0
-        mod.settings.compression_damping = 0
-        mod.settings.shear_damping = 0
-        mod.settings.bending_damping = 0
+        mod.settings.tension_damping = 0.0
+        mod.settings.compression_damping = 0.0
+        mod.settings.shear_damping = 0.0
+        mod.settings.bending_damping = 0.0
         # collision
         mod.collision_settings.distance_min = HAIR_THICKNESS
         mod.collision_settings.collision_quality = 4
-    elif cloth_type == "SILK":
-        mod.settings.quality = 8
-        mod.settings.pin_stiffness = 0.05
-        # physical properties
-        mod.settings.mass = 0.25
-        mod.settings.air_damping = 1
-        mod.settings.bending_model = 'ANGULAR'
-        # stiffness
-        mod.settings.tension_stiffness = 5
-        mod.settings.compression_stiffness = 5
-        mod.settings.shear_stiffness = 5
-        mod.settings.bending_stiffness = 10
-        # dampening
-        mod.settings.tension_damping = 0
-        mod.settings.compression_damping = 0
-        mod.settings.shear_damping = 0
-        mod.settings.bending_damping = 0
-        # collision
-        mod.collision_settings.distance_min = CLOTH_THICKNESS
-        mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.0005 # 0.5mm
+        mod.collision_settings.self_friction = 1.0
+
     elif cloth_type == "DENIM":
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.5
         # physical properties
-        mod.settings.mass = 1
-        mod.settings.air_damping = 1
+        mod.settings.mass = 400 * BASE_GSM
+        mod.settings.air_damping = 1.0 + 0.35 * air_dampening_mod
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
-        mod.settings.tension_stiffness = 40
-        mod.settings.compression_stiffness = 40
-        mod.settings.shear_stiffness = 40
-        mod.settings.bending_stiffness = 60
+        mod.settings.tension_stiffness = 40.0
+        mod.settings.compression_stiffness = 40.0
+        mod.settings.shear_stiffness = 40.0
+        mod.settings.bending_stiffness = 60.0
         # dampening
-        mod.settings.tension_damping = 25
-        mod.settings.compression_damping = 25
-        mod.settings.shear_damping = 25
-        mod.settings.bending_damping = 10
+        mod.settings.tension_damping = 25.0
+        mod.settings.compression_damping = 25.0
+        mod.settings.shear_damping = 25.0
+        mod.settings.bending_damping = 10.0
         # collision
         mod.collision_settings.distance_min = CLOTH_THICKNESS
         mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.005 # 5mm
+        mod.collision_settings.self_friction = 10.0
+
     elif cloth_type == "LEATHER":
-        mod.settings.quality = 8
-        mod.settings.pin_stiffness = 1
-        # physical properties
-        mod.settings.mass = 0.4
-        mod.settings.air_damping = 1
-        mod.settings.bending_model = 'ANGULAR'
-        # stiffness
-        mod.settings.tension_stiffness = 80
-        mod.settings.compression_stiffness = 80
-        mod.settings.shear_stiffness = 80
-        mod.settings.bending_stiffness = 80
-        # dampening
-        mod.settings.tension_damping = 25
-        mod.settings.compression_damping = 25
-        mod.settings.shear_damping = 25
-        mod.settings.bending_damping = 10
-        # collision
-        mod.collision_settings.distance_min = CLOTH_THICKNESS
-        mod.collision_settings.collision_quality = 4
-    elif cloth_type == "RUBBER":
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.5
         # physical properties
-        mod.settings.mass = 3
-        mod.settings.air_damping = 1
+        mod.settings.mass = 800 * BASE_GSM
+        mod.settings.air_damping = 1.0 + 0.25 * air_dampening_mod
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
-        mod.settings.tension_stiffness = 15
-        mod.settings.compression_stiffness = 15
-        mod.settings.shear_stiffness = 15
-        mod.settings.bending_stiffness = 40
+        mod.settings.tension_stiffness = 80.0
+        mod.settings.compression_stiffness = 80.0
+        mod.settings.shear_stiffness = 80.0
+        mod.settings.bending_stiffness = 80.0
         # dampening
-        mod.settings.tension_damping = 25
-        mod.settings.compression_damping = 25
-        mod.settings.shear_damping = 25
-        mod.settings.bending_damping = 0
+        mod.settings.tension_damping = 25.0
+        mod.settings.compression_damping = 25.0
+        mod.settings.shear_damping = 25.0
+        mod.settings.bending_damping = 10.0
         # collision
         mod.collision_settings.distance_min = CLOTH_THICKNESS
         mod.collision_settings.collision_quality = 4
-    else: #cotton
+        mod.collision_settings.self_distance_min = 0.0025 # 5mm
+        mod.collision_settings.self_friction = 15.0
+
+    elif cloth_type == "RUBBER":
+        mod.settings.quality = 8
+        mod.settings.pin_stiffness = 0.25
+        # physical properties
+        mod.settings.mass = 650 * BASE_GSM
+        mod.settings.air_damping = 1.0 + 0.25 * air_dampening_mod
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 15.0
+        mod.settings.compression_stiffness = 15.0
+        mod.settings.shear_stiffness = 15.0
+        mod.settings.bending_stiffness = 40.0
+        # dampening
+        mod.settings.tension_damping = 25.0
+        mod.settings.compression_damping = 25.0
+        mod.settings.shear_damping = 25.0
+        mod.settings.bending_damping = 0.0
+        # collision
+        mod.collision_settings.distance_min = CLOTH_THICKNESS
+        mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.0025 # 2.5mm
+        mod.collision_settings.self_friction = 20.0
+
+    elif cloth_type == "LINEN":
         mod.settings.quality = 8
         mod.settings.pin_stiffness = 0.1
         # physical properties
-        mod.settings.mass = 0.3
-        mod.settings.air_damping = 1
+        mod.settings.mass = 160 * BASE_GSM
+        mod.settings.air_damping = 1.0 + 0.5 * air_dampening_mod
         mod.settings.bending_model = 'ANGULAR'
         # stiffness
-        mod.settings.tension_stiffness = 20
-        mod.settings.compression_stiffness = 20
-        mod.settings.shear_stiffness = 20
-        mod.settings.bending_stiffness = 20
+        mod.settings.tension_stiffness = 5.0
+        mod.settings.compression_stiffness = 5.0
+        mod.settings.shear_stiffness = 5.0
+        mod.settings.bending_stiffness = 20.0
         # dampening
-        mod.settings.tension_damping = 5
-        mod.settings.compression_damping = 5
-        mod.settings.shear_damping = 5
-        mod.settings.bending_damping = 0
+        mod.settings.tension_damping = 5.0
+        mod.settings.compression_damping = 5.0
+        mod.settings.shear_damping = 5.0
+        mod.settings.bending_damping = 0.0
         # collision
         mod.collision_settings.distance_min = CLOTH_THICKNESS
         mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.0025 # 2.5mm
+        mod.collision_settings.self_friction = 5.0
+
+    elif cloth_type == "COTTON":
+        mod.settings.quality = 8
+        mod.settings.pin_stiffness = 0.075
+        # physical properties
+        mod.settings.mass = 140 * BASE_GSM
+        mod.settings.air_damping = 1.0 + 0.75 * air_dampening_mod
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 2.0
+        mod.settings.compression_stiffness = 2.0
+        mod.settings.shear_stiffness = 2.0
+        mod.settings.bending_stiffness = 10.0
+        # dampening
+        mod.settings.tension_damping = 2.0
+        mod.settings.compression_damping = 2.0
+        mod.settings.shear_damping = 2.0
+        mod.settings.bending_damping = 0.0
+        # collision
+        mod.collision_settings.distance_min = CLOTH_THICKNESS
+        mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.0025 # 2.5mm
+        mod.collision_settings.self_friction = 5.0
+
+    elif cloth_type == "SILK":
+        mod.settings.quality = 8
+        mod.settings.pin_stiffness = 0.05
+        # physical properties
+        mod.settings.mass = 120 * BASE_GSM
+        mod.settings.air_damping = 1.0 + 1.0 * air_dampening_mod
+        mod.settings.bending_model = 'ANGULAR'
+        # stiffness
+        mod.settings.tension_stiffness = 0.5
+        mod.settings.compression_stiffness = 0.5
+        mod.settings.shear_stiffness = 0.5
+        mod.settings.bending_stiffness = 1.0
+        # dampening
+        mod.settings.tension_damping = 0.0
+        mod.settings.compression_damping = 0.0
+        mod.settings.shear_damping = 0.0
+        mod.settings.bending_damping = 0.0
+        # collision
+        mod.collision_settings.distance_min = CLOTH_THICKNESS
+        mod.collision_settings.collision_quality = 4
+        mod.collision_settings.self_distance_min = 0.0025 # 2.5mm
+        mod.collision_settings.self_friction = 1.0
 
 
-def add_collision_physics(chr_cache, obj, obj_cache):
+def apply_collision_physics(chr_cache, obj, obj_cache):
     """Adds a Collision modifier to the object, depending on the object cache settings.
-
-    Does not overwrite or re-create any existing Collision modifier.
+       Does not overwrite or re-create any existing Collision modifier.
     """
 
-    if (obj_cache.collision_physics == "ON" or
-        (obj_cache.collision_physics == "DEFAULT" and
-            (obj_cache.object_type == "BODY" or obj_cache.object_type == "OCCLUSION")
-        )):
+    if not (chr_cache and obj and obj_cache):
+        return
 
-        if obj_cache.object_type == "BODY":
-            obj = create_body_collision_mesh(chr_cache, obj)
+    # physics seem to apply better if done in rest pose
+    arm = chr_cache.get_armature()
+    if arm:
+        pose_position = arm.data.pose_position
+        arm.data.pose_position = "REST"
 
-        collision_mod = modifiers.get_collision_physics_mod(chr_cache, obj)
+    has_cloth = modifiers.get_cloth_physics_mod(obj) is not None
+
+    if obj_cache.has_collision_physics():
+        if obj_cache.use_collision_proxy and not has_cloth:
+            proxy = get_collision_proxy(chr_cache, obj_cache)
+            if not proxy:
+                proxy = create_collision_proxy(chr_cache, obj_cache, obj)
+            if proxy:
+                obj = proxy
+        else:
+            remove_collision_proxy(chr_cache, obj_cache)
+        collision_mod = modifiers.get_collision_physics_mod(obj)
         if not collision_mod:
             collision_mod = obj.modifiers.new(utils.unique_name("Collision"), type="COLLISION")
         collision_mod.settings.thickness_outer = COLLISION_THICKESS
         utils.log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
 
     elif obj_cache.collision_physics == "OFF":
-
         remove_collision_physics(chr_cache, obj, obj_cache)
         utils.log_info("Collision Physics disabled for: " + obj.name)
+
+    if arm:
+        arm.data.pose_position = pose_position
 
 
 def remove_collision_physics(chr_cache, obj, obj_cache):
     """Removes the Collision modifier from the object.
     """
 
-    if obj_cache.object_type == "BODY" and utils.still_exists(chr_cache.collision_body):
-        utils.delete_mesh_object(chr_cache.collision_body)
-        chr_cache.collision_body = None
+    if chr_cache and obj and obj_cache:
 
-    for mod in obj.modifiers:
-        if mod.type == "COLLISION":
-            utils.log_info("Removing Collision modifer: " + mod.name + " from: " + obj.name)
-            obj.modifiers.remove(mod)
+        if obj_cache.object_type == "BODY" and utils.object_exists_is_mesh(chr_cache.collision_body):
+            utils.delete_mesh_object(chr_cache.collision_body)
+            chr_cache.collision_body = None
+
+        if utils.object_exists_is_mesh(obj_cache.collision_proxy):
+            utils.delete_mesh_object(obj_cache.collision_proxy)
+            obj_cache.collision_proxy = None
+
+        for mod in obj.modifiers:
+            if mod.type == "COLLISION":
+                utils.log_info("Removing Collision modifer: " + mod.name + " from: " + obj.name)
+                obj.modifiers.remove(mod)
 
 
 def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
@@ -213,51 +280,55 @@ def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     props = bpy.context.scene.CC3ImportProps
 
+    if not (chr_cache and obj):
+        return
+
     obj_cache = chr_cache.get_object_cache(obj)
 
-    if obj_cache.cloth_physics == "ON" and modifiers.get_cloth_physics_mod(obj) is None:
+    if (obj_cache and
+        obj_cache.cloth_physics == "ON"):
 
-        # Create the Cloth modifier
-        cloth_mod = obj.modifiers.new(utils.unique_name("Cloth"), type="CLOTH")
-        utils.log_info("Cloth Modifier: " + cloth_mod.name + " applied to " + obj.name)
+        utils.object_mode_to(obj)
 
-        # Create the physics pin vertex group if it doesn't exist
-        pin_group = prefs.physics_group + "_Pin"
-        if pin_group not in obj.vertex_groups:
-            obj.vertex_groups.new(name = pin_group)
+        # Add weight maps
+        if add_weight_maps:
+            for mat in obj.data.materials:
+                if mat:
+                    add_material_weight_map(chr_cache, obj, mat, create = False)
+            if modifiers.has_cloth_weight_map_mods(obj):
+                attach_cloth_weight_map_remap(obj, prefs.physics_weightmap_curve)
+
+        cloth_mod = modifiers.get_cloth_physics_mod(obj)
+
+        if not cloth_mod:
+            # Create the Cloth modifier
+            cloth_mod : bpy.types.ClothModifier
+            cloth_mod_id = utils.unique_name("Cloth")
+            cloth_mod = obj.modifiers.new(cloth_mod_id, type="CLOTH")
+            utils.log_info("Cloth Modifier: " + cloth_mod.name + " applied to " + obj.name)
 
         # Set cache bake frame range
-        frame_count = 250
-        parent_action = utils.safe_get_action(obj.parent)
-        frame_start = 1
-        frame_count = 1
-        if parent_action:
-            frame_start = math.floor(parent_action.frame_range[0])
-            frame_count = math.ceil(parent_action.frame_range[1])
-        utils.log_info("Setting " + obj.name + " bake cache frame range to [1-" + str(frame_count) + "]")
+        frame_start, frame_end = utils.get_scene_frame_range()
+        utils.log_info(f"Setting {obj.name} bake cache frame range to [{str(frame_start)} - {str(frame_end)}]")
         cloth_mod.point_cache.frame_start = frame_start
-        cloth_mod.point_cache.frame_end = frame_count
+        cloth_mod.point_cache.frame_end = frame_end
+        if not cloth_mod.point_cache.name:
+            random_id = utils.generate_random_id(10)
+            cache_id = f"{obj.name}_{random_id}"
+            cloth_mod.point_cache.name = cache_id
 
         # Apply cloth settings
         if obj_cache.cloth_settings != "DEFAULT":
-            apply_cloth_settings(obj, obj_cache.cloth_settings)
+            apply_cloth_settings(obj,
+                                 obj_cache.cloth_settings,
+                                 self_collision = obj_cache.cloth_self_collision)
         elif obj_cache.object_type == "HAIR":
             apply_cloth_settings(obj, "HAIR")
         else:
             apply_cloth_settings(obj, "COTTON")
 
-        # Add any existing weight maps
-        if add_weight_maps:
-            for mat in obj.data.materials:
-                if mat:
-                    add_material_weight_map(chr_cache, obj, mat, create = False)
-
-        #weight_min, weight_max = get_physx_weight_range(obj)
-        #cloth_mod.settings.pin_stiffness = 1.0 # some function of weight_min and weight_max
-
-
         # fix mod order
-        modifiers.move_mod_last(obj, cloth_mod)
+        arrange_physics_modifiers(obj)
 
     elif obj_cache.cloth_physics == "OFF":
         utils.log_info("Cloth Physics disabled for: " + obj.name)
@@ -269,7 +340,12 @@ def remove_cloth_physics(obj):
     Also removes any active weight maps and also removes the weight map vertex group.
     """
 
+    if not obj:
+        return
+
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    utils.object_mode_to(obj)
 
     # Remove the Cloth modifier
     for mod in obj.modifiers:
@@ -284,6 +360,7 @@ def remove_cloth_physics(obj):
             weight_group = prefs.physics_group + "_" + utils.strip_name(mat.name)
             if weight_group in obj.vertex_groups:
                 obj.vertex_groups.remove(obj.vertex_groups[weight_group])
+        remove_cloth_weight_map_remap(obj)
 
     # If there are no weight maps left on the object, remove the vertex group
     mods = 0
@@ -317,64 +394,101 @@ def remove_all_physics_mods(obj):
 
 def enable_collision_physics(chr_cache, obj):
     props = bpy.context.scene.CC3ImportProps
-    obj_cache = chr_cache.get_object_cache(obj)
-    obj_cache.collision_physics = "ON"
-    utils.log_info("Enabling Collision physics for: " + obj.name)
-    add_collision_physics(chr_cache, obj, obj_cache)
+    if chr_cache and obj:
+        obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache:
+            has_cloth = modifiers.get_cloth_physics_mod(obj) is not None
+            obj_cache.collision_physics = "PROXY" if (obj_cache.use_collision_proxy and not has_cloth) else "ON"
+            utils.log_info("Enabling Collision physics for: " + obj.name)
+            apply_collision_physics(chr_cache, obj, obj_cache)
 
 
 def disable_collision_physics(chr_cache, obj):
     props = bpy.context.scene.CC3ImportProps
-    obj_cache = chr_cache.get_object_cache(obj)
-    obj_cache.collision_physics = "OFF"
-    utils.log_info("Disabling Collision physics for: " + obj.name)
-    remove_collision_physics(chr_cache, obj, obj_cache)
+    if chr_cache and obj:
+        obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache:
+            obj_cache.collision_physics = "OFF"
+            utils.log_info("Disabling Collision physics for: " + obj.name)
+            remove_collision_physics(chr_cache, obj, obj_cache)
 
 
 def enable_cloth_physics(chr_cache, obj, add_weight_maps = True):
     props = bpy.context.scene.CC3ImportProps
-    obj_cache = chr_cache.get_object_cache(obj)
-    obj_cache.cloth_physics = "ON"
-    utils.log_info("Enabling Cloth physics for: " + obj.name)
-    add_cloth_physics(chr_cache, obj, add_weight_maps)
+    if chr_cache and obj:
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache:
+            obj_cache.cloth_physics = "ON"
+            utils.log_info("Enabling Cloth physics for: " + obj.name)
+            add_cloth_physics(chr_cache, obj, add_weight_maps)
 
 
 def disable_cloth_physics(chr_cache, obj):
     props = bpy.context.scene.CC3ImportProps
-    obj_cache = chr_cache.get_object_cache(obj)
-    obj_cache.cloth_physics = "OFF"
-    utils.log_info("Removing cloth physics for: " + obj.name)
-    remove_cloth_physics(obj)
+    if chr_cache and obj:
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache:
+            obj_cache.cloth_physics = "OFF"
+            utils.log_info("Removing cloth physics for: " + obj.name)
+            remove_cloth_physics(obj)
 
 
-def create_body_collision_mesh(chr_cache, obj):
-    utils.log_info(f"Creating body collision mesh from: {obj.name}")
-    # remove old collsion mesh
-    collision_body = None
-    if utils.object_exists_is_mesh(chr_cache.collision_body) and collision_body != obj:
-        utils.log_info(f"Removing old collision mesh: {chr_cache.collision_body}")
+def get_collision_proxy(chr_cache, obj_cache):
+    if utils.object_exists_is_mesh(obj_cache.collision_proxy):
+        return obj_cache.collision_proxy
+    if utils.object_exists_is_mesh(chr_cache.collision_body):
+        return chr_cache.collision_body
+
+
+def remove_collision_proxy(chr_cache, obj_cache):
+    # remove legacy collision body
+    if utils.object_exists_is_mesh(chr_cache.collision_body):
+        utils.log_info(f"Removing legacy collision body mesh: {chr_cache.collision_body}")
         utils.delete_mesh_object(chr_cache.collision_body)
-    # clone obj
-    collision_body = utils.duplicate_object(obj)
-    collision_body.name = chr_cache.character_name + "_Collider"
-    if utils.set_only_active_object(collision_body):
+    # remove existing collision proxy
+    if utils.object_exists_is_mesh(obj_cache.collision_proxy):
+        utils.log_info(f"Removing existing collision proxy: {obj_cache.collision_proxy}")
+        utils.delete_mesh_object(obj_cache.collision_proxy)
+
+
+def create_collision_proxy(chr_cache, obj_cache, obj):
+    utils.log_info(f"Creating collision proxy mesh from: {obj.name}")
+    # remove old proxy
+    remove_collision_proxy(chr_cache, obj_cache)
+    # clone obj to proxy
+    collision_proxy = utils.duplicate_object(obj)
+    collision_proxy.name = obj.name + ".Collision_Proxy"
+    if utils.object_mode_to(collision_proxy) and utils.set_only_active_object(collision_proxy):
         # remove shape keys
-        bpy.ops.object.shape_key_remove(all=True)
+        collision_proxy.shape_key_clear()
         # remove eye-lashes
-        eye_lash_mat = materials.get_material_by_type(chr_cache, collision_body, "EYELASH")
+        eye_lash_mat = materials.get_material_by_type(chr_cache, collision_proxy, "EYELASH")
         if eye_lash_mat:
-            meshutils.remove_material_verts(collision_body, eye_lash_mat)
-        # add decimate modifier
-        mod = modifiers.add_decimate_modifier(collision_body, 0.125)
-        modifiers.move_mod_first(collision_body, mod)
+            meshutils.remove_material_verts(collision_proxy, eye_lash_mat)
         # remove materials
-        collision_body.data.materials.clear()
-    utils.log_info(f"Storing collision mesh: {collision_body.name}")
-    chr_cache.collision_body = collision_body
-    collision_body.hide_set(True)
-    collision_body.hide_render = True
+        collision_proxy.data.materials.clear()
+        # delete loose
+        utils.edit_mode_to(collision_proxy)
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=True)
+        utils.object_mode_to(collision_proxy)
+        if obj_cache.collision_proxy_decimate < 1.0:
+            # add decimate modifier
+            mod = modifiers.add_decimate_modifier(collision_proxy, obj_cache.collision_proxy_decimate)
+            modifiers.move_mod_first(collision_proxy, mod)
+            # apply decimate modifier
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+
+    utils.log_info(f"Storing collision mesh: {collision_proxy.name}")
+    obj_cache.use_collision_proxy = True
+    obj_cache.collision_proxy = collision_proxy
+    obj_cache.collision_physics = "PROXY"
+    collision_proxy.hide_set(True)
+    collision_proxy.hide_render = True
     utils.set_only_active_object(obj)
-    return collision_body
+    return collision_proxy
 
 
 def get_weight_map_from_modifiers(obj, mat):
@@ -397,25 +511,29 @@ def get_weight_map_image(chr_cache, obj, mat, create = False):
     """
 
     props = bpy.context.scene.CC3ImportProps
+    mat_cache = props.get_material_cache(mat)
     weight_map = imageutils.find_material_image(mat, "WEIGHTMAP")
 
-    if weight_map:
-        if weight_map.size[0] == 0 or weight_map.size[1] == 0:
-            weight_map = None
+    if mat_cache:
 
-    if weight_map is None and create:
-        mat_cache = props.get_material_cache(mat)
-        name = utils.strip_name(mat.name) + "_WeightMap"
-        tex_size = int(props.physics_tex_size)
-        weight_map = bpy.data.images.new(name, tex_size, tex_size, is_data=False)
-        # make the image 'dirty' so it converts to a file based image which can be saved:
-        weight_map.pixels[0] = 0.0
-        weight_map.file_format = "PNG"
-        weight_map.filepath_raw = os.path.join(mat_cache.get_tex_dir(chr_cache), name + ".png")
-        weight_map.save()
-        # keep track of which weight maps we created:
-        mat_cache.temp_weight_map = weight_map
-        utils.log_info("Weight-map image: " + weight_map.name + " created and saved.")
+        if weight_map:
+            if weight_map.size[0] == 0 or weight_map.size[1] == 0:
+                weight_map = None
+            else:
+                mat_cache.temp_weight_map = weight_map
+
+        if weight_map is None and create:
+            name = utils.strip_name(mat.name) + "_WeightMap"
+            tex_size = int(props.physics_tex_size)
+            weight_map = bpy.data.images.new(name, tex_size, tex_size, is_data=False)
+            # make the image 'dirty' so it converts to a file based image which can be saved:
+            weight_map.pixels[0] = 0.0
+            weight_map.file_format = "PNG"
+            weight_map.filepath_raw = os.path.join(mat_cache.get_tex_dir(chr_cache), name + ".png")
+            weight_map.save()
+            # keep track of which weight maps we created:
+            mat_cache.temp_weight_map = weight_map
+            utils.log_info("Weight-map image: " + weight_map.name + " created and saved.")
 
     return weight_map
 
@@ -427,18 +545,19 @@ def add_material_weight_map(chr_cache, obj, mat, create = False):
     or re-creates the modifier to generate the physics 'Pin' vertex group.
     """
 
-    if cloth_physics_available(chr_cache, obj, mat):
-        if create:
-            weight_map = get_weight_map_image(chr_cache, obj, mat, create)
-        else:
-            weight_map = imageutils.find_material_image(mat, "WEIGHTMAP")
+    if chr_cache and obj and mat:
 
-        remove_material_weight_maps(obj, mat)
-        if weight_map is not None:
-            attach_material_weight_map(obj, mat, weight_map)
-    else:
-        utils.log_info("Cloth Physics has been disabled for: " + obj.name)
-        return
+        if cloth_physics_available(chr_cache, obj, mat):
+            if create:
+                weight_map = get_weight_map_image(chr_cache, obj, mat, create)
+            else:
+                weight_map = imageutils.find_material_image(mat, "WEIGHTMAP")
+
+            remove_material_weight_maps(obj, mat)
+            if weight_map is not None:
+                attach_material_weight_map(obj, mat, weight_map)
+        else:
+            utils.log_info("Cloth Physics has been disabled for: " + obj.name)
 
 
 def remove_material_weight_maps(obj, mat):
@@ -448,72 +567,134 @@ def remove_material_weight_maps(obj, mat):
     or the texture based on the weight map image, just the modifier.
     """
 
-    edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
-    if edit_mod is not None:
-        utils.log_info("Removing weight map vertex edit modifer: " + edit_mod.name)
-        obj.modifiers.remove(edit_mod)
-    if mix_mod is not None:
-        utils.log_info("Removing weight map vertex mix modifer: " + mix_mod.name)
-        obj.modifiers.remove(mix_mod)
+    if obj and mat:
+
+        edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
+        if edit_mod is not None:
+            utils.log_info("Removing weight map vertex edit modifer: " + edit_mod.name)
+            obj.modifiers.remove(edit_mod)
+        if mix_mod is not None:
+            utils.log_info("Removing weight map vertex mix modifer: " + mix_mod.name)
+            obj.modifiers.remove(mix_mod)
 
 
 def enable_material_weight_map(chr_cache, obj, mat):
     """Enables the weight map for the object's material and (re)creates the Vertex Weight Edit modifier.
     """
-    mat_cache = chr_cache.get_material_cache(mat)
-    if mat_cache.cloth_physics == "OFF":
-        mat_cache.cloth_physics = "ON"
-    add_material_weight_map(chr_cache, obj, mat, True)
-    # fix mod order
-    cloth_mod = modifiers.get_cloth_physics_mod(obj)
-    modifiers.move_mod_last(obj, cloth_mod)
+
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = bpy.context.scene.CC3ImportProps
+
+    if chr_cache and obj and mat:
+
+        mat_cache = chr_cache.get_material_cache(mat)
+        if mat_cache:
+            if mat_cache.cloth_physics == "OFF":
+                mat_cache.cloth_physics = "ON"
+            add_material_weight_map(chr_cache, obj, mat, True)
+            if modifiers.has_cloth_weight_map_mods(obj):
+                attach_cloth_weight_map_remap(obj, prefs.physics_weightmap_curve)
+            # fix mod order
+            arrange_physics_modifiers(obj)
 
 
 def disable_material_weight_map(chr_cache, obj, mat):
     """Disables the weight map for the object's material and removes the Vertex Weight Edit modifier.
     """
-    mat_cache = chr_cache.get_material_cache(mat)
-    mat_cache.cloth_physics = "OFF"
-    remove_material_weight_maps(obj, mat)
-    pass
+
+    if chr_cache and obj and mat:
+
+        mat_cache = chr_cache.get_material_cache(mat)
+        mat_cache.cloth_physics = "OFF"
+        remove_material_weight_maps(obj, mat)
 
 
 def collision_physics_available(chr_cache, obj):
-    obj_cache = chr_cache.get_object_cache(obj)
-    collision_mod = modifiers.get_collision_physics_mod(chr_cache, obj)
-    if collision_mod is None:
-        if obj_cache.collision_physics == "OFF":
-            return False
-    return True
+    """Is cloth collisions physics allowed on the character object?"""
+
+    if chr_cache and obj:
+
+        obj_cache = chr_cache.get_object_cache(obj)
+        collision_mod = modifiers.get_collision_physics_mod(obj)
+        if collision_mod is None:
+            if obj_cache.collision_physics == "OFF":
+                return False
+        return True
+
+    return False
 
 
 def cloth_physics_available(chr_cache, obj, mat):
-    """Is cloth physics allowed on this object and material?
-    """
-    obj_cache = chr_cache.get_object_cache(obj)
-    mat_cache = chr_cache.get_material_cache(mat)
-    cloth_mod = modifiers.get_cloth_physics_mod(obj)
-    if cloth_mod is None:
-        if obj_cache.cloth_physics == "OFF":
-            return False
-        if mat_cache is not None and mat_cache.cloth_physics == "OFF":
-            return False
-    else:
-        # if cloth physics was disabled by the add-on,
-        # but re-enabled in the physics panel,
-        # correct the object cache setting:
-        if obj_cache.cloth_physics == "OFF":
-            obj_cache.cloth_physics == "ON"
-    return True
+    """Is cloth physics allowed on this character object and material?"""
+
+    if chr_cache and obj and mat:
+
+        obj_cache = chr_cache.get_object_cache(obj)
+        mat_cache = chr_cache.get_material_cache(mat)
+        cloth_mod = modifiers.get_cloth_physics_mod(obj)
+        if cloth_mod is None:
+            if obj_cache.cloth_physics == "OFF":
+                return False
+            if mat_cache is not None and mat_cache.cloth_physics == "OFF":
+                return False
+        else:
+            # if cloth physics was disabled by the add-on,
+            # but re-enabled in the physics panel,
+            # correct the object cache setting:
+            if obj_cache.cloth_physics == "OFF":
+                obj_cache.cloth_physics == "ON"
+        return True
+
+    return False
 
 
 def is_cloth_physics_enabled(mat_cache, mat, obj):
-    cloth_mod = modifiers.get_cloth_physics_mod(obj)
-    edit_mods, mix_mods = modifiers.get_material_weight_map_mods(obj, mat)
-    if cloth_mod and edit_mods and mix_mods:
-        if mat_cache.cloth_physics != "OFF":
-            return True
+    """Is cloth physics enabled on this character object and material?"""
+
+    if mat_cache and obj and mat:
+
+        cloth_mod = modifiers.get_cloth_physics_mod(obj)
+        edit_mods, mix_mods = modifiers.get_material_weight_map_mods(obj, mat)
+        if cloth_mod and edit_mods and mix_mods:
+            if mat_cache and mat_cache.cloth_physics != "OFF":
+                return True
+        return False
+
     return False
+
+
+def attach_cloth_weight_map_remap(obj, replace = True, curve_power = 5.0):
+    """Attach the final remap vertex weight edit to convert the physx weight
+       map values to something more blender physics friendly."""
+
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    remap_mod : bpy.types.VertexWeightEditModifier
+
+    if replace:
+        modifiers.remove_object_modifiers(obj, "VERTEX_WEIGHT_EDIT", "_WeightEditRemap")
+    else:
+        remap_mod = modifiers.get_object_modifier(obj, "VERTEX_WEIGHT_EDIT", "_WeightEditRemap")
+        if remap_mod:
+            return
+
+    pin_group = prefs.physics_group + "_Pin"
+    obj_name = utils.safe_export_name(obj.name)
+
+    remap_mod = obj.modifiers.new(utils.unique_name(obj_name + "_WeightEditRemap"), "VERTEX_WEIGHT_EDIT")
+    remap_mod.use_add = False
+    remap_mod.use_remove = False
+    remap_mod.vertex_group = pin_group
+    remap_mod.default_weight = 0.0
+    remap_mod.falloff_type = 'CURVE'
+    remap_mod.invert_falloff = False
+    #remap_mod.map_curve.curves[0].points.new(0.25, pow(0.25, curve_power))
+    #remap_mod.map_curve.curves[0].points.new(0.5, pow(0.5, curve_power))
+    remap_mod.map_curve.curves[0].points.new(0.75, pow(0.75, curve_power))
+    remap_mod.map_curve.update()
+
+
+def remove_cloth_weight_map_remap(obj):
+    modifiers.remove_object_modifiers(obj, "VERTEX_WEIGHT_EDIT", "_WeightEditRemap")
 
 
 def attach_material_weight_map(obj, mat, weight_map):
@@ -525,9 +706,12 @@ def attach_material_weight_map(obj, mat, weight_map):
 
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-    if weight_map is not None:
+    if obj and mat and weight_map:
+
         # Make a texture based on the weight map image
-        mat_name = utils.strip_name(mat.name)
+        # As we are matching names to find existing textures,
+        # get a name that keeps the duplication suffix
+        mat_name = utils.safe_export_name(mat.name)
         tex_name = mat_name + "_Weight"
         tex = None
         for t in bpy.data.textures:
@@ -585,7 +769,7 @@ def attach_material_weight_map(obj, mat, weight_map):
         edit_mod.mask_tex_mapping = 'UV'
         edit_mod.mask_tex_use_channel = 'INT'
         try:
-            edit_mod.normalize = True
+            edit_mod.normalize = False
         except:
             pass
         # The Vertex Weight Mix modifier takes the material weight map group and mixes it into the pin weight group:
@@ -602,70 +786,35 @@ def attach_material_weight_map(obj, mat, weight_map):
 
 
 def get_physx_weight_range(obj):
+    """Get the range (min, max) of weights for physics pin group"""
+
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-    vertex_group_name = prefs.physics_group + "_Pin"
 
     weight_min = 1.0
     weight_max = 0.0
 
-    if obj.type == "MESH" and vertex_group_name in obj.vertex_groups:
+    if obj:
 
-        if utils.set_active_object(obj):
+        vertex_group_name = prefs.physics_group + "_Pin"
 
-            # normalize pin vertex group range
-            pin_vg = obj.vertex_groups[vertex_group_name]
-            pin_vg_index = pin_vg.index
+        if obj.type == "MESH" and vertex_group_name in obj.vertex_groups:
 
-            # determine range
-            for vertex in obj.data.vertices:
-                for vg in vertex.groups:
-                    if vg.group == pin_vg_index:
-                        w = vg.weight
-                        weight_min = min(w, weight_min)
-                        weight_max = max(w, weight_max)
+            if utils.set_active_object(obj):
+
+                # normalize pin vertex group range
+                pin_vg = obj.vertex_groups[vertex_group_name]
+                pin_vg_index = pin_vg.index
+
+                # determine range
+                for vertex in obj.data.vertices:
+                    for vg in vertex.groups:
+                        if vg.group == pin_vg_index:
+                            w = vg.weight
+                            weight_min = min(w, weight_min)
+                            weight_max = max(w, weight_max)
 
     return weight_min, weight_max
-
-
-def remap_physx_weight_maps(obj):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-    vertex_group_name = prefs.physics_group + "_Pin"
-
-    if obj.type == "MESH" and vertex_group_name in obj.vertex_groups:
-
-        if utils.set_active_object(obj):
-
-            # apply vg mods
-            edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
-            for mod in edit_mods:
-                bpy.ops.object.modifier_apply(modifier=mod.name)
-            for mod in mix_mods:
-                bpy.ops.object.modifier_apply(modifier=mod.name)
-
-            # normalize pin vertex group range
-            pin_vg = obj.vertex_groups[vertex_group_name]
-            pin_vg_index = pin_vg.index
-            weight_min = 1.0
-            weight_max = 0.0
-
-            # determine range
-            for vertex in obj.data.vertices:
-                for vg in vertex.groups:
-                    if vg.group == pin_vg_index:
-                        w = vg.weight
-                        weight_min = min(w, weight_min)
-                        weight_max = max(w, weight_max)
-
-            # remap range to 0->1
-            for vertex in obj.data.vertices:
-                for vg in vertex.groups:
-                    if vg.group == pin_vg_index:
-                        w = utils.inverse_lerp(weight_min, weight_max, vg.weight)
-                        vg.weight = w
 
 
 def count_weightmaps(objects):
@@ -706,6 +855,7 @@ def physics_paint_strength_update(self, context):
         s = props.physics_paint_strength
         prop_owner.color = (s, s, s)
 
+
 def weight_strength_update(self, context):
     props = bpy.context.scene.CC3ImportProps
 
@@ -713,6 +863,16 @@ def weight_strength_update(self, context):
     influence = 1 - math.pow(1 - strength, 3)
     edit_mod, mix_mod = modifiers.get_material_weight_map_mods(context.object, utils.context_material(context))
     mix_mod.mask_constant = influence
+
+
+def browse_weight_map(chr_cache, context):
+    obj = context.object
+    mat = utils.context_material(context)
+    if obj and mat:
+        weight_map = get_weight_map_image(chr_cache, obj, mat)
+        if weight_map:
+            path = bpy.path.abspath(weight_map.filepath)
+            utils.show_system_file_browser(path)
 
 
 def begin_paint_weight_map(chr_cache, context):
@@ -813,44 +973,137 @@ def delete_selected_weight_map(chr_cache, obj, mat):
             obj.modifiers.remove(mix_mod)
 
 
-def set_physics_bake_range(obj, start, end):
+def cloth_physics_point_cache_override(mod):
+    override = bpy.context.copy()
+    override["point_cache"] = mod.point_cache
+    return override
+
+
+def get_context_physics_objects(context, from_selected = False):
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache = props.get_context_character_cache(context)
+    physics_objects = []
+    if chr_cache:
+        if from_selected:
+            objects = context.selected_objects.copy()
+        else:
+            objects = chr_cache.get_all_objects(include_armature = False,
+                                                include_children = True,
+                                                of_type = "MESH")
+        for obj in objects:
+            cloth_mod = modifiers.get_cloth_physics_mod(obj)
+            coll_mod = modifiers.get_collision_physics_mod(obj)
+            if cloth_mod or coll_mod:
+                physics_objects.append(obj)
+
+    return physics_objects
+
+
+def get_scene_physics_state():
+    has_cloth = False
+    has_collision = False
+    has_rigidbody = False
+    all_baked = True
+    all_baking = True
+    any_baked = False
+    any_baking = False
+
+    for scene in bpy.data.scenes:
+        for object in scene.objects:
+            for modifier in object.modifiers:
+                if modifier.type == 'CLOTH':
+                    has_cloth = True
+                    if modifier.point_cache.is_baked:
+                        any_baked = True
+                    else:
+                        all_baked = False
+                    if modifier.point_cache.is_baking:
+                        any_baking = True
+                    else:
+                        all_baking = False
+                elif modifier.type == 'COLLISION':
+                    has_collision = True
+
+    all_baked = has_cloth and all_baked
+    all_baking = has_cloth and all_baking
+
+    if bpy.context.scene.rigidbody_world:
+        rbw = bpy.context.scene.rigidbody_world
+        has_rigidbody = True
+        if rbw.point_cache.is_baked:
+            any_baked = True
+        else:
+            all_baked = False
+        if rbw.point_cache.is_baking:
+            any_baking = True
+        else:
+            all_baking = False
+
+    return has_cloth, has_collision, has_rigidbody, all_baked, any_baked, all_baking, any_baking
+
+
+def reset_physics_cache(obj, start, end):
+    cloth_mod : bpy.types.ClothModifier
     cloth_mod = modifiers.get_cloth_physics_mod(obj)
-
     if cloth_mod is not None:
-        if obj.parent is not None and obj.parent.type == "ARMATURE":
-            arm = obj.parent
-            action = utils.safe_get_action(arm)
-            if action:
-                frame_start = math.floor(action.frame_range[0])
-                frame_end = math.ceil(action.frame_range[1])
-                if frame_start < start:
-                    start = frame_start
-                if frame_end > end:
-                    end = frame_end
-
-            utils.log_info("Setting " + obj.name + " bake cache frame range to [" + str(start) + " -" + str(end) + "]")
-            cloth_mod.point_cache.frame_start = start
-            cloth_mod.point_cache.frame_end = end
-            return True
+        # free the baked cache
+        if cloth_mod.point_cache.is_baked:
+            free_cache(obj)
+        # invalidate the cache
+        utils.log_info("Invalidating point cache...")
+        qs = cloth_mod.settings.quality
+        cloth_mod.point_cache.frame_start = 1
+        cloth_mod.point_cache.frame_end = 1
+        cloth_mod.settings.quality = 1
+        # reset the cache
+        utils.log_info("Setting " + obj.name + " bake cache frame range to [" + str(start) + " - " + str(end) + "]")
+        cloth_mod.point_cache.frame_start = start
+        cloth_mod.point_cache.frame_end = end
+        cloth_mod.settings.quality = qs
+        # use disk cache if the blend file is saved
+        if bpy.data.filepath:
+            cloth_mod.point_cache.use_disk_cache = True
+        return True
     return False
 
 
-def prepare_physics_bake(context):
-    props = bpy.context.scene.CC3ImportProps
-    chr_cache = props.get_context_character_cache(context)
+def reset_cache(context, all_objects = False):
+    if bpy.context.scene.use_preview_range:
+        start = bpy.context.scene.frame_preview_start
+        end = bpy.context.scene.frame_preview_end
+    else:
+        start = bpy.context.scene.frame_start
+        end = bpy.context.scene.frame_end
 
-    if chr_cache:
-        for obj_cache in chr_cache.object_cache:
-            if obj_cache.is_mesh():
-                obj = obj_cache.get_object()
-                set_physics_bake_range(obj, context.scene.frame_start, context.scene.frame_end)
+    if all_objects:
+        objects = get_context_physics_objects(context)
+    else:
+        objects = [ context.object ]
+
+    for obj in objects:
+        if utils.object_exists_is_mesh(obj):
+            reset_physics_cache(obj, start, end)
 
 
-def separate_physics_materials(chr_cache, context):
-    obj = context.object
-    if (obj is not None
-        and obj.type == "MESH"
-        and context.mode == "OBJECT"):
+def free_cache(obj):
+    cloth_mod = modifiers.get_cloth_physics_mod(obj)
+    if cloth_mod is not None:
+        # free the baked cache
+        if cloth_mod.point_cache.is_baked:
+            utils.log_info("Freeing point cache...")
+            if utils.is_blender_version("3.2.0"):
+                with bpy.context.temp_override(point_cache=cloth_mod.point_cache):
+                    bpy.ops.ptcache.free_bake()
+            else:
+                context_override = cloth_physics_point_cache_override(cloth_mod)
+                bpy.ops.ptcache.free_bake(context_override)
+
+
+def separate_physics_materials(chr_cache, obj):
+
+    if utils.object_exists_is_mesh(obj):
+
+        utils.object_mode_to(obj)
 
         # remember which materials have active weight maps
         temp = []
@@ -898,11 +1151,21 @@ def disable_physics(chr_cache, physics_objects = None):
 
 
 def enable_physics(chr_cache, physics_objects = None):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
     if not physics_objects:
-        physics_objects = chr_cache.get_all_objects(include_armature = False, include_children = True, of_type = "MESH")
+        physics_objects = chr_cache.get_all_objects(include_armature = False,
+                                                    include_children = True,
+                                                    of_type = "MESH")
     for obj in physics_objects:
+        obj_cache = chr_cache.get_object_cache(obj)
+        cloth_allowed = True
+        if obj_cache:
+            if ((obj_cache.is_hair() and not prefs.physics_cloth_hair) or
+                (not obj_cache.is_hair() and not prefs.physics_cloth_clothing)):
+                cloth_allowed = False
         for mod in obj.modifiers:
-            if mod.type == "CLOTH":
+            if mod.type == "CLOTH" and cloth_allowed:
                 mod.show_viewport = True
                 mod.show_render = True
             elif mod.type == "COLLISION":
@@ -911,7 +1174,86 @@ def enable_physics(chr_cache, physics_objects = None):
     chr_cache.physics_disabled = False
 
 
-def add_all_physics(chr_cache):
+def cloth_physics_state(obj):
+    has_cloth = False
+    is_baked = False
+    is_baking = False
+    point_cache = None
+    mod : bpy.types.ClothModifier
+    if obj:
+        for mod in obj.modifiers:
+            if mod.type == "CLOTH":
+                point_cache = mod.point_cache
+                has_cloth = True
+                if point_cache.is_baked:
+                    is_baked = True
+                if point_cache.is_baking:
+                    is_baking = True
+    return has_cloth, is_baked, is_baking, point_cache
+
+
+def detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json):
+    """Detect the physics material presets."""
+
+    if not (obj and mat and obj_cache and mat_cache and chr_json):
+        return
+
+    physics_json = jsonutils.get_physics_json(chr_json)
+    soft_physics_json = jsonutils.get_soft_physics_json(physics_json, obj, mat)
+    if soft_physics_json:
+        active = soft_physics_json["Activate Physics"]
+        mass = soft_physics_json["Mass"]
+        friction = soft_physics_json["Friction"]
+        damping = soft_physics_json["Damping"]
+        drag = soft_physics_json["Drag"]
+        elasticity = soft_physics_json["Elasticity"]
+        stretch = soft_physics_json["Stretch"]
+        bending = soft_physics_json["Bending"]
+        self_collision = soft_physics_json["Self Collision"]
+
+        cmp = mathutils.Vector((elasticity, bending))
+        presets = {
+            "DEFAULT": mathutils.Vector((10, 30)),
+            "SILK": mathutils.Vector((50, 80)),
+            "COTTON": mathutils.Vector((30, 40)),
+            "LINEN": mathutils.Vector((10, 0)),
+            "DENIM": mathutils.Vector((1, 0)),
+            "LEATHER": mathutils.Vector((10, 10)),
+            "RUBBER": mathutils.Vector((20, 20)),
+        }
+
+        best_dif = 1000
+        best_preset = "DEFAULT"
+        for preset in presets:
+            test = (cmp - presets[preset]).length
+            if test < best_dif:
+                best_preset = preset
+                best_dif = test
+
+        if obj_cache.object_type == "HAIR":
+            best_preset = "HAIR"
+
+        utils.log_info(f"Cloth Physics settings detected as: {best_preset}")
+        obj_cache.cloth_settings = best_preset
+        obj_cache.cloth_self_collision = self_collision
+
+        if active:
+            obj_cache.cloth_physics = "ON"
+            mat_cache.cloth_physics = "ON"
+            utils.log_info(f"Activating cloth physics on {obj.name} / {mat.name}")
+        else:
+            if obj_cache.cloth_physics == "DEFAULT":
+                obj_cache.cloth_physics = "OFF"
+                utils.log_info(f"Deactivating cloth physics on object {obj.name}")
+            if mat_cache.cloth_settings == "DEFAULT":
+                mat_cache.cloth_physics = "OFF"
+                utils.log_info(f"Deactivating cloth physics on material {mat.name}")
+
+
+def apply_all_physics(chr_cache):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = bpy.context.scene.CC3ImportProps
+
     if chr_cache:
         utils.log_info(f"Adding all Physics modifiers to: {chr_cache.character_name}")
         utils.log_indent()
@@ -919,26 +1261,79 @@ def add_all_physics(chr_cache):
         objects = chr_cache.get_all_objects(include_armature = False, include_children = False, of_type = "MESH")
         objects_processed = []
         accessory_colldiers = get_accessory_colliders(arm, objects, True)
+
         for obj_cache in chr_cache.object_cache:
+
             obj = obj_cache.get_object()
+
             if obj and obj_cache.is_mesh() and obj not in objects_processed:
+
+                cloth_allowed = True
+                if obj_cache:
+                    if ((obj_cache.is_hair() and not prefs.physics_cloth_hair) or
+                        (not obj_cache.is_hair() and not prefs.physics_cloth_clothing)):
+                        cloth_allowed = False
+
                 utils.log_info(f"Object: {obj.name}:")
                 utils.log_indent()
+
                 remove_all_physics_mods(obj)
-                for mat in obj.data.materials:
-                    if mat and mat not in objects_processed:
-                        add_material_weight_map(chr_cache, obj, mat, create = False)
-                    objects_processed.append(mat)
+
+                if cloth_allowed:
+
+                    for mat in obj.data.materials:
+                        if mat and mat not in objects_processed:
+                            add_material_weight_map(chr_cache, obj, mat, create = False)
+                            objects_processed.append(mat)
+
                 objects_processed.append(obj)
-                add_collision_physics(chr_cache, obj, obj_cache)
+
+                apply_collision_physics(chr_cache, obj, obj_cache)
                 if obj in accessory_colldiers:
-                    add_collision_physics(chr_cache, obj, obj_cache)
-                edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
-                if len(edit_mods) + len(mix_mods) > 0:
-                    enable_cloth_physics(chr_cache, obj, False)
+                    apply_collision_physics(chr_cache, obj, obj_cache)
+
+                if cloth_allowed:
+                    if modifiers.has_cloth_weight_map_mods(obj):
+                        attach_cloth_weight_map_remap(obj, prefs.physics_weightmap_curve)
+                        enable_cloth_physics(chr_cache, obj, False)
+
                 utils.log_recess()
+
         chr_cache.physics_applied = True
         utils.log_recess()
+
+
+def arrange_physics_modifiers(obj):
+    cloth_mod = None
+    remap_mod = None
+    subd_mods = []
+    before_cloth = True
+    for mod in obj.modifiers:
+        if mod.type == "CLOTH":
+            cloth_mod = mod
+            before_cloth = False
+        if mod.type == "SUBSURF":
+            subd_mods.append([mod, before_cloth])
+        if mod.type == "VERTEX_WEIGHT_EDIT" and "WeightEditRemap" in mod.name:
+            remap_map = mod
+
+    # order is:
+    #       weight map edit/mix mods
+    #       ...
+    #       weight map edit remap mod
+    #       subd mods before cloth)
+    #       cloth mod
+    #       subd mods after cloth
+
+    if remap_mod:
+        modifiers.move_mod_last(obj, remap_mod)
+    for mod, before_cloth in subd_mods:
+        if before_cloth:
+            modifiers.move_mod_last(obj, mod)
+    modifiers.move_mod_last(obj, cloth_mod)
+    for mod, before_cloth in subd_mods:
+        if not before_cloth:
+            modifiers.move_mod_last(obj, mod)
 
 
 def remove_all_physics(chr_cache):
@@ -950,6 +1345,7 @@ def remove_all_physics(chr_cache):
             obj = obj_cache.get_object()
             if obj and obj_cache.is_mesh() and obj not in objects_processed:
                 remove_all_physics_mods(obj)
+            utils.delete_mesh_object(obj_cache.collision_proxy)
         utils.delete_mesh_object(chr_cache.collision_body)
         chr_cache.physics_applied = False
         utils.log_recess()
@@ -1002,87 +1398,110 @@ def delete_accessory_colliders(arm, objects):
         objects.remove(collider)
 
 
-def should_separate_materials(context):
-    """Check to see if the current object has a weight map for each material.
-    If not separating the mesh by material could improve performance.
-    """
-    obj = context.object
-    if obj is not None and obj.type == "MESH":
-
-        cloth_mod = modifiers.get_cloth_physics_mod(obj)
-        if cloth_mod is not None:
-            edit_mods, mix_mods = modifiers.get_weight_map_mods(obj)
-            if len(edit_mods) != len(obj.data.materials):
-                return True
-        return False
+def get_self_collision(chr_cache, obj):
+    if chr_cache and obj:
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache:
+            return obj_cache.cloth_self_collision
+    return False
 
 
 def set_physics_settings(op, param, context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
+    obj = None
+    if context.object and context.object.type == "MESH":
+        obj = context.object
 
     if param == "PHYSICS_ADD_CLOTH":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                enable_cloth_physics(chr_cache, obj, True)
+        utils.fix_local_view(context)
+        for obj in context.selected_objects:
+            enable_cloth_physics(chr_cache, obj, True)
+
     elif param == "PHYSICS_REMOVE_CLOTH":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                disable_cloth_physics(chr_cache, obj)
+        utils.fix_local_view(context)
+        for obj in context.selected_objects:
+            disable_cloth_physics(chr_cache, obj)
+
     elif param == "PHYSICS_ADD_COLLISION":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                enable_collision_physics(chr_cache, obj)
+        utils.fix_local_view(context)
+        for obj in context.selected_objects:
+            enable_collision_physics(chr_cache, obj)
+
     elif param == "PHYSICS_REMOVE_COLLISION":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                disable_collision_physics(chr_cache, obj)
+        utils.fix_local_view(context)
+        for obj in context.selected_objects:
+            disable_collision_physics(chr_cache, obj)
+
     elif param == "PHYSICS_ADD_WEIGHTMAP":
-        if context.object is not None and context.object.type == "MESH":
-            enable_material_weight_map(chr_cache, context.object, utils.context_material(context))
+        if obj:
+            enable_material_weight_map(chr_cache, obj, utils.context_material(context))
+
     elif param == "PHYSICS_REMOVE_WEIGHTMAP":
-        if context.object is not None and context.object.type == "MESH":
-            disable_material_weight_map(chr_cache, context.object, utils.context_material(context))
+        if obj:
+            disable_material_weight_map(chr_cache, obj, utils.context_material(context))
+
     elif param == "PHYSICS_RESIZE_WEIGHTMAP":
-        if context.object is not None and context.object.type == "MESH":
+        if obj:
             resize_weight_map(chr_cache, context, op)
+
     elif param == "PHYSICS_HAIR":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "HAIR")
-    elif param == "PHYSICS_COTTON":
-        for obj in bpy.context.selected_objects:
-            if obj.type == "MESH":
-                apply_cloth_settings(obj, "COTTON")
+                apply_cloth_settings(obj, "HAIR", False)
+
     elif param == "PHYSICS_DENIM":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "DENIM")
+                apply_cloth_settings(obj, "DENIM", get_self_collision(chr_cache, obj))
+
     elif param == "PHYSICS_LEATHER":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "LEATHER")
+                apply_cloth_settings(obj, "LEATHER", get_self_collision(chr_cache, obj))
+
     elif param == "PHYSICS_RUBBER":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "RUBBER")
+                apply_cloth_settings(obj, "RUBBER", get_self_collision(chr_cache, obj))
+
     elif param == "PHYSICS_SILK":
         for obj in bpy.context.selected_objects:
             if obj.type == "MESH":
-                apply_cloth_settings(obj, "SILK")
+                apply_cloth_settings(obj, "SILK", get_self_collision(chr_cache, obj))
+
+    elif param == "PHYSICS_COTTON":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                apply_cloth_settings(obj, "COTTON", get_self_collision(chr_cache, obj))
+
+    elif param == "PHYSICS_LINEN":
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH":
+                apply_cloth_settings(obj, "LINEN", get_self_collision(chr_cache, obj))
+
     elif param == "PHYSICS_PAINT":
-        if context.object is not None and context.object.type == "MESH":
+        if obj:
             begin_paint_weight_map(chr_cache, context)
+
     elif param == "PHYSICS_DONE_PAINTING":
         end_paint_weight_map(chr_cache, op)
+
     elif param == "PHYSICS_SAVE":
         save_dirty_weight_maps(chr_cache, bpy.context.selected_objects)
+
+    elif param == "BROWSE_WEIGHTMAP":
+        browse_weight_map(chr_cache, context)
+
     elif param == "PHYSICS_DELETE":
-        delete_selected_weight_map(chr_cache, context.object, utils.context_material(context))
+        if obj:
+            delete_selected_weight_map(chr_cache, obj, utils.context_material(context))
+
     elif param == "PHYSICS_SEPARATE":
-        separate_physics_materials(chr_cache, context)
+        separate_physics_materials(chr_cache, obj)
+
     elif param == "PHYSICS_FIX_DEGENERATE":
-        if context.object is not None:
+        if obj:
             if bpy.context.object.mode != "EDIT" and bpy.context.object.mode != "OBJECT":
                 bpy.ops.object.mode_set(mode = 'OBJECT')
             if bpy.context.object.mode != "EDIT":
@@ -1091,19 +1510,31 @@ def set_physics_settings(op, param, context):
                 bpy.ops.mesh.select_all(action = 'SELECT')
                 bpy.ops.mesh.dissolve_degenerate()
             bpy.ops.object.mode_set(mode = 'OBJECT')
-            op.report({'INFO'}, f"Degenerate elements removed for {context.object.name}")
+            op.report({'INFO'}, f"Degenerate elements removed for {obj.name}")
+
     elif param == "DISABLE_PHYSICS":
-        disable_physics(chr_cache)
-        op.report({'INFO'}, f"Physics disabled for {chr_cache.character_name}")
+        if chr_cache:
+            utils.fix_local_view(context)
+            disable_physics(chr_cache)
+            op.report({'INFO'}, f"Physics disabled for {chr_cache.character_name}")
+
     elif param == "ENABLE_PHYSICS":
-        enable_physics(chr_cache)
-        op.report({'INFO'}, f"Physics enabled for {chr_cache.character_name}")
+        if chr_cache:
+            utils.fix_local_view(context)
+            enable_physics(chr_cache)
+            op.report({'INFO'}, f"Physics enabled for {chr_cache.character_name}")
+
     elif param == "REMOVE_PHYSICS":
-        remove_all_physics(chr_cache)
-        op.report({'INFO'}, f"Physics removed for {chr_cache.character_name}")
+        if chr_cache:
+            utils.fix_local_view(context)
+            remove_all_physics(chr_cache)
+            op.report({'INFO'}, f"Physics removed for {chr_cache.character_name}")
+
     elif param == "APPLY_PHYSICS":
-        add_all_physics(chr_cache)
-        op.report({'INFO'}, f"Physics applied to {chr_cache.character_name}")
+        if chr_cache:
+            utils.fix_local_view(context)
+            apply_all_physics(chr_cache)
+            op.report({'INFO'}, f"Physics applied to {chr_cache.character_name}")
 
     elif param == "PHYSICS_INC_STRENGTH":
         strength = float(round(props.physics_paint_strength * 10)) / 10.0
@@ -1112,6 +1543,21 @@ def set_physics_settings(op, param, context):
     elif param == "PHYSICS_DEC_STRENGTH":
         strength = float(round(props.physics_paint_strength * 10)) / 10.0
         props.physics_paint_strength = min(1.0, max(0.0, strength - 0.1))
+
+    elif param == "TOGGLE_SHOW_PROXY":
+        if chr_cache and obj:
+                obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
+        if utils.is_local_view(context):
+            if proxy:
+                proxy.hide_set(True)
+            bpy.ops.view3d.localview()
+            utils.object_mode_to(obj)
+            utils.set_only_active_object(obj)
+        else:
+            if proxy:
+                proxy.hide_set(False)
+                utils.set_only_active_object(proxy)
+                bpy.ops.view3d.localview()
 
 
 class CC3OperatorPhysics(bpy.types.Operator):

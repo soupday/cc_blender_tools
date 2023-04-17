@@ -25,9 +25,22 @@ from . import geom
 from . import meshutils
 from . import properties
 from . import modifiers
+from . import springbones, rigidbody
 from . import physics
-from . import bones
+from . import drivers, bones
 from . import rigify_mapping_data
+
+
+SPRING_IK_LAYER = 19
+SPRING_FK_LAYER = 20
+SPRING_TWEAK_LAYER = 21
+ORG_BONE_LAYER = 31
+MCH_BONE_LAYER = 30
+DEF_BONE_LAYER = 29
+ROOT_BONE_LAYER = 28
+SIM_BONE_LAYER = 27
+HIDE_BONE_LAYER = 23
+SPRING_EDIT_LAYER = 25
 
 
 class BoundingBox:
@@ -155,39 +168,401 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
     utils.log_recess()
 
 
-def add_accessory_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings):
-
+def add_extension_bones(chr_cache, cc3_rig, rigify_rig, bone_mappings, vertex_group_map):
     # find all the accessories in the armature
     accessory_bone_names = bones.find_accessory_bones(bone_mappings, cc3_rig)
+    spring_rig_names = springbones.get_spring_rig_names(chr_cache, cc3_rig)
 
     # copy the accessory bone trees into the rigify rig
     for bone_name in accessory_bone_names:
         bone = cc3_rig.data.bones[bone_name]
+        is_spring_rig = bone_name in spring_rig_names
+
+        # fix old spring rig bone name
+        if is_spring_rig and bone_name.startswith("RL_"):
+            bone.name = "RLS_" + bone_name[3:]
+            bone_name = bone.name
+            utils.log_info(f"Updating spring rig name to {bone_name}")
+
+        if is_spring_rig:
+            prefix = "RLS_"
+        else:
+            prefix = "RLA_"
 
         if bone:
-
-            utils.log_info(f"Processing accessory root bone: {bone_name}")
+            if is_spring_rig:
+                utils.log_info(f"Processing Spring Rig root bone: {bone_name}")
+            else:
+                utils.log_info(f"Processing Accessory root bone: {bone_name}")
 
             cc3_parent_name = None
             rigify_parent_name = None
 
             if bone.parent:
                 cc3_parent_name = bone.parent.name
-                for bone_map in bone_mappings:
-                    if bone_map[1] == cc3_parent_name:
-                        # try to find the parent in the ORG bones
-                        rigify_parent_name = f"ORG-{bone_map[0]}"
-                        if rigify_parent_name not in rigify_rig.data.bones:
-                            # then try the DEF bones
-                            rigify_parent_name = f"DEF-{bone_map[0]}"
-                        if rigify_parent_name not in rigify_rig.data.bones:
-                            rigify_parent_name = None
+                rigify_parent_name = bones.get_rigify_meta_bone(rigify_rig, bone_mappings, cc3_parent_name)
 
             if not (rigify_parent_name and rigify_parent_name in rigify_rig.data.bones):
-                utils.log_error(f"Unable to find matching accessory bone tree parent: {cc3_parent_name} in rigify bones!")
+                utils.log_error(f"Unable to find matching accessory/spring bone tree parent: {cc3_parent_name} in rigify bones!")
 
-            utils.log_info(f"Copying accessory bone tree into rigify rig: {bone.name} parent: {rigify_parent_name}")
-            bones.copy_rl_edit_bone_subtree(cc3_rig, rigify_rig, bone.name, bone.name, rigify_parent_name, 23)
+            if is_spring_rig:
+                utils.log_info(f"Copying Spring Rig bone tree into rigify rig: {bone.name} parent: {rigify_parent_name}")
+            else:
+                utils.log_info(f"Copying Accessory bone tree into rigify rig: {bone.name} parent: {rigify_parent_name}")
+
+            if bone.name.startswith(prefix):
+                dst_name = bone.name
+            else:
+                dst_name = f"{prefix}{bone.name}"
+
+            bones.copy_rl_edit_bone_subtree(cc3_rig, rigify_rig, bone.name,
+                                            dst_name, rigify_parent_name, "DEF-",
+                                            DEF_BONE_LAYER, vertex_group_map)
+
+
+def lookup_bone_def_parent(bone_defs, def_bone):
+    if def_bone.parent:
+        def_bone_parent_name = def_bone.parent.name
+        for bone_def in bone_defs:
+            if bone_def[4] == def_bone_parent_name:
+                return bone_def
+    return None
+
+
+def lookup_bone_def_child(bone_defs, def_bone):
+    if def_bone.children:
+        def_bone_child_name = def_bone.children[0].name
+        for bone_def in bone_defs:
+            if bone_def[4] == def_bone_child_name:
+                return bone_def
+    return None
+
+
+def rigify_spring_chain(rig, spring_root, length, def_bone, bone_defs, ik_targets, mch_root = None):
+
+    length += 1
+
+    base_name = def_bone.name
+    if base_name.startswith("DEF-"):
+        base_name = base_name[4:]
+
+    if mch_root is None:
+        mch_root = bones.copy_edit_bone(rig, def_bone.name, f"MCH-{base_name}_parent", spring_root.name, 1.0)
+        bones.set_edit_bone_layer(rig, mch_root.name, MCH_BONE_LAYER)
+        mch_root.parent = spring_root
+
+    parent_def = lookup_bone_def_parent(bone_defs, def_bone)
+    if not parent_def:
+        parent_def = [mch_root.name, mch_root.name, mch_root.name, "", "", spring_root.name, 0]
+
+    fk_bone = bones.copy_edit_bone(rig, def_bone.name, f"{base_name}_fk", parent_def[0], 1.0)
+    mch_bone = bones.copy_edit_bone(rig, def_bone.name, f"MCH-{base_name}_ik", parent_def[1], 1.0)
+    org_bone = bones.copy_edit_bone(rig, def_bone.name, f"ORG-{base_name}", parent_def[2], 1.0)
+    twk_bone = bones.copy_edit_bone(rig, def_bone.name, f"{base_name}_tweak", org_bone.name, 1.0)
+    sim_bone = bones.copy_edit_bone(rig, def_bone.name, f"SIM-{base_name}", parent_def[5], 1.0)
+    if not def_bone.name.startswith("DEF-"):
+        def_bone.name = f"DEF-{def_bone.name}"
+    bone_def = [fk_bone.name, mch_bone.name, org_bone.name, twk_bone.name, def_bone.name, sim_bone.name, length]
+    bones.set_edit_bone_layer(rig, fk_bone.name, SPRING_FK_LAYER)
+    bones.set_edit_bone_layer(rig, mch_bone.name, MCH_BONE_LAYER)
+    bones.set_edit_bone_layer(rig, org_bone.name, ORG_BONE_LAYER)
+    bones.set_edit_bone_layer(rig, twk_bone.name, SPRING_TWEAK_LAYER)
+    bones.set_edit_bone_layer(rig, def_bone.name, DEF_BONE_LAYER)
+    bones.set_edit_bone_layer(rig, sim_bone.name, SIM_BONE_LAYER)
+    fk_bone.use_connect = True if length > 1 else False
+    mch_bone.use_connect = True if length > 1 else False
+    bone_defs.append(bone_def)
+
+    for child_def_bone in def_bone.children:
+        rigify_spring_chain(rig, spring_root, length, child_def_bone, bone_defs, ik_targets, mch_root = mch_root)
+
+    if len(def_bone.children) == 0 and length > 0:
+        ik_target_name = mch_root.name[4:-7]
+        ik_target_bone = bones.new_edit_bone(rig, f"{ik_target_name}_target_ik", mch_bone.name)
+        ik_target_bone.head = def_bone.tail
+        ik_target_bone.tail = def_bone.tail + 0.5 * (def_bone.tail - def_bone.head)
+        ik_target_bone.roll = def_bone.roll
+        ik_target_bone.parent = mch_root
+        ik_targets.append([mch_bone.name, ik_target_bone.name, length])
+
+    return mch_root.name
+
+
+def process_spring_groups(rig, spring_rig, ik_groups):
+    scale = 1.0
+
+    if edit_rig(rig):
+        for group_name in ik_groups:
+            ik_names = ik_groups[group_name]["targets"]
+            if len(ik_names) > 1:
+                pos_head = mathutils.Vector((0,0,0))
+                pos_tail = mathutils.Vector((0,0,0))
+                for ik_bone_name in ik_names:
+                    ik_bone = rig.data.edit_bones[ik_bone_name]
+                    pos_head += ik_bone.head
+                    pos_tail += ik_bone.tail
+                pos_head /= len(ik_names)
+                pos_tail /= len(ik_names)
+
+                radius = 0
+                for ik_bone_name in ik_names:
+                    ik_bone = rig.data.edit_bones[ik_bone_name]
+                    r = (ik_bone.head - pos_head).length
+                    if r > radius:
+                        radius = r
+
+                radius = max(0.05, r)
+
+                group_ik_bone = bones.new_edit_bone(rig, f"{group_name}_group_ik", spring_rig.name)
+                group_ik_bone.head = pos_head
+                bones.set_edit_bone_layer(rig, group_ik_bone.name, SPRING_IK_LAYER)
+                dir = pos_tail - pos_head
+                dir[0] = 0
+                group_ik_bone.tail = pos_head + dir
+                ik_groups[group_name]["control"] = { "bone_name": group_ik_bone.name, "radius": radius }
+                for ik_bone_name in ik_names:
+                    ik_bone = rig.data.edit_bones[ik_bone_name]
+                    ik_bone.parent = group_ik_bone
+                    ik_bone.inherit_scale = 'NONE'
+
+
+def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots):
+    fk_bone : bpy.types.PoseBone
+    twk_bone : bpy.types.PoseBone
+
+    rigidbody.add_simulation_bone_group(rig)
+
+    shape_fk = bones.generate_spring_widget(rig, "SpringBoneFK", "FK", 0.5)
+    shape_ik = bones.generate_spring_widget(rig, "SpringBoneIK", "IK", 0.025)
+    shape_grp = bones.generate_spring_widget(rig, "SpringBoneGRP", "GRP", 0.025)
+    shape_twk = bones.generate_spring_widget(rig, "SpringBoneTWK", "TWK", 0.0125)
+
+    if select_rig(rig):
+
+        for group_name in ik_groups:
+            if ik_groups[group_name]["control"]:
+                ik_group_bone_name = ik_groups[group_name]["control"]["bone_name"]
+                ik_group_bone_radius = ik_groups[group_name]["control"]["radius"]
+                ik_group_bone = rig.pose.bones[ik_group_bone_name]
+                ik_group_bone.custom_shape = shape_grp
+                ik_group_bone.use_custom_shape_bone_size = False
+                ik_group_bone.lock_scale[1] = True
+                scale = (ik_group_bone_radius + 0.05) / 0.025
+                bones.set_pose_bone_custom_scale(rig, ik_group_bone_name, scale)
+                bones.set_pose_bone_lock(ik_group_bone, lock_scale = [0,1,0])
+                bones.set_bone_group(rig, ik_group_bone_name, "IK")
+                bones.set_pose_bone_layer(rig, ik_group_bone_name, SPRING_IK_LAYER)
+                #drivers.add_custom_float_property(ik_group_bone, "IK_FK", 0.0, 0.0, 1.0, description="Group FK Influence")
+                #drivers.add_custom_float_property(ik_group_bone, "SIM", 0.0, 0.0, 1.0, description="Group Simulation Influence")
+
+        for chain_root_name in bone_defs:
+
+            # find the ik group the chain belongs and it's IK->FK data path
+            #group_ik_fk_data_path = None
+            #group_sim_data_path = None
+            #for group_name in ik_groups:
+            #    for crn in ik_groups[group_name]["chain_root_names"]:
+            #        if crn == chain_root_name:
+            #            if ik_groups[group_name]["control"]:
+            #                ik_group_bone_name = ik_groups[group_name]["control"]["bone_name"]
+            #                group_ik_fk_data_path = bones.get_data_path_pose_bone_property(ik_group_bone_name, "IK_FK")
+            #                group_sim_data_path = bones.get_data_path_pose_bone_property(ik_group_bone_name, "SIM")
+
+            chain_bone_defs = bone_defs[chain_root_name]
+            mch_root_name = mch_roots[chain_root_name]
+            mch_root = bones.get_pose_bone(rig, mch_root_name)
+            bones.set_pose_bone_layer(rig, mch_root_name, MCH_BONE_LAYER)
+            drivers.add_custom_float_property(mch_root, "IK_FK", 0.0, 0.0, 1.0, description="FK Influence")
+            drivers.add_custom_float_property(mch_root, "SIM", 0.0, 0.0, 1.0, description="Simulation Influence")
+            ik_fk_data_path = bones.get_data_path_pose_bone_property(mch_root_name, "IK_FK")
+            sim_data_path = bones.get_data_path_pose_bone_property(mch_root_name, "SIM")
+            for bone_def in chain_bone_defs:
+                fk_bone_name = bone_def[0]
+                mch_bone_name = bone_def[1]
+                org_bone_name = bone_def[2]
+                twk_bone_name = bone_def[3]
+                def_bone_name = bone_def[4]
+                sim_bone_name = bone_def[5]
+                length = bone_def[6]
+                fk_bone = rig.pose.bones[fk_bone_name]
+                twk_bone = rig.pose.bones[twk_bone_name]
+                mch_bone = rig.pose.bones[mch_bone_name]
+                def_bone = rig.pose.bones[def_bone_name]
+                sim_bone = rig.pose.bones[sim_bone_name]
+                fk_bone.custom_shape = shape_fk
+                fk_bone.use_custom_shape_bone_size = True
+                twk_bone.custom_shape = shape_twk
+                twk_bone.use_custom_shape_bone_size = False
+                if length == 1:
+                    bones.set_pose_bone_lock(fk_bone, lock_location=[1,1,1], lock_scale=[0,1,0])
+                else:
+                    bones.set_pose_bone_lock(fk_bone, lock_scale=[0,1,0])
+                bones.set_pose_bone_lock(mch_bone, lock_location = [1,1,1], lock_rotation = [1,1,1,1], lock_scale=[1,1,1])
+                bones.set_pose_bone_lock(twk_bone, lock_rotation = [1,0,1,1], lock_scale = [0,1,0])
+                bones.set_bone_group(rig, fk_bone_name, "FK")
+                bones.set_bone_group(rig, twk_bone_name, "Tweak")
+                bones.set_bone_group(rig, sim_bone_name, "Simulation")
+                bones.set_pose_bone_layer(rig, fk_bone_name, SPRING_FK_LAYER)
+                bones.set_pose_bone_layer(rig, mch_bone_name, MCH_BONE_LAYER)
+                bones.set_pose_bone_layer(rig, org_bone_name, ORG_BONE_LAYER)
+                bones.set_pose_bone_layer(rig, twk_bone_name, SPRING_TWEAK_LAYER)
+                bones.set_pose_bone_layer(rig, def_bone_name, DEF_BONE_LAYER)
+                # sim > fk (influence driver)
+                simc = bones.add_copy_transforms_constraint(rig, rig, sim_bone_name, fk_bone_name, 0.0)
+                simc_driver = drivers.make_driver(simc, "influence", "SCRIPTED", "sim")
+                drivers.make_driver_var(simc_driver, "SINGLE_PROP", "sim", rig, "OBJECT", sim_data_path)
+                # fk -> org
+                fkc = bones.add_copy_transforms_constraint(rig, rig, fk_bone_name, org_bone_name, 1.0)
+                # mch -> org (influence driver)
+                mchc = bones.add_copy_transforms_constraint(rig, rig, mch_bone_name, org_bone_name, 1.0)
+                expr = "(1.0 - ikfk)*(1.0 - sim)"
+                mchc_driver = drivers.make_driver(mchc, "influence", "SCRIPTED", expr)
+                drivers.make_driver_var(mchc_driver, "SINGLE_PROP", "ikfk", rig, "OBJECT", ik_fk_data_path)
+                drivers.make_driver_var(mchc_driver, "SINGLE_PROP", "sim", rig, "OBJECT", sim_data_path)
+                # twk (parented to mch) -> def
+                defc1 = bones.add_copy_transforms_constraint(rig, rig, twk_bone_name, def_bone_name, 1.0)
+                # finally: def > stretch_to def.child:twk
+                if len(def_bone.children) > 0:
+                    child_def = lookup_bone_def_child(chain_bone_defs, def_bone)
+                    if child_def:
+                        twk_child_bone_name = child_def[3]
+                        defc2 = bones.add_stretch_to_constraint(rig, rig, twk_child_bone_name, def_bone_name, 1.0)
+
+
+        for group_name in ik_groups:
+            ik_names = ik_groups[group_name]["targets"]
+            for chain_root_name in ik_targets:
+                ik_target_def = ik_targets[chain_root_name]
+                for mch_bone_name, ik_bone_name, length in ik_target_def:
+                    if ik_bone_name in ik_names:
+                        ik_bone = rig.pose.bones[ik_bone_name]
+                        ik_bone.custom_shape = shape_ik
+                        ik_bone.use_custom_shape_bone_size = False
+                        ik_bone.lock_scale[1] = True
+                        bones.set_bone_group(rig, ik_bone_name, "IK")
+                        bones.set_pose_bone_layer(rig, ik_bone_name, SPRING_IK_LAYER)
+                        bones.add_inverse_kinematic_constraint(rig, rig, ik_bone_name, mch_bone_name,
+                                                        use_tail=True, use_stretch=True, influence=1.0,
+                                                        use_location=True, use_rotation=True,
+                                                        orient_weight=1.0, chain_count=length)
+                        drivers.add_custom_string_property(ik_bone, "ik_root", str(mch_bone_name))
+
+
+def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
+    pose_position = rigify_rig.data.pose_position
+    rigify_rig.data.pose_position = "REST"
+
+    if edit_rig(rigify_rig):
+        spring_rig = springbones.get_spring_rig(chr_cache, rigify_rig, parent_mode, mode = "EDIT")
+        if not spring_rig:
+            return
+        spring_rig_name = spring_rig.name
+        bone_defs = {}
+        ik_targets = {}
+        ik_groups = {}
+        mch_roots = {}
+        for chain_root in spring_rig.children:
+            chain_bone_defs = []
+            chain_ik_targets = []
+            mch_root_name = rigify_spring_chain(rigify_rig, spring_rig, 0, chain_root, chain_bone_defs, chain_ik_targets)
+            bone_defs[chain_root.name] = chain_bone_defs
+            ik_targets[chain_root.name] = chain_ik_targets
+            mch_roots[chain_root.name] = mch_root_name
+            if chain_bone_defs and chain_ik_targets:
+                names = [ bone_def[4] for bone_def in chain_bone_defs ]
+                chain_name = utils.get_common_name(names)
+                if not chain_name:
+                    chain_name = "NONE"
+                if chain_name.startswith("DEF-"):
+                    chain_name = chain_name[4:]
+                if chain_name not in ik_groups:
+                    ik_groups[chain_name] = { "targets": [],
+                                              "chain_root_names": [],
+                                              "control": None }
+                ik_groups[chain_name]["targets"].extend([ ik_target_def[1] for ik_target_def in chain_ik_targets ])
+                ik_groups[chain_name]["chain_root_names"].append(chain_root.name)
+        process_spring_groups(rigify_rig, spring_rig, ik_groups)
+        set_spring_rig_constraints(rigify_rig, bone_defs, ik_groups, ik_targets, mch_roots)
+        drivers.add_custom_float_property(rigify_rig.pose.bones[spring_rig_name], "rigified", 1.0)
+        rigify_rig.data.layers[SPRING_FK_LAYER] = True
+        rigify_rig.data.layers[SPRING_IK_LAYER] = True
+        rigify_rig.data.layers[SPRING_TWEAK_LAYER] = True
+
+    rigify_rig.data.pose_position = pose_position
+
+
+def rigify_spring_rigs(chr_cache, cc3_rig, rigify_rig, bone_mappings):
+    props = bpy.context.scene.CC3ImportProps
+    select_rig(rigify_rig)
+    pose_position = rigify_rig.data.pose_position
+    rigify_rig.data.pose_position = "REST"
+    spring_rigs = springbones.get_spring_rigs(chr_cache, rigify_rig, mode = "POSE")
+    if spring_rigs:
+        for parent_mode in spring_rigs:
+            rigify_spring_rig(chr_cache, rigify_rig, parent_mode)
+        props.section_rigify_spring = True
+    rigify_rig.data.pose_position = pose_position
+
+
+
+def derigify_spring_rig(chr_cache, rigify_rig, parent_mode):
+    to_remove = []
+    to_layer = []
+    DRIVER_PROPS = [ "influence" ]
+
+    if select_rig(rigify_rig):
+        spring_rig = springbones.get_spring_rig(chr_cache, rigify_rig, parent_mode, mode = "POSE")
+        child_bones = bones.get_bone_children(spring_rig, include_root=False)
+        for bone in child_bones:
+            # keep only the DEF bones (and the RL_ spring root):
+            if bone.name.startswith("DEF-"):
+                bone.name = bone.name[4:]
+                bones.set_pose_bone_layer(rigify_rig, bone.name, SPRING_EDIT_LAYER)
+                to_layer.append(bone.name)
+            else:
+                to_remove.append(bone.name)
+                # remove any drivers on the contraints
+                for c in bone.constraints:
+                    for prop in DRIVER_PROPS:
+                        c.driver_remove(prop)
+
+            # remove all constraints from the spring rig bones
+            while bone.constraints:
+                bone.constraints.remove(bone.constraints[0])
+
+        if edit_rig(rigify_rig):
+            for bone_name in to_remove:
+                utils.log_info(f"Removing spring rigify bone: {bone_name}")
+                bone = rigify_rig.data.edit_bones[bone_name]
+                rigify_rig.data.edit_bones.remove(bone)
+            for bone_name in to_layer:
+                utils.log_info(f"Keeping spring rig bone: {bone_name}")
+                bones.set_edit_bone_layer(rigify_rig, bone_name, SPRING_EDIT_LAYER)
+
+        if "rigified" in spring_rig:
+            spring_rig["rigified"] = False
+
+        select_rig(rigify_rig)
+        rigify_rig.data.layers[SPRING_EDIT_LAYER] = True
+
+
+def group_props_to_value(chr_cache, group_pose_bone, prop, value):
+    arm = None
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    if group_pose_bone and arm:
+        for child_pose_bone in group_pose_bone.children:
+            if "ik_root" in child_pose_bone:
+                search_bone_name = child_pose_bone["ik_root"]
+            else:
+                search_bone_name = child_pose_bone.name
+            spring_rig_def, mch_root_name, parent_mode = springbones.get_spring_rig_from_child(chr_cache, arm, search_bone_name)
+            mch_root = arm.pose.bones[mch_root_name]
+            if prop in mch_root:
+                mch_root[prop] = value
+    # set a bone value to force an update:
+    l = group_pose_bone.location
+    group_pose_bone.location = l
 
 
 def rl_vertex_group(obj, group):
@@ -202,7 +577,7 @@ def rl_vertex_group(obj, group):
     return None
 
 
-def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups):
+def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups, acc_vertex_group_map):
     """Rename the CC3 rig vertex weight groups to the Rigify deformation bone names,
        removes matching existing vertex groups created by parent with automatic weights.
        Thus leaving just the automatic face rig weights.
@@ -216,6 +591,8 @@ def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups):
 
         utils.log_info(f"Remapping groups for: {obj.name}")
 
+        # remove the destination vertex groups (these will have been created by the parenting operation)
+        # and rename the source vertex groups to the destination groups
         for vgrn in vertex_groups:
 
             vg_to = vgrn[0]
@@ -234,6 +611,12 @@ def rename_vertex_groups(cc3_rig, rigify_rig, vertex_groups):
                         obj.vertex_groups[vg_from].name = vg_to
                 except:
                     pass
+
+        # rename accessory vertex groups
+        for vg in obj.vertex_groups:
+            if vg.name in acc_vertex_group_map:
+                dst_vg_name = acc_vertex_group_map[vg.name]
+                vg.name = dst_vg_name
 
         for mod in obj.modifiers:
             if mod.type == "ARMATURE":
@@ -818,8 +1201,10 @@ def add_shape_key_drivers(chr_cache, rig):
         left_data_path = bones.get_data_rigify_limb_property("LEFT_LEG", "IK_Stretch")
         right_data_path = bones.get_data_rigify_limb_property("RIGHT_LEG", "IK_Stretch")
         expression = "pow(ik_stretch, 3)"
-        bones.add_constraint_scripted_influence_driver(rig, "DEF-foot.L", left_data_path, "ik_stretch", "STRETCH_TO", expression)
-        bones.add_constraint_scripted_influence_driver(rig, "DEF-foot.R", right_data_path, "ik_stretch", "STRETCH_TO", expression)
+        bones.add_constraint_scripted_influence_driver(rig, "DEF-foot.L", left_data_path, "ik_stretch",
+                                                       constraint_type="STRETCH_TO", expression=expression)
+        bones.add_constraint_scripted_influence_driver(rig, "DEF-foot.R", right_data_path, "ik_stretch",
+                                                       constraint_type="STRETCH_TO", expression=expression)
 
 
 def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def):
@@ -904,17 +1289,17 @@ def modify_rigify_rig(cc3_rig, rigify_rig, rigify_data):
                     for bone in rigify_rig.data.bones:
                         if re.match(regex, bone.name):
                             utils.log_info(f"Hiding control rig bone: {bone.name}")
-                            bones.set_pose_bone_layer(rigify_rig, bone.name, 22)
+                            bones.set_pose_bone_layer(rigify_rig, bone.name, HIDE_BONE_LAYER)
                             bone_list.append(bone.name)
                 utils.log_recess()
         if bone_list and edit_rig(rigify_rig):
             for bone_name in bone_list:
-                bones.set_edit_bone_layer(rigify_rig, bone_name, 22)
+                bones.set_edit_bone_layer(rigify_rig, bone_name, HIDE_BONE_LAYER)
             select_rig(rigify_rig)
 
 
 
-def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
+def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mappings):
     """Unparent (with transform) from the original CC3 rig and reparent to the new rigify rig (with automatic weights for the body),
        setting the armature modifiers to the new rig.
 
@@ -929,6 +1314,9 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig):
     result = 1
 
     if utils.set_mode("OBJECT"):
+
+        # first move rigidbody colliders over
+        rigidbody.convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings)
 
         for obj in cc3_rig.children:
             if utils.object_exists_is_mesh(obj) and obj.parent == cc3_rig:
@@ -1939,10 +2327,17 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 
         # select just the retargeted bones in the rigify rig, to bake:
         if select_rig(rigify_rig):
+            bone : bpy.types.Bone
             for bone in rigify_rig.data.bones:
                 bone.select = False
                 if bone.name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
+                    # make sure the layers the bone occupies are visible and selectable
+                    for l in bone.layers:
+                        if l:
+                            rigify_rig.data.layers[l] = True
+                    bone.hide = False
                     bone.select = True
+
 
             bake_rig_animation(chr_cache, rigify_rig, source_action, None, True, True)
 
@@ -1954,8 +2349,8 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 def adv_bake_NLA_to_rigify(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
     rigify_rig = chr_cache.get_armature()
-    utils.safe_set_action(rigify_rig, None)
-    adv_retarget_remove_pair(op, chr_cache)
+    #utils.safe_set_action(rigify_rig, None)
+    #adv_retarget_remove_pair(op, chr_cache)
 
     # select all possible control bones in the rigify rig, to bake:
     BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
@@ -1966,7 +2361,13 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
             pose_bone = bones.get_pose_bone(rigify_rig, bone.name)
             if pose_bone and pose_bone.bone_group:
                 if pose_bone.bone_group.name in BAKE_BONE_GROUPS:
+                    # make sure the layers the bone occupies are visible and selectable
+                    for l in bone.layers:
+                        if l:
+                            rigify_rig.data.layers[l] = True
+                    bone.hide = False
                     bone.select = True
+
         shape_key_objects = []
         if props.bake_nla_shape_keys:
             for child in rigify_rig.children:
@@ -1977,6 +2378,9 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
                     shape_key_objects.append(child)
 
         bake_rig_animation(chr_cache, rigify_rig, None, shape_key_objects, False, True, "NLA_Bake")
+
+        # remove any retarget preview pairing
+        adv_retarget_remove_pair(op, chr_cache)
 
 
 # Shape-key retargeting
@@ -2137,10 +2541,25 @@ def adv_retarget_shape_keys(op, chr_cache, report):
 #
 #
 
+def get_extension_export_bones(export_rig):
+    accessory_bones = []
+    def_bones = []
+    for bone in export_rig.data.bones:
+        if bone.name.startswith("RLA_") or bone.name.startswith("RLS_") or bone.name.startswith("RL_"):
+            accessory_bones.append(bone.name)
+            bone_list = bones.get_bone_children(bone, include_root=False)
+            for b in bone_list:
+                if b.name.startswith("DEF-"):
+                    def_bones.append(b.name)
+    return accessory_bones, def_bones
+
 
 def generate_export_rig(chr_cache, force_t_pose = False):
     rigify_rig = chr_cache.get_armature()
     export_rig = utils.duplicate_object(rigify_rig)
+
+    vertex_group_map = {}
+    accessory_map = {}
 
     if export_rig:
         export_rig.name = chr_cache.character_name + "_Export"
@@ -2156,9 +2575,14 @@ def generate_export_rig(chr_cache, force_t_pose = False):
         export_rig.data.layers_protected[l] = False
 
     # compile a list of all deformation bones
-    def_bones = []
+    export_bones = []
     for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
-        def_bones.append(export_def[0])
+        export_bones.append(export_def[0])
+    accessory_bones, accessory_def_bones = get_extension_export_bones(export_rig)
+    if accessory_bones:
+        export_bones.extend(accessory_bones)
+    if accessory_def_bones:
+        export_bones.extend(accessory_def_bones)
 
     # remove all drivers
     if select_rig(export_rig):
@@ -2180,6 +2604,17 @@ def generate_export_rig(chr_cache, force_t_pose = False):
 
         edit_bones = export_rig.data.edit_bones
 
+        # reparent accessory root bones to the corresponding DEF bone
+        # (rigified accessories should normally be parented to ORG bones)
+        for bone_name in accessory_bones:
+            accessory_bone = edit_bones[bone_name]
+            if accessory_bone.parent:
+                parent_name = accessory_bone.parent.name
+                if parent_name.startswith("ORG-"):
+                    parent_name = "DEF-" + parent_name[4:]
+                    if parent_name in edit_bones:
+                        accessory_bone.parent = edit_bones[parent_name]
+
         # test for A-pose
         upper_arm_l = edit_bones['DEF-upper_arm.L']
         world_x = mathutils.Vector((1, 0, 0))
@@ -2190,7 +2625,7 @@ def generate_export_rig(chr_cache, force_t_pose = False):
 
             bone_name = export_def[0]
             parent_name = export_def[1]
-            unity_name = export_def[2]
+            export_name = export_def[2]
             axis = export_def[3]
             flags = export_def[4]
             bone = None
@@ -2225,15 +2660,24 @@ def generate_export_rig(chr_cache, force_t_pose = False):
 
         # remove all non-deformation bones
         for edit_bone in edit_bones:
-            if edit_bone.name not in def_bones:
+            if edit_bone.name not in export_bones:
                 edit_bones.remove(edit_bone)
+
+        # remove the DEF- tag from the accessory bone names (if needed)
+        for bone_name in accessory_def_bones:
+            if bone_name.startswith("DEF-"):
+                export_name = bone_name[4:]
+                vertex_group_map[bone_name] = export_name
+                accessory_map[bone_name] = export_name
+                edit_bones[bone_name].name = bone_name[4:]
 
         # rename bones for export
         for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
             bone_name = export_def[0]
-            unity_name = export_def[2]
-            if unity_name != "" and bone_name in edit_bones:
-                edit_bones[bone_name].name = unity_name
+            export_name = export_def[2]
+            if export_name != "" and bone_name in edit_bones:
+                vertex_group_map[bone_name] = export_name
+                edit_bones[bone_name].name = export_name
 
     # set pose bone layers
     if select_rig(export_rig):
@@ -2257,7 +2701,7 @@ def generate_export_rig(chr_cache, force_t_pose = False):
             right_arm_bone.rotation_euler = [0,0,-angle]
             right_arm_bone.rotation_mode = "QUATERNION"
 
-    return export_rig
+    return export_rig, vertex_group_map, accessory_map
 
 
 def get_bake_action(chr_cache):
@@ -2280,10 +2724,11 @@ def get_bake_action(chr_cache):
     return action, source_type
 
 
-def adv_bake_rigify_for_export(chr_cache, export_rig):
+def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
     props = bpy.context.scene.CC3ImportProps
 
-    action = None
+    armature_action = None
+    shape_key_actions = None
 
     export_bake_action, export_bake_source_type = get_bake_action(chr_cache)
 
@@ -2298,24 +2743,35 @@ def adv_bake_rigify_for_export(chr_cache, export_rig):
         if select_rig(export_rig):
             for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
                 rigify_bone_name = export_def[0]
-                unity_bone_name = export_def[2]
+                export_bone_name = export_def[2]
                 axis = export_def[3]
                 flags = export_def[4]
-                if unity_bone_name == "":
-                    unity_bone_name = rigify_bone_name
+                if export_bone_name == "":
+                    export_bone_name = rigify_bone_name
                 if "T" in flags and len(export_def) > 5:
                     rigify_bone_name = export_def[5]
-                bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
-                bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, unity_bone_name, 1.0)
+                bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, export_bone_name, 1.0)
+                bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, export_bone_name, 1.0)
+
+            # constraints for accessory/spring bones
+            for rigify_bone_name in accessory_map:
+                export_bone_name = accessory_map[rigify_bone_name]
+                bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, export_bone_name, 1.0)
+                bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, export_bone_name, 1.0)
 
             # select all export rig bones
             for bone in export_rig.data.bones:
+                # make sure the layers the bone occupies are visible and selectable
+                for l in bone.layers:
+                    if l:
+                        export_rig.data.layers[l] = True
+                bone.hide = False
                 bone.select = True
 
             # bake the action on the rigify rig into the export rig
-            action = bake_rig_animation(chr_cache, export_rig, None, None, True, True, "NLA_Bake")
+            armature_action, shape_key_actions = bake_rig_animation(chr_cache, export_rig, None, None, True, True, "NLA_Bake")
 
-    return action
+    return armature_action, shape_key_actions
 
 
 def rename_armature(arm, name):
@@ -2345,7 +2801,7 @@ def restore_armature_names(armature_object, armature_data, name):
         armature_data.name = name
 
 
-def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose = False):
+def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose = False, objects=None):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     rigify_rig = chr_cache.get_armature()
@@ -2357,7 +2813,8 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
 
     # generate export rig
     utils.delete_armature_object(chr_cache.rig_export_rig)
-    export_rig = chr_cache.rig_export_rig = generate_export_rig(chr_cache, force_t_pose = include_t_pose)
+    export_rig, vertex_group_map, accessory_map = generate_export_rig(chr_cache, force_t_pose = include_t_pose)
+    chr_cache.rig_export_rig = export_rig
 
     if select_rig(export_rig):
         export_rig.data.pose_position = "POSE"
@@ -2401,29 +2858,38 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
             # bake current timeline animation to export rig
             action = None
             if bake_animation:
-                action = adv_bake_rigify_for_export(chr_cache, export_rig)
+                utils.log_info(f"Baking NLA timeline to export rig...")
+                action, key_actions = adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map)
                 action.name = action_name
                 baked_actions.append(action)
                 export_rig = chr_cache.rig_export_rig
 
             utils.safe_set_action(export_rig, None)
 
-            # push baked action to NLA strip
+            # push baked actions to NLA strip
             if bake_animation and action:
                 utils.log_info(f"Adding {action.name} to NLA strips")
                 track = export_rig.animation_data.nla_tracks.new()
                 strip = track.strips.new(action.name, int(action.frame_range[0]), action)
+                for key_obj in key_actions:
+                    key_action = key_actions[key_obj]
+                    utils.log_info(f"Adding {key_action.name} to NLA strips")
+                    track = key_obj.data.shape_keys.animation_data.nla_tracks.new()
+                    strip = track.strips.new(key_action.name, int(key_action.frame_range[0]), key_action)
 
             # reparent the child objects to the export rig
             for child in rigify_rig.children:
+                if objects and child not in objects:
+                    continue
                 child.parent = export_rig
                 mod = modifiers.get_object_modifier(child, "ARMATURE")
-                mod.object = export_rig
-                rename_to_unity_vertex_groups(child)
+                if mod:
+                    mod.object = export_rig
+                rename_to_unity_vertex_groups(child, vertex_group_map)
 
     select_rig(export_rig)
 
-    return export_rig
+    return export_rig, vertex_group_map
 
 
 def select_motion_export_objects(objects):
@@ -2447,15 +2913,20 @@ def select_motion_export_objects(objects):
                     utils.try_select_object(obj)
 
 
-def rename_to_unity_vertex_groups(obj):
-    for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
-        rigify_bone_name = export_def[0]
-        unity_bone_name = export_def[2]
-        if rigify_bone_name in obj.vertex_groups:
-            obj.vertex_groups[rigify_bone_name].name = unity_bone_name
+def rename_to_unity_vertex_groups(obj, vertex_group_map):
+    for vg in obj.vertex_groups:
+        if vg.name in vertex_group_map:
+            vg.name = vertex_group_map[vg.name]
 
 
-def restore_from_unity_vertex_groups(obj):
+def restore_from_unity_vertex_groups(obj, vertex_group_map):
+    for vg in obj.vertex_groups:
+        for rigify_name in vertex_group_map:
+            if vertex_group_map[rigify_name] == vg.name:
+                vg.name = rigify_name
+                break
+
+
     for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
         rigify_bone_name = export_def[0]
         unity_bone_name = export_def[2]
@@ -2463,15 +2934,17 @@ def restore_from_unity_vertex_groups(obj):
             obj.vertex_groups[unity_bone_name].name = rigify_bone_name
 
 
-def finish_rigify_export(chr_cache, export_rig, export_actions):
+def finish_rigify_export(chr_cache, export_rig, export_actions, vertex_group_map, objects = None):
     rigify_rig = chr_cache.get_armature()
 
     # un-reparent the child objects
     for child in export_rig.children:
+        if objects and child not in objects:
+            continue
         child.parent = rigify_rig
         mod = modifiers.get_object_modifier(child, "ARMATURE")
         mod.object = rigify_rig
-        restore_from_unity_vertex_groups(child)
+        restore_from_unity_vertex_groups(child, vertex_group_map)
 
     # remove the baked actions
     if export_actions:
@@ -2489,27 +2962,15 @@ def finish_rigify_export(chr_cache, export_rig, export_actions):
 
 def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constraints, limit_view_layer, action_name = ""):
 
-    return_action = None
+    armature_action = None
+    shape_key_actions = {}
 
     if utils.try_select_object(rig, True) and utils.set_active_object(rig):
         if action_name == "" and action:
             action_name = action.name
         name = action_name.split("|")[-1]
-        new_name = f"{rig.name}|A|{name}"
-        utils.log_info(f"Baking action: {name} to {new_name}")
-        # armature action
-        baked_action = bpy.data.actions.new(new_name)
-        baked_action.use_fake_user = True
-        return_action = baked_action
-        utils.safe_set_action(rig, baked_action)
-        # shape key actions
-        if shape_key_objects:
-            for obj in shape_key_objects:
-                obj_name = utils.get_action_shape_key_object_name(obj.name)
-                baked_action = bpy.data.actions.new(f"{rig.name}|K|{obj_name}|{name}")
-                baked_action.use_fake_user = True
-                utils.safe_set_action(obj.data.shape_keys, baked_action)
-            utils.try_select_objects(shape_key_objects)
+        armature_action_name = f"{rig.name}|A|{name}"
+        utils.log_info(f"Baking action: {name} to {armature_action_name}")
         # frame range
         if action:
             start_frame = int(action.frame_range[0])
@@ -2531,10 +2992,30 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
                          frame_end=end_frame,
                          only_selected=True,
                          visual_keying=True,
-                         use_current_action=True,
+                         use_current_action=False,
                          clear_constraints=clear_constraints,
                          clean_curves=False,
                          bake_types={'POSE'})
+
+        # armature action
+        baked_action = utils.safe_get_action(rig)
+        if baked_action:
+            baked_action.name = armature_action_name
+            baked_action.use_fake_user = True
+            armature_action = baked_action
+            utils.log_info(f"Baked armature action: {baked_action.name}")
+        # shape key actions
+        if shape_key_objects:
+            for obj in shape_key_objects:
+                obj_name = utils.get_action_shape_key_object_name(obj.name)
+                baked_action = utils.safe_get_action(obj.data.shape_keys)
+                if baked_action:
+                    shape_key_action_name = f"{rig.name}|K|{obj_name}|{name}"
+                    baked_action.name = shape_key_action_name
+                    baked_action.use_fake_user = True
+                    shape_key_actions[obj] = baked_action
+                    utils.log_info(f" - Baked shape-key action: {baked_action.name}")
+            utils.try_select_objects(shape_key_objects)
 
         utils.set_mode("OBJECT")
 
@@ -2545,7 +3026,7 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
         physics.enable_physics(chr_cache, physics_objects)
 
     # return the baked actions
-    return return_action
+    return armature_action, shape_key_actions
 
 
 # Helper functions
@@ -2733,10 +3214,179 @@ def get_armature_action_source_type(armature, action):
     return "Unknown", "Unknown"
 
 
+def is_full_rig_shown(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+    if arm:
+        for i in range(0, 32):
+            if (i == 28) or (i >= 0 and i <= 21):
+                if arm.data.layers[i] == False:
+                    return False
+        return True
+    else:
+        return False
+
+
+def toggle_show_full_rig(chr_cache):
+    show = True
+    if is_full_rig_shown(chr_cache):
+        show = False
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+    if arm:
+        if show:
+            arm.data.layers[28] = True
+        else:
+            arm.data.layers[DEF_BONE_LAYER] = True
+        for i in range(0, 32):
+            if show:
+                arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
+            else:
+                arm.data.layers[i] = (i == SPRING_EDIT_LAYER or i == DEF_BONE_LAYER)
+
+
+def is_base_rig_shown(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+    if arm:
+        for i in range(0, 32):
+            if (i == 28) or (i >= 0 and i <= 18):
+                if arm.data.layers[i] == False:
+                    return False
+        return True
+    else:
+        return False
+
+
+def toggle_show_base_rig(chr_cache):
+    show = True
+    if is_full_rig_shown(chr_cache):
+        show = True
+    elif is_base_rig_shown(chr_cache):
+        show = False
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+    if arm:
+        if show:
+            arm.data.layers[28] = True
+        else:
+            arm.data.layers[DEF_BONE_LAYER] = True
+        for i in range(0, 32):
+            if show:
+                arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 18)
+            else:
+                arm.data.layers[i] = (i == DEF_BONE_LAYER)
+
+
+def is_spring_rig_shown(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+    if arm:
+        for i in range(0, 32):
+            if (i >= 19 and i <= 21):
+                if arm.data.layers[i] == False:
+                    return False
+        return True
+    else:
+        return False
+
+
+def toggle_show_spring_rig(chr_cache):
+
+    show = True
+    if is_full_rig_shown(chr_cache):
+        show = True
+    elif is_spring_rig_shown(chr_cache):
+        show = False
+
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+
+    if arm:
+
+        if show:
+            arm.data.layers[19] = True
+        else:
+            arm.data.layers[DEF_BONE_LAYER] = True
+
+        for i in range(0, 32):
+            if show:
+                arm.data.layers[i] = (i >= 19 and i <= 21)
+            else:
+                arm.data.layers[i] = (i == DEF_BONE_LAYER)
+
+
+def toggle_show_spring_bones(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+    if arm:
+        if arm.data.layers[SPRING_EDIT_LAYER]:
+            springbones.show_spring_bone_edit_layer(chr_cache, arm, False)
+        else:
+            springbones.show_spring_bone_edit_layer(chr_cache, arm, True)
+
+
+def reset_pose(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+    if arm:
+            utils.pose_mode_to(arm)
+            arm.data.pose_position = "POSE"
+            selected_bones = [ b for b in arm.data.bones if b.select ]
+            for b in arm.data.bones:
+                b.select = True
+            bpy.ops.pose.transforms_clear()
+            for b in arm.data.bones:
+                if b in selected_bones:
+                    b.select = True
+                else:
+                    b.select = False
+
+
+def is_rig_rest_position(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+    if arm:
+        if arm.data.pose_position == "REST":
+            return True
+    return False
+
+
+def toggle_rig_rest_position(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+    if arm:
+        if arm.data.pose_position == "POSE":
+            arm.data.pose_position = "REST"
+        else:
+            arm.data.pose_position = "POSE"
+
+
+
 class CC3Rigifier(bpy.types.Operator):
     """Rigify CC3 Character"""
     bl_idname = "cc3.rigifier"
-    bl_label = "Rigifier"
+    bl_label = "Character Rigging"
     bl_options = {"REGISTER"}
 
     param: bpy.props.StringProperty(
@@ -2750,6 +3400,7 @@ class CC3Rigifier(bpy.types.Operator):
     rigify_rig = None
     auto_weight_failed = False
     auto_weight_report = ""
+    rigid_body_systems = {}
 
     def add_meta_rig(self, chr_cache):
 
@@ -2777,6 +3428,24 @@ class CC3Rigifier(bpy.types.Operator):
             utils.log_error("Not in OBJECT mode!", self)
 
         utils.log_recess()
+
+    def remove_cc3_rigid_body_systems(self, chr_cache):
+        self.rigid_body_systems.clear()
+        spring_rig_modes= springbones.get_all_parent_modes(chr_cache, self.cc3_rig)
+        for parent_mode in spring_rig_modes:
+            spring_rig_name = springbones.get_spring_rig_name(self.cc3_rig, parent_mode)
+            spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+            settings = rigidbody.remove_existing_rigid_body_system(self.cc3_rig, spring_rig_prefix, spring_rig_name)
+            if settings:
+                self.rigid_body_systems[parent_mode] = settings
+
+    def restore_rigify_rigid_body_systems(self, chr_cache):
+        for parent_mode in self.rigid_body_systems.keys():
+            rig = chr_cache.get_armature()
+            spring_rig_name = springbones.get_spring_rig_name(rig, parent_mode)
+            spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+            settings = self.rigid_body_systems[parent_mode]
+            rigidbody.build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_name, settings)
 
     def execute(self, context):
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
@@ -2807,6 +3476,7 @@ class CC3Rigifier(bpy.types.Operator):
 
                     olc = utils.set_active_layer_collection_from(self.cc3_rig)
 
+                    self.remove_cc3_rigid_body_systems(chr_cache)
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
@@ -2833,12 +3503,15 @@ class CC3Rigifier(bpy.types.Operator):
                                 convert_to_basic_face_rig(self.rigify_rig)
                                 chr_cache.rigified_full_face_rig = False
                             modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
-                            face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
+                            face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                            acc_vertex_group_map = {}
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
-                            add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                            add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
+                            rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
-                            rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
+                            rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
+                            #self.restore_rigify_rigid_body_systems(chr_cache)
 
                     chr_cache.rig_meta_rig = None
                     if face_result == 1:
@@ -2864,6 +3537,7 @@ class CC3Rigifier(bpy.types.Operator):
 
                     olc = utils.set_active_layer_collection_from(self.cc3_rig)
 
+                    self.remove_cc3_rigid_body_systems(chr_cache)
                     self.add_meta_rig(chr_cache)
 
                     if self.meta_rig:
@@ -2906,12 +3580,15 @@ class CC3Rigifier(bpy.types.Operator):
                                 convert_to_basic_face_rig(self.rigify_rig)
                                 chr_cache.rigified_full_face_rig = False
                             modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
-                            face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig)
+                            face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                            acc_vertex_group_map = {}
                             add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
-                            add_accessory_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                            add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
+                            rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                             add_shape_key_drivers(chr_cache, self.rigify_rig)
-                            rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename)
+                            rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
                             clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
+                            #self.restore_rigify_rigid_body_systems(chr_cache)
 
                     utils.set_active_layer_collection(olc)
 
@@ -2936,6 +3613,27 @@ class CC3Rigifier(bpy.types.Operator):
                             obj = o
                     if rig and obj:
                         report_uv_face_targets(obj, rig)
+
+            elif self.param == "BUILD_SPRING_RIG":
+                rig = chr_cache.get_armature()
+                parent_mode = chr_cache.available_spring_rigs
+                spring_rig_name = springbones.get_spring_rig_name(rig, parent_mode)
+                if spring_rig_name in rig.data.bones:
+                    spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+                    rigidbody.remove_existing_rigid_body_system(rig, spring_rig_prefix, spring_rig_name)
+                    rigify_spring_rig(chr_cache, chr_cache.get_armature(), parent_mode)
+                    springbones.show_spring_bone_rig_layers(chr_cache, rig, True)
+
+            elif self.param == "REMOVE_SPRING_RIG":
+                rig = chr_cache.get_armature()
+                parent_mode = chr_cache.available_spring_rigs
+                spring_rig_name = springbones.get_spring_rig_name(rig, parent_mode)
+                if spring_rig_name in rig.data.bones:
+                    spring_rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+                    rigidbody.remove_existing_rigid_body_system(rig, spring_rig_prefix, spring_rig_name)
+                    #springbones.show_spring_bone_rig_layers(chr_cache, arm, False)
+                    derigify_spring_rig(chr_cache, chr_cache.get_armature(), parent_mode)
+
 
             elif self.param == "LOCK_NON_FACE_VGROUPS":
                 lock_non_face_vgroups(chr_cache)
@@ -2984,6 +3682,38 @@ class CC3Rigifier(bpy.types.Operator):
 
             elif self.param == "RETARGET_SHAPE_KEYS":
                 adv_retarget_shape_keys(self, chr_cache, True)
+
+            elif self.param == "SPRING_GROUP_TO_IK":
+                group_props_to_value(chr_cache, context.active_pose_bone, "IK_FK", 0.0)
+                group_props_to_value(chr_cache, context.active_pose_bone, "SIM", 0.0)
+
+            elif self.param == "SPRING_GROUP_TO_FK":
+                group_props_to_value(chr_cache, context.active_pose_bone, "IK_FK", 1.0)
+                group_props_to_value(chr_cache, context.active_pose_bone, "SIM", 0.0)
+
+            elif self.param == "SPRING_GROUP_TO_SIM":
+                group_props_to_value(chr_cache, context.active_pose_bone, "IK_FK", 1.0)
+                group_props_to_value(chr_cache, context.active_pose_bone, "SIM", 1.0)
+
+            elif self.param == "TOGGLE_SHOW_FULL_RIG":
+                toggle_show_full_rig(chr_cache)
+
+            elif self.param == "TOGGLE_SHOW_BASE_RIG":
+                toggle_show_base_rig(chr_cache)
+
+            elif self.param == "TOGGLE_SHOW_SPRING_RIG":
+                toggle_show_spring_rig(chr_cache)
+
+            elif self.param == "TOGGLE_SHOW_RIG_POSE":
+                toggle_rig_rest_position(chr_cache)
+
+            elif self.param == "TOGGLE_SHOW_SPRING_BONES":
+                toggle_show_spring_bones(chr_cache)
+
+            elif self.param == "BUTTON_RESET_POSE":
+                mode_selection = utils.store_mode_selection_state()
+                reset_pose(chr_cache)
+                utils.restore_mode_selection_state(mode_selection)
 
             props.restore_ui_list_indices()
 
@@ -3038,6 +3768,30 @@ class CC3Rigifier(bpy.types.Operator):
 
         elif properties.param == "NLA_CC_BAKE":
             return "Bake the NLA track to the character Rigify Rig using the global scene frame range."
+
+        elif properties.param == "TOGGLE_SHOW_SPRING_BONES":
+            return "Quick toggle for the armature layers to show just the spring bones or just the body bones"
+
+        elif properties.param == "BUILD_SPRING_RIG":
+            return "Builds the spring rig controls for the currently selected spring rig"
+
+        elif properties.param == "REMOVE_SPRING_RIG":
+            return "Removes the spring rig controls for the currently selected spring rig"
+
+        elif properties.param == "TOGGLE_SHOW_FULL_RIG":
+            return "Toggles showing all the rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_BASE_RIG":
+            return "Toggles showing the base rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_SPRING_RIG":
+            return "Toggles showing just the spring rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_RIG_POSE":
+            return "Toggles the rig between pose mode and rest pose"
+
+        elif properties.param == "BUTTON_RESET_POSE":
+            return "Clears all pose transforms"
 
         return "Rigification!"
 

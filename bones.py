@@ -119,6 +119,20 @@ def get_pose_bone(rig, name):
     return None
 
 
+def get_rigify_meta_bone(rigify_rig, bone_mappings, cc3_bone_name):
+    for bone_map in bone_mappings:
+        if bone_map[1] == cc3_bone_name:
+            # try to find the parent in the ORG bones
+            org_bone_name = f"ORG-{bone_map[0]}"
+            if org_bone_name in rigify_rig.data.bones:
+                return org_bone_name
+            # then try the DEF bones
+            def_bone_name = f"DEF-{bone_map[0]}"
+            if def_bone_name not in rigify_rig.data.bones:
+                return def_bone_name
+    return None
+
+
 def align_edit_bone_roll(edit_bone : bpy.types.EditBone, axis):
     if axis == "X":
         edit_bone.align_roll(mathutils.Vector((1,0,0)))
@@ -168,9 +182,10 @@ def copy_edit_bone(rig, src_name, dst_name, parent_name, scale):
     return None
 
 
-def new_edit_bone(rig, bone_name, parent_name):
+def new_edit_bone(rig, bone_name, parent_name, allow_existing = True):
     if utils.edit_mode_to(rig):
-        if bone_name not in rig.data.edit_bones:
+        can_add = allow_existing or bone_name not in rig.data.edit_bones
+        if can_add:
             bone = rig.data.edit_bones.new(bone_name)
             bone.head = mathutils.Vector((0,0,0))
             bone.tail = bone.head + mathutils.Vector((0,0,0.05))
@@ -257,6 +272,18 @@ def copy_rig_bind_pose(rig_from, rig_to):
                 edit_bone.roll = bone_def["roll"]
 
 
+def get_bone_children(bone, bone_list = None, include_root = False):
+    is_root = False
+    if bone_list is None:
+        is_root = True
+        bone_list = []
+    if include_root or not is_root:
+        bone_list.append(bone)
+    for child in bone.children:
+        get_bone_children(child, bone_list, include_root)
+    return bone_list
+
+
 def get_edit_bone_subtree_defs(rig, bone : bpy.types.EditBone, tree = None):
 
     if tree is None:
@@ -281,7 +308,7 @@ def get_edit_bone_subtree_defs(rig, bone : bpy.types.EditBone, tree = None):
     return tree
 
 
-def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, layer):
+def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, dst_prefix, layer, vertex_group_map):
 
     src_bone_defs = None
 
@@ -293,15 +320,19 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
         if utils.edit_mode_to(dst_rig):
 
             for bone_def in src_bone_defs:
-                name = bone_def[0]
-                if name == cc3_name:
+                src_name = bone_def[0]
+                if src_name == cc3_name:
                     name = dst_name
+                    parent_name = dst_parent_name
+                else:
+                    name = f"{dst_prefix}{bone_def[0]}"
+                    src_parent_name = bone_def[6]
+                    parent_name = vertex_group_map[src_parent_name]
                 head = bone_def[1]
                 tail = bone_def[2]
                 head_radius = bone_def[3]
                 tail_radius = bone_def[4]
                 roll = bone_def[5]
-                parent_name = bone_def[6]
 
                 bone : bpy.types.EditBone = dst_rig.data.edit_bones.new(name)
                 bone.head = head
@@ -311,6 +342,7 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                 bone.roll = roll
 
                 # store the name of the newly created bone (in case Blender has changed it)
+                vertex_group_map[src_name] = bone.name
                 bone_def.append(bone.name)
 
                 # set the edit bone layers
@@ -322,13 +354,7 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                 if parent_bone:
                     bone.parent = parent_bone
 
-            # set the tree parent
-            dst_bone = get_edit_bone(dst_rig, dst_name)
-            dst_parent_bone = get_edit_bone(dst_rig, dst_parent_name)
-            if dst_bone and dst_parent_bone:
-                dst_bone.parent = dst_parent_bone
-
-            # finally set pose bone layers
+            # set pose bone layers
             if utils.set_mode("OBJECT"):
                 for bone_def in src_bone_defs:
                     name = bone_def[7]
@@ -406,6 +432,25 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
         return None
 
 
+def add_stretch_to_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, head_tail = 0.0, space="WORLD"):
+    try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            c : bpy.types.StretchToConstraint = to_pose_bone.constraints.new(type="STRETCH_TO")
+            c.target = from_rig
+            c.subtarget = from_bone
+            c.head_tail = head_tail
+            c.target_space = space
+            if space == "LOCAL_OWNER_ORIENT":
+                space = "LOCAL"
+            c.owner_space = space
+            c.influence = influence
+            return c
+    except:
+        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+        return None
+
+
 def add_damped_track_constraint(rig, bone_name, target_name, influence):
     try:
         if utils.set_mode("OBJECT"):
@@ -440,11 +485,116 @@ def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance
         return None
 
 
+def add_child_of_constraint(parent_rig, child_rig, parent_bone, child_bone, influence = 1.0, space="WORLD"):
+    try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = child_rig.pose.bones[child_bone]
+            c : bpy.types.ChildOfConstraint = to_pose_bone.constraints.new(type="CHILD_OF")
+            c.target = parent_rig
+            c.subtarget = parent_bone
+            c.target_space = space
+            c.owner_space = space
+            c.influence = influence
+            return c
+    except:
+        utils.log_error(f"Unable to add child of constraint: {child_bone} {parent_bone}")
+        return None
+
+
+def add_inverse_kinematic_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD",
+                                     use_tail = True, use_stretch = True, use_rotation = True, use_location = True,
+                                     weight = 1.0, orient_weight = 0.0, chain_count = 1):
+    try:
+        if utils.set_mode("OBJECT"):
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            c : bpy.types.KinematicConstraint = to_pose_bone.constraints.new(type="IK")
+            c.target = from_rig
+            c.subtarget = from_bone
+            c.use_tail = use_tail
+            c.use_stretch = use_stretch
+            c.use_rotation = use_rotation
+            c.use_location = use_location
+            c.weight = weight
+            c.chain_count = chain_count
+            c.orient_weight = orient_weight
+            c.target_space = space
+            c.owner_space = space
+            c.influence = influence
+            return c
+    except:
+        utils.log_error(f"Unable to add inverse kinematic constraint: {to_bone} {from_bone}")
+        return None
+
+
+def set_pose_bone_lock(pose_bone : bpy.types.PoseBone,
+                       lock_ik = [0, 0, 0],
+                       lock_location = [0, 0, 0],
+                       lock_rotation = [0, 0, 0, 0],
+                       lock_scale = [0, 0, 0],):
+
+    for i, lock in enumerate(lock_location):
+        pose_bone.lock_location[i] = lock > 0
+
+    for i, lock in enumerate(lock_rotation):
+        if i == 3:
+            pose_bone.lock_rotation_w = lock > 0
+        else:
+            pose_bone.lock_rotation[i] = lock > 0
+
+    pose_bone.lock_ik_x = lock_ik[0] > 0
+    pose_bone.lock_ik_y = lock_ik[1] > 0
+    pose_bone.lock_ik_z = lock_ik[2] > 0
+
+    for i, lock in enumerate(lock_scale):
+        pose_bone.lock_scale[i] = lock > 0
+
+
 def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_connect = True if "C" in flags else False
     edit_bone.use_local_location = True if "L" in flags else False
     edit_bone.use_inherit_rotation = True if "R" in flags else False
     edit_bone.use_deform = deform
+
+
+def show_bone_layers(rig, bone):
+    for i in range(0, 32):
+        if bone.layers[i]:
+            rig.data.layers[i] = True
+
+
+def show_all_layers(rig):
+    for i in range(0, 32):
+        rig.data.layers[i] = True
+
+
+def store_armature_settings(rig):
+    layers = []
+    for i in range(0, 32):
+        layers.append(rig.data.layers[i])
+    visibility = { "layers": layers,
+                   "show_in_front": rig.show_in_front,
+                   "display_type": rig.display_type,
+                   "pose_position": rig.data.pose_position,
+                   "action": utils.safe_get_action(rig),
+                   "location": rig.location }
+    return visibility
+
+
+def restore_armature_settings(rig, visibility):
+    layers = visibility["layers"]
+    for i in range(0, 32):
+        rig.data.layers[i] = layers[i]
+    rig.show_in_front = visibility["show_in_front"]
+    rig.display_type = visibility["display_type"]
+    rig.data.pose_position = visibility["pose_position"]
+    utils.safe_set_action(rig, visibility["action"])
+    rig.location = visibility["location"]
+
+
+def set_rig_bind_pose(rig):
+    rig.data.pose_position = "POSE"
+    utils.safe_set_action(rig, None)
+    clear_pose(rig)
 
 
 def show_armature_layers(rig : bpy.types.Object, layer_list : list, in_front = False, wireframe = False):
@@ -528,7 +678,20 @@ def set_bone_group(rig, bone, group):
         else:
             utils.log_error(f"Cannot find pose bone {bone} in rig!")
     else:
-        utils.log_error("Unable to edit rig!")
+        utils.log_error("Unable to select rig!")
+
+
+def set_pose_bone_custom_scale(rig, bone_name, scale):
+    if type(scale) is not list:
+        scale = [float(scale), float(scale), float(scale)]
+    try:
+        rig.pose.bones[bone_name].custom_shape_scale = scale
+    except:
+        pass
+    try:
+        rig.pose.bones[bone_name].custom_shape_scale_xyz = scale
+    except:
+        pass
 
 
 def get_distance_between(rig, bone_a_name, bone_b_name):
@@ -578,6 +741,92 @@ def generate_eye_widget(rig, bone_name, bones, distance, scale):
     return wgt
 
 
+def generate_spring_widget(rig, name, type, size):
+    wgt : bpy.types.Object = None
+    wgt_name = "WGT-rig_" + name
+    if wgt_name in bpy.data.objects:
+        return bpy.data.objects[wgt_name]
+
+    if utils.set_mode("OBJECT"):
+
+        if type == "FK":
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                            rotation=[1.570796,0,0], location=[0,size,0])
+            bpy.ops.object.transform_apply(rotation=True)
+            wgt1 = utils.get_active_object()
+            mesh = bpy.data.meshes.new(name+"WGT2")
+            mesh.from_pydata([(0, 0, 0), (0, 1, 0)],
+                             [(0, 1)],
+                             [])
+            mesh.update()
+            wgt2 = bpy.data.objects.new(name+"WGT2", mesh)
+            wgt2.location = [0,0,0]
+            bpy.context.collection.objects.link(wgt2)
+            utils.try_select_objects([wgt1, wgt2], True)
+            utils.set_active_object(wgt1)
+            bpy.ops.object.join()
+            wgt = utils.get_active_object()
+
+        if type == "IK":
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                            rotation=[1.570796,0,0], location=[0,0,0])
+            bpy.ops.object.transform_apply(rotation=True)
+            wgt1 = utils.get_active_object()
+            mesh = bpy.data.meshes.new(name+"WGT2")
+            mesh.from_pydata([(0, size*2, 0), (0, 0, size), (size, 0, 0), (-size, 0, 0), (0, 0, -size)],
+                             [(0, 1), (0, 2), (0, 3), (0, 4)],
+                             [])
+            mesh.update()
+            wgt2 = bpy.data.objects.new(name+"WGT2", mesh)
+            wgt2.location = [0,0,0]
+            bpy.context.collection.objects.link(wgt2)
+            utils.try_select_objects([wgt1, wgt2], True)
+            utils.set_active_object(wgt1)
+            bpy.ops.object.join()
+            wgt = utils.get_active_object()
+
+        if type == "GRP":
+            bpy.ops.mesh.primitive_circle_add(vertices=64, radius=size,
+                                            rotation=[1.570796,0,0], location=[0,0,0])
+            bpy.ops.object.transform_apply(rotation=True)
+            wgt1 = utils.get_active_object()
+            bpy.ops.mesh.primitive_circle_add(vertices=64, radius=size * 1.025,
+                                            rotation=[1.570796,0,0], location=[0,0,0])
+            bpy.ops.object.transform_apply(rotation=True)
+            wgt2 = utils.get_active_object()
+            utils.try_select_objects([wgt1, wgt2], True)
+            utils.set_active_object(wgt1)
+            bpy.ops.object.join()
+            wgt = utils.get_active_object()
+
+        if type == "TWK":
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                            rotation=[0,0,0], location=[0,0,0])
+            wgt1 = utils.get_active_object()
+            bpy.ops.object.transform_apply(rotation=True)
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                            rotation=[1.570796,0,0], location=[0,0,0])
+            wgt2 = utils.get_active_object()
+            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                            rotation=[0,1.570796,0], location=[0,0,0])
+            wgt3 = utils.get_active_object()
+            bpy.ops.object.transform_apply(rotation=True)
+            utils.try_select_objects([wgt1, wgt2, wgt3], True)
+            utils.set_active_object(wgt1)
+            bpy.ops.object.join()
+            wgt = utils.get_active_object()
+
+        wgt.name = wgt_name
+        if wgt:
+            collection : bpy.types.Collection
+            for collection in bpy.data.collections:
+                if collection.name.startswith("WGTS_rig"):
+                    collection.objects.link(wgt)
+                elif wgt.name in collection.objects:
+                    collection.objects.unlink(wgt)
+    return wgt
+
+
 def add_pose_bone_custom_property(rig, pose_bone_name, prop_name, prop_value):
     if utils.set_mode("OBJECT"):
         if pose_bone_name in rig.pose.bones:
@@ -585,19 +834,24 @@ def add_pose_bone_custom_property(rig, pose_bone_name, prop_name, prop_value):
             rna_idprop_ui_create(pose_bone, prop_name, default=prop_value, overridable=True, min=0, max=1)
 
 
-def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, variable_name, constraint_type, expression = ""):
+def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, variable_name, constraint = None, constraint_type = "", expression = ""):
     if utils.set_mode("OBJECT"):
         if pose_bone_name in rig.pose.bones:
             pose_bone = rig.pose.bones[pose_bone_name]
-            con : bpy.types.Constraint = None
-            for con in pose_bone.constraints:
-                if con.type == constraint_type:
-                    if expression:
-                        driver = drivers.make_driver(con, "influence", "SCRIPTED", expression)
-                    else:
-                        driver = drivers.make_driver(con, "influence", "SUM")
-                    if driver:
-                        var = drivers.make_driver_var(driver, "SINGLE_PROP", variable_name, rig, target_type = "OBJECT", data_path = data_path)
+            cons = []
+            if constraint:
+                cons.append(constraint)
+            elif constraint_type:
+                for con in pose_bone.constraints:
+                    if con.type == constraint_type:
+                        cons.append(con)
+            for con in cons:
+                if expression:
+                    driver = drivers.make_driver(con, "influence", "SCRIPTED", expression)
+                else:
+                    driver = drivers.make_driver(con, "influence", "SUM")
+                if driver:
+                    var = drivers.make_driver_var(driver, "SINGLE_PROP", variable_name, rig, target_type = "OBJECT", data_path = data_path)
 
 
 def get_data_path_pose_bone_property(pose_bone_name, variable_name):
@@ -657,6 +911,7 @@ def clear_constraints(rig, pose_bone_name):
 
 
 def clear_drivers(rig):
+    # rig object drivers (pose bone drivers)
     drivers = rig.animation_data.drivers
     if drivers:
         fcurves = []
@@ -664,6 +919,18 @@ def clear_drivers(rig):
             fcurves.append(fc)
         for fc in fcurves:
             drivers.remove(fc)
+
+    # rig armature drivers (bone drivers)
+    drivers = rig.data.animation_data.drivers
+    if drivers:
+        fcurves = []
+        for fc in drivers:
+            fcurves.append(fc)
+        for fc in fcurves:
+            drivers.remove(fc)
+
+
+
 
 
 def get_bone_name_from_data_path(data_path : str):
@@ -745,9 +1012,9 @@ def bone_parent_in_list(bone_list, bone):
     return False
 
 
-def find_accessory_bones(bone_mappings, rig):
+def find_accessory_bones(bone_mappings, cc3_rig):
     accessory_bones = []
-    for bone in rig.data.bones:
+    for bone in cc3_rig.data.bones:
         bone_name = bone.name
         if not bone_mapping_contains_bone(bone_mappings, bone_name):
             if bone_name not in accessory_bones and not bone_parent_in_list(accessory_bones, bone):

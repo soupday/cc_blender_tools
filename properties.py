@@ -17,7 +17,7 @@
 import bpy, os
 from mathutils import Vector
 
-from . import channel_mixer, imageutils, meshutils, sculpting, materials, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
+from . import channel_mixer, imageutils, meshutils, sculpting, materials, springbones, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -52,33 +52,26 @@ def eye_close_update(self, context):
     chr_cache = props.get_context_character_cache(context)
     value = chr_cache.eye_close
 
-    body_object = None
-    eo_object = None
-    tearline_object = None
+    objects = []
     for obj_cache in chr_cache.object_cache:
         if obj_cache.is_mesh():
             if obj_cache.object_type == "BODY":
-                body_object = obj_cache.get_object()
+                objects.append(obj_cache.get_object())
             elif obj_cache.object_type == "EYE_OCCLUSION":
-                eo_object = obj_cache.get_object()
+                objects.append(obj_cache.get_object())
             elif obj_cache.object_type == "TEARLINE":
-                tearline_object = obj_cache.get_object()
+                objects.append(obj_cache.get_object())
 
-    if body_object:
-        try:
-            body_object.data.shape_keys.key_blocks['Eye_Blink'].value = value
-        except:
-            pass
-    if eo_object:
-        try:
-            eo_object.data.shape_keys.key_blocks['Eye_Blink'].value = value
-        except:
-            pass
-    if tearline_object:
-        try:
-            tearline_object.data.shape_keys.key_blocks['Eye_Blink'].value = value
-        except:
-            pass
+    blink_shapes = ["Eye_Blink", "Eye_Blink_L", "Eye_Blink_R"]
+
+    for obj in objects:
+        if obj and obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            for key in blink_shapes:
+                if key in obj.data.shape_keys.key_blocks:
+                    try:
+                        obj.data.shape_keys.key_blocks[key].value = value
+                    except:
+                        pass
 
 
 def update_property(self, context, prop_name, update_mode = None):
@@ -446,20 +439,33 @@ def update_rig_target(self, context):
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         if self.hair_rig_target == "CC4":
-            self.hair_rig_bind_skip_length = 0.0
-            self.hair_rig_bind_existing_scale = 0.0
             self.hair_rig_bone_length = 7.5
-            self.hair_rig_bind_bone_radius = 7.5
+            self.hair_rig_bind_skip_length = 0.0
+            self.hair_rig_bind_trunc_length = 2.5
+            self.hair_rig_bind_bone_radius = 11.25
+            self.hair_rig_bind_existing_scale = 0.0
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
             self.hair_rig_bind_weight_curve = 0.5
             self.hair_rig_bind_bone_variance = 0.75
         elif self.hair_rig_target == "UNITY":
-            self.hair_rig_bind_skip_length = 7.5
-            self.hair_rig_bind_existing_scale = 1.0
             self.hair_rig_bone_length = 7.5
-            self.hair_rig_bind_bone_radius = 7.5
+            self.hair_rig_bind_skip_length = 7.5
+            self.hair_rig_bind_trunc_length = 2.5
+            self.hair_rig_bind_bone_radius = 11.25
+            self.hair_rig_bind_existing_scale = 1.0
+            self.hair_rig_bind_bone_count = 2
+            self.hair_rig_bind_bone_weight = 1.0
+            self.hair_rig_bind_smoothing = 5
+            self.hair_rig_bind_weight_curve = 0.5
+            self.hair_rig_bind_bone_variance = 0.75
+        elif self.hair_rig_target == "BLENDER":
+            self.hair_rig_bone_length = 7.5
+            self.hair_rig_bind_skip_length = 7.5/2.0
+            self.hair_rig_bind_trunc_length = 2.5
+            self.hair_rig_bind_bone_radius = 11.25
+            self.hair_rig_bind_existing_scale = 1.0
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
@@ -956,6 +962,7 @@ class CC3MaterialCache:
     alpha_mode: bpy.props.StringProperty(default="NONE") # NONE, BLEND, HASHED, OPAQUE
     culling_sides: bpy.props.IntProperty(default=0) # 0 - default, 1 - single sided, 2 - double sided
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
+    disabled: bpy.props.BoolProperty(default=False)
 
     def set_texture_mapping(self, texture_type, texture_path, embedded, image, location, rotation, scale):
         mapping = self.get_texture_mapping(texture_type)
@@ -1096,10 +1103,15 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
     source_name: bpy.props.StringProperty(default="")
     object_type: bpy.props.EnumProperty(items=vars.ENUM_OBJECT_TYPES, default="DEFAULT")
-    collision_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
+    collision_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON, PROXY
     cloth_physics: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, OFF, ON
     cloth_settings: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, HAIR, COTTON, DENIM, LEATHER, RUBBER, SILK
+    cloth_self_collision: bpy.props.BoolProperty(default=False)
     user_added: bpy.props.BoolProperty(default=False)
+    collision_proxy: bpy.props.PointerProperty(type=bpy.types.Object)
+    use_collision_proxy: bpy.props.BoolProperty(default=False)
+    collision_proxy_decimate: bpy.props.FloatProperty(default=0.125, min=0.0, max=1.0)
+    disabled: bpy.props.BoolProperty(default=False)
 
     def is_body(self):
         return self.object_type == "BODY"
@@ -1138,11 +1150,36 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
             return self.object
         return None
 
+    def get_mesh(self):
+        if utils.object_exists_is_mesh(self.object):
+            return self.object
+        return None
+
     def set_object(self, obj):
         if obj and utils.object_exists(obj):
             self.object = obj
         elif obj is None:
             self.object = None
+
+    def set_object_type(self, type):
+        if type is not None:
+            self.object_type = type
+            if type == "BODY":
+                self.use_collision_proxy = True
+
+    def has_collision_physics(self):
+        if self.collision_physics == "ON" or self.collision_physics == "PROXY":
+            return True
+        if self.collision_physics == "DEFAULT" and \
+           (self.object_type == "BODY" or self.object_type == "OCCLUSION"):
+            return True
+        return False
+
+    def get_collision_proxy(self):
+        if utils.still_exists(self.collision_proxy):
+            return self.collision_proxy
+        else:
+            return None
 
 
 class CC3CharacterCache(bpy.types.PropertyGroup):
@@ -1251,11 +1288,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                                                                 "Lower definition shrinks the mask around the sculpted areas and smooths the transition between normal layers.",
                                                     update=lambda s,c: update_sculpt_mix_node(s,c,"body_normal_definition"))
 
-    multires_bake_apply: bpy.props.EnumProperty(items=[
-                        ("NONE","Keep","Don't change the original character mesh when baking the body sculpt normals.", "MESH_CIRCLE", 0),
-                        ("APPLY","Apply","Copy the multi-res base shape back to original character when baking the body sculpt normals.\n"
-                                         "Only the vertices affected by the sculpt are copied back and this does not destroy the original character's shapekeys.", "MESH_ICOSPHERE", 1),
-                    ], default="APPLY", name = "Apply Shape On Bake?")
+    multires_bake_apply: bpy.props.BoolProperty(default=True, name="Apply Multi-res Base Shape",
+                                                description="Copy the multi-res base shape back to original character when baking the body sculpt normals.\n"
+                                                            "Only the vertices affected by the sculpt are copied back and this does not destroy the original character's shapekeys.")
 
     detail_mix_mode: bpy.props.EnumProperty(items=[
                         ("OVERLAY","Overlay","Sculpted normals and occlusion are overlayed on top of the base normals and occlusion."),
@@ -1268,6 +1303,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("REPLACE","Replace","Sculpted normals and occlusion replaces the base normals and occlusion."),
                     ], default="OVERLAY", name = "Body Mix Mode",
                     update=lambda s,c: update_sculpt_mix_node(s,c,"body_mix_mode"))
+
+    available_spring_rigs: bpy.props.EnumProperty(items=springbones.enumerate_spring_rigs,
+                    default=0,
+                    name="Available Spring Rigs",
+                    description="A list of all the spring rigs on the character")
 
     def get_tex_dir(self):
         if os.path.isabs(self.import_main_tex_dir):
@@ -1317,6 +1357,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return False
 
     def can_be_rigged(self):
+        """Returns True if the character can be rigified."""
         if self.generation == "G3" or self.generation == "G3Plus" or self.generation == "NonStandardG3":
             return True
         elif self.is_actor_core():
@@ -1341,6 +1382,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def get_rig_mapping_data(self):
         return rigify_mapping_data.get_mapping_for_generation(self.generation)
+
+    def get_rig_bone_mappings(self):
+        rigify_data = rigify_mapping_data.get_mapping_for_generation(self.generation)
+        if rigify_data:
+            return rigify_data.bone_mapping
+        return None
 
     def get_all_materials_cache(self):
         cache_all = []
@@ -1503,13 +1550,22 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     utils.remove_from_collection(self.object_cache, obj_cache)
                     return
 
-    def has_objects(self, objects):
-        """Returns True if any of the objects are in the object cache.
+    def has_cache_objects(self, objects):
+        """Returns True if any of the objects are actively the object cache.
         """
         for obj_cache in self.object_cache:
-            cache_object = obj_cache.get_object()
-            if cache_object in objects:
-                return True
+            if not obj_cache.disabled:
+                cache_object = obj_cache.get_object()
+                if cache_object in objects:
+                    return True
+        return False
+
+    def has_child_objects(self, objects):
+        arm = self.get_armature()
+        if arm:
+            for obj in objects:
+                if obj.parent == arm:
+                    return True
         return False
 
     def has_object(self, obj):
@@ -1525,7 +1581,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         try:
             for obj_cache in self.object_cache:
                 cache_object = obj_cache.get_object()
-                if cache_object.type == "ARMATURE":
+                if utils.object_exists_is_armature(cache_object):
                     return cache_object
         except:
             pass
@@ -1555,7 +1611,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         except:
             pass
 
-    def add_object_cache(self, obj):
+    def add_object_cache(self, obj, copy_from = None):
         """Returns the object cache for this object.
 
         Fetches or creates an object cache for the object. Always returns an object cache collection.
@@ -1567,6 +1623,16 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             obj_cache = self.object_cache.add()
             obj_cache.set_object(obj)
             obj_cache.source_name = utils.strip_name(obj.name)
+            if copy_from:
+                obj_cache.source_name = obj.name
+                obj_cache.object_type = copy_from.object_type
+                obj_cache.collision_physics = copy_from.collision_physics
+                obj_cache.cloth_physics = copy_from.cloth_physics
+                obj_cache.cloth_settings = copy_from.cloth_settings
+                obj_cache.collision_proxy = None
+                obj_cache.use_collision_proxy = copy_from.use_collision_proxy
+                obj_cache.collision_proxy_decimate = copy_from.collision_proxy_decimate
+                obj_cache.user_added = True
         return obj_cache
 
 
@@ -1684,11 +1750,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 mat_cache.copy_material_cache(copy_from)
         return mat_cache
 
-
     def get_json_data(self):
         errors = []
         return jsonutils.read_json(self.import_file, errors)
 
+    def write_json_data(self, json_data):
+        jsonutils.write_json(json_data, self.import_file, is_fbx_path=True)
 
     def change_import_file(self, filepath):
         dir, file = os.path.split(filepath)
@@ -1763,6 +1830,29 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def set_sculpt_body(self, mesh):
         self.sculpt_multires_body = mesh
 
+    def get_related_physics_objects(self, obj):
+        proxy = None
+        is_proxy = False
+        if obj:
+            obj_cache = self.get_object_cache(obj)
+            if obj_cache:
+                proxy = obj_cache.get_collision_proxy()
+            else:
+                proxy_obj = self.find_object_from_proxy(obj)
+                if proxy_obj:
+                    proxy = obj
+                    obj = proxy_obj
+                    is_proxy = True
+        return obj, proxy, is_proxy
+
+    def find_object_from_proxy(self, proxy):
+        for obj_cache in self.object_cache:
+            if obj_cache.collision_proxy == proxy:
+                return obj_cache.object
+        if self.collision_body == proxy:
+            body = self.get_body()
+            return body
+        return None
 
 
 class CC3ImportProps(bpy.types.PropertyGroup):
@@ -1805,7 +1895,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("4096","4096 x 4096","4096 x 4096 texture size"),
                     ], default="1024")
 
-
     paint_object: bpy.props.PointerProperty(type=bpy.types.Object)
     paint_material: bpy.props.PointerProperty(type=bpy.types.Material)
     paint_image: bpy.props.PointerProperty(type=bpy.types.Image)
@@ -1816,14 +1905,14 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("MATERIAL","Material","Set the alpha blend mode and backface culling only to the selected material on the active object"),
                     ], default="MATERIAL")
 
-    lighting_mode: bpy.props.EnumProperty(items=[
-                        ("OFF","No Lighting","No automatic lighting and render settings."),
-                        ("ON","Lighting","Automatically sets lighting and render settings, depending on use."),
-                    ], default="OFF")
-    physics_mode: bpy.props.EnumProperty(items=[
-                        ("OFF","No Physics","No generated physics."),
-                        ("ON","Physics","Automatically generates physics vertex groups and settings."),
-                    ], default="OFF")
+    lighting_mode: bpy.props.BoolProperty(default=False,
+                                          description="Automatically sets lighting and render settings, depending on use.")
+    physics_mode: bpy.props.BoolProperty(default=False,
+                                         description="Automatically generates physics vertex groups and settings.")
+    wrinkle_mode: bpy.props.BoolProperty(default=True,
+                                         description="Automatically generates wrinkle maps for this character (if available).")
+    rigify_mode: bpy.props.BoolProperty(default=False,
+                                        description="Automatically rigify the character and retarget any animations or poses that came with the character.")
 
     export_options: bpy.props.BoolProperty(default=False)
     cycles_options: bpy.props.BoolProperty(default=False)
@@ -1835,6 +1924,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     section_rigify_controls: bpy.props.BoolProperty(default=False)
+    section_rigify_spring: bpy.props.BoolProperty(default=False)
+    section_rigidbody_spring_ui: bpy.props.BoolProperty(default=True)
+    section_physics_cloth_settings: bpy.props.BoolProperty(default=False)
+    section_physics_collision_settings: bpy.props.BoolProperty(default=False)
+
     retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
     bake_nla_shape_keys: bpy.props.BoolProperty(default=True)
     bake_unity_t_pose: bpy.props.BoolProperty(default=True, name="Include T-Pose", description="Include a T-Pose as the first animation track. This is useful for correct avatar alignment in Unity and for importing animations back into CC4")
@@ -1856,14 +1950,23 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_hair_blender_curve: bpy.props.BoolProperty(default=True)
     section_hair_rigging: bpy.props.BoolProperty(default=True)
 
-    section_sculpt_body: bpy.props.BoolProperty(default=True)
-    section_sculpt_detail: bpy.props.BoolProperty(default=True)
+    section_sculpt_setup: bpy.props.BoolProperty(default=True)
     section_sculpt_cleanup: bpy.props.BoolProperty(default=True)
     section_sculpt_utilities: bpy.props.BoolProperty(default=True)
     sculpt_layer_tab: bpy.props.EnumProperty(items=[
                         ("BODY","Body","Full body sculpt layer.", "OUTLINER_OB_ARMATURE", 0),
                         ("DETAIL","Detail","Detail sculpt layer.", "MESH_MONKEY", 1),
                     ], default="BODY", name = "Sculpt Layer")
+
+    geom_transfer_layer: bpy.props.EnumProperty(items=[
+                        ("BASE","Base","Transfer geometry to the base mesh."),
+                        ("SHAPE_KEY","Shape Key","Transfer geometry to a new shape key. This will *not* alter the bones."),
+                    ], default="BASE", name = "Transfer Layer")
+
+    geom_transfer_layer_name: bpy.props.StringProperty(name="Name", default="New Shape",
+                                                       description="Name to assign to transferred shape key")
+
+
 
     # Hair
 
@@ -1874,24 +1977,38 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     ], default="CURVE", name = "Export Hair Grouping",
                        description="Export hair groups by...")
 
-    hair_curve_dir_threshold: bpy.props.FloatProperty(default=0.9, min=0.0, max=1.0, name="Direction Threshold")
-    hair_curve_dir: bpy.props.EnumProperty(items=[
-                        ("UP","Up","Hair cards from bottom to top in UV map"),
-                        ("DOWN","Down","Hair cards from top to bottom in UV map"),
-                        ("LEFT","Left","Hair cards from right to left in UV map"),
-                        ("RIGHT","Right","Hair cards from left to right in UV map"),
+    hair_card_dir_threshold: bpy.props.FloatProperty(default=0.9, min=0.0, max=1.0, name="Direction Threshold")
+    hair_card_vertical_dir: bpy.props.EnumProperty(items=[
+                        ("DOWN","Down","Hair cards from top to bottom in UV map", "SORT_ASC", 0),
+                        ("UP","Up","Hair cards from bottom to top in UV map", "SORT_DESC", 1),
                     ], default="DOWN", name = "UV Direction",
-                       description="Direction of hair cards in UV Map")
+                       description="Direction of vertical hair cards in UV Map")
+    hair_card_horizontal_dir: bpy.props.EnumProperty(items=[
+                        ("RIGHT","Right","Hair cards from left to right in UV map", "FORWARD", 2),
+                        ("LEFT","Left","Hair cards from right to left in UV map", "BACK", 3),
+                    ], default="RIGHT", name = "UV Direction",
+                       description="Direction of horizontal hair cards in UV Map")
+    hair_card_square_dir: bpy.props.EnumProperty(items=[
+                        ("DOWN","Down","Hair cards from top to bottom in UV map", "SORT_ASC", 0),
+                        ("UP","Up","Hair cards from bottom to top in UV map", "SORT_DESC", 1),
+                        ("RIGHT","Right","Hair cards from left to right in UV map", "FORWARD", 2),
+                        ("LEFT","Left","Hair cards from right to left in UV map", "BACK", 3),
+                    ], default="DOWN", name = "UV Direction",
+                       description="Direction of square(ish) hair cards in UV Map")
     hair_curve_merge_loops: bpy.props.EnumProperty(items=[
                         ("ALL","Use All Edge Loops","All edge loops in the cards will be converted into curves"),
                         ("MERGE","Merge Edge Loops","Edge loops in each card will be merged into a single curve"),
                     ], default="MERGE", name = "Merge Loops",
                        description="Merge edge loops")
 
-    hair_rig_bind_skip_length: bpy.props.FloatProperty(default=7.5, min=0.0, max=25,
+    hair_rig_bone_smoothing: bpy.props.IntProperty(default=5, min=0, max=10,
+            description="How much to smooth the curve of the generated bones from hair cards or greased pencil")
+    hair_rig_bind_skip_length: bpy.props.FloatProperty(default=3.75, min=0.0, max=20.0,
             description="How far along the hair card to start generating bones, "
             "as rooting the bones to the very start of the hair cards can produce unwanted results")
-    hair_rig_bone_length: bpy.props.FloatProperty(default=7.5, min=1, max=25,
+    hair_rig_bind_trunc_length: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0,
+            description="How far from the end of the hair card to stop generating bones")
+    hair_rig_bone_length: bpy.props.FloatProperty(default=7.5, min=2.5, max=25,
             description="How long a section of each hair card the bones should represent")
     hair_rig_bind_bone_radius: bpy.props.FloatProperty(default=7.5, min=1, max=25,
             description="How wide a radius around the bones should the hair cards bind vertex weights to")
@@ -1924,18 +2041,37 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("SELECTED","Selected Cards","Bind only the selected hair cards in each selected object"),
                     ], default="ALL", name = "Hair Card Selection Mode")
     hair_rig_bind_bone_mode: bpy.props.EnumProperty(items=[
-                        ("ALL","All Bones","Bind to all bones in the hair rig"),
-                        ("SELECTED","Selected Bones","Bind to only the selected bones of the hair rig"),
+                        ("ALL","All Bones","Operate on all bones in the hair rig"),
+                        ("SELECTED","Selected Bones","Operate on only the currently selected bones of the hair rig"),
                     ], default="ALL", name = "Bone Selection Mode")
     hair_rig_bone_root: bpy.props.EnumProperty(items=[
-                        ("HEAD","Head Bone","Parent generated bones to the head bone"),
-                        ("JAW","Jaw Bone","Parent the generated bones to the jaw bone (for beards)"),
+                        ("HEAD","Head Hair","Parent generated bones to the head bone"),
+                        ("JAW","Beard Hair","Parent the generated bones to the jaw bone, for beards"),
                     ], default="HEAD", name = "Root bone for generated hair bones")
     hair_rig_target: bpy.props.EnumProperty(items=[
-                        ("CC4","Rig For CC4","Generate a compatible spring rig for Character Creator and iClone.\n"
+                        ("BLENDER","Blender","Generate a spring rig for Blender"),
+                        ("CC4","CC4","Generate a compatible spring rig for Character Creator and iClone.\n"
                         "For Character Creator spring rigs, all other vertex weights are removed, and the first bone of each chain is fixed in place."),
-                        ("UNITY","Rig For Unity","Generate a spring rig for Unity"),
-                    ], default="UNITY", name = "Rig Target Application", update=update_rig_target)
+                        ("UNITY","Unity","Generate a spring rig for Unity"),
+                    ], default="BLENDER", name = "Rig Target Application", update=update_rig_target)
+
+    hair_rig_group_name: bpy.props.StringProperty(name="Group Name", default="RL_Hair",
+                                                  description="Name to assign to selected bone chains as a separate group")
+
+    hair_rigid_body_influence: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0, name = "Influence",
+                                                       description = "How much of the simulation is copied into the pose bones")
+    hair_rigid_body_limit: bpy.props.FloatProperty(default=25, min=0, max=50, name = "Rigid Body Dampening Range",
+                                                       description = "How big a dampening range to apply to the rigid body. More range gives more movement")
+    hair_rigid_body_curve: bpy.props.FloatProperty(default=0.5, min=1/8, max=2, name = "Length Dampening Curve",
+                                                       description = "The dampening curve factor along the length of the spring bone chains. Less curve gives more movement near the roots")
+    hair_rigid_body_mass: bpy.props.FloatProperty(default=1.0, min=0.0, max=5.0, name = "Hair Node Mass",
+                                                       description = "Mass of the rigid body particles representing the bones. More mass, more inertia")
+    hair_rigid_body_dampening: bpy.props.FloatProperty(default=10.0, min=0.0, max=10000.0, name = "Spring Dampening",
+                                                       description = "Spring dampening. (Makes very little difference)")
+    hair_rigid_body_stiffness: bpy.props.FloatProperty(default=50.0, min=0.0, max=100.0, name = "Spring Stiffness",
+                                                       description = "Spring stiffness. (Makes very little difference)")
+    hair_rigid_body_radius: bpy.props.FloatProperty(default=0.05, min=0.0125, max=0.1, name = "Hair Node Collision Radius",
+                                                       description = "Collision radius of the rigid body partivles representing the bones. Note: Too much and the rigid body system will start colliding with itself")
 
     # UI List props
     armature_action_filter: bpy.props.BoolProperty(default=True)
@@ -1950,10 +2086,12 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     def get_any_character_cache_from_objects(self, objects, search_materials = False):
         chr_cache : CC3CharacterCache
+
         if objects:
             for chr_cache in self.import_cache:
-                if chr_cache.has_objects(objects):
+                if chr_cache.has_cache_objects(objects):
                     return chr_cache
+
         if search_materials:
             materials = []
             for obj in objects:
@@ -1970,29 +2108,34 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         if obj:
             for chr_cache in self.import_cache:
                 obj_cache = chr_cache.get_object_cache(obj)
-                if obj_cache:
+                if obj_cache and not obj_cache.disabled:
                     return chr_cache
         if mat:
             for chr_cache in self.import_cache:
                 mat_cache = chr_cache.get_material_cache(mat)
-                if mat_cache:
+                if mat_cache and not mat_cache.disabled:
                     return chr_cache
         return None
 
     def get_context_character_cache(self, context = None):
         if not context:
             context = bpy.context
-        obj = context.object
-        mat = utils.context_material(context)
+
+        chr_cache = None
 
         # if there is only one character in the scene, this is the only possible character cache:
         if len(self.import_cache) == 1:
             return self.import_cache[0]
 
+        obj = context.object
+
         # otherwise determine the context character cache:
-        chr_cache = self.get_character_cache(obj, mat)
+        chr_cache = self.get_character_cache(obj, None)
+
+        # try to find a character from the selected obejcts
         if chr_cache is None and len(context.selected_objects) > 1:
-            chr_cache = self.get_any_character_cache_from_objects(context.selected_objects, None)
+            chr_cache = self.get_any_character_cache_from_objects(context.selected_objects, False)
+
         return chr_cache
 
     def get_object_cache(self, obj):
@@ -2037,12 +2180,22 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             self.armature_list_object = None
             self.armature_list_index = -1
 
-    def hair_dir_vector(self):
-        if self.hair_curve_dir == "UP":
-            return Vector((0,1))
-        elif self.hair_curve_dir == "LEFT":
-            return Vector((-1,0))
-        elif self.hair_curve_dir == "RIGHT":
-            return Vector((1,0))
-        else: #if self.hair_curve_dir == "DOWN":
-            return Vector((0,-1))
+    def hair_dir_vectors(self):
+        dirs = { "VERTICAL": self.hair_card_vertical_dir,
+                 "HORIZONTAL": self.hair_card_horizontal_dir,
+                 "SQUARE": self.hair_card_square_dir }
+        dir_vectors = {}
+        for aspect in dirs:
+            dir = dirs[aspect]
+            vector = Vector((0,0))
+            if dir == "UP":
+                vector = Vector((0,1)).normalized()
+            elif dir == "LEFT":
+                vector = Vector((-1,0)).normalized()
+            elif dir == "RIGHT":
+                vector = Vector((1,0)).normalized()
+            else: #if dir == "DOWN":
+                vector = Vector((0,-1)).normalized()
+            dir_vectors[aspect] = vector
+        return dir_vectors
+

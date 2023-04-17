@@ -40,6 +40,8 @@ if "bpy" in locals():
     importlib.reload(importer)
     importlib.reload(geom)
     importlib.reload(bones)
+    importlib.reload(rigidbody)
+    importlib.reload(springbones)
     importlib.reload(drivers)
     importlib.reload(wrinkle)
     importlib.reload(rigify_mapping_data)
@@ -74,6 +76,8 @@ from . import exporter
 from . import importer
 from . import geom
 from . import bones
+from . import rigidbody
+from . import springbones
 from . import drivers
 from . import wrinkle
 from . import rigify_mapping_data
@@ -86,7 +90,7 @@ from . import colorspace
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (1, 5, 7),
+    "version": (1, 5, 8),
     "blender": (2, 80, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -138,6 +142,7 @@ classes = (
     rigging.CC3Rigifier,
     rigging.CC3RigifierModal,
 
+    springbones.CC3OperatorSpringBones,
     physics.CC3OperatorPhysics,
     materials.CC3OperatorMaterial,
     characters.CC3OperatorCharacter,
@@ -159,16 +164,17 @@ classes = (
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
     panels.CC3RigifyPanel,
-    panels.CC3ToolsScenePanel,
+    panels.CC3PipelineScenePanel,
     # create panels
     panels.CC3ToolsCreatePanel,
     panels.CC3ObjectManagementPanel,
     panels.CC3ToolsPhysicsPanel,
-    panels.CC3ToolsUtilityPanel,
-    panels.CC3ToolsSculptingPanel,
     panels.CC3SpringRigPanel,
+    panels.CC3ToolsSculptingPanel,
     panels.CC3HairPanel,
-
+    panels.CC3CreateScenePanel,
+    # control panels
+    panels.CC3SpringControlPanel,
 
     preferences.CC3ToolsAddonPreferences,
     preferences.MATERIAL_UL_weightedmatslots,

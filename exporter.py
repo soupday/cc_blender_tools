@@ -24,7 +24,7 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import bake, shaders, physics, rigging, wrinkle, bones, modifiers, imageutils, meshutils, nodeutils, jsonutils, utils, params, vars
+from . import bake, shaders, physics, rigidbody, rigging, wrinkle, bones, modifiers, imageutils, meshutils, nodeutils, jsonutils, utils, params, vars
 
 UNPACK_INDEX = 1001
 
@@ -286,7 +286,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         if obj_name != obj_safe_name or obj.data.name != obj_safe_name:
             new_obj_name = obj_safe_name
             if is_new_object or source_changed:
-                new_obj_name = utils.make_unique_name(obj_safe_name, bpy.data.objects.keys())
+                new_obj_name = utils.make_unique_name_in(obj_safe_name, bpy.data.objects.keys())
             utils.log_info(f"Using new safe Object & Mesh name: {obj_name} to {new_obj_name}")
             if source_changed:
                 if jsonutils.rename_json_key(chr_json["Meshes"], obj_source_name, new_obj_name):
@@ -345,7 +345,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             if mat_name != mat_safe_name:
                 new_mat_name = mat_safe_name
                 if new_material or source_changed:
-                    new_mat_name = utils.make_unique_name(mat_safe_name, bpy.data.materials.keys())
+                    new_mat_name = utils.make_unique_name_in(mat_safe_name, bpy.data.materials.keys())
                 utils.log_info(f"Using new safe Material name: {mat_name} to {new_mat_name}")
                 if source_changed:
                     if jsonutils.rename_json_key(obj_json["Materials"], mat_source_name, new_mat_name):
@@ -779,6 +779,16 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                             if bake_value_texture:
                                 image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_shader_size)
 
+                            elif nodeutils.is_texture_pack_system(tex_node):
+
+                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to a texture pack. Skipping.")
+                                continue
+
+                            elif wrinkle.is_wrinkle_system(tex_node):
+
+                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to the wrinkle shader. Skipping.")
+                                continue
+
                             # if there is an image texture link to the socket
                             elif tex_node and tex_node.type == "TEX_IMAGE":
 
@@ -791,16 +801,6 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                 # otherwise use the image texture
                                 else:
                                     image = tex_node.image
-
-                            elif nodeutils.is_texture_pack_system(tex_node):
-
-                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to a texture pack. Skipping.")
-                                continue
-
-                            elif wrinkle.is_wrinkle_system(tex_node):
-
-                                utils.log_info(f"Texture: {tex_id} for socket: {shader_socket} is connected to the wrinkle shader. Skipping.")
-                                continue
 
                             elif prefs.export_bake_nodes:
 
@@ -982,6 +982,7 @@ def unpack_embedded_textures(chr_cache, chr_json, objects, base_path):
 
 def get_export_objects(chr_cache, include_selected = True):
     """Fetch all the objects in the character (or try to)"""
+    collider_collection = rigidbody.get_rigidbody_collider_collection()
     objects = []
     if include_selected:
         objects.extend(bpy.context.selected_objects)
@@ -992,15 +993,26 @@ def get_export_objects(chr_cache, include_selected = True):
             if arm not in objects:
                 objects.append(arm)
             for obj_cache in chr_cache.object_cache:
-                if obj_cache.is_mesh():
+                if obj_cache.is_mesh() and not obj_cache.disabled:
                     obj = obj_cache.get_object()
                     if obj.parent == arm:
                         obj.hide_set(False)
                         if obj not in objects:
                             objects.append(obj)
             for obj in arm.children:
-                if utils.object_exists_is_mesh(obj): # and obj.visible_get():
+                if utils.object_exists_is_mesh(obj):
+                    # exclude rigid body colliders (parented to armature)
+                    if collider_collection and obj.name in collider_collection.objects:
+                        utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
+                        continue
+                    # exclude collider proxies
+                    source, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
+                    if is_proxy:
+                        utils.log_info(f"   Excluding Collider Proxy Object: {obj.name}")
+                        continue
+                    # add child mesh objects
                     if obj not in objects:
+                        utils.log_info(f"   Including Object: {obj.name}")
                         objects.append(obj)
     else:
         arm = None
@@ -1020,8 +1032,12 @@ def get_export_objects(chr_cache, include_selected = True):
                 objects.append(arm)
             utils.log_info(f"Character Armature: {arm.name}")
             for obj in arm.children:
-                if utils.object_exists_is_mesh(obj): # and obj.visible_get():
+                if utils.object_exists_is_mesh(obj):
                     if obj not in objects:
+                        # exclude rigid body colliders (parented to armature)
+                        if collider_collection and obj.name in collider_collection.objects:
+                            utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
+                            continue
                         utils.log_info(f"   Including Object: {obj.name}")
                         objects.append(obj)
     return objects
@@ -1054,9 +1070,11 @@ def set_T_pose(arm, chr_json):
                 right_arm_pose.rotation_mode = "XYZ"
                 right_arm_pose.rotation_euler = [0,0,-angle]
                 right_arm_pose.rotation_mode = "QUATERNION"
-            chr_json["Bind_Pose"] = "APose"
+            if chr_json:
+                chr_json["Bind_Pose"] = "APose"
             return True
-        chr_json["Bind_Pose"] = "TPose"
+        if chr_json:
+            chr_json["Bind_Pose"] = "TPose"
     return False
 
 
@@ -1767,6 +1785,9 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     utils.log_info("Exporting as: " + ext)
 
     json_data = chr_cache.get_json_data()
+    if not json_data:
+        json_data = jsonutils.generate_character_json_data(name)
+        set_character_generation(json_data, chr_cache, name)
 
     utils.log_info("Preparing character for export:")
     utils.log_indent()
@@ -1804,7 +1825,12 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     # make the T-pose as an action
     arm = utils.get_armature_in_objects(objects)
     utils.safe_set_action(arm, None)
-    set_T_pose(arm, json_data[name]["Object"][name])
+    chr_json = None
+    if json_data:
+        try:
+            chr_json = json_data[name]["Object"][name]
+        except: pass
+    set_T_pose(arm, chr_json)
     create_T_pose_action(arm, objects, export_strips)
 
     # store Unity project paths
@@ -1908,7 +1934,12 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     # make the T-pose as an action
     arm = utils.get_armature_in_objects(objects)
     utils.safe_set_action(arm, None)
-    set_T_pose(arm, json_data[name]["Object"][name])
+    chr_json = None
+    if json_data:
+        try:
+            chr_json = json_data[name]["Object"][name]
+        except: pass
+    set_T_pose(arm, chr_json)
     create_T_pose_action(arm, objects, False)
 
     # save blend file at filepath
@@ -1968,7 +1999,10 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     export_actions = False
     export_strips = True
     baked_actions = []
-    export_rig = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions, include_t_pose = props.bake_unity_t_pose)
+    export_rig, vertex_group_map = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions,
+                                                              include_t_pose = props.bake_unity_t_pose,
+                                                              objects=objects)
+
     if export_rig:
         rigify_rig = chr_cache.get_armature()
         objects.remove(rigify_rig)
@@ -1981,7 +2015,8 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True)
 
-    prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, include_textures, False, False, False, False)
+    prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir,
+                include_textures, False, False, False, False)
 
     # for motion only exports, select armature and any mesh objects that have shape key animations
     if props.export_rigify_mode == "MOTION":
@@ -2009,7 +2044,8 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     restore_modifiers(chr_cache, objects)
 
     # clean up rigify export
-    rigging.finish_rigify_export(chr_cache, export_rig, baked_actions)
+    rigging.finish_rigify_export(chr_cache, export_rig, baked_actions, vertex_group_map,
+                                 objects=objects)
 
     utils.log_recess()
     utils.log_info("")
