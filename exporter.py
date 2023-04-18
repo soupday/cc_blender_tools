@@ -1207,10 +1207,6 @@ def prep_non_standard_export(objects, dir, name, character_type):
 
     set_non_standard_generation(json_data, character_type, name)
 
-    #arm = utils.get_armature_in_objects(objects)
-    #if arm:
-    #    bones.reset_root_bone(arm)
-
     done = {}
     objects_json = json_data[name]["Object"][name]["Meshes"]
 

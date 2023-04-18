@@ -35,6 +35,12 @@ Links
 
 ## Changelog
 
+### 1.5.8.1
+- Fixes:
+    - Fix to empty transforms or deleted objects in export.
+    - Fix to transfer vertex weights leaving working copies behind.
+    - Some object management UI corrections.
+
 ### 1.5.8
 - Spring Bones:
     - Blender spring bone rigid body simulation added for spring bone hair rigs.
