@@ -768,6 +768,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
                 arm = generic_rig
 
         rigified = chr_cache and chr_cache.rigified
+        is_standard = chr_cache and chr_cache.is_standard()
         num_meshes_in_selection = 0
         weight_transferable = False
         removable_objects = False
@@ -820,7 +821,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         # Accessory Management
 
-        if not rigified:
+        if not rigified and is_standard:
 
             column.box().label(text="Accessories", icon="GROUP_BONE")
 
@@ -838,12 +839,12 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
                 col_2.prop(accessory_root, "parent", text="")
             else:
                 split = None
-                if chr_cache and generic_rig:
+                if chr_cache and arm:
                     split = column.split(factor=0.375)
                     col_1 = split.column()
                     col_2 = split.column()
                     col_1.label(text="Parent:")
-                    col_2.prop_search(chr_cache, "accessory_parent_bone", generic_rig.data, "bones", text="")
+                    col_2.prop_search(chr_cache, "accessory_parent_bone", arm.data, "bones", text="")
                 row = column.row()
                 row.operator("cc3.character", icon="CONSTRAINT_BONE", text="Convert to Accessory").param = "CONVERT_ACCESSORY"
                 if not chr_cache or not obj or obj.type != "MESH" or (obj_cache and obj_cache.object_type == "BODY"):
