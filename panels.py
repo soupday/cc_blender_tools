@@ -764,7 +764,10 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
             arm = chr_cache.get_armature()
         else:
             generic_rig = characters.get_generic_rig(context.selected_objects)
+            if generic_rig:
+                arm = generic_rig
 
+        rigified = chr_cache and chr_cache.rigified
         num_meshes_in_selection = 0
         weight_transferable = False
         removable_objects = False
@@ -794,11 +797,11 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         # Converting
 
-        if not (chr_cache and chr_cache.rigified):
+        if not rigified:
 
             column.box().label(text="Converting", icon="DRIVER")
 
-            character_info_box(chr_cache, generic_rig, column)
+            character_info_box(chr_cache, arm, column)
 
             row = column.row()
             row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
@@ -817,7 +820,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         # Accessory Management
 
-        if not (chr_cache and chr_cache.rigified):
+        if not rigified:
 
             column.box().label(text="Accessories", icon="GROUP_BONE")
 
@@ -910,8 +913,8 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column.box().label(text = "Armature & Weights", icon = "ARMATURE_DATA")
 
-        if generic_rig:
-            column.row().prop(generic_rig.data, "pose_position", expand=True)
+        if arm:
+            column.row().prop(arm.data, "pose_position", expand=True)
 
         row = column.row()
         row.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
@@ -1824,7 +1827,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row = layout.row()
                         retarget_rig = chr_cache.rig_retarget_rig
                         depress = False
-                        if utils.still_exists(retarget_rig):
+                        if utils.object_exists(retarget_rig):
                             depress = True
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Retarget", depress=depress).param = "RETARGET_CC_PAIR_RIGS"
                         row.enabled = source_type != "Unknown"
@@ -2078,7 +2081,7 @@ class CC3ToolsCreatePanel(bpy.types.Panel):
         if chr_cache:
             chr_rig = chr_cache.get_armature()
         elif context.selected_objects:
-            chr_rig = utils.get_armature_in_objects(context.selected_objects)
+            chr_rig = utils.get_armature_from_objects(context.selected_objects)
 
         box = layout.box()
         box.label(text=f"Quick Export  ({vars.VERSION_STRING})", icon="EXPORT")
@@ -2712,7 +2715,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         if chr_cache:
             chr_rig = chr_cache.get_armature()
         elif context.selected_objects:
-            chr_rig = utils.get_armature_in_objects(context.selected_objects)
+            chr_rig = utils.get_armature_from_objects(context.selected_objects)
 
         layout = self.layout
         layout.use_property_split = False

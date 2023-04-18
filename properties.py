@@ -1176,7 +1176,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
         return False
 
     def get_collision_proxy(self):
-        if utils.still_exists(self.collision_proxy):
+        if utils.object_exists(self.collision_proxy):
             return self.collision_proxy
         else:
             return None
@@ -1475,7 +1475,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
         if include_children and arm:
             for child in arm.children:
-                if utils.still_exists(child) and child not in objects:
+                if utils.object_exists(child) and child not in objects:
                     if of_type == "ALL" or child.type == of_type:
                         objects.append(child)
         return objects

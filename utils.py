@@ -227,11 +227,11 @@ def object_has_material(obj, name):
     return False
 
 
-def still_exists(obj):
-    """Test if obj still exists."""
+def object_exists_is_empty(obj):
+    """Test if Object: obj still exists as an object in the scene, and is an empty."""
     try:
         name = obj.name
-        return True
+        return len(obj.users_scene) > 0 and obj.type == "EMPTY"
     except:
         return False
 
@@ -284,7 +284,7 @@ def get_selected_meshes(context = None):
 
 def try_remove(item, force = False):
 
-    if still_exists(item):
+    if object_exists(item):
 
         if type(item) == bpy.types.Armature:
             if (item.use_fake_user and item.users == 1) or item.users == 0 or force:
@@ -744,6 +744,14 @@ def expand_with_child_objects(objects):
         add_child_objects(obj, objects)
 
 
+def get_child_objects(obj, include_parent = False):
+    objects = []
+    if include_parent:
+        objects.append(obj)
+    add_child_objects(obj, objects)
+    return objects
+
+
 def try_select_object(obj, clear_selection = False):
     if clear_selection:
         clear_selected_objects()
@@ -777,7 +785,7 @@ def clear_selected_objects():
         return False
 
 
-def get_armature_in_objects(objects):
+def get_armature_from_objects(objects):
     arm = None
     if objects:
         for obj in objects:

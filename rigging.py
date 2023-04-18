@@ -2210,14 +2210,14 @@ def adv_retarget_remove_pair(op, chr_cache):
     retarget_rig = chr_cache.rig_retarget_rig
 
     # remove all contraints on Rigify control bones
-    if utils.still_exists(rigify_rig):
+    if utils.object_exists(rigify_rig):
         rigify_rig.hide_set(False)
         if select_rig(rigify_rig):
             for rigify_bone_name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
                 bones.clear_constraints(rigify_rig, rigify_bone_name)
 
     # remove the retarget rig
-    if utils.still_exists(retarget_rig):
+    if utils.object_exists(retarget_rig):
         retarget_rig.hide_set(False)
         utils.delete_armature_object(retarget_rig)
     chr_cache.rig_retarget_rig = None
@@ -3218,7 +3218,7 @@ def is_full_rig_shown(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
-        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
         for i in range(0, 32):
             if (i == 28) or (i >= 0 and i <= 21):
@@ -3236,7 +3236,7 @@ def toggle_show_full_rig(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
-        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
         if show:
             arm.data.layers[28] = True
@@ -3253,7 +3253,7 @@ def is_base_rig_shown(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
-        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
         for i in range(0, 32):
             if (i == 28) or (i >= 0 and i <= 18):
@@ -3273,7 +3273,7 @@ def toggle_show_base_rig(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
-        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
         if show:
             arm.data.layers[28] = True
@@ -3290,7 +3290,7 @@ def is_spring_rig_shown(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
-        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
         for i in range(0, 32):
             if (i >= 19 and i <= 21):
@@ -3312,7 +3312,7 @@ def toggle_show_spring_rig(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
-        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
 
     if arm:
 
@@ -3332,7 +3332,7 @@ def toggle_show_spring_bones(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
-        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
         if arm.data.layers[SPRING_EDIT_LAYER]:
             springbones.show_spring_bone_edit_layer(chr_cache, arm, False)
@@ -3344,7 +3344,7 @@ def reset_pose(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
-        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
             utils.pose_mode_to(arm)
             arm.data.pose_position = "POSE"
@@ -3363,7 +3363,7 @@ def is_rig_rest_position(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
-        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
         if arm.data.pose_position == "REST":
             return True
@@ -3374,7 +3374,7 @@ def toggle_rig_rest_position(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
-        arm = utils.get_armature_in_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
         if arm.data.pose_position == "POSE":
             arm.data.pose_position = "REST"

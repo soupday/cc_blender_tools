@@ -131,6 +131,49 @@ def nearest_vert_from_uv(obj, mesh, mat_slot, uv, thresh = 0):
         return None
 
 
+def copy_vertex_weights(src_obj : bpy.types.Object, dst_obj : bpy.types.Object):
+    vg_indices = {}
+    dst_obj.vertex_groups.clear()
+    src_vg : bpy.types.VertexGroup
+    for src_vg in src_obj.vertex_groups:
+        dst_vg = dst_obj.vertex_groups.new(name=src_vg.name)
+        vg_indices[src_vg.index] = dst_vg.index
+
+    src_mesh : bpy.types.Mesh = src_obj.data
+    dst_mesh : bpy.types.Mesh  = dst_obj.data
+
+    src_bm = bmesh.new()
+    dst_bm = bmesh.new()
+
+    src_bm.from_mesh(src_mesh)
+    src_bm.faces.ensure_lookup_table()
+    src_bm.verts.ensure_lookup_table()
+
+    dst_bm.from_mesh(dst_mesh)
+    dst_bm.faces.ensure_lookup_table()
+    dst_bm.verts.ensure_lookup_table()
+
+    matching_vert_count = len(src_bm.verts) == len(dst_bm.verts)
+
+    if matching_vert_count:
+
+        src_bm.verts.layers.deform.verify()
+        dst_bm.verts.layers.deform.verify()
+        src_dl = src_bm.verts.layers.deform.active
+        dst_dl = dst_bm.verts.layers.deform.active
+
+        for src_vert in src_bm.verts:
+            i = src_vert.index
+            dst_vert = dst_bm.verts[i]
+            for src_vg_index in vg_indices:
+                dst_vg_index = vg_indices[src_vg_index]
+                if src_vg_index in src_vert[src_dl]:
+                    dst_vert[dst_dl][dst_vg_index] = src_vert[src_dl][src_vg_index]
+
+    dst_bm.to_mesh(dst_mesh)
+
+
+
 def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = None, threshold = 0.004, shape_key_name = None):
 
     mesh : bpy.types.Mesh = dst_obj.data
