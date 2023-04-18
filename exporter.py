@@ -598,8 +598,9 @@ def restore_export(export_changes : list):
             obj = info[1]
             obj.name = info[2]
             obj.name = info[2]
-            obj.data.name = info[3]
-            obj.data.name = info[3]
+            if obj.data:
+                obj.data.name = info[3]
+                obj.data.name = info[3]
         elif op == "MATERIAL_RENAME":
             mat = info[1]
             mat.name = info[2]
@@ -1186,7 +1187,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
     changes = []
     done = []
     for obj in objects:
-        if obj not in done:
+        if obj not in done and obj.data:
             changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
             done.append(obj)
         if obj.type == "MESH":
