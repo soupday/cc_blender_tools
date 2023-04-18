@@ -34,7 +34,7 @@ def check_valid_export_fbx(chr_cache, objects):
     report = []
     check_valid = True
     check_warn = False
-    arm = utils.get_armature_in_objects(objects)
+    arm = utils.get_armature_from_objects(objects)
     standard = False
     if chr_cache:
         standard = chr_cache.is_standard()
@@ -94,7 +94,7 @@ def check_valid_export_fbx(chr_cache, objects):
 
 
 def remove_modifiers_for_export(chr_cache, objects, reset_pose):
-    arm = utils.get_armature_in_objects(objects)
+    arm = utils.get_armature_from_objects(objects)
     arm.data.pose_position = "POSE"
     if reset_pose:
         utils.safe_set_action(arm, None)
@@ -127,7 +127,7 @@ def restore_modifiers(chr_cache, objects):
 def rescale_for_unity(chr_cache, objects):
     """Do not use. Causes more problems than it solves..."""
     if utils.set_mode("OBJECT"):
-        arm : bpy.types.Object = utils.get_armature_in_objects(objects)
+        arm : bpy.types.Object = utils.get_armature_from_objects(objects)
         if arm.scale != 1.0:
             utils.try_select_object(arm, True)
             bpy.ops.object.transform_apply(location = False, rotation = False, scale = True, properties = False)
@@ -148,7 +148,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
     if as_blend_file:
         if prefs.export_unity_remove_objects:
             # remove everything not part of the character for blend file exports.
-            arm = utils.get_armature_in_objects(objects)
+            arm = utils.get_armature_from_objects(objects)
             for obj in bpy.data.objects:
                 if not (obj == arm or obj.parent == arm or chr_cache.has_object(obj)):
                     utils.log_info(f"Removing {obj.name} from blend file")
@@ -167,10 +167,11 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         if not base_path:
             base_path = new_path
 
+    # store all object names
     changes = []
     done = []
     for obj in objects:
-        if obj not in done:
+        if obj not in done and obj.data:
             changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
             done.append(obj)
         if obj.type == "MESH":
@@ -597,8 +598,9 @@ def restore_export(export_changes : list):
             obj = info[1]
             obj.name = info[2]
             obj.name = info[2]
-            obj.data.name = info[3]
-            obj.data.name = info[3]
+            if obj.data:
+                obj.data.name = info[3]
+                obj.data.name = info[3]
         elif op == "MATERIAL_RENAME":
             mat = info[1]
             mat.name = info[2]
@@ -999,7 +1001,9 @@ def get_export_objects(chr_cache, include_selected = True):
                         obj.hide_set(False)
                         if obj not in objects:
                             objects.append(obj)
-            for obj in arm.children:
+
+            child_objects = utils.get_child_objects(arm)
+            for obj in child_objects:
                 if utils.object_exists_is_mesh(obj):
                     # exclude rigid body colliders (parented to armature)
                     if collider_collection and obj.name in collider_collection.objects:
@@ -1012,26 +1016,24 @@ def get_export_objects(chr_cache, include_selected = True):
                         continue
                     # add child mesh objects
                     if obj not in objects:
-                        utils.log_info(f"   Including Object: {obj.name}")
+                        utils.log_info(f"   Including Mesh Object: {obj.name}")
                         objects.append(obj)
+                elif utils.object_exists_is_empty(obj):
+                    utils.log_info(f"   Including Empty Transform: {obj.name}")
+                    objects.append(obj)
     else:
         arm = None
         if bpy.context.active_object and bpy.context.active_object.type == "ARMATURE":
             arm = bpy.context.active_object
         if not arm:
-            for obj in bpy.context.selected_objects:
-                if obj.type == "ARMATURE":
-                    arm = obj
-        if not arm:
-            for obj in bpy.context.selected_objects:
-                if obj.parent and obj.parent.type == "ARMATURE":
-                    arm = obj.parent
+            arm = utils.get_armature_from_objects(bpy.context.selected_objects)
         if arm:
             arm.hide_set(False)
             if arm not in objects:
                 objects.append(arm)
             utils.log_info(f"Character Armature: {arm.name}")
-            for obj in arm.children:
+            child_objects = utils.get_child_objects(arm)
+            for obj in child_objects:
                 if utils.object_exists_is_mesh(obj):
                     if obj not in objects:
                         # exclude rigid body colliders (parented to armature)
@@ -1040,7 +1042,19 @@ def get_export_objects(chr_cache, include_selected = True):
                             continue
                         utils.log_info(f"   Including Object: {obj.name}")
                         objects.append(obj)
-    return objects
+                elif utils.object_exists_is_empty(obj):
+                    utils.log_info(f"   Including Empty Transform: {obj.name}")
+                    objects.append(obj)
+
+    # make sure all export objects are valid
+    clean_objects = [ obj for obj in objects
+                        if utils.object_exists(obj) and
+                            (obj.type=="ARMATURE" or obj.type=="MESH" or obj.type=="EMPTY") ]
+
+    for obj in clean_objects:
+        utils.log_info(f"Export Object: {obj.name} ({obj.type})")
+
+    return clean_objects
 
 
 def set_T_pose(arm, chr_json):
@@ -1173,7 +1187,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
     changes = []
     done = []
     for obj in objects:
-        if obj not in done:
+        if obj not in done and obj.data:
             changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
             done.append(obj)
         if obj.type == "MESH":
@@ -1192,10 +1206,6 @@ def prep_non_standard_export(objects, dir, name, character_type):
     json_data = jsonutils.generate_character_json_data(name)
 
     set_non_standard_generation(json_data, character_type, name)
-
-    #arm = utils.get_armature_in_objects(objects)
-    #if arm:
-    #    bones.reset_root_bone(arm)
 
     done = {}
     objects_json = json_data[name]["Object"][name]["Meshes"]
@@ -1605,7 +1615,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
             set_character_generation(json_data, chr_cache, name)
 
         objects = get_export_objects(chr_cache, include_selected)
-        arm = utils.get_armature_in_objects(objects)
+        arm = utils.get_armature_from_objects(objects)
 
         utils.log_info("Preparing character for export:")
         utils.log_indent()
@@ -1707,7 +1717,7 @@ def export_non_standard(self, file_path, include_selected):
     old_active = bpy.context.active_object
 
     objects = get_export_objects(None, include_selected)
-    arm = utils.get_armature_in_objects(objects)
+    arm = utils.get_armature_from_objects(objects)
 
     utils.log_info("Generating JSON data for export:")
     utils.log_indent()
@@ -1823,7 +1833,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, self.include_textures, False, False, as_blend_file, False)
 
     # make the T-pose as an action
-    arm = utils.get_armature_in_objects(objects)
+    arm = utils.get_armature_from_objects(objects)
     utils.safe_set_action(arm, None)
     chr_json = None
     if json_data:
@@ -1932,7 +1942,7 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, True, False, False, as_blend_file, False)
 
     # make the T-pose as an action
-    arm = utils.get_armature_in_objects(objects)
+    arm = utils.get_armature_from_objects(objects)
     utils.safe_set_action(arm, None)
     chr_json = None
     if json_data:

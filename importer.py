@@ -775,7 +775,7 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             # find the armature and rotate it 180 degrees in Z
-            arm : bpy.types.Object = utils.get_armature_in_objects(imported)
+            arm : bpy.types.Object = utils.get_armature_from_objects(imported)
             if arm:
                 arm.rotation_mode = "XYZ"
                 arm.rotation_euler = (0, 0, 3.1415926535897)
@@ -898,7 +898,7 @@ class CC3Import(bpy.types.Operator):
 
 
     def detect_import_mode_from_objects(self, objects):
-        arm = utils.get_armature_in_objects(objects)
+        arm = utils.get_armature_from_objects(objects)
         if arm:
             if (rigging.is_GameBase_armature(arm) or
                 rigging.is_ActorCore_armature(arm) or

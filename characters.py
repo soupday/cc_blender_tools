@@ -38,7 +38,7 @@ def get_character_objects(arm):
 
 def get_generic_rig(objects):
     props = bpy.context.scene.CC3ImportProps
-    arm = utils.get_armature_in_objects(objects)
+    arm = utils.get_armature_from_objects(objects)
     if arm:
         chr_cache = props.get_character_cache(arm, None)
         if not chr_cache:
@@ -148,13 +148,6 @@ def make_prop_armature(objects):
     return arm
 
 
-def add_child_objects(obj, objects):
-    for child in obj.children:
-        if child not in objects:
-            objects.append(child)
-            add_child_objects(child, objects)
-
-
 def create_prop_rig(objects):
     arm_name = "Prop"
     bone_name = "Root"
@@ -185,7 +178,7 @@ def convert_generic_to_non_standard(objects, file_path = None):
     objects = bpy.context.selected_objects
 
     # try to find a character armature
-    chr_rig = utils.get_armature_in_objects(objects)
+    chr_rig = utils.get_armature_from_objects(objects)
     chr_type = "HUMANOID"
 
     # if not generate one from the objects and empty parent transforms (Prop Only)
@@ -888,8 +881,6 @@ def transfer_skin_weights(chr_cache, objects):
     if body in objects:
         objects.remove(body)
 
-    selected = bpy.context.selected_objects.copy()
-
     if arm.data.pose_position == "POSE":
 
         # Transfer weights in place (in pose mode)
@@ -974,13 +965,16 @@ def transfer_skin_weights(chr_cache, objects):
         bpy.ops.object.parent_set(type="OBJECT", keep_transform=True)
         # and add armature modifiers
         modifiers.add_armature_modifier(body_copy, create=True, armature=arm)
+        # copy the new vertex weights back to the original objects
         for obj_copy in objects_copy:
-            modifiers.add_armature_modifier(obj_copy, create=True, armature=arm)
+            geom.copy_vertex_weights(obj_copy, obj)
 
         # done!
         utils.delete_armature_object(arm_posed)
         utils.delete_armature_object(arm_rest)
-        utils.delete_armature_object(body_copy)
+        utils.delete_mesh_object(body_copy)
+        for obj_copy in objects_copy:
+            utils.delete_mesh_object(obj_copy)
 
     else:
 
@@ -1007,9 +1001,6 @@ def transfer_skin_weights(chr_cache, objects):
                     if arm_mod:
                         modifiers.move_mod_first(obj, arm_mod)
                         arm_mod.object = arm
-
-    utils.clear_selected_objects()
-    utils.try_select_objects(selected)
 
 
 def normalize_skin_weights(chr_cache, objects):
@@ -1179,7 +1170,9 @@ class CC3OperatorCharacter(bpy.types.Operator):
         elif self.param == "TRANSFER_WEIGHTS":
             chr_cache = props.get_context_character_cache(context)
             objects = bpy.context.selected_objects.copy()
+            mode_selection = utils.store_mode_selection_state()
             transfer_skin_weights(chr_cache, objects)
+            utils.restore_mode_selection_state(mode_selection)
 
         elif self.param == "NORMALIZE_WEIGHTS":
             chr_cache = props.get_context_character_cache(context)
