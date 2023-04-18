@@ -423,7 +423,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 utils.log_recess()
             else:
                 # add pbr material to json for non-cached base object/material
-                write_pbr_material_to_json(mat, mat_json, old_path, old_name, bake_values)
+                write_pbr_material_to_json(mat, mat_json, base_path, old_name, bake_values)
 
             # copy or remap the texture paths
             utils.log_info("Finalizing Texture Paths:")
@@ -440,7 +440,6 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 if "Wrinkle" in mat_json.keys():
                     for channel in mat_json["Wrinkle"]["Textures"].keys():
                         copy_and_update_texture_path(mat_json["Wrinkle"]["Textures"][channel], "Texture Path", old_path, new_path, old_name, new_name, as_blend_file, mat_name, mat_data, images_copied)
-
 
             else:
                 for channel in mat_json["Textures"].keys():
