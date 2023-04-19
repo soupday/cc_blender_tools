@@ -35,11 +35,12 @@ Links
 
 ## Changelog
 
-### 1.5.8.1
+### 1.5.8.2
 - Fixes:
     - Fix to empty transforms or deleted objects in export.
     - Fix to transfer vertex weights leaving working copies behind.
     - Some object management UI corrections.
+    - Fix to bake path when exporting character converted from generic with materials added after conversion.
 
 ### 1.5.8
 - Spring Bones:

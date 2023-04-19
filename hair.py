@@ -1062,22 +1062,24 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dirs,
     if anchor_bone:
         cards, bm = selected_cards_to_length_loops(chr_cache, obj, card_dirs, one_loop_per_card)
         utils.edit_mode_to(arm)
+        smoothed_loops_set = []
+        for card in cards:
+            loops = card["loops"]
+            card_smoothed_loops_set = get_smoothed_loops_set(loops)
+            smoothed_loops_set.extend(card_smoothed_loops_set)
+        remove_existing_loop_bones(chr_cache, arm, smoothed_loops_set)
         for edit_bone in arm.data.edit_bones:
                 edit_bone.select_head = False
                 edit_bone.select_tail = False
                 edit_bone.select = False
-        for card in cards:
-            loops = card["loops"]
-            smoothed_loops_set = get_smoothed_loops_set(loops)
-            remove_existing_loop_bones(chr_cache, arm, smoothed_loops_set)
-            loop_index = 1
-            new_bones = []
-            for smoothed_loop in smoothed_loops_set:
-                loop = smoothed_loop[smooth_level]
-                loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
-                if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index,
-                                 bone_length, skip_length, trunc_length, smooth_level, new_bones):
-                    loop_index += 1
+        loop_index = 1
+        new_bones = []
+        for smoothed_loop in smoothed_loops_set:
+            loop = smoothed_loop[smooth_level]
+            loop_index = find_unused_hair_bone_index(arm, loop_index, hair_bone_prefix)
+            if loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index,
+                                bone_length, skip_length, trunc_length, smooth_level, new_bones):
+                loop_index += 1
 
     remove_duplicate_bones(chr_cache, arm)
 
@@ -1546,8 +1548,8 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05,
 
     if anchor_bone:
         loops = grease_pencil_to_length_loops(bone_length)
-        smoothed_loops_set = get_smoothed_loops_set(loops)
         utils.edit_mode_to(arm)
+        smoothed_loops_set = get_smoothed_loops_set(loops)
         remove_existing_loop_bones(chr_cache, arm, smoothed_loops_set)
         for edit_bone in arm.data.edit_bones:
             edit_bone.select_head = False
