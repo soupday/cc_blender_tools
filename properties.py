@@ -2132,7 +2132,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         # otherwise determine the context character cache:
         chr_cache = self.get_character_cache(obj, None)
 
-        # try to find a character from the selected obejcts
+        # try to find a character from the selected objects
         if chr_cache is None and len(context.selected_objects) > 1:
             chr_cache = self.get_any_character_cache_from_objects(context.selected_objects, False)
 
