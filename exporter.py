@@ -253,6 +253,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                     elif mat.name.startswith(mat_safe_name):
                         mat_remap[mat_safe_name] = mat
 
+    obj_names = []
     obj : bpy.types.Object
     for obj in objects:
 
@@ -262,7 +263,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         if chr_cache.collision_body == obj:
             continue
 
-        utils.log_info(f"Obejct: {obj.name}")
+        utils.log_info(f"Object: {obj.name} / {obj.data.name}")
         utils.log_indent()
 
         obj_name = obj.name
@@ -273,9 +274,11 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         if obj_cache:
             obj_expected_source_name = utils.safe_export_name(utils.strip_name(obj_name))
             obj_source_name = obj_cache.source_name
+            utils.log_info(f"Object source name: {obj_source_name}")
             source_changed = obj_expected_source_name != obj_source_name
             if source_changed:
                 obj_safe_name = utils.safe_export_name(obj_name)
+                utils.log_info(f"Object name changed from source, using: {obj_safe_name}")
             else:
                 obj_safe_name = obj_source_name
         else:
@@ -286,7 +289,14 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         # if the Object name has been changed in some way
         if obj_name != obj_safe_name or obj.data.name != obj_safe_name:
             new_obj_name = obj_safe_name
-            if is_new_object or source_changed:
+            if is_new_object or source_changed or new_obj_name in obj_names:
+                new_obj_name = utils.make_unique_name_in(obj_safe_name, bpy.data.objects.keys())
+            elif new_obj_name in obj_names:
+                # if multiple objects imported had the same name there will be duplicate source names:
+                # so if the new name is already in use, create a new unique name
+                # this will also trigger a new json object to be created which is needed
+                # as json object names should be unique and it's not possible in Blender to export
+                # two different objects with the same name.
                 new_obj_name = utils.make_unique_name_in(obj_safe_name, bpy.data.objects.keys())
             utils.log_info(f"Using new safe Object & Mesh name: {obj_name} to {new_obj_name}")
             if source_changed:
@@ -301,6 +311,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             obj_name = new_obj_name
             obj_safe_name = new_obj_name
             obj_source_name = new_obj_name
+
+        obj_names.append(obj_name)
 
         # fetch or create the object json
         obj_json = jsonutils.get_object_json(chr_json, obj)

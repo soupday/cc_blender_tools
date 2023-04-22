@@ -35,13 +35,16 @@ Links
 
 ## Changelog
 
-### 1.5.8.3
+### 1.5.8.4
 - Fixes:
     - Fix to empty transforms or deleted objects in export.
     - Fix to transfer vertex weights leaving working copies behind.
     - Some object management UI corrections.
     - Fix to bake path when exporting character converted from generic with materials added after conversion.
     - Fix to replace selected bones from hair cards.
+    - Fix cloth settings error in detect physics.
+    - Fix CC4 spring bones creation.
+    - Fix to exports of objects which originally had the duplicate object names.
 
 ### 1.5.8
 - Spring Bones:

@@ -584,7 +584,7 @@ def selected_cards_to_length_loops(chr_cache, obj, card_dirs, one_loop_per_card 
         for face_index in island:
             face = bm.faces[face_index]
             for vert in face.verts:
-                verts.add(vert)
+                verts.add(vert.index)
 
         card = { "verts": verts, "loops": loops }
         cards.append(card)
@@ -1230,42 +1230,43 @@ def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_ra
             vg = meshutils.add_vertex_group(obj, bone_name)
             first_bone_groups.append(vg)
 
-    card_verts = card["verts"]
-    for vertex in card_verts:
-        co = obj.matrix_world @ vertex.co
-        proj_point, proj_length = get_projection_on_loop(card_loop, co)
-        card_length_fac = math.pow(proj_length / card_loop_length, curve)
+    for vert_index in card["verts"]:
+        vertex : bmesh.types.BMVert = bm.verts[vert_index]
+        if vertex.is_valid:
+            co = obj.matrix_world @ vertex.co
+            proj_point, proj_length = get_projection_on_loop(card_loop, co)
+            card_length_fac = math.pow(proj_length / card_loop_length, curve)
 
-        for b in range(0, max_bones):
-            bone_chain = sorted_bones[b]["bones"]
-            bone_def, bone_distance, bone_fac = get_closest_bone_def(bone_chain, co, max_radius)
+            for b in range(0, max_bones):
+                bone_chain = sorted_bones[b]["bones"]
+                bone_def, bone_distance, bone_fac = get_closest_bone_def(bone_chain, co, max_radius)
 
-            weight_distance = min(max_radius, max(0, max_radius - bone_distance))
-            weight = bone_weight_variance_mods[b] * (weight_distance / max_radius) / max_bones
+                weight_distance = min(max_radius, max(0, max_radius - bone_distance))
+                weight = bone_weight_variance_mods[b] * (weight_distance / max_radius) / max_bones
 
-            # bone_fac is used to scale the weights, on the very first bone in the chain, from 0 to 1
-            # (unless it's for a CC4 accessory)
-            if CC4_SPRING_RIG:
-                bone_fac = 1.0
-            elif bone_def != bone_chain[0]:
-                bone_fac = 1.0
-
-            weight *= max(0, min(bone_fac, card_length_fac))
-            weight = max(min_weight, weight)
-
-            bone_name = bone_def["name"]
-            vg = meshutils.add_vertex_group(obj, bone_name)
-            if vg:
-                vertex[dl][vg.index] = weight
-                # if the weight's are scaled back, they need to be scaled back
-                # against the root bone's weights, unless this is for the root bone
-                # in which case we need to add the root weight
+                # bone_fac is used to scale the weights, on the very first bone in the chain, from 0 to 1
+                # (unless it's for a CC4 accessory)
                 if CC4_SPRING_RIG:
-                    first_vg = first_bone_groups[b]
-                    if vg.index != first_vg.index:
-                        vertex[dl][first_vg.index] = acc_root_weight
-                    else:
-                        vertex[dl][first_vg.index] = weight + acc_root_weight
+                    bone_fac = 1.0
+                elif bone_def != bone_chain[0]:
+                    bone_fac = 1.0
+
+                weight *= max(0, min(bone_fac, card_length_fac))
+                weight = max(min_weight, weight)
+
+                bone_name = bone_def["name"]
+                vg = meshutils.add_vertex_group(obj, bone_name)
+                if vg:
+                    vertex[dl][vg.index] = weight
+                    # if the weight's are scaled back, they need to be scaled back
+                    # against the root bone's weights, unless this is for the root bone
+                    # in which case we need to add the root weight
+                    if CC4_SPRING_RIG:
+                        first_vg = first_bone_groups[b]
+                        if vg.index != first_vg.index:
+                            vertex[dl][first_vg.index] = acc_root_weight
+                        else:
+                            vertex[dl][first_vg.index] = weight + acc_root_weight
 
 
 def sort_func_weighted_distance(bone_weight_distance):

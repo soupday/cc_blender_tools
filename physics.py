@@ -1245,7 +1245,7 @@ def detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json):
             if obj_cache.cloth_physics == "DEFAULT":
                 obj_cache.cloth_physics = "OFF"
                 utils.log_info(f"Deactivating cloth physics on object {obj.name}")
-            if mat_cache.cloth_settings == "DEFAULT":
+            if mat_cache.cloth_physics == "DEFAULT":
                 mat_cache.cloth_physics = "OFF"
                 utils.log_info(f"Deactivating cloth physics on material {mat.name}")
 
