@@ -779,7 +779,10 @@ def reset_cache(context):
 
 def create_capsule_collider(name, location, rotation, scale, radius, length, axis):
     bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, radius=radius)
+    try:
+        bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, radius=radius)
+    except:
+        bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, diameter=radius)
     bm.verts.ensure_lookup_table()
 
     i = 2
