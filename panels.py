@@ -948,11 +948,12 @@ class CC3SpringRigPanel(bpy.types.Panel):
 
         # Hair Cards & Spring Bone Rig
 
+        icon = utils.check_icon("OUTLINER_OB_HAIR")
         if fake_drop_down(layout.box().row(),
                 "Hair Rigging",
                 "section_hair_rigging",
                 props.section_hair_rigging,
-                icon="OUTLINER_OB_CURVES", icon_closed="OUTLINER_OB_CURVES"):
+                icon=icon, icon_closed=icon):
 
             edit_enabled = True
             if (chr_cache and chr_cache.rigified and

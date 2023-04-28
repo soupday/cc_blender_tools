@@ -441,7 +441,7 @@ def update_rig_target(self, context):
         if self.hair_rig_target == "CC4":
             self.hair_rig_bone_length = 7.5
             self.hair_rig_bind_skip_length = 0.0
-            self.hair_rig_bind_trunc_length = 2.5
+            self.hair_rig_bind_trunc_length = 0.5
             self.hair_rig_bind_bone_radius = 11.25
             self.hair_rig_bind_existing_scale = 0.0
             self.hair_rig_bind_bone_count = 2
@@ -452,7 +452,7 @@ def update_rig_target(self, context):
         elif self.hair_rig_target == "UNITY":
             self.hair_rig_bone_length = 7.5
             self.hair_rig_bind_skip_length = 7.5
-            self.hair_rig_bind_trunc_length = 2.5
+            self.hair_rig_bind_trunc_length = 0.5
             self.hair_rig_bind_bone_radius = 11.25
             self.hair_rig_bind_existing_scale = 1.0
             self.hair_rig_bind_bone_count = 2

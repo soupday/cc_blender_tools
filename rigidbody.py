@@ -779,7 +779,10 @@ def reset_cache(context):
 
 def create_capsule_collider(name, location, rotation, scale, radius, length, axis):
     bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, radius=radius)
+    try:
+        bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, radius=radius)
+    except:
+        bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, diameter=radius)
     bm.verts.ensure_lookup_table()
 
     i = 2
@@ -933,11 +936,15 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
                 obj = create_capsule_collider(name, translate, rotate, scale, radius, length, axis)
 
             # using operators to parent because matrix_parent_inverse doesn't work correctly
-            bone : bpy.types.Bone = arm.data.bones[target_bone_name]
-            arm.data.bones.active = bone
-            utils.set_active_object(arm, True)
-            obj.select_set(True)
-            bpy.ops.object.parent_set(type='BONE', keep_transform=True)
+            if bones.set_active_bone(arm, target_bone_name, deselect_all=True):
+                utils.set_active_object(arm, True)
+                obj.hide_set(False)
+                obj.select_set(True)
+                bpy.ops.object.parent_set(type='BONE', keep_transform=True)
+            else:
+                utils.log_error(f"Unable to parent rigid body collider {obj.name} to armature!")
+                utils.delete_mesh_object(obj)
+                continue
 
             if active:
                 utils.set_active_object(obj)
@@ -1086,19 +1093,22 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
 
             if rigify_bone_name:
                 # using operators to parent because matrix_parent_inverse doesn't work correctly
-                bone : bpy.types.Bone = rigify_rig.data.bones[rigify_bone_name]
-                rigify_rig.data.bones.active = bone
                 utils.set_active_object(rigify_rig, True)
-                obj.hide_set(False)
-                obj.select_set(True)
-                bpy.ops.object.parent_set(type='BONE', keep_transform=True)
+                if bones.set_active_bone(rigify_rig, rigify_bone_name, deselect_all=True):
+                    obj.hide_set(False)
+                    obj.select_set(True)
+                    bpy.ops.object.parent_set(type='BONE', keep_transform=True)
+                else:
+                    utils.log_error(f"Enable to parent collider object {obj.name} to rigify rig!")
+                    utils.delete_mesh_object(obj)
             else:
                 utils.log_error(f"Unable to map {bone_name} to rigify bone!")
                 utils.delete_mesh_object(obj)
 
         # hide the colliders
         for obj in colliders:
-            obj.hide_set(True)
+            if utils.object_exists(obj):
+                obj.hide_set(True)
         for collection in layer_collections:
             collection.hide_viewport = True
 
