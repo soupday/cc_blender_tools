@@ -930,7 +930,39 @@ def clear_drivers(rig):
             drivers.remove(fc)
 
 
+def select_all_bones(arm, select = True, clear_active = True):
+    mode = utils.get_mode()
+    data = arm.data.bones
+    if mode == "EDIT":
+        data = arm.data.edit_bones
+    if data:
+        for bone in data:
+            bone.select_head = select
+            bone.select_tail = select
+            bone.select = select
+        if clear_active:
+            data.active = None
+        return True
+    else:
+        return False
 
+
+def set_active_bone(arm, bone_name, deselect_all = True):
+    if deselect_all:
+        select_all_bones(arm, select=False, clear_active=True)
+    mode = utils.get_mode()
+    data = arm.data.bones
+    if mode == "EDIT":
+        data = arm.data.edit_bones
+    if bone_name in data:
+        bone = data[bone_name]
+        bone.select_head = True
+        bone.select_tail = True
+        bone.select = True
+        data.active = bone
+        return True
+    else:
+        return False
 
 
 def get_bone_name_from_data_path(data_path : str):
@@ -951,14 +983,34 @@ def get_roll(bone):
     return roll
 
 
+def make_bones_visible(arm, groups = None):
+    bone : bpy.types.Bone
+    for bone in arm.data.bones:
+        if groups and bone.bone_group.name not in groups:
+            bone.hide = True
+        # make all active bone layers visible so they can be made visible and selected
+        for i, l in enumerate(bone.layers):
+            if l:
+                arm.data.layers[i] = True
+        # show and select bone
+        bone.hide = False
+        bone.hide_select = False
+
+
 def clear_pose(arm):
+    """Clears the pose, makes all bones visible and clears the bone selections."""
+
     # select all bones in pose mode
     arm.data.pose_position = "POSE"
     utils.object_mode_to(arm)
     utils.set_mode("POSE")
     bone : bpy.types.Bone
+    make_bones_visible(arm)
     for bone in arm.data.bones:
+        # show and select bone
         bone.select = True
+        bone.select_head = True
+        bone.select_tail = True
 
     # unlock the bones
     pose_bone : bpy.types.PoseBone
@@ -970,6 +1022,12 @@ def clear_pose(arm):
 
     # clear pose
     bpy.ops.pose.transforms_clear()
+
+    # clear bone selections
+    for bone in arm.data.bones:
+        bone.select = False
+        bone.select_head = False
+        bone.select_tail = False
 
     utils.object_mode_to(arm)
 

@@ -35,7 +35,7 @@ Links
 
 ## Changelog
 
-### 1.5.8.4
+### 1.5.8.5
 - Fixes:
     - Fix to empty transforms or deleted objects in export.
     - Fix to transfer vertex weights leaving working copies behind.
@@ -44,7 +44,8 @@ Links
     - Fix to replace selected bones from hair cards.
     - Fix cloth settings error in detect physics.
     - Fix CC4 spring bones creation.
-    - Fix to exports of objects which originally had the duplicate object names.
+    - Fix to exports of objects which originally had duplicate object names.
+    - Fix to import crash when using Blender versions before 3.5
 
 ### 1.5.8
 - Spring Bones:

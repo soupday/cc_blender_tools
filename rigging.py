@@ -2325,23 +2325,23 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
     if retarget_rig:
         temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", source_rig, retarget_rig, rigify_rig)
 
+        rigify_settings = bones.store_armature_settings(rigify_rig)
+
         # select just the retargeted bones in the rigify rig, to bake:
         if select_rig(rigify_rig):
+            bones.make_bones_visible(rigify_rig)
             bone : bpy.types.Bone
             for bone in rigify_rig.data.bones:
                 bone.select = False
                 if bone.name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
-                    # make sure the layers the bone occupies are visible and selectable
-                    for l in bone.layers:
-                        if l:
-                            rigify_rig.data.layers[l] = True
-                    bone.hide = False
                     bone.select = True
 
 
             bake_rig_animation(chr_cache, rigify_rig, source_action, None, True, True)
 
             adv_retarget_remove_pair(op, chr_cache)
+
+        bones.restore_armature_settings(rigify_rig, rigify_settings)
 
         utils.restore_visible_in_scene(temp_collection)
 
@@ -2355,17 +2355,16 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
     # select all possible control bones in the rigify rig, to bake:
     BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
     if select_rig(rigify_rig):
+
+        rigify_settings = bones.store_armature_settings(rigify_rig)
+
         bone : bpy.types.Bone
+        bones.make_bones_visible(rigify_rig, groups = BAKE_BONE_GROUPS)
         for bone in rigify_rig.data.bones:
             bone.select = False
             pose_bone = bones.get_pose_bone(rigify_rig, bone.name)
             if pose_bone and pose_bone.bone_group:
                 if pose_bone.bone_group.name in BAKE_BONE_GROUPS:
-                    # make sure the layers the bone occupies are visible and selectable
-                    for l in bone.layers:
-                        if l:
-                            rigify_rig.data.layers[l] = True
-                    bone.hide = False
                     bone.select = True
 
         shape_key_objects = []
@@ -2379,8 +2378,12 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
 
         bake_rig_animation(chr_cache, rigify_rig, None, shape_key_objects, False, True, "NLA_Bake")
 
+        bones.restore_armature_settings(rigify_rig, rigify_settings)
+
         # remove any retarget preview pairing
         adv_retarget_remove_pair(op, chr_cache)
+
+
 
 
 # Shape-key retargeting
@@ -2737,6 +2740,8 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
     if rigify_rig.animation_data is None:
         rigify_rig.animation_data_create()
 
+    rigify_settings = bones.store_armature_settings(rigify_rig)
+
     if export_rig:
 
         # copy constraints for baking animations
@@ -2760,16 +2765,14 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
                 bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, export_bone_name, 1.0)
 
             # select all export rig bones
+            bones.make_bones_visible(export_rig)
             for bone in export_rig.data.bones:
-                # make sure the layers the bone occupies are visible and selectable
-                for l in bone.layers:
-                    if l:
-                        export_rig.data.layers[l] = True
-                bone.hide = False
                 bone.select = True
 
             # bake the action on the rigify rig into the export rig
             armature_action, shape_key_actions = bake_rig_animation(chr_cache, export_rig, None, None, True, True, "NLA_Bake")
+
+    bones.restore_armature_settings(rigify_rig, rigify_settings)
 
     return armature_action, shape_key_actions
 
