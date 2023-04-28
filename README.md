@@ -45,7 +45,10 @@ Links
     - Fix cloth settings error in detect physics.
     - Fix CC4 spring bones creation.
     - Fix to exports of objects which originally had duplicate object names.
-    - Fix to import crash when using Blender versions before 3.5
+    - Fix to import collider parenting crash when using Blender versions before 3.5
+    - Fix to UI panel in 2.93.
+    - Fix to collider generation in 2.93
+    - Fix to collider generation when Rigifying when posed.
 
 ### 1.5.8
 - Spring Bones:
