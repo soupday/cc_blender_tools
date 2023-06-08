@@ -45,7 +45,7 @@ def context_character(context):
         # if the context object is an armature or child of armature that is not part of this chr_cache
         # clear the chr_cache, as this is a separate generic character.
         if obj and not obj_cache:
-            if obj.type == "ARMATURE" and obj != arm:
+            if obj.type == "ARMATURE" and obj != arm and obj != chr_cache.rig_meta_rig:
                 chr_cache = None
             elif obj.type == "MESH" and obj.parent and obj.parent != arm:
                 chr_cache = None
@@ -640,6 +640,20 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_2.prop(prefs, "build_armature_edit_modifier", text="")
             col_1.label(text="Use Preserve Volume")
             col_2.prop(prefs, "build_armature_preserve_volume", text="")
+            col_1.label(text="Dual Specular Skin")
+            col_2.prop(prefs, "build_skin_shader_dual_spec", text="")
+            col_1.separator()
+            col_2.separator()
+            col_1.label(text="Shape Keys Drive Jaw Bone")
+            col_2.prop(prefs, "build_shape_key_bone_drivers_jaw", text="")
+            col_1.label(text="Shape Keys Drive Eye Bones")
+            col_2.prop(prefs, "build_shape_key_bone_drivers_eyes", text="")
+            col_1.label(text="Shape Keys Drive Head Bone")
+            col_2.prop(prefs, "build_shape_key_bone_drivers_head", text="")
+            col_1.separator()
+            col_2.separator()
+            col_1.label(text="Body Shape Keys Drive All")
+            col_2.prop(prefs, "build_body_key_drivers", text="")
 
         layout.prop(props, "physics_mode", toggle=True, text="Build Physics")
         layout.prop(prefs, "render_target", expand=True)
@@ -1612,6 +1626,13 @@ class CC3RigifyPanel(bpy.types.Panel):
                     layout.separator()
 
                     if chr_cache.rigified:
+
+                        if obj == chr_cache.rig_meta_rig and chr_cache.rig_mode == "ADVANCED":
+
+                            row = layout.row()
+                            row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Regenerate Rigify").param = "RE_RIGIFY_META"
+
+                            layout.separator()
 
                         if chr_cache.rigified_full_face_rig:
 
@@ -2757,6 +2778,20 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             col_2.prop(prefs, "physics_cloth_clothing", text="")
             col_1.label(text="Hair Cloth Physics")
             col_2.prop(prefs, "physics_cloth_hair", text="")
+            col_1.label(text="Dual Specular Skin")
+            col_2.prop(prefs, "build_skin_shader_dual_spec", text="")
+            col_1.separator()
+            col_2.separator()
+            col_1.label(text="Shape Keys Drive Jaw Bone")
+            col_2.prop(prefs, "build_shape_key_bone_drivers_jaw", text="")
+            col_1.label(text="Shape Keys Drive Eye Bones")
+            col_2.prop(prefs, "build_shape_key_bone_drivers_eyes", text="")
+            col_1.label(text="Shape Keys Drive Head Bone")
+            col_2.prop(prefs, "build_shape_key_bone_drivers_head", text="")
+            col_1.separator()
+            col_2.separator()
+            col_1.label(text="Body Shape Keys Drive All")
+            col_2.prop(prefs, "build_body_key_drivers", text="")
 
         row = layout.row()
         row.scale_y = 2

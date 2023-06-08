@@ -425,7 +425,7 @@ def get_node_by_id_and_type(nodes, id, type):
     return None
 
 
-def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group):
+def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group, custom_bsdf = None):
     shader_id = "(" + str(shader_name) + ")"
     bsdf_id = "(" + str(shader_name) + "_BSDF)"
     mix_id = "(" + str(shader_name) + "_MIX)"
@@ -445,10 +445,18 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
 
     for n in nodes:
 
-        if n.type == "BSDF_PRINCIPLED" and has_bsdf and shader_name in n.name:
+        if not custom_bsdf and n.type == "BSDF_PRINCIPLED" and has_bsdf and shader_name in n.name:
 
             if not bsdf_node:
                 utils.log_info("Keeping old BSDF: " + n.name)
+                bsdf_node = n
+            else:
+                nodes.remove(n)
+
+        elif custom_bsdf and n.type == "GROUP" and custom_bsdf in n.node_tree.name and has_bsdf and shader_name in n.name:
+
+            if not bsdf_node:
+                utils.log_info("Keeping old custom BSDF: " + n.name)
                 bsdf_node = n
             else:
                 nodes.remove(n)
@@ -523,11 +531,22 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
                 bsdf_node = None
 
     if has_bsdf and not bsdf_node:
-        bsdf_node = nodes.new("ShaderNodeBsdfPrincipled")
-        bsdf_node.name = utils.unique_name(bsdf_id)
-        bsdf_node.label = shader_label
-        bsdf_node.width = 240
-        utils.log_info("Creating new BSDF: " + bsdf_node.name)
+        if custom_bsdf:
+            template_group = get_node_group(custom_bsdf)
+            # single user copy of template group:
+            group = template_group.copy()
+            bsdf_node = nodes.new("ShaderNodeGroup")
+            bsdf_node.node_tree = group
+            bsdf_node.name = utils.unique_name(bsdf_id)
+            bsdf_node.label = shader_label
+            bsdf_node.width = 240
+            utils.log_info(f"Created new custom BSDF: {bsdf_node.name} ({custom_bsdf})")
+        else:
+            bsdf_node = nodes.new("ShaderNodeBsdfPrincipled")
+            bsdf_node.name = utils.unique_name(bsdf_id)
+            bsdf_node.label = shader_label
+            bsdf_node.width = 240
+            utils.log_info(f"Created new BSDF: {bsdf_node.name}")
 
     if not output_node:
         output_node = nodes.new("ShaderNodeOutputMaterial")
@@ -814,6 +833,14 @@ def get_bsdf_node(mat):
             if node.type == "BSDF_PRINCIPLED":
                 return node
     return None
+
+
+def get_custom_bsdf_nodes(custom_bsdf_node):
+    bsdf_nodes = []
+    for node in custom_bsdf_node.node_tree.nodes:
+        if node.type == "BSDF_PRINCIPLED":
+            bsdf_nodes.append(node)
+    return bsdf_nodes
 
 
 def get_tiling_node(mat, shader_name, texture_type):

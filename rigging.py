@@ -1197,6 +1197,9 @@ def add_shape_key_drivers(chr_cache, rig):
                     driver_def = skd_def[2]
                     var_def = skd_def[3]
                     add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def)
+
+    drivers.add_body_shape_key_drivers(chr_cache, True)
+
     if utils.is_blender_version("3.1.0", "GTE"):
         left_data_path = bones.get_data_rigify_limb_property("LEFT_LEG", "IK_Stretch")
         right_data_path = bones.get_data_rigify_limb_property("RIGHT_LEG", "IK_Stretch")
@@ -1298,7 +1301,6 @@ def modify_rigify_rig(cc3_rig, rigify_rig, rigify_data):
             select_rig(rigify_rig)
 
 
-
 def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mappings):
     """Unparent (with transform) from the original CC3 rig and reparent to the new rigify rig (with automatic weights for the body),
        setting the armature modifiers to the new rig.
@@ -1355,7 +1357,7 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mappings):
     return result
 
 
-def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
+def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig, remove_meta = False):
     """Rename the rigs, hide the original CC3 Armature and remove the meta rig.
        Set the new rig into pose mode.
     """
@@ -1363,7 +1365,12 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig):
     utils.log_info("Cleaning Up...")
     rig_name = cc3_rig.name
     cc3_rig.hide_set(True)
-    utils.delete_armature_object(meta_rig)
+    # don't delete the meta_rig in advanced mode
+    if remove_meta:
+        utils.delete_armature_object(meta_rig)
+        chr_cache.rig_meta_rig = None
+    else:
+        meta_rig.hide_set(True)
     rigify_rig.name = rig_name + "_Rigify"
     rigify_rig.data.name = rig_name + "_Rigify"
     if utils.set_mode("OBJECT"):
@@ -3417,6 +3424,7 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("Meta-Rig added.")
                 self.meta_rig.location = (0,0,0)
                 if self.cc3_rig is not None:
+                    self.meta_rig.name = f"{self.cc3_rig.name}_metarig"
                     self.cc3_rig.location = (0,0,0)
                     self.cc3_rig.data.pose_position = "REST"
                     utils.log_info("Aligning Meta-Rig.")
@@ -3450,6 +3458,127 @@ class CC3Rigifier(bpy.types.Operator):
             settings = self.rigid_body_systems[parent_mode]
             rigidbody.build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_name, settings)
 
+    def generate_meta_rig(self, chr_cache, advanced_mode = False):
+
+        utils.start_timer()
+
+        utils.log_info("")
+        utils.log_info("Beginning Meta-Rig Setup:")
+        utils.log_info("-------------------------")
+
+        if utils.object_exists_is_armature(self.cc3_rig):
+
+            self.remove_cc3_rigid_body_systems(chr_cache)
+            self.add_meta_rig(chr_cache)
+
+            if utils.object_exists_is_armature(self.meta_rig):
+                chr_cache.rig_meta_rig = self.meta_rig
+                correct_meta_rig(self.meta_rig)
+
+                self.report({'INFO'}, "Meta-rig generated!")
+
+        utils.log_timer("Done Meta-Rig Setup!")
+
+    def rigify_meta_rig(self, chr_cache, advanced_mode = False):
+
+        utils.start_timer()
+
+        face_result = -1
+
+        if utils.object_exists_is_armature(self.cc3_rig) and utils.object_exists_is_armature(self.meta_rig):
+
+            if utils.set_mode("OBJECT") and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
+
+                utils.log_info("")
+                utils.log_info("Generating Rigify Control Rig:")
+                utils.log_info("------------------------------")
+
+                bpy.ops.pose.rigify_generate()
+                self.rigify_rig = bpy.context.active_object
+
+                utils.log_info("")
+                utils.log_info("Finalizing Rigify Setup:")
+                utils.log_info("------------------------")
+
+                if utils.object_exists_is_armature(self.rigify_rig):
+                    if chr_cache.rig_full_face():
+                        chr_cache.rigified_full_face_rig = True
+                    else:
+                        convert_to_basic_face_rig(self.rigify_rig)
+                        chr_cache.rigified_full_face_rig = False
+                    modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
+                    face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                    acc_vertex_group_map = {}
+                    add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
+                    add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
+                    rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                    add_shape_key_drivers(chr_cache, self.rigify_rig)
+                    rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
+                    clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig, remove_meta = not advanced_mode)
+                    #self.restore_rigify_rigid_body_systems(chr_cache)
+
+        utils.log_timer("Done Rigify Process!")
+
+        # keep the meta_rig data
+        #chr_cache.rig_meta_rig = None
+
+        if face_result == 1:
+            self.report({'INFO'}, "Rigify Complete! No errors detected.")
+        elif face_result == 0:
+            self.report({'WARNING'}, "Rigify Complete! Some issues with the face rig were detected and fixed automatically. See console log.")
+        else:
+            self.report({'ERROR'}, "Rigify Incomplete! Face rig weighting Failed!. See console log.")
+
+
+    def re_rigify_meta_rig(self, chr_cache, advanced_mode = False):
+
+        utils.start_timer()
+
+        face_result = -1
+
+        if utils.object_exists_is_armature(self.cc3_rig) and utils.object_exists_is_armature(self.meta_rig):
+
+            self.cc3_rig.hide_set(False)
+            self.meta_rig.hide_set(False)
+
+            if utils.set_mode("OBJECT") and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
+
+                utils.log_info("")
+                utils.log_info("Re-generating Rigify Control Rig:")
+                utils.log_info("---------------------------------")
+
+                # regenerating the rig will replace the existing rigify rig
+                # so there is no need to reparent anything
+                bpy.ops.pose.rigify_generate()
+                self.rigify_rig = bpy.context.active_object
+
+                utils.log_info("")
+                utils.log_info("Re-finalizing Rigify Setup:")
+                utils.log_info("---------------------------")
+
+                if utils.object_exists_is_armature(self.rigify_rig):
+                    if chr_cache.rig_full_face():
+                        chr_cache.rigified_full_face_rig = True
+                    else:
+                        convert_to_basic_face_rig(self.rigify_rig)
+                        chr_cache.rigified_full_face_rig = False
+                    modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
+                    acc_vertex_group_map = {}
+                    add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
+                    add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
+                    rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
+                    add_shape_key_drivers(chr_cache, self.rigify_rig)
+                    self.cc3_rig.hide_set(True)
+                    self.meta_rig.hide_set(True)
+
+        utils.log_timer("Done Rigify Process!")
+
+        # keep the meta_rig data
+        #chr_cache.rig_meta_rig = None
+
+        self.report({'INFO'}, "Re-Rigify Complete!")
+
+
     def execute(self, context):
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
@@ -3464,146 +3593,39 @@ class CC3Rigifier(bpy.types.Operator):
 
             props.store_ui_list_indices()
 
-            self.cc3_rig = chr_cache.get_armature()
+            if chr_cache.rigified:
+                self.cc3_rig = chr_cache.rig_original_rig
+                self.rigify_rig = chr_cache.get_armature()
+            else:
+                self.cc3_rig = chr_cache.get_armature()
+                self.rigify_rig = None
+            self.meta_rig = chr_cache.rig_meta_rig
             self.rigify_data = chr_cache.get_rig_mapping_data()
 
             if self.param == "ALL":
 
-                utils.start_timer()
-
-                utils.log_info("")
-                utils.log_info("Beginning Rigify Process:")
-                utils.log_info("-------------------------")
-
-                if self.cc3_rig:
-
-                    olc = utils.set_active_layer_collection_from(self.cc3_rig)
-
-                    self.remove_cc3_rigid_body_systems(chr_cache)
-                    self.add_meta_rig(chr_cache)
-
-                    if self.meta_rig:
-                        correct_meta_rig(self.meta_rig)
-
-                        utils.log_timer("Done Meta-Rig Setup!")
-                        utils.start_timer()
-
-                        utils.log_info("")
-                        utils.log_info("Generating Rigify Control Rig:")
-                        utils.log_info("------------------------------")
-
-                        bpy.ops.pose.rigify_generate()
-                        self.rigify_rig = bpy.context.active_object
-
-                        utils.log_info("")
-                        utils.log_info("Finalizing Rigify Setup:")
-                        utils.log_info("------------------------")
-
-                        if self.rigify_rig:
-                            if chr_cache.rig_full_face():
-                                chr_cache.rigified_full_face_rig = True
-                            else:
-                                convert_to_basic_face_rig(self.rigify_rig)
-                                chr_cache.rigified_full_face_rig = False
-                            modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
-                            face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
-                            acc_vertex_group_map = {}
-                            add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
-                            add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
-                            rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
-                            add_shape_key_drivers(chr_cache, self.rigify_rig)
-                            rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
-                            clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
-                            #self.restore_rigify_rigid_body_systems(chr_cache)
-
-                    chr_cache.rig_meta_rig = None
-                    if face_result == 1:
-                        self.report({'INFO'}, "Rigify Complete! No errors detected.")
-                    elif face_result == 0:
-                        self.report({'WARNING'}, "Rigify Complete! Some issues with the face rig were detected and fixed automatically. See console log.")
-                    else:
-                        self.report({'ERROR'}, "Rigify Incomplete! Face rig weighting Failed!. See console log.")
-
-                    utils.set_active_layer_collection(olc)
-
-                utils.log_timer("Done Rigify Process!")
+                olc = utils.set_active_layer_collection_from(self.cc3_rig)
+                self.generate_meta_rig(chr_cache)
+                self.rigify_meta_rig(chr_cache)
+                utils.set_active_layer_collection(olc)
 
             elif self.param == "META_RIG":
 
-                utils.start_timer()
-
-                utils.log_info("")
-                utils.log_info("Beginning Meta-Rig Setup:")
-                utils.log_info("---------------==--------")
-
-                if self.cc3_rig:
-
-                    olc = utils.set_active_layer_collection_from(self.cc3_rig)
-
-                    self.remove_cc3_rigid_body_systems(chr_cache)
-                    self.add_meta_rig(chr_cache)
-
-                    if self.meta_rig:
-                        chr_cache.rig_meta_rig = self.meta_rig
-                        correct_meta_rig(self.meta_rig)
-
-                        self.report({'INFO'}, "Meta-rig generated!")
-
-                    utils.set_active_layer_collection(olc)
-
-                utils.log_timer("Done Meta-Rig Setup!")
+                olc = utils.set_active_layer_collection_from(self.cc3_rig)
+                self.generate_meta_rig(chr_cache, advanced_mode = True)
+                utils.set_active_layer_collection(olc)
 
             elif self.param == "RIGIFY_META":
 
-                self.meta_rig = chr_cache.rig_meta_rig
+                olc = utils.set_active_layer_collection_from(self.cc3_rig)
+                self.rigify_meta_rig(chr_cache, advanced_mode = True)
+                utils.set_active_layer_collection(olc)
 
-                if self.cc3_rig and self.meta_rig:
+            elif self.param == "RE_RIGIFY_META":
 
-                    utils.start_timer()
-
-                    olc = utils.set_active_layer_collection_from(self.cc3_rig)
-
-                    if utils.set_mode("OBJECT") and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
-
-                        utils.log_info("")
-                        utils.log_info("Generating Rigify Control Rig:")
-                        utils.log_info("------------------------------")
-
-                        bpy.ops.pose.rigify_generate()
-                        self.rigify_rig = bpy.context.active_object
-
-                        utils.log_info("")
-                        utils.log_info("Finalizing Rigify Setup:")
-                        utils.log_info("------------------------")
-
-                        if self.rigify_rig:
-                            if chr_cache.rig_full_face():
-                                chr_cache.rigified_full_face_rig = True
-                            else:
-                                convert_to_basic_face_rig(self.rigify_rig)
-                                chr_cache.rigified_full_face_rig = False
-                            modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
-                            face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
-                            acc_vertex_group_map = {}
-                            add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
-                            add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
-                            rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
-                            add_shape_key_drivers(chr_cache, self.rigify_rig)
-                            rename_vertex_groups(self.cc3_rig, self.rigify_rig, self.rigify_data.vertex_group_rename, acc_vertex_group_map)
-                            clean_up(chr_cache, self.cc3_rig, self.rigify_rig, self.meta_rig)
-                            #self.restore_rigify_rigid_body_systems(chr_cache)
-
-                    utils.set_active_layer_collection(olc)
-
-                utils.log_timer("Done Rigify Process!")
-
-                chr_cache.rig_meta_rig = None
-                if face_result == 1:
-                    self.report({'INFO'}, "Rigify Complete! No errors detected.")
-                elif face_result == 0:
-                    self.report({'WARNING'}, "Rigify Complete! Some issues with the face rig were detected and fixed automatically. See console log.")
-                else:
-                    self.report({'ERROR'}, "Rigify Incomplete! Face rig weighting Failed!. See console log.")
+                olc = utils.set_active_layer_collection_from(self.cc3_rig)
+                self.re_rigify_meta_rig(chr_cache, advanced_mode = True)
+                utils.set_active_layer_collection(olc)
 
             elif self.param == "REPORT_FACE_TARGETS":
 

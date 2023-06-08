@@ -1452,6 +1452,16 @@ def is_name_or_duplication(a, b):
     return strip_name(a) == strip_name(b)
 
 
+def object_has_shape_keys(obj):
+    try:
+        if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+            return True
+        else:
+            return False
+    except:
+        return False
+
+
 def object_scale(obj):
     try:
         return (obj.scale[0] + obj.scale[1] + obj.scale[2]) / 3.0

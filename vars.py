@@ -50,6 +50,7 @@ NODE_GROUPS = ["tiling_pivot_mapping", "tiling_mapping",
                "rl_rgb_mixer", "rl_id_mixer",
                "rl_tex_mod_normal_ao_blend",
                "rl_wrinkle_shader",
+               "rl_bsdf_dual_specular",
                ]
 
 

@@ -188,7 +188,14 @@ def update_shader_property(obj, mat, mat_cache, prop_name):
                 update_shader_input(shader_node, mat_cache, prop_name, shader_def["inputs"])
 
             if "bsdf" in shader_def.keys():
-                update_bsdf_input(bsdf_node, mat_cache, prop_name, shader_def["bsdf"])
+                if bsdf_node:
+                    if bsdf_node.type == "GROUP":
+                        bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
+                        for bsdf_node in bsdf_nodes:
+                            update_bsdf_input(bsdf_node, mat_cache, prop_name, shader_def["bsdf"])
+                    else:
+                        update_bsdf_input(bsdf_node, mat_cache, prop_name, shader_def["bsdf"])
+
 
             if "textures" in shader_def.keys():
                 update_shader_tiling(shader_name, mat, mat_cache, prop_name, shader_def["textures"])
@@ -207,15 +214,20 @@ def update_shader_property(obj, mat, mat_cache, prop_name):
 
 
 def update_shader_input(shader_node, mat_cache, prop_name, input_defs):
-    for input_def in input_defs:
-        if prop_name in input_def[2:]:
-            nodeutils.set_node_input_value(shader_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
+    if shader_node:
+        for input_def in input_defs:
+            if prop_name in input_def[2:]:
+                nodeutils.set_node_input_value(shader_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
 
 
 def update_bsdf_input(bsdf_node, mat_cache, prop_name, bsdf_defs):
-    for input_def in bsdf_defs:
-        if prop_name in input_def[2:]:
-            nodeutils.set_node_input_value(bsdf_node, input_def[0], shaders.eval_input_param(input_def, mat_cache))
+    if bsdf_node:
+        for input_def in bsdf_defs:
+            if prop_name in input_def[2:]:
+                print(prop_name, input_def[2:])
+                nodeutils.set_node_input_value(bsdf_node,
+                                               input_def[0],
+                                               shaders.eval_input_param(input_def, mat_cache))
 
 
 def update_shader_tiling(shader_name, mat, mat_cache, prop_name, texture_defs):
@@ -392,7 +404,7 @@ def init_character_property_defaults(chr_cache, chr_json):
                             if cornea_mat:
                                 mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
 
-                        shaders.fetch_prop_defaults(mat_cache, mat_json)
+                        shaders.fetch_prop_defaults(obj, mat_cache, mat_json)
 
                         if chr_json is None and chr_cache.is_actor_core():
                             mat_cache.parameters.default_ao_strength = 0.2
@@ -407,7 +419,7 @@ def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, ma
         if mat_cache.is_eye():
             cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
             mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
-        shaders.fetch_prop_defaults(mat_cache, mat_json)
+        shaders.fetch_prop_defaults(obj, mat_cache, mat_json)
 
 
 def update_sculpt_mix_node(self, context, prop_name):
@@ -534,6 +546,16 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0.01, max=2, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
     skin_roughness_min: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_min"))
     skin_roughness_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_max"))
+    # dual specular
+    skin_specular_detail_mask: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_mask"))
+    skin_specular_detail_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_min"))
+    skin_specular_detail_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_max"))
+    skin_specular_detail_power: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular_detail_power"))
+    skin_specular_detail_tiling: bpy.props.FloatProperty(default=18.0, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_specular_detail_tiling"))
+    skin_secondary_specular_scale: bpy.props.FloatProperty(default=0.35, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_secondary_specular_scale"))
+    skin_secondary_roughness: bpy.props.FloatProperty(default=0.35, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_secondary_roughness"))
+    skin_specular_mix: bpy.props.FloatProperty(default=0.4, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_mix"))
+
     skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
     skin_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_micro_normal_strength"))
     skin_normal_blend_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_blend_strength"))
@@ -586,6 +608,16 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_roughness_power: bpy.props.FloatProperty(default=0.8, min=0.01, max=2, update=lambda s,c: update_property(s,c,"skin_roughness_power"))
     skin_roughness_min: bpy.props.FloatProperty(default=0.1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_min"))
     skin_roughness_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_roughness_max"))
+    # dual specular
+    skin_specular_detail_mask: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_mask"))
+    skin_specular_detail_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_min"))
+    skin_specular_detail_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_max"))
+    skin_specular_detail_power: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular_detail_power"))
+    skin_specular_detail_tiling: bpy.props.FloatProperty(default=18.0, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_specular_detail_tiling"))
+    skin_secondary_specular_scale: bpy.props.FloatProperty(default=0.35, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_secondary_specular_scale"))
+    skin_secondary_roughness: bpy.props.FloatProperty(default=0.35, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_secondary_roughness"))
+    skin_specular_mix: bpy.props.FloatProperty(default=0.4, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_mix"))
+
     skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
     skin_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_micro_normal_strength"))
     skin_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_subsurface_scale"))
@@ -2090,6 +2122,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         if objects:
             for chr_cache in self.import_cache:
                 if chr_cache.has_cache_objects(objects):
+                    return chr_cache
+                if chr_cache.rig_meta_rig and chr_cache.rig_meta_rig in objects:
                     return chr_cache
 
         if search_materials:
