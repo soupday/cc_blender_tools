@@ -92,6 +92,14 @@ def add_custom_string_property(object, prop_name, prop_value : str,
 
 
 SHAPE_KEY_DRIVERS = {
+
+    "V_Open": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,18.0],
+    },
+
     "Jaw_Open": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 150.0,

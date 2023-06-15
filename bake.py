@@ -906,7 +906,7 @@ def convert_flow_to_normal(flow_image: bpy.types.Image, normal_image: bpy.types.
 
 
 def pack_rgb_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
-               rgb_id, a_id, rgb_socket, a_scoket, rgb_default, a_default,
+               rgb_id, a_id, rgb_socket, a_socket, rgb_default, a_default,
                srgb = False, max_size = 0, reuse_existing = False):
     """Pack 2 textures into the RGB and A channels of a single texture."""
 
@@ -926,6 +926,9 @@ def pack_rgb_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
 
     if rgb_node and a_node:
 
+        rgb_tiling_node = nodeutils.get_node_connected_to_input(rgb_node, "Vector")
+        a_tiling_node = nodeutils.get_node_connected_to_input(a_node, "Vector")
+
         if not pack_node:
             if rgb_node and a_node:
                 image = pack_RGBA(mat, channel_id, "RGB_A", bake_dir,
@@ -942,15 +945,28 @@ def pack_rgb_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
             rgb_node.location = NODE_CURSOR
             NODE_CURSOR += Vector((0,-300))
         if a_node:
-            nodeutils.link_nodes(links, pack_node, "Alpha", shader_node, a_scoket)
+            nodeutils.link_nodes(links, pack_node, "Alpha", shader_node, a_socket)
             a_node.location = NODE_CURSOR
             NODE_CURSOR += Vector((0,-300))
 
+        tiling_node = None
+        if rgb_tiling_node and a_tiling_node:
+            nodes.remove(a_tiling_node)
+            tiling_node = rgb_tiling_node
+            nodeutils.unlink_node_output(links, tiling_node, "Vector")
+        elif rgb_tiling_node:
+            tiling_node = rgb_tiling_node
+        else:
+            tiling_node = a_tiling_node
+
+        if tiling_node:
+            tiling_node.location = pack_node.location + Vector((-300,0))
+            nodeutils.link_nodes(links, tiling_node, "Vector", pack_node, "Vector")
 
 
 def pack_r_g_b_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
                  r_id, g_id, b_id, a_id,
-                 r_socket, g_socket, b_socket, a_scoket,
+                 r_socket, g_socket, b_socket, a_socket,
                  r_default, g_default, b_default, a_default,
                  srgb = False, max_size = 0, reuse_existing = False):
     """Pack 4 textures into the RGBA channels of a single texture."""
@@ -1018,7 +1034,7 @@ def pack_r_g_b_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
             b_node.location = NODE_CURSOR
             NODE_CURSOR += Vector((0,-300))
         if a_node:
-            nodeutils.link_nodes(links, pack_node, "Alpha", shader_node, a_scoket)
+            nodeutils.link_nodes(links, pack_node, "Alpha", shader_node, a_socket)
             a_node.location = NODE_CURSOR
             NODE_CURSOR += Vector((0,-300))
 
@@ -1099,6 +1115,13 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
                  "Metallic Map", "Specular Mask", "Micro Normal Mask", "AO Map",
                  0.0, 1.0, 1.0, 1.0,
                 reuse_existing = reuse)
+
+    if prefs.build_skin_shader_dual_spec:
+        # pack SSS and Transmission
+        pack_rgb_a(mat, bake_dir, vars.PACK_MICRODETAIL_NAME, shader_node, vars.PACK_MICRODETAIL_ID,
+                   "MICRONORMAL", "SKINSPECDETAIL",
+                   "Micro Normal Map", "Specular Detail Mask", 1.0, 1.0,
+                   reuse_existing = reuse)
 
 
 def pack_default_shader(chr_cache, mat_cache, shader_node):

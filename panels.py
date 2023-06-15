@@ -2040,6 +2040,8 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Authority").param = "AUTHORITY"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Blur Warm").param = "BLUR_WARM"
 
     column.separator()
 

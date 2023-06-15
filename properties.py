@@ -224,7 +224,6 @@ def update_bsdf_input(bsdf_node, mat_cache, prop_name, bsdf_defs):
     if bsdf_node:
         for input_def in bsdf_defs:
             if prop_name in input_def[2:]:
-                print(prop_name, input_def[2:])
                 nodeutils.set_node_input_value(bsdf_node,
                                                input_def[0],
                                                shaders.eval_input_param(input_def, mat_cache))
@@ -551,13 +550,12 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_specular_detail_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_min"))
     skin_specular_detail_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_max"))
     skin_specular_detail_power: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular_detail_power"))
-    skin_specular_detail_tiling: bpy.props.FloatProperty(default=18.0, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_specular_detail_tiling"))
     skin_secondary_specular_scale: bpy.props.FloatProperty(default=0.35, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_secondary_specular_scale"))
-    skin_secondary_roughness: bpy.props.FloatProperty(default=0.35, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_secondary_roughness"))
+    skin_secondary_roughness_power: bpy.props.FloatProperty(default=2.0, min=0.0, max=4.0, update=lambda s,c: update_property(s,c,"skin_secondary_roughness_power"))
     skin_specular_mix: bpy.props.FloatProperty(default=0.4, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_mix"))
 
     skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))
-    skin_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_micro_normal_strength"))
+    skin_micro_normal_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1.0, update=lambda s,c: update_property(s,c,"skin_micro_normal_strength"))
     skin_normal_blend_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_normal_blend_strength"))
     skin_unmasked_scatter_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_unmasked_scatter_scale"))
     skin_nose_scatter_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"skin_nose_scatter_scale"))
@@ -613,9 +611,8 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_specular_detail_min: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_min"))
     skin_specular_detail_max: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_detail_max"))
     skin_specular_detail_power: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_specular_detail_power"))
-    skin_specular_detail_tiling: bpy.props.FloatProperty(default=18.0, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_specular_detail_tiling"))
     skin_secondary_specular_scale: bpy.props.FloatProperty(default=0.35, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_secondary_specular_scale"))
-    skin_secondary_roughness: bpy.props.FloatProperty(default=0.35, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_secondary_roughness"))
+    skin_secondary_roughness_power: bpy.props.FloatProperty(default=2.0, min=0.0, max=4.0, update=lambda s,c: update_property(s,c,"skin_secondary_roughness_power"))
     skin_specular_mix: bpy.props.FloatProperty(default=0.4, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_specular_mix"))
 
     skin_normal_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_normal_strength"))

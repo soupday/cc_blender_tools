@@ -41,7 +41,28 @@ def track_to(obj, target):
     constraint.track_axis = "TRACK_NEGATIVE_Z"
     constraint.up_axis = "UP_Y"
 
-def add_spot_light(name, location, rotation, energy, blend, size, distance, radius):
+
+def add_light_container():
+    bpy.ops.object.empty_add(type="PLAIN_AXES", radius=0.01)
+    container = bpy.context.active_object
+    container.name = utils.unique_name("Lighting", True)
+    return container
+
+
+def add_sun_light(name, container, location, rotation, energy, angle):
+    bpy.ops.object.light_add(type="SUN",
+                    location = location, rotation = rotation)
+    light = bpy.context.active_object
+    light.name = utils.unique_name(name, True)
+    light.data.energy = energy
+    light.data.angle = angle
+    if container:
+        light.parent = container
+        light.matrix_parent_inverse = container.matrix_world.inverted()
+    return light
+
+
+def add_spot_light(name, container, location, rotation, energy, blend, size, distance, radius):
     bpy.ops.object.light_add(type="SPOT",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
@@ -52,9 +73,13 @@ def add_spot_light(name, location, rotation, energy, blend, size, distance, radi
     light.data.spot_size = size
     light.data.use_custom_distance = True
     light.data.cutoff_distance = distance
+    if container:
+        light.parent = container
+        light.matrix_parent_inverse = container.matrix_world.inverted()
     return light
 
-def add_area_light(name, location, rotation, energy, size):
+
+def add_area_light(name, container, location, rotation, energy, size, distance):
     bpy.ops.object.light_add(type="AREA",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
@@ -62,20 +87,31 @@ def add_area_light(name, location, rotation, energy, size):
     light.data.shape = "DISK"
     light.data.size = size
     light.data.energy = energy
+    light.data.use_custom_distance = True
+    light.data.cutoff_distance = distance
+    if container:
+        light.parent = container
+        light.matrix_parent_inverse = container.matrix_world.inverted()
     return light
 
-def add_point_light(name, location, rotation, energy, size):
+
+def add_point_light(name, container, location, rotation, energy, size):
     bpy.ops.object.light_add(type="POINT",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
     light.name = utils.unique_name(name, True)
     light.data.shadow_soft_size = size
     light.data.energy = energy
+    if container:
+        light.parent = container
+        light.matrix_parent_inverse = container.matrix_world.inverted()
     return light
+
 
 def remove_all_lights(inc_camera = False):
     for obj in bpy.data.objects:
         if vars.NODE_PREFIX in obj.name:
+
             if obj.type == "LIGHT":
                 bpy.data.objects.remove(obj)
 
@@ -85,7 +121,8 @@ def remove_all_lights(inc_camera = False):
             elif obj.type == "EMPTY" and \
                 ("KeyTarget" in obj.name or \
                 "FillTarget" in obj.name or \
-                "BackTarget" in obj.name):
+                "BackTarget" in obj.name or \
+                "Lighting" in obj.name):
                 bpy.data.objects.remove(obj)
 
             elif inc_camera and obj.type == "CAMERA":
@@ -259,7 +296,7 @@ def setup_scene_default(scene_type):
             remove_all_lights(True)
             restore_hidden_camera()
 
-            key1 = add_point_light("Light",
+            key1 = add_point_light("Light", None,
                     (4.076245307922363, 1.0054539442062378, 5.903861999511719),
                     (0.6503279805183411, 0.055217113345861435, 1.8663908243179321),
                     1000, 0.1)
@@ -301,23 +338,23 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 50:
                 bpy.context.scene.cycles.transparent_max_bounces = 50
 
-
             remove_all_lights(True)
             restore_hidden_camera()
+            container = add_light_container()
 
             strength = 50
 
-            key1 = add_spot_light("Key1",
+            key1 = add_spot_light("Key1", container,
                     (0.71149, -1.49019, 2.04134),
                     (1.2280241250991821, 0.4846124053001404, 0.3449903726577759),
                     2.5 * strength, 0.5, 2.095, 9.7, 0.225)
 
-            key2 = add_spot_light("Key2",
+            key2 = add_spot_light("Key2", container,
                     (0.63999, -1.3600, 0.1199),
                     (1.8845493793487549, 0.50091552734375, 0.6768553256988525),
                     2.5 * strength, 0.5, 2.095, 9.7, 1.0)
 
-            back = add_spot_light("Back",
+            back = add_spot_light("Back", container,
                     (0.0, 2.0199, 1.69),
                     (-1.3045594692230225, 0.11467886716127396, 0.03684665635228157),
                     3 * strength, 0.5, 1.448, 9.14, 1.0)
@@ -359,18 +396,19 @@ def setup_scene_default(scene_type):
 
             remove_all_lights(True)
             restore_hidden_camera()
+            container = add_light_container()
 
-            key = add_spot_light("Key",
+            key = add_spot_light("Key", container,
                     (0.3088499903678894, -4.569439888000488, 2.574970006942749),
                     (0.39095374941825867, 1.3875367641448975, -1.1152653694152832),
                     400, 0.75, 0.75, 7.5, 0.4)
 
-            right = add_area_light("Right",
+            right = add_area_light("Right", container,
                     (2.067525863647461, 0.8794340491294861, 1.1529420614242554),
                     (3.115412712097168, 1.7226399183273315, 9.79827880859375),
-                    50, 2)
+                    50, 2, 9)
 
-            back = add_spot_light("Ear",
+            back = add_spot_light("Ear", container,
                     (0.6740000247955322, 1.906999945640564, 1.6950000524520874),
                     (-0.03316125646233559, 1.3578661680221558, 1.1833332777023315),
                     100, 1, 1.0996, 9.1, 0.5)
@@ -408,21 +446,22 @@ def setup_scene_default(scene_type):
 
             remove_all_lights(True)
             restore_hidden_camera()
+            container = add_light_container()
 
-            key = add_area_light("Key",
+            key = add_area_light("Key", container,
                     (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
                     (1.0848181247711182, -0.881056010723114, -0.5597077012062073),
-                    40, 2)
+                    40, 2, 9)
 
-            fill = add_area_light("Fill",
+            fill = add_area_light("Fill", container,
                     (2.28589, -1.51410, 1.40742),
                     (1.4248263835906982, 0.9756063222885132, 0.8594209551811218),
-                    20, 2)
+                    20, 2, 9)
 
-            back = add_area_light("Back",
+            back = add_area_light("Back", container,
                     (0.36789, 0.61511, 2.36201),
                     (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
-                    20, 1)
+                    20, 1, 9)
 
             set_contact_shadow(key, 0.1, 0.01)
             set_contact_shadow(fill, 0.1, 0.01)
@@ -458,21 +497,22 @@ def setup_scene_default(scene_type):
 
             remove_all_lights(True)
             restore_hidden_camera()
+            container = add_light_container()
 
-            key1 = add_area_light("Key",
+            key1 = add_area_light("Key", container,
                     (-0.6483273506164551, -2.073286771774292, 0.9459081292152405),
                     (1.8756767511367798, -0.6675444841384888, -0.49660807847976685),
-                    40, 0.5)
+                    40, 0.5, 9)
 
-            back1 = add_area_light("Back",
+            back1 = add_area_light("Back", container,
                     (-1.1216378211975098, 1.4875532388687134, 1.6059372425079346),
                     (-1.4973092079162598, -0.07008785009384155, 0.6377549767494202),
-                    40, 1)
+                    40, 1, 9)
 
-            back2 = add_area_light("Back",
+            back2 = add_area_light("Back", container,
                     (-1.9412485361099243, -0.5231357216835022, 1.8983763456344604),
                     (1.278488278388977, 0.6497069001197815, -1.6310228109359741),
-                    60, 1)
+                    60, 1, 9)
 
             set_contact_shadow(key1, 0.1, 0.01)
             set_contact_shadow(back2, 0.1, 0.01)
@@ -486,6 +526,154 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.studio_light = 'studio.exr'
             bpy.context.space_data.shading.studiolight_rotate_z = 2.443461
             bpy.context.space_data.shading.studiolight_intensity = 0.35
+            bpy.context.space_data.shading.studiolight_background_alpha = 0.05
+            bpy.context.space_data.shading.studiolight_background_blur = 0.5
+
+            bpy.context.space_data.clip_start = 0.01
+
+        elif scene_type == "AUTHORITY":
+
+            bpy.context.scene.eevee.use_gtao = True
+            bpy.context.scene.eevee.gtao_distance = 0.25
+            bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_bloom = True
+            bpy.context.scene.eevee.bloom_threshold = 0.35
+            bpy.context.scene.eevee.bloom_knee = 0.5
+            bpy.context.scene.eevee.bloom_radius = 2.0
+            bpy.context.scene.eevee.bloom_intensity = 0.1
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.eevee.bokeh_max_size = 32
+            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.5, 0.6)
+            if bpy.context.scene.cycles.transparent_max_bounces < 50:
+                bpy.context.scene.cycles.transparent_max_bounces = 50
+
+            remove_all_lights(True)
+            restore_hidden_camera()
+            container = add_light_container()
+
+            back = add_spot_light('Back', container,
+                                  (-0.005357889924198389, 2.0200612545013428, 1.695375919342041),
+                                  (-0.03276786953210831, 1.3572242259979248, 1.548905849456787),
+                                  250.0, 1.0, 1.4486232995986938, 9.149999618530273, 0.5)
+            set_contact_shadow(back, 0.05000000074505806, 0.005000000353902578)
+            back.data.color = (0.6653872728347778, 0.3049870431423187, 0.18782085180282593)
+
+            fill = add_spot_light('Fill', container,
+                                  (1.0739537477493286, 0.6725472807884216, 0.593166172504425),
+                                  (2.765416145324707, -0.7434117197990417, 0.9113498330116272),
+                                  50.29999923706055, 1.0, 2.460914134979248, 40.0, 0.20000000298023224)
+            set_contact_shadow(fill, 0.05000000074505806, 0.004999999888241291)
+            fill.data.color = (0.2195257842540741, 0.2961380183696747, 0.35153260827064514)
+
+            key = add_spot_light('Key', container,
+                                 (-3.1819117069244385, 2.877981185913086, 3.6740193367004395),
+                                 (-0.038421738892793655, 1.0002018213272095, 2.6068308353424072),
+                                 500.0, 1.0, 0.7504915595054626, 9.640000343322754, 0.5)
+            set_contact_shadow(key, 0.05000000074505806, 0.004999999888241291)
+            key.data.color = (1.0, 1.0, 1.0)
+
+            key_0 = add_spot_light('Key_0', container,
+                                   (-0.8539601564407349, -1.410485863685608, 2.5526487827301025),
+                                   (0.00185012212023139, -1.2320791482925415, 0.9582659006118774),
+                                   350.0, 1.0, 1.4486232995986938, 9.149999618530273, 0.4000000059604645)
+            set_contact_shadow(key_0, 0.05000000074505806, 0.004999999888241291)
+            key_0.data.color = (0.6321180462837219, 0.6601223349571228, 0.6653874516487122)
+
+            key_front = add_spot_light('Key_Front', container,
+                                       (1.2850462198257446, 4.022171497344971, 3.350560188293457),
+                                       (-0.34832963347435, 1.1461026668548584, 0.8322783708572388),
+                                       400.0, 1.0, 0.7504915595054626, 9.640000343322754, 0.6200000047683716)
+            set_contact_shadow(key_front, 0.05000000074505806, 0.004999999888241291)
+            key_front.data.color = (1.0, 1.0, 1.0)
+
+            bpy.context.space_data.shading.type = 'MATERIAL'
+            bpy.context.space_data.shading.use_scene_lights = True
+            bpy.context.space_data.shading.use_scene_world = False
+            bpy.context.space_data.shading.studio_light = 'studio.exr'
+            bpy.context.space_data.shading.studiolight_rotate_z = -45 * 0.01745329
+            bpy.context.space_data.shading.studiolight_intensity = 0.35
+            bpy.context.space_data.shading.studiolight_background_alpha = 0.05
+            bpy.context.space_data.shading.studiolight_background_blur = 0.5
+
+            bpy.context.space_data.clip_start = 0.01
+
+        elif scene_type == "BLUR_WARM":
+
+            bpy.context.scene.eevee.use_gtao = True
+            bpy.context.scene.eevee.gtao_distance = 0.25
+            bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_bloom = True
+            bpy.context.scene.eevee.bloom_threshold = 0.35
+            bpy.context.scene.eevee.bloom_knee = 0.5
+            bpy.context.scene.eevee.bloom_radius = 4.0
+            bpy.context.scene.eevee.bloom_intensity = 0.15
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.eevee.bokeh_max_size = 32
+            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.75, 0.6)
+            if bpy.context.scene.cycles.transparent_max_bounces < 50:
+                bpy.context.scene.cycles.transparent_max_bounces = 50
+
+            remove_all_lights(True)
+            restore_hidden_camera()
+            container = add_light_container()
+
+            dir__light_closeup = add_area_light('Dir__Light_closeup', container,
+                                                (0.5158149600028992, -2.368131399154663, 2.423656702041626),
+                                                (0.7853980660438538, -5.3335220684402884e-08, 0.2144654393196106),
+                                                40.0, 0.5, 9.0)
+            set_contact_shadow(dir__light_closeup, 0.05000000074505806, 0.004999999888241291)
+            dir__light_closeup.data.color = (1.0, 0.8634223341941833, 0.9116976261138916)
+
+            face = add_spot_light('Face', container,
+                                  (0.3906535804271698, -1.662192463874817, 1.5247554779052734),
+                                  (1.354565978050232, 1.4951248168945312, -0.08803682774305344),
+                                  20.0, 1.0, 1.9373154640197754, 40.0, 0.4000000059604645)
+            set_contact_shadow(face, 0.05000000074505806, 0.004999999888241291)
+            face.data.color = (0.4910203516483307, 0.4400765895843506, 0.42536425590515137)
+
+            key = add_spot_light('Key', container,
+                                 (0.27087676525115967, -1.4420602321624756, 1.8877607583999634),
+                                 (0.06910622119903564, 1.289427638053894, -1.2891168594360352),
+                                 60.0, 1.0, 1.7104226350784302, 973.0, 0.25)
+            set_contact_shadow(key, 0.05000000074505806, 0.005000000353902578)
+            key.data.color = (1.0, 0.8857572078704834, 0.9353417158126831)
+
+            key_light___up = add_spot_light('Key_Light___Up', container,
+                                            (0.08597123622894287, -1.169071912765503, 1.087883710861206),
+                                            (0.21799443662166595, 1.0667731761932373, -1.5876233577728271),
+                                            20.0, 1.0, 2.094395160675049, 9.0, 0.5)
+            set_contact_shadow(key_light___up, 0.05000000074505806, 0.004999999888241291)
+            key_light___up.data.color = (0.6514051556587219, 0.6514051556587219, 0.6514051556587219)
+
+            rim_red = add_spot_light('Rim_red', container,
+                                     (0.12474790960550308, 0.8755945563316345, 1.634949803352356),
+                                     (-0.018602706491947174, 1.3557215929031372, 1.3706303834915161),
+                                     60.0, 1.0, 2.6179938316345215, 2.0, 0.20000000298023224)
+            set_contact_shadow(rim_red, 0.05000000074505806, 0.004999999888241291)
+            rim_red.data.color = (0.4910208284854889, 0.2579752206802368, 0.24017876386642456)
+
+            rim_yellow = add_spot_light('Rim_yellow', container,
+                                        (0.31541261076927185, 0.8755945563316345, 1.634949803352356),
+                                        (-0.01860150508582592, 1.355721354484558, 1.370632290840149),
+                                        40.0, 1.0, 2.6179938316345215, 9.0, 0.10000000149011612)
+            set_contact_shadow(rim_yellow, 0.05000000074505806, 0.004999999888241291)
+            rim_yellow.data.color = (1.0, 0.7065995335578918, 0.46411025524139404)
+
+            dir__light = add_sun_light('Dir__Light', container,
+                                       (0.0, 0.0, 0.0),
+                                       (0.7853981852531433, 3.429620676342893e-08, 2.937906503677368),
+                                       4.5, 0.009250245057046413)
+            set_contact_shadow(dir__light, 0.05000000074505806, 0.004999999888241291)
+            dir__light.data.color = (0.4910205900669098, 0.349460631608963, 0.3006436228752136)
+
+            bpy.context.space_data.shading.type = 'MATERIAL'
+            bpy.context.space_data.shading.use_scene_lights = True
+            bpy.context.space_data.shading.use_scene_world = False
+            bpy.context.space_data.shading.studio_light = 'courtyard.exr'
+            bpy.context.space_data.shading.studiolight_rotate_z = -60 * 0.01745329
+            bpy.context.space_data.shading.studiolight_intensity = 0.1
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
 
@@ -516,21 +704,21 @@ def setup_scene_default(scene_type):
             key = add_area_light("Key",
                     (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
                     (1.0848181247711182, -0.881056010723114, -0.5597077012062073),
-                    40, 1)
+                    40, 1, 9)
             target_key = add_target("KeyTarget", (-0.006276353262364864, -0.004782751202583313, 1.503425121307373))
             track_to(key, target_key)
 
             fill = add_area_light("Fill",
                     (2.28589, -1.51410, 1.40742),
                     (1.4248263835906982, 0.9756063222885132, 0.8594209551811218),
-                    10, 1)
+                    10, 1, 9)
             target_fill = add_target("FillTarget", (0.013503191992640495, 0.005856933072209358, 1.1814184188842773))
             track_to(fill, target_fill)
 
             back = add_area_light("Back",
                     (0.36789, 0.61511, 2.36201),
                     (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
-                    40, 0.5)
+                    40, 0.5, 9)
             target_back = add_target("BackTarget", (0.0032256320118904114, 0.06994983553886414, 1.6254671812057495))
             track_to(back, target_back)
 

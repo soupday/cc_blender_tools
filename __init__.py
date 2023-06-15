@@ -91,7 +91,7 @@ bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
     "version": (1, 6, 0),
-    "blender": (2, 80, 0),
+    "blender": (2, 93, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
     "description": "Automatic import and material setup of CC3/4-iClone7/8 characters.",
