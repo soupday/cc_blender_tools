@@ -37,6 +37,7 @@ Links
 
 ### 1.6.0
 - Rigifing character keeps meta-rig and allows for Re-Rigifying the control rig from the meta-rig.
+    - Useful for re-aligning bones, re-positioning face rig, etc...
 - First draft of (optional) Dual Specular skin shader (Eevee & Cycles) with specular micro details.
 - Added build options to generate drivers for Jaw, Eyes and Head bones from facial expression shape keys.
 - Added build option to generate drivers for all expression shape keys driven from the body mesh shape keys.
