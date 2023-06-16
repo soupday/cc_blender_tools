@@ -19,7 +19,7 @@ import math
 import os
 from mathutils import Vector
 
-from . import imageutils, jsonutils, materials, wrinkle, nodeutils, params, utils, vars
+from . import imageutils, jsonutils, meshutils, materials, wrinkle, nodeutils, params, utils, vars
 
 
 def get_prop_value(mat_cache, prop_name):
@@ -28,6 +28,19 @@ def get_prop_value(mat_cache, prop_name):
         return eval("parameters." + prop_name, None, locals())
     except:
         return None
+
+
+def eval_texture_rules(tex_type):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    if tex_type in params.TEXTURE_RULES:
+        tex_rule = params.TEXTURE_RULES[tex_type]
+        try:
+            return eval(tex_rule, None, locals())
+        except:
+            return False
+    else:
+        return True
 
 
 def exec_var_param(var_def, mat_cache, mat_json):
@@ -49,7 +62,10 @@ def exec_var_param(var_def, mat_cache, mat_json):
                 if json_value is not None:
                     exec_expression = str(json_value)
 
-            elif func != "DEF":
+            elif func != "DEF" and not args:
+                exec_expression = func + f"({default_value})"
+
+            elif func != "DEF" and args:
                 # construct eval function code
                 func_expression = func + "("
                 first = True
@@ -169,7 +185,7 @@ def exec_prop(prop_name, mat_cache, value):
         return None
 
 
-def fetch_prop_defaults(mat_cache, mat_json):
+def fetch_prop_defaults(obj, mat_cache, mat_json):
     vars.block_property_update = True
     shader = params.get_shader_name(mat_cache)
     matrix_group = params.get_shader_def(shader)
@@ -177,11 +193,11 @@ def fetch_prop_defaults(mat_cache, mat_json):
         for var_def in matrix_group["vars"]:
             exec_var_param(var_def, mat_cache, mat_json)
     if shader == "rl_hair_shader":
-        check_legacy_hair(mat_cache, mat_json)
+        check_legacy_hair(obj, mat_cache, mat_json)
     vars.block_property_update = False
 
 
-def check_legacy_hair(mat_cache, mat_json):
+def check_legacy_hair(obj, mat_cache, mat_json):
     root_map_path = None
     id_map_path = None
     flow_map_path = None
@@ -200,6 +216,9 @@ def check_legacy_hair(mat_cache, mat_json):
         flow_map_path = mat_json["Custom Shader"]["Image"]["Hair Flow Map"]["Texture Path"]
     except:
         pass
+
+    if not meshutils.has_vertex_color_data(obj):
+        mat_cache.parameters.hair_vertex_color_strength = 0.0
 
     # if hair does not have a root map or id map or flow map, then it is (probably) legacy and needs adjusting
     if not root_map_path and not id_map_path and not flow_map_path:
@@ -224,11 +243,16 @@ def apply_prop_matrix(bsdf_node, group_node, mat_cache, shader_name):
                     nodeutils.set_node_input_value(group_node, input_def[0], prop_value)
 
     if bsdf_node and matrix_group and "bsdf" in matrix_group.keys():
+        if bsdf_node.type == "GROUP":
+            bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
+        else:
+            bsdf_nodes = [bsdf_node]
         for input_def in matrix_group["bsdf"]:
-            if input_def[0] in bsdf_node.inputs:
-                prop_value = eval_input_param(input_def, mat_cache)
-                if prop_value is not None:
-                    nodeutils.set_node_input_value(bsdf_node, input_def[0], prop_value)
+            for n in bsdf_nodes:
+                if input_def[0] in n.inputs:
+                    prop_value = eval_input_param(input_def, mat_cache)
+                    if prop_value is not None:
+                        nodeutils.set_node_input_value(n, input_def[0], prop_value)
 
 
 def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
@@ -315,6 +339,13 @@ def func_sss_radius_default(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.DEFAULT_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
+
+def func_roughness_power(p):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    if prefs.build_skin_shader_dual_spec:
+        return p * 1.0
+    else:
+        return p
 
 def func_mul(a, b):
     return a * b
@@ -556,6 +587,10 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                     tex_type = texture_def[2]
                     sample_map = len(texture_def) > 3 and texture_def[3] == "SAMPLE"
 
+                    # check texture rules, if we should connect this texture at all
+                    if not eval_texture_rules(tex_type):
+                        continue
+
                     # there is no need to sample vertex colors for hair if there is Json Data present
                     if mat_json and sample_map and tex_type == "HAIRVERTEXCOLOR":
                         continue
@@ -739,7 +774,13 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
         shader_group = "rl_skin_shader"
     mix_shader_group = ""
 
-    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group)
+    custom_bsdf = None
+    if prefs.build_skin_shader_dual_spec:
+        custom_bsdf = "rl_bsdf_dual_specular"
+
+    bsdf, group = nodeutils.reset_shader(mat_cache, nodes, links,
+                                         shader_label, shader_name, shader_group, mix_shader_group,
+                                         custom_bsdf)
 
     nodeutils.reset_cursor()
 
@@ -980,7 +1021,12 @@ def fix_sss_method(bsdf):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES" and utils.is_blender_version("3.0.0"):
         # Blender 3.0 defaults to random walk, which does not work well with hair
-        bsdf.subsurface_method = "BURLEY"
+        if bsdf.type == "GROUP":
+            bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
+            for bsdf in bsdf_nodes:
+                bsdf.subsurface_method = "BURLEY"
+        else:
+            bsdf.subsurface_method = "BURLEY"
 
 
 def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = None):

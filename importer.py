@@ -18,8 +18,10 @@ import os
 import shutil
 import bpy
 
-from . import (characters, rigging, bake, imageutils, jsonutils, materials, modifiers, meshutils, nodeutils, physics,
-               rigidbody, colorspace, scene, channel_mixer, shaders, basic, properties, utils, vars)
+from . import (characters, rigging, bake, imageutils, jsonutils, materials,
+               modifiers, drivers, meshutils, nodeutils, physics,
+               rigidbody, colorspace, scene, channel_mixer, shaders,
+               basic, properties, utils, vars)
 
 debug_counter = 0
 
@@ -255,7 +257,8 @@ def cache_object_materials(chr_cache, obj, chr_json, processed):
             if mat and mat.node_tree is not None and not mat in processed:
 
                 object_type, material_type = materials.detect_materials(chr_cache, obj, mat, obj_json)
-                obj_cache.set_object_type(object_type)
+                if obj_cache.object_type != "BODY":
+                    obj_cache.set_object_type(object_type)
                 mat_cache = chr_cache.add_material_cache(mat, material_type)
                 mat_cache.dir = imageutils.get_material_tex_dir(chr_cache, obj, mat)
                 utils.log_indent()
@@ -268,7 +271,8 @@ def cache_object_materials(chr_cache, obj, chr_json, processed):
             elif mat in processed:
 
                 object_type, material_type = materials.detect_materials(chr_cache, obj, mat, obj_json)
-                obj_cache.set_object_type(object_type)
+                if obj_cache.object_type != "BODY":
+                    obj_cache.set_object_type(object_type)
 
         utils.log_recess()
 
@@ -306,7 +310,12 @@ def init_shape_key_range(obj):
                 if len(blocks) > 0:
                     for block in blocks:
                         # expand the range of the shape key slider to include negative values...
-                        block.slider_min = -1.0
+                        if "Eye" in block.name and "_Look_" in block.name:
+                            block.slider_min = -1.0
+                            block.slider_max = 1.0
+                        else:
+                            block.slider_min = -1.5
+                            block.slider_max = 1.5
 
             # re-set a value in the shapekey action keyframes to force
             # the shapekey action to update to the new ranges:
@@ -852,6 +861,16 @@ class CC3Import(bpy.types.Operator):
             if prefs.refractive_eyes == "SSR":
                 bpy.context.scene.eevee.use_ssr = True
                 bpy.context.scene.eevee.use_ssr_refraction = True
+
+            if chr_cache.rigified:
+                drivers.clear_facial_shape_key_bone_drivers(chr_cache)
+            else:
+                drivers.add_facial_shape_key_bone_drivers(chr_cache,
+                                               prefs.build_shape_key_bone_drivers_jaw,
+                                               prefs.build_shape_key_bone_drivers_eyes,
+                                               prefs.build_shape_key_bone_drivers_head)
+
+            drivers.add_body_shape_key_drivers(chr_cache, prefs.build_body_key_drivers)
 
         chr_cache.build_count += 1
         utils.log_timer("Done Build.", "s")

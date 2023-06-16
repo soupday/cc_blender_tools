@@ -822,6 +822,32 @@ def create_capsule_collider(name, location, rotation, scale, radius, length, axi
     return object
 
 
+def create_sphere_collider(name, location, rotation, scale, radius):
+    bm = bmesh.new()
+    try:
+        bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, radius=radius)
+    except:
+        bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=9, diameter=radius)
+    bm.verts.ensure_lookup_table()
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    mesh.update()
+    bm.free()
+
+    object = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(object)
+    object.display_type = 'WIRE'
+
+    object.location = location
+    object.rotation_mode = "QUATERNION"
+    r = Quaternion()
+    r.identity()
+    r.rotate(rotation)
+    object.rotation_quaternion = r
+    object.scale = scale
+    return object
+
+
 def create_box_collider(name, location, rotation, scale, extents, axis):
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
@@ -934,6 +960,12 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
                 radius = shape_data["Radius"] * 0.01
                 length = shape_data["Capsule Length"] * 0.01
                 obj = create_capsule_collider(name, translate, rotate, scale, radius, length, axis)
+            elif shape == "Sphere":
+                radius = shape_data["Radius"] * 0.01
+                obj = create_sphere_collider(name, translate, rotate, scale, radius)
+
+            if not obj:
+                continue
 
             # using operators to parent because matrix_parent_inverse doesn't work correctly
             if bones.set_active_bone(arm, target_bone_name, deselect_all=True):

@@ -58,6 +58,11 @@ def reset_preferences():
     prefs.build_pack_wrinkle_diffuse_roughness = False
     prefs.build_reuse_baked_channel_packs = True
     prefs.build_limit_textures = False
+    prefs.build_skin_shader_dual_spec = False
+    prefs.build_shape_key_bone_drivers_jaw = False
+    prefs.build_shape_key_bone_drivers_eyes = False
+    prefs.build_shape_key_bone_drivers_head = False
+    prefs.build_body_key_drivers = False
     prefs.bake_use_gpu = False
     prefs.build_armature_edit_modifier = True
     prefs.build_armature_preserve_volume = False
@@ -216,6 +221,17 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                                          description="Automatically set to use armature modifier in mesh edit mode for all armature modifiers in the character. (i.e. edit in place)")
     build_armature_preserve_volume: bpy.props.BoolProperty(default=False, name="Preserve Volume",
                                                          description="Automatically set use preserve volume for all armature modifiers in the character.")
+    build_skin_shader_dual_spec: bpy.props.BoolProperty(default=False, name="Dual Specular Skin",
+                                                         description="Use a dual specular skin shader arrangement.")
+    build_shape_key_bone_drivers_jaw: bpy.props.BoolProperty(default=True, name="Shape Keys Drive Jaw Bone",
+                                                         description="Add drivers to the jaw bone from facial expression shape keys.")
+    build_shape_key_bone_drivers_eyes: bpy.props.BoolProperty(default=True, name="Shape Keys Drive Eye Bones",
+                                                         description="Add drivers to the eye bones from facial expression shape keys.")
+    build_shape_key_bone_drivers_head: bpy.props.BoolProperty(default=False, name="Shape Keys Drive Head Bone",
+                                                         description="Add drivers to the head bone from facial expression shape keys.")
+    build_body_key_drivers: bpy.props.BoolProperty(default=True, name="Body Shape Keys Drive All",
+                                                         description="Add drivers so that all shape keys on the character are driven by the body shape keys. " \
+                                                                     "(So that only the body shape keys need to be animated or controlled)")
 
     max_texture_size: bpy.props.FloatProperty(default=4096, min=512, max=4096)
 
@@ -291,6 +307,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "build_pack_wrinkle_diffuse_roughness")
         layout.prop(self, "build_armature_edit_modifier")
         layout.prop(self, "build_armature_preserve_volume")
+        layout.prop(self, "build_skin_shader_dual_spec")
+        layout.separator()
+        layout.prop(self, "build_shape_key_bone_drivers_jaw")
+        layout.prop(self, "build_shape_key_bone_drivers_eyes")
+        layout.prop(self, "build_shape_key_bone_drivers_head")
+        layout.prop(self, "build_body_key_drivers")
 
         layout.label(text="Rendering:")
         layout.prop(self, "render_target")

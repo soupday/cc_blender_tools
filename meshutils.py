@@ -296,6 +296,16 @@ def get_child_objects_with_vertex_groups(parent, group_names, objects = None):
     return objects
 
 
+def has_vertex_color_data(obj):
+    if obj and obj.type == "MESH":
+        if obj.data.vertex_colors and obj.data.vertex_colors.active:
+            color_map = obj.data.vertex_colors.active
+            for vcol_data in color_map.data:
+                color = vcol_data.color
+                for i in range(0,4):
+                    if color[i] > 0.0:
+                        return True
+    return False
 
 
 

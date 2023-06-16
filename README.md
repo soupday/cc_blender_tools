@@ -35,6 +35,19 @@ Links
 
 ## Changelog
 
+### 1.6.0
+- Rigifing character keeps meta-rig and allows for Re-Rigifying the control rig from the meta-rig.
+    - Useful for re-aligning bones, re-positioning face rig, etc...
+- First draft of (optional) Dual Specular skin shader (Eevee & Cycles) with specular micro details.
+- Added build options to generate drivers for Jaw, Eyes and Head bones from facial expression shape keys.
+- Added build option to generate drivers for all expression shape keys driven from the body mesh shape keys.
+    - Which means only the expressions on the body mesh need to be updated/animated.
+- Fix to turn off vertex colours in hair materials when hair mesh has blank vertex colour data (i.e. all zero).
+- Facial Expression shape key value range expanded to -1.5 - 1.5 (except for eye look shape keys)
+- Characters exported with Mouth Open as Morph, now correctly detects the body mesh.
+- Fix to support sphere colliders in collisions shapes.
+- Some additional lighting arrangements: Authority and Blur Warm.
+
 ### 1.5.8.5
 - Fixes:
     - Fix to empty transforms or deleted objects in export.

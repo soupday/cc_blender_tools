@@ -50,6 +50,7 @@ NODE_GROUPS = ["tiling_pivot_mapping", "tiling_mapping",
                "rl_rgb_mixer", "rl_id_mixer",
                "rl_tex_mod_normal_ao_blend",
                "rl_wrinkle_shader",
+               "rl_bsdf_dual_specular",
                ]
 
 
@@ -180,6 +181,8 @@ PACK_WRINKLEFLOW_NAME = "Flow Pack"
 PACK_WRINKLEFLOW_ID = "FLOW_PACK"
 PACK_SSTM_NAME = "SSTM Pack"
 PACK_SSTM_ID = "SSTM_PACK"
+PACK_MICRODETAIL_NAME = "MICRODetail Pack"
+PACK_MICRODETAIL_ID = "MICRODETAIL_PACK"
 PACK_MSMNAO_NAME = "MSMNAO Pack"
 PACK_MSMNAO_ID = "MSMNAO_PACK"
 PACK_DIFFUSEALPHA_NAME = "DiffuseAlpha Pack"

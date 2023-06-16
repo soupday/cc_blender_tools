@@ -584,15 +584,26 @@ ADD_DEF_BONES = [
 
 # shape key drivers for facial blend shapes
 SHAPE_KEY_DRIVERS = [
-    ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A10_Eye_Look_Out_Left", ["SCRIPTED", "var*1.273 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A11_Eye_Look_In_Left", ["SCRIPTED", "-var*1.273 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-
-    ["Bfr", "A07_Eye_Look_Up_Right", ["SCRIPTED", "var*2.865 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A09_Eye_Look_Down_Right", ["SCRIPTED", "-var*2.865 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A12_Eye_Look_In_Right", ["SCRIPTED", "var*1.273 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A13_Eye_Look_Out_Right", ["SCRIPTED", "-var*1.273 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    # CC3 ExPlus
+    ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", "var*4.2972 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", "var*-3.9065 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A10_Eye_Look_Out_Left", ["SCRIPTED", "var*2.1486 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A11_Eye_Look_In_Left", ["SCRIPTED", "var*-2.8648 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A07_Eye_Look_Up_Right", ["SCRIPTED", "var*4.2972 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A09_Eye_Look_Down_Right", ["SCRIPTED", "var*-3.9065 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A12_Eye_Look_In_Right", ["SCRIPTED", "var*2.8648 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A13_Eye_Look_Out_Right", ["SCRIPTED", "var*-2.1486 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    # CC4 extended
+    ["Bfr", "Eye_L_Look_Up", ["SCRIPTED", "var*4.2972 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_Down", ["SCRIPTED", "var*-3.9065 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_L", ["SCRIPTED", "var*2.1486 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_R", ["SCRIPTED", "var*-2.8648 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_Up", ["SCRIPTED", "var*4.2972 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_Down", ["SCRIPTED", "var*-3.9065 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_L", ["SCRIPTED", "var*2.8648 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_R", ["SCRIPTED", "var*-2.1486 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    # jaw
+    ["", "Jaw_Open", ["SCRIPTED", "var*1.8546"], ["var", "TRANSFORMS", "jaw_master", "ROT_X", "LOCAL_SPACE"]],
 ]
 
 
