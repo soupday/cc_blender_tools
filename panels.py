@@ -1627,8 +1627,9 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     if chr_cache.rigified:
 
-                        if obj == chr_cache.rig_meta_rig and chr_cache.rig_mode == "ADVANCED":
+                        if obj == chr_cache.rig_meta_rig:
 
+                            layout.row().label(text="Re-rigify", icon="INFO")
                             row = layout.row()
                             row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Regenerate Rigify").param = "RE_RIGIFY_META"
 

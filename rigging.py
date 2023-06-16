@@ -3563,6 +3563,10 @@ class CC3Rigifier(bpy.types.Operator):
                         convert_to_basic_face_rig(self.rigify_rig)
                         chr_cache.rigified_full_face_rig = False
                     modify_rigify_rig(self.cc3_rig, self.rigify_rig, self.rigify_data)
+                    if chr_cache.rigified_full_face_rig:
+                        face_result = self.reparent_face_rig(chr_cache)
+                    else:
+                        face_result = 1
                     acc_vertex_group_map = {}
                     add_def_bones(chr_cache, self.cc3_rig, self.rigify_rig)
                     add_extension_bones(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping, acc_vertex_group_map)
@@ -3576,7 +3580,20 @@ class CC3Rigifier(bpy.types.Operator):
         # keep the meta_rig data
         #chr_cache.rig_meta_rig = None
 
-        self.report({'INFO'}, "Re-Rigify Complete!")
+        if face_result == 1:
+            self.report({'INFO'}, "Re-Rigify Complete!. No errors.")
+        elif face_result == 0:
+            self.report({'WARNING'}, "Re-Rigify Complete!. Some issues with the face rig were detected and fixed automatically. See console log.")
+        else:
+            self.report({'ERROR'}, "Face Re-parent Failed!. See console log.")
+
+
+    def reparent_face_rig(self, chr_cache):
+        lock_non_face_vgroups(chr_cache)
+        clean_up_character_meshes(chr_cache)
+        result = attempt_reparent_auto_character(chr_cache)
+        unlock_vgroups(chr_cache)
+        return result
 
 
     def execute(self, context):
@@ -3624,7 +3641,7 @@ class CC3Rigifier(bpy.types.Operator):
             elif self.param == "RE_RIGIFY_META":
 
                 olc = utils.set_active_layer_collection_from(self.cc3_rig)
-                self.re_rigify_meta_rig(chr_cache, advanced_mode = True)
+                result = self.re_rigify_meta_rig(chr_cache, advanced_mode = True)
                 utils.set_active_layer_collection(olc)
 
             elif self.param == "REPORT_FACE_TARGETS":
@@ -3682,10 +3699,7 @@ class CC3Rigifier(bpy.types.Operator):
                     self.report({'ERROR'}, "Face Re-parent Failed!. See console log.")
 
             elif self.param == "REPARENT_RIG_SEPARATE_HEAD_QUICK":
-                lock_non_face_vgroups(chr_cache)
-                clean_up_character_meshes(chr_cache)
-                result = attempt_reparent_auto_character(chr_cache)
-                unlock_vgroups(chr_cache)
+                result = self.reparent_face_rig(chr_cache)
                 if result == 1:
                     self.report({'INFO'}, "Face Re-parent Done!. No errors.")
                 elif result == 0:
