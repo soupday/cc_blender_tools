@@ -2329,6 +2329,9 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 
     retarget_rig = adv_retarget_pair_rigs(op, chr_cache)
 
+    armature_action = None
+    shape_key_actions = None
+
     if retarget_rig:
         temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", source_rig, retarget_rig, rigify_rig)
 
@@ -2344,11 +2347,13 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
                     bone.select = True
 
 
-            bake_rig_animation(chr_cache, rigify_rig, source_action, None, True, True)
+            armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, source_action, None, True, True)
 
             adv_retarget_remove_pair(op, chr_cache)
 
         bones.restore_armature_settings(rigify_rig, rigify_settings)
+
+        utils.safe_set_action(rigify_rig, armature_action)
 
         utils.restore_visible_in_scene(temp_collection)
 
@@ -2358,6 +2363,9 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
     rigify_rig = chr_cache.get_armature()
     #utils.safe_set_action(rigify_rig, None)
     #adv_retarget_remove_pair(op, chr_cache)
+
+    armature_action = None
+    shape_key_actions = None
 
     # select all possible control bones in the rigify rig, to bake:
     BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
@@ -2383,9 +2391,11 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
                     len(child.data.shape_keys.key_blocks) > 0):
                     shape_key_objects.append(child)
 
-        bake_rig_animation(chr_cache, rigify_rig, None, shape_key_objects, False, True, "NLA_Bake")
+        armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, None, shape_key_objects, False, True, "NLA_Bake")
 
         bones.restore_armature_settings(rigify_rig, rigify_settings)
+
+        utils.safe_set_action(rigify_rig, armature_action)
 
         # remove any retarget preview pairing
         adv_retarget_remove_pair(op, chr_cache)
@@ -3500,7 +3510,11 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("Finalizing Rigify Setup:")
                 utils.log_info("------------------------")
 
+                # remove any expression shape key drivers, the rig takes over these.
+                drivers.clear_facial_shape_key_bone_drivers(chr_cache)
+
                 if utils.object_exists_is_armature(self.rigify_rig):
+
                     if chr_cache.rig_full_face():
                         chr_cache.rigified_full_face_rig = True
                     else:
@@ -3555,6 +3569,9 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("")
                 utils.log_info("Re-finalizing Rigify Setup:")
                 utils.log_info("---------------------------")
+
+                # remove any expression shape key drivers, the rig takes over these.
+                drivers.clear_facial_shape_key_bone_drivers(chr_cache)
 
                 if utils.object_exists_is_armature(self.rigify_rig):
                     if chr_cache.rig_full_face():
