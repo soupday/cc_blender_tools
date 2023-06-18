@@ -77,6 +77,11 @@ def load_image(filename, color_space, processed_images = None, reuse_existing = 
                         i.alpha_mode = "CHANNEL_PACKED"
                     if processed_images is not None and i and image_md5 and not found:
                         processed_images.append([image_md5, i])
+                        if not i.is_dirty:
+                            utils.log_detail(f"Reloading image: {i.name}")
+                            i.reload()
+                        else:
+                            utils.log_info(f"Image {i.name} has been modified, keeping in-memory image.")
                     colorspace.set_image_color_space(i, color_space)
                     return i
 
