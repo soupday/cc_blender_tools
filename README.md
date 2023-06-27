@@ -35,11 +35,15 @@ Links
 
 ## Changelog
 
-### 1.6.0.1
+### 1.6.0.2
 - Fixed bake rigify retarget not assigning action to rig after baking
 - Removes facial expression bone drivers on Rigifying (caused cyclic dependencies)
 - Re-importing/rebuilding materials on a character will reload any texture images that are being re-used from existing or previous imports, just in case they have been changed on disk.
     - Except when the image has been modified by the user and has not yet been saved.
+- NLA Bake fix.
+- Fix Generic character import.
+- Spring rig panels show if character is invalid for spring rigging.
+
 
 ### 1.6.0
 - Rigifying character keeps meta-rig and allows for Re-Rigifying the control rig from the meta-rig.

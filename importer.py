@@ -718,12 +718,13 @@ class CC3Import(bpy.types.Operator):
             if self.is_rl_character:
                 self.imported_character = detect_character(self.filepath, imported, actions, json_data, self.import_report)
             elif prefs.import_auto_convert:
-                self.imported_characterer = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_character = characters.convert_generic_to_non_standard(imported, self.filepath)
 
-            # set up the collision shapes and store their bind positions in the json data
-            rigidbody.build_rigid_body_colliders(self.imported_character, json_data, first_import = True)
-            # remove the colliders for now (only needed for spring bones)
-            rigidbody.remove_rigid_body_colliders(self.imported_character.get_armature())
+            if self.imported_character and self.is_rl_character:
+                # set up the collision shapes and store their bind positions in the json data
+                rigidbody.build_rigid_body_colliders(self.imported_character, json_data, first_import = True)
+                # remove the colliders for now (only needed for spring bones)
+                rigidbody.remove_rigid_body_colliders(self.imported_character.get_armature())
 
             utils.log_timer("Done .Fbx Import.")
 
@@ -748,7 +749,7 @@ class CC3Import(bpy.types.Operator):
             if self.is_rl_character:
                 self.imported_character = detect_character(self.filepath, imported, actions, json_data, self.import_report)
             elif prefs.import_auto_convert:
-                self.imported_characterer = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_character = characters.convert_generic_to_non_standard(imported, self.filepath)
 
             #if self.param == "IMPORT_MORPH":
             #    if self.imported_character.get_tex_dir() != "":

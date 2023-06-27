@@ -985,9 +985,13 @@ def get_roll(bone):
 
 def make_bones_visible(arm, groups = None):
     bone : bpy.types.Bone
+    pose_bone : bpy.types.PoseBone
     for bone in arm.data.bones:
-        if groups and bone.bone_group.name not in groups:
-            bone.hide = True
+        pose_bone = get_pose_bone(arm, bone.name)
+        # hide bones not in the supplied groups (if supplied)
+        if groups and pose_bone and pose_bone.bone_group:
+            if pose_bone.bone_group.name not in groups:
+                bone.hide = True
         # make all active bone layers visible so they can be made visible and selected
         for i, l in enumerate(bone.layers):
             if l:

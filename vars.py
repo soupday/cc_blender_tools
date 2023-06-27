@@ -20,7 +20,11 @@ VERSION_STRING = "v0.0.0"
 
 def set_version_string(bl_info):
     global VERSION_STRING
-    VERSION_STRING = "v" + str(bl_info["version"][0]) + "." + str(bl_info["version"][1]) + "." + str(bl_info["version"][2])
+    VERSION_STRING = "v"
+    for i, v in enumerate(bl_info["version"]):
+        if i > 0:
+            VERSION_STRING += "."
+        VERSION_STRING += str(v)
 
 # blender uses metres, CC3 uses centimetres
 UNIT_SCALE = 0.01
