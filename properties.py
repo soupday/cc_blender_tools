@@ -1385,6 +1385,14 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return True
         return False
 
+    def can_hair_spring_rig(self):
+        """Returns True if the character can have a hair spring rig."""
+        if self.generation == "G3" or self.generation == "G3Plus" or self.generation == "NonStandardG3":
+            return True
+        elif self.generation == "GameBase":
+            return True
+        return False
+
     def can_be_rigged(self):
         """Returns True if the character can be rigified."""
         if self.generation == "G3" or self.generation == "G3Plus" or self.generation == "NonStandardG3":

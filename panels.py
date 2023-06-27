@@ -957,8 +957,22 @@ class CC3SpringRigPanel(bpy.types.Panel):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
         arm = None
+        can_hair_spring_rig = False
+        can_spring_rig = False
         if chr_cache:
             arm = chr_cache.get_armature()
+            if arm:
+                can_spring_rig = True
+                can_hair_spring_rig = chr_cache.can_hair_spring_rig()
+
+        if chr_cache and not can_hair_spring_rig:
+            row = layout.row()
+            row.alert = True
+            row.label(icon="ERROR", text="Unsupported Character")
+        elif not chr_cache:
+            row = layout.row()
+            row.alert = True
+            row.label(icon="ERROR", text="Invalid Character")
 
         # Hair Cards & Spring Bone Rig
 
@@ -974,7 +988,12 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 springbones.is_rigified(chr_cache, arm, props.hair_rig_bone_root)):
                 edit_enabled = False
 
+            valid_character = False
+            if chr_cache and chr_cache.can_hair_spring_rig():
+                valid_character = True
+
             column = layout.column()
+            column.enabled = valid_character
             column.label(text="Hair Card UV Directions:", icon="OUTLINER_OB_LATTICE")
             split = column.split(factor=0.5)
             col_1 = split.column()
@@ -2483,6 +2502,18 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         has_body_overlay = sculpting.has_overlay_nodes(sculpt_body, sculpting.LAYER_TARGET_SCULPT)
         has_detail_overlay = sculpting.has_overlay_nodes(detail_body, sculpting.LAYER_TARGET_DETAIL)
 
+        valid_character = True
+        if not chr_cache:
+            row = layout.row()
+            row.alert = True
+            row.label(icon="ERROR", text="Invalid Character")
+            valid_character = False
+        elif not chr_cache.is_standard():
+            row = layout.row()
+            row.alert = True
+            row.label(icon="ERROR", text="Unusupported Character")
+            valid_character = False
+
         # Full Body Sculpting
 
         row = layout.row()
@@ -2490,6 +2521,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         row.prop(props, "sculpt_layer_tab", expand=True)
 
         column = layout.column()
+        column.enabled = valid_character
 
         #if fake_drop_down(layout.box().row(), "Full Body Sculpting", "section_sculpt_body",
         #                  props.section_sculpt_body, icon = "OUTLINER_OB_ARMATURE"):
