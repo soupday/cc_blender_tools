@@ -15,7 +15,7 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
-from . import utils, vars
+from . import meshutils, utils, vars
 from rna_prop_ui import rna_idprop_ui_create
 
 def make_driver_var(driver, var_type, var_name, target, target_type = "OBJECT", data_path = "", bone_target = "", transform_type = "", transform_space = ""):
@@ -98,6 +98,20 @@ SHAPE_KEY_DRIVERS = {
         "range": 100.0,
         "translate": [0,0,0],
         "rotate": [0,0,18.0],
+    },
+
+    "Ah": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,18.0],
+    },
+
+    "Oh": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,12.0],
     },
 
     "Jaw_Open": {
@@ -353,7 +367,14 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
         translate = SHAPE_KEY_DRIVERS[key_name]["translate"]
         rotate = SHAPE_KEY_DRIVERS[key_name]["rotate"]
 
+        if not meshutils.find_shape_key(body, key_name):
+            utils.log_info(f"Shape-key: {key_name} not found, skipping.")
+            continue
+
         if ((key_name.startswith("Jaw_") and not jaw) or
+            (key_name.startswith("V_") and not jaw) or
+            (key_name == "Ah" and not jaw) or
+            (key_name == "Oh" and not jaw) or
             (key_name.startswith("Eye_") and not eye_look) or
             (key_name.startswith("Head_") and not head)):
             continue

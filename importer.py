@@ -866,7 +866,12 @@ class CC3Import(bpy.types.Operator):
             if chr_cache.rigified:
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
             else:
-                drivers.add_facial_shape_key_bone_drivers(chr_cache,
+                objects = chr_cache.get_all_objects(include_armature=False, of_type="MESH")
+                facial_profile, viseme_profile = meshutils.get_facial_profile(objects)
+                utils.log_info(f"Facial Profile: {facial_profile}")
+                utils.log_info(f"Viseme Profile: {viseme_profile}")
+                if facial_profile == "Std" or facial_profile == "Ext":
+                    drivers.add_facial_shape_key_bone_drivers(chr_cache,
                                                prefs.build_shape_key_bone_drivers_jaw,
                                                prefs.build_shape_key_bone_drivers_eyes,
                                                prefs.build_shape_key_bone_drivers_head)

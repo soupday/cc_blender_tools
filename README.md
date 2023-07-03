@@ -35,7 +35,7 @@ Links
 
 ## Changelog
 
-### 1.6.0.2
+### 1.6.0.3
 - Fixed bake rigify retarget not assigning action to rig after baking
 - Removes facial expression bone drivers on Rigifying (caused cyclic dependencies)
 - Re-importing/rebuilding materials on a character will reload any texture images that are being re-used from existing or previous imports, just in case they have been changed on disk.
@@ -43,6 +43,9 @@ Links
 - NLA Bake fix.
 - Fix Generic character import.
 - Spring rig panels show if character is invalid for spring rigging.
+- Expression drivers for bones only apply to CC4 Ext and Std profiles
+- Bone drivers for direct visemes Ah and Oh added.
+- Viseme bone drivers now excluded when Jaw drivers are disabled.
 
 
 ### 1.6.0
