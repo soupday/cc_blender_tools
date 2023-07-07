@@ -2856,9 +2856,12 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
                 # create T-Pose action
                 if "0_T-Pose" in bpy.data.actions:
                     bpy.data.actions.remove(bpy.data.actions["0_T-Pose"])
+
                 t_pose_action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
                 utils.safe_set_action(export_rig, t_pose_action)
                 baked_actions.append(t_pose_action)
+
+                bones.select_all_bones(export_rig, select=True, clear_active=True)
 
                 # go to first frame
                 bpy.data.scenes["Scene"].frame_current = 1

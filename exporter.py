@@ -1131,6 +1131,8 @@ def create_T_pose_action(arm, objects, export_strips):
         action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
         utils.safe_set_action(arm, action)
 
+        bones.select_all_bones(arm, select=True, clear_active=True)
+
         # go to first frame
         bpy.data.scenes["Scene"].frame_current = 1
 
