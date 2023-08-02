@@ -2966,6 +2966,10 @@ def finish_rigify_export(chr_cache, export_rig, export_actions, vertex_group_map
             continue
         child.parent = rigify_rig
         mod = modifiers.get_object_modifier(child, "ARMATURE")
+
+        if not mod:
+            continue
+        
         mod.object = rigify_rig
         restore_from_unity_vertex_groups(child, vertex_group_map)
 
