@@ -1565,14 +1565,18 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     utils.remove_from_collection(self.sss_material_cache, mat_cache)
                     return
 
-    def get_object_cache(self, obj):
+    def get_object_cache(self, obj, strict = False):
         """Returns the object cache for this object.
         """
         if obj:
             for obj_cache in self.object_cache:
                 cache_object = obj_cache.get_object()
                 if cache_object and cache_object == obj:
-                    return obj_cache
+                    if strict:
+                        if not obj_cache.disabled:
+                            return obj_cache
+                    else:
+                        return obj_cache
         return None
 
     def remove_object_cache(self, obj):
@@ -2177,10 +2181,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
         return chr_cache
 
-    def get_object_cache(self, obj):
+    def get_object_cache(self, obj, strict = False):
         if obj:
             for imp_cache in self.import_cache:
-                obj_cache = imp_cache.get_object_cache(obj)
+                obj_cache = imp_cache.get_object_cache(obj, strict=strict)
                 if obj_cache:
                     return obj_cache
         return None

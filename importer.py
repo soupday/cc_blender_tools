@@ -647,6 +647,12 @@ class CC3Import(bpy.types.Operator):
 
 
     def read_json_data(self, file_path, stage = 0):
+
+        # if not fbx, return no json without error
+        path, ext = os.path.splitext(file_path)
+        if not utils.is_file_ext(ext, "FBX"):
+            return None
+
         errors = []
         json_data = jsonutils.read_json(file_path, errors)
 

@@ -20,6 +20,7 @@ import mathutils
 import os
 
 from . import materials, modifiers, meshutils, geom, bones, shaders, nodeutils, utils, vars
+from mathutils import Vector
 
 MANDATORY_OBJECTS = ["BODY", "TEETH", "TONGUE", "TEARLINE", "OCCLUSION", "EYE"]
 
@@ -56,7 +57,7 @@ def make_prop_armature(objects):
     for obj in objects:
 
         # reset all transforms
-        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        #bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
         # find single root
         if obj.parent is None or obj.parent not in objects:
@@ -76,9 +77,12 @@ def make_prop_armature(objects):
     arm_data = bpy.data.armatures.new(arm_name)
     arm = bpy.data.objects.new(arm_name, arm_data)
     bpy.context.collection.objects.link(arm)
+    if single_empty_root:
+        arm.location = utils.object_world_location(single_empty_root)
     utils.clear_selected_objects()
 
-    root_bone = None
+    root_bone : bpy.types.EditBone = None
+    bone : bpy.types.EditBone = None
     root_bone_name = None
     tail_vector = mathutils.Vector((0,0,0.1))
     tail_translate = mathutils.Matrix.Translation(-tail_vector)
@@ -87,22 +91,22 @@ def make_prop_armature(objects):
 
         if single_empty_root:
             root_bone = arm.data.edit_bones.new(single_empty_root.name)
-            root_bone.head = single_empty_root.location
-            root_bone.tail = single_empty_root.location + tail_vector
+            root_bone.head = arm.matrix_local @ utils.object_world_location(single_empty_root)
+            root_bone.tail = arm.matrix_local @ utils.object_world_location(single_empty_root, tail_vector)
             root_bone.roll = 0
             root_bone_name = root_bone.name
         else:
             root_bone = arm.data.edit_bones.new("Root")
             root_bone.head = (0,0,0)
-            root_bone.tail = (0,0,0.1)
+            root_bone.tail = (0,0,0) + tail_vector
             root_bone.roll = 0
             root_bone_name = root_bone.name
 
         for obj in objects:
             if obj.type == "EMPTY" and obj.name not in arm.data.edit_bones:
                 bone = arm.data.edit_bones.new(obj.name)
-                bone.head = obj.location
-                bone.tail = obj.location + tail_vector
+                bone.head = arm.matrix_local @ utils.object_world_location(obj)
+                bone.tail = arm.matrix_local @ utils.object_world_location(obj, tail_vector)
 
         for obj in objects:
             if obj.type == "EMPTY" and obj.parent:
@@ -117,22 +121,30 @@ def make_prop_armature(objects):
 
     utils.object_mode_to(arm)
 
+
+
     obj : bpy.types.Object
     for obj in objects:
         if obj.type == "MESH":
             if obj.parent and obj.parent.name in arm.data.bones:
                 parent_name = obj.parent.name
                 parent_bone : bpy.types.Bone = arm.data.bones[parent_name]
+                omw = obj.matrix_world.copy()
                 obj.parent = arm
                 obj.parent_type = 'BONE'
                 obj.parent_bone = parent_name
-                obj.matrix_parent_inverse = parent_bone.matrix_local.inverted() @ tail_translate
+                # by re-applying (a copy of) the original matrix_world, blender
+                # works out the correct parent inverse transforms from the bone
+                obj.matrix_world = omw
             elif root_bone_name:
                 parent_bone = arm.data.bones[root_bone_name]
+                omw = obj.matrix_world.copy()
                 obj.parent = arm
                 obj.parent_type = 'BONE'
                 obj.parent_bone = root_bone_name
-                obj.matrix_parent_inverse = parent_bone.matrix_local.inverted() @ tail_translate
+                # by re-applying (a copy of) the original matrix_world, blender
+                # works out the correct parent inverse transforms from the bone
+                obj.matrix_world = omw
 
     # remove the empties and move all objects into the same collection as the armature
     collections = utils.get_object_scene_collections(arm)
@@ -170,9 +182,11 @@ def convert_generic_to_non_standard(objects, file_path = None):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
+    non_chr_objects = [ obj for obj in objects if props.get_object_cache(obj, strict=True) is None ]
+
     # select all child objects of the current selected objects (Humanoid)
-    utils.try_select_objects(objects, True)
-    for obj in objects:
+    utils.try_select_objects(non_chr_objects, True)
+    for obj in non_chr_objects:
         utils.try_select_child_objects(obj)
 
     objects = bpy.context.selected_objects
@@ -320,7 +334,7 @@ def remove_object_from_character(chr_cache, obj):
                         if arm_mod:
                             obj.modifiers.remove(arm_mod)
 
-                        obj.hide_set(True)
+                        #obj.hide_set(True)
 
                         utils.clear_selected_objects()
                         # don't reselect the removed object as this may cause
@@ -748,6 +762,7 @@ def convert_to_rl_pbr(mat, mat_cache):
     output_node.location = (900, -400)
 
     # remap bsdf socket inputs to shader group node sockets
+    # [ [bsdf_socket_name<:parent_socket_name>, node_name_match, node_source, group_socket, prop_socket, prop_name], ]
     sockets = [
         ["Base Color", "", "BSDF", "Diffuse Map", "", ""],
         ["Metallic", "", "BSDF", "Metallic Map", "", ""],
@@ -759,6 +774,15 @@ def convert_to_rl_pbr(mat, mat_cache):
         ["Normal:Normal:Color", "", "BSDF", "Normal Map", ["Normal:Normal:Strength", "Normal:Strength"], "default_normal_strength"], # normal image > normal map (Color) > bump map (Normal) > BSDF (Normal)
         ["Normal:Height", "", "BSDF", "Bump Map", ["Normal:Distance", "Normal:Strength"], "default_bump_strength"], # bump image > bump map (Height) > BSDF (Normal)
         ["Base Color:Color2", "ao|occlusion", "BSDF", "AO Map", "Base Color:Fac", "default_ao_strength"],
+        ["Base Color:Color1", "ao|occlusion", "BSDF", "Diffuse Map", "", ""],
+        #["Base Color:Color2", "#mixmultiply", "BSDF", "AO Map", "Base Color:Fac", "default_ao_strength"],
+        #["Base Color:Color1", "#mixmultiply", "BSDF", "Diffuse Map", "", ""],
+        # blender 3.0+
+        #["Base Color:B", "#mixmultiply", "BSDF", "AO Map", "Base Color:Factor", "default_ao_strength"],
+        #["Base Color:A", "#mixmultiply", "BSDF", "Diffuse Map", "", ""],
+        ["Base Color:B", "ao|occlusion", "BSDF", "AO Map", "Base Color:Factor", "default_ao_strength"],
+        ["Base Color:A", "ao|occlusion", "BSDF", "Diffuse Map", "", ""],
+        # gltf
         ["Occlusion", "", "GLTF", "AO Map", "", "default_ao_strength"],
     ]
 
@@ -806,6 +830,7 @@ def convert_to_rl_pbr(mat, mat_cache):
             n = None
         if n:
             linked_node, linked_socket = nodeutils.trace_input_sockets(n, socket_trace)
+            linked_to = nodeutils.get_node_connected_to_output(linked_node, linked_socket)
 
             strength = 1.0
             if type(strength_trace) is list:
@@ -822,7 +847,16 @@ def convert_to_rl_pbr(mat, mat_cache):
 
             if linked_node and linked_socket:
                 if match:
-                    if re.match(match, linked_node.label) or re.match(match, linked_node.name):
+                    found = False
+                    if match[0] == "#" and linked_to:
+                        if match[1:] == "mixmultiply" and linked_to.type == "MIX" and linked_to.blend_type == "MULTIPLY":
+                            found = True
+                    else:
+                        if re.match(match, linked_node.label) or re.match(match, linked_node.name):
+                            found = True
+                        elif linked_node.type == "TEX_IMAGE" and re.match(match, linked_node.image.name):
+                            found = True
+                    if found:
                         socket_mapping[group_socket] = [linked_node, linked_socket, strength, strength_prop]
                 else:
                     socket_mapping[group_socket] = [linked_node, linked_socket, strength, strength_prop]
@@ -947,6 +981,8 @@ def transfer_skin_weights(chr_cache, objects):
 
         # then visually apply that pose
         # (this should pose the posed armature in the same pose as the original bind pose)
+        # *not needed
+        #utils.pose_mode_to(arm_posed)
         #bpy.ops.pose.select_all(action='SELECT')
         #bpy.ops.pose.visual_transform_apply()
 
@@ -965,9 +1001,10 @@ def transfer_skin_weights(chr_cache, objects):
         bpy.ops.object.parent_set(type="OBJECT", keep_transform=True)
         # and add armature modifiers
         modifiers.add_armature_modifier(body_copy, create=True, armature=arm)
-        # copy the new vertex weights back to the original objects
+        # copy the new vertex positions and weights back to the original objects
         for obj_copy in objects_copy:
-            geom.copy_vertex_weights(obj_copy, obj)
+            modifiers.add_armature_modifier(obj_copy, create=True, armature=arm)
+            geom.copy_vertex_positions_and_weights(obj_copy, obj)
 
         # done!
         utils.delete_armature_object(arm_posed)
@@ -1169,14 +1206,14 @@ class CC3OperatorCharacter(bpy.types.Operator):
 
         elif self.param == "TRANSFER_WEIGHTS":
             chr_cache = props.get_context_character_cache(context)
-            objects = bpy.context.selected_objects.copy()
+            objects = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH" ]
             mode_selection = utils.store_mode_selection_state()
             transfer_skin_weights(chr_cache, objects)
             utils.restore_mode_selection_state(mode_selection)
 
         elif self.param == "NORMALIZE_WEIGHTS":
             chr_cache = props.get_context_character_cache(context)
-            objects = bpy.context.selected_objects.copy()
+            objects = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH" ]
             normalize_skin_weights(chr_cache, objects)
 
         elif self.param == "CONVERT_TO_NON_STANDARD":
@@ -1210,7 +1247,7 @@ class CC3OperatorCharacter(bpy.types.Operator):
         elif properties.param == "COPY_TO_CHARACTER":
             return "Copy the objects from another character into the active selected character"
         elif properties.param == "REMOVE_OBJECT":
-            return "Unparent the object from the character and automatically hide it. Unparented objects will *not* be included in the export"
+            return "Unparent the object and remove from the character. Unparented objects will *not* be included in the export"
         elif properties.param == "ADD_MATERIALS":
             return "Add any new materials to the character data that are in this object but not in the character data"
         elif properties.param == "CLEAN_UP_DATA":

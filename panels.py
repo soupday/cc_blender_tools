@@ -26,18 +26,16 @@ CREATE_TAB_NAME = "CC/iC Create"
 # Panel button functions and operator
 #
 
-def context_character(context):
+def context_character(context, strict = False):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
 
-    obj = None
-    mat = None
+    obj = context.object
+    mat = utils.context_material(context)
     obj_cache = None
     mat_cache = None
 
     if chr_cache:
-        obj = context.object
-        mat = utils.context_material(context)
         obj_cache = chr_cache.get_object_cache(obj)
         mat_cache = chr_cache.get_material_cache(mat)
         arm = chr_cache.get_armature()
@@ -49,6 +47,9 @@ def context_character(context):
                 chr_cache = None
             elif obj.type == "MESH" and obj.parent and obj.parent != arm:
                 chr_cache = None
+
+    if strict and obj and not obj_cache:
+        chr_cache = None
 
     return chr_cache, obj, mat, obj_cache, mat_cache
 
@@ -148,8 +149,8 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
         is_non_standard = True
         is_character = True
 
+    box = layout.box()
     if is_character:
-        box = layout.box()
         if show_name:
             box.row().label(text=f"Character: {character_name}")
         if show_type:
@@ -163,8 +164,9 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
                     row.prop(prefs, "export_non_standard_mode", expand=True)
 
     else:
-        box = layout.box()
         box.row().label(text=f"No Character")
+
+    return box
 
 
 def pipeline_export_group(chr_cache, chr_rig, layout):
@@ -771,6 +773,8 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        strict_chr_cache = chr_cache if obj and obj_cache else None
+        non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj, strict=True) is None ]
 
         generic_rig = None
         arm = None
@@ -816,20 +820,36 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
             column.box().label(text="Converting", icon="DRIVER")
 
-            character_info_box(chr_cache, arm, column)
+            if chr_cache:
 
-            row = column.row()
-            row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
-            if not chr_cache or chr_cache.is_non_standard():
-                row.enabled = False
+                box = character_info_box(chr_cache, arm, column)
 
-            row = column.row()
-            if generic_rig:
-                row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
-            else:
-                row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
-            if chr_cache or not (generic_rig or num_meshes_in_selection > 0):
-                row.enabled = False
+                if chr_cache.is_standard():
+
+                    row = box.row()
+                    row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
+                    if not chr_cache or chr_cache.is_non_standard():
+                        row.enabled = False
+
+            if generic_rig or non_chr_objects:
+
+                obj_text = "Objects: "
+                for i, obj in enumerate(non_chr_objects):
+                    if i > 0:
+                        obj_text += ", "
+                    obj_text += obj.name
+                if len(non_chr_objects) == 0:
+                    obj_text += "None"
+
+                column.box().label(text=obj_text)
+
+                row = column.row()
+                if generic_rig:
+                    row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
+                else:
+                    row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
+                if not (generic_rig or non_chr_objects):
+                    row.enabled = False
 
             column.separator()
 
@@ -2764,16 +2784,24 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         if addon_updater_ops.updater.update_ready == True:
             addon_updater_ops.update_notice_box_ui(self, context)
 
-        chr_cache = props.get_context_character_cache(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+
         if chr_cache:
             character_name = chr_cache.character_name
         else:
             character_name = "No Character"
+
         chr_rig = None
+
         if chr_cache:
             chr_rig = chr_cache.get_armature()
-        elif context.selected_objects:
-            chr_rig = utils.get_armature_from_objects(context.selected_objects)
+        else:
+            if context.selected_objects:
+                chr_rig = utils.get_armature_from_objects(context.selected_objects)
+            elif context.object:
+                chr_rig = utils.get_armature_from_object(context.object)
+            if chr_rig:
+                character_name = chr_rig.name
 
         layout = self.layout
         layout.use_property_split = False
@@ -2866,6 +2894,7 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         layout.row().operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
         layout.row().operator("cc3.exporter", icon="MESH_DATA", text="Export Replace Mesh").param = "EXPORT_MESH"
 
+        # clean up
         layout.separator()
         box = layout.box()
         box.label(text="Clean Up", icon="TRASH")

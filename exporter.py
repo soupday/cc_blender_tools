@@ -29,12 +29,22 @@ from . import bake, shaders, physics, rigidbody, rigging, wrinkle, bones, modifi
 UNPACK_INDEX = 1001
 
 
-def check_valid_export_fbx(chr_cache, objects):
+def get_export_armature(chr_cache, objects):
+    arm = None
+    if chr_cache:
+        arm = chr_cache.get_armature()
+        if arm:
+            return arm
 
+    arm = utils.get_armature_from_objects(objects)
+    return arm
+
+def check_valid_export_fbx(chr_cache, objects):
     report = []
     check_valid = True
     check_warn = False
-    arm = utils.get_armature_from_objects(objects)
+    arm = get_export_armature(chr_cache, objects)
+
     standard = False
     if chr_cache:
         standard = chr_cache.is_standard()
@@ -94,7 +104,9 @@ def check_valid_export_fbx(chr_cache, objects):
 
 
 def remove_modifiers_for_export(chr_cache, objects, reset_pose):
-    arm = utils.get_armature_from_objects(objects)
+    arm = get_export_armature(chr_cache, objects)
+    if not arm:
+        return
     arm.data.pose_position = "POSE"
     if reset_pose:
         utils.safe_set_action(arm, None)
@@ -124,23 +136,6 @@ def restore_modifiers(chr_cache, objects):
                 modifiers.add_eye_modifiers(obj)
 
 
-def rescale_for_unity(chr_cache, objects):
-    """Do not use. Causes more problems than it solves..."""
-    if utils.set_mode("OBJECT"):
-        arm : bpy.types.Object = utils.get_armature_from_objects(objects)
-        if arm.scale != 1.0:
-            utils.try_select_object(arm, True)
-            bpy.ops.object.transform_apply(location = False, rotation = False, scale = True, properties = False)
-        object_list = []
-        obj : bpy.types.Object
-        for obj in objects:
-            if obj.type == "MESH" and obj.scale != 1.0:
-                object_list.append(obj)
-        if len(object_list) > 0:
-            utils.try_select_objects(object_list, True)
-            bpy.ops.object.transform_apply(location = False, rotation = False, scale = True, properties = False)
-
-
 def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 copy_textures, revert_duplicates, apply_fixes, as_blend_file, bake_values):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -148,7 +143,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
     if as_blend_file:
         if prefs.export_unity_remove_objects:
             # remove everything not part of the character for blend file exports.
-            arm = utils.get_armature_from_objects(objects)
+            arm = get_export_armature(chr_cache, objects)
             for obj in bpy.data.objects:
                 if not (obj == arm or obj.parent == arm or chr_cache.has_object(obj)):
                     utils.log_info(f"Removing {obj.name} from blend file")
@@ -709,7 +704,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                 roughness_modified = False
                 if tex_type == "ROUGHNESS":
                     roughness = 0.5
-                    if nodeutils.has_connected_input(shader_node, "Roughness Map"):
+                    if not nodeutils.has_connected_input(shader_node, "Roughness Map"):
                         roughness = nodeutils.get_node_input_value(shader_node, "Roughness Map", 0.5)
                     def_min = 0
                     def_max = 1
@@ -999,6 +994,7 @@ def get_export_objects(chr_cache, include_selected = True):
     objects = []
     if include_selected:
         objects.extend(bpy.context.selected_objects)
+
     if chr_cache:
         arm = chr_cache.get_armature()
         if arm:
@@ -1033,11 +1029,7 @@ def get_export_objects(chr_cache, include_selected = True):
                     utils.log_info(f"   Including Empty Transform: {obj.name}")
                     objects.append(obj)
     else:
-        arm = None
-        if bpy.context.active_object and bpy.context.active_object.type == "ARMATURE":
-            arm = bpy.context.active_object
-        if not arm:
-            arm = utils.get_armature_from_objects(bpy.context.selected_objects)
+        arm = utils.get_armature_from_objects(objects)
         if arm:
             arm.hide_set(False)
             if arm not in objects:
@@ -1060,7 +1052,7 @@ def get_export_objects(chr_cache, include_selected = True):
     # make sure all export objects are valid
     clean_objects = [ obj for obj in objects
                         if utils.object_exists(obj) and
-                            (obj.type=="ARMATURE" or obj.type=="MESH" or obj.type=="EMPTY") ]
+                            (obj == arm or obj.type == "MESH" or obj.type == "EMPTY") ]
 
     for obj in clean_objects:
         utils.log_info(f"Export Object: {obj.name} ({obj.type})")
@@ -1628,7 +1620,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
             set_character_generation(json_data, chr_cache, name)
 
         objects = get_export_objects(chr_cache, include_selected)
-        arm = utils.get_armature_from_objects(objects)
+        arm = get_export_armature(chr_cache, objects)
 
         utils.log_info("Preparing character for export:")
         utils.log_indent()
@@ -1730,7 +1722,7 @@ def export_non_standard(self, file_path, include_selected):
     old_active = bpy.context.active_object
 
     objects = get_export_objects(None, include_selected)
-    arm = utils.get_armature_from_objects(objects)
+    arm = get_export_armature(None, objects)
 
     utils.log_info("Generating JSON data for export:")
     utils.log_indent()
@@ -1846,7 +1838,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, self.include_textures, False, False, as_blend_file, False)
 
     # make the T-pose as an action
-    arm = utils.get_armature_from_objects(objects)
+    arm = get_export_armature(chr_cache, objects)
     utils.safe_set_action(arm, None)
     chr_json = None
     if json_data:
@@ -1955,7 +1947,7 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, True, False, False, as_blend_file, False)
 
     # make the T-pose as an action
-    arm = utils.get_armature_from_objects(objects)
+    arm = get_export_armature(chr_cache, objects)
     utils.safe_set_action(arm, None)
     chr_json = None
     if json_data:
@@ -2010,7 +2002,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     utils.log_info("Preparing character for export:")
     utils.log_indent()
 
-    # remove the collision mesh proxy
+    # remove the collision mesh proxy for .blend exports
     if utils.is_file_ext(ext, "BLEND"):
         if utils.object_exists_is_mesh(chr_cache.collision_body):
             utils.delete_mesh_object(chr_cache.collision_body)
@@ -2278,12 +2270,18 @@ class CC3Export(bpy.types.Operator):
 
         # determine export format
         export_format = "fbx"
+        export_suffix = ""
         if self.param == "EXPORT_MESH":
             export_format = "obj"
+            export_suffix = "_mesh"
+        elif self.param == "EXPORT_ACCESSORY":
+            export_suffix = "_accessory"
         elif self.param == "EXPORT_NON_STANDARD":
             export_format = "fbx"
         elif self.param == "EXPORT_RIGIFY":
             export_format = "fbx"
+            if props.export_rigify_mode == "MOTION":
+                export_suffix = "_motion"
         elif self.param == "EXPORT_UNITY":
             if prefs.export_unity_mode == "FBX":
                 export_format = "fbx"
@@ -2338,25 +2336,15 @@ class CC3Export(bpy.types.Operator):
         # determine default file name
         if not self.filepath:
             default_file_path = context.blend_data.filepath
-            if not default_file_path:
-                if self.param == "EXPORT_ACCESSORY":
-                    if chr_cache:
-                        default_file_path = chr_cache.character_id + "_accessory"
-                    else:
-                        default_file_path = "accessory"
-                elif self.param == "EXPORT_MESH":
-                    if chr_cache:
-                        default_file_path = chr_cache.character_id + "_mesh"
-                    else:
-                        default_file_path = "mesh"
-                else:
-                    if chr_cache:
-                        default_file_path = chr_cache.character_id + "_export"
-                    else:
-                        default_file_path = "untitled"
-            else:
+            if default_file_path:
                 default_file_path = os.path.splitext(default_file_path)[0]
-            self.filepath = default_file_path + self.filename_ext
+            else:
+                if chr_cache:
+                    default_file_path = chr_cache.character_id
+                else:
+                    default_file_path = "untitled"
+
+            self.filepath = default_file_path + export_suffix + self.filename_ext
 
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}

@@ -732,11 +732,14 @@ def try_select_child_objects(obj):
         return False
 
 
-def add_child_objects(obj, objects):
+def add_child_objects(obj, objects, follow_armatures = False):
     for child in obj.children:
         if child not in objects:
+            if child.type == "ARMATURE" and not follow_armatures:
+                continue
             objects.append(child)
-            add_child_objects(child, objects)
+            if child.children:
+                add_child_objects(child, objects, follow_armatures)
 
 
 def expand_with_child_objects(objects):
@@ -744,11 +747,11 @@ def expand_with_child_objects(objects):
         add_child_objects(obj, objects)
 
 
-def get_child_objects(obj, include_parent = False):
+def get_child_objects(obj, include_parent = False, follow_armatures = False):
     objects = []
     if include_parent:
         objects.append(obj)
-    add_child_objects(obj, objects)
+    add_child_objects(obj, objects, follow_armatures)
     return objects
 
 
@@ -786,15 +789,45 @@ def clear_selected_objects():
 
 
 def get_armature_from_objects(objects):
-    arm = None
+    armatures = []
     if objects:
         for obj in objects:
-            if obj.type == "ARMATURE":
-                return obj
-            elif obj.type == "MESH":
-                if arm is None and obj.parent and obj.parent.type == "ARMATURE":
-                    arm = obj.parent
+            arm = get_armature_from_object(obj)
+            if arm and arm not in armatures:
+                armatures.append(arm)
+    return get_topmost_object(armatures)
+
+
+def get_armature_from_object(obj):
+    arm = None
+    if obj.type == "ARMATURE":
+        arm = obj
+    elif obj.type == "MESH" and obj.parent and obj.parent.type == "ARMATURE":
+        arm = obj.parent
     return arm
+
+
+def is_child_of(obj, test):
+    """Returns True if obj is a child or sub-child of test"""
+    while test.parent:
+        if test.parent == obj:
+            return True
+        test = test.parent
+    return False
+
+
+def get_topmost_object(objects):
+    if not objects:
+        return None
+    if len(objects) == 1:
+        return objects[0]
+    else:
+        for obj in objects:
+            for test in objects:
+                if obj != test:
+                    if not is_child_of(obj, test):
+                        return obj
+    return None
 
 
 def float_equals(a, b):
@@ -1332,6 +1365,16 @@ def copy_property_group(props_a, props_b):
 
 def stop_now():
     raise Exception("STOP!")
+
+
+def object_world_location(obj : bpy.types.Object, delta = None):
+    location = obj.location.copy()
+    if delta:
+        location += delta
+    if obj.parent:
+        return obj.parent.matrix_world @ location
+    else:
+        return location
 
 
 def is_valid_icon(icon):
