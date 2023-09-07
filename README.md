@@ -35,6 +35,13 @@ Links
 
 ## Changelog
 
+### 1.6.1
+- Object Management:
+    - Generic material conversion better detects AO maps in Blender 3+
+    - Transfer vertex weights with posed armature fix.
+    - Empty transform hierarchy to Prop conversion puts bones in the right correct places.
+- Exporting rigified animations with parented armatures now excludes those armatures from export.
+
 ### 1.6.0.4
 - Fixed bake rigify retarget not assigning action to rig after baking
 - Removes facial expression bone drivers on Rigifying (caused cyclic dependencies)

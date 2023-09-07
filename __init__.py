@@ -90,7 +90,7 @@ from . import colorspace
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (1, 6, 1, 0),
+    "version": (1, 6, 1),
     "blender": (2, 93, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
