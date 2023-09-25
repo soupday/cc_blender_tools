@@ -188,6 +188,11 @@ def pipeline_export_group(chr_cache, chr_rig, layout):
     # export to Unity
     character_export_unity_button(chr_cache, layout)
 
+    layout.separator()
+
+    # export to Unreal
+    character_export_unreal_button(chr_cache, layout)
+
 
 def rigify_export_group(chr_cache, layout):
     props = bpy.context.scene.CC3ImportProps
@@ -264,6 +269,22 @@ def character_export_unity_button(chr_cache, layout):
         row.operator("cc3.exporter", icon="CUBE", text="Export To Unity").param = "EXPORT_UNITY"
         # export mode
         column.row().prop(prefs, "export_unity_mode", expand=True)
+
+    # disable if no character, or not an fbx import
+    if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
+        column.enabled = False
+
+
+def character_export_unreal_button(chr_cache, layout):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    column = layout.column()
+
+    # export button
+    row = column.row()
+    row.scale_y = 2
+    row.operator("cc3.exporter", icon="EVENT_U", text="Export To Unreal").param = "EXPORT_UNREAL"
 
     # disable if no character, or not an fbx import
     if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
@@ -2889,6 +2910,8 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
             rigify_export_group(chr_cache, layout)
         else:
             pipeline_export_group(chr_cache, chr_rig, layout)
+
+        layout.separator()
 
         # export extras
         layout.row().operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
