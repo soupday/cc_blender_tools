@@ -16,9 +16,10 @@
 
 import bpy
 import textwrap
+import os
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, characters, sculpting, springbones, hair, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import rigging, rigify_mapping_data, characters, sculpting, springbones, bake, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils, utils, params, vars
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
@@ -2929,3 +2930,207 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         if not chr_cache:
             row.enabled = False
         row.operator("cc3.importer", icon="REMOVE", text="Remove Character").param ="DELETE_CHARACTER"
+
+
+
+
+
+
+#################################################
+# BAKE TOOL PANELS
+
+
+class CCiCBakePanel(bpy.types.Panel):
+    bl_idname = "CCiC_PT_Bake_Panel"
+    bl_label = "Export Bake"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = PIPELINE_TAB_NAME
+
+    def draw_size_props(self, context, props, bake_maps, col_1, col_2):
+
+        if props.target_mode == "UNITY_HDRP":
+            col_1.label(text="Diffuse Size")
+            col_2.prop(props, "diffuse_size", text="")
+            col_1.label(text="Mask Size")
+            col_2.prop(props, "mask_size", text="")
+            col_1.label(text="Detail Size")
+            col_2.prop(props, "detail_size", text="")
+            col_1.label(text="Normal Size")
+            col_2.prop(props, "normal_size", text="")
+            col_1.separator()
+            col_2.separator()
+            col_1.label(text="Emission Size")
+            col_2.prop(props, "emissive_size", text="")
+            col_1.label(text="SSS Size")
+            col_2.prop(props, "sss_size", text="")
+            col_1.label(text="Transmission Size")
+            col_2.prop(props, "thickness_size", text="")
+
+        else:
+            if "Diffuse" in bake_maps:
+                col_1.label(text="Diffuse Size")
+                col_2.prop(props, "diffuse_size", text="")
+            if "AO" in bake_maps:
+                col_1.label(text="AO Size")
+                col_2.prop(props, "ao_size", text="")
+            if "Subsurface" in bake_maps:
+                col_1.label(text="SSS Size")
+                col_2.prop(props, "sss_size", text="")
+            if "Thickness" in bake_maps:
+                col_1.label(text="Thickness Size")
+                col_2.prop(props, "thickness_size", text="")
+            if "Metallic" in bake_maps:
+                col_1.label(text="Metallic Size")
+                col_2.prop(props, "metallic_size", text="")
+            if "Specular" in bake_maps:
+                col_1.label(text="Specular Size")
+                col_2.prop(props, "specular_size", text="")
+            if "Roughness" in bake_maps:
+                col_1.label(text="Roughness Size")
+                col_2.prop(props, "roughness_size", text="")
+            if "Emission" in bake_maps:
+                col_1.label(text="Emission Size")
+                col_2.prop(props, "emissive_size", text="")
+            if "Alpha" in bake_maps:
+                col_1.label(text="Alpha Size")
+                col_2.prop(props, "alpha_size", text="")
+            if "Transmission" in bake_maps:
+                col_1.label(text="Transmission Size")
+                col_2.prop(props, "transmission_size", text="")
+            if "Normal" in bake_maps:
+                col_1.label(text="Normal Size")
+                col_2.prop(props, "normal_size", text="")
+            if "Bump" in bake_maps:
+                col_1.label(text="Bump Size")
+                col_2.prop(props, "bump_size", text="")
+            if "MicroNormal" in bake_maps:
+                col_1.label(text="Micro Normal Size")
+                col_2.prop(props, "micronormal_size", text="")
+            if "MicroNormalMask" in bake_maps:
+                col_1.label(text="Micro Normal Mask Size")
+                col_2.prop(props, "micronormalmask_size", text="")
+
+    def draw(self, context):
+        props = bpy.context.scene.CCiCBakeProps
+
+        layout = self.layout
+        layout.use_property_split = False
+        layout.use_property_decorate = False
+
+        addon_updater_ops.check_for_update_background()
+        if addon_updater_ops.updater.update_ready == True:
+            addon_updater_ops.update_notice_box_ui(self, context)
+
+        box = layout.box()
+        box.label(text=f"Export Bake Settings", icon="TOOL_SETTINGS")
+
+        bake_maps = vars.get_bake_target_maps(props.target_mode)
+
+        split = layout.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="Target")
+        col_2.prop(props, "target_mode", text="", slider = True)
+        col_1.label(text="Bake Samples")
+        col_2.prop(props, "bake_samples", text="", slider = True)
+        col_1.label(text="Format")
+        col_2.prop(props, "target_format", text="", slider = True)
+        if props.target_format == "JPEG":
+            col_1.label(text="JPEG Quality")
+            col_2.prop(props, "jpeg_quality", text="", slider = True)
+        if props.target_format == "PNG":
+            col_1.label(text="PNG Compression")
+            col_2.prop(props, "png_compression", text="", slider = True)
+        col_1.label(text="Max Size")
+        col_2.prop(props, "max_size", text="")
+        col_1.label(text="Bake Mixers")
+        col_2.prop(props, "bake_mixers", text="")
+        if "Bump" in bake_maps:
+            col_1.label(text="Allow Bump Maps")
+            col_2.prop(props, "allow_bump_maps", text="")
+        if "AO" in bake_maps:
+            col_1.label(text="AO in Diffuse")
+            col_2.prop(props, "ao_in_diffuse", text="", slider = True)
+        if props.target_mode == "UNITY_HDRP" or props.target_mode == "UNITY_URP":
+            col_1.label(text="Smoothness Mapping")
+            col_2.prop(props, "smoothness_mapping", text="")
+        if props.target_mode == "GLTF":
+            col_1.label(text="Pack GLTF")
+            col_2.prop(props, "pack_gltf", text="")
+        col_1.label(text="Bake Folder")
+        col_2.prop(props, "bake_path", text="")
+        col_1.separator()
+        col_2.separator()
+
+        col_1.label(text="Max Sizes By Type")
+        col_2.prop(props, "custom_sizes", text="")
+
+        obj = context.object
+        mat = utils.context_material(context)
+        bake_cache = bake.get_export_bake_cache(mat)
+
+        if props.custom_sizes:
+
+            layout.row().box().label(text = "Maximum Texture Sizes")
+
+            split = layout.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+
+            self.draw_size_props(context, props, bake_maps, col_1, col_2)
+
+            if obj is not None:
+                row = layout.row()
+                row.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
+
+            if bake_cache and bake_cache.source_material != mat:
+                mat_settings = bake.get_material_bake_settings(bake_cache.source_material)
+                row = layout.row()
+                row.label(text = "(*Source Material Settings)")
+            else:
+                mat_settings = bake.get_material_bake_settings(mat)
+
+            if mat_settings is not None:
+                row = layout.row()
+                row.operator("ccic.bakesettings", icon="REMOVE", text="Remove Material Settings").param = "REMOVE"
+
+                split = layout.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+
+                self.draw_size_props(context, mat_settings, bake_maps, col_1, col_2)
+
+            else:
+                row = layout.row()
+                row.operator("ccic.bakesettings", icon="ADD", text="Add Material Settings").param = "ADD"
+
+        if bake_cache:
+            if bake_cache.source_material == mat:
+                row = layout.row()
+                row.operator("ccic.bakesettings", icon="LOOP_FORWARDS", text="Restore Baked Materials").param = "BAKED"
+            elif bake_cache.baked_material == mat:
+                row = layout.row()
+                row.operator("ccic.bakesettings", icon="LOOP_BACK", text="Revert Source Materials").param = "SOURCE"
+
+        valid_bake_path = False
+        if os.path.isabs(props.bake_path) or bpy.data.is_saved:
+            valid_bake_path = True
+
+        layout.box().label(text="Select objects to bake", icon="INFO")
+
+        row = layout.row()
+        row.scale_y = 2
+        row.operator("ccic.baker", icon="PLAY", text="Bake").param = "BAKE"
+        if not valid_bake_path:
+            row.enabled = False
+            box = layout.box()
+            box.alert = True
+            box.label(text="Warning:", icon="ERROR")
+            box.label(text="SAVE Blend file before baking")
+            box.label(text="or use absolute bake path!")
+
+        row = layout.row()
+        row.scale_y = 2
+        row.operator("ccic.jpegify", icon="PLAY", text="Jpegify")
+

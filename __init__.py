@@ -106,6 +106,10 @@ classes = (
     channel_mixer.CC3IDMixer,
     channel_mixer.CC3MixerSettings,
 
+
+    properties.CCiCBakeCache,
+    properties.CCiCBakeMaterialSettings,
+    properties.CCiCBakeProps,
     properties.CC3ActionList,
     properties.CC3ArmatureList,
     properties.CC3HeadParameters,
@@ -141,6 +145,9 @@ classes = (
     bake.CC3BakeOperator,
     rigging.CC3Rigifier,
     rigging.CC3RigifierModal,
+    bake.CCiCBakeSettings,
+    bake.CCiCBaker,
+    bake.CCiCJpegify,
 
     springbones.CC3OperatorSpringBones,
     physics.CC3OperatorPhysics,
@@ -164,6 +171,7 @@ classes = (
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
     panels.CC3RigifyPanel,
+    panels.CCiCBakePanel,
     panels.CC3PipelineScenePanel,
     # create panels
     panels.CC3ToolsCreatePanel,
@@ -189,6 +197,7 @@ def register():
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
+    bpy.types.Scene.CCiCBakeProps = bpy.props.PointerProperty(type=properties.CCiCBakeProps)
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import)
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import_animation)
     bpy.types.TOPBAR_MT_file_export.append(exporter.menu_func_export)
@@ -206,3 +215,4 @@ def unregister():
         bpy.utils.unregister_class(cls)
 
     del(bpy.types.Scene.CC3ImportProps)
+    del(bpy.types.Scene.CCiCBakeProps)

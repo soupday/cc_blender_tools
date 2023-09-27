@@ -1719,6 +1719,11 @@ class CC3OperatorHair(bpy.types.Operator):
         mode_selection = utils.store_mode_selection_state()
 
         chr_cache = props.get_context_character_cache(context)
+
+        if not chr_cache:
+            self.report({"ERROR"}, "No current character!")
+            return {"FINISHED"}
+
         arm = chr_cache.get_armature()
         hair_mesh = utils.get_selected_mesh()
 

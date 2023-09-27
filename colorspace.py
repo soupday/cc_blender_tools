@@ -16,6 +16,7 @@
 
 
 import bpy
+from . import utils
 
 
 ALL_COLORSPACES = []
@@ -54,6 +55,8 @@ def try_set_color_space(image : bpy.types.Image, color_space_ref):
                 return True
             except:
                 pass
+
+    utils.log_error(f"Unable to set color space: {color_space}")
 
     return False
 

@@ -2242,3 +2242,75 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             dir_vectors[aspect] = vector
         return dir_vectors
 
+
+
+
+class CCiCBakeCache(bpy.types.PropertyGroup):
+    uid: bpy.props.IntProperty(default=0)
+    object: bpy.props.PointerProperty(type=bpy.types.Object)
+    source_material: bpy.props.PointerProperty(type=bpy.types.Material)
+    baked_material: bpy.props.PointerProperty(type=bpy.types.Material)
+
+
+class CCiCBakeMaterialSettings(bpy.types.PropertyGroup):
+    material: bpy.props.PointerProperty(type=bpy.types.Material)
+    max_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="4096")
+    diffuse_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    ao_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    sss_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    transmission_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    thickness_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    metallic_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    specular_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    roughness_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    emissive_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    alpha_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    normal_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="4096")
+    micronormal_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    micronormalmask_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    bump_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    mask_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    detail_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+
+
+class CCiCBakeProps(bpy.types.PropertyGroup):
+    auto_increment: bpy.props.IntProperty(default=100)
+    jpeg_quality: bpy.props.IntProperty(default=90, min=0, max=100)
+    png_compression: bpy.props.IntProperty(default=15, min=0, max=100)
+
+    target_mode: bpy.props.EnumProperty(items=vars.BAKE_TARGETS, default="BLENDER")
+
+    target_format: bpy.props.EnumProperty(items=vars.TARGET_FORMATS, default="JPEG")
+
+    bake_samples: bpy.props.IntProperty(default=5, min=1, max=64, description="The number of texture samples per pixel to bake. As there are no ray traced effects involved, 1 to 5 samples is usually enough.")
+    ao_in_diffuse: bpy.props.FloatProperty(default=0, min=0, max=1, description="How much of the ambient occlusion to bake into the diffuse")
+
+    smoothness_mapping: bpy.props.EnumProperty(items=vars.CONVERSION_FUNCTIONS, default="IR", description="Roughness to smoothness calculation")
+
+    allow_bump_maps: bpy.props.BoolProperty(default=True, description="Allow separate Bump and Normal Maps")
+    scale_maps: bpy.props.BoolProperty(default=False)
+    pack_gltf: bpy.props.BoolProperty(default=True, description="Pack AO, Roughness and Metallic into a single Texture for GLTF")
+
+    custom_sizes: bpy.props.BoolProperty(default=False)
+    bake_mixers: bpy.props.BoolProperty(default=True, description="Bake the result of any Color ID/RGB mask mixers on the materials")
+    max_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="4096")
+    diffuse_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    ao_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    sss_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    transmission_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    thickness_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    metallic_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    specular_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    roughness_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    emissive_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    alpha_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    normal_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="4096")
+    micronormal_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    micronormalmask_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    bump_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    mask_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    detail_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+
+    bake_path: bpy.props.StringProperty(default="Bake", subtype="DIR_PATH")
+    material_settings: bpy.props.CollectionProperty(type=CCiCBakeMaterialSettings)
+    bake_cache: bpy.props.CollectionProperty(type=CCiCBakeCache)

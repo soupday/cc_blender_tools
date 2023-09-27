@@ -173,6 +173,17 @@ def make_node_group_node(nodes, group, label, name):
     return group_node
 
 
+def make_gltf_settings_node(nodes):
+    gltf_group : bpy.types.NodeGroup = None
+    for group in bpy.data.node_groups:
+        if group.name == "glTF Settings":
+            gltf_group = group
+    if not gltf_group:
+        gltf_group = bpy.data.node_groups.new("glTF Settings", "ShaderNodeTree")
+        gltf_group.inputs.new("NodeSocketColor", "Occlusion")
+    return make_node_group_node(nodes, gltf_group, "glTF Settings", "glTF Settings")
+
+
 ## Node Socket Functions
 #
 
@@ -376,6 +387,18 @@ def has_connected_input(node, socket):
     socket = safe_node_input_socket(node, socket)
     try:
         return socket.is_linked
+    except:
+        pass
+    return False
+
+
+def is_mixer_connected(node : bpy.types.Node, socket):
+    socket = safe_node_input_socket(node, socket)
+    try:
+        mixer = get_node_connected_to_input(node, socket)
+        if mixer and mixer.type == "GROUP":
+            if vars.NODE_PREFIX in mixer.name and "rl_mixer" in mixer.name:
+                return True
     except:
         pass
     return False
@@ -807,7 +830,16 @@ def fetch_lib_image(name):
     raise ValueError("Unable to append iamge from library file!")
 
 
-def get_shader_nodes(mat, shader_name):
+def get_shader_node(nodes):
+    for n in nodes:
+        if n.type == "GROUP" and "(rl_" in n.name and "_shader)" in n.name:
+            name = n.node_tree.name
+            if vars.NODE_PREFIX in name and "_rl_" in name and "_shader_" in name:
+                return n
+    return None
+
+
+def get_shader_nodes(mat, shader_name = None):
     if mat and mat.node_tree:
         nodes = mat.node_tree.nodes
         shader_id = "(" + str(shader_name) + ")"
@@ -865,6 +897,30 @@ def create_custom_image_node(nodes, node_name, image, location = (0, 0)):
         image_node.image = image
     image_node.location = location
     return image_node
+
+
+def find_shader_texture(nodes, texture_type):
+    id = "(" + texture_type + ")"
+    for node in nodes:
+        if node.type == "TEX_IMAGE" and vars.NODE_PREFIX in node.name and id in node.name:
+            return node
+    return None
+
+
+def get_tex_image_size(node):
+    if node and node.image:
+        return node.image.size[0], node.image.size[1]
+    return 64, 64
+
+
+def get_largest_image_size(*nodes):
+    max_size = [0,0]
+    for node in nodes:
+        if node and node.image:
+            size = get_tex_image_size(node)
+            max_size[0] = max(max_size[0], size[0])
+            max_size[1] = max(max_size[1], size[1])
+    return max_size[0], max_size[1]
 
 
 # e.g.
