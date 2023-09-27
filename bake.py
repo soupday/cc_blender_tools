@@ -251,7 +251,7 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
 
 def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix = "",
                            override_size = 0, size_override_node = None, size_override_socket = None,
-                           exact_name = False, underscores = True):
+                           exact_name = False, underscores = True, no_prep = False):
     """Bakes the input to the supplied node and socket to an appropriate image.\n
        Image size is determined by the sizes of the connected image nodes (or overriden).\n
        Image name and path is determined by the texture channel id and material name and name prefix.\n
@@ -274,7 +274,7 @@ def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix 
     # bake the source node output onto the target image and re-save it
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir,
                                                name_prefix = name_prefix, exact_name = exact_name, underscores = underscores)
-    image_node = cycles_bake_color_output(mat, source_node, source_socket, image, image_name)
+    image_node = cycles_bake_color_output(mat, source_node, source_socket, image, image_name, no_prep=no_prep)
 
     # remove the image node
     nodes = mat.node_tree.nodes
@@ -285,7 +285,7 @@ def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix 
 
 def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix = "",
                             override_size = 0, size_override_node = None, size_override_socket = None,
-                            exact_name = False, underscores = True):
+                            exact_name = False, underscores = True, no_prep = False):
     """Bakes the output of the supplied node and socket to an appropriate image.\n
        Image size is determined by the sizes of the connected image nodes (or overriden).\n
        Image name and path is determined by the texture channel id, material name, bake dir and name prefix.\n
@@ -305,7 +305,7 @@ def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix
     # bake the source node output onto the target image and re-save it
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir,
                                                name_prefix = name_prefix, exact_name = exact_name, underscores = underscores)
-    image_node = cycles_bake_color_output(mat, node, socket, image, image_name)
+    image_node = cycles_bake_color_output(mat, node, socket, image, image_name, no_prep=no_prep)
 
     # remove the image node
     nodes = mat.node_tree.nodes
@@ -317,7 +317,7 @@ def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix
 def bake_rl_bump_and_normal(shader_node, bsdf_node, mat, channel_id, bake_dir,
                             normal_socket_name = "Normal Map", bump_socket_name = "Bump Map",
                             normal_strength_socket_name = "Normal Strength", bump_distance_socket_name = "Bump Strength",
-                            name_prefix = "", override_size = 0):
+                            name_prefix = "", override_size = 0, no_prep = False):
     """Bakes the normal map and bump map inputs to the supplied RL master shader node, to a combined
        normal map image which takes the normal and bump strengths into account.\n
        If supplied socket names are empty they will not be included in the bake.\n
@@ -364,7 +364,7 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, mat, channel_id, bake_dir,
 
     # bake the source node output onto the target image and re-save it
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, shader_node, normal_socket_name, bake_dir, name_prefix = name_prefix)
-    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name)
+    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name, no_prep=no_prep)
 
     # remove the bake nodes and restore the normal links to the bsdf
     if bump_map_node:
@@ -378,7 +378,7 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, mat, channel_id, bake_dir,
     return image
 
 
-def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", override_size = 0):
+def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", override_size = 0, no_prep = False):
     """Bakes the normal output of the supplied BSDF shader node, to a normal map image.\n
        Image size is determined by the sizes of the connected image nodes (or overriden).\n
        Image name and path is determined by the texture channel id, material name, bake dir and name prefix.\n
@@ -399,7 +399,7 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", ove
 
     # bake the source node output onto the target image and re-save it
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, bsdf_node, "Normal", bake_dir, name_prefix = name_prefix)
-    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name)
+    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name, no_prep=no_prep)
 
     if normal_input_node and normal_input_node.type == "BUMP":
         normal_input_node.inputs["Distance"].default_value = bump_distance
@@ -559,7 +559,7 @@ def pack_RGBA(mat, channel_id, pack_mode, bake_dir,
     return image
 
 
-def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.Image, image_name):
+def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.Image, image_name, no_prep = False):
     """Runs a cycles bake of the supplied source node and socket output onto the supplied image.\n
        Returns a new image node with the image."""
 
@@ -572,14 +572,15 @@ def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.
     image_node = nodeutils.make_image_node(nodes, image, "bake")
     image_node.name = image_name
 
-    bpy.context.scene.cycles.samples = BAKE_SAMPLES
     utils.log_info("Baking: " + image_name)
 
-    bake_state = prep_bake(mat=mat, make_surface=True)
+    if not no_prep:
+        bake_state = prep_bake(mat=mat, make_surface=True)
 
     nodeutils.link_nodes(links, source_node, source_socket, output_node, "Surface")
     image_node.select = True
     nodes.active = image_node
+
     bpy.ops.object.bake(type='COMBINED')
 
     bpy.context.scene.render.image_settings.color_depth = '8'
@@ -591,12 +592,13 @@ def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.
     if output_source:
         nodeutils.link_nodes(links, output_source, output_source_socket, output_node, "Surface")
 
-    post_bake(bake_state)
+    if not no_prep:
+        post_bake(bake_state)
 
     return image_node
 
 
-def cycles_bake_normal_output(mat, bsdf_node, image, image_name):
+def cycles_bake_normal_output(mat, bsdf_node, image, image_name, no_prep = False):
     """Runs a cycles bake of the normal output of the supplied BSDF shader node to the supplied image.
        Returns a new image node with the image."""
 
@@ -608,10 +610,10 @@ def cycles_bake_normal_output(mat, bsdf_node, image, image_name):
     image_node = nodeutils.make_image_node(nodes, image, "bake")
     image_node.name = image_name
 
-    bpy.context.scene.cycles.samples = BAKE_SAMPLES
     utils.log_info("Baking normal: " + image_name)
 
-    bake_state = prep_bake(mat=mat, make_surface=True)
+    if not no_prep:
+        bake_state = prep_bake(mat=mat, make_surface=True)
 
     nodeutils.link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
     image_node.select = True
@@ -624,7 +626,8 @@ def cycles_bake_normal_output(mat, bsdf_node, image, image_name):
     image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
     image.reload()
 
-    post_bake(bake_state)
+    if not no_prep:
+        post_bake(bake_state)
 
     return image_node
 
@@ -1424,7 +1427,7 @@ def get_bake_image_node_name(mat, global_suffix):
     return image_node_name
 
 
-def bake_shader_normal(source_mat, mat):
+def export_bake_shader_normal(source_mat, mat):
     props = bpy.context.scene.CCiCBakeProps
 
     nodes = mat.node_tree.nodes
@@ -1440,7 +1443,8 @@ def bake_shader_normal(source_mat, mat):
     #else:
     #    size = target_size
 
-    image = bake_bsdf_normal(bsdf_node, mat, target_suffix, path)
+    image = bake_bsdf_normal(bsdf_node, mat, target_suffix, path,
+                             no_prep=True)
 
     image_node = None
     if image:
@@ -1453,13 +1457,13 @@ def bake_shader_normal(source_mat, mat):
     return image_node
 
 
-def copy_or_bake_socket_input(source_mat, source_mat_cache, mat, to_node, to_socket, suffix, data = True):
+def export_bake_socket_input(source_mat, source_mat_cache, mat, to_node, to_socket, suffix, data = True):
     from_node = nodeutils.get_node_connected_to_input(to_node, to_socket)
     from_socket = nodeutils.get_socket_connected_to_input(to_node, to_socket)
-    return copy_or_bake_socket_output(source_mat, source_mat_cache, mat, from_node, from_socket, suffix, data)
+    return export_bake_socket_output(source_mat, source_mat_cache, mat, from_node, from_socket, suffix, data)
 
 
-def copy_or_bake_socket_output(source_mat, source_mat_cache, mat, from_node, from_socket, suffix, data = True):
+def export_bake_socket_output(source_mat, source_mat_cache, mat, from_node, from_socket, suffix, data = True):
     if from_node:
         image = None
 
@@ -1468,7 +1472,8 @@ def copy_or_bake_socket_output(source_mat, source_mat_cache, mat, from_node, fro
             image = copy_target(source_mat, mat, from_node, suffix, data)
         else:
             path = get_bake_path()
-            image = bake_node_socket_output(from_node, from_socket, mat, suffix, path, exact_name=True, underscores=True)
+            image = bake_node_socket_output(from_node, from_socket, mat, suffix, path,
+                                            exact_name=True, underscores=True, no_prep=True)
 
         if image:
             image_node_name = get_bake_image_node_name(mat, suffix)
@@ -1556,21 +1561,21 @@ def bake_export_material(mat, source_mat, source_mat_cache):
             if "AO" in bake_maps:
                 ao_strength = prep_ao(mat, shader_node)
                 if "AO" in shader_node.outputs:
-                    ao_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "AO", "AO")
+                    ao_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "AO", "AO")
                 else:
                     ao_node = nodeutils.find_shader_texture(nodes, "AO")
                     if ao_node:
-                        ao_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, ao_node, "Color", "AO")
+                        ao_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, ao_node, "Color", "AO")
             if "Diffuse" in bake_maps:
                 # if there is a "Diffuse" output node, bake that, otherwise bake the "Base Color" output node.
                 prep_diffuse(mat, shader_node)
                 if "Diffuse" in shader_node.outputs:
-                    diffuse_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Diffuse", "Diffuse", False)
+                    diffuse_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Diffuse", "Diffuse", False)
                 else:
-                    diffuse_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Base Color", "Diffuse", False)
+                    diffuse_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Base Color", "Diffuse", False)
         elif bsdf_node:
             # bake BSDF base color input
-            diffuse_bake_node = copy_or_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Base Color", "Diffuse", False)
+            diffuse_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Base Color", "Diffuse", False)
 
     # Subsurface Scattering Maps
     sss_bake_node = None
@@ -1579,9 +1584,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         if "Subsurface" in bake_maps:
             sss_radius = prep_sss(mat, shader_node)
             if can_bake_shader_node(shader_node, bsdf_node, "Subsurface"):
-                sss_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Subsurface", "Subsurface")
+                sss_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Subsurface", "Subsurface")
             elif bsdf_node:
-                sss_bake_node = copy_or_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Subsurface", "Subsurface")
+                sss_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Subsurface", "Subsurface")
 
     # Thickness Maps (Subsurface transmission)
     # the transmission map texture is not used, but it is added to the material nodes
@@ -1591,7 +1596,7 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         thickness_node = nodeutils.find_shader_texture(nodes, "TRANSMISSION")
         if thickness_node:
             utils.log_info("thickness texture found...")
-            thickness_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, thickness_node, "Color", "Thickness")
+            thickness_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, thickness_node, "Color", "Thickness")
 
     # Metallic Maps
     metallic_bake_node = None
@@ -1599,9 +1604,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         if "Metallic" in bake_maps:
             utils.log_info("Processing Metallic")
             if can_bake_shader_node(shader_node, bsdf_node, "Metallic"):
-                metallic_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Metallic", "Metallic")
+                metallic_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Metallic", "Metallic")
             elif bsdf_node:
-                metallic_bake_node = copy_or_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Metallic", "Metallic")
+                metallic_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Metallic", "Metallic")
 
     # Specular Maps
     specular_bake_node = None
@@ -1609,9 +1614,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         if "Specular" in bake_maps:
             utils.log_info("Processing Specular")
             if can_bake_shader_node(shader_node, bsdf_node, "Specular"):
-                specular_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Specular", "Specular")
+                specular_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Specular", "Specular")
             elif bsdf_node:
-                specular_bake_node = copy_or_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Specular", "Specular")
+                specular_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Specular", "Specular")
     specular_scale = 1.0
     if shader_node:
         specular_scale = nodeutils.get_node_input_value(shader_node, "Specular Scale", specular_scale)
@@ -1624,9 +1629,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         if "Roughness" in bake_maps:
             utils.log_info("Processing Roughness")
             if can_bake_shader_node(shader_node, bsdf_node, "Roughness"):
-                roughnesss_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Roughness", "Roughness")
+                roughnesss_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Roughness", "Roughness")
             elif bsdf_node:
-                roughnesss_bake_node = copy_or_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Roughness", "Roughness")
+                roughnesss_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Roughness", "Roughness")
 
     # Emission Maps
     # copy emission maps directly...
@@ -1637,9 +1642,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
             emission_node = nodeutils.find_shader_texture(nodes, "EMISSION")
             if emission_node:
                 if can_bake_shader_node(shader_node, bsdf_node, "Emission"):
-                    emission_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, emission_node, "Color", "Emission")
+                    emission_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, emission_node, "Color", "Emission")
                 elif bsdf_node:
-                    emission_bake_node = copy_or_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Emission", "Emission")
+                    emission_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Emission", "Emission")
 
     # Alpha Maps
     alpha_bake_node = None
@@ -1650,22 +1655,22 @@ def bake_export_material(mat, source_mat, source_mat_cache):
             if (can_bake_shader_node(shader_node, bsdf_node, "Alpha")
                 or (shader_node and "Opacity" in shader_node.outputs)):
                 if "Opacity" in shader_node.outputs:
-                    alpha_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Opacity", "Alpha")
+                    alpha_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Opacity", "Alpha")
                     mat.blend_method = "BLEND"
                     mat.shadow_method = "NONE"
                 else:
-                    alpha_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Alpha", "Alpha")
+                    alpha_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Alpha", "Alpha")
             elif bsdf_node:
-                alpha_bake_node = copy_or_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Alpha", "Alpha")
+                alpha_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Alpha", "Alpha")
 
     # Transmission Maps (Refractive Transparency)
     transmission_bake_node = None
     if nodeutils.has_connected_input(bsdf_node, "Transmission"):
         if "Transmission" in bake_maps:
             if can_bake_shader_node(shader_node, bsdf_node, "Transmission"):
-                transmission_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Transmission", "Transmission")
+                transmission_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Transmission", "Transmission")
             elif bsdf_node:
-                transmission_bake_node = copy_or_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Transmission", "Transmission")
+                transmission_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Transmission", "Transmission")
 
     # Bump Maps
     # if shader group node has a "Bump Map" input, then copy the bump map texture directly
@@ -1677,13 +1682,13 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                 bump_node = nodeutils.find_shader_texture(nodes, "BUMP")
                 bump_distance = nodeutils.get_node_input_value(shader_node, "Bump Strength", 0.01)
                 if bump_node:
-                    bump_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, bump_node, "Color", "Bump")
+                    bump_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, bump_node, "Color", "Bump")
             elif bsdf_node:
                 input_node = nodeutils.get_node_connected_to_input(bsdf_node, "Normal")
                 if input_node.type == "BUMP":
                     height_node = nodeutils.get_node_connected_to_input(input_node, "Height")
                     if height_node:
-                        bump_bake_node = copy_or_bake_socket_input(source_mat, source_mat_cache, mat, input_node, "Height", "Bump")
+                        bump_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, input_node, "Height", "Bump")
                         bump_distance = nodeutils.get_node_input_value(input_node, "Distance", 1.0)
 
     # Normal Maps
@@ -1701,19 +1706,19 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                 normal_strength = nodeutils.get_node_input_value(shader_node, "Normal Strength", 1.0)
                 if "Blend Normal" in shader_node.outputs:
                     normal_strength = 1.0
-                    normal_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Blend Normal", "Normal")
+                    normal_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Blend Normal", "Normal")
                 else:
                     normal_node = nodeutils.find_shader_texture(nodes, "NORMAL")
                     if normal_node:
-                        normal_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, normal_node, "Color", "Normal")
+                        normal_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, normal_node, "Color", "Normal")
                     else:
-                        normal_bake_node = bake_shader_normal(source_mat, mat)
+                        normal_bake_node = export_bake_shader_normal(source_mat, mat)
             elif bsdf_node:
                 input_node = nodeutils.get_node_connected_to_input(bsdf_node, "Normal")
                 if input_node:
                     if input_node.type == "NORMAL_MAP":
                         # just a normal mapper, bake the entire normal input
-                        normal_bake_node = bake_shader_normal(source_mat, mat)
+                        normal_bake_node = export_bake_shader_normal(source_mat, mat)
                         normal_strength = nodeutils.get_node_input_value(input_node, "Strength", 1.0)
                     elif input_node.type == "BUMP":
                         # bump node mappers can have heightmap and normal inputs
@@ -1721,16 +1726,16 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                         height_node = nodeutils.get_node_connected_to_input(input_node, "Height")
                         if bump_to_normal:
                             # bake everything into the normal
-                            normal_bake_node = bake_shader_normal(source_mat, mat)
+                            normal_bake_node = export_bake_shader_normal(source_mat, mat)
                             normal_strength = 1.0
                         else:
                             # bake the normal separately
                             if normal_node:
-                                normal_bake_node = copy_or_bake_socket_input(source_mat, source_mat_cache, mat, input_node, "Normal", "Normal")
+                                normal_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, input_node, "Normal", "Normal")
                                 normal_strength = nodeutils.get_node_input_value(normal_node, "Strength", 1.0)
                     else:
                         # something is plugged into the normals, but can't tell what, so just bake the shader normals
-                        normal_bake_node = bake_shader_normal(source_mat, mat)
+                        normal_bake_node = export_bake_shader_normal(source_mat, mat)
 
     # Micro Normals
     # always copy the micro normal map texture directly
@@ -1755,7 +1760,7 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                 utils.log_info(f"Tiling: {micro_normal_scale}")
                 # disconnect any tiling/mapping nodes before baking the micro normal...
                 nodeutils.unlink_node_input(links, micro_normal_node, "Vector")
-                micro_normal_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, micro_normal_node, "Color", "MicroNormal")
+                micro_normal_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, micro_normal_node, "Color", "MicroNormal")
 
     # Micro Normal Mask
     # if the shader group node as a "Normal Mask" float output, bake that,
@@ -1766,13 +1771,13 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         if "MicroNormalMask" in bake_maps:
             if shader_node:
                 if "Normal Mask" in shader_node.outputs:
-                    micro_normal_mask_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Normal Mask", "MicroNormalMask")
+                    micro_normal_mask_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Normal Mask", "MicroNormalMask")
                     micro_normal_strength = 1.0
                 else:
                     micro_normal_mask_node = nodeutils.find_shader_texture(nodes, "MICRONMASK")
                     micro_normal_strength = nodeutils.get_node_input_value(shader_node, "Micro Normal Strength", 1.0)
                     if micro_normal_mask_node:
-                        micro_normal_mask_bake_node = copy_or_bake_socket_output(source_mat, source_mat_cache, mat, micro_normal_mask_node, "Color", "MicroNormalMask")
+                        micro_normal_mask_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, micro_normal_mask_node, "Color", "MicroNormalMask")
 
     # Post processing
     #
@@ -2373,6 +2378,7 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
 
 def bake_character(chr_cache):
     props = bpy.context.scene.CCiCBakeProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     utils.log_info("")
     utils.log_info("Baking Selected Objects:")
@@ -2384,6 +2390,9 @@ def bake_character(chr_cache):
     bake_state = prep_bake(samples = props.bake_samples,
                            image_format = props.target_format,
                            make_surface = True)
+
+    if prefs.bake_use_gpu:
+        set_cycles_samples(samples=props.bake_samples, adaptive_samples=0.01, use_gpu=True, denoising=False)
 
     materials_done = []
     obj : bpy.types.Object
@@ -2673,7 +2682,10 @@ def remove_material_bake_settings(mat):
             utils.remove_from_collection(props.material_settings, ms)
 
 
-def revert_baked_materials(objects):
+def revert_baked_materials(chr_cache):
+
+    objects = get_export_objects(chr_cache)
+
     for obj in objects:
         if obj.type == "MESH":
             for i in range(0, len(obj.data.materials)):
@@ -2683,7 +2695,10 @@ def revert_baked_materials(objects):
                     obj.data.materials[i] = bc.source_material
 
 
-def restore_baked_materials(objects):
+def restore_baked_materials(chr_cache):
+
+    objects = get_export_objects(chr_cache)
+
     for obj in objects:
         if obj.type == "MESH":
             for i in range(0, len(obj.data.materials)):
@@ -2748,10 +2763,13 @@ class CCiCBakeSettings(bpy.types.Operator):
         )
 
     def execute(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         obj = context.object
         mat = utils.context_material(context)
         mat_settings = get_material_bake_settings(mat)
+        chr_cache = props.get_context_character_cache(context)
 
         if obj and obj.type == "MESH" and mat:
 
@@ -2762,10 +2780,10 @@ class CCiCBakeSettings(bpy.types.Operator):
                 remove_material_bake_settings(mat)
 
             if self.param == "SOURCE":
-                revert_baked_materials(context.selected_objects)
+                revert_baked_materials(chr_cache)
 
             if self.param == "BAKED":
-                restore_baked_materials(context.selected_objects)
+                restore_baked_materials(chr_cache)
 
         return {"FINISHED"}
 

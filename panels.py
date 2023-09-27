@@ -3013,6 +3013,7 @@ class CCiCBakePanel(bpy.types.Panel):
 
     def draw(self, context):
         props = bpy.context.scene.CCiCBakeProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         layout = self.layout
         layout.use_property_split = False
@@ -3033,7 +3034,11 @@ class CCiCBakePanel(bpy.types.Panel):
         col_1.label(text="Target")
         col_2.prop(props, "target_mode", text="", slider = True)
         col_1.label(text="Bake Samples")
-        col_2.prop(props, "bake_samples", text="", slider = True)
+
+        crow = col_2.row(align=True)
+        crow.prop(props, "bake_samples", text="", slider = True)
+        crow.prop(prefs, "bake_use_gpu", text="GPU", toggle=True)
+
         col_1.label(text="Format")
         col_2.prop(props, "target_format", text="", slider = True)
         if props.target_format == "JPEG":
@@ -3130,7 +3135,11 @@ class CCiCBakePanel(bpy.types.Panel):
             box.label(text="SAVE Blend file before baking")
             box.label(text="or use absolute bake path!")
 
+        layout.separator()
+
+        layout.box().label(text="Utils", icon="INFO")
+
         row = layout.row()
-        row.scale_y = 2
+        row.scale_y = 1
         row.operator("ccic.jpegify", icon="PLAY", text="Jpegify")
 
