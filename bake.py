@@ -1468,6 +1468,7 @@ def export_bake_socket_output(source_mat, source_mat_cache, mat, from_node, from
         image = None
 
         # Copy, don't bake if the input is a texture (Color socket)
+        # TODO this never happens...
         if from_node.type == "TEX_IMAGE" and from_socket == "Color":
             image = copy_target(source_mat, mat, from_node, suffix, data)
         else:
@@ -1548,7 +1549,8 @@ def bake_export_material(mat, source_mat, source_mat_cache):
     utils.log_info("")
 
     # Texture Map Baking
-    #
+    # Note: As mat is a copy of the source material, which is repurposed into the target material
+    # it's OK to change the shader inputs without restoring them
 
     # Diffuse Maps & AO
     diffuse_bake_node = None

@@ -413,7 +413,6 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
                     bone_drivers[driver_id]["shape_keys"].append(shape_key_def)
 
     # create drivers for each (bone, property, index) driven by shape keys
-    # TODO: check if driver and vars exists and remove old drivers?
     for driver_id in bone_drivers.keys():
         bone_driver_def = bone_drivers[driver_id]
         pose_bone_name = bone_driver_def["bone_name"]

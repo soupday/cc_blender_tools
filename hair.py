@@ -606,6 +606,7 @@ def selected_cards_to_curves(chr_cache, obj, card_dirs, one_loop_per_card = True
         loops = card["loops"]
         for loop in loops:
             add_poly_spline(loop, curve)
+
     # TODO
     # Put the curve object to the same scale as the body mesh
     # With roots above the scalp plant the root of the curves into the scalp? (within tolerance)

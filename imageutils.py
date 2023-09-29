@@ -251,8 +251,6 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
                             utils.log_info(f"Using embedded image: {tex_mapping.image.name}")
                             return tex_mapping.image
 
-        # TODO fall back to images detected in mat_cache (nmot currently passed)
-
         image_file = search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type)
         if image_file:
             return load_image(image_file, color_space, processed_images)

@@ -771,12 +771,12 @@ def active_select_body(chr_cache):
 
 
 def render_image(context):
-    # TODO
+    # TBD
     pass
 
 
 def render_animation(context):
-    # TODO
+    # TBD
     pass
 
 

@@ -510,10 +510,6 @@ def copy_and_update_texture_path(tex_info, path_key, old_path, new_path, old_nam
        update the images in the blend file with the new location."""
 
     # at this point all the image paths have been re-written as absolute paths
-
-    # TODO: this needs to cope with materials being reused across multiple meshes
-    #       currently it is stacking relative paths each time it's called...
-
     sep = os.path.sep
     old_tex_base = os.path.join(old_path, f"textures{sep}{old_name}")
     old_fbm_base = os.path.join(old_path, f"{old_name}.fbm")
