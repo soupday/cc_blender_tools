@@ -551,6 +551,8 @@ SHADER_MATRIX = [
             ["Neck Roughness Mod", "", "skin_neck_roughness_mod"],
             ["Emissive Color", "", "skin_emissive_color"],
             ["Emission Strength", "func_emission_scale", "skin_emission_strength"],
+            ["Height Scale", "", "skin_height_scale"],
+            ["Height Delta Scale", "", "skin_height_delta_scale"],
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
@@ -636,6 +638,8 @@ SHADER_MATRIX = [
             ["skin_secondary_specular_scale", 0.6, "DEF"],
             ["skin_secondary_roughness_power", 2.0, "DEF"],
             ["skin_specular_mix", 0.2, "DEF"],
+            ["skin_height_scale", 0.3, "DEF"],
+            ["skin_height_delta_scale", 0.0, "DEF"],
         ],
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
@@ -710,6 +714,9 @@ SHADER_MATRIX = [
             ["PROP", "Normal Blend", "skin_normal_blend_strength", True, "Normal Blend Map"],
             ["PROP", "Micro Normal Strength", "skin_micro_normal_strength", True, "Micro Normal Map"],
             ["PROP", "Micro Normal Tiling", "skin_micro_normal_tiling", True, "Micro Normal Map"],
+            ["PROP", "Displacement Scale", "skin_height_scale", True, "Height Map"],
+            ["PROP", "Wrinkle Displacement", "skin_height_delta_scale", True, "Height Delta"],
+            ["OP", "Build Displacement", "cc3.bake", "PLAY", "BUILD_DISPLACEMENT", "Normal Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "*Emissive Color", "skin_emissive_color", False],
             ["PROP", "Emission Strength", "skin_emission_strength", True],

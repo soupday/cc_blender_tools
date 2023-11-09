@@ -14,10 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy, os
+import bpy, os, socket
 from mathutils import Vector
 
-from . import channel_mixer, imageutils, meshutils, sculpting, materials, springbones, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
+from . import net, channel_mixer, imageutils, meshutils, sculpting, materials, springbones, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -484,6 +484,38 @@ def update_rig_target(self, context):
             self.hair_rig_bind_weight_curve = 0.5
             self.hair_rig_bind_bone_variance = 0.75
 
+def update_link_target(self, context):
+    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
+    if props.link_target == "BLENDER":
+        props.link_port = 9334
+    elif props.link_target == "CCIC":
+        props.link_port = 9333
+    elif props.link_target == "UNITY":
+        props.link_port = 9335
+    else:
+        props.link_port = 9333
+
+
+def update_link_host(self, context):
+    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
+    host = props.link_host
+    if host:
+        try:
+            print(socket.gethostbyname(host))
+            props.link_host_ip = socket.gethostbyname(host)
+        except:
+            props.link_host_ip = "127.0.0.1"
+
+
+def update_link_host_ip(self, context):
+    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
+    host_ip = props.link_host_ip
+    if host_ip:
+        try:
+            props.link_host = socket.gethostbyaddr(host_ip)
+        except:
+            props.link_host = ""
+
 
 class CC3OperatorProperties(bpy.types.Operator):
     """CC3 Property Functions"""
@@ -589,6 +621,8 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_head_shader_skin_micro_normal_tiling)
     skin_micro_normal_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_micro_normal_tiling"))
+    skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_height_scale"))
+    skin_height_delta_scale: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_height_delta_scale"))
 
 class CC3SkinParameters(bpy.types.PropertyGroup):
     # shader (rl_skin_shader)
@@ -2133,6 +2167,22 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     rigified_action_list_index: bpy.props.IntProperty(default=-1)
     rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
 
+    link_listening: bpy.props.BoolProperty(default=False)
+    link_connected: bpy.props.BoolProperty(default=False)
+    link_stop: bpy.props.BoolProperty(default=False)
+    link_disconnect: bpy.props.BoolProperty(default=False)
+    link_host: bpy.props.StringProperty(default="localhost", update=update_link_host)
+    link_host_ip: bpy.props.StringProperty(default="127.0.0.1")
+    link_target: bpy.props.EnumProperty(items=[
+                        ("BLENDER","Blender","Connect to another Blender instance running on another machine"),
+                        ("CCIC","CC4/iClone","Connect to Character Creator 4 or iClone"),
+                        ("UNITY","Unity","Connect to Unity"),
+                    ], default="CCIC", name = "Data Link Target", update=update_link_target)
+    link_port: bpy.props.IntProperty(default=9333)
+
+    # property to poke to cause a UI update
+    poke_me: bpy.props.IntProperty(default=0)
+
     def get_any_character_cache_from_objects(self, objects, search_materials = False):
         chr_cache : CC3CharacterCache
 
@@ -2249,8 +2299,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                 vector = Vector((0,-1)).normalized()
             dir_vectors[aspect] = vector
         return dir_vectors
-
-
 
 
 class CCiCBakeCache(bpy.types.PropertyGroup):

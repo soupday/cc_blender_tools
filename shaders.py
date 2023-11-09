@@ -1019,7 +1019,7 @@ def connect_sss_shader(obj, mat, mat_json, processed_images):
 
 def fix_sss_method(bsdf):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    if prefs.render_target == "CYCLES" and utils.is_blender_version("3.0.0"):
+    if prefs.render_target == "CYCLES" and utils.B300():
         # Blender 3.0 defaults to random walk, which does not work well with hair
         if bsdf.type == "GROUP":
             bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)

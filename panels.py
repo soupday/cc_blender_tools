@@ -2788,6 +2788,29 @@ class CC3ToolsUtilityPanel(bpy.types.Panel):
         row = layout.row()
         row.operator("cc3.character", icon="MATERIAL", text="Match Materials").param = "MATCH_MATERIALS"
 
+        column = layout.column()
+        column.prop(props, "link_host", text="Host")
+        column.prop(props, "link_target", text="Target")
+        if props.link_listening or props.link_connected:
+            column.enabled = False
+
+        column = layout.column()
+        row = column.row()
+        row.scale_y = 2
+        text = "Connect"
+        if props.link_connected:
+            row.alert = True
+            text = "Linked"
+        elif props.link_listening:
+            text = "Listening..."
+        depressed = props.link_listening and not props.link_connected
+        if props.link_connected:
+            row.operator("ccic.listener", icon="LINKED", text="Disconnect").param = "DISCONNECT"
+        else:
+            row.operator("ccic.listener", icon="LINKED", text=text, depress=depressed).param = "START"
+        row = column.row()
+        row.operator("ccic.listener", icon="X", text="Stop").param = "STOP"
+        #layout.operator("ccic.listener", icon="X", text="Send CC4").param = "SEND_CC4"
 
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):

@@ -243,10 +243,10 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     cycles_sss_skin_v118: bpy.props.FloatProperty(default=0.35)
     cycles_sss_hair_v118: bpy.props.FloatProperty(default=0.025)
-    cycles_sss_teeth: bpy.props.FloatProperty(default=0.1)
-    cycles_sss_tongue: bpy.props.FloatProperty(default=0.1)
+    cycles_sss_teeth: bpy.props.FloatProperty(default=0.4)
+    cycles_sss_tongue: bpy.props.FloatProperty(default=0.25)
     cycles_sss_eyes: bpy.props.FloatProperty(default=0.025)
-    cycles_sss_default: bpy.props.FloatProperty(default=0.1)
+    cycles_sss_default: bpy.props.FloatProperty(default=0.25)
     cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
     # old
     cycles_sss_skin: bpy.props.FloatProperty(default=0.2)

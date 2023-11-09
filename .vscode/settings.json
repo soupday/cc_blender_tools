@@ -1,12 +1,5 @@
 {
-    "python.linting.pylintEnabled": true,
-    "python.linting.enabled": false,
     "python.autoComplete.extraPaths": ["F:\\Blender\\blender_autocomplete-master\\2.83"],
-    "python.linting.pylintArgs": [
-        "--init-hook",
-        //"import sys; sys.path.append('F:\\Blender\\blender_autocomplete-master\\2.83'); sys.path.append('${workspaceFolder}')"
-        "import sys; sys.path.append('F:\\Blender\\blender_autocomplete-master\\2.83');"
-    ],
     "python.analysis.extraPaths": [
         "F:\\Blender\\blender_autocomplete-master\\2.83"
     ],

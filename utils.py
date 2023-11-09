@@ -1203,6 +1203,37 @@ def find_layer_collection(name, layer_collection = None):
     return None
 
 
+def B290():
+    return is_blender_version("2.90.0")
+
+def B291():
+    return is_blender_version("2.91.0")
+
+def B292():
+    return is_blender_version("2.92.0")
+
+def B293():
+    return is_blender_version("2.93.0")
+
+def B300():
+    return is_blender_version("3.0.0")
+
+def B310():
+    return is_blender_version("3.1.0")
+
+def B320():
+    return is_blender_version("3.2.0")
+
+def B321():
+    return is_blender_version("3.2.1")
+
+def B330():
+    return is_blender_version("3.3.0")
+
+def B400():
+    return is_blender_version("4.0.0")
+
+
 def is_blender_version(version: str, test = "GTE"):
     """e.g. is_blender_version("3.0.0", "GTE")"""
     major, minor, subversion = version.split(".")
@@ -1382,7 +1413,7 @@ def is_valid_icon(icon):
 
 
 def check_icon(icon):
-    if is_blender_version("3.2.1"):
+    if B321():
         if icon == "OUTLINER_OB_HAIR":
             return "OUTLINER_OB_CURVES"
         elif icon == "HAIR":

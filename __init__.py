@@ -49,6 +49,8 @@ if "bpy" in locals():
     importlib.reload(sculpting)
     importlib.reload(hair)
     importlib.reload(colorspace)
+    importlib.reload(normal)
+    importlib.reload(net)
 
 import bpy
 
@@ -85,6 +87,8 @@ from . import rigging
 from . import sculpting
 from . import hair
 from . import colorspace
+from . import normal
+from . import net
 
 
 bl_info = {
@@ -162,6 +166,7 @@ classes = (
     sculpting.CC3OperatorSculptExport,
     hair.CC3OperatorHair,
     hair.CC3ExportHair,
+    net.CCiCListener,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
@@ -183,6 +188,8 @@ classes = (
     panels.CC3CreateScenePanel,
     # control panels
     panels.CC3SpringControlPanel,
+    # test panels
+    panels.CC3ToolsUtilityPanel,
 
     preferences.CC3ToolsAddonPreferences,
     preferences.MATERIAL_UL_weightedmatslots,

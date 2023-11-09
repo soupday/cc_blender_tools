@@ -795,7 +795,7 @@ def convert_to_rl_pbr(mat, mat_cache):
             alpha_value = bsdf_node.inputs["Alpha"].default_value
 
             if bsdf_node.inputs["Emission"].is_linked:
-                if utils.is_blender_version("2.93.0"):
+                if utils.B293():
                     emission_value = bsdf_node.inputs["Emission Strength"].default_value
                 else:
                     emission_value = 1.0

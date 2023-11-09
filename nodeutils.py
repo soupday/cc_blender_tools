@@ -27,15 +27,6 @@ max_cursor = mathutils.Vector((0,0))
 new_nodes = []
 
 
-def get_shader_input(mat, input):
-    if mat.node_tree is not None:
-        for n in mat.node_tree.nodes:
-            if n.type == "BSDF_PRINCIPLED":
-                if input in n.inputs:
-                    return n.inputs[input]
-    return None
-
-
 def clear_cursor():
     cursor_top.x = 0
     cursor_top.y = 0
@@ -278,6 +269,28 @@ def set_node_output_value(node, socket, value):
             socket.default_value = utils.match_dimensions(socket.default_value, value)
         except:
             utils.log_detail("Unable to set output: " + node.name + "[" + str(socket) + "]")
+
+
+BLENDER_4_SOCKET_REDIRECT = {
+    "BSDF_PRINCIPLED": {
+        "Subsurface": "Subsurface Weight",
+        "Specular": "Specular IOR Level",
+        "Sheen": "Sheen Weight",
+        "Emission": "Emission Color",
+    }
+}
+
+
+def input_socket_redirect(node, socket):
+    if utils.B400():
+        if node.type in BLENDER_4_SOCKET_REDIRECT:
+            mappings = BLENDER_4_SOCKET_REDIRECT[node.type]
+            socket_name = safe_socket_name(socket)
+            if socket_name in mappings:
+                blender_4_socket = mappings[socket_name]
+                if blender_4_socket in node.inputs:
+                    return node.inputs[blender_4_socket]
+    return safe_node_input_socket(node, socket)
 
 
 def link_nodes(links, from_node, from_socket, to_node, to_socket):
@@ -591,7 +604,14 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
     # connect all group_node outputs to BSDF inputs:
     if has_group_node and has_bsdf:
         for socket in group_node.outputs:
-            link_nodes(links, group_node, socket.name, bsdf_node, socket.name)
+            to_socket = input_socket_redirect(bsdf_node, socket.name)
+            link_nodes(links, group_node, socket.name, bsdf_node, to_socket)
+
+    if utils.B400():
+        set_node_input_value(bsdf_node, "Subsurface Scale", 0.3)
+        set_node_input_value(bsdf_node, "Sheen Roughness", 0.05)
+        if has_connected_input(bsdf_node, "Emission Color"):
+            set_node_input_value(bsdf_node, "Emission Strength", 1.0)
 
     # connect group_node outputs to any mix_node inputs:
     if has_mix_node and has_group_node:

@@ -821,9 +821,9 @@ def cycles_setup(context):
             obj = obj_cache.get_object()
             if not modifiers.has_modifier(obj, "SUBSURF"):
                 mod = obj.modifiers.new(name = "Subdivision", type = "SUBSURF")
-                if utils.is_blender_version("2.91.0"):
+                if utils.B291():
                     mod.boundary_smooth = 'PRESERVE_CORNERS'
-            if utils.is_blender_version("2.90.0"):
+            if utils.B290():
                 if obj.cycles.shadow_terminator_offset == 0.0:
                     obj.cycles.shadow_terminator_offset = 0.1
 

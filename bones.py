@@ -346,8 +346,11 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                 bone_def.append(bone.name)
 
                 # set the edit bone layers
-                for l in range(0, 32):
-                    bone.layers[l] = l == layer
+                if utils.B400():
+                    pass
+                else:
+                    for l in range(0, 32):
+                        bone.layers[l] = l == layer
 
                 # set the bone parent
                 parent_bone = get_edit_bone(dst_rig, parent_name)
@@ -359,8 +362,11 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                 for bone_def in src_bone_defs:
                     name = bone_def[7]
                     pose_bone = dst_rig.data.bones[name]
-                    for l in range(0, 32):
-                        pose_bone.layers[l] = l == layer
+                    if utils.B400():
+                        pass
+                    else:
+                        for l in range(0, 32):
+                            pose_bone.layers[l] = l == layer
 
     return src_bone_defs
 
@@ -557,20 +563,29 @@ def set_edit_bone_flags(edit_bone, flags, deform):
 
 
 def show_bone_layers(rig, bone):
-    for i in range(0, 32):
-        if bone.layers[i]:
-            rig.data.layers[i] = True
+    if utils.B400():
+        pass
+    else:
+        for i in range(0, 32):
+            if bone.layers[i]:
+                rig.data.layers[i] = True
 
 
 def show_all_layers(rig):
-    for i in range(0, 32):
-        rig.data.layers[i] = True
+    if utils.B400():
+        pass
+    else:
+        for i in range(0, 32):
+            rig.data.layers[i] = True
 
 
 def store_armature_settings(rig):
-    layers = []
-    for i in range(0, 32):
-        layers.append(rig.data.layers[i])
+    if utils.B400():
+        layers = None
+    else:
+        layers = []
+        for i in range(0, 32):
+            layers.append(rig.data.layers[i])
     visibility = { "layers": layers,
                    "show_in_front": rig.show_in_front,
                    "display_type": rig.display_type,
@@ -581,9 +596,12 @@ def store_armature_settings(rig):
 
 
 def restore_armature_settings(rig, visibility):
-    layers = visibility["layers"]
-    for i in range(0, 32):
-        rig.data.layers[i] = layers[i]
+    if utils.B400():
+        pass
+    else:
+        layers = visibility["layers"]
+        for i in range(0, 32):
+            rig.data.layers[i] = layers[i]
     rig.show_in_front = visibility["show_in_front"]
     rig.display_type = visibility["display_type"]
     rig.data.pose_position = visibility["pose_position"]
@@ -602,26 +620,30 @@ def show_armature_layers(rig : bpy.types.Object, layer_list : list, in_front = F
     rig.display_type = 'WIRE' if wireframe else 'SOLID'
     armature : bpy.types.Armature = rig.data
 
-    utils.edit_mode_to(rig)
-    for i in range(0, 32):
-        if i in layer_list:
-            armature.layers[i] = True
-        else:
-            armature.layers[i] = False
+    if utils.B400():
+        pass
 
-    utils.pose_mode_to(rig)
-    for i in range(0, 32):
-        if i in layer_list:
-            armature.layers[i] = True
-        else:
-            armature.layers[i] = False
+    else:
+        utils.edit_mode_to(rig)
+        for i in range(0, 32):
+            if i in layer_list:
+                armature.layers[i] = True
+            else:
+                armature.layers[i] = False
 
-    utils.object_mode_to(rig)
-    for i in range(0, 32):
-        if i in layer_list:
-            armature.layers[i] = True
-        else:
-            armature.layers[i] = False
+        utils.pose_mode_to(rig)
+        for i in range(0, 32):
+            if i in layer_list:
+                armature.layers[i] = True
+            else:
+                armature.layers[i] = False
+
+        utils.object_mode_to(rig)
+        for i in range(0, 32):
+            if i in layer_list:
+                armature.layers[i] = True
+            else:
+                armature.layers[i] = False
 
     return
 
@@ -635,14 +657,20 @@ def set_bone_layer(rig, bone_name, layer):
 
 def set_edit_bone_layer(rig, bone_name, layer):
     edit_bone = rig.data.edit_bones[bone_name]
-    for l in range(0, 32):
-        edit_bone.layers[l] = l == layer
+    if utils.B400():
+        pass
+    else:
+        for l in range(0, 32):
+            edit_bone.layers[l] = l == layer
 
 
 def set_pose_bone_layer(rig, bone_name, layer):
     pose_bone = rig.data.bones[bone_name]
-    for l in range(0, 32):
-        pose_bone.layers[l] = l == layer
+    if utils.B400():
+        pass
+    else:
+        for l in range(0, 32):
+            pose_bone.layers[l] = l == layer
 
 
 def copy_position(rig, bone, copy_bones, offset):
@@ -993,9 +1021,12 @@ def make_bones_visible(arm, groups = None):
             if pose_bone.bone_group.name not in groups:
                 bone.hide = True
         # make all active bone layers visible so they can be made visible and selected
-        for i, l in enumerate(bone.layers):
-            if l:
-                arm.data.layers[i] = True
+        if utils.B400():
+            pass
+        else:
+            for i, l in enumerate(bone.layers):
+                if l:
+                    arm.data.layers[i] = True
         # show and select bone
         bone.hide = False
         bone.hide_select = False

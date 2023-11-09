@@ -1200,7 +1200,7 @@ def add_shape_key_drivers(chr_cache, rig):
 
     drivers.add_body_shape_key_drivers(chr_cache, True)
 
-    if utils.is_blender_version("3.1.0", "GTE"):
+    if utils.B310():
         left_data_path = bones.get_data_rigify_limb_property("LEFT_LEG", "IK_Stretch")
         right_data_path = bones.get_data_rigify_limb_property("RIGHT_LEG", "IK_Stretch")
         expression = "pow(ik_stretch, 3)"
@@ -1260,7 +1260,7 @@ def modify_rigify_rig(cc3_rig, rigify_rig, rigify_data):
             if edit_bone.name.startswith("DEF-palm"):
                 edit_bone.use_deform = False
 
-    if utils.is_blender_version("3.0.0"):
+    if utils.B300():
         if select_rig(rigify_rig):
             utils.log_info("Resizing and Repositioning rig controls:")
             utils.log_indent()
@@ -2076,7 +2076,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                             bones.add_copy_location_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, scale_influence * influence, "LOCAL_WITH_PARENT")
                         else:
                             space = "LOCAL"
-                            if utils.is_blender_version("3.1.0"):
+                            if utils.B310():
                                 space = "LOCAL_OWNER_ORIENT"
                             bones.add_copy_location_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, scale_influence * influence, space)
                         bones.add_copy_rotation_constraint(source_rig, retarget_rig, source_bone_name, org_bone_name, influence)
@@ -2187,7 +2187,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data):
                         space = "WORLD"
                         if "_LOCAL" in flags:
                             space = "LOCAL"
-                            if utils.is_blender_version("3.1.0"):
+                            if utils.B310():
                                 space = "LOCAL_OWNER_ORIENT"
                         if "ROT_" in flags:
                             con = bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, correction_bone_name, org_bone_name, 1.0, space)

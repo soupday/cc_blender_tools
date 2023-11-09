@@ -1091,7 +1091,7 @@ def free_cache(obj):
         # free the baked cache
         if cloth_mod.point_cache.is_baked:
             utils.log_info("Freeing point cache...")
-            if utils.is_blender_version("3.2.0"):
+            if utils.B320():
                 with bpy.context.temp_override(point_cache=cloth_mod.point_cache):
                     bpy.ops.ptcache.free_bake()
             else:

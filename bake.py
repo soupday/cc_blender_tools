@@ -17,7 +17,7 @@
 import bpy
 import os
 from mathutils import Vector
-from . import colorspace, imageutils, wrinkle, nodeutils, properties, utils, params, vars
+from . import normal, colorspace, imageutils, wrinkle, nodeutils, properties, utils, params, vars
 from .exporter import get_export_objects
 
 BAKE_SAMPLES = 4
@@ -33,7 +33,7 @@ def init_bake(id = 1001):
 
 def set_cycles_samples(samples, adaptive_samples = -1, denoising = False, time_limit = 0, use_gpu = False):
     bpy.context.scene.cycles.samples = samples
-    if utils.is_blender_version("3.0.0"):
+    if utils.B300():
         bpy.context.scene.cycles.device = 'GPU' if use_gpu else 'CPU'
         bpy.context.scene.cycles.preview_samples = samples
         bpy.context.scene.cycles.use_adaptive_sampling = adaptive_samples >= 0
@@ -52,7 +52,7 @@ def prep_bake(mat = None, samples = BAKE_SAMPLES, image_format = IMAGE_FORMAT, m
     # cycles settings
     bake_state["samples"] = bpy.context.scene.cycles.samples
     # Blender 3.0
-    if utils.is_blender_version("3.0.0"):
+    if utils.B300():
         bake_state["preview_samples"] = bpy.context.scene.cycles.preview_samples
         bake_state["use_adaptive_sampling"] = bpy.context.scene.cycles.use_adaptive_sampling
         bake_state["use_preview_adaptive_sampling"] = bpy.context.scene.cycles.use_preview_adaptive_sampling
@@ -70,7 +70,7 @@ def prep_bake(mat = None, samples = BAKE_SAMPLES, image_format = IMAGE_FORMAT, m
     bake_state["margin"] = bpy.context.scene.render.bake.margin
     bake_state["use_clear"] = bpy.context.scene.render.bake.use_clear
     # Blender 2.92
-    if utils.is_blender_version("2.92.0"):
+    if utils.B292():
         bake_state["target"] = bpy.context.scene.render.bake.target
     # color management
     bake_state["view_transform"] = bpy.context.scene.view_settings.view_transform
@@ -95,7 +95,7 @@ def prep_bake(mat = None, samples = BAKE_SAMPLES, image_format = IMAGE_FORMAT, m
     colorspace.set_sequencer_color_space("Raw")
 
     # Blender 3.0
-    if utils.is_blender_version("3.0.0"):
+    if utils.B300():
         bpy.context.scene.cycles.preview_samples = samples
         bpy.context.scene.cycles.use_adaptive_sampling = False
         bpy.context.scene.cycles.use_preview_adaptive_sampling = False
@@ -104,7 +104,7 @@ def prep_bake(mat = None, samples = BAKE_SAMPLES, image_format = IMAGE_FORMAT, m
         bpy.context.scene.cycles.use_auto_tile = False
 
     # Blender 2.92
-    if utils.is_blender_version("2.92.0"):
+    if utils.B292():
         bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
 
     # go into wireframe mode (so Blender doesn't update or recompile the material shaders while
@@ -151,7 +151,7 @@ def post_bake(state):
     # cycles settings
     bpy.context.scene.cycles.samples = state["samples"]
     # Blender 3.0
-    if utils.is_blender_version("3.0.0"):
+    if utils.B300():
         bpy.context.scene.cycles.preview_samples = state["preview_samples"]
         bpy.context.scene.cycles.use_adaptive_sampling = state["use_adaptive_sampling"]
         bpy.context.scene.cycles.use_preview_adaptive_sampling = state["use_preview_adaptive_sampling"]
@@ -169,7 +169,7 @@ def post_bake(state):
     bpy.context.scene.render.bake.margin = state["margin"]
     bpy.context.scene.render.bake.use_clear = state["use_clear"]
     # Blender 2.92
-    if utils.is_blender_version("2.92.0"):
+    if utils.B292():
         bpy.context.scene.render.bake.target = state["target"]
     # color management
     bpy.context.scene.view_settings.view_transform = state["view_transform"]
@@ -1289,7 +1289,7 @@ class CC3BakeOperator(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CCICImportProps
+        props = bpy.context.scene.CC3ImportProps
 
         if self.param == "BAKE_FLOW_NORMAL":
             mat = utils.context_material(context)
@@ -1302,6 +1302,12 @@ class CC3BakeOperator(bpy.types.Operator):
             chr_cache = props.get_context_character_cache(context)
             mat_cache = chr_cache.get_material_cache(mat)
             combine_normal(chr_cache, mat_cache)
+
+        if self.param == "BUILD_DISPLACEMENT":
+            mat = utils.context_material(context)
+            chr_cache = props.get_context_character_cache(context)
+            mat_cache = chr_cache.get_material_cache(mat)
+            normal.build_displacement_system(chr_cache, mat_cache)
 
         return {"FINISHED"}
 
@@ -1392,7 +1398,7 @@ def copy_image_target(image_node, name, width, height, data = True, alpha = Fals
         utils.log_info(f"Resizing image: {width} x {height})")
         img.scale(width, height)
     if img.file_format != format:
-        if utils.is_blender_version("3.0.0"):
+        if utils.B300():
             utils.log_info("Changing image format: " + format)
             img.file_format = format
         else:
@@ -2253,7 +2259,7 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
         if tex_nodes["GLTF"]:
             if not gltf_settings_node:
                 gltf_settings_node = nodeutils.make_gltf_settings_node(nodes)
-            if utils.is_blender_version("3.3.0"):
+            if utils.B330():
                 split_node = nodeutils.make_shader_node(nodes, "ShaderNodeSeparateColor")
                 split_node.mode = "RGB"
                 nodeutils.link_nodes(links, tex_nodes["GLTF"], "Color", split_node, "Color")

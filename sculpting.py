@@ -105,7 +105,7 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     utils.log_info(f"Begin Multi-Res Bake: Layer = {layer_target}")
     utils.log_indent()
 
-    if utils.is_blender_version("2.92.0"):
+    if utils.B292():
         bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
 
     # reset UDIM uvs to normal range
