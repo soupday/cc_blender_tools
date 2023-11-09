@@ -716,7 +716,7 @@ SHADER_MATRIX = [
             ["PROP", "Micro Normal Tiling", "skin_micro_normal_tiling", True, "Micro Normal Map"],
             ["PROP", "Displacement Scale", "skin_height_scale", True, "Height Map"],
             ["PROP", "Wrinkle Displacement", "skin_height_delta_scale", True, "Height Delta"],
-            ["OP", "Build Displacement", "cc3.bake", "PLAY", "BUILD_DISPLACEMENT", "Normal Map"],
+            #["OP", "Build Displacement", "cc3.bake", "PLAY", "BUILD_DISPLACEMENT", "Normal Map"],
             ["HEADER",  "Emission", "LIGHT"],
             ["PROP", "*Emissive Color", "skin_emissive_color", False],
             ["PROP", "Emission Strength", "skin_emission_strength", True],
