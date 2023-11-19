@@ -50,7 +50,7 @@ if "bpy" in locals():
     importlib.reload(hair)
     importlib.reload(colorspace)
     importlib.reload(normal)
-    importlib.reload(net)
+    importlib.reload(link)
 
 import bpy
 
@@ -88,7 +88,7 @@ from . import sculpting
 from . import hair
 from . import colorspace
 from . import normal
-from . import net
+from . import link
 
 
 bl_info = {
@@ -110,10 +110,10 @@ classes = (
     channel_mixer.CC3IDMixer,
     channel_mixer.CC3MixerSettings,
 
-
-    properties.CCiCBakeCache,
-    properties.CCiCBakeMaterialSettings,
-    properties.CCiCBakeProps,
+    properties.CCICLinkData,
+    properties.CCICBakeCache,
+    properties.CCICBakeMaterialSettings,
+    properties.CCICBakeProps,
     properties.CC3ActionList,
     properties.CC3ArmatureList,
     properties.CC3HeadParameters,
@@ -149,9 +149,9 @@ classes = (
     bake.CC3BakeOperator,
     rigging.CC3Rigifier,
     rigging.CC3RigifierModal,
-    bake.CCiCBakeSettings,
-    bake.CCiCBaker,
-    bake.CCiCJpegify,
+    bake.CCICBakeSettings,
+    bake.CCICBaker,
+    bake.CCICJpegify,
 
     springbones.CC3OperatorSpringBones,
     physics.CC3OperatorPhysics,
@@ -166,17 +166,18 @@ classes = (
     sculpting.CC3OperatorSculptExport,
     hair.CC3OperatorHair,
     hair.CC3ExportHair,
-    net.CCiCListener,
+    link.CCICDataLink,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
     panels.UNITY_ACTION_UL_List,
     # pipeline panels
     panels.CC3ToolsPipelinePanel,
+    panels.CCICDataLinkPanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
     panels.CC3RigifyPanel,
-    panels.CCiCBakePanel,
+    panels.CCICBakePanel,
     panels.CC3PipelineScenePanel,
     # create panels
     panels.CC3ToolsCreatePanel,
@@ -204,7 +205,8 @@ def register():
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
-    bpy.types.Scene.CCiCBakeProps = bpy.props.PointerProperty(type=properties.CCiCBakeProps)
+    bpy.types.Scene.CCICBakeProps = bpy.props.PointerProperty(type=properties.CCICBakeProps)
+    bpy.types.Scene.CCICLinkData = bpy.props.PointerProperty(type=properties.CCICLinkData)
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import)
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import_animation)
     bpy.types.TOPBAR_MT_file_export.append(exporter.menu_func_export)
@@ -222,4 +224,5 @@ def unregister():
         bpy.utils.unregister_class(cls)
 
     del(bpy.types.Scene.CC3ImportProps)
-    del(bpy.types.Scene.CCiCBakeProps)
+    del(bpy.types.Scene.CCICBakeProps)
+    del(bpy.types.Scene.CCICLinkData)

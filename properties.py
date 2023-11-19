@@ -17,7 +17,7 @@
 import bpy, os, socket
 from mathutils import Vector
 
-from . import net, channel_mixer, imageutils, meshutils, sculpting, materials, springbones, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
+from . import link, channel_mixer, imageutils, meshutils, sculpting, materials, springbones, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -485,36 +485,36 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_variance = 0.75
 
 def update_link_target(self, context):
-    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
-    if props.link_target == "BLENDER":
-        props.link_port = 9334
-    elif props.link_target == "CCIC":
-        props.link_port = 9333
-    elif props.link_target == "UNITY":
-        props.link_port = 9335
+    link_data = bpy.context.scene.CCICLinkData
+    if link_data.link_target == "BLENDER":
+        link_data.link_port = 9334
+    elif link_data.link_target == "CCIC":
+        link_data.link_port = 9333
+    elif link_data.link_target == "UNITY":
+        link_data.link_port = 9335
     else:
-        props.link_port = 9333
+        link_data.link_port = 9333
 
 
 def update_link_host(self, context):
-    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
-    host = props.link_host
+    link_data = bpy.context.scene.CCICLinkData
+    host = link_data.link_host
     if host:
         try:
             print(socket.gethostbyname(host))
-            props.link_host_ip = socket.gethostbyname(host)
+            link_data.link_host_ip = socket.gethostbyname(host)
         except:
-            props.link_host_ip = "127.0.0.1"
+            link_data.link_host_ip = "127.0.0.1"
 
 
 def update_link_host_ip(self, context):
-    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
-    host_ip = props.link_host_ip
+    link_data = bpy.context.scene.CCICLinkData
+    host_ip = link_data.link_host_ip
     if host_ip:
         try:
-            props.link_host = socket.gethostbyaddr(host_ip)
+            link_data.link_host = socket.gethostbyaddr(host_ip)
         except:
-            props.link_host = ""
+            link_data.link_host = ""
 
 
 class CC3OperatorProperties(bpy.types.Operator):
@@ -1317,6 +1317,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     rig_export_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_original_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_retarget_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+    rig_datalink_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_retarget_source_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     retarget_heel_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.7854, max=0.7854, description="Heel pitch angle (radians)")
     retarget_arm_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Arm spread angle (radians)")
@@ -1462,7 +1463,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_rig_mapping_data(self):
         return rigify_mapping_data.get_mapping_for_generation(self.generation)
 
-    def get_rig_bone_mappings(self):
+    def get_rig_bone_mapping(self):
         rigify_data = rigify_mapping_data.get_mapping_for_generation(self.generation)
         if rigify_data:
             return rigify_data.bone_mapping
@@ -2167,19 +2168,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     rigified_action_list_index: bpy.props.IntProperty(default=-1)
     rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
 
-    link_listening: bpy.props.BoolProperty(default=False)
-    link_connected: bpy.props.BoolProperty(default=False)
-    link_stop: bpy.props.BoolProperty(default=False)
-    link_disconnect: bpy.props.BoolProperty(default=False)
-    link_host: bpy.props.StringProperty(default="localhost", update=update_link_host)
-    link_host_ip: bpy.props.StringProperty(default="127.0.0.1")
-    link_target: bpy.props.EnumProperty(items=[
-                        ("BLENDER","Blender","Connect to another Blender instance running on another machine"),
-                        ("CCIC","CC4/iClone","Connect to Character Creator 4 or iClone"),
-                        ("UNITY","Unity","Connect to Unity"),
-                    ], default="CCIC", name = "Data Link Target", update=update_link_target)
-    link_port: bpy.props.IntProperty(default=9333)
-
     # property to poke to cause a UI update
     poke_me: bpy.props.IntProperty(default=0)
 
@@ -2301,14 +2289,14 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         return dir_vectors
 
 
-class CCiCBakeCache(bpy.types.PropertyGroup):
+class CCICBakeCache(bpy.types.PropertyGroup):
     uid: bpy.props.IntProperty(default=0)
     object: bpy.props.PointerProperty(type=bpy.types.Object)
     source_material: bpy.props.PointerProperty(type=bpy.types.Material)
     baked_material: bpy.props.PointerProperty(type=bpy.types.Material)
 
 
-class CCiCBakeMaterialSettings(bpy.types.PropertyGroup):
+class CCICBakeMaterialSettings(bpy.types.PropertyGroup):
     material: bpy.props.PointerProperty(type=bpy.types.Material)
     max_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="4096")
     diffuse_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
@@ -2329,7 +2317,7 @@ class CCiCBakeMaterialSettings(bpy.types.PropertyGroup):
     detail_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
 
 
-class CCiCBakeProps(bpy.types.PropertyGroup):
+class CCICBakeProps(bpy.types.PropertyGroup):
     auto_increment: bpy.props.IntProperty(default=100)
     jpeg_quality: bpy.props.IntProperty(default=90, min=0, max=100)
     png_compression: bpy.props.IntProperty(default=15, min=0, max=100)
@@ -2368,5 +2356,30 @@ class CCiCBakeProps(bpy.types.PropertyGroup):
     detail_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
 
     bake_path: bpy.props.StringProperty(default="Bake", subtype="DIR_PATH")
-    material_settings: bpy.props.CollectionProperty(type=CCiCBakeMaterialSettings)
-    bake_cache: bpy.props.CollectionProperty(type=CCiCBakeCache)
+    material_settings: bpy.props.CollectionProperty(type=CCICBakeMaterialSettings)
+    bake_cache: bpy.props.CollectionProperty(type=CCICBakeCache)
+
+
+class CCICLinkData(bpy.types.PropertyGroup):
+    # Data link props
+    link_host: bpy.props.StringProperty(default="localhost", update=update_link_host)
+    link_host_ip: bpy.props.StringProperty(default="127.0.0.1")
+    link_target: bpy.props.EnumProperty(items=[
+                        ("BLENDER","Blender","Connect to another Blender instance running on another machine"),
+                        ("CCIC","CC4/iClone","Connect to Character Creator 4 or iClone"),
+                        ("UNITY","Unity","Connect to Unity"),
+                    ], default="CCIC", name = "Data Link Target", update=update_link_target)
+    link_port: bpy.props.IntProperty(default=9333)
+
+    sequence_read_count: bpy.props.EnumProperty(items=[
+                        ("1","1","Read and update 1 frame at a time"),
+                        ("5","5","Read and update 5 frame at a time"),
+                        ("10","10","Read and update 10 frame at a time"),
+                        ("24","24","Read and update 24 frame at a time"),
+                        ("60","60","Read and update 60 frame at a time"),
+                        ("ALL","All","Read all frames"),
+                    ], default="24", name = "Sequence Read Count")
+
+    current_frame: bpy.props.IntProperty(default=0)
+    start_frame: bpy.props.IntProperty(default=0)
+    end_frame: bpy.props.IntProperty(default=0)

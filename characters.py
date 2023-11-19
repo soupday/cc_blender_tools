@@ -404,9 +404,9 @@ def get_accessory_root(chr_cache, object):
         return None
 
     rig = chr_cache.get_armature()
-    bone_mappings = chr_cache.get_rig_bone_mappings()
+    bone_mapping = chr_cache.get_rig_bone_mapping()
 
-    if not rig or not bone_mappings:
+    if not rig or not bone_mapping:
         return None
 
     accessory_root = None
@@ -415,13 +415,13 @@ def get_accessory_root(chr_cache, object):
     for vg in object.vertex_groups:
 
         # if even one vertex groups belongs to the character bones, it will not import into cc4 as an accessory
-        if bones.bone_mapping_contains_bone(bone_mappings, vg.name):
+        if bones.bone_mapping_contains_bone(bone_mapping, vg.name):
             return None
 
         else:
             bone = bones.get_bone(rig, vg.name)
             if bone:
-                root = bones.get_accessory_root_bone(bone_mappings, bone)
+                root = bones.get_accessory_root_bone(bone_mapping, bone)
                 if root:
                     accessory_root = root
 

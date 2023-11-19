@@ -883,7 +883,7 @@ def unfix_quat(q):
     return [q[1], q[2], q[3], q[0]]
 
 
-def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_mappings = None):
+def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_mapping = None):
     physics_json = None
     if json_data:
         chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name)
@@ -932,8 +932,8 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
     for bone_name in collider_json:
         for shape_name in collider_json[bone_name]:
             target_bone_name = bone_name
-            if bone_mappings:
-                target_bone_name = bones.get_rigify_meta_bone(arm, bone_mappings, bone_name)
+            if bone_mapping:
+                target_bone_name = bones.get_rigify_meta_bone(arm, bone_mapping, bone_name)
             if target_bone_name not in arm.data.bones:
                 continue
             name = f"{COLLIDER_PREFIX}_{bone_name}_{shape_name}"
@@ -1099,7 +1099,7 @@ def toggle_show_colliders(arm):
         collider.hide_set(hide_state)
 
 
-def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
+def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mapping):
     obj : bpy.types.Object
     if cc3_rig and rigify_rig:
 
@@ -1121,7 +1121,7 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
         colliders = get_rigid_body_colliders(cc3_rig)
         for obj in colliders:
             bone_name = obj.parent_bone
-            rigify_bone_name = bones.get_rigify_meta_bone(rigify_rig, bone_mappings, bone_name)
+            rigify_bone_name = bones.get_rigify_meta_bone(rigify_rig, bone_mapping, bone_name)
 
             if rigify_bone_name:
                 # using operators to parent because matrix_parent_inverse doesn't work correctly

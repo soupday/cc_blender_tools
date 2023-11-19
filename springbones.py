@@ -415,10 +415,10 @@ def add_spring_colliders(chr_cache):
     arm = chr_cache.get_armature()
     if not rigidbody.has_rigid_body_colliders(arm):
         json_data = chr_cache.get_json_data()
-        bone_mappings = None
+        bone_mapping = None
         if chr_cache.rigified:
-            bone_mappings = chr_cache.get_rig_bone_mappings()
-        rigidbody.build_rigid_body_colliders(chr_cache, json_data, bone_mappings=bone_mappings)
+            bone_mapping = chr_cache.get_rig_bone_mapping()
+        rigidbody.build_rigid_body_colliders(chr_cache, json_data, bone_mapping=bone_mapping)
 
 
 class CC3OperatorSpringBones(bpy.types.Operator):

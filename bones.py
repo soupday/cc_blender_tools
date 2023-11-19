@@ -119,8 +119,31 @@ def get_pose_bone(rig, name):
     return None
 
 
-def get_rigify_meta_bone(rigify_rig, bone_mappings, cc3_bone_name):
-    for bone_map in bone_mappings:
+def find_target_pose_bone(rig, rl_bone_name, bone_mapping = None):
+    target_bone_name = find_target_bone_name(rig, rl_bone_name, bone_mapping)
+    if target_bone_name in rig.pose.bones:
+        return rig.pose.bones[target_bone_name]
+    return None
+
+
+def find_target_bone_name(rig, rl_bone_name, bone_mapping = None):
+    target_bone_name = None
+    if bone_mapping:
+        target_bone_name = get_rigify_meta_bone(rig, bone_mapping, rl_bone_name)
+    else:
+        target_bone_name = rl_bone_name
+    if target_bone_name in rig.pose.bones:
+        return target_bone_name
+    for pose_bone in rig.pose.bones:
+        if cmp_rl_bone_names(target_bone_name, pose_bone.name):
+            return pose_bone.name
+    return rl_bone_name
+
+
+def get_rigify_meta_bone(rigify_rig, bone_mapping, cc3_bone_name):
+    if cc3_bone_name == "RL_BoneRoot" or cc3_bone_name == "CC_Base_BoneRoot":
+        return "root"
+    for bone_map in bone_mapping:
         if bone_map[1] == cc3_bone_name:
             # try to find the parent in the ORG bones
             org_bone_name = f"ORG-{bone_map[0]}"
@@ -128,24 +151,31 @@ def get_rigify_meta_bone(rigify_rig, bone_mappings, cc3_bone_name):
                 return org_bone_name
             # then try the DEF bones
             def_bone_name = f"DEF-{bone_map[0]}"
-            if def_bone_name not in rigify_rig.data.bones:
+            if def_bone_name in rigify_rig.data.bones:
                 return def_bone_name
     return None
 
 
-def align_edit_bone_roll(edit_bone : bpy.types.EditBone, axis):
+def get_align_vector(axis):
     if axis == "X":
-        edit_bone.align_roll(mathutils.Vector((1,0,0)))
+        return mathutils.Vector((1,0,0))
     if axis == "Y":
-        edit_bone.align_roll(mathutils.Vector((0,1,0)))
+        return mathutils.Vector((0,1,0))
     if axis == "Z":
-        edit_bone.align_roll(mathutils.Vector((0,0,1)))
+        return mathutils.Vector((0,0,1))
     if axis == "-X":
-        edit_bone.align_roll(mathutils.Vector((-1,0,0)))
+        return mathutils.Vector((-1,0,0))
     if axis == "-Y":
-        edit_bone.align_roll(mathutils.Vector((0,-1,0)))
+        return mathutils.Vector((0,-1,0))
     if axis == "-Z":
-        edit_bone.align_roll(mathutils.Vector((0,0,-1)))
+        return mathutils.Vector((0,0,-1))
+    return None
+
+
+def align_edit_bone_roll(edit_bone : bpy.types.EditBone, axis):
+    align_vector = get_align_vector(axis)
+    if align_vector:
+        edit_bone.align_roll(align_vector)
 
 
 def rename_bone(rig, from_name, to_name):
@@ -155,7 +185,6 @@ def rename_bone(rig, from_name, to_name):
             bone.name = to_name
         else:
             utils.log_error(f"Bone {from_name} cannot be renamed as {to_name} already exists in rig!")
-
 
 
 def copy_edit_bone(rig, src_name, dst_name, parent_name, scale):
@@ -1079,18 +1108,18 @@ def reset_root_bone(arm):
     utils.set_mode("OBJECT")
 
 
-def bone_mapping_contains_bone(bone_mappings, bone_name):
-    for bone_mapping in bone_mappings:
+def bone_mapping_contains_bone(bone_mapping, bone_name):
+    for bone_mapping in bone_mapping:
             if cmp_rl_bone_names(bone_mapping[1], bone_name):
                 return True
     return False
 
 
-def get_accessory_root_bone(bone_mappings, bone):
+def get_accessory_root_bone(bone_mapping, bone):
     root = None
-    if not bone_mapping_contains_bone(bone_mappings, bone.name):
+    if not bone_mapping_contains_bone(bone_mapping, bone.name):
         while bone.parent:
-            if not bone_mapping_contains_bone(bone_mappings, bone.parent.name):
+            if not bone_mapping_contains_bone(bone_mapping, bone.parent.name):
                 root = bone.parent
             bone = bone.parent
     return root
@@ -1105,11 +1134,11 @@ def bone_parent_in_list(bone_list, bone):
     return False
 
 
-def find_accessory_bones(bone_mappings, cc3_rig):
+def find_accessory_bones(bone_mapping, cc3_rig):
     accessory_bones = []
     for bone in cc3_rig.data.bones:
         bone_name = bone.name
-        if not bone_mapping_contains_bone(bone_mappings, bone_name):
+        if not bone_mapping_contains_bone(bone_mapping, bone_name):
             if bone_name not in accessory_bones and not bone_parent_in_list(accessory_bones, bone):
                 utils.log_info(f"Accessory Bone: {bone_name}")
                 accessory_bones.append(bone_name)

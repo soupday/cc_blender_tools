@@ -1329,7 +1329,7 @@ class CC3BakeOperator(bpy.types.Operator):
 
 
 def get_export_bake_image_format():
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     format = props.target_format
     ext = ".jpg"
 
@@ -1342,7 +1342,7 @@ def get_export_bake_image_format():
 
 
 def get_bake_path():
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     base_dir = os.path.join(bpy.path.abspath("//"))
     bake_path = props.bake_path
@@ -1358,7 +1358,7 @@ def get_bake_path():
 
 
 def copy_image_target(image_node, name, width, height, data = True, alpha = False):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     # return None if it's a bad image source
     if image_node is None or image_node.image is None:
@@ -1434,7 +1434,7 @@ def get_bake_image_node_name(mat, global_suffix):
 
 
 def export_bake_shader_normal(source_mat, mat):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     nodes = mat.node_tree.nodes
     suffix = "Normal"
@@ -1496,7 +1496,7 @@ def set_loc(node, loc):
 
 
 def prep_diffuse(mat, shader_node):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     # turn off depth for cornea parallax
@@ -1509,7 +1509,7 @@ def prep_diffuse(mat, shader_node):
 
 
 def prep_ao(mat, shader_node):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     ao_strength = 1.0
     if shader_node:
         # fetch the intended ao strength
@@ -1520,21 +1520,21 @@ def prep_ao(mat, shader_node):
 
 
 def prep_sss(shader_node, bsdf_node : bpy.types.Node):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     sss_radius = Vector((0.01, 0.01, 0.01))
     sss_radius = nodeutils.get_node_input_value(bsdf_node, "Subsurface Radius", sss_radius)
     return sss_radius
 
 
 def prep_alpha(mat, shader_node):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     return
 
 
 def can_bake_shader_node(shader_node, bsdf_node, bsdf_socket):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     if shader_node is None:
         return False
     if nodeutils.is_mixer_connected(bsdf_node, bsdf_socket):
@@ -1543,7 +1543,7 @@ def can_bake_shader_node(shader_node, bsdf_node, bsdf_socket):
 
 
 def bake_export_material(mat, source_mat, source_mat_cache):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
     shader_name = params.get_shader_name(source_mat_cache)
@@ -1917,7 +1917,7 @@ def combine_diffuse_tex(nodes, source_mat, source_mat_cache, mat, diffuse_node, 
 
 def combine_hdrp_mask_tex(nodes, source_mat, source_mat_cache, mat,
                           metallic_node, ao_node, mask_node, roughness_node):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     metallic_data = None
     ao_data = None
@@ -2058,7 +2058,7 @@ def process_hdrp_subsurfaces_tex(sss_node, trans_node):
 
 def make_metallic_smoothness_tex(nodes, source_mat, source_mat_cache, mat,
                                  metallic_node, roughness_node):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     metallic_data = None
     roughness_data = None
@@ -2126,7 +2126,7 @@ def make_metallic_smoothness_tex(nodes, source_mat, source_mat_cache, mat,
 def combine_gltf(nodes, source_mat, source_mat_cache, mat,
                  ao_node, roughness_node, metallic_node):
 
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     metallic_data = None
     ao_data = None
@@ -2189,7 +2189,7 @@ def find_baked_image_nodes(nodes, tex_nodes, global_suffix):
 
 
 def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, normal_strength, micro_normal_strength, micro_normal_scale):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -2385,7 +2385,7 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
 
 
 def bake_character(chr_cache):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     utils.log_info("")
@@ -2416,14 +2416,14 @@ def bake_character(chr_cache):
 
 
 def next_uid():
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     uid = props.auto_increment
     props.auto_increment += 1
     return uid
 
 
 def get_target_map(suffix):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     bake_maps = vars.get_bake_target_maps(props.target_mode)
 
@@ -2496,7 +2496,7 @@ def get_max_texture_size(mat, mat_cache, tex_list, input_list):
 
 # suffix as defined in: vars.py *_MAPS
 def detect_bake_size_from_suffix(mat, mat_cache, suffix):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     target_map = get_target_map(suffix)
     if target_map:
@@ -2514,7 +2514,7 @@ def detect_bake_size_from_suffix(mat, mat_cache, suffix):
 def apply_override_size(mat, global_suffix, width, height):
 
     # get either the global default props or the material specific props if they exist...
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     p = get_material_bake_settings(mat)
     if p is None:
         p = props
@@ -2537,7 +2537,7 @@ def apply_override_size(mat, global_suffix, width, height):
 
 
 def get_bake_target_material_name(name, uid):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     # Sketchfab recommends no spaces or symbols in the texture names...
     if props.target_mode == "SKETCHFAB":
@@ -2549,7 +2549,7 @@ def get_bake_target_material_name(name, uid):
 
 
 def bake_character_object(chr_cache, obj, bake_state, materials_done):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
 
     for slot in obj.material_slots:
         source_mat = slot.material
@@ -2626,7 +2626,7 @@ def bake_character_object(chr_cache, obj, bake_state, materials_done):
 
 
 def get_export_bake_cache(mat):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     for bc in props.bake_cache:
         if bc.source_material == mat or bc.baked_material == mat:
             return bc
@@ -2634,7 +2634,7 @@ def get_export_bake_cache(mat):
 
 
 def add_material_bake_cache(uid, source_mat, bake_mat):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     bc = get_export_bake_cache(source_mat)
     if bc is None:
         bc = props.bake_cache.add()
@@ -2645,14 +2645,14 @@ def add_material_bake_cache(uid, source_mat, bake_mat):
 
 
 def remove_material_bake_cache(mat):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     bc = get_export_bake_cache(mat)
     if bc:
         utils.remove_from_collection(props.bake_cache, bc)
 
 
 def get_material_bake_settings(mat):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     if mat:
         for ms in props.material_settings:
             if ms.material == mat:
@@ -2661,7 +2661,7 @@ def get_material_bake_settings(mat):
 
 
 def add_material_bake_settings(mat):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     ms = get_material_bake_settings(mat)
     if ms is None:
         ms = props.material_settings.add()
@@ -2684,7 +2684,7 @@ def add_material_bake_settings(mat):
 
 
 def remove_material_bake_settings(mat):
-    props = bpy.context.scene.CCiCBakeProps
+    props = bpy.context.scene.CCICBakeProps
     for ms in props.material_settings:
         if ms.material == mat:
             utils.remove_from_collection(props.material_settings, ms)
@@ -2716,7 +2716,7 @@ def restore_baked_materials(chr_cache):
                     obj.data.materials[i] = bc.baked_material
 
 
-class CCiCBaker(bpy.types.Operator):
+class CCICBaker(bpy.types.Operator):
     """Bake CC/iC Character For Export"""
     bl_idname = "ccic.baker"
     bl_label = "Baker"
@@ -2758,7 +2758,7 @@ class CCiCBaker(bpy.types.Operator):
         return ""
 
 
-class CCiCBakeSettings(bpy.types.Operator):
+class CCICBakeSettings(bpy.types.Operator):
     """Bake Settings"""
     bl_idname = "ccic.bakesettings"
     bl_label = "Bake Settings"
@@ -2820,14 +2820,14 @@ JPEGIFY_FORMATS = [
 ]
 
 
-class CCiCJpegify(bpy.types.Operator):
+class CCICJpegify(bpy.types.Operator):
     """Jpegifyer"""
     bl_idname = "ccic.jpegify"
     bl_label = "Jpegify"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
-        props = bpy.context.scene.CCiCBakeProps
+        props = bpy.context.scene.CCICBakeProps
 
         bake_path = get_bake_path()
         os.makedirs(bake_path, exist_ok=True)

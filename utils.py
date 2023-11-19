@@ -104,6 +104,16 @@ def message_box(message = "", title = "Info", icon = 'INFO'):
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
 
 
+def update_ui(context = None, area_type="VIEW_3D", region_type="UI"):
+    for screen in bpy.data.screens:
+        for area in screen.areas:
+            if area.type == area_type:
+                for region in area.regions:
+                    if region.type == region_type:
+                        region.tag_redraw()
+
+
+
 def report_multi(op, icon = 'INFO', messages = None):
     if messages:
         text = ""
@@ -199,6 +209,15 @@ def local_path(path = ""):
         return os.path.normpath(abs_path)
     else:
         return ""
+
+
+def blend_file_name():
+    file_path = bpy.data.filepath
+    name = ""
+    if file_path:
+        folder, file = os.path.split(file_path)
+        name, ext = os.path.splitext(file)
+    return name
 
 
 def relpath(path, start):
@@ -540,6 +559,8 @@ def edit_mode_to(obj, only_this = False):
 
 
 def object_mode_to(obj):
+    if get_mode() == "OBJECT" and get_active_object() == obj:
+        return True
     if set_mode("OBJECT"):
         if try_select_object(obj):
             if set_active_object(obj):
@@ -548,9 +569,12 @@ def object_mode_to(obj):
 
 
 def pose_mode_to(arm):
-    if object_mode_to(arm):
-        if set_mode("POSE"):
-            return True
+    if get_mode() == "POSE" and get_active_object() == arm:
+        return True
+    if get_mode() != "POSE" or get_active_object() != arm:
+        if object_mode_to(arm):
+            if set_mode("POSE"):
+                return True
     return False
 
 
@@ -786,6 +810,22 @@ def clear_selected_objects():
         return True
     except:
         return False
+
+
+def get_armature(name):
+    if (name in bpy.data.armatures and
+        name in bpy.data.objects and
+        bpy.data.objects[name].data == bpy.data.armatures[name]):
+        return bpy.data.objects[name]
+    return None
+
+
+def create_reuse_armature(name):
+    arm = bpy.data.armatures[name] if name in bpy.data.armatures else bpy.data.armatures.new(name)
+    obj = bpy.data.objects[name] if name in bpy.data.objects else bpy.data.objects.new(name, arm)
+    if name not in bpy.context.collection.objects:
+        bpy.context.collection.objects.link(obj)
+    return obj
 
 
 def get_armature_from_objects(objects):

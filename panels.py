@@ -19,7 +19,9 @@ import textwrap
 import os
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, characters, sculpting, springbones, bake, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import (link, rigging, rigify_mapping_data, characters, sculpting, springbones,
+               bake, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils,
+               utils, params, vars)
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
@@ -2780,37 +2782,62 @@ class CC3ToolsUtilityPanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.operator("cc3.character", icon="MATERIAL", text="Match Materials").param = "MATCH_MATERIALS"
+
+
+class CCICDataLinkPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_DataLink_Panel"
+    bl_label = "Data Link (WIP)"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = PIPELINE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
 
-        row = layout.row()
-        row.operator("cc3.character", icon="MATERIAL", text="Match Materials").param = "MATCH_MATERIALS"
+        link_service = link.get_link_service()
+        connected = link_service and link_service.is_connected
+        listening = link_service and link_service.is_listening
+        connecting = link_service and link_service.is_connecting
 
         column = layout.column()
-        column.prop(props, "link_host", text="Host")
-        column.prop(props, "link_target", text="Target")
-        if props.link_listening or props.link_connected:
+        column.prop(link_data, "link_host", text="Host")
+        column.prop(link_data, "link_target", text="Target")
+        if listening or connected:
             column.enabled = False
 
         column = layout.column()
-        row = column.row()
-        row.scale_y = 2
+        column.prop(link_data, "sequence_read_count", text="Count")
+
+        column = layout.column(align=True)
+        row = column.row(align=True)
         text = "Connect"
-        if props.link_connected:
+        depressed = False
+        row.scale_y = 2
+        param = "START"
+        if connected:
             row.alert = True
-            text = "Linked"
-        elif props.link_listening:
+            text = "Connected"
+            param = "DISCONNECT"
+        elif connecting:
+            row.alert = False
+            depressed = True
+            text = "Connecting..."
+        elif listening:
+            row.alert = False
+            depressed = True
             text = "Listening..."
-        depressed = props.link_listening and not props.link_connected
-        if props.link_connected:
-            row.operator("ccic.listener", icon="LINKED", text="Disconnect").param = "DISCONNECT"
-        else:
-            row.operator("ccic.listener", icon="LINKED", text=text, depress=depressed).param = "START"
+        row.operator("ccic.datalink", icon="LINKED", text=text, depress=depressed).param = param
         row = column.row()
-        row.operator("ccic.listener", icon="X", text="Stop").param = "STOP"
-        #layout.operator("ccic.listener", icon="X", text="Send CC4").param = "SEND_CC4"
+        row.operator("ccic.datalink", icon="X", text="Stop").param = "STOP"
+        #layout.operator("ccic.datalink", icon="X", text="Send CC4").param = "SEND_CC4"
 
 
 class CC3ToolsPipelinePanel(bpy.types.Panel):
@@ -2963,12 +2990,13 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
 # BAKE TOOL PANELS
 
 
-class CCiCBakePanel(bpy.types.Panel):
-    bl_idname = "CCiC_PT_Bake_Panel"
+class CCICBakePanel(bpy.types.Panel):
+    bl_idname = "CCIC_PT_Bake_Panel"
     bl_label = "Export Bake"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = PIPELINE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw_size_props(self, context, props, bake_maps, col_1, col_2):
 
@@ -3035,7 +3063,7 @@ class CCiCBakePanel(bpy.types.Panel):
                 col_2.prop(props, "micronormalmask_size", text="")
 
     def draw(self, context):
-        props = bpy.context.scene.CCiCBakeProps
+        props = bpy.context.scene.CCICBakeProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         layout = self.layout

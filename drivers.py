@@ -15,6 +15,7 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
+from mathutils import Vector
 from . import meshutils, utils, vars
 from rna_prop_ui import rna_idprop_ui_create
 
@@ -89,6 +90,21 @@ def add_custom_string_property(object, prop_name, prop_value : str,
         id_props.update(default=prop_value, description=description)
     except:
         pass
+
+
+def add_custom_float_array_property(object, prop_name, prop_value : list,
+                                     value_min : float = 0.0, value_max : float = 1.0,
+                                     soft_min = None, soft_max = None,
+                                     overridable = True,
+                                     description : str = ""):
+
+    if soft_max is None:
+        soft_max = value_max
+    if soft_min is None:
+        soft_min = value_min
+
+    rna_idprop_ui_create(object, prop_name, default=prop_value, overridable=overridable,
+                         min=value_min, max=value_max, soft_min=soft_min, soft_max=soft_max, description=description)
 
 
 SHAPE_KEY_DRIVERS = {
