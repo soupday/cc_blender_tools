@@ -211,18 +211,20 @@ def prep_rig(chr_cache):
             utils.safe_set_action(rig, action)
 
     if chr_cache.rigified:
-        BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
+        BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Root"] #not Tweak and Extra
+        BAKE_BONE_COLLECTIONS = ["Face", "Torso", "Fingers (Detail)",
+                                 "Arm.L (IK)", "Arm.L (FK)", "Leg.L (IK)", "Leg.L (FK)",
+                                 "Arm.R (IK)", "Arm.R (FK)", "Leg.R (IK)", "Leg.R (FK)",
+                                 "Root"]
         if utils.object_mode_to(rig):
             bone : bpy.types.Bone
-            #bones.make_bones_visible(rig, groups = BAKE_BONE_GROUPS)
+            bones.make_bones_visible(rig)
             for bone in rig.data.bones:
                 bone.select = False
-                pose_bone = bones.get_pose_bone(rig, bone.name)
-                if pose_bone and pose_bone.bone_group:
-                    if pose_bone.bone_group.name in BAKE_BONE_GROUPS:
-                        bone.hide = False
-                        bone.hide_select = False
-                        bone.select = True
+                if bones.is_bone_in_collection(rig, bone,
+                                                          BAKE_BONE_COLLECTIONS,
+                                                          BAKE_BONE_GROUPS):
+                    bone.select = True
     else:
         if utils.object_mode_to(rig):
             bone : bpy.types.Bone

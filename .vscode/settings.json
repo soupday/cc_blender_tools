@@ -1,6 +1,6 @@
 {
-    "python.autoComplete.extraPaths": ["F:\\Blender\\blender_autocomplete-master\\2.83"],
+    "python.autoComplete.extraPaths": ["F:\\Blender\\blender_autocomplete-master\\3.4"],
     "python.analysis.extraPaths": [
-        "F:\\Blender\\blender_autocomplete-master\\2.83"
+        "F:\\Blender\\blender_autocomplete-master\\3.4"
     ],
 }

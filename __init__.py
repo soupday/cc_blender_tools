@@ -94,7 +94,7 @@ from . import link
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (1, 6, 1),
+    "version": (2, 0, 0),
     "blender": (2, 93, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -172,8 +172,9 @@ classes = (
     panels.ACTION_UL_List,
     panels.UNITY_ACTION_UL_List,
     # pipeline panels
-    panels.CC3ToolsPipelinePanel,
     panels.CCICDataLinkPanel,
+    panels.CC3ToolsPipelineImportPanel,
+    panels.CC3ToolsPipelineExportPanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
     panels.CC3RigifyPanel,

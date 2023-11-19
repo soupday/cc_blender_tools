@@ -19,7 +19,7 @@ import textwrap
 import os
 
 from . import addon_updater_ops
-from . import (link, rigging, rigify_mapping_data, characters, sculpting, springbones,
+from . import (link, rigging, rigify_mapping_data, bones, characters, sculpting, springbones,
                bake, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils,
                utils, params, vars)
 
@@ -1078,8 +1078,9 @@ class CC3SpringRigPanel(bpy.types.Panel):
             col_2.prop(props, "hair_rig_group_name", text="")
             tool_row = col_1.row(align=True)
             if arm:
+                depress = bones.is_bone_collection_visible(arm, "Spring (Edit)", rigging.SPRING_EDIT_LAYER)
                 tool_row.operator("cc3.rigifier", icon=utils.check_icon("HIDE_OFF"), text="",
-                                  depress=arm.data.layers[rigging.SPRING_EDIT_LAYER]).param = "TOGGLE_SHOW_SPRING_BONES"
+                                  depress=depress).param = "TOGGLE_SHOW_SPRING_BONES"
                 is_grease_pencil_tool = "builtin.annotate" in utils.get_current_tool_idname(context)
                 tool_row.operator("cc3.hair", icon=utils.check_icon("GREASEPENCIL"), text="", depress=is_grease_pencil_tool).param = "TOGGLE_GREASE_PENCIL"
                 is_default_bone = False
@@ -1781,7 +1782,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     # utility widgets
                     box_row = layout.box().row(align=True)
-                    is_full_rig_show = rigging.is_full_rig_shown(chr_cache)
+                    is_full_rig_show = rigging.is_full_rigify_rig_shown(chr_cache)
                     box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
                     if has_spring_rigs:
                         is_base_rig_show = rigging.is_base_rig_shown(chr_cache)
@@ -2793,7 +2794,6 @@ class CCICDataLinkPanel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = PIPELINE_TAB_NAME
-    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
@@ -2813,8 +2813,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
         if listening or connected:
             column.enabled = False
 
-        column = layout.column()
-        column.prop(link_data, "sequence_read_count", text="Count")
+        #column = layout.column()
+        #column.prop(link_data, "sequence_read_count", text="Count")
 
         column = layout.column(align=True)
         row = column.row(align=True)
@@ -2836,13 +2836,14 @@ class CCICDataLinkPanel(bpy.types.Panel):
             text = "Listening..."
         row.operator("ccic.datalink", icon="LINKED", text=text, depress=depressed).param = param
         row = column.row()
-        row.operator("ccic.datalink", icon="X", text="Stop").param = "STOP"
+        if connected or connecting:
+            row.operator("ccic.datalink", icon="X", text="Stop").param = "STOP"
         #layout.operator("ccic.datalink", icon="X", text="Send CC4").param = "SEND_CC4"
 
 
-class CC3ToolsPipelinePanel(bpy.types.Panel):
-    bl_idname = "CC3_PT_Pipeline_Panel"
-    bl_label = "Import / Export"
+class CC3ToolsPipelineImportPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Pipeline_Import_Panel"
+    bl_label = "Import"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = PIPELINE_TAB_NAME
@@ -2942,6 +2943,65 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         else:
             export_label = "Exporting"
 
+        # clean up
+        layout.separator()
+        box = layout.box()
+        box.label(text="Clean Up", icon="TRASH")
+
+        box = layout.row()
+        box.label(text = "Character: " + character_name)
+        row = layout.row()
+        warn_icon(row)
+        if not chr_cache:
+            row.enabled = False
+        row.operator("cc3.importer", icon="REMOVE", text="Remove Character").param ="DELETE_CHARACTER"
+
+
+class CC3ToolsPipelineExportPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Pipeline_Export_Panel"
+    bl_label = "Export"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = PIPELINE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        global debug_counter
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        addon_updater_ops.check_for_update_background()
+        if addon_updater_ops.updater.update_ready == True:
+            addon_updater_ops.update_notice_box_ui(self, context)
+
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+
+        if chr_cache:
+            character_name = chr_cache.character_name
+        else:
+            character_name = "No Character"
+
+        chr_rig = None
+
+        if chr_cache:
+            chr_rig = chr_cache.get_armature()
+        else:
+            if context.selected_objects:
+                chr_rig = utils.get_armature_from_objects(context.selected_objects)
+            elif context.object:
+                chr_rig = utils.get_armature_from_object(context.object)
+            if chr_rig:
+                character_name = chr_rig.name
+
+        layout = self.layout
+        layout.use_property_split = False
+        layout.use_property_decorate = False
+
+        if chr_cache and chr_cache.rigified:
+            export_label = "Exporting (Rigify)"
+        else:
+            export_label = "Exporting"
+
         # export prefs in box title
         box = layout.box()
         if fake_drop_down(box.row(),
@@ -2967,19 +3027,6 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         # export extras
         layout.row().operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
         layout.row().operator("cc3.exporter", icon="MESH_DATA", text="Export Replace Mesh").param = "EXPORT_MESH"
-
-        # clean up
-        layout.separator()
-        box = layout.box()
-        box.label(text="Clean Up", icon="TRASH")
-
-        box = layout.row()
-        box.label(text = "Character: " + character_name)
-        row = layout.row()
-        warn_icon(row)
-        if not chr_cache:
-            row.enabled = False
-        row.operator("cc3.importer", icon="REMOVE", text="Remove Character").param ="DELETE_CHARACTER"
 
 
 

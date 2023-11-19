@@ -136,16 +136,17 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
         dst_bone_parent_name = def_copy[2]
         relation_flags = def_copy[3]
         layer = def_copy[4]
+        collection = def_copy[5]
         deform = dst_bone_name[:3] == "DEF"
         scale = 1
         ref = None
         arg = None
-        if len(def_copy) > 5:
-            scale = def_copy[5]
         if len(def_copy) > 6:
-            ref = def_copy[6]
+            scale = def_copy[6]
         if len(def_copy) > 7:
-            arg = def_copy[7]
+            ref = def_copy[7]
+        if len(def_copy) > 8:
+            arg = def_copy[8]
 
         utils.log_info(f"Adding/Processing: {dst_bone_name}")
 
@@ -154,14 +155,14 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
             reparented_bone = bones.reparent_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
             if reparented_bone:
                 bones.set_edit_bone_flags(reparented_bone, relation_flags, deform)
-                bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
+                bones.set_bone_collection(rigify_rig, reparented_bone, collection, None, layer)
 
         # add a custom DEF or ORG bone
         elif src_bone_name[:3] == "DEF" or src_bone_name[:3] == "ORG":
             def_bone = bones.copy_edit_bone(rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
             if def_bone:
                 bones.set_edit_bone_flags(def_bone, relation_flags, deform)
-                bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
+                bones.set_bone_collection(rigify_rig, def_bone, collection, None, layer)
             # partial rotation copy for share bones
             if "_share" in dst_bone_name and ref:
                 bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, arg)
@@ -171,7 +172,7 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
             def_bone = bones.copy_rl_edit_bone(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
             if def_bone:
                 bones.set_edit_bone_flags(def_bone, relation_flags, deform)
-                bones.set_bone_layer(rigify_rig, dst_bone_name, layer)
+                bones.set_bone_collection(rigify_rig, def_bone, collection, None, layer)
 
     utils.log_recess()
 
@@ -225,7 +226,7 @@ def add_extension_bones(chr_cache, cc3_rig, rigify_rig, bone_mapping, vertex_gro
 
             bones.copy_rl_edit_bone_subtree(cc3_rig, rigify_rig, bone.name,
                                             dst_name, rigify_parent_name, "DEF-",
-                                            DEF_BONE_LAYER, vertex_group_map)
+                                            "DEF", DEF_BONE_LAYER, vertex_group_map)
 
 
 def lookup_bone_def_parent(bone_defs, def_bone):
@@ -338,7 +339,7 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
     fk_bone : bpy.types.PoseBone
     twk_bone : bpy.types.PoseBone
 
-    rigidbody.add_simulation_bone_group(rig)
+    rigidbody.add_simulation_bone_collection(rig)
 
     shape_fk = bones.generate_spring_widget(rig, "SpringBoneFK", "FK", 0.5)
     shape_ik = bones.generate_spring_widget(rig, "SpringBoneIK", "IK", 0.025)
@@ -358,8 +359,7 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
                 scale = (ik_group_bone_radius + 0.05) / 0.025
                 bones.set_pose_bone_custom_scale(rig, ik_group_bone_name, scale)
                 bones.set_pose_bone_lock(ik_group_bone, lock_scale = [0,1,0])
-                bones.set_bone_group(rig, ik_group_bone_name, "IK")
-                bones.set_pose_bone_layer(rig, ik_group_bone_name, SPRING_IK_LAYER)
+                bones.set_bone_collection(rig, ik_group_bone, "Spring (IK)", "IK", SPRING_IK_LAYER)
                 #drivers.add_custom_float_property(ik_group_bone, "IK_FK", 0.0, 0.0, 1.0, description="Group FK Influence")
                 #drivers.add_custom_float_property(ik_group_bone, "SIM", 0.0, 0.0, 1.0, description="Group Simulation Influence")
 
@@ -379,7 +379,7 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
             chain_bone_defs = bone_defs[chain_root_name]
             mch_root_name = mch_roots[chain_root_name]
             mch_root = bones.get_pose_bone(rig, mch_root_name)
-            bones.set_pose_bone_layer(rig, mch_root_name, MCH_BONE_LAYER)
+            bones.set_bone_collection(rig, mch_root, "MCH", None, MCH_BONE_LAYER)
             drivers.add_custom_float_property(mch_root, "IK_FK", 0.0, 0.0, 1.0, description="FK Influence")
             drivers.add_custom_float_property(mch_root, "SIM", 0.0, 0.0, 1.0, description="Simulation Influence")
             ik_fk_data_path = bones.get_data_path_pose_bone_property(mch_root_name, "IK_FK")
@@ -395,6 +395,7 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
                 fk_bone = rig.pose.bones[fk_bone_name]
                 twk_bone = rig.pose.bones[twk_bone_name]
                 mch_bone = rig.pose.bones[mch_bone_name]
+                org_bone = rig.pose.bones[org_bone_name]
                 def_bone = rig.pose.bones[def_bone_name]
                 sim_bone = rig.pose.bones[sim_bone_name]
                 fk_bone.custom_shape = shape_fk
@@ -407,14 +408,12 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
                     bones.set_pose_bone_lock(fk_bone, lock_scale=[0,1,0])
                 bones.set_pose_bone_lock(mch_bone, lock_location = [1,1,1], lock_rotation = [1,1,1,1], lock_scale=[1,1,1])
                 bones.set_pose_bone_lock(twk_bone, lock_rotation = [1,0,1,1], lock_scale = [0,1,0])
-                bones.set_bone_group(rig, fk_bone_name, "FK")
-                bones.set_bone_group(rig, twk_bone_name, "Tweak")
-                bones.set_bone_group(rig, sim_bone_name, "Simulation")
-                bones.set_pose_bone_layer(rig, fk_bone_name, SPRING_FK_LAYER)
-                bones.set_pose_bone_layer(rig, mch_bone_name, MCH_BONE_LAYER)
-                bones.set_pose_bone_layer(rig, org_bone_name, ORG_BONE_LAYER)
-                bones.set_pose_bone_layer(rig, twk_bone_name, SPRING_TWEAK_LAYER)
-                bones.set_pose_bone_layer(rig, def_bone_name, DEF_BONE_LAYER)
+                bones.set_bone_collection(rig, fk_bone, "Spring (FK)", "FK", SPRING_FK_LAYER)
+                bones.set_bone_collection(rig, twk_bone, "Spring (Tweak)", "Tweak", SPRING_TWEAK_LAYER)
+                bones.set_bone_collection(rig, sim_bone, "Simulation", "Simulation", SIM_BONE_LAYER)
+                bones.set_bone_collection(rig, mch_bone, "MCH", None, MCH_BONE_LAYER)
+                bones.set_bone_collection(rig, org_bone, "ORG", None, ORG_BONE_LAYER)
+                bones.set_bone_collection(rig, def_bone, "DEF", None, DEF_BONE_LAYER)
                 # sim > fk (influence driver)
                 simc = bones.add_copy_transforms_constraint(rig, rig, sim_bone_name, fk_bone_name, 0.0)
                 simc_driver = drivers.make_driver(simc, "influence", "SCRIPTED", "sim")
@@ -447,8 +446,7 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
                         ik_bone.custom_shape = shape_ik
                         ik_bone.use_custom_shape_bone_size = False
                         ik_bone.lock_scale[1] = True
-                        bones.set_bone_group(rig, ik_bone_name, "IK")
-                        bones.set_pose_bone_layer(rig, ik_bone_name, SPRING_IK_LAYER)
+                        bones.set_bone_collection(rig, ik_bone, "Spring (IK)", "IK", SPRING_IK_LAYER)
                         bones.add_inverse_kinematic_constraint(rig, rig, ik_bone_name, mch_bone_name,
                                                         use_tail=True, use_stretch=True, influence=1.0,
                                                         use_location=True, use_rotation=True,
@@ -492,9 +490,9 @@ def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
         process_spring_groups(rigify_rig, spring_rig, ik_groups)
         set_spring_rig_constraints(rigify_rig, bone_defs, ik_groups, ik_targets, mch_roots)
         drivers.add_custom_float_property(rigify_rig.pose.bones[spring_rig_name], "rigified", 1.0)
-        rigify_rig.data.layers[SPRING_FK_LAYER] = True
-        rigify_rig.data.layers[SPRING_IK_LAYER] = True
-        rigify_rig.data.layers[SPRING_TWEAK_LAYER] = True
+        bones.set_bone_collection_visibility(rigify_rig, "Spring (FK)", SPRING_FK_LAYER, True)
+        bones.set_bone_collection_visibility(rigify_rig, "Spring (IK)", SPRING_IK_LAYER, True)
+        bones.set_bone_collection_visibility(rigify_rig, "Spring (Tweak)", SPRING_TWEAK_LAYER, True)
 
     rigify_rig.data.pose_position = pose_position
 
@@ -525,7 +523,7 @@ def derigify_spring_rig(chr_cache, rigify_rig, parent_mode):
             # keep only the DEF bones (and the RL_ spring root):
             if bone.name.startswith("DEF-"):
                 bone.name = bone.name[4:]
-                bones.set_pose_bone_layer(rigify_rig, bone.name, SPRING_EDIT_LAYER)
+                bones.set_bone_collection(rigify_rig, bone, "Spring (Edit)", None, SPRING_EDIT_LAYER)
                 to_layer.append(bone.name)
             else:
                 to_remove.append(bone.name)
@@ -551,7 +549,7 @@ def derigify_spring_rig(chr_cache, rigify_rig, parent_mode):
             spring_rig["rigified"] = False
 
         select_rig(rigify_rig)
-        rigify_rig.data.layers[SPRING_EDIT_LAYER] = True
+        bones.set_bone_collection_visibility(rigify_rig, "Spring (Edit)", SPRING_EDIT_LAYER, True)
 
 
 def group_props_to_value(chr_cache, group_pose_bone, prop, value):
@@ -848,7 +846,8 @@ def report_uv_face_targets(obj, meta_rig):
         t_mesh = geom.get_triangulated_bmesh(mesh)
         bone : bpy.types.EditBone
         for bone in meta_rig.data.edit_bones:
-            if bone.layers[0] and bone.name != "face":
+
+            if bone.name != "face":
                 head_world = bone.head
                 tail_world = bone.tail
                 head_uv = geom.get_uv_from_world(obj, t_mesh, mat_slot, head_world)
@@ -1134,14 +1133,12 @@ def hide_face_bones(meta_rig):
         for b in rigify_mapping_data.NON_BASIC_FACE_BONES:
             bone = bones.get_edit_bone(meta_rig, b)
             if bone:
-                bone.layers[0] = False
-                bone.layers[31] = True
+                bones.set_bone_collection(meta_rig, bone, "Hidden", None, 31)
     if select_rig(meta_rig):
         for b in rigify_mapping_data.NON_BASIC_FACE_BONES:
             bone = bones.get_bone(meta_rig, b)
             if bone:
-                bone.layers[0] = False
-                bone.layers[31] = True
+                bones.set_bone_collection(meta_rig, bone, "Hidden", None, 31)
 
 
 def convert_to_basic_face_rig(rigify_rig):
@@ -1299,7 +1296,7 @@ def modify_rigify_rig(cc3_rig, rigify_rig, rigify_data):
                     for bone in rigify_rig.data.bones:
                         if re.match(regex, bone.name):
                             utils.log_info(f"Hiding control rig bone: {bone.name}")
-                            bones.set_pose_bone_layer(rigify_rig, bone.name, HIDE_BONE_LAYER)
+                            bones.set_bone_collection(rigify_rig, bone, "Hidden", None, HIDE_BONE_LAYER)
                             bone_list.append(bone.name)
                 utils.log_recess()
         if bone_list and edit_rig(rigify_rig):
@@ -2444,18 +2441,23 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
 
     # select all possible control bones in the rigify rig, to bake:
     BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
+    BAKE_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
+                             "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
+                             "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
+                             "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
+                             "Root"]
     if select_rig(rigify_rig):
 
         rigify_settings = bones.store_armature_settings(rigify_rig)
 
         bone : bpy.types.Bone
-        bones.make_bones_visible(rigify_rig, groups = BAKE_BONE_GROUPS)
+        bones.make_bones_visible(rigify_rig)
         for bone in rigify_rig.data.bones:
             bone.select = False
-            pose_bone = bones.get_pose_bone(rigify_rig, bone.name)
-            if pose_bone and pose_bone.bone_group:
-                if pose_bone.bone_group.name in BAKE_BONE_GROUPS:
-                    bone.select = True
+            if bones.is_bone_in_collection(rigify_rig, bone,
+                                                      BAKE_BONE_COLLECTIONS,
+                                                      BAKE_BONE_GROUPS):
+                bone.select = True
 
         shape_key_objects = []
         if props.bake_nla_shape_keys:
@@ -2665,9 +2667,7 @@ def generate_export_rig(chr_cache, force_t_pose = False):
         return None
 
     # turn all the layers on, otherwise keyframing can fail
-    for l in range(0, 32):
-        export_rig.data.layers[l] = True
-        export_rig.data.layers_protected[l] = False
+    bones.make_bones_visible(export_rig, protected=True)
 
     # compile a list of all deformation bones
     export_bones = []
@@ -2750,8 +2750,7 @@ def generate_export_rig(chr_cache, force_t_pose = False):
                 #bones.align_edit_bone_roll(bone, axis)
 
                 # set layer
-                for l in range(0, 32):
-                    bone.layers[l] = l == layer
+                bones.set_bone_collection(export_rig, bone, "Export", None, layer)
 
         # remove all non-deformation bones
         for edit_bone in edit_bones:
@@ -2774,11 +2773,10 @@ def generate_export_rig(chr_cache, force_t_pose = False):
                 vertex_group_map[bone_name] = export_name
                 edit_bones[bone_name].name = export_name
 
-    # set pose bone layers
+    # set bone layers
     if select_rig(export_rig):
         for bone in export_rig.data.bones:
-            for l in range(0, 32):
-                bone.layers[l] = l == layer
+            bones.set_bone_collection(export_rig, bone, "Export", None, layer)
 
     # reset the pose
     bones.clear_pose(export_rig)
@@ -3326,16 +3324,21 @@ def get_armature_action_source_type(armature, action):
     return "Unknown", "Unknown"
 
 
-def is_full_rig_shown(chr_cache):
+def is_full_rigify_rig_shown(chr_cache):
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
         arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
-        for i in range(0, 32):
-            if (i == 28) or (i >= 0 and i <= 21):
-                if arm.data.layers[i] == False:
+        if utils.B400():
+            for collection in arm.data.collections:
+                if not collection.is_visible:
                     return False
+        else:
+            for i in range(0, 32):
+                if (i == 28) or (i >= 0 and i <= 21):
+                    if arm.data.layers[i] == False:
+                        return False
         return True
     else:
         return False
@@ -3343,22 +3346,30 @@ def is_full_rig_shown(chr_cache):
 
 def toggle_show_full_rig(chr_cache):
     show = True
-    if is_full_rig_shown(chr_cache):
+    if is_full_rigify_rig_shown(chr_cache):
         show = False
     if chr_cache:
         arm = chr_cache.get_armature()
     else:
         arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
-        if show:
-            arm.data.layers[28] = True
-        else:
-            arm.data.layers[DEF_BONE_LAYER] = True
-        for i in range(0, 32):
+        if utils.B400():
             if show:
-                arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
+                for collection in arm.data.collections:
+                    collection.is_visible = collection.name not in ["MCH", "ORG", "DEF"]
             else:
-                arm.data.layers[i] = (i == SPRING_EDIT_LAYER or i == DEF_BONE_LAYER)
+                for collection in arm.data.collections:
+                    collection.is_visible = collection.name in ["DEF", "Spring (Edit)"]
+        else:
+            if show:
+                arm.data.layers[28] = True
+            else:
+                arm.data.layers[DEF_BONE_LAYER] = True
+            for i in range(0, 32):
+                if show:
+                    arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
+                else:
+                    arm.data.layers[i] = (i == SPRING_EDIT_LAYER or i == DEF_BONE_LAYER)
 
 
 def is_base_rig_shown(chr_cache):
@@ -3367,10 +3378,15 @@ def is_base_rig_shown(chr_cache):
     else:
         arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
-        for i in range(0, 32):
-            if (i == 28) or (i >= 0 and i <= 18):
-                if arm.data.layers[i] == False:
+        if utils.B400():
+            for collection in arm.data.collections:
+                if collection.name not in ["MCH", "ORG", "DEF"] and not collection.is_visible:
                     return False
+        else:
+            for i in range(0, 32):
+                if (i == 28) or (i >= 0 and i <= 18):
+                    if arm.data.layers[i] == False:
+                        return False
         return True
     else:
         return False
@@ -3378,7 +3394,7 @@ def is_base_rig_shown(chr_cache):
 
 def toggle_show_base_rig(chr_cache):
     show = True
-    if is_full_rig_shown(chr_cache):
+    if is_full_rigify_rig_shown(chr_cache):
         show = True
     elif is_base_rig_shown(chr_cache):
         show = False
@@ -3387,15 +3403,23 @@ def toggle_show_base_rig(chr_cache):
     else:
         arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
-        if show:
-            arm.data.layers[28] = True
-        else:
-            arm.data.layers[DEF_BONE_LAYER] = True
-        for i in range(0, 32):
+        if utils.B400():
             if show:
-                arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 18)
+                for collection in arm.data.collections:
+                    collection.is_visible = collection.name not in ["MCH", "ORG", "DEF"]
             else:
-                arm.data.layers[i] = (i == DEF_BONE_LAYER)
+                for collection in arm.data.collections:
+                    collection.is_visible = collection.name == "DEF"
+        else:
+            if show:
+                arm.data.layers[28] = True
+            else:
+                arm.data.layers[DEF_BONE_LAYER] = True
+            for i in range(0, 32):
+                if show:
+                    arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 18)
+                else:
+                    arm.data.layers[i] = (i == DEF_BONE_LAYER)
 
 
 def is_spring_rig_shown(chr_cache):
@@ -3404,10 +3428,15 @@ def is_spring_rig_shown(chr_cache):
     else:
         arm = utils.get_armature_from_objects(bpy.context.selected_objects)
     if arm:
-        for i in range(0, 32):
-            if (i >= 19 and i <= 21):
-                if arm.data.layers[i] == False:
+        if utils.B400():
+            for collection in arm.data.collections:
+                if collection.name in ["Spring (FK)", "Spring(IK)", "Spring (Tweak)"] and not collection.is_visible:
                     return False
+        else:
+            for i in range(0, 32):
+                if (i >= 19 and i <= 21):
+                    if arm.data.layers[i] == False:
+                        return False
         return True
     else:
         return False
@@ -3416,7 +3445,7 @@ def is_spring_rig_shown(chr_cache):
 def toggle_show_spring_rig(chr_cache):
 
     show = True
-    if is_full_rig_shown(chr_cache):
+    if is_full_rigify_rig_shown(chr_cache):
         show = True
     elif is_spring_rig_shown(chr_cache):
         show = False
@@ -3428,16 +3457,24 @@ def toggle_show_spring_rig(chr_cache):
 
     if arm:
 
-        if show:
-            arm.data.layers[19] = True
-        else:
-            arm.data.layers[DEF_BONE_LAYER] = True
-
-        for i in range(0, 32):
+        if utils.B400():
             if show:
-                arm.data.layers[i] = (i >= 19 and i <= 21)
+                for collection in arm.data.collections:
+                    collection.is_visible = collection.name in ["Spring (FK)", "Spring(IK)", "Spring (Tweak)"]
             else:
-                arm.data.layers[i] = (i == DEF_BONE_LAYER)
+                for collection in arm.data.collections:
+                    collection.is_visible = collection.name == "DEF"
+        else:
+            if show:
+                arm.data.layers[19] = True
+            else:
+                arm.data.layers[DEF_BONE_LAYER] = True
+
+            for i in range(0, 32):
+                if show:
+                    arm.data.layers[i] = (i >= 19 and i <= 21)
+                else:
+                    arm.data.layers[i] = (i == DEF_BONE_LAYER)
 
 
 def toggle_show_spring_bones(chr_cache):

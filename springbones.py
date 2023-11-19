@@ -342,19 +342,13 @@ def enumerate_spring_rigs(self, context):
 def show_spring_bone_edit_layer(chr_cache, arm, show):
     if arm:
         if show:
-            arm.data.layers[SPRING_EDIT_LAYER] = True
-            for i in range(0, 32):
-                arm.data.layers[i] = (i == SPRING_EDIT_LAYER)
+            bones.set_bone_collection_visibility(arm, "Spring (Edit)", SPRING_EDIT_LAYER, True)
             arm.show_in_front = True
             arm.display_type = 'SOLID'
             #arm.data.display_type = 'STICK'
 
         else:
-            for i in range(0, 32):
-                if chr_cache.rigified:
-                    arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
-                else:
-                    arm.data.layers[i] = (i == 0)
+            bones.set_bone_collection_visibility(arm, "Spring (Edit)", SPRING_EDIT_LAYER, False)
             arm.show_in_front = False
             if chr_cache.rigified:
                 arm.display_type = 'WIRE'
@@ -366,17 +360,11 @@ def show_spring_bone_edit_layer(chr_cache, arm, show):
 def show_spring_bone_rig_layers(chr_cache, arm, show):
     if arm:
         if show:
-            arm.data.layers[SPRING_FK_LAYER] = True
-            for i in range(0, 32):
-                arm.data.layers[i] = (i == SPRING_FK_LAYER or i == SPRING_IK_LAYER or i == SPRING_TWEAK_LAYER)
+            bones.set_bone_collection_visibility(arm, "Spring (FK)", SPRING_FK_LAYER, True)
             arm.show_in_front = False
 
         else:
-            for i in range(0, 32):
-                if chr_cache.rigified:
-                    arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
-                else:
-                    arm.data.layers[i] = (i == 0)
+            bones.set_bone_collection_visibility(arm, "Spring (FK)", SPRING_FK_LAYER, False)
             arm.show_in_front = False
             if chr_cache.rigified:
                 arm.display_type = 'WIRE'

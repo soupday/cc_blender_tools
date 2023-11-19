@@ -556,37 +556,37 @@ GAME_BASE_VERTEX_GROUP_RENAME = [
 # arg: constraint args (influence)
 ADD_DEF_BONES = [
 
-    ["ORG-eye.R", "DEF-eye.R", "ORG-eye.R", "LR", 29],
-    ["ORG-eye.L", "DEF-eye.L", "ORG-eye.L", "LR", 29],
+    ["ORG-eye.R", "DEF-eye.R", "ORG-eye.R", "LR", 29, "DEF"],
+    ["ORG-eye.L", "DEF-eye.L", "ORG-eye.L", "LR", 29, "DEF"],
 
-    ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29],
-    ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29],
+    ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29, "DEF"],
+    ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29, "DEF"],
 
-    ["CC_Base_L_RibsTwist", "DEF-breast_twist.L", "ORG-breast.L", "LR", 29],
-    ["CC_Base_R_RibsTwist", "DEF-breast_twist.R", "ORG-breast.R", "LR", 29],
+    ["CC_Base_L_RibsTwist", "DEF-breast_twist.L", "ORG-breast.L", "LR", 29, "DEF"],
+    ["CC_Base_R_RibsTwist", "DEF-breast_twist.R", "ORG-breast.R", "LR", 29, "DEF"],
     # "-" instructs to re-parent the existing DEF-breast bones to the new DEF-breast_twist bones.
-    ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29],
-    ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29],
+    ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29, "DEF"],
+    ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29, "DEF"],
 
-    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, 0.667, "DEF-upper_arm.L.001", 0.5],
-    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, 0.667, "DEF-thigh.L.001", 0.5],
+    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, "DEF", 0.667, "DEF-upper_arm.L.001", 0.5],
+    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, "DEF", 0.667, "DEF-thigh.L.001", 0.5],
     #["DEF-toe.L", "DEF-toe_share.L", "DEF-toe.L", "LR", 29, 4.0, "DEF-foot.L", 0.5],
 
-    ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_IndexToe1", "DEF-toe_index.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_MidToe1", "DEF-toe_mid.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29],
+    ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29, "DEF"],
+    ["CC_Base_L_IndexToe1", "DEF-toe_index.L", "DEF-toe.L", "LR", 29, "DEF"],
+    ["CC_Base_L_MidToe1", "DEF-toe_mid.L", "DEF-toe.L", "LR", 29, "DEF"],
+    ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29, "DEF"],
+    ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29, "DEF"],
 
-    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, 0.667, "DEF-upper_arm.R.001", 0.5],
-    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, 0.667, "DEF-thigh.R.001", 0.5],
+    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, "DEF", 0.667, "DEF-upper_arm.R.001", 0.5],
+    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, "DEF", 0.667, "DEF-thigh.R.001", 0.5],
     #["DEF-toe.R", "DEF-toe_share.R", "DEF-toe.R", "LR", 29, 4.0, "DEF-foot.R", 0.5],
 
-    ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_IndexToe1", "DEF-toe_index.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29],
+    ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29, "DEF"],
+    ["CC_Base_R_IndexToe1", "DEF-toe_index.R", "DEF-toe.R", "LR", 29, "DEF"],
+    ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR", 29, "DEF"],
+    ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR", 29, "DEF"],
+    ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29, "DEF"],
 ]
 
 

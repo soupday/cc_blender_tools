@@ -717,10 +717,14 @@ def set_rigify_simulation_influence(arm, spring_rig_bone_name, sim_value, ik_fk_
                 child_bone["IK_FK"] = ik_fk_value
 
 
-def add_simulation_bone_group(arm):
-    if "Simulation" not in arm.pose.bone_groups:
-        bone_group = arm.pose.bone_groups.new(name="Simulation")
-        bone_group.color_set = "THEME02"
+def add_simulation_bone_collection(arm):
+    if utils.B400():
+        if "Simulation" not in arm.data.collections:
+            arm.data.collections.new("Simulation")
+    else:
+        if "Simulation" not in arm.pose.bone_groups:
+            bone_group = arm.pose.bone_groups.new(name="Simulation")
+            bone_group.color_set = "THEME02"
 
 
 def reset_cache(context):
@@ -911,7 +915,7 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
 
     utils.object_mode_to(arm)
     arm_settings = bones.store_armature_settings(arm)
-    bones.show_all_layers(arm)
+    bones.make_bones_visible(arm)
 
     old_action = utils.safe_get_action(arm)
     old_pose = arm.data.pose_position
@@ -1110,7 +1114,7 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mapping):
         rigify_rig.location = (0,0,0)
         bones.set_rig_bind_pose(cc3_rig)
         bones.set_rig_bind_pose(rigify_rig)
-        bones.show_all_layers(rigify_rig)
+        bones.make_bones_visible(rigify_rig)
 
         # make sure the colliders can be make visible and selectable
         layer_collections = utils.get_view_layer_collections(search = COLLIDER_COLLECTION_NAME)

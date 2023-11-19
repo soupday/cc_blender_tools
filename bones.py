@@ -337,7 +337,7 @@ def get_edit_bone_subtree_defs(rig, bone : bpy.types.EditBone, tree = None):
     return tree
 
 
-def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, dst_prefix, layer, vertex_group_map):
+def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, dst_prefix, collection, layer, vertex_group_map):
 
     src_bone_defs = None
 
@@ -375,11 +375,7 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                 bone_def.append(bone.name)
 
                 # set the edit bone layers
-                if utils.B400():
-                    pass
-                else:
-                    for l in range(0, 32):
-                        bone.layers[l] = l == layer
+                set_bone_collection(dst_rig, bone, collection, None, layer)
 
                 # set the bone parent
                 parent_bone = get_edit_bone(dst_rig, parent_name)
@@ -391,11 +387,7 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                 for bone_def in src_bone_defs:
                     name = bone_def[7]
                     pose_bone = dst_rig.data.bones[name]
-                    if utils.B400():
-                        pass
-                    else:
-                        for l in range(0, 32):
-                            pose_bone.layers[l] = l == layer
+                    set_bone_collection(dst_rig, pose_bone, collection, None, layer)
 
     return src_bone_defs
 
@@ -591,42 +583,33 @@ def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_deform = deform
 
 
-def show_bone_layers(rig, bone):
-    if utils.B400():
-        pass
-    else:
-        for i in range(0, 32):
-            if bone.layers[i]:
-                rig.data.layers[i] = True
-
-
-def show_all_layers(rig):
-    if utils.B400():
-        pass
-    else:
-        for i in range(0, 32):
-            rig.data.layers[i] = True
-
-
 def store_armature_settings(rig):
+    collections = {}
+    layers = []
+
     if utils.B400():
-        layers = None
+        for collection in rig.data.collections:
+            collections[collection.name] = collection.is_visible
     else:
-        layers = []
         for i in range(0, 32):
             layers.append(rig.data.layers[i])
+
     visibility = { "layers": layers,
+                   "collections": collections,
                    "show_in_front": rig.show_in_front,
                    "display_type": rig.display_type,
                    "pose_position": rig.data.pose_position,
                    "action": utils.safe_get_action(rig),
                    "location": rig.location }
+
     return visibility
 
 
 def restore_armature_settings(rig, visibility):
     if utils.B400():
-        pass
+        collections = visibility["collections"]
+        for collection in collections:
+            rig.data.collections[collection].is_visible = collections[collection]
     else:
         layers = visibility["layers"]
         for i in range(0, 32):
@@ -642,64 +625,6 @@ def set_rig_bind_pose(rig):
     rig.data.pose_position = "POSE"
     utils.safe_set_action(rig, None)
     clear_pose(rig)
-
-
-def show_armature_layers(rig : bpy.types.Object, layer_list : list, in_front = False, wireframe = False):
-    rig.show_in_front = in_front
-    rig.display_type = 'WIRE' if wireframe else 'SOLID'
-    armature : bpy.types.Armature = rig.data
-
-    if utils.B400():
-        pass
-
-    else:
-        utils.edit_mode_to(rig)
-        for i in range(0, 32):
-            if i in layer_list:
-                armature.layers[i] = True
-            else:
-                armature.layers[i] = False
-
-        utils.pose_mode_to(rig)
-        for i in range(0, 32):
-            if i in layer_list:
-                armature.layers[i] = True
-            else:
-                armature.layers[i] = False
-
-        utils.object_mode_to(rig)
-        for i in range(0, 32):
-            if i in layer_list:
-                armature.layers[i] = True
-            else:
-                armature.layers[i] = False
-
-    return
-
-
-def set_bone_layer(rig, bone_name, layer):
-    if utils.edit_mode_to(rig):
-        set_edit_bone_layer(rig, bone_name, layer)
-    if utils.set_mode("OBJECT"):
-        set_pose_bone_layer(rig, bone_name, layer)
-
-
-def set_edit_bone_layer(rig, bone_name, layer):
-    edit_bone = rig.data.edit_bones[bone_name]
-    if utils.B400():
-        pass
-    else:
-        for l in range(0, 32):
-            edit_bone.layers[l] = l == layer
-
-
-def set_pose_bone_layer(rig, bone_name, layer):
-    pose_bone = rig.data.bones[bone_name]
-    if utils.B400():
-        pass
-    else:
-        for l in range(0, 32):
-            pose_bone.layers[l] = l == layer
 
 
 def copy_position(rig, bone, copy_bones, offset):
@@ -726,16 +651,62 @@ def copy_position(rig, bone, copy_bones, offset):
     return None
 
 
-def set_bone_group(rig, bone, group):
-    if utils.set_mode("OBJECT"):
-        if bone in rig.pose.bones:
-            bone_group = rig.pose.bone_groups[group]
-            rig.pose.bones[bone].bone_group = bone_group
-            return True
-        else:
-            utils.log_error(f"Cannot find pose bone {bone} in rig!")
+def is_bone_in_collections(rig, bone, collections=None, groups=None, layers=None):
+    if utils.B400():
+        if collections:
+            for collection in collections:
+                if collection in rig.data.collections:
+                    if bone.name in rig.data.collections[collection]:
+                        return True
     else:
-        utils.log_error("Unable to select rig!")
+        if groups:
+            if bone.name in rig.pose.bones:
+                pose_bone = rig.pose.bones[bone.name]
+                if pose_bone.bone_group.name in groups:
+                    return True
+        if layers:
+            for layer in layers:
+                if not bone.layers[layer]:
+                    return False
+            return True
+
+    return False
+
+
+def set_bone_collection(rig, bone, collection=None, group=None, layer=None):
+    """Sets the bone collection (Any) (Blender 4.0+),
+       or group (PoseBone only) or layer (Bone or EditBone) (< Blender 4.0)"""
+    if utils.B400():
+        if collection:
+            if not collection in rig.data.collections:
+                rig.data.collections.new(collection)
+            bone_collection = rig.data.collections[collection]
+            bone_collection.assign(bone)
+            return True
+    else:
+        if group:
+            if group not in rig.pose.bone_groups:
+                rig.pose.bone_groups.new(name=group)
+            group = rig.pose.bone_groups[group]
+            bone.bone_group = group
+        if layer:
+            bone.layers[layer] = True
+            for i, l in enumerate(bone.layers):
+                bone.layers[i] = i == layer
+
+
+def set_bone_collection_visibility(rig, collection, layer, visible, only=False):
+    if utils.B400():
+        if only:
+            for collection in rig.data.collections:
+                collection.is_visible = False
+        if collection in rig.data.collections:
+            rig.data.collections[collection].is_visible = visible
+    else:
+        if only:
+            for i in range(0, 32):
+                rig.data.layers[i] = False
+        rig.data.layers[layer] = visible
 
 
 def set_pose_bone_custom_scale(rig, bone_name, scale):
@@ -1040,25 +1011,34 @@ def get_roll(bone):
     return roll
 
 
-def make_bones_visible(arm, groups = None):
+def make_bones_visible(arm, protected=False):
     bone : bpy.types.Bone
     pose_bone : bpy.types.PoseBone
     for bone in arm.data.bones:
         pose_bone = get_pose_bone(arm, bone.name)
-        # hide bones not in the supplied groups (if supplied)
-        if groups and pose_bone and pose_bone.bone_group:
-            if pose_bone.bone_group.name not in groups:
-                bone.hide = True
-        # make all active bone layers visible so they can be made visible and selected
+        # make all active bone layers visible so they can be unhidden and selectable
         if utils.B400():
-            pass
+            for collection in arm.data.collections:
+                collection.is_visible = True
+                if protected:
+                    collection.is_editable = True
         else:
             for i, l in enumerate(bone.layers):
                 if l:
                     arm.data.layers[i] = True
+                    if protected:
+                        arm.data.layers_protected[i] = False
         # show and select bone
         bone.hide = False
         bone.hide_select = False
+
+def is_bone_collection_visible(arm, collection=None, layer=None):
+    if utils.B400():
+        if collection in arm.data.collections:
+            return collection.is_visible
+        return False
+    else:
+        return arm.data.layers[layer]
 
 
 def clear_pose(arm):
