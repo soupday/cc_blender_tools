@@ -663,7 +663,7 @@ def is_bone_in_collections(rig, bone, collections=None, groups=None, layers=None
         if groups:
             if bone.name in rig.pose.bones:
                 pose_bone = rig.pose.bones[bone.name]
-                if pose_bone.bone_group.name in groups:
+                if pose_bone.bone_group and pose_bone.bone_group.name in groups:
                     return True
         if layers:
             for layer in layers:

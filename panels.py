@@ -2795,6 +2795,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = PIPELINE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
