@@ -30,11 +30,6 @@ ROOT_BONE_NAMES = HEAD_BONE_NAMES.copy().extend(JAW_BONE_NAMES.copy())
 
 AVAILABLE_SPRING_RIG_LIST = []
 
-SPRING_IK_LAYER = 19
-SPRING_FK_LAYER = 20
-SPRING_TWEAK_LAYER = 21
-SPRING_EDIT_LAYER = 25
-
 
 def get_all_parent_modes(chr_cache, arm):
     return ["HEAD", "JAW"]
@@ -169,7 +164,8 @@ def get_spring_rig(chr_cache, arm, parent_mode, mode = "POSE", create_if_missing
                 spring_rig.head = arm.matrix_world.inverted() @ center_position
                 spring_rig.tail = arm.matrix_world.inverted() @ (center_position + Vector((0,1/32,0)))
                 spring_rig.align_roll(Vector((0,0,1)))
-                bones.set_edit_bone_layer(arm, spring_rig_name, 24)
+                bones.set_bone_collection(arm, spring_rig, "Spring (Root)", None, vars.SPRING_ROOT_LAYER)
+                bones.set_bone_collection_visibility(arm, "Spring (Root)", vars.SPRING_ROOT_LAYER, False)
             return spring_rig
         else:
             if spring_rig_name in arm.data.bones:
@@ -342,13 +338,13 @@ def enumerate_spring_rigs(self, context):
 def show_spring_bone_edit_layer(chr_cache, arm, show):
     if arm:
         if show:
-            bones.set_bone_collection_visibility(arm, "Spring (Edit)", SPRING_EDIT_LAYER, True)
+            bones.set_bone_collection_visibility(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER, True, only=True)
             arm.show_in_front = True
             arm.display_type = 'SOLID'
             #arm.data.display_type = 'STICK'
 
         else:
-            bones.set_bone_collection_visibility(arm, "Spring (Edit)", SPRING_EDIT_LAYER, False)
+            bones.set_bone_collection_visibility(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER, False, only=True)
             arm.show_in_front = False
             if chr_cache.rigified:
                 arm.display_type = 'WIRE'
@@ -360,11 +356,11 @@ def show_spring_bone_edit_layer(chr_cache, arm, show):
 def show_spring_bone_rig_layers(chr_cache, arm, show):
     if arm:
         if show:
-            bones.set_bone_collection_visibility(arm, "Spring (FK)", SPRING_FK_LAYER, True)
+            bones.set_bone_collection_visibility(arm, "Spring (FK)", vars.SPRING_FK_LAYER, True)
             arm.show_in_front = False
 
         else:
-            bones.set_bone_collection_visibility(arm, "Spring (FK)", SPRING_FK_LAYER, False)
+            bones.set_bone_collection_visibility(arm, "Spring (FK)", vars.SPRING_FK_LAYER, False)
             arm.show_in_front = False
             if chr_cache.rigified:
                 arm.display_type = 'WIRE'

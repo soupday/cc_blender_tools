@@ -656,7 +656,7 @@ def is_bone_in_collections(rig, bone, collections=None, groups=None, layers=None
         if collections:
             for collection in collections:
                 if collection in rig.data.collections:
-                    if bone.name in rig.data.collections[collection]:
+                    if bone.name in rig.data.collections[collection].bones:
                         return True
     else:
         if groups:
@@ -698,15 +698,91 @@ def set_bone_collection(rig, bone, collection=None, group=None, layer=None):
 def set_bone_collection_visibility(rig, collection, layer, visible, only=False):
     if utils.B400():
         if only:
-            for collection in rig.data.collections:
-                collection.is_visible = False
+            for coll in rig.data.collections:
+                coll.is_visible = False
         if collection in rig.data.collections:
             rig.data.collections[collection].is_visible = visible
     else:
+        rig.data.layers[layer] = visible
         if only:
             for i in range(0, 32):
-                rig.data.layers[i] = False
-        rig.data.layers[layer] = visible
+                if i != layer:
+                    rig.data.layers[i] = not visible
+
+
+def make_bones_visible(arm, protected=False, collections=None, layers=None):
+    bone : bpy.types.Bone
+    pose_bone : bpy.types.PoseBone
+    for bone in arm.data.bones:
+        pose_bone = get_pose_bone(arm, bone.name)
+        # make all active bone layers visible so they can be unhidden and selectable
+        if utils.B400():
+            for collection in arm.data.collections:
+                if collections:
+                    collection.is_visible = collection.name in collections
+                else:
+                    collection.is_visible = True
+                if protected:
+                    collection.is_editable = True
+        else:
+            for i, l in enumerate(bone.layers):
+                if l:
+                    if layers:
+                        arm.data.layers[i] = i in layers
+                    else:
+                        arm.data.layers[i] = True
+                    if protected:
+                        arm.data.layers_protected[i] = False
+        # show and select bone
+        bone.hide = False
+        bone.hide_select = False
+
+def is_bone_collection_visible(arm, collection=None, layer=None):
+    if utils.B400():
+        if collection in arm.data.collections:
+            return arm.data.collections[collection].is_visible
+        return False
+    else:
+        return arm.data.layers[layer]
+
+
+def add_bone_collection(rig, collection):
+    if collection not in rig.data.collections:
+        rig.data.collections.new(collection)
+    return rig.data.collections[collection]
+
+
+def assign_rl_base_collections(rig):
+    if utils.B400():
+        if "Deform" not in rig.data.collections:
+            deform = add_bone_collection(rig, "Deform")
+            none = add_bone_collection(rig, "Non-Deform")
+            twist = add_bone_collection(rig, "Twist")
+            share = add_bone_collection(rig, "Share")
+
+            none_deform_bones = [
+                "CC_Base_R_Upperarm",
+                "CC_Base_L_Upperarm",
+                "CC_Base_R_Forearm",
+                "CC_Base_L_Forearm",
+                "CC_Base_R_Thigh",
+                "CC_Base_L_Thigh",
+                "CC_Base_R_Calf",
+                "CC_Base_L_Calf",
+                "CC_Base_FacialBone",
+                "CC_Base_BoneRoot",
+                "RL_BoneRoot",
+            ]
+
+            for bone in rig.data.bones:
+                if "Twist" in bone.name:
+                    twist.assign(bone)
+                elif "ShareBone" in bone.name:
+                    share.assign(bone)
+                if bone.name in none_deform_bones:
+                    none.assign(bone)
+                else:
+                    deform.assign(bone)
 
 
 def set_pose_bone_custom_scale(rig, bone_name, scale):
@@ -1009,36 +1085,6 @@ def get_roll(bone):
     else:
         roll = 2*atan(quat.y/quat.w)
     return roll
-
-
-def make_bones_visible(arm, protected=False):
-    bone : bpy.types.Bone
-    pose_bone : bpy.types.PoseBone
-    for bone in arm.data.bones:
-        pose_bone = get_pose_bone(arm, bone.name)
-        # make all active bone layers visible so they can be unhidden and selectable
-        if utils.B400():
-            for collection in arm.data.collections:
-                collection.is_visible = True
-                if protected:
-                    collection.is_editable = True
-        else:
-            for i, l in enumerate(bone.layers):
-                if l:
-                    arm.data.layers[i] = True
-                    if protected:
-                        arm.data.layers_protected[i] = False
-        # show and select bone
-        bone.hide = False
-        bone.hide_select = False
-
-def is_bone_collection_visible(arm, collection=None, layer=None):
-    if utils.B400():
-        if collection in arm.data.collections:
-            return collection.is_visible
-        return False
-    else:
-        return arm.data.layers[layer]
 
 
 def clear_pose(arm):

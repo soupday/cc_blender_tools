@@ -16,6 +16,7 @@ MAX_CHUNK_SIZE = 32768
 SERVER_ONLY = False
 CLIENT_ONLY = True
 SKELETON_TEMPLATE: list = None
+MAX_RECEIVE = 24
 
 class OpCodes(IntEnum):
     NONE = 0
@@ -48,6 +49,7 @@ def pack_string(s):
     buffer = bytearray()
     buffer += struct.pack("!I", len(s))
     buffer += bytes(s, encoding="utf-8")
+    return buffer
 
 
 def unpack_string(buffer, offset=0):
@@ -196,6 +198,78 @@ def decode_pose_data(pose_data):
             pose_bone.scale = sca
 
 
+def encode_skeleton_data(chr_cache):
+    # num_bones: int,
+    # bone_name: str (x num_bones)
+    if chr_cache:
+        rig = chr_cache.get_armature()
+        data = bytearray()
+        data += struct.pack("!I", len(rig.pose.bones))
+        if utils.object_mode_to(rig):
+            for pose_bone in rig.pose.bones:
+                utils.log_info(f"packing: {pose_bone.name}")
+                data += pack_string(pose_bone.name)
+        return data
+    return None
+
+
+def encode_pose_data(chr_cache):
+    if chr_cache:
+        rig: bpy.types.Object = chr_cache.get_armature()
+        M: Matrix = rig.matrix_world
+        data = bytearray()
+        data += struct.pack("!I", bpy.context.scene.frame_current)
+        if utils.object_mode_to(rig):
+            pose_bone: bpy.types.PoseBone
+            for pose_bone in rig.pose.bones:
+                T: Matrix = M @ pose_bone.matrix
+                t = T.to_translation()
+                r = T.to_quaternion()
+                s = T.to_scale()
+                data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
+        return data
+    return None
+
+
+def get_animation_data(chr_cache):
+    fps = bpy.context.scene.render.fps
+    current_frame = bpy.context.scene.frame_current
+    start_frame = bpy.context.scene.frame_start
+    end_frame = bpy.context.scene.frame_end
+    current_time = (current_frame - start_frame) / fps
+    start_time = 0
+    end_time = (end_frame - start_frame) / fps
+    data = {
+        "name": chr_cache.character_name,
+        "fps": fps,
+        "current_time": current_time,
+        "start_time": start_time,
+        "end_time": end_time,
+        "current_frame": current_frame,
+        "start_frame": start_frame,
+        "end_frame": end_frame,
+    }
+    return data
+
+
+def next_frame():
+    fps = bpy.context.scene.render.fps
+    end_frame = bpy.context.scene.frame_end
+    current_frame = min(end_frame, bpy.context.scene.frame_current + 1)
+    bpy.context.scene.frame_current = current_frame
+    return current_frame
+
+
+#fcurve.keyframe_points.insert
+
+def reset_action(chr_cache):
+    if chr_cache:
+        rig = chr_cache.get_armature()
+        if rig:
+            action = utils.safe_get_action(rig)
+            action.fcurves.clear()
+
+
 def prep_rig(chr_cache):
     """Prepares the character rig for keyframing poses from the pose data stream."""
 
@@ -216,14 +290,14 @@ def prep_rig(chr_cache):
                                  "Arm.L (IK)", "Arm.L (FK)", "Leg.L (IK)", "Leg.L (FK)",
                                  "Arm.R (IK)", "Arm.R (FK)", "Leg.R (IK)", "Leg.R (FK)",
                                  "Root"]
+        BAKE_BONE_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,28]
         if utils.object_mode_to(rig):
             bone : bpy.types.Bone
-            bones.make_bones_visible(rig)
+            bones.make_bones_visible(rig, collections=BAKE_BONE_COLLECTIONS, layers=BAKE_BONE_LAYERS)
             for bone in rig.data.bones:
                 bone.select = False
-                if bones.is_bone_in_collection(rig, bone,
-                                                          BAKE_BONE_COLLECTIONS,
-                                                          BAKE_BONE_GROUPS):
+                if bones.is_bone_in_collections(rig, bone, BAKE_BONE_COLLECTIONS,
+                                                           BAKE_BONE_GROUPS):
                     bone.select = True
     else:
         if utils.object_mode_to(rig):
@@ -281,8 +355,11 @@ class Signal():
     def connect(self, func):
         self.callbacks.append(func)
 
-    def disconnect(self, func):
-        self.callbacks.remove(func)
+    def disconnect(self, func=None):
+        if func:
+            self.callbacks.remove(func)
+        else:
+            self.callbacks.clear()
 
     def emit(self, *args):
         for func in self.callbacks:
@@ -317,6 +394,7 @@ class LinkService():
     accepted = Signal()
     sent = Signal()
     changed = Signal()
+    sequence = Signal()
     # local props
     local_app: str = None
     local_version: str = None
@@ -426,7 +504,7 @@ class LinkService():
 
     def recv(self):
         self.is_data = False
-        src = sequence_read_count()
+        max_receive_count = 24
         if self.client_sock and (self.is_connected or self.is_connecting):
             r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
             count = 0
@@ -445,11 +523,12 @@ class LinkService():
                     self.parse(op_code, data)
                     self.received.emit(op_code, data)
                     count += 1
+                self.is_data = False
                 r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
                 if r:
                     self.is_data = True
-                if not self.is_sequence or count >= src:
-                    r = None
+                    if count >= MAX_RECEIVE:
+                        return
 
     def accept(self):
         if self.server_sock and self.is_listening:
@@ -553,7 +632,10 @@ class LinkService():
         # receive client data
         self.recv()
 
-        return 0.0 if self.is_data else TIMER_INTERVAL
+        # run anything in sequence
+        self.sequence.emit()
+
+        return 0.0 if (self.is_data or self.is_sequence) else TIMER_INTERVAL
 
     def send(self, op_code, binary_data = None):
         if self.client_sock and (self.is_connected or self.is_connecting):
@@ -571,6 +653,17 @@ class LinkService():
                 utils.log_error("Error sending message, disconnecting...")
                 self.lost_connection.emit()
                 self.stop_client()
+
+    def start_sequence(self, func=None):
+        self.is_sequence = True
+        if func:
+            self.sequence.connect(func)
+        else:
+            self.sequence.disconnect()
+
+    def stop_sequence(self):
+        self.is_sequence = False
+        self.sequence.disconnect()
 
 
 
@@ -610,11 +703,17 @@ class CCICDataLink(bpy.types.Operator):
         if self.param == "START":
             self.link_start()
 
-        if self.param == "DISCONNECT":
+        elif self.param == "DISCONNECT":
             self.link_disconnect()
 
         elif self.param == "STOP":
             self.link_stop()
+
+        elif self.param == "SEND_POSE":
+            self.send_pose()
+
+        elif self.param == "SEND_ANIM":
+            self.send_sequence()
 
         return {'FINISHED'}
 
@@ -645,75 +744,181 @@ class CCICDataLink(bpy.types.Operator):
         if LINK_SERVICE:
             LINK_SERVICE.service_disconnect()
 
+    SQC: int = 0
+
     def parse(self, op_code, data):
         global LINK_SERVICE
-        link_data = bpy.context.scene.CCICLinkData
+
+        if op_code == OpCodes.SKELETON:
+            self.receive_skeleton(data)
+
+        if op_code == OpCodes.POSE:
+            self.receive_pose(data)
+
+        if op_code == OpCodes.CHARACTER:
+            self.receive_character(data)
+
+        if op_code == OpCodes.RIGIFY:
+            self.receive_rigify(data)
+
+        if op_code == OpCodes.SEQUENCE:
+            self.receive_sequence(data)
+
+        if op_code == OpCodes.SEQUENCE_FRAME:
+            self.receive_sequence_frame(data)
+
+        return
+
+    def receive_skeleton(self, data):
+        global LINK_SERVICE
         props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
         context = bpy.context
         chr_cache = props.get_context_character_cache(context)
 
+        utils.log_info(f"Skeleton template received")
+        decode_skeleton_data(data)
 
-        if op_code == OpCodes.SKELETON:
-            utils.log_info(f"Skeleton template received")
-            decode_skeleton_data(data)
+    def receive_pose(self, data):
+        global LINK_SERVICE
+        props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
+        context = bpy.context
+        chr_cache = props.get_context_character_cache(context)
 
-        if op_code == OpCodes.POSE:
-            utils.log_info(f"Pose Received")
-            prep_rig(chr_cache)
-            decode_pose_data(data)
-            key_frame_pose_visual()
+        utils.log_info(f"Pose Received")
+        prep_rig(chr_cache)
+        decode_pose_data(data)
+        key_frame_pose_visual()
+        remove_datalink_rig(chr_cache)
+
+    def receive_character(self,data):
+        global LINK_SERVICE
+        props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
+        context = bpy.context
+        chr_cache = props.get_context_character_cache(context)
+
+        utils.log_info(f"Character Received")
+        json_data = decode_to_json(data)
+        fbx_path = json_data["path"]
+        name = json_data["name"]
+        if os.path.exists(fbx_path):
+            bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path)
+
+    def receive_rigify(self, data):
+        global LINK_SERVICE
+        props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
+        context = bpy.context
+        chr_cache = props.get_context_character_cache(context)
+
+        utils.log_info(f"Rigify Received")
+        json_data = decode_to_json(data)
+        name = json_data["name"]
+        bpy.ops.cc3.rigifier(param="ALL", no_face_rig=True)
+
+    def receive_sequence(self, data):
+        global LINK_SERVICE
+        props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
+        context = bpy.context
+        chr_cache = props.get_context_character_cache(context)
+
+        utils.log_info(f"Sequence Received")
+        json_data = decode_to_json(data)
+        name = json_data["name"]
+        link_data.start_frame = json_data["start_frame"]
+        link_data.end_frame = json_data["end_frame"]
+        link_data.current_frame = json_data["current_frame"]
+        set_frame_range(link_data.start_frame, link_data.end_frame)
+        set_frame(link_data.current_frame)
+        prep_rig(chr_cache)
+        LINK_SERVICE.start_sequence()
+
+    def receive_sequence_frame(self, data):
+        global LINK_SERVICE
+        props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
+        context = bpy.context
+        chr_cache = props.get_context_character_cache(context)
+
+        utils.log_info(f"Sequence Frame Received")
+        link_data.current_frame = struct.unpack_from("!I", data, 0)[0]
+        set_frame(link_data.current_frame)
+        decode_pose_data(data)
+        key_frame_pose_visual()
+        if link_data.current_frame == link_data.end_frame:
             remove_datalink_rig(chr_cache)
-
-        if op_code == OpCodes.CHARACTER:
-            utils.log_info(f"Character Received")
-            json_data = decode_to_json(data)
-            fbx_path = json_data["path"]
-            name = json_data["name"]
-            if os.path.exists(fbx_path):
-                bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path)
-
-        if op_code == OpCodes.RIGIFY:
-            utils.log_info(f"Rigify Received")
-            json_data = decode_to_json(data)
-            name = json_data["name"]
-            bpy.ops.cc3.rigifier(param="ALL", no_face_rig=True)
-
-        if op_code == OpCodes.SEQUENCE:
-            utils.log_info(f"Sequence Received")
-            json_data = decode_to_json(data)
-            name = json_data["name"]
-            link_data.start_frame = json_data["start_frame"]
-            link_data.end_frame = json_data["end_frame"]
-            link_data.current_frame = json_data["current_frame"]
-            LINK_SERVICE.is_sequence = True
-            set_frame_range(link_data.start_frame, link_data.end_frame)
-            set_frame(link_data.current_frame)
-            prep_rig(chr_cache)
-            self.send_sequence_req()
-
-        if op_code == OpCodes.SEQUENCE_FRAME:
-            utils.log_info(f"Sequence Frame Received")
-            link_data.current_frame = struct.unpack_from("!I", data, 0)[0]
-            set_frame(link_data.current_frame)
-            if link_data.current_frame < link_data.end_frame:
-                self.send_sequence_req()
-            decode_pose_data(data)
-            key_frame_pose_visual()
-            if link_data.current_frame == link_data.end_frame:
-                remove_datalink_rig(chr_cache)
-                LINK_SERVICE.is_sequence = False
-                utils.log_info(f"Sequence Complete!")
+            LINK_SERVICE.stop_sequence()
+            utils.log_info(f"Sequence Complete!")
 
     def send_sequence_req(self):
         global LINK_SERVICE
+        props = bpy.context.scene.CC3ImportProps
         link_data = bpy.context.scene.CCICLinkData
+        context = bpy.context
+        chr_cache = props.get_context_character_cache(context)
+
         seq_data = {
             "frame": link_data.current_frame,
             "count": sequence_read_count(),
         }
         LINK_SERVICE.send(OpCodes.SEQUENCE_REQ, encode_from_json(seq_data))
 
+    def send_pose(self):
+        global LINK_SERVICE
+        props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
+        context = bpy.context
+        chr_cache = props.get_context_character_cache(context)
 
+        # send skeleton data
+        skeleton_data = encode_skeleton_data(chr_cache)
+        LINK_SERVICE.send(OpCodes.SKELETON, skeleton_data)
+        # send pose data
+        pose_data = encode_pose_data(chr_cache)
+        LINK_SERVICE.send(OpCodes.POSE, pose_data)
 
+    def send_sequence(self):
+        global LINK_SERVICE
+        props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
+        context = bpy.context
+        chr_cache = props.get_context_character_cache(context)
 
+        # reset animation to start
+        bpy.context.scene.frame_current = bpy.context.scene.frame_start
+        self.frame = bpy.context.scene.frame_current
+        # send animation meta data
+        anim_data = get_animation_data(chr_cache)
+        LINK_SERVICE.send(OpCodes.SEQUENCE, encode_from_json(anim_data))
+        # send skeleton data first
+        skeleton_data = encode_skeleton_data(chr_cache)
+        LINK_SERVICE.send(OpCodes.SKELETON, skeleton_data)
+        # start the sending sequence
+        LINK_SERVICE.start_sequence(self.send_sequence_frame)
+
+    def send_sequence_frame(self):
+        global LINK_SERVICE
+        props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
+        context = bpy.context
+        chr_cache = props.get_context_character_cache(context)
+        print("SEND SEQ")
+
+        for i in range(0, 1):
+            # send current sequence frame pose
+            pose_data = encode_pose_data(chr_cache)
+            LINK_SERVICE.send(OpCodes.SEQUENCE_FRAME, pose_data)
+            self.sent_frame = bpy.context.scene.frame_current
+            # check for end
+            if self.sent_frame >= bpy.context.scene.frame_end:
+                LINK_SERVICE.stop_sequence()
+                print("STOP SEQ")
+                return
+            # advance to next frame now
+            next_frame()
+            self.frame = bpy.context.scene.frame_current
+            #qt.do_events()
 

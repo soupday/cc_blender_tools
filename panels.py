@@ -1078,7 +1078,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
             col_2.prop(props, "hair_rig_group_name", text="")
             tool_row = col_1.row(align=True)
             if arm:
-                depress = bones.is_bone_collection_visible(arm, "Spring (Edit)", rigging.SPRING_EDIT_LAYER)
+                depress = bones.is_bone_collection_visible(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER)
                 tool_row.operator("cc3.rigifier", icon=utils.check_icon("HIDE_OFF"), text="",
                                   depress=depress).param = "TOGGLE_SHOW_SPRING_BONES"
                 is_grease_pencil_tool = "builtin.annotate" in utils.get_current_tool_idname(context)
@@ -1893,20 +1893,21 @@ class CC3RigifyPanel(bpy.types.Panel):
                             if source_type:
                                 layout.box().label(text = f"{source_label} Animation", icon = "ARMATURE_DATA")
 
-                        layout.label(text="Limb Correction:")
-                        column = layout.column()
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Arms")
-                        col_2.prop(chr_cache, "retarget_arm_correction_angle", text="", slider=True)
-                        col_1.label(text="Legs")
-                        col_2.prop(chr_cache, "retarget_leg_correction_angle", text="", slider=True)
-                        col_1.label(text="Heels")
-                        col_2.prop(chr_cache, "retarget_heel_correction_angle", text="", slider=True)
-                        col_1.label(text="Height")
-                        col_2.prop(chr_cache, "retarget_z_correction_height", text="", slider=True)
-                        layout.separator()
+                        if False: # disabled for now
+                            layout.label(text="Limb Correction:")
+                            column = layout.column()
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Arms")
+                            col_2.prop(chr_cache, "retarget_arm_correction_angle", text="", slider=True)
+                            col_1.label(text="Legs")
+                            col_2.prop(chr_cache, "retarget_leg_correction_angle", text="", slider=True)
+                            col_1.label(text="Heels")
+                            col_2.prop(chr_cache, "retarget_heel_correction_angle", text="", slider=True)
+                            col_1.label(text="Height")
+                            col_2.prop(chr_cache, "retarget_z_correction_height", text="", slider=True)
+                            layout.separator()
 
                         # retarget and bake armature actions
                         row = layout.row()
@@ -1997,9 +1998,9 @@ class CC3SpringControlPanel(bpy.types.Panel):
         #box.label(text="Spring Rig Layers", icon="XRAY")
         layout.row().label(text="Spring Rig Layers:", icon="XRAY")
         row = layout.row()
-        row.prop(arm.data, "layers", index = rigging.SPRING_FK_LAYER, text="FK", toggle=True)
-        row.prop(arm.data, "layers", index = rigging.SPRING_IK_LAYER, text="IK", toggle=True)
-        row.prop(arm.data, "layers", index = rigging.SPRING_TWEAK_LAYER, text="Tweak", toggle=True)
+        row.prop(arm.data, "layers", index = vars.SPRING_FK_LAYER, text="FK", toggle=True)
+        row.prop(arm.data, "layers", index = vars.SPRING_IK_LAYER, text="IK", toggle=True)
+        row.prop(arm.data, "layers", index = vars.SPRING_TWEAK_LAYER, text="Tweak", toggle=True)
 
         control_bone = None
         active_pose_bone = context.active_pose_bone
@@ -2838,7 +2839,11 @@ class CCICDataLinkPanel(bpy.types.Panel):
         row = column.row()
         if connected or connecting:
             row.operator("ccic.datalink", icon="X", text="Stop").param = "STOP"
-        #layout.operator("ccic.datalink", icon="X", text="Send CC4").param = "SEND_CC4"
+
+        if connected:
+            column = layout.column()
+            layout.operator("ccic.datalink", icon="X", text="Send Pose").param = "SEND_POSE"
+            layout.operator("ccic.datalink", icon="X", text="Send Animation").param = "SEND_ANIM"
 
 
 class CC3ToolsPipelineImportPanel(bpy.types.Panel):

@@ -547,31 +547,43 @@ def get_mode():
         return "OBJECT"
 
 
+def is_selected_and_active(obj):
+    return get_active_object() == obj and obj in bpy.context.selected_objects
+
+
+def is_only_selected_and_active(obj):
+    return (get_active_object() == obj and
+            obj in bpy.context.selected_objects and
+            len(bpy.context.selected_objects) == 1)
+
+
 def edit_mode_to(obj, only_this = False):
-    if only_this and (get_active_object() != obj or len(bpy.context.selected_objects) > 1 or obj not in bpy.context.selected_objects):
-        set_only_active_object(obj)
-    if obj in bpy.context.selected_objects and get_active_object() == obj and get_mode() == "EDIT":
-        return True
-    else:
-        if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
+    if object_exists(obj):
+        if only_this and not is_only_selected_and_active(obj):
+            set_only_active_object(obj)
+        if is_selected_and_active(obj) and get_mode() == "EDIT":
             return True
-    return False
-
-
-def object_mode_to(obj):
-    if get_mode() == "OBJECT" and get_active_object() == obj:
-        return True
-    if set_mode("OBJECT"):
-        if try_select_object(obj):
-            if set_active_object(obj):
+        else:
+            if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
                 return True
     return False
 
 
+def object_mode_to(obj):
+    if object_exists(obj):
+        if get_mode() == "OBJECT" and get_active_object() == obj:
+            return True
+        if set_mode("OBJECT"):
+            if try_select_object(obj):
+                if set_active_object(obj):
+                    return True
+    return False
+
+
 def pose_mode_to(arm):
-    if get_mode() == "POSE" and get_active_object() == arm:
-        return True
-    if get_mode() != "POSE" or get_active_object() != arm:
+    if object_exists_is_armature(arm):
+        if get_mode() == "POSE" and get_active_object() == arm:
+            return True
         if object_mode_to(arm):
             if set_mode("POSE"):
                 return True
@@ -1620,6 +1632,18 @@ def set_scene_frame_range(start, end):
     else:
         scene.frame_start = start
         scene.frame_end = end
+
+
+def debug_empty(name, loc=None, rot=None, scale=None, matrix=None):
+    ob = bpy.data.objects.new(name, None)
+    if matrix:
+        ob.matrix_world = matrix
+    elif loc and rot and scale:
+        ob.location = loc
+        ob.rotation_mode = "QUATERNION"
+        ob.rotation_quaternion = rot
+        ob.scale = scale
+    bpy.context.scene.collection.objects.link(ob)
 
 
 def generate_random_id(length):

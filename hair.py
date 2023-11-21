@@ -17,7 +17,7 @@
 import bpy, bmesh
 import os, math, random
 from mathutils import Vector
-from . import physics, rigidbody, springbones, geom, utils, jsonutils, bones, meshutils
+from . import physics, rigidbody, springbones, geom, utils, jsonutils, bones, meshutils, vars
 
 
 STROKE_JOIN_THRESHOLD = 1.0 / 100.0 # 1cm
@@ -805,7 +805,7 @@ def custom_bone(chr_cache, arm, parent_mode, loop_index, bone_length, new_bones)
         bone_z = (((world_head + world_tail) * 0.5) - world_origin).normalized()
         bone.align_roll(bone_z)
         # set bone layer to 25, so we can show only the added hair bones 'in front'
-        bones.set_edit_bone_layer(arm, bone_name, 25)
+        bones.set_bone_collection(arm, bone, "Spring (Edit)", None, vars.SPRING_EDIT_LAYER)
         # don't directly connect first bone in a chain
         bone.use_connect = False
         return True
@@ -1019,7 +1019,7 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length,
             bone.align_roll(bone_z)
             parent_bone = bone
             # set bone layer to 25, so we can show only the added hair bones 'in front'
-            bones.set_edit_bone_layer(arm, bone_name, 25)
+            bones.set_bone_collection(arm, bone, "Spring (Edit)", None, vars.SPRING_EDIT_LAYER)
             chain.append(bone_name)
             if first:
                 bone.use_connect = False

@@ -18,7 +18,7 @@ import os
 import shutil
 import bpy
 
-from . import (characters, rigging, bake, imageutils, jsonutils, materials,
+from . import (characters, rigging, bones, bake, imageutils, jsonutils, materials,
                modifiers, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
                basic, properties, utils, vars)
@@ -523,6 +523,8 @@ def detect_character(file_path, objects, actions, json_data, report):
                 chr_cache.character_name = arm.name
                 # add armature to object_cache
                 chr_cache.add_object_cache(arm)
+                # assign bone collections
+                bones.assign_rl_base_collections(arm)
                 break
 
         if arm_count > 1:
