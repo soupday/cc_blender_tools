@@ -2433,7 +2433,8 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
                              "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
                              "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
                              "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
-                             "Root"]
+                             "Root",
+                             "Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
     if select_rig(rigify_rig):
 
         rigify_settings = bones.store_armature_settings(rigify_rig)
@@ -2442,9 +2443,9 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
         bones.make_bones_visible(rigify_rig)
         for bone in rigify_rig.data.bones:
             bone.select = False
-            if bones.is_bone_in_collection(rigify_rig, bone,
-                                                      BAKE_BONE_COLLECTIONS,
-                                                      BAKE_BONE_GROUPS):
+            if bones.is_bone_in_collections(rigify_rig, bone,
+                                            BAKE_BONE_COLLECTIONS,
+                                            BAKE_BONE_GROUPS):
                 bone.select = True
 
         shape_key_objects = []

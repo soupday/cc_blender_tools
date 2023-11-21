@@ -172,9 +172,9 @@ classes = (
     panels.ACTION_UL_List,
     panels.UNITY_ACTION_UL_List,
     # pipeline panels
-    panels.CCICDataLinkPanel,
     panels.CC3ToolsPipelineImportPanel,
     panels.CC3ToolsPipelineExportPanel,
+    panels.CCICDataLinkPanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
     panels.CC3RigifyPanel,

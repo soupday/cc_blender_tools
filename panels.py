@@ -191,10 +191,10 @@ def pipeline_export_group(chr_cache, chr_rig, layout):
     # export to Unity
     character_export_unity_button(chr_cache, layout)
 
-    layout.separator()
-
-    # export to Unreal
-    character_export_unreal_button(chr_cache, layout)
+    #layout.separator()
+    #
+    ## export to Unreal
+    # character_export_unreal_button(chr_cache, layout)
 
 
 def rigify_export_group(chr_cache, layout):

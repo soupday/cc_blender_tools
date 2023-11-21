@@ -609,6 +609,7 @@ def restore_armature_settings(rig, visibility):
     if utils.B400():
         collections = visibility["collections"]
         for collection in collections:
+            print(f"{collection} : {collections[collection]}")
             rig.data.collections[collection].is_visible = collections[collection]
     else:
         layers = visibility["layers"]
@@ -722,8 +723,8 @@ def make_bones_visible(arm, protected=False, collections=None, layers=None):
                     collection.is_visible = collection.name in collections
                 else:
                     collection.is_visible = True
-                if protected:
-                    collection.is_editable = True
+                #if protected:
+                #    collection.is_editable = True
         else:
             for i, l in enumerate(bone.layers):
                 if l:

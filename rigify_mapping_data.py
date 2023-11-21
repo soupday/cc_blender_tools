@@ -1112,6 +1112,8 @@ RETARGET_RIGIFY_BONES = [
     "jaw_master", "teeth.T", "teeth.B",
     "tongue_master", "tongue", "tongue.001", "tongue.002", "tweak_tongue", "tweak_tongue.001", "tweak_tongue.002",
     "hand_ik.L", "hand_ik.R", "foot_ik.L", "foot_ik.R", "toe_ik.L", "toe_ik.R",
+    #"upper_arm_ik.L", "upper_arm_ik.R", "upper_arm_parent.R", "upper_arm_parent.L",
+    #"thigh_ik.R", "thigh_ik.L", "thigh_parent.R", "thigh_parent.L", "foot_heel_ik.R", "foot_heel_ik.L",
 ]
 
 

@@ -103,14 +103,15 @@ def check_valid_export_fbx(chr_cache, objects):
     return check_valid, check_warn, report
 
 
-def remove_modifiers_for_export(chr_cache, objects, reset_pose):
-    arm = get_export_armature(chr_cache, objects)
-    if not arm:
+def remove_modifiers_for_export(chr_cache, objects, reset_pose, rig=None):
+    if not rig:
+        rig = get_export_armature(chr_cache, objects)
+    if not rig:
         return
-    arm.data.pose_position = "POSE"
+    rig.data.pose_position = "POSE"
     if reset_pose:
-        utils.safe_set_action(arm, None)
-        bones.clear_pose(arm)
+        utils.safe_set_action(rig, None)
+        bones.clear_pose(rig)
     obj : bpy.types.Object
     for obj in objects:
         if chr_cache:
@@ -2013,7 +2014,6 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     export_rig, vertex_group_map = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions,
                                                               include_t_pose = props.bake_unity_t_pose,
                                                               objects=objects)
-
     if export_rig:
         rigify_rig = chr_cache.get_armature()
         objects.remove(rigify_rig)
@@ -2024,7 +2024,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
         use_anim = True
 
     # remove custom material modifiers
-    remove_modifiers_for_export(chr_cache, objects, True)
+    remove_modifiers_for_export(chr_cache, objects, True, rig=export_rig)
 
     prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir,
                 include_textures, False, False, False, False)
@@ -2066,6 +2066,8 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
         update_facial_profile_json(chr_cache, objects, json_data, name)
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
+
+    utils.object_mode_to(rigify_rig)
 
     utils.log_recess()
     utils.log_timer("Done Rigify Export.")
