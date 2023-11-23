@@ -33,10 +33,9 @@ from . import rigify_mapping_data
 BONEMAP_METARIG_NAME = 0 # metarig bone name or rigify rig basename
 BONEMAP_CC_HEAD = 1      # CC rig source bone and (head) postion of head bone
 BONEMAP_CC_TAIL = 2      # CC rig bone (head) position of tail
-BONEMAP_AXIS = 3         # z-axis direction of source bone (for reconstructing source bone-roll)
-BONEMAP_LERP_FROM = 4    # how far from cc_head to cc_tail to place the metarig bone head (optional)
-BONEMAP_LERP_TO = 5      # how far from cc_head to cc_tail to place the metarig bone tail (optional)
-BONEMAP_ALT_NAMES = 6    # index of alternative bones to map if CC_HEAD is missing from source (i.e. missing fingers) (optional)
+BONEMAP_LERP_FROM = 3    # how far from cc_head to cc_tail to place the metarig bone head (optional)
+BONEMAP_LERP_TO = 4      # how far from cc_head to cc_tail to place the metarig bone tail (optional)
+BONEMAP_ALT_NAMES = 5    # index of alternative bones to map if CC_HEAD is missing from source (i.e. missing fingers) (optional)
 
 
 class BoundingBox:
@@ -1693,13 +1692,6 @@ def rejoin_head(head_mesh, body_mesh):
 # Animation Retargeting
 #
 #
-
-def get_original_roll_axis(bone_mapping, source_bone_name):
-    for bone_map in bone_mapping:
-        if bone_map[BONEMAP_CC_HEAD] == source_bone_name:
-            axis = bone_map[BONEMAP_AXIS]
-            return bones.get_align_vector(axis)
-    return None
 
 def get_bone_name_regex(rig, pattern):
     if pattern:
