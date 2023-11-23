@@ -405,6 +405,19 @@ def get_shader_var_color(mat_json, var_name):
         return None
 
 
+def get_json(json_data, path: str):
+    if json_data:
+        keys = path.split("/")
+        for key in keys:
+            print(key, key in json_data)
+            if key in json_data:
+                json_data = json_data[key]
+            else:
+                return None
+        return json_data
+    return None
+
+
 def generate_character_json_data(name):
     json_data = {
         name: {

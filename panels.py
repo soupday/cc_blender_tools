@@ -2817,6 +2817,10 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
         #column = layout.column()
         #column.prop(link_data, "sequence_read_count", text="Count")
+        layout.separator()
+        row = layout.row()
+        row.prop(link_data, "link_status", text="")
+        row.enabled = False
 
         column = layout.column(align=True)
         row = column.row(align=True)
@@ -2826,7 +2830,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
         param = "START"
         if connected:
             row.alert = True
-            text = "Connected"
+            text = "Linked"
             param = "DISCONNECT"
         elif connecting:
             row.alert = False
@@ -2843,8 +2847,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
         if connected:
             column = layout.column()
-            layout.operator("ccic.datalink", icon="X", text="Send Pose").param = "SEND_POSE"
-            layout.operator("ccic.datalink", icon="X", text="Send Animation").param = "SEND_ANIM"
+            layout.operator("ccic.datalink", icon="ARMATURE_DATA", text="Send Pose").param = "SEND_POSE"
+            layout.operator("ccic.datalink", icon="PLAY", text="Live Sequence").param = "SEND_ANIM"
 
 
 class CC3ToolsPipelineImportPanel(bpy.types.Panel):

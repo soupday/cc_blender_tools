@@ -1282,6 +1282,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     import_has_key: bpy.props.BoolProperty(default=False)
     import_key_file: bpy.props.StringProperty(default="")
     # which character in the import
+    link_id: bpy.props.StringProperty(default="")
     character_id: bpy.props.StringProperty(default="")
     character_name: bpy.props.StringProperty(default="")
     character_index: bpy.props.IntProperty(default=0)
@@ -1380,6 +1381,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     default=0,
                     name="Available Spring Rigs",
                     description="A list of all the spring rigs on the character")
+
+    def select(self):
+        rig = self.get_armature()
+        utils.set_active_object(rig, True)
 
     def get_tex_dir(self):
         if os.path.isabs(self.import_main_tex_dir):
@@ -2206,6 +2211,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     return chr_cache
         return None
 
+    def get_link_character_cache(self, link_id):
+        if link_id:
+            for chr_cache in self.import_cache:
+                if chr_cache.link_id == link_id:
+                    return chr_cache
+        return None
+
     def get_context_character_cache(self, context = None):
         if not context:
             context = bpy.context
@@ -2370,6 +2382,7 @@ class CCICLinkData(bpy.types.PropertyGroup):
                         ("UNITY","Unity","Connect to Unity"),
                     ], default="CCIC", name = "Data Link Target", update=update_link_target)
     link_port: bpy.props.IntProperty(default=9333)
+    link_status: bpy.props.StringProperty(default="")
 
     sequence_read_count: bpy.props.EnumProperty(items=[
                         ("1","1","Read and update 1 frame at a time"),

@@ -156,6 +156,23 @@ def get_rigify_meta_bone(rigify_rig, bone_mapping, cc3_bone_name):
     return None
 
 
+def get_rigify_meta_bones(rigify_rig, bone_mapping, cc3_bone_name):
+    meta_bone_names = []
+    if cc3_bone_name == "RL_BoneRoot" or cc3_bone_name == "CC_Base_BoneRoot":
+        return ["root"]
+    for bone_map in bone_mapping:
+        if bone_map[1] == cc3_bone_name:
+            # try to find the parent in the ORG bones
+            org_bone_name = f"ORG-{bone_map[0]}"
+            if org_bone_name in rigify_rig.data.bones:
+                meta_bone_names.append(org_bone_name)
+            # then try the DEF bones
+            def_bone_name = f"DEF-{bone_map[0]}"
+            if def_bone_name in rigify_rig.data.bones:
+                meta_bone_names.append(def_bone_name)
+    return meta_bone_names
+
+
 def get_align_vector(axis):
     if axis == "X":
         return mathutils.Vector((1,0,0))
@@ -674,7 +691,7 @@ def is_bone_in_collections(rig, bone, collections=None, groups=None, layers=None
     return False
 
 
-def set_bone_collection(rig, bone, collection=None, group=None, layer=None):
+def set_bone_collection(rig, bone, collection=None, group=None, layer=None, color=None):
     """Sets the bone collection (Any) (Blender 4.0+),
        or group (PoseBone only) or layer (Bone or EditBone) (< Blender 4.0)"""
     if utils.B400():
@@ -684,6 +701,8 @@ def set_bone_collection(rig, bone, collection=None, group=None, layer=None):
             bone_collection = rig.data.collections[collection]
             bone_collection.assign(bone)
             return True
+        if color:
+            set_bone_color(bone, color)
     else:
         if group:
             if group not in rig.pose.bone_groups:
@@ -694,6 +713,23 @@ def set_bone_collection(rig, bone, collection=None, group=None, layer=None):
             bone.layers[layer] = True
             for i, l in enumerate(bone.layers):
                 bone.layers[i] = i == layer
+
+CUSTOM_COLORS = {
+    "Active": (0.7686275243759155, 1.0, 1.0),
+    "Select": (0.5960784554481506, 0.8980392813682556, 1.0),
+    "IK": (0.8000000715255737, 0.0, 0.0),
+    "FK": (0.3764706254005432, 0.7803922295570374, 0.20784315466880798),
+    "SPECIAL": (0.9803922176361084, 0.9019608497619629, 0.2392157018184662),
+    "TWEAK": (0.2196078598499298, 0.49803924560546875, 0.7843137979507446),
+    "ROOT": (0.6901960968971252, 0.46666669845581055, 0.6784313917160034),
+    "DETAIL": (0.9843137860298157, 0.5372549295425415, 0.33725491166114807),
+}
+
+def set_bone_color(bone, color_code):
+    bone.color.palette = "CUSTOM"
+    bone.color.custom.normal = CUSTOM_COLORS[color_code]
+    bone.color.custom.active = CUSTOM_COLORS["Active"]
+    bone.color.custom.select = CUSTOM_COLORS["Select"]
 
 
 def set_bone_collection_visibility(rig, collection, layer, visible, only=False):

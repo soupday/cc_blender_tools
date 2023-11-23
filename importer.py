@@ -495,6 +495,10 @@ def detect_character(file_path, objects, actions, json_data, report):
     chr_cache.character_id = name
     processed = []
 
+    link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+    if link_id:
+        chr_cache.link_id = link_id
+
     if utils.is_file_ext(ext, "FBX"):
 
         # key file
