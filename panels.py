@@ -727,9 +727,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             row = box.row()
             row.scale_y = 2
             if chr_cache.setup_mode == "ADVANCED":
-                op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Advanced Materials")
+                op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials")
             else:
-                op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Basic Materials")
+                op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Materials")
             op.param ="BUILD"
             row = box.row()
             row.prop(chr_cache, "setup_mode", expand=True)
@@ -2815,8 +2815,6 @@ class CCICDataLinkPanel(bpy.types.Panel):
         if listening or connected:
             column.enabled = False
 
-        #column = layout.column()
-        #column.prop(link_data, "sequence_read_count", text="Count")
         layout.separator()
         row = layout.row()
         row.prop(link_data, "link_status", text="")

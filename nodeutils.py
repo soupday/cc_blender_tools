@@ -277,6 +277,9 @@ BLENDER_4_SOCKET_REDIRECT = {
         "Specular": "Specular IOR Level",
         "Sheen": "Sheen Weight",
         "Emission": "Emission Color",
+        "Transmission": "Transmission Weight",
+        "Clearcoat": "Coat Weight",
+        "Clearcoat Roughness": "Coat Roughness",
     }
 }
 

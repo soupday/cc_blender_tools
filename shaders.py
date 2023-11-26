@@ -991,6 +991,8 @@ def connect_pbr_shader(obj, mat, mat_json, processed_images):
         nodeutils.set_node_input_value(group, "Specular Scale", 0)
         nodeutils.set_node_input_value(bsdf, "Subsurface", 0.01)
 
+    fix_sss_method(bsdf)
+
 
 def connect_sss_shader(obj, mat, mat_json, processed_images):
     props = bpy.context.scene.CC3ImportProps

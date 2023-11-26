@@ -2383,16 +2383,3 @@ class CCICLinkData(bpy.types.PropertyGroup):
                     ], default="CCIC", name = "Data Link Target", update=update_link_target)
     link_port: bpy.props.IntProperty(default=9333)
     link_status: bpy.props.StringProperty(default="")
-
-    sequence_read_count: bpy.props.EnumProperty(items=[
-                        ("1","1","Read and update 1 frame at a time"),
-                        ("5","5","Read and update 5 frame at a time"),
-                        ("10","10","Read and update 10 frame at a time"),
-                        ("24","24","Read and update 24 frame at a time"),
-                        ("60","60","Read and update 60 frame at a time"),
-                        ("ALL","All","Read all frames"),
-                    ], default="24", name = "Sequence Read Count")
-
-    current_frame: bpy.props.IntProperty(default=0)
-    start_frame: bpy.props.IntProperty(default=0)
-    end_frame: bpy.props.IntProperty(default=0)
