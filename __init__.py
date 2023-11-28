@@ -174,7 +174,6 @@ classes = (
     # pipeline panels
     panels.CC3ToolsPipelineImportPanel,
     panels.CC3ToolsPipelineExportPanel,
-    panels.CCICDataLinkPanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
     panels.CC3RigifyPanel,
@@ -188,6 +187,8 @@ classes = (
     panels.CC3ToolsSculptingPanel,
     panels.CC3HairPanel,
     panels.CC3CreateScenePanel,
+    # link panels
+    panels.CCICDataLinkPanel,
     # control panels
     panels.CC3SpringControlPanel,
     # test panels

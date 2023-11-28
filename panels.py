@@ -25,6 +25,7 @@ from . import (link, rigging, rigify_mapping_data, bones, characters, sculpting,
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
+LINK_TAB_NAME = "CC/iC Link"
 
 # Panel button functions and operator
 #
@@ -2794,8 +2795,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
     bl_label = "Data Link (WIP)"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = PIPELINE_TAB_NAME
-    bl_options = {"DEFAULT_CLOSED"}
+    bl_category = LINK_TAB_NAME
+    #bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
