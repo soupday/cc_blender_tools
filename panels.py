@@ -2810,6 +2810,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
         listening = link_service and link_service.is_listening
         connecting = link_service and link_service.is_connecting
 
+        layout.label(text="Warning: Work in progress")
+        layout.label(text="Use at your own risk!")
+
         column = layout.column()
         column.prop(link_data, "link_host", text="Host")
         column.prop(link_data, "link_target", text="Target")
