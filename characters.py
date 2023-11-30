@@ -808,17 +808,7 @@ def convert_to_rl_pbr(mat, mat_cache):
             specular_value = specular_socket.default_value
             alpha_value = alpha_socket.default_value
 
-            ao_strength = 1.0
             if gltf_node:
-                #if utils.B340():
-                #    occlusion_strength_node = nodeutils.find_node_by_type_and_keywords(nodes, "MIX", "Occlusion Strength")
-                #else:
-                #    occlusion_strength_node = nodeutils.find_node_by_type_and_keywords(nodes, "MIX_RGB", "Occlusion Strength")
-                #if occlusion_strength_node:
-                #    ao_strength = nodeutils.get_node_input_value(occlusion_strength_node, "Factor", ao_strength)
-                #    ao_strength = nodeutils.get_node_input_value(occlusion_strength_node, "Fac", ao_strength)
-                #    gltf_occlusion_socket = nodeutils.input_socket(gltf_node, "Occlusion")
-
                 # bug in Blender 4.0 gltf occlusion is not connected from occlusion strength node
                 if utils.B400():
                     gltf_occlusion_socket = nodeutils.input_socket(gltf_node, "Occlusion")
@@ -842,7 +832,6 @@ def convert_to_rl_pbr(mat, mat_cache):
             if transmission_socket.is_linked:
                 nodeutils.unlink_node_input(links, bsdf_node, transmission_socket)
 
-            mat_cache.parameters.default_ao_strength = ao_strength
             mat_cache.parameters.default_roughness = roughness_value
             # a rough approximation for the clearcoat
             mat_cache.parameters.default_roughness_power = 1.0 + clearcoat_value
