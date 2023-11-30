@@ -1294,14 +1294,14 @@ def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
 
     if bsdf_node:
         try:
-            base_color_socket = nodeutils.get_socket(bsdf_node, "Base Color")
-            clearcoat_socket = nodeutils.get_socket(bsdf_node, "Clearcoat")
-            roughness_socket = nodeutils.get_socket(bsdf_node, "Roughness")
-            metallic_socket = nodeutils.get_socket(bsdf_node, "Metallic")
-            specular_socket = nodeutils.get_socket(bsdf_node, "Specular")
-            alpha_socket = nodeutils.get_socket(bsdf_node, "Alpha")
-            emission_socket = nodeutils.get_socket(bsdf_node, "Emission")
-            emission_strength_socket = nodeutils.get_socket(bsdf_node, "Emission Strength")
+            base_color_socket = nodeutils.input_socket(bsdf_node, "Base Color")
+            clearcoat_socket = nodeutils.input_socket(bsdf_node, "Clearcoat")
+            roughness_socket = nodeutils.input_socket(bsdf_node, "Roughness")
+            metallic_socket = nodeutils.input_socket(bsdf_node, "Metallic")
+            specular_socket = nodeutils.input_socket(bsdf_node, "Specular")
+            alpha_socket = nodeutils.input_socket(bsdf_node, "Alpha")
+            emission_socket = nodeutils.input_socket(bsdf_node, "Emission")
+            emission_strength_socket = nodeutils.input_socket(bsdf_node, "Emission Strength")
 
             roughness_value = roughness_socket.default_value
             metallic_value = metallic_socket.default_value
@@ -1399,7 +1399,7 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, pat
             continue
 
         node, socket_name, bake_value, strength = socket_mapping[tex_id]
-        socket = nodeutils.get_socket(node, socket_name)
+        socket = nodeutils.input_socket(node, socket_name)
         utils.log_info(f"Adding Texture Channel: {tex_id} strength - {strength}")
 
         tex_node = None

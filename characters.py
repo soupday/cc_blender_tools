@@ -789,27 +789,27 @@ def convert_to_rl_pbr(mat, mat_cache):
     if bsdf_node:
         try:
 
-            base_color_socket = nodeutils.get_socket(bsdf_node, "Base Color")
-            clearcoat_socket = nodeutils.get_socket(bsdf_node, "Clearcoat")
-            roughness_socket = nodeutils.get_socket(bsdf_node, "Roughness")
-            metallic_socket = nodeutils.get_socket(bsdf_node, "Metallic")
-            specular_socket = nodeutils.get_socket(bsdf_node, "Specular")
-            alpha_socket = nodeutils.get_socket(bsdf_node, "Alpha")
-            emission_socket = nodeutils.get_socket(bsdf_node, "Emission")
-            emission_strength_socket = nodeutils.get_socket(bsdf_node, "Emission Strength")
+            base_color_socket = nodeutils.input_socket(bsdf_node, "Base Color")
+            clearcoat_socket = nodeutils.input_socket(bsdf_node, "Clearcoat")
+            roughness_socket = nodeutils.input_socket(bsdf_node, "Roughness")
+            metallic_socket = nodeutils.input_socket(bsdf_node, "Metallic")
+            specular_socket = nodeutils.input_socket(bsdf_node, "Specular")
+            alpha_socket = nodeutils.input_socket(bsdf_node, "Alpha")
+            emission_socket = nodeutils.input_socket(bsdf_node, "Emission")
+            emission_strength_socket = nodeutils.input_socket(bsdf_node, "Emission Strength")
             clearcoat_value = clearcoat_socket.default_value
             roughness_value = roughness_socket.default_value
             metallic_value = metallic_socket.default_value
             specular_value = specular_socket.default_value
             alpha_value = alpha_socket.default_value
 
-            if emission_socket.is_linked:
-                if utils.B293():
-                    emission_value = bsdf_node.inputs["Emission Strength"].default_value
-                else:
-                    emission_value = 1.0
+            if utils.B293():
+                emission_value = nodeutils.get_node_input_value(bsdf_node, "Emission Strength", 0.0)
             else:
-                emission_value = 0.0
+                if emission_socket.is_linked:
+                    emission_value = nodeutils.get_node_input_value(bsdf_node, "Emission Strength", 1.0)
+                else:
+                    emission_value = 0.0
 
             if not base_color_socket.is_linked:
                 diffuse_color = base_color_socket.default_value
@@ -888,7 +888,7 @@ def convert_to_rl_pbr(mat, mat_cache):
 
     # connect all group_node outputs to BSDF inputs:
     for socket in group_node.outputs:
-        to_socket = nodeutils.get_socket(bsdf_node, socket.name)
+        to_socket = nodeutils.input_socket(bsdf_node, socket.name)
         nodeutils.link_nodes(links, group_node, socket.name, bsdf_node, to_socket)
 
     # connect bsdf to output node

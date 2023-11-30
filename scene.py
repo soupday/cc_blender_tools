@@ -231,7 +231,7 @@ def compositor_setup():
     glare_node.quality = 'HIGH'
     glare_node.threshold = 0.85
     lens_node.use_fit = True
-    lens_node.inputs["Dispersion"].default_value = 0.025
+    nodeutils.set_node_input_value(lens_node, "Dispersion", 0.025)
     nodeutils.link_nodes(links, rlayers_node, "Image", glare_node, "Image")
     nodeutils.link_nodes(links, glare_node, "Image", lens_node, "Image")
     nodeutils.link_nodes(links, lens_node, "Image", c_node, "Image")

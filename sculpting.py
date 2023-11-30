@@ -429,15 +429,15 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
                 chr_cache.body_normal_definition = 15.0
                 chr_cache.body_mix_mode = "OVERLAY"
         if layer_target == LAYER_TARGET_DETAIL:
-            mix_node.inputs["Normal Strength"].default_value = chr_cache.detail_normal_strength
-            mix_node.inputs["AO Strength"].default_value = chr_cache.detail_ao_strength
-            mix_node.inputs["Definition"].default_value = chr_cache.detail_normal_definition
-            mix_node.inputs["Mix Mode"].default_value = 0.0
+            nodeutils.set_node_input_value(mix_node, "Normal Strength", chr_cache.detail_normal_strength)
+            nodeutils.set_node_input_value(mix_node, "AO Strength", chr_cache.detail_ao_strength)
+            nodeutils.set_node_input_value(mix_node, "Definition", chr_cache.detail_normal_definition)
+            nodeutils.set_node_input_value(mix_node, "Mix Mode", 0.0)
         elif layer_target == LAYER_TARGET_SCULPT:
-            mix_node.inputs["Normal Strength"].default_value = chr_cache.body_normal_strength
-            mix_node.inputs["AO Strength"].default_value = chr_cache.body_ao_strength
-            mix_node.inputs["Definition"].default_value = chr_cache.body_normal_definition
-            mix_node.inputs["Mix Mode"].default_value = 0.0
+            nodeutils.set_node_input_value(mix_node, "Normal Strength", chr_cache.body_normal_strength)
+            nodeutils.set_node_input_value(mix_node, "AO Strength", chr_cache.body_ao_strength)
+            nodeutils.set_node_input_value(mix_node, "Definition", chr_cache.body_normal_definition)
+            nodeutils.set_node_input_value(mix_node, "Mix Mode", 0.0)
 
         mix_node.location = ref_location + mathutils.Vector((300 + delta, -1200))
 
