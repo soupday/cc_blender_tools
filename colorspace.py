@@ -164,4 +164,7 @@ def set_sequencer_color_space(color_space):
         else:
             bpy.context.scene.sequencer_colorspace_settings.name = "Utility - Linear - sRGB"
     else:
-        bpy.context.scene.sequencer_colorspace_settings.name = color_space
+        if utils.B400() and color_space == "Raw":
+            bpy.context.scene.sequencer_colorspace_settings.name = "Non-Color"
+        else:
+            bpy.context.scene.sequencer_colorspace_settings.name = color_space

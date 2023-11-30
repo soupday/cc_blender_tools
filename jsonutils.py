@@ -256,6 +256,12 @@ def get_texture_info(mat_json, texture_id):
         tex_info = get_wrinkle_texture_info(mat_json, texture_id)
     return tex_info
 
+def get_texture_channel_strength(mat_json, texture_id, default_value=None):
+    tex_info = get_texture_info(mat_json, texture_id)
+    if tex_info and "Strength" in tex_info:
+        return tex_info["Strength"] / 100
+    return default_value
+
 def get_pbr_texture_info(mat_json, texture_id):
     if not mat_json:
         return None

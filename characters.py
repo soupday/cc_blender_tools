@@ -788,13 +788,22 @@ def convert_to_rl_pbr(mat, mat_cache):
 
     if bsdf_node:
         try:
-            clearcoat_value = bsdf_node.inputs["Clearcoat"].default_value
-            roughness_value = bsdf_node.inputs["Roughness"].default_value
-            metallic_value = bsdf_node.inputs["Metallic"].default_value
-            specular_value = bsdf_node.inputs["Specular"].default_value
-            alpha_value = bsdf_node.inputs["Alpha"].default_value
 
-            if bsdf_node.inputs["Emission"].is_linked:
+            base_color_socket = nodeutils.get_socket(bsdf_node, "Base Color")
+            clearcoat_socket = nodeutils.get_socket(bsdf_node, "Clearcoat")
+            roughness_socket = nodeutils.get_socket(bsdf_node, "Roughness")
+            metallic_socket = nodeutils.get_socket(bsdf_node, "Metallic")
+            specular_socket = nodeutils.get_socket(bsdf_node, "Specular")
+            alpha_socket = nodeutils.get_socket(bsdf_node, "Alpha")
+            emission_socket = nodeutils.get_socket(bsdf_node, "Emission")
+            emission_strength_socket = nodeutils.get_socket(bsdf_node, "Emission Strength")
+            clearcoat_value = clearcoat_socket.default_value
+            roughness_value = roughness_socket.default_value
+            metallic_value = metallic_socket.default_value
+            specular_value = specular_socket.default_value
+            alpha_value = alpha_socket.default_value
+
+            if emission_socket.is_linked:
                 if utils.B293():
                     emission_value = bsdf_node.inputs["Emission Strength"].default_value
                 else:
@@ -802,8 +811,8 @@ def convert_to_rl_pbr(mat, mat_cache):
             else:
                 emission_value = 0.0
 
-            if not bsdf_node.inputs["Base Color"].is_linked:
-                diffuse_color = bsdf_node.inputs["Base Color"].default_value
+            if not base_color_socket.is_linked:
+                diffuse_color = base_color_socket.default_value
                 mat_cache.parameters.default_diffuse_color = diffuse_color
 
             mat_cache.parameters.default_roughness = roughness_value
@@ -813,9 +822,10 @@ def convert_to_rl_pbr(mat, mat_cache):
             mat_cache.parameters.default_specular = specular_value
             mat_cache.parameters.default_emission_strength = emission_value / vars.EMISSION_SCALE
             mat_cache.parameters.default_emissive_color = (1.0, 1.0, 1.0, 1.0)
-            bsdf_node.inputs["Emission Strength"].default_value = 1.0
-            bsdf_node.inputs["Clearcoat"].default_value = 0.0
-            if not bsdf_node.inputs["Alpha"].is_linked:
+            if emission_strength_socket:
+                emission_strength_socket.default_value = 1.0
+            clearcoat_socket.default_value = 0.0
+            if not alpha_socket.is_linked:
                 mat_cache.parameters.default_opacity = alpha_value
         except:
             utils.log_warn("Unable to set material cache defaults!")
@@ -878,7 +888,8 @@ def convert_to_rl_pbr(mat, mat_cache):
 
     # connect all group_node outputs to BSDF inputs:
     for socket in group_node.outputs:
-        nodeutils.link_nodes(links, group_node, socket.name, bsdf_node, socket.name)
+        to_socket = nodeutils.get_socket(bsdf_node, socket.name)
+        nodeutils.link_nodes(links, group_node, socket.name, bsdf_node, to_socket)
 
     # connect bsdf to output node
     nodeutils.link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")

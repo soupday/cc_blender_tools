@@ -648,7 +648,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
 
         # Build prefs in title
         box = layout.box()
-        if fake_drop_down(box.row(), "Build Settings", "show_build_prefs", props.show_build_prefs,
+        if fake_drop_down(box.row(), "Build Settings", "show_build_prefs2", props.show_build_prefs2,
                           icon="TOOL_SETTINGS", icon_closed="TOOL_SETTINGS"):
             split = box.split(factor=0.9)
             col_1 = split.column()
@@ -682,9 +682,16 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_1.label(text="Body Shape Keys Drive All")
             col_2.prop(prefs, "build_body_key_drivers", text="")
 
-        layout.prop(props, "physics_mode", toggle=True, text="Build Physics")
-        layout.prop(prefs, "render_target", expand=True)
-        layout.prop(prefs, "refractive_eyes", expand=True)
+        column = layout.column(align=True)
+        row = column.row(align=True)
+        row.prop(props, "physics_mode", toggle=True, text="Build Physics")
+        row.prop(props, "wrinkle_mode", toggle=True, text="Wrinkles")
+        row = column.row(align=True)
+        row.prop(props, "setup_mode", expand=True)
+        row = column.row(align=True)
+        row.prop(prefs, "render_target", expand=True)
+        row = column.row(align=True)
+        row.prop(prefs, "refractive_eyes", expand=True)
 
         # ACES Prefs
         if colorspace.is_aces():

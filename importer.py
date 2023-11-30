@@ -597,10 +597,7 @@ def detect_character(file_path, objects, actions, json_data, report):
                 arm_mod.use_deform_preserve_volume = False
 
     # material setup mode
-    if chr_cache.import_has_key:
-        chr_cache.setup_mode = prefs.morph_mode
-    else:
-        chr_cache.setup_mode = prefs.quality_mode
+    chr_cache.setup_mode = props.setup_mode
 
     # character render target
     chr_cache.render_target = prefs.render_target

@@ -1294,17 +1294,26 @@ def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
 
     if bsdf_node:
         try:
-            roughness_value = bsdf_node.inputs["Roughness"].default_value
-            metallic_value = bsdf_node.inputs["Metallic"].default_value
+            base_color_socket = nodeutils.get_socket(bsdf_node, "Base Color")
+            clearcoat_socket = nodeutils.get_socket(bsdf_node, "Clearcoat")
+            roughness_socket = nodeutils.get_socket(bsdf_node, "Roughness")
+            metallic_socket = nodeutils.get_socket(bsdf_node, "Metallic")
+            specular_socket = nodeutils.get_socket(bsdf_node, "Specular")
+            alpha_socket = nodeutils.get_socket(bsdf_node, "Alpha")
+            emission_socket = nodeutils.get_socket(bsdf_node, "Emission")
+            emission_strength_socket = nodeutils.get_socket(bsdf_node, "Emission Strength")
+
+            roughness_value = roughness_socket.default_value
+            metallic_value = metallic_socket.default_value
             bake_roughness = False
             bake_metallic = False
-            specular_value = bsdf_node.inputs["Specular"].default_value
+            specular_value = specular_socket.default_value
             diffuse_color = (1,1,1,1)
             alpha_value = 1.0
-            if not bsdf_node.inputs["Base Color"].is_linked:
-                diffuse_color = bsdf_node.inputs["Base Color"].default_value
-            if not bsdf_node.inputs["Alpha"].is_linked:
-                alpha_value = bsdf_node.inputs["Alpha"].default_value
+            if not base_color_socket.is_linked:
+                diffuse_color = base_color_socket.default_value
+            if not alpha_socket.is_linked:
+                alpha_value = alpha_socket.default_value
             mat_json["Diffuse Color"] = jsonutils.convert_from_color(diffuse_color)
             mat_json["Specular Color"] = jsonutils.convert_from_color(
                         utils.linear_to_srgb((specular_value, specular_value, specular_value, 1.0))
@@ -1389,7 +1398,8 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, pat
         if tex_id == "Bump" and "Normal" in socket_mapping:
             continue
 
-        node, socket, bake_value, strength = socket_mapping[tex_id]
+        node, socket_name, bake_value, strength = socket_mapping[tex_id]
+        socket = nodeutils.get_socket(node, socket_name)
         utils.log_info(f"Adding Texture Channel: {tex_id} strength - {strength}")
 
         tex_node = None
@@ -1404,7 +1414,7 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, pat
                 image = bake.bake_bsdf_normal(bsdf_node, mat, tex_id, bake_path)
             else:
                 if bake_value:
-                    image = bake.pack_value_image(node.inputs[socket].default_value, mat, tex_id, bake_path)
+                    image = bake.pack_value_image(socket.default_value, mat, tex_id, bake_path)
                 else:
                     image = bake.bake_node_socket_output(node, socket, mat, tex_id, bake_path)
 

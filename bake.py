@@ -221,7 +221,7 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
 
     is_data = True
     alpha = False
-    rgb_sockets = [ "Diffuse", "Base Color", "Emission", "Subsurface Color" ]
+    rgb_sockets = [ "Diffuse", "Base Color", "Emission", "Emission Color", "Subsurface Color" ]
     rgb_channels = [ "Diffuse", "Emission", "BaseMap" ]
     if socket_name in rgb_sockets:
         is_data = False
@@ -1551,6 +1551,10 @@ def bake_export_material(mat, source_mat, source_mat_cache):
     bake_maps = vars.get_bake_target_maps(props.target_mode)
     bake_path = get_bake_path()
 
+    if not bsdf_node or not shader_node:
+        utils.log_info(f"Material: {mat.name} has no RL shader")
+        return
+
     utils.log_info("Baking export material " + props.target_mode + " / " + mat.name)
     utils.log_info("")
 
@@ -1562,8 +1566,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
     diffuse_bake_node = None
     ao_bake_node = None
     ao_strength = 1.0
-    if nodeutils.has_connected_input(bsdf_node, "Base Color"):
-        if can_bake_shader_node(shader_node, bsdf_node, "Base Color"):
+    base_color_socket = nodeutils.get_socket(bsdf_node, "Base Color")
+    if nodeutils.has_connected_input(bsdf_node, base_color_socket):
+        if can_bake_shader_node(shader_node, bsdf_node, base_color_socket):
             # if the shader_node does not have an "AO" output node, then copy the AO texture directly.
             # note: so far, nothing has an "AO" output node.
             if "AO" in bake_maps:
@@ -1583,18 +1588,19 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                     diffuse_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Base Color", "Diffuse", False)
         elif bsdf_node:
             # bake BSDF base color input
-            diffuse_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Base Color", "Diffuse", False)
+            diffuse_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, base_color_socket, "Diffuse", False)
 
     # Subsurface Scattering Maps
     sss_bake_node = None
     sss_radius = 1.0
-    if nodeutils.has_connected_input(bsdf_node, "Subsurface"):
+    sss_socket = nodeutils.get_socket(bsdf_node, "Subsurface")
+    if nodeutils.has_connected_input(bsdf_node, sss_socket):
         if "Subsurface" in bake_maps:
             sss_radius = prep_sss(mat, shader_node)
-            if can_bake_shader_node(shader_node, bsdf_node, "Subsurface"):
+            if can_bake_shader_node(shader_node, bsdf_node, sss_socket):
                 sss_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Subsurface", "Subsurface")
             elif bsdf_node:
-                sss_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Subsurface", "Subsurface")
+                sss_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, sss_socket, "Subsurface")
 
     # Thickness Maps (Subsurface transmission)
     # the transmission map texture is not used, but it is added to the material nodes
@@ -1608,59 +1614,65 @@ def bake_export_material(mat, source_mat, source_mat_cache):
 
     # Metallic Maps
     metallic_bake_node = None
-    if nodeutils.has_connected_input(bsdf_node, "Metallic"):
+    metallic_socket = nodeutils.get_socket(bsdf_node, "Metallic")
+    if nodeutils.has_connected_input(bsdf_node, metallic_socket):
         if "Metallic" in bake_maps:
             utils.log_info("Processing Metallic")
-            if can_bake_shader_node(shader_node, bsdf_node, "Metallic"):
+            if can_bake_shader_node(shader_node, bsdf_node, metallic_socket):
                 metallic_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Metallic", "Metallic")
             elif bsdf_node:
-                metallic_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Metallic", "Metallic")
+                metallic_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, metallic_socket, "Metallic")
 
     # Specular Maps
     specular_bake_node = None
-    if nodeutils.has_connected_input(bsdf_node, "Specular"):
+    specular_socket = nodeutils.get_socket(bsdf_node, "Specular")
+    if nodeutils.has_connected_input(bsdf_node, specular_socket):
         if "Specular" in bake_maps:
             utils.log_info("Processing Specular")
-            if can_bake_shader_node(shader_node, bsdf_node, "Specular"):
+            if can_bake_shader_node(shader_node, bsdf_node, specular_socket):
                 specular_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Specular", "Specular")
             elif bsdf_node:
-                specular_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Specular", "Specular")
+                specular_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, specular_socket, "Specular")
     specular_scale = 1.0
     if shader_node:
         specular_scale = nodeutils.get_node_input_value(shader_node, "Specular Scale", specular_scale)
         specular_scale = nodeutils.get_node_input_value(shader_node, "Front Specular", specular_scale)
-    nodeutils.set_node_input_value(bsdf_node, "Specular", 0.5 * specular_scale)
+    nodeutils.set_node_input_value(bsdf_node, specular_socket, 0.5 * specular_scale)
 
     # Roughness Maps
     roughnesss_bake_node = None
-    if nodeutils.has_connected_input(bsdf_node, "Roughness"):
+    roughness_socket = nodeutils.get_socket(bsdf_node, "Roughness")
+    if nodeutils.has_connected_input(bsdf_node, roughness_socket):
         if "Roughness" in bake_maps:
             utils.log_info("Processing Roughness")
-            if can_bake_shader_node(shader_node, bsdf_node, "Roughness"):
+            if can_bake_shader_node(shader_node, bsdf_node, roughness_socket):
                 roughnesss_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Roughness", "Roughness")
             elif bsdf_node:
-                roughnesss_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Roughness", "Roughness")
+                roughnesss_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, roughness_socket, "Roughness")
 
     # Emission Maps
     # copy emission maps directly...
     emission_bake_node = None
-    if nodeutils.has_connected_input(bsdf_node, "Emission"):
+    emission_strength = nodeutils.get_node_input_value(shader_node, "Emission Strength", 0.0)
+    emission_socket = nodeutils.get_socket(bsdf_node, "Emission")
+    if nodeutils.has_connected_input(bsdf_node, emission_socket):
         if "Emission" in bake_maps:
             utils.log_info("Processing Emission")
             emission_node = nodeutils.find_shader_texture(nodes, "EMISSION")
             if emission_node:
-                if can_bake_shader_node(shader_node, bsdf_node, "Emission"):
+                if can_bake_shader_node(shader_node, bsdf_node, emission_socket):
                     emission_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, emission_node, "Color", "Emission")
                 elif bsdf_node:
-                    emission_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Emission", "Emission")
+                    emission_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, emission_socket, "Emission")
 
     # Alpha Maps
     alpha_bake_node = None
-    if nodeutils.has_connected_input(bsdf_node, "Alpha") or (shader_node and "Opacity" in shader_node.outputs):
+    alpha_socket = nodeutils.get_socket(bsdf_node, "Alpha")
+    if nodeutils.has_connected_input(bsdf_node, alpha_socket) or (shader_node and "Opacity" in shader_node.outputs):
         if ((mat.blend_method != "OPAQUE" and "Alpha" in bake_maps) or
             (shader_node and "Opacity" in shader_node.outputs and "Alpha" in bake_maps)):
             prep_alpha(mat, shader_node)
-            if (can_bake_shader_node(shader_node, bsdf_node, "Alpha")
+            if (can_bake_shader_node(shader_node, bsdf_node, alpha_socket)
                 or (shader_node and "Opacity" in shader_node.outputs)):
                 if "Opacity" in shader_node.outputs:
                     alpha_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Opacity", "Alpha")
@@ -1669,30 +1681,32 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                 else:
                     alpha_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Alpha", "Alpha")
             elif bsdf_node:
-                alpha_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Alpha", "Alpha")
+                alpha_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, alpha_socket, "Alpha")
 
     # Transmission Maps (Refractive Transparency)
     transmission_bake_node = None
-    if nodeutils.has_connected_input(bsdf_node, "Transmission"):
+    transmission_socket = nodeutils.get_socket(bsdf_node, "Transmission")
+    if nodeutils.has_connected_input(bsdf_node, transmission_socket):
         if "Transmission" in bake_maps:
-            if can_bake_shader_node(shader_node, bsdf_node, "Transmission"):
+            if can_bake_shader_node(shader_node, bsdf_node, transmission_socket):
                 transmission_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Transmission", "Transmission")
             elif bsdf_node:
-                transmission_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, "Transmission", "Transmission")
+                transmission_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, transmission_socket, "Transmission")
 
     # Bump Maps
     # if shader group node has a "Bump Map" input, then copy the bump map texture directly
     bump_bake_node = None
     bump_distance = 0.01
-    if nodeutils.has_connected_input(bsdf_node, "Normal"):
+    normal_socket = nodeutils.get_socket(bsdf_node, "Normal")
+    if nodeutils.has_connected_input(bsdf_node, normal_socket):
         if "Bump" in bake_maps and props.allow_bump_maps:
-            if can_bake_shader_node(shader_node, bsdf_node, "Normal"):
+            if can_bake_shader_node(shader_node, bsdf_node, normal_socket):
                 bump_node = nodeutils.find_shader_texture(nodes, "BUMP")
                 bump_distance = nodeutils.get_node_input_value(shader_node, "Bump Strength", 0.01)
                 if bump_node:
                     bump_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, bump_node, "Color", "Bump")
             elif bsdf_node:
-                input_node = nodeutils.get_node_connected_to_input(bsdf_node, "Normal")
+                input_node = nodeutils.get_node_connected_to_input(bsdf_node, normal_socket)
                 if input_node.type == "BUMP":
                     height_node = nodeutils.get_node_connected_to_input(input_node, "Height")
                     if height_node:
@@ -1706,11 +1720,11 @@ def bake_export_material(mat, source_mat, source_mat_cache):
     normal_bake_node = None
     normal_strength = 1.0
     bump_to_normal = False
-    if nodeutils.has_connected_input(bsdf_node, "Normal"):
+    if nodeutils.has_connected_input(bsdf_node, normal_socket):
         if "Normal" in bake_maps:
             if "Bump" not in bake_maps or not props.allow_bump_maps:
                 bump_to_normal = True
-            if can_bake_shader_node(shader_node, bsdf_node, "Normal"):
+            if can_bake_shader_node(shader_node, bsdf_node, normal_socket):
                 normal_strength = nodeutils.get_node_input_value(shader_node, "Normal Strength", 1.0)
                 if "Blend Normal" in shader_node.outputs:
                     normal_strength = 1.0
@@ -1722,7 +1736,7 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                     else:
                         normal_bake_node = export_bake_shader_normal(source_mat, mat)
             elif bsdf_node:
-                input_node = nodeutils.get_node_connected_to_input(bsdf_node, "Normal")
+                input_node = nodeutils.get_node_connected_to_input(bsdf_node, normal_socket)
                 if input_node:
                     if input_node.type == "NORMAL_MAP":
                         # just a normal mapper, bake the entire normal input
@@ -1751,7 +1765,7 @@ def bake_export_material(mat, source_mat, source_mat_cache):
     micro_normal_strength = 1
     micro_normal_tiling = 20
     micro_normal_scale = Vector((1, 1, 1))
-    if nodeutils.has_connected_input(bsdf_node, "Normal"):
+    if nodeutils.has_connected_input(bsdf_node, normal_socket):
         if "MicroNormal" in bake_maps:
             micro_normal_node = nodeutils.find_shader_texture(nodes, "MICRONORMAL")
             if micro_normal_node:
@@ -1775,7 +1789,7 @@ def bake_export_material(mat, source_mat, source_mat_cache):
     # otherwise copy the micro normal mask directly
     micro_normal_mask_bake_node = None
     micro_normal_stength = 1.0
-    if nodeutils.has_connected_input(bsdf_node, "Normal"):
+    if nodeutils.has_connected_input(bsdf_node, normal_socket):
         if "MicroNormalMask" in bake_maps:
             if shader_node:
                 if "Normal Mask" in shader_node.outputs:
@@ -1840,7 +1854,7 @@ def bake_export_material(mat, source_mat, source_mat_cache):
     utils.log_info("Reconnecting baked material:")
     utils.log_info("")
 
-    reconnect_material(mat, source_mat_cache, ao_strength, sss_radius, bump_distance, normal_strength, micro_normal_strength, micro_normal_scale)
+    reconnect_material(mat, source_mat_cache, ao_strength, sss_radius, bump_distance, normal_strength, micro_normal_strength, micro_normal_scale, emission_strength)
 
 
 def fetch_pack_image_data(width, height, *nodes, no_rescale = False):
@@ -1871,7 +1885,8 @@ def combine_diffuse_tex(nodes, source_mat, source_mat_cache, mat, diffuse_node, 
     diffuse_data = None
     alpha_data = None
     bsdf_node = nodeutils.get_bsdf_node(mat)
-    diffuse_value = nodeutils.get_node_input_value(bsdf_node, "Base Color", (1,1,1,1))
+    base_color_socket = nodeutils.get_socket(bsdf_node, "Base Color")
+    diffuse_value = nodeutils.get_node_input_value(bsdf_node, base_color_socket, (1,1,1,1))
 
     map_suffix = "BaseMap"
     path = get_bake_path()
@@ -1936,8 +1951,10 @@ def combine_hdrp_mask_tex(nodes, source_mat, source_mat_cache, mat,
     utils.log_info("Combining Unity HDRP Mask Texture...")
 
     bsdf_node = nodeutils.get_bsdf_node(mat)
-    metallic_value = nodeutils.get_node_input_value(bsdf_node, "Metallic", 0.0)
-    roughness_value = nodeutils.get_node_input_value(bsdf_node, "Roughness", 0.0)
+    metallic_socket = nodeutils.get_socket(bsdf_node, "Metallic")
+    roughness_socket = nodeutils.get_socket(bsdf_node, "Roughness")
+    metallic_value = nodeutils.get_node_input_value(bsdf_node, metallic_socket, 0.0)
+    roughness_value = nodeutils.get_node_input_value(bsdf_node, roughness_socket, 0.0)
     ao_value = 1
     mask_value = 1
 
@@ -2075,8 +2092,10 @@ def make_metallic_smoothness_tex(nodes, source_mat, source_mat_cache, mat,
     utils.log_info("Create Unity URP/3D Metallic Alpha Texture from Metallic and Roughness...")
 
     bsdf_node = nodeutils.get_bsdf_node(mat)
-    roughness_value = nodeutils.get_node_input_value(bsdf_node, "Roughness", 0.5)
-    metallic_value = nodeutils.get_node_input_value(bsdf_node, "Metallic", 0)
+    metallic_socket = nodeutils.get_socket(bsdf_node, "Metallic")
+    roughness_socket = nodeutils.get_socket(bsdf_node, "Roughness")
+    metallic_value = nodeutils.get_node_input_value(bsdf_node, metallic_socket, 0)
+    roughness_value = nodeutils.get_node_input_value(bsdf_node, roughness_socket, 0.5)
 
     image_name = get_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
@@ -2144,8 +2163,10 @@ def combine_gltf(nodes, source_mat, source_mat_cache, mat,
     utils.log_info("Combining GLTF texture pack...")
 
     bsdf_node = nodeutils.get_bsdf_node(mat)
-    metallic_value = nodeutils.get_node_input_value(bsdf_node, "Metallic", 0.0)
-    roughness_value = nodeutils.get_node_input_value(bsdf_node, "Roughness", 0.0)
+    metallic_socket = nodeutils.get_socket(bsdf_node, "Metallic")
+    roughness_socket = nodeutils.get_socket(bsdf_node, "Roughness")
+    metallic_value = nodeutils.get_node_input_value(bsdf_node, metallic_socket, 0.0)
+    roughness_value = nodeutils.get_node_input_value(bsdf_node, roughness_socket, 0.0)
     ao_value = 1
 
     image_name = get_bake_image_name(mat, map_suffix)
@@ -2188,7 +2209,8 @@ def find_baked_image_nodes(nodes, tex_nodes, global_suffix):
     tex_nodes[global_suffix] = node
 
 
-def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, normal_strength, micro_normal_strength, micro_normal_scale):
+def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, normal_strength,
+                       micro_normal_strength, micro_normal_scale, emission_strength):
     props = bpy.context.scene.CCICBakeProps
 
     nodes = mat.node_tree.nodes
@@ -2229,6 +2251,16 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
     micro_texcoord_node = None
     micro_mask_mult_node = None
 
+    base_color_socket = nodeutils.get_socket(bsdf_node, "Base Color")
+    sss_socket = nodeutils.get_socket(bsdf_node, "Subsurface")
+    metallic_socket = nodeutils.get_socket(bsdf_node, "Metallic")
+    specular_socket = nodeutils.get_socket(bsdf_node, "Specular")
+    roughness_socket = nodeutils.get_socket(bsdf_node, "Roughness")
+    emission_socket = nodeutils.get_socket(bsdf_node, "Emission")
+    transmission_socket = nodeutils.get_socket(bsdf_node, "Transmission")
+    alpha_socket = nodeutils.get_socket(bsdf_node, "Alpha")
+    normal_socket = nodeutils.get_socket(bsdf_node, "Normal")
+
     if shader_node:
         nodes.remove(shader_node)
 
@@ -2251,9 +2283,9 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
             nodes.remove(tex_nodes["Metallic"])
             tex_nodes["Metallic"] = None
         if tex_nodes["BaseMap"]:
-            nodeutils.link_nodes(links, tex_nodes["BaseMap"], "Color", bsdf_node, "Base Color")
+            nodeutils.link_nodes(links, tex_nodes["BaseMap"], "Color", bsdf_node, base_color_socket)
             if tex_nodes["Alpha"]:
-                nodeutils.link_nodes(links, tex_nodes["BaseMap"], "Alpha", bsdf_node, "Alpha")
+                nodeutils.link_nodes(links, tex_nodes["BaseMap"], "Alpha", bsdf_node, alpha_socket)
                 nodes.remove(tex_nodes["Alpha"])
                 tex_nodes["Alpha"] = None
         if tex_nodes["GLTF"]:
@@ -2264,19 +2296,19 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
                 split_node.mode = "RGB"
                 nodeutils.link_nodes(links, tex_nodes["GLTF"], "Color", split_node, "Color")
                 nodeutils.link_nodes(links, split_node, "Red", gltf_settings_node, "Occlusion")
-                nodeutils.link_nodes(links, split_node, "Green", bsdf_node, "Roughness")
-                nodeutils.link_nodes(links, split_node, "Blue", bsdf_node, "Metallic")
+                nodeutils.link_nodes(links, split_node, "Green", bsdf_node, roughness_socket)
+                nodeutils.link_nodes(links, split_node, "Blue", bsdf_node, metallic_socket)
             else:
                 split_node = nodeutils.make_shader_node(nodes, "ShaderNodeSeparateRGB")
                 nodeutils.link_nodes(links, tex_nodes["GLTF"], "Color", split_node, "Image")
                 nodeutils.link_nodes(links, split_node, "R", gltf_settings_node, "Occlusion")
-                nodeutils.link_nodes(links, split_node, "G", bsdf_node, "Roughness")
-                nodeutils.link_nodes(links, split_node, "B", bsdf_node, "Metallic")
+                nodeutils.link_nodes(links, split_node, "G", bsdf_node, roughness_socket)
+                nodeutils.link_nodes(links, split_node, "B", bsdf_node, metallic_socket)
 
     if tex_nodes["Diffuse"] or tex_nodes["AO"]:
 
         if props.target_mode == "GLTF": # unpacked GLTF diffuse & AO
-            nodeutils.link_nodes(links, tex_nodes["Diffuse"], "Color", bsdf_node, "Base Color")
+            nodeutils.link_nodes(links, tex_nodes["Diffuse"], "Color", bsdf_node, base_color_socket)
             if not gltf_settings_node:
                 gltf_settings_node = nodeutils.make_gltf_settings_node(nodes)
             nodeutils.link_nodes(links, tex_nodes["AO"], "Color", gltf_settings_node, "Occlusion")
@@ -2285,13 +2317,13 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
             nodeutils.set_node_input_value(mix_node, "Fac", ao_strength)
             nodeutils.link_nodes(links, tex_nodes["Diffuse"], "Color", mix_node, "Color1")
             nodeutils.link_nodes(links, tex_nodes["AO"], "Color", mix_node, "Color2")
-            nodeutils.link_nodes(links, mix_node, "Color", bsdf_node, "Base Color")
+            nodeutils.link_nodes(links, mix_node, "Color", bsdf_node, base_color_socket)
 
     elif tex_nodes["Diffuse"]:
-        nodeutils.link_nodes(links, tex_nodes["Diffuse"], "Color", bsdf_node, "Base Color")
+        nodeutils.link_nodes(links, tex_nodes["Diffuse"], "Color", bsdf_node, base_color_socket)
 
     if tex_nodes["Subsurface"]:
-        nodeutils.link_nodes(links, tex_nodes["Subsurface"], "Color", bsdf_node, "Subsurface")
+        nodeutils.link_nodes(links, tex_nodes["Subsurface"], "Color", bsdf_node, sss_socket)
         nodeutils.set_node_input_value(bsdf_node, "Subsurface Radius", sss_radius)
         if mix_node:
             nodeutils.link_nodes(links, mix_node, "Color", bsdf_node, "Subsurface Color")
@@ -2299,33 +2331,33 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
             nodeutils.link_nodes(links, tex_nodes["Diffuse"], "Color", bsdf_node, "Subsurface Color")
 
     if tex_nodes["Metallic"]:
-        nodeutils.link_nodes(links, tex_nodes["Metallic"], "Color", bsdf_node, "Metallic")
+        nodeutils.link_nodes(links, tex_nodes["Metallic"], "Color", bsdf_node, metallic_socket)
     if tex_nodes["Specular"]:
-        nodeutils.link_nodes(links, tex_nodes["Specular"], "Color", bsdf_node, "Specular")
+        nodeutils.link_nodes(links, tex_nodes["Specular"], "Color", bsdf_node, specular_socket)
     if tex_nodes["Roughness"]:
-        nodeutils.link_nodes(links, tex_nodes["Roughness"], "Color", bsdf_node, "Roughness")
+        nodeutils.link_nodes(links, tex_nodes["Roughness"], "Color", bsdf_node, roughness_socket)
     if tex_nodes["Emission"]:
-        nodeutils.link_nodes(links, tex_nodes["Emission"], "Color", bsdf_node, "Emission")
+        nodeutils.link_nodes(links, tex_nodes["Emission"], "Color", bsdf_node, emission_socket)
     if tex_nodes["Alpha"]:
-        nodeutils.link_nodes(links, tex_nodes["Alpha"], "Color", bsdf_node, "Alpha")
+        nodeutils.link_nodes(links, tex_nodes["Alpha"], "Color", bsdf_node, alpha_socket)
     if tex_nodes["Transmission"]:
-        nodeutils.link_nodes(links, tex_nodes["Transmission"], "Color", bsdf_node, "Transmission")
+        nodeutils.link_nodes(links, tex_nodes["Transmission"], "Color", bsdf_node, transmission_socket)
 
     if tex_nodes["Normal"]:
         normal_map_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap")
         nodeutils.link_nodes(links, tex_nodes["Normal"], "Color", normal_map_node, "Color")
-        nodeutils.link_nodes(links, normal_map_node, "Normal", bsdf_node, "Normal")
+        nodeutils.link_nodes(links, normal_map_node, "Normal", bsdf_node, normal_socket)
         nodeutils.set_node_input_value(normal_map_node, "Strength", normal_strength)
     elif tex_nodes["Normal"]:
         bump_map_node = nodeutils.make_shader_node(nodes, "ShaderNodeBump")
         nodeutils.link_nodes(links, tex_nodes["Normal"], "Color", bump_map_node, "Height")
-        nodeutils.link_nodes(links, bump_map_node, "Normal", bsdf_node, "Normal")
+        nodeutils.link_nodes(links, bump_map_node, "Normal", bsdf_node, normal_socket)
         nodeutils.set_node_input_value(bump_map_node, "Distance", bump_distance)
 
     if tex_nodes["MicroNormal"]:
         if normal_map_node is None:
             normal_map_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap")
-            nodeutils.link_nodes(links, normal_map_node, "Normal", bsdf_node, "Normal")
+            nodeutils.link_nodes(links, normal_map_node, "Normal", bsdf_node, normal_socket)
         micro_mix_node = nodeutils.make_mixrgb_node(nodes, "OVERLAY")
         micro_mapping_node = nodeutils.make_shader_node(nodes, "ShaderNodeMapping")
         micro_texcoord_node = nodeutils.make_shader_node(nodes, "ShaderNodeTexCoord")
@@ -2341,6 +2373,9 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
             nodeutils.link_nodes(links, tex_nodes["Normal"], "Color", micro_mix_node, "Color1")
         nodeutils.link_nodes(links, tex_nodes["MicroNormal"], "Color", micro_mix_node, "Color2")
         nodeutils.link_nodes(links, micro_mix_node, "Color", normal_map_node, "Color")
+
+    if utils.B400():
+        nodeutils.set_node_input_value(bsdf_node, "Emission Strength", emission_strength)
 
     set_loc(bsdf_node, (200, 400))
     set_loc(output_node, (600, 400))
