@@ -170,11 +170,18 @@ def make_gltf_settings_node(nodes):
         if group.name == "glTF Settings":
             gltf_group = group
     if not gltf_group:
-        gltf_group = bpy.data.node_groups.new("glTF Settings", "ShaderNodeTree")
         if utils.B400():
+            gltf_group = bpy.data.node_groups.new("glTF Material Output", "ShaderNodeTree")
             gltf_group.interface.new_socket("Occlusion", in_out="INPUT", socket_type="NodeSocketColor")
+            gltf_group.interface.new_socket("Thickness", in_out="INPUT", socket_type="NodeSocketFloat")
+            gltf_group.interface.new_socket("Specular", in_out="INPUT", socket_type="NodeSocketFloat")
+            gltf_group.interface.new_socket("Specular Color", in_out="INPUT", socket_type="NodeSocketColor")
         else:
+            gltf_group = bpy.data.node_groups.new("glTF Settings", "ShaderNodeTree")
             gltf_group.inputs.new("NodeSocketColor", "Occlusion")
+            gltf_group.inputs.new("NodeSocketFloat", "Thickness")
+            gltf_group.inputs.new("NodeSocketFloat", "Specular")
+            gltf_group.inputs.new("NodeSocketColor", "Specular Color")
     return make_node_group_node(nodes, gltf_group, "glTF Settings", "glTF Settings")
 
 
@@ -1058,21 +1065,18 @@ def trace_input_value(node, socket_trace, default_value):
 
 def set_trace_input_value(node, socket_trace, value):
     if node and socket_trace:
-        sockets = socket_trace.split(":")
+        socket_names = socket_trace.split(":")
         trace_node = None
         trace_socket = None
         try:
-            value_socket = sockets[-1]
-            sockets = sockets[:-1]
+            value_socket_name = socket_names[-1]
+            socket_names = socket_names[:-1]
             trace_node : bpy.types.Node = node
-            if sockets:
-                for socket_name in sockets:
-                    found_socket = None
-                    for socket in trace_node.inputs:
-                        if socket.is_linked and socket.name == socket_name:
-                            found_socket = socket
-                    if found_socket:
-                        link = found_socket.links[0]
+            if socket_names:
+                for socket_name in socket_names:
+                    socket = input_socket(trace_node, socket_name)
+                    if socket and socket.is_linked:
+                        link = socket.links[0]
                         trace_node = link.from_node
                         trace_socket = link.from_socket
                     else:
@@ -1080,6 +1084,7 @@ def set_trace_input_value(node, socket_trace, value):
                         trace_socket = None
                         break
             if trace_node:
+                value_socket = input_socket(trace_node, value_socket_name)
                 set_node_input_value(trace_node, value_socket, value)
                 return True
         except:

@@ -1282,6 +1282,9 @@ def B321():
 def B330():
     return is_blender_version("3.3.0")
 
+def B340():
+    return is_blender_version("3.4.0")
+
 def B400():
     return is_blender_version("4.0.0")
 

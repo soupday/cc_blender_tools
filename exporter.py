@@ -1290,7 +1290,7 @@ def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
     unpack_path = os.path.join(path, "textures", name, "Unpack")
     bake_path = os.path.join(path, "textures", name, "Baked")
     bsdf_node = nodeutils.get_bsdf_node(mat)
-    gltf_node = nodeutils.find_node_group_by_keywords(mat.node_tree.nodes, "glTF Settings")
+    gltf_node = nodeutils.find_node_group_by_keywords(mat.node_tree.nodes, "glTF Settings", "glTF Material Output")
 
     if bsdf_node:
         try:

@@ -714,10 +714,11 @@ def convert_to_rl_pbr(mat, mat_cache):
             else:
                 too_complex = True
 
-        elif n.type == "GROUP" and n.node_tree and "glTF Settings" in n.node_tree.name:
-
+        elif n.type == "GROUP" and n.node_tree and ("glTF Settings" in n.node_tree.name or
+                                                    "glTF Material Output" in n.node_tree.name):
             if not gltf_node:
                 gltf_node = n
+                utils.log_info("GLTF settings node found: " + n.name)
             else:
                 too_complex = True
 
@@ -762,8 +763,8 @@ def convert_to_rl_pbr(mat, mat_cache):
     output_node.location = (900, -400)
 
     # remap bsdf socket inputs to shader group node sockets
-    # [ [bsdf_socket_name<:parent_socket_name>, node_name_match, node_source, group_socket, prop_socket, prop_name], ]
-    sockets = [
+    # [ [bsdf_socket_name<:parent_socket_name>, node_name_match, node_source, group_socket, strength_value_trace, prop_name], ]
+    SOCKETS = [
         ["Base Color", "", "BSDF", "Diffuse Map", "", ""],
         ["Metallic", "", "BSDF", "Metallic Map", "", ""],
         ["Specular", "", "BSDF", "Specular Map", "", ""],
@@ -783,10 +784,13 @@ def convert_to_rl_pbr(mat, mat_cache):
         ["Base Color:B", "ao|occlusion", "BSDF", "AO Map", "Base Color:Factor", "default_ao_strength"],
         ["Base Color:A", "ao|occlusion", "BSDF", "Diffuse Map", "", ""],
         # gltf
-        ["Occlusion", "", "GLTF", "AO Map", "", "default_ao_strength"],
+        ["Occlusion", "", "GLTF", "AO Map", "", ""],
+        ["Occlusion:Color2", "", "GLTF", "AO Map", "Occlusion:Fac", "default_ao_strength"],
+        ["Occlusion:B", "", "GLTF", "AO Map", "Occlusion:Factor", "default_ao_strength"],
     ]
 
     if bsdf_node:
+
         try:
 
             base_color_socket = nodeutils.input_socket(bsdf_node, "Base Color")
@@ -796,6 +800,7 @@ def convert_to_rl_pbr(mat, mat_cache):
             specular_socket = nodeutils.input_socket(bsdf_node, "Specular")
             alpha_socket = nodeutils.input_socket(bsdf_node, "Alpha")
             emission_socket = nodeutils.input_socket(bsdf_node, "Emission")
+            transmission_socket = nodeutils.input_socket(bsdf_node, "Transmission")
             emission_strength_socket = nodeutils.input_socket(bsdf_node, "Emission Strength")
             clearcoat_value = clearcoat_socket.default_value
             roughness_value = roughness_socket.default_value
@@ -803,25 +808,48 @@ def convert_to_rl_pbr(mat, mat_cache):
             specular_value = specular_socket.default_value
             alpha_value = alpha_socket.default_value
 
+            ao_strength = 1.0
+            if gltf_node:
+                #if utils.B340():
+                #    occlusion_strength_node = nodeutils.find_node_by_type_and_keywords(nodes, "MIX", "Occlusion Strength")
+                #else:
+                #    occlusion_strength_node = nodeutils.find_node_by_type_and_keywords(nodes, "MIX_RGB", "Occlusion Strength")
+                #if occlusion_strength_node:
+                #    ao_strength = nodeutils.get_node_input_value(occlusion_strength_node, "Factor", ao_strength)
+                #    ao_strength = nodeutils.get_node_input_value(occlusion_strength_node, "Fac", ao_strength)
+                #    gltf_occlusion_socket = nodeutils.input_socket(gltf_node, "Occlusion")
+
+                # bug in Blender 4.0 gltf occlusion is not connected from occlusion strength node
+                if utils.B400():
+                    gltf_occlusion_socket = nodeutils.input_socket(gltf_node, "Occlusion")
+                    occlusion_strength_node = nodeutils.find_node_by_type_and_keywords(nodes, "MIX", "Occlusion Strength")
+                    if gltf_occlusion_socket and not gltf_occlusion_socket.is_linked:
+                        nodeutils.link_nodes(links, occlusion_strength_node, "Result", gltf_node, gltf_occlusion_socket)
+
             if utils.B293():
-                emission_value = nodeutils.get_node_input_value(bsdf_node, "Emission Strength", 0.0)
+                emission_value = nodeutils.get_node_input_value(bsdf_node, emission_strength_socket, 0.0)
             else:
                 if emission_socket.is_linked:
-                    emission_value = nodeutils.get_node_input_value(bsdf_node, "Emission Strength", 1.0)
+                    emission_value = nodeutils.get_node_input_value(bsdf_node, emission_strength_socket, 1.0)
                 else:
                     emission_value = 0.0
+            emission_color = nodeutils.get_node_input_value(bsdf_node, emission_socket, (0,0,0))
 
             if not base_color_socket.is_linked:
                 diffuse_color = base_color_socket.default_value
                 mat_cache.parameters.default_diffuse_color = diffuse_color
 
+            if transmission_socket.is_linked:
+                nodeutils.unlink_node_input(links, bsdf_node, transmission_socket)
+
+            mat_cache.parameters.default_ao_strength = ao_strength
             mat_cache.parameters.default_roughness = roughness_value
             # a rough approximation for the clearcoat
             mat_cache.parameters.default_roughness_power = 1.0 + clearcoat_value
             mat_cache.parameters.default_metallic = metallic_value
             mat_cache.parameters.default_specular = specular_value
             mat_cache.parameters.default_emission_strength = emission_value / vars.EMISSION_SCALE
-            mat_cache.parameters.default_emissive_color = (1.0, 1.0, 1.0, 1.0)
+            mat_cache.parameters.default_emissive_color = emission_color
             if emission_strength_socket:
                 emission_strength_socket.default_value = 1.0
             clearcoat_socket.default_value = 0.0
@@ -831,7 +859,7 @@ def convert_to_rl_pbr(mat, mat_cache):
             utils.log_warn("Unable to set material cache defaults!")
 
     socket_mapping = {}
-    for socket_trace, match, node_type, group_socket, strength_trace, strength_prop in sockets:
+    for socket_trace, match, node_type, group_socket, strength_trace, strength_prop in SOCKETS:
         if node_type == "BSDF":
             n = bsdf_node
         elif node_type == "GLTF":
