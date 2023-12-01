@@ -166,6 +166,7 @@ def get_spring_rig(chr_cache, arm, parent_mode, mode = "POSE", create_if_missing
                 spring_rig.align_roll(Vector((0,0,1)))
                 bones.set_bone_collection(arm, spring_rig, "Spring (Root)", None, vars.SPRING_ROOT_LAYER)
                 bones.set_bone_collection_visibility(arm, "Spring (Root)", vars.SPRING_ROOT_LAYER, False)
+                # TODO spring roots are put in the DEF bones by Rigify...
             return spring_rig
         else:
             if spring_rig_name in arm.data.bones:

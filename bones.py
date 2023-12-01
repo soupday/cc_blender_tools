@@ -700,8 +700,7 @@ def set_bone_collection(rig, bone, collection=None, group=None, layer=None, colo
                 rig.data.collections.new(collection)
             bone_collection = rig.data.collections[collection]
             bone_collection.assign(bone)
-            return True
-        if color:
+        if color is not None:
             set_bone_color(bone, color)
     else:
         if group:
@@ -720,6 +719,7 @@ CUSTOM_COLORS = {
     "IK": (0.8000000715255737, 0.0, 0.0),
     "FK": (0.3764706254005432, 0.7803922295570374, 0.20784315466880798),
     "SPECIAL": (0.9803922176361084, 0.9019608497619629, 0.2392157018184662),
+    "SIM": (0.98, 0.24, 0.9),
     "TWEAK": (0.2196078598499298, 0.49803924560546875, 0.7843137979507446),
     "ROOT": (0.6901960968971252, 0.46666669845581055, 0.6784313917160034),
     "DETAIL": (0.9843137860298157, 0.5372549295425415, 0.33725491166114807),
