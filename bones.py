@@ -119,8 +119,31 @@ def get_pose_bone(rig, name):
     return None
 
 
-def get_rigify_meta_bone(rigify_rig, bone_mappings, cc3_bone_name):
-    for bone_map in bone_mappings:
+def find_target_pose_bone(rig, rl_bone_name, bone_mapping = None):
+    target_bone_name = find_target_bone_name(rig, rl_bone_name, bone_mapping)
+    if target_bone_name in rig.pose.bones:
+        return rig.pose.bones[target_bone_name]
+    return None
+
+
+def find_target_bone_name(rig, rl_bone_name, bone_mapping = None):
+    target_bone_name = None
+    if bone_mapping:
+        target_bone_name = get_rigify_meta_bone(rig, bone_mapping, rl_bone_name)
+    else:
+        target_bone_name = rl_bone_name
+    if target_bone_name in rig.pose.bones:
+        return target_bone_name
+    for pose_bone in rig.pose.bones:
+        if cmp_rl_bone_names(target_bone_name, pose_bone.name):
+            return pose_bone.name
+    return rl_bone_name
+
+
+def get_rigify_meta_bone(rigify_rig, bone_mapping, cc3_bone_name):
+    if cc3_bone_name == "RL_BoneRoot" or cc3_bone_name == "CC_Base_BoneRoot":
+        return "root"
+    for bone_map in bone_mapping:
         if bone_map[1] == cc3_bone_name:
             # try to find the parent in the ORG bones
             org_bone_name = f"ORG-{bone_map[0]}"
@@ -128,24 +151,48 @@ def get_rigify_meta_bone(rigify_rig, bone_mappings, cc3_bone_name):
                 return org_bone_name
             # then try the DEF bones
             def_bone_name = f"DEF-{bone_map[0]}"
-            if def_bone_name not in rigify_rig.data.bones:
+            if def_bone_name in rigify_rig.data.bones:
                 return def_bone_name
     return None
 
 
-def align_edit_bone_roll(edit_bone : bpy.types.EditBone, axis):
+def get_rigify_meta_bones(rigify_rig, bone_mapping, cc3_bone_name):
+    meta_bone_names = []
+    if cc3_bone_name == "RL_BoneRoot" or cc3_bone_name == "CC_Base_BoneRoot":
+        return ["root"]
+    for bone_map in bone_mapping:
+        if bone_map[1] == cc3_bone_name:
+            # try to find the parent in the ORG bones
+            org_bone_name = f"ORG-{bone_map[0]}"
+            if org_bone_name in rigify_rig.data.bones:
+                meta_bone_names.append(org_bone_name)
+            # then try the DEF bones
+            def_bone_name = f"DEF-{bone_map[0]}"
+            if def_bone_name in rigify_rig.data.bones:
+                meta_bone_names.append(def_bone_name)
+    return meta_bone_names
+
+
+def get_align_vector(axis):
     if axis == "X":
-        edit_bone.align_roll(mathutils.Vector((1,0,0)))
+        return mathutils.Vector((1,0,0))
     if axis == "Y":
-        edit_bone.align_roll(mathutils.Vector((0,1,0)))
+        return mathutils.Vector((0,1,0))
     if axis == "Z":
-        edit_bone.align_roll(mathutils.Vector((0,0,1)))
+        return mathutils.Vector((0,0,1))
     if axis == "-X":
-        edit_bone.align_roll(mathutils.Vector((-1,0,0)))
+        return mathutils.Vector((-1,0,0))
     if axis == "-Y":
-        edit_bone.align_roll(mathutils.Vector((0,-1,0)))
+        return mathutils.Vector((0,-1,0))
     if axis == "-Z":
-        edit_bone.align_roll(mathutils.Vector((0,0,-1)))
+        return mathutils.Vector((0,0,-1))
+    return None
+
+
+def align_edit_bone_roll(edit_bone : bpy.types.EditBone, axis):
+    align_vector = get_align_vector(axis)
+    if align_vector:
+        edit_bone.align_roll(align_vector)
 
 
 def rename_bone(rig, from_name, to_name):
@@ -155,7 +202,6 @@ def rename_bone(rig, from_name, to_name):
             bone.name = to_name
         else:
             utils.log_error(f"Bone {from_name} cannot be renamed as {to_name} already exists in rig!")
-
 
 
 def copy_edit_bone(rig, src_name, dst_name, parent_name, scale):
@@ -308,7 +354,7 @@ def get_edit_bone_subtree_defs(rig, bone : bpy.types.EditBone, tree = None):
     return tree
 
 
-def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, dst_prefix, layer, vertex_group_map):
+def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, dst_prefix, collection, layer, vertex_group_map):
 
     src_bone_defs = None
 
@@ -346,8 +392,7 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                 bone_def.append(bone.name)
 
                 # set the edit bone layers
-                for l in range(0, 32):
-                    bone.layers[l] = l == layer
+                set_bone_collection(dst_rig, bone, collection, None, layer)
 
                 # set the bone parent
                 parent_bone = get_edit_bone(dst_rig, parent_name)
@@ -359,8 +404,7 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                 for bone_def in src_bone_defs:
                     name = bone_def[7]
                     pose_bone = dst_rig.data.bones[name]
-                    for l in range(0, 32):
-                        pose_bone.layers[l] = l == layer
+                    set_bone_collection(dst_rig, pose_bone, collection, None, layer)
 
     return src_bone_defs
 
@@ -556,34 +600,38 @@ def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_deform = deform
 
 
-def show_bone_layers(rig, bone):
-    for i in range(0, 32):
-        if bone.layers[i]:
-            rig.data.layers[i] = True
-
-
-def show_all_layers(rig):
-    for i in range(0, 32):
-        rig.data.layers[i] = True
-
-
 def store_armature_settings(rig):
+    collections = {}
     layers = []
-    for i in range(0, 32):
-        layers.append(rig.data.layers[i])
+
+    if utils.B400():
+        for collection in rig.data.collections:
+            collections[collection.name] = collection.is_visible
+    else:
+        for i in range(0, 32):
+            layers.append(rig.data.layers[i])
+
     visibility = { "layers": layers,
+                   "collections": collections,
                    "show_in_front": rig.show_in_front,
                    "display_type": rig.display_type,
                    "pose_position": rig.data.pose_position,
                    "action": utils.safe_get_action(rig),
                    "location": rig.location }
+
     return visibility
 
 
 def restore_armature_settings(rig, visibility):
-    layers = visibility["layers"]
-    for i in range(0, 32):
-        rig.data.layers[i] = layers[i]
+    if utils.B400():
+        collections = visibility["collections"]
+        for collection in collections:
+            print(f"{collection} : {collections[collection]}")
+            rig.data.collections[collection].is_visible = collections[collection]
+    else:
+        layers = visibility["layers"]
+        for i in range(0, 32):
+            rig.data.layers[i] = layers[i]
     rig.show_in_front = visibility["show_in_front"]
     rig.display_type = visibility["display_type"]
     rig.data.pose_position = visibility["pose_position"]
@@ -595,54 +643,6 @@ def set_rig_bind_pose(rig):
     rig.data.pose_position = "POSE"
     utils.safe_set_action(rig, None)
     clear_pose(rig)
-
-
-def show_armature_layers(rig : bpy.types.Object, layer_list : list, in_front = False, wireframe = False):
-    rig.show_in_front = in_front
-    rig.display_type = 'WIRE' if wireframe else 'SOLID'
-    armature : bpy.types.Armature = rig.data
-
-    utils.edit_mode_to(rig)
-    for i in range(0, 32):
-        if i in layer_list:
-            armature.layers[i] = True
-        else:
-            armature.layers[i] = False
-
-    utils.pose_mode_to(rig)
-    for i in range(0, 32):
-        if i in layer_list:
-            armature.layers[i] = True
-        else:
-            armature.layers[i] = False
-
-    utils.object_mode_to(rig)
-    for i in range(0, 32):
-        if i in layer_list:
-            armature.layers[i] = True
-        else:
-            armature.layers[i] = False
-
-    return
-
-
-def set_bone_layer(rig, bone_name, layer):
-    if utils.edit_mode_to(rig):
-        set_edit_bone_layer(rig, bone_name, layer)
-    if utils.set_mode("OBJECT"):
-        set_pose_bone_layer(rig, bone_name, layer)
-
-
-def set_edit_bone_layer(rig, bone_name, layer):
-    edit_bone = rig.data.edit_bones[bone_name]
-    for l in range(0, 32):
-        edit_bone.layers[l] = l == layer
-
-
-def set_pose_bone_layer(rig, bone_name, layer):
-    pose_bone = rig.data.bones[bone_name]
-    for l in range(0, 32):
-        pose_bone.layers[l] = l == layer
 
 
 def copy_position(rig, bone, copy_bones, offset):
@@ -669,16 +669,157 @@ def copy_position(rig, bone, copy_bones, offset):
     return None
 
 
-def set_bone_group(rig, bone, group):
-    if utils.set_mode("OBJECT"):
-        if bone in rig.pose.bones:
-            bone_group = rig.pose.bone_groups[group]
-            rig.pose.bones[bone].bone_group = bone_group
-            return True
-        else:
-            utils.log_error(f"Cannot find pose bone {bone} in rig!")
+def is_bone_in_collections(rig, bone, collections=None, groups=None, layers=None):
+    if utils.B400():
+        if collections:
+            for collection in collections:
+                if collection in rig.data.collections:
+                    if bone.name in rig.data.collections[collection].bones:
+                        return True
     else:
-        utils.log_error("Unable to select rig!")
+        if groups:
+            if bone.name in rig.pose.bones:
+                pose_bone = rig.pose.bones[bone.name]
+                if pose_bone.bone_group and pose_bone.bone_group.name in groups:
+                    return True
+        if layers:
+            for layer in layers:
+                if not bone.layers[layer]:
+                    return False
+            return True
+
+    return False
+
+
+def set_bone_collection(rig, bone, collection=None, group=None, layer=None, color=None):
+    """Sets the bone collection (Any) (Blender 4.0+),
+       or group (PoseBone only) or layer (Bone or EditBone) (< Blender 4.0)"""
+    if utils.B400():
+        if collection:
+            if not collection in rig.data.collections:
+                rig.data.collections.new(collection)
+            bone_collection = rig.data.collections[collection]
+            bone_collection.assign(bone)
+        if color is not None:
+            set_bone_color(bone, color)
+    else:
+        if group:
+            if group not in rig.pose.bone_groups:
+                rig.pose.bone_groups.new(name=group)
+            group = rig.pose.bone_groups[group]
+            bone.bone_group = group
+        if layer:
+            bone.layers[layer] = True
+            for i, l in enumerate(bone.layers):
+                bone.layers[i] = i == layer
+
+CUSTOM_COLORS = {
+    "Active": (0.7686275243759155, 1.0, 1.0),
+    "Select": (0.5960784554481506, 0.8980392813682556, 1.0),
+    "IK": (0.8000000715255737, 0.0, 0.0),
+    "FK": (0.3764706254005432, 0.7803922295570374, 0.20784315466880798),
+    "SPECIAL": (0.9803922176361084, 0.9019608497619629, 0.2392157018184662),
+    "SIM": (0.98, 0.24, 0.9),
+    "TWEAK": (0.2196078598499298, 0.49803924560546875, 0.7843137979507446),
+    "ROOT": (0.6901960968971252, 0.46666669845581055, 0.6784313917160034),
+    "DETAIL": (0.9843137860298157, 0.5372549295425415, 0.33725491166114807),
+}
+
+def set_bone_color(bone, color_code):
+    bone.color.palette = "CUSTOM"
+    bone.color.custom.normal = CUSTOM_COLORS[color_code]
+    bone.color.custom.active = CUSTOM_COLORS["Active"]
+    bone.color.custom.select = CUSTOM_COLORS["Select"]
+
+
+def set_bone_collection_visibility(rig, collection, layer, visible, only=False):
+    if utils.B400():
+        if only:
+            for coll in rig.data.collections:
+                coll.is_visible = False
+        if collection in rig.data.collections:
+            rig.data.collections[collection].is_visible = visible
+    else:
+        rig.data.layers[layer] = visible
+        if only:
+            for i in range(0, 32):
+                if i != layer:
+                    rig.data.layers[i] = not visible
+
+
+def make_bones_visible(arm, protected=False, collections=None, layers=None):
+    bone : bpy.types.Bone
+    pose_bone : bpy.types.PoseBone
+    for bone in arm.data.bones:
+        pose_bone = get_pose_bone(arm, bone.name)
+        # make all active bone layers visible so they can be unhidden and selectable
+        if utils.B400():
+            for collection in arm.data.collections:
+                if collections:
+                    collection.is_visible = collection.name in collections
+                else:
+                    collection.is_visible = True
+                #if protected:
+                #    collection.is_editable = True
+        else:
+            for i, l in enumerate(bone.layers):
+                if l:
+                    if layers:
+                        arm.data.layers[i] = i in layers
+                    else:
+                        arm.data.layers[i] = True
+                    if protected:
+                        arm.data.layers_protected[i] = False
+        # show and select bone
+        bone.hide = False
+        bone.hide_select = False
+
+def is_bone_collection_visible(arm, collection=None, layer=None):
+    if utils.B400():
+        if collection in arm.data.collections:
+            return arm.data.collections[collection].is_visible
+        return False
+    else:
+        return arm.data.layers[layer]
+
+
+def add_bone_collection(rig, collection):
+    if collection not in rig.data.collections:
+        rig.data.collections.new(collection)
+    return rig.data.collections[collection]
+
+
+def assign_rl_base_collections(rig):
+    if utils.B400():
+        if "Deform" not in rig.data.collections:
+            deform = add_bone_collection(rig, "Deform")
+            none = add_bone_collection(rig, "Non-Deform")
+            twist = add_bone_collection(rig, "Twist")
+            share = add_bone_collection(rig, "Share")
+
+            none_deform_bones = [
+                "CC_Base_R_Upperarm",
+                "CC_Base_L_Upperarm",
+                "CC_Base_R_Forearm",
+                "CC_Base_L_Forearm",
+                "CC_Base_R_Thigh",
+                "CC_Base_L_Thigh",
+                "CC_Base_R_Calf",
+                "CC_Base_L_Calf",
+                "CC_Base_FacialBone",
+                "CC_Base_BoneRoot",
+                "RL_BoneRoot",
+            ]
+
+            for bone in rig.data.bones:
+                if "Twist" in bone.name:
+                    twist.assign(bone)
+                elif "ShareBone" in bone.name:
+                    share.assign(bone)
+                if bone.name in none_deform_bones:
+                    none.assign(bone)
+                else:
+                    deform.assign(bone)
 
 
 def set_pose_bone_custom_scale(rig, bone_name, scale):
@@ -983,24 +1124,6 @@ def get_roll(bone):
     return roll
 
 
-def make_bones_visible(arm, groups = None):
-    bone : bpy.types.Bone
-    pose_bone : bpy.types.PoseBone
-    for bone in arm.data.bones:
-        pose_bone = get_pose_bone(arm, bone.name)
-        # hide bones not in the supplied groups (if supplied)
-        if groups and pose_bone and pose_bone.bone_group:
-            if pose_bone.bone_group.name not in groups:
-                bone.hide = True
-        # make all active bone layers visible so they can be made visible and selected
-        for i, l in enumerate(bone.layers):
-            if l:
-                arm.data.layers[i] = True
-        # show and select bone
-        bone.hide = False
-        bone.hide_select = False
-
-
 def clear_pose(arm):
     """Clears the pose, makes all bones visible and clears the bone selections."""
 
@@ -1048,18 +1171,18 @@ def reset_root_bone(arm):
     utils.set_mode("OBJECT")
 
 
-def bone_mapping_contains_bone(bone_mappings, bone_name):
-    for bone_mapping in bone_mappings:
+def bone_mapping_contains_bone(bone_mapping, bone_name):
+    for bone_mapping in bone_mapping:
             if cmp_rl_bone_names(bone_mapping[1], bone_name):
                 return True
     return False
 
 
-def get_accessory_root_bone(bone_mappings, bone):
+def get_accessory_root_bone(bone_mapping, bone):
     root = None
-    if not bone_mapping_contains_bone(bone_mappings, bone.name):
+    if not bone_mapping_contains_bone(bone_mapping, bone.name):
         while bone.parent:
-            if not bone_mapping_contains_bone(bone_mappings, bone.parent.name):
+            if not bone_mapping_contains_bone(bone_mapping, bone.parent.name):
                 root = bone.parent
             bone = bone.parent
     return root
@@ -1074,11 +1197,11 @@ def bone_parent_in_list(bone_list, bone):
     return False
 
 
-def find_accessory_bones(bone_mappings, cc3_rig):
+def find_accessory_bones(bone_mapping, cc3_rig):
     accessory_bones = []
     for bone in cc3_rig.data.bones:
         bone_name = bone.name
-        if not bone_mapping_contains_bone(bone_mappings, bone_name):
+        if not bone_mapping_contains_bone(bone_mapping, bone_name):
             if bone_name not in accessory_bones and not bone_parent_in_list(accessory_bones, bone):
                 utils.log_info(f"Accessory Bone: {bone_name}")
                 accessory_bones.append(bone_name)

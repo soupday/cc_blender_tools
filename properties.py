@@ -14,10 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
-import bpy, os
+import bpy, os, socket
 from mathutils import Vector
 
-from . import channel_mixer, imageutils, meshutils, sculpting, materials, springbones, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
+from . import link, channel_mixer, imageutils, meshutils, sculpting, materials, springbones, rigify_mapping_data, modifiers, nodeutils, shaders, params, physics, basic, jsonutils, utils, vars
 
 
 def open_mouth_update(self, context):
@@ -406,7 +406,8 @@ def init_character_property_defaults(chr_cache, chr_json):
                         shaders.fetch_prop_defaults(obj, mat_cache, mat_json)
 
                         if chr_json is None and chr_cache.is_actor_core():
-                            mat_cache.parameters.default_ao_strength = 0.2
+                            mat_cache.parameters.default_ao_strength = 0.4
+                            mat_cache.parameters.default_ao_power = 1.0
                             mat_cache.parameters.default_specular_scale = 0.4
                         utils.log_recess()
             utils.log_recess()
@@ -483,6 +484,38 @@ def update_rig_target(self, context):
             self.hair_rig_bind_weight_curve = 0.5
             self.hair_rig_bind_bone_variance = 0.75
 
+def update_link_target(self, context):
+    link_data = bpy.context.scene.CCICLinkData
+    if link_data.link_target == "BLENDER":
+        link_data.link_port = 9334
+    elif link_data.link_target == "CCIC":
+        link_data.link_port = 9333
+    elif link_data.link_target == "UNITY":
+        link_data.link_port = 9335
+    else:
+        link_data.link_port = 9333
+
+
+def update_link_host(self, context):
+    link_data = bpy.context.scene.CCICLinkData
+    host = link_data.link_host
+    if host:
+        try:
+            print(socket.gethostbyname(host))
+            link_data.link_host_ip = socket.gethostbyname(host)
+        except:
+            link_data.link_host_ip = "127.0.0.1"
+
+
+def update_link_host_ip(self, context):
+    link_data = bpy.context.scene.CCICLinkData
+    host_ip = link_data.link_host_ip
+    if host_ip:
+        try:
+            link_data.link_host = socket.gethostbyaddr(host_ip)
+        except:
+            link_data.link_host = ""
+
 
 class CC3OperatorProperties(bpy.types.Operator):
     """CC3 Property Functions"""
@@ -534,6 +567,7 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_cavity_ao_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_cavity_ao_strength"))
     skin_blend_overlay_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_blend_overlay_strength"))
     skin_ao_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao_strength"))
+    skin_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"skin_ao_power"))
     skin_mouth_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_mouth_ao"))
     skin_nostril_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_nostril_ao"))
     skin_lips_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_lips_ao"))
@@ -587,6 +621,8 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_head_shader_skin_micro_normal_tiling)
     skin_micro_normal_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_micro_normal_tiling"))
+    skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_height_scale"))
+    skin_height_delta_scale: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_height_delta_scale"))
 
 class CC3SkinParameters(bpy.types.PropertyGroup):
     # shader (rl_skin_shader)
@@ -598,6 +634,7 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_diffuse_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_diffuse_saturation"))
     skin_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hsv_strength"))
     skin_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao_strength"))
+    skin_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"skin_ao_power"))
     skin_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"skin_subsurface_falloff"))
@@ -747,6 +784,7 @@ class CC3TeethParameters(bpy.types.PropertyGroup):
     teeth_front_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1.5, update=lambda s,c: update_property(s,c,"teeth_front_ao"))
     teeth_rear_ao: bpy.props.FloatProperty(default=0.0, min=0, max=1.5, update=lambda s,c: update_property(s,c,"teeth_rear_ao"))
     teeth_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_ao_strength"))
+    teeth_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"teeth_ao_power"))
     teeth_gums_subsurface_scatter: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_gums_subsurface_scatter"))
     teeth_teeth_subsurface_scatter: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"teeth_teeth_subsurface_scatter"))
     teeth_subsurface_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=3, update=lambda s,c: update_property(s,c,"teeth_subsurface_radius"))
@@ -773,6 +811,7 @@ class CC3TongueParameters(bpy.types.PropertyGroup):
     tongue_front_ao: bpy.props.FloatProperty(default=1.0, min=0, max=1.5, update=lambda s,c: update_property(s,c,"tongue_front_ao"))
     tongue_rear_ao: bpy.props.FloatProperty(default=0.0, min=0, max=1.5, update=lambda s,c: update_property(s,c,"tongue_rear_ao"))
     tongue_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"tongue_ao_strength"))
+    tongue_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"tongue_ao_power"))
     tongue_subsurface_scatter: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"tongue_subsurface_scatter"))
     tongue_subsurface_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"tongue_subsurface_radius"))
     tongue_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -842,6 +881,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_subsurface_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"hair_subsurface_radius"))
     hair_diffuse_strength: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_diffuse_strength"))
     hair_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_ao_strength"))
+    hair_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"hair_ao_power"))
     hair_ao_occlude_all: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_ao_occlude_all"))
     hair_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_blend_multiply_strength"))
     hair_specular_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_specular_scale"))
@@ -869,6 +909,7 @@ class CC3PBRParameters(bpy.types.PropertyGroup):
                                 default=(1, 1, 1, 1), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_diffuse_color"))
     default_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_ao_strength"))
+    default_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"default_ao_power"))
     default_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_blend_multiply_strength"))
     default_metallic: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_metallic"))
     default_specular: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular"))
@@ -901,6 +942,7 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
     default_saturation: bpy.props.FloatProperty(default=0.95, min=0, max=1, update=lambda s,c: update_property(s,c,"default_saturation"))
     default_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_hsv_strength"))
     default_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_ao_strength"))
+    default_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"default_ao_power"))
     default_blend_multiply_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_blend_multiply_strength"))
     default_metallic: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_metallic"))
     default_specular: bpy.props.FloatProperty(default=0.5, min=0, max=2, update=lambda s,c: update_property(s,c,"default_specular"))
@@ -1240,6 +1282,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     import_has_key: bpy.props.BoolProperty(default=False)
     import_key_file: bpy.props.StringProperty(default="")
     # which character in the import
+    link_id: bpy.props.StringProperty(default="")
     character_id: bpy.props.StringProperty(default="")
     character_name: bpy.props.StringProperty(default="")
     character_index: bpy.props.IntProperty(default=0)
@@ -1275,6 +1318,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     rig_export_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_original_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_retarget_rig: bpy.props.PointerProperty(type=bpy.types.Object)
+    rig_datalink_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     rig_retarget_source_rig: bpy.props.PointerProperty(type=bpy.types.Object)
     retarget_heel_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.7854, max=0.7854, description="Heel pitch angle (radians)")
     retarget_arm_correction_angle: bpy.props.FloatProperty(default = 0.0, min=-0.2618, max=0.2618, description="Arm spread angle (radians)")
@@ -1337,6 +1381,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     default=0,
                     name="Available Spring Rigs",
                     description="A list of all the spring rigs on the character")
+
+    def select(self):
+        rig = self.get_armature()
+        utils.set_active_object(rig, True)
 
     def get_tex_dir(self):
         if os.path.isabs(self.import_main_tex_dir):
@@ -1420,7 +1468,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_rig_mapping_data(self):
         return rigify_mapping_data.get_mapping_for_generation(self.generation)
 
-    def get_rig_bone_mappings(self):
+    def get_rig_bone_mapping(self):
         rigify_data = rigify_mapping_data.get_mapping_for_generation(self.generation)
         if rigify_data:
             return rigify_data.bone_mapping
@@ -1565,14 +1613,18 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     utils.remove_from_collection(self.sss_material_cache, mat_cache)
                     return
 
-    def get_object_cache(self, obj):
+    def get_object_cache(self, obj, strict = False):
         """Returns the object cache for this object.
         """
         if obj:
             for obj_cache in self.object_cache:
                 cache_object = obj_cache.get_object()
                 if cache_object and cache_object == obj:
-                    return obj_cache
+                    if strict:
+                        if not obj_cache.disabled:
+                            return obj_cache
+                    else:
+                        return obj_cache
         return None
 
     def remove_object_cache(self, obj):
@@ -1911,6 +1963,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         ("UPDATE_SELECTED","Selected","Update the shader parameters only in the selected object and material")
                     ], default="UPDATE_LINKED")
 
+    setup_mode: bpy.props.EnumProperty(items=[
+                        ("BASIC","Basic","Build basic PBR materials."),
+                        ("ADVANCED","Advanced","Build advanced materials with blend maps, subsurface, and micro normals, specular and roughness control and includes layered eye, teeth and tongue materials.")
+                    ], default="ADVANCED")
+
     import_file: bpy.props.StringProperty(default="", subtype="FILE_PATH")
 
     import_cache: bpy.props.CollectionProperty(type=CC3CharacterCache)
@@ -1958,6 +2015,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     stage4: bpy.props.BoolProperty(default=True)
     stage_remapper: bpy.props.BoolProperty(default=False)
     show_build_prefs: bpy.props.BoolProperty(default=False)
+    show_build_prefs2: bpy.props.BoolProperty(default=False)
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
     section_rigify_controls: bpy.props.BoolProperty(default=False)
@@ -2121,6 +2179,9 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     rigified_action_list_index: bpy.props.IntProperty(default=-1)
     rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
 
+    # property to poke to cause a UI update
+    poke_me: bpy.props.IntProperty(default=0)
+
     def get_any_character_cache_from_objects(self, objects, search_materials = False):
         chr_cache : CC3CharacterCache
 
@@ -2156,6 +2217,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     return chr_cache
         return None
 
+    def get_link_character_cache(self, link_id):
+        if link_id:
+            for chr_cache in self.import_cache:
+                if chr_cache.link_id == link_id:
+                    return chr_cache
+        return None
+
     def get_context_character_cache(self, context = None):
         if not context:
             context = bpy.context
@@ -2177,10 +2245,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
         return chr_cache
 
-    def get_object_cache(self, obj):
+    def get_object_cache(self, obj, strict = False):
         if obj:
             for imp_cache in self.import_cache:
-                obj_cache = imp_cache.get_object_cache(obj)
+                obj_cache = imp_cache.get_object_cache(obj, strict=strict)
                 if obj_cache:
                     return obj_cache
         return None
@@ -2238,3 +2306,86 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             dir_vectors[aspect] = vector
         return dir_vectors
 
+
+class CCICBakeCache(bpy.types.PropertyGroup):
+    uid: bpy.props.IntProperty(default=0)
+    object: bpy.props.PointerProperty(type=bpy.types.Object)
+    source_material: bpy.props.PointerProperty(type=bpy.types.Material)
+    baked_material: bpy.props.PointerProperty(type=bpy.types.Material)
+
+
+class CCICBakeMaterialSettings(bpy.types.PropertyGroup):
+    material: bpy.props.PointerProperty(type=bpy.types.Material)
+    max_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="4096")
+    diffuse_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    ao_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    sss_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    transmission_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    thickness_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    metallic_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    specular_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    roughness_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    emissive_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    alpha_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    normal_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="4096")
+    micronormal_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    micronormalmask_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    bump_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    mask_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    detail_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+
+
+class CCICBakeProps(bpy.types.PropertyGroup):
+    auto_increment: bpy.props.IntProperty(default=100)
+    jpeg_quality: bpy.props.IntProperty(default=90, min=0, max=100)
+    png_compression: bpy.props.IntProperty(default=15, min=0, max=100)
+
+    target_mode: bpy.props.EnumProperty(items=vars.BAKE_TARGETS, default="BLENDER")
+
+    target_format: bpy.props.EnumProperty(items=vars.TARGET_FORMATS, default="JPEG")
+
+    bake_samples: bpy.props.IntProperty(default=5, min=1, max=64, description="The number of texture samples per pixel to bake. As there are no ray traced effects involved, 1 to 5 samples is usually enough.")
+    ao_in_diffuse: bpy.props.FloatProperty(default=0, min=0, max=1, description="How much of the ambient occlusion to bake into the diffuse")
+
+    smoothness_mapping: bpy.props.EnumProperty(items=vars.CONVERSION_FUNCTIONS, default="IR", description="Roughness to smoothness calculation")
+
+    allow_bump_maps: bpy.props.BoolProperty(default=True, description="Allow separate Bump and Normal Maps")
+    scale_maps: bpy.props.BoolProperty(default=False)
+    pack_gltf: bpy.props.BoolProperty(default=True, description="Pack AO, Roughness and Metallic into a single Texture for GLTF")
+
+    custom_sizes: bpy.props.BoolProperty(default=False)
+    bake_mixers: bpy.props.BoolProperty(default=True, description="Bake the result of any Color ID/RGB mask mixers on the materials")
+    max_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="4096")
+    diffuse_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    ao_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    sss_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    transmission_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    thickness_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    metallic_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    specular_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    roughness_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    emissive_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    alpha_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    normal_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="4096")
+    micronormal_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    micronormalmask_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="1024")
+    bump_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    mask_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+    detail_size: bpy.props.EnumProperty(items=vars.TEX_LIST, default="2048")
+
+    bake_path: bpy.props.StringProperty(default="Bake", subtype="DIR_PATH")
+    material_settings: bpy.props.CollectionProperty(type=CCICBakeMaterialSettings)
+    bake_cache: bpy.props.CollectionProperty(type=CCICBakeCache)
+
+
+class CCICLinkData(bpy.types.PropertyGroup):
+    # Data link props
+    link_host: bpy.props.StringProperty(default="localhost", update=update_link_host)
+    link_host_ip: bpy.props.StringProperty(default="127.0.0.1")
+    link_target: bpy.props.EnumProperty(items=[
+                        ("BLENDER","Blender","Connect to another Blender instance running on another machine"),
+                        ("CCIC","CC4/iClone","Connect to Character Creator 4 or iClone"),
+                        ("UNITY","Unity","Connect to Unity"),
+                    ], default="CCIC", name = "Data Link Target", update=update_link_target)
+    link_port: bpy.props.IntProperty(default=9333)
+    link_status: bpy.props.StringProperty(default="")

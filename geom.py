@@ -131,7 +131,7 @@ def nearest_vert_from_uv(obj, mesh, mat_slot, uv, thresh = 0):
         return None
 
 
-def copy_vertex_weights(src_obj : bpy.types.Object, dst_obj : bpy.types.Object):
+def copy_vertex_positions_and_weights(src_obj : bpy.types.Object, dst_obj : bpy.types.Object):
     vg_indices = {}
     dst_obj.vertex_groups.clear()
     src_vg : bpy.types.VertexGroup
@@ -164,10 +164,11 @@ def copy_vertex_weights(src_obj : bpy.types.Object, dst_obj : bpy.types.Object):
 
         for src_vert in src_bm.verts:
             i = src_vert.index
-            dst_vert = dst_bm.verts[i]
+            dst_vert : bmesh.types.BMVert = dst_bm.verts[i]
             for src_vg_index in vg_indices:
                 dst_vg_index = vg_indices[src_vg_index]
                 if src_vg_index in src_vert[src_dl]:
+                    dst_vert.co = src_vert.co
                     dst_vert[dst_dl][dst_vg_index] = src_vert[src_dl][src_vg_index]
 
     dst_bm.to_mesh(dst_mesh)

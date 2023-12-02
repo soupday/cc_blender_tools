@@ -16,6 +16,7 @@
 
 
 import bpy
+from . import utils
 
 
 ALL_COLORSPACES = []
@@ -54,6 +55,8 @@ def try_set_color_space(image : bpy.types.Image, color_space_ref):
                 return True
             except:
                 pass
+
+    utils.log_error(f"Unable to set color space: {color_space}")
 
     return False
 
@@ -161,4 +164,7 @@ def set_sequencer_color_space(color_space):
         else:
             bpy.context.scene.sequencer_colorspace_settings.name = "Utility - Linear - sRGB"
     else:
-        bpy.context.scene.sequencer_colorspace_settings.name = color_space
+        if utils.B400() and color_space == "Raw":
+            bpy.context.scene.sequencer_colorspace_settings.name = "Non-Color"
+        else:
+            bpy.context.scene.sequencer_colorspace_settings.name = color_space

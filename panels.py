@@ -16,28 +16,30 @@
 
 import bpy
 import textwrap
+import os
 
 from . import addon_updater_ops
-from . import rigging, rigify_mapping_data, characters, sculpting, springbones, hair, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils, utils, params, vars
+from . import (link, rigging, rigify_mapping_data, bones, characters, sculpting, springbones,
+               bake, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils,
+               utils, params, vars)
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
+LINK_TAB_NAME = "CC/iC Link"
 
 # Panel button functions and operator
 #
 
-def context_character(context):
+def context_character(context, strict = False):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
 
-    obj = None
-    mat = None
+    obj = context.object
+    mat = utils.context_material(context)
     obj_cache = None
     mat_cache = None
 
     if chr_cache:
-        obj = context.object
-        mat = utils.context_material(context)
         obj_cache = chr_cache.get_object_cache(obj)
         mat_cache = chr_cache.get_material_cache(mat)
         arm = chr_cache.get_armature()
@@ -49,6 +51,9 @@ def context_character(context):
                 chr_cache = None
             elif obj.type == "MESH" and obj.parent and obj.parent != arm:
                 chr_cache = None
+
+    if strict and obj and not obj_cache:
+        chr_cache = None
 
     return chr_cache, obj, mat, obj_cache, mat_cache
 
@@ -148,8 +153,8 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
         is_non_standard = True
         is_character = True
 
+    box = layout.box()
     if is_character:
-        box = layout.box()
         if show_name:
             box.row().label(text=f"Character: {character_name}")
         if show_type:
@@ -163,8 +168,9 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
                     row.prop(prefs, "export_non_standard_mode", expand=True)
 
     else:
-        box = layout.box()
         box.row().label(text=f"No Character")
+
+    return box
 
 
 def pipeline_export_group(chr_cache, chr_rig, layout):
@@ -185,6 +191,11 @@ def pipeline_export_group(chr_cache, chr_rig, layout):
 
     # export to Unity
     character_export_unity_button(chr_cache, layout)
+
+    #layout.separator()
+    #
+    ## export to Unreal
+    # character_export_unreal_button(chr_cache, layout)
 
 
 def rigify_export_group(chr_cache, layout):
@@ -262,6 +273,22 @@ def character_export_unity_button(chr_cache, layout):
         row.operator("cc3.exporter", icon="CUBE", text="Export To Unity").param = "EXPORT_UNITY"
         # export mode
         column.row().prop(prefs, "export_unity_mode", expand=True)
+
+    # disable if no character, or not an fbx import
+    if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
+        column.enabled = False
+
+
+def character_export_unreal_button(chr_cache, layout):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    column = layout.column()
+
+    # export button
+    row = column.row()
+    row.scale_y = 2
+    row.operator("cc3.exporter", icon="EVENT_U", text="Export To Unreal").param = "EXPORT_UNREAL"
 
     # disable if no character, or not an fbx import
     if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
@@ -621,7 +648,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
 
         # Build prefs in title
         box = layout.box()
-        if fake_drop_down(box.row(), "Build Settings", "show_build_prefs", props.show_build_prefs,
+        if fake_drop_down(box.row(), "Build Settings", "show_build_prefs2", props.show_build_prefs2,
                           icon="TOOL_SETTINGS", icon_closed="TOOL_SETTINGS"):
             split = box.split(factor=0.9)
             col_1 = split.column()
@@ -655,9 +682,16 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_1.label(text="Body Shape Keys Drive All")
             col_2.prop(prefs, "build_body_key_drivers", text="")
 
-        layout.prop(props, "physics_mode", toggle=True, text="Build Physics")
-        layout.prop(prefs, "render_target", expand=True)
-        layout.prop(prefs, "refractive_eyes", expand=True)
+        column = layout.column(align=True)
+        row = column.row(align=True)
+        row.prop(props, "physics_mode", toggle=True, text="Build Physics")
+        row.prop(props, "wrinkle_mode", toggle=True, text="Wrinkles")
+        row = column.row(align=True)
+        row.prop(props, "setup_mode", expand=True)
+        row = column.row(align=True)
+        row.prop(prefs, "render_target", expand=True)
+        row = column.row(align=True)
+        row.prop(prefs, "refractive_eyes", expand=True)
 
         # ACES Prefs
         if colorspace.is_aces():
@@ -701,9 +735,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             row = box.row()
             row.scale_y = 2
             if chr_cache.setup_mode == "ADVANCED":
-                op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Advanced Materials")
+                op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials")
             else:
-                op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Basic Materials")
+                op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Materials")
             op.param ="BUILD"
             row = box.row()
             row.prop(chr_cache, "setup_mode", expand=True)
@@ -771,6 +805,8 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        strict_chr_cache = chr_cache if obj and obj_cache else None
+        non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj, strict=True) is None ]
 
         generic_rig = None
         arm = None
@@ -816,20 +852,36 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
             column.box().label(text="Converting", icon="DRIVER")
 
-            character_info_box(chr_cache, arm, column)
+            if chr_cache:
 
-            row = column.row()
-            row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
-            if not chr_cache or chr_cache.is_non_standard():
-                row.enabled = False
+                box = character_info_box(chr_cache, arm, column)
 
-            row = column.row()
-            if generic_rig:
-                row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
-            else:
-                row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
-            if chr_cache or not (generic_rig or num_meshes_in_selection > 0):
-                row.enabled = False
+                if chr_cache.is_standard():
+
+                    row = box.row()
+                    row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
+                    if not chr_cache or chr_cache.is_non_standard():
+                        row.enabled = False
+
+            if generic_rig or non_chr_objects:
+
+                obj_text = "Objects: "
+                for i, obj in enumerate(non_chr_objects):
+                    if i > 0:
+                        obj_text += ", "
+                    obj_text += obj.name
+                if len(non_chr_objects) == 0:
+                    obj_text += "None"
+
+                column.box().label(text=obj_text)
+
+                row = column.row()
+                if generic_rig:
+                    row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
+                else:
+                    row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
+                if not (generic_rig or non_chr_objects):
+                    row.enabled = False
 
             column.separator()
 
@@ -1034,8 +1086,9 @@ class CC3SpringRigPanel(bpy.types.Panel):
             col_2.prop(props, "hair_rig_group_name", text="")
             tool_row = col_1.row(align=True)
             if arm:
+                depress = bones.is_bone_collection_visible(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER)
                 tool_row.operator("cc3.rigifier", icon=utils.check_icon("HIDE_OFF"), text="",
-                                  depress=arm.data.layers[rigging.SPRING_EDIT_LAYER]).param = "TOGGLE_SHOW_SPRING_BONES"
+                                  depress=depress).param = "TOGGLE_SHOW_SPRING_BONES"
                 is_grease_pencil_tool = "builtin.annotate" in utils.get_current_tool_idname(context)
                 tool_row.operator("cc3.hair", icon=utils.check_icon("GREASEPENCIL"), text="", depress=is_grease_pencil_tool).param = "TOGGLE_GREASE_PENCIL"
                 is_default_bone = False
@@ -1737,7 +1790,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     # utility widgets
                     box_row = layout.box().row(align=True)
-                    is_full_rig_show = rigging.is_full_rig_shown(chr_cache)
+                    is_full_rig_show = rigging.is_full_rigify_rig_shown(chr_cache)
                     box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
                     if has_spring_rigs:
                         is_base_rig_show = rigging.is_base_rig_shown(chr_cache)
@@ -1848,20 +1901,21 @@ class CC3RigifyPanel(bpy.types.Panel):
                             if source_type:
                                 layout.box().label(text = f"{source_label} Animation", icon = "ARMATURE_DATA")
 
-                        layout.label(text="Limb Correction:")
-                        column = layout.column()
-                        split = column.split(factor=0.5)
-                        col_1 = split.column()
-                        col_2 = split.column()
-                        col_1.label(text="Arms")
-                        col_2.prop(chr_cache, "retarget_arm_correction_angle", text="", slider=True)
-                        col_1.label(text="Legs")
-                        col_2.prop(chr_cache, "retarget_leg_correction_angle", text="", slider=True)
-                        col_1.label(text="Heels")
-                        col_2.prop(chr_cache, "retarget_heel_correction_angle", text="", slider=True)
-                        col_1.label(text="Height")
-                        col_2.prop(chr_cache, "retarget_z_correction_height", text="", slider=True)
-                        layout.separator()
+                        if False: # disabled for now
+                            layout.label(text="Limb Correction:")
+                            column = layout.column()
+                            split = column.split(factor=0.5)
+                            col_1 = split.column()
+                            col_2 = split.column()
+                            col_1.label(text="Arms")
+                            col_2.prop(chr_cache, "retarget_arm_correction_angle", text="", slider=True)
+                            col_1.label(text="Legs")
+                            col_2.prop(chr_cache, "retarget_leg_correction_angle", text="", slider=True)
+                            col_1.label(text="Heels")
+                            col_2.prop(chr_cache, "retarget_heel_correction_angle", text="", slider=True)
+                            col_1.label(text="Height")
+                            col_2.prop(chr_cache, "retarget_z_correction_height", text="", slider=True)
+                            layout.separator()
 
                         # retarget and bake armature actions
                         row = layout.row()
@@ -1952,9 +2006,9 @@ class CC3SpringControlPanel(bpy.types.Panel):
         #box.label(text="Spring Rig Layers", icon="XRAY")
         layout.row().label(text="Spring Rig Layers:", icon="XRAY")
         row = layout.row()
-        row.prop(arm.data, "layers", index = rigging.SPRING_FK_LAYER, text="FK", toggle=True)
-        row.prop(arm.data, "layers", index = rigging.SPRING_IK_LAYER, text="IK", toggle=True)
-        row.prop(arm.data, "layers", index = rigging.SPRING_TWEAK_LAYER, text="Tweak", toggle=True)
+        row.prop(arm.data, "layers", index = vars.SPRING_FK_LAYER, text="FK", toggle=True)
+        row.prop(arm.data, "layers", index = vars.SPRING_IK_LAYER, text="IK", toggle=True)
+        row.prop(arm.data, "layers", index = vars.SPRING_TWEAK_LAYER, text="Tweak", toggle=True)
 
         control_bone = None
         active_pose_bone = context.active_pose_bone
@@ -2738,19 +2792,77 @@ class CC3ToolsUtilityPanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         layout = self.layout
-        chr_cache = props.get_context_character_cache(context)
-
         row = layout.row()
         row.operator("cc3.character", icon="MATERIAL", text="Match Materials").param = "MATCH_MATERIALS"
 
 
+class CCICDataLinkPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_DataLink_Panel"
+    bl_label = "Data Link (WIP)"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = LINK_TAB_NAME
+    #bl_options = {"DEFAULT_CLOSED"}
 
-class CC3ToolsPipelinePanel(bpy.types.Panel):
-    bl_idname = "CC3_PT_Pipeline_Panel"
-    bl_label = "Import / Export"
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        link_data = bpy.context.scene.CCICLinkData
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        layout = self.layout
+        chr_cache = props.get_context_character_cache(context)
+
+        link_service = link.get_link_service()
+        connected = link_service and link_service.is_connected
+        listening = link_service and link_service.is_listening
+        connecting = link_service and link_service.is_connecting
+
+        layout.label(text="Warning: Work in progress")
+        layout.label(text="Use at your own risk!")
+
+        column = layout.column()
+        column.prop(link_data, "link_host", text="Host")
+        column.prop(link_data, "link_target", text="Target")
+        if listening or connected:
+            column.enabled = False
+
+        layout.separator()
+        row = layout.row()
+        row.prop(link_data, "link_status", text="")
+        row.enabled = False
+
+        column = layout.column(align=True)
+        row = column.row(align=True)
+        text = "Connect"
+        depressed = False
+        row.scale_y = 2
+        param = "START"
+        if connected:
+            row.alert = True
+            text = "Linked"
+            param = "DISCONNECT"
+        elif connecting:
+            row.alert = False
+            depressed = True
+            text = "Connecting..."
+        elif listening:
+            row.alert = False
+            depressed = True
+            text = "Listening..."
+        row.operator("ccic.datalink", icon="LINKED", text=text, depress=depressed).param = param
+        row = column.row()
+        if connected or connecting:
+            row.operator("ccic.datalink", icon="X", text="Stop").param = "STOP"
+
+        if connected:
+            column = layout.column()
+            layout.operator("ccic.datalink", icon="ARMATURE_DATA", text="Send Pose").param = "SEND_POSE"
+            layout.operator("ccic.datalink", icon="PLAY", text="Live Sequence").param = "SEND_ANIM"
+
+
+class CC3ToolsPipelineImportPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Pipeline_Import_Panel"
+    bl_label = "Import"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = PIPELINE_TAB_NAME
@@ -2764,16 +2876,24 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         if addon_updater_ops.updater.update_ready == True:
             addon_updater_ops.update_notice_box_ui(self, context)
 
-        chr_cache = props.get_context_character_cache(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+
         if chr_cache:
             character_name = chr_cache.character_name
         else:
             character_name = "No Character"
+
         chr_rig = None
+
         if chr_cache:
             chr_rig = chr_cache.get_armature()
-        elif context.selected_objects:
-            chr_rig = utils.get_armature_from_objects(context.selected_objects)
+        else:
+            if context.selected_objects:
+                chr_rig = utils.get_armature_from_objects(context.selected_objects)
+            elif context.object:
+                chr_rig = utils.get_armature_from_object(context.object)
+            if chr_rig:
+                character_name = chr_rig.name
 
         layout = self.layout
         layout.use_property_split = False
@@ -2842,6 +2962,65 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         else:
             export_label = "Exporting"
 
+        # clean up
+        layout.separator()
+        box = layout.box()
+        box.label(text="Clean Up", icon="TRASH")
+
+        box = layout.row()
+        box.label(text = "Character: " + character_name)
+        row = layout.row()
+        warn_icon(row)
+        if not chr_cache:
+            row.enabled = False
+        row.operator("cc3.importer", icon="REMOVE", text="Remove Character").param ="DELETE_CHARACTER"
+
+
+class CC3ToolsPipelineExportPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Pipeline_Export_Panel"
+    bl_label = "Export"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = PIPELINE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        global debug_counter
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        addon_updater_ops.check_for_update_background()
+        if addon_updater_ops.updater.update_ready == True:
+            addon_updater_ops.update_notice_box_ui(self, context)
+
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+
+        if chr_cache:
+            character_name = chr_cache.character_name
+        else:
+            character_name = "No Character"
+
+        chr_rig = None
+
+        if chr_cache:
+            chr_rig = chr_cache.get_armature()
+        else:
+            if context.selected_objects:
+                chr_rig = utils.get_armature_from_objects(context.selected_objects)
+            elif context.object:
+                chr_rig = utils.get_armature_from_object(context.object)
+            if chr_rig:
+                character_name = chr_rig.name
+
+        layout = self.layout
+        layout.use_property_split = False
+        layout.use_property_decorate = False
+
+        if chr_cache and chr_cache.rigified:
+            export_label = "Exporting (Rigify)"
+        else:
+            export_label = "Exporting"
+
         # export prefs in box title
         box = layout.box()
         if fake_drop_down(box.row(),
@@ -2862,18 +3041,222 @@ class CC3ToolsPipelinePanel(bpy.types.Panel):
         else:
             pipeline_export_group(chr_cache, chr_rig, layout)
 
+        layout.separator()
+
         # export extras
         layout.row().operator("cc3.exporter", icon="MOD_CLOTH", text="Export Accessory").param = "EXPORT_ACCESSORY"
         layout.row().operator("cc3.exporter", icon="MESH_DATA", text="Export Replace Mesh").param = "EXPORT_MESH"
 
-        layout.separator()
-        box = layout.box()
-        box.label(text="Clean Up", icon="TRASH")
 
-        box = layout.row()
-        box.label(text = "Character: " + character_name)
+
+
+
+
+#################################################
+# BAKE TOOL PANELS
+
+
+class CCICBakePanel(bpy.types.Panel):
+    bl_idname = "CCIC_PT_Bake_Panel"
+    bl_label = "Export Bake"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = PIPELINE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw_size_props(self, context, props, bake_maps, col_1, col_2):
+
+        if props.target_mode == "UNITY_HDRP":
+            col_1.label(text="Diffuse Size")
+            col_2.prop(props, "diffuse_size", text="")
+            col_1.label(text="Mask Size")
+            col_2.prop(props, "mask_size", text="")
+            col_1.label(text="Detail Size")
+            col_2.prop(props, "detail_size", text="")
+            col_1.label(text="Normal Size")
+            col_2.prop(props, "normal_size", text="")
+            col_1.separator()
+            col_2.separator()
+            col_1.label(text="Emission Size")
+            col_2.prop(props, "emissive_size", text="")
+            col_1.label(text="SSS Size")
+            col_2.prop(props, "sss_size", text="")
+            col_1.label(text="Transmission Size")
+            col_2.prop(props, "thickness_size", text="")
+
+        else:
+            if "Diffuse" in bake_maps:
+                col_1.label(text="Diffuse Size")
+                col_2.prop(props, "diffuse_size", text="")
+            if "AO" in bake_maps:
+                col_1.label(text="AO Size")
+                col_2.prop(props, "ao_size", text="")
+            if "Subsurface" in bake_maps:
+                col_1.label(text="SSS Size")
+                col_2.prop(props, "sss_size", text="")
+            if "Thickness" in bake_maps:
+                col_1.label(text="Thickness Size")
+                col_2.prop(props, "thickness_size", text="")
+            if "Metallic" in bake_maps:
+                col_1.label(text="Metallic Size")
+                col_2.prop(props, "metallic_size", text="")
+            if "Specular" in bake_maps:
+                col_1.label(text="Specular Size")
+                col_2.prop(props, "specular_size", text="")
+            if "Roughness" in bake_maps:
+                col_1.label(text="Roughness Size")
+                col_2.prop(props, "roughness_size", text="")
+            if "Emission" in bake_maps:
+                col_1.label(text="Emission Size")
+                col_2.prop(props, "emissive_size", text="")
+            if "Alpha" in bake_maps:
+                col_1.label(text="Alpha Size")
+                col_2.prop(props, "alpha_size", text="")
+            if "Transmission" in bake_maps:
+                col_1.label(text="Transmission Size")
+                col_2.prop(props, "transmission_size", text="")
+            if "Normal" in bake_maps:
+                col_1.label(text="Normal Size")
+                col_2.prop(props, "normal_size", text="")
+            if "Bump" in bake_maps:
+                col_1.label(text="Bump Size")
+                col_2.prop(props, "bump_size", text="")
+            if "MicroNormal" in bake_maps:
+                col_1.label(text="Micro Normal Size")
+                col_2.prop(props, "micronormal_size", text="")
+            if "MicroNormalMask" in bake_maps:
+                col_1.label(text="Micro Normal Mask Size")
+                col_2.prop(props, "micronormalmask_size", text="")
+
+    def draw(self, context):
+        props = bpy.context.scene.CCICBakeProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        layout = self.layout
+        layout.use_property_split = False
+        layout.use_property_decorate = False
+
+        addon_updater_ops.check_for_update_background()
+        if addon_updater_ops.updater.update_ready == True:
+            addon_updater_ops.update_notice_box_ui(self, context)
+
+        box = layout.box()
+        box.label(text=f"Export Bake Settings", icon="TOOL_SETTINGS")
+
+        bake_maps = vars.get_bake_target_maps(props.target_mode)
+
+        split = layout.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="Target")
+        col_2.prop(props, "target_mode", text="", slider = True)
+        col_1.label(text="Bake Samples")
+
+        crow = col_2.row(align=True)
+        crow.prop(props, "bake_samples", text="", slider = True)
+        crow.prop(prefs, "bake_use_gpu", text="GPU", toggle=True)
+
+        col_1.label(text="Format")
+        col_2.prop(props, "target_format", text="", slider = True)
+        if props.target_format == "JPEG":
+            col_1.label(text="JPEG Quality")
+            col_2.prop(props, "jpeg_quality", text="", slider = True)
+        if props.target_format == "PNG":
+            col_1.label(text="PNG Compression")
+            col_2.prop(props, "png_compression", text="", slider = True)
+        col_1.label(text="Max Size")
+        col_2.prop(props, "max_size", text="")
+        col_1.label(text="Bake Mixers")
+        col_2.prop(props, "bake_mixers", text="")
+        if "Bump" in bake_maps:
+            col_1.label(text="Allow Bump Maps")
+            col_2.prop(props, "allow_bump_maps", text="")
+        if "AO" in bake_maps:
+            col_1.label(text="AO in Diffuse")
+            col_2.prop(props, "ao_in_diffuse", text="", slider = True)
+        if props.target_mode == "UNITY_HDRP" or props.target_mode == "UNITY_URP":
+            col_1.label(text="Smoothness Mapping")
+            col_2.prop(props, "smoothness_mapping", text="")
+        if props.target_mode == "GLTF":
+            col_1.label(text="Pack GLTF")
+            col_2.prop(props, "pack_gltf", text="")
+        col_1.label(text="Bake Folder")
+        col_2.prop(props, "bake_path", text="")
+        col_1.separator()
+        col_2.separator()
+
+        col_1.label(text="Max Sizes By Type")
+        col_2.prop(props, "custom_sizes", text="")
+
+        obj = context.object
+        mat = utils.context_material(context)
+        bake_cache = bake.get_export_bake_cache(mat)
+
+        if props.custom_sizes:
+
+            layout.row().box().label(text = "Maximum Texture Sizes")
+
+            split = layout.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+
+            self.draw_size_props(context, props, bake_maps, col_1, col_2)
+
+            if obj is not None:
+                row = layout.row()
+                row.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
+
+            if bake_cache and bake_cache.source_material != mat:
+                mat_settings = bake.get_material_bake_settings(bake_cache.source_material)
+                row = layout.row()
+                row.label(text = "(*Source Material Settings)")
+            else:
+                mat_settings = bake.get_material_bake_settings(mat)
+
+            if mat_settings is not None:
+                row = layout.row()
+                row.operator("ccic.bakesettings", icon="REMOVE", text="Remove Material Settings").param = "REMOVE"
+
+                split = layout.split(factor=0.5)
+                col_1 = split.column()
+                col_2 = split.column()
+
+                self.draw_size_props(context, mat_settings, bake_maps, col_1, col_2)
+
+            else:
+                row = layout.row()
+                row.operator("ccic.bakesettings", icon="ADD", text="Add Material Settings").param = "ADD"
+
+        if bake_cache:
+            if bake_cache.source_material == mat:
+                row = layout.row()
+                row.operator("ccic.bakesettings", icon="LOOP_FORWARDS", text="Restore Baked Materials").param = "BAKED"
+            elif bake_cache.baked_material == mat:
+                row = layout.row()
+                row.operator("ccic.bakesettings", icon="LOOP_BACK", text="Revert Source Materials").param = "SOURCE"
+
+        valid_bake_path = False
+        if os.path.isabs(props.bake_path) or bpy.data.is_saved:
+            valid_bake_path = True
+
+        layout.box().label(text="Select objects to bake", icon="INFO")
+
         row = layout.row()
-        warn_icon(row)
-        if not chr_cache:
+        row.scale_y = 2
+        row.operator("ccic.baker", icon="PLAY", text="Bake").param = "BAKE"
+        if not valid_bake_path:
             row.enabled = False
-        row.operator("cc3.importer", icon="REMOVE", text="Remove Character").param ="DELETE_CHARACTER"
+            box = layout.box()
+            box.alert = True
+            box.label(text="Warning:", icon="ERROR")
+            box.label(text="SAVE Blend file before baking")
+            box.label(text="or use absolute bake path!")
+
+        layout.separator()
+
+        layout.box().label(text="Utils", icon="INFO")
+
+        row = layout.row()
+        row.scale_y = 1
+        row.operator("ccic.jpegify", icon="PLAY", text="Jpegify")
+

@@ -30,11 +30,6 @@ ROOT_BONE_NAMES = HEAD_BONE_NAMES.copy().extend(JAW_BONE_NAMES.copy())
 
 AVAILABLE_SPRING_RIG_LIST = []
 
-SPRING_IK_LAYER = 19
-SPRING_FK_LAYER = 20
-SPRING_TWEAK_LAYER = 21
-SPRING_EDIT_LAYER = 25
-
 
 def get_all_parent_modes(chr_cache, arm):
     return ["HEAD", "JAW"]
@@ -169,7 +164,9 @@ def get_spring_rig(chr_cache, arm, parent_mode, mode = "POSE", create_if_missing
                 spring_rig.head = arm.matrix_world.inverted() @ center_position
                 spring_rig.tail = arm.matrix_world.inverted() @ (center_position + Vector((0,1/32,0)))
                 spring_rig.align_roll(Vector((0,0,1)))
-                bones.set_edit_bone_layer(arm, spring_rig_name, 24)
+                bones.set_bone_collection(arm, spring_rig, "Spring (Root)", None, vars.SPRING_ROOT_LAYER)
+                bones.set_bone_collection_visibility(arm, "Spring (Root)", vars.SPRING_ROOT_LAYER, False)
+                # TODO spring roots are put in the DEF bones by Rigify...
             return spring_rig
         else:
             if spring_rig_name in arm.data.bones:
@@ -342,19 +339,13 @@ def enumerate_spring_rigs(self, context):
 def show_spring_bone_edit_layer(chr_cache, arm, show):
     if arm:
         if show:
-            arm.data.layers[SPRING_EDIT_LAYER] = True
-            for i in range(0, 32):
-                arm.data.layers[i] = (i == SPRING_EDIT_LAYER)
+            bones.set_bone_collection_visibility(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER, True, only=True)
             arm.show_in_front = True
             arm.display_type = 'SOLID'
             #arm.data.display_type = 'STICK'
 
         else:
-            for i in range(0, 32):
-                if chr_cache.rigified:
-                    arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
-                else:
-                    arm.data.layers[i] = (i == 0)
+            bones.set_bone_collection_visibility(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER, False, only=True)
             arm.show_in_front = False
             if chr_cache.rigified:
                 arm.display_type = 'WIRE'
@@ -366,17 +357,11 @@ def show_spring_bone_edit_layer(chr_cache, arm, show):
 def show_spring_bone_rig_layers(chr_cache, arm, show):
     if arm:
         if show:
-            arm.data.layers[SPRING_FK_LAYER] = True
-            for i in range(0, 32):
-                arm.data.layers[i] = (i == SPRING_FK_LAYER or i == SPRING_IK_LAYER or i == SPRING_TWEAK_LAYER)
+            bones.set_bone_collection_visibility(arm, "Spring (FK)", vars.SPRING_FK_LAYER, True)
             arm.show_in_front = False
 
         else:
-            for i in range(0, 32):
-                if chr_cache.rigified:
-                    arm.data.layers[i] = (i == 28) or (i >= 0 and i <= 21)
-                else:
-                    arm.data.layers[i] = (i == 0)
+            bones.set_bone_collection_visibility(arm, "Spring (FK)", vars.SPRING_FK_LAYER, False)
             arm.show_in_front = False
             if chr_cache.rigified:
                 arm.display_type = 'WIRE'
@@ -415,10 +400,10 @@ def add_spring_colliders(chr_cache):
     arm = chr_cache.get_armature()
     if not rigidbody.has_rigid_body_colliders(arm):
         json_data = chr_cache.get_json_data()
-        bone_mappings = None
+        bone_mapping = None
         if chr_cache.rigified:
-            bone_mappings = chr_cache.get_rig_bone_mappings()
-        rigidbody.build_rigid_body_colliders(chr_cache, json_data, bone_mappings=bone_mappings)
+            bone_mapping = chr_cache.get_rig_bone_mapping()
+        rigidbody.build_rigid_body_colliders(chr_cache, json_data, bone_mapping=bone_mapping)
 
 
 class CC3OperatorSpringBones(bpy.types.Operator):

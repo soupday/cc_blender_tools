@@ -104,6 +104,16 @@ def message_box(message = "", title = "Info", icon = 'INFO'):
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
 
 
+def update_ui(context = None, area_type="VIEW_3D", region_type="UI"):
+    for screen in bpy.data.screens:
+        for area in screen.areas:
+            if area.type == area_type:
+                for region in area.regions:
+                    if region.type == region_type:
+                        region.tag_redraw()
+
+
+
 def report_multi(op, icon = 'INFO', messages = None):
     if messages:
         text = ""
@@ -199,6 +209,15 @@ def local_path(path = ""):
         return os.path.normpath(abs_path)
     else:
         return ""
+
+
+def blend_file_name():
+    file_path = bpy.data.filepath
+    name = ""
+    if file_path:
+        folder, file = os.path.split(file_path)
+        name, ext = os.path.splitext(file)
+    return name
 
 
 def relpath(path, start):
@@ -528,29 +547,46 @@ def get_mode():
         return "OBJECT"
 
 
+def is_selected_and_active(obj):
+    return get_active_object() == obj and obj in bpy.context.selected_objects
+
+
+def is_only_selected_and_active(obj):
+    return (get_active_object() == obj and
+            obj in bpy.context.selected_objects and
+            len(bpy.context.selected_objects) == 1)
+
+
 def edit_mode_to(obj, only_this = False):
-    if only_this and (get_active_object() != obj or len(bpy.context.selected_objects) > 1 or obj not in bpy.context.selected_objects):
-        set_only_active_object(obj)
-    if obj in bpy.context.selected_objects and get_active_object() == obj and get_mode() == "EDIT":
-        return True
-    else:
-        if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
+    if object_exists(obj):
+        if only_this and not is_only_selected_and_active(obj):
+            set_only_active_object(obj)
+        if is_selected_and_active(obj) and get_mode() == "EDIT":
             return True
-    return False
-
-
-def object_mode_to(obj):
-    if set_mode("OBJECT"):
-        if try_select_object(obj):
-            if set_active_object(obj):
+        else:
+            if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
                 return True
     return False
 
 
-def pose_mode_to(arm):
-    if object_mode_to(arm):
-        if set_mode("POSE"):
+def object_mode_to(obj):
+    if object_exists(obj):
+        if get_mode() == "OBJECT" and get_active_object() == obj:
             return True
+        if set_mode("OBJECT"):
+            if try_select_object(obj):
+                if set_active_object(obj):
+                    return True
+    return False
+
+
+def pose_mode_to(arm):
+    if object_exists_is_armature(arm):
+        if get_mode() == "POSE" and get_active_object() == arm:
+            return True
+        if object_mode_to(arm):
+            if set_mode("POSE"):
+                return True
     return False
 
 
@@ -732,11 +768,14 @@ def try_select_child_objects(obj):
         return False
 
 
-def add_child_objects(obj, objects):
+def add_child_objects(obj, objects, follow_armatures = False):
     for child in obj.children:
         if child not in objects:
+            if child.type == "ARMATURE" and not follow_armatures:
+                continue
             objects.append(child)
-            add_child_objects(child, objects)
+            if child.children:
+                add_child_objects(child, objects, follow_armatures)
 
 
 def expand_with_child_objects(objects):
@@ -744,11 +783,11 @@ def expand_with_child_objects(objects):
         add_child_objects(obj, objects)
 
 
-def get_child_objects(obj, include_parent = False):
+def get_child_objects(obj, include_parent = False, follow_armatures = False):
     objects = []
     if include_parent:
         objects.append(obj)
-    add_child_objects(obj, objects)
+    add_child_objects(obj, objects, follow_armatures)
     return objects
 
 
@@ -785,16 +824,62 @@ def clear_selected_objects():
         return False
 
 
+def get_armature(name):
+    if (name in bpy.data.armatures and
+        name in bpy.data.objects and
+        bpy.data.objects[name].data == bpy.data.armatures[name]):
+        return bpy.data.objects[name]
+    return None
+
+
+def create_reuse_armature(name):
+    arm = bpy.data.armatures[name] if name in bpy.data.armatures else bpy.data.armatures.new(name)
+    obj = bpy.data.objects[name] if name in bpy.data.objects else bpy.data.objects.new(name, arm)
+    if name not in bpy.context.collection.objects:
+        bpy.context.collection.objects.link(obj)
+    return obj
+
+
 def get_armature_from_objects(objects):
-    arm = None
+    armatures = []
     if objects:
         for obj in objects:
-            if obj.type == "ARMATURE":
-                return obj
-            elif obj.type == "MESH":
-                if arm is None and obj.parent and obj.parent.type == "ARMATURE":
-                    arm = obj.parent
+            arm = get_armature_from_object(obj)
+            if arm and arm not in armatures:
+                armatures.append(arm)
+    return get_topmost_object(armatures)
+
+
+def get_armature_from_object(obj):
+    arm = None
+    if obj.type == "ARMATURE":
+        arm = obj
+    elif obj.type == "MESH" and obj.parent and obj.parent.type == "ARMATURE":
+        arm = obj.parent
     return arm
+
+
+def is_child_of(obj, test):
+    """Returns True if obj is a child or sub-child of test"""
+    while test.parent:
+        if test.parent == obj:
+            return True
+        test = test.parent
+    return False
+
+
+def get_topmost_object(objects):
+    if not objects:
+        return None
+    if len(objects) == 1:
+        return objects[0]
+    else:
+        for obj in objects:
+            for test in objects:
+                if obj != test:
+                    if not is_child_of(obj, test):
+                        return obj
+    return None
 
 
 def float_equals(a, b):
@@ -1170,6 +1255,40 @@ def find_layer_collection(name, layer_collection = None):
     return None
 
 
+def B290():
+    return is_blender_version("2.90.0")
+
+def B291():
+    return is_blender_version("2.91.0")
+
+def B292():
+    return is_blender_version("2.92.0")
+
+def B293():
+    return is_blender_version("2.93.0")
+
+def B300():
+    return is_blender_version("3.0.0")
+
+def B310():
+    return is_blender_version("3.1.0")
+
+def B320():
+    return is_blender_version("3.2.0")
+
+def B321():
+    return is_blender_version("3.2.1")
+
+def B330():
+    return is_blender_version("3.3.0")
+
+def B340():
+    return is_blender_version("3.4.0")
+
+def B400():
+    return is_blender_version("4.0.0")
+
+
 def is_blender_version(version: str, test = "GTE"):
     """e.g. is_blender_version("3.0.0", "GTE")"""
     major, minor, subversion = version.split(".")
@@ -1334,12 +1453,22 @@ def stop_now():
     raise Exception("STOP!")
 
 
+def object_world_location(obj : bpy.types.Object, delta = None):
+    location = obj.location.copy()
+    if delta:
+        location += delta
+    if obj.parent:
+        return obj.parent.matrix_world @ location
+    else:
+        return location
+
+
 def is_valid_icon(icon):
     return icon in bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.keys()
 
 
 def check_icon(icon):
-    if is_blender_version("3.2.1"):
+    if B321():
         if icon == "OUTLINER_OB_HAIR":
             return "OUTLINER_OB_CURVES"
         elif icon == "HAIR":
@@ -1506,6 +1635,18 @@ def set_scene_frame_range(start, end):
     else:
         scene.frame_start = start
         scene.frame_end = end
+
+
+def debug_empty(name, loc=None, rot=None, scale=None, matrix=None):
+    ob = bpy.data.objects.new(name, None)
+    if matrix:
+        ob.matrix_world = matrix
+    elif loc and rot and scale:
+        ob.location = loc
+        ob.rotation_mode = "QUATERNION"
+        ob.rotation_quaternion = rot
+        ob.scale = scale
+    bpy.context.scene.collection.objects.link(ob)
 
 
 def generate_random_id(length):

@@ -15,6 +15,7 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
+from mathutils import Vector
 from . import meshutils, utils, vars
 from rna_prop_ui import rna_idprop_ui_create
 
@@ -89,6 +90,21 @@ def add_custom_string_property(object, prop_name, prop_value : str,
         id_props.update(default=prop_value, description=description)
     except:
         pass
+
+
+def add_custom_float_array_property(object, prop_name, prop_value : list,
+                                     value_min : float = 0.0, value_max : float = 1.0,
+                                     soft_min = None, soft_max = None,
+                                     overridable = True,
+                                     description : str = ""):
+
+    if soft_max is None:
+        soft_max = value_max
+    if soft_min is None:
+        soft_min = value_min
+
+    rna_idprop_ui_create(object, prop_name, default=prop_value, overridable=overridable,
+                         min=value_min, max=value_max, soft_min=soft_min, soft_max=soft_max, description=description)
 
 
 SHAPE_KEY_DRIVERS = {
@@ -413,7 +429,6 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
                     bone_drivers[driver_id]["shape_keys"].append(shape_key_def)
 
     # create drivers for each (bone, property, index) driven by shape keys
-    # TODO: check if driver and vars exists and remove old drivers?
     for driver_id in bone_drivers.keys():
         bone_driver_def = bone_drivers[driver_id]
         pose_bone_name = bone_driver_def["bone_name"]

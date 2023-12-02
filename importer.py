@@ -18,7 +18,7 @@ import os
 import shutil
 import bpy
 
-from . import (characters, rigging, bake, imageutils, jsonutils, materials,
+from . import (characters, rigging, bones, bake, imageutils, jsonutils, materials,
                modifiers, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
                basic, properties, utils, vars)
@@ -495,6 +495,10 @@ def detect_character(file_path, objects, actions, json_data, report):
     chr_cache.character_id = name
     processed = []
 
+    link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+    if link_id:
+        chr_cache.link_id = link_id
+
     if utils.is_file_ext(ext, "FBX"):
 
         # key file
@@ -523,6 +527,8 @@ def detect_character(file_path, objects, actions, json_data, report):
                 chr_cache.character_name = arm.name
                 # add armature to object_cache
                 chr_cache.add_object_cache(arm)
+                # assign bone collections
+                bones.assign_rl_base_collections(arm)
                 break
 
         if arm_count > 1:
@@ -591,10 +597,7 @@ def detect_character(file_path, objects, actions, json_data, report):
                 arm_mod.use_deform_preserve_volume = False
 
     # material setup mode
-    if chr_cache.import_has_key:
-        chr_cache.setup_mode = prefs.morph_mode
-    else:
-        chr_cache.setup_mode = prefs.quality_mode
+    chr_cache.setup_mode = props.setup_mode
 
     # character render target
     chr_cache.render_target = prefs.render_target
@@ -647,6 +650,12 @@ class CC3Import(bpy.types.Operator):
 
 
     def read_json_data(self, file_path, stage = 0):
+
+        # if not fbx, return no json without error
+        path, ext = os.path.splitext(file_path)
+        if not utils.is_file_ext(ext, "FBX"):
+            return None
+
         errors = []
         json_data = jsonutils.read_json(file_path, errors)
 

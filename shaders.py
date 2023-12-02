@@ -991,6 +991,8 @@ def connect_pbr_shader(obj, mat, mat_json, processed_images):
         nodeutils.set_node_input_value(group, "Specular Scale", 0)
         nodeutils.set_node_input_value(bsdf, "Subsurface", 0.01)
 
+    fix_sss_method(bsdf)
+
 
 def connect_sss_shader(obj, mat, mat_json, processed_images):
     props = bpy.context.scene.CC3ImportProps
@@ -1019,7 +1021,7 @@ def connect_sss_shader(obj, mat, mat_json, processed_images):
 
 def fix_sss_method(bsdf):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    if prefs.render_target == "CYCLES" and utils.is_blender_version("3.0.0"):
+    if prefs.render_target == "CYCLES" and utils.B300():
         # Blender 3.0 defaults to random walk, which does not work well with hair
         if bsdf.type == "GROUP":
             bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)

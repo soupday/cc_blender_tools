@@ -474,7 +474,7 @@ def detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache):
                     if color_socket.name == "Base Color":
                         nodeutils.store_texture_mapping(node, mat_cache, "DIFFUSE")
 
-                    elif color_socket.name == "Specular":
+                    elif color_socket.name in ["Specular", "Specular IOR Level"]:
                         nodeutils.store_texture_mapping(node, mat_cache, "SPECULAR")
 
                     elif color_socket.name == "Metallic":
@@ -483,7 +483,7 @@ def detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache):
                     elif color_socket.name == "Roughness":
                         nodeutils.store_texture_mapping(node, mat_cache, "ROUGHNESS")
 
-                    elif color_socket.name == "Emission":
+                    elif color_socket.name in ["Emission", "Emission Color"]:
                         nodeutils.store_texture_mapping(node, mat_cache, "EMISSION")
 
                     elif color_socket.name == "Alpha":
@@ -491,7 +491,7 @@ def detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache):
                         if "diffuse" in name or "albedo" in name:
                             mat_cache.alpha_is_diffuse = True
 
-                    elif color_socket.name == "Subsurface":
+                    elif color_socket.name in ["Subsurface", "Subsurface Weight"]:
                         nodeutils.store_texture_mapping(node, mat_cache, "SSS")
 
                 elif color_node.type == "NORMAL_MAP":

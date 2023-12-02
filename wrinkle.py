@@ -71,6 +71,8 @@ def add_wrinkle_shader(nodes, links, obj, mat, mat_json, main_shader_name, wrink
     nodeutils.link_nodes(links, wrinkle_shader_node, "Diffuse Map", main_shader_node, "Diffuse Map")
     nodeutils.link_nodes(links, wrinkle_shader_node, "Roughness Map", main_shader_node, "Roughness Map")
     nodeutils.link_nodes(links, wrinkle_shader_node, "Normal Map", main_shader_node, "Normal Map")
+    nodeutils.link_nodes(links, wrinkle_shader_node, "Height Map", main_shader_node, "Height Map")
+    nodeutils.link_nodes(links, wrinkle_shader_node, "Height Delta", main_shader_node, "Height Delta")
     return wrinkle_shader_node
 
 

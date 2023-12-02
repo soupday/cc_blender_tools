@@ -49,6 +49,8 @@ if "bpy" in locals():
     importlib.reload(sculpting)
     importlib.reload(hair)
     importlib.reload(colorspace)
+    importlib.reload(normal)
+    importlib.reload(link)
 
 import bpy
 
@@ -85,12 +87,14 @@ from . import rigging
 from . import sculpting
 from . import hair
 from . import colorspace
+from . import normal
+from . import link
 
 
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (1, 6, 0, 4),
+    "version": (2, 0, 0),
     "blender": (2, 93, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -106,6 +110,10 @@ classes = (
     channel_mixer.CC3IDMixer,
     channel_mixer.CC3MixerSettings,
 
+    properties.CCICLinkData,
+    properties.CCICBakeCache,
+    properties.CCICBakeMaterialSettings,
+    properties.CCICBakeProps,
     properties.CC3ActionList,
     properties.CC3ArmatureList,
     properties.CC3HeadParameters,
@@ -141,6 +149,9 @@ classes = (
     bake.CC3BakeOperator,
     rigging.CC3Rigifier,
     rigging.CC3RigifierModal,
+    bake.CCICBakeSettings,
+    bake.CCICBaker,
+    bake.CCICJpegify,
 
     springbones.CC3OperatorSpringBones,
     physics.CC3OperatorPhysics,
@@ -155,15 +166,18 @@ classes = (
     sculpting.CC3OperatorSculptExport,
     hair.CC3OperatorHair,
     hair.CC3ExportHair,
+    link.CCICDataLink,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
     panels.UNITY_ACTION_UL_List,
     # pipeline panels
-    panels.CC3ToolsPipelinePanel,
+    panels.CC3ToolsPipelineImportPanel,
+    panels.CC3ToolsPipelineExportPanel,
     panels.CC3CharacterSettingsPanel,
     panels.CC3MaterialParametersPanel,
     panels.CC3RigifyPanel,
+    panels.CCICBakePanel,
     panels.CC3PipelineScenePanel,
     # create panels
     panels.CC3ToolsCreatePanel,
@@ -173,8 +187,12 @@ classes = (
     panels.CC3ToolsSculptingPanel,
     panels.CC3HairPanel,
     panels.CC3CreateScenePanel,
+    # link panels
+    panels.CCICDataLinkPanel,
     # control panels
     panels.CC3SpringControlPanel,
+    # test panels
+    panels.CC3ToolsUtilityPanel,
 
     preferences.CC3ToolsAddonPreferences,
     preferences.MATERIAL_UL_weightedmatslots,
@@ -189,6 +207,8 @@ def register():
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
+    bpy.types.Scene.CCICBakeProps = bpy.props.PointerProperty(type=properties.CCICBakeProps)
+    bpy.types.Scene.CCICLinkData = bpy.props.PointerProperty(type=properties.CCICLinkData)
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import)
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import_animation)
     bpy.types.TOPBAR_MT_file_export.append(exporter.menu_func_export)
@@ -206,3 +226,5 @@ def unregister():
         bpy.utils.unregister_class(cls)
 
     del(bpy.types.Scene.CC3ImportProps)
+    del(bpy.types.Scene.CCICBakeProps)
+    del(bpy.types.Scene.CCICLinkData)

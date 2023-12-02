@@ -60,6 +60,12 @@ def reset_shader(nodes, links, shader_label, shader_name):
     bsdf_node.location = (0,0)
     output_node.location = (400, 0)
 
+    emission_socket = nodeutils.input_socket(bsdf_node, "Emission")
+    nodeutils.set_node_input_value(bsdf_node, emission_socket, (0,0,0))
+    if utils.B400():
+        emission_strength_socket =  nodeutils.input_socket(bsdf_node, "Emission Strength")
+        nodeutils.set_node_input_value(bsdf_node, emission_strength_socket, 0)
+
     # connect the shader to the output
     nodeutils.link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
 
@@ -75,14 +81,20 @@ def connect_tearline_material(obj, mat, mat_json, processed_images):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    shader = reset_shader(nodes, links, "Tearline Shader", "basic_tearline")
+    bsdf_node = reset_shader(nodes, links, "Tearline Shader", "basic_tearline")
 
-    nodeutils.set_node_input_value(shader, "Base Color", (1.0, 1.0, 1.0, 1.0))
-    nodeutils.set_node_input_value(shader, "Metallic", 1.0)
-    nodeutils.set_node_input_value(shader, "Specular", 1.0)
-    nodeutils.set_node_input_value(shader, "Roughness", parameters.tearline_roughness)
-    nodeutils.set_node_input_value(shader, "Alpha", parameters.tearline_alpha)
-    shader.name = utils.unique_name("eye_tearline_shader")
+    base_color_socket = nodeutils.input_socket(bsdf_node, "Base Color")
+    metallic_socket = nodeutils.input_socket(bsdf_node, "Metallic")
+    specular_socket = nodeutils.input_socket(bsdf_node, "Specular")
+    roughness_socket = nodeutils.input_socket(bsdf_node, "Roughness")
+    alpha_socket = nodeutils.input_socket(bsdf_node, "Alpha")
+
+    nodeutils.set_node_input_value(bsdf_node, base_color_socket, (1.0, 1.0, 1.0, 1.0))
+    nodeutils.set_node_input_value(bsdf_node, metallic_socket, 1.0)
+    nodeutils.set_node_input_value(bsdf_node, specular_socket, 1.0)
+    nodeutils.set_node_input_value(bsdf_node, roughness_socket, parameters.tearline_roughness)
+    nodeutils.set_node_input_value(bsdf_node, alpha_socket, parameters.tearline_alpha)
+    bsdf_node.name = utils.unique_name("eye_tearline_shader")
 
     materials.set_material_alpha(mat, "BLEND")
     mat.shadow_method = "NONE"
@@ -97,13 +109,19 @@ def connect_eye_occlusion_material(obj, mat, mat_json, processed_images):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    shader = reset_shader(nodes, links, "Eye Occlusion Shader", "basic_eye_occlusion")
+    bsdf_node = reset_shader(nodes, links, "Eye Occlusion Shader", "basic_eye_occlusion")
 
-    shader.name = utils.unique_name("eye_occlusion_shader")
-    nodeutils.set_node_input_value(shader, "Base Color", (0,0,0,1))
-    nodeutils.set_node_input_value(shader, "Metallic", 0.0)
-    nodeutils.set_node_input_value(shader, "Specular", 0.0)
-    nodeutils.set_node_input_value(shader, "Roughness", 1.0)
+    bsdf_node.name = utils.unique_name("eye_occlusion_shader")
+    base_color_socket = nodeutils.input_socket(bsdf_node, "Base Color")
+    metallic_socket = nodeutils.input_socket(bsdf_node, "Metallic")
+    specular_socket = nodeutils.input_socket(bsdf_node, "Specular")
+    roughness_socket = nodeutils.input_socket(bsdf_node, "Roughness")
+    alpha_socket = nodeutils.input_socket(bsdf_node, "Alpha")
+
+    nodeutils.set_node_input_value(bsdf_node, base_color_socket, (0,0,0,1))
+    nodeutils.set_node_input_value(bsdf_node, metallic_socket, 0.0)
+    nodeutils.set_node_input_value(bsdf_node, specular_socket, 0.0)
+    nodeutils.set_node_input_value(bsdf_node, roughness_socket, 1.0)
     nodeutils.reset_cursor()
 
     # groups
@@ -113,7 +131,7 @@ def connect_eye_occlusion_material(obj, mat, mat_json, processed_images):
     nodeutils.set_node_input_value(occ_node, "Strength", parameters.eye_occlusion)
     nodeutils.set_node_input_value(occ_node, "Hardness", parameters.eye_occlusion_power)
     # links
-    nodeutils.link_nodes(links, occ_node, "Alpha", shader, "Alpha")
+    nodeutils.link_nodes(links, occ_node, "Alpha", bsdf_node, alpha_socket)
 
     materials.set_material_alpha(mat, "BLEND")
     mat.shadow_method = "NONE"
@@ -128,7 +146,15 @@ def connect_basic_eye_material(obj, mat, mat_json, processed_images):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    shader = reset_shader(nodes, links, "Eye Shader", "basic_eye")
+    bsdf_node = reset_shader(nodes, links, "Eye Shader", "basic_eye")
+    base_color_socket = nodeutils.input_socket(bsdf_node, "Base Color")
+    metallic_socket = nodeutils.input_socket(bsdf_node, "Metallic")
+    specular_socket = nodeutils.input_socket(bsdf_node, "Specular")
+    roughness_socket = nodeutils.input_socket(bsdf_node, "Roughness")
+    alpha_socket = nodeutils.input_socket(bsdf_node, "Alpha")
+    normal_socket = nodeutils.input_socket(bsdf_node, "Normal")
+    clearcoat_socket = nodeutils.input_socket(bsdf_node, "Clearcoat")
+    clearcoat_roughness_socket = nodeutils.input_socket(bsdf_node, "Clearcoat Roughness")
 
     # Base Color
     #
@@ -143,29 +169,29 @@ def connect_basic_eye_material(obj, mat, mat_json, processed_images):
         nodeutils.set_node_input_value(hsv_node, "Value", parameters.eye_brightness)
         # links
         nodeutils.link_nodes(links, diffuse_node, "Color", hsv_node, "Color")
-        nodeutils.link_nodes(links, hsv_node, "Color", shader, "Base Color")
+        nodeutils.link_nodes(links, hsv_node, "Color", bsdf_node, base_color_socket)
 
     # Metallic
     #
     nodeutils.reset_cursor()
     metallic_node = nodeutils.make_value_node(nodes, "Eye Metallic", "eye_metallic", 0.0)
-    nodeutils.link_nodes(links, metallic_node, "Value", shader, "Metallic")
+    nodeutils.link_nodes(links, metallic_node, "Value", bsdf_node, metallic_socket)
 
     # Specular
     #
     nodeutils.reset_cursor()
     specular_node = nodeutils.make_value_node(nodes, "Eye Specular", "eye_specular", parameters.eye_specular)
-    nodeutils.link_nodes(links, specular_node, "Value", shader, "Specular")
+    nodeutils.link_nodes(links, specular_node, "Value", bsdf_node, specular_socket)
 
     # Roughness
     #
     nodeutils.reset_cursor()
     roughness_node = nodeutils.make_value_node(nodes, "Eye Roughness", "eye_roughness", parameters.eye_roughness)
-    nodeutils.link_nodes(links, roughness_node, "Value", shader, "Roughness")
+    nodeutils.link_nodes(links, roughness_node, "Value", bsdf_node, roughness_socket)
 
     # Alpha
     #
-    nodeutils.set_node_input_value(shader, "Alpha", 1.0)
+    nodeutils.set_node_input_value(bsdf_node, alpha_socket, 1.0)
 
     # Normal
     #
@@ -178,12 +204,12 @@ def connect_basic_eye_material(obj, mat, mat_json, processed_images):
         normalmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
         nodeutils.link_nodes(links, strength_node, "Value", normalmap_node, "Strength")
         nodeutils.link_nodes(links, normal_node, "Color", normalmap_node, "Color")
-        nodeutils.link_nodes(links, normalmap_node, "Normal", shader, "Normal")
+        nodeutils.link_nodes(links, normalmap_node, "Normal", bsdf_node, normal_socket)
 
     # Clearcoat
     #
-    nodeutils.set_node_input_value(shader, "Clearcoat", 1.0)
-    nodeutils.set_node_input_value(shader, "Clearcoat Roughness", 0.15)
+    nodeutils.set_node_input_value(bsdf_node, clearcoat_socket, 1.0)
+    nodeutils.set_node_input_value(bsdf_node, clearcoat_roughness_socket, 0.15)
     mat.use_screen_refraction = False
 
     return
@@ -197,7 +223,15 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
 
-    shader = reset_shader(nodes, links, "Basic Shader", "basic")
+    bsdf_node = reset_shader(nodes, links, "Basic Shader", "basic")
+    base_color_socket = nodeutils.input_socket(bsdf_node, "Base Color")
+    metallic_socket = nodeutils.input_socket(bsdf_node, "Metallic")
+    specular_socket = nodeutils.input_socket(bsdf_node, "Specular")
+    roughness_socket = nodeutils.input_socket(bsdf_node, "Roughness")
+    alpha_socket = nodeutils.input_socket(bsdf_node, "Alpha")
+    emission_socket = nodeutils.input_socket(bsdf_node, "Emission")
+    emission_strength_socket = nodeutils.input_socket(bsdf_node, "Emission Strength")
+    normal_socket = nodeutils.input_socket(bsdf_node, "Normal")
 
     # Base Color
     #
@@ -227,9 +261,9 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
             nodeutils.link_nodes(links, diffuse_node, "Color", mix_node, "Color1")
             nodeutils.link_nodes(links, ao_node, "Color", mix_node, "Color2")
             nodeutils.link_nodes(links, fac_node, "Value", mix_node, "Fac")
-            nodeutils.link_nodes(links, mix_node, "Color", shader, "Base Color")
+            nodeutils.link_nodes(links, mix_node, "Color", bsdf_node, base_color_socket)
         else:
-            nodeutils.link_nodes(links, diffuse_node, "Color", shader, "Base Color")
+            nodeutils.link_nodes(links, diffuse_node, "Color", bsdf_node, base_color_socket)
 
     # Metallic
     #
@@ -238,7 +272,7 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
     metallic_node = None
     if metallic_image is not None:
         metallic_node = nodeutils.make_image_node(nodes, metallic_image, "(METALLIC)")
-        nodeutils.link_nodes(links, metallic_node, "Color", shader, "Metallic")
+        nodeutils.link_nodes(links, metallic_node, "Color", bsdf_node, metallic_socket)
 
     # Specular
     #
@@ -270,11 +304,11 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
     specular_node = mask_node = mult_node = None
     if specular_image is not None:
         specular_node = nodeutils.make_image_node(nodes, specular_image, "(SPECULAR)")
-        nodeutils.link_nodes(links, specular_node, "Color", shader, "Specular")
+        nodeutils.link_nodes(links, specular_node, "Color", bsdf_node, specular_socket)
     # always make a specular value node for skin or if there is a mask (but no map)
     elif prop != "none":
         specular_node = nodeutils.make_value_node(nodes, "Specular Strength", prop, spec)
-        nodeutils.link_nodes(links, specular_node, "Value", shader, "Specular")
+        nodeutils.link_nodes(links, specular_node, "Value", bsdf_node, specular_socket)
     if mask_image is not None:
         mask_node = nodeutils.make_image_node(nodes, mask_image, "(SPECMASK)")
         nodeutils.advance_cursor()
@@ -284,7 +318,7 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
         else:
             nodeutils.link_nodes(links, specular_node, "Color", mult_node, 0)
         nodeutils.link_nodes(links, mask_node, "Color", mult_node, 1)
-        nodeutils.link_nodes(links, mult_node, "Value", shader, "Specular")
+        nodeutils.link_nodes(links, mult_node, "Value", bsdf_node, specular_socket)
 
     # Roughness
     #
@@ -313,15 +347,15 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
             remap_node.name = utils.unique_name(prop)
             nodeutils.set_node_input_value(remap_node, "To Min", roughness)
             nodeutils.link_nodes(links, roughness_node, "Color", remap_node, "Value")
-            nodeutils.link_nodes(links, remap_node, "Result", shader, "Roughness")
+            nodeutils.link_nodes(links, remap_node, "Result", bsdf_node, roughness_socket)
         elif mat_cache.material_type.startswith("TEETH") or mat_cache.material_type == "TONGUE":
             nodeutils.advance_cursor()
             rmult_node = nodeutils.make_math_node(nodes, "MULTIPLY", 1, roughness)
             rmult_node.name = utils.unique_name(prop)
             nodeutils.link_nodes(links, roughness_node, "Color", rmult_node, 0)
-            nodeutils.link_nodes(links, rmult_node, "Value", shader, "Roughness")
+            nodeutils.link_nodes(links, rmult_node, "Value", bsdf_node, roughness_socket)
         else:
-            nodeutils.link_nodes(links, roughness_node, "Color", shader, "Roughness")
+            nodeutils.link_nodes(links, roughness_node, "Color", bsdf_node, roughness_socket)
 
     # Emission
     #
@@ -330,7 +364,10 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
     emission_node = None
     if emission_image is not None:
         emission_node = nodeutils.make_image_node(nodes, emission_image, "(EMISSION)")
-        nodeutils.link_nodes(links, emission_node, "Color", shader, "Emission")
+        nodeutils.link_nodes(links, emission_node, "Color", bsdf_node, emission_socket)
+        emission_strength = jsonutils.get_texture_channel_strength(mat_json, "Glow", 0.0)
+        nodeutils.set_node_input_value(bsdf_node, emission_strength_socket, emission_strength)
+
 
     # Alpha
     #
@@ -339,13 +376,13 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
     alpha_node = None
     if alpha_image is not None:
         alpha_node = nodeutils.make_image_node(nodes, alpha_image, "(ALPHA)")
-        dir,file = os.path.split(alpha_image.filepath)
+        dir, file = os.path.split(alpha_image.filepath)
         if "_diffuse" in file.lower() or "_albedo" in file.lower():
-            nodeutils.link_nodes(links, alpha_node, "Alpha", shader, "Alpha")
+            nodeutils.link_nodes(links, alpha_node, "Alpha", bsdf_node, alpha_socket)
         else:
-            nodeutils.link_nodes(links, alpha_node, "Color", shader, "Alpha")
+            nodeutils.link_nodes(links, alpha_node, "Color", bsdf_node, alpha_socket)
     elif diffuse_node:
-        nodeutils.link_nodes(links, diffuse_node, "Alpha", shader, "Alpha")
+        nodeutils.link_nodes(links, diffuse_node, "Alpha", bsdf_node, alpha_socket)
 
     # material alpha blend settings
     method = materials.determine_material_alpha(obj_cache, mat_cache, mat_json)
@@ -354,6 +391,7 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
     # Normal
     #
     nodeutils.reset_cursor()
+    normal_strength = jsonutils.get_texture_channel_strength(mat_json, "Normal", 1.0)
     normal_image = find_material_image_basic(mat, "NORMAL", mat_json, processed_images)
     bump_image = find_material_image_basic(mat,"BUMP", mat_json, processed_images)
     normal_node = bump_node = normalmap_node = bumpmap_node = None
@@ -362,7 +400,8 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
         nodeutils.advance_cursor()
         normalmap_node = nodeutils.make_shader_node(nodes, "ShaderNodeNormalMap", 0.6)
         nodeutils.link_nodes(links, normal_node, "Color", normalmap_node, "Color")
-        nodeutils.link_nodes(links, normalmap_node, "Normal", shader, "Normal")
+        nodeutils.link_nodes(links, normalmap_node, "Normal", bsdf_node, normal_socket)
+        nodeutils.set_node_input_value(normalmap_node, "Strength", normal_strength)
     if bump_image is not None:
 
         if mat_cache.is_hair() or mat_cache.is_eyelash() or mat_cache.is_scalp():
@@ -381,9 +420,7 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
         nodeutils.link_nodes(links, bump_node, "Color", bumpmap_node, "Height")
         if normal_image is not None:
             nodeutils.link_nodes(links, normalmap_node, "Normal", bumpmap_node, "Normal")
-        nodeutils.link_nodes(links, bumpmap_node, "Normal", shader, "Normal")
-
-    return
+        nodeutils.link_nodes(links, bumpmap_node, "Normal", bsdf_node, normal_socket)
 
 
 def find_material_image_basic(mat, tex_type, mat_json, processed_images):

@@ -256,6 +256,12 @@ def get_texture_info(mat_json, texture_id):
         tex_info = get_wrinkle_texture_info(mat_json, texture_id)
     return tex_info
 
+def get_texture_channel_strength(mat_json, texture_id, default_value=None):
+    tex_info = get_texture_info(mat_json, texture_id)
+    if tex_info and "Strength" in tex_info:
+        return tex_info["Strength"] / 100
+    return default_value
+
 def get_pbr_texture_info(mat_json, texture_id):
     if not mat_json:
         return None
@@ -403,6 +409,19 @@ def get_shader_var_color(mat_json, var_name):
         return convert_to_color(json_color)
     except:
         return None
+
+
+def get_json(json_data, path: str):
+    if json_data:
+        keys = path.split("/")
+        for key in keys:
+            print(key, key in json_data)
+            if key in json_data:
+                json_data = json_data[key]
+            else:
+                return None
+        return json_data
+    return None
 
 
 def generate_character_json_data(name):

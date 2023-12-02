@@ -717,10 +717,14 @@ def set_rigify_simulation_influence(arm, spring_rig_bone_name, sim_value, ik_fk_
                 child_bone["IK_FK"] = ik_fk_value
 
 
-def add_simulation_bone_group(arm):
-    if "Simulation" not in arm.pose.bone_groups:
-        bone_group = arm.pose.bone_groups.new(name="Simulation")
-        bone_group.color_set = "THEME02"
+def add_simulation_bone_collection(arm):
+    if utils.B400():
+        if "Simulation" not in arm.data.collections:
+            arm.data.collections.new("Simulation")
+    else:
+        if "Simulation" not in arm.pose.bone_groups:
+            bone_group = arm.pose.bone_groups.new(name="Simulation")
+            bone_group.color_set = "THEME02"
 
 
 def reset_cache(context):
@@ -883,7 +887,7 @@ def unfix_quat(q):
     return [q[1], q[2], q[3], q[0]]
 
 
-def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_mappings = None):
+def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_mapping = None):
     physics_json = None
     if json_data:
         chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name)
@@ -911,7 +915,7 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
 
     utils.object_mode_to(arm)
     arm_settings = bones.store_armature_settings(arm)
-    bones.show_all_layers(arm)
+    bones.make_bones_visible(arm)
 
     old_action = utils.safe_get_action(arm)
     old_pose = arm.data.pose_position
@@ -932,8 +936,8 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
     for bone_name in collider_json:
         for shape_name in collider_json[bone_name]:
             target_bone_name = bone_name
-            if bone_mappings:
-                target_bone_name = bones.get_rigify_meta_bone(arm, bone_mappings, bone_name)
+            if bone_mapping:
+                target_bone_name = bones.get_rigify_meta_bone(arm, bone_mapping, bone_name)
             if target_bone_name not in arm.data.bones:
                 continue
             name = f"{COLLIDER_PREFIX}_{bone_name}_{shape_name}"
@@ -1099,7 +1103,7 @@ def toggle_show_colliders(arm):
         collider.hide_set(hide_state)
 
 
-def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
+def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mapping):
     obj : bpy.types.Object
     if cc3_rig and rigify_rig:
 
@@ -1110,7 +1114,7 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
         rigify_rig.location = (0,0,0)
         bones.set_rig_bind_pose(cc3_rig)
         bones.set_rig_bind_pose(rigify_rig)
-        bones.show_all_layers(rigify_rig)
+        bones.make_bones_visible(rigify_rig)
 
         # make sure the colliders can be make visible and selectable
         layer_collections = utils.get_view_layer_collections(search = COLLIDER_COLLECTION_NAME)
@@ -1121,7 +1125,7 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mappings):
         colliders = get_rigid_body_colliders(cc3_rig)
         for obj in colliders:
             bone_name = obj.parent_bone
-            rigify_bone_name = bones.get_rigify_meta_bone(rigify_rig, bone_mappings, bone_name)
+            rigify_bone_name = bones.get_rigify_meta_bone(rigify_rig, bone_mapping, bone_name)
 
             if rigify_bone_name:
                 # using operators to parent because matrix_parent_inverse doesn't work correctly

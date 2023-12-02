@@ -17,7 +17,7 @@
 import bpy, bmesh
 import os, math, random
 from mathutils import Vector
-from . import physics, rigidbody, springbones, geom, utils, jsonutils, bones, meshutils
+from . import physics, rigidbody, springbones, geom, utils, jsonutils, bones, meshutils, vars
 
 
 STROKE_JOIN_THRESHOLD = 1.0 / 100.0 # 1cm
@@ -606,6 +606,7 @@ def selected_cards_to_curves(chr_cache, obj, card_dirs, one_loop_per_card = True
         loops = card["loops"]
         for loop in loops:
             add_poly_spline(loop, curve)
+
     # TODO
     # Put the curve object to the same scale as the body mesh
     # With roots above the scalp plant the root of the curves into the scalp? (within tolerance)
@@ -804,7 +805,7 @@ def custom_bone(chr_cache, arm, parent_mode, loop_index, bone_length, new_bones)
         bone_z = (((world_head + world_tail) * 0.5) - world_origin).normalized()
         bone.align_roll(bone_z)
         # set bone layer to 25, so we can show only the added hair bones 'in front'
-        bones.set_edit_bone_layer(arm, bone_name, 25)
+        bones.set_bone_collection(arm, bone, "Spring (Edit)", None, vars.SPRING_EDIT_LAYER)
         # don't directly connect first bone in a chain
         bone.use_connect = False
         return True
@@ -1018,7 +1019,7 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length,
             bone.align_roll(bone_z)
             parent_bone = bone
             # set bone layer to 25, so we can show only the added hair bones 'in front'
-            bones.set_edit_bone_layer(arm, bone_name, 25)
+            bones.set_bone_collection(arm, bone, "Spring (Edit)", None, vars.SPRING_EDIT_LAYER)
             chain.append(bone_name)
             if first:
                 bone.use_connect = False
@@ -1719,6 +1720,11 @@ class CC3OperatorHair(bpy.types.Operator):
         mode_selection = utils.store_mode_selection_state()
 
         chr_cache = props.get_context_character_cache(context)
+
+        if not chr_cache:
+            self.report({"ERROR"}, "No current character!")
+            return {"FINISHED"}
+
         arm = chr_cache.get_armature()
         hair_mesh = utils.get_selected_mesh()
 

@@ -24,6 +24,16 @@ class RigifyData:
     hide_chains: list
     vertex_group_rename: list
 
+    def get_source_bone(self, rigify_bone):
+        for mapping in self.bone_mapping:
+            if mapping[0] == rigify_bone:
+                return mapping[1]
+
+    def get_rigify_bone(self, source_bone):
+        for mapping in self.bone_mapping:
+            if mapping[1] == source_bone:
+                return mapping[0]
+
 
 @dataclass
 class RetargetData:
@@ -35,14 +45,14 @@ class RetargetData:
 def get_mapping_for_generation(generation):
     if generation == "GameBase" or generation == "NonStandardGameBase":
         return RigifyData("head",
-                          GAME_BASE_BONE_MAPPINGS,
+                          GAME_BASE_BONE_MAPPING,
                           None,
                           GAME_BASE_VERTEX_GROUP_RENAME)
 
     elif (generation == "ActorCore" or generation == "ActorScan" or generation == "ActorBuild" or
           generation == "G3" or generation == "G3Plus" or generation == "NonStandardG3"):
         return RigifyData("CC_Base_Head",
-                          G3_BONE_MAPPINGS,
+                          G3_BONE_MAPPING,
                           G3_HIDE_CHAINS,
                           G3_VERTEX_GROUP_RENAME)
 
@@ -73,10 +83,10 @@ def get_retarget_for_source(source):
         return None
 
 
-#   METARIG_BONE, CC_BONE_HEAD, CC_BONE_TAIL, LERP_FROM, LERP_TO
+#   METARIG_BONE, CC_BONE_HEAD, CC_BONE_TAIL, AXIS, LERP_FROM, LERP_TO
 #   '-' before CC_BONE_HEAD means to copy the tail position, not the head
 #   '-' before CC_BONE_TAIL means to copy the head position, not the tail
-G3_BONE_MAPPINGS = [
+G3_BONE_MAPPING = [
 
     # Spine, Neck & Head:
     # spine chain
@@ -170,8 +180,6 @@ G3_BONE_MAPPINGS = [
     ["eye.R", "CC_Base_R_Eye", ""],
     ["eye.L", "CC_Base_L_Eye", ""],
 
-    ["eye.L", "CC_Base_L_Eye", ""],
-
     # unmapped bones
     ["", "CC_Base_BoneRoot", ""],
     ["", "RL_BoneRoot", ""],
@@ -214,7 +222,7 @@ G3_BONE_MAPPINGS = [
 ]
 
 
-GAME_BASE_BONE_MAPPINGS = [
+GAME_BASE_BONE_MAPPING = [
     # Spine, Neck & Head:
     # spine chain
     ["pelvis", "pelvis", "pelvis"],
@@ -548,37 +556,37 @@ GAME_BASE_VERTEX_GROUP_RENAME = [
 # arg: constraint args (influence)
 ADD_DEF_BONES = [
 
-    ["ORG-eye.R", "DEF-eye.R", "ORG-eye.R", "LR", 29],
-    ["ORG-eye.L", "DEF-eye.L", "ORG-eye.L", "LR", 29],
+    ["ORG-eye.R", "DEF-eye.R", "ORG-eye.R", "LR", 29, "DEF"],
+    ["ORG-eye.L", "DEF-eye.L", "ORG-eye.L", "LR", 29, "DEF"],
 
-    ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29],
-    ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29],
+    ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29, "DEF"],
+    ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29, "DEF"],
 
-    ["CC_Base_L_RibsTwist", "DEF-breast_twist.L", "ORG-breast.L", "LR", 29],
-    ["CC_Base_R_RibsTwist", "DEF-breast_twist.R", "ORG-breast.R", "LR", 29],
+    ["CC_Base_L_RibsTwist", "DEF-breast_twist.L", "ORG-breast.L", "LR", 29, "DEF"],
+    ["CC_Base_R_RibsTwist", "DEF-breast_twist.R", "ORG-breast.R", "LR", 29, "DEF"],
     # "-" instructs to re-parent the existing DEF-breast bones to the new DEF-breast_twist bones.
-    ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29],
-    ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29],
+    ["-", "DEF-breast.L", "DEF-breast_twist.L", "LR", 29, "DEF"],
+    ["-", "DEF-breast.R", "DEF-breast_twist.R", "LR", 29, "DEF"],
 
-    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, 0.667, "DEF-upper_arm.L.001", 0.5],
-    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, 0.667, "DEF-thigh.L.001", 0.5],
+    ["DEF-forearm.L", "DEF-elbow_share.L", "DEF-forearm.L", "LR", 29, "DEF", 0.667, "DEF-upper_arm.L.001", 0.5],
+    ["DEF-shin.L", "DEF-knee_share.L", "DEF-shin.L", "LR", 29, "DEF", 0.667, "DEF-thigh.L.001", 0.5],
     #["DEF-toe.L", "DEF-toe_share.L", "DEF-toe.L", "LR", 29, 4.0, "DEF-foot.L", 0.5],
 
-    ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_IndexToe1", "DEF-toe_index.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_MidToe1", "DEF-toe_mid.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29],
-    ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29],
+    ["CC_Base_L_BigToe1", "DEF-toe_big.L", "DEF-toe.L", "LR", 29, "DEF"],
+    ["CC_Base_L_IndexToe1", "DEF-toe_index.L", "DEF-toe.L", "LR", 29, "DEF"],
+    ["CC_Base_L_MidToe1", "DEF-toe_mid.L", "DEF-toe.L", "LR", 29, "DEF"],
+    ["CC_Base_L_RingToe1", "DEF-toe_ring.L", "DEF-toe.L", "LR", 29, "DEF"],
+    ["CC_Base_L_PinkyToe1", "DEF-toe_pinky.L", "DEF-toe.L", "LR", 29, "DEF"],
 
-    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, 0.667, "DEF-upper_arm.R.001", 0.5],
-    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, 0.667, "DEF-thigh.R.001", 0.5],
+    ["DEF-forearm.R", "DEF-elbow_share.R", "DEF-forearm.R", "LR", 29, "DEF", 0.667, "DEF-upper_arm.R.001", 0.5],
+    ["DEF-shin.R", "DEF-knee_share.R", "DEF-shin.R", "LR", 29, "DEF", 0.667, "DEF-thigh.R.001", 0.5],
     #["DEF-toe.R", "DEF-toe_share.R", "DEF-toe.R", "LR", 29, 4.0, "DEF-foot.R", 0.5],
 
-    ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_IndexToe1", "DEF-toe_index.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR", 29],
-    ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29],
+    ["CC_Base_R_BigToe1", "DEF-toe_big.R", "DEF-toe.R", "LR", 29, "DEF"],
+    ["CC_Base_R_IndexToe1", "DEF-toe_index.R", "DEF-toe.R", "LR", 29, "DEF"],
+    ["CC_Base_R_MidToe1", "DEF-toe_mid.R", "DEF-toe.R", "LR", 29, "DEF"],
+    ["CC_Base_R_RingToe1", "DEF-toe_ring.R", "DEF-toe.R", "LR", 29, "DEF"],
+    ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29, "DEF"],
 ]
 
 
@@ -1104,6 +1112,8 @@ RETARGET_RIGIFY_BONES = [
     "jaw_master", "teeth.T", "teeth.B",
     "tongue_master", "tongue", "tongue.001", "tongue.002", "tweak_tongue", "tweak_tongue.001", "tweak_tongue.002",
     "hand_ik.L", "hand_ik.R", "foot_ik.L", "foot_ik.R", "toe_ik.L", "toe_ik.R",
+    #"upper_arm_ik.L", "upper_arm_ik.R", "upper_arm_parent.R", "upper_arm_parent.L",
+    #"thigh_ik.R", "thigh_ik.L", "thigh_parent.R", "thigh_parent.L", "foot_heel_ik.R", "foot_heel_ik.L",
 ]
 
 
@@ -1129,34 +1139,34 @@ RETARGET_G3 = [
     #       "A", bone_1, bone_2 - copy average location and rotation from bone_1 and bone_2
     #
     # [origin_bone, orign_bone_parent,          source_bone(regex match), rigify_target_bone, flags, *params]
-    #
+    ["root", "",                                "(CC_Base_|RL_|)BoneRoot$", "root", "LR"],
     # hips
-    ["ORG-hip", "",                             "(CC_Base_|)Hip", "", "+PLR", "rigify:ORG-spine"],
-    ["ORG-spine", "ORG-hip",                    "(CC_Base_|)Pelvis", "torso", "LR"],
-    ["ORG-spine", "ORG-hip",                    "(CC_Base_|)Pelvis", "spine_fk", "NLR"],
-    ["ORG-pelvis", "ORG-hip",                   "(CC_Base_|)Pelvis", "hips", "PLR"],
+    ["ORG-hip", "",                             "(CC_Base_|)Hip$", "", "+PLR", "rigify:ORG-spine"],
+    ["ORG-spine", "ORG-hip",                    "(CC_Base_|)Pelvis$", "torso", "LR"],
+    ["ORG-spine", "ORG-hip",                    "(CC_Base_|)Pelvis$", "spine_fk", "NLR"],
+    ["ORG-pelvis", "ORG-hip",                   "(CC_Base_|)Pelvis$", "hips", "PLR"],
     # spine
-    ["ORG-spine.001", "ORG-spine",              "(CC_Base_|)Waist", "spine_fk.001", "LR"],
+    ["ORG-spine.001", "ORG-spine",              "(CC_Base_|)Waist$", "spine_fk.001", "LR"],
     ["ORG-spine.002", "ORG-spine.001",          "(CC_Base_|)Spine01", "spine_fk.002", "LR"],
     ["ORG-spine.002", "ORG-spine.001",          "(CC_Base_|)Spine01", "chest", "NLR"],
     ["ORG-spine.003", "ORG-spine.002",          "(CC_Base_|)Spine02", "spine_fk.003", "LR"],
     ["ORG-spine.004", "ORG-spine.003",          "(CC_Base_|)NeckTwist01", "neck", "LR"],
     ["ORG-spine.005", "ORG-spine.004",          "(CC_Base_|)NeckTwist02", "tweak_spine.005", "L"],
-    ["ORG-spine.006", "ORG-spine.005",          "(CC_Base_|)Head", "head", "LR"],
+    ["ORG-spine.006", "ORG-spine.005",          "(CC_Base_|)Head$", "head", "LR"],
     # torso
-    ["ORG-breast.L", "ORG-spine.003",           "(CC_Base_|)L_RibsTwist", "breast.L", "LR"],
-    ["ORG-breast.R", "ORG-spine.003",           "(CC_Base_|)R_RibsTwist", "breast.R", "LR"],
+    ["ORG-breast.L", "ORG-spine.003",           "(CC_Base_|)L_Breast$", "breast.L", "LR"],
+    ["ORG-breast.R", "ORG-spine.003",           "(CC_Base_|)R_Breast$", "breast.R", "LR"],
     # left leg
-    ["ORG-thigh.L", "ORG-pelvis",               "(CC_Base_|)L_Thigh", "thigh_fk.L", "LR"],
-    ["ORG-shin.L", "ORG-thigh.L",               "(CC_Base_|)L_Calf", "shin_fk.L", "LR"],
+    ["ORG-thigh.L", "ORG-pelvis",               "(CC_Base_|)L_Thigh$", "thigh_fk.L", "LR"],
+    ["ORG-shin.L", "ORG-thigh.L",               "(CC_Base_|)L_Calf$", "shin_fk.L", "LR"],
     ["ORG-foot.L", "ORG-shin.L",                "(CC_Base_|)L_Foot$", "foot_fk.L", "PLR"],
     ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase$", "toe_fk.L", "LR"], #post 3.1
     ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase$", "toe.L", "LR"], #pre 3.1
     # left arm
-    ["ORG-shoulder.L", "ORG-spine.003",         "(CC_Base_|)L_Clavicle", "shoulder.L", "LR"],
-    ["ORG-upper_arm.L", "ORG-shoulder.L",       "(CC_Base_|)L_Upperarm", "upper_arm_fk.L", "LR"],
-    ["ORG-forearm.L", "ORG-upper_arm.L",        "(CC_Base_|)L_Forearm", "forearm_fk.L", "LR"],
-    ["ORG-hand.L", "ORG-forearm.L",             "(CC_Base_|)L_Hand", "hand_fk.L", "LR"],
+    ["ORG-shoulder.L", "ORG-spine.003",         "(CC_Base_|)L_Clavicle$", "shoulder.L", "LR"],
+    ["ORG-upper_arm.L", "ORG-shoulder.L",       "(CC_Base_|)L_Upperarm$", "upper_arm_fk.L", "LR"],
+    ["ORG-forearm.L", "ORG-upper_arm.L",        "(CC_Base_|)L_Forearm$", "forearm_fk.L", "LR"],
+    ["ORG-hand.L", "ORG-forearm.L",             "(CC_Base_|)L_Hand$", "hand_fk.L", "LR"],
     # left fingers
     ["ORG-thumb.01.L", "ORG-hand.L",            "(CC_Base_|)L_Thumb1", "thumb.01.L", "LR"],
     ["ORG-f_index.01.L", "ORG-hand.L",          "(CC_Base_|)L_Index1", "f_index.01.L", "LR"],
@@ -1174,16 +1184,16 @@ RETARGET_G3 = [
     ["ORG-f_ring.03.L", "ORG-f_ring.02.L",      "(CC_Base_|)L_Ring3", "f_ring.03.L", "LR"],
     ["ORG-f_pinky.03.L", "ORG-f_pinky.02.L",    "(CC_Base_|)L_Pinky3", "f_pinky.03.L", "LR"],
     # right leg
-    ["ORG-thigh.R", "ORG-pelvis",               "(CC_Base_|)R_Thigh", "thigh_fk.R", "LR"],
-    ["ORG-shin.R", "ORG-thigh.R",               "(CC_Base_|)R_Calf", "shin_fk.R", "LR"],
+    ["ORG-thigh.R", "ORG-pelvis",               "(CC_Base_|)R_Thigh$", "thigh_fk.R", "LR"],
+    ["ORG-shin.R", "ORG-thigh.R",               "(CC_Base_|)R_Calf$", "shin_fk.R", "LR"],
     ["ORG-foot.R", "ORG-shin.R",                "(CC_Base_|)R_Foot$", "foot_fk.R", "PLR"],
     ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe_fk.R", "LR"], #post 3.1
     ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe.R", "LR"], #pre 3.1
     # right arm
-    ["ORG-shoulder.R", "ORG-spine.003",         "(CC_Base_|)R_Clavicle", "shoulder.R", "LR"],
-    ["ORG-upper_arm.R", "ORG-shoulder.R",       "(CC_Base_|)R_Upperarm", "upper_arm_fk.R", "LR"],
-    ["ORG-forearm.R", "ORG-upper_arm.R",        "(CC_Base_|)R_Forearm", "forearm_fk.R", "LR"],
-    ["ORG-hand.R", "ORG-forearm.R",             "(CC_Base_|)R_Hand", "hand_fk.R", "LR"],
+    ["ORG-shoulder.R", "ORG-spine.003",         "(CC_Base_|)R_Clavicle$", "shoulder.R", "LR"],
+    ["ORG-upper_arm.R", "ORG-shoulder.R",       "(CC_Base_|)R_Upperarm$", "upper_arm_fk.R", "LR"],
+    ["ORG-forearm.R", "ORG-upper_arm.R",        "(CC_Base_|)R_Forearm$", "forearm_fk.R", "LR"],
+    ["ORG-hand.R", "ORG-forearm.R",             "(CC_Base_|)R_Hand$", "hand_fk.R", "LR"],
     # right fingers
     ["ORG-thumb.01.R", "ORG-hand.R",            "(CC_Base_|)R_Thumb1", "thumb.01.R", "LR"],
     ["ORG-f_index.01.R", "ORG-hand.R",          "(CC_Base_|)R_Index1", "f_index.01.R", "LR"],
@@ -1200,14 +1210,14 @@ RETARGET_G3 = [
     ["ORG-f_middle.03.R", "ORG-f_middle.02.R",  "(CC_Base_|)R_Mid3", "f_middle.03.R", "LR"],
     ["ORG-f_ring.03.R", "ORG-f_ring.02.R",      "(CC_Base_|)R_Ring3", "f_ring.03.R", "LR"],
     ["ORG-f_pinky.03.R", "ORG-f_pinky.02.R",    "(CC_Base_|)R_Pinky3", "f_pinky.03.R", "LR"],
-    #face
-    ["ORG-face", "ORG-spine.006",               "(CC_Base_|)FacialBone", "", "PLR"],
+    # face
+    ["ORG-face", "ORG-spine.006",               "(CC_Base_|)FacialBone$", "", "PLR"],
     # eyes
-    ["ORG-eye.L", "ORG-face",                   "(CC_Base_|)L_Eye", "eye.L", "PLRD", "ORG-eye.L"],
-    ["ORG-eye.R", "ORG-face",                   "(CC_Base_|)R_Eye", "eye.R", "PLRD", "ORG-eye.R"],
+    ["ORG-eye.L", "ORG-face",                   "(CC_Base_|)L_Eye$", "eye.L", "PLRD", "ORG-eye.L"],
+    ["ORG-eye.R", "ORG-face",                   "(CC_Base_|)R_Eye$", "eye.R", "PLRD", "ORG-eye.R"],
     ["ORG-eyes", "ORG-face",                    "", "eyes", "+LRA", "rigify:eyes", "eye.R", "eye.L"],
     # jaw
-    ["ORG-jaw_root", "ORG-face",                "(CC_Base_|)JawRoot", "jaw_master", "+PLR", "rigify:MCH-jaw_master"],
+    ["ORG-jaw_root", "ORG-face",                "(CC_Base_|)JawRoot$", "jaw_master", "+PLR", "rigify:MCH-jaw_master"],
     ["ORG-jaw", "ORG-jaw_root",                 "", "", ""],
     # teeth
     ["ORG-teeth.T", "ORG-face",                 "(CC_Base_|)Teeth01", "teeth.T", "PLR"],
@@ -1217,10 +1227,10 @@ RETARGET_G3 = [
     ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tongue.001", "PL"],
     ["ORG-tongue.002", "ORG-jaw",               "(CC_Base_|)Tongue01", "tongue.002", "PL"],
     # IK bones
-    ["ORG-hand.L", "ORG-forearm.L",             "(CC_Base_|)L_Hand", "hand_ik.L", "NLR"],
-    ["ORG-hand.R", "ORG-forearm.R",             "(CC_Base_|)R_Hand", "hand_ik.R", "NLR"],
-    ["ORG-foot.L", "ORG-shin.L",                "(CC_Base_|)L_Foot", "foot_ik.L", "NLR"],
-    ["ORG-foot.R", "ORG-shin.R",                "(CC_Base_|)R_Foot", "foot_ik.R", "NLR"],
+    ["ORG-hand.L", "ORG-forearm.L",             "(CC_Base_|)L_Hand$", "hand_ik.L", "NLR"],
+    ["ORG-hand.R", "ORG-forearm.R",             "(CC_Base_|)R_Hand$", "hand_ik.R", "NLR"],
+    ["ORG-foot.L", "ORG-shin.L",                "(CC_Base_|)L_Foot$", "foot_ik.L", "NLR"],
+    ["ORG-foot.R", "ORG-shin.R",                "(CC_Base_|)R_Foot$", "foot_ik.R", "NLR"],
     ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase$", "toe_ik.L", "NLR"],
     ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe_ik.R", "NLR"],
 ]
@@ -1249,21 +1259,22 @@ RETARGET_GAME_BASE = [
     #
     # [origin_bone, orign_bone_parent,          source_bone(regex match), rigify_target_bone, flags, *params]
     #
+    ["root", "",                                "(CC_Base_|RL_|)BoneRoot$", "root", "PLR"],
     # hips
-    ["ORG-hip", "",                             "pelvis", "", "+PLR", "rigify:ORG-spine"],
-    ["ORG-spine", "ORG-hip",                    "pelvis", "torso", "NPLR"],
-    ["ORG-spine", "ORG-hip",                    "pelvis", "spine_fk", "NPLR"],
-    ["ORG-pelvis", "ORG-hip",                   "pelvis", "hips", "NPLR"],
+    ["ORG-hip", "root",                         "pelvis$", "", "+PLR", "rigify:ORG-spine"],
+    ["ORG-spine", "ORG-hip",                    "pelvis$", "torso", "NPLR"],
+    ["ORG-spine", "ORG-hip",                    "pelvis$", "spine_fk", "NPLR"],
+    ["ORG-pelvis", "ORG-hip",                   "pelvis$", "hips", "NPLR"],
     # spine
     ["ORG-spine.001", "ORG-spine",              "spine_01", "spine_fk.001", "LR"],
     ["ORG-spine.002", "ORG-spine.001",          "spine_02", "spine_fk.002", "LR"],
     ["ORG-spine.002", "ORG-spine.001",          "spine_02", "chest", "NLR"],
     ["ORG-spine.003", "ORG-spine.002",          "spine_03", "spine_fk.003", "LR"],
     ["ORG-spine.004", "ORG-spine.003",          "neck_01", "neck", "LR"],
-    ["ORG-spine.006", "ORG-spine.004",          "head", "head", "LR"],
+    ["ORG-spine.006", "ORG-spine.004",          "head$", "head", "LR"],
     # torso
-    ["ORG-breast.L", "ORG-spine.003",           "(CC_Base_|)L_RibsTwist", "breast.L", "LR"],
-    ["ORG-breast.R", "ORG-spine.003",           "(CC_Base_|)R_RibsTwist", "breast.R", "LR"],
+    ["ORG-breast.L", "ORG-spine.003",           "(CC_Base_|)L_Breast$", "breast.L", "LR"],
+    ["ORG-breast.R", "ORG-spine.003",           "(CC_Base_|)R_Breast$", "breast.R", "LR"],
     # left leg
     ["ORG-thigh.L", "ORG-pelvis",               "thigh_l", "thigh_fk.L", "LR"],
     ["ORG-shin.L", "ORG-thigh.L",               "calf_l", "shin_fk.L", "LR"],
@@ -1319,13 +1330,13 @@ RETARGET_GAME_BASE = [
     ["ORG-f_ring.03.R", "ORG-f_ring.02.R",      "ring_03_r", "f_ring.03.R", "LR"],
     ["ORG-f_pinky.03.R", "ORG-f_pinky.02.R",    "pinky_03_r", "f_pinky.03.R", "LR"],
     #face
-    ["ORG-face", "ORG-spine.006",               "(CC_Base_|)FacialBone", "", "PLR"],
+    ["ORG-face", "ORG-spine.006",               "(CC_Base_|)FacialBone$", "", "PLR"],
     # eyes
-    ["ORG-eye.L", "ORG-face",                   "(CC_Base_|)L_Eye", "eye.L", "PLRD", "ORG-eye.L"],
-    ["ORG-eye.R", "ORG-face",                   "(CC_Base_|)R_Eye", "eye.R", "PLRD", "ORG-eye.R"],
+    ["ORG-eye.L", "ORG-face",                   "(CC_Base_|)L_Eye$", "eye.L", "PLRD", "ORG-eye.L"],
+    ["ORG-eye.R", "ORG-face",                   "(CC_Base_|)R_Eye$", "eye.R", "PLRD", "ORG-eye.R"],
     ["ORG-eyes", "ORG-face",                    "", "eyes", "+LRA", "rigify:eyes", "eye.R", "eye.L"],
     # jaw
-    ["ORG-jaw_root", "ORG-face",                "(CC_Base_|)JawRoot", "jaw_master", "+PLR", "rigify:MCH-jaw_master"],
+    ["ORG-jaw_root", "ORG-face",                "(CC_Base_|)JawRoot$", "jaw_master", "+PLR", "rigify:MCH-jaw_master"],
     ["ORG-jaw", "ORG-jaw_root",                 "", "", ""],
     # teeth
     ["ORG-teeth.T", "ORG-face",                 "(CC_Base_|)Teeth01", "teeth.T", "PLR"],
