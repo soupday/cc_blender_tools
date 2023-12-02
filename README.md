@@ -35,6 +35,12 @@ Links
 
 ## Changelog
 
+### 2.0.0
+- Blender 4.0 support.
+- WIP Experimental Data Link added:
+    - Currently in alpha stages, more a proof of concept at the moment.
+- Bake add-on updated and merged into this project.
+
 ### 1.6.1
 - Object Management:
     - Generic material conversion better detects AO maps in Blender 3+
