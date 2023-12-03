@@ -677,7 +677,7 @@ def store_bone_roll(meta_rig, roll_store):
 
     if edit_rig(meta_rig):
         for bone in meta_rig.data.edit_bones:
-            roll_store[bone.name] = [bone.roll, bone.z_axis]
+            roll_store[bone.name] = [bone.roll, meta_rig.matrix_world @ bone.z_axis]
 
 
 def restore_bone_roll(meta_rig, roll_store):
@@ -702,6 +702,7 @@ def restore_bone_roll(meta_rig, roll_store):
         if world_x.dot(y_axis) < 0.707:
             steep_a_pose = True
 
+        bone: bpy.types.EditBone
         for bone in meta_rig.data.edit_bones:
             if bone.name in roll_store:
                 bone_roll = roll_store[bone.name][0]

@@ -35,7 +35,7 @@ def cmp_rl_bone_names(name, bone_name):
     return name == bone_name
 
 
-def get_rl_edit_bone(rig, name):
+def get_rl_edit_bone(rig, name) -> bpy.types.EditBone:
     if name:
         if name in rig.data.edit_bones:
             return rig.data.edit_bones[name]
@@ -67,7 +67,7 @@ def get_rl_bone(rig, name):
     return None
 
 
-def get_rl_pose_bone(rig, name):
+def get_rl_pose_bone(rig, name) -> bpy.types.PoseBone:
     if name:
         if name in rig.pose.bones:
             return rig.pose.bones[name]
@@ -83,7 +83,7 @@ def get_rl_pose_bone(rig, name):
     return None
 
 
-def get_edit_bone(rig, name):
+def get_edit_bone(rig, name) -> bpy.types.EditBone:
     if name:
         if type(name) is list:
             for n in name:
@@ -95,7 +95,7 @@ def get_edit_bone(rig, name):
     return None
 
 
-def get_bone(rig, name):
+def get_bone(rig, name) -> bpy.types.Bone:
     if name:
         if type(name) is list:
             for n in name:
@@ -107,7 +107,7 @@ def get_bone(rig, name):
     return None
 
 
-def get_pose_bone(rig, name):
+def get_pose_bone(rig, name) -> bpy.types.PoseBone:
     if name:
         if type(name) is list:
             for n in name:
@@ -119,7 +119,7 @@ def get_pose_bone(rig, name):
     return None
 
 
-def find_target_pose_bone(rig, rl_bone_name, bone_mapping = None):
+def find_target_pose_bone(rig, rl_bone_name, bone_mapping = None) -> bpy.types.PoseBone:
     target_bone_name = find_target_bone_name(rig, rl_bone_name, bone_mapping)
     if target_bone_name in rig.pose.bones:
         return rig.pose.bones[target_bone_name]

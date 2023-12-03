@@ -665,6 +665,15 @@ ROLL_CORRECTION = [
 
     ["eye.L", "Z", "Z"],
     ["eye.R", "Z", "Z"],
+
+    ["jaw", "-Z", "-Z"],
+    ["jaw.L", "Y", "Y"],
+    ["jaw.R", "Y", "Y"],
+    ["teeth.T", "Z", "Z"],
+    ["teeth.B", "Z", "Z"],
+    ["tongue", "Z", "Z"],
+    ["tongue.001", "Z", "Z"],
+    ["tongue.002", "Z", "Z"],
 ]
 
 
