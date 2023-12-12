@@ -24,7 +24,8 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import bake, shaders, physics, rigidbody, rigging, wrinkle, bones, modifiers, imageutils, meshutils, nodeutils, jsonutils, utils, params, vars
+from . import (vrm, bake, shaders, physics, rigidbody, rigging, wrinkle, bones, modifiers,
+               imageutils, meshutils, nodeutils, jsonutils, utils, params, vars)
 
 UNPACK_INDEX = 1001
 
@@ -1665,6 +1666,15 @@ def export_standard(self, chr_cache, file_path, include_selected):
 
         utils.log_info("Writing Json Data.")
 
+        # write HIK profile for VRM
+        print(f"Import Type: {chr_cache.import_type}")
+        if chr_cache and utils.is_file_ext(chr_cache.import_type, "VRM"):
+            hik_path = os.path.join(dir, name + ".3dxProfile")
+            if vrm.generate_hik_profile(arm, name, hik_path):
+                if json_data:
+                    json_data[name]["HIK"] = {}
+                    json_data[name]["HIK"]["Profile_Path"] = os.path.relpath(hik_path, dir)
+
         if json_data:
             update_facial_profile_json(chr_cache, objects, json_data, name)
             new_json_path = os.path.join(dir, name + ".json")
@@ -1764,6 +1774,7 @@ def export_non_standard(self, file_path, include_selected):
     utils.log_recess()
     utils.log_info("")
 
+    # write json data
     if json_data:
         utils.log_info("Writing Json Data.")
         update_facial_profile_json(None, objects, json_data, name)
@@ -2220,7 +2231,7 @@ class CC3Export(bpy.types.Operator):
 
         elif self.param == "EXPORT_NON_STANDARD":
 
-            export_non_standard(self, self.filepath, self.include_selected)
+            export_non_standard(self, chr_cache, self.filepath, self.include_selected)
             self.report({'INFO'}, "Export Non-standard Done!")
             self.error_report()
 

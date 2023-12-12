@@ -18,7 +18,7 @@ import os
 import shutil
 import bpy
 
-from . import (characters, rigging, bones, bake, imageutils, jsonutils, materials,
+from . import (characters, vrm, rigging, bones, bake, imageutils, jsonutils, materials,
                modifiers, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
                basic, properties, utils, vars)
@@ -789,23 +789,20 @@ class CC3Import(bpy.types.Operator):
 
             # invoke the GLTF importer
             utils.tag_images()
-            bpy.ops.import_scene.gltf(filepath = self.filepath)
+            bpy.ops.import_scene.gltf(filepath = self.filepath, bone_heuristic="TEMPERANCE")
             imported = bpy.context.selected_objects.copy()
             self.imported_images = utils.untagged_images()
 
             # find the armature and rotate it 180 degrees in Z
             arm : bpy.types.Object = utils.get_armature_from_objects(imported)
-            if arm:
-                arm.rotation_mode = "XYZ"
-                arm.rotation_euler = (0, 0, 3.1415926535897)
-                utils.set_only_active_object(arm)
-                bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
-                utils.try_select_objects(imported)
+            vrm.fix_armature(arm)
+            utils.try_select_objects(imported)
 
             os.remove(glb_path)
 
             if prefs.import_auto_convert:
                 self.imported_character = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_character.import_type = "vrm"
 
             utils.log_timer("Done .vrm Import.")
 

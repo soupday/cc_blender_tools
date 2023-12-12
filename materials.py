@@ -505,6 +505,14 @@ def detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache):
 
                     nodeutils.store_texture_mapping(node, mat_cache, "BUMP")
 
+                else:
+                    #if color_node.type == "EMISSION":
+                    if node.label == "BASE COLOR":
+                        nodeutils.store_texture_mapping(node, mat_cache, "DIFFUSE")
+                        if nodeutils.get_node_connected_to_output(node, "Alpha"):
+                            nodeutils.store_texture_mapping(node, mat_cache, "ALPHA")
+                            mat_cache.alpha_is_diffuse = True
+
             elif alpha_node and alpha_socket:
 
                 if alpha_node.type == "BSDF_PRINCIPLED":

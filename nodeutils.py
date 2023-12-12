@@ -786,6 +786,13 @@ def find_node_by_type(nodes, type):
     return None
 
 
+def find_node_by_image(nodes, image):
+    for n in nodes:
+        if n.type == "TEX_IMAGE" and n.image == image:
+            return n
+    return None
+
+
 def find_node_by_type_and_keywords(nodes, type, *keywords):
     for node in nodes:
         if node.type == type:
