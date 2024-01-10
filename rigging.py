@@ -1751,8 +1751,10 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, b
         # in some cases new ORG bones are created to act as parents or animation targets from the source.
         # this way if the Rigify rig is not complex enough, the retarget rig can be made to better match the source armature.
         if edit_rig(rigify_rig):
+
             if to_original_rig:
                 original_rig_data = get_original_rig_data(rigify_rig, source_rig)
+
             for retarget_def in retarget_data.retarget:
                 org_bone_name = retarget_def[0]
                 if not org_bone_name or org_bone_name in ORG_BONES:
@@ -1805,7 +1807,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, b
                 if scale <= 0.00001:
                     scale = 1
 
-                # parent retarget correction, add corrective parent bone and insert into parent chain
+                # parent retarget correction, add corrective parent pivot bone and insert into parent chain
                 if "P" in flags or "T" in flags:
                     pivot_bone_name = org_bone_name + "_pivot"
                     utils.log_info(f"Adding parent correction pivot: {pivot_bone_name} -> {org_bone_name}")
@@ -1958,12 +1960,14 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, b
                                 source_head = orig_head
                                 source_tail = orig_head + orig_dir
                                 source_dir = orig_dir
+                                head_position = org_bone_def[1]
                             else:
                                 source_head = source_rig.matrix_world @ source_bone.head
                                 source_tail = source_rig.matrix_world @ source_bone.tail
                                 source_dir = source_tail - source_head
-
-                            head_position = org_bone_def[1]
+                                head_position = org_bone_def[1]
+                                if "t" in flags:
+                                    head_position = org_bone_def[2]
 
                             if "V" in flags: # reverse the source_dir
                                 source_dir = -source_dir
@@ -1991,7 +1995,9 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, b
                                     source_dir = rot @ source_dir
 
                             # update the pivot bone def with the new orientation
+                            pivot_org_bone_def[1] = head_position
                             pivot_org_bone_def[2] = head_position + source_dir
+
 
         # ORG_BONES = { org_bone_name: [0:parent_name, 1:world_head_pos, 2:world_tail_pos, 3:parent_pos, 4:is_connected,
         #                               5:inherit_location, 6:inherit_rotation, 7:inherit_scale, 8:target_size,

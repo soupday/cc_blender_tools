@@ -170,8 +170,8 @@ G3_BONE_MAPPING = [
     ["f_ring.03.R", "CC_Base_R_Ring3", "CC_Base_R_Ring3", None, None, ["CC_Base_R_Pinky3", "CC_Base_R_Index3", "CC_Base_R_Mid3"]],
     ["f_pinky.03.R", "CC_Base_R_Pinky3", "CC_Base_R_Pinky3", None, None, ["CC_Base_R_Index3", "CC_Base_R_Mid3", "CC_Base_R_Ring3"]],
 
-    ["tongue", "CC_Base_Tongue03", "CC_Base_Tongue02"],
-    ["tongue.001", "CC_Base_Tongue02", "CC_Base_Tongue01"],
+    ["tongue", "CC_Base_Tongue03", "-CC_Base_Tongue02"],
+    ["tongue.001", "CC_Base_Tongue02", "-CC_Base_Tongue01"],
     ["tongue.002", "CC_Base_Tongue01", "CC_Base_JawRoot", 0, 0.65],
 
     ["teeth.T", "CC_Base_Teeth01", "CC_Base_Teeth01"],
@@ -693,9 +693,9 @@ RELATIVE_MAPPINGS = [
     ["chin",            "HEAD", "eye.L", "eye.R", "spine.006"],
     ["chin.001",        "BOTH", "eye.L", "eye.R", "spine.006"],
     #
-    ["tongue",          "HEAD", "eye.L", "eye.R", "spine.006"],
-    ["tongue.001",      "HEAD", "eye.L", "eye.R", "spine.006"],
-    ["tongue.002",      "BOTH", "eye.L", "eye.R", "spine.006"],
+    #["tongue",          "HEAD", "eye.L", "eye.R", "spine.006"],
+    #["tongue.001",      "HEAD", "eye.L", "eye.R", "spine.006"],
+    #["tongue.002",      "BOTH", "eye.L", "eye.R", "spine.006"],
     #
     ["temple.R",        "HEAD", "eye.L", "eye.R", "spine.006"],
     ["jaw.R",           "HEAD", "eye.L", "eye.R", "spine.006"],
@@ -1146,6 +1146,7 @@ RETARGET_G3 = [
     #                        because of strange bone orientations (Mixamo!) in the source rig.
     #       "D", root_bone - maintain distance from root_bone
     #       "A", bone_1, bone_2 - copy average location and rotation from bone_1 and bone_2
+    #       "t", pivot_on_tail  - when generating a parent retarget correction, pivot from the tail not the head
     #
     # [origin_bone, orign_bone_parent,          source_bone(regex match), rigify_target_bone, flags, *params]
     ["root", "",                                "(CC_Base_|RL_|)BoneRoot$", "root", "LR"],
@@ -1229,8 +1230,8 @@ RETARGET_G3 = [
     ["ORG-jaw_root", "ORG-face",                "(CC_Base_|)JawRoot$", "jaw_master", "+PLR", "rigify:MCH-jaw_master"],
     ["ORG-jaw", "ORG-jaw_root",                 "", "", ""],
     # teeth
-    ["ORG-teeth.T", "ORG-face",                 "(CC_Base_|)Teeth01", "teeth.T", "PLR"],
-    ["ORG-teeth.B", "ORG-jaw",                  "(CC_Base_|)Teeth02", "teeth.B", "PLR"],
+    ["ORG-teeth.T", "ORG-face",                 "(CC_Base_|)Teeth01", "teeth.T", "tPLR"],
+    ["ORG-teeth.B", "ORG-jaw",                  "(CC_Base_|)Teeth02", "teeth.B", "tPLR"],
     # tongue (full face)
     ["ORG-tongue", "ORG-jaw",                   "(CC_Base_|)Tongue03", "tongue_master", "PLR"],
     ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tongue.001", "PL"],
