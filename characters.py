@@ -789,6 +789,17 @@ def convert_to_rl_pbr(mat, mat_cache):
         ["Occlusion:B", "", "GLTF", "AO Map", "Occlusion:Factor", "default_ao_strength"],
     ]
 
+    EMBEDDED = [
+        ["DIFFUSE", "Diffuse Map"],
+        ["SPECULAR", "Specular Map"],
+        ["METALLIC", "Metallic Map"],
+        ["ROUGHNESS", "Roughness Map"],
+        ["EMISSION", "Emission Map"],
+        ["ALPHA", "Alpha Map"],
+        ["BUMP", "Bump Map"],
+        ["NORMAL", "Normal Map"],
+    ]
+
     if bsdf_node:
 
         try:
@@ -887,6 +898,19 @@ def convert_to_rl_pbr(mat, mat_cache):
                         socket_mapping[group_socket] = [linked_node, linked_socket, strength, strength_prop]
                 else:
                     socket_mapping[group_socket] = [linked_node, linked_socket, strength, strength_prop]
+
+    for tex_type, group_socket in EMBEDDED:
+        if group_socket not in socket_mapping:
+            cache_mapping = mat_cache.get_texture_mapping(tex_type)
+            if cache_mapping:
+                linked_node = nodeutils.find_node_by_image(nodes, cache_mapping.image)
+                socket = "Color"
+                if tex_type == "ALPHA" and mat_cache.alpha_is_diffuse:
+                    socket = "Alpha"
+                socket_mapping[group_socket] = [linked_node, socket, 1.0, ""]
+
+
+    print(socket_mapping)
 
     # connect the shader group node sockets
     for socket_name in socket_mapping:

@@ -27,6 +27,7 @@ if "bpy" in locals():
     importlib.reload(channel_mixer)
     importlib.reload(materials)
     importlib.reload(characters)
+    importlib.reload(vrm)
     importlib.reload(meshutils)
     importlib.reload(modifiers)
     importlib.reload(shaders)
@@ -65,6 +66,7 @@ from . import imageutils
 from . import channel_mixer
 from . import materials
 from . import characters
+from . import vrm
 from . import meshutils
 from . import modifiers
 from . import shaders
@@ -94,7 +96,7 @@ from . import link
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 0, 0),
+    "version": (2, 0, 1),
     "blender": (2, 93, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
