@@ -35,6 +35,14 @@ Links
 
 ## Changelog
 
+### 2.0.1
+- VRM import fixes.
+    - VRM to CC4 export generates HIK profile for auto characterization.
+- Rigify fixes:
+    - Face bone roll axis corrections.
+    - Tongue bone meta-rig positioning corrections.
+    - Teeth bone retargeting corrections.
+
 ### 2.0.0
 - Blender 4.0 support.
 - WIP Experimental Data Link added:
