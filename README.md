@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 2.0.2
+- Correction to malformed json texture paths when exporting character from CC4 directly to the root of a drive.
+- Disabled image search on FBX importer, should import a little faster now.
+
 ### 2.0.1
 - VRM import fixes.
     - VRM to CC4 export generates HIK profile for auto characterization.

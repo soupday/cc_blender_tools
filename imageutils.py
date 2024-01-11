@@ -212,7 +212,8 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
     # try to find the image in the json data first:
     if tex_json:
 
-        rel_path = tex_json["Texture Path"]
+        rel_path: str = utils.fix_texture_rel_path(tex_json["Texture Path"])
+
         if rel_path:
             image_file = os.path.join(chr_cache.import_dir, rel_path)
 
@@ -231,6 +232,9 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
                     if texture_type == tex_mapping.texture_type:
                         if tex_mapping.image:
                             return tex_mapping.image
+
+            utils.log_error(f"{texture_type} - json image path not found: {rel_path}")
+
         return None
 
     # if there is a mat_json but no texture json, then there is no texture to use

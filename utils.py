@@ -1655,3 +1655,15 @@ def generate_random_id(length):
     for i in range(0, length):
         id += random.choice(CHARS)
     return id
+
+
+def fix_texture_rel_path(rel_path: str):
+    """Fixes json texture relative path export bug in CC4 when exporting character directly
+       to the root folder of a drive"""
+
+    if rel_path.startswith(".textures"):
+        rel_path = rel_path[1:]
+    elif rel_path.startswith("./"):
+        rel_path = rel_path[2:]
+    return rel_path
+
