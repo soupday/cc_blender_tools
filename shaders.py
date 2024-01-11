@@ -603,6 +603,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                     image_node = nodeutils.get_node_by_id(nodes, image_id)
 
                     # for user added materials, don't mess with the users textures...
+                    image = None
                     if image_node and image_node.image and mat_cache.user_added:
                         image = image_node.image
                     elif tex_type == "HAIRVERTEXCOLOR" or tex_type == "WEIGHTMAP" or tex_type == "COLORID" or tex_type == "RGBMASK":

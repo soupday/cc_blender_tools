@@ -711,11 +711,11 @@ class CC3Import(bpy.types.Operator):
             # But the mesh is really all we need, so just keep going...
             if colorspace.is_aces():
                 try:
-                    bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim)
+                    bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim, use_image_search=False)
                 except:
                     utils.log_warn("FBX Import Error: This may be due to color space differences. Continuing...")
             else:
-                bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim)
+                bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim, use_image_search=False)
 
             imported = utils.untagged_objects()
             actions = utils.untagged_actions()
@@ -1220,7 +1220,7 @@ class CC3ImportAnimations(bpy.types.Operator):
         utils.tag_images()
         utils.tag_actions()
         utils.tag_materials()
-        bpy.ops.import_scene.fbx(filepath=path, directory=dir, use_anim=True)
+        bpy.ops.import_scene.fbx(filepath=path, directory=dir, use_anim=True, use_image_search=False)
         objects = utils.untagged_objects()
         actions = utils.untagged_actions()
         images = utils.untagged_images()
