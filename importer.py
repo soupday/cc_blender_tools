@@ -606,6 +606,21 @@ def detect_character(file_path, objects, actions, json_data, report):
     return chr_cache
 
 
+def obj_import(file_path, split_objects=False, split_groups=False, vgroups=False):
+    split_mode="ON" if (split_objects or split_groups) else "OFF"
+    if utils.B330():
+        bpy.ops.wm.obj_import(filepath=file_path,
+                              use_split_objects=split_objects,
+                              use_split_groups=split_groups,
+                              import_vertex_groups=vgroups)
+    else:
+        bpy.ops.import_scene.obj(filepath=file_path,
+                                 split_mode=split_mode,
+                                 use_split_objects=split_objects,
+                                 use_split_groups=split_groups,
+                                 use_groups_as_vgroups=vgroups)
+
+
 # Import operator
 #
 
@@ -743,13 +758,9 @@ class CC3Import(bpy.types.Operator):
             utils.tag_objects()
             utils.tag_images()
             if self.is_rl_character and self.param == "IMPORT_MORPH":
-                bpy.ops.import_scene.obj(filepath = self.filepath, split_mode = "OFF",
-                        use_split_objects = False, use_split_groups = False,
-                        use_groups_as_vgroups = True)
+                obj_import(self.filepath, split_objects=False, split_groups=False, vgroups=True)
             else:
-                bpy.ops.import_scene.obj(filepath = self.filepath, split_mode = "ON",
-                        use_split_objects = True, use_split_groups = True,
-                        use_groups_as_vgroups = False)
+                obj_import(self.filepath, split_objects=True, split_groups=True, vgroups=False)
 
             imported = utils.untagged_objects()
             self.imported_images = utils.untagged_images()
@@ -902,7 +913,7 @@ class CC3Import(bpy.types.Operator):
             obj_key_path = os.path.join(dir, name + ".ObjKey")
             if os.path.exists(obj_key_path):
                 self.param = "IMPORT_MORPH"
-                utils.log_info("Importing as character morph with ObjKey.")
+                utils.log_info("Importing as character morph with ObjKey. (nude character with bind pose)")
                 self.is_rl_character = True
                 return
 

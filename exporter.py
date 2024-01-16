@@ -1595,6 +1595,30 @@ def export_arp(file_path, arm, objects):
         return False
 
 
+def obj_export(file_path, use_selection=False, use_animation=False, global_scale=100,
+                          use_vertex_colors=False, use_vertex_groups=False, apply_modifiers=True,
+                          keep_vertex_order=False, use_materials=False):
+    if utils.B330():
+        bpy.ops.wm.obj_export(filepath=file_path,
+                              global_scale=global_scale,
+                              export_selected_objects=use_selection,
+                              export_animation=use_animation,
+                              export_materials=use_materials,
+                              export_colors=use_vertex_colors,
+                              export_vertex_groups=use_vertex_groups,
+                              apply_modifiers=apply_modifiers)
+    else:
+        bpy.ops.export_scene.obj(filepath=file_path,
+                                 global_scale=global_scale,
+                                 use_selection=use_selection,
+                                 use_materials=use_materials,
+                                 use_animation=use_animation,
+                                 use_vertex_colors=use_vertex_colors,
+                                 use_vertex_groups=use_vertex_groups,
+                                 use_mesh_modifiers=apply_modifiers,
+                                 keep_vertex_order=keep_vertex_order)
+
+
 def export_standard(self, chr_cache, file_path, include_selected):
     """Exports standard character (not rigified) to CC3/4 with json data, texture paths are relative to source character, as an .fbx file.
     """
@@ -1695,13 +1719,13 @@ def export_standard(self, chr_cache, file_path, include_selected):
                 p.object.hide_set(False)
                 p.object.select_set(True)
 
-        bpy.ops.export_scene.obj(filepath=file_path,
-            use_selection = True,
-            global_scale = 100,
-            use_materials = False,
-            keep_vertex_order = True,
-            use_vertex_groups = True,
-            use_mesh_modifiers = True)
+        obj_export(file_path, use_selection=True,
+                              global_scale=100,
+                              use_materials=False,
+                              keep_vertex_order=True,
+                              use_vertex_colors=True,
+                              use_vertex_groups=True,
+                              apply_modifiers=True)
 
         export_copy_obj_key(chr_cache, dir, name)
 
@@ -2108,13 +2132,14 @@ def export_as_accessory(file_path, filename_ext):
                 bake_anim = False,
                 add_leaf_bones=False)
     elif utils.is_file_ext(ext, "OBJ"):
-        bpy.ops.export_scene.obj(filepath=file_path,
-                global_scale=100,
-                use_selection=True,
-                use_animation=False,
-                use_materials=True,
-                use_mesh_modifiers=True,
-                keep_vertex_order=True)
+        obj_export(file_path, use_selection=True,
+                              global_scale=100,
+                              use_animation=False,
+                              use_materials=True,
+                              keep_vertex_order=True,
+                              use_vertex_colors=True,
+                              use_vertex_groups=False,
+                              apply_modifiers=True)
 
     # restore selection
     bpy.ops.object.select_all(action='DESELECT')
@@ -2131,13 +2156,14 @@ def export_as_replace_mesh(file_path):
     old_selection = bpy.context.selected_objects
     old_active = bpy.context.active_object
 
-    bpy.ops.export_scene.obj(filepath=file_path,
-            global_scale=100,
-            use_selection=True,
-            use_animation=False,
-            use_materials=True,
-            use_mesh_modifiers=True,
-            keep_vertex_order=True)
+    obj_export(file_path, use_selection=True,
+                          global_scale=100,
+                          use_animation=False,
+                          use_materials=True,
+                          keep_vertex_order=True,
+                          use_vertex_colors=True,
+                          use_vertex_groups=False,
+                          apply_modifiers=True)
 
     # restore selection
     bpy.ops.object.select_all(action='DESELECT')
