@@ -1,9 +1,9 @@
 import bpy, bpy_extras
+import bpy_extras.view3d_utils as v3d
 from enum import IntEnum
 import os, socket, time, select, struct, json
 from mathutils import Vector, Quaternion, Matrix
 from . import rigging, bones, colorspace, utils, vars
-
 
 BLENDER_PORT = 9334
 UNITY_PORT = 9335
@@ -555,6 +555,9 @@ class LinkService():
         elif op_code == OpCodes.LIGHTS:
             self.receive_lights(data)
 
+        elif op_code == OpCodes.CAMERA:
+            self.receive_camera(data)
+
     def service_start(self, host, port):
         if not self.is_listening:
             self.start_timer()
@@ -1029,6 +1032,34 @@ class LinkService():
     def receive_lights(self, data):
         update_link_status(f"Light Data Receveived")
         self.decode_lights_data(data)
+
+    def get_region_3d(self):
+        for area in bpy.context.screen.areas:
+            if area.type == 'VIEW_3D':
+                return area.spaces.active, area.spaces.active.region_3d
+
+    def decode_camera_data(self, data):
+        camera_data = decode_to_json(data)
+        print(camera_data)
+        space, r3d = self.get_region_3d()
+        loc = utils.array_to_vector(camera_data["loc"]) / 100
+        rot = utils.array_to_quaternion(camera_data["rot"])
+        center = Vector((0,0,1.5))
+        to_center = center - loc
+        dir = Vector((0,0,-1))
+        dir.rotate(rot)
+        dist = to_center.dot(dir)
+        if dist <= 0:
+            dist = 1.0
+        r3d.view_location = loc + dir * dist
+        r3d.view_rotation = rot
+        r3d.view_distance = dist
+        space.lens = camera_data["focal_length"]
+
+
+    def receive_camera(self, data):
+        update_link_status(f"Camera Data Receveived")
+        self.decode_camera_data(data)
 
     def receive_character_template(self, data):
         self.decode_character_templates(data)
