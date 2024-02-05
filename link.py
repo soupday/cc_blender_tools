@@ -1,5 +1,6 @@
 import bpy, bpy_extras
 import bpy_extras.view3d_utils as v3d
+import atexit
 from enum import IntEnum
 import os, socket, time, select, struct, json
 from mathutils import Vector, Quaternion, Matrix
@@ -9,15 +10,17 @@ BLENDER_PORT = 9334
 UNITY_PORT = 9335
 RL_PORT = 9333
 HANDSHAKE_TIMEOUT_S = 60
-KEEPALIVE_TIMEOUT_S = 60
-PING_INTERVAL_S = 10
+KEEPALIVE_TIMEOUT_S = 300
+PING_INTERVAL_S = 120
 TIMER_INTERVAL = 1/30
 MAX_CHUNK_SIZE = 32768
 SERVER_ONLY = False
 CLIENT_ONLY = True
 CHARACTER_TEMPLATE: list = None
 MAX_RECEIVE = 24
-
+USE_PING = False
+USE_KEEPALIVE = False
+USE_BLOCKING = True
 
 class OpCodes(IntEnum):
     NONE = 0
@@ -137,15 +140,17 @@ def make_datalink_import_rig(chr_cache, character_template):
        This uses a pre-generated character template (list of bones in the character)
        sent from CC/iC to avoid encoding the bone names into the pose data stream."""
 
+    # get character armature
+    chr_rig: bpy.types.Object = chr_cache.get_armature()
+    chr_rig.hide_set(False)
+
     if utils.object_exists_is_armature(chr_cache.rig_datalink_rig):
+        chr_cache.rig_datalink_rig.hide_set(False)
         return chr_cache.rig_datalink_rig
 
     no_constraints = True if chr_cache.rigified else False
 
     rig_name = f"{chr_cache.character_name}_Link_Rig"
-
-    # get character armature and rigified bone mappings
-    chr_rig: bpy.types.Object = chr_cache.get_armature()
 
     # create pose armature
     datalink_rig = utils.get_armature(rig_name)
@@ -354,6 +359,15 @@ class LinkService():
     remote_version: str = None
     remote_path: str = None
 
+    def __init__(self):
+        atexit.register(self.service_stop)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        self.service_stop()
+
     def start_server(self):
         if not self.server_sock:
             try:
@@ -361,6 +375,7 @@ class LinkService():
                 self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.server_sock.bind(('', BLENDER_PORT))
                 self.server_sock.listen(5)
+                self.server_sock.setblocking(USE_BLOCKING)
                 self.server_sockets = [self.server_sock]
                 self.is_listening = True
                 utils.log_info(f"Listening on TCP *:{BLENDER_PORT}")
@@ -412,6 +427,7 @@ class LinkService():
                 self.client_port = port
                 self.keepalive_timer = KEEPALIVE_TIMEOUT_S
                 self.ping_timer = PING_INTERVAL_S
+                sock.setblocking(USE_BLOCKING)
                 utils.log_info(f"connecting with data link server on {host}:{port}")
                 self.send_hello()
                 self.connecting.emit()
@@ -598,10 +614,10 @@ class LinkService():
             self.ping_timer -= delta_time
             self.keepalive_timer -= delta_time
 
-            if self.ping_timer <= 0:
+            if USE_PING and self.ping_timer <= 0:
                 self.send(OpCodes.PING)
 
-            if self.keepalive_timer <= 0:
+            if USE_KEEPALIVE and self.keepalive_timer <= 0:
                 utils.log_info("lost connection!")
                 self.service_stop()
                 return None
@@ -609,7 +625,7 @@ class LinkService():
         elif self.is_listening:
             self.keepalive_timer -= delta_time
 
-            if self.keepalive_timer <= 0:
+            if USE_KEEPALIVE and self.keepalive_timer <= 0:
                 utils.log_info("no connection within time limit!")
                 self.service_stop()
                 return None
@@ -793,18 +809,19 @@ class LinkService():
 
     def send_pose(self):
         global LINK_SERVICE
-        mode_selection = utils.store_mode_selection_state()
-        update_link_status(f"Sending Current Pose Set")
-        self.send_notify(f"Pose Set")
         # get actors
         actors = self.get_selected_actors()
-        # send template data first
-        template_data = self.encode_character_templates(actors)
-        LINK_SERVICE.send(OpCodes.TEMPLATE, template_data)
-        # send pose data
-        pose_data = self.encode_pose_data(actors)
-        LINK_SERVICE.send(OpCodes.POSE, pose_data)
-        utils.restore_mode_selection_state(mode_selection)
+        if actors:
+            mode_selection = utils.store_mode_selection_state()
+            update_link_status(f"Sending Current Pose Set")
+            self.send_notify(f"Pose Set")
+            # send template data first
+            template_data = self.encode_character_templates(actors)
+            LINK_SERVICE.send(OpCodes.TEMPLATE, template_data)
+            # send pose data
+            pose_data = self.encode_pose_data(actors)
+            LINK_SERVICE.send(OpCodes.POSE, pose_data)
+            utils.restore_mode_selection_state(mode_selection)
 
     def send_animation(self):
         return
@@ -813,22 +830,23 @@ class LinkService():
         global LINK_SERVICE
         global LINK_DATA
 
-        update_link_status(f"Sending Animation Sequence")
-        self.send_notify(f"Animation Sequence")
         # get actors
         actors = self.get_selected_actors()
-        # reset animation to start
-        bpy.context.scene.frame_current = bpy.context.scene.frame_start
-        LINK_DATA.sequence_current_frame = bpy.context.scene.frame_current
-        # send animation meta data
-        sequence_data = self.encode_sequence_data(actors)
-        LINK_SERVICE.send(OpCodes.SEQUENCE, sequence_data)
-        # send template data first
-        template_data = self.encode_character_templates(actors)
-        LINK_SERVICE.send(OpCodes.TEMPLATE, template_data)
-        # start the sending sequence
-        LINK_DATA.sequence_actors = actors
-        LINK_SERVICE.start_sequence(self.send_sequence_frame)
+        if actors:
+            update_link_status(f"Sending Animation Sequence")
+            self.send_notify(f"Animation Sequence")
+            # reset animation to start
+            bpy.context.scene.frame_current = bpy.context.scene.frame_start
+            LINK_DATA.sequence_current_frame = bpy.context.scene.frame_current
+            # send animation meta data
+            sequence_data = self.encode_sequence_data(actors)
+            LINK_SERVICE.send(OpCodes.SEQUENCE, sequence_data)
+            # send template data first
+            template_data = self.encode_character_templates(actors)
+            LINK_SERVICE.send(OpCodes.TEMPLATE, template_data)
+            # start the sending sequence
+            LINK_DATA.sequence_actors = actors
+            LINK_SERVICE.start_sequence(self.send_sequence_frame)
 
     def send_sequence_frame(self):
         global LINK_SERVICE
@@ -880,6 +898,7 @@ class LinkService():
             actor = LINK_DATA.get_actor(link_id)
             if not actor:
                 utils.log_error(f"Unable to find actor: {name} ({link_id})")
+                return actors
             if actor:
                 actors.append(actor)
                 datalink_rig = make_datalink_import_rig(actor.chr_cache, actor.template)
