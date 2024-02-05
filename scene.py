@@ -360,7 +360,7 @@ def setup_scene_default(scene_type):
                     3 * strength, 0.5, 1.448, 9.14, 1.0)
             back.data.color = utils.linear_to_srgb([213.0/155.0, 150.0/255.0, 120.0/255.0, 1.0])[0:3]
 
-            set_contact_shadow(key1, 0.1, 0.01)
+            set_contact_shadow(key1, 0.05, 0.0025)
 
             bpy.context.space_data.shading.type = 'SOLID'
             bpy.context.space_data.shading.light = 'MATCAP'
@@ -413,8 +413,8 @@ def setup_scene_default(scene_type):
                     (-0.03316125646233559, 1.3578661680221558, 1.1833332777023315),
                     100, 1, 1.0996, 9.1, 0.5)
 
-            set_contact_shadow(key, 0.1, 0.01)
-            set_contact_shadow(right, 0.1, 0.01)
+            set_contact_shadow(key, 0.05, 0.0025)
+            set_contact_shadow(right, 0.05, 0.0025)
 
             bpy.context.space_data.shading.type = 'MATERIAL'
             bpy.context.space_data.shading.use_scene_lights = True
@@ -463,8 +463,8 @@ def setup_scene_default(scene_type):
                     (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
                     20, 1, 9)
 
-            set_contact_shadow(key, 0.1, 0.01)
-            set_contact_shadow(fill, 0.1, 0.01)
+            set_contact_shadow(key, 0.05, 0.0025)
+            set_contact_shadow(fill, 0.05, 0.0025)
 
             bpy.context.space_data.shading.type = 'MATERIAL'
             bpy.context.space_data.shading.use_scene_lights = True
@@ -514,8 +514,8 @@ def setup_scene_default(scene_type):
                     (1.278488278388977, 0.6497069001197815, -1.6310228109359741),
                     60, 1, 9)
 
-            set_contact_shadow(key1, 0.1, 0.01)
-            set_contact_shadow(back2, 0.1, 0.01)
+            set_contact_shadow(key1, 0.05, 0.0025)
+            set_contact_shadow(back2, 0.05, 0.0025)
             key1.data.color = (0.8999999761581421, 1.0, 0.9494728446006775)
             back1.data.color = (0.6919613480567932, 0.9645320177078247, 1.0)
             back2.data.color = (0.6919613480567932, 0.9645320177078247, 1.0)
@@ -556,35 +556,35 @@ def setup_scene_default(scene_type):
                                   (-0.005357889924198389, 2.0200612545013428, 1.695375919342041),
                                   (-0.03276786953210831, 1.3572242259979248, 1.548905849456787),
                                   250.0, 1.0, 1.4486232995986938, 9.149999618530273, 0.5)
-            set_contact_shadow(back, 0.05000000074505806, 0.005000000353902578)
+            set_contact_shadow(back, 0.1, 0.005)
             back.data.color = (0.6653872728347778, 0.3049870431423187, 0.18782085180282593)
 
             fill = add_spot_light('Fill', container,
                                   (1.0739537477493286, 0.6725472807884216, 0.593166172504425),
                                   (2.765416145324707, -0.7434117197990417, 0.9113498330116272),
                                   50.29999923706055, 1.0, 2.460914134979248, 40.0, 0.20000000298023224)
-            set_contact_shadow(fill, 0.05000000074505806, 0.004999999888241291)
+            #set_contact_shadow(fill, 0.05, 0.0025)
             fill.data.color = (0.2195257842540741, 0.2961380183696747, 0.35153260827064514)
 
-            key = add_spot_light('Key', container,
-                                 (-3.1819117069244385, 2.877981185913086, 3.6740193367004395),
-                                 (-0.038421738892793655, 1.0002018213272095, 2.6068308353424072),
-                                 500.0, 1.0, 0.7504915595054626, 9.640000343322754, 0.5)
-            set_contact_shadow(key, 0.05000000074505806, 0.004999999888241291)
-            key.data.color = (1.0, 1.0, 1.0)
+            #key = add_spot_light('Key', container,
+            #                     (-3.1819117069244385, 2.877981185913086, 3.6740193367004395),
+            #                     (-0.038421738892793655, 1.0002018213272095, 2.6068308353424072),
+            #                     500.0, 1.0, 0.7504915595054626, 9.640000343322754, 0.5)
+            #set_contact_shadow(key, 0.05, 0.0025)
+            #key.data.color = (1.0, 1.0, 1.0)
 
             key_0 = add_spot_light('Key_0', container,
                                    (-0.8539601564407349, -1.410485863685608, 2.5526487827301025),
                                    (0.00185012212023139, -1.2320791482925415, 0.9582659006118774),
                                    350.0, 1.0, 1.4486232995986938, 9.149999618530273, 0.4000000059604645)
-            set_contact_shadow(key_0, 0.05000000074505806, 0.004999999888241291)
+            set_contact_shadow(key_0, 0.05, 0.0025)
             key_0.data.color = (0.6321180462837219, 0.6601223349571228, 0.6653874516487122)
 
             key_front = add_spot_light('Key_Front', container,
                                        (1.2850462198257446, 4.022171497344971, 3.350560188293457),
                                        (-0.34832963347435, 1.1461026668548584, 0.8322783708572388),
                                        400.0, 1.0, 0.7504915595054626, 9.640000343322754, 0.6200000047683716)
-            set_contact_shadow(key_front, 0.05000000074505806, 0.004999999888241291)
+            #set_contact_shadow(key_front, 0.05, 0.0025)
             key_front.data.color = (1.0, 1.0, 1.0)
 
             bpy.context.space_data.shading.type = 'MATERIAL'
@@ -619,53 +619,53 @@ def setup_scene_default(scene_type):
             restore_hidden_camera()
             container = add_light_container()
 
-            dir__light_closeup = add_area_light('Dir__Light_closeup', container,
+            dir__light_closeup = add_area_light('Closeup', container,
                                                 (0.5158149600028992, -2.368131399154663, 2.423656702041626),
                                                 (0.7853980660438538, -5.3335220684402884e-08, 0.2144654393196106),
                                                 40.0, 0.5, 9.0)
-            set_contact_shadow(dir__light_closeup, 0.05000000074505806, 0.004999999888241291)
-            dir__light_closeup.data.color = (1.0, 0.8634223341941833, 0.9116976261138916)
+            set_contact_shadow(dir__light_closeup, 0.05, 0.0025)
+            dir__light_closeup.data.color = (1.0, 0.875, 0.929)
 
-            face = add_spot_light('Face', container,
-                                  (0.3906535804271698, -1.662192463874817, 1.5247554779052734),
-                                  (1.354565978050232, 1.4951248168945312, -0.08803682774305344),
-                                  20.0, 1.0, 1.9373154640197754, 40.0, 0.4000000059604645)
-            set_contact_shadow(face, 0.05000000074505806, 0.004999999888241291)
-            face.data.color = (0.4910203516483307, 0.4400765895843506, 0.42536425590515137)
+            #face = add_spot_light('Face', container,
+            #                      (0.3906535804271698, -1.662192463874817, 1.5247554779052734),
+            #                      (1.354565978050232, 1.4951248168945312, -0.08803682774305344),
+            #                      20.0, 1.0, 1.9373154640197754, 40.0, 0.4000000059604645)
+            #set_contact_shadow(face, 0.05, 0.0025)
+            #face.data.color = (0.4910203516483307, 0.4400765895843506, 0.42536425590515137)
 
             key = add_spot_light('Key', container,
                                  (0.27087676525115967, -1.4420602321624756, 1.8877607583999634),
                                  (0.06910622119903564, 1.289427638053894, -1.2891168594360352),
                                  60.0, 1.0, 1.7104226350784302, 973.0, 0.25)
-            set_contact_shadow(key, 0.05000000074505806, 0.005000000353902578)
-            key.data.color = (1.0, 0.8857572078704834, 0.9353417158126831)
+            set_contact_shadow(key, 0.05, 0.0025)
+            key.data.color = (1.0, 0.875, 0.929)
 
-            key_light___up = add_spot_light('Key_Light___Up', container,
-                                            (0.08597123622894287, -1.169071912765503, 1.087883710861206),
-                                            (0.21799443662166595, 1.0667731761932373, -1.5876233577728271),
-                                            20.0, 1.0, 2.094395160675049, 9.0, 0.5)
-            set_contact_shadow(key_light___up, 0.05000000074505806, 0.004999999888241291)
-            key_light___up.data.color = (0.6514051556587219, 0.6514051556587219, 0.6514051556587219)
+            #key_light___up = add_spot_light('Key_Up', container,
+            #                                (0.08597123622894287, -1.169071912765503, 1.087883710861206),
+            #                                (0.21799443662166595, 1.0667731761932373, -1.5876233577728271),
+            #                                20.0, 1.0, 2.094395160675049, 9.0, 0.5)
+            #set_contact_shadow(key_light___up, 0.05, 0.0025)
+            #key_light___up.data.color = (0.6514051556587219, 0.6514051556587219, 0.6514051556587219)
 
-            rim_red = add_spot_light('Rim_red', container,
-                                     (0.12474790960550308, 0.8755945563316345, 1.634949803352356),
-                                     (-0.018602706491947174, 1.3557215929031372, 1.3706303834915161),
-                                     60.0, 1.0, 2.6179938316345215, 2.0, 0.20000000298023224)
-            set_contact_shadow(rim_red, 0.05000000074505806, 0.004999999888241291)
-            rim_red.data.color = (0.4910208284854889, 0.2579752206802368, 0.24017876386642456)
+            #rim_red = add_spot_light('Rim_Red', container,
+            #                         (0.12474790960550308, 0.8755945563316345, 1.634949803352356),
+            #                         (-0.018602706491947174, 1.3557215929031372, 1.3706303834915161),
+            #                         60.0, 1.0, 2.6179938316345215, 2.0, 0.20000000298023224)
+            #set_contact_shadow(rim_red, 0.05, 0.0025)
+            #rim_red.data.color = (0.4910208284854889, 0.2579752206802368, 0.24017876386642456)
 
-            rim_yellow = add_spot_light('Rim_yellow', container,
-                                        (0.31541261076927185, 0.8755945563316345, 1.634949803352356),
-                                        (-0.01860150508582592, 1.355721354484558, 1.370632290840149),
-                                        40.0, 1.0, 2.6179938316345215, 9.0, 0.10000000149011612)
-            set_contact_shadow(rim_yellow, 0.05000000074505806, 0.004999999888241291)
-            rim_yellow.data.color = (1.0, 0.7065995335578918, 0.46411025524139404)
+            rim_yellow = add_spot_light('Rim_Yellow', container,
+                                        (0.315, 0.875, 1.634),
+                                        (-0.019, 1.355, 1.370),
+                                        65.0, 1.0, 2.617, 9.0, 0.100)
+            #set_contact_shadow(rim_yellow, 0.05, 0.0025)
+            rim_yellow.data.color = (1.0, 0.647, 0.519)
 
-            dir__light = add_sun_light('Dir__Light', container,
+            dir__light = add_sun_light('Dir', container,
                                        (0.0, 0.0, 0.0),
                                        (0.7853981852531433, 3.429620676342893e-08, 2.937906503677368),
                                        4.5, 0.009250245057046413)
-            set_contact_shadow(dir__light, 0.05000000074505806, 0.004999999888241291)
+            set_contact_shadow(dir__light, 0.1, 0.05)
             dir__light.data.color = (0.4910205900669098, 0.349460631608963, 0.3006436228752136)
 
             bpy.context.space_data.shading.type = 'MATERIAL'
@@ -722,8 +722,8 @@ def setup_scene_default(scene_type):
             target_back = add_target("BackTarget", (0.0032256320118904114, 0.06994983553886414, 1.6254671812057495))
             track_to(back, target_back)
 
-            set_contact_shadow(key, 0.1, 0.01)
-            set_contact_shadow(fill, 0.1, 0.01)
+            set_contact_shadow(key, 0.05, 0.0025)
+            set_contact_shadow(fill, 0.05, 0.0025)
 
             bpy.context.space_data.shading.type = 'RENDERED'
             bpy.context.space_data.shading.use_scene_lights_render = True

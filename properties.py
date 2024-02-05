@@ -1276,6 +1276,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     # import file name without extension
     import_name: bpy.props.StringProperty(default="")
     import_dir: bpy.props.StringProperty(default="")
+    import_flags: bpy.props.IntProperty(default=0)
     import_embedded: bpy.props.BoolProperty(default=False)
     import_main_tex_dir: bpy.props.StringProperty(default="")
     import_space_in_name: bpy.props.BoolProperty(default=False)

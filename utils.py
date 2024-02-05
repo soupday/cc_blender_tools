@@ -20,6 +20,7 @@ import subprocess
 import time
 import difflib
 import random
+from mathutils import Vector, Quaternion
 from hashlib import md5
 import bpy
 
@@ -269,6 +270,15 @@ def object_exists_is_armature(obj):
     try:
         name = obj.name
         return len(obj.users_scene) > 0 and obj.type == "ARMATURE"
+    except:
+        return False
+
+
+def object_exists_is_light(obj):
+    """Test if Object: obj still exists as an object in the scene, and is a light."""
+    try:
+        name = obj.name
+        return len(obj.users_scene) > 0 and obj.type == "LIGHT"
     except:
         return False
 
@@ -841,13 +851,18 @@ def create_reuse_armature(name):
 
 
 def get_armature_from_objects(objects):
+    armatures = get_armatures_from_objects(objects)
+    return get_topmost_object(armatures)
+
+
+def get_armatures_from_objects(objects):
     armatures = []
     if objects:
         for obj in objects:
             arm = get_armature_from_object(obj)
             if arm and arm not in armatures:
                 armatures.append(arm)
-    return get_topmost_object(armatures)
+    return armatures
 
 
 def get_armature_from_object(obj):
@@ -886,6 +901,42 @@ def float_equals(a, b):
     return abs(a - b) < 0.00001
 
 
+def array_to_vector(arr):
+    if len(arr) == 3:
+        return Vector((arr[0], arr[1], arr[2]))
+    return Vector()
+
+
+def array_to_color(arr, linear=False):
+    if len(arr) == 1:
+        r = g = b = arr[0]
+        a = 1
+    elif len(arr) == 2:
+        r = arr[0]
+        g = arr[1]
+        b = 0
+        a = 1
+    elif len(arr) == 3:
+        r = arr[0]
+        g = arr[1]
+        b = arr[2]
+        a = 1
+    elif len(arr) == 4:
+        r = arr[0]
+        g = arr[1]
+        b = arr[2]
+        a = arr[3]
+    if linear:
+        return (linear_to_srgbx(r), linear_to_srgbx(g), linear_to_srgbx(b))
+    else:
+        return (r,g,b)
+
+
+def array_to_quaternion(arr):
+    if len(arr) == 4:
+        return Quaternion((arr[3], arr[0], arr[1], arr[2]))
+    return Quaternion()
+
 def get_action_shape_key_object_name(name):
     obj_name = strip_name(name)
     if obj_name.startswith("CC_Base_") or obj_name.startswith("CC_Game_"):
@@ -914,6 +965,14 @@ def delete_mesh_object(obj):
         bpy.data.objects.remove(obj)
         if data:
             bpy.data.meshes.remove(data)
+
+
+def delete_light_object(obj):
+    if object_exists_is_light(obj):
+        data = obj.data
+        bpy.data.objects.remove(obj)
+        if data:
+            bpy.data.lights.remove(data)
 
 
 def get_object_tree(obj, objects = None):

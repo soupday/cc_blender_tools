@@ -2,7 +2,7 @@ import bpy, bpy_extras
 from enum import IntEnum
 import os, socket, time, select, struct, json
 from mathutils import Vector, Quaternion, Matrix
-from . import rigging, bones, utils, vars
+from . import rigging, bones, colorspace, utils, vars
 
 
 BLENDER_PORT = 9334
@@ -33,6 +33,8 @@ class OpCodes(IntEnum):
     SEQUENCE = 202
     SEQUENCE_FRAME = 203
     SEQUENCE_END = 204
+    LIGHTS = 205
+    CAMERA = 206
 
 
 class LinkActor():
@@ -500,6 +502,7 @@ class LinkService():
 
     def parse(self, op_code, data):
         self.keepalive_timer = KEEPALIVE_TIMEOUT_S
+
         if op_code == OpCodes.HELLO:
             utils.log_info(f"Hello Received")
             self.service_initialize()
@@ -510,15 +513,47 @@ class LinkService():
                 self.remote_path = json_data["Path"]
                 utils.log_info(f"Connected to: {self.remote_app} {self.remote_version}")
                 utils.log_info(f"Using file path: {self.remote_path}")
-        if op_code == OpCodes.PING:
+
+        elif op_code == OpCodes.PING:
             utils.log_info(f"Ping Received")
-            pass
+
         elif op_code == OpCodes.STOP:
             utils.log_info(f"Termination Received")
             self.service_stop()
+
         elif op_code == OpCodes.DISCONNECT:
             utils.log_info(f"Disconnection Received")
             self.service_disconnect()
+
+        elif op_code == OpCodes.NOTIFY:
+            self.receive_notify(data)
+
+        ##
+        #
+
+        elif op_code == OpCodes.TEMPLATE:
+            self.receive_character_template(data)
+
+        elif op_code == OpCodes.POSE:
+            self.receive_pose(data)
+
+        elif op_code == OpCodes.CHARACTER:
+            self.receive_character_import(data)
+
+        elif op_code == OpCodes.RIGIFY:
+            self.receive_rigify_request(data)
+
+        elif op_code == OpCodes.SEQUENCE:
+            self.receive_sequence(data)
+
+        elif op_code == OpCodes.SEQUENCE_FRAME:
+            self.receive_sequence_frame(data)
+
+        elif op_code == OpCodes.SEQUENCE_END:
+            self.receive_sequence_end(data)
+
+        elif op_code == OpCodes.LIGHTS:
+            self.receive_lights(data)
 
     def service_start(self, host, port):
         if not self.is_listening:
@@ -534,6 +569,7 @@ class LinkService():
         if self.is_connecting:
             self.is_connecting = False
             self.is_connected = True
+            self.on_connected()
             self.connected.emit()
             self.changed.emit()
 
@@ -614,122 +650,6 @@ class LinkService():
         self.is_sequence = False
         self.sequence.disconnect()
 
-
-
-
-
-
-LINK_SERVICE: LinkService = None
-
-def get_link_service():
-    global LINK_SERVICE
-    return LINK_SERVICE
-
-
-def link_state_update():
-    global LINK_SERVICE
-    link_data = bpy.context.scene.CCICLinkData
-    link_data.link_listening = LINK_SERVICE.is_listening
-    link_data.link_connected = LINK_SERVICE.is_connected
-    link_data.link_connecting = LINK_SERVICE.is_connecting
-    utils.update_ui()
-
-
-class CCICDataLink(bpy.types.Operator):
-    """Data Link Control Operator"""
-    bl_idname = "ccic.datalink"
-    bl_label = "Listener"
-    bl_options = {"REGISTER"}
-
-    param: bpy.props.StringProperty(
-            name = "param",
-            default = "",
-            options={"HIDDEN"}
-        )
-
-    def execute(self, context):
-
-        if self.param == "START":
-            self.link_start()
-
-        elif self.param == "DISCONNECT":
-            self.link_disconnect()
-
-        elif self.param == "STOP":
-            self.link_stop()
-
-        elif self.param == "SEND_POSE":
-            self.send_pose()
-
-        elif self.param == "SEND_ANIM":
-            self.send_sequence()
-
-        return {'FINISHED'}
-
-    def prep_local_files(self):
-        data_path = get_link_data_path()
-        if data_path:
-            os.makedirs(data_path, exist_ok=True)
-
-    def update_link_status(self, text):
-        link_data = bpy.context.scene.CCICLinkData
-        link_data.link_status = text
-        utils.update_ui()
-
-    def link_start(self):
-        link_data = bpy.context.scene.CCICLinkData
-        global LINK_SERVICE
-
-        self.prep_local_files()
-        if not LINK_SERVICE:
-            LINK_SERVICE = LinkService()
-            LINK_SERVICE.changed.connect(link_state_update)
-            LINK_SERVICE.received.connect(self.parse)
-            LINK_SERVICE.connected.connect(self.on_connected)
-        LINK_SERVICE.service_start(link_data.link_host_ip, link_data.link_port)
-
-    def link_stop(self):
-        global LINK_SERVICE
-
-        if LINK_SERVICE:
-            LINK_SERVICE.service_stop()
-
-    def link_disconnect(self):
-        global LINK_SERVICE
-        if LINK_SERVICE:
-            LINK_SERVICE.service_disconnect()
-
-    SQC: int = 0
-
-    def parse(self, op_code, data):
-        global LINK_SERVICE
-
-        if op_code == OpCodes.NOTIFY:
-            self.receive_notify(data)
-
-        if op_code == OpCodes.TEMPLATE:
-            self.receive_character_template(data)
-
-        if op_code == OpCodes.POSE:
-            self.receive_pose(data)
-
-        if op_code == OpCodes.CHARACTER:
-            self.receive_character_import(data)
-
-        if op_code == OpCodes.RIGIFY:
-            self.receive_rigify_request(data)
-
-        if op_code == OpCodes.SEQUENCE:
-            self.receive_sequence(data)
-
-        if op_code == OpCodes.SEQUENCE_FRAME:
-            self.receive_sequence_frame(data)
-
-        if op_code == OpCodes.SEQUENCE_END:
-            self.receive_sequence_end(data)
-
-        return
-
     def on_connected(self):
         self.send_notify("Connected")
 
@@ -740,7 +660,7 @@ class CCICDataLink(bpy.types.Operator):
 
     def receive_notify(self, data):
         notify_json = decode_to_json(data)
-        self.update_link_status(notify_json["message"])
+        update_link_status(notify_json["message"])
 
     def get_remote_export_path(self, name):
         global LINK_SERVICE
@@ -766,11 +686,6 @@ class CCICDataLink(bpy.types.Operator):
                 if actor and actor not in actors:
                     actors.append(actor)
         return actors
-
-    def send_actor(self):
-        # TODO send_actor
-        return
-
 
     def encode_character_templates(self, actors: list):
         pose_bone: bpy.types.PoseBone
@@ -876,7 +791,7 @@ class CCICDataLink(bpy.types.Operator):
     def send_pose(self):
         global LINK_SERVICE
         mode_selection = utils.store_mode_selection_state()
-        self.update_link_status(f"Sending Current Pose Set")
+        update_link_status(f"Sending Current Pose Set")
         self.send_notify(f"Pose Set")
         # get actors
         actors = self.get_selected_actors()
@@ -895,7 +810,7 @@ class CCICDataLink(bpy.types.Operator):
         global LINK_SERVICE
         global LINK_DATA
 
-        self.update_link_status(f"Sending Animation Sequence")
+        update_link_status(f"Sending Animation Sequence")
         self.send_notify(f"Animation Sequence")
         # get actors
         actors = self.get_selected_actors()
@@ -918,7 +833,7 @@ class CCICDataLink(bpy.types.Operator):
 
         # set/fetch the current frame in the sequence
         current_frame = ensure_current_frame(LINK_DATA.sequence_current_frame)
-        self.update_link_status(f"Sequence Frame: {current_frame}")
+        update_link_status(f"Sequence Frame: {current_frame}")
         # send current sequence frame pose
         pose_data = self.encode_pose_data(LINK_DATA.sequence_actors)
         LINK_SERVICE.send(OpCodes.SEQUENCE_FRAME, pose_data)
@@ -981,9 +896,143 @@ class CCICDataLink(bpy.types.Operator):
 
         return actors
 
+    def find_link_id(self, link_id: str):
+        for obj in bpy.data.objects:
+            if "link_id" in obj and obj["link_id"] == link_id:
+                return obj
+        return None
+
+    def add_spot_light(self, name):
+        bpy.ops.object.light_add(type="SPOT")
+        light = bpy.context.active_object
+        light.name = name
+        return light
+
+    def add_area_light(self, name):
+        bpy.ops.object.light_add(type="AREA")
+        light = bpy.context.active_object
+        light.name = name
+        return light
+
+    def add_point_light(self, name):
+        bpy.ops.object.light_add(type="POINT")
+        light = bpy.context.active_object
+        light.name = name
+        return light
+
+    def add_dir_light(self, name):
+        bpy.ops.object.light_add(type="SUN")
+        light = bpy.context.active_object
+        light.name = name
+        return light
+
+    def decode_lights_data(self, data):
+        lights_data = decode_to_json(data)
+
+        RECTANGULAR_SPOTLIGHTS_AS_AREA = False
+
+        for light_data in lights_data["lights"]:
+
+            is_dir = light_data["type"] == "DIR"
+            is_point = light_data["type"] == "POINT" and light_data["is_rectangle"] == False and light_data["is_tube"] == False
+            if RECTANGULAR_SPOTLIGHTS_AS_AREA:
+                is_area = ((light_data["type"] == "POINT" and (light_data["is_rectangle"] == True or light_data["is_tube"] == True))
+                        or (light_data["type"] == "SPOT" and light_data["is_rectangle"] == True))
+                is_spot = light_data["type"] == "SPOT" and light_data["is_rectangle"] == False
+            else:
+                is_area = (light_data["type"] == "POINT" and (light_data["is_rectangle"] == True or light_data["is_tube"] == True))
+                is_spot = light_data["type"] == "SPOT"
+
+            light_type = "SUN" if is_dir else "AREA" if is_area else "POINT" if is_point else "SPOT"
+
+            light = self.find_link_id(light_data["link_id"])
+            if light and (light.type != "LIGHT" or light.data.type != light_type):
+                utils.delete_light_object(light)
+                light = None
+            if not light:
+                if is_area:
+                    light = self.add_area_light(light_data["name"])
+                elif is_point:
+                    light = self.add_point_light(light_data["name"])
+                elif is_dir:
+                    light = self.add_dir_light(light_data["name"])
+                else:
+                    light = self.add_spot_light(light_data["name"])
+                light["link_id"] = light_data["link_id"]
+
+            light.location = utils.array_to_vector(light_data["loc"]) / 100
+            light.rotation_mode = "QUATERNION"
+            light.rotation_quaternion = utils.array_to_quaternion(light_data["rot"])
+            light.scale = utils.array_to_vector(light_data["sca"])
+            light.data.color = utils.array_to_color(light_data["color"], False)
+            mult = light_data["multiplier"]
+            #if mult > 10:
+            #    mult *= (1 + pow((mult - 10)/90, 1.5))
+            if is_dir:
+                light.data.energy = 450 * pow(light_data["multiplier"]/20, 2)
+            elif is_spot:
+                light.data.energy = 40.0 * mult
+            elif is_point:
+                light.data.energy = 40.0 * mult
+            elif is_area:
+                light.data.energy = 10.0 * mult
+            if not is_dir:
+                light.data.use_custom_distance = True
+                light.data.cutoff_distance = light_data["range"] / 100
+            if is_spot:
+                light.data.spot_size = light_data["angle"] * 0.01745329
+                light.data.spot_blend = 0.01 * light_data["falloff"] * (0.5 + 0.01 * light_data["attenuation"] * 0.5)
+                if light_data["is_rectangle"]:
+                    light.data.shadow_soft_size = (light_data["rect"][0] + light_data["rect"][0]) / 200
+                elif light_data["is_tube"]:
+                    light.data.shadow_soft_size = light_data["tube_radius"] / 100
+            if is_area:
+                if light_data["is_rectangle"]:
+                    light.data.shape = "RECTANGLE"
+                    light.data.size = light_data["rect"][0] / 100
+                    light.data.size_y = light_data["rect"][1] / 100
+                elif light_data["is_tube"]:
+                    light.data.shape = "DISK"
+                    light.data.size = light_data["tube_radius"] / 100
+            light.data.use_shadow = light_data["cast_shadow"]
+            if light_data["cast_shadow"]:
+                if not is_dir:
+                    light.data.shadow_buffer_clip_start = 0.0025
+                    light.data.shadow_buffer_bias = 1.0
+                light.data.use_contact_shadow = True
+                light.data.contact_shadow_distance = 0.05
+                light.data.contact_shadow_thickness = 0.0025
+            light.hide_set(not light_data["active"])
+
+        # clean up lights not found in scene
+        for obj in bpy.data.objects:
+            if obj.type == "LIGHT":
+               if "link_id" in obj and obj["link_id"] not in lights_data["scene_lights"]:
+                   utils.delete_light_object(obj)
+        #
+        bpy.context.scene.eevee.use_gtao = True
+        bpy.context.scene.eevee.gtao_distance = 0.25
+        bpy.context.scene.eevee.gtao_factor = 0.5
+        bpy.context.scene.eevee.use_bloom = True
+        bpy.context.scene.eevee.bloom_threshold = 0.8
+        bpy.context.scene.eevee.bloom_knee = 0.5
+        bpy.context.scene.eevee.bloom_radius = 2.0
+        bpy.context.scene.eevee.bloom_intensity = 1.0
+        bpy.context.scene.eevee.use_ssr = True
+        bpy.context.scene.eevee.use_ssr_refraction = True
+        bpy.context.scene.eevee.bokeh_max_size = 32
+        colorspace.set_view_settings("Filmic", "High Contrast", 0, 0.75)
+        if bpy.context.scene.cycles.transparent_max_bounces < 50:
+            bpy.context.scene.cycles.transparent_max_bounces = 50
+
+
+    def receive_lights(self, data):
+        update_link_status(f"Light Data Receveived")
+        self.decode_lights_data(data)
+
     def receive_character_template(self, data):
         self.decode_character_templates(data)
-        self.update_link_status(f"Character Templates Received")
+        update_link_status(f"Character Templates Received")
 
     def select_actor_rigs(self, actors, prep=False):
         rigs = []
@@ -1008,7 +1057,7 @@ class CCICDataLink(bpy.types.Operator):
             utils.set_mode("POSE")
 
     def receive_pose(self, data):
-        self.update_link_status(f"Pose Data Receveived")
+        update_link_status(f"Pose Data Receveived")
         actors = self.decode_pose_data(data)
         self.select_actor_rigs(actors, prep=True)
         key_frame_pose_visual()
@@ -1020,7 +1069,7 @@ class CCICDataLink(bpy.types.Operator):
         global LINK_SERVICE
         global LINK_DATA
 
-        self.update_link_status(f"Receiving Live Sequence...")
+        update_link_status(f"Receiving Live Sequence...")
         json_data = decode_to_json(data)
         # sequence frame range
         LINK_DATA.sequence_start_frame = json_data["start_frame"]
@@ -1047,7 +1096,7 @@ class CCICDataLink(bpy.types.Operator):
         global LINK_DATA
 
         actors = self.decode_pose_data(data)
-        self.update_link_status(f"Sequence Frame: {LINK_DATA.sequence_current_frame}")
+        update_link_status(f"Sequence Frame: {LINK_DATA.sequence_current_frame}")
         self.select_actor_rigs(actors, prep=False)
         key_frame_pose_visual()
 
@@ -1061,7 +1110,7 @@ class CCICDataLink(bpy.types.Operator):
             remove_datalink_import_rig(actor.chr_cache)
         LINK_SERVICE.stop_sequence()
         LINK_DATA.sequence_actors = None
-        self.update_link_status(f"Live Sequence Complete: {num_frames} frames")
+        update_link_status(f"Live Sequence Complete: {num_frames} frames")
         bpy.context.scene.frame_current = LINK_DATA.sequence_start_frame
         bpy.ops.screen.animation_play()
 
@@ -1074,14 +1123,14 @@ class CCICDataLink(bpy.types.Operator):
         link_id = json_data["link_id"]
         actor = LINK_DATA.get_actor(link_id)
         if actor:
-            self.update_link_status(f"Character: {name} exists!")
+            update_link_status(f"Character: {name} exists!")
             utils.log_error(f"Actor {name} ({link_id}) already exists!")
             return
-        self.update_link_status(f"Receving Character Import: {name}")
+        update_link_status(f"Receving Character Import: {name}")
         if os.path.exists(fbx_path):
             bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path)
             actor = LINK_DATA.get_actor(link_id)
-            self.update_link_status(f"Character Imported: {actor.name}")
+            update_link_status(f"Character Imported: {actor.name}")
 
     def receive_rigify_request(self, data):
         global LINK_SERVICE
@@ -1091,8 +1140,95 @@ class CCICDataLink(bpy.types.Operator):
         link_id = json_data["link_id"]
         actor = LINK_DATA.get_actor(link_id)
         if actor:
-            self.update_link_status(f"Rigifying: {actor.name}")
+            update_link_status(f"Rigifying: {actor.name}")
             actor.chr_cache.select()
             bpy.ops.cc3.rigifier(param="ALL", no_face_rig=True)
-            self.update_link_status(f"Character Rigified: {actor.name}")
+            update_link_status(f"Character Rigified: {actor.name}")
+
+
+
+
+
+
+LINK_SERVICE: LinkService = None
+
+
+def get_link_service():
+    global LINK_SERVICE
+    return LINK_SERVICE
+
+
+def link_state_update():
+    global LINK_SERVICE
+    link_data = bpy.context.scene.CCICLinkData
+    link_data.link_listening = LINK_SERVICE.is_listening
+    link_data.link_connected = LINK_SERVICE.is_connected
+    link_data.link_connecting = LINK_SERVICE.is_connecting
+    utils.update_ui()
+
+
+def update_link_status(text):
+    link_data = bpy.context.scene.CCICLinkData
+    link_data.link_status = text
+    utils.update_ui()
+
+
+class CCICDataLink(bpy.types.Operator):
+    """Data Link Control Operator"""
+    bl_idname = "ccic.datalink"
+    bl_label = "Listener"
+    bl_options = {"REGISTER"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = "",
+            options={"HIDDEN"}
+        )
+
+    def execute(self, context):
+        global LINK_SERVICE
+
+        if self.param == "START":
+            self.link_start()
+
+        elif self.param == "DISCONNECT":
+            self.link_disconnect()
+
+        elif self.param == "STOP":
+            self.link_stop()
+
+        elif self.param == "SEND_POSE":
+            LINK_SERVICE.send_pose()
+
+        elif self.param == "SEND_ANIM":
+            LINK_SERVICE.send_sequence()
+
+        return {'FINISHED'}
+
+    def prep_local_files(self):
+        data_path = get_link_data_path()
+        if data_path:
+            os.makedirs(data_path, exist_ok=True)
+
+    def link_start(self):
+        link_data = bpy.context.scene.CCICLinkData
+        global LINK_SERVICE
+
+        self.prep_local_files()
+        if not LINK_SERVICE:
+            LINK_SERVICE = LinkService()
+            LINK_SERVICE.changed.connect(link_state_update)
+        LINK_SERVICE.service_start(link_data.link_host_ip, link_data.link_port)
+
+    def link_stop(self):
+        global LINK_SERVICE
+
+        if LINK_SERVICE:
+            LINK_SERVICE.service_stop()
+
+    def link_disconnect(self):
+        global LINK_SERVICE
+        if LINK_SERVICE:
+            LINK_SERVICE.service_disconnect()
+
 

@@ -449,6 +449,29 @@ def func_export_limbus_dark_scale(ldr):
     lds = (2 * M - S) / ldr
     return lds
 
+def func_brightness(b):
+    if b <= 1.0:
+        return b
+    B = (b - 1)*4 + 1
+    return B
+
+def func_export_brightness(B):
+    if B <= 1.0:
+        return B
+    b = (B - 1)/4 + 1
+    return b
+
+def func_saturation(s):
+    if s <= 1.0:
+        return s
+    S = (s - 1)*3 + 1
+    return S
+
+def func_export_saturation(S):
+    if S <= 1.0:
+        return S
+    s = (S - 1)/3 + 1
+    return s
 
 def func_get_eye_depth(depth):
     return (depth / 3.0)

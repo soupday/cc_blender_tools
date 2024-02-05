@@ -121,8 +121,6 @@ def make_prop_armature(objects):
 
     utils.object_mode_to(arm)
 
-
-
     obj : bpy.types.Object
     for obj in objects:
         if obj.type == "MESH":
@@ -226,7 +224,6 @@ def convert_generic_to_non_standard(objects, file_path = None):
     chr_cache.import_type = ext[1:]
     chr_cache.import_name = name
     chr_cache.import_dir = dir
-    chr_cache.import_space_in_name = False
     chr_cache.character_index = 0
     chr_cache.character_name = full_name
     chr_cache.character_id = name
