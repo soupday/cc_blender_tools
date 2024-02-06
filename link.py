@@ -6,6 +6,7 @@ import os, socket, time, select, struct, json
 from mathutils import Vector, Quaternion, Matrix
 from . import rigging, bones, colorspace, utils, vars
 
+
 BLENDER_PORT = 9334
 UNITY_PORT = 9335
 RL_PORT = 9333
@@ -30,6 +31,7 @@ class OpCodes(IntEnum):
     DISCONNECT = 11
     NOTIFY = 50
     CHARACTER = 100
+    CHARATCER_UPDATE = 101
     RIGIFY = 110
     TEMPLATE = 200
     POSE = 201
@@ -60,6 +62,14 @@ class LinkActor():
 
     def set_template(self, template):
         self.template = template
+
+    def update(self, new_name, new_link_id):
+        self.name = new_name
+        self.link_id = new_link_id
+        chr_cache = self.get_chr_cache()
+        if chr_cache:
+            chr_cache.character_name = new_name
+            chr_cache.link_id = new_link_id
 
 
 class LinkData():
@@ -472,11 +482,21 @@ class LinkService():
         self.is_data = False
         max_receive_count = 24
         if self.client_sock and (self.is_connected or self.is_connecting):
-            r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
+            try:
+                r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
+            except:
+                utils.log_error("Error in select client_sockets")
+                self.service_lost()
+                return
             count = 0
             while r:
                 op_code = None
-                header = self.client_sock.recv(8)
+                try:
+                    header = self.client_sock.recv(8)
+                except:
+                    utils.log_error("Error in client_sock.recv")
+                    self.service_lost()
+                    return
                 if header and len(header) == 8:
                     op_code, size = struct.unpack("!II", header)
                     data = None
@@ -491,7 +511,12 @@ class LinkService():
                     self.received.emit(op_code, data)
                     count += 1
                 self.is_data = False
-                r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
+                try:
+                    r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
+                except:
+                    utils.log_error("Error in select client_sockets")
+                    self.service_lost()
+                    return
                 if r:
                     self.is_data = True
                     if count >= MAX_RECEIVE or op_code == OpCodes.NOTIFY:
@@ -556,6 +581,9 @@ class LinkService():
         elif op_code == OpCodes.CHARACTER:
             self.receive_character_import(data)
 
+        elif op_code == OpCodes.CHARATCER_UPDATE:
+            self.receive_character_update(data)
+
         elif op_code == OpCodes.RIGIFY:
             self.receive_rigify_request(data)
 
@@ -598,6 +626,12 @@ class LinkService():
 
     def service_stop(self):
         self.send(OpCodes.STOP)
+        self.stop_timer()
+        self.stop_client()
+        self.stop_server()
+
+    def service_lost(self):
+        self.lost_connection.emit()
         self.stop_timer()
         self.stop_client()
         self.stop_server()
@@ -655,8 +689,7 @@ class LinkService():
                 self.sent.emit()
             except:
                 utils.log_error("Error sending message, disconnecting...")
-                self.lost_connection.emit()
-                self.stop_client()
+                self.service_lost()
 
     def start_sequence(self, func=None):
         self.is_sequence = True
@@ -705,6 +738,37 @@ class LinkService():
                 if actor and actor not in actors:
                     actors.append(actor)
         return actors
+
+    def get_active_actor(self):
+        global LINK_DATA
+        props = bpy.context.scene.CC3ImportProps
+        active_object = utils.get_active_object()
+        if active_object:
+            chr_cache = props.get_character_cache(active_object, None)
+            if chr_cache:
+                link_id = chr_cache.link_id
+                actor = LINK_DATA.get_actor(link_id)
+                return actor
+        return None
+
+    def send_actor(self):
+        global LINK_SERVICE
+        actors = self.get_selected_actors()
+        actor: LinkActor
+        for actor in actors:
+            self.send_notify(f"Blender Exporting: {actor.name}...")
+            export_path = self.get_remote_export_path(actor.name + ".fbx")
+            print(export_path)
+            self.send_notify(f"Exporting: {actor.name}")
+            bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
+            update_link_status(f"Sending: {actor.name}")
+            export_data = encode_from_json({
+                "path": export_path,
+                "name": actor.name,
+                "link_id": actor.link_id,
+            })
+            LINK_SERVICE.send(OpCodes.CHARACTER, export_data)
+            update_link_status(f"Sent: {actor.name}")
 
     def encode_character_templates(self, actors: list):
         pose_bone: bpy.types.PoseBone
@@ -1164,7 +1228,7 @@ class LinkService():
         bpy.context.scene.frame_current = LINK_DATA.sequence_start_frame
         bpy.ops.screen.animation_play()
 
-    def receive_character_import(self,data):
+    def receive_character_import(self, data):
         global LINK_DATA
 
         json_data = decode_to_json(data)
@@ -1181,6 +1245,16 @@ class LinkService():
             bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path)
             actor = LINK_DATA.get_actor(link_id)
             update_link_status(f"Character Imported: {actor.name}")
+
+    def receive_character_update(self, data):
+        global LINK_DATA
+        json_data = decode_to_json(data)
+        old_name = json_data["old_name"]
+        new_name = json_data["new_name"]
+        old_link_id = json_data["old_link_id"]
+        new_link_id = json_data["new_link_id"]
+        actor = LINK_DATA.get_actor(old_link_id)
+        actor.update(new_name, new_link_id)
 
     def receive_rigify_request(self, data):
         global LINK_SERVICE
@@ -1252,6 +1326,9 @@ class CCICDataLink(bpy.types.Operator):
 
         elif self.param == "SEND_ANIM":
             LINK_SERVICE.send_sequence()
+
+        elif self.param == "GO_CC":
+            LINK_SERVICE.send_actor()
 
         return {'FINISHED'}
 

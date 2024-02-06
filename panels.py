@@ -2858,6 +2858,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
             column = layout.column()
             layout.operator("ccic.datalink", icon="ARMATURE_DATA", text="Send Pose").param = "SEND_POSE"
             layout.operator("ccic.datalink", icon="PLAY", text="Live Sequence").param = "SEND_ANIM"
+            layout.operator("ccic.datalink", icon="PLAY", text="Go CC").param = "GO_CC"
 
 
 class CC3ToolsPipelineImportPanel(bpy.types.Panel):
