@@ -3,6 +3,7 @@ import bpy_extras.view3d_utils as v3d
 import atexit
 from enum import IntEnum
 import os, socket, time, select, struct, json
+import subprocess
 from mathutils import Vector, Quaternion, Matrix
 from . import rigging, bones, colorspace, utils, vars
 
@@ -368,6 +369,7 @@ class LinkService():
     remote_app: str = None
     remote_version: str = None
     remote_path: str = None
+    exe_path: str = None
 
     def __init__(self):
         atexit.register(self.service_stop)
@@ -552,8 +554,10 @@ class LinkService():
                 self.remote_app = json_data["Application"]
                 self.remote_version = json_data["Version"]
                 self.remote_path = json_data["Path"]
-                utils.log_info(f"Connected to: {self.remote_app} {self.remote_version}")
-                utils.log_info(f"Using file path: {self.remote_path}")
+                self.exe_path = json_data["Exe"]
+                utils.log_always(f"Connected to: {self.remote_app} {self.remote_version}")
+                utils.log_always(f"Using file path: {self.remote_path}")
+                utils.log_always(f"Using exe path: {self.exe_path}")
 
         elif op_code == OpCodes.PING:
             utils.log_info(f"Ping Received")
@@ -1110,21 +1114,43 @@ class LinkService():
         colorspace.set_view_settings("Filmic", "High Contrast", 0, 0.75)
         if bpy.context.scene.cycles.transparent_max_bounces < 50:
             bpy.context.scene.cycles.transparent_max_bounces = 50
-
+        view_space: bpy.types.Area = self.get_view_space()
+        if view_space:
+            view_space.shading.type = 'MATERIAL'
+            view_space.shading.use_scene_lights = True
+            view_space.shading.use_scene_world = False
+            view_space.shading.studio_light = 'studio.exr'
+            view_space.shading.studiolight_rotate_z = 0.0 * 0.01745329
+            view_space.shading.studiolight_intensity = 0.2
+            view_space.shading.studiolight_background_alpha = 0.0
+            view_space.shading.studiolight_background_blur = 0.5
 
     def receive_lights(self, data):
         update_link_status(f"Light Data Receveived")
         self.decode_lights_data(data)
 
     def get_region_3d(self):
+        space = self.get_view_space()
+        if space:
+            return space, space.region_3d
+        return None, None
+
+    def get_view_space(self):
+        area = self.get_view_area()
+        if area:
+            return area.spaces.active
+        return None
+
+    def get_view_area(self):
         for area in bpy.context.screen.areas:
             if area.type == 'VIEW_3D':
-                return area.spaces.active, area.spaces.active.region_3d
+                return area
+        return None
 
     def decode_camera_data(self, data):
         camera_data = decode_to_json(data)
         print(camera_data)
-        space, r3d = self.get_region_3d()
+        view_space, r3d = self.get_region_3d()
         loc = utils.array_to_vector(camera_data["loc"]) / 100
         rot = utils.array_to_quaternion(camera_data["rot"])
         center = Vector((0,0,1.5))
@@ -1137,7 +1163,7 @@ class LinkService():
         r3d.view_location = loc + dir * dist
         r3d.view_rotation = rot
         r3d.view_distance = dist
-        space.lens = camera_data["focal_length"]
+        view_space.lens = camera_data["focal_length"]
 
 
     def receive_camera(self, data):
