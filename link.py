@@ -369,7 +369,7 @@ class LinkService():
     remote_app: str = None
     remote_version: str = None
     remote_path: str = None
-    exe_path: str = None
+    remote_exe: str = None
 
     def __init__(self):
         atexit.register(self.service_stop)
@@ -379,6 +379,12 @@ class LinkService():
 
     def __exit__(self):
         self.service_stop()
+
+    def is_cc(self):
+        return self.remote_app == "Character Creator"
+
+    def is_iclone(self):
+        return self.remote_app == "iClone"
 
     def start_server(self):
         if not self.server_sock:
@@ -554,10 +560,10 @@ class LinkService():
                 self.remote_app = json_data["Application"]
                 self.remote_version = json_data["Version"]
                 self.remote_path = json_data["Path"]
-                self.exe_path = json_data["Exe"]
+                self.remote_exe = json_data["Exe"]
                 utils.log_always(f"Connected to: {self.remote_app} {self.remote_version}")
                 utils.log_always(f"Using file path: {self.remote_path}")
-                utils.log_always(f"Using exe path: {self.exe_path}")
+                utils.log_always(f"Using exe path: {self.remote_exe}")
 
         elif op_code == OpCodes.PING:
             utils.log_info(f"Ping Received")
@@ -733,14 +739,23 @@ class LinkService():
         props = bpy.context.scene.CC3ImportProps
 
         selected_objects = bpy.context.selected_objects
+        avatars = props.get_avatars()
         actors = []
-        for obj in selected_objects:
-            chr_cache = props.get_character_cache(obj, None)
-            if chr_cache:
-                link_id = chr_cache.link_id
-                actor = LINK_DATA.get_actor(link_id)
-                if actor and actor not in actors:
-                    actors.append(actor)
+
+        if not selected_objects and len(avatars) == 1:
+            chr_cache = avatars[0]
+            link_id = chr_cache.link_id
+            actor = LINK_DATA.get_actor(link_id)
+            if actor and actor not in actors:
+                actors.append(actor)
+        else:
+            for obj in selected_objects:
+                chr_cache = props.get_character_cache(obj, None)
+                if chr_cache:
+                    link_id = chr_cache.link_id
+                    actor = LINK_DATA.get_actor(link_id)
+                    if actor and actor not in actors:
+                        actors.append(actor)
         return actors
 
     def get_active_actor(self):
@@ -963,13 +978,16 @@ class LinkService():
         for i in range(0, count):
             offset, name = unpack_string(pose_data, offset)
             offset, link_id = unpack_string(pose_data, offset)
+            num_bones = struct.unpack_from("!I", pose_data)[0]
+            offset += 4
             actor = LINK_DATA.get_actor(link_id)
-            if not actor:
-                utils.log_error(f"Unable to find actor: {name} ({link_id})")
-                return actors
             if actor:
                 actors.append(actor)
-                datalink_rig = make_datalink_import_rig(actor.chr_cache, actor.template)
+            else:
+                utils.log_error(f"Unable to find actor: {name} ({link_id})")
+                offset += num_bones * 40
+                continue
+            datalink_rig = make_datalink_import_rig(actor.chr_cache, actor.template)
             # unpack the binary transform data directly into the datalink rig pose bones
             for bone_name in actor.template:
                 tx,ty,tz,rx,ry,rz,rw,sx,sy,sz = struct.unpack_from("!ffffffffff", pose_data, offset)
@@ -1124,6 +1142,7 @@ class LinkService():
             view_space.shading.studiolight_intensity = 0.2
             view_space.shading.studiolight_background_alpha = 0.0
             view_space.shading.studiolight_background_blur = 0.5
+            view_space.overlay.show_extras = False
 
     def receive_lights(self, data):
         update_link_status(f"Light Data Receveived")
@@ -1195,12 +1214,14 @@ class LinkService():
             utils.clear_selected_objects()
             utils.try_select_objects(rigs, True, make_active=True)
             utils.set_mode("POSE")
+        return rigs
 
     def receive_pose(self, data):
         update_link_status(f"Pose Data Receveived")
         actors = self.decode_pose_data(data)
-        self.select_actor_rigs(actors, prep=True)
-        key_frame_pose_visual()
+        rigs = self.select_actor_rigs(actors, prep=True)
+        if rigs:
+            key_frame_pose_visual()
         for actor in actors:
             remove_datalink_import_rig(actor.chr_cache)
         set_frame(bpy.context.scene.frame_current)
@@ -1237,8 +1258,9 @@ class LinkService():
 
         actors = self.decode_pose_data(data)
         update_link_status(f"Sequence Frame: {LINK_DATA.sequence_current_frame}")
-        self.select_actor_rigs(actors, prep=False)
-        key_frame_pose_visual()
+        rigs = self.select_actor_rigs(actors, prep=False)
+        if rigs:
+            key_frame_pose_visual()
 
     def receive_sequence_end(self, data):
         global LINK_SERVICE
@@ -1353,7 +1375,7 @@ class CCICDataLink(bpy.types.Operator):
         elif self.param == "SEND_ANIM":
             LINK_SERVICE.send_sequence()
 
-        elif self.param == "GO_CC":
+        elif self.param == "SEND_ACTOR":
             LINK_SERVICE.send_actor()
 
         return {'FINISHED'}
@@ -1363,7 +1385,7 @@ class CCICDataLink(bpy.types.Operator):
         if data_path:
             os.makedirs(data_path, exist_ok=True)
 
-    def link_start(self):
+    def link_start(self, is_go_b=False):
         link_data = bpy.context.scene.CCICLinkData
         global LINK_SERVICE
 

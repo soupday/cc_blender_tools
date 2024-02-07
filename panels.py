@@ -2816,9 +2816,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
         connected = link_service and link_service.is_connected
         listening = link_service and link_service.is_listening
         connecting = link_service and link_service.is_connecting
-
-        layout.label(text="Warning: Work in progress")
-        layout.label(text="Use at your own risk!")
+        is_cc = link_service and link_service.is_cc()
+        is_iclone = link_service and link_service.is_iclone()
 
         column = layout.column()
         column.prop(link_data, "link_host", text="Host")
@@ -2855,10 +2854,26 @@ class CCICDataLinkPanel(bpy.types.Panel):
             row.operator("ccic.datalink", icon="X", text="Stop").param = "STOP"
 
         if connected:
-            column = layout.column()
-            layout.operator("ccic.datalink", icon="ARMATURE_DATA", text="Send Pose").param = "SEND_POSE"
-            layout.operator("ccic.datalink", icon="PLAY", text="Live Sequence").param = "SEND_ANIM"
-            layout.operator("ccic.datalink", icon="PLAY", text="Go CC").param = "GO_CC"
+
+            if connected and is_cc:
+                layout.label(text="Character Creator")
+            elif connected and is_iclone:
+                layout.label(text="iClone")
+
+            grid = layout.grid_flow(row_major=True, columns=2, align=True)
+            grid.scale_y = 2.0
+
+            # iClone DataLink
+            if is_iclone:
+                grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Send Pose").param = "SEND_POSE"
+                grid.operator("ccic.datalink", icon="PLAY", text="Live Sequence").param = "SEND_ANIM"
+                grid.operator("ccic.datalink", icon="OUTLINER_OB_ARMATURE", text="Send Actor").param = "SEND_ACTOR"
+
+            # CC4 Go-B
+            elif is_cc:
+                grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
+                grid.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
+                grid.operator("ccic.datalink", icon="OUTLINER_OB_ARMATURE", text="Actor").param = "SEND_ACTOR"
 
 
 class CC3ToolsPipelineImportPanel(bpy.types.Panel):

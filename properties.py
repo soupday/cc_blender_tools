@@ -1424,8 +1424,17 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def is_standard(self):
         return self.generation in vars.STANDARD_GENERATIONS
 
-    def is_non_standard(self):
-        return not (self.generation in vars.STANDARD_GENERATIONS)
+    def is_non_standard(self, include_props=True):
+        if include_props:
+            return self.generation not in vars.STANDARD_GENERATIONS
+        else:
+            return self.generation not in vars.STANDARD_GENERATIONS and self.generation not in vars.PROP_GENERATIONS
+
+    def is_avatar(self):
+        return self.generation not in vars.PROP_GENERATIONS
+
+    def is_prop(self):
+        return self.generation in vars.PROP_GENERATIONS
 
     def is_actor_core(self):
         if (self.generation == "ActorCore"
@@ -2217,6 +2226,14 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                 if mat_cache and not mat_cache.disabled:
                     return chr_cache
         return None
+
+    def get_avatars(self):
+        avatars = []
+        chr_cache: CC3CharacterCache
+        for chr_cache in self.import_cache:
+            if chr_cache.is_avatar():
+                avatars.append(chr_cache)
+        return avatars
 
     def get_link_character_cache(self, link_id):
         if link_id:

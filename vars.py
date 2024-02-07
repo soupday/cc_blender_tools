@@ -115,7 +115,11 @@ CHARACTER_GENERATION = {
 
 # character generations considered standard humans and require FBX/OBJ keys to export
 STANDARD_GENERATIONS = [
-    "G3Plus", "G3"
+    "G3Plus", "G3",
+]
+
+PROP_GENERATIONS = [
+    "Prop",
 ]
 
 ENUM_TEX_LIST = [
