@@ -23,6 +23,7 @@ MAX_RECEIVE = 24
 USE_PING = False
 USE_KEEPALIVE = False
 USE_BLOCKING = True
+SOCKET_TIMEOUT = 10.0
 
 class OpCodes(IntEnum):
     NONE = 0
@@ -394,6 +395,7 @@ class LinkService():
                 self.server_sock.bind(('', BLENDER_PORT))
                 self.server_sock.listen(5)
                 self.server_sock.setblocking(USE_BLOCKING)
+                self.server_sock.settimeout(SOCKET_TIMEOUT)
                 self.server_sockets = [self.server_sock]
                 self.is_listening = True
                 utils.log_info(f"Listening on TCP *:{BLENDER_PORT}")
@@ -408,7 +410,10 @@ class LinkService():
     def stop_server(self):
         if self.server_sock:
             utils.log_info(f"Closing Server Socket")
-            self.server_sock.close()
+            try:
+                self.server_sock.close()
+            except:
+                pass
         self.is_listening = False
         self.server_sock = None
         self.server_sockets = []
@@ -436,6 +441,7 @@ class LinkService():
             utils.log_info(f"Attempting to connect")
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(SOCKET_TIMEOUT)
                 sock.connect((host, port))
                 self.is_connected = False
                 self.is_connecting = True
@@ -456,7 +462,7 @@ class LinkService():
                 self.client_sockets = []
                 self.is_connected = False
                 self.is_connecting = False
-                utils.log_info(f"Host not listening...")
+                utils.log_info(f"Client socket connect failed!")
                 return False
         else:
             utils.log_info(f"Client already connected!")
@@ -476,7 +482,10 @@ class LinkService():
     def stop_client(self):
         if self.client_sock:
             utils.log_info(f"Closing Client Socket")
-            self.client_sock.close()
+            try:
+                self.client_sock.close()
+            except:
+                pass
         self.is_connected = False
         self.is_connecting = False
         self.client_sock = None
@@ -488,53 +497,46 @@ class LinkService():
 
     def recv(self):
         self.is_data = False
-        max_receive_count = 24
-        if self.client_sock and (self.is_connected or self.is_connecting):
-            try:
+        try:
+            if self.client_sock and (self.is_connected or self.is_connecting):
                 r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
-            except:
-                utils.log_error("Error in select client_sockets")
-                self.service_lost()
-                return
-            count = 0
-            while r:
-                op_code = None
-                try:
+                count = 0
+                while r:
+                    op_code = None
                     header = self.client_sock.recv(8)
-                except:
-                    utils.log_error("Error in client_sock.recv")
-                    self.service_lost()
-                    return
-                if header and len(header) == 8:
-                    op_code, size = struct.unpack("!II", header)
-                    data = None
-                    if size > 0:
-                        data = bytearray()
-                        while size > 0:
-                            chunk_size = min(size, MAX_CHUNK_SIZE)
-                            chunk = self.client_sock.recv(chunk_size)
-                            data.extend(chunk)
-                            size -= len(chunk)
-                    self.parse(op_code, data)
-                    self.received.emit(op_code, data)
-                    count += 1
-                self.is_data = False
-                try:
+                    if header and len(header) == 8:
+                        op_code, size = struct.unpack("!II", header)
+                        data = None
+                        if size > 0:
+                            data = bytearray()
+                            while size > 0:
+                                chunk_size = min(size, MAX_CHUNK_SIZE)
+                                chunk = self.client_sock.recv(chunk_size)
+                                data.extend(chunk)
+                                size -= len(chunk)
+                        self.parse(op_code, data)
+                        self.received.emit(op_code, data)
+                        count += 1
+                    self.is_data = False
                     r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
-                except:
-                    utils.log_error("Error in select client_sockets")
-                    self.service_lost()
-                    return
-                if r:
-                    self.is_data = True
-                    if count >= MAX_RECEIVE or op_code == OpCodes.NOTIFY:
-                        return
+                    if r:
+                        self.is_data = True
+                        if count >= MAX_RECEIVE or op_code == OpCodes.NOTIFY:
+                            return
+        except:
+            utils.log_error("Client socket receive failed!")
+            self.service_lost()
 
     def accept(self):
         if self.server_sock and self.is_listening:
             r,w,x = select.select(self.server_sockets, self.empty_sockets, self.empty_sockets, 0)
             while r:
-                sock, address = self.server_sock.accept()
+                try:
+                    sock, address = self.server_sock.accept()
+                except:
+                    utils.log_error("Server socket accept failed!")
+                    self.service_lost()
+                    return
                 self.client_sock = sock
                 self.client_sockets = [sock]
                 self.client_ip = address[0]
@@ -698,7 +700,7 @@ class LinkService():
                 self.ping_timer = PING_INTERVAL_S
                 self.sent.emit()
             except:
-                utils.log_error("Error sending message, disconnecting...")
+                utils.log_error("Client socket send failed!")
                 self.service_lost()
 
     def start_sequence(self, func=None):
