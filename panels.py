@@ -2860,20 +2860,21 @@ class CCICDataLinkPanel(bpy.types.Panel):
             elif connected and is_iclone:
                 layout.label(text="iClone")
 
-            grid = layout.grid_flow(row_major=True, columns=2, align=True)
+            col = layout.column(align=True)
+            grid = col.grid_flow(row_major=True, columns=2, align=True)
             grid.scale_y = 2.0
+            grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
+            grid.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
+            if is_cc:
+                grid = col.grid_flow(row_major=True, columns=1, align=True)
+                grid.scale_y = 2.0
+                grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
 
-            # iClone DataLink
-            if is_iclone:
-                grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Send Pose").param = "SEND_POSE"
-                grid.operator("ccic.datalink", icon="PLAY", text="Live Sequence").param = "SEND_ANIM"
-                grid.operator("ccic.datalink", icon="OUTLINER_OB_ARMATURE", text="Send Actor").param = "SEND_ACTOR"
+            grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"
 
-            # CC4 Go-B
-            elif is_cc:
-                grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
-                grid.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
-                grid.operator("ccic.datalink", icon="OUTLINER_OB_ARMATURE", text="Actor").param = "SEND_ACTOR"
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        if chr_cache:
+            layout.label(text=f"link id: {chr_cache.link_id}")
 
 
 class CC3ToolsPipelineImportPanel(bpy.types.Panel):

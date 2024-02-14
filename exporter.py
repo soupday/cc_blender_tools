@@ -1640,9 +1640,9 @@ def export_standard(self, chr_cache, file_path, include_selected):
     dir, file = os.path.split(file_path)
     name, ext = os.path.splitext(file)
 
-    # store selection
-    old_selection = bpy.context.selected_objects.copy()
-    old_active = bpy.context.active_object
+    # store state
+    state = utils.store_mode_selection_state()
+    settings = bones.store_armature_settings(arm, include_pose=True)
 
     if utils.is_file_ext(ext, "FBX"):
 
@@ -1729,11 +1729,9 @@ def export_standard(self, chr_cache, file_path, include_selected):
 
         export_copy_obj_key(chr_cache, dir, name)
 
-    # restore selection
-    bpy.ops.object.select_all(action='DESELECT')
-    for obj in old_selection:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = old_active
+    # restore state
+    bones.restore_armature_settings(arm, settings, include_pose=True)
+    utils.restore_mode_selection_state(state)
 
     utils.log_recess()
     utils.log_timer("Done Character Export.")
@@ -2130,7 +2128,8 @@ def export_as_accessory(file_path, filename_ext):
         bpy.ops.export_scene.fbx(filepath=file_path,
                 use_selection = True,
                 bake_anim = False,
-                add_leaf_bones=False)
+                add_leaf_bones=False,
+                )
     elif utils.is_file_ext(ext, "OBJ"):
         obj_export(file_path, use_selection=True,
                               global_scale=100,

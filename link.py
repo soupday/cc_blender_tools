@@ -22,8 +22,7 @@ CHARACTER_TEMPLATE: list = None
 MAX_RECEIVE = 24
 USE_PING = False
 USE_KEEPALIVE = False
-USE_BLOCKING = True
-SOCKET_TIMEOUT = 10.0
+SOCKET_TIMEOUT = 5.0
 
 class OpCodes(IntEnum):
     NONE = 0
@@ -88,6 +87,10 @@ class LinkData():
 
     def __init__(self):
         return
+
+    def reset(self):
+        self.actors = []
+        self.sequence_actors = None
 
     def get_actor(self, link_id) -> LinkActor:
         props = bpy.context.scene.CC3ImportProps
@@ -371,8 +374,11 @@ class LinkService():
     remote_version: str = None
     remote_path: str = None
     remote_exe: str = None
+    link_data: LinkData = None
 
     def __init__(self):
+        global LINK_DATA
+        self.link_data = LINK_DATA
         atexit.register(self.service_stop)
 
     def __enter__(self):
@@ -392,10 +398,10 @@ class LinkService():
             try:
                 self.keepalive_timer = HANDSHAKE_TIMEOUT_S
                 self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.server_sock.settimeout(SOCKET_TIMEOUT)
                 self.server_sock.bind(('', BLENDER_PORT))
                 self.server_sock.listen(5)
-                self.server_sock.setblocking(USE_BLOCKING)
-                self.server_sock.settimeout(SOCKET_TIMEOUT)
+                #self.server_sock.setblocking(False)
                 self.server_sockets = [self.server_sock]
                 self.is_listening = True
                 utils.log_info(f"Listening on TCP *:{BLENDER_PORT}")
@@ -411,6 +417,7 @@ class LinkService():
         if self.server_sock:
             utils.log_info(f"Closing Server Socket")
             try:
+                self.server_sock.shutdown()
                 self.server_sock.close()
             except:
                 pass
@@ -443,6 +450,7 @@ class LinkService():
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(SOCKET_TIMEOUT)
                 sock.connect((host, port))
+                #sock.setblocking(False)
                 self.is_connected = False
                 self.is_connecting = True
                 self.client_sock = sock
@@ -451,7 +459,6 @@ class LinkService():
                 self.client_port = port
                 self.keepalive_timer = KEEPALIVE_TIMEOUT_S
                 self.ping_timer = PING_INTERVAL_S
-                sock.setblocking(USE_BLOCKING)
                 utils.log_info(f"connecting with data link server on {host}:{port}")
                 self.send_hello()
                 self.connecting.emit()
@@ -483,6 +490,7 @@ class LinkService():
         if self.client_sock:
             utils.log_info(f"Closing Client Socket")
             try:
+                self.client_sock.shutdown()
                 self.client_sock.close()
             except:
                 pass
@@ -495,10 +503,16 @@ class LinkService():
         self.client_stopped.emit()
         self.changed.emit()
 
+    def has_client_sock(self):
+        if self.client_sock and (self.is_connected or self.is_connecting):
+            return True
+        else:
+            return False
+
     def recv(self):
         self.is_data = False
         try:
-            if self.client_sock and (self.is_connected or self.is_connecting):
+            if self.has_client_sock():
                 r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
                 count = 0
                 while r:
@@ -518,6 +532,9 @@ class LinkService():
                         self.received.emit(op_code, data)
                         count += 1
                     self.is_data = False
+                    # parse may have received a disconnect notice
+                    if not self.has_client_sock():
+                        return
                     r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
                     if r:
                         self.is_data = True
@@ -634,6 +651,8 @@ class LinkService():
 
     def service_disconnect(self):
         self.send(OpCodes.DISCONNECT)
+        if CLIENT_ONLY:
+            self.stop_timer()
         self.stop_client()
 
     def service_stop(self):
@@ -648,10 +667,24 @@ class LinkService():
         self.stop_client()
         self.stop_server()
 
+    def check_service(self):
+        global LINK_SERVICE
+        global LINK_DATA
+        if not LINK_SERVICE or not LINK_DATA:
+            utils.log_error("Datalink service data lost. Due to script reload?")
+            utils.log_error("Connection is maintained but actor data has been reset.")
+            LINK_SERVICE = self
+            LINK_DATA = self.link_data
+            LINK_DATA.reset()
+        return True
+
     def loop(self):
         current_time = time.time()
         delta_time = current_time - self.time
         self.time = current_time
+
+        if not self.check_service():
+            return None
 
         if not self.timer:
             return None
@@ -1144,7 +1177,9 @@ class LinkService():
             view_space.shading.studiolight_intensity = 0.2
             view_space.shading.studiolight_background_alpha = 0.0
             view_space.shading.studiolight_background_blur = 0.5
-            view_space.overlay.show_extras = False
+            if LINK_SERVICE.is_cc():
+                # only hide the lights if it's from Character Creator
+                view_space.overlay.show_extras = False
 
     def receive_lights(self, data):
         update_link_status(f"Light Data Receveived")
@@ -1334,11 +1369,12 @@ def get_link_service():
 
 def link_state_update():
     global LINK_SERVICE
-    link_data = bpy.context.scene.CCICLinkData
-    link_data.link_listening = LINK_SERVICE.is_listening
-    link_data.link_connected = LINK_SERVICE.is_connected
-    link_data.link_connecting = LINK_SERVICE.is_connecting
-    utils.update_ui()
+    if LINK_SERVICE:
+        link_data = bpy.context.scene.CCICLinkData
+        link_data.link_listening = LINK_SERVICE.is_listening
+        link_data.link_connected = LINK_SERVICE.is_connected
+        link_data.link_connecting = LINK_SERVICE.is_connecting
+        utils.update_ui()
 
 
 def update_link_status(text):
@@ -1371,14 +1407,19 @@ class CCICDataLink(bpy.types.Operator):
         elif self.param == "STOP":
             self.link_stop()
 
-        elif self.param == "SEND_POSE":
-            LINK_SERVICE.send_pose()
+        if LINK_SERVICE:
 
-        elif self.param == "SEND_ANIM":
-            LINK_SERVICE.send_sequence()
+            if self.param == "SEND_POSE":
+                LINK_SERVICE.send_pose()
 
-        elif self.param == "SEND_ACTOR":
-            LINK_SERVICE.send_actor()
+            elif self.param == "SEND_ANIM":
+                LINK_SERVICE.send_sequence()
+
+            elif self.param == "SEND_ACTOR":
+                LINK_SERVICE.send_actor()
+
+            elif self.param == "TEST":
+                LINK_SERVICE.stop_client()
 
         return {'FINISHED'}
 
@@ -1395,7 +1436,9 @@ class CCICDataLink(bpy.types.Operator):
         if not LINK_SERVICE:
             LINK_SERVICE = LinkService()
             LINK_SERVICE.changed.connect(link_state_update)
-        LINK_SERVICE.service_start(link_data.link_host_ip, link_data.link_port)
+
+        if LINK_SERVICE:
+            LINK_SERVICE.service_start(link_data.link_host_ip, link_data.link_port)
 
     def link_stop(self):
         global LINK_SERVICE
@@ -1405,6 +1448,7 @@ class CCICDataLink(bpy.types.Operator):
 
     def link_disconnect(self):
         global LINK_SERVICE
+
         if LINK_SERVICE:
             LINK_SERVICE.service_disconnect()
 

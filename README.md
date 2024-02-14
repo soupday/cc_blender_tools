@@ -37,6 +37,7 @@ Links
 
 ### 2.0.3
 - OBJ import/export uses newer (non-legacy) importer/exporter operator.
+- Fixed t-pose orientation when exporting rigified animation.
 
 ### 2.0.2
 - Correction to malformed json texture paths when exporting character from CC4 directly to the root of a drive.
