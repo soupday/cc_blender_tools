@@ -1142,8 +1142,7 @@ def clear_pose(arm):
 
     # select all bones in pose mode
     arm.data.pose_position = "POSE"
-    utils.object_mode_to(arm)
-    utils.set_mode("POSE")
+    utils.pose_mode_to(arm)
     bone : bpy.types.Bone
     make_bones_visible(arm)
     for bone in arm.data.bones:

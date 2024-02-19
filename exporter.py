@@ -1642,7 +1642,9 @@ def export_standard(self, chr_cache, file_path, include_selected):
 
     # store state
     state = utils.store_mode_selection_state()
-    settings = bones.store_armature_settings(arm, include_pose=True)
+    arm = chr_cache.get_armature()
+    if arm:
+        settings = bones.store_armature_settings(arm, include_pose=True)
 
     if utils.is_file_ext(ext, "FBX"):
 
@@ -1730,7 +1732,9 @@ def export_standard(self, chr_cache, file_path, include_selected):
         export_copy_obj_key(chr_cache, dir, name)
 
     # restore state
-    bones.restore_armature_settings(arm, settings, include_pose=True)
+    arm = chr_cache.get_armature()
+    if arm:
+        bones.restore_armature_settings(arm, settings, include_pose=True)
     utils.restore_mode_selection_state(state)
 
     utils.log_recess()

@@ -463,11 +463,12 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
     imported_characters = []
 
-    if len(armatures) > 1 or len(rl_armatures) > 1:
-        report.append("Multiple armatures detected in Fbx is not fully supported!")
-        utils.log_warn("Multiple armatures detected in Fbx is not fully supported!")
-        utils.log_warn("Character exports from iClone to Blender do not fully support multiple characters.")
-        utils.log_warn("Characters should be exported individually for best results.")
+    if armatures:
+        if len(armatures) > 1 or len(rl_armatures) > 1:
+            report.append("Multiple armatures detected in Fbx is not fully supported!")
+            utils.log_warn("Multiple armatures detected in Fbx is not fully supported!")
+            utils.log_warn("Character exports from iClone to Blender do not fully support multiple characters.")
+            utils.log_warn("Characters should be exported individually for best results.")
 
     if not objects:
         report.append("No objects in import!")
@@ -691,7 +692,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
         chr_cache.import_name = import_name
         # original import dir (if re-importing an export from Blender)
         chr_cache.import_dir = import_dir
-        chr_cache.character_index = i
+        chr_cache.character_index = 0
         # display name of character
         chr_cache.character_name = character_name
         # the character object json key
