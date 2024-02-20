@@ -31,8 +31,11 @@ class OpCodes(IntEnum):
     STOP = 10
     DISCONNECT = 11
     NOTIFY = 50
+    MORPH = 90
     CHARACTER = 100
-    CHARATCER_UPDATE = 101
+    CHARACTER_UPDATE = 101
+    PROP = 102
+    PROP_UPDATE = 103
     RIGIFY = 110
     TEMPLATE = 200
     POSE = 201
@@ -40,7 +43,7 @@ class OpCodes(IntEnum):
     SEQUENCE_FRAME = 203
     SEQUENCE_END = 204
     LIGHTS = 205
-    CAMERA = 206
+    CAMERA_SYNC = 206
 
 
 class LinkActor():
@@ -407,11 +410,11 @@ class LinkService():
                 utils.log_info(f"Listening on TCP *:{BLENDER_PORT}")
                 self.listening.emit()
                 self.changed.emit()
-            except:
+            except Exception as e:
                 self.server_sock = None
                 self.server_sockets = []
                 self.is_listening = True
-                utils.log_error(f"Unable to start server on TCP *:{BLENDER_PORT}")
+                utils.log_error(f"Unable to start server on TCP *:{BLENDER_PORT}", e)
 
     def stop_server(self):
         if self.server_sock:
@@ -511,38 +514,54 @@ class LinkService():
 
     def recv(self):
         self.is_data = False
-        try:
-            if self.has_client_sock():
+        if self.has_client_sock():
+            try:
                 r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
-                count = 0
-                while r:
-                    op_code = None
+            except Exception as e:
+                utils.log_error("Client socket receive:select failed!", e)
+                self.service_lost()
+            count = 0
+            while r:
+                op_code = None
+                try:
                     header = self.client_sock.recv(8)
-                    if header and len(header) == 8:
-                        op_code, size = struct.unpack("!II", header)
-                        data = None
-                        if size > 0:
-                            data = bytearray()
-                            while size > 0:
-                                chunk_size = min(size, MAX_CHUNK_SIZE)
+                except Exception as e:
+                    utils.log_error("Client socket receive:recv failed!", e)
+                    self.service_lost()
+                if header == 0:
+                    print("Socket closed by client")
+                    self.service_lost()
+                    return
+                if header and len(header) == 8:
+                    op_code, size = struct.unpack("!II", header)
+                    data = None
+                    if size > 0:
+                        data = bytearray()
+                        while size > 0:
+                            chunk_size = min(size, MAX_CHUNK_SIZE)
+                            try:
                                 chunk = self.client_sock.recv(chunk_size)
-                                data.extend(chunk)
-                                size -= len(chunk)
-                        self.parse(op_code, data)
-                        self.received.emit(op_code, data)
-                        count += 1
-                    self.is_data = False
-                    # parse may have received a disconnect notice
-                    if not self.has_client_sock():
-                        return
+                            except Exception as e:
+                                utils.log_error("Client socket receive:chunk_recv failed!", e)
+                                self.service_lost()
+                            data.extend(chunk)
+                            size -= len(chunk)
+                    self.parse(op_code, data)
+                    self.received.emit(op_code, data)
+                    count += 1
+                self.is_data = False
+                # parse may have received a disconnect notice
+                if not self.has_client_sock():
+                    return
+                try:
                     r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
-                    if r:
-                        self.is_data = True
-                        if count >= MAX_RECEIVE or op_code == OpCodes.NOTIFY:
-                            return
-        except:
-            utils.log_error("Client socket receive failed!")
-            self.service_lost()
+                except Exception as e:
+                    utils.log_error("Client socket receive:re-select failed!", e)
+                    self.service_lost()
+                if r:
+                    self.is_data = True
+                    if count >= MAX_RECEIVE or op_code == OpCodes.NOTIFY:
+                        return
 
     def accept(self):
         if self.server_sock and self.is_listening:
@@ -550,8 +569,8 @@ class LinkService():
             while r:
                 try:
                     sock, address = self.server_sock.accept()
-                except:
-                    utils.log_error("Server socket accept failed!")
+                except Exception as e:
+                    utils.log_error("Server socket accept failed!", e)
                     self.service_lost()
                     return
                 self.client_sock = sock
@@ -607,10 +626,13 @@ class LinkService():
         elif op_code == OpCodes.POSE:
             self.receive_pose(data)
 
+        elif op_code == OpCodes.MORPH:
+            self.receive_morph(data)
+
         elif op_code == OpCodes.CHARACTER:
             self.receive_character_import(data)
 
-        elif op_code == OpCodes.CHARATCER_UPDATE:
+        elif op_code == OpCodes.CHARACTER_UPDATE:
             self.receive_character_update(data)
 
         elif op_code == OpCodes.RIGIFY:
@@ -628,8 +650,8 @@ class LinkService():
         elif op_code == OpCodes.LIGHTS:
             self.receive_lights(data)
 
-        elif op_code == OpCodes.CAMERA:
-            self.receive_camera(data)
+        elif op_code == OpCodes.CAMERA_SYNC:
+            self.receive_camera_sync(data)
 
     def service_start(self, host, port):
         if not self.is_listening:
@@ -732,8 +754,8 @@ class LinkService():
                 self.client_sock.sendall(data)
                 self.ping_timer = PING_INTERVAL_S
                 self.sent.emit()
-            except:
-                utils.log_error("Client socket send failed!")
+            except Exception as e:
+                utils.log_error("Client socket send failed!", e)
                 self.service_lost()
 
     def start_sequence(self, func=None):
@@ -1185,6 +1207,10 @@ class LinkService():
         update_link_status(f"Light Data Receveived")
         self.decode_lights_data(data)
 
+
+    # Camera
+    #
+
     def get_region_3d(self):
         space = self.get_view_space()
         if space:
@@ -1203,17 +1229,56 @@ class LinkService():
                 return area
         return None
 
-    def decode_camera_data(self, data):
-        camera_data = decode_to_json(data)
-        print(camera_data)
+    def get_view_camera_data(self):
+        view_space: bpy.types.Space
+        r3d: bpy.types.RegionView3D
+        view_space, r3d = self.get_region_3d()
+        t = r3d.view_location
+        r = r3d.view_rotation
+        d = r3d.view_distance
+        dir = Vector((0,0,-1))
+        dir.rotate(r)
+        loc: Vector = t - (dir * d)
+        lens = view_space.lens
+        data = {
+            "link_id": "0",
+            "name": "Viewport Camera",
+            "loc": [loc.x, loc.y, loc.z],
+            "rot": [r.x, r.y, r.z, r.w],
+            "sca": [1, 1, 1],
+            "focal_length": lens,
+        }
+        return data
+
+    def get_view_camera_pivot(self):
+        view_space, r3d = self.get_region_3d()
+        t = r3d.view_location
+        return t
+
+    def send_camera_sync(self):
+        global LINK_SERVICE
+        #
+        update_link_status(f"Synchronizing View Camera")
+        self.send_notify(f"Sync View Camera")
+        camera_data = self.get_view_camera_data()
+        pivot = self.get_view_camera_pivot()
+        data = {
+            "view_camera": camera_data,
+            "pivot": [pivot.x, pivot.y, pivot.z],
+        }
+        LINK_SERVICE.send(OpCodes.CAMERA_SYNC, encode_from_json(data))
+
+    def decode_camera_sync_data(self, data):
+        data = decode_to_json(data)
+        camera_data = data["view_camera"]
+        pivot = utils.array_to_vector(data["pivot"]) / 100
         view_space, r3d = self.get_region_3d()
         loc = utils.array_to_vector(camera_data["loc"]) / 100
         rot = utils.array_to_quaternion(camera_data["rot"])
-        center = Vector((0,0,1.5))
-        to_center = center - loc
+        to_pivot = pivot - loc
         dir = Vector((0,0,-1))
         dir.rotate(rot)
-        dist = to_center.dot(dir)
+        dist = to_pivot.dot(dir)
         if dist <= 0:
             dist = 1.0
         r3d.view_location = loc + dir * dist
@@ -1221,10 +1286,13 @@ class LinkService():
         r3d.view_distance = dist
         view_space.lens = camera_data["focal_length"]
 
-
-    def receive_camera(self, data):
+    def receive_camera_sync(self, data):
         update_link_status(f"Camera Data Receveived")
-        self.decode_camera_data(data)
+        self.decode_camera_sync_data(data)
+
+
+    # Character Pose
+    #
 
     def receive_character_template(self, data):
         self.decode_character_templates(data)
@@ -1341,6 +1409,24 @@ class LinkService():
         actor = LINK_DATA.get_actor(old_link_id)
         actor.update(new_name, new_link_id)
 
+    def receive_morph(self, data):
+        global LINK_DATA
+
+        json_data = decode_to_json(data)
+        obj_path = json_data["path"]
+        name = json_data["name"]
+        link_id = json_data["link_id"]
+        actor = LINK_DATA.get_actor(link_id)
+        if actor:
+            update_link_status(f"Character: {name} exists!")
+            utils.log_error(f"Actor {name} ({link_id}) already exists!")
+            return
+        update_link_status(f"Receving Character Morph: {name}")
+        if os.path.exists(obj_path):
+            bpy.ops.cc3.importer(param="IMPORT", filepath=obj_path, link_id=link_id)
+            actor = LINK_DATA.get_actor(link_id)
+            update_link_status(f"Morph Imported: {actor.name}")
+
     def receive_rigify_request(self, data):
         global LINK_SERVICE
 
@@ -1417,6 +1503,9 @@ class CCICDataLink(bpy.types.Operator):
 
             elif self.param == "SEND_ACTOR":
                 LINK_SERVICE.send_actor()
+
+            elif self.param == "SYNC_CAMERA":
+                LINK_SERVICE.send_camera_sync()
 
             elif self.param == "TEST":
                 LINK_SERVICE.stop_client()

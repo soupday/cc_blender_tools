@@ -2865,12 +2865,15 @@ class CCICDataLinkPanel(bpy.types.Panel):
             grid.scale_y = 2.0
             grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
             grid.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
+            # can't set the preview camera transform in CC4...
+            #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
+
             if is_cc:
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
                 grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
 
-            grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"
+            #grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"
 
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
         if chr_cache:

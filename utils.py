@@ -71,7 +71,7 @@ def log_warn(msg):
         print((" " * LOG_INDENT) + "Warning: " + msg)
 
 
-def log_error(msg, e = None):
+def log_error(msg, e: Exception = None):
     """Log an error message to console and raise an exception."""
     indent = LOG_INDENT
     if indent > 1: indent -= 1

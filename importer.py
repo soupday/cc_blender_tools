@@ -450,7 +450,8 @@ def remap_action_names(actions, objects, source_name, name):
     return armature_actions, shapekey_actions
 
 
-def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list, actions, json_data, report):
+def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list,
+                      actions, json_data, report, link_id):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -463,12 +464,11 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
     imported_characters = []
 
-    if armatures:
-        if len(armatures) > 1 or len(rl_armatures) > 1:
-            report.append("Multiple armatures detected in Fbx is not fully supported!")
-            utils.log_warn("Multiple armatures detected in Fbx is not fully supported!")
-            utils.log_warn("Character exports from iClone to Blender do not fully support multiple characters.")
-            utils.log_warn("Characters should be exported individually for best results.")
+    if armatures and (len(armatures) > 1 or len(rl_armatures) > 1):
+        report.append("Multiple armatures detected in Fbx is not fully supported!")
+        utils.log_warn("Multiple armatures detected in Fbx is not fully supported!")
+        utils.log_warn("Character exports from iClone to Blender do not fully support multiple characters.")
+        utils.log_warn("Characters should be exported individually for best results.")
 
     if not objects:
         report.append("No objects in import!")
@@ -520,7 +520,9 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             # the character object json key
             chr_cache.character_id = name
 
-            link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+            # link_id
+            if not link_id:
+                link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
             if link_id:
                 chr_cache.link_id = link_id
 
@@ -617,7 +619,9 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             # the character object json key
             chr_cache.character_id = name
 
-            link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+            # link_id
+            if not link_id:
+                link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
             if link_id:
                 chr_cache.link_id = link_id
 
@@ -675,8 +679,6 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
             utils.log_recess()
 
-
-
     elif ImportFlags.OBJ in import_flags:
 
         character_name = name
@@ -697,6 +699,10 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
         chr_cache.character_name = character_name
         # the character object json key
         chr_cache.character_id = name
+
+        # link_id (OBJ exports don't have json)
+        if link_id:
+            chr_cache.link_id = link_id
 
         # key file
         chr_cache.import_key_file = os.path.join(dir, name + ".ObjKey")
@@ -777,6 +783,13 @@ class CC3Import(bpy.types.Operator):
         description="Filepath of the fbx or obj to import.",
         subtype="FILE_PATH"
         )
+
+    link_id: bpy.props.StringProperty(
+        default="",
+        name="Link ID",
+        description="Link ID override",
+        options={"HIDDEN"},
+    )
 
     filter_glob: bpy.props.StringProperty(
         default="*.fbx;*.obj;*.glb;*.gltf;*.vrm",
@@ -884,7 +897,7 @@ class CC3Import(bpy.types.Operator):
             # detect characters and objects
             if ImportFlags.RL in self.import_flags:
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, armatures, rl_armatures,
-                                                             imported, actions, json_data, self.import_report)
+                                                             imported, actions, json_data, self.import_report, self.link_id)
             elif prefs.import_auto_convert:
                 self.imported_characters = characters.convert_generic_to_non_standard(imported, self.filepath)
 
@@ -913,7 +926,7 @@ class CC3Import(bpy.types.Operator):
             # detect characters and objects
             if ImportFlags.RL in self.import_flags:
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, None, None,
-                                                             imported, actions, json_data, self.import_report)
+                                                             imported, actions, json_data, self.import_report, self.link_id)
             elif prefs.import_auto_convert:
                 self.imported_characters = characters.convert_generic_to_non_standard(imported, self.filepath)
 
