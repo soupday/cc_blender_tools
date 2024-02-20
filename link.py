@@ -846,6 +846,28 @@ class LinkService():
             LINK_SERVICE.send(OpCodes.CHARACTER, export_data)
             update_link_status(f"Sent: {actor.name}")
 
+    def send_morph(self):
+        actors = self.get_selected_actors()
+        actor: LinkActor
+        for actor in actors:
+            self.send_notify(f"Blender Exporting: {actor.name}...")
+            export_path = self.get_remote_export_path(actor.name + "_morph.obj")
+            key_path = self.get_remote_export_path(actor.name + "_morph.ObjKey")
+            print(export_path)
+            self.send_notify(f"Exporting: {actor.name}")
+            bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
+            update_link_status(f"Sending: {actor.name}")
+            export_data = encode_from_json({
+                "path": export_path,
+                "key_path": key_path,
+                "name": actor.name,
+                "link_id": actor.link_id,
+                "morph_name": "Test Morph",
+                "morph_path": "Some/Path",
+            })
+            LINK_SERVICE.send(OpCodes.MORPH, export_data)
+            update_link_status(f"Sent: {actor.name}")
+
     def encode_character_templates(self, actors: list):
         pose_bone: bpy.types.PoseBone
         actor_data = []
@@ -1503,6 +1525,9 @@ class CCICDataLink(bpy.types.Operator):
 
             elif self.param == "SEND_ACTOR":
                 LINK_SERVICE.send_actor()
+
+            elif self.param == "SEND_MORPH":
+                LINK_SERVICE.send_morph()
 
             elif self.param == "SYNC_CAMERA":
                 LINK_SERVICE.send_camera_sync()

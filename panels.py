@@ -2871,7 +2871,11 @@ class CCICDataLinkPanel(bpy.types.Panel):
             if is_cc:
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
-                grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
+                if chr_cache.is_morph():
+                    grid.operator("ccic.datalink", icon="MESH_ICOSPHERE", text="Go CC").param = "SEND_MORPH"
+                else:
+                    grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
+
 
             #grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"
 
