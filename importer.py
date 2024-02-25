@@ -723,7 +723,9 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             obj = obj_cache.get_object()
             if obj:
                 obj.scale = (0.01, 0.01, 0.01)
-                if not chr_cache.import_has_key: # objkey import is a single mesh with no materials
+                # objkey import is usually a single mesh with no materials
+                # but this is overridable in the pipeline plugin
+                if obj.data.materials and len(obj.data.materials) > 0:
                     cache_object_materials(chr_cache, obj, json_data, processed)
 
         properties.init_character_property_defaults(chr_cache, chr_json)

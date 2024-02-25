@@ -1243,7 +1243,7 @@ def set_only_render_visible(object):
                     pass
 
 
-def safe_get_action(obj):
+def safe_get_action(obj) -> bpy.types.Action:
     if obj:
         try:
             if obj.animation_data:

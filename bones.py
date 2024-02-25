@@ -132,12 +132,30 @@ def find_target_bone_name(rig, rl_bone_name, bone_mapping = None):
         target_bone_name = get_rigify_meta_bone(rig, bone_mapping, rl_bone_name)
     else:
         target_bone_name = rl_bone_name
+    print(f"target name: {target_bone_name}")
     if target_bone_name in rig.pose.bones:
+        print(f"found directly: {target_bone_name}")
         return target_bone_name
     for pose_bone in rig.pose.bones:
         if cmp_rl_bone_names(target_bone_name, pose_bone.name):
+            print(f"found cmp_rl: {target_bone_name}")
             return pose_bone.name
-    return rl_bone_name
+    target_bone_name = target_bone_name.replace(' ', '_')
+    for pose_bone in rig.pose.bones:
+        if cmp_rl_bone_names(target_bone_name, pose_bone.name):
+            print(f"found cmp_rl with underscores: {target_bone_name}")
+            return pose_bone.name
+    print(f"falling back on supplied name")
+    return None
+
+
+def find_pivot_bone(rig, bone_name):
+    if bone_name in rig.data.bones:
+        bone: bpy.types.Bone = rig.data.bones[bone_name]
+        for child in bone.children:
+            if child.name.startswith("CC_Base_Pivot"):
+                return bone
+    return None
 
 
 def get_rigify_meta_bone(rigify_rig, bone_mapping, cc3_bone_name):
