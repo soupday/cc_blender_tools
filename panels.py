@@ -2807,7 +2807,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
-        link_data = bpy.context.scene.CCICLinkData
+        link_prefs = bpy.context.scene.CCICLinkPrefs
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
@@ -2820,14 +2820,14 @@ class CCICDataLinkPanel(bpy.types.Panel):
         is_iclone = link_service and link_service.is_iclone()
 
         column = layout.column()
-        column.prop(link_data, "link_host", text="Host")
-        column.prop(link_data, "link_target", text="Target")
+        column.prop(link_prefs, "link_host", text="Host")
+        column.prop(link_prefs, "link_target", text="Target")
         if listening or connected:
             column.enabled = False
 
         layout.separator()
         row = layout.row()
-        row.prop(link_data, "link_status", text="")
+        row.prop(link_prefs, "link_status", text="")
         row.enabled = False
 
         column = layout.column(align=True)
@@ -2852,6 +2852,20 @@ class CCICDataLinkPanel(bpy.types.Panel):
         row = column.row()
         if connected or connecting:
             row.operator("ccic.datalink", icon="X", text="Stop").param = "STOP"
+
+        # Datalink prefs
+        box = layout.box()
+        if fake_drop_down(box.row(), "Data-Link Options", "show_data_link_prefs", props.show_data_link_prefs,
+                          icon="PREFERENCES", icon_closed="PREFERENCES"):
+            split = box.split(factor=0.9)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Auto-Start Connection")
+            col_2.prop(link_prefs, "link_auto_start", text="")
+            col_1.label(text="Preview Frame Sync")
+            col_2.prop(link_prefs, "sequence_frame_sync", text="")
+            col_1.label(text="Preview Shape Keys")
+            col_2.prop(link_prefs, "sequence_preview_shape_keys", text="")
 
         if connected:
 

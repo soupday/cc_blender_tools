@@ -95,8 +95,9 @@ def update_property(self, context, prop_name, update_mode = None):
                 update_mode = props.update_mode
 
             all_materials_cache = chr_cache.get_all_materials_cache()
-            linked = get_linked_material_types(context_mat_cache)
-            paired = get_paired_material_types(context_mat_cache)
+            linked_types = get_linked_material_types(context_mat_cache)
+            paired_types = get_paired_material_types(context_mat_cache)
+            linked_names = get_linked_material_names(context_mat_cache.get_base_name())
 
             for mat_cache in all_materials_cache:
                 mat = mat_cache.material
@@ -107,14 +108,14 @@ def update_property(self, context, prop_name, update_mode = None):
                         # Always update the currently active material
                         update_shader_property(context_obj, mat, mat_cache, prop_name)
 
-                    elif mat_cache.material_type in paired:
+                    elif mat_cache.material_type in paired_types:
                         # Update paired materials
                         set_linked_property(prop_name, context_mat_cache, mat_cache)
                         update_shader_property(context_obj, mat, mat_cache, prop_name)
 
                     elif update_mode == "UPDATE_LINKED":
                         # Update all other linked materials in the imported objects material cache:
-                        if mat_cache.material_type in linked:
+                        if mat_cache.material_type in linked_types or mat_cache.get_base_name() in linked_names:
                             set_linked_property(prop_name, context_mat_cache, mat_cache)
                             update_shader_property(context_obj, mat, mat_cache, prop_name)
 
@@ -155,6 +156,13 @@ def get_paired_material_types(mat_cache):
         for paired in params.PAIRED_MATERIALS:
             if mat_cache.material_type in paired:
                 return paired
+    return []
+
+
+def get_linked_material_names(mat_name):
+    for linked in params.LINKED_MATERIAL_NAMES:
+        if mat_name in linked:
+            return linked
     return []
 
 
@@ -485,36 +493,36 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_variance = 0.75
 
 def update_link_target(self, context):
-    link_data = bpy.context.scene.CCICLinkData
-    if link_data.link_target == "BLENDER":
-        link_data.link_port = 9334
-    elif link_data.link_target == "CCIC":
-        link_data.link_port = 9333
-    elif link_data.link_target == "UNITY":
-        link_data.link_port = 9335
+    link_prefs = bpy.context.scene.CCICLinkPrefs
+    if link_prefs.link_target == "BLENDER":
+        link_prefs.link_port = 9334
+    elif link_prefs.link_target == "CCIC":
+        link_prefs.link_port = 9333
+    elif link_prefs.link_target == "UNITY":
+        link_prefs.link_port = 9335
     else:
-        link_data.link_port = 9333
+        link_prefs.link_port = 9333
 
 
 def update_link_host(self, context):
-    link_data = bpy.context.scene.CCICLinkData
-    host = link_data.link_host
+    link_prefs = bpy.context.scene.CCICLinkPrefs
+    host = link_prefs.link_host
     if host:
         try:
             print(socket.gethostbyname(host))
-            link_data.link_host_ip = socket.gethostbyname(host)
+            link_prefs.link_host_ip = socket.gethostbyname(host)
         except:
-            link_data.link_host_ip = "127.0.0.1"
+            link_prefs.link_host_ip = "127.0.0.1"
 
 
 def update_link_host_ip(self, context):
-    link_data = bpy.context.scene.CCICLinkData
-    host_ip = link_data.link_host_ip
+    link_prefs = bpy.context.scene.CCICLinkPrefs
+    host_ip = link_prefs.link_host_ip
     if host_ip:
         try:
-            link_data.link_host = socket.gethostbyaddr(host_ip)
+            link_prefs.link_host = socket.gethostbyaddr(host_ip)
         except:
-            link_data.link_host = ""
+            link_prefs.link_host = ""
 
 
 class CC3OperatorProperties(bpy.types.Operator):
@@ -938,8 +946,8 @@ class CC3SSSParameters(bpy.types.PropertyGroup):
                                 default=(1, 1, 1, 1), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"default_diffuse_color"))
     default_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"default_hue"))
-    default_brightness: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"default_brightness"))
-    default_saturation: bpy.props.FloatProperty(default=0.95, min=0, max=1, update=lambda s,c: update_property(s,c,"default_saturation"))
+    default_brightness: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"default_brightness"))
+    default_saturation: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_saturation"))
     default_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_hsv_strength"))
     default_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"default_ao_strength"))
     default_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"default_ao_power"))
@@ -1128,6 +1136,9 @@ class CC3MaterialCache:
         return (self.material_type == "TEARLINE_RIGHT"
                 or self.material_type == "TEARLINE_LEFT")
 
+    def get_base_name(self):
+        return utils.strip_name(self.material.name)
+
     def copy_material_cache(self, mat_cache):
         if mat_cache:
             utils.copy_property_group(self, mat_cache)
@@ -1220,6 +1231,9 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
         if return_invalid:
             return self.object
         return None
+
+    def get_base_name(self):
+        return utils.strip_name(self.object.name)
 
     def get_mesh(self):
         if utils.object_exists_is_mesh(self.object):
@@ -1438,8 +1452,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def is_actor_core(self):
         if (self.generation == "ActorCore"
-         or self.generation == "ActorScan"
-         or self.generation == "ActorBuild"):
+         or self.generation == "ActorScan"):
             return True
         return False
 
@@ -2033,6 +2046,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_rigidbody_spring_ui: bpy.props.BoolProperty(default=True)
     section_physics_cloth_settings: bpy.props.BoolProperty(default=False)
     section_physics_collision_settings: bpy.props.BoolProperty(default=False)
+    show_data_link_prefs: bpy.props.BoolProperty(default=False)
 
     retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
     bake_nla_shape_keys: bpy.props.BoolProperty(default=True)
@@ -2189,9 +2203,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     rigified_action_list_index: bpy.props.IntProperty(default=-1)
     rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
 
-    # property to poke to cause a UI update
-    poke_me: bpy.props.IntProperty(default=0)
-
     def get_any_character_cache_from_objects(self, objects, search_materials = False):
         chr_cache : CC3CharacterCache
 
@@ -2235,7 +2246,21 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                 avatars.append(chr_cache)
         return avatars
 
-    def get_link_character_cache(self, link_id):
+    def get_first_avatar(self):
+        chr_cache: CC3CharacterCache
+        for chr_cache in self.import_cache:
+            if chr_cache.is_avatar():
+                return chr_cache
+        return None
+
+    def find_character_by_name(self, name):
+        if name:
+            for chr_cache in self.import_cache:
+                if chr_cache.character_name == name:
+                    return chr_cache
+        return None
+
+    def find_character_by_link_id(self, link_id):
         if link_id:
             for chr_cache in self.import_cache:
                 if chr_cache.link_id == link_id:
@@ -2396,7 +2421,7 @@ class CCICBakeProps(bpy.types.PropertyGroup):
     bake_cache: bpy.props.CollectionProperty(type=CCICBakeCache)
 
 
-class CCICLinkData(bpy.types.PropertyGroup):
+class CCICLinkPrefs(bpy.types.PropertyGroup):
     # Data link props
     link_host: bpy.props.StringProperty(default="localhost", update=update_link_host)
     link_host_ip: bpy.props.StringProperty(default="127.0.0.1")
@@ -2407,3 +2432,6 @@ class CCICLinkData(bpy.types.PropertyGroup):
                     ], default="CCIC", name = "Data Link Target", update=update_link_target)
     link_port: bpy.props.IntProperty(default=9333)
     link_status: bpy.props.StringProperty(default="")
+    link_auto_start: bpy.props.BoolProperty(default=False)
+    sequence_frame_sync: bpy.props.BoolProperty(default=False)
+    sequence_preview_shape_keys: bpy.props.BoolProperty(default=True)

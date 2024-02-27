@@ -344,8 +344,13 @@ def detect_generation(chr_cache, json_data):
 
     arm = chr_cache.get_armature()
 
-    if arm:
-        chr_cache.parent_object = arm
+    if characters.character_has_materials(arm, ["Ga_Skin_Body"]):
+        if characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
+            generation = "ActorBuild"
+        elif characters.character_has_bones(arm, ["root", "hip"]):
+            generation = "GameBase"
+
+    if generation == "Unknown" and arm:
         if utils.find_pose_bone_in_armature(arm, "RootNode_0_", "RL_BoneRoot"):
             generation = "ActorCore"
         elif utils.find_pose_bone_in_armature(arm, "CC_Base_L_Pinky3", "L_Pinky3"):

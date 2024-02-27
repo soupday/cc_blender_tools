@@ -194,6 +194,8 @@ def fetch_prop_defaults(obj, mat_cache, mat_json):
             exec_var_param(var_def, mat_cache, mat_json)
     if shader == "rl_hair_shader":
         check_legacy_hair(obj, mat_cache, mat_json)
+    #if mat_cache.get_base_name() in vars.GAME_BASE_SKIN_NAMES:
+    #    mat_cache.parameters.default_roughness_power = 0.75
     vars.block_property_update = False
 
 

@@ -204,9 +204,7 @@ PACK_SSTMMNM_NAME = "SSTMMNM Pack"
 PACK_SSTMMNM_ID = "SSTMMNM_PACK"
 
 
-
-
-
+GAME_BASE_SKIN_NAMES = ["Ga_Skin_Arm", "Ga_Skin_Body", "Ga_Skin_Head", "Ga_Skin_Leg"]
 
 #########################################################
 # BAKE TOOL VARS

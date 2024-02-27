@@ -709,6 +709,8 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                     def_pow = 1
                     if shader_name == "rl_skin_shader" or shader_name == "rl_head_shader":
                         def_min = 0.1
+                    if shader_name == "rl_sss_shader":
+                        def_pow = 0.75
                     roughness_min = nodeutils.get_node_input_value(shader_node, "Roughness Min", def_min)
                     roughness_max = nodeutils.get_node_input_value(shader_node, "Roughness Max", def_max)
                     roughness_pow = nodeutils.get_node_input_value(shader_node, "Roughness Power", def_pow)
@@ -816,9 +818,10 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                     image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, mat, tex_id, bake_path,
                                                                          normal_socket_name = shader_socket,
                                                                          bump_socket_name = bump_socket)
-                                elif tex_type == "ROUGHNESS" and is_pbr_shader and roughness_modified:
-                                    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
-                                                                            size_override_node = shader_node, size_override_socket = "Roughness Map")
+                                # don't bake roughnesss adjustments back anymore
+                                #elif tex_type == "ROUGHNESS" and is_pbr_shader and roughness_modified:
+                                #    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
+                                #                                            size_override_node = shader_node, size_override_socket = "Roughness Map")
                                 else:
                                     image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 

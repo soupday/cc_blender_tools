@@ -106,6 +106,12 @@ PAIRED_MATERIALS = [
     ["EYE_LEFT", "CORNEA_LEFT"],
 ]
 
+LINKED_MATERIAL_NAMES = [
+    ["Ga_Skin_Arm", "Ga_Skin_Body", "Ga_Skin_Head", "Ga_Skin_Leg"],
+    ["Std_Eye_R", "Std_Eye_L"],
+    ["Std_Cornea_R", "Std_Cornea_L"],
+]
+
 # shader definitions
 SHADER_MATRIX = [
 
@@ -1345,9 +1351,9 @@ SHADER_MATRIX = [
             ["PROP", "Specular Map", "default_specular_strength", True, "Specular Map"],
             ["PROP", "*Specular Scale", "default_specular_scale", True],
             ["PROP", "Roughness", "default_roughness", True, "!Roughness Map"],
-            ["PROP", "Roughness Power", "default_roughness_power", True],
-            ["PROP", "Roughness Min", "default_roughness_min", True],
-            ["PROP", "Roughness Max", "default_roughness_max", True],
+            ["PROP", "*Roughness Power", "default_roughness_power", True],
+            ["PROP", "*Roughness Min", "default_roughness_min", True],
+            ["PROP", "*Roughness Max", "default_roughness_max", True],
             ["HEADER",  "Opacity", "MOD_OPACITY"],
             ["PROP", "Alpha Strength", "default_alpha_strength", True],
             ["PROP", "Opacity", "default_opacity", True],
@@ -1452,8 +1458,8 @@ SHADER_MATRIX = [
         "vars": [
             ["default_diffuse_color", (1,1,1,1), "func_color_bytes", "/Diffuse Color"],
             ["default_specular_scale", 1.0, "", "Custom/_Specular"],
-            ["default_brightness", 1, "", "Custom/_BaseColorMap Brightness"],
-            ["default_saturation", 1, "", "Custom/_BaseColorMap Saturation"],
+            #["default_brightness", 1, "", "Custom/_BaseColorMap Brightness"],
+            #["default_saturation", 1, "", "Custom/_BaseColorMap Saturation"],
             ["default_ao_strength", 1, "", "Pbr/AO"],
             ["default_blend_multiply_strength", 0, "", "Pbr/Blend"],
             ["default_alpha_strength", 1, "", "Pbr/Opacity"],
@@ -1486,10 +1492,11 @@ SHADER_MATRIX = [
             ["default_specular", 0.5, "DEF"],
             ["default_roughness", 0.5, "DEF"],
             ["default_hue", 0.5, "", "/Diffuse Hue"],
+            ["default_saturation", 1.0, "", "/Diffuse Saturation"],
+            ["default_brightness", 1.0, "", "/Diffuse Brightness"],
             ["default_hsv_strength", 1, "DEF"],
             ["default_specular_mask", 1.0, "DEF"],
-            ["default_specular_scale", 1.0, "DEF"],
-            ["default_roughness_power", 1, "DEF"],
+            ["default_roughness_power", 0.75, "DEF"],
             ["default_roughness_min", 0, "DEF"],
             ["default_roughness_max", 1, "DEF"],
             ["default_subsurface_scale", 1, "DEF"],
@@ -1518,11 +1525,11 @@ SHADER_MATRIX = [
             ["PROP", "Metallic", "default_metallic", True, "!Metallic Map"],
             ["PROP", "*Specular", "default_specular", True, "!Specular Map"],
             ["PROP", "Specular Map", "default_specular_strength", True, "Specular Map"],
-            ["PROP", "*Specular Scale", "default_specular_scale", True],
+            ["PROP", "Specular Scale", "default_specular_scale", True],
             ["PROP", "Roughness", "default_roughness", True, "!Roughness Map"],
-            ["PROP", "Roughness Power", "default_roughness_power", True],
-            ["PROP", "Roughness Min", "default_roughness_min", True],
-            ["PROP", "Roughness Max", "default_roughness_max", True],
+            ["PROP", "*Roughness Power", "default_roughness_power", True],
+            ["PROP", "*Roughness Min", "default_roughness_min", True],
+            ["PROP", "*Roughness Max", "default_roughness_max", True],
             ["SPACER"],
             ["PROP", "Micro Roughness Mod", "default_micro_roughness_mod", True],
             ["PROP", "R Roughness Mod", "default_r_roughness_mod", True, "RGBA Map"],

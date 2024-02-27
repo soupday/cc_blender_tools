@@ -944,6 +944,32 @@ def convert_to_rl_pbr(mat, mat_cache):
     return
 
 
+def character_has_bones(arm, bone_list: list):
+    if not arm: return False
+    if not bone_list: return False
+    for bone_name in bone_list:
+        if not utils.find_pose_bone_in_armature(arm, bone_name):
+            return False
+    return True
+
+
+def character_has_materials(arm, material_list: list):
+    if not arm: return False
+    if not material_list: return False
+    for material_name in material_list:
+        material_name = material_name.lower()
+        has_material = False
+        for obj in arm.children:
+            if utils.object_exists_is_mesh(obj):
+                for mat in obj.data.materials:
+                    mat_name = utils.strip_name(mat.name).lower()
+                    if mat_name == material_name:
+                        has_material = True
+        if not has_material:
+            return False
+    return True
+
+
 def transfer_skin_weights(chr_cache, objects):
 
     if not utils.set_mode("OBJECT"):

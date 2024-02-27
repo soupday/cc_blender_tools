@@ -387,7 +387,7 @@ def detect_materials_from_json(chr_cache, obj, mat, obj_json, mat_json):
         else:
             material_type = "DEFAULT"
 
-    elif shader == "SSS":
+    elif shader == "RLSSS":
         material_type = "SSS"
 
     elif shader == "RLTongue":
