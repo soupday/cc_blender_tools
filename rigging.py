@@ -91,6 +91,13 @@ def select_rig(rig):
     return False
 
 
+def pose_rig(rig):
+    if rig and utils.pose_mode_to(rig):
+        return True
+    utils.log_error(f"Unable to pose rig: {rig}!")
+    return False
+
+
 def prune_meta_rig(meta_rig):
     """Removes some meta rig bones that have no corresponding match in the CC3 rig.
        (And are safe to remove)
@@ -2640,7 +2647,19 @@ def get_extension_export_bones(export_rig):
     return accessory_bones, def_bones
 
 
-def generate_export_rig(chr_cache, force_t_pose = False, link_target=False):
+def clear_drivers_and_constraints(rig):
+    # remove all drivers
+    if select_rig(rig):
+        bones.clear_drivers(rig)
+
+    # remove all constraints
+    if select_rig(rig):
+        for pose_bone in rig.pose.bones:
+            bones.clear_constraints(rig, pose_bone.name)
+            pose_bone.custom_shape = None
+
+
+def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, link_target=False, use_meta_rig_names=False):
     rigify_rig = chr_cache.get_armature()
     export_rig = utils.duplicate_object(rigify_rig)
 
@@ -2668,17 +2687,9 @@ def generate_export_rig(chr_cache, force_t_pose = False, link_target=False):
     if accessory_def_bones:
         export_bones.extend(accessory_def_bones)
 
-    # remove all drivers
-    if select_rig(export_rig):
-        bones.clear_drivers(export_rig)
+    clear_drivers_and_constraints(export_rig)
 
-    # remove all constraints
-    if select_rig(export_rig):
-        for pose_bone in export_rig.pose.bones:
-            bones.clear_constraints(export_rig, pose_bone.name)
-            pose_bone.custom_shape = None
-
-    a_pose = False
+    bind_pose_is_a_pose = False
     layer = 0
 
     utils.set_mode("OBJECT")
@@ -2703,13 +2714,17 @@ def generate_export_rig(chr_cache, force_t_pose = False, link_target=False):
         upper_arm_l = edit_bones['DEF-upper_arm.L']
         world_x = mathutils.Vector((1, 0, 0))
         if world_x.dot(upper_arm_l.y_axis) < 0.9:
-            a_pose = True
+            bind_pose_is_a_pose = True
 
         for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
-
             bone_name = export_def[0]
             parent_name = export_def[1]
             export_name = export_def[2]
+            if use_meta_rig_names:
+                if bone_name == "root": continue
+                export_name = bone_name
+                if bone_name.startswith("DEF-"):
+                    export_name = bone_name[4:]
             axis = export_def[3]
             flags = export_def[4]
             bone = None
@@ -2763,6 +2778,9 @@ def generate_export_rig(chr_cache, force_t_pose = False, link_target=False):
         for edit_bone in edit_bones:
             if edit_bone.name not in export_bones:
                 edit_bones.remove(edit_bone)
+        if use_meta_rig_names:
+            if "root" in edit_bones:
+                edit_bones.remove(edit_bones["root"])
 
         # remove the DEF- tag from the accessory bone names (if needed)
         for bone_name in accessory_def_bones:
@@ -2777,6 +2795,10 @@ def generate_export_rig(chr_cache, force_t_pose = False, link_target=False):
             for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
                 bone_name = export_def[0]
                 export_name = export_def[2]
+                if use_meta_rig_names:
+                    export_name = bone_name
+                    if bone_name.startswith("DEF-"):
+                        export_name = bone_name[4:]
                 if export_name != "" and bone_name in edit_bones:
                     vertex_group_map[bone_name] = export_name
                     edit_bones[bone_name].name = export_name
@@ -2786,11 +2808,53 @@ def generate_export_rig(chr_cache, force_t_pose = False, link_target=False):
         for bone in export_rig.data.bones:
             bones.set_bone_collection(export_rig, bone, "Export", None, layer)
 
+    # reset the pose
+    bones.clear_pose(export_rig)
+
+    # Force T-pose
+    if use_t_pose and pose_rig(export_rig):
+
+        # add t-pose action to armature
+        if t_pose_action:
+            utils.safe_set_action(export_rig, t_pose_action)
+
+        bones.select_all_bones(export_rig, select=True, clear_active=True)
+
+        if bind_pose_is_a_pose:
+            angle = 30.0 * math.pi / 180.0
+            left_arm_name = "CC_Base_L_Upperarm"
+            right_arm_name = "CC_Base_R_Upperarm"
+            if use_meta_rig_names:
+                left_arm_name = "upper_arm.L"
+                right_arm_name = "upper_arm.R"
+            if left_arm_name in export_rig.pose.bones and right_arm_name in export_rig.pose.bones:
+                left_arm_bone : bpy.types.PoseBone = export_rig.pose.bones[left_arm_name]
+                right_arm_bone : bpy.types.PoseBone  = export_rig.pose.bones[right_arm_name]
+                left_arm_bone.rotation_mode = "XYZ"
+                left_arm_bone.rotation_euler = [0,0,angle]
+                left_arm_bone.rotation_mode = "QUATERNION"
+                right_arm_bone.rotation_mode = "XYZ"
+                right_arm_bone.rotation_euler = [0,0,-angle]
+                right_arm_bone.rotation_mode = "QUATERNION"
+
+        if t_pose_action:
+            # make first keyframe
+            bpy.data.scenes["Scene"].frame_current = 1
+            bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
+
+            # make a second keyframe
+            bpy.data.scenes["Scene"].frame_current = 2
+            bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
+
     # copy constraints for baking animations
     if select_rig(export_rig):
         for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
             rigify_bone_name = export_def[0]
             export_bone_name = export_def[2]
+            if use_meta_rig_names:
+                export_bone_name = rigify_bone_name
+                if rigify_bone_name.startswith("DEF-"):
+                    export_bone_name = rigify_bone_name[4:]
             axis = export_def[3]
             flags = export_def[4]
             if export_bone_name == "":
@@ -2812,22 +2876,6 @@ def generate_export_rig(chr_cache, force_t_pose = False, link_target=False):
                 to_bone_name = accessory_map[rigify_bone_name]
             bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
             bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
-
-    # reset the pose
-    bones.clear_pose(export_rig)
-
-    # Force T-pose
-    if force_t_pose and a_pose:
-        angle = 30.0 * math.pi / 180.0
-        if "CC_Base_L_Upperarm" in export_rig.pose.bones and "CC_Base_R_Upperarm" in export_rig.pose.bones:
-            left_arm_bone : bpy.types.PoseBone = export_rig.pose.bones["CC_Base_L_Upperarm"]
-            right_arm_bone : bpy.types.PoseBone  = export_rig.pose.bones["CC_Base_R_Upperarm"]
-            left_arm_bone.rotation_mode = "XYZ"
-            left_arm_bone.rotation_euler = [0,0,angle]
-            left_arm_bone.rotation_mode = "QUATERNION"
-            right_arm_bone.rotation_mode = "XYZ"
-            right_arm_bone.rotation_euler = [0,0,-angle]
-            right_arm_bone.rotation_mode = "QUATERNION"
 
     return export_rig, vertex_group_map, accessory_map
 
@@ -2909,12 +2957,16 @@ def restore_armature_names(armature_object, armature_data, name):
         armature_data.name = name
 
 
-def adv_export_pair_rigs(chr_cache, include_t_pose=False, link_target=False):
+def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, link_target=False, use_meta_rig_names=False):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     # generate export rig
     utils.delete_armature_object(chr_cache.rig_export_rig)
-    export_rig, vertex_group_map, accessory_map = generate_export_rig(chr_cache, force_t_pose=include_t_pose, link_target=link_target)
+    export_rig, vertex_group_map, accessory_map = generate_export_rig(chr_cache,
+                                                                      use_t_pose=include_t_pose,
+                                                                      t_pose_action=t_pose_action,
+                                                                      link_target=link_target,
+                                                                      use_meta_rig_names=use_meta_rig_names)
     chr_cache.rig_export_rig = export_rig
 
     return export_rig, vertex_group_map, accessory_map
@@ -2924,13 +2976,30 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     rigify_rig = chr_cache.get_armature()
+    rigify_rig.location = (0,0,0)
+    rigify_rig.rotation_mode = "XYZ"
+    rigify_rig.rotation_euler = (0,0,0)
 
     action_name = "Export_NLA"
     export_bake_action, export_bake_source_type = get_bake_action(chr_cache)
     if export_bake_action:
         action_name = export_bake_action.name.split("|")[-1]
 
-    export_rig, vertex_group_map, accessory_map = adv_export_pair_rigs(chr_cache, include_t_pose=include_t_pose, link_target=False)
+    # create empty T-Pose action
+    t_pose_action: bpy.types.Action = None
+    if include_t_pose:
+        if "0_T-Pose" in bpy.data.actions:
+            bpy.data.actions.remove(bpy.data.actions["0_T-Pose"])
+        t_pose_action = bpy.data.actions.new("0_T-Pose")
+
+    export_rig, vertex_group_map, accessory_map = adv_export_pair_rigs(chr_cache,
+                                                                       include_t_pose=include_t_pose,
+                                                                       t_pose_action=t_pose_action,
+                                                                       link_target=False,
+                                                                       use_meta_rig_names=True)
+    export_rig.location = (0,0,0)
+    export_rig.rotation_mode = "XYZ"
+    export_rig.rotation_euler = (0,0,0)
 
     if select_rig(export_rig):
         export_rig.data.pose_position = "POSE"
@@ -2948,31 +3017,12 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
 
         if utils.set_mode("POSE"):
 
-            if include_t_pose:
-                # create T-Pose action
-                if "0_T-Pose" in bpy.data.actions:
-                    bpy.data.actions.remove(bpy.data.actions["0_T-Pose"])
-
-                t_pose_action : bpy.types.Action = bpy.data.actions.new("0_T-Pose")
-                utils.safe_set_action(export_rig, t_pose_action)
-                baked_actions.append(t_pose_action)
-
-                bones.select_all_bones(export_rig, select=True, clear_active=True)
-
-                # go to first frame
-                bpy.data.scenes["Scene"].frame_current = 1
-
-                # apply first keyframe
-                bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
-
-                # make a second keyframe
-                bpy.data.scenes["Scene"].frame_current = 2
-                bpy.ops.anim.keyframe_insert_menu(type='BUILTIN_KSI_LocRot')
-
+            if include_t_pose and t_pose_action:
                 # push T-Pose to NLA first
                 utils.log_info(f"Adding {t_pose_action.name} to NLA strips")
                 track = export_rig.animation_data.nla_tracks[0]
                 track.strips.new(t_pose_action.name, int(t_pose_action.frame_range[0]), t_pose_action)
+                baked_actions.append(t_pose_action)
 
             # bake current timeline animation to export rig
             action = None
@@ -3605,7 +3655,7 @@ class CC3Rigifier(bpy.types.Operator):
     rigid_body_systems = {}
 
     def is_full_face_rig(self, chr_cache):
-        return not self.no_face_rig and chr_cache.rig_full_face()
+        return not self.no_face_rig and chr_cache.is_rig_full_face()
 
     def add_meta_rig(self, chr_cache):
 

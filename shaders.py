@@ -194,6 +194,8 @@ def fetch_prop_defaults(obj, mat_cache, mat_json):
             exec_var_param(var_def, mat_cache, mat_json)
     if shader == "rl_hair_shader":
         check_legacy_hair(obj, mat_cache, mat_json)
+    #if mat_cache.get_base_name() in vars.GAME_BASE_SKIN_NAMES:
+    #    mat_cache.parameters.default_roughness_power = 0.75
     vars.block_property_update = False
 
 
@@ -277,37 +279,37 @@ def func_iris_brightness(v):
 def func_sss_skin(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_skin_v118
+        s = s * prefs.cycles_sss_skin_v203
     return s
 
 def func_sss_hair(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_hair_v118
+        s = s * prefs.cycles_sss_hair_v203
     return s
 
 def func_sss_teeth(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_teeth
+        s = s * prefs.cycles_sss_teeth_v203
     return s
 
 def func_sss_tongue(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_tongue
+        s = s * prefs.cycles_sss_tongue_v203
     return s
 
 def func_sss_eyes(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_eyes
+        s = s * prefs.cycles_sss_eyes_v203
     return s
 
 def func_sss_default(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_default
+        s = s * prefs.cycles_sss_default_v203
     return s
 
 def func_sss_radius_skin(r, f):
@@ -449,6 +451,29 @@ def func_export_limbus_dark_scale(ldr):
     lds = (2 * M - S) / ldr
     return lds
 
+def func_brightness(b):
+    if b <= 1.0:
+        return b
+    B = (b - 1)*4 + 1
+    return B
+
+def func_export_brightness(B):
+    if B <= 1.0:
+        return B
+    b = (B - 1)/4 + 1
+    return b
+
+def func_saturation(s):
+    if s <= 1.0:
+        return s
+    S = (s - 1)*3 + 1
+    return S
+
+def func_export_saturation(S):
+    if S <= 1.0:
+        return S
+    s = (S - 1)/3 + 1
+    return s
 
 def func_get_eye_depth(depth):
     return (depth / 3.0)

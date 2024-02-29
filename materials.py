@@ -109,7 +109,7 @@ def detect_nails_material(mat):
     return False
 
 
-def detect_body_object(obj):
+def detect_body_object(chr_cache, obj):
     name = obj.name.lower()
     if "base_body" in name or "game_body" in name:
         return True
@@ -243,12 +243,42 @@ def detect_eye_occlusion_material(mat):
     return False
 
 
+STD_MATERIAL_TYPES = {
+    "Std_Tongue": "TONGUE",
+    "Std_Skin_Head": "SKIN_HEAD",
+    "Std_Skin_Body": "SKIN_BODY",
+    "Std_Skin_Arm": "SKIN_ARM",
+    "Std_Skin_Leg": "SKIN_LEG",
+    "Std_Nails": "NAILS",
+    "Std_Eyelash": "EYELASH",
+    "Std_Tearline_R": "TEARLINE_RIGHT",
+    "Std_Tearline_L": "TEARLINE_LEFT",
+    "Std_Eye_Occlusion_R": "OCCLUSION_RIGHT",
+    "Std_Eye_Occlusion_L": "OCCLUSION_LEFT",
+    "Std_Upper_Teeth": "TEETH_UPPER",
+    "Std_Lower_Teeth": "TEETH_LOWER",
+    "Std_Eye_R": "EYE_RIGHT",
+    "Std_Eye_L": "EYE_LEFT",
+    "Std_Cornea_R": "CORNEA_RIGHT",
+    "Std_Cornea_L": "CORNEA_LEFT",
+}
+
+
 def detect_materials_by_name(chr_cache, obj, mat):
 
     mat_name = mat.name.lower()
     material_type = "DEFAULT"
     object_type = "DEFAULT"
     tex_dirs = imageutils.get_material_tex_dirs(chr_cache, obj, mat)
+
+    if utils.is_file_ext(chr_cache.import_type, "OBJ"):
+        if chr_cache.import_has_key:
+            base_name = utils.strip_name(mat.name)
+            if base_name in STD_MATERIAL_TYPES:
+                material_type = STD_MATERIAL_TYPES[base_name]
+                object_type = "BODY"
+                utils.log_info(f"Material: {mat_name} detected from morph as: {material_type}")
+                return object_type, material_type
 
     if detect_hair_object(obj, tex_dirs, chr_cache.import_dir) == "True":
         object_type = "HAIR"
@@ -259,7 +289,7 @@ def detect_materials_by_name(chr_cache, obj, mat):
         else:
             material_type = "HAIR"
 
-    elif detect_body_object(obj):
+    elif detect_body_object(chr_cache, obj):
         object_type = "BODY"
         if detect_skin_material(mat):
             if "head" in mat_name:
@@ -357,7 +387,7 @@ def detect_materials_from_json(chr_cache, obj, mat, obj_json, mat_json):
         else:
             material_type = "DEFAULT"
 
-    elif shader == "SSS":
+    elif shader == "RLSSS":
         material_type = "SSS"
 
     elif shader == "RLTongue":

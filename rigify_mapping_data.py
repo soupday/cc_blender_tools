@@ -49,8 +49,12 @@ def get_mapping_for_generation(generation):
                           None,
                           GAME_BASE_VERTEX_GROUP_RENAME)
 
-    elif (generation == "ActorCore" or generation == "ActorScan" or generation == "ActorBuild" or
-          generation == "G3" or generation == "G3Plus" or generation == "NonStandardG3"):
+    elif (generation == "ActorCore" or
+          generation == "ActorScan" or
+          generation == "ActorBuild" or
+          generation == "G3" or
+          generation == "G3Plus" or
+          generation == "NonStandardG3"):
         return RigifyData("CC_Base_Head",
                           G3_BONE_MAPPING,
                           G3_HIDE_CHAINS,

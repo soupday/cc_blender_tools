@@ -137,7 +137,20 @@ def find_target_bone_name(rig, rl_bone_name, bone_mapping = None):
     for pose_bone in rig.pose.bones:
         if cmp_rl_bone_names(target_bone_name, pose_bone.name):
             return pose_bone.name
-    return rl_bone_name
+    target_bone_name = target_bone_name.replace(' ', '_')
+    for pose_bone in rig.pose.bones:
+        if cmp_rl_bone_names(target_bone_name, pose_bone.name):
+            return pose_bone.name
+    return None
+
+
+def find_pivot_bone(rig, bone_name):
+    if bone_name in rig.data.bones:
+        bone: bpy.types.Bone = rig.data.bones[bone_name]
+        for child in bone.children:
+            if child.name.startswith("CC_Base_Pivot"):
+                return bone
+    return None
 
 
 def get_rigify_meta_bone(rigify_rig, bone_mapping, cc3_bone_name):
@@ -600,7 +613,7 @@ def set_edit_bone_flags(edit_bone, flags, deform):
     edit_bone.use_deform = deform
 
 
-def store_armature_settings(rig):
+def store_armature_settings(rig, include_pose=False):
     collections = {}
     layers = []
 
@@ -619,10 +632,17 @@ def store_armature_settings(rig):
                    "action": utils.safe_get_action(rig),
                    "location": rig.location }
 
+    if include_pose:
+        pose_data = {}
+        pose_bone: bpy.types.PoseBone
+        for pose_bone in rig.pose.bones:
+            pose_data[pose_bone.name] = pose_bone.matrix.copy()
+        visibility["pose"] = pose_data
+
     return visibility
 
 
-def restore_armature_settings(rig, visibility):
+def restore_armature_settings(rig, visibility, include_pose=False):
     if utils.B400():
         collections = visibility["collections"]
         for collection in collections:
@@ -637,6 +657,12 @@ def restore_armature_settings(rig, visibility):
     rig.data.pose_position = visibility["pose_position"]
     utils.safe_set_action(rig, visibility["action"])
     rig.location = visibility["location"]
+
+    if include_pose:
+        pose_data = visibility["pose"]
+        for bone_name in pose_data:
+            pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
+            pose_bone.matrix = pose_data[bone_name]
 
 
 def set_rig_bind_pose(rig):
@@ -1129,8 +1155,7 @@ def clear_pose(arm):
 
     # select all bones in pose mode
     arm.data.pose_position = "POSE"
-    utils.object_mode_to(arm)
-    utils.set_mode("POSE")
+    utils.pose_mode_to(arm)
     bone : bpy.types.Bone
     make_bones_visible(arm)
     for bone in arm.data.bones:

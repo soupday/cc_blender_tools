@@ -102,20 +102,27 @@ CHARACTER_GENERATION = {
     "RL_CharacterCreator_Base_Std_G3": "G3",
     "RL_G6_Standard_Series": "G1",
     "NonStdLookAtDataCopyFromCCBase": "ActorCore",
+    "ActorCore": "ActorCore",
     "ActorBuild": "ActorBuild",
     "ActorScan": "ActorScan",
+    "AccuRig": "AccuRig",
     "Humanoid": "Humanoid",
     "Creature": "Creature",
     "Prop": "Prop",
-    "NonStandardG3": "NonStandardG3",
-    "NonStandardGameBase": "NonStandardGameBase",
-    "NonStandardGeneric": "NonStandardGeneric",
-    "" : "NonStandard",
+    "NonStandardG3": "ActorBuild",
+    "NonStandardGameBase": "GameBase",
+    "NonStandardGeneric": "Unknown",
+    "Generic": "Unknown",
+    "NonStandard" : "Unknown",
 }
 
 # character generations considered standard humans and require FBX/OBJ keys to export
 STANDARD_GENERATIONS = [
-    "G3Plus", "G3"
+    "G3Plus", "G3",
+]
+
+PROP_GENERATIONS = [
+    "Prop",
 ]
 
 ENUM_TEX_LIST = [
@@ -200,9 +207,7 @@ PACK_SSTMMNM_NAME = "SSTMMNM Pack"
 PACK_SSTMMNM_ID = "SSTMMNM_PACK"
 
 
-
-
-
+GAME_BASE_SKIN_NAMES = ["Ga_Skin_Arm", "Ga_Skin_Body", "Ga_Skin_Head", "Ga_Skin_Leg"]
 
 #########################################################
 # BAKE TOOL VARS

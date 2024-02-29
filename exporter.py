@@ -210,7 +210,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
 
 
     if chr_cache.is_non_standard():
-        set_non_standard_generation(json_data, chr_cache.non_standard_type, new_name)
+        set_non_standard_generation(json_data, new_name, chr_cache.non_standard_type, chr_cache.generation)
 
     # unpack embedded textures.
     if chr_cache.import_embedded:
@@ -709,6 +709,8 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                     def_pow = 1
                     if shader_name == "rl_skin_shader" or shader_name == "rl_head_shader":
                         def_min = 0.1
+                    if shader_name == "rl_sss_shader":
+                        def_pow = 0.75
                     roughness_min = nodeutils.get_node_input_value(shader_node, "Roughness Min", def_min)
                     roughness_max = nodeutils.get_node_input_value(shader_node, "Roughness Max", def_max)
                     roughness_pow = nodeutils.get_node_input_value(shader_node, "Roughness Power", def_pow)
@@ -816,9 +818,10 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                     image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, mat, tex_id, bake_path,
                                                                          normal_socket_name = shader_socket,
                                                                          bump_socket_name = bump_socket)
-                                elif tex_type == "ROUGHNESS" and is_pbr_shader and roughness_modified:
-                                    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
-                                                                            size_override_node = shader_node, size_override_socket = "Roughness Map")
+                                # don't bake roughnesss adjustments back anymore
+                                #elif tex_type == "ROUGHNESS" and is_pbr_shader and roughness_modified:
+                                #    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
+                                #                                            size_override_node = shader_node, size_override_socket = "Roughness Map")
                                 else:
                                     image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
@@ -1153,32 +1156,33 @@ def create_T_pose_action(arm, objects, export_strips):
 
 def set_character_generation(json_data, chr_cache, name):
     if chr_cache and chr_cache.is_standard():
-        set_standard_generation(json_data, chr_cache.generation, name)
+        set_standard_generation(json_data, name, chr_cache.generation)
     else:
-        set_non_standard_generation(json_data, chr_cache.non_standard_type, name)
+        set_non_standard_generation(json_data, name, chr_cache.non_standard_type, chr_cache.generation)
 
 
-def set_non_standard_generation(json_data, character_type, character_id):
-    generation = "Humanoid"
-    if character_type == "CREATURE":
+def set_non_standard_generation(json_data, character_id, character_type, generation):
+    RL_HUMANOID_GENERATIONS = [
+        "ActorCore", "ActorBuild", "ActorScan", "AccuRig", "GameBase"
+    ]
+    print(f"id: {character_id} type: {character_type} gen: {generation}")
+    if character_type == "HUMANOID":
+        if generation not in RL_HUMANOID_GENERATIONS:
+            generation = "Humanoid"
+    elif character_type == "CREATURE":
         generation = "Creature"
     elif character_type == "PROP":
         generation = "Prop"
+    else:
+        generation = "Unknown"
+
     utils.log_info(f"Generation: {generation}")
     jsonutils.set_character_generation_json(json_data, character_id, generation)
 
 
-def set_standard_generation(json_data, generation, character_id):
+def set_standard_generation(json_data, character_id, generation):
     # currently is doesn't really matter what the standard generation string is
     # generation in the CC4 plugin is only used to detect non-standard characters.
-
-    json_generation = "Unknown"
-
-    for id, gen in vars.CHARACTER_GENERATION.items():
-        if gen == generation:
-            json_generation = id
-            break
-
     jsonutils.set_character_generation_json(json_data, character_id, generation)
 
 
@@ -1208,7 +1212,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
 
     json_data = jsonutils.generate_character_json_data(name)
 
-    set_non_standard_generation(json_data, character_type, name)
+    set_non_standard_generation(json_data, name, character_type, "Unknown")
 
     done = {}
     objects_json = json_data[name]["Object"][name]["Meshes"]
@@ -1500,46 +1504,27 @@ def update_facial_profile_json(chr_cache, all_objects, json_data, chr_name):
     jsonutils.set_facial_profile_categories_json(json_data, chr_name, new_categories)
 
 
-def export_copy_fbx_key(chr_cache, dir, name):
-    if chr_cache.import_has_key:
-        try:
-            old_key_path = chr_cache.import_key_file
-            if not os.path.exists(old_key_path):
-                old_key_path = utils.local_path(chr_cache.character_id + ".fbxkey")
-            if not os.path.exists(old_key_path):
-                old_key_path = utils.local_path(chr_cache.import_name + ".fbxkey")
-            if old_key_path and os.path.exists(old_key_path):
-                key_dir, key_file = os.path.split(old_key_path)
-                old_name, key_type = os.path.splitext(key_file)
-                new_key_path = os.path.join(dir, name + key_type)
-                if utils.is_same_path(new_key_path, old_key_path):
-                    utils.log_info(f"Keyfile exists: {old_key_path}")
-                else:
-                    utils.log_info(f"Copying keyfile: {old_key_path} to: {new_key_path}")
-                    shutil.copyfile(old_key_path, new_key_path)
-        except Exception as e:
-            utils.log_error(f"Unable to copy keyfile: {old_key_path} to: {new_key_path}", e)
-
-
-def export_copy_obj_key(chr_cache, dir, name):
-    if chr_cache.import_has_key:
-        try:
-            old_key_path = chr_cache.import_key_file
-            if not os.path.exists(old_key_path):
-                old_key_path = utils.local_path(chr_cache.character_id + ".ObjKey")
-            if not os.path.exists(old_key_path):
-                old_key_path = utils.local_path(chr_cache.import_name + ".ObjKey")
-            if old_key_path and os.path.exists(old_key_path):
-                key_dir, key_file = os.path.split(old_key_path)
-                old_name, key_type = os.path.splitext(key_file)
-                new_key_path = os.path.join(dir, name + key_type)
-                if utils.is_same_path(new_key_path, old_key_path):
-                    utils.log_info(f"Keyfile exists: {old_key_path}")
-                else:
-                    utils.log_info(f"Copying keyfile: {old_key_path} to: {new_key_path}")
-                    shutil.copyfile(old_key_path, new_key_path)
-        except Exception as e:
-            utils.log_error(f"Unable to copy keyfile: {old_key_path} to: {new_key_path}", e)
+def export_copy_asset_file(chr_cache, dir, name, ext, old_path=None):
+    try:
+        try_paths = [
+            old_path,
+            os.path.join(chr_cache.import_dir, chr_cache.character_id + ext),
+            os.path.join(chr_cache.import_dir, chr_cache.import_name + ext),
+            utils.local_path(chr_cache.character_id + ext),
+            utils.local_path(chr_cache.import_name + ext),
+        ]
+        for old_path in try_paths:
+            print(old_path)
+            if old_path and os.path.exists(old_path):
+                print("Found!")
+                new_path = os.path.join(dir, name + ext)
+                if not utils.is_same_path(new_path, old_path):
+                    utils.log_info(f"Copying {ext} file: {old_path} to: {new_path}")
+                    shutil.copyfile(old_path, new_path)
+                return os.path.relpath(new_path, dir)
+    except Exception as e:
+        utils.log_error(f"Unable to copy {ext} file: {old_path} to: {new_path}", e)
+    return None
 
 
 def is_arp_installed():
@@ -1595,8 +1580,33 @@ def export_arp(file_path, arm, objects):
         return False
 
 
+def obj_export(file_path, use_selection=False, use_animation=False, global_scale=100,
+                          use_vertex_colors=False, use_vertex_groups=False, apply_modifiers=True,
+                          keep_vertex_order=False, use_materials=False):
+    if utils.B330():
+        bpy.ops.wm.obj_export(filepath=file_path,
+                              global_scale=global_scale,
+                              export_selected_objects=use_selection,
+                              export_animation=use_animation,
+                              export_materials=use_materials,
+                              export_colors=use_vertex_colors,
+                              export_vertex_groups=use_vertex_groups,
+                              apply_modifiers=apply_modifiers)
+    else:
+        bpy.ops.export_scene.obj(filepath=file_path,
+                                 global_scale=global_scale,
+                                 use_selection=use_selection,
+                                 use_materials=use_materials,
+                                 use_animation=use_animation,
+                                 use_vertex_colors=use_vertex_colors,
+                                 use_vertex_groups=use_vertex_groups,
+                                 use_mesh_modifiers=apply_modifiers,
+                                 keep_vertex_order=keep_vertex_order)
+
+
 def export_standard(self, chr_cache, file_path, include_selected):
-    """Exports standard character (not rigified) to CC3/4 with json data, texture paths are relative to source character, as an .fbx file.
+    """Exports standard character (not rigified, not generic) to CC3/4 with json data,
+       texture paths are relative to source character, as an .fbx file.
     """
 
     props = bpy.context.scene.CC3ImportProps
@@ -1616,9 +1626,11 @@ def export_standard(self, chr_cache, file_path, include_selected):
     dir, file = os.path.split(file_path)
     name, ext = os.path.splitext(file)
 
-    # store selection
-    old_selection = bpy.context.selected_objects.copy()
-    old_active = bpy.context.active_object
+    # store state
+    state = utils.store_mode_selection_state()
+    arm = chr_cache.get_armature()
+    if arm:
+        settings = bones.store_armature_settings(arm, include_pose=True)
 
     if utils.is_file_ext(ext, "FBX"):
 
@@ -1662,7 +1674,13 @@ def export_standard(self, chr_cache, file_path, include_selected):
         utils.log_info("")
         utils.log_info("Copying Fbx Key.")
 
-        export_copy_fbx_key(chr_cache, dir, name)
+        export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.import_key_file)
+        hik_path = export_copy_asset_file(chr_cache, dir, name, ".3dxProfile")
+        fac_path = export_copy_asset_file(chr_cache, dir, name, ".ccFacialProfile")
+        if hik_path:
+            jsonutils.set_json(json_data, "HIK/Profile_Path", hik_path)
+        if fac_path:
+            jsonutils.set_json(json_data, "Facial_Profile/Profile_Path", fac_path)
 
         utils.log_info("Writing Json Data.")
 
@@ -1695,21 +1713,22 @@ def export_standard(self, chr_cache, file_path, include_selected):
                 p.object.hide_set(False)
                 p.object.select_set(True)
 
-        bpy.ops.export_scene.obj(filepath=file_path,
-            use_selection = True,
-            global_scale = 100,
-            use_materials = False,
-            keep_vertex_order = True,
-            use_vertex_groups = True,
-            use_mesh_modifiers = True)
+        obj_export(file_path, use_selection=True,
+                              global_scale=100,
+                              use_materials=False,
+                              keep_vertex_order=True,
+                              use_vertex_colors=True,
+                              use_vertex_groups=True,
+                              apply_modifiers=True)
 
-        export_copy_obj_key(chr_cache, dir, name)
+        #export_copy_obj_key(chr_cache, dir, name)
+        export_copy_asset_file(chr_cache, dir, name, ".ObjKey", chr_cache.import_key_file)
 
-    # restore selection
-    bpy.ops.object.select_all(action='DESELECT')
-    for obj in old_selection:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = old_active
+    # restore state
+    arm = chr_cache.get_armature()
+    if arm:
+        bones.restore_armature_settings(arm, settings, include_pose=True)
+    utils.restore_mode_selection_state(state)
 
     utils.log_recess()
     utils.log_timer("Done Character Export.")
@@ -1898,7 +1917,8 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
         bpy.ops.file.make_paths_relative()
         bpy.ops.wm.save_as_mainfile(filepath=file_path)
 
-    export_copy_fbx_key(chr_cache, dir, name)
+    #export_copy_fbx_key(chr_cache, dir, name)
+    export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.import_key_file)
 
     utils.log_recess()
     utils.log_info("")
@@ -2106,15 +2126,17 @@ def export_as_accessory(file_path, filename_ext):
         bpy.ops.export_scene.fbx(filepath=file_path,
                 use_selection = True,
                 bake_anim = False,
-                add_leaf_bones=False)
+                add_leaf_bones=False,
+                )
     elif utils.is_file_ext(ext, "OBJ"):
-        bpy.ops.export_scene.obj(filepath=file_path,
-                global_scale=100,
-                use_selection=True,
-                use_animation=False,
-                use_materials=True,
-                use_mesh_modifiers=True,
-                keep_vertex_order=True)
+        obj_export(file_path, use_selection=True,
+                              global_scale=100,
+                              use_animation=False,
+                              use_materials=True,
+                              keep_vertex_order=True,
+                              use_vertex_colors=True,
+                              use_vertex_groups=False,
+                              apply_modifiers=True)
 
     # restore selection
     bpy.ops.object.select_all(action='DESELECT')
@@ -2131,13 +2153,14 @@ def export_as_replace_mesh(file_path):
     old_selection = bpy.context.selected_objects
     old_active = bpy.context.active_object
 
-    bpy.ops.export_scene.obj(filepath=file_path,
-            global_scale=100,
-            use_selection=True,
-            use_animation=False,
-            use_materials=True,
-            use_mesh_modifiers=True,
-            keep_vertex_order=True)
+    obj_export(file_path, use_selection=True,
+                          global_scale=100,
+                          use_animation=False,
+                          use_materials=True,
+                          keep_vertex_order=True,
+                          use_vertex_colors=True,
+                          use_vertex_groups=False,
+                          apply_modifiers=True)
 
     # restore selection
     bpy.ops.object.select_all(action='DESELECT')
@@ -2179,6 +2202,12 @@ class CC3Export(bpy.types.Operator):
             options={"HIDDEN"}
         )
 
+    link_id_override: bpy.props.StringProperty(
+            name = "link_id_override",
+            default = "",
+            options={"HIDDEN"}
+        )
+
     include_anim: bpy.props.BoolProperty(name = "Export Animation", default = True,
         description="Export current timeline animation with the character")
     include_selected: bpy.props.BoolProperty(name = "Include Selected", default = True,
@@ -2203,6 +2232,9 @@ class CC3Export(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache = props.get_context_character_cache(context)
+        if self.link_id_override:
+            chr_cache = props.find_character_by_link_id(self.link_id_override)
+            self.include_selected = False
 
         if chr_cache and self.param == "EXPORT_CC3":
 
@@ -2279,6 +2311,8 @@ class CC3Export(bpy.types.Operator):
 
         props = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
+        if self.link_id_override:
+            chr_cache = props.find_character_by_link_id(self.link_id_override)
 
         # menu export
         if self.param == "EXPORT_MENU":
@@ -2314,7 +2348,9 @@ class CC3Export(bpy.types.Operator):
                 export_format = "fbx"
         self.filename_ext = "." + export_format
 
-        if chr_cache and chr_cache.generation == "NonStandardGeneric":
+        if chr_cache and (chr_cache.generation == "Generic" or
+                          chr_cache.generation == "NonStandardGeneric" or
+                          chr_cache.generation == "Unknown"):
             self.include_textures = True
 
         if self.param == "EXPORT_UNITY":

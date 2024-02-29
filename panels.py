@@ -135,13 +135,7 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
         if chr_cache.is_standard():
             type_text = f"Standard ({chr_cache.generation})"
         else:
-            if "NonStandard" in chr_cache.generation:
-                generation = chr_cache.generation[11:]
-                if not generation:
-                    generation = "Any"
-                type_text = f"Non-Standard ({generation})"
-            else:
-                type_text = f"Non-Standard ({chr_cache.generation})"
+            type_text = f"Non-Standard ({chr_cache.generation})"
         is_character = True
         if chr_cache.is_morph():
             is_morph = True
@@ -716,17 +710,17 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 col_1 = split.column()
                 col_2 = split.column()
                 col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "cycles_sss_skin_v118", text = "")
+                col_2.prop(prefs, "cycles_sss_skin_v203", text = "")
                 col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "cycles_sss_hair_v118", text = "")
+                col_2.prop(prefs, "cycles_sss_hair_v203", text = "")
                 col_1.label(text = "Teeth SSS")
-                col_2.prop(prefs, "cycles_sss_teeth", text = "")
+                col_2.prop(prefs, "cycles_sss_teeth_v203", text = "")
                 col_1.label(text = "Tongue SSS")
-                col_2.prop(prefs, "cycles_sss_tongue", text = "")
+                col_2.prop(prefs, "cycles_sss_tongue_v203", text = "")
                 col_1.label(text = "Eyes SSS")
-                col_2.prop(prefs, "cycles_sss_eyes", text = "")
+                col_2.prop(prefs, "cycles_sss_eyes_v203", text = "")
                 col_1.label(text = "Default SSS")
-                col_2.prop(prefs, "cycles_sss_default", text = "")
+                col_2.prop(prefs, "cycles_sss_default_v203", text = "")
 
         # Build Button
         if chr_cache:
@@ -2807,7 +2801,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
-        link_data = bpy.context.scene.CCICLinkData
+        link_prefs = bpy.context.scene.CCICLinkPrefs
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
@@ -2816,19 +2810,18 @@ class CCICDataLinkPanel(bpy.types.Panel):
         connected = link_service and link_service.is_connected
         listening = link_service and link_service.is_listening
         connecting = link_service and link_service.is_connecting
-
-        layout.label(text="Warning: Work in progress")
-        layout.label(text="Use at your own risk!")
+        is_cc = link_service and link_service.is_cc()
+        is_iclone = link_service and link_service.is_iclone()
 
         column = layout.column()
-        column.prop(link_data, "link_host", text="Host")
-        column.prop(link_data, "link_target", text="Target")
+        column.prop(link_prefs, "link_host", text="Host")
+        column.prop(link_prefs, "link_target", text="Target")
         if listening or connected:
             column.enabled = False
 
         layout.separator()
         row = layout.row()
-        row.prop(link_data, "link_status", text="")
+        row.prop(link_prefs, "link_status", text="")
         row.enabled = False
 
         column = layout.column(align=True)
@@ -2854,10 +2847,53 @@ class CCICDataLinkPanel(bpy.types.Panel):
         if connected or connecting:
             row.operator("ccic.datalink", icon="X", text="Stop").param = "STOP"
 
+        # Datalink prefs
+        box = layout.box()
+        if fake_drop_down(box.row(), "Data-Link Options", "show_data_link_prefs", props.show_data_link_prefs,
+                          icon="PREFERENCES", icon_closed="PREFERENCES"):
+            split = box.split(factor=0.9)
+            col_1 = split.column()
+            col_2 = split.column()
+            col_1.label(text="Auto-Start Connection")
+            col_2.prop(link_prefs, "link_auto_start", text="")
+            col_1.label(text="Preview Frame Sync")
+            col_2.prop(link_prefs, "sequence_frame_sync", text="")
+            col_1.label(text="Preview Shape Keys")
+            col_2.prop(link_prefs, "sequence_preview_shape_keys", text="")
+
         if connected:
-            column = layout.column()
-            layout.operator("ccic.datalink", icon="ARMATURE_DATA", text="Send Pose").param = "SEND_POSE"
-            layout.operator("ccic.datalink", icon="PLAY", text="Live Sequence").param = "SEND_ANIM"
+
+            row = layout.row()
+            if connected and is_cc:
+                row.label(text="Character Creator")
+            elif connected and is_iclone:
+                row.label(text="iClone")
+            row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_PROJECT_FILES"
+
+            col = layout.column(align=True)
+            grid = col.grid_flow(row_major=True, columns=2, align=True)
+            grid.scale_y = 2.0
+            grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
+            grid.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
+            # can't set the preview camera transform in CC4...
+            #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
+
+            if is_cc and chr_cache and chr_cache.import_has_key:
+                grid = col.grid_flow(row_major=True, columns=1, align=True)
+                grid.scale_y = 2.0
+                if chr_cache.is_morph():
+                    grid.operator("ccic.datalink", icon="MESH_ICOSPHERE", text="Go CC").param = "SEND_MORPH"
+                else:
+                    grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
+
+
+            #grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"
+
+        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        if chr_cache:
+            row = layout.row()
+            row.label(text=f"link id: {chr_cache.link_id}")
+            row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
 
 
 class CC3ToolsPipelineImportPanel(bpy.types.Panel):

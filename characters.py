@@ -121,8 +121,6 @@ def make_prop_armature(objects):
 
     utils.object_mode_to(arm)
 
-
-
     obj : bpy.types.Object
     for obj in objects:
         if obj.type == "MESH":
@@ -226,7 +224,6 @@ def convert_generic_to_non_standard(objects, file_path = None):
     chr_cache.import_type = ext[1:]
     chr_cache.import_name = name
     chr_cache.import_dir = dir
-    chr_cache.import_space_in_name = False
     chr_cache.character_index = 0
     chr_cache.character_name = full_name
     chr_cache.character_id = name
@@ -234,7 +231,7 @@ def convert_generic_to_non_standard(objects, file_path = None):
     chr_cache.import_has_key = False
     chr_cache.import_main_tex_dir = ""
     chr_cache.import_embedded = False
-    chr_cache.generation = "NonStandardGeneric"
+    chr_cache.generation = "Unknown"
     chr_cache.non_standard_type = chr_type
 
     chr_cache.add_object_cache(chr_rig)
@@ -947,6 +944,55 @@ def convert_to_rl_pbr(mat, mat_cache):
     return
 
 
+def character_has_bones(arm, bone_list: list):
+    if not arm: return False
+    if not bone_list: return False
+    for bone_name in bone_list:
+        if not utils.find_pose_bone_in_armature(arm, bone_name):
+            return False
+    return True
+
+
+def character_has_materials(arm, material_list: list):
+    if not arm: return False
+    if not material_list: return False
+    for material_name in material_list:
+        material_name = material_name.lower()
+        has_material = False
+        for obj in arm.children:
+            if utils.object_exists_is_mesh(obj):
+                for mat in obj.data.materials:
+                    mat_name = utils.strip_name(mat.name).lower()
+                    if mat_name == material_name:
+                        has_material = True
+        if not has_material:
+            return False
+    return True
+
+
+def get_character_material_names(arm):
+    mat_names = []
+    if arm:
+        for obj in arm.children:
+            if utils.object_exists_is_mesh(obj):
+                for mat in obj.data.materials:
+                    mat_name = utils.strip_name(mat.name)
+                    if mat_name not in mat_names:
+                        mat_names.append(mat_name)
+    return mat_names
+
+
+def get_character_object_names(arm):
+    obj_names = []
+    if arm:
+        for obj in arm.children:
+            if utils.object_exists_is_mesh(obj):
+                obj_name = utils.strip_name(obj.name)
+                if obj_name not in obj_names:
+                    obj_names.append(obj_name)
+    return obj_names
+
+
 def transfer_skin_weights(chr_cache, objects):
 
     if not utils.set_mode("OBJECT"):
@@ -1125,9 +1171,9 @@ def normalize_skin_weights(chr_cache, objects):
 
 def convert_to_non_standard(chr_cache):
     if chr_cache.generation == "G3Plus" or chr_cache.generation == "G3":
-        chr_cache.generation = "NonStandardG3"
+        chr_cache.generation = "ActorBuild"
     elif chr_cache.generation == "GameBase":
-        chr_cache.generation = "NonStandardGameBase"
+        chr_cache.generation = "GameBase"
     chr_cache.non_standard_type = "HUMANOID"
 
 

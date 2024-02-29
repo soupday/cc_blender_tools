@@ -96,7 +96,7 @@ from . import link
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 0, 2),
+    "version": (2, 0, 3),
     "blender": (2, 93, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -112,7 +112,7 @@ classes = (
     channel_mixer.CC3IDMixer,
     channel_mixer.CC3MixerSettings,
 
-    properties.CCICLinkData,
+    properties.CCICLinkPrefs,
     properties.CCICBakeCache,
     properties.CCICBakeMaterialSettings,
     properties.CCICBakeProps,
@@ -210,7 +210,7 @@ def register():
 
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
     bpy.types.Scene.CCICBakeProps = bpy.props.PointerProperty(type=properties.CCICBakeProps)
-    bpy.types.Scene.CCICLinkData = bpy.props.PointerProperty(type=properties.CCICLinkData)
+    bpy.types.Scene.CCICLinkPrefs = bpy.props.PointerProperty(type=properties.CCICLinkPrefs)
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import)
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import_animation)
     bpy.types.TOPBAR_MT_file_export.append(exporter.menu_func_export)
@@ -229,4 +229,4 @@ def unregister():
 
     del(bpy.types.Scene.CC3ImportProps)
     del(bpy.types.Scene.CCICBakeProps)
-    del(bpy.types.Scene.CCICLinkData)
+    del(bpy.types.Scene.CCICLinkPrefs)

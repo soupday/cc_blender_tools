@@ -269,6 +269,65 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
     dst_bm.to_mesh(dst_mesh)
 
 
+def copy_vert_positions_by_index(src_obj, dst_obj, vertex_group = None, threshold = 0.004, shape_key_name = None):
+
+    mesh : bpy.types.Mesh = dst_obj.data
+    if shape_key_name:
+        if not mesh.shape_keys:
+            dst_obj.shape_key_add(name = "Basis")
+        if shape_key_name not in mesh.shape_keys.key_blocks:
+            shape_key = dst_obj.shape_key_add(name = shape_key_name)
+            shape_key_name = shape_key.name
+
+    src_mesh = src_obj.data
+    dst_mesh = dst_obj.data
+
+    src_bm = bmesh.new()
+    dst_bm = bmesh.new()
+
+    src_bm.from_mesh(src_mesh)
+    src_bm.faces.ensure_lookup_table()
+    src_bm.verts.ensure_lookup_table()
+
+    dst_bm.from_mesh(dst_mesh)
+    dst_bm.faces.ensure_lookup_table()
+    dst_bm.verts.ensure_lookup_table()
+
+    src_verts = []
+
+    matching_vert_count = len(src_bm.verts) == len(dst_bm.verts)
+    if not matching_vert_count:
+        return
+
+    vg_index = -1
+    if vertex_group and vertex_group in src_obj.vertex_groups:
+        vg_index = src_obj.vertex_groups[vertex_group].index
+
+    src_bm.verts.layers.deform.verify()
+    dl = src_bm.verts.layers.deform.active
+    loop : bmesh.types.BMLoop
+
+    for vert in src_bm.verts:
+        if vg_index >= 0:
+            weight = vert[dl][vg_index]
+            if weight < threshold:
+                continue
+        src_verts.append(vert.index)
+
+    sl = None
+    if shape_key_name:
+        sl = dst_bm.verts.layers.shape.get(shape_key_name)
+    for vert in dst_bm.verts:
+        if vert.index in src_verts:
+            src_pos = src_bm.verts[vert.index].co
+            if sl:
+                vert[sl] = src_pos
+            else:
+                vert.co = src_pos
+
+    dst_bm.to_mesh(dst_mesh)
+
+
 def map_image_to_vertex_weights(obj, mat, image, vertex_group, func):
     width = image.size[0]
     height = image.size[1]

@@ -17,6 +17,7 @@
 import os
 import shutil
 import bpy
+from enum import IntEnum, IntFlag
 
 from . import (characters, vrm, rigging, bones, bake, imageutils, jsonutils, materials,
                modifiers, drivers, meshutils, nodeutils, physics,
@@ -47,7 +48,6 @@ def delete_import(chr_cache):
     chr_cache.import_name = ""
     chr_cache.import_dir = ""
     chr_cache.import_main_tex_dir = ""
-    chr_cache.import_space_in_name = False
     chr_cache.import_embedded = False
     chr_cache.import_has_key = False
     chr_cache.import_key_file = ""
@@ -328,24 +328,40 @@ def init_shape_key_range(obj):
                 pass
 
 
-def detect_generation(chr_cache, json_data):
+def detect_generation(chr_cache, json_data, character_id):
 
     if json_data:
+        avatar_type = jsonutils.get_json(json_data, f"{character_id}/Avatar_Type")
         json_generation = jsonutils.get_character_generation_json(json_data, chr_cache.character_id)
-        if json_generation is not None and json_generation != "":
-            try:
-                return vars.CHARACTER_GENERATION[json_generation]
-            except:
-                pass
-        if json_generation is not None and json_generation == "":
-            return "NonStandard"
 
-    generation = "Unknown"
+        if json_generation and json_generation in vars.CHARACTER_GENERATION:
+            generation = vars.CHARACTER_GENERATION[json_generation]
+        elif avatar_type == "NonHuman":
+            generation = "Creature"
+        elif avatar_type == "NonStandard":
+            generation = "Humanoid"
+        elif json_generation is not None and json_generation == "":
+            generation = "Humanoid"
+        elif json_generation is None:
+            generation = "Prop"
+    else:
+        generation = "Unknown"
 
     arm = chr_cache.get_armature()
 
-    if arm:
-        chr_cache.parent_object = arm
+    material_names = characters.get_character_material_names(arm)
+    object_names = characters.get_character_object_names(arm)
+
+    if generation == "Unknown":
+        if len(material_names) == 1 and characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
+            generation = "ActorCore"
+        elif characters.character_has_materials(arm, ["Ga_Skin_Body"]):
+            if characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
+                generation = "ActorBuild"
+            elif characters.character_has_bones(arm, ["root", "hip"]):
+                generation = "GameBase"
+
+    if generation == "Unknown" and arm:
         if utils.find_pose_bone_in_armature(arm, "RootNode_0_", "RL_BoneRoot"):
             generation = "ActorCore"
         elif utils.find_pose_bone_in_armature(arm, "CC_Base_L_Pinky3", "L_Pinky3"):
@@ -382,19 +398,20 @@ def detect_generation(chr_cache, json_data):
                 # try vertex count
                 if len(obj.data.vertices) == 14164:
                     utils.log_info("Generation: G3Plus detected by vertex count.")
-                    return "G3Plus"
+                    generation = "G3Plus"
                 elif len(obj.data.vertices) == 13286:
                     utils.log_info("Generation: G3 detected by vertex count.")
-                    return "G3"
+                    generation = "G3"
 
                 #try UV map test
-                if materials.test_for_material_uv_coords(obj, 0, [[0.5, 0.763], [0.7973, 0.6147], [0.1771, 0.0843], [0.912, 0.0691]]):
+                elif materials.test_for_material_uv_coords(obj, 0, [[0.5, 0.763], [0.7973, 0.6147], [0.1771, 0.0843], [0.912, 0.0691]]):
                     utils.log_info("Generation: G3Plus detected by UV test.")
-                    return "G3Plus"
+                    generation = "G3Plus"
                 elif materials.test_for_material_uv_coords(obj, 0, [[0.5, 0.034365], [0.957562, 0.393431], [0.5, 0.931725], [0.275117, 0.961283]]):
                     utils.log_info("Generation: G3 detected by UV test.")
-                    return "G3"
+                    generation = "G3"
 
+    utils.log_info(f"Detected Character Generation: {generation}")
     return generation
 
 
@@ -411,7 +428,7 @@ def is_iclone_temp_motion(name : str):
         return False
 
 
-def remap_action_names(actions, objects, name):
+def remap_action_names(actions, objects, source_name, name):
     key_map = {}
     num_keys = 0
 
@@ -433,7 +450,7 @@ def remap_action_names(actions, objects, name):
             new_action_name = "iCTM"
         elif new_action_name == "AvatarCurrentMotion":
             new_action_name = "CCPose"
-        if action.name.startswith("Armature"):
+        if action.name.startswith(source_name + "|"):
             new_name = f"{name}|A|{new_action_name}"
             utils.log_info(f"Renaming action: {action.name} to {new_name}")
             action.name = new_name
@@ -450,18 +467,25 @@ def remap_action_names(actions, objects, name):
     return armature_actions, shapekey_actions
 
 
-def detect_character(file_path, objects, actions, json_data, report):
+def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list,
+                      actions, json_data, report, link_id):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     utils.log_info("")
-    utils.log_info("Detecting Characters:")
-    utils.log_info("---------------------")
+    utils.log_info("Processing Reallusion Import:")
+    utils.log_info("-----------------------------")
 
     dir, file = os.path.split(file_path)
     name, ext = os.path.splitext(file)
-    import_name = name
-    import_dir = dir
+
+    imported_characters = []
+
+    if armatures and (len(armatures) > 1 or len(rl_armatures) > 1):
+        report.append("Multiple armatures detected in Fbx is not fully supported!")
+        utils.log_warn("Multiple armatures detected in Fbx is not fully supported!")
+        utils.log_warn("Character exports from iClone to Blender do not fully support multiple characters.")
+        utils.log_warn("Characters should be exported individually for best results.")
 
     if not objects:
         report.append("No objects in import!")
@@ -469,101 +493,233 @@ def detect_character(file_path, objects, actions, json_data, report):
         return None
 
     try:
-        # try to override the import dir with the directory specified in the json
+        # try to override the import dir with the directory specified in the json:
+        #   when exporting from Blender without copying textures, these custom fields
+        #   tell us where the textures were originally and under what name
         import_dir = json_data[name]["Import_Dir"]
         import_name = json_data[name]["Import_Name"]
         utils.log_info(f"Using original Import Dir: {import_dir}")
         utils.log_info(f"Using original Import Name: {import_name}")
     except:
-        pass
+        import_name = name
+        import_dir = dir
 
-    chr_json = jsonutils.get_character_json(json_data, name)
-    chr_cache = props.import_cache.add()
-    chr_cache.import_file = file_path
-    chr_cache.import_type = ext[1:]
-    # original import name (if re-importing an export from Blender)
-    chr_cache.import_name = import_name
-    # original import dir (if re-importing an export from Blender)
-    #   import_name and import_dir are used mainly to find textures and for texture bake paths
-    #   thus, repeat imports of Blender exports can keep track of where the textures originally came from.
-    chr_cache.import_dir = import_dir
-    chr_cache.import_space_in_name = " " in name
-    chr_cache.character_index = 0
-    # actual armature name of character
-    chr_cache.character_name = name
-    # current character import name
-    chr_cache.character_id = name
     processed = []
+    chr_json = jsonutils.get_character_json(json_data, name)
 
-    link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
-    if link_id:
-        chr_cache.link_id = link_id
+    if ImportFlags.FBX in import_flags:
 
-    if utils.is_file_ext(ext, "FBX"):
+        for i, arm in enumerate(rl_armatures):
 
-        # key file
-        chr_cache.import_key_file = os.path.join(dir, name + ".fbxkey")
-        chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
+            # actual name of character
+            #   multiple character imports name the armatures after the character
+            #   single character imports just name the armature 'armature' so use the file name
+            character_name = name
+            source_name = "Armature"
+            if len(rl_armatures) > 1:
+                source_name = arm.name
+                character_name = utils.safe_export_name(arm.name)
 
-        # determine the main texture dir
-        chr_cache.import_main_tex_dir = name + ".fbm"
-        if os.path.exists(chr_cache.get_tex_dir()):
-            chr_cache.import_embedded = False
-        else:
-            chr_cache.import_main_tex_dir = ""
-            chr_cache.import_embedded = True
+            utils.log_info(f"Generating Character Data: {character_name}")
+            utils.log_indent()
 
-        # process the armature(s)
-        arm = None
-        arm_count = 0
-        for arm in objects:
-            if arm.type == "ARMATURE":
-                arm_count += 1
-                arm.name = name
-                if arm.data:
-                    arm.data.name = name
-                # in case of duplicate names: character_name contains the name currently in Blender.
-                #                             import_name contains the original name.
-                chr_cache.character_name = arm.name
-                # add armature to object_cache
-                chr_cache.add_object_cache(arm)
-                # assign bone collections
-                bones.assign_rl_base_collections(arm)
-                break
+            chr_cache = props.import_cache.add()
+            chr_cache.import_file = file_path
+            chr_cache.import_type = ext[1:]
+            chr_cache.import_flags = import_flags
+            # original import name (if re-importing an export from Blender)
+            chr_cache.import_name = import_name
+            # original import dir (if re-importing an export from Blender)
+            chr_cache.import_dir = import_dir
+            chr_cache.character_index = i
+            # display name of character
+            chr_cache.character_name = character_name
+            # the character object json key
+            chr_cache.character_id = name
 
-        if arm_count > 1:
-            report.append("Multiple characters detected in Fbx.")
-            report.append("Character exports from iClone to Blender do not fully support multiple characters.")
-            report.append("Characters should be exported individually for best results.")
+            # link_id
+            if not link_id:
+                link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+            if link_id:
+                chr_cache.link_id = link_id
 
-        # delete accessory colliders, currently they are useless as
-        # accessories don't export with any physics data or weightmaps.
-        physics.delete_accessory_colliders(arm, objects)
+            # key file
+            chr_cache.import_key_file = os.path.join(dir, name + ".fbxkey")
+            chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
 
-        # add child objects to object_cache
-        for obj in objects:
-            if obj.type == "MESH":
-                chr_cache.add_object_cache(obj)
+            # determine the main texture dir
+            chr_cache.import_main_tex_dir = import_name + ".fbm"
+            if os.path.exists(chr_cache.get_tex_dir()):
+                chr_cache.import_embedded = False
+            else:
+                chr_cache.import_main_tex_dir = ""
+                chr_cache.import_embedded = True
 
-        # remame actions
-        utils.log_info("Renaming actions:")
+            arm.name = character_name
+            arm.data.name = character_name
+
+            # in case of duplicate names: character_name contains the name currently in Blender.
+            #                             import_name contains the original name.
+            chr_cache.character_name = arm.name
+            # add armature to object_cache
+            chr_cache.add_object_cache(arm)
+            # assign bone collections
+            bones.assign_rl_base_collections(arm)
+
+            # delete accessory colliders, currently they are useless as
+            # accessories don't export with any physics data or weightmaps.
+            physics.delete_accessory_colliders(arm, objects)
+
+            # add child objects to object_cache
+            for obj in objects:
+                if obj.type == "MESH" and obj.parent and obj.parent == arm:
+                    chr_cache.add_object_cache(obj)
+
+            # remame actions TODO
+            utils.log_info("Renaming actions:")
+            utils.log_indent()
+            remap_action_names(actions, objects, source_name, chr_cache.character_name)
+            utils.log_recess()
+
+            # determine character generation
+            chr_cache.generation = detect_generation(chr_cache, json_data, chr_cache.character_id)
+            utils.log_info("Generation: " + chr_cache.character_name + " (" + chr_cache.generation + ")")
+
+            # cache materials
+            for obj_cache in chr_cache.object_cache:
+                if obj_cache.is_mesh():
+                    obj = obj_cache.get_object()
+                    cache_object_materials(chr_cache, obj, chr_json, processed)
+
+            properties.init_character_property_defaults(chr_cache, chr_json)
+
+            # set preserve volume on armature modifiers
+            for obj in objects:
+                if obj.type == "MESH":
+                    arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
+                    if arm_mod:
+                        arm_mod.use_deform_preserve_volume = False
+
+            # material setup mode
+            chr_cache.setup_mode = props.setup_mode
+
+            # character render target
+            chr_cache.render_target = prefs.render_target
+
+            imported_characters.append(chr_cache)
+
+            utils.log_recess()
+
+        # any none character aramtures should be scenes or props
+        for i, arm in enumerate(armatures):
+
+            character_name = "Scene"
+            source_name = "Armature"
+            if len(armatures) > 1:
+                source_name = arm.name
+                character_name = utils.safe_export_name(arm.name)
+
+            utils.log_info(f"Generating Scene/Prop Data: {character_name}")
+            utils.log_indent()
+
+            chr_cache = props.import_cache.add()
+            chr_cache.import_file = file_path
+            chr_cache.import_type = ext[1:]
+            chr_cache.import_flags = import_flags
+            # original import name (if re-importing an export from Blender)
+            chr_cache.import_name = import_name
+            # original import dir (if re-importing an export from Blender)
+            chr_cache.import_dir = import_dir
+            chr_cache.character_index = i
+            # display name of character
+            chr_cache.character_name = character_name
+            # the character object json key
+            chr_cache.character_id = name
+
+            # link_id
+            if not link_id:
+                link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
+            if link_id:
+                chr_cache.link_id = link_id
+
+            # key file
+            chr_cache.import_key_file = os.path.join(dir, name + ".fbxkey")
+            chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
+
+            # determine the main texture dir
+            chr_cache.import_main_tex_dir = import_name + ".fbm"
+            if os.path.exists(chr_cache.get_tex_dir()):
+                chr_cache.import_embedded = False
+            else:
+                chr_cache.import_main_tex_dir = ""
+                chr_cache.import_embedded = True
+
+            arm.name = character_name
+            arm.data.name = character_name
+
+            # in case of duplicate names: character_name contains the name currently in Blender.
+            #                             import_name contains the original name.
+            chr_cache.character_name = arm.name
+            # add armature to object_cache
+            chr_cache.add_object_cache(arm)
+
+            # add child objects to object_cache
+            for obj in objects:
+                if obj.type == "MESH" and obj.parent and obj.parent == arm:
+                    chr_cache.add_object_cache(obj)
+
+            # remame actions
+            utils.log_info("Renaming actions:")
+            utils.log_indent()
+            remap_action_names(actions, objects, source_name, chr_cache.character_name)
+            utils.log_recess()
+
+            # determine character generation
+            chr_cache.generation = "Prop"
+            chr_cache.non_standard_type = "PROP"
+
+            # cache materials
+            for obj_cache in chr_cache.object_cache:
+                if obj_cache.is_mesh():
+                    obj = obj_cache.get_object()
+                    cache_object_materials(chr_cache, obj, chr_json, processed)
+
+            properties.init_character_property_defaults(chr_cache, chr_json)
+
+            # material setup mode
+            chr_cache.setup_mode = props.setup_mode
+
+            # character render target
+            chr_cache.render_target = prefs.render_target
+
+            imported_characters.append(chr_cache)
+
+            utils.log_recess()
+
+    elif ImportFlags.OBJ in import_flags:
+
+        character_name = name
+
+        utils.log_info(f"Generating Character Data: {character_name}")
         utils.log_indent()
-        remap_action_names(actions, objects, chr_cache.character_name)
-        utils.log_recess()
 
-        # determine character generation
-        chr_cache.generation = detect_generation(chr_cache, json_data)
-        utils.log_info("Generation: " + chr_cache.character_name + " (" + chr_cache.generation + ")")
+        chr_cache = props.import_cache.add()
+        chr_cache.import_file = file_path
+        chr_cache.import_type = ext[1:]
+        chr_cache.import_flags = import_flags
+        # original import name (if re-importing an export from Blender)
+        chr_cache.import_name = import_name
+        # original import dir (if re-importing an export from Blender)
+        chr_cache.import_dir = import_dir
+        chr_cache.character_index = 0
+        # display name of character
+        chr_cache.character_name = character_name
+        # the character object json key
+        chr_cache.character_id = name
 
-        # cache materials
-        for obj_cache in chr_cache.object_cache:
-            if obj_cache.is_mesh():
-                obj = obj_cache.get_object()
-                cache_object_materials(chr_cache, obj, chr_json, processed)
-
-        properties.init_character_property_defaults(chr_cache, chr_json)
-
-    elif utils.is_file_ext(ext, "OBJ"):
+        # link_id (OBJ exports don't have json)
+        if link_id:
+            chr_cache.link_id = link_id
 
         # key file
         chr_cache.import_key_file = os.path.join(dir, name + ".ObjKey")
@@ -584,26 +740,52 @@ def detect_character(file_path, objects, actions, json_data, report):
             obj = obj_cache.get_object()
             if obj:
                 obj.scale = (0.01, 0.01, 0.01)
-                if not chr_cache.import_has_key: # objkey import is a single mesh with no materials
+                # objkey import is usually a single mesh with no materials
+                # but this is overridable in the pipeline plugin
+                if obj.data.materials and len(obj.data.materials) > 0:
                     cache_object_materials(chr_cache, obj, json_data, processed)
 
         properties.init_character_property_defaults(chr_cache, chr_json)
 
-    # set preserve volume on armature modifiers
-    for obj in objects:
-        if obj.type == "MESH":
-            arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
-            if arm_mod:
-                arm_mod.use_deform_preserve_volume = False
+        # material setup mode
+        chr_cache.setup_mode = props.setup_mode
 
-    # material setup mode
-    chr_cache.setup_mode = props.setup_mode
+        # character render target
+        chr_cache.render_target = prefs.render_target
 
-    # character render target
-    chr_cache.render_target = prefs.render_target
+        imported_characters.append(chr_cache)
 
     utils.log_info("")
-    return chr_cache
+    return imported_characters
+
+
+def obj_import(file_path, split_objects=False, split_groups=False, vgroups=False):
+    split_mode="ON" if (split_objects or split_groups) else "OFF"
+    if utils.B330():
+        bpy.ops.wm.obj_import(filepath=file_path,
+                              use_split_objects=split_objects,
+                              use_split_groups=split_groups,
+                              import_vertex_groups=vgroups)
+    else:
+        bpy.ops.import_scene.obj(filepath=file_path,
+                                 split_mode=split_mode,
+                                 use_split_objects=split_objects,
+                                 use_split_groups=split_groups,
+                                 use_groups_as_vgroups=vgroups)
+#
+#
+class ImportFlags(IntFlag):
+    NONE = 0
+    FBX = 1
+    OBJ = 2
+    GLB = 4
+    VRM = 8
+    RL = 1024
+    KEY = 2048
+    RL_FBX = RL | FBX
+    RL_OBJ = RL | OBJ
+    RL_FBX_KEY = RL_FBX | KEY
+    RL_OBJ_KEY = RL_OBJ | KEY
 
 
 # Import operator
@@ -621,6 +803,13 @@ class CC3Import(bpy.types.Operator):
         subtype="FILE_PATH"
         )
 
+    link_id: bpy.props.StringProperty(
+        default="",
+        name="Link ID",
+        description="Link ID override",
+        options={"HIDDEN"},
+    )
+
     filter_glob: bpy.props.StringProperty(
         default="*.fbx;*.obj;*.glb;*.gltf;*.vrm",
         options={"HIDDEN"},
@@ -634,6 +823,7 @@ class CC3Import(bpy.types.Operator):
 
     use_anim: bpy.props.BoolProperty(name = "Import Animation", description = "Import animation with character.\nWarning: long animations take a very long time to import in Blender 2.83", default = True)
 
+    count = 0
     running = False
     imported = False
     built = False
@@ -641,12 +831,12 @@ class CC3Import(bpy.types.Operator):
     timer = None
     clock = 0
     invoked = False
-    imported_character = None
+    imported_characters: list = None
     imported_materials = []
     imported_images = []
-    is_rl_character = False
     import_report = []
     import_warn_level = 0
+    import_flags: ImportFlags = ImportFlags.NONE
 
 
     def read_json_data(self, file_path, stage = 0):
@@ -699,6 +889,8 @@ class CC3Import(bpy.types.Operator):
         actions = None
 
         json_data = self.read_json_data(self.filepath, stage = 0)
+        json_generation = jsonutils.get_character_generation_json(json_data, name)
+        avatar_type = jsonutils.get_json(json_data, f"{name}/Avatar_Type")
 
         if utils.is_file_ext(ext, "FBX"):
 
@@ -721,19 +913,21 @@ class CC3Import(bpy.types.Operator):
             actions = utils.untagged_actions()
             self.imported_images = utils.untagged_images()
 
-            self.detect_import_mode_from_objects(imported)
+            armatures, rl_armatures = self.get_character_armatures(imported, avatar_type, json_generation)
 
             # detect characters and objects
-            if self.is_rl_character:
-                self.imported_character = detect_character(self.filepath, imported, actions, json_data, self.import_report)
+            if ImportFlags.RL in self.import_flags:
+                self.imported_characters = process_rl_import(self.filepath, self.import_flags, armatures, rl_armatures,
+                                                             imported, actions, json_data, self.import_report, self.link_id)
             elif prefs.import_auto_convert:
-                self.imported_character = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_characters = characters.convert_generic_to_non_standard(imported, self.filepath)
 
-            if self.imported_character and self.is_rl_character:
-                # set up the collision shapes and store their bind positions in the json data
-                rigidbody.build_rigid_body_colliders(self.imported_character, json_data, first_import = True)
-                # remove the colliders for now (only needed for spring bones)
-                rigidbody.remove_rigid_body_colliders(self.imported_character.get_armature())
+            if self.imported_characters and ImportFlags.RL in self.import_flags:
+                for chr_cache in self.imported_characters:
+                    # set up the collision shapes and store their bind positions in the json data
+                    rigidbody.build_rigid_body_colliders(chr_cache, json_data, first_import = True)
+                    # remove the colliders for now (only needed for spring bones)
+                    rigidbody.remove_rigid_body_colliders(chr_cache.get_armature())
 
             utils.log_timer("Done .Fbx Import.")
 
@@ -742,23 +936,20 @@ class CC3Import(bpy.types.Operator):
             # invoke the obj importer
             utils.tag_objects()
             utils.tag_images()
-            if self.is_rl_character and self.param == "IMPORT_MORPH":
-                bpy.ops.import_scene.obj(filepath = self.filepath, split_mode = "OFF",
-                        use_split_objects = False, use_split_groups = False,
-                        use_groups_as_vgroups = True)
+            if ImportFlags.RL in self.import_flags and self.param == "IMPORT_MORPH":
+                obj_import(self.filepath, split_objects=False, split_groups=False, vgroups=True)
             else:
-                bpy.ops.import_scene.obj(filepath = self.filepath, split_mode = "ON",
-                        use_split_objects = True, use_split_groups = True,
-                        use_groups_as_vgroups = False)
+                obj_import(self.filepath, split_objects=True, split_groups=True, vgroups=False)
 
             imported = utils.untagged_objects()
             self.imported_images = utils.untagged_images()
 
             # detect characters and objects
-            if self.is_rl_character:
-                self.imported_character = detect_character(self.filepath, imported, actions, json_data, self.import_report)
+            if ImportFlags.RL in self.import_flags:
+                self.imported_characters = process_rl_import(self.filepath, self.import_flags, None, None,
+                                                             imported, actions, json_data, self.import_report, self.link_id)
             elif prefs.import_auto_convert:
-                self.imported_character = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_characters = characters.convert_generic_to_non_standard(imported, self.filepath)
 
             #if self.param == "IMPORT_MORPH":
             #    if self.imported_character.get_tex_dir() != "":
@@ -776,7 +967,8 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             if prefs.import_auto_convert:
-                self.imported_character = characters.convert_generic_to_non_standard(imported, self.filepath)
+                chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_characters = [ chr_cache ]
 
             utils.log_timer("Done .GLTF Import.")
 
@@ -794,15 +986,16 @@ class CC3Import(bpy.types.Operator):
             self.imported_images = utils.untagged_images()
 
             # find the armature and rotate it 180 degrees in Z
-            arm : bpy.types.Object = utils.get_armature_from_objects(imported)
-            vrm.fix_armature(arm)
+            armature : bpy.types.Object = utils.get_armature_from_objects(imported)
+            vrm.fix_armature(armature)
             utils.try_select_objects(imported)
 
             os.remove(glb_path)
 
             if prefs.import_auto_convert:
-                self.imported_character = characters.convert_generic_to_non_standard(imported, self.filepath)
-                self.imported_character.import_type = "vrm"
+                chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
+                chr_cache.import_type = "vrm"
+                self.imported_characters = [ chr_cache ]
 
             utils.log_timer("Done .vrm Import.")
 
@@ -820,19 +1013,21 @@ class CC3Import(bpy.types.Operator):
 
         nodeutils.check_node_groups()
 
-        chr_cache: properties.CC3CharacterCache = None
-        if self.imported_character:
-            chr_cache = self.imported_character
-            json_data = self.read_json_data(self.filepath, stage = 1)
-        else:
+        on_import = self.imported_characters is not None
+        imported_characters = self.imported_characters
+        if not imported_characters:
             chr_cache = props.get_context_character_cache(context)
-            if chr_cache:
-                self.imported_character = chr_cache
+            imported_characters = [ chr_cache ]
+
+        chr_cache: properties.CC3CharacterCache
+        for chr_cache in imported_characters:
+
+            if on_import:
+                json_data = self.read_json_data(self.filepath, stage = 1)
+            else:
                 json_data = self.read_json_data(chr_cache.import_file, stage = 1)
                 # when rebuilding, use the currently selected render target
                 chr_cache.render_target = prefs.render_target
-
-        if chr_cache:
 
             chr_json = jsonutils.get_character_json(json_data, chr_cache.character_id)
 
@@ -884,7 +1079,8 @@ class CC3Import(bpy.types.Operator):
 
             drivers.add_body_shape_key_drivers(chr_cache, prefs.build_body_key_drivers)
 
-        chr_cache.build_count += 1
+            chr_cache.build_count += 1
+
         utils.log_timer("Done Build.", "s")
 
 
@@ -896,46 +1092,70 @@ class CC3Import(bpy.types.Operator):
         textures_path = os.path.join(dir, "textures", name)
         json_path = os.path.join(dir, name + ".json")
 
-        self.is_rl_character = False
-
         if utils.is_file_ext(ext, "OBJ"):
+            self.import_flags = self.import_flags | ImportFlags.OBJ
             obj_key_path = os.path.join(dir, name + ".ObjKey")
             if os.path.exists(obj_key_path):
+                self.import_flags = self.import_flags | ImportFlags.RL
+                self.import_flags = self.import_flags | ImportFlags.KEY
                 self.param = "IMPORT_MORPH"
-                utils.log_info("Importing as character morph with ObjKey.")
-                self.is_rl_character = True
+                utils.log_info("Importing as character morph with ObjKey. (nude character with bind pose)")
                 return
 
         elif utils.is_file_ext(ext, "FBX"):
+            self.import_flags = self.import_flags | ImportFlags.FBX
             obj_key_path = os.path.join(dir, name + ".fbxkey")
             if os.path.exists(obj_key_path):
+                self.import_flags = self.import_flags | ImportFlags.RL
+                self.import_flags = self.import_flags | ImportFlags.KEY
                 self.param = "IMPORT_MORPH"
                 utils.log_info("Importing as editable character with fbxkey.")
-                self.is_rl_character = True
                 return
 
-        if os.path.exists(textures_path):
-            self.is_rl_character = True
+        elif utils.is_file_ext(ext, "GLB") or utils.is_file_ext(ext, "GLTF"):
+            self.import_flags = self.import_flags | ImportFlags.GLB
+            utils.log_info("Importing generic GLB/GLTF character.")
+            return
 
-        if os.path.exists(json_path):
-            self.is_rl_character = True
+        elif utils.is_file_ext(ext, "VRM"):
+            self.import_flags = self.import_flags | ImportFlags.VRM
+            utils.log_info("Importing generic VRM character.")
+            return
 
-        if self.is_rl_character:
-            utils.log_info("Importing for rendering without key file.")
+        if os.path.exists(json_path) or os.path.exists(textures_path):
+            self.import_flags = self.import_flags | ImportFlags.RL
+            utils.log_info("Importing RL character without key file.")
         else:
             utils.log_info("Importing generic character.")
 
         self.param = "IMPORT_QUALITY"
 
 
-    def detect_import_mode_from_objects(self, objects):
-        arm = utils.get_armature_from_objects(objects)
-        if arm:
-            if (rigging.is_GameBase_armature(arm) or
-                rigging.is_ActorCore_armature(arm) or
-                rigging.is_G3_armature(arm) or
-                rigging.is_iClone_armature(arm)):
-                self.is_rl_character = True
+    def get_character_armatures(self, objects, avatar_type, json_generation):
+        rl_armatures = []
+        armatures = []
+        if not avatar_type:
+            if json_generation is not None and json_generation == "":
+                avatar_type = "NoneStandard"
+            elif json_generation is None:
+                avatar_type = "None"
+        for obj in objects:
+            if utils.object_exists_is_armature(obj):
+                if (avatar_type == "Standard" or
+                    avatar_type == "NonHuman" or
+                    avatar_type == "NonStandard" or
+                    avatar_type == "StandardSeries" or
+                    rigging.is_GameBase_armature(obj) or
+                    rigging.is_ActorCore_armature(obj) or
+                    rigging.is_G3_armature(obj) or
+                    rigging.is_iClone_armature(obj)):
+                    utils.log_info(f"RL character armature found: {obj.name}")
+                    if obj not in rl_armatures:
+                        rl_armatures.append(obj)
+                else:
+                    if obj not in armatures:
+                        armatures.append(obj)
+        return armatures, rl_armatures
 
 
     def do_import_report(self, context, stage = 0):
@@ -956,7 +1176,7 @@ class CC3Import(bpy.types.Operator):
 
 
     def run_build(self, context):
-        if self.is_rl_character and self.imported_character:
+        if ImportFlags.RL in self.import_flags and self.imported_characters:
             self.build_materials(context)
         self.built = True
 
@@ -965,11 +1185,12 @@ class CC3Import(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-        chr_cache = self.imported_character
+        if not self.imported_characters:
+            return
 
-        if chr_cache:
+        for chr_cache in self.imported_characters:
 
-            if self.is_rl_character:
+            if ImportFlags.RL in self.import_flags:
 
                 # for any objects with shape keys expand the slider range to -1.0 <> 1.0
                 # Character Creator and iClone both use negative ranges extensively.
@@ -1027,7 +1248,7 @@ class CC3Import(bpy.types.Operator):
                     props.action_list_action = utils.safe_get_action(cc3_rig)
                     rigging.adv_bake_retarget_to_rigify(self, chr_cache)
 
-        self.imported_character = None
+        self.imported_characters = None
         self.imported_materials = []
         self.imported_images = []
         self.lighting = True
@@ -1044,10 +1265,16 @@ class CC3Import(bpy.types.Operator):
                 return {'CANCELLED'}
 
         if event.type == 'TIMER' and self.clock > 10 and not self.running:
+
+            self.count += 1
+            if self.count > 99:
+                self.count = 0
+            context.window_manager.progress_update(self.count)
+
             if not self.imported:
                 self.running = True
                 self.run_import(context)
-                #if not self.is_rl_character:
+                #if ImportFlags.RL not in self.import_flags:
                 #    self.cancel(context)
                 #    self.report({'INFO'}, "None Standard Character Done!")
                 #    return {'FINISHED'}
@@ -1078,15 +1305,19 @@ class CC3Import(bpy.types.Operator):
         if self.timer is not None:
             context.window_manager.event_timer_remove(self.timer)
             self.timer = None
+            context.window_manager.progress_end()
 
 
     def execute(self, context):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        self.imported_character = None
+        self.imported_characters = None
         self.imported_materials = []
         self.imported_images = []
         self.import_report = []
+
+        context.window_manager.progress_begin(0, 99)
+        self.count = 0
 
         # import character
         if "IMPORT" in self.param:
@@ -1103,7 +1334,7 @@ class CC3Import(bpy.types.Operator):
                     return {'PASS_THROUGH'}
                 elif not self.invoked:
                     self.run_import(context)
-                    if self.is_rl_character:
+                    if ImportFlags.RL in self.import_flags:
                         self.run_build(context)
                         self.run_finish(context)
                     self.do_import_report(context, stage = 1)
@@ -1234,7 +1465,7 @@ class CC3ImportAnimations(bpy.types.Operator):
 
         utils.log_info("Renaming actions:")
         utils.log_indent()
-        armature_actions, shapekey_actions = remap_action_names(actions, objects, name)
+        armature_actions, shapekey_actions = remap_action_names(actions, objects, "Armature", name)
         utils.log_recess()
 
         utils.log_info("Cleaning up:")

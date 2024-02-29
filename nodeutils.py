@@ -671,7 +671,7 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
             link_nodes(links, group_node, socket.name, bsdf_node, to_socket)
 
     if utils.B400():
-        set_node_input_value(bsdf_node, "Subsurface Scale", 0.3)
+        set_node_input_value(bsdf_node, "Subsurface Scale", 1.0)
         set_node_input_value(bsdf_node, "Sheen Roughness", 0.05)
         if has_connected_input(bsdf_node, "Emission Color"):
             set_node_input_value(bsdf_node, "Emission Strength", 1.0)
