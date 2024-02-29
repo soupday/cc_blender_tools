@@ -646,7 +646,6 @@ def restore_armature_settings(rig, visibility, include_pose=False):
     if utils.B400():
         collections = visibility["collections"]
         for collection in collections:
-            print(f"{collection} : {collections[collection]}")
             rig.data.collections[collection].is_visible = collections[collection]
     else:
         layers = visibility["layers"]

@@ -906,9 +906,6 @@ def convert_to_rl_pbr(mat, mat_cache):
                     socket = "Alpha"
                 socket_mapping[group_socket] = [linked_node, socket, 1.0, ""]
 
-
-    print(socket_mapping)
-
     # connect the shader group node sockets
     for socket_name in socket_mapping:
         linked_info = socket_mapping[socket_name]
