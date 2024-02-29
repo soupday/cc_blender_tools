@@ -1397,9 +1397,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     name="Available Spring Rigs",
                     description="A list of all the spring rigs on the character")
 
-    def select(self):
-        rig = self.get_armature()
-        utils.set_active_object(rig, True)
+    def select_all(self):
+        objects = self.get_all_objects(include_armature=True, include_children=True)
+        utils.try_select_objects(objects, clear_selection=True)
 
     def get_tex_dir(self):
         if os.path.isabs(self.import_main_tex_dir):

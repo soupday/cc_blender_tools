@@ -2202,6 +2202,12 @@ class CC3Export(bpy.types.Operator):
             options={"HIDDEN"}
         )
 
+    link_id_override: bpy.props.StringProperty(
+            name = "link_id_override",
+            default = "",
+            options={"HIDDEN"}
+        )
+
     include_anim: bpy.props.BoolProperty(name = "Export Animation", default = True,
         description="Export current timeline animation with the character")
     include_selected: bpy.props.BoolProperty(name = "Include Selected", default = True,
@@ -2226,6 +2232,9 @@ class CC3Export(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache = props.get_context_character_cache(context)
+        if self.link_id_override:
+            chr_cache = props.find_character_by_link_id(self.link_id_override)
+            self.include_selected = False
 
         if chr_cache and self.param == "EXPORT_CC3":
 
@@ -2302,6 +2311,8 @@ class CC3Export(bpy.types.Operator):
 
         props = bpy.context.scene.CC3ImportProps
         chr_cache = props.get_context_character_cache(context)
+        if self.link_id_override:
+            chr_cache = props.find_character_by_link_id(self.link_id_override)
 
         # menu export
         if self.param == "EXPORT_MENU":

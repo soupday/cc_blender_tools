@@ -100,6 +100,17 @@ class LinkActor():
             return chr_cache.get_armature()
         return None
 
+    def select(self):
+        chr_cache = self.get_chr_cache()
+        chr_cache.select_all()
+
+    def get_type(self):
+        chr_cache = self.get_chr_cache()
+        if chr_cache.is_avatar():
+            return "AVATAR"
+        else:
+            return "PROP"
+
     def get_mesh_objects(self):
         objects = None
         if self.chr_cache:
@@ -201,36 +212,41 @@ class LinkData():
         else:
             return False
 
-    def get_actor(self, link_id, search_name=None) -> LinkActor:
+    def get_actor(self, link_id, search_name=None, search_type=None) -> LinkActor:
         props = bpy.context.scene.CC3ImportProps
         # try to find the actor by link id
+        actor: LinkActor
         for actor in self.actors:
             if actor.link_id == link_id:
-                return actor
+                if not search_type or actor.get_type() == search_type:
+                    return actor
         chr_cache = props.find_character_by_link_id(link_id)
         if chr_cache:
             actor = self.add_actor(chr_cache)
-            utils.log_info(f"Actor found by link_id: {actor.name} / {actor.link_id}")
-            return actor
+            if not search_type or actor.get_type() == search_type:
+                utils.log_info(f"Actor found by link_id: {actor.name} / {actor.link_id}")
+                return actor
         # try to find the character by name if the link id finds nothing
         # character id's change after every reload in iClone/CC4 so these can change.
         if search_name:
             for actor in self.actors:
                 if actor.name == search_name:
-                    utils.log_info(f"Existing Actor found by name: {actor.name} / {actor.link_id}")
+                    if not search_type or actor.get_type() == search_type:
+                        utils.log_info(f"Existing Actor found by name: {actor.name} / {actor.link_id}")
+                        actor.update_link_id(link_id)
+                        utils.log_info(f"Using new Link ID: {actor.link_id}")
+                        return actor
+            chr_cache = props.find_character_by_name(search_name)
+            if chr_cache:
+                if not search_type or actor.get_type() == search_type:
+                    actor = self.add_actor(chr_cache)
+                    utils.log_info(f"Actor found by name: {actor.name} / {actor.link_id}")
                     actor.update_link_id(link_id)
                     utils.log_info(f"Using new Link ID: {actor.link_id}")
                     return actor
-            chr_cache = props.find_character_by_name(search_name)
-            if chr_cache:
-                actor = self.add_actor(chr_cache)
-                utils.log_info(f"Actor found by name: {actor.name} / {actor.link_id}")
-                actor.update_link_id(link_id)
-                utils.log_info(f"Using new Link ID: {actor.link_id}")
-                return actor
         # finally if connected to character creator fall back to the first character
         # as character creator only ever has one character in the scene.
-        if self.is_cc():
+        if self.is_cc() and search_type == "AVATAR":
             chr_cache = props.get_first_avatar()
             if chr_cache:
                 actor = self.add_actor(chr_cache)
@@ -306,6 +322,14 @@ def make_datalink_import_rig(actor: LinkActor):
         return None
     chr_rig.hide_set(False)
     chr_cache = actor.get_chr_cache()
+    is_prop = actor.get_type() == "PROP"
+    if is_prop:
+        for child in chr_rig.children:
+            if utils.object_exists_is_mesh(child):
+                utils.log_info(f"Resetting prop mesh transform: {child.name}")
+                child.location = Vector((0,0,0))
+                child.rotation_mode = "QUATERNION"
+                child.rotation_quaternion = Quaternion((1,0,0,0))
 
     if utils.object_exists_is_armature(chr_cache.rig_datalink_rig):
         chr_cache.rig_datalink_rig.hide_set(False)
@@ -899,12 +923,12 @@ class LinkService():
                 op_code = None
                 try:
                     header = self.client_sock.recv(8)
+                    if header == 0:
+                        print("Socket closed by client")
+                        self.service_lost()
+                        return
                 except Exception as e:
                     utils.log_error("Client socket receive:recv failed!", e)
-                    self.service_lost()
-                    return
-                if header == 0:
-                    print("Socket closed by client")
                     self.service_lost()
                     return
                 if header and len(header) == 8:
@@ -1027,7 +1051,7 @@ class LinkService():
             self.receive_character_import(data)
 
         elif op_code == OpCodes.CHARACTER_UPDATE:
-            self.receive_character_update(data)
+            self.receive_actor_update(data)
 
         elif op_code == OpCodes.RIGIFY:
             self.receive_rigify_request(data)
@@ -1246,21 +1270,24 @@ class LinkService():
     def send_actor(self):
         global LINK_SERVICE
         actors = self.get_selected_actors()
+        state = utils.store_mode_selection_state()
+        utils.clear_selected_objects()
         actor: LinkActor
         for actor in actors:
             self.send_notify(f"Blender Exporting: {actor.name}...")
             export_path = self.get_export_path(actor.name, actor.name + ".fbx")
-            print(export_path)
             self.send_notify(f"Exporting: {actor.name}")
-            bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
+            bpy.ops.cc3.exporter(param="EXPORT_CC3", link_id_override=actor.link_id, filepath=export_path)
             update_link_status(f"Sending: {actor.name}")
             export_data = encode_from_json({
                 "path": export_path,
                 "name": actor.name,
+                "type": actor.get_type(),
                 "link_id": actor.link_id,
             })
             LINK_SERVICE.send(OpCodes.CHARACTER, export_data)
             update_link_status(f"Sent: {actor.name}")
+        utils.restore_mode_selection_state(state)
 
     def send_morph(self):
         actors = self.get_selected_actors()
@@ -1277,6 +1304,7 @@ class LinkService():
                 "path": export_path,
                 "key_path": key_path,
                 "name": actor.name,
+                "type": actor.get_type(),
                 "link_id": actor.link_id,
                 "morph_name": "Test Morph",
                 "morph_path": "Some/Path",
@@ -1316,8 +1344,9 @@ class LinkService():
                         bones.append(pose_bone.name)
 
             actor_data.append({
-                "name": chr_cache.character_name,
-                "link_id": chr_cache.link_id,
+                "name": actor.name,
+                "type": actor.get_type(),
+                "link_id": actor.link_id,
                 "bones": bones
             })
 
@@ -1338,6 +1367,7 @@ class LinkService():
         for actor in actors:
             actors_data.append({
                 "name": actor.name,
+                "type": actor.get_type(),
                 "link_id": actor.link_id,
             })
         return encode_from_json(data)
@@ -1349,6 +1379,7 @@ class LinkService():
         actor: LinkActor
         for actor in actors:
             data += pack_string(actor.name)
+            data += pack_string(actor.get_type())
             data += pack_string(actor.link_id)
             chr_cache = actor.get_chr_cache()
 
@@ -1422,6 +1453,7 @@ class LinkService():
         for actor in actors:
             actors_data.append({
                 "name": actor.name,
+                "type": actor.get_type(),
                 "link_id": actor.link_id,
             })
         return encode_from_json(data)
@@ -1501,7 +1533,8 @@ class LinkService():
         for actor_data in template_json["actors"]:
             link_id = actor_data["link_id"]
             name = actor_data["name"]
-            actor = LINK_DATA.get_actor(link_id)
+            character_type = actor_data["type"]
+            actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
             if actor:
                 actor.set_template(actor_data["bones"],
                                    actor_data["expressions"],
@@ -1511,12 +1544,12 @@ class LinkService():
                 utils.log_error(f"Unable to find actor: {name} ({link_id})")
         return template_json
 
-    def decode_pose_frame(self, pose_data):
+    def decode_pose_frame_header(self, pose_data):
         count, frame = struct.unpack_from("!II", pose_data)
         LINK_DATA.sequence_current_frame = frame
         return frame
 
-    def decode_pose_data(self, pose_data):
+    def decode_pose_frame_data(self, pose_data):
         global LINK_DATA
         link_prefs = bpy.context.scene.CCICLinkPrefs
 
@@ -1528,8 +1561,9 @@ class LinkService():
         actors = []
         for i in range(0, count):
             offset, name = unpack_string(pose_data, offset)
+            offset, character_type = unpack_string(pose_data, offset)
             offset, link_id = unpack_string(pose_data, offset)
-            actor = LINK_DATA.get_actor(link_id)
+            actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
             if actor:
                 objects = actor.get_sequence_objects()
                 rig: bpy.types.Object = actor.get_armature()
@@ -1551,6 +1585,9 @@ class LinkService():
                 #rig.location = loc
                 #rig.rotation_mode = "QUATERNION"
                 #rig.rotation_quaternion = rot
+                #rig.location = Vector((0,0,0))
+                #rig.rotation_mode = "QUATERNION"
+                #rig.rotation_quaternion = Quaternion((1,0,0,0))
 
             if actor:
                 actors.append(actor)
@@ -1852,9 +1889,10 @@ class LinkService():
 
         # fetch actors and set templates
         for actor_data in template_json["actors"]:
-            link_id = actor_data["link_id"]
             name = actor_data["name"]
-            actor = LINK_DATA.get_actor(link_id)
+            character_type = actor_data["type"]
+            link_id = actor_data["link_id"]
+            actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
             if actor:
                 actor.set_template(actor_data["bones"],
                                    actor_data["expressions"],
@@ -1902,8 +1940,9 @@ class LinkService():
         actors = []
         for actor_data in actors_data:
             name = actor_data["name"]
+            character_type = actor_data["type"]
             link_id = actor_data["link_id"]
-            actor = LINK_DATA.get_actor(link_id, search_name=name)
+            actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
             if actor:
                 prep_rig(actor, frame, frame)
                 actors.append(actor)
@@ -1918,9 +1957,9 @@ class LinkService():
         global LINK_DATA
 
         # decode and cache pose
-        frame = self.decode_pose_frame(data)
+        frame = self.decode_pose_frame_header(data)
         utils.log_info(f"Receive Pose Frame: {frame}")
-        actors = self.decode_pose_data(data)
+        actors = self.decode_pose_frame_data(data)
 
         # force recalculate all transforms
         bpy.context.view_layer.update()
@@ -1958,8 +1997,9 @@ class LinkService():
         actors = []
         for actor_data in actors_data:
             name = actor_data["name"]
+            character_type = actor_data["type"]
             link_id = actor_data["link_id"]
-            actor = LINK_DATA.get_actor(link_id, search_name=name)
+            actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
             if actor:
                 prep_rig(actor, json_data["start_frame"], json_data["end_frame"])
                 actors.append(actor)
@@ -1979,9 +2019,9 @@ class LinkService():
         global LINK_DATA
 
         # decode and cache pose
-        frame = self.decode_pose_frame(data)
+        frame = self.decode_pose_frame_header(data)
         utils.log_detail(f"Receive Sequence Frame: {frame}")
-        actors = self.decode_pose_data(data)
+        actors = self.decode_pose_frame_data(data)
 
         # force recalculate all transforms
         bpy.context.view_layer.update()
@@ -2021,8 +2061,9 @@ class LinkService():
         actor: LinkActor
         for actor_data in actors_data:
             name = actor_data["name"]
+            character_type = actor_data["type"]
             link_id = actor_data["link_id"]
-            actor = LINK_DATA.get_actor(link_id)
+            actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
             if actor:
                 actors.append(actor)
         num_frames = LINK_DATA.sequence_end_frame - LINK_DATA.sequence_start_frame + 1
@@ -2048,10 +2089,12 @@ class LinkService():
         json_data = decode_to_json(data)
         fbx_path = json_data["path"]
         name = json_data["name"]
+        character_type = json_data["type"]
         link_id = json_data["link_id"]
+
         utils.log_info(f"Receive Character Import: {name} / {link_id} / {fbx_path}")
 
-        actor = LINK_DATA.get_actor(link_id)
+        actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
         if actor:
             update_link_status(f"Character: {name} exists!")
             utils.log_info(f"Actor {name} ({link_id}) already exists!")
@@ -2060,22 +2103,23 @@ class LinkService():
         update_link_status(f"Receving Character Import: {name}")
         if os.path.exists(fbx_path):
             bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id)
-            actor = LINK_DATA.get_actor(link_id)
+            actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
             update_link_status(f"Character Imported: {actor.name}")
 
-    def receive_character_update(self, data):
+    def receive_actor_update(self, data):
         global LINK_DATA
 
         # decode character update
         json_data = decode_to_json(data)
         old_name = json_data["old_name"]
-        new_name = json_data["new_name"]
         old_link_id = json_data["old_link_id"]
+        character_type = json_data["type"]
+        new_name = json_data["new_name"]
         new_link_id = json_data["new_link_id"]
         utils.log_info(f"Receive Character Update: {old_name} -> {new_name} / {old_link_id} -> {new_link_id}")
 
         # update character data
-        actor = LINK_DATA.get_actor(old_link_id)
+        actor = LINK_DATA.get_actor(old_link_id, search_name=old_name, search_type=character_type)
         actor.update_name(new_name)
         actor.update_link_id(new_link_id)
 
@@ -2086,11 +2130,12 @@ class LinkService():
         json_data = decode_to_json(data)
         obj_path = json_data["path"]
         name = json_data["name"]
+        character_type = json_data["type"]
         link_id = json_data["link_id"]
         utils.log_info(f"Receive Character Morph: {name} / {link_id} / {obj_path}")
 
         # fetch actor to update morph or import new morph character
-        actor = LINK_DATA.get_actor(link_id)
+        actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
         if actor:
             update = True
         else:
@@ -2102,7 +2147,7 @@ class LinkService():
                 update_link_status(f"Morph Updated: {actor.name}")
             else:
                 bpy.ops.cc3.importer(param="IMPORT", filepath=obj_path, link_id=link_id)
-                actor = LINK_DATA.get_actor(link_id)
+                actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
                 update_link_status(f"Morph Imported: {actor.name}")
 
     def import_morph_update(self, actor: LinkActor, file_path):
@@ -2124,11 +2169,12 @@ class LinkService():
         # decode rigify request
         json_data = decode_to_json(data)
         name = json_data["name"]
+        character_type = json_data["type"]
         link_id = json_data["link_id"]
         utils.log_info(f"Receive Rigify Request: {name} / {link_id}")
 
         # rigify actor armature
-        actor = LINK_DATA.get_actor(link_id)
+        actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
         if actor and actor.get_chr_cache():
             chr_cache = actor.get_chr_cache()
             if chr_cache.rigified:
