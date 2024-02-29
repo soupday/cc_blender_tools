@@ -45,12 +45,12 @@ def reset_preferences():
     prefs.export_texture_size = "2048"
     prefs.export_require_key = True
     prefs.export_revert_names = True
-    prefs.cycles_sss_skin_v118 = 0.35
-    prefs.cycles_sss_hair_v118 = 0.025
-    prefs.cycles_sss_teeth = 0.1
-    prefs.cycles_sss_tongue = 0.1
-    prefs.cycles_sss_eyes = 0.025
-    prefs.cycles_sss_default = 0.1
+    prefs.cycles_sss_skin_v203 = 0.5
+    prefs.cycles_sss_hair_v203 = 0.1
+    prefs.cycles_sss_teeth_v203 = 1.0
+    prefs.cycles_sss_tongue_v203 = 1.0
+    prefs.cycles_sss_eyes_v203 = 1.0
+    prefs.cycles_sss_default_v203 = 1.0
     prefs.cycles_ssr_iris_brightness = 2.0
     prefs.import_auto_convert = True
     prefs.import_deduplicate = True
@@ -241,14 +241,22 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                 description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
                 "Which sets up Reallusion import compatible materials and material parameters")
 
+    cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
+    #
+    cycles_sss_skin_v203: bpy.props.FloatProperty(default=0.5)
+    cycles_sss_hair_v203: bpy.props.FloatProperty(default=0.1)
+    cycles_sss_teeth_v203: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_tongue_v203: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_eyes_v203: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_default_v203: bpy.props.FloatProperty(default=1.0)
+    # old
     cycles_sss_skin_v118: bpy.props.FloatProperty(default=0.5)
     cycles_sss_hair_v118: bpy.props.FloatProperty(default=0.1)
     cycles_sss_teeth: bpy.props.FloatProperty(default=1.0)
     cycles_sss_tongue: bpy.props.FloatProperty(default=1.0)
     cycles_sss_eyes: bpy.props.FloatProperty(default=1.0)
     cycles_sss_default: bpy.props.FloatProperty(default=1.0)
-    cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
-    # old
+    # older
     cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
     cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
 
@@ -342,12 +350,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "eye_displacement_group")
 
         layout.label(text="Cycles Adjustments:")
-        layout.prop(self, "cycles_sss_skin_v118")
-        layout.prop(self, "cycles_sss_hair_v118")
-        layout.prop(self, "cycles_sss_teeth")
-        layout.prop(self, "cycles_sss_tongue")
-        layout.prop(self, "cycles_sss_eyes")
-        layout.prop(self, "cycles_sss_default")
+        layout.prop(self, "cycles_sss_skin_v203")
+        layout.prop(self, "cycles_sss_hair_v203")
+        layout.prop(self, "cycles_sss_teeth_v203")
+        layout.prop(self, "cycles_sss_tongue_v203")
+        layout.prop(self, "cycles_sss_eyes_v203")
+        layout.prop(self, "cycles_sss_default_v203")
         layout.prop(self, "cycles_ssr_iris_brightness")
 
         layout.label(text="Physics:")

@@ -279,37 +279,37 @@ def func_iris_brightness(v):
 def func_sss_skin(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_skin_v118
+        s = s * prefs.cycles_sss_skin_v203
     return s
 
 def func_sss_hair(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_hair_v118
+        s = s * prefs.cycles_sss_hair_v203
     return s
 
 def func_sss_teeth(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_teeth
+        s = s * prefs.cycles_sss_teeth_v203
     return s
 
 def func_sss_tongue(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_tongue
+        s = s * prefs.cycles_sss_tongue_v203
     return s
 
 def func_sss_eyes(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_eyes
+        s = s * prefs.cycles_sss_eyes_v203
     return s
 
 def func_sss_default(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_default
+        s = s * prefs.cycles_sss_default_v203
     return s
 
 def func_sss_radius_skin(r, f):

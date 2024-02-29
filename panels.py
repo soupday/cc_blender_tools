@@ -710,17 +710,17 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 col_1 = split.column()
                 col_2 = split.column()
                 col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "cycles_sss_skin_v118", text = "")
+                col_2.prop(prefs, "cycles_sss_skin_v203", text = "")
                 col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "cycles_sss_hair_v118", text = "")
+                col_2.prop(prefs, "cycles_sss_hair_v203", text = "")
                 col_1.label(text = "Teeth SSS")
-                col_2.prop(prefs, "cycles_sss_teeth", text = "")
+                col_2.prop(prefs, "cycles_sss_teeth_v203", text = "")
                 col_1.label(text = "Tongue SSS")
-                col_2.prop(prefs, "cycles_sss_tongue", text = "")
+                col_2.prop(prefs, "cycles_sss_tongue_v203", text = "")
                 col_1.label(text = "Eyes SSS")
-                col_2.prop(prefs, "cycles_sss_eyes", text = "")
+                col_2.prop(prefs, "cycles_sss_eyes_v203", text = "")
                 col_1.label(text = "Default SSS")
-                col_2.prop(prefs, "cycles_sss_default", text = "")
+                col_2.prop(prefs, "cycles_sss_default_v203", text = "")
 
         # Build Button
         if chr_cache:
