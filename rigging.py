@@ -2099,7 +2099,6 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, b
 
             # add all contraints to/from the retarget rig
             for retarget_def in retarget_data.retarget:
-                print(retarget_def)
                 org_bone_name = retarget_def[0]
                 source_bone_name = get_bone_name_regex(source_rig, retarget_def[2])
                 rigify_bone_name = retarget_def[3]

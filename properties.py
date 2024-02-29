@@ -509,7 +509,6 @@ def update_link_host(self, context):
     host = link_prefs.link_host
     if host:
         try:
-            print(socket.gethostbyname(host))
             link_prefs.link_host_ip = socket.gethostbyname(host)
         except:
             link_prefs.link_host_ip = "127.0.0.1"

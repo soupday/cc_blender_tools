@@ -71,10 +71,6 @@ VISEME_NAME_MAP = {
 
 class LinkActor():
     name: str = "Name"
-    # Do not use directly
-    chr_cache = None
-    """Do not use directly! Always use LinkActor.get_chr_cache()"""
-
     link_id: str = "1234567890"
     bones: list = []
     expressions: list = []
@@ -85,14 +81,11 @@ class LinkActor():
     def __init__(self, chr_cache):
         self.name = chr_cache.character_name
         self.link_id = chr_cache.link_id
-        self.chr_cache = chr_cache
         return
 
     def get_chr_cache(self):
         props = bpy.context.scene.CC3ImportProps
-        if not self.chr_cache:
-            self.chr_cache = props.find_character_by_link_id(self.link_id)
-        return self.chr_cache
+        return props.find_character_by_link_id(self.link_id)
 
     def get_armature(self):
         chr_cache = self.get_chr_cache()
@@ -113,10 +106,11 @@ class LinkActor():
 
     def get_mesh_objects(self):
         objects = None
-        if self.chr_cache:
-            objects = self.chr_cache.get_all_objects(include_armature=False,
-                                                     include_children=True,
-                                                     of_type="MESH")
+        chr_cache = self.get_chr_cache()
+        if chr_cache:
+            objects = chr_cache.get_all_objects(include_armature=False,
+                                                include_children=True,
+                                                of_type="MESH")
         return objects
 
     def object_has_sequence_shape_keys(self, obj):
@@ -131,8 +125,9 @@ class LinkActor():
 
     def get_sequence_objects(self):
         objects = []
-        if self.chr_cache:
-            all_objects = self.chr_cache.get_all_objects(include_armature=False,
+        chr_cache = self.get_chr_cache()
+        if chr_cache:
+            all_objects = chr_cache.get_all_objects(include_armature=False,
                                                      include_children=True,
                                                      of_type="MESH")
             for obj in all_objects:
@@ -173,6 +168,13 @@ class LinkActor():
         chr_cache = self.get_chr_cache()
         if chr_cache:
             chr_cache.link_id = new_link_id
+
+    def ready(self):
+        if self.cache and self.get_chr_cache() and self.get_armature():
+            return True
+        else:
+            return False
+
 
 
 class LinkData():
@@ -481,9 +483,12 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
     if actor and actor.get_chr_cache():
         chr_cache = actor.get_chr_cache()
         rig = actor.get_armature()
+        if not rig:
+            utils.log_error(f"Actor: {actor.name} invalid rig!")
+            return
         objects = actor.get_sequence_objects()
-        utils.log_info(f"Preparing Character Rig: {actor.name}")
         if rig:
+            utils.log_info(f"Preparing Character Rig: {actor.name} {rig.name}")
 
             # rig action
             action_name = f"{chr_cache.character_name}_data_link_action"
@@ -595,6 +600,10 @@ def key_frame_pose_visual():
 def store_bone_cache_keyframes(actor: LinkActor, frame):
     """Needs to be called after all constraints have been set and all bones in the pose positioned"""
 
+    if not actor.cache:
+        utils.log_error(f"No actor cache: {actor.name}")
+        return
+
     rig = actor.get_armature()
     start_frame = actor.cache["start"]
     cache_index = (frame - start_frame) * 2
@@ -641,6 +650,10 @@ def store_bone_cache_keyframes(actor: LinkActor, frame):
 
 
 def store_shape_key_cache_keyframes(actor: LinkActor, frame, expression_weights, viseme_weights, morph_weights):
+    if not actor.cache:
+        utils.log_error(f"No actor cache: {actor.name}")
+        return
+
     start_frame = actor.cache["start"]
     cache_index = (frame - start_frame) * 2
 
@@ -750,6 +763,7 @@ class LinkService():
     time: float = 0
     is_data: bool = False
     is_sequence: bool = False
+    is_import: bool = False
     # Signals
     listening = Signal()
     connecting = Signal()
@@ -911,6 +925,7 @@ class LinkService():
         link_prefs = bpy.context.scene.CCICLinkPrefs
 
         self.is_data = False
+        self.is_import = False
         if self.has_client_sock():
             try:
                 r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
@@ -924,7 +939,7 @@ class LinkService():
                 try:
                     header = self.client_sock.recv(8)
                     if header == 0:
-                        print("Socket closed by client")
+                        utils.log_always("Socket closed by client")
                         self.service_lost()
                         return
                 except Exception as e:
@@ -956,6 +971,11 @@ class LinkService():
                 # if preview sync every frame in sequence
                 if op_code == OpCodes.SEQUENCE_FRAME and link_prefs.sequence_frame_sync:
                     self.is_data = True
+                    return
+                if op_code == OpCodes.CHARACTER or op_code == OpCodes.PROP:
+                    # give imports time to process, otherwise bad things happen
+                    self.is_data = False
+                    self.is_import = True
                     return
                 try:
                     r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
@@ -1166,7 +1186,10 @@ class LinkService():
         # run anything in sequence
         self.sequence.emit()
 
-        return 0.0 if (self.is_data or self.is_sequence) else TIMER_INTERVAL
+        if self.is_import:
+            return 0.5
+        else:
+            return 0.0 if (self.is_data or self.is_sequence) else TIMER_INTERVAL
 
     def send(self, op_code, binary_data = None):
         if self.client_sock and (self.is_connected or self.is_connecting):
@@ -1296,7 +1319,6 @@ class LinkService():
             self.send_notify(f"Blender Exporting: {actor.name}...")
             export_path = self.get_export_path(actor.name, actor.name + "_morph.obj")
             key_path = self.get_key_path(export_path, ".ObjKey")
-            print(export_path)
             self.send_notify(f"Exporting: {actor.name}")
             bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
             update_link_status(f"Sending: {actor.name}")
@@ -1564,9 +1586,11 @@ class LinkService():
             offset, character_type = unpack_string(pose_data, offset)
             offset, link_id = unpack_string(pose_data, offset)
             actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
+            actor_ready = False
             if actor:
                 objects = actor.get_sequence_objects()
                 rig: bpy.types.Object = actor.get_armature()
+                actor_ready = actor.ready()
             else:
                 objects = []
                 rig = None
@@ -1589,9 +1613,13 @@ class LinkService():
                 #rig.rotation_mode = "QUATERNION"
                 #rig.rotation_quaternion = Quaternion((1,0,0,0))
 
+            datalink_rig = None
             if actor:
-                actors.append(actor)
-                datalink_rig = make_datalink_import_rig(actor)
+                if actor_ready:
+                    actors.append(actor)
+                    datalink_rig = make_datalink_import_rig(actor)
+                else:
+                    utils.log_error(f"Actor not ready: {name}/ {link_id}")
             else:
                 utils.log_error(f"Could not find actor: {name}/ {link_id}")
 
@@ -1642,7 +1670,8 @@ class LinkService():
             morph_weights = []
 
             # store shape keys in the cache
-            store_shape_key_cache_keyframes(actor, frame, expression_weights, viseme_weights, morph_weights)
+            if actor_ready:
+                store_shape_key_cache_keyframes(actor, frame, expression_weights, viseme_weights, morph_weights)
 
         return actors
 
@@ -1968,12 +1997,14 @@ class LinkService():
         update_link_status(f"Pose Frame: {frame}")
         rigs = self.select_actor_rigs(actors)
         for actor in actors:
-            store_bone_cache_keyframes(actor, frame)
+            if actor.ready():
+                store_bone_cache_keyframes(actor, frame)
 
         # write pose action
         for actor in actors:
-            remove_datalink_import_rig(actor)
-            write_sequence_actions(actor)
+            if actor.ready():
+                remove_datalink_import_rig(actor)
+                write_sequence_actions(actor)
 
         # finish
         LINK_DATA.pose_actors = None

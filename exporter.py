@@ -1165,7 +1165,6 @@ def set_non_standard_generation(json_data, character_id, character_type, generat
     RL_HUMANOID_GENERATIONS = [
         "ActorCore", "ActorBuild", "ActorScan", "AccuRig", "GameBase"
     ]
-    print(f"id: {character_id} type: {character_type} gen: {generation}")
     if character_type == "HUMANOID":
         if generation not in RL_HUMANOID_GENERATIONS:
             generation = "Humanoid"
@@ -1514,9 +1513,7 @@ def export_copy_asset_file(chr_cache, dir, name, ext, old_path=None):
             utils.local_path(chr_cache.import_name + ext),
         ]
         for old_path in try_paths:
-            print(old_path)
             if old_path and os.path.exists(old_path):
-                print("Found!")
                 new_path = os.path.join(dir, name + ext)
                 if not utils.is_same_path(new_path, old_path):
                     utils.log_info(f"Copying {ext} file: {old_path} to: {new_path}")
@@ -1685,7 +1682,6 @@ def export_standard(self, chr_cache, file_path, include_selected):
         utils.log_info("Writing Json Data.")
 
         # write HIK profile for VRM
-        print(f"Import Type: {chr_cache.import_type}")
         if chr_cache and utils.is_file_ext(chr_cache.import_type, "VRM"):
             hik_path = os.path.join(dir, name + ".3dxProfile")
             if vrm.generate_hik_profile(arm, name, hik_path):
