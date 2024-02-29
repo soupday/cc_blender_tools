@@ -3655,7 +3655,7 @@ class CC3Rigifier(bpy.types.Operator):
     rigid_body_systems = {}
 
     def is_full_face_rig(self, chr_cache):
-        return not self.no_face_rig and chr_cache.rig_full_face()
+        return not self.no_face_rig and chr_cache.is_rig_full_face()
 
     def add_meta_rig(self, chr_cache):
 

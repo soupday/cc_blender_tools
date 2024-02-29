@@ -415,13 +415,28 @@ def get_json(json_data, path: str):
     if json_data:
         keys = path.split("/")
         for key in keys:
-            print(key, key in json_data)
             if key in json_data:
                 json_data = json_data[key]
             else:
                 return None
         return json_data
     return None
+
+
+def set_json(json_data, path: str, value):
+    if json_data:
+        json_key = None
+        keys = path.split("/")
+        for i, key in enumerate(keys):
+            if key in json_data:
+                if i == len(keys) - 1:
+                    json_data[key] = value
+                    return True
+                else:
+                    json_data = json_data[key]
+            else:
+                break
+    return False
 
 
 def generate_character_json_data(name):

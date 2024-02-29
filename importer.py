@@ -328,27 +328,38 @@ def init_shape_key_range(obj):
                 pass
 
 
-def detect_generation(chr_cache, json_data):
+def detect_generation(chr_cache, json_data, character_id):
 
     if json_data:
+        avatar_type = jsonutils.get_json(json_data, f"{character_id}/Avatar_Type")
         json_generation = jsonutils.get_character_generation_json(json_data, chr_cache.character_id)
-        if json_generation is not None and json_generation != "":
-            try:
-                return vars.CHARACTER_GENERATION[json_generation]
-            except:
-                pass
-        if json_generation is not None and json_generation == "":
-            return "NonStandard"
 
-    generation = "Unknown"
+        if json_generation and json_generation in vars.CHARACTER_GENERATION:
+            generation = vars.CHARACTER_GENERATION[json_generation]
+        elif avatar_type == "NonHuman":
+            generation = "Creature"
+        elif avatar_type == "NonStandard":
+            generation = "Humanoid"
+        elif json_generation is not None and json_generation == "":
+            generation = "Humanoid"
+        elif json_generation is None:
+            generation = "Prop"
+    else:
+        generation = "Unknown"
 
     arm = chr_cache.get_armature()
 
-    if characters.character_has_materials(arm, ["Ga_Skin_Body"]):
-        if characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
-            generation = "ActorBuild"
-        elif characters.character_has_bones(arm, ["root", "hip"]):
-            generation = "GameBase"
+    material_names = characters.get_character_material_names(arm)
+    object_names = characters.get_character_object_names(arm)
+
+    if generation == "Unknown":
+        if len(material_names) == 1 and characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
+            generation = "ActorCore"
+        elif characters.character_has_materials(arm, ["Ga_Skin_Body"]):
+            if characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
+                generation = "ActorBuild"
+            elif characters.character_has_bones(arm, ["root", "hip"]):
+                generation = "GameBase"
 
     if generation == "Unknown" and arm:
         if utils.find_pose_bone_in_armature(arm, "RootNode_0_", "RL_BoneRoot"):
@@ -387,19 +398,20 @@ def detect_generation(chr_cache, json_data):
                 # try vertex count
                 if len(obj.data.vertices) == 14164:
                     utils.log_info("Generation: G3Plus detected by vertex count.")
-                    return "G3Plus"
+                    generation = "G3Plus"
                 elif len(obj.data.vertices) == 13286:
                     utils.log_info("Generation: G3 detected by vertex count.")
-                    return "G3"
+                    generation = "G3"
 
                 #try UV map test
-                if materials.test_for_material_uv_coords(obj, 0, [[0.5, 0.763], [0.7973, 0.6147], [0.1771, 0.0843], [0.912, 0.0691]]):
+                elif materials.test_for_material_uv_coords(obj, 0, [[0.5, 0.763], [0.7973, 0.6147], [0.1771, 0.0843], [0.912, 0.0691]]):
                     utils.log_info("Generation: G3Plus detected by UV test.")
-                    return "G3Plus"
+                    generation = "G3Plus"
                 elif materials.test_for_material_uv_coords(obj, 0, [[0.5, 0.034365], [0.957562, 0.393431], [0.5, 0.931725], [0.275117, 0.961283]]):
                     utils.log_info("Generation: G3 detected by UV test.")
-                    return "G3"
+                    generation = "G3"
 
+    utils.log_info(f"Detected Character Generation: {generation}")
     return generation
 
 
@@ -570,7 +582,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             utils.log_recess()
 
             # determine character generation
-            chr_cache.generation = detect_generation(chr_cache, json_data)
+            chr_cache.generation = detect_generation(chr_cache, json_data, chr_cache.character_id)
             utils.log_info("Generation: " + chr_cache.character_name + " (" + chr_cache.generation + ")")
 
             # cache materials
@@ -877,6 +889,8 @@ class CC3Import(bpy.types.Operator):
         actions = None
 
         json_data = self.read_json_data(self.filepath, stage = 0)
+        json_generation = jsonutils.get_character_generation_json(json_data, name)
+        avatar_type = jsonutils.get_json(json_data, f"{name}/Avatar_Type")
 
         if utils.is_file_ext(ext, "FBX"):
 
@@ -899,7 +913,7 @@ class CC3Import(bpy.types.Operator):
             actions = utils.untagged_actions()
             self.imported_images = utils.untagged_images()
 
-            armatures, rl_armatures = self.get_character_armatures(imported)
+            armatures, rl_armatures = self.get_character_armatures(imported, avatar_type, json_generation)
 
             # detect characters and objects
             if ImportFlags.RL in self.import_flags:
@@ -1117,12 +1131,21 @@ class CC3Import(bpy.types.Operator):
         self.param = "IMPORT_QUALITY"
 
 
-    def get_character_armatures(self, objects):
+    def get_character_armatures(self, objects, avatar_type, json_generation):
         rl_armatures = []
         armatures = []
+        if not avatar_type:
+            if json_generation is not None and json_generation == "":
+                avatar_type = "NoneStandard"
+            elif json_generation is None:
+                avatar_type = "None"
         for obj in objects:
             if utils.object_exists_is_armature(obj):
-                if (rigging.is_GameBase_armature(obj) or
+                if (avatar_type == "Standard" or
+                    avatar_type == "NonHuman" or
+                    avatar_type == "NonStandard" or
+                    avatar_type == "StandardSeries" or
+                    rigging.is_GameBase_armature(obj) or
                     rigging.is_ActorCore_armature(obj) or
                     rigging.is_G3_armature(obj) or
                     rigging.is_iClone_armature(obj)):

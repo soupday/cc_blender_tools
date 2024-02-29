@@ -485,19 +485,25 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
 
             if chr_cache.rigified:
                 BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Root"] #not Tweak and Extra
-                BAKE_BONE_COLLECTIONS = ["Face", "Torso", "Fingers (Detail)",
-                                        "Arm.L (IK)", "Arm.L (FK)", "Leg.L (IK)", "Leg.L (FK)",
-                                        "Arm.R (IK)", "Arm.R (FK)", "Leg.R (IK)", "Leg.R (FK)",
-                                        "Root"]
+                BAKE_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
+                                         "Torso", "Torso (Tweak)",
+                                         "Fingers", "Fingers (Detail)",
+                                         "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)",
+                                         "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
+                                         "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)",
+                                         "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
+                                         "Root"]
                 BAKE_BONE_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,28]
                 if utils.object_mode_to(rig):
                     bone : bpy.types.Bone
                     bones.make_bones_visible(rig, collections=BAKE_BONE_COLLECTIONS, layers=BAKE_BONE_LAYERS)
-                    for bone in rig.data.bones:
+                    for pose_bone in rig.pose.bones:
+                        bone = pose_bone.bone
                         bone.select = False
                         if bones.is_bone_in_collections(rig, bone, BAKE_BONE_COLLECTIONS,
                                                                 BAKE_BONE_GROUPS):
                             bone.select = True
+                            pose_bone.rotation_mode = "QUATERNION"
             else:
                 if utils.object_mode_to(rig):
                     bone : bpy.types.Bone
@@ -512,7 +518,6 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
             expression_cache = {}
             viseme_cache = {}
             morph_cache = {}
-            bones = []
             actor_cache = {
                 "rig": rig,
                 "bones": bone_cache,
@@ -575,18 +580,28 @@ def store_bone_cache_keyframes(actor: LinkActor, frame):
         sca_cache = bone_cache[bone_name]["sca"]
         rot_cache = bone_cache[bone_name]["rot"]
         pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
-        M: Matrix
-        O: Matrix = pose_bone.matrix
-        RI: Matrix = pose_bone.bone.matrix_local.inverted()
+        L: Matrix   # local space matrix we want
+        NL: Matrix  # non-local space matrix we want (if not using local location or inherit rotation)
+        M: Matrix = pose_bone.matrix # object space matrix of the pose bone after contraints and drivers
+        R: Matrix = pose_bone.bone.matrix_local # bone rest pose matrix
+        RI: Matrix = R.inverted() # bone rest pose matrix inverted
         if pose_bone.parent:
-            PI: Matrix = pose_bone.parent.matrix.inverted()
-            PR: Matrix = pose_bone.parent.bone.matrix_local
-            M: Matrix = RI @ (PR @ (PI @ O))
+            PI: Matrix = pose_bone.parent.matrix.inverted() # parent object space matrix inverted (after contraints and drivers)
+            PR: Matrix = pose_bone.parent.bone.matrix_local # parent rest pose matrix
+            L = RI @ (PR @ (PI @ M))
+            NL = PI @ M
         else:
-            M: Matrix = RI @ O
-        loc = M.to_translation()
-        sca = M.to_scale()
-        rot = M.to_quaternion()
+            L = RI @ M
+            NL = M
+        if not pose_bone.bone.use_local_location:
+            loc = NL.to_translation()
+        else:
+            loc = L.to_translation()
+        sca = L.to_scale()
+        if not pose_bone.bone.use_inherit_rotation:
+            rot = NL.to_quaternion()
+        else:
+            rot = L.to_quaternion()
         for i in range(0, 3):
             curve = loc_cache["curves"][i]
             curve[cache_index] = frame
@@ -1179,25 +1194,18 @@ class LinkService():
         global LINK_SERVICE
         remote_path = LINK_SERVICE.remote_path
         local_path = LINK_SERVICE.local_path
+
         if not local_path:
             local_path = get_local_data_path()
+
         if local_path:
-            export_folder = os.path.join(local_path, "exports")
+            export_folder = utils.make_sub_folder(local_path, "exports")
         else:
-            export_folder = os.path.join(remote_path, "exports")
-        try:
-            os.makedirs(export_folder, exist_ok=True)
-            base_name = character_name
-            suffix = 1
-            while os.path.exists(os.path.join(export_folder, character_name)):
-                character_name = f"{base_name}_{suffix}"
-                suffix += 1
-            character_export_folder = os.path.join(export_folder, character_name)
-            os.makedirs(character_export_folder, exist_ok=True)
-            export_path = os.path.join(character_export_folder, file_name)
-            return export_path
-        except:
-            return ""
+            export_folder = utils.make_sub_folder(remote_path, "exports")
+
+        character_export_folder = utils.get_unique_folder_path(export_folder, character_name, create=True)
+        export_path = os.path.join(character_export_folder, file_name)
+        return export_path
 
     def get_selected_actors(self):
         global LINK_DATA
@@ -2203,6 +2211,17 @@ class CCICDataLink(bpy.types.Operator):
 
             elif self.param == "TEST":
                 LINK_SERVICE.stop_client()
+
+            elif self.param == "SHOW_ACTOR_FILES":
+                props = bpy.context.scene.CC3ImportProps
+                chr_cache = props.get_context_character_cache(context)
+                if chr_cache:
+                    utils.open_folder(chr_cache.import_dir)
+
+            elif self.param == "SHOW_PROJECT_FILES":
+                local_path = get_local_data_path()
+                if local_path:
+                    utils.open_folder(local_path)
 
         return {'FINISHED'}
 

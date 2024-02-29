@@ -135,13 +135,7 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
         if chr_cache.is_standard():
             type_text = f"Standard ({chr_cache.generation})"
         else:
-            if "NonStandard" in chr_cache.generation:
-                generation = chr_cache.generation[11:]
-                if not generation:
-                    generation = "Any"
-                type_text = f"Non-Standard ({generation})"
-            else:
-                type_text = f"Non-Standard ({chr_cache.generation})"
+            type_text = f"Non-Standard ({chr_cache.generation})"
         is_character = True
         if chr_cache.is_morph():
             is_morph = True
@@ -2869,10 +2863,12 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
         if connected:
 
+            row = layout.row()
             if connected and is_cc:
-                layout.label(text="Character Creator")
+                row.label(text="Character Creator")
             elif connected and is_iclone:
-                layout.label(text="iClone")
+                row.label(text="iClone")
+            row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_PROJECT_FILES"
 
             col = layout.column(align=True)
             grid = col.grid_flow(row_major=True, columns=2, align=True)
@@ -2882,7 +2878,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
-            if is_cc:
+            if is_cc and chr_cache and chr_cache.import_has_key:
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
                 if chr_cache.is_morph():
@@ -2895,7 +2891,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
         chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
         if chr_cache:
-            layout.label(text=f"link id: {chr_cache.link_id}")
+            row = layout.row()
+            row.label(text=f"link id: {chr_cache.link_id}")
+            row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
 
 
 class CC3ToolsPipelineImportPanel(bpy.types.Panel):

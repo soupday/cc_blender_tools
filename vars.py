@@ -102,15 +102,18 @@ CHARACTER_GENERATION = {
     "RL_CharacterCreator_Base_Std_G3": "G3",
     "RL_G6_Standard_Series": "G1",
     "NonStdLookAtDataCopyFromCCBase": "ActorCore",
+    "ActorCore": "ActorCore",
     "ActorBuild": "ActorBuild",
     "ActorScan": "ActorScan",
+    "AccuRig": "AccuRig",
     "Humanoid": "Humanoid",
     "Creature": "Creature",
     "Prop": "Prop",
-    "NonStandardG3": "NonStandardG3",
-    "NonStandardGameBase": "NonStandardGameBase",
-    "NonStandardGeneric": "NonStandardGeneric",
-    "" : "NonStandard",
+    "NonStandardG3": "ActorBuild",
+    "NonStandardGameBase": "GameBase",
+    "NonStandardGeneric": "Unknown",
+    "Generic": "Unknown",
+    "NonStandard" : "Unknown",
 }
 
 # character generations considered standard humans and require FBX/OBJ keys to export

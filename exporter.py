@@ -210,7 +210,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
 
 
     if chr_cache.is_non_standard():
-        set_non_standard_generation(json_data, chr_cache.non_standard_type, new_name)
+        set_non_standard_generation(json_data, new_name, chr_cache.non_standard_type, chr_cache.generation)
 
     # unpack embedded textures.
     if chr_cache.import_embedded:
@@ -1156,32 +1156,33 @@ def create_T_pose_action(arm, objects, export_strips):
 
 def set_character_generation(json_data, chr_cache, name):
     if chr_cache and chr_cache.is_standard():
-        set_standard_generation(json_data, chr_cache.generation, name)
+        set_standard_generation(json_data, name, chr_cache.generation)
     else:
-        set_non_standard_generation(json_data, chr_cache.non_standard_type, name)
+        set_non_standard_generation(json_data, name, chr_cache.non_standard_type, chr_cache.generation)
 
 
-def set_non_standard_generation(json_data, character_type, character_id):
-    generation = "Humanoid"
-    if character_type == "CREATURE":
+def set_non_standard_generation(json_data, character_id, character_type, generation):
+    RL_HUMANOID_GENERATIONS = [
+        "ActorCore", "ActorBuild", "ActorScan", "AccuRig", "GameBase"
+    ]
+    print(f"id: {character_id} type: {character_type} gen: {generation}")
+    if character_type == "HUMANOID":
+        if generation not in RL_HUMANOID_GENERATIONS:
+            generation = "Humanoid"
+    elif character_type == "CREATURE":
         generation = "Creature"
     elif character_type == "PROP":
         generation = "Prop"
+    else:
+        generation = "Unknown"
+
     utils.log_info(f"Generation: {generation}")
     jsonutils.set_character_generation_json(json_data, character_id, generation)
 
 
-def set_standard_generation(json_data, generation, character_id):
+def set_standard_generation(json_data, character_id, generation):
     # currently is doesn't really matter what the standard generation string is
     # generation in the CC4 plugin is only used to detect non-standard characters.
-
-    json_generation = "Unknown"
-
-    for id, gen in vars.CHARACTER_GENERATION.items():
-        if gen == generation:
-            json_generation = id
-            break
-
     jsonutils.set_character_generation_json(json_data, character_id, generation)
 
 
@@ -1211,7 +1212,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
 
     json_data = jsonutils.generate_character_json_data(name)
 
-    set_non_standard_generation(json_data, character_type, name)
+    set_non_standard_generation(json_data, name, character_type, "Unknown")
 
     done = {}
     objects_json = json_data[name]["Object"][name]["Meshes"]
@@ -1503,46 +1504,27 @@ def update_facial_profile_json(chr_cache, all_objects, json_data, chr_name):
     jsonutils.set_facial_profile_categories_json(json_data, chr_name, new_categories)
 
 
-def export_copy_fbx_key(chr_cache, dir, name):
-    if chr_cache.import_has_key:
-        try:
-            old_key_path = chr_cache.import_key_file
-            if not os.path.exists(old_key_path):
-                old_key_path = utils.local_path(chr_cache.character_id + ".fbxkey")
-            if not os.path.exists(old_key_path):
-                old_key_path = utils.local_path(chr_cache.import_name + ".fbxkey")
-            if old_key_path and os.path.exists(old_key_path):
-                key_dir, key_file = os.path.split(old_key_path)
-                old_name, key_type = os.path.splitext(key_file)
-                new_key_path = os.path.join(dir, name + key_type)
-                if utils.is_same_path(new_key_path, old_key_path):
-                    utils.log_info(f"Keyfile exists: {old_key_path}")
-                else:
-                    utils.log_info(f"Copying keyfile: {old_key_path} to: {new_key_path}")
-                    shutil.copyfile(old_key_path, new_key_path)
-        except Exception as e:
-            utils.log_error(f"Unable to copy keyfile: {old_key_path} to: {new_key_path}", e)
-
-
-def export_copy_obj_key(chr_cache, dir, name):
-    if chr_cache.import_has_key:
-        try:
-            old_key_path = chr_cache.import_key_file
-            if not os.path.exists(old_key_path):
-                old_key_path = utils.local_path(chr_cache.character_id + ".ObjKey")
-            if not os.path.exists(old_key_path):
-                old_key_path = utils.local_path(chr_cache.import_name + ".ObjKey")
-            if old_key_path and os.path.exists(old_key_path):
-                key_dir, key_file = os.path.split(old_key_path)
-                old_name, key_type = os.path.splitext(key_file)
-                new_key_path = os.path.join(dir, name + key_type)
-                if utils.is_same_path(new_key_path, old_key_path):
-                    utils.log_info(f"Keyfile exists: {old_key_path}")
-                else:
-                    utils.log_info(f"Copying keyfile: {old_key_path} to: {new_key_path}")
-                    shutil.copyfile(old_key_path, new_key_path)
-        except Exception as e:
-            utils.log_error(f"Unable to copy keyfile: {old_key_path} to: {new_key_path}", e)
+def export_copy_asset_file(chr_cache, dir, name, ext, old_path=None):
+    try:
+        try_paths = [
+            old_path,
+            os.path.join(chr_cache.import_dir, chr_cache.character_id + ext),
+            os.path.join(chr_cache.import_dir, chr_cache.import_name + ext),
+            utils.local_path(chr_cache.character_id + ext),
+            utils.local_path(chr_cache.import_name + ext),
+        ]
+        for old_path in try_paths:
+            print(old_path)
+            if old_path and os.path.exists(old_path):
+                print("Found!")
+                new_path = os.path.join(dir, name + ext)
+                if not utils.is_same_path(new_path, old_path):
+                    utils.log_info(f"Copying {ext} file: {old_path} to: {new_path}")
+                    shutil.copyfile(old_path, new_path)
+                return os.path.relpath(new_path, dir)
+    except Exception as e:
+        utils.log_error(f"Unable to copy {ext} file: {old_path} to: {new_path}", e)
+    return None
 
 
 def is_arp_installed():
@@ -1623,7 +1605,8 @@ def obj_export(file_path, use_selection=False, use_animation=False, global_scale
 
 
 def export_standard(self, chr_cache, file_path, include_selected):
-    """Exports standard character (not rigified) to CC3/4 with json data, texture paths are relative to source character, as an .fbx file.
+    """Exports standard character (not rigified, not generic) to CC3/4 with json data,
+       texture paths are relative to source character, as an .fbx file.
     """
 
     props = bpy.context.scene.CC3ImportProps
@@ -1691,7 +1674,13 @@ def export_standard(self, chr_cache, file_path, include_selected):
         utils.log_info("")
         utils.log_info("Copying Fbx Key.")
 
-        export_copy_fbx_key(chr_cache, dir, name)
+        export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.import_key_file)
+        hik_path = export_copy_asset_file(chr_cache, dir, name, ".3dxProfile")
+        fac_path = export_copy_asset_file(chr_cache, dir, name, ".ccFacialProfile")
+        if hik_path:
+            jsonutils.set_json(json_data, "HIK/Profile_Path", hik_path)
+        if fac_path:
+            jsonutils.set_json(json_data, "Facial_Profile/Profile_Path", fac_path)
 
         utils.log_info("Writing Json Data.")
 
@@ -1732,7 +1721,8 @@ def export_standard(self, chr_cache, file_path, include_selected):
                               use_vertex_groups=True,
                               apply_modifiers=True)
 
-        export_copy_obj_key(chr_cache, dir, name)
+        #export_copy_obj_key(chr_cache, dir, name)
+        export_copy_asset_file(chr_cache, dir, name, ".ObjKey", chr_cache.import_key_file)
 
     # restore state
     arm = chr_cache.get_armature()
@@ -1927,7 +1917,8 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
         bpy.ops.file.make_paths_relative()
         bpy.ops.wm.save_as_mainfile(filepath=file_path)
 
-    export_copy_fbx_key(chr_cache, dir, name)
+    #export_copy_fbx_key(chr_cache, dir, name)
+    export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.import_key_file)
 
     utils.log_recess()
     utils.log_info("")
@@ -2346,7 +2337,9 @@ class CC3Export(bpy.types.Operator):
                 export_format = "fbx"
         self.filename_ext = "." + export_format
 
-        if chr_cache and chr_cache.generation == "NonStandardGeneric":
+        if chr_cache and (chr_cache.generation == "Generic" or
+                          chr_cache.generation == "NonStandardGeneric" or
+                          chr_cache.generation == "Unknown"):
             self.include_textures = True
 
         if self.param == "EXPORT_UNITY":
