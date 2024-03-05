@@ -96,14 +96,21 @@ class LinkActor():
 
     def select(self):
         chr_cache = self.get_chr_cache()
-        chr_cache.select_all()
+        if chr_cache:
+            chr_cache.select_all()
 
     def get_type(self):
         chr_cache = self.get_chr_cache()
-        if chr_cache.is_avatar():
-            return "AVATAR"
-        else:
-            return "PROP"
+        return self.chr_cache_type(chr_cache)
+
+    @staticmethod
+    def chr_cache_type(chr_cache):
+        if chr_cache:
+            if chr_cache.is_avatar():
+                return "AVATAR"
+            else:
+                return "PROP"
+        return "NONE"
 
     def get_mesh_objects(self):
         objects = None
@@ -222,12 +229,13 @@ class LinkData():
         for actor in self.actors:
             if actor.link_id == link_id:
                 if not search_type or actor.get_type() == search_type:
+                    utils.log_info(f"Actor found by link_id: {actor.name} / {actor.link_id}")
                     return actor
         chr_cache = props.find_character_by_link_id(link_id)
         if chr_cache:
-            actor = self.add_actor(chr_cache)
-            if not search_type or actor.get_type() == search_type:
-                utils.log_info(f"Actor found by link_id: {actor.name} / {actor.link_id}")
+            if not search_type or LinkActor.chr_cache_type(chr_cache) == search_type:
+                actor = self.add_actor(chr_cache)
+                utils.log_info(f"Chr found by link_id: {actor.name} / {actor.link_id}")
                 return actor
         # try to find the character by name if the link id finds nothing
         # character id's change after every reload in iClone/CC4 so these can change.
@@ -235,27 +243,24 @@ class LinkData():
             for actor in self.actors:
                 if actor.name == search_name:
                     if not search_type or actor.get_type() == search_type:
-                        utils.log_info(f"Existing Actor found by name: {actor.name} / {actor.link_id}")
+                        utils.log_info(f"Actor found by name: {actor.name} / {actor.link_id} -> {link_id}")
                         actor.update_link_id(link_id)
-                        utils.log_info(f"Using new Link ID: {actor.link_id}")
                         return actor
             chr_cache = props.find_character_by_name(search_name)
             if chr_cache:
-                if not search_type or actor.get_type() == search_type:
+                if not search_type or LinkActor.chr_cache_type(chr_cache) == search_type:
+                    utils.log_info(f"Chr found by name: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
+                    chr_cache.link_id = link_id
                     actor = self.add_actor(chr_cache)
-                    utils.log_info(f"Actor found by name: {actor.name} / {actor.link_id}")
-                    actor.update_link_id(link_id)
-                    utils.log_info(f"Using new Link ID: {actor.link_id}")
                     return actor
         # finally if connected to character creator fall back to the first character
         # as character creator only ever has one character in the scene.
         if self.is_cc() and search_type == "AVATAR":
             chr_cache = props.get_first_avatar()
             if chr_cache:
+                utils.log_info(f"Falling back to first Chr Avatar: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
+                chr_cache.link_id = link_id
                 actor = self.add_actor(chr_cache)
-                utils.log_info(f"Falling back to first avatar: {actor.name} / {actor.link_id}")
-                actor.update_link_id(link_id)
-                utils.log_info(f"Using new Link ID: {actor.link_id}")
                 return actor
         return None
 
@@ -1237,7 +1242,7 @@ class LinkService():
 
     def receive_save(self, data):
         if bpy.data.filepath:
-            bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath)
+            bpy.ops.wm.save_mainfile()
 
     def get_key_path(self, model_path, key_ext):
         dir, file = os.path.split(model_path)
@@ -2013,6 +2018,7 @@ class LinkService():
             if actor.ready():
                 remove_datalink_import_rig(actor)
                 write_sequence_actions(actor)
+                pass
 
         # finish
         LINK_DATA.pose_actors = None

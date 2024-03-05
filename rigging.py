@@ -777,7 +777,6 @@ def map_face_bones(cc3_rig, meta_rig, cc3_head_bone):
             spine6.tail = tail_position
 
         # teeth bones
-
         face_bone = bones.get_edit_bone(meta_rig, "face")
         teeth_t_bone = bones.get_edit_bone(meta_rig, "teeth.T")
         teeth_t_source_bone = bones.get_rl_bone(cc3_rig, "CC_Base_Teeth01")
@@ -1840,7 +1839,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
                             head_pos = rigify_rig.matrix_world @ rigify_bone.head
                             tail_pos = rigify_rig.matrix_world @ rigify_bone.tail
                             if rigify_bone.name == "eyes":
-                                eyes_pos = head_pos
+                                eyes_pos = head_pos.copy()
                             RIGIFY_BONES[rigify_bone_name] = [org_bone_name,
                                                             head_pos, tail_pos,
                                                             rigify_bone.roll, rigify_bone.use_connect,
@@ -1932,7 +1931,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
                                     # these need to be in world space
                                     head_pos = source_rig.matrix_world @ ref_bone.head
                                     tail_pos = source_rig.matrix_world @ ref_bone.tail
-                                    parent_pos = org_bone_def[3]
+                                    parent_pos = org_bone_def[3].copy()
                                     length = (head_pos - parent_pos).length
                                     if length <= 0.00001:
                                         length = 1
@@ -1954,17 +1953,18 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
                         if source_bone and org_bone_def and pivot_org_bone_def:
                             if to_original_rig:
                                 orig_dir, orig_z_axis, orig_head, orig_tail = original_rig_data[source_bone_name]
-                                source_head = orig_head
+                                source_head = orig_head.copy()
                                 source_tail = orig_head + orig_dir
-                                source_dir = orig_dir
-                                head_position = org_bone_def[1]
+                                source_dir = orig_dir.copy()
+                                head_position = org_bone_def[1].copy()
                             else:
                                 source_head = source_rig.matrix_world @ source_bone.head
                                 source_tail = source_rig.matrix_world @ source_bone.tail
                                 source_dir = source_tail - source_head
-                                head_position = org_bone_def[1]
-                                if "t" in flags:
-                                    head_position = org_bone_def[2]
+                                head_position = org_bone_def[1].copy()
+
+                            if "t" in flags: # put the pivot at the tail
+                                head_position = org_bone_def[2].copy()
 
                             if "V" in flags: # reverse the source_dir
                                 source_dir = -source_dir
@@ -1992,7 +1992,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
                                     source_dir = rot @ source_dir
 
                             # update the pivot bone def with the new orientation
-                            pivot_org_bone_def[1] = head_position
+                            pivot_org_bone_def[1] = head_position.copy()
                             pivot_org_bone_def[2] = head_position + source_dir
 
 
