@@ -47,6 +47,7 @@ if "bpy" in locals():
     importlib.reload(wrinkle)
     importlib.reload(rigify_mapping_data)
     importlib.reload(rigging)
+    importlib.reload(rigutils)
     importlib.reload(sculpting)
     importlib.reload(hair)
     importlib.reload(colorspace)
@@ -86,6 +87,7 @@ from . import drivers
 from . import wrinkle
 from . import rigify_mapping_data
 from . import rigging
+from . import rigutils
 from . import sculpting
 from . import hair
 from . import colorspace
@@ -96,7 +98,7 @@ from . import link
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 0, 3),
+    "version": (2, 0, 4),
     "blender": (2, 93, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -169,6 +171,7 @@ classes = (
     hair.CC3OperatorHair,
     hair.CC3ExportHair,
     link.CCICDataLink,
+    characters.CCICCharacterLink,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,

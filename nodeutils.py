@@ -932,9 +932,14 @@ def get_shader_node(nodes):
 def get_shader_nodes(mat, shader_name = None):
     if mat and mat.node_tree:
         nodes = mat.node_tree.nodes
-        shader_id = "(" + str(shader_name) + ")"
-        bsdf_id = "(" + str(shader_name) + "_BSDF)"
-        mix_id = "(" + str(shader_name) + "_MIX)"
+        if shader_name:
+            shader_id = "(" + str(shader_name) + ")"
+            bsdf_id = "(" + str(shader_name) + "_BSDF)"
+            mix_id = "(" + str(shader_name) + "_MIX)"
+        else:
+            shader_id = "_shader)"
+            bsdf_id = "_BSDF)"
+            mix_id = "_MIX)"
         shader_node = bsdf_node = mix_node = None
         for node in nodes:
             if vars.NODE_PREFIX in node.name:

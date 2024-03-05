@@ -758,7 +758,7 @@ def get_image_target(image_name, width, height, image_dir, is_data = True, has_a
 
 
 def get_bake_dir(chr_cache):
-    bake_path = os.path.join(chr_cache.import_dir, "textures", chr_cache.import_name, "Blender_Baked")
+    bake_path = os.path.join(chr_cache.get_import_dir(), "textures", chr_cache.get_character_id(), "Blender_Baked")
     return bake_path
 
 
@@ -1292,19 +1292,19 @@ class CC3BakeOperator(bpy.types.Operator):
         props = bpy.context.scene.CC3ImportProps
 
         if self.param == "BAKE_FLOW_NORMAL":
-            mat = utils.context_material(context)
+            mat = utils.get_context_material(context)
             chr_cache = props.get_context_character_cache(context)
             mat_cache = chr_cache.get_material_cache(mat)
             bake_flow_to_normal(chr_cache, mat_cache)
 
         if self.param == "BAKE_BUMP_NORMAL":
-            mat = utils.context_material(context)
+            mat = utils.get_context_material(context)
             chr_cache = props.get_context_character_cache(context)
             mat_cache = chr_cache.get_material_cache(mat)
             combine_normal(chr_cache, mat_cache)
 
         if self.param == "BUILD_DISPLACEMENT":
-            mat = utils.context_material(context)
+            mat = utils.get_context_material(context)
             chr_cache = props.get_context_character_cache(context)
             mat_cache = chr_cache.get_material_cache(mat)
             normal.build_displacement_system(chr_cache, mat_cache)
@@ -2810,7 +2810,7 @@ class CCICBakeSettings(bpy.types.Operator):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         obj = context.object
-        mat = utils.context_material(context)
+        mat = utils.get_context_material(context)
         mat_settings = get_material_bake_settings(mat)
         chr_cache = props.get_context_character_cache(context)
 

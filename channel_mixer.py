@@ -98,7 +98,7 @@ def update_mixer(mixer, context, field):
     # find the current character and material in context
     chr_cache = props.get_context_character_cache(context)
     if chr_cache:
-        mat = utils.context_material(context)
+        mat = utils.get_context_material(context)
         if mat and mat.use_nodes:
             mixer_node = nodeutils.find_node_by_type_and_keywords(mat.node_tree.nodes, "GROUP", mixer_type_channel)
             if mixer_node:
@@ -111,7 +111,7 @@ def enable_disable_mixer_image(mixer_settings, context):
     # find the current character and material in context
     chr_cache = props.get_context_character_cache(context)
     if chr_cache:
-        context_mat = utils.context_material(context)
+        context_mat = utils.get_context_material(context)
         if context_mat:
             rebuild_mixers(chr_cache, context_mat, mixer_settings)
 
@@ -143,7 +143,7 @@ def enable_disable_mixer(mixer_settings, context, type_channel):
     # find the current character and material in context
     chr_cache = props.get_context_character_cache(context)
     if chr_cache:
-        context_mat = utils.context_material(context)
+        context_mat = utils.get_context_material(context)
         if context_mat:
             rebuild_mixers(chr_cache, context_mat, mixer_settings)
 
@@ -313,7 +313,7 @@ class CC3OperatorChannelMixer(bpy.types.Operator):
 
         # find the current character and material in context
         chr_cache = props.get_context_character_cache(context)
-        context_mat = utils.context_material(context)
+        context_mat = utils.get_context_material(context)
 
         if chr_cache and context_mat:
 

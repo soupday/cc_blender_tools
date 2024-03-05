@@ -465,7 +465,7 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
         return None
 
 
-def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
+def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD", axes=None):
     try:
         if utils.set_mode("OBJECT"):
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
@@ -483,6 +483,13 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
                 space = "LOCAL"
             c.owner_space = space
             c.influence = influence
+            if axes:
+                c.use_x = "X" in axes
+                c.use_y = "Y" in axes
+                c.use_z = "Z" in axes
+                c.invert_x = "-X" in axes
+                c.invert_y = "-Y" in axes
+                c.invert_z = "-Z" in axes
             return c
     except:
         utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")

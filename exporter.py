@@ -24,7 +24,7 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import (vrm, bake, shaders, physics, rigidbody, rigging, wrinkle, bones, modifiers,
+from . import (rigging, rigutils, vrm, bake, shaders, physics, rigidbody, wrinkle, bones, modifiers,
                imageutils, meshutils, nodeutils, jsonutils, utils, params, vars)
 
 UNPACK_INDEX = 1001
@@ -185,13 +185,13 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
 
     done.clear()
 
-    old_name = chr_cache.character_id
+    old_name = chr_cache.get_character_id()
     if new_name != old_name:
         if (old_name in json_data.keys() and
             old_name in json_data[old_name]["Object"].keys() and
             new_name not in json_data.keys()):
             # rename the object and character keys
-            json_data[old_name]["Object"][new_name] = json_data[old_name]["Object"].pop(chr_cache.character_id)
+            json_data[old_name]["Object"][new_name] = json_data[old_name]["Object"].pop(chr_cache.get_character_id())
             json_data[new_name] = json_data.pop(old_name)
 
     chr_json = json_data[new_name]["Object"][new_name]
@@ -202,8 +202,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
     # set custom JSON data
     json_data[new_name]["Blender_Project"] = True
     if not copy_textures:
-        json_data[new_name]["Import_Dir"] = chr_cache.import_dir
-        json_data[new_name]["Import_Name"] = chr_cache.import_name
+        json_data[new_name]["Import_Dir"] = chr_cache.get_import_dir()
+        json_data[new_name]["Import_Name"] = chr_cache.get_character_id()
     else:
         json_data[new_name].pop("Import_Dir", None)
         json_data[new_name].pop("Import_Name", None)
@@ -936,7 +936,7 @@ def unpack_embedded_textures(chr_cache, chr_json, objects, base_path):
 
     unpack_folder = None
     if chr_cache:
-        unpack_folder = os.path.join(base_path, "textures", chr_cache.import_name, "Unpack")
+        unpack_folder = os.path.join(base_path, "textures", chr_cache.get_character_id(), "Unpack")
     else:
         unpack_folder = os.path.join(base_path, "textures", "Unpack")
 
@@ -1507,10 +1507,8 @@ def export_copy_asset_file(chr_cache, dir, name, ext, old_path=None):
     try:
         try_paths = [
             old_path,
-            os.path.join(chr_cache.import_dir, chr_cache.character_id + ext),
-            os.path.join(chr_cache.import_dir, chr_cache.import_name + ext),
-            utils.local_path(chr_cache.character_id + ext),
-            utils.local_path(chr_cache.import_name + ext),
+            os.path.join(chr_cache.get_import_dir(), chr_cache.get_character_id() + ext),
+            utils.local_path(chr_cache.get_character_id() + ext),
         ]
         for old_path in try_paths:
             if old_path and os.path.exists(old_path):
@@ -1645,7 +1643,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
         remove_modifiers_for_export(chr_cache, objects, True)
 
         revert_duplicates = prefs.export_revert_names
-        export_changes = prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir,
+        export_changes = prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(),
                                      dir, self.include_textures, revert_duplicates, True, False, True)
 
         # attempt any custom exports (ARP)
@@ -1671,7 +1669,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
         utils.log_info("")
         utils.log_info("Copying Fbx Key.")
 
-        export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.import_key_file)
+        export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.get_import_key_file())
         hik_path = export_copy_asset_file(chr_cache, dir, name, ".3dxProfile")
         fac_path = export_copy_asset_file(chr_cache, dir, name, ".ccFacialProfile")
         if hik_path:
@@ -1682,7 +1680,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
         utils.log_info("Writing Json Data.")
 
         # write HIK profile for VRM
-        if chr_cache and utils.is_file_ext(chr_cache.import_type, "VRM"):
+        if chr_cache and chr_cache.is_import_type("VRM"):
             hik_path = os.path.join(dir, name + ".3dxProfile")
             if vrm.generate_hik_profile(arm, name, hik_path):
                 if json_data:
@@ -1718,7 +1716,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
                               apply_modifiers=True)
 
         #export_copy_obj_key(chr_cache, dir, name)
-        export_copy_asset_file(chr_cache, dir, name, ".ObjKey", chr_cache.import_key_file)
+        export_copy_asset_file(chr_cache, dir, name, ".ObjKey", chr_cache.get_import_key_file())
 
     # restore state
     arm = chr_cache.get_armature()
@@ -1868,7 +1866,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True)
 
-    prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, self.include_textures, False, False, as_blend_file, False)
+    prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir, self.include_textures, False, False, as_blend_file, False)
 
     # make the T-pose as an action
     arm = get_export_armature(chr_cache, objects)
@@ -1914,7 +1912,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
         bpy.ops.wm.save_as_mainfile(filepath=file_path)
 
     #export_copy_fbx_key(chr_cache, dir, name)
-    export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.import_key_file)
+    export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.get_import_key_file())
 
     utils.log_recess()
     utils.log_info("")
@@ -1978,7 +1976,7 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True)
 
-    prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir, True, False, False, as_blend_file, False)
+    prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir, True, False, False, as_blend_file, False)
 
     # make the T-pose as an action
     arm = get_export_armature(chr_cache, objects)
@@ -2063,7 +2061,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True, rig=export_rig)
 
-    prep_export(chr_cache, name, objects, json_data, chr_cache.import_dir, dir,
+    prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir,
                 include_textures, False, False, False, False)
 
     # for motion only exports, select armature and any mesh objects that have shape key animations
@@ -2071,7 +2069,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
         utils.clear_selected_objects()
         rigging.select_motion_export_objects(objects)
 
-    armature_object, armature_data = rigging.rename_armature(export_rig, name)
+    armature_object, armature_data = rigutils.rename_armature(export_rig, name)
 
     # export as fbx
     bpy.ops.export_scene.fbx(filepath=file_path,
@@ -2087,7 +2085,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
             mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
             use_mesh_modifiers = True)
 
-    rigging.restore_armature_names(armature_object, armature_data, name)
+    rigutils.restore_armature_names(armature_object, armature_data, name)
 
     restore_modifiers(chr_cache, objects)
 
@@ -2178,8 +2176,6 @@ class CC3Export(bpy.types.Operator):
         subtype='FILE_PATH',
         )
 
-    filename_ext = ".fbx"  # ExportHelper mixin class uses this
-
     filter_glob: bpy.props.StringProperty(
         default="*.fbx;*.obj;*.blend",
         options={"HIDDEN"},
@@ -2197,6 +2193,8 @@ class CC3Export(bpy.types.Operator):
             default = "",
             options={"HIDDEN"}
         )
+
+    filename_ext = ".fbx"  # ExportHelper mixin class uses this
 
     link_id_override: bpy.props.StringProperty(
             name = "link_id_override",
@@ -2276,7 +2274,7 @@ class CC3Export(bpy.types.Operator):
 
         elif self.param == "CHECK_EXPORT":
 
-            if chr_cache and utils.is_file_ext(chr_cache.import_type, "FBX"):
+            if chr_cache and chr_cache.is_import_type("FBX"):
                 chr_cache = props.get_context_character_cache(context)
                 objects = get_export_objects(chr_cache, True)
                 self.check_valid, self.check_warn, self.check_report = check_valid_export_fbx(chr_cache, objects)
@@ -2337,7 +2335,7 @@ class CC3Export(bpy.types.Operator):
             else:
                 export_format = "blend"
         elif chr_cache:
-            export_format = utils.get_file_ext(chr_cache.import_type)
+            export_format = utils.get_file_ext(chr_cache.get_import_type())
             if export_format != "obj":
                 export_format = "fbx"
             if chr_cache.rigified:
@@ -2391,7 +2389,7 @@ class CC3Export(bpy.types.Operator):
                 default_file_path = os.path.splitext(default_file_path)[0]
             else:
                 if chr_cache:
-                    default_file_path = chr_cache.character_id
+                    default_file_path = chr_cache.get_character_id()
                 else:
                     default_file_path = "untitled"
 

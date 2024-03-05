@@ -19,7 +19,7 @@ import shutil
 import bpy
 from enum import IntEnum, IntFlag
 
-from . import (characters, vrm, rigging, bones, bake, imageutils, jsonutils, materials,
+from . import (characters, rigging, rigutils, vrm, bones, bake, imageutils, jsonutils, materials,
                modifiers, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
                basic, properties, utils, vars)
@@ -44,13 +44,7 @@ def delete_import(chr_cache):
         utils.try_remove(mat, True)
 
     chr_cache.import_file = ""
-    chr_cache.import_type = ""
-    chr_cache.import_name = ""
-    chr_cache.import_dir = ""
-    chr_cache.import_main_tex_dir = ""
     chr_cache.import_embedded = False
-    chr_cache.import_has_key = False
-    chr_cache.import_key_file = ""
 
     chr_cache.tongue_material_cache.clear()
     chr_cache.teeth_material_cache.clear()
@@ -89,6 +83,9 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
 
     if not mat.use_nodes:
         mat.use_nodes = True
+
+    # store the material type and id
+    mat_cache.check_id()
 
     if chr_cache.setup_mode == "ADVANCED":
 
@@ -200,6 +197,10 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
         # remove any modifiers for refractive eyes
         modifiers.remove_eye_modifiers(obj)
 
+        # store the object type and id
+        # store the material type and id
+        obj_cache.check_id()
+
         # process any materials found in the mesh object
         for slot in obj.material_slots:
             mat = slot.material
@@ -235,6 +236,9 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
         if props.physics_mode:
             scene.fetch_anim_range(bpy.context, expand=True)
 
+        obj["rl_import_file"] = chr_cache.import_file
+        obj["rl_generation"] = chr_cache.generation
+
     utils.log_recess()
 
 
@@ -254,25 +258,21 @@ def cache_object_materials(chr_cache, obj, chr_json, processed):
 
         for mat in obj.data.materials:
 
-            if mat and mat.node_tree is not None and not mat in processed:
+            if mat and mat.node_tree is not None:
 
                 object_type, material_type = materials.detect_materials(chr_cache, obj, mat, obj_json)
                 if obj_cache.object_type != "BODY":
                     obj_cache.set_object_type(object_type)
-                mat_cache = chr_cache.add_material_cache(mat, material_type)
-                mat_cache.dir = imageutils.get_material_tex_dir(chr_cache, obj, mat)
-                utils.log_indent()
-                materials.detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache)
-                materials.detect_mixer_masks(chr_cache, obj, obj_cache, mat, mat_cache)
-                physics.detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json)
-                utils.log_recess()
-                processed.append(mat)
 
-            elif mat in processed:
-
-                object_type, material_type = materials.detect_materials(chr_cache, obj, mat, obj_json)
-                if obj_cache.object_type != "BODY":
-                    obj_cache.set_object_type(object_type)
+                if mat not in processed:
+                    mat_cache = chr_cache.add_material_cache(mat, material_type)
+                    mat_cache.dir = imageutils.get_material_tex_dir(chr_cache, obj, mat)
+                    utils.log_indent()
+                    materials.detect_embedded_textures(chr_cache, obj, obj_cache, mat, mat_cache)
+                    materials.detect_mixer_masks(chr_cache, obj, obj_cache, mat, mat_cache)
+                    physics.detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json)
+                    utils.log_recess()
+                    processed.append(mat)
 
         utils.log_recess()
 
@@ -332,7 +332,7 @@ def detect_generation(chr_cache, json_data, character_id):
 
     if json_data:
         avatar_type = jsonutils.get_json(json_data, f"{character_id}/Avatar_Type")
-        json_generation = jsonutils.get_character_generation_json(json_data, chr_cache.character_id)
+        json_generation = jsonutils.get_character_generation_json(json_data, chr_cache.get_character_id())
 
         if json_generation and json_generation in vars.CHARACTER_GENERATION:
             generation = vars.CHARACTER_GENERATION[json_generation]
@@ -525,17 +525,11 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
             chr_cache = props.import_cache.add()
             chr_cache.import_file = file_path
-            chr_cache.import_type = ext[1:]
             chr_cache.import_flags = import_flags
-            # original import name (if re-importing an export from Blender)
-            chr_cache.import_name = import_name
-            # original import dir (if re-importing an export from Blender)
-            chr_cache.import_dir = import_dir
-            chr_cache.character_index = i
             # display name of character
             chr_cache.character_name = character_name
-            # the character object json key
-            chr_cache.character_id = name
+
+            arm["rl_import_file"] = file_path
 
             # link_id
             if not link_id:
@@ -543,23 +537,17 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             if link_id:
                 chr_cache.link_id = link_id
 
-            # key file
-            chr_cache.import_key_file = os.path.join(dir, name + ".fbxkey")
-            chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
-
             # determine the main texture dir
-            chr_cache.import_main_tex_dir = import_name + ".fbm"
             if os.path.exists(chr_cache.get_tex_dir()):
                 chr_cache.import_embedded = False
             else:
-                chr_cache.import_main_tex_dir = ""
                 chr_cache.import_embedded = True
 
             arm.name = character_name
             arm.data.name = character_name
 
             # in case of duplicate names: character_name contains the name currently in Blender.
-            #                             import_name contains the original name.
+            #                             get_character_id() is the original name.
             chr_cache.character_name = arm.name
             # add armature to object_cache
             chr_cache.add_object_cache(arm)
@@ -575,15 +563,16 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
                 if obj.type == "MESH" and obj.parent and obj.parent == arm:
                     chr_cache.add_object_cache(obj)
 
-            # remame actions TODO
+            # remame actions
             utils.log_info("Renaming actions:")
             utils.log_indent()
             remap_action_names(actions, objects, source_name, chr_cache.character_name)
             utils.log_recess()
 
             # determine character generation
-            chr_cache.generation = detect_generation(chr_cache, json_data, chr_cache.character_id)
+            chr_cache.generation = detect_generation(chr_cache, json_data, chr_cache.get_character_id())
             utils.log_info("Generation: " + chr_cache.character_name + " (" + chr_cache.generation + ")")
+            arm["rl_generation"] = chr_cache.generation
 
             # cache materials
             for obj_cache in chr_cache.object_cache:
@@ -591,7 +580,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
                     obj = obj_cache.get_object()
                     cache_object_materials(chr_cache, obj, chr_json, processed)
 
-            properties.init_character_property_defaults(chr_cache, chr_json)
+            shaders.init_character_property_defaults(chr_cache, chr_json)
+            basic.init_basic_default(chr_cache)
 
             # set preserve volume on armature modifiers
             for obj in objects:
@@ -624,17 +614,9 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
             chr_cache = props.import_cache.add()
             chr_cache.import_file = file_path
-            chr_cache.import_type = ext[1:]
             chr_cache.import_flags = import_flags
-            # original import name (if re-importing an export from Blender)
-            chr_cache.import_name = import_name
-            # original import dir (if re-importing an export from Blender)
-            chr_cache.import_dir = import_dir
-            chr_cache.character_index = i
             # display name of character
             chr_cache.character_name = character_name
-            # the character object json key
-            chr_cache.character_id = name
 
             # link_id
             if not link_id:
@@ -642,16 +624,10 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             if link_id:
                 chr_cache.link_id = link_id
 
-            # key file
-            chr_cache.import_key_file = os.path.join(dir, name + ".fbxkey")
-            chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
-
             # determine the main texture dir
-            chr_cache.import_main_tex_dir = import_name + ".fbm"
             if os.path.exists(chr_cache.get_tex_dir()):
                 chr_cache.import_embedded = False
             else:
-                chr_cache.import_main_tex_dir = ""
                 chr_cache.import_embedded = True
 
             arm.name = character_name
@@ -684,7 +660,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
                     obj = obj_cache.get_object()
                     cache_object_materials(chr_cache, obj, chr_json, processed)
 
-            properties.init_character_property_defaults(chr_cache, chr_json)
+            shaders.init_character_property_defaults(chr_cache, chr_json)
+            basic.init_basic_default(chr_cache)
 
             # material setup mode
             chr_cache.setup_mode = props.setup_mode
@@ -705,31 +682,16 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
         chr_cache = props.import_cache.add()
         chr_cache.import_file = file_path
-        chr_cache.import_type = ext[1:]
         chr_cache.import_flags = import_flags
-        # original import name (if re-importing an export from Blender)
-        chr_cache.import_name = import_name
-        # original import dir (if re-importing an export from Blender)
-        chr_cache.import_dir = import_dir
-        chr_cache.character_index = 0
         # display name of character
         chr_cache.character_name = character_name
-        # the character object json key
-        chr_cache.character_id = name
 
         # link_id (OBJ exports don't have json)
         if link_id:
             chr_cache.link_id = link_id
 
-        # key file
-        chr_cache.import_key_file = os.path.join(dir, name + ".ObjKey")
-        chr_cache.import_has_key = os.path.exists(chr_cache.import_key_file)
-
         # determine the main texture dir
-        chr_cache.import_main_tex_dir = name
         chr_cache.import_embedded = False
-        if not os.path.exists(chr_cache.get_tex_dir()):
-            chr_cache.import_main_tex_dir = ""
 
         for obj in objects:
             if utils.object_exists_is_mesh(obj):
@@ -745,7 +707,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
                 if obj.data.materials and len(obj.data.materials) > 0:
                     cache_object_materials(chr_cache, obj, json_data, processed)
 
-        properties.init_character_property_defaults(chr_cache, chr_json)
+        shaders.init_character_property_defaults(chr_cache, chr_json)
+        basic.init_basic_default(chr_cache)
 
         # material setup mode
         chr_cache.setup_mode = props.setup_mode
@@ -994,7 +957,6 @@ class CC3Import(bpy.types.Operator):
 
             if prefs.import_auto_convert:
                 chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
-                chr_cache.import_type = "vrm"
                 self.imported_characters = [ chr_cache ]
 
             utils.log_timer("Done .vrm Import.")
@@ -1029,7 +991,7 @@ class CC3Import(bpy.types.Operator):
                 # when rebuilding, use the currently selected render target
                 chr_cache.render_target = prefs.render_target
 
-            chr_json = jsonutils.get_character_json(json_data, chr_cache.character_id)
+            chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
 
             if self.param == "BUILD":
                 chr_cache.check_material_types(chr_json)
@@ -1145,10 +1107,10 @@ class CC3Import(bpy.types.Operator):
                     avatar_type == "NonHuman" or
                     avatar_type == "NonStandard" or
                     avatar_type == "StandardSeries" or
-                    rigging.is_GameBase_armature(obj) or
-                    rigging.is_ActorCore_armature(obj) or
-                    rigging.is_G3_armature(obj) or
-                    rigging.is_iClone_armature(obj)):
+                    rigutils.is_GameBase_armature(obj) or
+                    rigutils.is_ActorCore_armature(obj) or
+                    rigutils.is_G3_armature(obj) or
+                    rigutils.is_iClone_armature(obj)):
                     utils.log_info(f"RL character armature found: {obj.name}")
                     if obj not in rl_armatures:
                         rl_armatures.append(obj)
@@ -1206,7 +1168,7 @@ class CC3Import(bpy.types.Operator):
 
                 if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
                     if props.lighting_mode:
-                        if utils.is_file_ext(chr_cache.import_type, "FBX"):
+                        if chr_cache.is_import_type("FBX"):
                             scene.setup_scene_default(prefs.pipeline_lighting)
                         else:
                             scene.setup_scene_default(prefs.morph_lighting)

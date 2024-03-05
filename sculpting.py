@@ -214,7 +214,7 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
 def save_skin_gen_bake(chr_cache, body, layer_target):
     base_dir = utils.local_path()
     if not base_dir:
-        base_dir = chr_cache.import_dir
+        base_dir = chr_cache.get_import_dir()
 
     bake_dir = os.path.join(base_dir, BAKE_FOLDER)
     utils.log_info(f"Texture save path: {bake_dir}")
@@ -349,7 +349,7 @@ def setup_bake_nodes(chr_cache, detail_body, layer_target):
 
     base_dir = utils.local_path()
     if not base_dir:
-        base_dir = chr_cache.import_dir
+        base_dir = chr_cache.get_import_dir()
 
     bake_dir = os.path.join(base_dir, BAKE_FOLDER)
     utils.log_info(f"Texture save path: {bake_dir}")

@@ -861,13 +861,13 @@ def weight_strength_update(self, context):
 
     strength = props.weight_map_strength
     influence = 1 - math.pow(1 - strength, 3)
-    edit_mod, mix_mod = modifiers.get_material_weight_map_mods(context.object, utils.context_material(context))
+    edit_mod, mix_mod = modifiers.get_material_weight_map_mods(context.object, utils.get_context_material(context))
     mix_mod.mask_constant = influence
 
 
 def browse_weight_map(chr_cache, context):
     obj = context.object
-    mat = utils.context_material(context)
+    mat = utils.get_context_material(context)
     if obj and mat:
         weight_map = get_weight_map_image(chr_cache, obj, mat)
         if weight_map:
@@ -877,7 +877,7 @@ def browse_weight_map(chr_cache, context):
 
 def begin_paint_weight_map(chr_cache, context):
     obj = context.object
-    mat = utils.context_material(context)
+    mat = utils.get_context_material(context)
     props = bpy.context.scene.CC3ImportProps
     if obj is not None and mat is not None:
         props.paint_store_render = bpy.context.space_data.shading.type
@@ -905,7 +905,7 @@ def resize_weight_map(chr_cache, context, op):
         return
 
     obj = context.object
-    mat = utils.context_material(context)
+    mat = utils.get_context_material(context)
     props = bpy.context.scene.CC3ImportProps
     if obj is not None and mat is not None:
         weight_map : bpy.types.Image = get_weight_map_image(chr_cache, obj, mat)
@@ -1435,11 +1435,11 @@ def set_physics_settings(op, param, context):
 
     elif param == "PHYSICS_ADD_WEIGHTMAP":
         if obj:
-            enable_material_weight_map(chr_cache, obj, utils.context_material(context))
+            enable_material_weight_map(chr_cache, obj, utils.get_context_material(context))
 
     elif param == "PHYSICS_REMOVE_WEIGHTMAP":
         if obj:
-            disable_material_weight_map(chr_cache, obj, utils.context_material(context))
+            disable_material_weight_map(chr_cache, obj, utils.get_context_material(context))
 
     elif param == "PHYSICS_RESIZE_WEIGHTMAP":
         if obj:
@@ -1495,7 +1495,7 @@ def set_physics_settings(op, param, context):
 
     elif param == "PHYSICS_DELETE":
         if obj:
-            delete_selected_weight_map(chr_cache, obj, utils.context_material(context))
+            delete_selected_weight_map(chr_cache, obj, utils.get_context_material(context))
 
     elif param == "PHYSICS_SEPARATE":
         separate_physics_materials(chr_cache, obj)

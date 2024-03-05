@@ -35,6 +35,14 @@ Links
 
 ## Changelog
 
+### 2.0.4
+- Linking/Appending:
+    - Added linking/append functions to auto-link to characters in blend files with full character data and functionality.
+    - Added connect function to re-build character data for linked/appended characters.
+    - Added custom properties to armatures/meshes and materials to aid re-connection of character data.
+    - Rebuilding materials will add this custom data to existing characters.
+    - Auto-linked/Re-connected characters can use full add-on functionality i.e. rigging, retargeting, exporting, rebuilding materials, etc...
+
 ### 2.0.3
 - Datalink:
     - Lighting and Camera sync.

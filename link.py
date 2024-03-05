@@ -5,7 +5,7 @@ from enum import IntEnum
 import os, socket, time, select, struct, json
 import subprocess
 from mathutils import Vector, Quaternion, Matrix
-from . import importer, rigging, bones, geom, colorspace, utils, vars
+from . import importer, bones, geom, colorspace, rigging, utils, vars
 
 
 BLENDER_PORT = 9334
@@ -31,6 +31,7 @@ class OpCodes(IntEnum):
     STOP = 10
     DISCONNECT = 11
     NOTIFY = 50
+    SAVE = 60
     MORPH = 90
     MORPH_UPDATE = 91
     CHARACTER = 100
@@ -1049,6 +1050,9 @@ class LinkService():
         ##
         #
 
+        elif op_code == OpCodes.SAVE:
+            self.receive_save(data)
+
         elif op_code == OpCodes.TEMPLATE:
             self.receive_character_template(data)
 
@@ -1230,6 +1234,10 @@ class LinkService():
     def receive_notify(self, data):
         notify_json = decode_to_json(data)
         update_link_status(notify_json["message"])
+
+    def receive_save(self, data):
+        if bpy.data.filepath:
+            bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath)
 
     def get_key_path(self, model_path, key_ext):
         dir, file = os.path.split(model_path)
@@ -2293,7 +2301,7 @@ class CCICDataLink(bpy.types.Operator):
                 props = bpy.context.scene.CC3ImportProps
                 chr_cache = props.get_context_character_cache(context)
                 if chr_cache:
-                    utils.open_folder(chr_cache.import_dir)
+                    utils.open_folder(chr_cache.get_import_dir())
 
             elif self.param == "SHOW_PROJECT_FILES":
                 local_path = get_local_data_path()

@@ -54,14 +54,16 @@ def read_json(fbx_path, errors):
             return json_data
 
         utils.log_info("No Json data to parse, using defaults...")
-        errors.append("NO_JSON")
+        if errors:
+            errors.append("NO_JSON")
         return None
     except:
         utils.log_warn("Failed to read Json data: " + json_path)
-        if json_file_exists:
-            errors.append("CORRUPT")
-        else:
-            errors.append("PATH_FAILED")
+        if errors:
+            if json_file_exists:
+                errors.append("CORRUPT")
+            else:
+                errors.append("PATH_FAILED")
         return None
 
 
