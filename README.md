@@ -42,7 +42,7 @@ Links
     - Added custom properties to armatures/meshes and materials to aid re-connection of character data.
     - Rebuilding materials will add this custom data to existing characters.
     - Auto-linked/Re-connected characters can use full add-on functionality i.e. rigging, retargeting, exporting, rebuilding materials, etc...
-- Rigify retargeting teeth position fix.
+- Datalink Rigify pose retargeting teeth position fix.
 
 ### 2.0.3
 - Datalink:
