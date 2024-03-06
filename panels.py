@@ -129,18 +129,20 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
 def reconnect_character_ui(context, layout: bpy.types.UILayout, chr_cache):
     width = get_layout_width(context, "UI")
     rig = utils.get_context_armature(context)
+    if not context.selected_objects:
+        rig = None
     wrapped_text_box(layout, "Linking", width, alert=False, icon="LINKED")
     if not chr_cache and rig and rigutils.is_rl_rigify_armature(rig):
         row = layout.row()
-        row.scale_y = 2
+        row.scale_y = 1.5
         op = row.operator("ccic.characterlink", icon="OUTLINER_OB_ARMATURE", text="Connect Rigified").param = "CONNECT"
     elif not chr_cache and rig and rigutils.is_rl_armature(rig):
         row = layout.row()
-        row.scale_y = 2
+        row.scale_y = 1.5
         op = row.operator("ccic.characterlink", icon="ARMATURE_DATA", text="Connect Character").param = "CONNECT"
     else:
         row = layout.row(align=True)
-        row.scale_y = 2
+        row.scale_y = 1.5
         op = row.operator("ccic.characterlink", icon="LINKED", text="Link").param = "LINK"
         op = row.operator("ccic.characterlink", icon="APPEND_BLEND", text="Append").param = "APPEND"
 
@@ -659,7 +661,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         row.prop(props, "physics_mode", toggle=True, text="Build Physics")
         row.prop(props, "wrinkle_mode", toggle=True, text="Wrinkles")
         row = column.row(align=True)
-        row.prop(props, "setup_mode", expand=True)
+        row.prop(chr_cache if chr_cache else props, "setup_mode", expand=True)
         row = column.row(align=True)
         row.prop(prefs, "render_target", expand=True)
         row = column.row(align=True)
@@ -711,8 +713,6 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             else:
                 op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Materials")
             op.param ="BUILD"
-            row = box.row()
-            row.prop(chr_cache, "setup_mode", expand=True)
             row = box.row()
             row.prop(props, "build_mode", expand=True)
             box.row().operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups").param ="REBUILD_NODE_GROUPS"

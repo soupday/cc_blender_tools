@@ -149,7 +149,7 @@ def find_pivot_bone(rig, bone_name):
         bone: bpy.types.Bone = rig.data.bones[bone_name]
         for child in bone.children:
             if child.name.startswith("CC_Base_Pivot"):
-                return bone
+                return child
     return None
 
 
@@ -1082,6 +1082,17 @@ def clear_constraints(rig, pose_bone_name):
                 for con in constraints:
                     pose_bone.constraints.remove(con)
 
+
+def find_constraint(pose_bone: bpy.types.PoseBone, of_type, with_subtarget=None) -> bpy.types.Constraint:
+    if pose_bone:
+        con: bpy.types.Constraint
+        for con in pose_bone.constraints:
+            if con.type == of_type:
+                if with_subtarget and hasattr(con, "subtarget"):
+                    if con.subtarget != with_subtarget:
+                        continue
+                return con
+    return None
 
 def clear_drivers(rig):
     # rig object drivers (pose bone drivers)

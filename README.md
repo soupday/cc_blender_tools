@@ -27,7 +27,7 @@ Links
 ### To Remove
 - From the menu: **Edit**->**Preferences** then select **Add-ons**
 - In the search box search **All** add-ons for **"CC3 Tools"**
-- Deactivate the add-on by unticking the checbox next to **Edit**->**Preferences** then select **Add-ons**.
+- Deactivate the add-on by unticking the checkbox next to **Edit**->**Preferences** then select **Add-ons**.
 - Then click the **Remove** button.
 ### To Update
 - Remove the current version of the add-on by following the remove instructions above.
@@ -42,7 +42,12 @@ Links
     - Added custom properties to armatures/meshes and materials to aid re-connection of character data.
     - Rebuilding materials will add this custom data to existing characters.
     - Auto-linked/Re-connected characters can use full add-on functionality i.e. rigging, retargeting, exporting, rebuilding materials, etc...
-- Datalink Rigify pose retargeting teeth position fix.
+- Rigify:
+    - Datalink pose retargeting teeth position fix.
+    - Eye bone and jaw bone alignments corrected.
+    - Face rig jaw constraints adjusted for less lip deformation.
+- Parallax eye shader AO fix.
+- Basic materials SSS fixes.
 
 ### 2.0.3
 - Datalink:

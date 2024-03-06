@@ -1113,7 +1113,8 @@ def get_context_armature(context):
     return None
 
 
-def get_context_character(context, strict = False):
+def get_context_character(context, strict=False):
+    """strict: selected must part of the character"""
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
 

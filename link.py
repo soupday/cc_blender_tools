@@ -74,6 +74,7 @@ class LinkActor():
     name: str = "Name"
     link_id: str = "1234567890"
     bones: list = []
+    rig_bones: list = []
     expressions: list = []
     visemes: list = []
     morphs: list = []
@@ -331,13 +332,6 @@ def make_datalink_import_rig(actor: LinkActor):
     chr_rig.hide_set(False)
     chr_cache = actor.get_chr_cache()
     is_prop = actor.get_type() == "PROP"
-    if is_prop:
-        for child in chr_rig.children:
-            if utils.object_exists_is_mesh(child):
-                utils.log_info(f"Resetting prop mesh transform: {child.name}")
-                child.location = Vector((0,0,0))
-                child.rotation_mode = "QUATERNION"
-                child.rotation_quaternion = Quaternion((1,0,0,0))
 
     if utils.object_exists_is_armature(chr_cache.rig_datalink_rig):
         chr_cache.rig_datalink_rig.hide_set(False)
@@ -356,8 +350,12 @@ def make_datalink_import_rig(actor: LinkActor):
         edit_bone: bpy.types.EditBone
         arm: bpy.types.Armature = datalink_rig.data
         if utils.edit_mode_to(datalink_rig):
-            for sk_bone_name in actor.bones:
+            actor.rig_bones = actor.bones.copy()
+            for i, sk_bone_name in enumerate(actor.bones):
+                if sk_bone_name == "_Object_Pivot_Node_":
+                    sk_bone_name = "CC_Base_Pivot"
                 edit_bone = arm.edit_bones.new(sk_bone_name)
+                actor.rig_bones[i] = edit_bone.name
                 edit_bone.head = Vector((0,0,0))
                 edit_bone.tail = Vector((0,1,0))
                 edit_bone.align_roll(Vector((0,0,1)))
@@ -367,15 +365,11 @@ def make_datalink_import_rig(actor: LinkActor):
 
         # constraint character armature
         if not no_constraints:
-            for sk_bone_name in actor.bones:
+            for sk_bone_name in actor.rig_bones:
                 chr_bone_name = bones.find_target_bone_name(chr_rig, sk_bone_name)
                 if chr_bone_name:
-                    pivot_bone = bones.find_pivot_bone(chr_rig, chr_bone_name)
                     bones.add_copy_location_constraint(datalink_rig, chr_rig, sk_bone_name, chr_bone_name)
                     bones.add_copy_rotation_constraint(datalink_rig, chr_rig, sk_bone_name, chr_bone_name)
-                    if pivot_bone:
-                        bones.add_copy_location_constraint(datalink_rig, chr_rig, sk_bone_name, pivot_bone.name)
-                        bones.add_copy_rotation_constraint(datalink_rig, chr_rig, sk_bone_name, pivot_bone.name)
                 else:
                     utils.log_warn(f"Could not find bone: {sk_bone_name} in character rig!")
         utils.safe_set_action(datalink_rig, None)
@@ -1604,9 +1598,11 @@ class LinkService():
                 objects = actor.get_sequence_objects()
                 rig: bpy.types.Object = actor.get_armature()
                 actor_ready = actor.ready()
+                is_prop = actor.get_type() == "PROP"
             else:
                 objects = []
                 rig = None
+                is_prop = False
 
             # unpack object transform
             tx,ty,tz,rx,ry,rz,rw,sx,sy,sz = struct.unpack_from("!ffffffffff", pose_data, offset)
@@ -1645,7 +1641,7 @@ class LinkService():
                 tx,ty,tz,rx,ry,rz,rw,sx,sy,sz = struct.unpack_from("!ffffffffff", pose_data, offset)
                 offset += 40
                 if actor and datalink_rig:
-                    bone_name = actor.bones[i]
+                    bone_name = actor.rig_bones[i]
                     pose_bone: bpy.types.PoseBone = datalink_rig.pose.bones[bone_name]
                     loc = Vector((tx, ty, tz)) * 0.01
                     rot = Quaternion((rw, rx, ry, rz))
@@ -2149,6 +2145,11 @@ class LinkService():
         if os.path.exists(fbx_path):
             bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id)
             actor = LINK_DATA.get_actor(link_id, search_name=name, search_type=character_type)
+            # props have big ugly bones, so show them as wires
+            if actor.get_type() == "PROP":
+                arm = actor.get_armature()
+                if arm:
+                    arm.data.display_type = "WIRE"
             update_link_status(f"Character Imported: {actor.name}")
 
     def receive_actor_update(self, data):
