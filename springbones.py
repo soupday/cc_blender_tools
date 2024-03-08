@@ -16,7 +16,7 @@
 
 import bpy
 from mathutils import Vector
-from . import physics, rigidbody, utils, bones, vars
+from . import rigidbody, utils, bones, vars
 
 
 HEAD_RIG_NAME = "RLS_Hair_Rig_Head"

@@ -890,7 +890,7 @@ def unfix_quat(q):
 def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_mapping = None):
     physics_json = None
     if json_data:
-        chr_json = jsonutils.get_character_json(json_data, chr_cache.import_name)
+        chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
         physics_json = jsonutils.get_physics_json(chr_json)
 
     if not chr_cache or not json_data or not physics_json:

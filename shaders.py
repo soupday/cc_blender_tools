@@ -572,6 +572,54 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
                     nodeutils.set_node_input_value(mapping_node, socket_name, eval_tiling_param(mapping_def, mat_cache, 2))
 
 
+def init_character_property_defaults(chr_cache, chr_json, only:list=None):
+    processed = []
+
+    utils.log_info("")
+    utils.log_info("Initializing Material Property Defaults:")
+    utils.log_info("----------------------------------------")
+    if chr_json:
+        utils.log_info("(Using Json Data)")
+    else:
+        utils.log_info("(No Json Data)")
+
+    # Advanced properties
+    for obj_cache in chr_cache.object_cache:
+        obj = obj_cache.get_object()
+        if obj_cache.is_mesh() and obj not in processed:
+            processed.append(obj)
+
+            obj_json = jsonutils.get_object_json(chr_json, obj)
+            utils.log_info("Object: " + obj.name + " (" + obj_cache.object_type + ")")
+            utils.log_indent()
+
+            for mat in obj.data.materials:
+                if only and mat not in only: continue
+                if mat and mat not in processed:
+                    processed.append(mat)
+
+                    mat_cache = chr_cache.get_material_cache(mat)
+                    if mat_cache and not mat_cache.user_added:
+
+                        mat_json = jsonutils.get_material_json(obj_json, mat)
+                        utils.log_info("Material: " + mat.name + " (" + mat_cache.material_type + ")")
+                        utils.log_indent()
+
+                        if mat_cache.is_eye():
+                            cornea_mat, cornea_mat_cache = materials.get_cornea_mat(obj, mat, mat_cache)
+                            if cornea_mat:
+                                mat_json = jsonutils.get_material_json(obj_json, cornea_mat)
+
+                        fetch_prop_defaults(obj, mat_cache, mat_json)
+
+                        if chr_json is None and chr_cache.is_actor_core():
+                            mat_cache.parameters.default_ao_strength = 0.4
+                            mat_cache.parameters.default_ao_power = 1.0
+                            mat_cache.parameters.default_specular_scale = 0.4
+                        utils.log_recess()
+            utils.log_recess()
+
+
 def set_shader_input_props(shader_def, mat_cache, socket, value):
     """Look up and set the properties for the shader inputs.
     """

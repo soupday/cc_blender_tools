@@ -18,7 +18,7 @@ import os
 
 import bpy
 
-from . import imageutils, jsonutils, nodeutils, utils
+from . import imageutils, jsonutils, nodeutils, utils, params, vars
 
 
 def detect_skin_material(mat):
@@ -271,8 +271,8 @@ def detect_materials_by_name(chr_cache, obj, mat):
     object_type = "DEFAULT"
     tex_dirs = imageutils.get_material_tex_dirs(chr_cache, obj, mat)
 
-    if utils.is_file_ext(chr_cache.import_type, "OBJ"):
-        if chr_cache.import_has_key:
+    if chr_cache.is_import_type("OBJ"):
+        if chr_cache.get_import_has_key():
             base_name = utils.strip_name(mat.name)
             if base_name in STD_MATERIAL_TYPES:
                 material_type = STD_MATERIAL_TYPES[base_name]
@@ -280,11 +280,11 @@ def detect_materials_by_name(chr_cache, obj, mat):
                 utils.log_info(f"Material: {mat_name} detected from morph as: {material_type}")
                 return object_type, material_type
 
-    if detect_hair_object(obj, tex_dirs, chr_cache.import_dir) == "True":
+    if detect_hair_object(obj, tex_dirs, chr_cache.get_import_dir()) == "True":
         object_type = "HAIR"
         if detect_scalp_material(mat) == "True":
             material_type = "SCALP"
-        elif detect_hair_material(obj, mat, tex_dirs, chr_cache.import_dir) == "Deny":
+        elif detect_hair_material(obj, mat, tex_dirs, chr_cache.get_import_dir()) == "Deny":
             material_type = "DEFAULT"
         else:
             material_type = "HAIR"
@@ -344,7 +344,7 @@ def detect_materials_by_name(chr_cache, obj, mat):
         object_type = "TONGUE"
         material_type = "TONGUE"
 
-    elif detect_sss_maps(mat, tex_dirs, chr_cache.import_dir) == "True":
+    elif detect_sss_maps(mat, tex_dirs, chr_cache.get_import_dir()) == "True":
         material_type = "SSS"
 
     utils.log_info(f"Material: {mat_name} detected by name as: {material_type}")
@@ -364,9 +364,9 @@ def detect_materials_from_json(chr_cache, obj, mat, obj_json, mat_json):
     if shader == "Pbr" or shader == "Tra":
         # PBR materials can also refer to the scalp/base on hair objects,
         # the eyelashes on the body or the eye(iris) materials on the eyes.
-        if detect_hair_object(obj, tex_dirs, chr_cache.import_dir, obj_json) == "True":
+        if detect_hair_object(obj, tex_dirs, chr_cache.get_import_dir(), obj_json) == "True":
             object_type = "HAIR"
-            if detect_hair_material(obj, mat, tex_dirs, chr_cache.import_dir, mat_json) == "True":
+            if detect_hair_material(obj, mat, tex_dirs, chr_cache.get_import_dir(), mat_json) == "True":
                 material_type = "HAIR"
             elif detect_scalp_material(mat) == "True":
                 material_type = "SCALP"
@@ -790,12 +790,8 @@ def has_same_parameters(cache_a, cache_b):
             # put the property group items into lists
             #     [(prop_name, value), (prop_name, value), ...]
             # (because items are not subscriptable)
-            list_a = []
-            list_b = []
-            for i in items_a:
-                list_a.append(i)
-            for i in items_b:
-                list_b.append(i)
+            list_a = [ i for i in items_a ]
+            list_b = [ i for i in items_b ]
             for i in range(0, len(list_a)):
                 # compare prop names
                 if list_a[i][0] != list_b[i][0]:
@@ -951,6 +947,32 @@ def set_materials_setting(param, obj, context, objects_processed):
         elif obj.type == "ARMATURE":
             for child in obj.children:
                 set_materials_setting(param, child, context, objects_processed)
+
+
+def is_rl_material(mat):
+    bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat)
+    if bsdf_node and shader_node:
+        return True
+    return False
+
+
+def reconstruct_material_cache(chr_cache, mat):
+    bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat)
+    if bsdf_node and shader_node:
+        for shader_def in params.SHADER_MATRIX:
+            shader_name = shader_def["name"]
+            if f"({shader_name})" in shader_node.name:
+                mat_cache = chr_cache.add_material_cache(mat)
+                #input_defs = shader_def["inputs"]
+                #for input_def in input_defs:
+                #    socket_name = input_def[0]
+                #    func = input_def[1]
+                #    param_name = input_def[2]
+                #    params = input_def[3:]
+                return mat_cache
+    return None
+
+
 
 
 class CC3OperatorMaterial(bpy.types.Operator):

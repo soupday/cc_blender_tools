@@ -1058,6 +1058,7 @@ FACE_TEST_SHAPEKEYS = [
     "Mouth_Smile_L", "Mouth_Smile_R", "Mouth_Open",
     "Brow_Raise_L", "Brow_Raise_R",
     "Cheek_Blow_L", "Cheek_Blow_R",
+    "Tongue_In", "Tongue_Up", "V_Open", "V_Tongue_up",
 ]
 
 
@@ -1093,6 +1094,11 @@ MIXAMO_BONE_NAMES = [
 # bone names to test for to see if armature or action is for a rigify rig
 RIGIFY_BONE_NAMES = [
     "MCH-torso.parent", "ORG-spine", "spine_fk"
+]
+
+# bone names to test for to see if armature or action is for a rigify rig
+RL_RIGIFY_BONE_NAMES = [
+    "MCH-torso.parent", "ORG-spine", "spine_fk", "DEF-elbow_share.L", "DEF-elbow_share.R"
 ]
 
 # the minimum size of the relative mapping bounding box
@@ -1174,8 +1180,8 @@ RETARGET_G3 = [
     ["ORG-thigh.L", "ORG-pelvis",               "(CC_Base_|)L_Thigh$", "thigh_fk.L", "LR"],
     ["ORG-shin.L", "ORG-thigh.L",               "(CC_Base_|)L_Calf$", "shin_fk.L", "LR"],
     ["ORG-foot.L", "ORG-shin.L",                "(CC_Base_|)L_Foot$", "foot_fk.L", "PLR"],
-    ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase$", "toe_fk.L", "LR"], #post 3.1
-    ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase$", "toe.L", "LR"], #pre 3.1
+    ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase$", "toe_fk.L", "PLR"], #post 3.1
+    ["ORG-toe.L", "ORG-foot.L",                 "(CC_Base_|)L_ToeBase$", "toe.L", "PLR"], #pre 3.1
     # left arm
     ["ORG-shoulder.L", "ORG-spine.003",         "(CC_Base_|)L_Clavicle$", "shoulder.L", "LR"],
     ["ORG-upper_arm.L", "ORG-shoulder.L",       "(CC_Base_|)L_Upperarm$", "upper_arm_fk.L", "LR"],
@@ -1201,8 +1207,8 @@ RETARGET_G3 = [
     ["ORG-thigh.R", "ORG-pelvis",               "(CC_Base_|)R_Thigh$", "thigh_fk.R", "LR"],
     ["ORG-shin.R", "ORG-thigh.R",               "(CC_Base_|)R_Calf$", "shin_fk.R", "LR"],
     ["ORG-foot.R", "ORG-shin.R",                "(CC_Base_|)R_Foot$", "foot_fk.R", "PLR"],
-    ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe_fk.R", "LR"], #post 3.1
-    ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe.R", "LR"], #pre 3.1
+    ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe_fk.R", "PLR"], #post 3.1
+    ["ORG-toe.R", "ORG-foot.R",                 "(CC_Base_|)R_ToeBase$", "toe.R", "PLR"], #pre 3.1
     # right arm
     ["ORG-shoulder.R", "ORG-spine.003",         "(CC_Base_|)R_Clavicle$", "shoulder.R", "LR"],
     ["ORG-upper_arm.R", "ORG-shoulder.R",       "(CC_Base_|)R_Upperarm$", "upper_arm_fk.R", "LR"],

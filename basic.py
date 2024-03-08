@@ -232,6 +232,7 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
     emission_socket = nodeutils.input_socket(bsdf_node, "Emission")
     emission_strength_socket = nodeutils.input_socket(bsdf_node, "Emission Strength")
     normal_socket = nodeutils.input_socket(bsdf_node, "Normal")
+    sss_socket = nodeutils.input_socket(bsdf_node, "Subsurface")
 
     # Base Color
     #
@@ -264,6 +265,13 @@ def connect_basic_material(obj, mat, mat_json, processed_images):
             nodeutils.link_nodes(links, mix_node, "Color", bsdf_node, base_color_socket)
         else:
             nodeutils.link_nodes(links, diffuse_node, "Color", bsdf_node, base_color_socket)
+
+    # SSS
+    #
+    if mat_cache.is_skin():
+        nodeutils.set_node_input_value(bsdf_node, sss_socket, 0.25)
+    else:
+        nodeutils.set_node_input_value(bsdf_node, sss_socket, 0)
 
     # Metallic
     #

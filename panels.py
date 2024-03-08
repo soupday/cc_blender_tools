@@ -18,57 +18,14 @@ import bpy
 import textwrap
 import os
 
-from . import addon_updater_ops
-from . import (link, rigging, rigify_mapping_data, bones, characters, sculpting, springbones,
+from . import addon_updater_ops, rigging, rigutils
+from . import (link, rigify_mapping_data, bones, characters, sculpting, springbones,
                bake, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils,
                utils, params, vars)
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
 LINK_TAB_NAME = "CC/iC Link"
-
-# Panel button functions and operator
-#
-
-def context_character(context, strict = False):
-    props = bpy.context.scene.CC3ImportProps
-    chr_cache = props.get_context_character_cache(context)
-
-    obj = context.object
-    mat = utils.context_material(context)
-    obj_cache = None
-    mat_cache = None
-
-    if chr_cache:
-        obj_cache = chr_cache.get_object_cache(obj)
-        mat_cache = chr_cache.get_material_cache(mat)
-        arm = chr_cache.get_armature()
-
-        # if the context object is an armature or child of armature that is not part of this chr_cache
-        # clear the chr_cache, as this is a separate generic character.
-        if obj and not obj_cache:
-            if obj.type == "ARMATURE" and obj != arm and obj != chr_cache.rig_meta_rig:
-                chr_cache = None
-            elif obj.type == "MESH" and obj.parent and obj.parent != arm:
-                chr_cache = None
-
-    if strict and obj and not obj_cache:
-        chr_cache = None
-
-    return chr_cache, obj, mat, obj_cache, mat_cache
-
-
-def context_mesh_object(context):
-    if utils.object_exists_is_mesh(context.object):
-        return context.object
-    return None
-
-
-def context_armature_object(context):
-    if utils.object_exists_is_armature(context.object):
-        return context.object
-    return None
-
 
 # Panel functions and classes
 #
@@ -90,9 +47,11 @@ def fake_drop_down(row, label, prop_name, prop_bool_value, icon = "TRIA_DOWN", i
     return prop_bool_value
 
 
-def get_layout_width(region_type = "UI"):
+def get_layout_width(context=None, region_type="UI"):
     ui_shelf = None
-    area = bpy.context.area
+    if not context:
+        context = bpy.context
+    area = context.area
     width = 15
     for region in area.regions:
         if region.type == region_type:
@@ -167,7 +126,28 @@ def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type =
     return box
 
 
-def pipeline_export_group(chr_cache, chr_rig, layout):
+def reconnect_character_ui(context, layout: bpy.types.UILayout, chr_cache):
+    width = get_layout_width(context, "UI")
+    rig = utils.get_context_armature(context)
+    if not context.selected_objects:
+        rig = None
+    wrapped_text_box(layout, "Linking", width, alert=False, icon="LINKED")
+    if not chr_cache and rig and rigutils.is_rl_rigify_armature(rig):
+        row = layout.row()
+        row.scale_y = 1.5
+        op = row.operator("ccic.characterlink", icon="OUTLINER_OB_ARMATURE", text="Connect Rigified").param = "CONNECT"
+    elif not chr_cache and rig and rigutils.is_rl_armature(rig):
+        row = layout.row()
+        row.scale_y = 1.5
+        op = row.operator("ccic.characterlink", icon="ARMATURE_DATA", text="Connect Character").param = "CONNECT"
+    else:
+        row = layout.row(align=True)
+        row.scale_y = 1.5
+        op = row.operator("ccic.characterlink", icon="LINKED", text="Link").param = "LINK"
+        op = row.operator("ccic.characterlink", icon="APPEND_BLEND", text="Append").param = "APPEND"
+
+
+def pipeline_export_group(chr_cache, chr_rig, layout: bpy.types.UILayout):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
@@ -222,16 +202,16 @@ def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, sca
     if chr_cache:
         row = layout.row()
         row.scale_y = scale
-        if chr_cache and utils.is_file_ext(chr_cache.import_type, "OBJ"):
+        if chr_cache and chr_cache.is_import_type("OBJ"):
             text = "Export Morph Target"
             icon = "ARROW_LEFTRIGHT"
         row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
         if not chr_cache.can_export():
             row.enabled = False
-            if warn and not chr_cache.import_has_key:
-                if utils.is_file_ext(chr_cache.import_type, "FBX"):
+            if warn and not chr_cache.get_import_has_key():
+                if chr_cache.is_import_type("FBX"):
                     layout.row().label(text="No Fbx-Key file!", icon="ERROR")
-                elif utils.is_file_ext(chr_cache.import_type, "OBJ"):
+                elif chr_cache.is_import_type("OBJ"):
                     layout.row().label(text="No Obj-Key file!", icon="ERROR")
 
     elif chr_rig:
@@ -269,7 +249,7 @@ def character_export_unity_button(chr_cache, layout):
         column.row().prop(prefs, "export_unity_mode", expand=True)
 
     # disable if no character, or not an fbx import
-    if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
+    if not chr_cache or not chr_cache.is_import_type("FBX") or chr_cache.rigified:
         column.enabled = False
 
 
@@ -285,7 +265,7 @@ def character_export_unreal_button(chr_cache, layout):
     row.operator("cc3.exporter", icon="EVENT_U", text="Export To Unreal").param = "EXPORT_UNREAL"
 
     # disable if no character, or not an fbx import
-    if not chr_cache or not utils.is_file_ext(chr_cache.import_type, "FBX") or chr_cache.rigified:
+    if not chr_cache or not chr_cache.is_import_type("FBX") or chr_cache.rigified:
         column.enabled = False
 
 
@@ -606,7 +586,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
 
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
         mesh_in_selection = False
         for obj in bpy.context.selected_objects:
@@ -620,7 +600,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         if chr_cache:
             if fake_drop_down(box.row(), "Import Details", "stage1_details", props.stage1_details):
                 box.label(text="Name: " + chr_cache.character_name)
-                box.label(text="Type: " + chr_cache.import_type.upper())
+                box.label(text="Type: " + chr_cache.get_import_type().upper())
                 split = box.split(factor=0.4)
                 col_1 = split.column()
                 col_2 = split.column()
@@ -681,7 +661,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         row.prop(props, "physics_mode", toggle=True, text="Build Physics")
         row.prop(props, "wrinkle_mode", toggle=True, text="Wrinkles")
         row = column.row(align=True)
-        row.prop(props, "setup_mode", expand=True)
+        row.prop(chr_cache if chr_cache else props, "setup_mode", expand=True)
         row = column.row(align=True)
         row.prop(prefs, "render_target", expand=True)
         row = column.row(align=True)
@@ -733,8 +713,6 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             else:
                 op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Materials")
             op.param ="BUILD"
-            row = box.row()
-            row.prop(chr_cache, "setup_mode", expand=True)
             row = box.row()
             row.prop(props, "build_mode", expand=True)
             box.row().operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups").param ="REBUILD_NODE_GROUPS"
@@ -798,7 +776,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         strict_chr_cache = chr_cache if obj and obj_cache else None
         non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj, strict=True) is None ]
 
@@ -1001,7 +979,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
 
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         arm = None
         can_hair_spring_rig = False
         can_spring_rig = False
@@ -1215,7 +1193,7 @@ class CC3HairPanel(bpy.types.Panel):
 
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
         # Blender Curve Hair
 
@@ -1257,7 +1235,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         shader = "NONE"
         parameters = None
         if mat_cache:
@@ -1282,7 +1260,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
             row.prop(props, "update_mode", expand=True)
 
             linked = props.update_mode == "UPDATE_LINKED"
-            has_key = chr_cache.import_has_key
+            has_key = chr_cache.get_import_has_key()
 
             if chr_cache.setup_mode == "ADVANCED":
 
@@ -1607,7 +1585,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         column = layout.column()
         if not chr_cache:
             column.enabled = False
-        if chr_cache and utils.is_file_ext(chr_cache.import_type, "FBX"):
+        if chr_cache and chr_cache.is_import_type("FBX"):
             split = column.split(factor=0.5)
             col_1 = split.column()
             col_2 = split.column()
@@ -1642,14 +1620,14 @@ class CC3RigifyPanel(bpy.types.Panel):
         props = bpy.context.scene.CC3ImportProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         missing_materials = characters.has_missing_materials(chr_cache)
 
         layout = self.layout
         layout.use_property_split = False
         layout.use_property_decorate = False
 
-        width = get_layout_width("UI")
+        width = get_layout_width(context, "UI")
 
         rigify_installed = rigging.is_rigify_installed()
 
@@ -1966,8 +1944,9 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         rigify_export_group(chr_cache, layout)
 
-            else:
-                wrapped_text_box(layout, "No current character!", width, True)
+            elif not chr_cache:
+
+                reconnect_character_ui(context, layout, chr_cache)
 
         else:
             wrapped_text_box(layout, "Rigify add-on is not installed.", width, True)
@@ -1986,7 +1965,7 @@ class CC3SpringControlPanel(bpy.types.Panel):
 
         layout = self.layout
 
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
         if not chr_cache or not chr_cache.rigified:
             return
@@ -2205,7 +2184,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
         layout = self.layout
 
         chr_cache = props.get_context_character_cache(context)
-        obj = context_mesh_object(context)
+        obj = utils.get_context_mesh(context)
         obj_cache = None
         proxy = None
         is_proxy = False
@@ -2221,7 +2200,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
                 coll_mod = modifiers.get_collision_physics_mod(obj)
 
 
-        mat = utils.context_material(context)
+        mat = utils.get_context_material(context)
         edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
 
         column = layout.column()
@@ -2878,7 +2857,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
-            if is_cc and chr_cache and chr_cache.import_has_key:
+            if is_cc and chr_cache and chr_cache.get_import_has_key():
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
                 if chr_cache.is_morph():
@@ -2889,7 +2868,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
             #grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"
 
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         if chr_cache:
             row = layout.row()
             row.label(text=f"link id: {chr_cache.link_id}")
@@ -2912,7 +2891,7 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
         if addon_updater_ops.updater.update_ready == True:
             addon_updater_ops.update_notice_box_ui(self, context)
 
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
         if chr_cache:
             character_name = chr_cache.character_name
@@ -2988,7 +2967,6 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
         row.scale_y = 2
         op = row.operator("cc3.importer", icon="OUTLINER_OB_ARMATURE", text="Import Character")
         op.param = "IMPORT"
-        layout.separator()
         row = layout.row()
         row.scale_y = 2
         op = row.operator("cc3.anim_importer", icon="ARMATURE_DATA", text="Import Animations")
@@ -2998,8 +2976,10 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
         else:
             export_label = "Exporting"
 
+        # reconnect and link character
+        reconnect_character_ui(context, layout, chr_cache)
+
         # clean up
-        layout.separator()
         box = layout.box()
         box.label(text="Clean Up", icon="TRASH")
 
@@ -3029,7 +3009,7 @@ class CC3ToolsPipelineExportPanel(bpy.types.Panel):
         if addon_updater_ops.updater.update_ready == True:
             addon_updater_ops.update_notice_box_ui(self, context)
 
-        chr_cache, obj, mat, obj_cache, mat_cache = context_character(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
         if chr_cache:
             character_name = chr_cache.character_name
@@ -3225,7 +3205,7 @@ class CCICBakePanel(bpy.types.Panel):
         col_2.prop(props, "custom_sizes", text="")
 
         obj = context.object
-        mat = utils.context_material(context)
+        mat = utils.get_context_material(context)
         bake_cache = bake.get_export_bake_cache(mat)
 
         if props.custom_sizes:

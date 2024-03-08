@@ -180,7 +180,7 @@ def get_image_type_lib_name(texture_type):
 
 
 def search_image_in_material_dirs(chr_cache, mat_cache, mat, texture_type):
-    return find_image_file(chr_cache.import_dir, [mat_cache.get_tex_dir(chr_cache), chr_cache.get_tex_dir()], mat, texture_type)
+    return find_image_file(chr_cache.get_import_dir(), [mat_cache.get_tex_dir(chr_cache), chr_cache.get_tex_dir()], mat, texture_type)
 
 
 def find_material_image(mat, texture_type, processed_images = None, tex_json = None, mat_json = None):
@@ -212,19 +212,24 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
     # try to find the image in the json data first:
     if tex_json:
 
-        rel_path: str = utils.fix_texture_rel_path(tex_json["Texture Path"])
+        tex_path: str = utils.fix_texture_rel_path(tex_json["Texture Path"])
+        is_tex_path_relative = not os.path.isabs(tex_path)
 
-        if rel_path:
-            image_file = os.path.join(chr_cache.import_dir, rel_path)
+        if tex_path:
+            if is_tex_path_relative:
+                image_file = os.path.normpath(os.path.join(chr_cache.get_import_dir(), tex_path))
+            else:
+                image_file = os.path.normpath(tex_path)
 
             # try to load image path directly
             if os.path.exists(image_file):
                 return load_image(image_file, color_space, processed_images)
 
             # try remapping the image path relative to the local directory
-            image_file = utils.local_path(rel_path)
-            if image_file and os.path.exists(image_file):
-                return load_image(image_file, color_space, processed_images)
+            if is_tex_path_relative:
+                image_file = utils.local_path(tex_path)
+                if image_file and os.path.exists(image_file):
+                    return load_image(image_file, color_space, processed_images)
 
             # try to find the image in the texture_mappings (all embedded images should be here)
             for tex_mapping in mat_cache.texture_mappings:
@@ -233,7 +238,7 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
                         if tex_mapping.image:
                             return tex_mapping.image
 
-            utils.log_error(f"{texture_type} - json image path not found: {rel_path}")
+            utils.log_error(f"{texture_type} - json image path not found: {tex_path}")
 
         return None
 
@@ -276,30 +281,30 @@ def get_material_tex_dir(chr_cache, obj, mat):
 
     props = bpy.context.scene.CC3ImportProps
 
-    if utils.is_file_ext(chr_cache.import_type, "FBX"):
+    if chr_cache.is_import_type("FBX"):
         object_name = utils.strip_name(obj.name)
         mesh_name = utils.strip_name(obj.data.name)
         material_name = utils.strip_name(mat.name)
         # non .fbm textures are stored in two possible locations:
         #    /textures/character_name/object_name/mesh_name/material_name
         # or /textures/character_name/character_name/mesh_name/material_name
-        rel_object = os.path.join("textures", chr_cache.import_name, object_name, mesh_name, material_name)
-        path_object = os.path.join(chr_cache.import_dir, rel_object)
-        rel_character = os.path.join("textures", chr_cache.import_name, chr_cache.import_name, mesh_name, material_name)
-        path_character = os.path.join(chr_cache.import_dir, rel_character)
+        rel_object = os.path.join("textures", chr_cache.get_character_id(), object_name, mesh_name, material_name)
+        path_object = os.path.join(chr_cache.get_import_dir(), rel_object)
+        rel_character = os.path.join("textures", chr_cache.get_character_id(), chr_cache.get_character_id(), mesh_name, material_name)
+        path_character = os.path.join(chr_cache.get_import_dir(), rel_character)
         if os.path.exists(path_object):
             return rel_object
         elif os.path.exists(path_character):
             return rel_character
         else:
-            return os.path.join(chr_cache.import_name + ".fbm")
+            return os.path.join(chr_cache.get_character_id() + ".fbm")
 
-    elif utils.is_file_ext(chr_cache.import_type, "OBJ"):
-        return chr_cache.import_name
+    elif chr_cache.is_import_type("OBJ"):
+        return chr_cache.get_character_id()
 
 
 def get_material_tex_dirs(chr_cache, obj, mat):
-    mat_dir = os.path.normpath(os.path.join(chr_cache.import_dir, get_material_tex_dir(chr_cache, obj, mat)))
+    mat_dir = os.path.normpath(os.path.join(chr_cache.get_import_dir(), get_material_tex_dir(chr_cache, obj, mat)))
     return [chr_cache.get_tex_dir(), mat_dir]
 
 

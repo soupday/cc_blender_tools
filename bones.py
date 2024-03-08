@@ -126,7 +126,23 @@ def find_target_pose_bone(rig, rl_bone_name, bone_mapping = None) -> bpy.types.P
     return None
 
 
-def find_target_bone_name(rig, rl_bone_name, bone_mapping = None):
+def is_target_bone_name(bone_name, target_name):
+    if not bone_name or not target_name:
+        return False
+    if target_name == bone_name:
+        return True
+    if cmp_rl_bone_names(target_name, bone_name):
+        return True
+    target_name = target_name.replace(' ', '_')
+    if target_name == bone_name:
+        return True
+    if cmp_rl_bone_names(target_name, bone_name):
+        return True
+
+
+def find_target_bone_name(rig, rl_bone_name, bone_mapping=None):
+    if not rig or not rl_bone_name:
+        return None
     target_bone_name = None
     if bone_mapping:
         target_bone_name = get_rigify_meta_bone(rig, bone_mapping, rl_bone_name)
@@ -149,7 +165,7 @@ def find_pivot_bone(rig, bone_name):
         bone: bpy.types.Bone = rig.data.bones[bone_name]
         for child in bone.children:
             if child.name.startswith("CC_Base_Pivot"):
-                return bone
+                return child
     return None
 
 
@@ -465,7 +481,7 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
         return None
 
 
-def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
+def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD", axes=None):
     try:
         if utils.set_mode("OBJECT"):
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
@@ -483,6 +499,13 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
                 space = "LOCAL"
             c.owner_space = space
             c.influence = influence
+            if axes:
+                c.use_x = "X" in axes
+                c.use_y = "Y" in axes
+                c.use_z = "Z" in axes
+                c.invert_x = "-X" in axes
+                c.invert_y = "-Y" in axes
+                c.invert_z = "-Z" in axes
             return c
     except:
         utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
@@ -1075,6 +1098,17 @@ def clear_constraints(rig, pose_bone_name):
                 for con in constraints:
                     pose_bone.constraints.remove(con)
 
+
+def find_constraint(pose_bone: bpy.types.PoseBone, of_type, with_subtarget=None) -> bpy.types.Constraint:
+    if pose_bone:
+        con: bpy.types.Constraint
+        for con in pose_bone.constraints:
+            if con.type == of_type:
+                if with_subtarget and hasattr(con, "subtarget"):
+                    if con.subtarget != with_subtarget:
+                        continue
+                return con
+    return None
 
 def clear_drivers(rig):
     # rig object drivers (pose bone drivers)

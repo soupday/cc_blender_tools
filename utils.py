@@ -20,7 +20,7 @@ import subprocess
 import time
 import difflib
 import random
-from mathutils import Vector, Quaternion
+from mathutils import Vector, Quaternion, Matrix
 from hashlib import md5
 import bpy
 
@@ -478,13 +478,6 @@ def match_dimensions(socket, value):
         return (value, value)
     else:
         return value
-
-
-def context_material(context):
-    try:
-        return context.object.material_slots[context.object.active_material_index].material
-    except:
-        return None
 
 
 def find_pose_bone(chr_cache, *name):
@@ -975,6 +968,80 @@ def delete_light_object(obj):
             bpy.data.lights.remove(data)
 
 
+def delete_object(obj):
+    try:
+        data = obj.data
+    except:
+        data = None
+    if data:
+        if obj.type == "MESH":
+            try:
+                bpy.data.meshes.remove(data)
+            except:
+                pass
+        elif obj.type == "ARMATURE":
+            try:
+                bpy.data.armatures.remove(data)
+            except:
+                pass
+        elif obj.type == "LIGHT":
+            try:
+                bpy.data.lights.remove(data)
+            except:
+                pass
+        elif obj.type == "CAMERA":
+            try:
+                bpy.data.camera.remove(data)
+            except:
+                pass
+        elif obj.type == "CURVE" or obj.type=="SURFACE" or obj.type == "FONT":
+            try:
+                bpy.data.curves.remove(data)
+            except:
+                pass
+        elif obj.type == "META":
+            try:
+                bpy.data.metaballs.remove(data)
+            except:
+                pass
+        elif obj.type == "VOLUME":
+            try:
+                bpy.data.volumes.remove(data)
+            except:
+                pass
+        elif obj.type == "GPENCIL":
+            try:
+                bpy.data.grease_pencils.remove(data)
+            except:
+                pass
+        elif obj.type == "LATICE":
+            try:
+                bpy.data.lattices.remove(data)
+            except:
+                pass
+        elif obj.type == "EMPTY":
+            try:
+                if obj.data:
+                    if obj.data.type == "IMAGE":
+                        bpy.data.images.remove(data)
+            except:
+                pass
+        elif obj.type == "LIGHT_PROBE":
+            try:
+                bpy.data.lightprobes.remove(data)
+            except:
+                pass
+        elif obj.type == "SPEAKER":
+            try:
+                bpy.data.speakers.remove(data)
+            except:
+                pass
+    try:
+        bpy.data.objects.remove(obj)
+    except:
+        pass
+
+
 def get_object_tree(obj, objects = None):
     if objects is None:
         objects = []
@@ -1020,6 +1087,61 @@ def get_context_area(context, area_type):
     return None
 
 
+def get_context_mesh(context):
+    if object_exists_is_mesh(context.object):
+        return context.object
+    return None
+
+
+def get_context_material(context):
+    try:
+        return context.object.material_slots[context.object.active_material_index].material
+    except:
+        return None
+
+
+def get_context_armature(context):
+    if context.object:
+        if object_exists_is_armature(context.object):
+            return context.object
+        try:
+            arm = context.object.parent
+            if object_exists_is_armature(arm):
+                return arm
+        except:
+            pass
+    return None
+
+
+def get_context_character(context, strict=False):
+    """strict: selected must part of the character"""
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache = props.get_context_character_cache(context)
+
+    obj = context.object
+    mat = get_context_material(context)
+    obj_cache = None
+    mat_cache = None
+
+    if chr_cache:
+        obj_cache = chr_cache.get_object_cache(obj)
+        mat_cache = chr_cache.get_material_cache(mat)
+        arm = chr_cache.get_armature()
+
+        # if the context object is an armature or child of armature that is not part of this chr_cache
+        # clear the chr_cache, as this is a separate generic character.
+        if obj and not obj_cache:
+            if obj.type == "ARMATURE" and obj != arm and obj != chr_cache.rig_meta_rig:
+                chr_cache = None
+            elif obj.type == "MESH" and obj.parent and obj.parent != arm:
+                chr_cache = None
+
+    if strict and obj and not obj_cache:
+        chr_cache = None
+
+    return chr_cache, obj, mat, obj_cache, mat_cache
+
+
 def get_current_tool_idname(context = None):
     if context is None:
         context = bpy.context
@@ -1027,19 +1149,22 @@ def get_current_tool_idname(context = None):
     return tool_idname
 
 
-
-def add_layer_collections(layer_collection : bpy.types.LayerCollection, layer_collections, search = None):
+def add_layer_collections(layer_collection: bpy.types.LayerCollection, layer_collections, search = None):
     if search:
-        if search in layer_collection.name:
+        if type(search) is str and search in layer_collection.name:
+            layer_collections.append(layer_collection)
+        elif type(search) is bpy.types.Collection and layer_collection.collection == search:
+            layer_collections.append(layer_collection)
+        elif type(search) is bpy.types.LayerCollection and layer_collection == search:
             layer_collections.append(layer_collection)
     else:
         layer_collections.append(layer_collection)
-    child_collection : bpy.types.LayerCollection
-    for child_collection in layer_collection.children:
-        add_layer_collections(child_collection, layer_collections, search)
+    child_layer_collection : bpy.types.LayerCollection
+    for child_layer_collection in layer_collection.children:
+        add_layer_collections(child_layer_collection, layer_collections, search)
 
 
-def get_view_layer_collections(search = None):
+def get_view_layer_collections(search=None):
     layer_collections = []
     for view_layer in bpy.context.scene.view_layers:
         for layer_collection in view_layer.layer_collection.children:
@@ -1077,12 +1202,15 @@ def limit_view_layer_to_collection(collection_name, *items):
     return tmp_collection, layer_collections, to_hide
 
 
-def create_collection(name):
-    if name in bpy.data.collections:
+def create_collection(name, existing=True, parent_collection: bpy.types.Collection = None):
+    if name in bpy.data.collections and existing:
         return bpy.data.collections[name]
     else:
         collection = bpy.data.collections.new(name)
-        bpy.context.scene.collection.children.link(collection)
+        if parent_collection:
+            parent_collection.children.link(collection)
+        else:
+            bpy.context.scene.collection.children.link(collection)
         return collection
 
 
@@ -1454,57 +1582,62 @@ def get_last_report():
     return lines[-1]
 
 
-def copy_collection_property(props_a, props_b):
-    props_a.clear()
-    for from_prop in props_b:
-        to_prop = props_a.add()
-        copy_property_group(to_prop, from_prop)
+def match_wild(test: str, match_list: list) -> bool:
+    if test and match_list:
+        for match in match_list:
+            if test == match:
+                return True
+            elif match.startswith("*") and match.endswith("*"):
+                if match[1:-1] in test:
+                    return True
+            elif match.startswith("*"):
+                if match[1:] in test:
+                    return True
+            elif match.endswith("*"):
+                if match[:-1] in test:
+                    return True
+    return False
 
 
-def copy_property_group(props_a, props_b):
-    """Copy properties from collection b into collection a.
-    """
+def copy_collection_property(prop_a, prop_b, exclude: list = None):
+    prop_b.clear()
+    for prop in prop_a:
+        to_prop = prop_b.add()
+        copy_property_group(prop, to_prop, exclude=exclude)
+
+
+def copy_property_group(group_a, group_b, exclude: list = None):
     vars.block_property_update = True
-    log_indent()
-
-    # items contains only those properties changed from the detaults in the collection group
-    items = props_b.items()
-    prop_list = []
-
-    for i in items:
-        prop_list.append(i)
-
-    for i in range(0, len(prop_list)):
-
-        prop_name = prop_list[i][0]
-
-        if prop_name:
-
-            value = prop_list[i][1]
-            value_type = type(prop_list[i][1])
-
-            try:
-                # first try setting directly
-                code = f"props_a.{prop_name} = props_b.{prop_name}"
-                exec(code, None, locals())
-                log_info(f"{code} ({value})")
-            except:
-                props_to = eval(f"props_a.{prop_name}")
-                props_from = eval(f"props_b.{prop_name}")
-                try:
-                    # only collections (should) have clear() so copy the collection
-                    props_to.clear()
-                    log_info(f"Attepting to copy as collection property: {prop_name}")
-                    copy_collection_property(props_to, props_from)
-                except:
-                    try:
-                        # finally try copying as a property group
-                        log_info(f"Attepting to copy as property group: {prop_name}")
-                        copy_property_group(props_to, props_from)
-                    except:
-                        log_error(f"Unable to copy property {prop_name} / {value_type}")
-
-    log_recess()
+    # items() returns a list of properties that have been changed
+    # from the defaults, or been set, in the property group:
+    # returns a list of tuples [(prop, value), (prop, value)...]
+    items_a = group_a.items()
+    # get a list of all property names in group_a that have been altered
+    props_a = [ i[0] for i in items_a ]
+    # get a list of all properties in group_b
+    props_b = dir(group_b)
+    # get a list of all properties that have been changed in group_a and are present in group_b
+    props = [ p for p in props_a if p in props_b ]
+    for prop in props:
+        if exclude and match_wild(prop, exclude):
+            log_info(f" - excluding: {prop}")
+            continue
+        value = getattr(group_a, prop)
+        target = getattr(group_b, prop)
+        if type(target) == type(value) or value is None or target is None:
+            if issubclass(type(value), bpy.types.PropertyGroup):
+                # all property groups are subclasses of bpy.types.PropertyGroup
+                log_info(f" - copying property group: {prop}")
+                copy_property_group(value, target, exclude=exclude)
+            elif hasattr(value, "clear") and hasattr(value, "add"):
+                # collection properties have add() and clear() functions
+                log_info(f" - copying collection property: {prop}")
+                copy_collection_property(value, target, exclude=exclude)
+            else:
+                log_info(f" - setting: {prop} {value}")
+                setattr(group_b, prop, value)
+        else:
+            log_error(f"Properties are of different types: {prop} {type(value)} != {type(target)}")
     vars.block_property_update = False
 
 
@@ -1657,6 +1790,10 @@ def object_scale(obj):
         return 1.0
 
 
+def make_transform_matrix(loc: Vector, rot: Quaternion, sca: Vector):
+    return Matrix.Translation(loc) @ (rot.to_matrix().to_4x4()) @ Matrix.Diagonal(sca).to_4x4()
+
+
 def is_local_view(context):
     try:
         return context.space_data.local_view is not None
@@ -1696,15 +1833,18 @@ def set_scene_frame_range(start, end):
         scene.frame_end = end
 
 
-def debug_empty(name, loc=None, rot=None, scale=None, matrix=None):
+def make_empty(name, loc=None, rot=None, scale=None, matrix=None):
     ob = bpy.data.objects.new(name, None)
     if matrix:
         ob.matrix_world = matrix
-    elif loc and rot and scale:
-        ob.location = loc
-        ob.rotation_mode = "QUATERNION"
-        ob.rotation_quaternion = rot
-        ob.scale = scale
+    else:
+        if loc:
+            ob.location = loc
+        if rot:
+            ob.rotation_mode = "QUATERNION"
+            ob.rotation_quaternion = rot
+        if scale:
+            ob.scale = scale
     bpy.context.scene.collection.objects.link(ob)
 
 

@@ -19,7 +19,9 @@ import re
 import mathutils
 import os
 
-from . import materials, modifiers, meshutils, geom, bones, shaders, nodeutils, utils, vars
+from . import (materials, modifiers, meshutils, geom, bones, physics, rigutils,
+               shaders, basic, imageutils, nodeutils, jsonutils, utils, vars)
+
 from mathutils import Vector
 
 MANDATORY_OBJECTS = ["BODY", "TEETH", "TONGUE", "TEARLINE", "OCCLUSION", "EYE"]
@@ -221,15 +223,7 @@ def convert_generic_to_non_standard(objects, file_path = None):
 
     chr_cache = props.import_cache.add()
     chr_cache.import_file = ""
-    chr_cache.import_type = ext[1:]
-    chr_cache.import_name = name
-    chr_cache.import_dir = dir
-    chr_cache.character_index = 0
     chr_cache.character_name = full_name
-    chr_cache.character_id = name
-    chr_cache.import_key_file = ""
-    chr_cache.import_has_key = False
-    chr_cache.import_main_tex_dir = ""
     chr_cache.import_embedded = False
     chr_cache.generation = "Unknown"
     chr_cache.non_standard_type = chr_type
@@ -240,6 +234,269 @@ def convert_generic_to_non_standard(objects, file_path = None):
     for obj in objects:
         if utils.object_exists_is_mesh(obj):
             add_object_to_character(chr_cache, obj, reparent=False)
+
+    return chr_cache
+
+
+def link_or_append_rl_character(blend_file, link=False):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    utils.log_info("")
+    utils.log_info("Link/Append Reallusion Character")
+    utils.log_info("--------------------------------")
+
+    # link or append character data from blend file
+    with bpy.data.libraries.load(blend_file, link=link) as (src, dst):
+        dst.scenes = src.scenes
+        dst.objects = src.objects
+
+    ignore = []
+    keep = []
+
+    # find the add-on character data in the blend file
+    src_props = None
+    for scene in dst.scenes:
+        if "CC3ImportProps" in scene:
+            src_props = scene.CC3ImportProps
+            utils.log_info(f"Found Add-on Import Properties")
+            break
+
+    if src_props:
+
+        for src_cache in src_props.import_cache:
+
+            character_name = src_cache.character_name
+            import_file = src_cache.import_file
+            chr_rig = src_cache.get_armature()
+            meta_rig = src_cache.rig_meta_rig
+            src_rig = src_cache.rig_original_rig
+            widgets = []
+            objects = []
+
+            utils.log_info(f"Character Data Found: {character_name}")
+
+            # keep the character rig
+            utils.log_info(f"Character rig: {chr_rig.name}")
+            keep.append(chr_rig)
+            objects.append(chr_rig)
+
+            # keep the meta rig
+            if meta_rig:
+                utils.log_info(f"Meta-rig: {chr_rig.name}")
+                keep.append(meta_rig)
+                objects.append(meta_rig)
+
+            # ignore the source rig
+            if src_rig:
+                ignore.append(src_rig)
+
+            # keep all child objects of the rigify rig
+            for obj in dst.objects:
+                if obj in chr_rig.children:
+                    utils.log_info(f" - Character Object: {obj.name}")
+                    keep.append(obj)
+                    objects.append(obj)
+
+            # find the widgets
+            widget_prefix = f"WGT-{character_name}_rig"
+            widget_collection_name = f"WGT_{character_name}_rig"
+            for obj in dst.objects:
+                if obj.name.startswith(widget_prefix):
+                    keep.append(obj)
+                    widgets.append(obj)
+
+            # TODO remove all actions or keep them? or get all of them?
+
+            # put all the character objects in the character collection
+            character_collection = utils.create_collection(character_name)
+            for obj in objects:
+                character_collection.objects.link(obj)
+
+            # put the widgets in the widget sub-collection
+            if widgets:
+                widget_collection = utils.create_collection(widget_collection_name,
+                                                            existing=False,
+                                                            parent_collection=character_collection)
+                for widget in widgets:
+                    widget_collection.objects.link(widget)
+                    widget.hide_set(True)
+
+                # hide the widget sub-collection
+                lc = utils.find_layer_collection(widget_collection.name)
+                lc.exclude = True
+
+            # hide the meta rig
+            if meta_rig:
+                meta_rig.hide_set(True)
+
+            # create the character cache and rebuild from the source data
+            chr_cache = props.add_character_cache(copy_from=src_cache)
+            rebuild_character_cache(chr_cache, chr_rig, src_cache)
+
+    # clean up unused objects
+    for obj in dst.objects:
+        if obj not in keep:
+            utils.delete_object(obj)
+
+
+def reconnect_rl_character_to_fbx(chr_rig, fbx_path):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    objects = get_character_objects(chr_rig)
+
+    utils.log_info("")
+    utils.log_info("Re-connecting Character to Source FBX")
+    utils.log_info("-------------------------------------")
+
+    chr_cache = props.add_character_cache()
+
+    rig_name = chr_rig.name
+    character_name = rig_name
+    if character_name.endswith("_Rigify"):
+        character_name = rig_name[:-7]
+
+    utils.log_info(f"Using character name: {character_name}")
+
+    if "rl_generation" in chr_rig:
+        generation = chr_rig["rl_generation"]
+    else:
+        generation = rigutils.get_rig_generation(chr_rig)
+
+    meta_rig_name = character_name + "_metarig"
+    meta_rig = None
+    if meta_rig_name in bpy.data.objects:
+        if utils.object_exists_is_armature(bpy.data.objects[meta_rig_name]):
+            meta_rig = bpy.data.objects[meta_rig_name]
+
+    chr_cache.import_file = fbx_path
+    chr_cache.character_name = character_name
+    chr_cache.import_embedded = False
+    chr_cache.generation = generation
+    chr_cache.non_standard_type = "HUMANOID"
+    chr_cache.rigified = True
+    chr_cache.rig_meta_rig = meta_rig
+    chr_cache.rigified_full_face_rig = character_has_bones(chr_rig, ["nose", "lip.T", "lip.B"])
+    chr_cache.add_object_cache(chr_rig)
+
+    rebuild_character_cache(chr_cache, chr_rig)
+
+    return chr_cache
+
+
+def reconnect_rl_character_to_blend(chr_rig, blend_file):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    objects = get_character_objects(chr_rig)
+
+    utils.log_info("")
+    utils.log_info("Re-connecting Character to Blend File:")
+    utils.log_info("--------------------------------------")
+
+    rig_name = chr_rig.name
+    character_name = rig_name
+    if character_name.endswith("_Rigify"):
+        character_name = rig_name[:-7]
+    utils.log_info(f"Using character name: {character_name}")
+
+    # link or append character data from blend file
+    with bpy.data.libraries.load(blend_file) as (src, dst):
+        dst.scenes = src.scenes
+
+    # find the add-on character data in the blend file
+    src_props = None
+    src_cache = None
+    for scene in dst.scenes:
+        if "CC3ImportProps" in scene:
+            src_props = scene.CC3ImportProps
+            utils.log_info(f"Found Add-on Import Properties")
+            break
+
+    if src_props:
+
+        # try to find the source cache by import file
+        if "rl_import_file" in chr_rig:
+            import_file = chr_rig["rl_import_file"]
+            for chr_cache in src_props.import_cache:
+                if chr_cache.import_file == import_file:
+                    utils.log_info(f"Found matching source character fbx: {chr_cache.character_name}")
+                    src_cache = chr_cache
+                    break
+
+        # try to find the source cache by character name
+        for chr_cache in src_props.import_cache:
+            if chr_cache.character_name == character_name:
+                utils.log_info(f"Found matching source character name: {chr_cache.character_name}")
+                src_cache = chr_cache
+                break
+
+    if src_cache:
+
+        # create the character cache and rebuild from the source data
+        chr_cache = props.add_character_cache(copy_from=src_cache)
+        # can't match objects accurately, so don't try (as they are no longer the same linked objects)
+        rebuild_character_cache(chr_cache, chr_rig, src_cache=src_cache)
+        return chr_cache
+
+    return None
+
+
+def rebuild_character_cache(chr_cache, chr_rig, src_cache=None):
+    props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+    chr_cache.add_object_cache(chr_rig)
+    objects = get_character_objects(chr_rig)
+
+    utils.log_info("")
+    utils.log_info("Re-building Character Cache:")
+    utils.log_info("----------------------------")
+
+    errors = []
+    json_data = jsonutils.read_json(chr_cache.import_file, errors)
+    chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
+
+    # add child objects to chr_cache
+    processed = []
+    defaults = []
+    for obj in objects:
+        obj_id = obj["rl_object_id"] if "rl_object_id" in obj else None
+        if utils.object_exists_is_mesh(obj) and obj not in processed:
+            processed.append(obj)
+            src_obj_cache = src_cache.get_object_cache(obj, by_id=obj_id) if src_cache else None
+            utils.log_info(f"Object: {obj.name} {obj_id} {src_obj_cache}")
+            obj_json = jsonutils.get_object_json(chr_json, obj)
+            obj_cache = chr_cache.add_object_cache(obj, copy_from=src_obj_cache)
+            for mat in obj.data.materials:
+                if mat and mat.node_tree is not None:
+                    mat_id = mat["rl_material_id"] if "rl_material_id" in mat else None
+                    src_mat_cache = src_cache.get_material_cache(mat, by_id=mat_id) if src_cache else None
+                    utils.log_info(f"Material: {mat.name} {mat_id} {src_mat_cache}")
+                    if src_obj_cache and src_mat_cache:
+                        object_type = src_obj_cache.object_type
+                        material_type = src_mat_cache.material_type
+                    elif "rl_object_type" in obj and "rl_material_type" in mat:
+                        object_type = obj["rl_object_type"]
+                        material_type = mat["rl_material_type"]
+                    else:
+                        object_type, material_type = materials.detect_materials(chr_cache, obj, mat, obj_json)
+                    if obj_cache.object_type != "BODY":
+                        obj_cache.set_object_type(object_type)
+                    if mat not in processed:
+                        mat_cache = chr_cache.add_material_cache(mat, material_type, copy_from=src_mat_cache)
+                        mat_cache.dir = imageutils.get_material_tex_dir(chr_cache, obj, mat)
+                        physics.detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json)
+                        processed.append(mat)
+                    if not src_obj_cache or not src_mat_cache:
+                        defaults.append(mat)
+
+    # re-initialize the shader parameters (if not copied over)
+    if defaults:
+        shaders.init_character_property_defaults(chr_cache, chr_json, only=defaults)
+    if not src_cache:
+        basic.init_basic_default(chr_cache)
 
     return chr_cache
 
@@ -277,7 +534,7 @@ def parent_to_rig(rig, obj):
         utils.set_active_object(obj)
 
 
-def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
+def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent=True, no_materials=False):
     props = bpy.context.scene.CC3ImportProps
 
     if chr_cache and utils.object_exists_is_mesh(obj):
@@ -293,12 +550,16 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent = True):
 
             # add the object into the object cache
             obj_cache = chr_cache.add_object_cache(obj)
-            obj_cache.set_object_type("DEFAULT")
+            if "rl_object_type" in obj:
+                obj_cache.set_object_type(obj["rl_object_type"])
+            else:
+                obj_cache.set_object_type("DEFAULT")
             obj_cache.user_added = True
 
         obj_cache.disabled = False
 
-        add_missing_materials_to_character(chr_cache, obj, obj_cache)
+        if not no_materials:
+            add_missing_materials_to_character(chr_cache, obj, obj_cache)
 
         utils.clear_selected_objects()
 
@@ -374,7 +635,7 @@ def copy_objects_character_to_character(context_obj, chr_cache, objects, reparen
                 obj.name = obj_name
 
             # add the object into the object cache
-            obj_cache = chr_cache.add_object_cache(obj, copy_from=oc)
+            obj_cache = chr_cache.add_object_cache(obj, copy_from=oc, user=True)
             obj_cache.user_added = True
             obj_cache.disabled = False
 
@@ -651,6 +912,10 @@ def add_material_to_character(chr_cache, obj, obj_cache, mat, update_name = Fals
         if existing_mat_cache:
             # copy it
             mat_cache = chr_cache.add_material_cache(mat, copy_from=existing_mat_cache)
+            return mat_cache
+
+        if materials.is_rl_material(mat):
+            mat_cache = materials.reconstruct_material_cache(chr_cache, mat)
             return mat_cache
 
         # convert the material name to remove any duplicate suffixes:
@@ -1481,3 +1746,75 @@ class CC3OperatorTransferMeshGeometry(bpy.types.Operator):
             Copy base mesh shape (e.g. After Sculpting) from active mesh to target
             mesh without destroying any existing shape keys in the target mesh.
             Source and target meshes must have the same UV topology"""
+
+
+class CCICCharacterLink(bpy.types.Operator):
+    """Reconnect a linked or appended character to the source fbx and json data."""
+
+    bl_idname = "ccic.characterlink"
+    bl_label = "Character Linker"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = "",
+            options={"HIDDEN"}
+        )
+
+    filepath: bpy.props.StringProperty(
+            name="File Path",
+            description="Filepath used for exporting the file",
+            maxlen=1024,
+            subtype='FILE_PATH'
+        )
+
+    filter_glob: bpy.props.StringProperty(
+            default="*.blend",
+            options={"HIDDEN"}
+        )
+
+    def execute(self, context):
+        chr_rig = utils.get_context_armature(context)
+
+        if self.param == "CONNECT":
+            if chr_rig and self.filepath:
+                path, ext = os.path.splitext(self.filepath)
+                if utils.is_file_ext(ext, "BLEND"):
+                    reconnect_rl_character_to_blend(chr_rig, self.filepath)
+                else:
+                    reconnect_rl_character_to_fbx(chr_rig, self.filepath)
+        elif self.param == "LINK":
+            link_or_append_rl_character(self.filepath, link=True)
+        elif self.param == "APPEND":
+            link_or_append_rl_character(self.filepath, link=False)
+        return {"FINISHED"}
+
+
+    def invoke(self, context, event):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        chr_cache = props.get_context_character_cache(context)
+        chr_rig = utils.get_context_armature(context)
+
+        if self.param == "CONNECT":
+            self.filter_glob = "*.fbx;*.blend"
+            if chr_rig and not chr_cache:
+                context.window_manager.fileselect_add(self)
+                return {"RUNNING_MODAL"}
+
+        if self.param == "LINK" or self.param == "APPEND":
+            self.filter_glob = "*.blend"
+            context.window_manager.fileselect_add(self)
+            return {"RUNNING_MODAL"}
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+        if properties.param == "CONNECT":
+            return """Reconnect a linked or appended character to the source fbx and json data."""
+        elif properties.param == "LINK":
+            return """Link to an existing reallusion characer in a separate blend file."""
+        elif properties.param == "APPEND":
+            return """Append an existing reallusion characer in a separate blend file."""
+
