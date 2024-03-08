@@ -48,6 +48,7 @@ Links
     - Face rig jaw constraints adjusted for less lip deformation.
 - Parallax eye shader AO fix.
 - Basic materials SSS fixes.
+- Importing a bad or incompatible mesh should fail more gracefully.
 
 ### 2.0.3
 - Datalink:

@@ -20,7 +20,7 @@ import subprocess
 import time
 import difflib
 import random
-from mathutils import Vector, Quaternion
+from mathutils import Vector, Quaternion, Matrix
 from hashlib import md5
 import bpy
 
@@ -1790,6 +1790,10 @@ def object_scale(obj):
         return 1.0
 
 
+def make_transform_matrix(loc: Vector, rot: Quaternion, sca: Vector):
+    return Matrix.Translation(loc) @ (rot.to_matrix().to_4x4()) @ Matrix.Diagonal(sca).to_4x4()
+
+
 def is_local_view(context):
     try:
         return context.space_data.local_view is not None
@@ -1829,15 +1833,18 @@ def set_scene_frame_range(start, end):
         scene.frame_end = end
 
 
-def debug_empty(name, loc=None, rot=None, scale=None, matrix=None):
+def make_empty(name, loc=None, rot=None, scale=None, matrix=None):
     ob = bpy.data.objects.new(name, None)
     if matrix:
         ob.matrix_world = matrix
-    elif loc and rot and scale:
-        ob.location = loc
-        ob.rotation_mode = "QUATERNION"
-        ob.rotation_quaternion = rot
-        ob.scale = scale
+    else:
+        if loc:
+            ob.location = loc
+        if rot:
+            ob.rotation_mode = "QUATERNION"
+            ob.rotation_quaternion = rot
+        if scale:
+            ob.scale = scale
     bpy.context.scene.collection.objects.link(ob)
 
 

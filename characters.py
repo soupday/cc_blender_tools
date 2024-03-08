@@ -454,8 +454,6 @@ def rebuild_character_cache(chr_cache, chr_rig, src_cache=None):
     utils.log_info("Re-building Character Cache:")
     utils.log_info("----------------------------")
 
-    print(src_cache)
-
     errors = []
     json_data = jsonutils.read_json(chr_cache.import_file, errors)
     chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
@@ -496,7 +494,6 @@ def rebuild_character_cache(chr_cache, chr_rig, src_cache=None):
 
     # re-initialize the shader parameters (if not copied over)
     if defaults:
-        print(defaults)
         shaders.init_character_property_defaults(chr_cache, chr_json, only=defaults)
     if not src_cache:
         basic.init_basic_default(chr_cache)

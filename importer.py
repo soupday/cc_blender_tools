@@ -603,7 +603,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
         # any none character aramtures should be scenes or props
         for i, arm in enumerate(armatures):
 
-            character_name = "Scene"
+            character_name = name
             source_name = "Armature"
             if len(armatures) > 1:
                 source_name = arm.name
@@ -870,7 +870,10 @@ class CC3Import(bpy.types.Operator):
                 except:
                     utils.log_warn("FBX Import Error: This may be due to color space differences. Continuing...")
             else:
-                bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim, use_image_search=False)
+                try:
+                    bpy.ops.import_scene.fbx(filepath=self.filepath, directory=dir, use_anim=import_anim, use_image_search=False)
+                except:
+                    utils.log_error("FBX Import Error due to bad mesh?")
 
             imported = utils.untagged_objects()
             actions = utils.untagged_actions()

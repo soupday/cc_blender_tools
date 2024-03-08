@@ -126,7 +126,23 @@ def find_target_pose_bone(rig, rl_bone_name, bone_mapping = None) -> bpy.types.P
     return None
 
 
-def find_target_bone_name(rig, rl_bone_name, bone_mapping = None):
+def is_target_bone_name(bone_name, target_name):
+    if not bone_name or not target_name:
+        return False
+    if target_name == bone_name:
+        return True
+    if cmp_rl_bone_names(target_name, bone_name):
+        return True
+    target_name = target_name.replace(' ', '_')
+    if target_name == bone_name:
+        return True
+    if cmp_rl_bone_names(target_name, bone_name):
+        return True
+
+
+def find_target_bone_name(rig, rl_bone_name, bone_mapping=None):
+    if not rig or not rl_bone_name:
+        return None
     target_bone_name = None
     if bone_mapping:
         target_bone_name = get_rigify_meta_bone(rig, bone_mapping, rl_bone_name)
