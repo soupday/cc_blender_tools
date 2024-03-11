@@ -208,6 +208,9 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         json_data[new_name].pop("Import_Dir", None)
         json_data[new_name].pop("Import_Name", None)
 
+    if not chr_cache.link_id:
+        chr_cache.link_id = utils.generate_random_id(14)
+    json_data[new_name]["Link_ID"] = chr_cache.link_id
 
     if chr_cache.is_non_standard():
         set_non_standard_generation(json_data, new_name, chr_cache.non_standard_type, chr_cache.generation)
@@ -721,7 +724,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                 if is_pbr_texture:
 
                     # CC3 cannot set metallic or roughness values without textures, so must bake a small value texture
-                    if not tex_node and prefs.export_bake_nodes:
+                    if not tex_node:
 
                         if tex_type == "ROUGHNESS":
                             if bake_values and roughness_modified:

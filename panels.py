@@ -1759,8 +1759,9 @@ class CC3RigifyPanel(bpy.types.Panel):
                 if chr_cache.rigified:
 
                     has_spring_rigs = springbones.has_spring_rigs(chr_cache, rig)
+                    ik_fk = rigutils.get_rigify_ik_fk_influence(rig)
 
-                    # utility widgets
+                    # utility widgets minipanel
                     box_row = layout.box().row(align=True)
                     is_full_rig_show = rigging.is_full_rigify_rig_shown(chr_cache)
                     box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
@@ -1772,6 +1773,12 @@ class CC3RigifyPanel(bpy.types.Panel):
                     is_pose_position = rigging.is_rig_rest_position(chr_cache)
                     box_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
                     box_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
+                    box_row.separator()
+                    depress = True if ik_fk > 0.995 else False
+                    box_row.operator("cc3.rigifier", text="FK", depress=depress).param = "SET_LIMB_FK"
+                    depress = True if ik_fk < 0.005 else False
+                    box_row.operator("cc3.rigifier", text="IK", depress=depress).param = "SET_LIMB_IK"
+
 
                     if has_spring_rigs:
 
@@ -1890,23 +1897,29 @@ class CC3RigifyPanel(bpy.types.Panel):
                             layout.separator()
 
                         # retarget and bake armature actions
-                        row = layout.row()
-                        row.label(text="Preview Shape-keys")
-                        row.prop(props, "retarget_preview_shape_keys", text="")
-                        row = layout.row()
+                        col = layout.column(align=True)
+
+                        row = col.row(align=True)
+                        row.prop(prefs, "rigify_preview_retarget_fk_ik", expand=True)
+                        row.prop(props, "retarget_preview_shape_keys", text="", toggle=True, icon="KEYINGSET")
+
+                        row = col.row(align=True)
+                        row.scale_y = 1.5
                         retarget_rig = chr_cache.rig_retarget_rig
-                        depress = False
-                        if utils.object_exists(retarget_rig):
+                        if utils.object_exists_is_armature(retarget_rig):
                             depress = True
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Preview Retarget", depress=depress).param = "RETARGET_CC_PAIR_RIGS"
+                            row.operator("cc3.rigifier", icon="X", text="Stop Preview", depress=depress).param = "RETARGET_CC_REMOVE_PAIR"
+                        else:
+                            depress = False
+                            row.operator("cc3.rigifier", icon="HIDE_OFF", text="Preview Retarget", depress=depress).param = "RETARGET_CC_PAIR_RIGS"
                         row.enabled = source_type != "Unknown"
-                        row = layout.row()
-                        row.operator("cc3.rigifier", icon="X", text="Stop Preview").param = "RETARGET_CC_REMOVE_PAIR"
-                        row.enabled = chr_cache.rig_retarget_rig is not None
-                        row = layout.row()
+
+                        row = col.row()
+                        row.scale_y = 2
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake Retarget").param = "RETARGET_CC_BAKE_ACTION"
                         if source_type == "Unknown" and chr_cache.rig_retarget_rig is None:
                             row.enabled = False
+
                         layout.separator()
 
                         # retarget shape keys to character
@@ -1915,11 +1928,19 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.enabled = source_type != "Unknown"
                         layout.separator()
 
-                        # nla bake
-                        row = layout.row()
-                        row.label(text="Bake Shape-keys")
-                        row.prop(props, "bake_nla_shape_keys", text="")
-                        row = layout.row()
+                    # NLA bake
+                    box_row = layout.box().row()
+                    if fake_drop_down(box_row,
+                                        "NLA Bake",
+                                        "section_rigify_nla_bake",
+                                        props.section_rigify_nla_bake,
+                                        icon="ANIM_DATA", icon_closed="ANIM_DATA"):
+                        col = layout.column(align=True)
+                        row = col.row(align=True)
+                        row.prop(prefs, "rigify_bake_nla_fk_ik", expand=True)
+                        row.prop(props, "bake_nla_shape_keys", text="", toggle=True, icon="KEYINGSET")
+                        row = col.row()
+                        row.scale_y = 2
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
                         #row.enabled = chr_cache.rig_retarget_rig is None
 
@@ -2839,6 +2860,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2.prop(link_prefs, "sequence_frame_sync", text="")
             col_1.label(text="Preview Shape Keys")
             col_2.prop(link_prefs, "sequence_preview_shape_keys", text="")
+            col_1.label(text="Match Client Rate")
+            col_2.prop(link_prefs, "match_client_rate", text="")
 
         if connected:
 
@@ -2857,7 +2880,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
-            if is_cc and chr_cache and chr_cache.get_import_has_key():
+            if is_cc and chr_cache and (chr_cache.get_import_has_key() or chr_cache.is_non_standard()):
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
                 if chr_cache.is_morph():

@@ -144,6 +144,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("ALL","All","Log everything to console."),
                         ("WARN","Warnings & Errors","Log warnings and error messages to console."),
                         ("ERRORS","Just Errors","Log only errors to console."),
+                        ("DETAILS","Details","All including details."),
                     ], default="ERRORS", name = "(Debug) Log Level")
 
     render_target: bpy.props.EnumProperty(items=[
@@ -267,8 +268,19 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     physics_weightmap_curve: bpy.props.FloatProperty(default=5.0, min=1.0, max=10.0, name="Physics Weightmap Curve",
                                                      description="Power curve used to convert PhysX weightmaps to blender vertex pin weights.")
 
-    # addon updater preferences
+    # rigify prefs
+    rigify_preview_retarget_fk_ik: bpy.props.EnumProperty(items=[
+                        ("FK","FK","Retarget to FK controls only"),
+                        ("IK","IK","Retarget to IK controls only"),
+                        ("BOTH","Both","Retarget to both FK and IK controls"),
+                    ], default="BOTH", name = "Retarget to FK/IK")
+    rigify_bake_nla_fk_ik: bpy.props.EnumProperty(items=[
+                        ("FK","FK","Bake FK controls only"),
+                        ("IK","IK","Bake IK controls only"),
+                        ("BOTH","Both","Bake both FK and IK and controls"),
+                    ], default="BOTH", name = "Bake NLA to FK/IK")
 
+    # addon updater preferences
     auto_check_update: bpy.props.BoolProperty(
 	    name="Auto-check for Update",
 	    description="If enabled, auto-check for updates using an interval",
