@@ -615,7 +615,7 @@ SHAPE_KEY_DRIVERS = [
     ["Bfr", "Eye_R_Look_L", ["SCRIPTED", "var*2.8648 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
     ["Bfr", "Eye_R_Look_R", ["SCRIPTED", "var*-2.1486 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
     # jaw
-    ["", "Jaw_Open", ["SCRIPTED", "-var*1.8546"], ["var", "TRANSFORMS", "jaw_master", "ROT_X", "LOCAL_SPACE"]],
+    ["", "Jaw_Open", ["SCRIPTED", "var*1.8546"], ["var", "TRANSFORMS", "jaw_master", "ROT_X", "LOCAL_SPACE"]],
 ]
 
 
