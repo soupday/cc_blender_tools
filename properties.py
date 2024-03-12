@@ -1116,14 +1116,17 @@ class CC3MaterialCache:
     def get_material_type(self):
         return self.material_type
 
-    def check_id(self):
-        if self.material_id == "":
+    def get_material_id(self):
+        if not self.material_id:
             self.material_id = utils.generate_random_id(20)
+        return self.material_id
+
+    def check_id(self):
+        material_id = self.get_material_id()
+        material_type = self.material_type
         if self.material:
-            self.material["rl_material_id"] = self.material_id
-            self.material["rl_material_type"] = self.material_type
-
-
+            self.material["rl_material_id"] = material_id
+            self.material["rl_material_type"] = material_type
 
 
 class CC3EyeMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
@@ -1459,10 +1462,14 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return self.generation not in vars.STANDARD_GENERATIONS and self.generation not in vars.PROP_GENERATIONS
 
     def is_avatar(self):
-        return self.generation not in vars.PROP_GENERATIONS
+        return not self.is_prop()
 
     def is_prop(self):
-        return self.generation in vars.PROP_GENERATIONS
+        if self.generation in vars.PROP_GENERATIONS:
+            return True
+        if self.non_standard_type == "PROP":
+            return True
+        return False
 
     def is_actor_core(self):
         if (self.generation == "ActorCore"
@@ -2031,6 +2038,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return body
         return None
 
+    def get_link_id(self):
+        if not self.link_id:
+            self.link_id = utils.generate_random_id(14)
+        return self.link_id
+
 
 class CC3ImportProps(bpy.types.PropertyGroup):
 
@@ -2106,6 +2118,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     show_build_prefs2: bpy.props.BoolProperty(default=False)
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
+    section_rigify_nla_bake: bpy.props.BoolProperty(default=True)
     section_rigify_controls: bpy.props.BoolProperty(default=False)
     section_rigify_spring: bpy.props.BoolProperty(default=False)
     section_rigidbody_spring_ui: bpy.props.BoolProperty(default=True)
@@ -2113,8 +2126,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_physics_collision_settings: bpy.props.BoolProperty(default=False)
     show_data_link_prefs: bpy.props.BoolProperty(default=False)
 
-    retarget_preview_shape_keys: bpy.props.BoolProperty(default=True)
-    bake_nla_shape_keys: bpy.props.BoolProperty(default=True)
+    retarget_preview_shape_keys: bpy.props.BoolProperty(default=True, name="Retarget Shape Keys",
+                                                        description="Retarget any facial expression and viseme shape key actions on the source character rig to the current character meshes on the rigify rig")
+    bake_nla_shape_keys: bpy.props.BoolProperty(default=True, name="Bake Shape Keys",
+                                                description="Bake facial expression and viseme shape keys to new shapekey actions on the character")
     bake_unity_t_pose: bpy.props.BoolProperty(default=True, name="Include T-Pose", description="Include a T-Pose as the first animation track. This is useful for correct avatar alignment in Unity and for importing animations back into CC4")
     export_rigify_mode: bpy.props.EnumProperty(items=[
                         ("MESH","Mesh","Export only the character mesh and materials, with no animation (other than a Unity T-pose)"),
@@ -2507,3 +2522,4 @@ class CCICLinkPrefs(bpy.types.PropertyGroup):
     link_auto_start: bpy.props.BoolProperty(default=False)
     sequence_frame_sync: bpy.props.BoolProperty(default=False)
     sequence_preview_shape_keys: bpy.props.BoolProperty(default=True)
+    match_client_rate: bpy.props.BoolProperty(default=True)

@@ -35,6 +35,15 @@ Links
 
 ## Changelog
 
+### 2.0.5
+- Fix to converting generic objects to props.
+- Fix to baking value textures back to CC4 when exporting converted props and humanoids.
+- Datalink data send rate synchronization improvements.
+- Rigify retarget and NLA bake options to bake to FK/IK/Both.
+    - Rig FK/IK mode set appropriately, unchanged when baking to 'Both'.
+- Quick FK/IK switch button added to rigify mini-panel.
+- Send Rigified pose or sequence fix.
+
 ### 2.0.4
 - Linking/Appending:
     - Added linking/append functions to auto-link to characters in blend files with full character data and functionality.

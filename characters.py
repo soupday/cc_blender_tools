@@ -16,13 +16,12 @@
 
 import bpy
 import re
-import mathutils
 import os
 
 from . import (materials, modifiers, meshutils, geom, bones, physics, rigutils,
                shaders, basic, imageutils, nodeutils, jsonutils, utils, vars)
 
-from mathutils import Vector
+from mathutils import Vector, Matrix, Quaternion
 
 MANDATORY_OBJECTS = ["BODY", "TEETH", "TONGUE", "TEARLINE", "OCCLUSION", "EYE"]
 
@@ -86,8 +85,8 @@ def make_prop_armature(objects):
     root_bone : bpy.types.EditBone = None
     bone : bpy.types.EditBone = None
     root_bone_name = None
-    tail_vector = mathutils.Vector((0,0,0.1))
-    tail_translate = mathutils.Matrix.Translation(-tail_vector)
+    tail_vector = Vector((0,0,0.1))
+    tail_translate = Matrix.Translation(-tail_vector)
 
     if utils.edit_mode_to(arm):
 
@@ -99,8 +98,8 @@ def make_prop_armature(objects):
             root_bone_name = root_bone.name
         else:
             root_bone = arm.data.edit_bones.new("Root")
-            root_bone.head = (0,0,0)
-            root_bone.tail = (0,0,0) + tail_vector
+            root_bone.head = Vector((0,0,0))
+            root_bone.tail = Vector((0,0,0)) + tail_vector
             root_bone.roll = 0
             root_bone_name = root_bone.name
 
@@ -718,8 +717,8 @@ def make_accessory(chr_cache, objects):
                 # add accessory named bone to rig
                 accessory_root = rig.data.edit_bones.new("Accessory")
                 root_head = rig.matrix_world.inverted() @ bpy.context.scene.cursor.location
-                root_tail = rig.matrix_world.inverted() @ (bpy.context.scene.cursor.location + mathutils.Vector((0, 1/4, 0)))
-                piv_tail = rig.matrix_world.inverted() @ (bpy.context.scene.cursor.location + mathutils.Vector((0, 1/10000, 0)))
+                root_tail = rig.matrix_world.inverted() @ (bpy.context.scene.cursor.location + Vector((0, 1/4, 0)))
+                piv_tail = rig.matrix_world.inverted() @ (bpy.context.scene.cursor.location + Vector((0, 1/10000, 0)))
                 utils.log_info(f"Adding accessory root bone: {accessory_root.name}/({root_head})")
                 accessory_root.head = root_head
                 accessory_root.tail = root_tail
@@ -732,8 +731,8 @@ def make_accessory(chr_cache, objects):
 
                         # add object bone to rig
                         obj_bone = rig.data.edit_bones.new(obj.name)
-                        obj_head = rig.matrix_world.inverted() @ (obj.matrix_world @ mathutils.Vector((0, 0, 0)))
-                        obj_tail = rig.matrix_world.inverted() @ ((obj.matrix_world @ mathutils.Vector((0, 0, 0))) + mathutils.Vector((0, 1/8, 0)))
+                        obj_head = rig.matrix_world.inverted() @ (obj.matrix_world @ Vector((0, 0, 0)))
+                        obj_tail = rig.matrix_world.inverted() @ ((obj.matrix_world @ Vector((0, 0, 0))) + Vector((0, 1/8, 0)))
                         utils.log_info(f"Adding object bone: {obj_bone.name}/({obj_head})")
                         obj_bone.head = obj_head
                         obj_bone.tail = obj_tail
@@ -741,15 +740,15 @@ def make_accessory(chr_cache, objects):
                         # add pivot bone to rig
                         #piv_bone = rig.data.edit_bones.new("CC_Base_Pivot")
                         #utils.log_info(f"Adding pivot bone: {piv_bone.name}/({root_head})")
-                        #piv_bone.head = root_head + mathutils.Vector((0, 1/100, 0))
-                        #piv_bone.tail = piv_tail + mathutils.Vector((0, 1/100, 0))
+                        #piv_bone.head = root_head + Vector((0, 1/100, 0))
+                        #piv_bone.tail = piv_tail + Vector((0, 1/100, 0))
                         #piv_bone.parent = obj_bone
 
                         # add deformation bone to rig
                         def_bone = rig.data.edit_bones.new(obj.name)
                         utils.log_info(f"Adding deformation bone: {def_bone.name}/({obj_head})")
-                        def_head = rig.matrix_world.inverted() @ ((obj.matrix_world @ mathutils.Vector((0, 0, 0))) + mathutils.Vector((0, 1/32, 0)))
-                        def_tail = rig.matrix_world.inverted() @ ((obj.matrix_world @ mathutils.Vector((0, 0, 0))) + mathutils.Vector((0, 1/32 + 1/16, 0)))
+                        def_head = rig.matrix_world.inverted() @ ((obj.matrix_world @ Vector((0, 0, 0))) + Vector((0, 1/32, 0)))
+                        def_tail = rig.matrix_world.inverted() @ ((obj.matrix_world @ Vector((0, 0, 0))) + Vector((0, 1/32 + 1/16, 0)))
                         def_bone.head = def_head
                         def_bone.tail = def_tail
                         def_bone.parent = obj_bone

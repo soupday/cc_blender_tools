@@ -218,3 +218,34 @@ def restore_armature_names(armature_object, armature_data, name):
     if armature_data:
         armature_data.name = name
         armature_data.name = name
+
+
+def get_rigify_ik_fk_influence(rig):
+    ik_fk = 0
+    num_bones = 0
+    ik_fk_control_bones = ["upper_arm_parent.L", "upper_arm_parent.R", "thigh_parent.L", "thigh_parent.R"]
+    for bone_name in ik_fk_control_bones:
+        if bone_name in rig.pose.bones:
+            num_bones += 1
+            pose_bone = rig.pose.bones[bone_name]
+            ik_fk += pose_bone["IK_FK"]
+    if num_bones > 0:
+        ik_fk /= num_bones
+    return ik_fk
+
+
+def set_rigify_ik_fk_influence(rig, influence):
+    ik_fk_control_bones = ["upper_arm_parent.L", "upper_arm_parent.R", "thigh_parent.L", "thigh_parent.R"]
+    for bone_name in ik_fk_control_bones:
+        if bone_name in rig.pose.bones:
+            pose_bone = rig.pose.bones[bone_name]
+            pose_bone["IK_FK"] = influence
+
+
+def cycle_rig_mode(rig):
+    """Switches modes on the armature to force updates after changing
+       custom paramters i.e. IK_FK on the limbs."""
+    state = utils.store_mode_selection_state()
+    select_rig(rig)
+    pose_rig(rig)
+    utils.restore_mode_selection_state(state)

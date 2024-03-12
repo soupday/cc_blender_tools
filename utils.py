@@ -677,25 +677,34 @@ def get_common_name(names):
 
 
 def get_dot_file_ext(ext):
-    if ext[0] == ".":
-        return ext.lower()
-    else:
-        return f".{ext}".lower()
+    try:
+        if ext[0] == ".":
+            return ext.lower()
+        else:
+            return f".{ext}".lower()
+    except:
+        return ""
 
 
 def get_file_ext(ext):
-    if ext[0] == ".":
-        return ext[1:].lower()
-    else:
-        return ext.lower()
+    try:
+        if ext[0] == ".":
+            return ext[1:].lower()
+        else:
+            return ext.lower()
+    except:
+        return ""
 
 
 def is_file_ext(test, ext):
-    if ext[0] == ".":
-        ext = ext[1:]
-    if test[0] == ".":
-        test = test[1:]
-    return test.lower() == ext.lower()
+    try:
+        if ext[0] == ".":
+            ext = ext[1:]
+        if test[0] == ".":
+            test = test[1:]
+        return test.lower() == ext.lower()
+    except:
+        return False
 
 
 def tag_objects():
@@ -830,16 +839,20 @@ def clear_selected_objects():
 def get_armature(name):
     if (name in bpy.data.armatures and
         name in bpy.data.objects and
-        bpy.data.objects[name].data == bpy.data.armatures[name]):
+        bpy.data.objects[name].data == bpy.data.armatures[name] and
+        object_exists_is_armature(bpy.data.objects[name])):
         return bpy.data.objects[name]
     return None
 
 
 def create_reuse_armature(name):
-    arm = bpy.data.armatures[name] if name in bpy.data.armatures else bpy.data.armatures.new(name)
-    obj = bpy.data.objects[name] if name in bpy.data.objects else bpy.data.objects.new(name, arm)
-    if name not in bpy.context.collection.objects:
-        bpy.context.collection.objects.link(obj)
+    if name in bpy.data.armatures:
+        bpy.data.armatures.remove(bpy.data.armatures[name])
+    if name in bpy.data.objects:
+        bpy.data.objects.remove(bpy.data.armatures[name])
+    arm = bpy.data.armatures.new(name)
+    obj = bpy.data.objects.new(name, arm)
+    bpy.context.collection.objects.link(obj)
     return obj
 
 

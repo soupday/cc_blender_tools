@@ -2398,10 +2398,10 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig_override=None, to_original_
     chr_cache.rig_retarget_source_rig = source_rig
     rigutils.select_rig(rigify_rig)
     try:
-        rigify_rig.pose.bones["upper_arm_parent.L"]["IK_FK"] = 1.0
-        rigify_rig.pose.bones["upper_arm_parent.R"]["IK_FK"] = 1.0
-        rigify_rig.pose.bones["thigh_parent.L"]["IK_FK"] = 1.0
-        rigify_rig.pose.bones["thigh_parent.R"]["IK_FK"] = 1.0
+        #rigify_rig.pose.bones["upper_arm_parent.L"]["IK_FK"] = 1.0
+        #rigify_rig.pose.bones["upper_arm_parent.R"]["IK_FK"] = 1.0
+        #rigify_rig.pose.bones["thigh_parent.L"]["IK_FK"] = 1.0
+        #rigify_rig.pose.bones["thigh_parent.R"]["IK_FK"] = 1.0
         retarget_rig.data.display_type = "STICK"
     except:
         pass
@@ -2415,8 +2415,35 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig_override=None, to_original_
     return retarget_rig
 
 
+FK_BONE_GROUPS = ["FK", "Special", "Tweak", "Extra", "Root"]
+FK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
+                       "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
+                       "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (FK)", "Leg.L (Tweak)",
+                       "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (FK)", "Leg.R (Tweak)",
+                       "Root",
+                       "Spring (FK)", "Spring (Tweak)"]
+
+IK_BONE_GROUPS = ["IK", "Special", "Tweak", "Extra", "Root"]
+IK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
+                       "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
+                       "Arm.L (IK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (Tweak)",
+                       "Arm.R (IK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (Tweak)",
+                       "Root",
+                       "Spring (IK)", "Spring (Tweak)"]
+
+BOTH_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
+BOTH_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
+                         "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
+                         "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
+                         "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
+                         "Root",
+                         "Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
+
+
 def adv_bake_retarget_to_rigify(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
     rigify_rig = chr_cache.get_armature()
     source_rig = props.armature_list_object
     source_action = props.action_list_action
@@ -2432,6 +2459,17 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 
         rigify_settings = bones.store_armature_settings(rigify_rig)
 
+        BONE_COLLECTIONS = BOTH_BONE_COLLECTIONS
+        BONE_GROUPS = BOTH_BONE_GROUPS
+        if prefs.rigify_preview_retarget_fk_ik == "FK":
+            BONE_COLLECTIONS = FK_BONE_COLLECTIONS
+            BONE_GROUPS = FK_BONE_GROUPS
+            rigutils.set_rigify_ik_fk_influence(rigify_rig, 1.0)
+        elif prefs.rigify_preview_retarget_fk_ik == "IK":
+            BONE_COLLECTIONS = IK_BONE_COLLECTIONS
+            BONE_GROUPS = IK_BONE_GROUPS
+            rigutils.set_rigify_ik_fk_influence(rigify_rig, 0.0)
+
         # select just the retargeted bones in the rigify rig, to bake:
         if rigutils.select_rig(rigify_rig):
             bones.make_bones_visible(rigify_rig)
@@ -2439,7 +2477,10 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
             for bone in rigify_rig.data.bones:
                 bone.select = False
                 if bone.name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
-                    bone.select = True
+                    if bones.is_bone_in_collections(rigify_rig, bone,
+                                                    BONE_COLLECTIONS,
+                                                    BONE_GROUPS):
+                        bone.select = True
 
 
             armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, source_action, None, True, True)
@@ -2455,6 +2496,8 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 
 def adv_bake_NLA_to_rigify(op, chr_cache):
     props = bpy.context.scene.CC3ImportProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
     rigify_rig = chr_cache.get_armature()
     #utils.safe_set_action(rigify_rig, None)
     #adv_retarget_remove_pair(op, chr_cache)
@@ -2462,14 +2505,17 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
     armature_action = None
     shape_key_actions = None
 
-    # select all possible control bones in the rigify rig, to bake:
-    BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Tweak", "Extra", "Root"]
-    BAKE_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
-                             "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
-                             "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
-                             "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
-                             "Root",
-                             "Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
+    BONE_COLLECTIONS = BOTH_BONE_COLLECTIONS
+    BONE_GROUPS = BOTH_BONE_GROUPS
+    if prefs.rigify_bake_nla_fk_ik == "FK":
+        BONE_COLLECTIONS = FK_BONE_COLLECTIONS
+        BONE_GROUPS = FK_BONE_GROUPS
+        rigutils.set_rigify_ik_fk_influence(rigify_rig, 1.0)
+    elif prefs.rigify_bake_nla_fk_ik == "IK":
+        BONE_COLLECTIONS = IK_BONE_COLLECTIONS
+        BONE_GROUPS = IK_BONE_GROUPS
+        rigutils.set_rigify_ik_fk_influence(rigify_rig, 0.0)
+
     if rigutils.select_rig(rigify_rig):
 
         rigify_settings = bones.store_armature_settings(rigify_rig)
@@ -2479,8 +2525,8 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
         for bone in rigify_rig.data.bones:
             bone.select = False
             if bones.is_bone_in_collections(rigify_rig, bone,
-                                            BAKE_BONE_COLLECTIONS,
-                                            BAKE_BONE_GROUPS):
+                                            BONE_COLLECTIONS,
+                                            BONE_GROUPS):
                 bone.select = True
 
         shape_key_objects = []
@@ -3926,6 +3972,18 @@ class CC3Rigifier(bpy.types.Operator):
                 mode_selection = utils.store_mode_selection_state()
                 reset_pose(chr_cache)
                 utils.restore_mode_selection_state(mode_selection)
+
+            elif self.param == "SET_LIMB_FK":
+                rig = chr_cache.get_armature()
+                if rig and chr_cache.rigified:
+                    rigutils.set_rigify_ik_fk_influence(rig, 1.0)
+                    rigutils.cycle_rig_mode(rig)
+
+            elif self.param == "SET_LIMB_IK":
+                rig = chr_cache.get_armature()
+                if rig and chr_cache.rigified:
+                    rigutils.set_rigify_ik_fk_influence(rig, 0.0)
+                    rigutils.cycle_rig_mode(rig)
 
             props.restore_ui_list_indices()
 
