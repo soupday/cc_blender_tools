@@ -43,6 +43,7 @@ Links
     - Rig FK/IK mode set appropriately, unchanged when baking to 'Both'.
 - Quick FK/IK switch button added to rigify mini-panel.
 - Send Rigified pose or sequence fix.
+- Rigify Jaw alignment changed to -Z.
 
 ### 2.0.4
 - Linking/Appending:
