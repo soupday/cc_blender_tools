@@ -5,7 +5,7 @@ from enum import IntEnum
 import os, socket, time, select, struct, json
 import subprocess
 from mathutils import Vector, Quaternion, Matrix
-from . import importer, bones, geom, colorspace, rigging, utils, vars
+from . import importer, bones, geom, colorspace, rigging, rigutils, utils, vars
 
 
 BLENDER_PORT = 9334
@@ -1290,7 +1290,7 @@ class LinkService():
             self.sequence_send_rate = count
             self.sequence_send_count = count
             if self.loop_count % 30 == 0:
-                print(f"send_count: {self.sequence_send_count} delta_frames: {delta_frames}")
+                utils.log_info(f"send_count: {self.sequence_send_count} delta_frames: {delta_frames}")
 
 
     def on_connected(self):
@@ -1433,17 +1433,18 @@ class LinkService():
                 else:
                     export_rig = rigging.adv_export_pair_rigs(chr_cache, link_target=True)[0]
                 # get all the exportable deformation bones
-                if utils.object_mode_to(export_rig):
+                if rigutils.select_rig(export_rig):
                     for pose_bone in export_rig.pose.bones:
                         if pose_bone.name != "root" and not pose_bone.name.startswith("DEF-"):
                             bones.append(pose_bone.name)
             else:
                 # get all the bones
                 rig: bpy.types.Object = chr_cache.get_armature()
-                if utils.object_mode_to(rig):
+                if rigutils.select_rig(rig):
                     for pose_bone in rig.pose.bones:
                         bones.append(pose_bone.name)
 
+            actor.bones = bones
             actor_data.append({
                 "name": actor.name,
                 "type": actor.get_type(),
@@ -1508,15 +1509,15 @@ class LinkService():
                 data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
 
                 # pack all the bone data for the exportable deformation bones
-                data += struct.pack("!I", len(export_rig.pose.bones))
+                data += struct.pack("!I", len(actor.bones))
                 if utils.object_mode_to(export_rig):
-                    for pose_bone in export_rig.pose.bones:
-                        if pose_bone.name != "root" and not pose_bone.name.startswith("DEF-"):
-                            T: Matrix = M @ pose_bone.matrix
-                            t = T.to_translation() * 100
-                            r = T.to_quaternion()
-                            s = T.to_scale()
-                            data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
+                    for bone_name in actor.bones:
+                        pose_bone = export_rig.pose.bones[bone_name]
+                        T: Matrix = M @ pose_bone.matrix
+                        t = T.to_translation() * 100
+                        r = T.to_quaternion()
+                        s = T.to_scale()
+                        data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
             else:
                 rig: bpy.types.Object = chr_cache.get_armature()
                 M: Matrix = rig.matrix_world
@@ -2085,7 +2086,6 @@ class LinkService():
             link_id = actor_data["link_id"]
             actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
             if actor:
-                print(f"Pose Actor found: {actor.name}")
                 actors.append(actor)
 
         # set pose frame

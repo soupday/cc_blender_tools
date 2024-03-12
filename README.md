@@ -41,7 +41,7 @@ Links
 - Datalink data send rate synchronization improvements.
 - Rigify retarget and NLA bake options to bake to FK/IK/Both.
     - Rig FK/IK mode set appropriately, unchanged when baking to 'Both'.
-- Quick FK/IK switch button added to rigify minipanel.
+- Quick FK/IK switch button added to rigify mini-panel.
 
 
 ### 2.0.4
