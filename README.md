@@ -42,7 +42,7 @@ Links
 - Rigify retarget and NLA bake options to bake to FK/IK/Both.
     - Rig FK/IK mode set appropriately, unchanged when baking to 'Both'.
 - Quick FK/IK switch button added to rigify mini-panel.
-
+- Send Rigified pose or sequence fix.
 
 ### 2.0.4
 - Linking/Appending:
