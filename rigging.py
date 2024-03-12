@@ -93,17 +93,34 @@ def prune_meta_rig(meta_rig):
 
 def fix_rigify_bones(chr_cache, rigify_rig):
     # align roll to +Z on
-    BONES = ["ORG-eye.R", "MCH-eye.R", "ORG-eye.R", "MCH-eye.R",
-             "ORG-eye.L", "MCH-eye.L", "ORG-eye.L", "MCH-eye.L",
-             "jaw_master", "MCH-mouth_lockg", "MCH-jaw_master",
-             "MCH-jaw_master.001", "MCH-jaw_master.002", "MCH-jaw_master.003"]
+    BONES = {
+        "ORG-eye.R": "+Z",
+        "MCH-eye.R": "+Z",
+        "ORG-eye.R": "+Z",
+        "MCH-eye.R": "+Z",
+        "ORG-eye.L": "+Z",
+        "MCH-eye.L": "+Z",
+        "ORG-eye.L": "+Z",
+        "MCH-eye.L": "+Z",
+        "jaw_master": "-Z",
+        "MCH-mouth_lockg": "-Z",
+        "MCH-jaw_master": "-Z",
+        "MCH-jaw_master.001": "-Z",
+        "MCH-jaw_master.002": "-Z",
+        "MCH-jaw_master.003": "-Z",
+    }
 
     if rigutils.edit_rig(rigify_rig):
         ZUP = Vector((0,0,1))
+        ZDOWN = Vector((0,0,-1))
         for bone_name in BONES:
+            bone_dir = BONES[bone_name]
             edit_bone = bones.get_edit_bone(rigify_rig, bone_name)
             if edit_bone:
-                edit_bone.align_roll(ZUP)
+                if bone_dir == "+Z":
+                    edit_bone.align_roll(ZUP)
+                elif bone_dir == "-Z":
+                    edit_bone.align_roll(ZDOWN)
 
 
 def add_def_bones(chr_cache, cc3_rig, rigify_rig):
