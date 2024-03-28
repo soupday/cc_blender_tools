@@ -2265,7 +2265,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
                     bones.add_copy_location_constraint(retarget_rig, retarget_rig, org_bone_name, correction_bone_name, 1, space)
                     bones.add_copy_rotation_constraint(retarget_rig, retarget_rig, org_bone_name, correction_bone_name, 1, space)
 
-            if False: # retargeting correction no longer works, disabling for now
+            if True:
                 for correction_bone_name in retarget_data.retarget_corrections:
                     correction_def = retarget_data.retarget_corrections[correction_bone_name]
                     bone_def = correction_def["bone"]
@@ -3994,13 +3994,13 @@ class CC3Rigifier(bpy.types.Operator):
                 rig = chr_cache.get_armature()
                 if rig and chr_cache.rigified:
                     rigutils.set_rigify_ik_fk_influence(rig, 1.0)
-                    rigutils.cycle_rig_mode(rig)
+                    rigutils.poke_rig(rig)
 
             elif self.param == "SET_LIMB_IK":
                 rig = chr_cache.get_armature()
                 if rig and chr_cache.rigified:
                     rigutils.set_rigify_ik_fk_influence(rig, 0.0)
-                    rigutils.cycle_rig_mode(rig)
+                    rigutils.poke_rig(rig)
 
             props.restore_ui_list_indices()
 

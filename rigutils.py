@@ -242,10 +242,13 @@ def set_rigify_ik_fk_influence(rig, influence):
             pose_bone["IK_FK"] = influence
 
 
-def cycle_rig_mode(rig):
-    """Switches modes on the armature to force updates after changing
-       custom paramters i.e. IK_FK on the limbs."""
+def poke_rig(rig):
+    """Switches modes on the armature and sets the root pose bone location to force updates
+       after changing custom paramters i.e. IK_FK on the limbs."""
     state = utils.store_mode_selection_state()
     select_rig(rig)
+    pose_bone: bpy.types.PoseBone = rig.pose.bones[0]
+    loc = pose_bone.location
+    pose_bone.location = loc
     pose_rig(rig)
     utils.restore_mode_selection_state(state)

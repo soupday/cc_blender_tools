@@ -1880,7 +1880,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                             if source_type:
                                 layout.box().label(text = f"{source_label} Animation", icon = "ARMATURE_DATA")
 
-                        if False: # disabled for now
+                        if True:
                             layout.label(text="Limb Correction:")
                             column = layout.column()
                             split = column.split(factor=0.5)

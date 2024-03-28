@@ -98,7 +98,7 @@ from . import link
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 0, 5),
+    "version": (2, 0, 6),
     "blender": (2, 93, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
