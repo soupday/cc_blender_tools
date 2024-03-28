@@ -179,7 +179,8 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
         mesh : bpy.types.Mesh = obj.data
 
         # Turn off auto smoothing
-        mesh.use_auto_smooth = False
+        if not utils.B401():
+            mesh.use_auto_smooth = False
 
         # Auto apply armature modifier settings
         if prefs.build_armature_edit_modifier or prefs.build_armature_preserve_volume:
