@@ -16,7 +16,7 @@
 
 import bpy
 
-from . import materials, meshutils, utils, vars
+from . import geom, materials, meshutils, utils, vars
 
 MOD_MULTIRES = "MULTIRES"
 MOD_MULTIRES_NAME = "Multi_Res_Sculpt"
@@ -35,15 +35,21 @@ def get_object_modifier(obj, type, name = "", before_type=None):
     return None
 
 
-def remove_object_modifiers(obj, type, name = ""):
+def remove_object_modifiers(obj, modifier_type=None, modifier_name="", except_mods: list = None):
     to_remove = []
+    if except_mods:
+        keep_names = [mod.name for mod in except_mods]
+    else:
+        keep_names = []
     if obj is not None:
         for mod in obj.modifiers:
-            if name == "":
-                if mod.type == type:
+            if mod.name in keep_names:
+                continue
+            if modifier_name == "":
+                if not modifier_type or mod.type == modifier_type:
                     to_remove.append(mod)
             else:
-                if mod.type == type and mod.name.startswith(vars.NODE_PREFIX) and name in mod.name:
+                if (not modifier_type or mod.type == modifier_type) and mod.name.startswith(vars.NODE_PREFIX) and modifier_name in mod.name:
                     to_remove.append(mod)
 
     for mod in to_remove:
@@ -87,14 +93,15 @@ def move_mod_first(obj, mod):
     return False
 
 
-def add_armature_modifier(obj, create = False, armature = None):
+def get_armature_modifier(obj, create=False, armature=None):
     mod = None
     if obj is not None:
-        for mod in obj.modifiers:
-            if mod.type == "ARMATURE":
+        for m in obj.modifiers:
+            if m.type == "ARMATURE":
+                mod = m
                 break
-    if not mod:
-        mod = obj.modifiers.new(name = "Armature", type = "ARMATURE")
+    if create and not mod:
+        mod = obj.modifiers.new(name="Armature", type="ARMATURE")
     if mod and armature:
         mod.object = armature
     return mod
@@ -348,9 +355,33 @@ def has_modifier(obj, modifier_type):
     return False
 
 
-def apply_modifier(obj, modifier = None, type = None):
+def apply_modifier(obj, modifier=None, type=None, preserving=False):
     if obj:
-        if type:
+        if not modifier and type:
+            for mod in obj.modifiers:
+                if mod.type == type:
+                    modifier = mod
+                    break
+
+        if modifier:
+            if preserving or utils.object_has_shape_keys(obj):
+                copy = utils.duplicate_object(obj)
+                utils.object_mode_to(copy)
+                utils.set_only_active_object(copy)
+                utils.remove_all_shape_keys(copy)
+                remove_object_modifiers(copy, except_mods=[modifier])
+                bpy.ops.object.modifier_apply(modifier=modifier.name)
+                geom.copy_vert_positions_by_uv_id(copy, obj)
+                utils.delete_mesh_object(copy)
+            else:
+                utils.object_mode_to(obj)
+                utils.set_only_active_object(obj)
+                bpy.ops.object.modifier_apply(modifier=modifier.name)
+
+
+def apply_modifier_with_shape_keys(obj, modifier=None, type=None):
+    if obj:
+        if not modifier and type:
             for mod in obj.modifiers:
                 if mod.type == type:
                     modifier = mod
@@ -358,7 +389,13 @@ def apply_modifier(obj, modifier = None, type = None):
         if modifier:
             utils.object_mode_to(obj)
             utils.set_only_active_object(obj)
-            bpy.ops.object.modifier_apply(modifier = mod.name)
+            copy = utils.duplicate_object(obj)
+            copy.shape_key_remove()
+
+
+def copy_base_shape(src_obj, dest_obj):
+
+    geom.copy_vert_positions_by_uv_id(src_obj, dest_obj, accuracy = 5)
 
 
 def remove_material_weight_maps(obj, mat):

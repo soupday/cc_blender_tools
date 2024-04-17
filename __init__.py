@@ -53,8 +53,10 @@ if "bpy" in locals():
     importlib.reload(colorspace)
     importlib.reload(normal)
     importlib.reload(link)
+    importlib.reload(proportion)
 
 import bpy
+from bpy.app.handlers import persistent
 
 from . import addon_updater_ops
 from . import preferences
@@ -93,12 +95,13 @@ from . import hair
 from . import colorspace
 from . import normal
 from . import link
+from . import proportion
 
 
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 0, 6),
+    "version": (2, 0, 7),
     "blender": (2, 93, 0),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -114,7 +117,7 @@ classes = (
     channel_mixer.CC3IDMixer,
     channel_mixer.CC3MixerSettings,
 
-    properties.CCICLinkPrefs,
+    properties.CCICLinkProps,
     properties.CCICBakeCache,
     properties.CCICBakeMaterialSettings,
     properties.CCICBakeProps,
@@ -143,6 +146,7 @@ classes = (
     properties.CC3PBRMaterialCache,
     properties.CC3SSSMaterialCache,
     properties.CC3ObjectCache,
+    properties.CCICActionStore,
     properties.CC3CharacterCache,
     properties.CC3ImportProps,
 
@@ -172,6 +176,7 @@ classes = (
     hair.CC3ExportHair,
     link.CCICDataLink,
     characters.CCICCharacterLink,
+    proportion.CCICCharacterProportions,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
@@ -190,6 +195,7 @@ classes = (
     panels.CC3ToolsPhysicsPanel,
     panels.CC3SpringRigPanel,
     panels.CC3ToolsSculptingPanel,
+    panels.CCICProportionPanel,
     panels.CC3HairPanel,
     panels.CC3CreateScenePanel,
     # link panels
@@ -213,10 +219,13 @@ def register():
 
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
     bpy.types.Scene.CCICBakeProps = bpy.props.PointerProperty(type=properties.CCICBakeProps)
-    bpy.types.Scene.CCICLinkPrefs = bpy.props.PointerProperty(type=properties.CCICLinkPrefs)
+    bpy.types.Scene.CCICLinkProps = bpy.props.PointerProperty(type=properties.CCICLinkProps)
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import)
     bpy.types.TOPBAR_MT_file_import.append(importer.menu_func_import_animation)
     bpy.types.TOPBAR_MT_file_export.append(exporter.menu_func_export)
+
+    if link_reconnect not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(link_reconnect)
 
 
 def unregister():
@@ -232,4 +241,13 @@ def unregister():
 
     del(bpy.types.Scene.CC3ImportProps)
     del(bpy.types.Scene.CCICBakeProps)
-    del(bpy.types.Scene.CCICLinkPrefs)
+    del(bpy.types.Scene.CCICLinkProps)
+
+    if link_reconnect in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(link_reconnect)
+
+
+@persistent
+def link_reconnect(file_path):
+    link.reconnect()
+

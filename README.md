@@ -37,7 +37,7 @@ Links
 
 ### 2.0.6
 - Restored Rigify retarget limb correction utilities.
-- Fix to Blender 4.1 removing auto-smooth normals.
+- Fix to Blender 4.1 import crash caused by 4.1 removing auto-smoothed normals.
 
 ### 2.0.5
 - Fix to converting generic objects to props.

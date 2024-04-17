@@ -467,35 +467,35 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_variance = 0.75
 
 def update_link_target(self, context):
-    link_prefs = bpy.context.scene.CCICLinkPrefs
-    if link_prefs.link_target == "BLENDER":
-        link_prefs.link_port = 9334
-    elif link_prefs.link_target == "CCIC":
-        link_prefs.link_port = 9333
-    elif link_prefs.link_target == "UNITY":
-        link_prefs.link_port = 9335
+    link_props = bpy.context.scene.CCICLinkProps
+    if link_props.link_target == "BLENDER":
+        link_props.link_port = 9334
+    elif link_props.link_target == "CCIC":
+        link_props.link_port = 9333
+    elif link_props.link_target == "UNITY":
+        link_props.link_port = 9335
     else:
-        link_prefs.link_port = 9333
+        link_props.link_port = 9333
 
 
 def update_link_host(self, context):
-    link_prefs = bpy.context.scene.CCICLinkPrefs
-    host = link_prefs.link_host
+    link_props = bpy.context.scene.CCICLinkProps
+    host = link_props.link_host
     if host:
         try:
-            link_prefs.link_host_ip = socket.gethostbyname(host)
+            link_props.link_host_ip = socket.gethostbyname(host)
         except:
-            link_prefs.link_host_ip = "127.0.0.1"
+            link_props.link_host_ip = "127.0.0.1"
 
 
 def update_link_host_ip(self, context):
-    link_prefs = bpy.context.scene.CCICLinkPrefs
-    host_ip = link_prefs.link_host_ip
+    link_props = bpy.context.scene.CCICLinkProps
+    host_ip = link_props.link_host_ip
     if host_ip:
         try:
-            link_prefs.link_host = socket.gethostbyaddr(host_ip)
+            link_props.link_host = socket.gethostbyaddr(host_ip)
         except:
-            link_prefs.link_host = ""
+            link_props.link_host = ""
 
 
 class CC3OperatorProperties(bpy.types.Operator):
@@ -1255,6 +1255,11 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
             self.object["rl_object_type"] = self.object_type
 
 
+class CCICActionStore(bpy.types.PropertyGroup):
+    object: bpy.props.PointerProperty(type=bpy.types.Object)
+    action: bpy.props.PointerProperty(type=bpy.types.Action)
+
+
 class CC3CharacterCache(bpy.types.PropertyGroup):
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
     eye_close: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=eye_close_update)
@@ -1375,6 +1380,18 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     default=0,
                     name="Available Spring Rigs",
                     description="A list of all the spring rigs on the character")
+
+    proportion_editing: bpy.props.BoolProperty(default=False)
+    proportion_editing_in_front: bpy.props.BoolProperty(default=False)
+    proportion_editing_actions: bpy.props.CollectionProperty(type=CCICActionStore)
+    proportion_editing_scale: bpy.props.EnumProperty(items=[
+                        ("FULL","Full","Full"),
+                        ("FIX_SHEAR","Fix Shear","Fix Shear"),
+                        ("ALIGNED","Aligned","Aligned"),
+                        ("AVERAGE","Average","Average"),
+                        ("NONE","None","None"),
+                        ("NONE_LEGACY","None (Legacy)","None (Legacy)"),
+                    ], default="FULL", name="Set bone inherit scale")
 
     def select(self):
         arm = self.get_armature()
@@ -2508,7 +2525,7 @@ class CCICBakeProps(bpy.types.PropertyGroup):
     bake_cache: bpy.props.CollectionProperty(type=CCICBakeCache)
 
 
-class CCICLinkPrefs(bpy.types.PropertyGroup):
+class CCICLinkProps(bpy.types.PropertyGroup):
     # Data link props
     link_host: bpy.props.StringProperty(default="localhost", update=update_link_host)
     link_host_ip: bpy.props.StringProperty(default="127.0.0.1")
@@ -2523,3 +2540,8 @@ class CCICLinkPrefs(bpy.types.PropertyGroup):
     sequence_frame_sync: bpy.props.BoolProperty(default=False)
     sequence_preview_shape_keys: bpy.props.BoolProperty(default=True)
     match_client_rate: bpy.props.BoolProperty(default=True)
+    remote_app: bpy.props.StringProperty(default="")
+    remote_version: bpy.props.StringProperty(default="")
+    remote_path: bpy.props.StringProperty(default="")
+    remote_exe: bpy.props.StringProperty(default="")
+    connected: bpy.props.BoolProperty(default=False)

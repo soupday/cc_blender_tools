@@ -2801,8 +2801,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
     def draw(self, context):
         props = bpy.context.scene.CC3ImportProps
-        link_prefs = bpy.context.scene.CCICLinkPrefs
+        link_props = bpy.context.scene.CCICLinkProps
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
 
@@ -2810,18 +2811,18 @@ class CCICDataLinkPanel(bpy.types.Panel):
         connected = link_service and link_service.is_connected
         listening = link_service and link_service.is_listening
         connecting = link_service and link_service.is_connecting
-        is_cc = link_service and link_service.is_cc()
-        is_iclone = link_service and link_service.is_iclone()
+        is_cc = link_props.remote_app == "Character Creator"
+        is_iclone = link_props.remote_app == "iClone"
 
         column = layout.column()
-        column.prop(link_prefs, "link_host", text="Host")
-        column.prop(link_prefs, "link_target", text="Target")
+        column.prop(link_props, "link_host", text="Host")
+        column.prop(link_props, "link_target", text="Target")
         if listening or connected:
             column.enabled = False
 
         layout.separator()
         row = layout.row()
-        row.prop(link_prefs, "link_status", text="")
+        row.prop(link_props, "link_status", text="")
         row.enabled = False
 
         column = layout.column(align=True)
@@ -2843,9 +2844,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
             depressed = True
             text = "Listening..."
         row.operator("ccic.datalink", icon="LINKED", text=text, depress=depressed).param = param
-        row = column.row()
         if connected or connecting:
-            row.operator("ccic.datalink", icon="X", text="Stop").param = "STOP"
+            row.operator("ccic.datalink", icon="X", text="").param = "STOP"
 
         # Datalink prefs
         box = layout.box()
@@ -2855,21 +2855,27 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_1 = split.column()
             col_2 = split.column()
             col_1.label(text="Auto-Start Connection")
-            col_2.prop(link_prefs, "link_auto_start", text="")
+            col_2.prop(link_props, "link_auto_start", text="")
             col_1.label(text="Preview Frame Sync")
-            col_2.prop(link_prefs, "sequence_frame_sync", text="")
+            col_2.prop(link_props, "sequence_frame_sync", text="")
             col_1.label(text="Preview Shape Keys")
-            col_2.prop(link_prefs, "sequence_preview_shape_keys", text="")
+            col_2.prop(link_props, "sequence_preview_shape_keys", text="")
             col_1.label(text="Match Client Rate")
-            col_2.prop(link_prefs, "match_client_rate", text="")
+            col_2.prop(link_props, "match_client_rate", text="")
 
-        if connected:
+        if True:
 
             row = layout.row()
-            if connected and is_cc:
-                row.label(text="Character Creator")
-            elif connected and is_iclone:
-                row.label(text="iClone")
+            text = ""
+            if is_cc:
+                text = "Character Creator"
+            elif is_iclone:
+                text = "iClone"
+            else:
+                text = "Not connected..."
+            if (is_cc or is_iclone) and not connected:
+                text += " (Disconnected)"
+            row.label(text=text)
             row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_PROJECT_FILES"
 
             col = layout.column(align=True)
@@ -2898,6 +2904,62 @@ class CCICDataLinkPanel(bpy.types.Panel):
             row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
 
 
+class CCICProportionPanel(bpy.types.Panel):
+    bl_idname = "CC3_PT_Proportion_Panel"
+    bl_label = "Proportion Edit"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = CREATE_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        props = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+        layout = self.layout
+        chr_cache = props.get_context_character_cache(context)
+
+        if chr_cache:
+            row = layout.row()
+            row.scale_y = 2.0
+            if chr_cache.proportion_editing:
+                row.operator("ccic.characterproportions", icon="ARMATURE_DATA", text="Apply Proportions", depress=True).param = "END"
+            else:
+                row.operator("ccic.characterproportions", icon="ARMATURE_DATA", text="Edit Proportions").param = "BEGIN"
+
+        if chr_cache and utils.get_mode() == "POSE":
+            pose_bone = bpy.context.active_pose_bone
+            box = layout.box()
+            box.label(text=pose_bone.name, icon="BONE_DATA")
+            inherit_scale = None
+            for child_bone in pose_bone.children:
+                bone_name = child_bone.name
+                if "ShareBone" in bone_name or ("Twist" in bone_name and "NeckTwist" not in bone_name):
+                    continue
+                if inherit_scale is None:
+                    inherit_scale = child_bone.bone.inherit_scale
+                elif inherit_scale != child_bone.bone.inherit_scale:
+                    inherit_scale = "MIXED"
+                    break
+            box.label(text=f"Child Bones Inherit Scale:")
+            grid = box.grid_flow(row_major=True, columns=2, align=True)
+            grid.operator("ccic.characterproportions", text="Full", depress=True if inherit_scale=="FULL" else False).param = "INHERIT_SCALE_FULL"
+            grid.operator("ccic.characterproportions", text="Average", depress=True if inherit_scale=="AVERAGE" else False).param = "INHERIT_SCALE_AVERAGE"
+            grid.operator("ccic.characterproportions", text="Shear", depress=True if inherit_scale=="FIX_SHEAR" else False).param = "INHERIT_SCALE_FIX_SHEAR"
+            grid.operator("ccic.characterproportions", text="Aligned", depress=True if inherit_scale=="ALIGNED" else False).param = "INHERIT_SCALE_ALIGNED"
+            grid.operator("ccic.characterproportions", text="None", depress=True if inherit_scale=="NONE" else False).param = "INHERIT_SCALE_NONE"
+            grid.operator("ccic.characterproportions", text="Legacy", depress=True if inherit_scale=="NONE_LEGACY" else False).param = "INHERIT_SCALE_NONE_LEGACY"
+            row = layout.row()
+            row.scale_y = 1.5
+            row.operator("ccic.characterproportions", text="Reset All").param = "RESET"
+
+
+
+
+
+
+
+
 class CC3ToolsPipelineImportPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_Pipeline_Import_Panel"
     bl_label = "Import"
@@ -2907,8 +2969,8 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
 
     def draw(self, context):
         global debug_counter
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        PROPS = bpy.context.scene.CC3ImportProps
+        PREFS = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         addon_updater_ops.check_for_update_background()
         if addon_updater_ops.updater.update_ready == True:
@@ -2941,50 +3003,50 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
         box.label(text=f"Settings  ({vars.VERSION_STRING})", icon="TOOL_SETTINGS")
 
         grid = layout.grid_flow(columns=2, align=True)
-        grid.prop(props, "lighting_mode", toggle=True, text="Lighting")
-        grid.prop(props, "physics_mode", toggle=True, text="Physics")
-        grid.prop(props, "wrinkle_mode", toggle=True, text="Wrinkles")
-        grid.prop(props, "rigify_mode", toggle=True, text="Rigify")
+        grid.prop(PROPS, "lighting_mode", toggle=True, text="Lighting")
+        grid.prop(PROPS, "physics_mode", toggle=True, text="Physics")
+        grid.prop(PROPS, "wrinkle_mode", toggle=True, text="Wrinkles")
+        grid.prop(PROPS, "rigify_mode", toggle=True, text="Rigify")
 
         # Build prefs in title
         box = layout.box()
-        if fake_drop_down(box.row(), "Importing", "show_build_prefs", props.show_build_prefs,
+        if fake_drop_down(box.row(), "Importing", "show_build_prefs", PROPS.show_build_prefs,
                           icon="IMPORT", icon_closed="IMPORT"):
             split = box.split(factor=0.9)
             col_1 = split.column()
             col_2 = split.column()
             col_1.label(text="De-duplicate Materials")
-            col_2.prop(prefs, "import_deduplicate", text="")
+            col_2.prop(PREFS, "import_deduplicate", text="")
             col_1.label(text="Auto Convert Generic")
-            col_2.prop(prefs, "import_auto_convert", text="")
+            col_2.prop(PREFS, "import_auto_convert", text="")
             col_1.label(text="Limit Textures")
-            col_2.prop(prefs, "build_limit_textures", text="")
+            col_2.prop(PREFS, "build_limit_textures", text="")
             col_1.label(text="Pack Texture Channels")
-            col_2.prop(prefs, "build_pack_texture_channels", text="")
+            col_2.prop(PREFS, "build_pack_texture_channels", text="")
             col_1.label(text="Reuse Channel Packs")
-            col_2.prop(prefs, "build_reuse_baked_channel_packs", text="")
+            col_2.prop(PREFS, "build_reuse_baked_channel_packs", text="")
             col_1.label(text="Use Edit Modifier")
-            col_2.prop(prefs, "build_armature_edit_modifier", text="")
+            col_2.prop(PREFS, "build_armature_edit_modifier", text="")
             col_1.label(text="Use Preserve Volume")
-            col_2.prop(prefs, "build_armature_preserve_volume", text="")
+            col_2.prop(PREFS, "build_armature_preserve_volume", text="")
             col_1.label(text="Clothing Physics")
-            col_2.prop(prefs, "physics_cloth_clothing", text="")
+            col_2.prop(PREFS, "physics_cloth_clothing", text="")
             col_1.label(text="Hair Cloth Physics")
-            col_2.prop(prefs, "physics_cloth_hair", text="")
+            col_2.prop(PREFS, "physics_cloth_hair", text="")
             col_1.label(text="Dual Specular Skin")
-            col_2.prop(prefs, "build_skin_shader_dual_spec", text="")
+            col_2.prop(PREFS, "build_skin_shader_dual_spec", text="")
             col_1.separator()
             col_2.separator()
             col_1.label(text="Shape Keys Drive Jaw Bone")
-            col_2.prop(prefs, "build_shape_key_bone_drivers_jaw", text="")
+            col_2.prop(PREFS, "build_shape_key_bone_drivers_jaw", text="")
             col_1.label(text="Shape Keys Drive Eye Bones")
-            col_2.prop(prefs, "build_shape_key_bone_drivers_eyes", text="")
+            col_2.prop(PREFS, "build_shape_key_bone_drivers_eyes", text="")
             col_1.label(text="Shape Keys Drive Head Bone")
-            col_2.prop(prefs, "build_shape_key_bone_drivers_head", text="")
+            col_2.prop(PREFS, "build_shape_key_bone_drivers_head", text="")
             col_1.separator()
             col_2.separator()
             col_1.label(text="Body Shape Keys Drive All")
-            col_2.prop(prefs, "build_body_key_drivers", text="")
+            col_2.prop(PREFS, "build_body_key_drivers", text="")
 
         row = layout.row()
         row.scale_y = 2

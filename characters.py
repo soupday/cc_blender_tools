@@ -522,7 +522,7 @@ def parent_to_rig(rig, obj):
         # add or update armature modifier
         arm_mod = modifiers.get_object_modifier(obj, "ARMATURE")
         if not arm_mod:
-            arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
+            arm_mod: bpy.types.ArmatureModifier = modifiers.get_armature_modifier(obj, create=True, armature=rig)
             modifiers.move_mod_first(obj, arm_mod)
 
         # update armature modifier rig
@@ -1319,9 +1319,9 @@ def transfer_skin_weights(chr_cache, objects):
         utils.set_active_object(arm_posed)
         bpy.ops.object.parent_set(type="OBJECT", keep_transform=True)
         # and add armature modifiers
-        modifiers.add_armature_modifier(body_copy, create=True, armature=arm_posed)
+        modifiers.get_armature_modifier(body_copy, create=True, armature=arm_posed)
         for obj_copy in objects_copy:
-            modifiers.add_armature_modifier(obj_copy, create=True, armature=arm_posed)
+            modifiers.get_armature_modifier(obj_copy, create=True, armature=arm_posed)
 
         # make another copy of the armature and clear the pose
         arm_rest = utils.duplicate_object(arm)
@@ -1359,10 +1359,10 @@ def transfer_skin_weights(chr_cache, objects):
         utils.set_active_object(arm)
         bpy.ops.object.parent_set(type="OBJECT", keep_transform=True)
         # and add armature modifiers
-        modifiers.add_armature_modifier(body_copy, create=True, armature=arm)
+        modifiers.get_armature_modifier(body_copy, create=True, armature=arm)
         # copy the new vertex positions and weights back to the original objects
         for obj_copy in objects_copy:
-            modifiers.add_armature_modifier(obj_copy, create=True, armature=arm)
+            modifiers.get_armature_modifier(obj_copy, create=True, armature=arm)
             geom.copy_vertex_positions_and_weights(obj_copy, obj)
 
         # done!
@@ -1393,7 +1393,7 @@ def transfer_skin_weights(chr_cache, objects):
                             bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
 
                     # add or update armature modifier
-                    arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
+                    arm_mod : bpy.types.ArmatureModifier = modifiers.get_armature_modifier(obj, create=True, armature=arm)
                     if arm_mod:
                         modifiers.move_mod_first(obj, arm_mod)
                         arm_mod.object = arm

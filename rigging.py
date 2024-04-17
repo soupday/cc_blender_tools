@@ -1380,7 +1380,7 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mapping):
                     if utils.try_select_object(rigify_rig) and utils.set_active_object(rigify_rig):
                         bpy.ops.object.parent_set(type = "OBJECT", keep_transform = True)
 
-                    arm_mod : bpy.types.ArmatureModifier = modifiers.add_armature_modifier(obj, True)
+                    arm_mod: bpy.types.ArmatureModifier = modifiers.get_armature_modifier(obj, create=True, armature=rigify_rig)
                     if arm_mod:
                         arm_mod.object = rigify_rig
 
