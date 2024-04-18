@@ -295,3 +295,8 @@ def fix_cc3_bone_sizes(cc3_rig):
         set_bone_tail_length(left_calf, left_foot.head)
         set_bone_tail_length(right_calf, right_foot.head)
 
+
+def reset_rotation_modes(rig, rotation_mode = "QUATERNION"):
+    pose_bone: bpy.types.PoseBone
+    for pose_bone in rig.pose.bones:
+        pose_bone.rotation_mode = rotation_mode

@@ -30,12 +30,6 @@ def hide_sub_bones(rig, hide=True):
             bone.select = False
 
 
-def reset_rotation_modes(rig, rotation_mode = "QUATERNION"):
-    pose_bone: bpy.types.PoseBone
-    for pose_bone in rig.pose.bones:
-        pose_bone.rotation_mode = rotation_mode
-
-
 def convert_to_blender_bone_names(chr_cache):
     if chr_cache and not chr_cache.rigified and not chr_cache.proportion_editing:
         rig = chr_cache.get_armature()
@@ -108,7 +102,7 @@ def prep_rig(chr_cache):
             bones.clear_pose(rig)
             utils.pose_mode_to(rig)
             hide_sub_bones(rig)
-            reset_rotation_modes(rig)
+            rigutils.reset_rotation_modes(rig)
             rig.show_in_front = True
             # reset all shape keys
             objects = chr_cache.get_all_objects(include_armature=False, include_children=True, of_type="MESH")
@@ -149,6 +143,7 @@ def apply_proportion_pose(chr_cache):
     if chr_cache:
         rig = chr_cache.get_armature()
         if rig:
+            hide_sub_bones(rig, False)
             objects = chr_cache.get_all_objects(include_armature=False, include_children=True, of_type="MESH")
             for obj in objects:
                 mod: bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
