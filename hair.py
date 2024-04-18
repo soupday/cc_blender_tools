@@ -17,7 +17,7 @@
 import bpy, bmesh
 import os, math, random
 from mathutils import Vector
-from . import physics, rigidbody, springbones, geom, utils, jsonutils, bones, meshutils, vars
+from . import physics, rigidbody, springbones, modifiers, geom, utils, jsonutils, bones, meshutils, vars
 
 
 STROKE_JOIN_THRESHOLD = 1.0 / 100.0 # 1cm
@@ -1313,14 +1313,35 @@ def remove_hair_bone_weights(obj, hair_bone_list, card_mode):
         geom.remove_vertex_groups_from_selected(obj, hair_bone_list)
 
 
-def scale_existing_weights(obj, bm, scale):
+def scale_existing_weights(obj, bm, scale, exclude_bone_names: list = None):
     bm.verts.ensure_lookup_table()
     bm.verts.layers.deform.verify()
     dl = bm.verts.layers.deform.active
+
+    min_weight = 1.0
+    max_weight = 0.0
+    for vert in bm.verts:
+        weight = 0
+        for vg in obj.vertex_groups:
+            if exclude_bone_names and vg.name in exclude_bone_names:
+                continue
+            if vg.index in vert[dl].keys():
+                weight += vert[dl][vg.index]
+        min_weight = min(weight, min_weight)
+        max_weight = max(weight, max_weight)
+
+    if max_weight < 0.00001:
+        # nothing left to scale
+        return
+
+    normalizing_scale = 1.0 / max_weight
+
     for vert in bm.verts:
         for vg in obj.vertex_groups:
+            if exclude_bone_names and vg.name in exclude_bone_names:
+                continue
             if vg.index in vert[dl].keys():
-                vert[dl][vg.index] *= scale
+                vert[dl][vg.index] *= normalizing_scale * scale
 
 
 def add_bone_chain_def(arm, edit_bone : bpy.types.EditBone, chain):
@@ -1376,6 +1397,22 @@ def get_bone_chain_defs(chr_cache, arm, bone_selection_mode, parent_mode):
     return bone_chains
 
 
+def add_child_spring_bone_names(bone, names):
+    for child in bone.children:
+        names.append(child.name)
+        add_child_spring_bone_names(child, names)
+
+
+def get_all_spring_bone_names(chr_cache, arm):
+    bone_names = []
+    spring_rigs = springbones.get_spring_rigs(chr_cache, arm)
+    for parent_mode in spring_rigs:
+        spring_rig_def = spring_rigs[parent_mode]
+        spring_root = spring_rig_def["bone"]
+        add_child_spring_bone_names(spring_root, bone_names)
+    return bone_names
+
+
 def smooth_hair_bone_weights(arm, obj, bone_chains, iterations):
     props = bpy.context.scene.CC3ImportProps
 
@@ -1398,7 +1435,10 @@ def smooth_hair_bone_weights(arm, obj, bone_chains, iterations):
     utils.try_select_objects([arm, obj], True)
     utils.set_active_object(obj)
     utils.set_mode("WEIGHT_PAINT")
-    bpy.ops.object.vertex_group_smooth(group_select_mode='BONE_SELECT', factor = 1.0, repeat = iterations)
+    try:
+        bpy.ops.object.vertex_group_smooth(group_select_mode='BONE_SELECT', factor = 1.0, repeat = iterations)
+    except:
+        utils.log_error("Unable to smooth spring bone vertex groups: No armature modifier on hair mesh?")
     utils.object_mode_to(obj)
 
     # for CC4 rigs, lock rotation and position of the first bone in each chain
@@ -1643,6 +1683,7 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dirs,
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
     bone_chain_defs = get_bone_chain_defs(chr_cache, arm, bone_mode, parent_mode)
+    all_spring_bone_names = get_all_spring_bone_names(chr_cache, arm)
 
     if bone_chain_defs:
 
@@ -1664,10 +1705,13 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dirs,
                             break
 
         for obj in objects:
+            # ensure an armature modifier with this armature (otherwise weight smooth fails)
+            arm_mod = modifiers.get_armature_modifier(obj, create=True, armature=arm)
+            #
             remove_hair_bone_weights(obj, hair_bones, card_mode)
             cards, bm = selected_cards_to_length_loops(chr_cache, obj, card_dirs,
                                                     one_loop_per_card=True, card_selection_mode=card_mode)
-            scale_existing_weights(obj, bm, existing_scale)
+            scale_existing_weights(obj, bm, existing_scale, all_spring_bone_names)
             assign_bones(obj, bm, cards, bone_chain_defs, max_radius, max_bones, max_weight, curve, variance)
             bm.to_mesh(obj.data)
 
@@ -1811,12 +1855,13 @@ class CC3OperatorHair(bpy.types.Operator):
                                     props.hair_rig_bone_root)
 
                 if props.hair_rig_target == "CC4":
-                    props.hair_rig_bind_existing_scale = 0.0
+                    #props.hair_rig_bind_existing_scale = 0.0
 
                     # for CC4 rigs, convert the hair meshes to accesories
                     springbones.convert_spring_rig_to_accessory(chr_cache, arm, props.hair_rig_bone_root)
                 else:
-                    props.hair_rig_bind_existing_scale = 1.0
+                    #props.hair_rig_bind_existing_scale = 1.0
+                    pass
 
             else:
                 self.report({"ERROR"}, "Selected Object(s) to bind must be Meshes!")

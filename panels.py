@@ -1144,7 +1144,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 grid.prop(props, "hair_rig_bind_existing_scale", text="Scale Body Weights", slider=True)
             column.separator()
             row = column.row()
-            row.scale_y = 1.5
+            row.scale_y = 2.0
             op_text = "Bind Hair" if props.hair_rig_bind_card_mode == "ALL" and props.hair_rig_bind_bone_mode == "ALL" else "Bind Selected Hair"
             row.operator("cc3.hair", icon=utils.check_icon("MOD_VERTEX_WEIGHT"), text=op_text).param = "BIND_TO_BONES"
             row.enabled = edit_enabled

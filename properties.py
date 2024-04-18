@@ -448,7 +448,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_skip_length = 7.5
             self.hair_rig_bind_trunc_length = 0.5
             self.hair_rig_bind_bone_radius = 11.25
-            self.hair_rig_bind_existing_scale = 1.0
+            self.hair_rig_bind_existing_scale = 0.1
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
@@ -459,7 +459,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_skip_length = 7.5/2.0
             self.hair_rig_bind_trunc_length = 2.5
             self.hair_rig_bind_bone_radius = 11.25
-            self.hair_rig_bind_existing_scale = 1.0
+            self.hair_rig_bind_existing_scale = 0.1
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
@@ -2233,17 +2233,14 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             "Note: More bones may produce smoother results but add to the overall mesh skinning performance cost")
     hair_rig_bind_bone_weight: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0,
             description="How much to scale the generated weights by")
-    hair_rig_bind_bone_variance: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0,
+    hair_rig_bind_bone_variance: bpy.props.FloatProperty(default=0.85, min=0.0, max=1.0,
             description="How much random variation in the generated weights.\n\n"
             "Less variance will cause all the hair cards to the follow the bones more closely.\n\n"
             "More variance will cause a wider spread of the cards as the bones move which gives the appearance of more volume")
-    hair_rig_bind_existing_scale: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0,
+    hair_rig_bind_existing_scale: bpy.props.FloatProperty(default=0.1, min=0.01, max=1.0,
             description="How much to scale any existing body weights on the hair.\n\n"
             "Note: The spring bones vertex weights will compete with the body vertex weights. Scaling the body weights back (< 1.0) "
-            "will allow the hair to follow the spring bones more closely but will then conform less to the body.\n\n"
-            "Warning: This change will permanently alter the original body weights on the hair meshes. "
-            "After binding, this value resets to 1.0 to prevent successive weight scaling. "
-            "Setting this to zero will remove all body and other weights from the hair mesh")
+            "will allow the hair to follow the spring bones more closely but will then conform less to the body")
     hair_rig_bind_weight_curve: bpy.props.FloatProperty(default=0.5, min=0.25, max=4.0,
             description="How to fade in the bone weights of each hair card from root to ends.\n\n"
             "Larger values ( > 1.0) will push the weights down closer to the ends.\n\n"
