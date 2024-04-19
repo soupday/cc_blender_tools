@@ -35,9 +35,19 @@ Links
 
 ## Changelog
 
+### 2.0.7
+- Attempts to restore datalink when reloading linked blend file.
+- All returning datalink operators will attempt to first reconnect if not connected.
+- Facial expressions included in datalink send pose and sequence. (But not visemes)
+    - Currently certain expression bone movements are conflicting with existing bone movements.
+    - You may wish to avoid the Head_Turn expressions as a consequence.
+- Character Proportion editing mode added to CC/iC Create panels.
+- Spring bone hair binding will add an armature modifier for the hair object if absent, to allow binding for newly created hair mashes.
+- Scale body weights now acts on the normalized existing hair weights.
+
 ### 2.0.6
 - Restored Rigify retarget limb correction utilities.
-- Fix to Blender 4.1 removing auto-smooth normals.
+- Fix to Blender 4.1 import crash caused by 4.1 removing auto-smoothed normals.
 
 ### 2.0.5
 - Fix to converting generic objects to props.

@@ -15,8 +15,9 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
+from mathutils import Vector
 from random import random
-from . import rigify_mapping_data, utils
+from . import bones, rigify_mapping_data, utils
 
 
 def edit_rig(rig):
@@ -252,3 +253,50 @@ def poke_rig(rig):
     pose_bone.location = loc
     pose_rig(rig)
     utils.restore_mode_selection_state(state)
+
+
+def set_bone_tail_length(bone: bpy.types.EditBone, new_tail: Vector):
+    """Set the length based on a new tail position, but don't set the tail directly
+       as it may cause changes in the bone roll and angles."""
+    length = (new_tail - bone.head).length
+    bone.length = length
+
+
+def fix_cc3_bone_sizes(cc3_rig):
+    if edit_rig(cc3_rig):
+        left_eye = bones.get_edit_bone(cc3_rig, "CC_Base_L_Eye")
+        right_eye = bones.get_edit_bone(cc3_rig, "CC_Base_R_Eye")
+        left_hand = bones.get_edit_bone(cc3_rig, "CC_Base_L_Hand")
+        right_hand = bones.get_edit_bone(cc3_rig, "CC_Base_R_Hand")
+        left_foot = bones.get_edit_bone(cc3_rig, "CC_Base_L_Foot")
+        right_foot = bones.get_edit_bone(cc3_rig, "CC_Base_R_Foot")
+        head = bones.get_edit_bone(cc3_rig, "CC_Base_Head")
+        left_upper_arm = bones.get_edit_bone(cc3_rig, "CC_Base_L_Upperarm")
+        right_upper_arm = bones.get_edit_bone(cc3_rig, "CC_Base_R_Upperarm")
+        left_lower_arm = bones.get_edit_bone(cc3_rig, "CC_Base_L_Forearm")
+        right_lower_arm = bones.get_edit_bone(cc3_rig, "CC_Base_R_Forearm")
+        left_thigh = bones.get_edit_bone(cc3_rig, "CC_Base_L_Thigh")
+        right_thigh = bones.get_edit_bone(cc3_rig, "CC_Base_R_Thigh")
+        left_calf = bones.get_edit_bone(cc3_rig, "CC_Base_L_Calf")
+        right_calf = bones.get_edit_bone(cc3_rig, "CC_Base_R_Calf")
+        eye_z = ((left_eye.head + right_eye.head) * 0.5).z
+        # head
+        head_tail = head.tail.copy()
+        head_tail.z = eye_z
+        set_bone_tail_length(head, head_tail)
+        # arms
+        set_bone_tail_length(left_upper_arm, left_lower_arm.head)
+        set_bone_tail_length(right_upper_arm, right_lower_arm.head)
+        set_bone_tail_length(left_lower_arm, left_hand.head)
+        set_bone_tail_length(right_lower_arm, right_hand.head)
+        # legs
+        set_bone_tail_length(left_thigh, left_calf.head)
+        set_bone_tail_length(right_thigh, right_calf.head)
+        set_bone_tail_length(left_calf, left_foot.head)
+        set_bone_tail_length(right_calf, right_foot.head)
+
+
+def reset_rotation_modes(rig, rotation_mode = "QUATERNION"):
+    pose_bone: bpy.types.PoseBone
+    for pose_bone in rig.pose.bones:
+        pose_bone.rotation_mode = rotation_mode

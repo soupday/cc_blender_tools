@@ -1630,6 +1630,8 @@ def export_standard(self, chr_cache, file_path, include_selected):
     if arm:
         settings = bones.store_armature_settings(arm, include_pose=True)
 
+
+
     if utils.is_file_ext(ext, "FBX"):
 
         json_data = chr_cache.get_json_data()
@@ -1644,6 +1646,9 @@ def export_standard(self, chr_cache, file_path, include_selected):
         utils.log_indent()
 
         remove_modifiers_for_export(chr_cache, objects, True)
+
+        # restore quaternion rotation modes
+        rigutils.reset_rotation_modes(arm)
 
         revert_duplicates = prefs.export_revert_names
         export_changes = prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(),

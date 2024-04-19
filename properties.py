@@ -448,7 +448,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_skip_length = 7.5
             self.hair_rig_bind_trunc_length = 0.5
             self.hair_rig_bind_bone_radius = 11.25
-            self.hair_rig_bind_existing_scale = 1.0
+            self.hair_rig_bind_existing_scale = 0.1
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
@@ -459,7 +459,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_skip_length = 7.5/2.0
             self.hair_rig_bind_trunc_length = 2.5
             self.hair_rig_bind_bone_radius = 11.25
-            self.hair_rig_bind_existing_scale = 1.0
+            self.hair_rig_bind_existing_scale = 0.1
             self.hair_rig_bind_bone_count = 2
             self.hair_rig_bind_bone_weight = 1.0
             self.hair_rig_bind_smoothing = 5
@@ -467,35 +467,35 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_variance = 0.75
 
 def update_link_target(self, context):
-    link_prefs = bpy.context.scene.CCICLinkPrefs
-    if link_prefs.link_target == "BLENDER":
-        link_prefs.link_port = 9334
-    elif link_prefs.link_target == "CCIC":
-        link_prefs.link_port = 9333
-    elif link_prefs.link_target == "UNITY":
-        link_prefs.link_port = 9335
+    link_props = bpy.context.scene.CCICLinkProps
+    if link_props.link_target == "BLENDER":
+        link_props.link_port = 9334
+    elif link_props.link_target == "CCIC":
+        link_props.link_port = 9333
+    elif link_props.link_target == "UNITY":
+        link_props.link_port = 9335
     else:
-        link_prefs.link_port = 9333
+        link_props.link_port = 9333
 
 
 def update_link_host(self, context):
-    link_prefs = bpy.context.scene.CCICLinkPrefs
-    host = link_prefs.link_host
+    link_props = bpy.context.scene.CCICLinkProps
+    host = link_props.link_host
     if host:
         try:
-            link_prefs.link_host_ip = socket.gethostbyname(host)
+            link_props.link_host_ip = socket.gethostbyname(host)
         except:
-            link_prefs.link_host_ip = "127.0.0.1"
+            link_props.link_host_ip = "127.0.0.1"
 
 
 def update_link_host_ip(self, context):
-    link_prefs = bpy.context.scene.CCICLinkPrefs
-    host_ip = link_prefs.link_host_ip
+    link_props = bpy.context.scene.CCICLinkProps
+    host_ip = link_props.link_host_ip
     if host_ip:
         try:
-            link_prefs.link_host = socket.gethostbyaddr(host_ip)
+            link_props.link_host = socket.gethostbyaddr(host_ip)
         except:
-            link_prefs.link_host = ""
+            link_props.link_host = ""
 
 
 class CC3OperatorProperties(bpy.types.Operator):
@@ -1255,6 +1255,11 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
             self.object["rl_object_type"] = self.object_type
 
 
+class CCICActionStore(bpy.types.PropertyGroup):
+    object: bpy.props.PointerProperty(type=bpy.types.Object)
+    action: bpy.props.PointerProperty(type=bpy.types.Action)
+
+
 class CC3CharacterCache(bpy.types.PropertyGroup):
     open_mouth: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=open_mouth_update)
     eye_close: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=eye_close_update)
@@ -1375,6 +1380,18 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     default=0,
                     name="Available Spring Rigs",
                     description="A list of all the spring rigs on the character")
+
+    proportion_editing: bpy.props.BoolProperty(default=False)
+    proportion_editing_in_front: bpy.props.BoolProperty(default=False)
+    proportion_editing_actions: bpy.props.CollectionProperty(type=CCICActionStore)
+    proportion_editing_scale: bpy.props.EnumProperty(items=[
+                        ("FULL","Full","Full"),
+                        ("FIX_SHEAR","Fix Shear","Fix Shear"),
+                        ("ALIGNED","Aligned","Aligned"),
+                        ("AVERAGE","Average","Average"),
+                        ("NONE","None","None"),
+                        ("NONE_LEGACY","None (Legacy)","None (Legacy)"),
+                    ], default="FULL", name="Set bone inherit scale")
 
     def select(self):
         arm = self.get_armature()
@@ -2216,17 +2233,14 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             "Note: More bones may produce smoother results but add to the overall mesh skinning performance cost")
     hair_rig_bind_bone_weight: bpy.props.FloatProperty(default=1.0, min=0.0, max=1.0,
             description="How much to scale the generated weights by")
-    hair_rig_bind_bone_variance: bpy.props.FloatProperty(default=0.75, min=0.0, max=1.0,
+    hair_rig_bind_bone_variance: bpy.props.FloatProperty(default=0.85, min=0.0, max=1.0,
             description="How much random variation in the generated weights.\n\n"
             "Less variance will cause all the hair cards to the follow the bones more closely.\n\n"
             "More variance will cause a wider spread of the cards as the bones move which gives the appearance of more volume")
-    hair_rig_bind_existing_scale: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0,
+    hair_rig_bind_existing_scale: bpy.props.FloatProperty(default=0.1, min=0.01, max=1.0,
             description="How much to scale any existing body weights on the hair.\n\n"
             "Note: The spring bones vertex weights will compete with the body vertex weights. Scaling the body weights back (< 1.0) "
-            "will allow the hair to follow the spring bones more closely but will then conform less to the body.\n\n"
-            "Warning: This change will permanently alter the original body weights on the hair meshes. "
-            "After binding, this value resets to 1.0 to prevent successive weight scaling. "
-            "Setting this to zero will remove all body and other weights from the hair mesh")
+            "will allow the hair to follow the spring bones more closely but will then conform less to the body")
     hair_rig_bind_weight_curve: bpy.props.FloatProperty(default=0.5, min=0.25, max=4.0,
             description="How to fade in the bone weights of each hair card from root to ends.\n\n"
             "Larger values ( > 1.0) will push the weights down closer to the ends.\n\n"
@@ -2508,7 +2522,7 @@ class CCICBakeProps(bpy.types.PropertyGroup):
     bake_cache: bpy.props.CollectionProperty(type=CCICBakeCache)
 
 
-class CCICLinkPrefs(bpy.types.PropertyGroup):
+class CCICLinkProps(bpy.types.PropertyGroup):
     # Data link props
     link_host: bpy.props.StringProperty(default="localhost", update=update_link_host)
     link_host_ip: bpy.props.StringProperty(default="127.0.0.1")
@@ -2523,3 +2537,8 @@ class CCICLinkPrefs(bpy.types.PropertyGroup):
     sequence_frame_sync: bpy.props.BoolProperty(default=False)
     sequence_preview_shape_keys: bpy.props.BoolProperty(default=True)
     match_client_rate: bpy.props.BoolProperty(default=True)
+    remote_app: bpy.props.StringProperty(default="")
+    remote_version: bpy.props.StringProperty(default="")
+    remote_path: bpy.props.StringProperty(default="")
+    remote_exe: bpy.props.StringProperty(default="")
+    connected: bpy.props.BoolProperty(default=False)

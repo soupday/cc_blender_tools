@@ -460,6 +460,12 @@ def count_maps(*maps):
     return count
 
 
+def key_count(obj: bpy.types.Object):
+    if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+        return len(obj.data.shape_keys.key_blocks)
+    return 0
+
+
 def dimensions(x):
     try:
         l = len(x)
@@ -593,12 +599,20 @@ def pose_mode_to(arm):
     return False
 
 
-def duplicate_object(obj):
+def duplicate_object(obj) -> bpy.types.Object:
     if set_mode("OBJECT"):
         if try_select_object(obj, True) and set_active_object(obj):
             bpy.ops.object.duplicate()
             return get_active_object()
     return None
+
+
+def remove_all_shape_keys(obj):
+    if obj and obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+        keys = [key for key in obj.data.shape_keys.key_blocks]
+        keys.reverse() # make sure basis is last to be removed...
+        for key in keys:
+            obj.shape_key_remove(key)
 
 
 def s2lin(x):

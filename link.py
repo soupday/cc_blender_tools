@@ -48,6 +48,7 @@ class OpCodes(IntEnum):
     SEQUENCE_ACK = 223
     LIGHTS = 230
     CAMERA_SYNC = 231
+    FRAME_SYNC = 232
 
 
 VISEME_NAME_MAP = {
@@ -67,6 +68,21 @@ VISEME_NAME_MAP = {
     "Tongue Lower": "V_Tongue_Lower",
     "Tongue Curl-U": "V_Tongue_Curl_U",
     "Tongue Curl-D": "V_Tongue_Curl_D",
+    "EE": "EE",
+    "Er": "Er",
+    "Ih": "IH",
+    "Ah": "Ah",
+    "Oh": "Oh",
+    "W.OO": "W_OO",
+    "S.Z": "S_Z",
+    "Ch.J": "Ch_J",
+    "F.V": "F_V",
+    "Th": "TH",
+    "T.L.D": "T_L_D_N",
+    "B.M.P": "B_M_P",
+    "K.G": "K_G_H_NG",
+    "N.NG": "AE",
+    "R": "R",
 }
 
 
@@ -81,6 +97,8 @@ class LinkActor():
     visemes: list = []
     morphs: list = []
     cache: dict = None
+    alias: list = []
+    shape_keys: dict = {}
 
     def __init__(self, chr_cache):
         self.chr_cache = chr_cache
@@ -111,6 +129,19 @@ class LinkActor():
         chr_cache = self.get_chr_cache()
         return self.chr_cache_type(chr_cache)
 
+    def add_alias(self, link_id):
+        chr_cache = self.get_chr_cache()
+        if chr_cache:
+            actor_link_id = chr_cache.link_id
+            if not actor_link_id:
+                utils.log_info(f"Assigning actor link_id: {chr_cache.character_name}: {link_id}")
+                chr_cache.link_id = link_id
+                return
+            if link_id not in self.alias and actor_link_id != link_id:
+                utils.log_info(f"Assigning actor alias: {chr_cache.character_name}: {link_id}")
+                self.alias.append(link_id)
+                return
+
     @staticmethod
     def find_actor(link_id, search_name=None, search_type=None):
         props = bpy.context.scene.CC3ImportProps
@@ -134,6 +165,7 @@ class LinkActor():
                 if not search_type or LinkActor.chr_cache_type(chr_cache) == search_type:
                     utils.log_detail(f"Chr found by name: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
                     actor = LinkActor(chr_cache)
+                    actor.add_alias(link_id)
                     return actor
             utils.log_detail(f"Chr not found by name")
 
@@ -144,6 +176,7 @@ class LinkActor():
             if chr_cache:
                 utils.log_detail(f"Falling back to first Chr Avatar: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
                 actor = LinkActor(chr_cache)
+                actor.add_alias(link_id)
                 return actor
 
         utils.log_info(f"LinkActor not found: {search_name} {link_id} {search_type}")
@@ -177,6 +210,18 @@ class LinkActor():
                     return True
         return False
 
+    def collect_shape_keys(self):
+        self.shape_keys.clear()
+        objects: list = self.get_mesh_objects()
+        # sort objects by reverse shape_key count (this should put the body mesh first)
+        objects.sort(key=utils.key_count, reverse=True)
+        # collect dictionary of shape keys and their primary key block
+        for obj in objects:
+            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                for key in obj.data.shape_keys.key_blocks:
+                    if key.name not in self.shape_keys:
+                        self.shape_keys[key.name] = key
+
     def get_sequence_objects(self):
         objects = []
         chr_cache = self.get_chr_cache()
@@ -206,8 +251,6 @@ class LinkActor():
                     skin_meshes[mesh_name] = [obj, obj.location.copy(), obj.rotation_quaternion.copy(), obj.scale.copy()]
         self.skin_meshes = skin_meshes
 
-
-
     def remap_visemes(self, visemes):
         exported_visemes = []
         for viseme_name in visemes:
@@ -233,6 +276,7 @@ class LinkActor():
     def update_link_id(self, new_link_id):
         chr_cache = self.get_chr_cache()
         if chr_cache:
+            utils.log_info(f"Assigning new link_id: {chr_cache.character_name}: {new_link_id}")
             chr_cache.link_id = new_link_id
 
     def ready(self):
@@ -283,7 +327,10 @@ class LinkData():
         for actor in self.sequence_actors:
             if actor.get_link_id() == link_id:
                 return actor
-
+        for actor in self.sequence_actors:
+            if link_id in actor.alias:
+                return actor
+        return None
 
 
 LINK_DATA = LinkData()
@@ -901,6 +948,8 @@ class LinkService():
             utils.log_info(f"Service timer stopped")
 
     def try_start_client(self, host, port):
+        link_props = bpy.context.scene.CCICLinkProps
+
         if not self.client_sock:
             utils.log_info(f"Attempting to connect")
             try:
@@ -909,6 +958,7 @@ class LinkService():
                 sock.connect((host, port))
                 #sock.setblocking(False)
                 self.is_connected = False
+                link_props.connected = False
                 self.is_connecting = True
                 self.client_sock = sock
                 self.client_sockets = [sock]
@@ -925,6 +975,7 @@ class LinkService():
                 self.client_sock = None
                 self.client_sockets = []
                 self.is_connected = False
+                link_props.connected = False
                 self.is_connecting = False
                 utils.log_info(f"Client socket connect failed!")
                 return False
@@ -945,6 +996,8 @@ class LinkService():
         self.send(OpCodes.HELLO, encode_from_json(json_data))
 
     def stop_client(self):
+        link_props = bpy.context.scene.CCICLinkProps
+
         if self.client_sock:
             utils.log_info(f"Closing Client Socket")
             try:
@@ -954,6 +1007,7 @@ class LinkService():
                 pass
         self.is_connected = False
         self.is_connecting = False
+        link_props.connected = False
         self.client_sock = None
         self.client_sockets = []
         if self.listening:
@@ -968,7 +1022,7 @@ class LinkService():
             return False
 
     def recv(self):
-        link_prefs = bpy.context.scene.CCICLinkPrefs
+        link_props = bpy.context.scene.CCICLinkProps
 
         self.is_data = False
         self.is_import = False
@@ -1015,7 +1069,7 @@ class LinkService():
                 if not self.has_client_sock():
                     return
                 # if preview sync every frame in sequence
-                if op_code == OpCodes.SEQUENCE_FRAME and link_prefs.sequence_frame_sync:
+                if op_code == OpCodes.SEQUENCE_FRAME and link_props.sequence_frame_sync:
                     self.is_data = True
                     return
                 if op_code == OpCodes.CHARACTER or op_code == OpCodes.PROP:
@@ -1035,6 +1089,8 @@ class LinkService():
                         return
 
     def accept(self):
+        link_props = bpy.context.scene.CCICLinkProps
+
         if self.server_sock and self.is_listening:
             r,w,x = select.select(self.server_sockets, self.empty_sockets, self.empty_sockets, 0)
             while r:
@@ -1050,6 +1106,7 @@ class LinkService():
                 self.client_port = address[1]
                 self.is_connected = False
                 self.is_connecting = True
+                link_props.connected = False
                 self.keepalive_timer = KEEPALIVE_TIMEOUT_S
                 self.ping_timer = PING_INTERVAL_S
                 utils.log_info(f"Incoming connection received from: {address[0]}:{address[1]}")
@@ -1059,6 +1116,7 @@ class LinkService():
                 r,w,x = select.select(self.server_sockets, self.empty_sockets, self.empty_sockets, 0)
 
     def parse(self, op_code, data):
+        link_props = bpy.context.scene.CCICLinkProps
         self.keepalive_timer = KEEPALIVE_TIMEOUT_S
 
         if op_code == OpCodes.HELLO:
@@ -1074,6 +1132,10 @@ class LinkService():
                 self.link_data.remote_version = self.remote_version
                 self.link_data.remote_path = self.remote_path
                 self.link_data.remote_exe = self.remote_exe
+                link_props.remote_app = self.remote_app
+                link_props.remote_version = f"{self.remote_version[0]}.{self.remote_version[1]}.{self.remote_version[2]}"
+                link_props.remote_path = self.remote_path
+                link_props.remote_exe = self.remote_exe
                 utils.log_always(f"Connected to: {self.remote_app} {self.remote_version}")
                 utils.log_always(f"Using file path: {self.remote_path}")
                 utils.log_always(f"Using exe path: {self.remote_exe}")
@@ -1134,7 +1196,7 @@ class LinkService():
         elif op_code == OpCodes.SEQUENCE_END:
             self.receive_sequence_end(data)
 
-        if op_code == OpCodes.SEQUENCE_ACK:
+        elif op_code == OpCodes.SEQUENCE_ACK:
             self.receive_sequence_ack(data)
 
         elif op_code == OpCodes.LIGHTS:
@@ -1142,6 +1204,10 @@ class LinkService():
 
         elif op_code == OpCodes.CAMERA_SYNC:
             self.receive_camera_sync(data)
+
+        elif op_code == OpCodes.FRAME_SYNC:
+            self.receive_frame_sync(data)
+
 
     def service_start(self, host, port):
         if not self.is_listening:
@@ -1154,9 +1220,11 @@ class LinkService():
                         self.start_server()
 
     def service_initialize(self):
+        link_props = bpy.context.scene.CCICLinkProps
         if self.is_connecting:
             self.is_connecting = False
             self.is_connected = True
+            link_props.connected = True
             self.on_connected()
             self.connected.emit()
             self.changed.emit()
@@ -1418,7 +1486,7 @@ class LinkService():
         actor_data = []
         character_template = {
             "count": len(actors),
-            "actors": actor_data
+            "actors": actor_data,
         }
 
         actor: LinkActor
@@ -1444,12 +1512,16 @@ class LinkService():
                     for pose_bone in rig.pose.bones:
                         bones.append(pose_bone.name)
 
+            actor.collect_shape_keys()
+            shapes = [key for key in actor.shape_keys]
+
             actor.bones = bones
             actor_data.append({
                 "name": actor.name,
                 "type": actor.get_type(),
                 "link_id": actor.get_link_id(),
-                "bones": bones
+                "bones": bones,
+                "shapes": shapes,
             })
 
         return encode_from_json(character_template)
@@ -1539,6 +1611,12 @@ class LinkService():
                         r = T.to_quaternion()
                         s = T.to_scale()
                         data += struct.pack("!ffffffffff", t.x, t.y, t.z, r.x, r.y, r.z, r.w, s.x, s.y, s.z)
+
+            # pack shape_keys
+            data += struct.pack("!I", len(actor.shape_keys))
+            for shape_key, key in actor.shape_keys.items():
+                data += struct.pack("!f", key.value)
+
         return data
 
     def encode_sequence_data(self, actors):
@@ -1652,7 +1730,7 @@ class LinkService():
 
     def decode_pose_frame_data(self, pose_data):
         global LINK_DATA
-        link_prefs = bpy.context.scene.CCICLinkPrefs
+        link_props = bpy.context.scene.CCICLinkProps
 
         offset = 0
         count, frame = struct.unpack_from("!II", pose_data, offset)
@@ -1747,7 +1825,7 @@ class LinkService():
             for i in range(0, num_weights):
                 weight = struct.unpack_from("!f", pose_data, offset)[0]
                 offset += 4
-                if actor and objects and link_prefs.sequence_preview_shape_keys:
+                if actor and objects and link_props.sequence_preview_shape_keys:
                     expression_name = actor.expressions[i]
                     set_actor_expression_weight(objects, expression_name, weight)
                 expression_weights[i] = weight
@@ -1759,7 +1837,7 @@ class LinkService():
             for i in range(0, num_weights):
                 weight = struct.unpack_from("!f", pose_data, offset)[0]
                 offset += 4
-                if actor and objects and link_prefs.sequence_preview_shape_keys:
+                if actor and objects and link_props.sequence_preview_shape_keys:
                     viseme_name = actor.visemes[i]
                     set_actor_viseme_weight(objects, viseme_name, weight)
                 viseme_weights[i] = weight
@@ -2010,6 +2088,36 @@ class LinkService():
         update_link_status(f"Camera Data Receveived")
         self.decode_camera_sync_data(data)
 
+    def send_frame_sync(self):
+        update_link_status(f"Sending Frame Sync")
+        fps = bpy.context.scene.render.fps
+        start_frame = bpy.context.scene.frame_start
+        end_frame = bpy.context.scene.frame_end
+        current_frame = bpy.context.scene.frame_current
+        start_time = start_frame / fps
+        end_time = end_frame / fps
+        current_time = current_frame / fps
+        frame_data = {
+            "fps": fps,
+            "start_time": start_time,
+            "end_time": end_time,
+            "current_time": current_time,
+            "start_frame": start_frame,
+            "end_frame": end_frame,
+            "current_frame": current_frame,
+        }
+        self.send(OpCodes.FRAME_SYNC, encode_from_json(frame_data))
+
+    def receive_frame_sync(self, data):
+        update_link_status(f"Frame Sync Receveived")
+        frame_data = decode_to_json(data)
+        start_frame = frame_data["start_frame"]
+        end_frame = frame_data["end_frame"]
+        current_frame = frame_data["current_frame"]
+        bpy.context.scene.frame_start = start_frame
+        bpy.context.scene.frame_end = end_frame
+        bpy.context.scene.frame_current = current_frame
+
 
     # Character Pose
     #
@@ -2048,19 +2156,20 @@ class LinkService():
             rig = actor.get_armature()
             if rig:
                 rigs.append(rig)
-        all_selected = True
-        if not (utils.get_mode() == "POSE" and len(bpy.context.selected_objects) == len(rigs)):
-            all_selected = False
-        else:
-            for rig in rigs:
-                if rig not in bpy.context.selected_objects:
-                    all_selected = False
-                    break
-        if not all_selected:
-            utils.set_mode("OBJECT")
-            utils.clear_selected_objects()
-            utils.try_select_objects(rigs, True, make_active=True)
-            utils.set_mode("POSE")
+        if rigs:
+            all_selected = True
+            if not (utils.get_mode() == "POSE" and len(bpy.context.selected_objects) == len(rigs)):
+                all_selected = False
+            else:
+                for rig in rigs:
+                    if rig not in bpy.context.selected_objects:
+                        all_selected = False
+                        break
+            if not all_selected:
+                utils.set_mode("OBJECT")
+                utils.clear_selected_objects()
+                utils.try_select_objects(rigs, True, make_active=True)
+                utils.set_mode("POSE")
         return rigs
 
     def receive_pose(self, data):
@@ -2092,6 +2201,7 @@ class LinkService():
         update_link_status(f"Receiving Pose Frame: {frame}")
         LINK_DATA.sequence_actors = actors
         bpy.ops.screen.animation_cancel()
+        set_frame_range(start_frame, end_frame)
         set_frame(frame)
 
     def receive_pose_frame(self, data):
@@ -2110,16 +2220,17 @@ class LinkService():
         # store frame data
         update_link_status(f"Pose Frame: {frame}")
         rigs = self.select_actor_rigs(actors)
-        for actor in actors:
-            if actor.ready():
-                store_bone_cache_keyframes(actor, frame)
+        if rigs:
+            for actor in actors:
+                if actor.ready():
+                    store_bone_cache_keyframes(actor, frame)
 
-        # write pose action
-        for actor in actors:
-            if actor.ready():
-                remove_datalink_import_rig(actor)
-                write_sequence_actions(actor)
-                pass
+            # write pose action
+            for actor in actors:
+                if actor.ready():
+                    remove_datalink_import_rig(actor)
+                    write_sequence_actions(actor)
+                    pass
 
         # finish
         LINK_DATA.sequence_actors = None
@@ -2177,8 +2288,9 @@ class LinkService():
         # store frame data
         update_link_status(f"Sequence Frame: {LINK_DATA.sequence_current_frame}")
         rigs = self.select_actor_rigs(actors)
-        for actor in actors:
-            store_bone_cache_keyframes(actor, frame)
+        if rigs:
+            for actor in actors:
+                store_bone_cache_keyframes(actor, frame)
 
         # send sequence frame ack
         self.send_sequence_ack(frame)
@@ -2230,14 +2342,14 @@ class LinkService():
         bpy.ops.screen.animation_play()
 
     def receive_sequence_ack(self, data):
-        link_prefs = bpy.context.scene.CCICLinkPrefs
+        link_props = bpy.context.scene.CCICLinkProps
         global LINK_DATA
 
         json_data = decode_to_json(data)
         ack_frame = json_data["frame"]
         server_rate = json_data["rate"]
         delta_frames = LINK_DATA.sequence_current_frame - ack_frame
-        if link_prefs.match_client_rate:
+        if link_props.match_client_rate:
             if LINK_DATA.ack_time == 0.0:
                 LINK_DATA.ack_time = time.time()
                 LINK_DATA.ack_rate = 120
@@ -2393,17 +2505,28 @@ def get_link_service():
 def link_state_update():
     global LINK_SERVICE
     if LINK_SERVICE:
-        link_prefs = bpy.context.scene.CCICLinkPrefs
-        link_prefs.link_listening = LINK_SERVICE.is_listening
-        link_prefs.link_connected = LINK_SERVICE.is_connected
-        link_prefs.link_connecting = LINK_SERVICE.is_connecting
+        link_props = bpy.context.scene.CCICLinkProps
+        link_props.link_listening = LINK_SERVICE.is_listening
+        link_props.link_connected = LINK_SERVICE.is_connected
+        link_props.link_connecting = LINK_SERVICE.is_connecting
         utils.update_ui()
 
 
 def update_link_status(text):
-    link_prefs = bpy.context.scene.CCICLinkPrefs
-    link_prefs.link_status = text
+    link_props = bpy.context.scene.CCICLinkProps
+    link_props.link_status = text
     utils.update_ui()
+
+
+def reconnect():
+    global LINK_SERVICE
+    link_props = bpy.context.scene.CCICLinkProps
+    if link_props.connected:
+        if LINK_SERVICE and LINK_SERVICE.is_connected:
+            utils.log_info("Datalink remains connected.")
+        elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
+            utils.log_info("Datalink was connected. Attempting to reconnect...")
+            bpy.ops.ccic.datalink(param="START")
 
 
 class CCICDataLink(bpy.types.Operator):
@@ -2423,43 +2546,61 @@ class CCICDataLink(bpy.types.Operator):
 
         if self.param == "START":
             self.link_start()
+            return {'FINISHED'}
 
         elif self.param == "DISCONNECT":
             self.link_disconnect()
+            return {'FINISHED'}
 
         elif self.param == "STOP":
             self.link_stop()
+            return {'FINISHED'}
+
+        if self.param in ["SEND_POSE", "SEND_ANIM", "SEND_ACTOR", "SEND_MORPH", "SYNC_CAMERA"]:
+            if not LINK_SERVICE or not LINK_SERVICE.is_connected:
+                self.link_start()
+            if not LINK_SERVICE or not (LINK_SERVICE.is_connected or LINK_SERVICE.is_connecting):
+                self.report({"ERROR"}, "Server not listening!")
+                return {'FINISHED'}
 
         if LINK_SERVICE:
 
             if self.param == "SEND_POSE":
                 LINK_SERVICE.send_pose()
+                return {'FINISHED'}
 
             elif self.param == "SEND_ANIM":
                 LINK_SERVICE.send_sequence()
+                return {'FINISHED'}
 
             elif self.param == "SEND_ACTOR":
                 LINK_SERVICE.send_actor()
+                return {'FINISHED'}
 
             elif self.param == "SEND_MORPH":
                 LINK_SERVICE.send_morph()
+                return {'FINISHED'}
 
             elif self.param == "SYNC_CAMERA":
                 LINK_SERVICE.send_camera_sync()
+                return {'FINISHED'}
 
             elif self.param == "TEST":
                 LINK_SERVICE.stop_client()
+                return {'FINISHED'}
 
             elif self.param == "SHOW_ACTOR_FILES":
                 props = bpy.context.scene.CC3ImportProps
                 chr_cache = props.get_context_character_cache(context)
                 if chr_cache:
                     utils.open_folder(chr_cache.get_import_dir())
+                return {'FINISHED'}
 
             elif self.param == "SHOW_PROJECT_FILES":
                 local_path = get_local_data_path()
                 if local_path:
                     utils.open_folder(local_path)
+                return {'FINISHED'}
 
         return {'FINISHED'}
 
@@ -2473,7 +2614,7 @@ class CCICDataLink(bpy.types.Operator):
             os.makedirs(export_path, exist_ok=True)
 
     def link_start(self, is_go_b=False):
-        link_prefs = bpy.context.scene.CCICLinkPrefs
+        link_props = bpy.context.scene.CCICLinkProps
         global LINK_SERVICE
 
         self.prep_local_files()
@@ -2482,7 +2623,7 @@ class CCICDataLink(bpy.types.Operator):
             LINK_SERVICE.changed.connect(link_state_update)
 
         if LINK_SERVICE:
-            LINK_SERVICE.service_start(link_prefs.link_host_ip, link_prefs.link_port)
+            LINK_SERVICE.service_start(link_props.link_host_ip, link_props.link_port)
 
     def link_stop(self):
         global LINK_SERVICE
