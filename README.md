@@ -39,7 +39,7 @@ Links
 - Fix to Update Unity Project being greyed out after saving as Blend file.
 - Added custom prop rig control bones when sending through Datalink.
 - Added Receiving prop posing and animation sequence via Datalink.
-- Added Send Animation (direct animation import to character through Datalink).
+- Added Receive Motion (direct motion import to character through Datalink).
 
 ### 2.0.7
 - Attempts to restore datalink when reloading linked blend file.

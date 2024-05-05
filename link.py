@@ -49,7 +49,7 @@ class OpCodes(IntEnum):
     LIGHTS = 230
     CAMERA_SYNC = 231
     FRAME_SYNC = 232
-    ANIMATION = 240
+    MOTION = 240
 
 
 VISEME_NAME_MAP = {
@@ -1203,7 +1203,7 @@ class LinkService():
         elif op_code == OpCodes.PROP:
             self.receive_character_import(data)
 
-        elif op_code == OpCodes.ANIMATION:
+        elif op_code == OpCodes.MOTION:
             self.receive_motion_import(data)
 
         elif op_code == OpCodes.CHARACTER_UPDATE:
