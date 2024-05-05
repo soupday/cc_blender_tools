@@ -249,7 +249,7 @@ def character_export_unity_button(chr_cache, layout):
         column.row().prop(prefs, "export_unity_mode", expand=True)
 
     # disable if no character, or not an fbx import
-    if not chr_cache or not chr_cache.is_import_type("FBX") or chr_cache.rigified:
+    if not chr_cache or not (chr_cache.is_import_type("FBX") or chr_cache.is_import_type("BLEND")) or chr_cache.rigified:
         column.enabled = False
 
 
@@ -2902,6 +2902,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
             row = layout.row()
             row.label(text=f"link id: {chr_cache.link_id}")
             row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
+
+            #row = layout.row()
+            #row.operator("ccic.datalink", icon="ANIM", text="De-pivot").param = "DEPIVOT"
 
 
 class CCICProportionPanel(bpy.types.Panel):

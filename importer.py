@@ -887,7 +887,8 @@ class CC3Import(bpy.types.Operator):
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, armatures, rl_armatures,
                                                              imported, actions, json_data, self.import_report, self.link_id)
             elif prefs.import_auto_convert:
-                self.imported_characters = characters.convert_generic_to_non_standard(imported, self.filepath)
+                chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_characters = [ chr_cache ]
 
             if self.imported_characters and ImportFlags.RL in self.import_flags:
                 for chr_cache in self.imported_characters:
@@ -916,7 +917,8 @@ class CC3Import(bpy.types.Operator):
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, None, None,
                                                              imported, actions, json_data, self.import_report, self.link_id)
             elif prefs.import_auto_convert:
-                self.imported_characters = characters.convert_generic_to_non_standard(imported, self.filepath)
+                chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_characters = [ chr_cache ]
 
             #if self.param == "IMPORT_MORPH":
             #    if self.imported_character.get_tex_dir() != "":
@@ -1210,9 +1212,8 @@ class CC3Import(bpy.types.Operator):
                 if chr_cache.can_be_rigged():
                     cc3_rig = chr_cache.get_armature()
                     bpy.ops.cc3.rigifier(param="ALL")
-                    props.armature_list_object = cc3_rig
-                    props.action_list_action = utils.safe_get_action(cc3_rig)
-                    rigging.adv_bake_retarget_to_rigify(self, chr_cache)
+                    cc3_rig_action = utils.safe_get_action(cc3_rig)
+                    rigging.adv_bake_retarget_to_rigify(self, chr_cache, rig_override=cc3_rig, action_override=cc3_rig_action)
 
         self.imported_characters = None
         self.imported_materials = []
@@ -1480,6 +1481,10 @@ class CC3ImportAnimations(bpy.types.Operator):
 
         for fbx_file in self.files:
             self.import_animation_fbx(self.directory, fbx_file.name)
+
+        if not self.files and self.filepath:
+            dir, file = os.path.split(self.filepath)
+            self.import_animation_fbx(dir, file)
 
         utils.log_timer("Done Build.", "s")
 

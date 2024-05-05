@@ -647,6 +647,13 @@ def is_blender_duplicate(name):
     return False
 
 
+def get_duplication_suffix(name):
+    if len(name) >= 4:
+        if name[-3:].isdigit() and name[-4] == ".":
+            return int(name[-3])
+    return 0
+
+
 def make_unique_name_in(name, keys):
     """"""
     if name in keys:

@@ -48,7 +48,6 @@ def convert_to_blender_bone_names(chr_cache):
                 bone_name = bone_name.replace("_R_", "_X_") + ".r"
                 bone_remap[bone.name] = bone_name
                 bone.name = bone_name
-            print(f"{source_name} -> {bone_name}")
 
         for obj in objects:
             for vg in obj.vertex_groups:

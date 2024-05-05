@@ -5,7 +5,7 @@ from enum import IntEnum
 import os, socket, time, select, struct, json
 import subprocess
 from mathutils import Vector, Quaternion, Matrix
-from . import importer, bones, geom, colorspace, rigging, rigutils, utils, vars
+from . import importer, bones, geom, colorspace, rigging, rigutils, modifiers, utils, vars
 
 
 BLENDER_PORT = 9334
@@ -49,6 +49,7 @@ class OpCodes(IntEnum):
     LIGHTS = 230
     CAMERA_SYNC = 231
     FRAME_SYNC = 232
+    ANIMATION = 240
 
 
 VISEME_NAME_MAP = {
@@ -242,10 +243,34 @@ class LinkActor():
         self.morphs = morphs
         rig = self.get_armature()
         skin_meshes = {}
-        for mesh_name in meshes:
+        # rename pivot bones
+        for i, bone_name in enumerate(self.bones):
+            if bone_name == "_Object_Pivot_Node_":
+                self.bones[i] = "CC_Base_Pivot"
+        #for i, mesh_name in enumerate(meshes):
+        #    if mesh_name in names:
+        #        count = names[mesh_name]
+        #        names[mesh_name] += 1
+        #        meshes[i] = f"{mesh_name}.{count:03d}"
+        #    else:
+        #        names[mesh_name] == 1
+        names = {}
+        for i, mesh_name in enumerate(meshes):
             obj = None
             for child in rig.children:
-                if child.type == "MESH" and child.name == mesh_name:
+                child_source_name = utils.strip_name(child.name)
+                if child.type == "MESH" and child_source_name == mesh_name:
+                    # determine the duplication suffix offset
+                    if child_source_name in names:
+                        count = names[child_source_name]
+                        names[child_source_name] += 1
+                        mesh_name = f"{child_source_name}.{count:03d}"
+                        meshes[i] = mesh_name
+                    else:
+                        count = utils.get_duplication_suffix(child.name)
+                        names[child_source_name] = count + 1
+                        mesh_name = child.name
+                        meshes[i] = mesh_name
                     obj = child
                     obj.rotation_mode = "QUATERNION"
                     skin_meshes[mesh_name] = [obj, obj.location.copy(), obj.rotation_quaternion.copy(), obj.scale.copy()]
@@ -441,9 +466,6 @@ def make_datalink_import_rig(actor: LinkActor):
         if not no_constraints:
             for i, rig_bone_name in enumerate(actor.rig_bones):
                 sk_bone_name = actor.bones[i]
-                # for now, ignore all pivot bones
-                if sk_bone_name == "_Object_Pivot_Node_":
-                    continue
                 chr_bone_name = bones.find_target_bone_name(chr_rig, rig_bone_name)
                 if chr_bone_name:
                     bones.add_copy_location_constraint(datalink_rig, chr_rig, rig_bone_name, chr_bone_name)
@@ -466,7 +488,7 @@ def make_datalink_import_rig(actor: LinkActor):
         rigging.adv_retarget_remove_pair(None, chr_cache)
         if not chr_cache.rig_retarget_rig:
             rigging.adv_retarget_pair_rigs(None, chr_cache,
-                                        source_rig_override=datalink_rig,
+                                        rig_override=datalink_rig,
                                         to_original_rig=True)
 
     return datalink_rig
@@ -1181,6 +1203,9 @@ class LinkService():
         elif op_code == OpCodes.PROP:
             self.receive_character_import(data)
 
+        elif op_code == OpCodes.ANIMATION:
+            self.receive_motion_import(data)
+
         elif op_code == OpCodes.CHARACTER_UPDATE:
             self.receive_actor_update(data)
 
@@ -1777,6 +1802,7 @@ class LinkService():
                 if actor_ready:
                     actors.append(actor)
                     datalink_rig = make_datalink_import_rig(actor)
+                    utils.log_error(f"Actor ready!: {name}/ {link_id}")
                 else:
                     utils.log_error(f"Actor not ready: {name}/ {link_id}")
             else:
@@ -1855,8 +1881,12 @@ class LinkService():
         actor: LinkActor
         for actor in actors:
             for mesh_name in actor.skin_meshes:
+                obj: bpy.types.Object
                 obj, loc, rot, sca = actor.skin_meshes[mesh_name]
                 rig = obj.parent
+                # do not adjust mesh transforms on skinned props
+                mod = modifiers.get_armature_modifier(obj)
+                if mod: continue
                 obj.matrix_world = utils.make_transform_matrix(loc, rot, rig.scale)
 
     def find_link_id(self, link_id: str):
@@ -2215,7 +2245,7 @@ class LinkService():
         # force recalculate all transforms
         bpy.context.view_layer.update()
 
-        #self.reposition_prop_meshes(actors)
+        self.reposition_prop_meshes(actors)
 
         # store frame data
         update_link_status(f"Pose Frame: {frame}")
@@ -2283,7 +2313,7 @@ class LinkService():
         # force recalculate all transforms
         bpy.context.view_layer.update()
 
-        #self.reposition_prop_meshes(actors)
+        self.reposition_prop_meshes(actors)
 
         # store frame data
         update_link_status(f"Sequence Frame: {LINK_DATA.sequence_current_frame}")
@@ -2404,9 +2434,93 @@ class LinkService():
             # props have big ugly bones, so show them as wires
             if actor and actor.get_type() == "PROP":
                 arm = actor.get_armature()
-                if arm:
-                    arm.data.display_type = "WIRE"
+                rigutils.custom_prop_rig(arm)
+                #rigutils.de_pivot(actor.get_chr_cache())
             update_link_status(f"Character Imported: {actor.name}")
+
+    def receive_motion_import(self, data):
+        props = bpy.context.scene.CC3ImportProps
+        global LINK_DATA
+
+        # decode character import data
+        json_data = decode_to_json(data)
+        fbx_path = json_data["path"]
+        name = json_data["name"]
+        character_type = json_data["type"]
+        link_id = json_data["link_id"]
+
+        utils.log_info(f"Receive Motion Import: {name} / {link_id} / {fbx_path}")
+
+        actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
+        if not actor:
+            update_link_status(f"Character: {name} not found!")
+            utils.log_info(f"Actor {name} ({link_id}) not found!")
+            return
+
+        update_link_status(f"Receving Motion Import: {name}")
+        if os.path.exists(fbx_path):
+            #try:
+            bpy.ops.cc3.anim_importer(filepath=fbx_path, remove_meshes=False, remove_materials_images=True, remove_shape_keys=False)
+            motion_rig = utils.get_active_object()
+            self.replace_actor_motion(actor, motion_rig)
+            #except:
+            #    utils.log_error(f"Error importing motion {fbx_path}")
+            #    return
+            update_link_status(f"Motion Imported: {actor.name}")
+
+    def replace_actor_motion(self, actor: LinkActor, motion_rig):
+        props = bpy.context.scene.CC3ImportProps
+
+        if actor and motion_rig:
+            motion_rig_action = utils.safe_get_action(motion_rig)
+            motion_objects = utils.get_child_objects(motion_rig)
+            tongue_action = None
+            body_action = None
+            obj_actions = {}
+            for obj in motion_objects:
+                if utils.object_has_shape_keys(obj):
+                    if obj.name.startswith("CC_Base_Tongue"):
+                        tongue_action = utils.safe_get_action(obj.data.shape_keys)
+                    elif obj.name.startswith("CC_Base_Body"):
+                        body_action = utils.safe_get_action(obj.data.shape_keys)
+                    else:
+                        source_name = utils.strip_name(obj.name)
+                        obj_actions[source_name] = utils.safe_get_action(obj.data.shape_keys)
+            # fetch existing actor actions
+            actor_objects = actor.get_mesh_objects()
+            actor_rig = actor.get_armature()
+            actor_rig_action = utils.safe_get_action(actor_rig)
+            actor_mesh_actions = [ utils.safe_get_action(o) for o in actor_objects ]
+            # replace actor actions
+            if actor_rig:
+                chr_cache = actor.get_chr_cache()
+                if chr_cache.rigified:
+                    rigging.adv_bake_retarget_to_rigify(None, chr_cache, rig_override=motion_rig, action_override=motion_rig_action)
+                else:
+                    utils.safe_set_action(actor_rig, motion_rig_action)
+            for obj in actor_objects:
+                if utils.object_has_shape_keys(obj):
+                    if obj.name.startswith("CC_Base_Tongue") and tongue_action:
+                        utils.safe_set_action(obj.data.shape_keys, tongue_action)
+                    elif obj.name.startswith("CC_Base_Body") and body_action:
+                        utils.safe_set_action(obj.data.shape_keys, body_action)
+                    else:
+                        source_name = utils.strip_name(obj.name)
+                        if source_name in obj_actions:
+                            utils.safe_set_action(obj.data.shape_keys, obj_actions[source_name])
+                        elif body_action:
+                            utils.safe_set_action(obj.data.shape_keys, body_action)
+            # delete imported motion rig and objects
+            for obj in motion_objects:
+                utils.delete_mesh_object(obj)
+            if motion_rig:
+                utils.delete_armature_object(motion_rig)
+            # remove old actions
+            for old_action in actor_mesh_actions:
+                if old_action:
+                    bpy.data.actions.remove(old_action)
+            if actor_rig_action:
+                bpy.data.actions.remove(actor_rig_action)
 
     def receive_actor_update(self, data):
         global LINK_DATA
@@ -2584,6 +2698,12 @@ class CCICDataLink(bpy.types.Operator):
             elif self.param == "SYNC_CAMERA":
                 LINK_SERVICE.send_camera_sync()
                 return {'FINISHED'}
+
+            elif self.param == "DEPIVOT":
+                props = bpy.context.scene.CC3ImportProps
+                chr_cache = props.get_context_character_cache(context)
+                if chr_cache:
+                    rigutils.de_pivot(chr_cache)
 
             elif self.param == "TEST":
                 LINK_SERVICE.stop_client()

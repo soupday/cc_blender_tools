@@ -300,3 +300,97 @@ def reset_rotation_modes(rig, rotation_mode = "QUATERNION"):
     pose_bone: bpy.types.PoseBone
     for pose_bone in rig.pose.bones:
         pose_bone.rotation_mode = rotation_mode
+
+
+def is_skinned_rig(rig):
+    meshes = utils.get_child_objects(rig)
+    for mesh in meshes:
+        mod = None
+        for m in mesh.modifiers:
+            if m and m.type == "ARMATURE":
+                mod = m
+        if mod:
+            return True
+    return False
+
+
+
+def custom_prop_rig(rig):
+    if is_skinned_rig(rig):
+        rig.data.display_type = "STICK"
+        return
+    wgt_pivot = bones.make_axes_widget("WGT-datalink_pivot", 1)
+    wgt_mesh = bones.make_cone_widget("WGT-datalink_mesh", 1)
+    wgt_default = bones.make_sphere_widget("WGT-datalink_default", 1)
+    bones.add_widget_to_collection(wgt_pivot, "WGTS_Datalink")
+    bones.add_widget_to_collection(wgt_mesh, "WGTS_Datalink")
+    bones.add_widget_to_collection(wgt_default, "WGTS_Datalink")
+    rig.show_in_front = True
+
+    meshes = utils.get_child_objects(rig)
+    if select_rig(rig):
+        pose_bone: bpy.types.PoseBone
+        for pose_bone in rig.pose.bones:
+            bone = pose_bone.bone
+            mesh_bone = False
+            pivot_bone = "CC_Base_Pivot" in pose_bone.name
+            for mesh in meshes:
+                if mesh.parent == rig and mesh.parent_type == "BONE" and mesh.parent_bone == bone.name:
+                    mesh_bone = True
+                    break
+            if pivot_bone:
+                pose_bone.custom_shape = wgt_pivot
+            elif mesh_bone:
+                pose_bone.custom_shape = wgt_mesh
+            else:
+                pose_bone.custom_shape = wgt_default
+            pose_bone.use_custom_shape_bone_size = False
+            pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+            if utils.B400():
+                if pivot_bone:
+                    bones.set_bone_color(pose_bone, "PIVOT")
+                elif mesh_bone:
+                    bones.set_bone_color(pose_bone, "MESH")
+                else:
+                    bones.set_bone_color(pose_bone, "DEFAULT")
+
+
+def de_pivot(chr_cache):
+    """Removes the pivot bones and corrects the parenting of the mesh objects
+       from a CC/iC character or prop"""
+
+    if chr_cache:
+        rig = chr_cache.get_armature()
+        objects = chr_cache.get_all_objects(include_armature=False, of_type="MESH")
+
+        if rig and objects:
+
+            true_parents = {}
+            if select_rig(rig):
+                obj: bpy.types.Object
+                for obj in objects:
+                    if obj.parent == rig:
+                        if obj.parent_type == "BONE":
+                            parent_bone_name = obj.parent_bone
+                            parent_bone: bpy.types.PoseBone = rig.pose.bones[parent_bone_name]
+                            if "CC_Base_Pivot" in parent_bone.name:
+                                true_parent = parent_bone.parent
+                                M = obj.matrix_world.copy()
+                                true_parents[obj] = (true_parent, M)
+
+
+            to_remove = []
+            if edit_rig(rig):
+                for edit_bone in rig.data.edit_bones:
+                    if "CC_Base_Pivot" in edit_bone.name:
+                        to_remove.append(edit_bone)
+
+            for edit_bone in to_remove:
+                rig.data.edit_bones.remove(edit_bone)
+
+            for obj in true_parents:
+                true_parent, M = true_parents[obj]
+                obj.parent_bone = true_parent.name
+                obj.matrix_world = M
+
+            select_rig(rig)

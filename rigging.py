@@ -2360,15 +2360,18 @@ def adv_preview_retarget(op, chr_cache):
             adv_retarget_shape_keys(op, chr_cache, False)
 
 
-def adv_retarget_pair_rigs(op, chr_cache, source_rig_override=None, to_original_rig=False):
+def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=None, to_original_rig=False):
     props = bpy.context.scene.CC3ImportProps
     rigify_rig = chr_cache.get_armature()
-    if source_rig_override:
-        source_rig = source_rig_override
+    if rig_override:
+        source_rig = rig_override
         source_action = utils.safe_get_action(source_rig)
     else:
         source_rig = props.armature_list_object
         source_action = props.action_list_action
+        utils.safe_set_action(source_rig, source_action)
+    if action_override:
+        source_action = action_override
         utils.safe_set_action(source_rig, source_action)
 
     if not source_rig:
@@ -2380,7 +2383,7 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig_override=None, to_original_
     if not rigutils.is_rigify_armature(rigify_rig):
             if op: op.report({'ERROR'}, "Character Armature is not a Rigify armature!")
             return None
-    if not source_rig_override:
+    if not rig_override:
         if not source_action:
             if op: op.report({'ERROR'}, "No Source Action!")
             return None
@@ -2457,16 +2460,20 @@ BOTH_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
                          "Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
 
 
-def adv_bake_retarget_to_rigify(op, chr_cache):
+def adv_bake_retarget_to_rigify(op, chr_cache, rig_override=None, action_override=None):
     props = bpy.context.scene.CC3ImportProps
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     rigify_rig = chr_cache.get_armature()
     source_rig = props.armature_list_object
     source_action = props.action_list_action
+    if rig_override:
+        source_rig = rig_override
+    if action_override:
+        source_action = action_override
     utils.safe_set_action(source_rig, source_action)
 
-    retarget_rig = adv_retarget_pair_rigs(op, chr_cache)
+    retarget_rig = adv_retarget_pair_rigs(op, chr_cache, rig_override=source_rig, action_override=source_action)
 
     armature_action = None
     shape_key_actions = None
