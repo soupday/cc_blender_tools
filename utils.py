@@ -20,7 +20,7 @@ import subprocess
 import time
 import difflib
 import random
-from mathutils import Vector, Quaternion, Matrix
+from mathutils import Vector, Quaternion, Matrix, Euler
 from hashlib import md5
 import bpy
 
@@ -1384,7 +1384,6 @@ def restore_render_visibility_state(rv):
                     pass
 
 
-
 def set_only_render_visible(object):
     obj : bpy.types.Object
     for obj in bpy.data.objects:
@@ -1403,6 +1402,24 @@ def set_only_render_visible(object):
                     obj.hide_set(True)
                 except:
                     pass
+
+
+def store_object_transform(obj: bpy.types.Object):
+    T = (obj.location,
+         obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_quaternion, obj.rotation_mode,
+         obj.scale)
+    return T
+
+
+def restore_object_transform(obj: bpy.types.Object, T: list):
+    obj.location, obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_quaternion, obj.rotation_mode, obj.scale = T
+
+
+def reset_object_transform(obj: bpy.types.Object):
+    obj.location = Vector((0,0,0))
+    obj.rotation_quaternion = Quaternion((1.0, 0.0, 0.0, 0.0))
+    obj.rotation_euler = Euler((0.0, -0.0, 0.0), 'XYZ')
+    obj.rotation_axis_angle = [0,0,0,0]
 
 
 def safe_get_action(obj) -> bpy.types.Action:

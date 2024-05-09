@@ -15,9 +15,9 @@
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
 import bpy
-from mathutils import Vector
+from mathutils import Vector, Matrix, Quaternion, Euler
 from random import random
-from . import bones, rigify_mapping_data, utils
+from . import bones, modifiers, rigify_mapping_data, utils
 
 
 def edit_rig(rig):
@@ -313,6 +313,85 @@ def is_skinned_rig(rig):
             return True
     return False
 
+
+def get_local_pose_bone_transform(M: Matrix, pose_bone: bpy.types.PoseBone):
+    """M: Matrix - object space matrix of the transform to convert
+       pose_bone: bpy.types.PoseBone - pose bone to calculate local space transform for."""
+    L: Matrix   # local space matrix we want
+    NL: Matrix  # non-local space matrix we want (if not using local location or inherit rotation)
+    R: Matrix = pose_bone.bone.matrix_local # bone rest pose matrix
+    RI: Matrix = R.inverted() # bone rest pose matrix inverted
+    if pose_bone.parent:
+        PI: Matrix = pose_bone.parent.matrix.inverted() # parent object space matrix inverted (after contraints and drivers)
+        PR: Matrix = pose_bone.parent.bone.matrix_local # parent rest pose matrix
+        L = RI @ (PR @ (PI @ M))
+        NL = PI @ M
+    else:
+        L = RI @ M
+        NL = M
+    if not pose_bone.bone.use_local_location:
+        loc = NL.to_translation()
+    else:
+        loc = L.to_translation()
+    sca = L.to_scale()
+    if not pose_bone.bone.use_inherit_rotation:
+        rot = NL.to_quaternion()
+    else:
+        rot = L.to_quaternion()
+    return loc, rot, sca, L, NL
+
+
+def apply_as_rest_pose(rig):
+    if rig and select_rig(rig):
+        objects = utils.get_child_objects(rig)
+        for obj in objects:
+            mod: bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
+            if mod:
+                # apply armature modifier with preserve settings and mod order
+                modifiers.apply_modifier(obj, modifier=mod, preserving=True)
+                modifiers.get_armature_modifier(obj, create=True, armature=rig)
+    if pose_rig(rig):
+        bpy.ops.pose.armature_apply(selected=False)
+    utils.object_mode_to(rig)
+
+
+def copy_rest_pose(src_rig, dst_rig):
+    TS = utils.store_object_transform(src_rig)
+    TD = utils.store_object_transform(dst_rig)
+    utils.reset_object_transform(src_rig)
+    utils.reset_object_transform(dst_rig)
+    src_action = utils.safe_get_action(src_rig)
+    dst_action = utils.safe_get_action(dst_rig)
+    utils.safe_set_action(src_rig, None)
+    utils.safe_set_action(dst_rig, None)
+
+    utils.try_select_objects([src_rig, dst_rig], clear_selection=True)
+    bones.clear_pose(src_rig)
+    bones.clear_pose(dst_rig)
+
+    # constrain the destination rig rest pose to the source rig pose
+    constraints = {}
+    if select_rig(src_rig):
+        src_bone: bpy.types.PoseBone
+        dst_bone: bpy.types.PoseBone
+        for src_bone in src_rig.pose.bones:
+            if src_bone.name in dst_rig.pose.bones:
+                dst_bone = dst_rig.pose.bones[src_bone.name]
+                con = bones.add_copy_transforms_constraint(src_rig, dst_rig, src_bone.name, dst_bone.name)
+                constraints[dst_bone] = con
+
+    # apply the destination pose as rest pose
+    apply_as_rest_pose(dst_rig)
+
+    # remove the constraints
+    for dst_bone in constraints:
+        con = constraints[dst_bone]
+        dst_bone.constraints.remove(con)
+
+    utils.restore_object_transform(src_rig, TS)
+    utils.restore_object_transform(dst_rig, TD)
+    utils.safe_set_action(src_rig, src_action)
+    utils.safe_set_action(dst_rig, dst_action)
 
 
 def custom_prop_rig(rig):

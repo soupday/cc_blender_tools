@@ -2491,6 +2491,10 @@ class LinkService():
             actor_rig = actor.get_armature()
             actor_rig_action = utils.safe_get_action(actor_rig)
             actor_mesh_actions = [ utils.safe_get_action(o) for o in actor_objects ]
+            # if it's a prop copy the rest pose: props have no bind pose so the rest pose
+            # is the first frame of the animation, which changes with every new animation import...
+            if actor.get_type() == "PROP":
+                rigutils.copy_rest_pose(motion_rig, actor_rig)
             # replace actor actions
             if actor_rig:
                 chr_cache = actor.get_chr_cache()

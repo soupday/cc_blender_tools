@@ -143,16 +143,7 @@ def apply_proportion_pose(chr_cache):
         rig = chr_cache.get_armature()
         if rig:
             hide_sub_bones(rig, False)
-            objects = chr_cache.get_all_objects(include_armature=False, include_children=True, of_type="MESH")
-            for obj in objects:
-                mod: bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
-                if mod:
-                    # apply armature modifier with preserve settings and mod order
-                    modifiers.apply_modifier(obj, modifier=mod, preserving=True)
-                    mod = modifiers.get_armature_modifier(obj, create=True, armature=rig)
-        if utils.pose_mode_to(rig):
-            bpy.ops.pose.armature_apply(selected=False)
-        utils.object_mode_to(rig)
+            rigutils.apply_as_rest_pose(rig)
 
 
 def set_child_inherit_scale(rig, pose_bone: bpy.types.PoseBone, inherit_scale):
