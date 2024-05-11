@@ -410,6 +410,13 @@ def find_rig_pivot_bone(rig, parent):
     return None
 
 
+def BFA(f):
+    return f - 1
+
+
+def RLFA(f):
+    return f + 1
+
 
 def make_datalink_import_rig(actor: LinkActor):
     """Creates or re-uses and existing datalink pose rig for the character.
@@ -577,6 +584,17 @@ def create_fcurves_cache(count, indices, defaults):
     return cache
 
 
+def get_datalink_rig_action(rig):
+    rig_name = utils.strip_name(rig.name)
+    action_name = f"{rig_name}|A|Datalink"
+    if action_name in bpy.data.actions:
+        action = bpy.data.actions[action_name]
+    else:
+        action = bpy.data.actions.new(action_name)
+    utils.safe_set_action(rig, action)
+    return action
+
+
 def prep_rig(actor: LinkActor, start_frame, end_frame):
     """Prepares the character rig for keyframing poses from the pose data stream."""
 
@@ -593,14 +611,9 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
 
 
             # rig action
-            action_name = f"{rig_name}|A|Datalink"
-            utils.log_info(f"Preparing rig action: {action_name}")
-            if action_name in bpy.data.actions:
-                action = bpy.data.actions[action_name]
-            else:
-                action = bpy.data.actions.new(action_name)
+            action = get_datalink_rig_action(rig)
+            utils.log_info(f"Preparing rig action: {action.name}")
             action.fcurves.clear()
-            utils.safe_set_action(rig, action)
 
             # shape key actions
             num_expressions = len(actor.expressions)
@@ -1553,11 +1566,11 @@ class LinkService():
 
     def encode_pose_data(self, actors):
         fps = bpy.context.scene.render.fps
-        start_frame = bpy.context.scene.frame_start
-        end_frame = bpy.context.scene.frame_end
+        start_frame = BFA(bpy.context.scene.frame_start)
+        end_frame = BFA(bpy.context.scene.frame_end)
         start_time = start_frame / fps
         end_time = end_frame / fps
-        frame = bpy.context.scene.frame_current
+        frame = BFA(bpy.context.scene.frame_current)
         time = frame / fps
         actors_data = []
         data = {
@@ -1582,7 +1595,7 @@ class LinkService():
     def encode_pose_frame_data(self, actors: list):
         pose_bone: bpy.types.PoseBone
         data = bytearray()
-        data += struct.pack("!II", len(actors), bpy.context.scene.frame_current)
+        data += struct.pack("!II", len(actors), BFA(bpy.context.scene.frame_current))
         actor: LinkActor
         for actor in actors:
             data += pack_string(actor.name)
@@ -1646,8 +1659,8 @@ class LinkService():
 
     def encode_sequence_data(self, actors):
         fps = bpy.context.scene.render.fps
-        start_frame = bpy.context.scene.frame_start
-        end_frame = bpy.context.scene.frame_end
+        start_frame = BFA(bpy.context.scene.frame_start)
+        end_frame = BFA(bpy.context.scene.frame_end)
         start_time = start_frame / fps
         end_time = end_frame / fps
         actors_data = []
@@ -1748,8 +1761,20 @@ class LinkService():
         LINK_DATA.sequence_actors = None
         LINK_SERVICE.send(OpCodes.SEQUENCE_END)
 
+    def send_sequence_ack(self, frame):
+        global LINK_SERVICE
+        global LINK_DATA
+        # encode sequence ack
+        data = encode_from_json({
+            "frame": BFA(frame),
+            "rate": LINK_SERVICE.loop_rate,
+        })
+        # send sequence ack
+        LINK_SERVICE.send(OpCodes.SEQUENCE_ACK, data)
+
     def decode_pose_frame_header(self, pose_data):
         count, frame = struct.unpack_from("!II", pose_data)
+        frame = RLFA(frame)
         LINK_DATA.sequence_current_frame = frame
         return frame
 
@@ -1759,6 +1784,7 @@ class LinkService():
 
         offset = 0
         count, frame = struct.unpack_from("!II", pose_data, offset)
+        frame = RLFA(frame)
         ensure_current_frame(frame)
         LINK_DATA.sequence_current_frame = frame
         offset = 8
@@ -1802,7 +1828,6 @@ class LinkService():
                 if actor_ready:
                     actors.append(actor)
                     datalink_rig = make_datalink_import_rig(actor)
-                    utils.log_error(f"Actor ready!: {name}/ {link_id}")
                 else:
                     utils.log_error(f"Actor not ready: {name}/ {link_id}")
             else:
@@ -2121,9 +2146,9 @@ class LinkService():
     def send_frame_sync(self):
         update_link_status(f"Sending Frame Sync")
         fps = bpy.context.scene.render.fps
-        start_frame = bpy.context.scene.frame_start
-        end_frame = bpy.context.scene.frame_end
-        current_frame = bpy.context.scene.frame_current
+        start_frame = BFA(bpy.context.scene.frame_start)
+        end_frame = BFA(bpy.context.scene.frame_end)
+        current_frame = BFA(bpy.context.scene.frame_current)
         start_time = start_frame / fps
         end_time = end_frame / fps
         current_time = current_frame / fps
@@ -2144,9 +2169,9 @@ class LinkService():
         start_frame = frame_data["start_frame"]
         end_frame = frame_data["end_frame"]
         current_frame = frame_data["current_frame"]
-        bpy.context.scene.frame_start = start_frame
-        bpy.context.scene.frame_end = end_frame
-        bpy.context.scene.frame_current = current_frame
+        bpy.context.scene.frame_start = RLFA(start_frame)
+        bpy.context.scene.frame_end = RLFA(end_frame)
+        bpy.context.scene.frame_current = RLFA(current_frame)
 
 
     # Character Pose
@@ -2208,9 +2233,9 @@ class LinkService():
 
         # decode pose data
         json_data = decode_to_json(data)
-        start_frame = json_data["start_frame"]
-        end_frame = json_data["end_frame"]
-        frame = json_data["frame"]
+        start_frame = RLFA(json_data["start_frame"])
+        end_frame = RLFA(json_data["end_frame"])
+        frame = RLFA(json_data["frame"])
         LINK_DATA.sequence_start_frame = frame
         LINK_DATA.sequence_end_frame = frame
         LINK_DATA.sequence_current_frame = frame
@@ -2262,6 +2287,9 @@ class LinkService():
                     write_sequence_actions(actor)
                     pass
 
+                rig = actor.get_armature()
+                rigutils.hide_pivot_bones(rig)
+
         # finish
         LINK_DATA.sequence_actors = None
         bpy.context.scene.frame_current = frame
@@ -2272,8 +2300,8 @@ class LinkService():
 
         # decode sequence data
         json_data = decode_to_json(data)
-        start_frame = json_data["start_frame"]
-        end_frame = json_data["end_frame"]
+        start_frame = RLFA(json_data["start_frame"])
+        end_frame = RLFA(json_data["end_frame"])
         LINK_DATA.sequence_start_frame = start_frame
         LINK_DATA.sequence_end_frame = end_frame
         LINK_DATA.sequence_current_frame = start_frame
@@ -2320,21 +2348,11 @@ class LinkService():
         rigs = self.select_actor_rigs(actors)
         if rigs:
             for actor in actors:
-                store_bone_cache_keyframes(actor, frame)
+                if actor.ready():
+                    store_bone_cache_keyframes(actor, frame)
 
         # send sequence frame ack
         self.send_sequence_ack(frame)
-
-    def send_sequence_ack(self, frame):
-        global LINK_SERVICE
-        global LINK_DATA
-        # encode sequence ack
-        data = encode_from_json({
-            "frame": frame,
-            "rate": LINK_SERVICE.loop_rate,
-        })
-        # send sequence ack
-        LINK_SERVICE.send(OpCodes.SEQUENCE_ACK, data)
 
     def receive_sequence_end(self, data):
         global LINK_SERVICE
@@ -2362,6 +2380,8 @@ class LinkService():
         for actor in actors:
             remove_datalink_import_rig(actor)
             write_sequence_actions(actor)
+            rig = actor.get_armature()
+            rigutils.hide_pivot_bones(rig)
 
         # stop sequence
         LINK_SERVICE.stop_sequence()
@@ -2376,7 +2396,7 @@ class LinkService():
         global LINK_DATA
 
         json_data = decode_to_json(data)
-        ack_frame = json_data["frame"]
+        ack_frame = RLFA(json_data["frame"])
         server_rate = json_data["rate"]
         delta_frames = LINK_DATA.sequence_current_frame - ack_frame
         if link_props.match_client_rate:
@@ -2470,6 +2490,7 @@ class LinkService():
 
     def replace_actor_motion(self, actor: LinkActor, motion_rig):
         props = bpy.context.scene.CC3ImportProps
+        link_props = bpy.context.scene.CCICLinkProps
 
         if actor and motion_rig:
             motion_rig_action = utils.safe_get_action(motion_rig)
@@ -2490,20 +2511,38 @@ class LinkService():
             actor_objects = actor.get_mesh_objects()
             actor_rig = actor.get_armature()
             actor_rig_action = utils.safe_get_action(actor_rig)
-            actor_mesh_actions = [ utils.safe_get_action(o) for o in actor_objects ]
-            # if it's a prop copy the rest pose: props have no bind pose so the rest pose
-            # is the first frame of the animation, which changes with every new animation import...
-            if actor.get_type() == "PROP":
-                rigutils.copy_rest_pose(motion_rig, actor_rig)
-            # replace actor actions
+            remove_actions = []
             if actor_rig:
-                chr_cache = actor.get_chr_cache()
-                if chr_cache.rigified:
-                    rigging.adv_bake_retarget_to_rigify(None, chr_cache, rig_override=motion_rig, action_override=motion_rig_action)
+                if actor.get_type() == "PROP":
+                    # if it's a prop retarget the animation (or copy the rest pose):
+                    #    props have no bind pose so the rest pose is the first frame of
+                    #    the animation, which changes with every new animation import...
+                    if link_props.retarget_prop_actions:
+                        action = get_datalink_rig_action(actor_rig)
+                        rigutils.bake_rig_action_from_source(motion_rig, actor_rig)
+                        remove_actions.append(motion_rig_action)
+                        if action != actor_rig_action:
+                            remove_actions.append(actor_rig_action)
+                    else:
+                        rigutils.copy_rest_pose(motion_rig, actor_rig)
+                        utils.safe_set_action(actor_rig, motion_rig_action)
+                        remove_actions.append(actor_rig_action)
                 else:
-                    utils.safe_set_action(actor_rig, motion_rig_action)
+                    chr_cache = actor.get_chr_cache()
+                    if chr_cache.rigified:
+                        rigging.adv_bake_retarget_to_rigify(None, chr_cache, rig_override=motion_rig, action_override=motion_rig_action)
+                        remove_actions.append(actor_rig_action)
+                        remove_actions.append(motion_rig_action)
+                    else:
+                        utils.safe_set_action(actor_rig, motion_rig_action)
+                        remove_actions.append(actor_rig_action)
+                rigutils.hide_pivot_bones(actor_rig)
             for obj in actor_objects:
                 if utils.object_has_shape_keys(obj):
+                    # remove old action
+                    old_action = utils.safe_get_action(obj)
+                    remove_actions.append(old_action)
+                    # replace with new action
                     if obj.name.startswith("CC_Base_Tongue") and tongue_action:
                         utils.safe_set_action(obj.data.shape_keys, tongue_action)
                     elif obj.name.startswith("CC_Base_Body") and body_action:
@@ -2520,11 +2559,9 @@ class LinkService():
             if motion_rig:
                 utils.delete_armature_object(motion_rig)
             # remove old actions
-            for old_action in actor_mesh_actions:
+            for old_action in remove_actions:
                 if old_action:
                     bpy.data.actions.remove(old_action)
-            if actor_rig_action:
-                bpy.data.actions.remove(actor_rig_action)
 
     def receive_actor_update(self, data):
         global LINK_DATA

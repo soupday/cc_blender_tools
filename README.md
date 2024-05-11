@@ -27,7 +27,7 @@ Links
 ### To Remove
 - From the menu: **Edit**->**Preferences** then select **Add-ons**
 - In the search box search **All** add-ons for **"CC/iC Blender Tools"**
-- Deactivate the add-on by unticking the checbox next to **Edit**->**Preferences** then select **Add-ons**.
+- Deactivate the add-on by unticking the checkbox next to **Edit**->**Preferences** then select **Add-ons**.
 - Then click the **Remove** button.
 ### To Update
 - Remove the current version of the add-on by following the remove instructions above.
@@ -38,9 +38,9 @@ Links
 ### 2.0.8
 - Fix to Update Unity Project being greyed out after saving as Blend file.
 - Datalink:
-- Added custom prop rig control bones when sending through datalink.
-- Added Receiving prop posing and animation live sequence.
-- Added Receive Motion (direct motion import to character and props through Datalink).
+    - Added custom prop rig control bones when sending through datalink.
+    - Added Receiving prop posing and animation live sequence.
+    - Added Receive Motion (direct motion import to character and props through Datalink).
 
 ### 2.0.7
 - Attempts to restore datalink when reloading linked blend file.

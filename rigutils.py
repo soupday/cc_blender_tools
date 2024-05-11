@@ -355,6 +355,27 @@ def apply_as_rest_pose(rig):
     utils.object_mode_to(rig)
 
 
+def constrain_pose_rigs(src_rig, dst_rig):
+    # constrain the destination rig rest pose to the source rig pose
+    constraints = {}
+    if select_rig(src_rig):
+        src_bone: bpy.types.PoseBone
+        dst_bone: bpy.types.PoseBone
+        for src_bone in src_rig.pose.bones:
+            if src_bone.name in dst_rig.pose.bones:
+                dst_bone = dst_rig.pose.bones[src_bone.name]
+                con = bones.add_copy_transforms_constraint(src_rig, dst_rig, src_bone.name, dst_bone.name)
+                constraints[dst_bone] = con
+    return constraints
+
+
+def unconstrain_pose_rigs(constraints):
+    # remove the constraints
+    for dst_bone in constraints:
+        con = constraints[dst_bone]
+        dst_bone.constraints.remove(con)
+
+
 def copy_rest_pose(src_rig, dst_rig):
     TS = utils.store_object_transform(src_rig)
     TD = utils.store_object_transform(dst_rig)
@@ -370,23 +391,13 @@ def copy_rest_pose(src_rig, dst_rig):
     bones.clear_pose(dst_rig)
 
     # constrain the destination rig rest pose to the source rig pose
-    constraints = {}
-    if select_rig(src_rig):
-        src_bone: bpy.types.PoseBone
-        dst_bone: bpy.types.PoseBone
-        for src_bone in src_rig.pose.bones:
-            if src_bone.name in dst_rig.pose.bones:
-                dst_bone = dst_rig.pose.bones[src_bone.name]
-                con = bones.add_copy_transforms_constraint(src_rig, dst_rig, src_bone.name, dst_bone.name)
-                constraints[dst_bone] = con
+    constraints = constrain_pose_rigs(src_rig, dst_rig)
 
     # apply the destination pose as rest pose
     apply_as_rest_pose(dst_rig)
 
     # remove the constraints
-    for dst_bone in constraints:
-        con = constraints[dst_bone]
-        dst_bone.constraints.remove(con)
+    unconstrain_pose_rigs(constraints)
 
     utils.restore_object_transform(src_rig, TS)
     utils.restore_object_transform(dst_rig, TD)
@@ -394,7 +405,88 @@ def copy_rest_pose(src_rig, dst_rig):
     utils.safe_set_action(dst_rig, dst_action)
 
 
+def bake_rig_action(src_rig, dst_rig):
+    src_action: bpy.types.Action = utils.safe_get_action(src_rig)
+    dst_action: bpy.types.Action = utils.safe_get_action(dst_rig)
+    baked_action = None
+
+    if utils.try_select_object(dst_rig, True) and utils.set_active_object(dst_rig):
+        utils.log_info(f"Baking action: {src_action.name} to {dst_rig.name}")
+        # frame range
+        if src_action:
+            start_frame = int(src_action.frame_range[0])
+            end_frame = int(src_action.frame_range[1])
+        else:
+            start_frame = int(bpy.context.scene.frame_start)
+            end_frame = int(bpy.context.scene.frame_end)
+
+        # limit view layer to dst rig (bakes faster)
+        tmp_collection, layer_collections, to_hide = utils.limit_view_layer_to_collection("TMP_BAKE", dst_rig)
+
+        utils.set_active_object(dst_rig)
+        utils.set_mode("POSE")
+
+        # bake
+        bpy.ops.nla.bake(frame_start=start_frame,
+                         frame_end=end_frame,
+                         only_selected=True,
+                         visual_keying=True,
+                         use_current_action=True,
+                         clear_constraints=False,
+                         clean_curves=False,
+                         bake_types={'POSE'})
+
+        # armature action
+        baked_action = utils.safe_get_action(dst_rig)
+
+        utils.set_mode("OBJECT")
+
+        # restore view layers
+        utils.restore_limited_view_layers(tmp_collection, layer_collections, to_hide)
+
+    # return the baked action
+    return baked_action
+
+
+def bake_rig_action_from_source(src_rig, dst_rig):
+    temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", src_rig, dst_rig)
+
+    rig_settings = bones.store_armature_settings(dst_rig)
+
+    # constrain the destination rig rest pose to the source rig pose
+    constraints = constrain_pose_rigs(src_rig, dst_rig)
+
+    if select_rig(dst_rig):
+        bones.make_bones_visible(dst_rig)
+        bone : bpy.types.Bone
+        for bone in dst_rig.data.bones:
+            bone.select = True
+
+        baked_action = bake_rig_action(src_rig, dst_rig)
+
+    # remove contraints
+    unconstrain_pose_rigs(constraints)
+
+    bones.restore_armature_settings(dst_rig, rig_settings)
+
+    utils.safe_set_action(dst_rig, baked_action)
+
+    utils.restore_visible_in_scene(temp_collection)
+
+
+def hide_pivot_bones(rig):
+    if rig and select_rig(rig):
+        pose_bone: bpy.types.PoseBone
+        for pose_bone in rig.pose.bones:
+            bone = pose_bone.bone
+            if "CC_Base_Pivot" in pose_bone.name:
+                bone.select = False
+                bone.hide = True
+
+
 def custom_prop_rig(rig):
+    if not rig:
+        return
     if is_skinned_rig(rig):
         rig.data.display_type = "STICK"
         return
@@ -419,6 +511,7 @@ def custom_prop_rig(rig):
                     break
             if pivot_bone:
                 pose_bone.custom_shape = wgt_pivot
+                bone.hide = True
             elif mesh_bone:
                 pose_bone.custom_shape = wgt_mesh
             else:
