@@ -1499,7 +1499,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if (self.generation == "G3" or
             self.generation == "G3Plus" or
             self.generation == "NonStandardG3" or
-            self.generation == "ActorBuild"):
+            self.generation == "ActorBuild" or
+            self.generation == "AccuRig"):
             return True
         elif self.generation == "GameBase":
             return True
@@ -1510,7 +1511,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if (self.generation == "G3" or
             self.generation == "G3Plus" or
             self.generation == "NonStandardG3" or
-            self.generation == "ActorBuild"):
+            self.generation == "ActorBuild" or
+            self.generation == "AccuRig"):
             return True
         elif self.is_actor_core():
             return True

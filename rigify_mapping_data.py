@@ -52,6 +52,7 @@ def get_mapping_for_generation(generation):
     elif (generation == "ActorCore" or
           generation == "ActorScan" or
           generation == "ActorBuild" or
+          generation == "AccuRig" or
           generation == "G3" or
           generation == "G3Plus" or
           generation == "NonStandardG3"):

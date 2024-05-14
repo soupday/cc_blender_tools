@@ -1754,7 +1754,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         #row.enabled = chr_cache is not None
 
                     else:
-                        wrapped_text_box(layout, "This character can not be rigged.", width)
+                        wrapped_text_box(layout, "This character cannot be rigged.", width)
 
                 if chr_cache.rigified:
 
