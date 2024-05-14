@@ -468,6 +468,21 @@ def remap_action_names(actions, objects, source_name, name):
     return armature_actions, shapekey_actions
 
 
+def process_root_bones(arm, json_data, name):
+    root_bones = jsonutils.get_json(json_data, f"{name}/Root Bones")
+    if root_bones:
+        print(root_bones)
+        for root_def in root_bones:
+            name = root_def["Name"]
+            type = root_def["Type"]
+            sub_link_id = root_def["Link_ID"]
+            print(f"{name} {type} {sub_link_id}")
+            if name in arm.pose.bones:
+                pose_bone = arm.pose.bones[name]
+                pose_bone["root_id"] = sub_link_id
+                pose_bone["root_type"] = type
+
+
 def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list,
                       actions, json_data, report, link_id):
     props = bpy.context.scene.CC3ImportProps
@@ -538,6 +553,9 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             if link_id:
                 chr_cache.link_id = link_id
 
+            # root bones
+            process_root_bones(arm, json_data, name)
+
             # determine the main texture dir
             if os.path.exists(chr_cache.get_tex_dir()):
                 chr_cache.import_embedded = False
@@ -601,7 +619,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
             utils.log_recess()
 
-        # any none character aramtures should be scenes or props
+        # any none character armatures should be scenes or props
         for i, arm in enumerate(armatures):
 
             character_name = name
@@ -624,6 +642,9 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
                 link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
             if link_id:
                 chr_cache.link_id = link_id
+
+            # root bones
+            process_root_bones(arm, json_data, name)
 
             # determine the main texture dir
             if os.path.exists(chr_cache.get_tex_dir()):

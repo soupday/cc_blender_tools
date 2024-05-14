@@ -133,11 +133,19 @@ def is_target_bone_name(bone_name, target_name):
         return True
     if cmp_rl_bone_names(target_name, bone_name):
         return True
-    target_name = target_name.replace(' ', '_')
+    target_name = rl_export_bone_name(target_name)
     if target_name == bone_name:
         return True
     if cmp_rl_bone_names(target_name, bone_name):
         return True
+
+
+def rl_export_bone_name(bone_name):
+    bone_name = bone_name.replace(' ', '_')
+    bone_name = bone_name.replace('(', '_')
+    bone_name = bone_name.replace(')', '_')
+    bone_name = bone_name.replace('&', '_')
+    return bone_name
 
 
 def find_target_bone_name(rig, rl_bone_name, bone_mapping=None):
@@ -153,10 +161,7 @@ def find_target_bone_name(rig, rl_bone_name, bone_mapping=None):
     for pose_bone in rig.pose.bones:
         if cmp_rl_bone_names(target_bone_name, pose_bone.name):
             return pose_bone.name
-    target_bone_name = target_bone_name.replace(' ', '_')
-    target_bone_name = target_bone_name.replace('(', '_')
-    target_bone_name = target_bone_name.replace(')', '_')
-    target_bone_name = target_bone_name.replace('&', '_')
+    target_bone_name = rl_export_bone_name(target_bone_name)
     for pose_bone in rig.pose.bones:
         if cmp_rl_bone_names(target_bone_name, pose_bone.name):
             return pose_bone.name
@@ -775,15 +780,17 @@ CUSTOM_COLORS = {
     "ROOT": (0.6901960968971252, 0.46666669845581055, 0.6784313917160034),
     "DETAIL": (0.9843137860298157, 0.5372549295425415, 0.33725491166114807),
     "DEFAULT": (0.3764706254005432, 0.7803922295570374, 0.20784315466880798),
-    "PIVOT": (0.2196078598499298, 0.49803924560546875, 0.7843137979507446),
+    "SKIN": (0.2196078598499298, 0.49803924560546875, 0.7843137979507446),
+    "PIVOT": (0.9803922176361084, 0.9019608497619629, 0.2392157018184662),
     "MESH": (0.9803922176361084, 0.9019608497619629, 0.2392157018184662),
 }
 
 def set_bone_color(bone, color_code):
-    bone.color.palette = "CUSTOM"
-    bone.color.custom.normal = CUSTOM_COLORS[color_code]
-    bone.color.custom.active = CUSTOM_COLORS["Active"]
-    bone.color.custom.select = CUSTOM_COLORS["Select"]
+    if utils.B400():
+        bone.color.palette = "CUSTOM"
+        bone.color.custom.normal = CUSTOM_COLORS[color_code]
+        bone.color.custom.active = CUSTOM_COLORS["Active"]
+        bone.color.custom.select = CUSTOM_COLORS["Select"]
 
 
 def set_bone_collection_visibility(rig, collection, layer, visible, only=False):
@@ -991,6 +998,43 @@ def make_sphere_widget(widget_name, size):
     return wgt
 
 
+def make_circle_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                        rotation=[0,0,0], location=[0,0,0])
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
+def make_root_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                        rotation=[0,0,0], location=[0,0,0])
+        wgt1 = utils.get_active_object()
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size * 0.95,
+                                        rotation=[0,0,0], location=[0,0,0])
+        wgt2 = utils.get_active_object()
+        mesh = bpy.data.meshes.new(widget_name)
+        mesh.from_pydata([(-size, 0, 0), (size, 0, 0), (0, -size, 0), (0, size, 0)],
+                            [(0, 1), (2,3)],
+                            [])
+        mesh.update()
+        wgt3 = bpy.data.objects.new(widget_name, mesh)
+        wgt3.location = [0,0,0]
+        bpy.context.collection.objects.link(wgt3)
+        utils.try_select_objects([wgt1, wgt2, wgt3], True)
+        utils.set_active_object(wgt1)
+        bpy.ops.object.join()
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
 def make_axes_widget(widget_name, size):
     if widget_name in bpy.data.objects:
         wgt = bpy.data.objects[widget_name]
@@ -1013,6 +1057,30 @@ def make_spindle_widget(widget_name, size):
     else:
         bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
                                             rotation=[1.570796,0,0], location=[0,size,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt1 = utils.get_active_object()
+        mesh = bpy.data.meshes.new(widget_name)
+        mesh.from_pydata([(0, 0, 0), (0, 1, 0)],
+                            [(0, 1)],
+                            [])
+        mesh.update()
+        wgt2 = bpy.data.objects.new(widget_name, mesh)
+        wgt2.location = [0,0,0]
+        bpy.context.collection.objects.link(wgt2)
+        utils.try_select_objects([wgt1, wgt2], True)
+        utils.set_active_object(wgt1)
+        bpy.ops.object.join()
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
+def make_limb_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size*0.25,
+                                            rotation=[1.570796,0,0], location=[0,size*0.5,0])
         bpy.ops.object.transform_apply(rotation=True)
         wgt1 = utils.get_active_object()
         mesh = bpy.data.meshes.new(widget_name)

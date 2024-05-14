@@ -474,57 +474,277 @@ def bake_rig_action_from_source(src_rig, dst_rig):
     utils.restore_visible_in_scene(temp_collection)
 
 
-def hide_pivot_bones(rig):
-    if rig and select_rig(rig):
-        pose_bone: bpy.types.PoseBone
+def update_prop_rig(rig):
+    link_props = bpy.context.scene.CCICLinkProps
+
+    if not rig: return
+
+    skin_bones = set()
+    rigid_bones = set()
+    mesh_bones = set()
+    root_bones = set()
+    skinned_root_bones = set()
+
+    root_bones.add(rig.data.bones[0])
+    USE_JSON_BONE_DATA = True
+
+    meshes = utils.get_child_objects(rig)
+    for obj in meshes:
+        if (obj.parent_type == "BONE" and obj.parent_bone in rig.data.bones):
+            bone = rig.data.bones[obj.parent_bone]
+            if (bone.parent and bone.parent.parent and
+                "CC_Base_Pivot" in bone.parent.name):
+                mesh_bones.add(bone.name)
+                rigid_bones.add(bone.parent.parent.name)
+            elif (bone.parent and
+                "CC_Base_Pivot" in bone.name):
+                rigid_bones.add(bone.parent.name)
+            elif bone.parent:
+                rigid_bones.add(bone.parent.name)
+            else:
+                rigid_bones.add(bone.name)
+
+        elif (obj.parent_type == "OBJECT" and obj.vertex_groups and len(obj.vertex_groups) == 1 and
+              utils.strip_name(obj.vertex_groups[0].name) == bones.rl_export_bone_name(utils.strip_name(obj.name))):
+            bone = rig.data.bones[obj.vertex_groups[0].name]
+            if (bone.parent and bone.parent.parent and
+                "CC_Base_Pivot" in bone.parent.name):
+                mesh_bones.add(bone.name)
+                rigid_bones.add(bone.parent.parent.name)
+            elif (bone.parent and
+                "CC_Base_Pivot" in bone.name):
+                rigid_bones.add(bone.parent.name)
+            elif bone.parent:
+                rigid_bones.add(bone.parent.name)
+            else:
+                rigid_bones.add(bone.name)
+
+        elif (obj.parent_type == "OBJECT" and obj.vertex_groups and len(obj.vertex_groups) > 0):
+            for vg in obj.vertex_groups:
+                skin_bones.add(vg.name)
+            if USE_JSON_BONE_DATA:
+                first_name = obj.vertex_groups[0].name
+                if first_name in rig.pose.bones:
+                    pose_bone = rig.pose.bones[first_name]
+                    while pose_bone.parent:
+                        if "root_id" and "root_type" in pose_bone:
+                            skinned_root_bones.add(pose_bone.name)
+                            break
+                        pose_bone = pose_bone.parent
+
+    if USE_JSON_BONE_DATA:
         for pose_bone in rig.pose.bones:
-            bone = pose_bone.bone
-            if "CC_Base_Pivot" in pose_bone.name:
-                bone.select = False
-                bone.hide = True
+            if "root_id" in pose_bone and "root_type" in pose_bone:
+                root_bones.add(pose_bone.name)
+
+    pose_bone: bpy.types.PoseBone
+    for pose_bone in rig.pose.bones:
+        bone = pose_bone.bone
+        pivot_bone = "CC_Base_Pivot" in pose_bone.name
+        skin_bone = bone.name in skin_bones
+        rigid_bone = bone.name in rigid_bones
+        mesh_bone = bone.name in mesh_bones
+        root_bone = bone.name in root_bones
+        dummy_bone = not (skin_bone or rigid_bone or mesh_bone) and len(bone.children) == 0
+        node_bone = not (skin_bone or rigid_bone or mesh_bone) and len(bone.children) > 0
+        if root_bone:
+            bone.hide = False
+        elif pivot_bone:
+            bone.hide = True
+        elif skin_bone:
+            bone.hide = link_props.hide_prop_bones
+        elif mesh_bone:
+            bone.hide = True
+        elif rigid_bone:
+            bone.hide = False
+        elif dummy_bone:
+            bone.hide = True
+        elif node_bone:
+            bone.hide = link_props.hide_prop_bones
+
+"""
+import bpy
+
+b = bpy.context.active_bone
+c = b.children[0]
+print(f"{b.head_local} {c.head_local} {b.length}")
+hi = b.matrix_local.inverted() @ b.head_local
+ti = b.matrix_local.inverted() @ b.tail_local
+db = (ti - hi)/b.length
+print(db)
+
+
+ci = b.matrix_local.inverted() @ c.head_local
+dc = (ci - hi)/b.length
+print(dc)
+print(db.dot(dc))
+print(abs(db.length - dc.length))
+q = db.rotation_difference(dc)
+print(q)
+print(q.to_euler())
+"""
+
+def get_bone_orientation(rig, bone_set: set):
+    B: bpy.types.Bone
+    C: bpy.types.Bone
+    for bone_name in bone_set:
+        B = rig.data.bones[bone_name]
+        if B.children:
+            for C in B.children:
+                if B.length > 0.01:
+                    # convert heads and tail to B local space
+                    bhl = B.matrix_local.inverted() @ B.head_local
+                    btl = B.matrix_local.inverted() @ B.tail_local
+                    chl = B.matrix_local.inverted() @ C.head_local
+                    # get bone axis in B local space
+                    db: Vector = (btl - bhl) / B.length
+                    # get direction to child in B local space
+                    dc: Vector = (chl - bhl) / B.length
+                    # if the distance to the child is ~= the same as the bone length
+                    # (this should mean a chain of bones)
+                    if abs(db.length - dc.length) < 0.01:
+                        # get the rotation difference between the bone axis and the direction to the child
+                        q = db.rotation_difference(dc)
+                        euler = q.to_euler()
+                        return euler
+    return Euler((0,0,0), "XYZ")
 
 
 def custom_prop_rig(rig):
-    if not rig:
-        return
-    if is_skinned_rig(rig):
-        rig.data.display_type = "STICK"
-        return
+    link_props = bpy.context.scene.CCICLinkProps
+
+    if not rig: return
     wgt_pivot = bones.make_axes_widget("WGT-datalink_pivot", 1)
     wgt_mesh = bones.make_cone_widget("WGT-datalink_mesh", 1)
     wgt_default = bones.make_sphere_widget("WGT-datalink_default", 1)
+    wgt_root = bones.make_root_widget("WGT-datalink_root", 2.5)
+    wgt_skin = bones.make_limb_widget("WGT-datalink_skin", 1)
     bones.add_widget_to_collection(wgt_pivot, "WGTS_Datalink")
     bones.add_widget_to_collection(wgt_mesh, "WGTS_Datalink")
     bones.add_widget_to_collection(wgt_default, "WGTS_Datalink")
-    rig.show_in_front = True
+    bones.add_widget_to_collection(wgt_root, "WGTS_Datalink")
+    bones.add_widget_to_collection(wgt_skin, "WGTS_Datalink")
+    rig.show_in_front = True #not is_skinned_rig(rig)
+    rig.data.display_type = 'WIRE'
+
+    skin_bones = set()
+    rigid_bones = set()
+    mesh_bones = set()
+    root_bones = set()
+    skinned_root_bones = set()
+
+    root_bones.add(rig.data.bones[0])
+    USE_JSON_BONE_DATA = True
 
     meshes = utils.get_child_objects(rig)
+    for obj in meshes:
+        if (obj.parent_type == "BONE" and obj.parent_bone in rig.data.bones):
+            bone = rig.data.bones[obj.parent_bone]
+            if (bone.parent and bone.parent.parent and
+                "CC_Base_Pivot" in bone.parent.name):
+                mesh_bones.add(bone.name)
+                rigid_bones.add(bone.parent.parent.name)
+            elif (bone.parent and
+                "CC_Base_Pivot" in bone.name):
+                rigid_bones.add(bone.parent.name)
+            elif bone.parent:
+                rigid_bones.add(bone.parent.name)
+            else:
+                rigid_bones.add(bone.name)
+
+        elif (obj.parent_type == "OBJECT" and obj.vertex_groups and len(obj.vertex_groups) == 1 and
+              utils.strip_name(obj.vertex_groups[0].name) == bones.rl_export_bone_name(utils.strip_name(obj.name))):
+            bone = rig.data.bones[obj.vertex_groups[0].name]
+            if (bone.parent and bone.parent.parent and
+                "CC_Base_Pivot" in bone.parent.name):
+                mesh_bones.add(bone.name)
+                rigid_bones.add(bone.parent.parent.name)
+            elif (bone.parent and
+                "CC_Base_Pivot" in bone.name):
+                rigid_bones.add(bone.parent.name)
+            elif bone.parent:
+                rigid_bones.add(bone.parent.name)
+            else:
+                rigid_bones.add(bone.name)
+
+        elif (obj.parent_type == "OBJECT" and obj.vertex_groups and len(obj.vertex_groups) > 0):
+            for vg in obj.vertex_groups:
+                skin_bones.add(vg.name)
+            if USE_JSON_BONE_DATA:
+                first_name = obj.vertex_groups[0].name
+                if first_name in rig.pose.bones:
+                    pose_bone = rig.pose.bones[first_name]
+                    while pose_bone.parent:
+                        if "root_id" and "root_type" in pose_bone:
+                            skinned_root_bones.add(pose_bone.name)
+                            break
+                        pose_bone = pose_bone.parent
+
+    skin_bone_orientation = get_bone_orientation(rig, skin_bones)
+
+    if USE_JSON_BONE_DATA:
+        for pose_bone in rig.pose.bones:
+            if "root_id" in pose_bone and "root_type" in pose_bone:
+                root_bones.add(pose_bone.name)
+
     if select_rig(rig):
         pose_bone: bpy.types.PoseBone
         for pose_bone in rig.pose.bones:
             bone = pose_bone.bone
-            mesh_bone = False
             pivot_bone = "CC_Base_Pivot" in pose_bone.name
-            for mesh in meshes:
-                if mesh.parent == rig and mesh.parent_type == "BONE" and mesh.parent_bone == bone.name:
-                    mesh_bone = True
-                    break
-            if pivot_bone:
+            skin_bone = bone.name in skin_bones
+            rigid_bone = bone.name in rigid_bones
+            mesh_bone = bone.name in mesh_bones
+            root_bone = bone.name in root_bones
+            dummy_bone = not (skin_bone or rigid_bone or mesh_bone) and len(bone.children) == 0
+            node_bone = not (skin_bone or rigid_bone or mesh_bone) and len(bone.children) > 0
+            if root_bone:
+                if not pose_bone.parent:
+                    pose_bone.custom_shape = wgt_root
+                    pose_bone.custom_shape_scale_xyz = Vector((20,20,20))
+                else:
+                    pose_bone.custom_shape = wgt_default
+                    pose_bone.custom_shape_scale_xyz = Vector((15,15,15))
+                bone.hide = False
+                pose_bone.use_custom_shape_bone_size = False
+                bones.set_bone_color(pose_bone, "ROOT")
+            elif pivot_bone:
                 pose_bone.custom_shape = wgt_pivot
                 bone.hide = True
+                pose_bone.use_custom_shape_bone_size = False
+                pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+                bones.set_bone_color(pose_bone, "SPECIAL")
+            elif skin_bone:
+                pose_bone.custom_shape = wgt_skin
+                bone.hide = False
+                bone.hide = link_props.hide_prop_bones
+                pose_bone.use_custom_shape_bone_size = True
+                pose_bone.custom_shape_rotation_euler = skin_bone_orientation
+                bones.set_bone_color(pose_bone, "FK")
             elif mesh_bone:
                 pose_bone.custom_shape = wgt_mesh
-            else:
+                bone.hide = True
+                pose_bone.use_custom_shape_bone_size = False
+                pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+                bones.set_bone_color(pose_bone, "SPECIAL")
+            elif rigid_bone:
                 pose_bone.custom_shape = wgt_default
-            pose_bone.use_custom_shape_bone_size = False
-            pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
-            if utils.B400():
-                if pivot_bone:
-                    bones.set_bone_color(pose_bone, "PIVOT")
-                elif mesh_bone:
-                    bones.set_bone_color(pose_bone, "MESH")
-                else:
-                    bones.set_bone_color(pose_bone, "DEFAULT")
+                bone.hide = False
+                pose_bone.use_custom_shape_bone_size = False
+                pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+                bones.set_bone_color(pose_bone, "TWEAK")
+            elif dummy_bone:
+                pose_bone.custom_shape = wgt_pivot
+                bone.hide = True
+                pose_bone.use_custom_shape_bone_size = False
+                pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+                bones.set_bone_color(pose_bone, "IK")
+            elif node_bone:
+                pose_bone.custom_shape = wgt_default
+                bone.hide = link_props.hide_prop_bones
+                pose_bone.use_custom_shape_bone_size = False
+                pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+                bones.set_bone_color(pose_bone, "SPECIAL")
 
 
 def de_pivot(chr_cache):

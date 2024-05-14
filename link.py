@@ -2288,7 +2288,7 @@ class LinkService():
                     pass
 
                 rig = actor.get_armature()
-                rigutils.hide_pivot_bones(rig)
+                rigutils.update_prop_rig(rig)
 
         # finish
         LINK_DATA.sequence_actors = None
@@ -2381,7 +2381,7 @@ class LinkService():
             remove_datalink_import_rig(actor)
             write_sequence_actions(actor)
             rig = actor.get_armature()
-            rigutils.hide_pivot_bones(rig)
+            rigutils.update_prop_rig(rig)
 
         # stop sequence
         LINK_SERVICE.stop_sequence()
@@ -2536,7 +2536,7 @@ class LinkService():
                     else:
                         utils.safe_set_action(actor_rig, motion_rig_action)
                         remove_actions.append(actor_rig_action)
-                rigutils.hide_pivot_bones(actor_rig)
+                rigutils.update_prop_rig(actor_rig)
             for obj in actor_objects:
                 if utils.object_has_shape_keys(obj):
                     # remove old action

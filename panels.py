@@ -2864,6 +2864,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2.prop(link_props, "match_client_rate", text="")
             col_1.label(text="Retarget Prop Actions")
             col_2.prop(link_props, "retarget_prop_actions", text="")
+            col_1.label(text="Hide Prop Bones")
+            col_2.prop(link_props, "hide_prop_bones", text="")
 
         if True:
 

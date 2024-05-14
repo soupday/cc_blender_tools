@@ -2545,6 +2545,8 @@ class CCICLinkProps(bpy.types.PropertyGroup):
                         description="As props do not have a default bind pose, each prop animation has a different rest pose " \
                                     "which means the animation must be retargeted to (if checked) or the rest pose must be adjusted to "\
                                     "match the incoming motion (not checked)")
+    hide_prop_bones: bpy.props.BoolProperty(default=True,
+                        description="Hide internal prop bones.")
     remote_app: bpy.props.StringProperty(default="")
     remote_version: bpy.props.StringProperty(default="")
     remote_path: bpy.props.StringProperty(default="")
