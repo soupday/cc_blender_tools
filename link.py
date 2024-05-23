@@ -2042,7 +2042,7 @@ class LinkService():
         colorspace.set_view_settings("Filmic", "High Contrast", 0, 0.75)
         if bpy.context.scene.cycles.transparent_max_bounces < 50:
             bpy.context.scene.cycles.transparent_max_bounces = 50
-        view_space: bpy.types.Area = self.get_view_space()
+        view_space: bpy.types.Area = utils.get_view_space()
         if view_space:
             view_space.shading.type = 'MATERIAL'
             view_space.shading.use_scene_lights = True
@@ -2064,28 +2064,10 @@ class LinkService():
     # Camera
     #
 
-    def get_region_3d(self):
-        space = self.get_view_space()
-        if space:
-            return space, space.region_3d
-        return None, None
-
-    def get_view_space(self):
-        area = self.get_view_area()
-        if area:
-            return area.spaces.active
-        return None
-
-    def get_view_area(self):
-        for area in bpy.context.screen.areas:
-            if area.type == 'VIEW_3D':
-                return area
-        return None
-
     def get_view_camera_data(self):
         view_space: bpy.types.Space
         r3d: bpy.types.RegionView3D
-        view_space, r3d = self.get_region_3d()
+        view_space, r3d = utils.get_region_3d()
         t = r3d.view_location
         r = r3d.view_rotation
         d = r3d.view_distance
@@ -2104,7 +2086,7 @@ class LinkService():
         return data
 
     def get_view_camera_pivot(self):
-        view_space, r3d = self.get_region_3d()
+        view_space, r3d = utils.get_region_3d()
         t = r3d.view_location
         return t
 
@@ -2125,7 +2107,7 @@ class LinkService():
         data = decode_to_json(data)
         camera_data = data["view_camera"]
         pivot = utils.array_to_vector(data["pivot"]) / 100
-        view_space, r3d = self.get_region_3d()
+        view_space, r3d = utils.get_region_3d()
         loc = utils.array_to_vector(camera_data["loc"]) / 100
         rot = utils.array_to_quaternion(camera_data["rot"])
         to_pivot = pivot - loc

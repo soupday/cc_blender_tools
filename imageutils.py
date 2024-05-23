@@ -244,9 +244,10 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
 
     # if there is a mat_json but no texture json, then there is no texture to use
     # (so don't look for one as it could find the wrong one i.e. fbm files with duplicated names)
-    elif mat_json:
-
-        return None
+    #elif mat_json
+    #
+    #    utils.log_warn(f"No {texture_type} json data found!")
+    #    return None
 
     # with no Json data, try to locate the images in the texture folders:
     else:

@@ -77,51 +77,29 @@ def eye_close_update(self, context):
 
 
 def update_property(self, context, prop_name, update_mode = None):
+    props = bpy.context.scene.CC3ImportProps
+
     if vars.block_property_update: return
 
-    props = bpy.context.scene.CC3ImportProps
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
 
     if chr_cache:
 
-        # get the context (currently active) material
         context_obj = context.object
         context_mat = utils.get_context_material(context)
         context_mat_cache = chr_cache.get_material_cache(context_mat)
+        linked_materials = get_linked_materials(chr_cache, context_mat, props.update_mode)
 
-        if context_obj and context_mat and context_mat_cache:
+        for mat_cache in linked_materials:
+            if mat_cache.material == context_mat:
+                update_shader_property(context_obj, mat_cache, prop_name)
+            else:
+                set_linked_property(prop_name, context_mat_cache, mat_cache)
+                update_shader_property(context_obj, mat_cache, prop_name)
 
-            if update_mode is None:
-                update_mode = props.update_mode
-
-            all_materials_cache = chr_cache.get_all_materials_cache()
-            linked_types = get_linked_material_types(context_mat_cache)
-            paired_types = get_paired_material_types(context_mat_cache)
-            linked_names = get_linked_material_names(context_mat_cache.get_base_name())
-
-            for mat_cache in all_materials_cache:
-                mat = mat_cache.material
-
-                if mat:
-
-                    if mat == context_mat:
-                        # Always update the currently active material
-                        update_shader_property(context_obj, mat, mat_cache, prop_name)
-
-                    elif mat_cache.material_type in paired_types:
-                        # Update paired materials
-                        set_linked_property(prop_name, context_mat_cache, mat_cache)
-                        update_shader_property(context_obj, mat, mat_cache, prop_name)
-
-                    elif update_mode == "UPDATE_LINKED":
-                        # Update all other linked materials in the imported objects material cache:
-                        if mat_cache.material_type in linked_types or mat_cache.get_base_name() in linked_names:
-                            set_linked_property(prop_name, context_mat_cache, mat_cache)
-                            update_shader_property(context_obj, mat, mat_cache, prop_name)
-
-            # these properties will cause the eye displacement vertex group to change...
-            if prop_name in ["eye_iris_depth_radius", "eye_iris_scale", "eye_iris_radius"]:
-                meshutils.rebuild_eye_vertex_groups(chr_cache)
+        # these properties will cause the eye displacement vertex group to change...
+        if prop_name in ["eye_iris_depth_radius", "eye_iris_scale", "eye_iris_radius"]:
+            meshutils.rebuild_eye_vertex_groups(chr_cache)
 
 
 def update_basic_property(self, context, prop_name, update_mode=None):
@@ -206,11 +184,14 @@ def set_linked_property(prop_name, active_mat_cache, mat_cache):
     vars.block_property_update = False
 
 
-def update_shader_property(obj, mat, mat_cache, prop_name):
+def update_shader_property(obj, mat_cache, prop_name):
     props = bpy.context.scene.CC3ImportProps
 
-    if mat and mat.node_tree and mat_cache:
+    if not mat_cache: return
 
+    mat = mat_cache.material
+
+    if mat and mat.node_tree:
         shader_name = params.get_shader_name(mat_cache)
         bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
         shader_def = params.get_shader_def(shader_name)
@@ -318,24 +299,52 @@ def update_material_setting(mat, mat_cache, prop_name, setting_defs):
                     utils.log_error("update_material_setting(): unable to execute: " + code)
 
 
-def reset_parameters(context = bpy.context):
+def get_linked_materials(chr_cache, context_mat, update_mode):
+    props = bpy.context.scene.CC3ImportProps
+    linked_mats = set()
+    if chr_cache:
+        context_mat_cache = chr_cache.get_material_cache(context_mat)
+        if context_mat and context_mat_cache:
+            linked_mats.add(context_mat_cache)
+            all_materials_cache = chr_cache.get_all_materials_cache()
+            # linked materials are the same material type which need to be updated
+            # at the same time with the same values (but only when updating as linked)
+            linked_types = get_linked_material_types(context_mat_cache)
+            # paired materials are linked materials that must *always* be updated at the same time
+            # regardless of updating linked or not. e.g. Eye_L, Cornea_L
+            paired_types = get_paired_material_types(context_mat_cache)
+            # linked names are linked materials of common default types (pbr/sss) that are usually linked.
+            linked_names = get_linked_material_names(context_mat_cache.get_base_name())
+            all_materials_cache = chr_cache.get_all_materials_cache()
+            for mat_cache in all_materials_cache:
+                mat = mat_cache.material
+                if mat:
+                    if mat_cache.material_type in paired_types:
+                        linked_mats.add(mat_cache)
+                    elif update_mode == "UPDATE_LINKED":
+                        if mat_cache.material_type in linked_types or mat_cache.get_base_name() in linked_names:
+                            linked_mats.add(mat_cache)
+    return [mc for mc in linked_mats]
 
+
+def reset_parameters(context = bpy.context, all=False):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
     chr_json = chr_cache.get_character_json()
 
     if chr_cache:
-
         vars.block_property_update = True
-
-        shaders.init_character_property_defaults(chr_cache, chr_json)
+        if all:
+            shaders.init_character_property_defaults(chr_cache, chr_json)
+        else:
+            context_mat = utils.get_context_material(context)
+            linked_mats = get_linked_materials(chr_cache, context_mat, props.update_mode)
+            if linked_mats:
+                mats = [mat_cache.material for mat_cache in linked_mats]
+                shaders.init_character_property_defaults(chr_cache, chr_json, only=mats)
         basic.init_basic_default(chr_cache)
-
         vars.block_property_update = False
-
         update_all_properties(context)
-
-    return
 
 
 def update_all_properties(context, update_mode = None):
@@ -377,17 +386,17 @@ def update_all_properties(context, update_mode = None):
                                 for tex_def in shader_def["textures"]:
                                     tiling_props = tex_def[5:]
                                     for prop_name in tiling_props:
-                                        update_shader_property(obj, mat, mat_cache, prop_name)
+                                        update_shader_property(obj, mat_cache, prop_name)
 
                             if "modifiers" in shader_def.keys():
                                 for mod_def in shader_def["modifiers"]:
                                     prop_name = mod_def[0]
-                                    update_shader_property(obj, mat, mat_cache, prop_name)
+                                    update_shader_property(obj, mat_cache, prop_name)
 
                             if "settings" in shader_def.keys():
                                 for mat_def in shader_def["settings"]:
                                     prop_name = mat_def[0]
-                                    update_shader_property(obj, mat, mat_cache, prop_name)
+                                    update_shader_property(obj, mat_cache, prop_name)
 
                 if obj_cache.is_eye():
                     meshutils.rebuild_eye_vertex_groups(chr_cache)
@@ -512,7 +521,10 @@ class CC3OperatorProperties(bpy.types.Operator):
     def execute(self, context):
 
         if self.param == "RESET":
-            reset_parameters(context)
+            reset_parameters(context, all=False)
+
+        if self.param == "RESET_ALL":
+            reset_parameters(context, all=True)
 
         return {"FINISHED"}
 
@@ -520,7 +532,7 @@ class CC3OperatorProperties(bpy.types.Operator):
     def description(cls, context, properties):
 
         if properties.param == "RESET":
-            return "Reset parameters to the defaults"
+            return "Reset parameters to the defaults for this material and any linked materials if in linked mode"
         return ""
 
 
@@ -552,6 +564,9 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_mouth_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_mouth_ao"))
     skin_nostril_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_nostril_ao"))
     skin_lips_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_lips_ao"))
+    skin_subsurface_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_subsurface_hue"))
+    skin_subsurface_brightness: bpy.props.FloatProperty(default=1.25, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_brightness"))
+    skin_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_saturation"))
     skin_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"skin_subsurface_falloff"))
@@ -602,7 +617,8 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_head_shader_skin_micro_normal_tiling)
     skin_micro_normal_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_micro_normal_tiling"))
-    skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_height_scale"))
+    skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
+    skin_bump_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_bump_scale"))
     skin_height_delta_scale: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_height_delta_scale"))
 
 class CC3SkinParameters(bpy.types.PropertyGroup):
@@ -616,6 +632,9 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hsv_strength"))
     skin_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao_strength"))
     skin_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"skin_ao_power"))
+    skin_subsurface_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_subsurface_hue"))
+    skin_subsurface_brightness: bpy.props.FloatProperty(default=1.25, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_brightness"))
+    skin_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_saturation"))
     skin_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"skin_subsurface_falloff"))
@@ -653,10 +672,15 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_skin_shader_skin_micro_normal_tiling)
     skin_micro_normal_tiling: bpy.props.FloatProperty(default=25, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_micro_normal_tiling"))
+    skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
+    skin_bump_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_bump_scale"))
 
 
 class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_subsurface_scale"))
+    eye_subsurface_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_subsurface_hue"))
+    eye_subsurface_brightness: bpy.props.FloatProperty(default=1.25, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_subsurface_brightness"))
+    eye_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_subsurface_saturation"))
     eye_subsurface_radius: bpy.props.FloatProperty(default=5.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"eye_subsurface_radius"))
     eye_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_subsurface_falloff"))
@@ -857,6 +881,9 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_anisotropic_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.05, 0.038907, 0.0325, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_anisotropic_color"))
     hair_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_scale"))
+    hair_subsurface_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_subsurface_hue"))
+    hair_subsurface_brightness: bpy.props.FloatProperty(default=1.25, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_brightness"))
+    hair_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_saturation"))
     hair_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_subsurface_falloff"))
     hair_subsurface_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"hair_subsurface_radius"))
@@ -2298,6 +2325,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     unity_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
     rigified_action_list_index: bpy.props.IntProperty(default=-1)
     rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
+
+    #
+    light_filter: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0)
 
     def add_character_cache(self, copy_from=None):
         chr_cache = self.import_cache.add()

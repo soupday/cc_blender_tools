@@ -853,7 +853,10 @@ def store_texture_mapping(image_node, mat_cache, texture_type):
 # link utils
 
 def append_node_group(path, object_name):
-    filename = "_LIB.blend"
+    if utils.B341():
+        filename = "_LIB341.blend"
+    else:
+        filename = "_LIB293.blend"
     datablock = "NodeTree"
     file = os.path.join(path, filename)
     appended_group = None
@@ -887,7 +890,10 @@ def fetch_node_group(name):
 
 
 def append_lib_image(path, object_name):
-    filename = "_LIB.blend"
+    if utils.B341():
+        filename = "_LIB341.blend"
+    else:
+        filename = "_LIB293.blend"
     datablock = "Image"
     file = os.path.join(path, filename)
     appended_image = None

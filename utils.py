@@ -1422,6 +1422,46 @@ def reset_object_transform(obj: bpy.types.Object):
     obj.rotation_axis_angle = [0,0,0,0]
 
 
+def get_region_3d():
+    space = get_view_space()
+    if space:
+        return space, space.region_3d
+    return None, None
+
+
+def get_view_space():
+    area = get_view_area()
+    if area:
+        return area.spaces.active
+    return None
+
+
+def get_view_area():
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            return area
+    return None
+
+
+def align_object_to_view(obj):
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            view_space = area.spaces.active
+            r3d = view_space.region_3d
+            loc = r3d.view_location
+            rot = r3d.view_rotation
+            D = r3d.view_distance
+            v = Vector((0,0,1))
+
+            obj.location = loc + rot @ v
+            if obj.rotation_mode == "XYZ":
+                obj.rotation_euler = rot.to_euler()
+            elif obj.rotation_mode == "QUATERNION":
+                obj.rotation_quaternion = rot.copy()
+
+            return
+
+
 def safe_get_action(obj) -> bpy.types.Action:
     if obj:
         try:
@@ -1522,6 +1562,9 @@ def B330():
 
 def B340():
     return is_blender_version("3.4.0")
+
+def B341():
+    return is_blender_version("3.4.1")
 
 def B400():
     return is_blender_version("4.0.0")

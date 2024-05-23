@@ -690,9 +690,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 col_1 = split.column()
                 col_2 = split.column()
                 col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "cycles_sss_skin_v203", text = "")
+                col_2.prop(prefs, "cycles_sss_skin_v208", text = "")
                 col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "cycles_sss_hair_v203", text = "")
+                col_2.prop(prefs, "cycles_sss_hair_v208", text = "")
                 col_1.label(text = "Teeth SSS")
                 col_2.prop(prefs, "cycles_sss_teeth_v203", text = "")
                 col_1.label(text = "Tongue SSS")
@@ -701,6 +701,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 col_2.prop(prefs, "cycles_sss_eyes_v203", text = "")
                 col_1.label(text = "Default SSS")
                 col_2.prop(prefs, "cycles_sss_default_v203", text = "")
+                col_2.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_CYCLES"
 
         # Build Button
         if chr_cache:
@@ -715,6 +716,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             op.param ="BUILD"
             row = box.row()
             row.prop(props, "build_mode", expand=True)
+            box.row().operator("cc3.setproperties", icon="DECORATE_OVERRIDE", text="Reset All Parameters").param = "RESET_ALL"
             box.row().operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups").param ="REBUILD_NODE_GROUPS"
 
         # Material Setup
@@ -2103,13 +2105,27 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     column = layout.column()
     grid = column.grid_flow(row_major=True, columns=2, align=True)
     grid.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
-    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
+    row = grid.row(align=True)
+    row.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
+    row.operator("cc3.scene", icon="VIEWZOOM", text="").param = "DUMP_SETUP"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Studio").param = "STUDIO"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Courtyard").param = "COURTYARD"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Interior").param = "INTERIOR"
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Authority").param = "AUTHORITY"
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Blur Warm").param = "BLUR_WARM"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Exquisite").param = "EXQUISITE"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Leading Role").param = "LEADING_ROLE"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Neon").param = "NEON"
+
+    column.separator()
+
+    grid = layout.grid_flow(row_major=True, columns=2)
+    grid.operator("cc3.scene", icon="FILTER", text="Filter Lights").param = "FILTER_LIGHTS"
+    grid.prop(props, "light_filter", text=f"")
+    grid.operator("cc3.scene", icon="GIZMO", text="Align to View").param = "ALIGN_WITH_VIEW"
+    grid.operator("cc3.scene", icon="VIEW_CAMERA", text="Add Camera").param = "ADD_CAMERA"
 
     column.separator()
 

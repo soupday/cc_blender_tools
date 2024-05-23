@@ -2265,7 +2265,7 @@ class CC3Export(bpy.types.Operator):
 
         elif self.param == "EXPORT_NON_STANDARD":
 
-            export_non_standard(self, chr_cache, self.filepath, self.include_selected)
+            export_non_standard(self, self.filepath, self.include_selected)
             self.report({'INFO'}, "Export Non-standard Done!")
             self.error_report()
 

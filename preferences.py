@@ -19,6 +19,17 @@ from mathutils import Vector
 
 from . import addon_updater_ops, colorspace, utils, vars
 
+
+def reset_cycles():
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs.cycles_sss_skin_v208 = 1.0
+    prefs.cycles_sss_hair_v208 = 0.25
+    prefs.cycles_sss_teeth_v203 = 1.0
+    prefs.cycles_sss_tongue_v203 = 1.0
+    prefs.cycles_sss_eyes_v203 = 1.0
+    prefs.cycles_sss_default_v203 = 1.0
+
+
 def reset_preferences():
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     prefs.render_target = "EEVEE"
@@ -45,12 +56,6 @@ def reset_preferences():
     prefs.export_texture_size = "2048"
     prefs.export_require_key = True
     prefs.export_revert_names = True
-    prefs.cycles_sss_skin_v203 = 0.5
-    prefs.cycles_sss_hair_v203 = 0.1
-    prefs.cycles_sss_teeth_v203 = 1.0
-    prefs.cycles_sss_tongue_v203 = 1.0
-    prefs.cycles_sss_eyes_v203 = 1.0
-    prefs.cycles_sss_default_v203 = 1.0
     prefs.cycles_ssr_iris_brightness = 2.0
     prefs.import_auto_convert = True
     prefs.import_deduplicate = True
@@ -67,6 +72,7 @@ def reset_preferences():
     prefs.build_armature_edit_modifier = True
     prefs.build_armature_preserve_volume = False
     prefs.physics_weightmap_curve = 5.0
+    reset_cycles()
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -81,6 +87,9 @@ class CC3OperatorPreferences(bpy.types.Operator):
         )
 
     def execute(self, context):
+
+        if self.param == "RESET_CYCLES":
+            reset_cycles()
 
         if self.param == "RESET_PREFS":
             reset_preferences()
@@ -244,13 +253,15 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
     #
-    cycles_sss_skin_v203: bpy.props.FloatProperty(default=0.5)
-    cycles_sss_hair_v203: bpy.props.FloatProperty(default=0.1)
+    cycles_sss_skin_v208: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_hair_v208: bpy.props.FloatProperty(default=0.25)
     cycles_sss_teeth_v203: bpy.props.FloatProperty(default=1.0)
     cycles_sss_tongue_v203: bpy.props.FloatProperty(default=1.0)
     cycles_sss_eyes_v203: bpy.props.FloatProperty(default=1.0)
     cycles_sss_default_v203: bpy.props.FloatProperty(default=1.0)
     # old
+    cycles_sss_skin_v203: bpy.props.FloatProperty(default=0.5)
+    cycles_sss_hair_v203: bpy.props.FloatProperty(default=0.1)
     cycles_sss_skin_v118: bpy.props.FloatProperty(default=0.5)
     cycles_sss_hair_v118: bpy.props.FloatProperty(default=0.1)
     cycles_sss_teeth: bpy.props.FloatProperty(default=1.0)
@@ -362,8 +373,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "eye_displacement_group")
 
         layout.label(text="Cycles Adjustments:")
-        layout.prop(self, "cycles_sss_skin_v203")
-        layout.prop(self, "cycles_sss_hair_v203")
+        layout.prop(self, "cycles_sss_skin_v208")
+        layout.prop(self, "cycles_sss_hair_v208")
         layout.prop(self, "cycles_sss_teeth_v203")
         layout.prop(self, "cycles_sss_tongue_v203")
         layout.prop(self, "cycles_sss_eyes_v203")
