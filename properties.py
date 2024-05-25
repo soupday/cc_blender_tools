@@ -202,14 +202,9 @@ def update_shader_property(obj, mat_cache, prop_name):
                 update_shader_input(shader_node, mat_cache, prop_name, shader_def["inputs"])
 
             if "bsdf" in shader_def.keys():
-                if bsdf_node:
-                    if bsdf_node.type == "GROUP":
-                        bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
-                        for bsdf_node in bsdf_nodes:
-                            update_bsdf_input(bsdf_node, mat_cache, prop_name, shader_def["bsdf"])
-                    else:
-                        update_bsdf_input(bsdf_node, mat_cache, prop_name, shader_def["bsdf"])
-
+                bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
+                for bsdf_node in bsdf_nodes:
+                    update_bsdf_input(bsdf_node, mat_cache, prop_name, shader_def["bsdf"])
 
             if "textures" in shader_def.keys():
                 update_shader_tiling(shader_name, mat, mat_cache, prop_name, shader_def["textures"])
@@ -703,6 +698,8 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.01, max=0.16, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
     eye_iris_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_color"))
+    eye_sclera_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_sclera_color"))
     eye_iris_inner_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_inner_color"))
     eye_iris_cloudy_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -2328,7 +2325,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     #
     light_filter: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
-        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0)
+                                                default=(1.0, 1.0, 1.0, 1.0),
+                                                min = 0.0, max = 1.0)
+    lighting_setup_compositor: bpy.props.BoolProperty(default=False)
+    lighting_setup_camera: bpy.props.BoolProperty(default=False)
 
     def add_character_cache(self, copy_from=None):
         chr_cache = self.import_cache.add()

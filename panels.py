@@ -491,7 +491,7 @@ class ARMATURE_UL_List(bpy.types.UIList):
                     if "_Retarget" not in item_name: # don't list retarget armatures
                         if len(item.data.bones) > 0:
                             for allowed_bone in rigify_mapping_data.ALLOWED_RIG_BONES: # only list armatures of the allowed sources
-                                if allowed_bone in item.data.bones:
+                                if rigutils.bone_name_in_armature_regex(item, allowed_bone):
                                     allowed = True
             if not allowed:
                     filtered[i] &= ~self.bitflag_filter_item
@@ -604,10 +604,13 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 split = box.split(factor=0.4)
                 col_1 = split.column()
                 col_2 = split.column()
-                col_1.label(text="Generation")
+                col_1.label(text="Generation:")
                 col_2.prop(chr_cache, "generation", text="")
-                col_1.label(text="Key File")
-                col_2.prop(chr_cache, "import_has_key", text="")
+                col_1.label(text="Key File:")
+                has_key = "Yes" if chr_cache.get_import_has_key() else "No"
+                col_2.label(text=has_key)
+                col_1.label(text="Render For:")
+                col_2.prop(chr_cache, "render_target", text="")
                 box.prop(chr_cache, "import_file", text="")
                 for obj_cache in chr_cache.object_cache:
                     o = obj_cache.get_object()
@@ -2099,15 +2102,11 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     layout = self.layout
 
-    box = layout.box()
-    box.label(text="Scene Lighting", icon="LIGHT")
+    box = layout.box().label(text="Scene Lighting", icon="LIGHT")
 
-    column = layout.column()
-    grid = column.grid_flow(row_major=True, columns=2, align=True)
+    grid = layout.grid_flow(row_major=True, columns=2, align=True)
     grid.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
-    row = grid.row(align=True)
-    row.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
-    row.operator("cc3.scene", icon="VIEWZOOM", text="").param = "DUMP_SETUP"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Studio").param = "STUDIO"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Courtyard").param = "COURTYARD"
@@ -2119,32 +2118,40 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Leading Role").param = "LEADING_ROLE"
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Neon").param = "NEON"
 
-    column.separator()
+    box = layout.box().label(text="Camera & World", icon="NODE_COMPOSITING")
 
-    grid = layout.grid_flow(row_major=True, columns=2)
-    grid.operator("cc3.scene", icon="FILTER", text="Filter Lights").param = "FILTER_LIGHTS"
+    grid = layout.grid_flow(row_major=True, columns=2, align=True)
+    grid.operator("cc3.scene", text="Camera").param = "SETUP_CAMERA"
+    grid.operator("cc3.scene", text="World").param = "SETUP_WORLD"
+    #grid.prop(props, "lighting_setup_camera", text="Camera", toggle=True)
+    #grid.prop(props, "lighting_setup_compositor", text="Compositor", toggle=True)
+    #grid.operator("cc3.scene", icon="VIEWZOOM", text="").param = "DUMP_SETUP"
+
+    box = layout.box().label(text="Tools", icon="TOOL_SETTINGS")
+
+    grid = layout.grid_flow(row_major=True, columns=2, align=True)
+    grid.operator("cc3.scene", icon="FILTER", text="Filter").param = "FILTER_LIGHTS"
     grid.prop(props, "light_filter", text=f"")
-    grid.operator("cc3.scene", icon="GIZMO", text="Align to View").param = "ALIGN_WITH_VIEW"
-    grid.operator("cc3.scene", icon="VIEW_CAMERA", text="Add Camera").param = "ADD_CAMERA"
+    grid.operator("cc3.scene", icon="GIZMO", text="Align").param = "ALIGN_WITH_VIEW"
+    grid.operator("cc3.scene", icon="VIEW_CAMERA", text="Add").param = "ADD_CAMERA"
 
-    column.separator()
+    #box = layout.box()
+    #box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
+    #column = layout.column()
+    #
+    #op = layout.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
+    #op.param = "TEMPLATE"
 
-    box = layout.box()
-    box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
-    column = layout.column()
-
-    op = column.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
-    op.param = "TEMPLATE"
-
-    column.separator()
+    layout.separator()
 
     chr_cache = props.get_context_character_cache(context)
-    if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
+    if chr_cache: # and bpy.context.scene.render.engine == 'CYCLES':
         box = layout.box()
         box.label(text="Cycles", icon="SHADING_RENDERED")
         column = layout.column()
-        op = column.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
-        op.param = "CYCLES_SETUP"
+        row = column.row()
+        row.scale_y = 2.0
+        row.operator("cc3.scene", icon="PLAY", text="Cycles Setup").param = "CYCLES_SETUP"
         column.separator()
 
     cache_timeline_physics_ui(chr_cache, layout)

@@ -245,10 +245,7 @@ def apply_prop_matrix(bsdf_node, group_node, mat_cache, shader_name):
                     nodeutils.set_node_input_value(group_node, input_def[0], prop_value)
 
     if bsdf_node and matrix_group and "bsdf" in matrix_group.keys():
-        if bsdf_node.type == "GROUP":
-            bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
-        else:
-            bsdf_nodes = [bsdf_node]
+        bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
         for input_def in matrix_group["bsdf"]:
             for n in bsdf_nodes:
                 if input_def[0] in n.inputs:
@@ -1134,35 +1131,27 @@ def connect_sss_shader(obj, mat, mat_json, processed_images):
 
 def fix_sss_method(bsdf, is_skin=False, is_hair=False, is_eyes=False):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    if prefs.render_target == "CYCLES" and utils.B300():
-        if utils.B400() and is_skin or is_hair or is_eyes:
-            if bsdf.type == "GROUP":
-                bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
-                for bsdf in bsdf_nodes:
-                    bsdf.subsurface_method = "RANDOM_WALK_SKIN"
-                    if is_hair:
-                        bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
-                    else:
-                        bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
-                    if is_eyes:
-                        bsdf.inputs['Subsurface Scale'].default_value = 0.005
-
-            else:
-                bsdf.subsurface_method = "RANDOM_WALK_SKIN"
-                if is_hair:
-                    bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
-                else:
-                    bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
-                if is_eyes:
+    if utils.B400() and is_skin or is_hair or is_eyes:
+        bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
+        for bsdf in bsdf_nodes:
+            bsdf.subsurface_method = "RANDOM_WALK_SKIN"
+            if is_hair:
+                bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
+            elif is_skin:
+                bsdf.inputs['Subsurface Anisotropy'].default_value = 0.8
+            elif is_eyes:
+                bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
+                if prefs.render_target == "CYCLES":
                     bsdf.inputs['Subsurface Scale'].default_value = 0.005
-        else:
-            # Blender 3.0 defaults to random walk, which does not work well with hair
-            if bsdf.type == "GROUP":
-                bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
-                for bsdf in bsdf_nodes:
-                    bsdf.subsurface_method = "BURLEY"
+                else:
+                    bsdf.inputs['Subsurface Scale'].default_value = 1.0
             else:
-                bsdf.subsurface_method = "BURLEY"
+                bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
+    else:
+        # Blender 3.0 defaults to random walk, which does not work well with hair
+        bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
+        for bsdf in bsdf_nodes:
+            bsdf.subsurface_method = "BURLEY"
 
 
 def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = None):

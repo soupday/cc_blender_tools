@@ -965,14 +965,26 @@ def get_bsdf_node(mat):
         for node in nodes:
             if node.type == "BSDF_PRINCIPLED":
                 return node
+        for node in nodes:
+            if node.type == "GROUP" and "_BSDF)" in node.name:
+                return node
     return None
 
 
-def get_custom_bsdf_nodes(custom_bsdf_node):
+def get_custom_bsdf_nodes(mat_or_node):
     bsdf_nodes = []
-    for node in custom_bsdf_node.node_tree.nodes:
-        if node.type == "BSDF_PRINCIPLED":
-            bsdf_nodes.append(node)
+    bsdf_node = None
+    if type(mat_or_node) is bpy.types.Material:
+        bsdf_node = get_bsdf_node(mat_or_node)
+    else:
+        bsdf_node = mat_or_node
+    if bsdf_node:
+        if bsdf_node.type == "GROUP":
+            for node in bsdf_node.node_tree.nodes:
+                if node.type == "BSDF_PRINCIPLED":
+                    bsdf_nodes.append(node)
+        else:
+            bsdf_nodes.append(bsdf_node)
     return bsdf_nodes
 
 

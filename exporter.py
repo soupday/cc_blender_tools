@@ -1527,26 +1527,32 @@ def export_copy_asset_file(chr_cache, dir, name, ext, old_path=None):
 
 def is_arp_installed():
     try:
-        bl_options = bpy.ops.id.arp_export_fbx_panel.bl_options
+        bl_options = bpy.ops.arp.arp_export_fbx_panel.bl_options
         if bl_options is not None:
+            utils.log_info("ARP is installed.")
             return True
         else:
+            utils.log_info("ARP is NOT installed.")
             return False
     except:
+        utils.log_info("ARP is NOT installed.")
         return False
 
 
 def is_arp_rig(rig):
     if utils.object_exists_is_armature(rig):
         if "c_pos" in rig.data.bones and "c_traj" in rig.data.bones and "c_root.x" in rig.data.bones:
+            utils.log_info("Rig is ARP")
             return True
+    utils.log_info("Rig is NOT ARP")
     return False
 
 
 def export_arp(file_path, arm, objects):
+    utils.log_info("Attempting to export ARP rig...")
     try:
-        bpy.data.scenes["Scene"].arp_engine_type = "unity"
-        bpy.data.scenes["Scene"].arp_export_rig_type = "humanoid"
+        bpy.data.scenes["Scene"].arp_engine_type = "UNITY"
+        bpy.data.scenes["Scene"].arp_export_rig_type = "HUMANOID"
         bpy.data.scenes["Scene"].arp_bake_anim = False
         bpy.data.scenes["Scene"].arp_ge_sel_only = True
         bpy.data.scenes["Scene"].arp_ge_sel_bones_only = False
@@ -1572,9 +1578,10 @@ def export_arp(file_path, arm, objects):
         utils.set_active_object(arm)
         # invoke
         utils.log_info("Invoking ARP Export:")
-        bpy.ops.id.arp_export_fbx_panel(filepath=file_path, check_existing = False)
+        bpy.ops.arp.arp_export_fbx_panel(filepath=file_path, check_existing = False)
         return True
-    except:
+    except Exception as e:
+        utils.log_info(f"ARP export failed: {str(e)}")
         return False
 
 
@@ -1773,16 +1780,16 @@ def export_non_standard(self, file_path, include_selected):
     remove_modifiers_for_export(None, objects, True)
 
     # attempt any custom exports (ARP)
-    custom_export = False
+    arp_export = False
     if is_arp_installed() and is_arp_rig(arm):
-        custom_export = export_arp(file_path, arm, objects)
+        arp_export = export_arp(file_path, arm, objects)
 
     # double check custom export
     if not os.path.exists(file_path):
-        custom_export = False
+        arp_export = False
 
     # proceed with normal export
-    if not custom_export:
+    if not arp_export:
         bpy.ops.export_scene.fbx(filepath=file_path,
                 use_selection = True,
                 bake_anim = export_anim,
@@ -1811,7 +1818,14 @@ def export_non_standard(self, file_path, include_selected):
     bpy.context.view_layer.objects.active = old_active
 
     utils.log_recess()
-    utils.log_timer("Done Non-standard Export.")
+    if arp_export:
+        utils.log_timer("Done Non-standard ARP Export.")
+        self.report({'INFO'}, "Export Non-standard (ARP) Done!")
+    else:
+        utils.log_timer("Done Non-standard Export.")
+        self.report({'INFO'}, "Export Non-standard Done!")
+
+
 
 
 def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
@@ -2266,7 +2280,6 @@ class CC3Export(bpy.types.Operator):
         elif self.param == "EXPORT_NON_STANDARD":
 
             export_non_standard(self, self.filepath, self.include_selected)
-            self.report({'INFO'}, "Export Non-standard Done!")
             self.error_report()
 
 

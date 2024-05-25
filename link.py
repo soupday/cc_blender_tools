@@ -1031,8 +1031,6 @@ class LinkService():
         self.send(OpCodes.HELLO, encode_from_json(json_data))
 
     def stop_client(self):
-        link_props = bpy.context.scene.CCICLinkProps
-
         if self.client_sock:
             utils.log_info(f"Closing Client Socket")
             try:
@@ -1042,7 +1040,11 @@ class LinkService():
                 pass
         self.is_connected = False
         self.is_connecting = False
-        link_props.connected = False
+        try:
+            link_props = bpy.context.scene.CCICLinkProps
+            link_props.connected = False
+        except:
+            pass
         self.client_sock = None
         self.client_sockets = []
         if self.listening:

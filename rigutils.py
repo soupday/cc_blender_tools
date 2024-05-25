@@ -17,6 +17,7 @@
 import bpy
 from mathutils import Vector, Matrix, Quaternion, Euler
 from random import random
+import re
 from . import bones, modifiers, rigify_mapping_data, utils
 
 
@@ -44,6 +45,21 @@ def pose_rig(rig):
 def name_in_data_paths(action, name):
     for fcurve in action.fcurves:
         if name in fcurve.data_path:
+            return True
+    return False
+
+
+def name_in_pose_bone_data_paths_regex(action, name):
+    name = ".*" + name
+    for fcurve in action.fcurves:
+        if re.match(name, fcurve.data_path):
+            return True
+    return False
+
+
+def bone_name_in_armature_regex(arm, name):
+    for bone in arm.data.bones:
+        if re.match(name, bone.name):
             return True
     return False
 
@@ -132,7 +148,7 @@ def is_Mixamo_action(action):
     if action:
         if len(action.fcurves) > 0:
             for bone_name in rigify_mapping_data.MIXAMO_BONE_NAMES:
-                if not name_in_data_paths(action, bone_name):
+                if not name_in_pose_bone_data_paths_regex(action, bone_name):
                     return False
             return True
     return False
@@ -142,7 +158,7 @@ def is_Mixamo_armature(armature):
     if armature:
         if len(armature.data.bones) > 0:
             for bone_name in rigify_mapping_data.MIXAMO_BONE_NAMES:
-                if bone_name not in armature.data.bones:
+                if not bone_name_in_armature_regex(armature, bone_name):
                     return False
             return True
     return False

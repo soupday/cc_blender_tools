@@ -116,7 +116,9 @@ def remove_all_lights(inc_camera = False):
                 bpy.data.objects.remove(obj)
 
             elif inc_camera and obj.type == "EMPTY" and "CameraTarget" in obj.name:
-                bpy.data.objects.remove(obj)
+                #bpy.data.objects.remove(obj)
+                #obj.hide_set(True)
+                pass
 
             elif obj.type == "EMPTY" and \
                 ("KeyTarget" in obj.name or \
@@ -126,13 +128,16 @@ def remove_all_lights(inc_camera = False):
                 bpy.data.objects.remove(obj)
 
             elif inc_camera and obj.type == "CAMERA":
-                bpy.data.objects.remove(obj)
+                #bpy.data.objects.remove(obj)
+                obj.hide_set(True)
+
         else:
             if obj.type == "LIGHT":
                 obj.hide_set(True)
 
             elif inc_camera and obj.type == "EMPTY" and "CameraTarget" in obj.name:
-                obj.hide_set(True)
+                #obj.hide_set(True)
+                pass
 
             elif obj.type == "EMPTY" and \
                 ("KeyTarget" in obj.name or \
@@ -158,10 +163,10 @@ def camera_setup(camera_loc, target_loc):
     camera = None
     target = None
     for obj in bpy.data.objects:
-        if camera is None and vars.NODE_PREFIX in obj.name and obj.type == "CAMERA" and obj.visible_get():
+        if camera is None and vars.NODE_PREFIX in obj.name and obj.type == "CAMERA":
             camera = obj
             camera.location = camera_loc
-        if target is None and vars.NODE_PREFIX in obj.name and obj.type == "EMPTY" and obj.visible_get() and "CameraTarget" in obj.name:
+        if target is None and vars.NODE_PREFIX in obj.name and obj.type == "EMPTY" and "CameraTarget" in obj.name:
             target = obj
             target.location = target_loc
     if camera is None:
@@ -171,18 +176,21 @@ def camera_setup(camera_loc, target_loc):
     if target is None:
         target = add_target("CameraTarget", target_loc)
 
+    camera.hide_set(False)
+    target.hide_set(False)
+    bpy.context.scene.camera = camera
     track_to(camera, target)
     camera.data.lens = 80
     camera.data.dof.use_dof = True
     camera.data.dof.focus_object = target
-    camera.data.dof.aperture_fstop = 2.8
+    camera.data.dof.aperture_fstop = 5.4
     camera.data.dof.aperture_blades = 5
     camera.data.dof.aperture_rotation = 0
     camera.data.dof.aperture_ratio = 1
     camera.data.display_size = 0.2
     camera.data.show_limits = True
 
-    camera_auto_target(camera, target)
+    #camera_auto_target(camera, target)
 
     bpy.context.scene.render.resolution_x = 1920
     bpy.context.scene.render.resolution_y = 2560
@@ -235,8 +243,12 @@ def compositor_setup():
     nodeutils.link_nodes(links, rlayers_node, "Image", glare_node, "Image")
     nodeutils.link_nodes(links, glare_node, "Image", lens_node, "Image")
     nodeutils.link_nodes(links, lens_node, "Image", c_node, "Image")
+    bpy.context.space_data.shading.use_scene_world_render = True
 
 def world_setup():
+    ibl = bpy.context.space_data.shading.studio_light
+    rot = bpy.context.space_data.shading.studiolight_rotate_z
+    str = bpy.context.space_data.shading.studiolight_intensity
     bpy.context.scene.world.use_nodes = True
     nodes = bpy.context.scene.world.node_tree.nodes
     links = bpy.context.scene.world.node_tree.links
@@ -251,15 +263,17 @@ def world_setup():
     et_node.location = (-300,320)
     bg_node.location = (10,300)
     wo_node.location = (300,300)
-    nodeutils.set_node_input_value(bg_node, "Strength", 0.5)
+    nodeutils.set_node_input_value(bg_node, "Strength", str)
+    nodeutils.set_node_input_value(mp_node, "Rotation", Vector((0,0,rot)))
     nodeutils.link_nodes(links, tc_node, "Generated", mp_node, "Vector")
     nodeutils.link_nodes(links, mp_node, "Vector", et_node, "Vector")
     nodeutils.link_nodes(links, et_node, "Color", bg_node, "Color")
     nodeutils.link_nodes(links, bg_node, "Background", wo_node, "Surface")
     bin_dir, bin_file = os.path.split(bpy.app.binary_path)
     version = bpy.app.version_string[:4]
-    hdri_path = os.path.join(bin_dir, version, "datafiles", "studiolights", "world", "forest.exr")
+    hdri_path = os.path.join(bin_dir, version, "datafiles", "studiolights", "world", ibl)
     et_node.image = imageutils.load_image(hdri_path, "Linear")
+
 
 
 def setup_scene_default(scene_type):
@@ -398,6 +412,7 @@ def setup_scene_default(scene_type):
 
             align_to_head(container)
 
+
         elif scene_type == "STUDIO":
 
             bpy.context.scene.eevee.use_gtao = True
@@ -464,6 +479,7 @@ def setup_scene_default(scene_type):
 
             align_to_head(container)
 
+
         elif scene_type == "COURTYARD":
 
             bpy.context.scene.eevee.use_gtao = True
@@ -525,6 +541,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
+
 
         elif scene_type == "AQUA":
 
@@ -612,6 +629,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
+
 
         elif scene_type == "AUTHORITY":
 
@@ -717,6 +735,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.clip_start = 0.01
 
             align_to_head(container)
+
 
         elif scene_type == "EXQUISITE":
 
@@ -836,6 +855,7 @@ def setup_scene_default(scene_type):
 
             align_to_head(container)
 
+
         elif scene_type == "BLUR_WARM":
 
             bpy.context.scene.eevee.use_gtao = True
@@ -940,6 +960,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
+
 
         elif scene_type == "INTERIOR":
 
@@ -1047,6 +1068,7 @@ def setup_scene_default(scene_type):
 
             align_to_head(container)
 
+
         elif scene_type == "LEADING_ROLE":
 
             bpy.context.scene.eevee.use_gtao = True
@@ -1142,6 +1164,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
+
 
         elif scene_type == "NEON":
 
@@ -1250,6 +1273,7 @@ def setup_scene_default(scene_type):
 
             align_to_head(container)
 
+
         elif scene_type == "TEMPLATE":
 
             bpy.context.scene.eevee.use_gtao = True
@@ -1267,36 +1291,37 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 50:
                 bpy.context.scene.cycles.transparent_max_bounces = 50
 
-
             remove_all_lights(True)
-            camera, camera_target = camera_setup((0.1, -0.75, 1.6), (0, 0, 1.5))
+            head_pos, camera_pos = target_head(1.0)
+            camera, camera_target = camera_setup(camera_pos, head_pos)
             bpy.context.scene.camera = camera
+            container = add_light_container()
 
-            key = add_area_light("Key",
+            key = add_area_light("Key", container,
                     (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
                     (1.0848181247711182, -0.881056010723114, -0.5597077012062073),
                     40, 1, 9)
             target_key = add_target("KeyTarget", (-0.006276353262364864, -0.004782751202583313, 1.503425121307373))
             track_to(key, target_key)
 
-            fill = add_area_light("Fill",
+            fill = add_area_light("Fill", container,
                     (2.28589, -1.51410, 1.40742),
                     (1.4248263835906982, 0.9756063222885132, 0.8594209551811218),
                     10, 1, 9)
             target_fill = add_target("FillTarget", (0.013503191992640495, 0.005856933072209358, 1.1814184188842773))
             track_to(fill, target_fill)
 
-            back = add_area_light("Back",
+            back = add_area_light("Back", container,
                     (0.36789, 0.61511, 2.36201),
                     (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
-                    40, 0.5, 9)
+                    40, 0.5, 9, )
             target_back = add_target("BackTarget", (0.0032256320118904114, 0.06994983553886414, 1.6254671812057495))
             track_to(back, target_back)
 
             set_contact_shadow(key, 0.05, 0.0025)
             set_contact_shadow(fill, 0.05, 0.0025)
 
-            bpy.context.space_data.shading.type = 'RENDERED'
+            #bpy.context.space_data.shading.type = 'RENDERED'
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = True
 
@@ -1320,27 +1345,67 @@ def setup_scene_default(scene_type):
         pass
 
 
+def lighting_setup_camera():
+    head_pos, camera_pos = target_head(1.0)
+    camera, camera_target = camera_setup(camera_pos, head_pos)
+    bpy.context.scene.camera = camera
+
+
 def get_head_delta(chr_cache):
     z_angle = 0
-    delta_loc = Vector((0,0,1.4))
-    delta_rot = Quaternion((1, 0, 0, 0))
+    head_pos = Vector((0,0,1.4))
+    head_rot_z = Quaternion((1, 0, 0, 0))
     if chr_cache:
         arm = chr_cache.get_armature()
         head_bone = None
         for try_name in ["CC_Base_Head", "head", "ORG-spine.006"]:
             if try_name in arm.pose.bones:
                 head_bone = arm.pose.bones[try_name]
-        if head_bone:
+                break
+        if arm and head_bone:
             T: Matrix = arm.matrix_world @ head_bone.matrix
-            pos = T.to_translation()
+            head_pos = T.to_translation()
             rot = T.to_quaternion()
             forward = rot @ Vector((0,0,1))
             f_2d = Vector((forward.x, forward.y)).normalized()
             z_angle = f_2d.angle_signed(Vector((0,-1)), 0)
             bpy.context.space_data.shading.studiolight_rotate_z += z_angle
-            delta_loc = pos.copy()
-            delta_rot = Euler((0,0,z_angle), "XYZ").to_quaternion()
-    return z_angle, delta_loc, delta_rot
+            head_rot_z = Euler((0,0,z_angle), "XYZ").to_quaternion()
+    return z_angle, head_pos, head_rot_z
+
+
+def target_eyes_plane(chr_cache, head_pos, forward):
+    fN = forward.normalized()
+    if chr_cache:
+        arm = chr_cache.get_armature()
+        left_eye_bone = None
+        right_eye_bone = None
+        for try_name in ["CC_Base_L_Eye", "ORG-eye.L"]:
+            if try_name in arm.pose.bones:
+                left_eye_bone = arm.pose.bones[try_name]
+                break
+        for try_name in ["CC_Base_R_Eye", "ORG-eye.R"]:
+            if try_name in arm.pose.bones:
+                right_eye_bone = arm.pose.bones[try_name]
+                break
+        if left_eye_bone and right_eye_bone:
+            TL = arm.matrix_world @ left_eye_bone.matrix
+            TR = arm.matrix_world @ right_eye_bone.matrix
+            p = (TL.to_translation() + TR.to_translation()) / 2
+            dp = p - head_pos
+            d = fN.dot(dp) + 0.02
+            return head_pos + fN * d
+    return head_pos + fN * 0.09
+
+
+def target_head(distance):
+    bpy.context.view_layer.update()
+    props = bpy.context.scene.CC3ImportProps
+    chr_cache = props.get_context_character_cache(bpy.context)
+    z_angle, head_pos, head_rot = get_head_delta(chr_cache)
+    forward = head_rot @ Vector((0,-1,0))
+    head_eyes_plane = target_eyes_plane(chr_cache, head_pos, forward)
+    return head_eyes_plane, head_eyes_plane + forward*distance
 
 
 def align_to_head(container):
@@ -1421,12 +1486,13 @@ def align_with_view(obj=None):
 def add_view_aligned_camera():
     bpy.ops.object.camera_add(enter_editmode=False, align='VIEW')
     camera = bpy.context.active_object
+    bpy.context.scene.camera = camera
     align_with_view(camera)
     camera.name = utils.unique_name("Camera", True)
     view_space, r3d = utils.get_region_3d()
     camera.data.lens = view_space.lens
     camera.data.dof.use_dof = False
-    camera.data.dof.aperture_fstop = 2.8
+    camera.data.dof.aperture_fstop = 5.4
     camera.data.dof.aperture_blades = 5
     camera.data.dof.aperture_rotation = 0
     camera.data.dof.aperture_ratio = 1
@@ -1609,6 +1675,14 @@ def fetch_anim_range(context, expand = False, fit = True):
 def cycles_setup(context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs_render_target = prefs.render_target
+    if chr_cache.render_target != "CYCLES":
+        utils.log_info("Character is currently build for Eevee Rendering.")
+        utils.log_info("Rebuilding Character for Cycles Rendering...")
+        prefs.render_target = "CYCLES"
+        bpy.ops.cc3.importer(param="BUILD")
+        prefs.render_target = prefs_render_target
     for obj_cache in chr_cache.object_cache:
         if obj_cache.is_mesh():
             obj = obj_cache.get_object()
@@ -1629,14 +1703,15 @@ def cycles_setup(context):
     try:
         # preview
         bpy.context.scene.cycles.use_preview_adaptive_sampling = True
-        bpy.context.scene.cycles.preview_adaptive_threshold = 0.025
-        bpy.context.scene.cycles.preview_samples = 256
+        #bpy.context.scene.cycles.preview_adaptive_threshold = 0.05
+        #bpy.context.scene.cycles.preview_samples = 512
         bpy.context.scene.cycles.use_preview_denoising = True
+        #bpy.context.scene.cycles.preview_denoising_start_sample = 1
         bpy.context.scene.cycles.preview_denoising_input_passes = 'RGB_ALBEDO_NORMAL'
         # render
         bpy.context.scene.cycles.use_adaptive_sampling = True
-        bpy.context.scene.cycles.adaptive_threshold = 0.01
-        bpy.context.scene.cycles.samples = 1024
+        #bpy.context.scene.cycles.adaptive_threshold = 0.02
+        #bpy.context.scene.cycles.samples = 512
         bpy.context.scene.cycles.use_denoising = True
         bpy.context.scene.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
     except:
@@ -1722,6 +1797,13 @@ class CC3Scene(bpy.types.Operator):
         elif self.param == "ADD_CAMERA":
             add_view_aligned_camera()
 
+        elif self.param == "SETUP_CAMERA":
+            lighting_setup_camera()
+
+        elif self.param == "SETUP_WORLD":
+            compositor_setup()
+            world_setup()
+
         else:
             setup_scene_default(self.param)
             if self.param == "TEMPLATE":
@@ -1764,5 +1846,11 @@ class CC3Scene(bpy.types.Operator):
                    "i.e. if the point cache frame range does not cover the current scene range (or preview range) it will be extended to fit"
         elif properties.param == "CYCLES_SETUP":
             return "Applies Shader Terminator Offset and subdivision to all meshes"
+        elif properties.param == "FILTER_LIGHTS":
+            return "Filter all light colors by this color"
+        elif properties.param == "ALIGN_WITH_VIEW":
+            return "Align active object to current viewpoint location and rotation. Useful for quickly positioning and aligning lights and cameras"
+        elif properties.param == "ADD_CAMERA":
+            return "Add a camera aligned with the current viewpoint location and rotation, and make it the currently active camera"
 
         return ""
