@@ -37,6 +37,22 @@ Links
 
 ### 2.0.8
 - Fix to Update Unity Project being greyed out after saving as Blend file.
+- Fix to export non-standard character.
+- Scene tools:
+    - Scene lighting presets overhauled.
+    - Added function to align any object to view location and orientation (useful for placing lights and cameras).
+    - Added function to add a camera at current view location and orientation.
+    - Added function to setup a main face tracking camera centered on character's head.
+    - Added function to convert current view studio lighting into world lighting node setup.
+- Rigify:
+    - Fix to AccuRig generation not being recognized as valid Rigify target.
+    - Fix to support Mixamorig suffix number in retargeting.
+    - Auto-retarget toggle added to retarget any animation on character when using Quick Rigify.
+- Shaders:
+    - Skin, eye and hair shaders updated to use Blender 4.0+ Random Walk (Skin) Subsurface Scattering.
+    - Displacement map (if present) will be used on skin materials for bump and mesh displacement.
+    - Cycles subsurface calculations and parameters tweaked.
+    - Eye Sclera color tint added.
 - Datalink:
     - Added custom prop rig control bones when sending through datalink.
     - Added Receiving prop posing and animation live sequence.
