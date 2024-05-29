@@ -471,12 +471,10 @@ def remap_action_names(actions, objects, source_name, name):
 def process_root_bones(arm, json_data, name):
     root_bones = jsonutils.get_json(json_data, f"{name}/Root Bones")
     if root_bones:
-        print(root_bones)
         for root_def in root_bones:
             name = root_def["Name"]
             type = root_def["Type"]
             sub_link_id = root_def["Link_ID"]
-            print(f"{name} {type} {sub_link_id}")
             if name in arm.pose.bones:
                 pose_bone = arm.pose.bones[name]
                 pose_bone["root_id"] = sub_link_id
