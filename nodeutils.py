@@ -525,6 +525,7 @@ def get_node_by_id_and_type(nodes, id, type):
 
 
 def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group, custom_bsdf = None):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     shader_id = "(" + str(shader_name) + ")"
     bsdf_id = "(" + str(shader_name) + "_BSDF)"
     mix_id = "(" + str(shader_name) + "_MIX)"
@@ -664,11 +665,16 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
 
     output_node.location = (900, -400)
 
+    blocked_bsdf_sockets = []
+    if prefs.render_target != "CYCLES":
+        blocked_bsdf_sockets.append("Subsurface Radius")
+
     # connect all group_node outputs to BSDF inputs:
     if has_group_node and has_bsdf:
         for socket in group_node.outputs:
-            to_socket = input_socket(bsdf_node, socket.name)
-            link_nodes(links, group_node, socket.name, bsdf_node, to_socket)
+            if socket.name not in blocked_bsdf_sockets:
+                to_socket = input_socket(bsdf_node, socket.name)
+                link_nodes(links, group_node, socket.name, bsdf_node, to_socket)
 
     if utils.B400():
         set_node_input_value(bsdf_node, "Subsurface Scale", 1.0)

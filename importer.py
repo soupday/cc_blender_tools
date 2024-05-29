@@ -1209,9 +1209,9 @@ class CC3Import(bpy.types.Operator):
                 bpy.context.scene.eevee.use_ssr = True
                 bpy.context.scene.eevee.use_ssr_refraction = True
 
-            # set a minimum of 50 max transparency bounces:
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            # set a minimum of 100 max transparency bounces:
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             scene.zoom_to_character(chr_cache)
             scene.active_select_body(chr_cache)
@@ -1233,8 +1233,7 @@ class CC3Import(bpy.types.Operator):
                 if chr_cache.can_be_rigged():
                     cc3_rig = chr_cache.get_armature()
                     bpy.ops.cc3.rigifier(param="ALL")
-                    cc3_rig_action = utils.safe_get_action(cc3_rig)
-                    rigging.adv_bake_retarget_to_rigify(self, chr_cache, rig_override=cc3_rig, action_override=cc3_rig_action)
+                    rigging.retarget_cc3_rig_action(self, chr_cache, cc3_rig)
 
         self.imported_characters = None
         self.imported_materials = []
@@ -1332,13 +1331,17 @@ class CC3Import(bpy.types.Operator):
 
         # build materials
         elif self.param == "BUILD":
+            utils.set_mode("OBJECT")
             self.build_materials(context)
             self.do_import_report(context, stage = 1)
 
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
+            utils.set_mode("OBJECT")
             nodeutils.rebuild_node_groups()
             utils.clean_collection(bpy.data.images)
+            self.build_materials(context)
+            self.do_import_report(context, stage = 1)
 
         elif self.param == "DELETE_CHARACTER":
             chr_cache = props.get_context_character_cache(context)

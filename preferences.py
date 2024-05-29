@@ -72,6 +72,8 @@ def reset_preferences():
     prefs.build_armature_edit_modifier = True
     prefs.build_armature_preserve_volume = False
     prefs.physics_weightmap_curve = 5.0
+    prefs.rigify_build_face_rig = True
+    prefs.rigify_auto_retarget = True
     reset_cycles()
 
 
@@ -280,6 +282,10 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                                      description="Power curve used to convert PhysX weightmaps to blender vertex pin weights.")
 
     # rigify prefs
+    rigify_build_face_rig: bpy.props.BoolProperty(default=True,
+                                                  description="Build full face rig (CC3(+) standard characters only)")
+    rigify_auto_retarget: bpy.props.BoolProperty(default=True,
+                                                 description="Auto retarget any animation currently on the character armature")
     rigify_preview_retarget_fk_ik: bpy.props.EnumProperty(items=[
                         ("FK","FK","Retarget to FK controls only"),
                         ("IK","IK","Retarget to IK controls only"),

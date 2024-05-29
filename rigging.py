@@ -2435,6 +2435,12 @@ def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=Non
     return retarget_rig
 
 
+def retarget_cc3_rig_action(op, chr_cache, cc3_rig):
+    cc3_rig_action = utils.safe_get_action(cc3_rig)
+    if cc3_rig_action:
+        adv_bake_retarget_to_rigify(op, chr_cache, rig_override=cc3_rig, action_override=cc3_rig_action)
+
+
 FK_BONE_GROUPS = ["FK", "Special", "Tweak", "Extra", "Root"]
 FK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
                        "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
@@ -3841,6 +3847,7 @@ class CC3Rigifier(bpy.types.Operator):
 
     def execute(self, context):
         props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         chr_cache = props.get_context_character_cache(context)
 
         self.cc3_rig = None
@@ -3868,6 +3875,8 @@ class CC3Rigifier(bpy.types.Operator):
                 self.generate_meta_rig(chr_cache)
                 self.rigify_meta_rig(chr_cache)
                 utils.set_active_layer_collection(olc)
+                if prefs.rigify_auto_retarget:
+                    retarget_cc3_rig_action(self, chr_cache, self.cc3_rig)
 
             elif self.param == "META_RIG":
 

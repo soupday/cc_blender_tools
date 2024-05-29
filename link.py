@@ -1922,34 +1922,59 @@ class LinkService():
                 return obj
         return None
 
-    def add_spot_light(self, name):
+    def add_spot_light(self, name, container):
         bpy.ops.object.light_add(type="SPOT")
         light = bpy.context.active_object
         light.name = name
+        light.data.name = name
+        light.parent = container
+        light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
 
-    def add_area_light(self, name):
+    def add_area_light(self, name, container):
         bpy.ops.object.light_add(type="AREA")
         light = bpy.context.active_object
         light.name = name
+        light.data.name = name
+        light.parent = container
+        light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
 
-    def add_point_light(self, name):
+    def add_point_light(self, name, container):
         bpy.ops.object.light_add(type="POINT")
         light = bpy.context.active_object
         light.name = name
+        light.data.name = name
+        light.parent = container
+        light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
 
-    def add_dir_light(self, name):
+    def add_dir_light(self, name, container):
         bpy.ops.object.light_add(type="SUN")
         light = bpy.context.active_object
         light.name = name
+        light.data.name = name
+        light.parent = container
+        light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
+
+    def add_light_container(self):
+        container = None
+        for obj in bpy.data.objects:
+            if obj.type == "EMPTY" and vars.NODE_PREFIX in obj.name and "Lighting" in obj.name:
+                container = obj
+        if not container:
+            bpy.ops.object.empty_add(type="PLAIN_AXES", radius=0.01)
+            container = bpy.context.active_object
+            container.name = utils.unique_name("Lighting", True)
+        return container
 
     def decode_lights_data(self, data):
         lights_data = decode_to_json(data)
 
         RECTANGULAR_SPOTLIGHTS_AS_AREA = False
+
+        container = self.add_light_container()
 
         for light_data in lights_data["lights"]:
 
@@ -1971,13 +1996,13 @@ class LinkService():
                 light = None
             if not light:
                 if is_area:
-                    light = self.add_area_light(light_data["name"])
+                    light = self.add_area_light(light_data["name"], container)
                 elif is_point:
-                    light = self.add_point_light(light_data["name"])
+                    light = self.add_point_light(light_data["name"], container)
                 elif is_dir:
-                    light = self.add_dir_light(light_data["name"])
+                    light = self.add_dir_light(light_data["name"], container)
                 else:
-                    light = self.add_spot_light(light_data["name"])
+                    light = self.add_spot_light(light_data["name"], container)
                 light["link_id"] = light_data["link_id"]
 
             light.location = utils.array_to_vector(light_data["loc"]) / 100
@@ -2042,8 +2067,8 @@ class LinkService():
         bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
         colorspace.set_view_settings("Filmic", "High Contrast", 0, 0.75)
-        if bpy.context.scene.cycles.transparent_max_bounces < 50:
-            bpy.context.scene.cycles.transparent_max_bounces = 50
+        if bpy.context.scene.cycles.transparent_max_bounces < 100:
+            bpy.context.scene.cycles.transparent_max_bounces = 100
         view_space: bpy.types.Area = utils.get_view_space()
         if view_space:
             view_space.shading.type = 'MATERIAL'
@@ -2452,8 +2477,21 @@ class LinkService():
         name = json_data["name"]
         character_type = json_data["type"]
         link_id = json_data["link_id"]
-
+        start_frame = RLFA(json_data["start_frame"])
+        end_frame = RLFA(json_data["end_frame"])
+        frame = RLFA(json_data["frame"])
+        LINK_DATA.sequence_start_frame = start_frame
+        LINK_DATA.sequence_end_frame = end_frame
+        LINK_DATA.sequence_current_frame = frame
+        num_frames = end_frame - start_frame + 1
         utils.log_info(f"Receive Motion Import: {name} / {link_id} / {fbx_path}")
+        utils.log_info(f"Motion Range: {start_frame} to {end_frame}, {num_frames} frames")
+
+        # update scene range
+        bpy.ops.screen.animation_cancel()
+        set_frame_range(LINK_DATA.sequence_start_frame, LINK_DATA.sequence_end_frame)
+        set_frame(LINK_DATA.sequence_start_frame)
+        bpy.context.scene.frame_current = frame
 
         actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
         if not actor:
@@ -2511,6 +2549,7 @@ class LinkService():
                         rigutils.copy_rest_pose(motion_rig, actor_rig)
                         utils.safe_set_action(actor_rig, motion_rig_action)
                         remove_actions.append(actor_rig_action)
+                    rigutils.update_prop_rig(actor_rig)
                 else:
                     chr_cache = actor.get_chr_cache()
                     if chr_cache.rigified:
@@ -2520,7 +2559,6 @@ class LinkService():
                     else:
                         utils.safe_set_action(actor_rig, motion_rig_action)
                         remove_actions.append(actor_rig_action)
-                rigutils.update_prop_rig(actor_rig)
             for obj in actor_objects:
                 if utils.object_has_shape_keys(obj):
                     # remove old action

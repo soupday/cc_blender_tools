@@ -35,6 +35,7 @@ def set_contact_shadow(light, distance, thickness):
     light.data.contact_shadow_distance = distance
     light.data.contact_shadow_thickness = thickness
 
+
 def track_to(obj, target):
     constraint = obj.constraints.new(type="TRACK_TO")
     constraint.target = target
@@ -43,9 +44,14 @@ def track_to(obj, target):
 
 
 def add_light_container():
-    bpy.ops.object.empty_add(type="PLAIN_AXES", radius=0.01)
-    container = bpy.context.active_object
-    container.name = utils.unique_name("Lighting", True)
+    container = None
+    for obj in bpy.data.objects:
+        if obj.type == "EMPTY" and vars.NODE_PREFIX in obj.name and "Lighting" in obj.name:
+            container = obj
+    if not container:
+        bpy.ops.object.empty_add(type="PLAIN_AXES", radius=0.01)
+        container = bpy.context.active_object
+        container.name = utils.unique_name("Lighting", True)
     return container
 
 
@@ -53,7 +59,9 @@ def add_sun_light(name, container, location, rotation, energy, angle):
     bpy.ops.object.light_add(type="SUN",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
-    light.name = utils.unique_name(name, True)
+    uname = utils.unique_name(name, True)
+    light.name = uname
+    light.data.name = uname
     light.data.energy = energy
     light.data.angle = angle
     if container:
@@ -66,7 +74,9 @@ def add_spot_light(name, container, location, rotation, energy, blend, size, dis
     bpy.ops.object.light_add(type="SPOT",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
-    light.name = utils.unique_name(name, True)
+    uname = utils.unique_name(name, True)
+    light.name = uname
+    light.data.name = uname
     light.data.energy = energy
     light.data.shadow_soft_size = radius
     light.data.spot_blend = blend
@@ -83,7 +93,9 @@ def add_area_light(name, container, location, rotation, energy, size, distance):
     bpy.ops.object.light_add(type="AREA",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
-    light.name = utils.unique_name(name, True)
+    uname = utils.unique_name(name, True)
+    light.name = uname
+    light.data.name = uname
     light.data.shape = "DISK"
     light.data.size = size
     light.data.energy = energy
@@ -99,7 +111,9 @@ def add_point_light(name, container, location, rotation, energy, size):
     bpy.ops.object.light_add(type="POINT",
                     location = location, rotation = rotation)
     light = bpy.context.active_object
-    light.name = utils.unique_name(name, True)
+    uname = utils.unique_name(name, True)
+    light.name = uname
+    light.data.name = uname
     light.data.shadow_soft_size = size
     light.data.energy = energy
     if container:
@@ -125,18 +139,21 @@ def remove_all_lights(inc_camera = False):
                 "FillTarget" in obj.name or \
                 "BackTarget" in obj.name or \
                 "Lighting" in obj.name):
-                bpy.data.objects.remove(obj)
+                utils.delete_object_tree(obj)
 
             elif inc_camera and obj.type == "CAMERA":
                 #bpy.data.objects.remove(obj)
                 obj.hide_set(True)
+                obj.hide_render = True
 
         else:
             if obj.type == "LIGHT":
                 obj.hide_set(True)
+                obj.hide_render = True
 
             elif inc_camera and obj.type == "EMPTY" and "CameraTarget" in obj.name:
                 #obj.hide_set(True)
+                #obj.hide_render = True
                 pass
 
             elif obj.type == "EMPTY" and \
@@ -144,9 +161,11 @@ def remove_all_lights(inc_camera = False):
                 "FillTarget" in obj.name or \
                 "BackTarget" in obj.name):
                 obj.hide_set(True)
+                obj.hide_render = True
 
             elif inc_camera and obj.type == "CAMERA":
                 obj.hide_set(True)
+                obj.hide_render = True
 
 
 def restore_hidden_camera():
@@ -246,7 +265,8 @@ def compositor_setup():
     bpy.context.space_data.shading.use_scene_world_render = True
 
 def world_setup():
-    ibl = bpy.context.space_data.shading.studio_light
+    studio_light = bpy.context.space_data.shading.selected_studio_light
+    ibl_path = studio_light.path
     rot = bpy.context.space_data.shading.studiolight_rotate_z
     str = bpy.context.space_data.shading.studiolight_intensity
     bpy.context.scene.world.use_nodes = True
@@ -271,9 +291,10 @@ def world_setup():
     nodeutils.link_nodes(links, bg_node, "Background", wo_node, "Surface")
     bin_dir, bin_file = os.path.split(bpy.app.binary_path)
     version = bpy.app.version_string[:4]
-    hdri_path = os.path.join(bin_dir, version, "datafiles", "studiolights", "world", ibl)
-    et_node.image = imageutils.load_image(hdri_path, "Linear")
-
+    #hdri_path = os.path.join(bin_dir, version, "datafiles", "studiolights", "world", ibl)
+    et_node.image = imageutils.load_image(ibl_path, "Linear")
+    if bpy.context.space_data.shading.type == "MATERIAL":
+        bpy.context.space_data.shading.type = 'RENDERED'
 
 
 def setup_scene_default(scene_type):
@@ -303,8 +324,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
             colorspace.set_view_settings("Filmic", "None", 0.0, 1.0)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
 
             remove_all_lights(True)
@@ -350,8 +371,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bokeh_max_size = 32.0
             colorspace.set_view_settings("Filmic", "High Contrast",
                                         1.0, 0.5)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -428,8 +449,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bokeh_max_size = 32.0
             colorspace.set_view_settings("Filmic", "High Contrast",
                                         0.5, 1.0)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -495,8 +516,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bokeh_max_size = 32.0
             colorspace.set_view_settings("Filmic", "Medium High Contrast",
                                         0.5, 0.6000000238418579)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -558,8 +579,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bokeh_max_size = 32.0
             colorspace.set_view_settings("Filmic", "Medium High Contrast",
                                         0.800000011920929, 0.550000011920929)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -645,8 +666,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
             colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.5, 0.6)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -752,8 +773,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bokeh_max_size = 32.0
             colorspace.set_view_settings("Filmic", "Medium High Contrast",
                                         0.550000011920929, 0.6000000238418579)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -870,8 +891,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
             colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.75, 0.5)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -977,81 +998,72 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bokeh_max_size = 32.0
             colorspace.set_view_settings("Filmic", "High Contrast",
                                         0.0, 0.75)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
             container = add_light_container()
 
 
-            spot_light_000 = add_spot_light("Back.001", container,
-                        (0.5543302297592163, 1.874049425125122, 0.18556980788707733),
-                        (-0.032768089324235916, 1.3572243452072144, 1.3467401266098022),
-                        214.40000915527344, 1.0,
-                        1.4486230611801147, 9.149999618530273,
-                        1.0)
+            spot_light_000 = add_spot_light("Back", container,
+                (0.5539839267730713, 1.8741519451141357, 0.18556976318359375),
+                (-0.032768093049526215, 1.3572243452072144, 1.3471097946166992),
+                214.40000915527344, 1.0,
+                1.4486230611801147, 9.149999618530273,
+                1.0)
             set_contact_shadow(spot_light_000, 0.05000000074505806, 0.0024999999441206455)
             spot_light_000.data.color = (0.8352941870689392, 0.5882353186607361, 0.4705882668495178)
 
 
             sun_light_001 = add_point_light("Point light", container,
-                (-0.8807836771011353, -2.841315984725952, 2.4289615154266357),
-                (0.0, 0.0, -0.20216675102710724),
+                (-0.8802585601806641, -2.8414785861968994, 2.4289615154266357),
+                (-0.0, -0.0, -0.20179717242717743),
                 120.0,
                 0.25)
             set_contact_shadow(sun_light_001, 0.05000000074505806, 0.0024999999441206455)
             sun_light_001.data.color = (0.7843137979507446, 0.7843137979507446, 0.7843137979507446)
 
 
-            spot_light_002 = add_spot_light("Key", container,
-                        (-0.7158849239349365, -1.0701509714126587, 0.9061458706855774),
-                        (-0.15692642331123352, -0.9654102921485901, 0.9722605347633362),
-                        100.29998779296875, 1.0,
-                        0.3839723765850067, 10.989999771118164,
-                        0.25)
+            spot_light_002 = add_spot_light("Key Lower", container,
+                (-0.7574724555015564, -1.0714011192321777, -1.0519981384277344),
+                (2.292457342147827, -0.48952972888946533, -1.1989017724990845),
+                50.29998779296875, 1.0,
+                0.541051983833313, 10.989999771118164,
+                0.25)
             set_contact_shadow(spot_light_002, 0.05000000074505806, 0.0024999999441206455)
             spot_light_002.data.color = (0.7568628191947937, 0.8235294818878174, 0.8352941870689392)
 
 
-            spot_light_003 = add_spot_light("Back Light_Head.001", container,
-                        (-0.4961763620376587, -1.0895339250564575, 0.7911160588264465),
-                        (1.278220772743225, -0.06357227265834808, -0.6511176824569702),
-                        0.0, 0.2524999976158142,
-                        1.2740901708602905, 2.5899999141693115,
-                        0.5163000226020813)
+            spot_light_003 = add_spot_light("Top Spot", container,
+                (-0.31087398529052734, -1.1979326009750366, 1.2510926723480225),
+                (0.8557190895080566, -1.1747671280204486e-08, -0.3761661648750305),
+                65.69999694824219, 0.375,
+                1.221730351448059, 5.0,
+                0.0)
             set_contact_shadow(spot_light_003, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_003.data.color = (0.7843137979507446, 0.7843137979507446, 0.686274528503418)
+            spot_light_003.data.color = (0.6666666865348816, 0.6666666865348816, 0.6666666865348816)
 
 
-            spot_light_004 = add_spot_light("Top Spot", container,
-                        (-0.31109535694122314, -1.1978751420974731, 1.2510926723480225),
-                        (0.8557190895080566, -3.802561820975825e-09, -0.3765358030796051),
-                        65.69999694824219, 0.375,
-                        1.221730351448059, 5.0,
-                        0.0)
+            spot_light_004 = add_spot_light("Key", container,
+                (-0.7617886066436768, 4.546901226043701, 0.31877660751342773),
+                (-2.300450086593628, 1.8846901655197144, -0.3277812898159027),
+                800.0, 0.75,
+                0.7504914402961731, 9.640000343322754,
+                0.5088000297546387)
             set_contact_shadow(spot_light_004, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_004.data.color = (0.6666666865348816, 0.6666666865348816, 0.6666666865348816)
+            spot_light_004.data.color = (0.760784387588501, 1.0, 0.9803922176361084)
 
 
-            spot_light_005 = add_spot_light("Key.003", container,
-                        (-0.7609483003616333, 4.547041893005371, 0.31877654790878296),
-                        (-2.300450325012207, 1.8846901655197144, -0.32815104722976685),
-                        800.0, 0.75,
-                        0.7504914402961731, 9.640000343322754,
-                        0.5088000297546387)
+            spot_light_005 = add_spot_light("Key Front", container,
+                (2.2198028564453125, 3.576693296432495, 1.8407554626464844),
+                (-0.3483298718929291, 1.146102786064148, 0.6304814219474792),
+                73.5999984741211, 0.75,
+                0.7504914402961731, 9.640000343322754,
+                0.6155999898910522)
             set_contact_shadow(spot_light_005, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_005.data.color = (0.760784387588501, 1.0, 0.9803922176361084)
+            spot_light_005.data.color = (1.0, 0.8980392813682556, 0.5254902243614197)
 
-
-            spot_light_006 = add_spot_light("Key_Front.001", container,
-                        (2.220463752746582, 3.5762829780578613, 1.8407554626464844),
-                        (-0.34832993149757385, 1.146102786064148, 0.6301117539405823),
-                        73.5999984741211, 0.75,
-                        0.7504914402961731, 9.640000343322754,
-                        0.6155999898910522)
-            set_contact_shadow(spot_light_006, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_006.data.color = (1.0, 0.8980392813682556, 0.5254902243614197)
 
             if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
                 bpy.context.space_data.shading.type = "MATERIAL"
@@ -1060,9 +1072,9 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "interior.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 1.6580626964569092
+            bpy.context.space_data.shading.studiolight_rotate_z = 2.181662
             bpy.context.space_data.shading.studiolight_intensity = 0.4551074802875519
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.05
+            bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
             bpy.context.space_data.clip_start = 0.009999999776482582
 
@@ -1084,8 +1096,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bokeh_max_size = 32.0
             colorspace.set_view_settings("Filmic", "Medium High Contrast",
                                         0.5, 0.6)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -1181,8 +1193,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.bokeh_max_size = 32.0
             colorspace.set_view_settings("Filmic", "Medium High Contrast",
                                         0.75, 0.5)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -1288,8 +1300,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
             colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.6, 0.6)
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             head_pos, camera_pos = target_head(1.0)
@@ -1519,8 +1531,8 @@ def dump_scene_setup():
             bpy.context.scene.eevee.bokeh_max_size = {bpy.context.scene.eevee.bokeh_max_size}
             colorspace.set_view_settings("{bpy.context.scene.view_settings.view_transform}", "{bpy.context.scene.view_settings.look}",
                                         {bpy.context.scene.view_settings.exposure}, {bpy.context.scene.view_settings.gamma})
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -1676,13 +1688,12 @@ def cycles_setup(context):
     props = bpy.context.scene.CC3ImportProps
     chr_cache = props.get_context_character_cache(context)
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    prefs_render_target = prefs.render_target
+    prefs.render_target = "CYCLES"
+    prefs.refractive_eyes = "SSR"
     if chr_cache.render_target != "CYCLES":
         utils.log_info("Character is currently build for Eevee Rendering.")
         utils.log_info("Rebuilding Character for Cycles Rendering...")
-        prefs.render_target = "CYCLES"
         bpy.ops.cc3.importer(param="BUILD")
-        prefs.render_target = prefs_render_target
     for obj_cache in chr_cache.object_cache:
         if obj_cache.is_mesh():
             obj = obj_cache.get_object()

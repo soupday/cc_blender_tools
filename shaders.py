@@ -17,7 +17,7 @@
 import bpy
 import math
 import os
-from mathutils import Vector
+from mathutils import Vector, Color
 
 from . import imageutils, jsonutils, meshutils, materials, wrinkle, nodeutils, params, utils, vars
 
@@ -309,20 +309,31 @@ def func_sss_default(s):
         s = s * prefs.cycles_sss_default_v203
     return s
 
-def func_sss_radius_skin(r, f):
+def func_sss_falloff_sat(f, s):
+    falloff = Color((f[0], f[1], f[2]))
+    print(falloff)
+    falloff.s *= s
+    print(falloff)
+    return [falloff.r, falloff.g, falloff.b, 1.0]
+
+def func_sss_radius_skin(r, f, s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.SKIN_SSS_RADIUS_SCALE
-    return [f[0] * r, f[1] * r, f[2] * r]
+    falloff = Color((f[0], f[1], f[2]))
+    falloff.s *= s
+    return [falloff.r * r, falloff.g * r, falloff.b * r]
 
 def func_sss_radius_eyes(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.EYES_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_hair(r, f):
+def func_sss_radius_hair(r, f, s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.HAIR_SSS_RADIUS_SCALE
-    return [f[0] * r, f[1] * r, f[2] * r]
+    falloff = Color((f[0], f[1], f[2]))
+    falloff.s *= s
+    return [falloff.r * r, falloff.g * r, falloff.b * r]
 
 def func_sss_radius_teeth(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -356,10 +367,14 @@ def func_sss_radius_hair_cycles(r):
 
 def func_roughness_power(p):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    if prefs.build_skin_shader_dual_spec:
+    #if prefs.build_skin_shader_dual_spec:
+    #    return p * 1.0
+    #else:
+    #    return p
+    if prefs.render_target == "CYCLES":
         return p * 1.0
     else:
-        return p
+        return p * 0.75
 
 def func_a(a, b, c):
     return a

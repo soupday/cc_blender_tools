@@ -1727,11 +1727,11 @@ class CC3RigifyPanel(bpy.types.Panel):
                     elif chr_cache.can_be_rigged():
 
                         if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
-                            row = layout.row()
-                            split = row.split(factor=0.5)
-                            split.column().label(text = "Full Face Rig")
-                            split.column().prop(chr_cache, "rig_face_rig", text = "")
-                            if not chr_cache.can_rig_full_face() and chr_cache.rig_face_rig:
+                            grid = layout.grid_flow(columns=2, row_major=True, align=True)
+                            grid.prop(prefs, "rigify_build_face_rig", text = "Face Rig", toggle=True)
+                            if chr_cache.rig_mode == "QUICK":
+                                grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
+                            if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
                                 wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
 
                         if chr_cache.rig_mode == "QUICK":
@@ -2105,7 +2105,7 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     box = layout.box().label(text="Scene Lighting", icon="LIGHT")
 
     grid = layout.grid_flow(row_major=True, columns=2, align=True)
-    grid.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
+    grid.operator("cc3.scene", icon="SHADING_SOLID", text="Matcap").param = "MATCAP"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Studio").param = "STUDIO"
@@ -2121,11 +2121,10 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     box = layout.box().label(text="Camera & World", icon="NODE_COMPOSITING")
 
     grid = layout.grid_flow(row_major=True, columns=2, align=True)
-    grid.operator("cc3.scene", text="Camera").param = "SETUP_CAMERA"
-    grid.operator("cc3.scene", text="World").param = "SETUP_WORLD"
-    #grid.prop(props, "lighting_setup_camera", text="Camera", toggle=True)
-    #grid.prop(props, "lighting_setup_compositor", text="Compositor", toggle=True)
-    #grid.operator("cc3.scene", icon="VIEWZOOM", text="").param = "DUMP_SETUP"
+    grid.operator("cc3.scene", text="Camera", icon="CAMERA_DATA").param = "SETUP_CAMERA"
+    grid.operator("cc3.scene", text="World", icon="WORLD").param = "SETUP_WORLD"
+    if vars.DEV:
+        grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump").param = "DUMP_SETUP"
 
     box = layout.box().label(text="Tools", icon="TOOL_SETTINGS")
 

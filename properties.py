@@ -559,8 +559,6 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_mouth_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_mouth_ao"))
     skin_nostril_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_nostril_ao"))
     skin_lips_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_lips_ao"))
-    skin_subsurface_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_subsurface_hue"))
-    skin_subsurface_brightness: bpy.props.FloatProperty(default=1.25, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_brightness"))
     skin_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_saturation"))
     skin_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0,
@@ -627,8 +625,6 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hsv_strength"))
     skin_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao_strength"))
     skin_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"skin_ao_power"))
-    skin_subsurface_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_subsurface_hue"))
-    skin_subsurface_brightness: bpy.props.FloatProperty(default=1.25, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_brightness"))
     skin_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_saturation"))
     skin_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0,
@@ -673,9 +669,6 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
 
 class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_subsurface_scale"))
-    eye_subsurface_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"eye_subsurface_hue"))
-    eye_subsurface_brightness: bpy.props.FloatProperty(default=1.25, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_subsurface_brightness"))
-    eye_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"eye_subsurface_saturation"))
     eye_subsurface_radius: bpy.props.FloatProperty(default=5.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"eye_subsurface_radius"))
     eye_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_subsurface_falloff"))
@@ -878,8 +871,6 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_anisotropic_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.05, 0.038907, 0.0325, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_anisotropic_color"))
     hair_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_scale"))
-    hair_subsurface_hue: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_subsurface_hue"))
-    hair_subsurface_brightness: bpy.props.FloatProperty(default=1.25, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_brightness"))
     hair_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_saturation"))
     hair_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_subsurface_falloff"))
@@ -892,6 +883,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_specular_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_specular_scale"))
     hair_roughness_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_roughness_strength"))
     hair_alpha_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_alpha_strength"))
+    hair_alpha_power: bpy.props.FloatProperty(default=1, min=0.01, max=4, update=lambda s,c: update_property(s,c,"hair_alpha_power"))
     hair_opacity: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_opacity"))
     hair_normal_strength: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_normal_strength"))
     hair_bump_strength: bpy.props.FloatProperty(default=1, min=-3, max=3, update=lambda s,c: update_property(s,c,"hair_bump_strength"))
@@ -1332,7 +1324,6 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     rigified: bpy.props.BoolProperty(default=False)
     rigified_full_face_rig: bpy.props.BoolProperty(default=False)
-    rig_face_rig: bpy.props.BoolProperty(default=True)
     rig_mode: bpy.props.EnumProperty(items=[
                         ("QUICK","Quick","Rig the character all in one go."),
                         ("ADVANCED","Advanced","Split the process so that user adjustments can be made to the meta rig before generating."),
@@ -1551,11 +1542,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return False
 
     def is_rig_full_face(self):
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         if self.rig_mode == "ADVANCED":
-            return self.rig_face_rig
+            return prefs.rigify_build_face_rig
         else:
             if self.can_rig_full_face():
-                return self.rig_face_rig
+                return prefs.rigify_build_face_rig
             else:
                 return False
 

@@ -1089,20 +1089,7 @@ def get_object_tree(obj, objects = None):
 def delete_object_tree(obj):
     objects = get_object_tree(obj)
     for obj in objects:
-        if obj.type == "MESH" and obj.data:
-            try:
-                bpy.data.meshes.remove(obj.data)
-            except:
-                pass
-        elif obj.type == "ARMATURE" and obj.data:
-            try:
-                bpy.data.armatures.remove(obj.data)
-            except:
-                pass
-        try:
-            bpy.data.objects.remove(obj)
-        except:
-            pass
+        delete_object(obj)
 
 
 def hide_tree(obj, hide = True):
