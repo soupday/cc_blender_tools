@@ -265,6 +265,7 @@ def compositor_setup():
     bpy.context.space_data.shading.use_scene_world_render = True
 
 def world_setup():
+    hide_view_extras(False)
     studio_light = bpy.context.space_data.shading.selected_studio_light
     ibl_path = studio_light.path
     rot = bpy.context.space_data.shading.studiolight_rotate_z
@@ -1358,6 +1359,7 @@ def setup_scene_default(scene_type):
 
 
 def lighting_setup_camera():
+    hide_view_extras(False)
     head_pos, camera_pos = target_head(1.0)
     camera, camera_target = camera_setup(camera_pos, head_pos)
     bpy.context.scene.camera = camera
@@ -1486,6 +1488,7 @@ def filter_lights(filter):
 
 
 def align_with_view(obj=None):
+    hide_view_extras(False)
     if obj is None:
         obj = utils.get_active_object()
     if utils.object_exists(obj):
@@ -1495,7 +1498,14 @@ def align_with_view(obj=None):
             obj.data.lens = view_space.lens
 
 
+def hide_view_extras(hide):
+    view_space: bpy.types.Area = utils.get_view_space()
+    if view_space:
+        view_space.overlay.show_extras = not hide
+
+
 def add_view_aligned_camera():
+    hide_view_extras(False)
     bpy.ops.object.camera_add(enter_editmode=False, align='VIEW')
     camera = bpy.context.active_object
     bpy.context.scene.camera = camera
@@ -1686,6 +1696,7 @@ def fetch_anim_range(context, expand = False, fit = True):
 
 def cycles_setup(context):
     props = bpy.context.scene.CC3ImportProps
+    hide_view_extras(False)
     chr_cache = props.get_context_character_cache(context)
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     prefs.render_target = "CYCLES"

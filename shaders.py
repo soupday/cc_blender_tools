@@ -311,17 +311,8 @@ def func_sss_default(s):
 
 def func_sss_falloff_sat(f, s):
     falloff = Color((f[0], f[1], f[2]))
-    print(falloff)
     falloff.s *= s
-    print(falloff)
     return [falloff.r, falloff.g, falloff.b, 1.0]
-
-def func_sss_radius_skin(r, f, s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    r = r * vars.SKIN_SSS_RADIUS_SCALE
-    falloff = Color((f[0], f[1], f[2]))
-    falloff.s *= s
-    return [falloff.r * r, falloff.g * r, falloff.b * r]
 
 def func_sss_radius_eyes(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -355,6 +346,13 @@ def func_sss_radius_skin_cycles(r):
     r = r * vars.SKIN_SSS_RADIUS_SCALE
     return r
 
+def func_sss_radius_skin_eevee(r, f, s):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    r = r * vars.SKIN_SSS_RADIUS_SCALE
+    falloff = Color((f[0], f[1], f[2]))
+    falloff.s *= s
+    return [falloff.r * r, falloff.g * r, falloff.b * r]
+
 def func_sss_radius_eyes_cycles(r):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.EYES_SSS_RADIUS_SCALE
@@ -372,7 +370,7 @@ def func_roughness_power(p):
     #else:
     #    return p
     if prefs.render_target == "CYCLES":
-        return p * 1.0
+        return p * 1.25
     else:
         return p * 0.75
 
