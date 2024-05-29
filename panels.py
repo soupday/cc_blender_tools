@@ -2256,9 +2256,29 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             if chr_cache.physics_applied:
                 column.row().operator("cc3.setphysics", icon="REMOVE", text="Remove All Physics").param = "REMOVE_PHYSICS"
             else:
-                column.row().operator("cc3.setphysics", icon="ADD", text="Apply All Physics").param = "APPLY_PHYSICS"
+                row = column.row()
+                if prefs.physics_cloth_hair and prefs.physics_cloth_clothing:
+                    text = "Apply All Physics"
+                elif prefs.physics_cloth_hair:
+                    text = "Apply Hair Physics"
+                elif prefs.physics_cloth_clothing:
+                    text = "Apply Cloth Physics"
+                else:
+                    text = "Apply No Physics!"
+                    row.enabled = False
+                row.operator("cc3.setphysics", icon="ADD", text=text).param = "APPLY_PHYSICS"
             if chr_cache.physics_disabled:
-                column.row().operator("cc3.setphysics", icon="PLAY", text="Re-enable Physics").param = "ENABLE_PHYSICS"
+                row = column.row()
+                if prefs.physics_cloth_hair and prefs.physics_cloth_clothing:
+                    text = "Re-enable All Physics"
+                elif prefs.physics_cloth_hair:
+                    text = "Re-enable Hair Physics"
+                elif prefs.physics_cloth_clothing:
+                    text = "Re-enable Cloth Physics"
+                else:
+                    text = "Re-enable No Physics!"
+                    row.enabled = False
+                row.operator("cc3.setphysics", icon="PLAY", text=text).param = "ENABLE_PHYSICS"
             else:
                 column.row().operator("cc3.setphysics", icon="PAUSE", text="Disable Physics").param = "DISABLE_PHYSICS"
 
