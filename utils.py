@@ -396,8 +396,10 @@ def remap(edge0, edge1, min, max, x):
     return min + ((x - edge0) * (max - min) / (edge1 - edge0))
 
 
-def lerp(vmin, vmax, t):
-    return min(vmax, max(vmin, vmin + (vmax - vmin) * t))
+def lerp(v0, v1, t):
+    t = max(0, min(1, t))
+    l = v0 + (v1 - v0) * t
+    return l
 
 
 def inverse_lerp(vmin, vmax, value):
@@ -405,10 +407,11 @@ def inverse_lerp(vmin, vmax, value):
 
 
 def lerp_color(c0, c1, t):
-    return (lerp(c0[0], c1[0], t),
-            lerp(c0[1], c1[1], t),
-            lerp(c0[2], c1[2], t),
-            lerp(c0[3], c1[3], t))
+    r = (lerp(c0[0], c1[0], t),
+         lerp(c0[1], c1[1], t),
+         lerp(c0[2], c1[2], t),
+         lerp(c0[3], c1[3], t))
+    return r
 
 
 def inverse_lerp_color(min, max, value):

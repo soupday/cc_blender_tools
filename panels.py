@@ -693,17 +693,17 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 col_1 = split.column()
                 col_2 = split.column()
                 col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "cycles_sss_skin_v208", text = "")
+                col_2.prop(prefs, "cycles_sss_skin_b410", text = "")
                 col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "cycles_sss_hair_v208", text = "")
+                col_2.prop(prefs, "cycles_sss_hair_b410", text = "")
                 col_1.label(text = "Teeth SSS")
-                col_2.prop(prefs, "cycles_sss_teeth_v203", text = "")
+                col_2.prop(prefs, "cycles_sss_teeth_b410", text = "")
                 col_1.label(text = "Tongue SSS")
-                col_2.prop(prefs, "cycles_sss_tongue_v203", text = "")
+                col_2.prop(prefs, "cycles_sss_tongue_b410", text = "")
                 col_1.label(text = "Eyes SSS")
-                col_2.prop(prefs, "cycles_sss_eyes_v203", text = "")
+                col_2.prop(prefs, "cycles_sss_eyes_b410", text = "")
                 col_1.label(text = "Default SSS")
-                col_2.prop(prefs, "cycles_sss_default_v203", text = "")
+                col_2.prop(prefs, "cycles_sss_default_b410", text = "")
                 col_2.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_CYCLES"
 
         # Build Button

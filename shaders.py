@@ -276,67 +276,79 @@ def func_iris_brightness(v):
 def func_sss_skin(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_skin_v208
+        s = s * prefs.cycles_sss_skin_b410
+        #if utils.B400():
+        #    s *= 3/2
     return s
 
 def func_sss_hair(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_hair_v208
+        s = s * prefs.cycles_sss_hair_b410
     return s
 
 def func_sss_teeth(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_teeth_v203
+        s = s * prefs.cycles_sss_teeth_b410
     return s
 
 def func_sss_tongue(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_tongue_v203
+        s = s * prefs.cycles_sss_tongue_b410
     return s
 
 def func_sss_eyes(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_eyes_v203
+        s = s * prefs.cycles_sss_eyes_b410
     return s
 
 def func_sss_default(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_default_v203
+        s = s * prefs.cycles_sss_default_b410
     return s
 
-def func_sss_falloff_sat(f, s):
+def func_sss_falloff_saturated(f, s):
     falloff = Color((f[0], f[1], f[2]))
     falloff.s *= s
     return [falloff.r, falloff.g, falloff.b, 1.0]
 
-def func_sss_radius_eyes(r, f):
+def func_sss_radius_eyes_cycles(r):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    r = r * vars.EYES_SSS_RADIUS_SCALE
+    return r
+
+def func_sss_radius_eyes_eevee(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.EYES_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_hair(r, f, s):
+def func_sss_radius_hair_cycles(r):
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    r = r * vars.HAIR_SSS_RADIUS_SCALE
+    return r
+
+def func_sss_radius_hair_eevee(r, f, s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.HAIR_SSS_RADIUS_SCALE
     falloff = Color((f[0], f[1], f[2]))
     falloff.s *= s
     return [falloff.r * r, falloff.g * r, falloff.b * r]
 
-def func_sss_radius_teeth(r, f):
+def func_sss_radius_teeth_eevee(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.TEETH_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_tongue(r, f):
+def func_sss_radius_tongue_eevee(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.TONGUE_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_default(r, f):
+def func_sss_radius_default_eevee(r, f):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.DEFAULT_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
@@ -344,6 +356,8 @@ def func_sss_radius_default(r, f):
 def func_sss_radius_skin_cycles(r):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     r = r * vars.SKIN_SSS_RADIUS_SCALE
+    #if utils.B400():
+    #    r *= 2/3
     return r
 
 def func_sss_radius_skin_eevee(r, f, s):
@@ -352,16 +366,6 @@ def func_sss_radius_skin_eevee(r, f, s):
     falloff = Color((f[0], f[1], f[2]))
     falloff.s *= s
     return [falloff.r * r, falloff.g * r, falloff.b * r]
-
-def func_sss_radius_eyes_cycles(r):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    r = r * vars.EYES_SSS_RADIUS_SCALE
-    return r
-
-def func_sss_radius_hair_cycles(r):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    r = r * vars.HAIR_SSS_RADIUS_SCALE
-    return r
 
 def func_roughness_power(p):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
@@ -411,7 +415,7 @@ def func_occlusion_strength(s):
     return pow(s, 1.0 / 3.0)
 
 def func_occlusion_color(c):
-    return utils.lerp_color(c, (0,0,0,1), 0.5)
+    return utils.lerp_color(c, (0,0,0,1), 0.75)
 
 def func_one_minus(v):
     return 1.0 - v
@@ -1148,16 +1152,14 @@ def fix_sss_method(bsdf, is_skin=False, is_hair=False, is_eyes=False):
         bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
         for bsdf in bsdf_nodes:
             bsdf.subsurface_method = "RANDOM_WALK_SKIN"
+            bsdf.inputs['Subsurface Scale'].default_value = 1.0
             if is_hair:
                 bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
             elif is_skin:
                 bsdf.inputs['Subsurface Anisotropy'].default_value = 0.8
             elif is_eyes:
                 bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
-                if prefs.render_target == "CYCLES":
-                    bsdf.inputs['Subsurface Scale'].default_value = 0.005
-                else:
-                    bsdf.inputs['Subsurface Scale'].default_value = 1.0
+                bsdf.inputs['Subsurface Scale'].default_value = 0.01
             else:
                 bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
     else:

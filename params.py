@@ -249,7 +249,7 @@ SHADER_MATRIX = [
             ["eye_occlusion_outer", 0.07, "", "Custom/Outer Corner Offset"],
             # non json properties (just defaults)
             ["eye_occlusion_tear_duct_width", 0.5, "DEF"],
-            ["eye_occlusion_power", 3, "DEF"],
+            ["eye_occlusion_power", 4, "DEF"],
         ],
         # export variables to update json file on export that need special conversion
         # [json_id, default_value, function, prop_arg1, prop_arg2, prop_arg3...]
@@ -337,7 +337,7 @@ SHADER_MATRIX = [
             ["Micro Normal Strength", "func_mul_2", "skin_micro_normal_strength"],
             ["Bump Scale", "", "skin_bump_scale"],
             ["Height Scale", "", "skin_height_scale"],
-            ["Subsurface Falloff", "func_sss_falloff_sat", "skin_subsurface_falloff", "skin_subsurface_saturation"],
+            ["Subsurface Falloff", "func_sss_falloff_saturated", "skin_subsurface_falloff", "skin_subsurface_saturation"],
             ["Subsurface Radius", "func_sss_radius_skin_cycles", "skin_subsurface_radius"],
             ["Subsurface Scale", "func_sss_skin", "skin_subsurface_scale"],
             ["Unmasked Scatter Scale", "", "skin_unmasked_scatter_scale"],
@@ -552,7 +552,7 @@ SHADER_MATRIX = [
             ["Chin Scatter Scale", "", "skin_chin_scatter_scale"],
             ["Ear Scatter Scale", "", "skin_ear_scatter_scale"],
             ["Neck Scatter Scale", "", "skin_neck_scatter_scale"],
-            ["Subsurface Falloff", "func_sss_falloff_sat", "skin_subsurface_falloff", "skin_subsurface_saturation"],
+            ["Subsurface Falloff", "func_sss_falloff_saturated", "skin_subsurface_falloff", "skin_subsurface_saturation"],
             ["Subsurface Radius", "func_sss_radius_skin_cycles", "skin_subsurface_radius"],
             ["Subsurface Scale", "func_sss_skin", "skin_subsurface_scale"],
             ["Micro Roughness Mod", "", "skin_micro_roughness_mod"],
@@ -799,7 +799,7 @@ SHADER_MATRIX = [
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
-            ["Subsurface Radius", "func_sss_radius_tongue", "tongue_subsurface_radius", "tongue_subsurface_falloff"]
+            ["Subsurface Radius", "func_sss_radius_tongue_eevee", "tongue_subsurface_radius", "tongue_subsurface_falloff"]
         ],
         # texture inputs:
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
@@ -934,7 +934,7 @@ SHADER_MATRIX = [
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
-            ["Subsurface Radius", "func_sss_radius_teeth", "teeth_subsurface_radius", "teeth_subsurface_falloff"]
+            ["Subsurface Radius", "func_sss_radius_teeth_eevee", "teeth_subsurface_radius", "teeth_subsurface_falloff"]
         ],
         # texture inputs:
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
@@ -1097,7 +1097,7 @@ SHADER_MATRIX = [
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
-            ["Subsurface Radius", "func_sss_radius_eyes", "eye_subsurface_radius", "eye_subsurface_falloff"]
+            ["Subsurface Radius", "func_sss_radius_eyes_eevee", "eye_subsurface_radius", "eye_subsurface_falloff"]
         ],
         # modifier properties:
         # [prop_name, material_type, modifier_type, modifier_id, expression]
@@ -1169,7 +1169,7 @@ SHADER_MATRIX = [
             ["eye_subsurface_falloff", (1,1,1,1), "func_color_bytes", "SSS/Falloff"],
             ["eye_subsurface_radius", 5, "", "SSS/Radius"],
             # non json properties (just defaults)
-            ["eye_subsurface_scale", 0.75, "DEF"],
+            ["eye_subsurface_scale", 1.0, "DEF"],
             ["eye_iris_depth_radius", 0.88, "DEF"],
             ["eye_refraction_depth", 2.5, "DEF"],
             ["eye_blood_vessel_height", 0.5, "DEF"],
@@ -1207,7 +1207,7 @@ SHADER_MATRIX = [
             ["PROP", "AO Strength", "eye_ao_strength", True, "AO Map"],
             ["PROP", "Color Blend", "eye_color_blend_strength", True, "Color Blend Map"],
             ["SPACER"],
-            ["PROP", "Sclera Color", "eye_sclera_color", False],
+            ["PROP", "*Sclera Color", "eye_sclera_color", False],
             ["PROP", "*Sclera Hue", "eye_sclera_hue", True],
             ["PROP", "*Sclera Saturation", "eye_sclera_saturation", True],
             ["PROP", "Sclera Brightness", "eye_sclera_brightness", True],
@@ -1455,7 +1455,7 @@ SHADER_MATRIX = [
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
-            ["Subsurface Radius", "func_sss_radius_default", "default_subsurface_radius", "default_subsurface_falloff"]
+            ["Subsurface Radius", "func_sss_radius_default_eevee", "default_subsurface_radius", "default_subsurface_falloff"]
         ],
         # texture inputs:
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
@@ -1661,7 +1661,7 @@ SHADER_MATRIX = [
             ["Anisotropic Strength", "", "hair_anisotropic_strength"],
             ["Specular Blend", "", "hair_specular_blend"],
             ["Anisotropic Color", "", "hair_anisotropic_color"],
-            ["Subsurface Falloff", "func_sss_falloff_sat", "hair_subsurface_falloff", "hair_subsurface_saturation"],
+            ["Subsurface Falloff", "func_sss_falloff_saturated", "hair_subsurface_falloff", "hair_subsurface_saturation"],
             ["Subsurface Scale", "func_sss_hair", "hair_subsurface_scale"],
             ["Subsurface Radius", "func_sss_radius_hair_cycles", "hair_subsurface_radius"],
             ["Diffuse Strength", "", "hair_diffuse_strength"],
@@ -1682,7 +1682,7 @@ SHADER_MATRIX = [
         ],
         # inputs to the bsdf that must be controlled directly (i.e. subsurface radius in Eevee)
         "bsdf": [
-            ["Subsurface Radius", "func_sss_radius_hair", "hair_subsurface_radius", "hair_subsurface_falloff", "hair_subsurface_saturation"],
+            ["Subsurface Radius", "func_sss_radius_hair_eevee", "hair_subsurface_radius", "hair_subsurface_falloff", "hair_subsurface_saturation"],
         ],
         # texture inputs:
         # [input_socket_color, input_socket_alpha, texture_type, tiling_prop, tiling_mode]
@@ -1755,7 +1755,7 @@ SHADER_MATRIX = [
             ["hair_diffuse_hue", 0.5, "", "/Diffuse Hue"],
             ["hair_diffuse_saturation", 1, "", "/Diffuse Saturation"],
             ["hair_diffuse_brightness", 1, "", "/Diffuse Brightness"],
-            ["hair_subsurface_saturation", 1.5, "DEF"],
+            ["hair_subsurface_saturation", 1.25, "DEF"],
             ["hair_diffuse_hsv_strength", 1, "DEF"],
             ["hair_subsurface_radius", 1.5, "DEF"],
             ["hair_alpha_power", 1.0, "DEF"],

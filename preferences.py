@@ -22,12 +22,12 @@ from . import addon_updater_ops, colorspace, utils, vars
 
 def reset_cycles():
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    prefs.cycles_sss_skin_v208 = 1.25
-    prefs.cycles_sss_hair_v208 = 0.25
-    prefs.cycles_sss_teeth_v203 = 1.0
-    prefs.cycles_sss_tongue_v203 = 1.0
-    prefs.cycles_sss_eyes_v203 = 1.0
-    prefs.cycles_sss_default_v203 = 1.0
+    prefs.cycles_sss_skin_b410 = 1.66
+    prefs.cycles_sss_hair_b410 = 0.25
+    prefs.cycles_sss_teeth_b410 = 1.0
+    prefs.cycles_sss_tongue_b410 = 1.0
+    prefs.cycles_sss_eyes_b410 = 1.0
+    prefs.cycles_sss_default_b410 = 1.0
 
 
 def reset_preferences():
@@ -253,26 +253,15 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                 description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
                 "Which sets up Reallusion import compatible materials and material parameters")
 
+    # Cycles Modifiers
     cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
-    #
-    cycles_sss_skin_v208: bpy.props.FloatProperty(default=1.25)
-    cycles_sss_hair_v208: bpy.props.FloatProperty(default=0.25)
-    cycles_sss_teeth_v203: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_tongue_v203: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_eyes_v203: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_default_v203: bpy.props.FloatProperty(default=1.0)
-    # old
-    cycles_sss_skin_v203: bpy.props.FloatProperty(default=0.5)
-    cycles_sss_hair_v203: bpy.props.FloatProperty(default=0.1)
-    cycles_sss_skin_v118: bpy.props.FloatProperty(default=0.5)
-    cycles_sss_hair_v118: bpy.props.FloatProperty(default=0.1)
-    cycles_sss_teeth: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_tongue: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_eyes: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_default: bpy.props.FloatProperty(default=1.0)
-    # older
-    cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
-    cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
+    # Cycles SSS weight mods
+    cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.66)
+    cycles_sss_hair_b410: bpy.props.FloatProperty(default=0.25)
+    cycles_sss_teeth_b410: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_tongue_b410: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_eyes_b410: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_default_b410: bpy.props.FloatProperty(default=1.0)
 
     bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
 
@@ -379,12 +368,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "eye_displacement_group")
 
         layout.label(text="Cycles Adjustments:")
-        layout.prop(self, "cycles_sss_skin_v208")
-        layout.prop(self, "cycles_sss_hair_v208")
-        layout.prop(self, "cycles_sss_teeth_v203")
-        layout.prop(self, "cycles_sss_tongue_v203")
-        layout.prop(self, "cycles_sss_eyes_v203")
-        layout.prop(self, "cycles_sss_default_v203")
+        layout.prop(self, "cycles_sss_skin_b410")
+        layout.prop(self, "cycles_sss_hair_b410")
+        layout.prop(self, "cycles_sss_teeth_b410")
+        layout.prop(self, "cycles_sss_tongue_b410")
+        layout.prop(self, "cycles_sss_eyes_b410")
+        layout.prop(self, "cycles_sss_default_b410")
         layout.prop(self, "cycles_ssr_iris_brightness")
 
         layout.label(text="Physics:")

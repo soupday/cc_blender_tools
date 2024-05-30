@@ -38,6 +38,7 @@ Links
 ### 2.0.8
 - Fix to Update Unity Project being greyed out after saving as Blend file.
 - Fix to export non-standard character.
+- Fix to export non-standard ARP rigged character.
 - Scene tools:
     - Scene lighting presets overhauled.
     - Added function to align any object to view location and orientation (useful for placing lights and cameras).
