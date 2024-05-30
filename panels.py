@@ -720,7 +720,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             row = box.row()
             row.prop(props, "build_mode", expand=True)
             box.row().operator("cc3.setproperties", icon="DECORATE_OVERRIDE", text="Reset All Parameters").param = "RESET_ALL"
-            box.row().operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups").param ="REBUILD_NODE_GROUPS"
+            row = box.row()
+            row.scale_y = 1.5
+            row.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Shaders").param ="REBUILD_NODE_GROUPS"
 
         # Material Setup
         layout.box().label(text="Object & Material Setup", icon="MATERIAL")

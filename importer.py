@@ -1377,7 +1377,7 @@ class CC3Import(bpy.types.Operator):
         elif properties.param == "DELETE_CHARACTER":
             return "Removes the character and any associated objects, meshes, materials, nodes, images, armature actions and shapekeys. Basically deletes everything not nailed down.\n**Do not press this if there is anything you want to keep!**"
         elif properties.param == "REBUILD_NODE_GROUPS":
-            return "Rebuilds the shader node groups for the advanced and eye materials."
+            return "Rebuilds the shader node groups for for all material shaders"
         return ""
 
 
