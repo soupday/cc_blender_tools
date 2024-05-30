@@ -760,7 +760,7 @@ class CC3EyeOcclusionParameters(bpy.types.PropertyGroup):
 class CC3TearlineParameters(bpy.types.PropertyGroup):
     # Tearline
     tearline_specular: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"tearline_specular"))
-    tearline_glossiness: bpy.props.FloatProperty(default=0.025, min=0, max=0.05, update=lambda s,c: update_property(s,c,"tearline_glossiness"))
+    tearline_glossiness: bpy.props.FloatProperty(default=0.85, min=0, max=1.0, update=lambda s,c: update_property(s,c,"tearline_glossiness"))
     tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"tearline_alpha"))
     tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"tearline_roughness"))
     tearline_inner: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_property(s,c,"tearline_inner"))

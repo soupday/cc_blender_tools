@@ -54,6 +54,7 @@ Links
     - Displacement map (if present) will be used on skin materials for bump and mesh displacement.
     - Cycles subsurface calculations and parameters tweaked.
     - Eye Sclera color tint added.
+    - Cycles Tearline shader reworked.
 - Datalink:
     - Added custom prop rig control bones when sending through datalink.
     - Added Receiving prop posing and animation live sequence.

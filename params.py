@@ -142,7 +142,7 @@ SHADER_MATRIX = [
         "vars": [
             ["tearline_alpha", 0.05, "DEF"],
             ["tearline_specular", 1, "DEF"],
-            ["tearline_glossiness", 0.025, "DEF"],
+            ["tearline_glossiness", 0.85, "DEF"],
             ["tearline_roughness", 0.15, "", "Custom/_Roughness"],
             ["tearline_inner", 0, "DEF"],
             ["tearline_displace", 0.1, "", "Custom/Depth Offset"],
