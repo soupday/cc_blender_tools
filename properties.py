@@ -883,7 +883,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_specular_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_specular_scale"))
     hair_roughness_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_roughness_strength"))
     hair_alpha_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_alpha_strength"))
-    hair_alpha_power: bpy.props.FloatProperty(default=1, min=0.01, max=4, update=lambda s,c: update_property(s,c,"hair_alpha_power"))
+    hair_alpha_power: bpy.props.FloatProperty(default=1, min=0.01, max=2, update=lambda s,c: update_property(s,c,"hair_alpha_power"))
     hair_opacity: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_opacity"))
     hair_normal_strength: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_normal_strength"))
     hair_bump_strength: bpy.props.FloatProperty(default=1, min=-3, max=3, update=lambda s,c: update_property(s,c,"hair_bump_strength"))
