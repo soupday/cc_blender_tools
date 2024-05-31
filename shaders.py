@@ -276,39 +276,55 @@ def func_iris_brightness(v):
 def func_sss_skin(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_skin_b410
-        #if utils.B400():
-        #    s *= 3/2
+        if utils.B400():
+            s = s * prefs.cycles_sss_skin_b410
+        else:
+            s = s * prefs.cycles_sss_skin_b341
     return s
 
 def func_sss_hair(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_hair_b410
+        if utils.B400():
+            s = s * prefs.cycles_sss_hair_b410
+        else:
+            s = s * prefs.cycles_sss_hair_b341
     return s
 
 def func_sss_teeth(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_teeth_b410
+        if utils.B400():
+            s = s * prefs.cycles_sss_teeth_b410
+        else:
+            s = s * prefs.cycles_sss_teeth_b341
     return s
 
 def func_sss_tongue(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_tongue_b410
+        if utils.B400():
+            s = s * prefs.cycles_sss_tongue_b410
+        else:
+            s = s * prefs.cycles_sss_tongue_b341
     return s
 
 def func_sss_eyes(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_eyes_b410
+        if utils.B400():
+            s = s * prefs.cycles_sss_eyes_b410
+        else:
+            s = s * prefs.cycles_sss_eyes_b341
     return s
 
 def func_sss_default(s):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_default_b410
+        if utils.B400():
+            s = s * prefs.cycles_sss_default_b410
+        else:
+            s = s * prefs.cycles_sss_default_b341
     return s
 
 def func_sss_falloff_saturated(f, s):
@@ -918,7 +934,11 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
     nodeutils.clean_unused_image_nodes(nodes)
 
     fix_sss_method(bsdf, is_skin=True)
-    mat.displacement_method = "DISPLACEMENT"
+    if utils.B410():
+        mat.displacement_method = "DISPLACEMENT"
+    else:
+        mat.cycles.displacement_method = "DISPLACEMENT"
+
 
     materials.set_material_alpha(mat, "OPAQUE")
     mat.use_sss_translucency = True
@@ -1110,12 +1130,12 @@ def connect_pbr_shader(obj, mat, mat_json, processed_images):
     if mat_cache.is_eyelash():
         nodeutils.set_node_input_value(group, "Specular Scale", 0.25)
         nodeutils.set_node_input_value(bsdf, "Subsurface", 0.001)
-        fix_sss_method(bsdf, is_hair=True)
+        fix_sss_method(bsdf, is_scalp=True)
 
     elif mat_cache.is_scalp():
         nodeutils.set_node_input_value(group, "Specular Scale", 0)
         nodeutils.set_node_input_value(bsdf, "Subsurface", 0.01)
-        fix_sss_method(bsdf)
+        fix_sss_method(bsdf, is_scalp=True)
 
     else:
         fix_sss_method(bsdf)
@@ -1146,27 +1166,37 @@ def connect_sss_shader(obj, mat, mat_json, processed_images):
         materials.set_material_alpha(mat, "HASHED")
 
 
-def fix_sss_method(bsdf, is_skin=False, is_hair=False, is_eyes=False):
+def fix_sss_method(bsdf, is_skin=False, is_hair=False, is_eyes=False, is_scalp=False):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    if utils.B400() and is_skin or is_hair or is_eyes:
-        bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
+    bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
+    if utils.B400():
+
+        # Blender 4.0+
         for bsdf in bsdf_nodes:
-            bsdf.subsurface_method = "RANDOM_WALK_SKIN"
-            bsdf.inputs['Subsurface Scale'].default_value = 1.0
-            if is_hair:
-                bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
-            elif is_skin:
-                bsdf.inputs['Subsurface Anisotropy'].default_value = 0.8
-            elif is_eyes:
-                bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
-                bsdf.inputs['Subsurface Scale'].default_value = 0.01
+            if is_skin or is_hair or is_eyes or is_scalp:
+                bsdf.subsurface_method = "RANDOM_WALK_SKIN"
+                bsdf.inputs['Subsurface Scale'].default_value = 1.0
+                if is_hair:
+                    bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
+                elif is_skin:
+                    bsdf.inputs['Subsurface Anisotropy'].default_value = 0.8
+                elif is_eyes:
+                    bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
+                    bsdf.inputs['Subsurface Scale'].default_value = 0.01
+                else:
+                    bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
             else:
-                bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
+                bsdf.subsurface_method = "BURLEY"
+
     else:
-        # Blender 3.0 defaults to random walk, which does not work well with hair
-        bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
+
+        # Blender 3.4 - 3.6
         for bsdf in bsdf_nodes:
-            bsdf.subsurface_method = "BURLEY"
+            if is_skin or is_eyes or is_scalp:
+                bsdf.subsurface_method = "RANDOM_WALK"
+                bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
+            else:
+                bsdf.subsurface_method = "BURLEY"
 
 
 def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = None):

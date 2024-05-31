@@ -21,17 +21,24 @@ from . import addon_updater_ops, colorspace, utils, vars
 
 
 def reset_cycles():
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     prefs.cycles_sss_skin_b410 = 1.4285
     prefs.cycles_sss_hair_b410 = 0.25
     prefs.cycles_sss_teeth_b410 = 1.0
     prefs.cycles_sss_tongue_b410 = 1.0
     prefs.cycles_sss_eyes_b410 = 1.0
     prefs.cycles_sss_default_b410 = 1.0
+    #
+    prefs.cycles_sss_skin_b341 = 0.264
+    prefs.cycles_sss_hair_b341 = 0.05
+    prefs.cycles_sss_teeth_b341 = 0.5
+    prefs.cycles_sss_tongue_b341 = 0.5
+    prefs.cycles_sss_eyes_b341 = 0.01
+    prefs.cycles_sss_default_b341 = 0.5
 
 
 def reset_preferences():
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     prefs.render_target = "EEVEE"
     prefs.quality_lighting = "CC3"
     prefs.pipeline_lighting = "CC3"
@@ -262,6 +269,13 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_sss_tongue_b410: bpy.props.FloatProperty(default=1.0)
     cycles_sss_eyes_b410: bpy.props.FloatProperty(default=1.0)
     cycles_sss_default_b410: bpy.props.FloatProperty(default=1.0)
+    #
+    cycles_sss_skin_b341: bpy.props.FloatProperty(default=0.264)
+    cycles_sss_hair_b341: bpy.props.FloatProperty(default=0.05)
+    cycles_sss_teeth_b341: bpy.props.FloatProperty(default=0.5)
+    cycles_sss_tongue_b341: bpy.props.FloatProperty(default=0.5)
+    cycles_sss_eyes_b341: bpy.props.FloatProperty(default=0.01)
+    cycles_sss_default_b341: bpy.props.FloatProperty(default=0.5)
 
     bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
 
@@ -368,12 +382,20 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "eye_displacement_group")
 
         layout.label(text="Cycles Adjustments:")
-        layout.prop(self, "cycles_sss_skin_b410")
-        layout.prop(self, "cycles_sss_hair_b410")
-        layout.prop(self, "cycles_sss_teeth_b410")
-        layout.prop(self, "cycles_sss_tongue_b410")
-        layout.prop(self, "cycles_sss_eyes_b410")
-        layout.prop(self, "cycles_sss_default_b410")
+        if utils.B400():
+            layout.prop(self, "cycles_sss_skin_b410")
+            layout.prop(self, "cycles_sss_hair_b410")
+            layout.prop(self, "cycles_sss_teeth_b410")
+            layout.prop(self, "cycles_sss_tongue_b410")
+            layout.prop(self, "cycles_sss_eyes_b410")
+            layout.prop(self, "cycles_sss_default_b410")
+        else:
+            layout.prop(self, "cycles_sss_skin_b341")
+            layout.prop(self, "cycles_sss_hair_b341")
+            layout.prop(self, "cycles_sss_teeth_b341")
+            layout.prop(self, "cycles_sss_tongue_b341")
+            layout.prop(self, "cycles_sss_eyes_b341")
+            layout.prop(self, "cycles_sss_default_b341")
         layout.prop(self, "cycles_ssr_iris_brightness")
 
         layout.label(text="Physics:")
