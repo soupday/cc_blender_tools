@@ -1433,23 +1433,29 @@ def get_view_area():
     return None
 
 
-def align_object_to_view(obj):
-    for area in bpy.context.screen.areas:
-        if area.type == 'VIEW_3D':
-            view_space = area.spaces.active
-            r3d = view_space.region_3d
-            loc = r3d.view_location
-            rot = r3d.view_rotation
-            D = r3d.view_distance
-            v = Vector((0,0,1))
+def align_object_to_view(obj, context):
+    if context is None:
+        context = bpy.context
+    area_3d = None
+    if context.area and context.area.type == 'VIEW_3D':
+        area_3d = bpy.context.area
+    else:
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                area_3d = area
+    if area_3d:
+        view_space = area_3d.spaces.active
+        r3d = view_space.region_3d
+        loc = r3d.view_location
+        rot = r3d.view_rotation
+        D = r3d.view_distance
+        v = Vector((0,0,1))
 
-            obj.location = loc + rot @ v
-            if obj.rotation_mode == "XYZ":
-                obj.rotation_euler = rot.to_euler()
-            elif obj.rotation_mode == "QUATERNION":
-                obj.rotation_quaternion = rot.copy()
-
-            return
+        obj.location = loc + rot @ v
+        if obj.rotation_mode == "XYZ":
+            obj.rotation_euler = rot.to_euler()
+        elif obj.rotation_mode == "QUATERNION":
+            obj.rotation_quaternion = rot.copy()
 
 
 def safe_get_action(obj) -> bpy.types.Action:

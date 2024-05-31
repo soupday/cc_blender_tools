@@ -22,7 +22,7 @@ from . import addon_updater_ops, colorspace, utils, vars
 
 def reset_cycles():
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    prefs.cycles_sss_skin_b410 = 1.5
+    prefs.cycles_sss_skin_b410 = 1.4285
     prefs.cycles_sss_hair_b410 = 0.25
     prefs.cycles_sss_teeth_b410 = 1.0
     prefs.cycles_sss_tongue_b410 = 1.0
@@ -256,7 +256,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     # Cycles Modifiers
     cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
     # Cycles SSS weight mods
-    cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.5)
+    cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.4285)
     cycles_sss_hair_b410: bpy.props.FloatProperty(default=0.25)
     cycles_sss_teeth_b410: bpy.props.FloatProperty(default=1.0)
     cycles_sss_tongue_b410: bpy.props.FloatProperty(default=1.0)

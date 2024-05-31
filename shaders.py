@@ -374,7 +374,7 @@ def func_roughness_power(p):
     #else:
     #    return p
     if prefs.render_target == "CYCLES":
-        return p * 1.25
+        return p * 1.125
     else:
         return p * 0.75
 

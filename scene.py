@@ -1043,7 +1043,7 @@ def setup_scene_default(scene_type):
                 1.221730351448059, 5.0,
                 0.0)
             set_contact_shadow(spot_light_003, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_003.data.color = (0.6666666865348816, 0.6666666865348816, 0.6666666865348816)
+            spot_light_003.data.color = (0.760784387588501, 1.0, 0.9803922176361084)
 
 
             spot_light_004 = add_spot_light("Key", container,
@@ -1056,14 +1056,14 @@ def setup_scene_default(scene_type):
             spot_light_004.data.color = (0.760784387588501, 1.0, 0.9803922176361084)
 
 
-            spot_light_005 = add_spot_light("Key Front", container,
+            spot_light_005 = add_spot_light("Key Back", container,
                 (2.2198028564453125, 3.576693296432495, 1.8407554626464844),
                 (-0.3483298718929291, 1.146102786064148, 0.6304814219474792),
                 73.5999984741211, 0.75,
                 0.7504914402961731, 9.640000343322754,
                 0.6155999898910522)
             set_contact_shadow(spot_light_005, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_005.data.color = (1.0, 0.8980392813682556, 0.5254902243614197)
+            spot_light_005.data.color = (1.0, 1.0, 1.0)
 
 
             if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
@@ -1487,12 +1487,12 @@ def filter_lights(filter):
             light.data.color = (r,g,b)
 
 
-def align_with_view(obj=None):
+def align_with_view(obj=None, context=None):
     hide_view_extras(False)
     if obj is None:
         obj = utils.get_active_object()
     if utils.object_exists(obj):
-        utils.align_object_to_view(obj)
+        utils.align_object_to_view(obj, context)
         if obj.type == "CAMERA":
             view_space, r3d = utils.get_region_3d()
             obj.data.lens = view_space.lens
@@ -1504,12 +1504,12 @@ def hide_view_extras(hide):
         view_space.overlay.show_extras = not hide
 
 
-def add_view_aligned_camera():
+def add_view_aligned_camera(context):
     hide_view_extras(False)
     bpy.ops.object.camera_add(enter_editmode=False, align='VIEW')
     camera = bpy.context.active_object
     bpy.context.scene.camera = camera
-    align_with_view(camera)
+    align_with_view(camera, context)
     camera.name = utils.unique_name("Camera", True)
     view_space, r3d = utils.get_region_3d()
     camera.data.lens = view_space.lens
@@ -1814,7 +1814,7 @@ class CC3Scene(bpy.types.Operator):
             filter_lights(props.light_filter)
 
         elif self.param == "ALIGN_WITH_VIEW":
-            align_with_view()
+            align_with_view(context=context)
 
         elif self.param == "ADD_CAMERA":
             add_view_aligned_camera()
