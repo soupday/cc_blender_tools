@@ -17,7 +17,6 @@
 # Set by __init__.py from the bl_info dict
 
 VERSION_STRING = "v0.0.0"
-
 DEV = False
 
 def set_version_string(bl_info):

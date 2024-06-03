@@ -1,9 +1,9 @@
-import bpy, bpy_extras
-import bpy_extras.view3d_utils as v3d
+import bpy #, bpy_extras
+#import bpy_extras.view3d_utils as v3d
 import atexit
 from enum import IntEnum
 import os, socket, time, select, struct, json
-import subprocess
+#import subprocess
 from mathutils import Vector, Quaternion, Matrix
 from . import importer, bones, geom, colorspace, rigging, rigutils, modifiers, utils, vars
 
@@ -412,7 +412,7 @@ def find_rig_pivot_bone(rig, parent):
 
 
 def BFA(f):
-    return f - 1
+    return max(0, f - 1)
 
 
 def RLFA(f):
