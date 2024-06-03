@@ -46,7 +46,7 @@ def set_cycles_samples(samples, adaptive_samples = -1, denoising = False, time_l
         bpy.context.scene.cycles.time_limit = time_limit
 
 
-def prep_bake(mat = None, samples = BAKE_SAMPLES, image_format = IMAGE_FORMAT, make_surface = True):
+def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format=IMAGE_FORMAT, make_surface=True):
     bake_state = {}
 
     # cycles settings
@@ -128,6 +128,14 @@ def prep_bake(mat = None, samples = BAKE_SAMPLES, image_format = IMAGE_FORMAT, m
         bake_surface = bpy.context.active_object
         bake_state["bake_surface"] = bake_surface
         set_bake_material(bake_state, mat)
+        # replicate any material node UV layers in bake surface
+        if mat and mat.node_tree and mat.node_tree.nodes:
+            for node in mat.node_tree.nodes:
+                if node.type == "UVMAP":
+                    uv_name = node.uv_map
+                    mesh: bpy.types.Mesh = bake_surface.data
+                    if uv_name not in mesh.uv_layers:
+                        mesh.uv_layers.new(name=uv_name)
 
     return bake_state
 
@@ -573,6 +581,7 @@ def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.
     image_node.name = image_name
 
     utils.log_info("Baking: " + image_name)
+    utils.log_info(f"{source_node} {source_socket}")
 
     if not no_prep:
         bake_state = prep_bake(mat=mat, make_surface=True)
@@ -2430,9 +2439,9 @@ def bake_character(chr_cache):
     objects = get_export_objects(chr_cache)
     #objects = [ bpy.context.active_object ]
 
-    bake_state = prep_bake(samples = props.bake_samples,
-                           image_format = props.target_format,
-                           make_surface = True)
+    bake_state = prep_bake(samples=props.bake_samples,
+                           image_format=props.target_format,
+                           make_surface=True)
 
     if prefs.bake_use_gpu:
         set_cycles_samples(samples=props.bake_samples, adaptive_samples=0.01, use_gpu=True, denoising=False)

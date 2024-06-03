@@ -221,20 +221,16 @@ def rename_armature(arm, name):
         armature_data = bpy.data.armatures[name]
     except:
         pass
-    arm.name = name
-    arm.name = name
-    arm.data.name = name
-    arm.data.name = name
+    utils.force_object_name(arm, name)
+    utils.force_armature_name(arm.data, name)
     return armature_object, armature_data
 
 
 def restore_armature_names(armature_object, armature_data, name):
     if armature_object:
-        armature_object.name = name
-        armature_object.name = name
+        utils.force_object_name(armature_object, name)
     if armature_data:
-        armature_data.name = name
-        armature_data.name = name
+        utils.force_armature_name(armature_data, name)
 
 
 def get_rigify_ik_fk_influence(rig):
@@ -693,9 +689,11 @@ def update_avatar_rig(rig):
         pose_bone: bpy.types.PoseBone
         for pose_bone in rig.pose.bones:
             if "tweak" in pose_bone.name:
-                # TODO don't hide the tweak bones, just make them darker in color
-                #      and unselectable
-                pose_bone.bone.hide = hide
+                pose_bone.bone.hide = False
+                if hide:
+                    bones.set_bone_color(pose_bone, "TWEAK_DISABLED")
+                else:
+                    bones.set_bone_color(pose_bone, "TWEAK")
                 pose_bone.bone.hide_select = hide
             elif pose_bone.name.startswith("DEF-"):
                 for con in pose_bone.constraints:

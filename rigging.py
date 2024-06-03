@@ -2776,10 +2776,8 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
         bone_naming = "LINK"
 
     if export_rig:
-        export_rig.name = chr_cache.character_name + "_Export"
-        export_rig.name = chr_cache.character_name + "_Export"
-        export_rig.data.name = chr_cache.character_name + "_Export"
-        export_rig.data.name = chr_cache.character_name + "_Export"
+        utils.force_object_name(export_rig, chr_cache.character_name + "_Export")
+        utils.force_armature_name(export_rig.data, chr_cache.character_name + "_Export")
     else:
         return None
 

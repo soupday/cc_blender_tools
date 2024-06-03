@@ -208,7 +208,7 @@ def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, sca
             text = "Export Morph Target"
             icon = "ARROW_LEFTRIGHT"
         row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
-        if not chr_cache.can_export():
+        if not chr_cache.can_standard_export():
             row.enabled = False
             if warn and not chr_cache.get_import_has_key():
                 if chr_cache.is_import_type("FBX"):
@@ -2952,13 +2952,20 @@ class CCICDataLinkPanel(bpy.types.Panel):
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
-            if is_cc and chr_cache and (chr_cache.get_import_has_key() or chr_cache.is_non_standard()):
+            if is_cc and chr_cache and chr_cache.can_go_cc():
+
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
                 if chr_cache.is_morph():
                     grid.operator("ccic.datalink", icon="MESH_ICOSPHERE", text="Go CC").param = "SEND_MORPH"
                 else:
                     grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
+
+            elif is_iclone and chr_cache and chr_cache.can_go_iclone():
+
+                grid = col.grid_flow(row_major=True, columns=1, align=True)
+                grid.scale_y = 2.0
+                grid.operator("ccic.datalink", icon="COMMUNITY", text="Go iClone").param = "SEND_ACTOR"
 
 
             #grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"

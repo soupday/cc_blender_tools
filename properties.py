@@ -1471,7 +1471,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 utils.log_info(f"Updating paths to source file: {local_file}")
                 self.import_file = local_file
 
-    def can_export(self):
+    def can_standard_export(self):
         prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         result = True
         if prefs.export_require_key:
@@ -1480,6 +1480,24 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if self.rigified:
             result = False
         return result
+
+    def can_go_cc(self):
+        if self.rigified:
+            return False
+        if self.is_standard() and self.get_import_has_key():
+            return True
+        if self.is_morph():
+            return True
+        if self.is_non_standard():
+            return True
+        if self.is_prop():
+            return True
+        return False
+
+    def can_go_iclone(self):
+        if self.is_prop():
+            return True
+        return False
 
     def is_morph(self):
         return self.is_import_type("OBJ") and self.get_import_has_key()

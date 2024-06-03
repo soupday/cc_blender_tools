@@ -618,6 +618,58 @@ def remove_all_shape_keys(obj):
             obj.shape_key_remove(key)
 
 
+def force_object_name(obj, name):
+    if name in bpy.data.objects:
+        existing = bpy.data.objects[name]
+        if existing != obj:
+            old_name = obj.name
+            rnd_id = generate_random_id(10)
+            existing.name = existing.name + "_" + rnd_id
+            obj.name = name
+            existing.name = old_name
+    else:
+        obj.name = name
+
+
+def force_mesh_name(mesh, name):
+    if name in bpy.data.meshes:
+        existing = bpy.data.meshes[name]
+        if existing != mesh:
+            old_name = mesh.name
+            rnd_id = generate_random_id(10)
+            existing.name = existing.name + "_" + rnd_id
+            mesh.name = name
+            existing.name = old_name
+    else:
+        mesh.name = name
+
+
+def force_armature_name(arm, name):
+    if name in bpy.data.armatures:
+        existing = bpy.data.armatures[name]
+        if existing != arm:
+            old_name = arm.name
+            rnd_id = generate_random_id(10)
+            existing.name = existing.name + "_" + rnd_id
+            arm.name = name
+            existing.name = old_name
+    else:
+        arm.name = name
+
+
+def force_material_name(mat, name):
+    if name in bpy.data.materials:
+        existing = bpy.data.materials[name]
+        if existing != mat:
+            old_name = mat.name
+            rnd_id = generate_random_id(10)
+            existing.name = existing.name + "_" + rnd_id
+            mat.name = name
+            existing.name = old_name
+    else:
+        mat.name = name
+
+
 def s2lin(x):
     a = 0.055
     if x <= 0.04045:

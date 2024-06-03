@@ -142,6 +142,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 copy_textures, revert_duplicates, apply_fixes, as_blend_file, bake_values):
     prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
+    utils.log_info(f"Prepping Export: {new_name}")
+
     if as_blend_file:
         if prefs.export_unity_remove_objects:
             # remove everything not part of the character for blend file exports.
@@ -304,10 +306,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                     utils.log_info(f"Updating Object source json name: {obj_source_name} to {new_obj_name}")
                 if physics_json and jsonutils.rename_json_key(physics_json, obj_source_name, new_obj_name):
                     utils.log_info(f"Updating Physics Object source json name: {obj_source_name} to {new_obj_name}")
-            obj.name = new_obj_name
-            obj.name = new_obj_name
-            obj.data.name = new_obj_name
-            obj.data.name = new_obj_name
+            utils.force_object_name(obj, new_obj_name)
+            utils.force_mesh_name(obj.data, new_obj_name)
             obj_name = new_obj_name
             obj_safe_name = new_obj_name
             obj_source_name = new_obj_name
@@ -365,8 +365,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         utils.log_info(f"Updating material json name: {mat_source_name} to {new_mat_name}")
                     if physics_mesh_json and jsonutils.rename_json_key(physics_mesh_json["Materials"], mat_source_name, new_mat_name):
                         utils.log_info(f"Updating physics material json name: {mat_source_name} to {new_mat_name}")
-                mat.name = new_mat_name
-                mat.name = new_mat_name
+                utils.force_material_name(mat, new_mat_name)
                 mat_name = new_mat_name
                 mat_safe_name = new_mat_name
                 mat_source_name = new_mat_name
@@ -430,8 +429,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         mat_name = new_mat.name
                     if mat_name != mat_safe_name:
                         utils.log_info(f"Reverting material name: {mat_name} to {mat_safe_name}")
-                        mat.name = mat_safe_name
-                        mat.name = mat_safe_name
+                        utils.force_material_name(mat, mat_safe_name)
                 utils.log_recess()
             else:
                 # add pbr material to json for non-cached base object/material
@@ -603,15 +601,14 @@ def restore_export(export_changes : list):
         op = info[0]
         if op == "OBJECT_RENAME":
             obj = info[1]
-            obj.name = info[2]
-            obj.name = info[2]
-            if obj.data:
-                obj.data.name = info[3]
-                obj.data.name = info[3]
+            utils.force_object_name(obj, info[2])
+            if obj.type == "MESH" and obj.data:
+                utils.force_mesh_name(obj.data, info[3])
+            if obj.type == "ARMATURE" and obj.data:
+                utils.force_armature_name(obj.data, info[3])
         elif op == "MATERIAL_RENAME":
             mat = info[1]
-            mat.name = info[2]
-            mat.name = info[2]
+            utils.force_material_name(mat, info[2])
         elif op == "MATERIAL_SLOT_REPLACE":
             slot = info[1]
             slot.material = info[2]
@@ -826,6 +823,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                 #    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
                                 #                                            size_override_node = shader_node, size_override_socket = "Roughness Map")
                                 else:
+                                    utils.log_info(f"Baking Socket Input: {shader_node.name} {shader_socket}")
                                     image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
                         tex_info["Texture Path"] = ""
@@ -1636,8 +1634,6 @@ def export_standard(self, chr_cache, file_path, include_selected):
     arm = chr_cache.get_armature()
     if arm:
         settings = bones.store_armature_settings(arm, include_pose=True)
-
-
 
     if utils.is_file_ext(ext, "FBX"):
 

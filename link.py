@@ -311,6 +311,30 @@ class LinkActor():
         else:
             return False
 
+    def is_rigified(self):
+        chr_cache = self.get_chr_cache()
+        if chr_cache:
+            return chr_cache.rigified
+        return False
+
+    def has_key(self):
+        chr_cache = self.get_chr_cache()
+        if chr_cache:
+            return chr_cache.get_import_has_key()
+        return False
+
+    def can_go_cc(self):
+        chr_cache = self.get_chr_cache()
+        if chr_cache:
+            return chr_cache.can_go_cc()
+        return False
+
+    def can_go_iclone(self):
+        chr_cache = self.get_chr_cache()
+        if chr_cache:
+            return chr_cache.can_go_iclone()
+        return False
+
 
 class LinkData():
     link_host: str = "localhost"
@@ -1485,10 +1509,15 @@ class LinkService():
         actor: LinkActor
         utils.log_info(f"Sending LinkActors: {([a.name for a in actors])}")
         for actor in actors:
+            if LINK_SERVICE.is_cc() and not actor.can_go_cc(): continue
+            if LINK_SERVICE.is_iclone() and not actor.can_go_iclone(): continue
             self.send_notify(f"Blender Exporting: {actor.name}...")
             export_path = self.get_export_path(actor.name, actor.name + ".fbx")
             self.send_notify(f"Exporting: {actor.name}")
-            bpy.ops.cc3.exporter(param="EXPORT_CC3", link_id_override=actor.get_link_id(), filepath=export_path)
+            if actor.get_type() == "PROP":
+                bpy.ops.cc3.exporter(param="EXPORT_CC3", link_id_override=actor.get_link_id(), filepath=export_path)
+            elif actor.get_type() == "AVATAR":
+                bpy.ops.cc3.exporter(param="EXPORT_CC3", link_id_override=actor.get_link_id(), filepath=export_path)
             update_link_status(f"Sending: {actor.name}")
             export_data = encode_from_json({
                 "path": export_path,

@@ -833,8 +833,7 @@ def find_duplicate_material(chr_cache, mat, processed_materials):
                                     # if there is a matching material that is the base name,
                                     # then set the first material name to this base name
                                     if mat.name == source_name:
-                                        processed_mat.name = source_name
-                                        processed_mat.name = source_name
+                                        utils.force_material_name(processed_mat, source_name)
                                     return processed_mat
     return None
 
