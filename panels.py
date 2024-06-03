@@ -2961,11 +2961,11 @@ class CCICDataLinkPanel(bpy.types.Panel):
                 else:
                     grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
 
-            elif is_iclone and chr_cache and chr_cache.can_go_iclone():
+            elif is_iclone and chr_cache and chr_cache.can_go_ic():
 
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
-                grid.operator("ccic.datalink", icon="COMMUNITY", text="Go iClone").param = "SEND_ACTOR"
+                grid.operator("ccic.datalink", icon="COMMUNITY", text="Go iC").param = "SEND_ACTOR"
 
 
             #grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"

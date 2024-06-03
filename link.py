@@ -329,10 +329,10 @@ class LinkActor():
             return chr_cache.can_go_cc()
         return False
 
-    def can_go_iclone(self):
+    def can_go_ic(self):
         chr_cache = self.get_chr_cache()
         if chr_cache:
-            return chr_cache.can_go_iclone()
+            return chr_cache.can_go_ic()
         return False
 
 
@@ -1510,7 +1510,7 @@ class LinkService():
         utils.log_info(f"Sending LinkActors: {([a.name for a in actors])}")
         for actor in actors:
             if LINK_SERVICE.is_cc() and not actor.can_go_cc(): continue
-            if LINK_SERVICE.is_iclone() and not actor.can_go_iclone(): continue
+            if LINK_SERVICE.is_iclone() and not actor.can_go_ic(): continue
             self.send_notify(f"Blender Exporting: {actor.name}...")
             export_path = self.get_export_path(actor.name, actor.name + ".fbx")
             self.send_notify(f"Exporting: {actor.name}")

@@ -68,7 +68,7 @@ Links
     - Added Receiving prop posing and animation live sequence.
     - Added custom prop rig control bones when sending through datalink.
     - Added Direct Motion Transfer from CC/iC (automatic motion export->import).
-    - Added "Go iClone" button to send (just props for now) back to iClone.
+    - Added "Go iC" button to send (just props for now) back to iClone.
 
 ### 2.0.7
 - Attempts to restore datalink when reloading linked blend file.

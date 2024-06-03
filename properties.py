@@ -1494,7 +1494,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return True
         return False
 
-    def can_go_iclone(self):
+    def can_go_ic(self):
         if self.is_prop():
             return True
         return False
