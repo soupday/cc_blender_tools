@@ -406,6 +406,18 @@ def add_spring_colliders(chr_cache):
         rigidbody.build_rigid_body_colliders(chr_cache, json_data, bone_mapping=bone_mapping)
 
 
+def toggle_show_spring_bones(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
+    if arm:
+        if bones.is_bone_collection_visible(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER):
+            show_spring_bone_edit_layer(chr_cache, arm, False)
+        else:
+            show_spring_bone_edit_layer(chr_cache, arm, True)
+
+
 class CC3OperatorSpringBones(bpy.types.Operator):
     """Blender Spring Bone Functions"""
     bl_idname = "cc3.springbones"

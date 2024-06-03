@@ -178,17 +178,19 @@ def rigify_export_group(chr_cache, layout):
 
     row = layout.row()
     row.label(text="Include T-Pose")
-    row.prop(props, "bake_unity_t_pose", text="")
+    row.prop(prefs, "rigify_export_t_pose", text="")
+    layout.label(text="Bone Naming:")
+    layout.prop(prefs, "rigify_export_naming", expand=True)
 
     row = layout.row()
     row.scale_y = 2
-    if props.export_rigify_mode == "MESH":
+    if prefs.rigify_export_mode == "MESH":
         row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Mesh").param = "EXPORT_RIGIFY"
-    elif props.export_rigify_mode == "MOTION":
+    elif prefs.rigify_export_mode == "MOTION":
         row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Motion").param = "EXPORT_RIGIFY"
     else:
         row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Mesh & Motion").param = "EXPORT_RIGIFY"
-    layout.row().prop(props, "export_rigify_mode", expand=True)
+    layout.row().prop(prefs, "rigify_export_mode", expand=True)
 
 
 def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, scale=2, warn=True):
@@ -353,7 +355,7 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
             row = column.row(align=True)
             colliders_visible = rigidbody.colliders_visible(arm)
             row.operator("cc3.springbones", icon=utils.check_icon("HIDE_OFF"), text="", depress=colliders_visible).param = "TOGGLE_SHOW_COLLIDERS"
-            is_pose_position = rigging.is_rig_rest_position(chr_cache)
+            is_pose_position = rigutils.is_rig_rest_position(arm)
             row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
             row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Remove Colliders").param = "REMOVE_COLLIDERS"
             #column.row().prop(rigid_body, "collision_margin", text="Collision Margin", slider=True)
@@ -1097,7 +1099,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 else:
                     icon = "BONE_DATA"
                 tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", depress=False).param = "CYCLE_BONE_STYLE"
-                is_pose_position = rigging.is_rig_rest_position(chr_cache)
+                is_pose_position = rigutils.is_rig_rest_position(arm)
                 tool_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
 
             row = col_2.row()
@@ -1784,14 +1786,14 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     # utility widgets minipanel
                     box_row = layout.box().row(align=True)
-                    is_full_rig_show = rigging.is_full_rigify_rig_shown(chr_cache)
+                    is_full_rig_show = rigutils.is_full_rigify_rig_shown(rig)
                     box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
                     if has_spring_rigs:
-                        is_base_rig_show = rigging.is_base_rig_shown(chr_cache)
+                        is_base_rig_show = rigutils.is_base_rig_shown(rig)
                         box_row.operator("cc3.rigifier", icon="ARMATURE_DATA", text="", depress=is_base_rig_show).param = "TOGGLE_SHOW_BASE_RIG"
-                        is_spring_rig_show = rigging.is_spring_rig_shown(chr_cache)
+                        is_spring_rig_show = rigutils.is_spring_rig_shown(rig)
                         box_row.operator("cc3.rigifier", icon="FORCE_MAGNETIC", text="", depress=is_spring_rig_show).param = "TOGGLE_SHOW_SPRING_RIG"
-                    is_pose_position = rigging.is_rig_rest_position(chr_cache)
+                    is_pose_position = rigutils.is_rig_rest_position(rig)
                     box_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
                     box_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
                     box_row.separator()
@@ -1922,7 +1924,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         row = col.row(align=True)
                         row.prop(prefs, "rigify_preview_retarget_fk_ik", expand=True)
-                        row.prop(props, "retarget_preview_shape_keys", text="", toggle=True, icon="KEYINGSET")
+                        row.prop(prefs, "rigify_preview_shape_keys", text="", toggle=True, icon="KEYINGSET")
 
                         row = col.row(align=True)
                         row.scale_y = 1.5
@@ -1959,7 +1961,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         col = layout.column(align=True)
                         row = col.row(align=True)
                         row.prop(prefs, "rigify_bake_nla_fk_ik", expand=True)
-                        row.prop(props, "bake_nla_shape_keys", text="", toggle=True, icon="KEYINGSET")
+                        row.prop(prefs, "rigify_bake_shape_keys", text="", toggle=True, icon="KEYINGSET")
                         row = col.row()
                         row.scale_y = 2
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
@@ -2924,6 +2926,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2.prop(link_props, "retarget_prop_actions", text="")
             col_1.label(text="Hide Prop Bones")
             col_2.prop(link_props, "hide_prop_bones", text="")
+            col_1.label(text="Disable Tweak Bones")
+            col_2.prop(link_props, "disable_tweak_bones", text="")
 
         if True:
 

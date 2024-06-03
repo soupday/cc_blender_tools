@@ -24,7 +24,7 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import (rigging, rigutils, vrm, bake, shaders, physics, rigidbody, wrinkle, bones, modifiers,
+from . import (hik, rigging, rigutils, bake, shaders, physics, rigidbody, wrinkle, bones, modifiers,
                imageutils, meshutils, nodeutils, jsonutils, utils, params, vars)
 
 UNPACK_INDEX = 1001
@@ -1697,7 +1697,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
         # write HIK profile for VRM
         if chr_cache and chr_cache.is_import_type("VRM"):
             hik_path = os.path.join(dir, name + ".3dxProfile")
-            if vrm.generate_hik_profile(arm, name, hik_path):
+            if hik.generate_hik_profile(arm, name, hik_path, hik.VRM_HIK_PROFILE_TEMPLATE):
                 if json_data:
                     json_data[name]["HIK"] = {}
                     json_data[name]["HIK"]["Profile_Path"] = os.path.relpath(hik_path, dir)
@@ -2048,7 +2048,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
 
     json_data = None
     include_textures = self.include_textures
-    if props.export_rigify_mode == "MOTION":
+    if prefs.rigify_export_mode == "MOTION":
          include_textures = False
     else:
         json_data = chr_cache.get_json_data()
@@ -2068,16 +2068,18 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     export_actions = False
     export_strips = True
     baked_actions = []
-    export_rig, vertex_group_map = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions,
-                                                              include_t_pose = props.bake_unity_t_pose,
-                                                              objects=objects)
+    export_rig, vertex_group_map, t_pose_action = rigging.prep_rigify_export(chr_cache,
+                                                            export_anim, baked_actions,
+                                                            include_t_pose=prefs.rigify_export_t_pose,
+                                                            objects=objects,
+                                                            bone_naming = prefs.rigify_export_naming)
     if export_rig:
         rigify_rig = chr_cache.get_armature()
         objects.remove(rigify_rig)
         objects.append(export_rig)
 
     use_anim = export_anim
-    if props.bake_unity_t_pose:
+    if prefs.rigify_export_t_pose:
         use_anim = True
 
     # remove custom material modifiers
@@ -2087,7 +2089,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
                 include_textures, False, False, False, False)
 
     # for motion only exports, select armature and any mesh objects that have shape key animations
-    if props.export_rigify_mode == "MOTION":
+    if prefs.rigify_export_mode == "MOTION":
         utils.clear_selected_objects()
         rigging.select_motion_export_objects(objects)
 
@@ -2106,6 +2108,30 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
             #axis_up = "Z",
             mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
             use_mesh_modifiers = True)
+
+    if prefs.rigify_export_t_pose:
+        bones.clear_pose(export_rig)
+
+        # put t-pose back on armature
+        utils.safe_set_action(export_rig, t_pose_action)
+
+        bpy.context.view_layer.update()
+
+        # write HIK profile for RIGIFY
+        hik_path = os.path.join(dir, name + ".3dxProfile")
+        if prefs.rigify_export_naming == "METARIG":
+            hik_template = hik.RIGIFY_METARIG_PROFILE_TEMPLATE
+        elif prefs.rigify_export_naming == "CC":
+            hik_template = hik.RIGIFY_CC_BASE_PROFILE_TEMPLATE
+        else:
+            hik_template = hik.RIGIFY_BASE_PROFILE_TEMPLATE
+        if hik.generate_hik_profile(export_rig, name, hik_path, hik_template):
+            if json_data:
+                json_data[name]["HIK"] = {}
+                json_data[name]["HIK"]["Profile_Path"] = os.path.relpath(hik_path, dir)
+
+        # clear armature actions
+        utils.safe_set_action(export_rig, None)
 
     rigutils.restore_armature_names(armature_object, armature_data, name)
 
@@ -2348,7 +2374,7 @@ class CC3Export(bpy.types.Operator):
             export_format = "fbx"
         elif self.param == "EXPORT_RIGIFY":
             export_format = "fbx"
-            if props.export_rigify_mode == "MOTION":
+            if prefs.rigify_export_mode == "MOTION":
                 export_suffix = "_motion"
         elif self.param == "EXPORT_UNITY":
             if prefs.export_unity_mode == "FBX":
@@ -2374,10 +2400,10 @@ class CC3Export(bpy.types.Operator):
                 self.export_face_smoothing = True
 
         if self.param == "EXPORT_RIGIFY":
-            if props.export_rigify_mode == "MOTION":
+            if prefs.rigify_export_mode == "MOTION":
                 self.include_textures = False
                 self.include_anim = True
-            elif props.export_rigify_mode == "MESH":
+            elif prefs.rigify_export_mode == "MESH":
                 self.include_textures = True
                 self.include_anim = False
                 self.export_face_smoothing = True

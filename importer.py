@@ -19,7 +19,7 @@ import shutil
 import bpy
 from enum import IntEnum, IntFlag
 
-from . import (characters, rigging, rigutils, vrm, bones, bake, imageutils, jsonutils, materials,
+from . import (characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
                modifiers, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
                basic, properties, utils, vars)
@@ -763,6 +763,7 @@ class ImportFlags(IntFlag):
     OBJ = 2
     GLB = 4
     VRM = 8
+    USD = 16
     RL = 1024
     KEY = 2048
     RL_FBX = RL | FBX
@@ -782,7 +783,7 @@ class CC3Import(bpy.types.Operator):
 
     filepath: bpy.props.StringProperty(
         name="Filepath",
-        description="Filepath of the fbx or obj to import.",
+        description="Filepath of the model to import.",
         subtype="FILE_PATH"
         )
 
@@ -794,7 +795,7 @@ class CC3Import(bpy.types.Operator):
     )
 
     filter_glob: bpy.props.StringProperty(
-        default="*.fbx;*.obj;*.glb;*.gltf;*.vrm",
+        default="*.fbx;*.obj;*.glb;*.gltf;*.vrm;*.usd*",
         options={"HIDDEN"},
         )
 
@@ -875,7 +876,7 @@ class CC3Import(bpy.types.Operator):
         json_generation = jsonutils.get_character_generation_json(json_data, name)
         avatar_type = jsonutils.get_json(json_data, f"{name}/Avatar_Type")
 
-        if utils.is_file_ext(ext, "FBX"):
+        if ImportFlags.FBX in self.import_flags:
 
             # invoke the fbx importer
             utils.tag_objects()
@@ -918,7 +919,7 @@ class CC3Import(bpy.types.Operator):
 
             utils.log_timer("Done .Fbx Import.")
 
-        elif utils.is_file_ext(ext, "OBJ"):
+        elif ImportFlags.OBJ in self.import_flags:
 
             # invoke the obj importer
             utils.tag_objects()
@@ -946,7 +947,7 @@ class CC3Import(bpy.types.Operator):
 
             utils.log_timer("Done .Obj Import.")
 
-        elif utils.is_file_ext(ext, "GLTF") or utils.is_file_ext(ext, "GLB"):
+        elif ImportFlags.GLB in self.import_flags:
 
             # invoke the GLTF importer
             utils.tag_images()
@@ -960,7 +961,7 @@ class CC3Import(bpy.types.Operator):
 
             utils.log_timer("Done .GLTF Import.")
 
-        elif utils.is_file_ext(ext, "VRM"):
+        elif ImportFlags.VRM in self.import_flags:
 
             # copy .vrm to .glb
             glb_path = os.path.join(dir, name + "_temp.glb")
@@ -975,7 +976,7 @@ class CC3Import(bpy.types.Operator):
 
             # find the armature and rotate it 180 degrees in Z
             armature : bpy.types.Object = utils.get_armature_from_objects(imported)
-            vrm.fix_armature(armature)
+            hik.fix_armature(armature)
             utils.try_select_objects(imported)
 
             os.remove(glb_path)
@@ -985,6 +986,20 @@ class CC3Import(bpy.types.Operator):
                 self.imported_characters = [ chr_cache ]
 
             utils.log_timer("Done .vrm Import.")
+
+        elif ImportFlags.USD in self.import_flags:
+
+            # invoke the USD importer
+            utils.tag_images()
+            bpy.ops.wm.usd_import(filepath=self.filepath)
+            imported = bpy.context.selected_objects.copy()
+            self.imported_images = utils.untagged_images()
+
+            if prefs.import_auto_convert:
+                chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_characters = [ chr_cache ]
+
+            utils.log_timer("Done .USD Import?")
 
 
     def build_materials(self, context):
@@ -1107,6 +1122,11 @@ class CC3Import(bpy.types.Operator):
         elif utils.is_file_ext(ext, "VRM"):
             self.import_flags = self.import_flags | ImportFlags.VRM
             utils.log_info("Importing generic VRM character.")
+            return
+
+        elif utils.is_file_ext(ext, "USD") or utils.is_file_ext(ext, "USDZ"):
+            self.import_flags = self.import_flags | ImportFlags.USD
+            utils.log_info("Importing Universal Scene Descriptor file.")
             return
 
         if os.path.exists(json_path) or os.path.exists(textures_path):

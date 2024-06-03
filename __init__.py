@@ -27,7 +27,7 @@ if "bpy" in locals():
     importlib.reload(channel_mixer)
     importlib.reload(materials)
     importlib.reload(characters)
-    importlib.reload(vrm)
+    importlib.reload(hik)
     importlib.reload(meshutils)
     importlib.reload(modifiers)
     importlib.reload(shaders)
@@ -69,7 +69,7 @@ from . import imageutils
 from . import channel_mixer
 from . import materials
 from . import characters
-from . import vrm
+from . import hik
 from . import meshutils
 from . import modifiers
 from . import shaders

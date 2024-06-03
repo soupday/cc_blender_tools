@@ -127,6 +127,7 @@ class LinkActor():
             chr_cache.select_all()
 
     def get_type(self):
+        """AVATAR|PROP|NONE"""
         chr_cache = self.get_chr_cache()
         return self.chr_cache_type(chr_cache)
 
@@ -918,7 +919,7 @@ class LinkService():
     def __init__(self):
         global LINK_DATA
         self.link_data = LINK_DATA
-        atexit.register(self.service_stop)
+        atexit.register(self.service_disconnect)
 
     def __enter__(self):
         return self
@@ -2285,6 +2286,7 @@ class LinkService():
         update_link_status(f"Pose Frame: {frame}")
         rigs = self.select_actor_rigs(actors)
         if rigs:
+            actor: LinkActor
             for actor in actors:
                 if actor.ready():
                     store_bone_cache_keyframes(actor, frame)
@@ -2297,7 +2299,10 @@ class LinkService():
                     pass
 
                 rig = actor.get_armature()
-                rigutils.update_prop_rig(rig)
+                if actor.get_type() == "PROP":
+                    rigutils.update_prop_rig(rig)
+                elif actor.get_type() == "AVATAR":
+                    rigutils.update_avatar_rig(rig)
 
         # finish
         LINK_DATA.sequence_actors = None
@@ -2390,7 +2395,10 @@ class LinkService():
             remove_datalink_import_rig(actor)
             write_sequence_actions(actor)
             rig = actor.get_armature()
-            rigutils.update_prop_rig(rig)
+            if actor.get_type() == "PROP":
+                rigutils.update_prop_rig(rig)
+            elif actor.get_type() == "AVATAR":
+                rigutils.update_avatar_rig(rig)
 
         # stop sequence
         LINK_SERVICE.stop_sequence()
@@ -2541,6 +2549,7 @@ class LinkService():
                     #    the animation, which changes with every new animation import...
                     if link_props.retarget_prop_actions:
                         action = get_datalink_rig_action(actor_rig)
+                        update_link_status(f"Retargeting Motion...")
                         rigutils.bake_rig_action_from_source(motion_rig, actor_rig)
                         remove_actions.append(motion_rig_action)
                         if action != actor_rig_action:
@@ -2553,12 +2562,14 @@ class LinkService():
                 else:
                     chr_cache = actor.get_chr_cache()
                     if chr_cache.rigified:
+                        update_link_status(f"Retargeting Motion...")
                         rigging.adv_bake_retarget_to_rigify(None, chr_cache, rig_override=motion_rig, action_override=motion_rig_action)
                         remove_actions.append(actor_rig_action)
                         remove_actions.append(motion_rig_action)
                     else:
                         utils.safe_set_action(actor_rig, motion_rig_action)
                         remove_actions.append(actor_rig_action)
+                    rigutils.update_avatar_rig(actor_rig)
             for obj in actor_objects:
                 if utils.object_has_shape_keys(obj):
                     # remove old action
@@ -2663,7 +2674,10 @@ class LinkService():
                     return
                 update_link_status(f"Rigifying: {actor.name}")
                 chr_cache.select()
+                cc3_rig = chr_cache.get_armature()
                 bpy.ops.cc3.rigifier(param="ALL", no_face_rig=True)
+                rigging.retarget_cc3_rig_action(None, chr_cache, cc3_rig)
+                rigutils.update_avatar_rig(chr_cache.get_armature())
                 update_link_status(f"Character Rigified: {actor.name}")
 
 

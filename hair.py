@@ -1049,7 +1049,7 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dirs,
     props = bpy.context.scene.CC3ImportProps
 
     mode_selection = utils.store_mode_selection_state()
-    arm_pose = reset_pose(arm)
+    arm_pose = set_rest_pose(arm)
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
@@ -1576,7 +1576,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05,
             bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
 
     #mode_selection = utils.store_mode_selection_state()
-    arm_pose = reset_pose(arm)
+    arm_pose = set_rest_pose(arm)
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
@@ -1639,7 +1639,7 @@ def clear_grease_pencil():
 def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
     props = bpy.context.scene.CC3ImportProps
 
-    arm_pose = reset_pose(arm)
+    arm_pose = set_rest_pose(arm)
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
@@ -1677,7 +1677,7 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dirs,
                         card_mode, bone_mode, smoothing, parent_mode):
 
     utils.object_mode_to(arm)
-    reset_pose(arm)
+    set_rest_pose(arm)
     remove_duplicate_bones(chr_cache, arm)
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
@@ -1736,7 +1736,7 @@ def deselect_invalid_materials(chr_cache, obj):
                     meshutils.select_material_faces(obj, mat, False)
 
 
-def reset_pose(arm):
+def set_rest_pose(arm):
     arm_pose = arm.data.pose_position
     arm.data.pose_position = "REST"
     return arm_pose

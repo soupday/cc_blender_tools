@@ -2160,17 +2160,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_physics_cloth_settings: bpy.props.BoolProperty(default=False)
     section_physics_collision_settings: bpy.props.BoolProperty(default=False)
     show_data_link_prefs: bpy.props.BoolProperty(default=False)
-
-    retarget_preview_shape_keys: bpy.props.BoolProperty(default=True, name="Retarget Shape Keys",
-                                                        description="Retarget any facial expression and viseme shape key actions on the source character rig to the current character meshes on the rigify rig")
-    bake_nla_shape_keys: bpy.props.BoolProperty(default=True, name="Bake Shape Keys",
-                                                description="Bake facial expression and viseme shape keys to new shapekey actions on the character")
-    bake_unity_t_pose: bpy.props.BoolProperty(default=True, name="Include T-Pose", description="Include a T-Pose as the first animation track. This is useful for correct avatar alignment in Unity and for importing animations back into CC4")
-    export_rigify_mode: bpy.props.EnumProperty(items=[
-                        ("MESH","Mesh","Export only the character mesh and materials, with no animation (other than a Unity T-pose)"),
-                        ("MOTION","Motion","Export the animation only, with minimal mesh and no materials. Shapekey animations will also export their requisite mesh objects"),
-                        ("BOTH","Both","Export both the character mesh with materials and the animation"),
-                    ], default="MOTION")
     section_rigify_export: bpy.props.BoolProperty(default=True)
 
     skin_toggle: bpy.props.BoolProperty(default=True)
@@ -2570,6 +2559,8 @@ class CCICLinkProps(bpy.types.PropertyGroup):
                         description="As props do not have a default bind pose, each prop animation has a different rest pose " \
                                     "which means the animation must be retargeted to (if checked) or the rest pose must be adjusted to "\
                                     "match the incoming motion (not checked)")
+    disable_tweak_bones: bpy.props.BoolProperty(default=True,
+                        description="Tweak bones cause bone length stretching which is incompatible with CC/iC animations.")
     hide_prop_bones: bpy.props.BoolProperty(default=True,
                         description="Hide internal prop bones.")
     remote_app: bpy.props.StringProperty(default="")

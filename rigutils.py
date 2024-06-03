@@ -18,7 +18,7 @@ import bpy
 from mathutils import Vector, Matrix, Quaternion, Euler
 from random import random
 import re
-from . import bones, modifiers, rigify_mapping_data, utils
+from . import bones, modifiers, rigify_mapping_data, utils, vars
 
 
 def edit_rig(rig):
@@ -330,6 +330,193 @@ def is_skinned_rig(rig):
     return False
 
 
+BASE_RIG_COLLECTION = ["Face", "Face (Primary)", "Face (Secondary)",
+                       "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
+                       "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
+                       "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
+                       "Root" ]
+BASE_RIG_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,28]
+BASE_DEF_COLLECTION = ["DEF"]
+BASE_DEF_LAYERS = [29]
+
+FULL_RIG_COLLECTION = ["Face", "Face (Primary)", "Face (Secondary)",
+                       "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
+                       "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
+                       "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
+                       "Root",
+                       "Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
+FULL_RIG_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,28]
+FULL_DEF_COLLECTION = ["DEF", "Spring (Edit)", "Spring (Root)"]
+FULL_DEF_LAYERS = [24, 25, 29]
+
+SPRING_RIG_COLLECTION = ["Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
+SPRING_RIG_LAYERS = [19,20,21]
+SPRING_DEF_COLLECTION = ["Spring (Edit)", "Spring (Root)"]
+SPRING_DEF_LAYERS = [24, 25]
+
+
+def show_hide_collections_layers(rig, collections, layers, show=True):
+    if rig:
+        if utils.B400():
+            for collection in rig.data.collections:
+                if collection.name in collections:
+                    collection.is_visible = show
+        else:
+            for i in range(0, 32):
+                if i in layers:
+                    rig.data.layers[i] = show
+
+
+def is_full_rigify_rig_shown(rig):
+    if rig:
+        if utils.B400():
+            for collection in rig.data.collections:
+                if collection.name in FULL_RIG_COLLECTION and not collection.is_visible:
+                    return False
+        else:
+            for i in range(0, 32):
+                if i in FULL_RIG_LAYERS and rig.data.layers[i] == False:
+                    return False
+        return True
+    else:
+        return False
+
+
+def toggle_show_full_rig(rig):
+    if rig:
+        show = not is_full_rigify_rig_shown(rig)
+        if utils.B400():
+            if show:
+                for collection in rig.data.collections:
+                    collection.is_visible = collection.name in FULL_RIG_COLLECTION
+            else:
+                for collection in rig.data.collections:
+                    collection.is_visible = collection.name in FULL_DEF_COLLECTION
+        else:
+            if show:
+                rig.data.layers[vars.ROOT_BONE_LAYER] = True
+            else:
+                rig.data.layers[vars.DEF_BONE_LAYER] = True
+            for i in range(0, 32):
+                if show:
+                    rig.data.layers[i] = i in FULL_RIG_LAYERS
+                else:
+                    rig.data.layers[i] = i in FULL_DEF_LAYERS
+
+
+def is_base_rig_shown(rig):
+    if rig:
+        if utils.B400():
+            for collection in rig.data.collections:
+                if collection.name in BASE_RIG_COLLECTION and not collection.is_visible:
+                    return False
+        else:
+            for i in range(0, 32):
+                if i in BASE_RIG_LAYERS and rig.data.layers[i] == False:
+                    return False
+        return True
+    else:
+        return False
+
+
+def toggle_show_base_rig(rig):
+    if rig:
+        show = True
+        if is_full_rigify_rig_shown(rig):
+            show = True
+        elif is_base_rig_shown(rig):
+            show = False
+        if utils.B400():
+            if show:
+                for collection in rig.data.collections:
+                    collection.is_visible = collection.name in BASE_RIG_COLLECTION
+            else:
+                for collection in rig.data.collections:
+                    collection.is_visible = collection.name in BASE_DEF_COLLECTION
+        else:
+            if show:
+                rig.data.layers[vars.ROOT_BONE_LAYER] = True
+            else:
+                rig.data.layers[vars.DEF_BONE_LAYER] = True
+            for i in range(0, 32):
+                if show:
+                    rig.data.layers[i] = i in BASE_RIG_LAYERS
+                else:
+                    rig.data.layers[i] = i in BASE_DEF_LAYERS
+
+
+def is_spring_rig_shown(rig):
+    if rig:
+        if utils.B400():
+            for collection in rig.data.collections:
+                if collection.name in SPRING_RIG_COLLECTION and not collection.is_visible:
+                    return False
+        else:
+            for i in range(0, 32):
+                if i in SPRING_RIG_LAYERS and rig.data.layers[i] == False:
+                    return False
+        return True
+    else:
+        return False
+
+
+def toggle_show_spring_rig(rig):
+    if rig:
+        show = True
+        if is_full_rigify_rig_shown(rig):
+            show = True
+        elif is_spring_rig_shown(rig):
+            show = False
+        if utils.B400():
+            if show:
+                for collection in rig.data.collections:
+                    collection.is_visible = collection.name in SPRING_RIG_COLLECTION
+            else:
+                for collection in rig.data.collections:
+                    collection.is_visible = collection.name in SPRING_DEF_COLLECTION
+        else:
+            if show:
+                rig.data.layers[vars.SPRING_IK_LAYER] = True
+            else:
+                rig.data.layers[vars.DEF_BONE_LAYER] = True
+
+            for i in range(0, 32):
+                if show:
+                    rig.data.layers[i] = i in SPRING_RIG_LAYERS
+                else:
+                    rig.data.layers[i] = i in SPRING_DEF_LAYERS
+
+
+def reset_pose(rig):
+    if rig:
+        utils.pose_mode_to(rig)
+        rig.data.pose_position = "POSE"
+        selected_bones = [ b for b in rig.data.bones if b.select ]
+        for b in rig.data.bones:
+            b.select = True
+        bpy.ops.pose.transforms_clear()
+        for b in rig.data.bones:
+            if b in selected_bones:
+                b.select = True
+            else:
+                b.select = False
+
+
+def is_rig_rest_position(rig):
+    if rig:
+        if rig.data.pose_position == "REST":
+            return True
+    return False
+
+
+def toggle_rig_rest_position(rig):
+    if rig:
+        if rig.data.pose_position == "POSE":
+            rig.data.pose_position = "REST"
+        else:
+            rig.data.pose_position = "POSE"
+
+
 def get_local_pose_bone_transform(M: Matrix, pose_bone: bpy.types.PoseBone):
     """M: Matrix - object space matrix of the transform to convert
        pose_bone: bpy.types.PoseBone - pose bone to calculate local space transform for."""
@@ -488,6 +675,36 @@ def bake_rig_action_from_source(src_rig, dst_rig):
     utils.safe_set_action(dst_rig, baked_action)
 
     utils.restore_visible_in_scene(temp_collection)
+
+
+def update_avatar_rig(rig):
+    link_props = bpy.context.scene.CCICLinkProps
+
+    if is_rigify_armature(rig):
+        # disable all stretch-to tweak constraints and hide tweak bones...
+        # tweak bones are not fully compatible with CC/iC animation (probably Blender only)
+        # and cause positioning errors as they stretch/compress the bones.
+        if link_props.disable_tweak_bones:
+            hide = True
+            influence = 0.0
+        else:
+            hide = False
+            influence = 1.0
+        pose_bone: bpy.types.PoseBone
+        for pose_bone in rig.pose.bones:
+            if "tweak" in pose_bone.name:
+                # TODO don't hide the tweak bones, just make them darker in color
+                #      and unselectable
+                pose_bone.bone.hide = hide
+                pose_bone.bone.hide_select = hide
+            elif pose_bone.name.startswith("DEF-"):
+                for con in pose_bone.constraints:
+                    if con.type == "STRETCH_TO":
+                        if "tweak" in con.subtarget:
+                            con.influence = influence
+            # disable IK stretch
+            if "IK_Stretch" in pose_bone:
+                pose_bone["IK_Stretch"] = 0.0
 
 
 def update_prop_rig(rig):

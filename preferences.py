@@ -37,6 +37,17 @@ def reset_cycles():
     prefs.cycles_sss_default_b341 = 0.5
 
 
+def reset_rigify():
+    prefs: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs.rigify_export_t_pose = True
+    prefs.rigify_export_mode = "MOTION"
+    prefs.rigify_export_naming = "METARIG"
+    prefs.rigify_build_face_rig = True
+    prefs.rigify_auto_retarget = True
+    prefs.rigify_preview_retarget_fk_ik = "BOTH"
+    prefs.rigify_bake_nla_fk_ik = "BOTH"
+
+
 def reset_preferences():
     prefs: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     prefs.render_target = "EEVEE"
@@ -82,6 +93,7 @@ def reset_preferences():
     prefs.rigify_build_face_rig = True
     prefs.rigify_auto_retarget = True
     reset_cycles()
+    reset_rigify()
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -285,6 +297,25 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                                      description="Power curve used to convert PhysX weightmaps to blender vertex pin weights.")
 
     # rigify prefs
+    rigify_preview_shape_keys: bpy.props.BoolProperty(default=True, name="Retarget Shape Keys",
+                                                        description="Retarget any facial expression and viseme shape key actions on the source character rig to the current character meshes on the rigify rig")
+    rigify_bake_shape_keys: bpy.props.BoolProperty(default=True, name="Bake Shape Keys",
+                                                description="Bake facial expression and viseme shape keys to new shapekey actions on the character")
+    rigify_export_t_pose: bpy.props.BoolProperty(default=True, name="Include T-Pose", description="Include a T-Pose as the first animation track. This is useful for correct avatar alignment in Unity and for importing animations back into CC4")
+    rigify_export_mode: bpy.props.EnumProperty(items=[
+                        ("MESH","Mesh","Export only the character mesh and materials, with no animation (other than a Unity T-pose)"),
+                        ("MOTION","Motion","Export the animation only, with minimal mesh and no materials. Shapekey animations will also export their requisite mesh objects"),
+                        ("BOTH","Both","Export both the character mesh with materials and the animation"),
+                    ], default="MOTION")
+    rigify_export_naming: bpy.props.EnumProperty(items=[
+                        ("METARIG","Metarig","Use metarig bone names without a Root bone.\n" \
+                                             "For exporting animations to CC4/iClone or other applications.\n\n" \
+                                             "Note: CC4 will auto detect a blender meta-rig, but you must use the generated hik (.3dxProfile) profile to import animations back into CC4"),
+                        ("CC","CC Base","Use original CC_Base_ bone names with a Root bone. \n" \
+                                        "For exporting animations and characters to Unity and be compatible with the Unity auto-setup.\n\n" \
+                                        "*Warning*: Does not import correctly back into CC4!"),
+                        #("RIGIFY","Rigify","Use custom Rigify_ bone names"),
+                    ], default="METARIG", name = "Bone names to use when exporting Rigify characters and motions.")
     rigify_build_face_rig: bpy.props.BoolProperty(default=True,
                                                   description="Build full face rig (CC3(+) standard characters only)")
     rigify_auto_retarget: bpy.props.BoolProperty(default=True,
