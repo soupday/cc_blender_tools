@@ -36,9 +36,16 @@ Links
 ## Changelog
 
 ### 2.0.8
-- Fix to Update Unity Project being greyed out after saving as Blend file.
-- Fix to export non-standard character.
-- Fix to export non-standard ARP rigged character.
+- Import/Export:
+    - Fix to Update Unity Project being greyed out after saving as Blend file.
+    - Fix to export non-standard character.
+    - Fix to export non-standard ARP rigged character.
+    - Generic character/prop import expanded to support USD/USDZ.
+    - Rigify export now have choice of naming system:
+        - Metarig names (without Root bone) for exporting animations back into CC/iC.
+        - CC Base names (with Root bone) for exporting to Unity Auto-setup.
+    - Rigified characters/motion exports now generate custom HIK profile which can be used to import/convert Rigified motion exports into CC/iC.
+    - Datalink Rigified characters (optionally) disable tweak bones as they are not compatible with CC/iC animation.
 - Scene tools:
     - Scene lighting presets overhauled.
     - Added function to align any object to view location and orientation (useful for placing lights and cameras).
@@ -46,19 +53,20 @@ Links
     - Added function to setup a main face tracking camera centered on character's head.
     - Added function to convert current view studio lighting into world lighting node setup.
 - Rigify:
-    - Fix to AccuRig generation not being recognized as valid Rigify target.
-    - Fix to support Mixamorig suffix number in retargeting.
-    - Auto-retarget toggle added to retarget any animation on character when using Quick Rigify.
+    - Fix to AccuRig generation code not being recognized as valid Rigify target.
+    - Fix to support Mixamorigs with suffix numbers in retargeting.
+    - Auto-retarget toggle added to automatically retarget any animation on character when using Quick Rigify.
 - Shaders:
     - Skin, eye and hair shaders updated to use Blender 4.0+ Random Walk (Skin) Subsurface Scattering.
     - Displacement map (if present) will be used on skin materials for bump and mesh displacement.
     - Cycles subsurface calculations and parameters tweaked.
+    - Separate cycles modifiers for Blender 3.4-3.6 and 4.0+.
     - Eye Sclera color tint added.
     - Cycles Tearline shader reworked.
 - Datalink:
-    - Added custom prop rig control bones when sending through datalink.
     - Added Receiving prop posing and animation live sequence.
-    - Added Receive Motion (direct motion import to character and props through Datalink).
+    - Added custom prop rig control bones when sending through datalink.
+    - Added Direct Motion Transfer from CC/iC (automatic motion export->import).
 
 ### 2.0.7
 - Attempts to restore datalink when reloading linked blend file.
