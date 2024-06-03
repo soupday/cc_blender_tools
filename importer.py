@@ -1157,6 +1157,7 @@ class CC3Import(bpy.types.Operator):
                     rigutils.is_G3_armature(obj) or
                     rigutils.is_iClone_armature(obj)):
                     utils.log_info(f"RL character armature found: {obj.name}")
+                    self.import_flags = self.import_flags | ImportFlags.RL
                     if obj not in rl_armatures:
                         rl_armatures.append(obj)
                 else:
