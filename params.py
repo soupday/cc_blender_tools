@@ -1658,7 +1658,7 @@ SHADER_MATRIX = [
             ["Anisotropic Shift Max", "", "hair_anisotropic_shift_max"],
             ["Flow Invert Green", "", "hair_tangent_flip_green"],
             ["Anisotropic Roughness", "", "hair_anisotropic_roughness"],
-            ["Anisotropic Strength", "", "hair_anisotropic_strength"],
+            ["Anisotropic Strength", "func_set_two_third", "hair_anisotropic_strength"],
             ["Specular Blend", "", "hair_specular_blend"],
             ["Anisotropic Color", "", "hair_anisotropic_color"],
             ["Subsurface Falloff", "func_sss_falloff_saturated", "hair_subsurface_falloff", "hair_subsurface_saturation"],

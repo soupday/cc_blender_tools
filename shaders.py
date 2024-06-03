@@ -466,6 +466,9 @@ def func_set_half(s):
 def func_set_third(s):
     return s * 0.3333
 
+def func_set_two_third(s):
+    return s * 0.6666
+
 def func_divide_1000(v):
     return v / 1000.0
 
