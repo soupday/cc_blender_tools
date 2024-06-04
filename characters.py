@@ -26,6 +26,20 @@ from mathutils import Vector, Matrix, Quaternion
 MANDATORY_OBJECTS = ["BODY", "TEETH", "TONGUE", "TEARLINE", "OCCLUSION", "EYE"]
 
 
+def select_character(chr_cache, all=False):
+    if chr_cache:
+        rig = chr_cache.get_armature()
+        objects = chr_cache.get_all_objects(include_armature=True, include_children=True)
+        if all:
+            utils.try_select_objects(objects, clear_selection=True)
+        elif rig:
+            utils.try_select_object(rig, clear_selection=True)
+        else:
+            utils.try_select_objects(objects, clear_selection=True)
+        if rig:
+            utils.set_active_object(rig)
+
+
 def get_character_objects(arm):
     """Fetch all the objects in the character (or try to)"""
     objects = []
@@ -226,6 +240,7 @@ def convert_generic_to_non_standard(objects, file_path = None):
     chr_cache.import_embedded = False
     chr_cache.generation = "Unknown"
     chr_cache.non_standard_type = chr_type
+    chr_cache.link_id = utils.generate_random_id(14)
 
     chr_cache.add_object_cache(chr_rig)
 
@@ -1596,6 +1611,14 @@ class CC3OperatorCharacter(bpy.types.Operator):
             objects = bpy.context.selected_objects.copy()
             make_accessory(chr_cache, objects)
 
+        elif self.param == "SELECT_ACTOR_ALL":
+            chr_cache = props.get_context_character_cache(context)
+            select_character(chr_cache, all=True)
+
+        elif self.param == "SELECT_ACTOR_RIG":
+            chr_cache = props.get_context_character_cache(context)
+            select_character(chr_cache)
+
         return {"FINISHED"}
 
     @classmethod
@@ -1619,6 +1642,10 @@ class CC3OperatorCharacter(bpy.types.Operator):
             return "Convert character to a non-standard Humanoid, Creature or Prop"
         elif properties.param == "CONVERT_FROM_GENERIC":
             return "Convert character from generic armature and objects to Non-Standard character with Reallusion materials."
+        elif properties.param == "SELECT_ACTOR_ALL":
+            return "Select all objects and armatures in the character or prop"
+        elif properties.param == "SELECT_ACTOR_RIG":
+            return "Select the just the parent armature for the character or prop"
         return ""
 
 

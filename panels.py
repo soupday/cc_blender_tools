@@ -874,7 +874,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
                 if generic_rig:
                     row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
                 else:
-                    row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
+                    row.operator("cc3.character", icon="OUTLINER_OB_META", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
                 if not (generic_rig or non_chr_objects):
                     row.enabled = False
 
@@ -2861,11 +2861,21 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
     def draw(self, context):
         props = vars.props()
+        prefs = vars.prefs()
         link_props = vars.link_props()
         prefs = vars.prefs()
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
+        strict_chr_cache = chr_cache if obj and obj_cache else None
 
-        layout = self.layout
-        chr_cache = props.get_context_character_cache(context)
+        non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj) is None ]
+        generic_rig = None
+        rig = None
+        if chr_cache:
+            rig = chr_cache.get_armature()
+        else:
+            generic_rig = characters.get_generic_rig(context.selected_objects)
+            if generic_rig:
+                rig = generic_rig
 
         link_service = link.get_link_service()
         connected = link_service and link_service.is_connected
@@ -2873,6 +2883,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
         connecting = link_service and link_service.is_connecting
         is_cc = link_props.remote_app == "Character Creator"
         is_iclone = link_props.remote_app == "iClone"
+
+        layout = self.layout
 
         column = layout.column()
         column.prop(link_props, "link_host", text="Host")
@@ -2935,9 +2947,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
             row = layout.row()
             text = ""
             if is_cc:
-                text = "Character Creator"
+                text = "Character Creator:"
             elif is_iclone:
-                text = "iClone"
+                text = "iClone:"
             else:
                 text = "Not connected..."
             if (is_cc or is_iclone) and not connected:
@@ -2953,7 +2965,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
-            if is_cc and chr_cache and chr_cache.can_go_cc():
+            if is_cc:
 
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
@@ -2961,18 +2973,43 @@ class CCICDataLinkPanel(bpy.types.Panel):
                     grid.operator("ccic.datalink", icon="MESH_ICOSPHERE", text="Go CC").param = "SEND_MORPH"
                 else:
                     grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
+                if not (chr_cache and chr_cache.can_go_cc()):
+                    grid.enabled = False
 
-            elif is_iclone and chr_cache and chr_cache.can_go_ic():
+            elif is_iclone:
 
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
                 grid.operator("ccic.datalink", icon="COMMUNITY", text="Go iC").param = "SEND_ACTOR"
 
+                if not (chr_cache and chr_cache.can_go_ic()):
+                    grid.enabled = False
+
 
             #grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"
 
-        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
+        layout.separator()
+
+        layout.label(text="Tools:")
+        col = layout.column(align=True)
+        grid = col.grid_flow(row_major=True, columns=2, align=True)
+        grid.scale_y = 1.5
+        grid.operator("cc3.character", icon="OUTLINER_OB_ARMATURE", text="Select").param = "SELECT_ACTOR_ALL"
+        grid.operator("cc3.character", icon="ARMATURE_DATA", text="Select Rig").param = "SELECT_ACTOR_RIG"
+        grid = col.grid_flow(row_major=True, columns=1, align=True)
+        grid.scale_y = 1.5
         if chr_cache:
+            if chr_cache.is_avatar():
+                grid.operator("cc3.importer", icon="PANEL_CLOSE", text="Delete Actor").param ="DELETE_CHARACTER"
+            else:
+                grid.operator("cc3.importer", icon="PANEL_CLOSE", text="Delete Prop").param ="DELETE_CHARACTER"
+        if generic_rig:
+            grid.operator("cc3.character", icon="COMMUNITY", text="Convert to Actor").param = "CONVERT_FROM_GENERIC"
+        elif non_chr_objects:
+            grid.operator("cc3.character", icon="OUTLINER_OB_META", text="Convert to Prop").param = "CONVERT_FROM_GENERIC"
+
+        if chr_cache:
+            layout.separator()
             row = layout.row()
             row.label(text=f"link id: {chr_cache.link_id}")
             row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
