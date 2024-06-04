@@ -2996,6 +2996,10 @@ class CCICDataLinkPanel(bpy.types.Panel):
         grid.scale_y = 1.5
         grid.operator("cc3.character", icon="OUTLINER_OB_ARMATURE", text="Select").param = "SELECT_ACTOR_ALL"
         grid.operator("cc3.character", icon="ARMATURE_DATA", text="Select Rig").param = "SELECT_ACTOR_RIG"
+        grid.operator("ccic.rename_character", icon="GREASEPENCIL", text="Rename")
+        grid.operator("cc3.character", icon="DUPLICATE", text="Duplicate").param = "DUPLICATE"
+        if not chr_cache:
+            grid.enabled = False
         grid = col.grid_flow(row_major=True, columns=1, align=True)
         grid.scale_y = 1.5
         if chr_cache:

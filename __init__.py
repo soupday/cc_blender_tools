@@ -170,6 +170,7 @@ classes = (
     channel_mixer.CC3OperatorChannelMixer,
     characters.CC3OperatorTransferCharacterGeometry,
     characters.CC3OperatorTransferMeshGeometry,
+    characters.CCICCharacterRename,
     sculpting.CC3OperatorSculpt,
     sculpting.CC3OperatorSculptExport,
     hair.CC3OperatorHair,

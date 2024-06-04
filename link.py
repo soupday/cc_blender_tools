@@ -1852,9 +1852,10 @@ class LinkService():
                 #rig.location = loc
                 #rig.rotation_mode = "QUATERNION"
                 #rig.rotation_quaternion = rot
-                #rig.location = Vector((0,0,0))
-                #rig.rotation_mode = "QUATERNION"
-                #rig.rotation_quaternion = Quaternion((1,0,0,0))
+                rig.location = Vector((0, 0, 0))
+                rig.rotation_mode = "QUATERNION"
+                rig.rotation_quaternion = Quaternion((1, 0, 0, 0))
+                rig.scale = Vector((0.01, 0.01, 0.01))
 
             datalink_rig = None
             if actor:

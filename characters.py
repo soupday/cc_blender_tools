@@ -173,29 +173,15 @@ def make_prop_armature(objects):
     return arm
 
 
-def create_prop_rig(objects):
-    arm_name = "Prop"
-    bone_name = "Root"
-    utils.set_mode("OBJECT")
-
-    arm = make_prop_armature(objects)
-
-    #utils.try_select_objects(objects, True)
-    #utils.set_active_object(arm)
-    #bpy.ops.object.parent_set(type = "ARMATURE", keep_transform = True)
-    #obj : bpy.types.Object
-    #for obj in objects:
-    #    if obj.type == "MESH":
-    #        vg = meshutils.add_vertex_group(obj, bone_name)
-    #        meshutils.set_vertex_group(obj, vg, 1.0)
-    return arm
-
-
 def convert_generic_to_non_standard(objects, file_path = None):
     props = vars.props()
     prefs = vars.prefs()
 
     non_chr_objects = [ obj for obj in objects if props.get_object_cache(obj) is None ]
+
+    active_object = None
+    if bpy.context.active_object in non_chr_objects:
+        active_object = bpy.context.active_object
 
     # select all child objects of the current selected objects (Humanoid)
     utils.try_select_objects(non_chr_objects, True)
@@ -210,7 +196,9 @@ def convert_generic_to_non_standard(objects, file_path = None):
 
     # if not generate one from the objects and empty parent transforms (Prop Only)
     if not chr_rig:
-        chr_rig = create_prop_rig(objects)
+        chr_rig = make_prop_armature(objects)
+        if active_object:
+            chr_rig.name = "Prop " + utils.strip_name(active_object.name)
         chr_type = "PROP"
 
     if not chr_rig:
@@ -1844,3 +1832,25 @@ class CCICCharacterLink(bpy.types.Operator):
         elif properties.param == "APPEND":
             return """Append an existing reallusion characer in a separate blend file."""
 
+
+class CCICCharacterRename(bpy.types.Operator):
+    bl_idname = "ccic.rename_character"
+    bl_label = "Rename Character"
+    name: bpy.props.StringProperty(name="Name", default="")
+
+    def execute(self, context):
+        props = vars.props()
+        chr_cache = props.get_context_character_cache(context)
+        rig = chr_cache.get_armature()
+        name = self.name
+        if rig:
+            rig.name = name
+            name = rig.name
+        chr_cache.character_name = name
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        props = vars.props()
+        chr_cache = props.get_context_character_cache(context)
+        self.name = chr_cache.character_name
+        return context.window_manager.invoke_props_dialog(self)
