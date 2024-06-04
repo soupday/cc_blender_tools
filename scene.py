@@ -218,7 +218,7 @@ def camera_setup(camera_loc, target_loc):
     return camera, target
 
 def camera_auto_target(camera, target):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     chr_cache = props.get_context_character_cache()
     if chr_cache is None:
@@ -299,8 +299,8 @@ def world_setup():
 
 
 def setup_scene_default(scene_type):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     # store selection and mode
     current_selected = bpy.context.selected_objects
@@ -1414,7 +1414,7 @@ def target_eyes_plane(chr_cache, head_pos, forward):
 
 def target_head(distance):
     bpy.context.view_layer.update()
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(bpy.context)
     z_angle, head_pos, head_rot = get_head_delta(chr_cache)
     forward = head_rot @ Vector((0,-1,0))
@@ -1424,7 +1424,7 @@ def target_head(distance):
 
 def align_to_head(container):
     bpy.context.view_layer.update()
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(bpy.context)
     z_angle, delta_loc, delta_rot = get_head_delta(chr_cache)
     bpy.context.space_data.shading.studiolight_rotate_z += z_angle
@@ -1523,7 +1523,7 @@ def add_view_aligned_camera(context):
 
 
 def dump_scene_setup():
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(bpy.context)
     za, dl, dr = get_head_delta(chr_cache)
 
@@ -1631,7 +1631,7 @@ def dump_scene_setup():
 
 # zoom view to imported character
 def zoom_to_character(chr_cache):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     try:
         bpy.ops.object.select_all(action='DESELECT')
         for obj_cache in chr_cache.object_cache:
@@ -1664,7 +1664,7 @@ def render_animation(context):
 def fetch_anim_range(context, expand = False, fit = True):
     """Fetch anim range from character animation.
     """
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(context)
     arm = chr_cache.get_armature()
     if arm:
@@ -1695,10 +1695,10 @@ def fetch_anim_range(context, expand = False, fit = True):
 
 
 def cycles_setup(context):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     hide_view_extras(False)
     chr_cache = props.get_context_character_cache(context)
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     prefs.render_target = "CYCLES"
     prefs.refractive_eyes = "SSR"
     if chr_cache.render_target != "CYCLES":
@@ -1758,7 +1758,7 @@ class CC3Scene(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
 
         if self.param == "RENDER_IMAGE":
             render_image(context)

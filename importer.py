@@ -28,7 +28,7 @@ debug_counter = 0
 
 
 def delete_import(chr_cache):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     for obj_cache in chr_cache.object_cache:
         obj = obj_cache.get_object()
@@ -70,8 +70,8 @@ def delete_import(chr_cache):
 
 
 def process_material(chr_cache, obj, mat, obj_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     mat_cache = chr_cache.get_material_cache(mat)
     mat_json = jsonutils.get_material_json(obj_json, mat)
@@ -157,8 +157,8 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
 
 
 def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_json, processed_materials, processed_images):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     if obj is None or obj in objects_processed:
         return
@@ -244,7 +244,7 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
 
 
 def cache_object_materials(chr_cache, obj, chr_json, processed):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if obj is None or obj in processed:
         return
@@ -483,8 +483,8 @@ def process_root_bones(arm, json_data, name):
 
 def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list,
                       actions, json_data, report, link_id):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.log_info("")
     utils.log_info("Processing Reallusion Import:")
@@ -854,8 +854,8 @@ class CC3Import(bpy.types.Operator):
 
 
     def import_character(self):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         utils.start_timer()
 
@@ -1004,8 +1004,8 @@ class CC3Import(bpy.types.Operator):
 
     def build_materials(self, context):
         objects_processed = []
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props: properties.CC3ImportProps = vars.props()
+        prefs = vars.prefs()
 
         utils.start_timer()
 
@@ -1190,8 +1190,8 @@ class CC3Import(bpy.types.Operator):
 
 
     def run_finish(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         if not self.imported_characters:
             return
@@ -1315,8 +1315,8 @@ class CC3Import(bpy.types.Operator):
 
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         self.imported_characters = None
         self.imported_materials = []
         self.imported_images = []
@@ -1513,8 +1513,8 @@ class CC3ImportAnimations(bpy.types.Operator):
         return
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         utils.start_timer()
 

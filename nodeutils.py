@@ -525,7 +525,7 @@ def get_node_by_id_and_type(nodes, id, type):
 
 
 def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group, custom_bsdf = None):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     shader_id = "(" + str(shader_name) + ")"
     bsdf_id = "(" + str(shader_name) + "_BSDF)"
     mix_id = "(" + str(shader_name) + "_MIX)"

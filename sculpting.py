@@ -100,7 +100,7 @@ def copy_base_shape(multi_res_object, source_body_obj, layer_target, by_vertex_g
 
 
 def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_body = None):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     utils.log_info(f"Begin Multi-Res Bake: Layer = {layer_target}")
     utils.log_indent()
@@ -345,7 +345,7 @@ def update_layer_nodes(body, layer_target, socket, value):
 
 
 def setup_bake_nodes(chr_cache, detail_body, layer_target):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     base_dir = utils.local_path()
     if not base_dir:
@@ -591,7 +591,7 @@ def remove_multires_body(chr_cache, layer_target):
 
 
 def hide_body_parts(chr_cache):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     body = chr_cache.get_body()
     hide_slots = []
@@ -619,7 +619,7 @@ def hide_body_parts(chr_cache):
 
 
 def add_multires_mesh(chr_cache, layer_target, sub_target = "ALL"):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     # duplicate the body
     body = chr_cache.get_body()
@@ -706,8 +706,8 @@ def add_multires_mesh(chr_cache, layer_target, sub_target = "ALL"):
 
 
 def setup_multires_sculpt(chr_cache, layer_target):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     if chr_cache:
 
@@ -751,8 +751,8 @@ class CC3OperatorSculpt(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         chr_cache = props.get_context_character_cache(context)
         body = chr_cache.get_body()
@@ -865,8 +865,8 @@ class CC3OperatorSculptExport(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         chr_cache = props.get_context_character_cache(context)
         body = chr_cache.get_body()
@@ -881,8 +881,8 @@ class CC3OperatorSculptExport(bpy.types.Operator):
 
 
     def invoke(self, context, event):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-        props = bpy.context.scene.CC3ImportProps
+        prefs = vars.prefs()
+        props = vars.props()
         chr_cache = props.get_context_character_cache(context)
 
         export_format = "png"

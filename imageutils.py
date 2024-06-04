@@ -17,7 +17,7 @@
 import os
 import bpy
 
-from . import colorspace, nodeutils, params, utils
+from . import colorspace, nodeutils, params, utils, vars
 
 
 IMAGE_FORMATS = {
@@ -39,7 +39,7 @@ IMAGE_FORMATS = {
 
 
 def check_max_size(image):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     width = image.size[0]
     height = image.size[1]
@@ -187,7 +187,7 @@ def find_material_image(mat, texture_type, processed_images = None, tex_json = N
     """Try to find the texture for a material input by searching for the material name
        appended with the possible suffixes e.g. Vest_diffuse or Hair_roughness
     """
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     mat_cache = props.get_material_cache(mat)
     chr_cache = props.get_character_cache(None, mat)
 
@@ -280,7 +280,7 @@ def get_material_tex_dir(chr_cache, obj, mat):
     """Returns the *relative* path to the texture folder for this material.
     """
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if chr_cache.is_import_type("FBX"):
         object_name = utils.strip_name(obj.name)

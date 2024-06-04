@@ -31,7 +31,7 @@ def get_prop_value(mat_cache, prop_name):
 
 
 def eval_texture_rules(tex_type):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if tex_type in params.TEXTURE_RULES:
         tex_rule = params.TEXTURE_RULES[tex_type]
@@ -268,13 +268,13 @@ def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
 #
 
 def func_iris_brightness(v):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES" and prefs.refractive_eyes == "SSR":
         v = v * prefs.cycles_ssr_iris_brightness
     return v
 
 def func_sss_skin(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_skin_b410
@@ -283,7 +283,7 @@ def func_sss_skin(s):
     return s
 
 def func_sss_hair(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_hair_b410
@@ -292,7 +292,7 @@ def func_sss_hair(s):
     return s
 
 def func_sss_teeth(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_teeth_b410
@@ -301,7 +301,7 @@ def func_sss_teeth(s):
     return s
 
 def func_sss_tongue(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_tongue_b410
@@ -310,7 +310,7 @@ def func_sss_tongue(s):
     return s
 
 def func_sss_eyes(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_eyes_b410
@@ -319,7 +319,7 @@ def func_sss_eyes(s):
     return s
 
 def func_sss_default(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         if utils.B400():
             s = s * prefs.cycles_sss_default_b410
@@ -333,58 +333,58 @@ def func_sss_falloff_saturated(f, s):
     return [falloff.r, falloff.g, falloff.b, 1.0]
 
 def func_sss_radius_eyes_cycles(r):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     r = r * vars.EYES_SSS_RADIUS_SCALE
     return r
 
 def func_sss_radius_eyes_eevee(r, f):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     r = r * vars.EYES_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
 def func_sss_radius_hair_cycles(r):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     r = r * vars.HAIR_SSS_RADIUS_SCALE
     return r
 
 def func_sss_radius_hair_eevee(r, f, s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     r = r * vars.HAIR_SSS_RADIUS_SCALE
     falloff = Color((f[0], f[1], f[2]))
     falloff.s *= s
     return [falloff.r * r, falloff.g * r, falloff.b * r]
 
 def func_sss_radius_teeth_eevee(r, f):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     r = r * vars.TEETH_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
 def func_sss_radius_tongue_eevee(r, f):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     r = r * vars.TONGUE_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
 def func_sss_radius_default_eevee(r, f):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     r = r * vars.DEFAULT_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
 def func_sss_radius_skin_cycles(r):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     r = r * vars.SKIN_SSS_RADIUS_SCALE
     #if utils.B400():
     #    r *= 2/3
     return r
 
 def func_sss_radius_skin_eevee(r, f, s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     r = r * vars.SKIN_SSS_RADIUS_SCALE
     falloff = Color((f[0], f[1], f[2]))
     falloff.s *= s
     return [falloff.r * r, falloff.g * r, falloff.b * r]
 
 def func_roughness_power(p):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     #if prefs.build_skin_shader_dual_spec:
     #    return p * 1.0
     #else:
@@ -443,7 +443,7 @@ def func_pow_2(v):
     return math.pow(v, 2.0)
 
 def func_sclera_brightness(b):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
         b *= 1.0
     return b
@@ -566,7 +566,7 @@ def func_export_combine_xyz(x, y, z):
 # End Prop matrix eval, parameter conversion functions
 
 def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, tex_json):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     tex_type = texture_def[2]
     tiling_mode = "NONE"
@@ -837,8 +837,8 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
 
 
 def connect_tearline_shader(obj, mat, mat_json, processed_images):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -863,8 +863,8 @@ def connect_tearline_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_eye_occlusion_shader(obj, mat, mat_json, processed_images):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -889,8 +889,8 @@ def connect_eye_occlusion_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_skin_shader(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
@@ -949,7 +949,7 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_tongue_shader(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -974,7 +974,7 @@ def connect_tongue_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_teeth_shader(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -1004,8 +1004,8 @@ def connect_teeth_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -1080,8 +1080,8 @@ def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
 
 
 def connect_hair_shader(obj, mat, mat_json, processed_images):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -1109,7 +1109,7 @@ def connect_hair_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_pbr_shader(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -1146,7 +1146,7 @@ def connect_pbr_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_sss_shader(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -1171,7 +1171,7 @@ def connect_sss_shader(obj, mat, mat_json, processed_images):
 
 
 def fix_sss_method(bsdf, is_skin=False, is_hair=False, is_eyes=False, is_scalp=False):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
     if utils.B400():
 

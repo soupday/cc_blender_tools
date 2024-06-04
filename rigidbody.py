@@ -602,7 +602,7 @@ def get_spring_rigid_body_system(arm, rig_prefix):
 
 
 def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone_name, settings = None):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     arm = chr_cache.get_armature()
     if not arm or spring_rig_bone_name not in arm.data.bones:

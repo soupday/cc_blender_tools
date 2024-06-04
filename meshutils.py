@@ -137,7 +137,7 @@ def rebuild_eye_vertex_groups(chr_cache):
 
 
 def generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     vertex_group_l = add_vertex_group(obj, prefs.eye_displacement_group + "_L")
     vertex_group_r = add_vertex_group(obj, prefs.eye_displacement_group + "_R")

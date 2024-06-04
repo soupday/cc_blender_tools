@@ -21,7 +21,7 @@ from . import addon_updater_ops, colorspace, utils, vars
 
 
 def reset_cycles():
-    prefs: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
     prefs.cycles_sss_skin_b410 = 1.4285
     prefs.cycles_sss_hair_b410 = 0.25
     prefs.cycles_sss_teeth_b410 = 1.0
@@ -38,7 +38,7 @@ def reset_cycles():
 
 
 def reset_rigify():
-    prefs: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
     prefs.rigify_export_t_pose = True
     prefs.rigify_export_mode = "MOTION"
     prefs.rigify_export_naming = "METARIG"
@@ -49,7 +49,7 @@ def reset_rigify():
 
 
 def reset_datalink():
-    prefs: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
     prefs.datalink_auto_start = False
     prefs.datalink_frame_sync = False
     prefs.datalink_preview_shape_keys = True
@@ -60,7 +60,7 @@ def reset_datalink():
 
 
 def reset_preferences():
-    prefs: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
     prefs.render_target = "EEVEE"
     prefs.quality_lighting = "CC3"
     prefs.pipeline_lighting = "CC3"

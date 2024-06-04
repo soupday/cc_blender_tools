@@ -506,7 +506,7 @@ def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
 
 
 def rigify_spring_rigs(chr_cache, cc3_rig, rigify_rig, bone_mapping):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     rigutils.select_rig(rigify_rig)
     pose_position = rigify_rig.data.pose_position
     rigify_rig.data.pose_position = "REST"
@@ -1346,7 +1346,7 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mapping):
     utils.log_info("Reparenting character objects to new Rigify Control Rig:")
     utils.log_indent()
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     result = 1
 
     if utils.set_mode("OBJECT"):
@@ -2318,7 +2318,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
 
 
 def adv_retarget_remove_pair(op, chr_cache):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     rigify_rig = chr_cache.get_armature()
     retarget_rig = chr_cache.rig_retarget_rig
 
@@ -2344,8 +2344,8 @@ def adv_retarget_remove_pair(op, chr_cache):
 
 
 def adv_preview_retarget(op, chr_cache):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     rigify_rig = chr_cache.get_armature()
     source_rig = props.armature_list_object
@@ -2363,7 +2363,7 @@ def adv_preview_retarget(op, chr_cache):
 
 
 def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=None, to_original_rig=False):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     rigify_rig = chr_cache.get_armature()
     if rig_override:
         source_rig = rig_override
@@ -2469,8 +2469,8 @@ BOTH_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
 
 
 def adv_bake_retarget_to_rigify(op, chr_cache, rig_override=None, action_override=None):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     rigify_rig = chr_cache.get_armature()
     source_rig = props.armature_list_object
@@ -2527,8 +2527,8 @@ def adv_bake_retarget_to_rigify(op, chr_cache, rig_override=None, action_overrid
 
 
 def adv_bake_NLA_to_rigify(op, chr_cache):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     rigify_rig = chr_cache.get_armature()
     #utils.safe_set_action(rigify_rig, None)
@@ -2694,7 +2694,7 @@ def apply_shape_key_actions(rigify_rig, shape_key_actions):
 
 
 def adv_retarget_shape_keys(op, chr_cache, report):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     rigify_rig = chr_cache.get_armature()
     source_rig = props.armature_list_object
     source_action = props.action_list_action
@@ -3019,7 +3019,7 @@ def get_bake_action(chr_cache):
 
 
 def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     armature_action = None
     shape_key_actions = None
@@ -3049,7 +3049,7 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
 
 
 def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, link_target=False, bone_naming="CC"):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     # generate export rig
     utils.delete_armature_object(chr_cache.rig_export_rig)
@@ -3064,7 +3064,7 @@ def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, li
 
 
 def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose = False, objects=None, bone_naming="CC"):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     rigify_rig = chr_cache.get_armature()
     rigify_rig.location = (0,0,0)
@@ -3630,8 +3630,8 @@ class CC3Rigifier(bpy.types.Operator):
 
 
     def execute(self, context):
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props: properties.CC3ImportProps = vars.props()
+        prefs = vars.prefs()
         chr_cache = props.get_context_character_cache(context)
 
         self.cc3_rig = None
@@ -3952,7 +3952,7 @@ class CC3RigifierModal(bpy.types.Operator):
             voxel_skinning_finish = False
 
     def execute(self, context):
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        props: properties.CC3ImportProps = vars.props()
         chr_cache = props.get_context_character_cache(context)
 
         if chr_cache:
@@ -3963,7 +3963,7 @@ class CC3RigifierModal(bpy.types.Operator):
         return {"FINISHED"}
 
     def voxel_re_parent_one(self, context):
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        props: properties.CC3ImportProps = vars.props()
         chr_cache = props.get_context_character_cache(context)
 
         lock_non_face_vgroups(chr_cache)
@@ -3979,7 +3979,7 @@ class CC3RigifierModal(bpy.types.Operator):
         self.timer = context.window_manager.event_timer_add(1.0, window = bpy.context.window)
 
     def voxel_re_parent_two(self, context):
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        props: properties.CC3ImportProps = vars.props()
         chr_cache = props.get_context_character_cache(context)
 
         if self.dummy_cube:

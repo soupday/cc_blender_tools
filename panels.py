@@ -31,7 +31,7 @@ LINK_TAB_NAME = "CC/iC Link"
 #
 
 def fake_drop_down(row, label, prop_name, prop_bool_value, icon = "TRIA_DOWN", icon_closed = "TRIA_RIGHT"):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     row.alignment="LEFT"
 
     if prop_bool_value:
@@ -82,8 +82,8 @@ def warn_icon(row, icon = "ERROR"):
 
 
 def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type = True, show_type_selector = True):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     is_character = False
     is_non_standard = True
@@ -148,8 +148,8 @@ def reconnect_character_ui(context, layout: bpy.types.UILayout, chr_cache):
 
 
 def pipeline_export_group(chr_cache, chr_rig, layout: bpy.types.UILayout):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     character_info_box(chr_cache, chr_rig, layout)
 
@@ -173,8 +173,8 @@ def pipeline_export_group(chr_cache, chr_rig, layout: bpy.types.UILayout):
 
 
 def rigify_export_group(chr_cache, layout):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     row = layout.row()
     row.label(text="Include T-Pose")
@@ -235,8 +235,8 @@ def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, sca
 
 
 def character_export_unity_button(chr_cache, layout):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     column = layout.column()
 
@@ -256,8 +256,8 @@ def character_export_unity_button(chr_cache, layout):
 
 
 def character_export_unreal_button(chr_cache, layout):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     column = layout.column()
 
@@ -275,7 +275,7 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
                       fixed_parent=False, only_parent_mode=None,
                       show_selector=True, enabled=True):
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if not chr_cache or not arm:
         return
@@ -513,7 +513,7 @@ class ACTION_UL_List(bpy.types.UIList):
             layout.label(text="", icon_value=icon)
 
     def filter_items(self, context, data, propname):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
         filtered = []
         ordered = []
         arm_name = None
@@ -586,8 +586,8 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
         mesh_in_selection = False
@@ -797,8 +797,8 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         strict_chr_cache = chr_cache if obj and obj_cache else None
         non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj, strict=True) is None ]
@@ -1000,8 +1000,8 @@ class CC3SpringRigPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         arm = None
         can_hair_spring_rig = False
@@ -1214,8 +1214,8 @@ class CC3HairPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
         # Blender Curve Hair
@@ -1255,8 +1255,8 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         shader = "NONE"
@@ -1640,8 +1640,8 @@ class CC3RigifyPanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         missing_materials = characters.has_missing_materials(chr_cache)
@@ -2004,8 +2004,8 @@ class CC3SpringControlPanel(bpy.types.Panel):
     bl_category = "Item"
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         layout = self.layout
 
@@ -2116,8 +2116,8 @@ class CC3SpringControlPanel(bpy.types.Panel):
 
 
 def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
     layout = self.layout
 
     box = layout.box().label(text="Scene Lighting", icon="LIGHT")
@@ -2205,8 +2205,8 @@ class CC3ToolsCreatePanel(bpy.types.Panel):
     bl_category = CREATE_TAB_NAME
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         layout = self.layout
 
         chr_cache = props.get_context_character_cache(context)
@@ -2240,8 +2240,8 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         layout = self.layout
 
         chr_cache = props.get_context_character_cache(context)
@@ -2578,8 +2578,8 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
 
@@ -2860,9 +2860,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
     #bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        link_props = bpy.context.scene.CCICLinkProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        link_props = vars.link_props()
+        prefs = vars.prefs()
 
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
@@ -2990,8 +2990,8 @@ class CCICProportionPanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
@@ -3046,8 +3046,8 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
 
     def draw(self, context):
         global debug_counter
-        PROPS = bpy.context.scene.CC3ImportProps
-        PREFS = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        PROPS = vars.props()
+        PREFS = vars.prefs()
 
         addon_updater_ops.check_for_update_background()
         if addon_updater_ops.updater.update_ready == True:
@@ -3164,8 +3164,8 @@ class CC3ToolsPipelineExportPanel(bpy.types.Panel):
 
     def draw(self, context):
         global debug_counter
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         addon_updater_ops.check_for_update_background()
         if addon_updater_ops.updater.update_ready == True:
@@ -3308,7 +3308,7 @@ class CCICBakePanel(bpy.types.Panel):
 
     def draw(self, context):
         props = bpy.context.scene.CCICBakeProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
 
         layout = self.layout
         layout.use_property_split = False

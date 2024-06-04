@@ -146,7 +146,7 @@ class LinkActor():
 
     @staticmethod
     def find_actor(link_id, search_name=None, search_type=None):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
 
         utils.log_detail(f"Looking for LinkActor: {search_name} {link_id} {search_type}")
         actor: LinkActor = None
@@ -1008,7 +1008,7 @@ class LinkService():
             utils.log_info(f"Service timer stopped")
 
     def try_start_client(self, host, port):
-        link_props = bpy.context.scene.CCICLinkProps
+        link_props = vars.link_props()
 
         if not self.client_sock:
             utils.log_info(f"Attempting to connect")
@@ -1066,7 +1066,7 @@ class LinkService():
         self.is_connected = False
         self.is_connecting = False
         try:
-            link_props = bpy.context.scene.CCICLinkProps
+            link_props = vars.link_props()
             link_props.connected = False
         except:
             pass
@@ -1084,7 +1084,7 @@ class LinkService():
             return False
 
     def recv(self):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
 
         self.is_data = False
         self.is_import = False
@@ -1151,7 +1151,7 @@ class LinkService():
                         return
 
     def accept(self):
-        link_props = bpy.context.scene.CCICLinkProps
+        link_props = vars.link_props()
 
         if self.server_sock and self.is_listening:
             r,w,x = select.select(self.server_sockets, self.empty_sockets, self.empty_sockets, 0)
@@ -1178,7 +1178,7 @@ class LinkService():
                 r,w,x = select.select(self.server_sockets, self.empty_sockets, self.empty_sockets, 0)
 
     def parse(self, op_code, data):
-        link_props = bpy.context.scene.CCICLinkProps
+        link_props = vars.link_props()
         self.keepalive_timer = KEEPALIVE_TIMEOUT_S
 
         if op_code == OpCodes.HELLO:
@@ -1285,7 +1285,7 @@ class LinkService():
                         self.start_server()
 
     def service_initialize(self):
-        link_props = bpy.context.scene.CCICLinkProps
+        link_props = vars.link_props()
         if self.is_connecting:
             self.is_connecting = False
             self.is_connected = True
@@ -1467,7 +1467,7 @@ class LinkService():
 
     def get_selected_actors(self):
         global LINK_DATA
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
 
         selected_objects = bpy.context.selected_objects
         avatars = props.get_avatars()
@@ -1492,7 +1492,7 @@ class LinkService():
 
     def get_active_actor(self):
         global LINK_DATA
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
         active_object = utils.get_active_object()
         if active_object:
             chr_cache = props.get_character_cache(active_object, None)
@@ -1812,7 +1812,7 @@ class LinkService():
 
     def decode_pose_frame_data(self, pose_data):
         global LINK_DATA
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
 
         offset = 0
         count, frame = struct.unpack_from("!II", pose_data, offset)
@@ -2438,7 +2438,7 @@ class LinkService():
         bpy.ops.screen.animation_play()
 
     def receive_sequence_ack(self, data):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
         global LINK_DATA
 
         json_data = decode_to_json(data)
@@ -2471,7 +2471,7 @@ class LinkService():
             self.update_sequence(5, delta_frames)
 
     def receive_character_import(self, data):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
         global LINK_DATA
 
         # decode character import data
@@ -2505,7 +2505,7 @@ class LinkService():
             update_link_status(f"Character Imported: {actor.name}")
 
     def receive_motion_import(self, data):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
         global LINK_DATA
 
         # decode character import data
@@ -2548,7 +2548,7 @@ class LinkService():
             update_link_status(f"Motion Imported: {actor.name}")
 
     def replace_actor_motion(self, actor: LinkActor, motion_rig):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
 
         if actor and motion_rig:
             motion_rig_action = utils.safe_get_action(motion_rig)
@@ -2724,7 +2724,7 @@ def get_link_service():
 def link_state_update():
     global LINK_SERVICE
     if LINK_SERVICE:
-        link_props = bpy.context.scene.CCICLinkProps
+        link_props = vars.link_props()
         link_props.link_listening = LINK_SERVICE.is_listening
         link_props.link_connected = LINK_SERVICE.is_connected
         link_props.link_connecting = LINK_SERVICE.is_connecting
@@ -2732,15 +2732,15 @@ def link_state_update():
 
 
 def update_link_status(text):
-    link_props = bpy.context.scene.CCICLinkProps
+    link_props = vars.link_props()
     link_props.link_status = text
     utils.update_ui()
 
 
 def reconnect():
     global LINK_SERVICE
-    link_props = bpy.context.scene.CCICLinkProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    link_props = vars.link_props()
+    prefs = vars.prefs()
 
     if link_props.connected:
         if LINK_SERVICE and LINK_SERVICE.is_connected:
@@ -2814,7 +2814,7 @@ class CCICDataLink(bpy.types.Operator):
                 return {'FINISHED'}
 
             elif self.param == "DEPIVOT":
-                props = bpy.context.scene.CC3ImportProps
+                props = vars.props()
                 chr_cache = props.get_context_character_cache(context)
                 if chr_cache:
                     rigutils.de_pivot(chr_cache)
@@ -2824,7 +2824,7 @@ class CCICDataLink(bpy.types.Operator):
                 return {'FINISHED'}
 
             elif self.param == "SHOW_ACTOR_FILES":
-                props = bpy.context.scene.CC3ImportProps
+                props = vars.props()
                 chr_cache = props.get_context_character_cache(context)
                 if chr_cache:
                     utils.open_folder(chr_cache.get_import_dir())
@@ -2848,7 +2848,7 @@ class CCICDataLink(bpy.types.Operator):
             os.makedirs(export_path, exist_ok=True)
 
     def link_start(self, is_go_b=False):
-        link_props = bpy.context.scene.CCICLinkProps
+        link_props = vars.link_props()
         global LINK_SERVICE
 
         self.prep_local_files()

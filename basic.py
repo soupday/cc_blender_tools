@@ -73,7 +73,7 @@ def reset_shader(nodes, links, shader_label, shader_name):
 
 
 def connect_tearline_material(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
     obj_cache = chr_cache.get_object_cache(obj)
@@ -101,7 +101,7 @@ def connect_tearline_material(obj, mat, mat_json, processed_images):
 
 
 def connect_eye_occlusion_material(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
     obj_cache = chr_cache.get_object_cache(obj)
@@ -138,7 +138,7 @@ def connect_eye_occlusion_material(obj, mat, mat_json, processed_images):
 
 
 def connect_basic_eye_material(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
     obj_cache = chr_cache.get_object_cache(obj)
@@ -215,7 +215,7 @@ def connect_basic_eye_material(obj, mat, mat_json, processed_images):
     return
 
 def connect_basic_material(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_character_cache(obj, mat)
     parameters = chr_cache.basic_parameters
     obj_cache = chr_cache.get_object_cache(obj)
@@ -438,7 +438,7 @@ def find_material_image_basic(mat, tex_type, mat_json, processed_images):
 
 
 def update_basic_material(mat, mat_cache, prop):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_character_cache(None, mat)
     parameters = chr_cache.basic_parameters
     scope = locals()
@@ -476,7 +476,7 @@ def update_basic_material(mat, mat_cache, prop):
 
 
 def init_basic_default(chr_cache):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     parameters = chr_cache.basic_parameters
 
     for prop_info in params.BASIC_PROPS:

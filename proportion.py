@@ -189,7 +189,7 @@ class CCICCharacterProportions(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
         chr_cache = props.get_context_character_cache(context)
 
         if self.param == "BEGIN":

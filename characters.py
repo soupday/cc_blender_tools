@@ -39,7 +39,7 @@ def get_character_objects(arm):
 
 
 def get_generic_rig(objects):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     arm = utils.get_armature_from_objects(objects)
     if arm:
         chr_cache = props.get_character_cache(arm, None)
@@ -178,8 +178,8 @@ def create_prop_rig(objects):
 
 
 def convert_generic_to_non_standard(objects, file_path = None):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     non_chr_objects = [ obj for obj in objects if props.get_object_cache(obj, strict=True) is None ]
 
@@ -238,8 +238,8 @@ def convert_generic_to_non_standard(objects, file_path = None):
 
 
 def link_or_append_rl_character(blend_file, link=False):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.log_info("")
     utils.log_info("Link/Append Reallusion Character")
@@ -340,8 +340,8 @@ def link_or_append_rl_character(blend_file, link=False):
 
 
 def reconnect_rl_character_to_fbx(chr_rig, fbx_path):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     objects = get_character_objects(chr_rig)
 
@@ -385,8 +385,8 @@ def reconnect_rl_character_to_fbx(chr_rig, fbx_path):
 
 
 def reconnect_rl_character_to_blend(chr_rig, blend_file):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     objects = get_character_objects(chr_rig)
 
@@ -443,8 +443,8 @@ def reconnect_rl_character_to_blend(chr_rig, blend_file):
 
 
 def rebuild_character_cache(chr_cache, chr_rig, src_cache=None):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     chr_cache.add_object_cache(chr_rig)
     objects = get_character_objects(chr_rig)
@@ -534,7 +534,7 @@ def parent_to_rig(rig, obj):
 
 
 def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent=True, no_materials=False):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if chr_cache and utils.object_exists_is_mesh(obj):
 
@@ -569,7 +569,7 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent=True, no
 
 
 def remove_object_from_character(chr_cache, obj):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if utils.object_exists_is_mesh(obj):
 
@@ -600,7 +600,7 @@ def remove_object_from_character(chr_cache, obj):
 
 
 def copy_objects_character_to_character(context_obj, chr_cache, objects, reparent = True):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     arm = chr_cache.get_armature()
     if not arm:
@@ -796,7 +796,7 @@ def make_accessory(chr_cache, objects):
 
 def clean_up_character_data(chr_cache):
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     current_mats = []
     current_objects = []
@@ -876,7 +876,7 @@ def has_missing_materials(chr_cache):
 
 
 def add_missing_materials_to_character(chr_cache, obj, obj_cache):
-    props  = bpy.context.scene.CC3ImportProps
+    props  = vars.props()
 
     if chr_cache and obj and obj_cache and obj.type == "MESH":
 
@@ -897,7 +897,7 @@ def add_missing_materials_to_character(chr_cache, obj, obj_cache):
 
 
 def add_material_to_character(chr_cache, obj, obj_cache, mat, update_name = False):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if chr_cache and obj and obj_cache and mat:
 
@@ -1533,7 +1533,7 @@ class CC3OperatorCharacter(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
 
         if self.param == "ADD_PBR":
             chr_cache = props.get_context_character_cache(context)
@@ -1635,8 +1635,8 @@ class CC3OperatorTransferCharacterGeometry(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         active = bpy.context.active_object
         selected = bpy.context.selected_objects.copy()
@@ -1715,8 +1715,8 @@ class CC3OperatorTransferMeshGeometry(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         active = bpy.context.active_object
         selected = bpy.context.selected_objects.copy()
@@ -1790,8 +1790,8 @@ class CCICCharacterLink(bpy.types.Operator):
 
 
     def invoke(self, context, event):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache = props.get_context_character_cache(context)
         chr_rig = utils.get_context_armature(context)
 

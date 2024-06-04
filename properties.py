@@ -23,7 +23,7 @@ from . import (link, channel_mixer, imageutils, meshutils, sculpting, materials,
 
 
 def open_mouth_update(self, context):
-    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
+    props: CC3ImportProps = vars.props()
     chr_cache = props.get_context_character_cache(context)
 
     bone = utils.find_pose_bone(chr_cache, "CC_Base_JawRoot", "JawRoot")
@@ -50,7 +50,7 @@ def open_mouth_update(self, context):
 
 
 def eye_close_update(self, context):
-    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
+    props: CC3ImportProps = vars.props()
     chr_cache = props.get_context_character_cache(context)
     value = chr_cache.eye_close
 
@@ -77,7 +77,7 @@ def eye_close_update(self, context):
 
 
 def update_property(self, context, prop_name, update_mode = None):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if vars.block_property_update: return
 
@@ -105,7 +105,7 @@ def update_property(self, context, prop_name, update_mode = None):
 def update_basic_property(self, context, prop_name, update_mode=None):
     if vars.block_property_update: return
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         all_materials_cache = chr_cache.get_all_materials_cache()
@@ -117,7 +117,7 @@ def update_basic_property(self, context, prop_name, update_mode=None):
 
 def update_material_property(self, context, prop_name, update_mode=None):
     if vars.block_property_update: return
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         context_obj = context.object
@@ -133,7 +133,7 @@ def update_material_property(self, context, prop_name, update_mode=None):
 
 def update_object_property(self, context, prop_name, update_mode=None):
     if vars.block_property_update: return
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         context_obj = context.object
@@ -185,7 +185,7 @@ def set_linked_property(prop_name, active_mat_cache, mat_cache):
 
 
 def update_shader_property(obj, mat_cache, prop_name):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if not mat_cache: return
 
@@ -295,7 +295,7 @@ def update_material_setting(mat, mat_cache, prop_name, setting_defs):
 
 
 def get_linked_materials(chr_cache, context_mat, update_mode):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     linked_mats = set()
     if chr_cache:
         context_mat_cache = chr_cache.get_material_cache(context_mat)
@@ -323,7 +323,7 @@ def get_linked_materials(chr_cache, context_mat, update_mode):
 
 
 def reset_parameters(context = bpy.context, all=False):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(context)
     chr_json = chr_cache.get_character_json()
 
@@ -347,7 +347,7 @@ def update_all_properties(context, update_mode = None):
 
     utils.start_timer()
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
 
     if chr_cache:
@@ -410,7 +410,7 @@ def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, ma
 
 def update_sculpt_mix_node(self, context, prop_name):
     if vars.block_property_update: return
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     body = chr_cache.get_body()
     if chr_cache:
@@ -433,7 +433,7 @@ def update_sculpt_mix_node(self, context, prop_name):
 
 
 def update_rig_target(self, context):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         if self.hair_rig_target == "CC4":
@@ -471,7 +471,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_variance = 0.75
 
 def update_link_target(self, context):
-    link_props = bpy.context.scene.CCICLinkProps
+    link_props = vars.link_props()
     if link_props.link_target == "BLENDER":
         link_props.link_port = 9334
     elif link_props.link_target == "CCIC":
@@ -483,7 +483,7 @@ def update_link_target(self, context):
 
 
 def update_link_host(self, context):
-    link_props = bpy.context.scene.CCICLinkProps
+    link_props = vars.link_props()
     host = link_props.link_host
     if host:
         try:
@@ -493,7 +493,7 @@ def update_link_host(self, context):
 
 
 def update_link_host_ip(self, context):
-    link_props = bpy.context.scene.CCICLinkProps
+    link_props = vars.link_props()
     host_ip = link_props.link_host_ip
     if host_ip:
         try:
@@ -1472,7 +1472,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 self.import_file = local_file
 
     def can_standard_export(self):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
         result = True
         if prefs.export_require_key:
             if self.generation in vars.STANDARD_GENERATIONS and not self.get_import_has_key():
@@ -1560,7 +1560,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return False
 
     def is_rig_full_face(self):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
         if self.rig_mode == "ADVANCED":
             return prefs.rigify_build_face_rig
         else:
@@ -2438,7 +2438,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         return None
 
     def is_unity_project(self):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
         local_path = utils.local_path()
         if local_path:
             if prefs.export_unity_mode == "BLEND" and self.unity_file_path and self.unity_project_path:

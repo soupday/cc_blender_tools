@@ -45,27 +45,27 @@ def log_spacing():
 
 
 def log_detail(msg):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     """Log an info message to console."""
     if prefs.log_level == "DETAILS":
         print((" " * LOG_INDENT) + msg)
 
 
 def log_info(msg):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     """Log an info message to console."""
     if prefs.log_level == "ALL" or prefs.log_level == "DETAILS":
         print((" " * LOG_INDENT) + msg)
 
 
 def log_always(msg):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     """Log an info message to console."""
     print((" " * LOG_INDENT) + msg)
 
 
 def log_warn(msg):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     """Log a warning message to console."""
     if prefs.log_level == "ALL" or prefs.log_level == "DETAILS" or prefs.log_level == "WARN":
         print((" " * LOG_INDENT) + "Warning: " + msg)
@@ -86,7 +86,7 @@ def start_timer():
 
 
 def log_timer(msg, unit = "s"):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     global timer
     if prefs.log_level == "ALL":
         duration = time.perf_counter() - timer
@@ -136,7 +136,7 @@ def unique_name(name, no_version = False):
     """Generate a unique name for the node or property to quickly
        identify texture nodes or nodes with parameters."""
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     if no_version:
         name = name + "_" + vars.NODE_PREFIX + str(props.node_id)
     else:
@@ -491,7 +491,7 @@ def match_dimensions(socket, value):
 
 
 def find_pose_bone(chr_cache, *name):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     arm = chr_cache.get_armature()
     for n in name:
@@ -1192,7 +1192,7 @@ def get_context_armature(context):
 
 def get_context_character(context, strict=False):
     """strict: selected must part of the character"""
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(context)
 
     obj = context.object

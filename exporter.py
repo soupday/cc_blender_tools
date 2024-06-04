@@ -140,7 +140,7 @@ def restore_modifiers(chr_cache, objects):
 
 def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 copy_textures, revert_duplicates, apply_fixes, as_blend_file, bake_values):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     utils.log_info(f"Prepping Export: {new_name}")
 
@@ -656,7 +656,7 @@ def write_back_json(mat_json, mat, mat_cache):
 
 def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, bake_values, mat_data, images_processed):
     global UNPACK_INDEX
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if mat_json is None:
         return
@@ -864,7 +864,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
 def write_back_physics_weightmap(physics_mat_json : dict, obj, mat, mat_cache, base_path, old_name, mat_data):
     global UNPACK_INDEX
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if physics_mat_json is None:
         return
@@ -933,7 +933,7 @@ def try_unpack_image(image, folder, index_suffix = False):
 
 
 def unpack_embedded_textures(chr_cache, chr_json, objects, base_path):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     unpack_folder = None
     if chr_cache:
@@ -1612,8 +1612,8 @@ def export_standard(self, chr_cache, file_path, include_selected):
        texture paths are relative to source character, as an .fbx file.
     """
 
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.start_timer()
 
@@ -1743,8 +1743,8 @@ def export_non_standard(self, file_path, include_selected):
     """Exports non-standard character (unconverted and not rigified) to CC4 with json data and textures, as an .fbx file.
     """
 
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.start_timer()
 
@@ -1829,8 +1829,8 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
        as either a .blend file or .fbx file.
     """
 
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.start_timer()
 
@@ -1946,8 +1946,8 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
 
 
 def update_to_unity(chr_cache, export_anim, include_selected):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.start_timer()
 
@@ -2025,8 +2025,8 @@ def update_to_unity(chr_cache, export_anim, include_selected):
 
 
 def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.start_timer()
 
@@ -2267,8 +2267,8 @@ class CC3Export(bpy.types.Operator):
             utils.message_box_multi("Export Check: Some Warnings", "INFO", self.check_report)
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache = props.get_context_character_cache(context)
         if self.link_id_override:
             chr_cache = props.find_character_by_link_id(self.link_id_override)
@@ -2333,7 +2333,7 @@ class CC3Export(bpy.types.Operator):
 
 
     def invoke(self, context, event):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
 
         self.check_report = []
         self.check_valid = True
@@ -2346,7 +2346,7 @@ class CC3Export(bpy.types.Operator):
         if self.param == "CHECK_EXPORT":
             return self.execute(context)
 
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
         chr_cache = props.get_context_character_cache(context)
         if self.link_id_override:
             chr_cache = props.find_character_by_link_id(self.link_id_override)

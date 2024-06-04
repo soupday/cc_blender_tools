@@ -674,7 +674,7 @@ def bake_rig_action_from_source(src_rig, dst_rig):
 
 
 def update_avatar_rig(rig):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if is_rigify_armature(rig):
         # disable all stretch-to tweak constraints and hide tweak bones...
@@ -706,7 +706,7 @@ def update_avatar_rig(rig):
 
 
 def update_prop_rig(rig):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if not rig: return
 
@@ -842,7 +842,7 @@ def get_bone_orientation(rig, bone_set: set):
 
 
 def custom_prop_rig(rig):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if not rig: return
     wgt_pivot = bones.make_axes_widget("WGT-datalink_pivot", 1)

@@ -16,7 +16,7 @@
 
 
 import bpy
-from . import utils
+from . import utils, vars
 
 
 ALL_COLORSPACES = []
@@ -28,7 +28,7 @@ def is_aces():
 
 
 def try_set_color_space(image : bpy.types.Image, color_space_ref):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     try:
         image.colorspace_settings.name = color_space_ref
@@ -62,7 +62,7 @@ def try_set_color_space(image : bpy.types.Image, color_space_ref):
 
 
 def set_image_color_space(image : bpy.types.Image, ref_colorspace : str):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if is_aces():
         if ref_colorspace == "Non-Color":
@@ -109,7 +109,7 @@ def try_set_look(look):
 
 
 def set_view_settings(view_transform, look, exposure, gamma):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if is_aces():
         try_set_view_transform("sRGB")
