@@ -1648,7 +1648,10 @@ def export_standard(self, chr_cache, file_path, include_selected):
         utils.log_info("Preparing character for export:")
         utils.log_indent()
 
-        remove_modifiers_for_export(chr_cache, objects, True)
+        # avatar's should be exported back to CC4 in rest pose.
+        # props should be exported back with animation.
+        use_rest_pose = chr_cache.is_avatar()
+        remove_modifiers_for_export(chr_cache, objects, use_rest_pose)
 
         # restore quaternion rotation modes
         rigutils.reset_rotation_modes(arm)

@@ -2962,6 +2962,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
             grid.scale_y = 2.0
             grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
             grid.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
+            # no pose or sequence for props yet...
+            if not chr_cache or not chr_cache.is_avatar():
+                grid.enabled = False
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
