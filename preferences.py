@@ -48,6 +48,17 @@ def reset_rigify():
     prefs.rigify_bake_nla_fk_ik = "BOTH"
 
 
+def reset_datalink():
+    prefs: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs.datalink_auto_start = False
+    prefs.datalink_frame_sync = False
+    prefs.datalink_preview_shape_keys = True
+    prefs.datalink_match_client_rate = True
+    prefs.datalink_retarget_prop_actions = True
+    prefs.datalink_disable_tweak_bones = True
+    prefs.datalink_hide_prop_bones = True
+
+
 def reset_preferences():
     prefs: CC3ToolsAddonPreferences = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
     prefs.render_target = "EEVEE"
@@ -94,6 +105,7 @@ def reset_preferences():
     prefs.rigify_auto_retarget = True
     reset_cycles()
     reset_rigify()
+    reset_datalink()
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -111,6 +123,9 @@ class CC3OperatorPreferences(bpy.types.Operator):
 
         if self.param == "RESET_CYCLES":
             reset_cycles()
+
+        if self.param == "RESET_DATALINK":
+            reset_datalink()
 
         if self.param == "RESET_PREFS":
             reset_preferences()
@@ -330,6 +345,24 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("IK","IK","Bake IK controls only"),
                         ("BOTH","Both","Bake both FK and IK and controls"),
                     ], default="BOTH", name = "Bake NLA to FK/IK")
+
+    # datalink prefs
+    datalink_auto_start: bpy.props.BoolProperty(default=False,
+                        description="Attempt to (re)start the data link connection when ever Blender is started or reloaded")
+    datalink_frame_sync: bpy.props.BoolProperty(default=False,
+                        description="Force the live sequence transfer to stop and render every frame")
+    datalink_preview_shape_keys: bpy.props.BoolProperty(default=True,
+                        description="Previewing shape keys during live sequence transfer results in slower frame rates. It can be disabled to speed up the transfer")
+    datalink_match_client_rate: bpy.props.BoolProperty(default=True,
+                        description="When sending a live sequence, attempt to match the transfer frame rate. Causes less frame jumping in the live preview")
+    datalink_retarget_prop_actions: bpy.props.BoolProperty(default=True,
+                        description="As props do not have a default bind pose, each prop animation has a different rest pose " \
+                                    "which means the animation must be retargeted to (if checked) or the rest pose must be adjusted to "\
+                                    "match the incoming motion (not checked)")
+    datalink_disable_tweak_bones: bpy.props.BoolProperty(default=True,
+                        description="Tweak bones cause bone length stretching which is incompatible with CC/iC animations.")
+    datalink_hide_prop_bones: bpy.props.BoolProperty(default=True,
+                        description="Hide internal prop bones.")
 
     # addon updater preferences
     auto_check_update: bpy.props.BoolProperty(

@@ -674,13 +674,13 @@ def bake_rig_action_from_source(src_rig, dst_rig):
 
 
 def update_avatar_rig(rig):
-    link_props = bpy.context.scene.CCICLinkProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     if is_rigify_armature(rig):
         # disable all stretch-to tweak constraints and hide tweak bones...
         # tweak bones are not fully compatible with CC/iC animation (probably Blender only)
         # and cause positioning errors as they stretch/compress the bones.
-        if link_props.disable_tweak_bones:
+        if prefs.datalink_disable_tweak_bones:
             hide = True
             influence = 0.0
         else:
@@ -706,7 +706,7 @@ def update_avatar_rig(rig):
 
 
 def update_prop_rig(rig):
-    link_props = bpy.context.scene.CCICLinkProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     if not rig: return
 
@@ -783,7 +783,7 @@ def update_prop_rig(rig):
         elif pivot_bone:
             bone.hide = True
         elif skin_bone:
-            bone.hide = link_props.hide_prop_bones
+            bone.hide = prefs.datalink_hide_prop_bones
         elif mesh_bone:
             bone.hide = True
         elif rigid_bone:
@@ -791,7 +791,7 @@ def update_prop_rig(rig):
         elif dummy_bone:
             bone.hide = True
         elif node_bone:
-            bone.hide = link_props.hide_prop_bones
+            bone.hide = prefs.datalink_hide_prop_bones
 
 """
 import bpy
@@ -842,7 +842,7 @@ def get_bone_orientation(rig, bone_set: set):
 
 
 def custom_prop_rig(rig):
-    link_props = bpy.context.scene.CCICLinkProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
     if not rig: return
     wgt_pivot = bones.make_axes_widget("WGT-datalink_pivot", 1)
@@ -948,7 +948,7 @@ def custom_prop_rig(rig):
             elif skin_bone:
                 pose_bone.custom_shape = wgt_skin
                 bone.hide = False
-                bone.hide = link_props.hide_prop_bones
+                bone.hide = prefs.datalink_hide_prop_bones
                 pose_bone.use_custom_shape_bone_size = True
                 pose_bone.custom_shape_rotation_euler = skin_bone_orientation
                 bones.set_bone_color(pose_bone, "FK")
@@ -972,7 +972,7 @@ def custom_prop_rig(rig):
                 bones.set_bone_color(pose_bone, "IK")
             elif node_bone:
                 pose_bone.custom_shape = wgt_default
-                bone.hide = link_props.hide_prop_bones
+                bone.hide = prefs.datalink_hide_prop_bones
                 pose_bone.use_custom_shape_bone_size = False
                 pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
                 bones.set_bone_color(pose_bone, "SPECIAL")

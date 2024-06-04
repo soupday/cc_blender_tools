@@ -368,6 +368,7 @@ def try_remove(item, force = False):
 def clean_collection(collection, include_fake = False):
     for item in collection:
         if (include_fake and item.use_fake_user and item.users == 1) or item.users == 0:
+            log_detail(f"Clean Collection Removing: {item}")
             collection.remove(item)
 
 

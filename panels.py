@@ -2915,19 +2915,20 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_1 = split.column()
             col_2 = split.column()
             col_1.label(text="Auto-Start Connection")
-            col_2.prop(link_props, "link_auto_start", text="")
+            col_2.prop(prefs, "datalink_auto_start", text="")
             col_1.label(text="Preview Frame Sync")
-            col_2.prop(link_props, "sequence_frame_sync", text="")
+            col_2.prop(prefs, "datalink_frame_sync", text="")
             col_1.label(text="Preview Shape Keys")
-            col_2.prop(link_props, "sequence_preview_shape_keys", text="")
+            col_2.prop(prefs, "datalink_preview_shape_keys", text="")
             col_1.label(text="Match Client Rate")
-            col_2.prop(link_props, "match_client_rate", text="")
+            col_2.prop(prefs, "datalink_match_client_rate", text="")
             col_1.label(text="Retarget Prop Actions")
-            col_2.prop(link_props, "retarget_prop_actions", text="")
+            col_2.prop(prefs, "datalink_retarget_prop_actions", text="")
             col_1.label(text="Hide Prop Bones")
-            col_2.prop(link_props, "hide_prop_bones", text="")
+            col_2.prop(prefs, "datalink_hide_prop_bones", text="")
             col_1.label(text="Disable Tweak Bones")
-            col_2.prop(link_props, "disable_tweak_bones", text="")
+            col_2.prop(prefs, "datalink_disable_tweak_bones", text="")
+            box.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_DATALINK"
 
         if True:
 

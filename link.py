@@ -1084,7 +1084,7 @@ class LinkService():
             return False
 
     def recv(self):
-        link_props = bpy.context.scene.CCICLinkProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         self.is_data = False
         self.is_import = False
@@ -1131,7 +1131,7 @@ class LinkService():
                 if not self.has_client_sock():
                     return
                 # if preview sync every frame in sequence
-                if op_code == OpCodes.SEQUENCE_FRAME and link_props.sequence_frame_sync:
+                if op_code == OpCodes.SEQUENCE_FRAME and prefs.datalink_frame_sync:
                     self.is_data = True
                     return
                 if op_code == OpCodes.CHARACTER or op_code == OpCodes.PROP:
@@ -1812,7 +1812,7 @@ class LinkService():
 
     def decode_pose_frame_data(self, pose_data):
         global LINK_DATA
-        link_props = bpy.context.scene.CCICLinkProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         offset = 0
         count, frame = struct.unpack_from("!II", pose_data, offset)
@@ -1908,7 +1908,7 @@ class LinkService():
             for i in range(0, num_weights):
                 weight = struct.unpack_from("!f", pose_data, offset)[0]
                 offset += 4
-                if actor and objects and link_props.sequence_preview_shape_keys:
+                if actor and objects and prefs.datalink_preview_shape_keys:
                     expression_name = actor.expressions[i]
                     set_actor_expression_weight(objects, expression_name, weight)
                 expression_weights[i] = weight
@@ -1920,7 +1920,7 @@ class LinkService():
             for i in range(0, num_weights):
                 weight = struct.unpack_from("!f", pose_data, offset)[0]
                 offset += 4
-                if actor and objects and link_props.sequence_preview_shape_keys:
+                if actor and objects and prefs.datalink_preview_shape_keys:
                     viseme_name = actor.visemes[i]
                     set_actor_viseme_weight(objects, viseme_name, weight)
                 viseme_weights[i] = weight
@@ -2438,14 +2438,14 @@ class LinkService():
         bpy.ops.screen.animation_play()
 
     def receive_sequence_ack(self, data):
-        link_props = bpy.context.scene.CCICLinkProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
         global LINK_DATA
 
         json_data = decode_to_json(data)
         ack_frame = RLFA(json_data["frame"])
         server_rate = json_data["rate"]
         delta_frames = LINK_DATA.sequence_current_frame - ack_frame
-        if link_props.match_client_rate:
+        if prefs.datalink_match_client_rate:
             if LINK_DATA.ack_time == 0.0:
                 LINK_DATA.ack_time = time.time()
                 LINK_DATA.ack_rate = 120
@@ -2548,8 +2548,7 @@ class LinkService():
             update_link_status(f"Motion Imported: {actor.name}")
 
     def replace_actor_motion(self, actor: LinkActor, motion_rig):
-        props = bpy.context.scene.CC3ImportProps
-        link_props = bpy.context.scene.CCICLinkProps
+        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
 
         if actor and motion_rig:
             motion_rig_action = utils.safe_get_action(motion_rig)
@@ -2576,7 +2575,7 @@ class LinkService():
                     # if it's a prop retarget the animation (or copy the rest pose):
                     #    props have no bind pose so the rest pose is the first frame of
                     #    the animation, which changes with every new animation import...
-                    if link_props.retarget_prop_actions:
+                    if prefs.datalink_retarget_prop_actions:
                         action = get_datalink_rig_action(actor_rig)
                         update_link_status(f"Retargeting Motion...")
                         rigutils.bake_rig_action_from_source(motion_rig, actor_rig)
@@ -2741,11 +2740,20 @@ def update_link_status(text):
 def reconnect():
     global LINK_SERVICE
     link_props = bpy.context.scene.CCICLinkProps
+    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
     if link_props.connected:
         if LINK_SERVICE and LINK_SERVICE.is_connected:
             utils.log_info("Datalink remains connected.")
         elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
             utils.log_info("Datalink was connected. Attempting to reconnect...")
+            bpy.ops.ccic.datalink(param="START")
+
+    elif prefs.datalink_auto_start:
+        if LINK_SERVICE and LINK_SERVICE.is_connected:
+            utils.log_info("Datalink already connected.")
+        elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
+            utils.log_info("Auto-starting datalink...")
             bpy.ops.ccic.datalink(param="START")
 
 

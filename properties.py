@@ -2565,22 +2565,6 @@ class CCICLinkProps(bpy.types.PropertyGroup):
                     ], default="CCIC", name = "Data Link Target", update=update_link_target)
     link_port: bpy.props.IntProperty(default=9333)
     link_status: bpy.props.StringProperty(default="")
-    link_auto_start: bpy.props.BoolProperty(default=False,
-                        description="Attempt to (re)start the data link connection when ever Blender is started or reloaded")
-    sequence_frame_sync: bpy.props.BoolProperty(default=False,
-                        description="Force the live sequence transfer to stop and render every frame")
-    sequence_preview_shape_keys: bpy.props.BoolProperty(default=True,
-                        description="Previewing shape keys during live sequence transfer results in slower frame rates. It can be disabled to speed up the transfer")
-    match_client_rate: bpy.props.BoolProperty(default=True,
-                        description="When sending a live sequence, attempt to match the transfer frame rate. Causes less frame jumping in the live preview")
-    retarget_prop_actions: bpy.props.BoolProperty(default=True,
-                        description="As props do not have a default bind pose, each prop animation has a different rest pose " \
-                                    "which means the animation must be retargeted to (if checked) or the rest pose must be adjusted to "\
-                                    "match the incoming motion (not checked)")
-    disable_tweak_bones: bpy.props.BoolProperty(default=True,
-                        description="Tweak bones cause bone length stretching which is incompatible with CC/iC animations.")
-    hide_prop_bones: bpy.props.BoolProperty(default=True,
-                        description="Hide internal prop bones.")
     remote_app: bpy.props.StringProperty(default="")
     remote_version: bpy.props.StringProperty(default="")
     remote_path: bpy.props.StringProperty(default="")

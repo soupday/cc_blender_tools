@@ -782,6 +782,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                             sample_color = [image.pixels[0], image.pixels[1], image.pixels[2], 1.0]
                             exec_prop(sample_prop, mat_cache, sample_color)
                             nodeutils.set_node_input_value(shader_node, socket_name, sample_color)
+                            utils.log_detai(f"Sample Map Removing Image: {image}")
                             bpy.data.images.remove(image)
                             vars.block_property_update = False
 
