@@ -283,11 +283,29 @@ def object_exists_is_light(obj):
         return False
 
 
-def object_exists(obj):
+def object_exists(obj: bpy.types.Object):
     """Test if Object: obj still exists as an object in the scene."""
     try:
         name = obj.name
         return len(obj.users_scene) > 0
+    except:
+        return False
+
+
+def material_exists(mat: bpy.types.Material):
+    """Test if material still exists."""
+    try:
+        name = mat.name
+        return True
+    except:
+        return False
+
+
+def image_exists(img: bpy.types.Image):
+    """Test if material still exists."""
+    try:
+        name = img.name
+        return True
     except:
         return False
 
@@ -311,7 +329,7 @@ def get_selected_meshes(context = None):
     return objects
 
 
-def try_remove(item, force = False):
+def safe_remove(item, force = False):
 
     if object_exists(item):
 
@@ -366,10 +384,24 @@ def try_remove(item, force = False):
 
 
 def clean_collection(collection, include_fake = False):
+    cleaned = False
     for item in collection:
         if (include_fake and item.use_fake_user and item.users == 1) or item.users == 0:
             log_detail(f"Clean Collection Removing: {item}")
             collection.remove(item)
+            cleaned = True
+    return cleaned
+
+
+def clean_up_unused():
+    clean_collection(bpy.data.images)
+    clean_collection(bpy.data.materials)
+    clean_collection(bpy.data.textures)
+    clean_collection(bpy.data.meshes)
+    clean_collection(bpy.data.armatures)
+    # as some node_groups are nested...
+    while clean_collection(bpy.data.node_groups):
+        clean_collection(bpy.data.node_groups)
 
 
 def clamp(x, min = 0.0, max = 1.0):
@@ -1059,77 +1091,78 @@ def delete_light_object(obj):
 
 
 def delete_object(obj):
-    try:
-        data = obj.data
-    except:
-        data = None
-    if data:
-        if obj.type == "MESH":
-            try:
-                bpy.data.meshes.remove(data)
-            except:
-                pass
-        elif obj.type == "ARMATURE":
-            try:
-                bpy.data.armatures.remove(data)
-            except:
-                pass
-        elif obj.type == "LIGHT":
-            try:
-                bpy.data.lights.remove(data)
-            except:
-                pass
-        elif obj.type == "CAMERA":
-            try:
-                bpy.data.camera.remove(data)
-            except:
-                pass
-        elif obj.type == "CURVE" or obj.type=="SURFACE" or obj.type == "FONT":
-            try:
-                bpy.data.curves.remove(data)
-            except:
-                pass
-        elif obj.type == "META":
-            try:
-                bpy.data.metaballs.remove(data)
-            except:
-                pass
-        elif obj.type == "VOLUME":
-            try:
-                bpy.data.volumes.remove(data)
-            except:
-                pass
-        elif obj.type == "GPENCIL":
-            try:
-                bpy.data.grease_pencils.remove(data)
-            except:
-                pass
-        elif obj.type == "LATICE":
-            try:
-                bpy.data.lattices.remove(data)
-            except:
-                pass
-        elif obj.type == "EMPTY":
-            try:
-                if obj.data:
-                    if obj.data.type == "IMAGE":
-                        bpy.data.images.remove(data)
-            except:
-                pass
-        elif obj.type == "LIGHT_PROBE":
-            try:
-                bpy.data.lightprobes.remove(data)
-            except:
-                pass
-        elif obj.type == "SPEAKER":
-            try:
-                bpy.data.speakers.remove(data)
-            except:
-                pass
-    try:
-        bpy.data.objects.remove(obj)
-    except:
-        pass
+    if object_exists(obj):
+        try:
+            data = obj.data
+        except:
+            data = None
+        if data:
+            if obj.type == "MESH":
+                try:
+                    bpy.data.meshes.remove(data)
+                except:
+                    pass
+            elif obj.type == "ARMATURE":
+                try:
+                    bpy.data.armatures.remove(data)
+                except:
+                    pass
+            elif obj.type == "LIGHT":
+                try:
+                    bpy.data.lights.remove(data)
+                except:
+                    pass
+            elif obj.type == "CAMERA":
+                try:
+                    bpy.data.camera.remove(data)
+                except:
+                    pass
+            elif obj.type == "CURVE" or obj.type=="SURFACE" or obj.type == "FONT":
+                try:
+                    bpy.data.curves.remove(data)
+                except:
+                    pass
+            elif obj.type == "META":
+                try:
+                    bpy.data.metaballs.remove(data)
+                except:
+                    pass
+            elif obj.type == "VOLUME":
+                try:
+                    bpy.data.volumes.remove(data)
+                except:
+                    pass
+            elif obj.type == "GPENCIL":
+                try:
+                    bpy.data.grease_pencils.remove(data)
+                except:
+                    pass
+            elif obj.type == "LATICE":
+                try:
+                    bpy.data.lattices.remove(data)
+                except:
+                    pass
+            elif obj.type == "EMPTY":
+                try:
+                    if obj.data:
+                        if obj.data.type == "IMAGE":
+                            bpy.data.images.remove(data)
+                except:
+                    pass
+            elif obj.type == "LIGHT_PROBE":
+                try:
+                    bpy.data.lightprobes.remove(data)
+                except:
+                    pass
+            elif obj.type == "SPEAKER":
+                try:
+                    bpy.data.speakers.remove(data)
+                except:
+                    pass
+        try:
+            bpy.data.objects.remove(obj)
+        except:
+            pass
 
 
 def get_object_tree(obj, objects = None):
@@ -1213,6 +1246,8 @@ def get_context_character(context, strict=False):
             elif obj.type == "MESH" and obj.parent and obj.parent != arm:
                 chr_cache = None
 
+    # if strict only return chr_cache from valid object_cache context object
+    # otherwise it could return the first and only chr_cache
     if strict and obj and not obj_cache:
         chr_cache = None
 

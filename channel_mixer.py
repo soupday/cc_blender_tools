@@ -443,3 +443,11 @@ class CC3MixerSettings(bpy.types.PropertyGroup):
                     return True
         return False
 
+    def clean_up(self):
+        if utils.image_exists(self.rgb_image):
+            bpy.data.images.remove(self.rgb_image)
+        if utils.image_exists(self.id_image):
+            bpy.data.images.remove(self.id_image)
+        self.rgb_mixers.clear()
+        self.id_mixers.clear()
+

@@ -181,7 +181,7 @@ def convert_generic_to_non_standard(objects, file_path = None):
     props = vars.props()
     prefs = vars.prefs()
 
-    non_chr_objects = [ obj for obj in objects if props.get_object_cache(obj, strict=True) is None ]
+    non_chr_objects = [ obj for obj in objects if props.get_object_cache(obj) is None ]
 
     # select all child objects of the current selected objects (Humanoid)
     utils.try_select_objects(non_chr_objects, True)
@@ -821,7 +821,7 @@ def clean_up_character_data(chr_cache):
             obj = obj_cache.get_object()
 
             if not obj_cache.is_valid():
-                    delete_objects.append(obj_cache.get_object(return_invalid = True))
+                delete_objects.append(obj_cache.get_object(return_invalid=True))
 
             elif obj != arm:
 
@@ -928,7 +928,7 @@ def add_material_to_character(chr_cache, obj, obj_cache, mat, update_name = Fals
             mat.use_nodes = True
 
         # add the material into the material cache
-        mat_cache = chr_cache.add_material_cache(mat, "DEFAULT")
+        mat_cache = chr_cache.add_material_cache(mat, "DEFAULT", is_user=True)
         mat_cache.user_added = True
 
         # convert any existing PrincipledBSDF based material to a rl_pbr shader material

@@ -126,7 +126,7 @@ def generate_tearline_vertex_groups(obj, mat_left, mat_right):
 def rebuild_eye_vertex_groups(chr_cache):
     for obj_cache in chr_cache.object_cache:
         obj = obj_cache.get_object()
-        if obj and obj_cache.is_eye():
+        if obj and obj_cache.is_eye() and not obj_cache.disabled:
             mat_left, mat_right = materials.get_left_right_eye_materials(obj)
             cache_left = chr_cache.get_material_cache(mat_left)
             cache_right = chr_cache.get_material_cache(mat_right)

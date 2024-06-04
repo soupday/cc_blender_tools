@@ -1266,7 +1266,7 @@ def apply_all_physics(chr_cache):
 
             obj = obj_cache.get_object()
 
-            if obj and obj_cache.is_mesh() and obj not in objects_processed:
+            if obj and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
 
                 cloth_allowed = True
                 if obj_cache:
@@ -1343,7 +1343,7 @@ def remove_all_physics(chr_cache):
         objects_processed = []
         for obj_cache in chr_cache.object_cache:
             obj = obj_cache.get_object()
-            if obj and obj_cache.is_mesh() and obj not in objects_processed:
+            if obj and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
                 remove_all_physics_mods(obj)
             utils.delete_mesh_object(obj_cache.collision_proxy)
         utils.delete_mesh_object(chr_cache.collision_body)

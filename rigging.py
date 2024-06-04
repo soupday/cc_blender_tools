@@ -1501,7 +1501,7 @@ def test_face_vgroups(rig, obj):
 def store_non_face_vgroups(chr_cache):
     utils.log_info("Storing non face vertex weights.")
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if is_face_object(obj_cache, obj):
                 for vg in obj.vertex_groups:
@@ -1512,7 +1512,7 @@ def store_non_face_vgroups(chr_cache):
 def restore_non_face_vgroups(chr_cache):
     utils.log_info("Restoring non face vertex weights.")
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if is_face_object(obj_cache, obj):
                 for vg in obj.vertex_groups:
@@ -1528,7 +1528,7 @@ def lock_non_face_vgroups(chr_cache):
     utils.log_info("Locking non face vertex weights.")
     body = None
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if is_face_object(obj_cache, obj):
                 if obj_cache.object_type == "BODY":
@@ -1552,7 +1552,7 @@ def lock_non_face_vgroups(chr_cache):
 def unlock_vgroups(chr_cache):
     utils.log_info("Unlocking non face vertex weights.")
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.object_type in rigify_mapping_data.BODY_TYPES:
+        if not obj_cache.disabled and obj_cache.object_type in rigify_mapping_data.BODY_TYPES:
             if obj_cache.is_mesh():
                 obj = obj_cache.get_object()
                 vg : bpy.types.VertexGroup
@@ -1584,7 +1584,7 @@ def clean_up_character_meshes(chr_cache):
     face_objects = []
     arm = chr_cache.get_armature()
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if is_face_object(obj_cache, obj):
                 face_objects.append(obj)
@@ -1671,7 +1671,7 @@ def attempt_reparent_auto_character(chr_cache):
     utils.log_always("Attemping to parent the Body mesh to the Face Rig:")
     utils.log_always("If this fails, the face rig may not work and will need to re-parented by other means.")
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if utils.object_exists_is_mesh(obj) and len(obj.data.vertices) >= 2 and is_face_object(obj_cache, obj):
                 obj_result = try_parent_auto(chr_cache, rig, obj)
@@ -1689,7 +1689,7 @@ def attempt_reparent_voxel_skinning(chr_cache):
     body = None
     dummy_cube = None
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if obj_cache.object_type == "BODY":
                 head = separate_head(obj)
@@ -2591,7 +2591,7 @@ def reset_shape_keys(chr_cache):
     rigify_rig = chr_cache.get_armature()
     objects = []
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             objects.append(obj_cache.get_object())
     for obj in rigify_rig.children:
         if utils.object_exists_is_mesh(obj) and obj not in objects:

@@ -801,7 +801,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         strict_chr_cache = chr_cache if obj and obj_cache else None
-        non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj, strict=True) is None ]
+        non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj) is None ]
 
         generic_rig = None
         arm = None

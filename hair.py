@@ -1697,7 +1697,7 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dirs,
             objects = []
             for obj_cache in chr_cache.object_cache:
                 obj = obj_cache.get_object()
-                if obj:
+                if obj and not obj_cache.disabled:
                     for mat in obj.data.materials:
                         mat_cache = chr_cache.get_material_cache(mat)
                         if mat_cache and mat_cache.material_type == "HAIR" and obj not in objects:

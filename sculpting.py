@@ -539,7 +539,7 @@ def set_hide_character(chr_cache, hide):
                 child.hide_set(hide)
     for obj_cache in chr_cache.object_cache:
         obj = obj_cache.get_object()
-        if obj:
+        if not obj_cache.disabled and obj:
             obj.hide_set(hide)
     arm.hide_set(hide)
 

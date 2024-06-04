@@ -1636,7 +1636,7 @@ def zoom_to_character(chr_cache):
         bpy.ops.object.select_all(action='DESELECT')
         for obj_cache in chr_cache.object_cache:
             obj = obj_cache.get_object()
-            if obj:
+            if not obj_cache.disabled and obj:
                 obj.select_set(True)
         bpy.ops.view3d.view_selected()
     except:
@@ -1645,7 +1645,7 @@ def zoom_to_character(chr_cache):
 
 def active_select_body(chr_cache):
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if obj_cache.object_type == "BODY":
                 utils.set_active_object(obj)
@@ -1706,7 +1706,7 @@ def cycles_setup(context):
         utils.log_info("Rebuilding Character for Cycles Rendering...")
         bpy.ops.cc3.importer(param="BUILD")
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if not modifiers.has_modifier(obj, "SUBSURF"):
                 mod = obj.modifiers.new(name = "Subdivision", type = "SUBSURF")

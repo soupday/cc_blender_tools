@@ -585,7 +585,7 @@ def get_cornea_mat(obj, eye_mat, eye_mat_cache):
 
     # then try to find in the material cache
     for mat_cache in chr_cache.eye_material_cache:
-        if mat_cache.is_cornea(side):
+        if not mat_cache.disabled and mat_cache.is_cornea(side):
             return mat_cache.material, mat_cache
 
     utils.log_error("Unable to find the " + side + " cornea material!")

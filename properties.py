@@ -17,7 +17,7 @@
 import bpy, os, socket
 from mathutils import Vector
 
-from . import (link, channel_mixer, imageutils, meshutils, sculpting, materials,
+from . import (channel_mixer, imageutils, meshutils, sculpting, materials,
                springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
                params, physics, basic, jsonutils, utils, vars)
 
@@ -56,7 +56,7 @@ def eye_close_update(self, context):
 
     objects = []
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             if obj_cache.object_type == "BODY":
                 objects.append(obj_cache.get_object())
             elif obj_cache.object_type == "EYE_OCCLUSION":
@@ -356,7 +356,7 @@ def update_all_properties(context, update_mode = None):
 
         for obj_cache in chr_cache.object_cache:
             obj = obj_cache.get_object()
-            if obj_cache.is_mesh() and obj not in processed:
+            if not obj_cache.disabled and obj_cache.is_mesh() and obj not in processed:
 
                 processed.append(obj)
 
@@ -500,6 +500,20 @@ def update_link_host_ip(self, context):
             link_props.link_host = socket.gethostbyaddr(host_ip)
         except:
             link_props.link_host = ""
+
+
+def clean_collection_property(collection_prop):
+    """Remove any item.disabled items from collection property."""
+    repeat = True
+    while repeat:
+        repeat = False
+        for item in collection_prop:
+            valid_func = getattr(item, "is_valid", None)
+            if callable(valid_func):
+                if not item.is_valid():
+                    repeat = True
+                    utils.remove_from_collection(collection_prop, item)
+                    break
 
 
 class CC3OperatorProperties(bpy.types.Operator):
@@ -1015,6 +1029,10 @@ class CC3TextureMapping(bpy.types.PropertyGroup):
     rotation: bpy.props.FloatVectorProperty(subtype="EULER", size=3, default=(0.0, 0.0, 0.0))
     scale: bpy.props.FloatVectorProperty(subtype="XYZ", size=3, default=(1.0, 1.0, 1.0))
 
+    def clean_up(self):
+        if utils.image_exists(self.image):
+            bpy.data.images.remove(self.image)
+
 
 class CC3MaterialCache:
     material_id: bpy.props.StringProperty(default="")
@@ -1144,6 +1162,28 @@ class CC3MaterialCache:
             self.material["rl_material_id"] = material_id
             self.material["rl_material_type"] = material_type
 
+    def is_valid(self):
+        return not self.disabled and utils.material_exists(self.material)
+
+    def invalidate(self):
+        self.disabled = True
+        if utils.material_exists(self.material):
+            bpy.data.materials.remove(self.material)
+        if utils.image_exists(self.temp_weight_map):
+            bpy.data.images.remove(self.temp_weight_map)
+
+    def clean_up(self):
+        if self.disabled:
+            self.invalidate()
+            tex_mapping: CC3TextureMapping
+            mixer_setting: channel_mixer.CC3MixerSettings
+            for tex_mapping in self.texture_mappings:
+                tex_mapping.clean_up()
+            for mixer_setting in self.mixer_settings:
+                mixer_setting.clean_up()
+            self.texture_mappings.clear()
+            self.mixer_settings.clear()
+
 
 class CC3EyeMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3EyeParameters)
@@ -1218,10 +1258,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     def is_armature(self):
         return utils.object_exists_is_armature(self.object)
 
-    def is_valid(self):
-        return utils.object_exists(self.object)
-
-    def get_object(self, return_invalid = False):
+    def get_object(self, return_invalid=False):
         if utils.object_exists(self.object):
             return self.object
         if return_invalid:
@@ -1269,6 +1306,19 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
         if self.object:
             self.object["rl_object_id"] = self.object_id
             self.object["rl_object_type"] = self.object_type
+
+    def is_valid(self):
+        return not self.disabled and utils.object_exists(self.object)
+
+    def invalidate(self):
+        self.disabled = True
+        utils.delete_object_tree(self.object)
+        utils.delete_object_tree(self.collision_proxy)
+
+    def clean_up(self):
+        if self.disabled:
+            self.invalidate()
+            pass
 
 
 class CCICActionStore(bpy.types.PropertyGroup):
@@ -1407,6 +1457,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("NONE","None","None"),
                         ("NONE_LEGACY","None (Legacy)","None (Legacy)"),
                     ], default="FULL", name="Set bone inherit scale")
+
+    disabled: bpy.props.BoolProperty(default=False)
 
     def select(self):
         arm = self.get_armature()
@@ -1578,89 +1630,94 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return rigify_data.bone_mapping
         return None
 
-    def get_all_materials_cache(self):
+    def get_all_materials_cache(self, include_disabled=False):
         cache_all = []
         for mat_cache in self.tongue_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.teeth_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.head_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.skin_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.tearline_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.eye_occlusion_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.eye_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.hair_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.pbr_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.sss_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         return cache_all
 
-    def get_all_materials(self):
+    def get_all_materials(self, include_disabled=False):
         materials = []
         for mat_cache in self.tongue_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.teeth_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.head_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.skin_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.tearline_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.eye_occlusion_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.eye_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.hair_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.pbr_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.sss_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         return materials
 
-    def get_all_objects(self, include_armature = True, include_children = False, of_type = "ALL"):
+    def get_all_objects(self,
+                        include_armature=True,
+                        include_children=False,
+                        include_disabled=False,
+                        of_type="ALL"):
 
         objects = []
         arm = None
 
         for obj_cache in self.object_cache:
-            obj = obj_cache.get_object()
-            if obj and obj not in objects:
-                if obj.type == "ARMATURE":
-                    arm = obj
-                    if include_armature:
-                        if of_type == "ALL" or of_type == "ARMATURE":
-                            objects.append(obj)
-                elif of_type == "ALL" or of_type == obj.type:
-                    objects.append(obj)
+            if include_disabled or not obj_cache.disabled:
+                obj = obj_cache.get_object()
+                if obj and obj not in objects:
+                    if obj.type == "ARMATURE":
+                        arm = obj
+                        if include_armature:
+                            if of_type == "ALL" or of_type == "ARMATURE":
+                                objects.append(obj)
+                    elif of_type == "ALL" or of_type == obj.type:
+                        objects.append(obj)
 
         if include_children and arm:
             for child in arm.children:
@@ -1717,27 +1774,21 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     utils.remove_from_collection(self.sss_material_cache, mat_cache)
                     return
 
-    def get_object_cache(self, obj, strict=False, by_id=None):
+    def get_object_cache(self, obj, include_disabled=False, by_id=None):
         """Returns the object cache for this object.
         """
         if obj:
             # by object
             for obj_cache in self.object_cache:
-                cache_object = obj_cache.get_object()
-                if cache_object and cache_object == obj:
-                    if strict:
-                        if not obj_cache.disabled:
-                            return obj_cache
-                    else:
+                if include_disabled or not obj_cache.disabled:
+                    cache_object = obj_cache.get_object()
+                    if cache_object and cache_object == obj:
                         return obj_cache
             # by source name
             if by_id:
                 for obj_cache in self.object_cache:
-                    if obj_cache.object_id == by_id:
-                        if strict:
-                            if not obj_cache.disabled:
-                                return obj_cache
-                        else:
+                    if include_disabled or not obj_cache.disabled:
+                        if obj_cache.object_id == by_id:
                             return obj_cache
         return None
 
@@ -1753,11 +1804,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     utils.remove_from_collection(self.object_cache, obj_cache)
                     return
 
-    def has_cache_objects(self, objects):
+    def has_cache_objects(self, objects, include_disabled=False):
         """Returns True if any of the objects are actively the object cache.
         """
         for obj_cache in self.object_cache:
-            if not obj_cache.disabled:
+            if include_disabled or not obj_cache.disabled:
                 cache_object = obj_cache.get_object()
                 if cache_object in objects:
                     return True
@@ -1771,21 +1822,23 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     return True
         return False
 
-    def has_object(self, obj):
-        """Returns True if any of the objects are in the object cache.
+    def has_object(self, obj, include_disabled=False):
+        """Returns True if the object is in the object cache.
         """
         for obj_cache in self.object_cache:
-            cache_object = obj_cache.get_object()
-            if cache_object == obj:
-                return True
+            if include_disabled or not obj_cache.disabled:
+                cache_object = obj_cache.get_object()
+                if cache_object == obj:
+                    return True
         return False
 
-    def get_armature(self):
+    def get_armature(self, include_disabled=False):
         try:
             for obj_cache in self.object_cache:
-                cache_object = obj_cache.get_object()
-                if utils.object_exists_is_armature(cache_object):
-                    return cache_object
+                if include_disabled or not obj_cache.disabled:
+                    cache_object = obj_cache.get_object()
+                    if utils.object_exists_is_armature(cache_object):
+                        return cache_object
         except:
             pass
         return None
@@ -1793,12 +1846,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_body(self):
         return self.get_object_of_type("BODY")
 
-    def get_object_of_type(self, object_type):
+    def get_object_of_type(self, object_type, include_disabled=False):
         try:
             for obj_cache in self.object_cache:
-                cache_object = obj_cache.get_object()
-                if cache_object and obj_cache.object_type == object_type:
-                    return cache_object
+                if include_disabled or not obj_cache.disabled:
+                    cache_object = obj_cache.get_object()
+                    if cache_object and obj_cache.object_type == object_type:
+                        return cache_object
         except:
             pass
         return None
@@ -1807,13 +1861,14 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.rigified = True
         try:
             for obj_cache in self.object_cache:
-                cache_object = obj_cache.get_object()
-                if cache_object.type == "ARMATURE":
-                    self.rig_original_rig = cache_object
-                    obj_cache.set_object(new_arm)
-                    # update the object id
-                    obj_cache.object_id = utils.generate_random_id(20)
-                    new_arm["rl_object_id"] = obj_cache.object_id
+                if not obj_cache.disabled:
+                    cache_object = obj_cache.get_object()
+                    if cache_object.type == "ARMATURE":
+                        self.rig_original_rig = cache_object
+                        obj_cache.set_object(new_arm)
+                        # update the object id
+                        obj_cache.object_id = utils.generate_random_id(20)
+                        new_arm["rl_object_id"] = obj_cache.object_id
         except:
             pass
 
@@ -1965,7 +2020,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return self.pbr_material_cache
 
 
-    def add_material_cache(self, mat, create_type = "DEFAULT", user=False, copy_from=None):
+    def add_material_cache(self, mat,
+                           create_type = "DEFAULT",
+                           is_user=False,
+                           copy_from=None):
+
         """Returns the material cache for this material.
 
         Fetches the material cache for the material. Returns None if the material is not in the cache.
@@ -1984,7 +2043,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             if copy_from:
                 utils.log_info(f"Copying material cache from: {copy_from}")
                 utils.copy_property_group(copy_from, mat_cache)
-                if user:
+                if is_user:
                     mat_cache.user_added = True
                     mat_cache.material_id = utils.generate_random_id(20)
             mat_cache.material = mat
@@ -2082,10 +2141,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     is_proxy = True
         return obj, proxy, is_proxy
 
-    def find_object_from_proxy(self, proxy):
+    def find_object_from_proxy(self, proxy, include_disabled=False):
         for obj_cache in self.object_cache:
-            if obj_cache.collision_proxy == proxy:
-                return obj_cache.object
+            if include_disabled or not obj_cache.disabled:
+                if obj_cache.collision_proxy == proxy:
+                    return obj_cache.object
         if self.collision_body == proxy:
             body = self.get_body()
             return body
@@ -2095,6 +2155,69 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if not self.link_id:
             self.link_id = utils.generate_random_id(14)
         return self.link_id
+
+    def is_valid(self):
+        obj_cache: CC3ObjectCache
+        if self.disabled:
+            return False
+        for obj_cache in self.object_cache:
+            if obj_cache.is_valid():
+                return True
+        return False
+
+    def invalidate(self):
+        self.disabled = True
+        obj_cache: CC3ObjectCache
+        mat_cache: CC3MaterialCache
+        for obj_cache in self.object_cache:
+            obj_cache.invalidate()
+        all_mat_cache = self.get_all_materials_cache(include_disabled=True)
+        for mat_cache in all_mat_cache:
+            mat_cache.invalidate()
+        utils.log_info(f"Deleting Character Meta Objects.")
+        utils.delete_object(self.collision_body)
+        utils.delete_object_tree(self.rig_meta_rig)
+        utils.delete_object_tree(self.rig_export_rig)
+        utils.delete_object_tree(self.rig_original_rig)
+        utils.delete_object_tree(self.rig_retarget_rig)
+        utils.delete_object_tree(self.rig_datalink_rig)
+        utils.delete_object_tree(self.rig_retarget_source_rig)
+        utils.delete_object(self.detail_multires_body)
+        utils.delete_object(self.sculpt_multires_body)
+
+    def clean_up(self):
+        obj_cache: CC3ObjectCache
+        mat_cache: CC3MaterialCache
+        for obj_cache in self.object_cache:
+            obj_cache.clean_up()
+        all_mat_cache = self.get_all_materials_cache(include_disabled=True)
+        for mat_cache in all_mat_cache:
+            mat_cache.clean_up()
+        if self.disabled:
+            self.invalidate()
+            self.tongue_material_cache.clear()
+            self.teeth_material_cache.clear()
+            self.head_material_cache.clear()
+            self.skin_material_cache.clear()
+            self.tearline_material_cache.clear()
+            self.eye_occlusion_material_cache.clear()
+            self.eye_material_cache.clear()
+            self.hair_material_cache.clear()
+            self.pbr_material_cache.clear()
+            self.sss_material_cache.clear()
+            self.proportion_editing_actions.clear()
+        else:
+            clean_collection_property(self.object_cache)
+            clean_collection_property(self.tongue_material_cache)
+            clean_collection_property(self.teeth_material_cache)
+            clean_collection_property(self.head_material_cache)
+            clean_collection_property(self.skin_material_cache)
+            clean_collection_property(self.tearline_material_cache)
+            clean_collection_property(self.eye_occlusion_material_cache)
+            clean_collection_property(self.eye_material_cache)
+            clean_collection_property(self.hair_material_cache)
+            clean_collection_property(self.pbr_material_cache)
+            clean_collection_property(self.sss_material_cache)
 
 
 class CC3ImportProps(bpy.types.PropertyGroup):
@@ -2341,10 +2464,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
         if objects:
             for chr_cache in self.import_cache:
-                if chr_cache.has_cache_objects(objects):
-                    return chr_cache
-                if chr_cache.rig_meta_rig and chr_cache.rig_meta_rig in objects:
-                    return chr_cache
+                if not chr_cache.disabled:
+                    if chr_cache.has_cache_objects(objects):
+                        return chr_cache
+                    if chr_cache.rig_meta_rig and chr_cache.rig_meta_rig in objects:
+                        return chr_cache
 
         if search_materials:
             materials = []
@@ -2354,49 +2478,51 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         materials.append(mat)
             if materials:
                 for chr_cache in self.import_cache:
-                    if chr_cache.has_any_materials(materials):
+                    if not chr_cache.disabled and chr_cache.has_any_materials(materials):
                         return chr_cache
         return None
 
     def get_character_cache(self, obj, mat):
         if obj:
             for chr_cache in self.import_cache:
-                obj_cache = chr_cache.get_object_cache(obj)
-                if obj_cache and not obj_cache.disabled:
-                    return chr_cache
+                if not chr_cache.disabled:
+                    obj_cache = chr_cache.get_object_cache(obj)
+                    if obj_cache and not obj_cache.disabled:
+                        return chr_cache
         if mat:
             for chr_cache in self.import_cache:
-                mat_cache = chr_cache.get_material_cache(mat)
-                if mat_cache and not mat_cache.disabled:
-                    return chr_cache
+                if not chr_cache.disabled:
+                    mat_cache = chr_cache.get_material_cache(mat)
+                    if mat_cache and not mat_cache.disabled:
+                        return chr_cache
         return None
 
     def get_avatars(self):
         avatars = []
         chr_cache: CC3CharacterCache
         for chr_cache in self.import_cache:
-            if chr_cache.is_avatar():
+            if not chr_cache.disabled and chr_cache.is_avatar():
                 avatars.append(chr_cache)
         return avatars
 
     def get_first_avatar(self):
         chr_cache: CC3CharacterCache
         for chr_cache in self.import_cache:
-            if chr_cache.is_avatar():
+            if not chr_cache.disabled and chr_cache.is_avatar():
                 return chr_cache
         return None
 
     def find_character_by_name(self, name):
         if name:
             for chr_cache in self.import_cache:
-                if chr_cache.character_name == name:
+                if not chr_cache.disabled and chr_cache.character_name == name:
                     return chr_cache
         return None
 
     def find_character_by_link_id(self, link_id):
         if link_id:
             for chr_cache in self.import_cache:
-                if chr_cache.link_id == link_id:
+                if not chr_cache.disabled and chr_cache.link_id == link_id:
                     return chr_cache
         return None
 
@@ -2421,10 +2547,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
         return chr_cache
 
-    def get_object_cache(self, obj, strict = False):
+    def get_object_cache(self, obj, include_disabled=False):
         if obj:
-            for imp_cache in self.import_cache:
-                obj_cache = imp_cache.get_object_cache(obj, strict=strict)
+            for chr_cache in self.import_cache:
+                obj_cache = chr_cache.get_object_cache(obj, include_disabled=include_disabled)
                 if obj_cache:
                     return obj_cache
         return None
@@ -2481,6 +2607,27 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                 vector = Vector((0,-1)).normalized()
             dir_vectors[aspect] = vector
         return dir_vectors
+
+    def validate(self):
+        validation = True
+        chr_cache: CC3CharacterCache
+        for chr_cache in self.import_cache:
+            if not chr_cache.is_valid():
+                utils.log_info(f"Character Cache: {chr_cache.character_name} is no longer valid!")
+                chr_cache.invalidate()
+                validation = False
+        return validation
+
+    def clean_up(self):
+        chr_cache: CC3CharacterCache
+        for chr_cache in self.import_cache:
+            if not chr_cache.is_valid():
+                chr_cache.clean_up()
+        clean_collection_property(self.import_cache)
+
+    def validate_and_clean_up(self):
+        if not self.validate():
+            self.clean_up()
 
 
 class CCICBakeCache(bpy.types.PropertyGroup):

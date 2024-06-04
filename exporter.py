@@ -1714,7 +1714,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
 
         # select all the imported objects (should be just one)
         for p in chr_cache.object_cache:
-            if p.object is not None and p.object.type == "MESH":
+            if p.object is not None and p.object.type == "MESH" and not p.disabled:
                 p.object.hide_set(False)
                 p.object.select_set(True)
 

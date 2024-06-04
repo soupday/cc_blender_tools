@@ -29,44 +29,9 @@ debug_counter = 0
 
 def delete_import(chr_cache):
     props = vars.props()
-
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.get_object()
-        if obj and props.paint_object == obj:
-            props.paint_object = None
-            props.paint_material = None
-            props.paint_image = None
-        utils.try_remove(obj, True)
-
-    all_materials_cache = chr_cache.get_all_materials_cache()
-    for mat_cache in all_materials_cache:
-        mat = mat_cache.material
-        utils.try_remove(mat, True)
-
-    chr_cache.import_file = ""
-    chr_cache.import_embedded = False
-
-    chr_cache.tongue_material_cache.clear()
-    chr_cache.teeth_material_cache.clear()
-    chr_cache.head_material_cache.clear()
-    chr_cache.skin_material_cache.clear()
-    chr_cache.tearline_material_cache.clear()
-    chr_cache.eye_occlusion_material_cache.clear()
-    chr_cache.eye_material_cache.clear()
-    chr_cache.hair_material_cache.clear()
-    chr_cache.pbr_material_cache.clear()
-    chr_cache.object_cache.clear()
-
-    utils.remove_from_collection(props.import_cache, chr_cache)
-
-    utils.clean_collection(bpy.data.images)
-    utils.clean_collection(bpy.data.materials)
-    utils.clean_collection(bpy.data.textures)
-    utils.clean_collection(bpy.data.meshes)
-    utils.clean_collection(bpy.data.armatures)
-    utils.clean_collection(bpy.data.node_groups)
-    # as some node_groups are nested...
-    utils.clean_collection(bpy.data.node_groups)
+    chr_cache.invalidate()
+    props.clean_up()
+    utils.clean_up_unused()
 
 
 def process_material(chr_cache, obj, mat, obj_json, processed_images):

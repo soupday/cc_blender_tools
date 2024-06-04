@@ -1178,6 +1178,7 @@ class LinkService():
                 r,w,x = select.select(self.server_sockets, self.empty_sockets, self.empty_sockets, 0)
 
     def parse(self, op_code, data):
+        props = vars.props()
         link_props = vars.link_props()
         self.keepalive_timer = KEEPALIVE_TIMEOUT_S
 
@@ -2217,7 +2218,10 @@ class LinkService():
     #
 
     def receive_character_template(self, data):
+        props = vars.props()
         global LINK_DATA
+
+        props.validate_and_clean_up()
 
         # decode character templates
         template_json = decode_to_json(data)
@@ -2267,8 +2271,11 @@ class LinkService():
         return rigs
 
     def receive_pose(self, data):
+        props = vars.props()
         global LINK_SERVICE
         global LINK_DATA
+
+        props.validate_and_clean_up()
 
         # decode pose data
         json_data = decode_to_json(data)
@@ -2338,8 +2345,11 @@ class LinkService():
         bpy.context.scene.frame_current = frame
 
     def receive_sequence(self, data):
+        props = vars.props()
         global LINK_SERVICE
         global LINK_DATA
+
+        props.validate_and_clean_up()
 
         # decode sequence data
         json_data = decode_to_json(data)
@@ -2474,6 +2484,8 @@ class LinkService():
         props = vars.props()
         global LINK_DATA
 
+        props.validate_and_clean_up()
+
         # decode character import data
         json_data = decode_to_json(data)
         fbx_path = json_data["path"]
@@ -2507,6 +2519,8 @@ class LinkService():
     def receive_motion_import(self, data):
         props = vars.props()
         global LINK_DATA
+
+        props.validate_and_clean_up()
 
         # decode character import data
         json_data = decode_to_json(data)
@@ -2625,7 +2639,10 @@ class LinkService():
                     bpy.data.actions.remove(old_action)
 
     def receive_actor_update(self, data):
+        props = vars.props()
         global LINK_DATA
+
+        props.validate_and_clean_up()
 
         # decode character update
         json_data = decode_to_json(data)
@@ -2643,7 +2660,10 @@ class LinkService():
         actor.update_link_id(new_link_id)
 
     def receive_morph(self, data, update=False):
+        props = vars.props()
         global LINK_DATA
+
+        props.validate_and_clean_up()
 
         # decode receive morph
         json_data = decode_to_json(data)
@@ -2683,7 +2703,10 @@ class LinkService():
                 utils.delete_mesh_object(source)
 
     def receive_rigify_request(self, data):
+        props = vars.props()
         global LINK_SERVICE
+
+        props.validate_and_clean_up()
 
         # decode rigify request
         json_data = decode_to_json(data)
