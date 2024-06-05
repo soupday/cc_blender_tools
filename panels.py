@@ -476,7 +476,10 @@ def character_tools_ui(context, layout):
     prefs = vars.prefs()
 
     chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
-    non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj) is None ]
+    non_chr_objects = [ obj for obj in context.selected_objects
+                        if props.get_object_cache(obj) is None
+                            and (obj.type == "MESH"
+                                 or obj.type == "EMPTY")]
     generic_rig = None
     rig = None
     if chr_cache:
@@ -889,8 +892,6 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         props = vars.props()
         prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
-        strict_chr_cache = chr_cache if obj and obj_cache else None
-        non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj) is None ]
 
         generic_rig = None
         arm = None

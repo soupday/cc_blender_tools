@@ -256,7 +256,10 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
     utils.log_info("-----------------------------")
 
     # get generic objects
-    non_chr_objects = [ obj for obj in objects if props.get_object_cache(obj) is None ]
+    non_chr_objects = [ obj for obj in objects
+                        if props.get_object_cache(obj) is None
+                            and (obj.type == "MESH"
+                                 or obj.type == "EMPTY")]
     active_non_chr_object = utils.get_active_object()
     if active_non_chr_object not in non_chr_objects:
         active_non_chr_object = non_chr_objects[0]
@@ -1621,7 +1624,10 @@ def match_materials(chr_cache):
 def get_generic_context(context):
     props = vars.props()
     chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
-    non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj) is None ]
+    non_chr_objects = [ obj for obj in context.selected_objects
+                        if props.get_object_cache(obj) is None
+                            and (obj.type == "MESH"
+                                 or obj.type == "EMPTY")]
     generic_rig = None
     rig = None
     if chr_cache:
