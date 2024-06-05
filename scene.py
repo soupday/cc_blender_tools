@@ -26,7 +26,7 @@ from . import colorspace, imageutils, nodeutils, rigidbody, physics, modifiers, 
 def add_target(name, location):
     bpy.ops.object.empty_add(type="PLAIN_AXES", radius = 0.1,
         location = location)
-    target = bpy.context.active_object
+    target = utils.get_active_object()
     target.name = utils.unique_name(name, True)
     return target
 
@@ -50,7 +50,7 @@ def add_light_container():
             container = obj
     if not container:
         bpy.ops.object.empty_add(type="PLAIN_AXES", radius=0.01)
-        container = bpy.context.active_object
+        container = utils.get_active_object()
         container.name = utils.unique_name("Lighting", True)
     return container
 
@@ -58,7 +58,7 @@ def add_light_container():
 def add_sun_light(name, container, location, rotation, energy, angle):
     bpy.ops.object.light_add(type="SUN",
                     location = location, rotation = rotation)
-    light = bpy.context.active_object
+    light = utils.get_active_object()
     uname = utils.unique_name(name, True)
     light.name = uname
     light.data.name = uname
@@ -73,7 +73,7 @@ def add_sun_light(name, container, location, rotation, energy, angle):
 def add_spot_light(name, container, location, rotation, energy, blend, size, distance, radius):
     bpy.ops.object.light_add(type="SPOT",
                     location = location, rotation = rotation)
-    light = bpy.context.active_object
+    light = utils.get_active_object()
     uname = utils.unique_name(name, True)
     light.name = uname
     light.data.name = uname
@@ -92,7 +92,7 @@ def add_spot_light(name, container, location, rotation, energy, blend, size, dis
 def add_area_light(name, container, location, rotation, energy, size, distance):
     bpy.ops.object.light_add(type="AREA",
                     location = location, rotation = rotation)
-    light = bpy.context.active_object
+    light = utils.get_active_object()
     uname = utils.unique_name(name, True)
     light.name = uname
     light.data.name = uname
@@ -110,7 +110,7 @@ def add_area_light(name, container, location, rotation, energy, size, distance):
 def add_point_light(name, container, location, rotation, energy, size):
     bpy.ops.object.light_add(type="POINT",
                     location = location, rotation = rotation)
-    light = bpy.context.active_object
+    light = utils.get_active_object()
     uname = utils.unique_name(name, True)
     light.name = uname
     light.data.name = uname
@@ -190,7 +190,7 @@ def camera_setup(camera_loc, target_loc):
             target.location = target_loc
     if camera is None:
         bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=camera_loc)
-        camera = bpy.context.active_object
+        camera = utils.get_active_object()
         camera.name = utils.unique_name("Camera", True)
     if target is None:
         target = add_target("CameraTarget", target_loc)
@@ -222,7 +222,7 @@ def camera_auto_target(camera, target):
 
     chr_cache = props.get_context_character_cache()
     if chr_cache is None:
-        chr_cache = props.get_character_cache(bpy.context.active_object, None)
+        chr_cache = props.get_character_cache(utils.get_active_object(), None)
     if chr_cache is None:
         chr_cache = props.import_cache[0]
 
@@ -304,7 +304,7 @@ def setup_scene_default(scene_type):
 
     # store selection and mode
     current_selected = bpy.context.selected_objects
-    current_active = bpy.context.active_object
+    current_active = utils.get_active_object()
     current_mode = bpy.context.mode
     # go to object mode
     try:
@@ -1507,7 +1507,7 @@ def hide_view_extras(hide):
 def add_view_aligned_camera(context):
     hide_view_extras(False)
     bpy.ops.object.camera_add(enter_editmode=False, align='VIEW')
-    camera = bpy.context.active_object
+    camera = utils.get_active_object()
     bpy.context.scene.camera = camera
     align_with_view(camera, context)
     camera.name = utils.unique_name("Camera", True)

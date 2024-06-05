@@ -103,6 +103,7 @@ def reset_preferences():
     prefs.physics_weightmap_curve = 5.0
     prefs.rigify_build_face_rig = True
     prefs.rigify_auto_retarget = True
+    prefs.convert_non_standard_type = "PROP"
     reset_cycles()
     reset_rigify()
     reset_datalink()
@@ -364,6 +365,13 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     datalink_hide_prop_bones: bpy.props.BoolProperty(default=True,
                         description="Hide internal prop bones.")
 
+    # convert
+    convert_non_standard_type: bpy.props.EnumProperty(items=[
+                    ("HUMANOID","Humanoid","Non standard character is a Humanoid"),
+                    ("CREATURE","Creature","Non standard character is a Creature"),
+                    ("PROP","Prop","Non standard character is a Prop"),
+                ], default="PROP", name = "Non-standard Character Type")
+
     # addon updater preferences
     auto_check_update: bpy.props.BoolProperty(
 	    name="Auto-check for Update",
@@ -475,6 +483,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "export_unity_remove_objects")
         layout.prop(self, "export_texture_size")
         layout.prop(self, "export_require_key")
+
+        layout.label(text="Convert:")
+        layout.prop(self, "convert_non_standard_type")
 
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")

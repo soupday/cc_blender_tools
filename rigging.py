@@ -3514,7 +3514,7 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("------------------------------")
 
                 bpy.ops.pose.rigify_generate()
-                self.rigify_rig = bpy.context.active_object
+                self.rigify_rig = utils.get_active_object()
 
                 utils.log_info("")
                 utils.log_info("Finalizing Rigify Setup:")
@@ -3577,7 +3577,7 @@ class CC3Rigifier(bpy.types.Operator):
                 # regenerating the rig will replace the existing rigify rig
                 # so there is no need to reparent anything
                 bpy.ops.pose.rigify_generate()
-                self.rigify_rig = bpy.context.active_object
+                self.rigify_rig = utils.get_active_object()
 
                 utils.log_info("")
                 utils.log_info("Re-finalizing Rigify Setup:")
@@ -3653,6 +3653,14 @@ class CC3Rigifier(bpy.types.Operator):
             self.meta_rig = chr_cache.rig_meta_rig
             self.rigify_data = chr_cache.get_rig_mapping_data()
 
+            if self.param == "DATALINK_RIGIFY":
+                olc = utils.set_active_layer_collection_from(self.cc3_rig)
+                self.generate_meta_rig(chr_cache)
+                self.rigify_meta_rig(chr_cache)
+                utils.set_active_layer_collection(olc)
+                retarget_cc3_rig_action(self, chr_cache, self.cc3_rig)
+                rigutils.update_avatar_rig(self.rigify_rig)
+
             if self.param == "ALL":
 
                 olc = utils.set_active_layer_collection_from(self.cc3_rig)
@@ -3679,6 +3687,7 @@ class CC3Rigifier(bpy.types.Operator):
                 olc = utils.set_active_layer_collection_from(self.cc3_rig)
                 result = self.re_rigify_meta_rig(chr_cache, advanced_mode = True)
                 utils.set_active_layer_collection(olc)
+                rigutils.update_avatar_rig(self.rigify_rig)
 
             elif self.param == "REPORT_FACE_TARGETS":
 

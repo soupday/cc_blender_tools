@@ -1956,7 +1956,7 @@ class LinkService():
 
     def add_spot_light(self, name, container):
         bpy.ops.object.light_add(type="SPOT")
-        light = bpy.context.active_object
+        light = utils.get_active_object()
         light.name = name
         light.data.name = name
         light.parent = container
@@ -1965,7 +1965,7 @@ class LinkService():
 
     def add_area_light(self, name, container):
         bpy.ops.object.light_add(type="AREA")
-        light = bpy.context.active_object
+        light = utils.get_active_object()
         light.name = name
         light.data.name = name
         light.parent = container
@@ -1974,7 +1974,7 @@ class LinkService():
 
     def add_point_light(self, name, container):
         bpy.ops.object.light_add(type="POINT")
-        light = bpy.context.active_object
+        light = utils.get_active_object()
         light.name = name
         light.data.name = name
         light.parent = container
@@ -1983,7 +1983,7 @@ class LinkService():
 
     def add_dir_light(self, name, container):
         bpy.ops.object.light_add(type="SUN")
-        light = bpy.context.active_object
+        light = utils.get_active_object()
         light.name = name
         light.data.name = name
         light.parent = container
@@ -1997,7 +1997,7 @@ class LinkService():
                 container = obj
         if not container:
             bpy.ops.object.empty_add(type="PLAIN_AXES", radius=0.01)
-            container = bpy.context.active_object
+            container = utils.get_active_object()
             container.name = utils.unique_name("Lighting", True)
         return container
 

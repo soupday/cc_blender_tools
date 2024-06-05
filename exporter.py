@@ -1763,7 +1763,7 @@ def export_non_standard(self, file_path, include_selected):
 
     # store selection
     old_selection = bpy.context.selected_objects.copy()
-    old_active = bpy.context.active_object
+    old_active = utils.get_active_object()
 
     objects = get_export_objects(None, include_selected)
     arm = get_export_armature(None, objects)
@@ -2161,7 +2161,7 @@ def export_as_accessory(file_path, filename_ext):
 
     # store selection
     old_selection = bpy.context.selected_objects
-    old_active = bpy.context.active_object
+    old_active = utils.get_active_object()
 
     if utils.is_file_ext(ext, "FBX"):
         bpy.ops.export_scene.fbx(filepath=file_path,
@@ -2192,7 +2192,7 @@ def export_as_replace_mesh(file_path):
 
     # store selection
     old_selection = bpy.context.selected_objects
-    old_active = bpy.context.active_object
+    old_active = utils.get_active_object()
 
     obj_export(file_path, use_selection=True,
                           global_scale=100,

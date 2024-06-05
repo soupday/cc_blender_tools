@@ -249,7 +249,7 @@ def apply_edit_shapekeys(obj):
     """For objects with shapekeys, set the active visible and edit mode shapekey to the basis.
     """
     # shapekeys data path:
-    #   bpy.context.active_object.data.shape_keys.key_blocks['Basis']
+    #   utils.get_active_object().data.shape_keys.key_blocks['Basis']
     if obj.type == "MESH":
         shape_keys = obj.data.shape_keys
         if shape_keys is not None:
@@ -267,7 +267,7 @@ def apply_edit_shapekeys(obj):
 
 
 def init_shape_key_range(obj):
-    #bpy.context.active_object.data.shape_keys.key_blocks['Basis']
+    #utils.get_active_object().data.shape_keys.key_blocks['Basis']
     if obj.type == "MESH":
         shape_keys: bpy.types.Key = obj.data.shape_keys
         if shape_keys is not None:

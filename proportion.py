@@ -203,12 +203,12 @@ class CCICCharacterProportions(bpy.types.Operator):
 
         elif self.param.startswith("INHERIT_SCALE"):
             inherit_scale = self.param[14:]
-            if utils.get_mode() == "POSE" and bpy.context.active_object and bpy.context.active_pose_bone:
-                set_child_inherit_scale(bpy.context.active_object, bpy.context.active_pose_bone, inherit_scale)
+            if utils.get_mode() == "POSE" and utils.get_active_object() and bpy.context.active_pose_bone:
+                set_child_inherit_scale(utils.get_active_object(), bpy.context.active_pose_bone, inherit_scale)
 
         elif self.param == "RESET":
-            if utils.get_mode() == "POSE" and bpy.context.active_object:
-                reset_proportions(bpy.context.active_object)
+            if utils.get_mode() == "POSE" and utils.get_active_object():
+                reset_proportions(utils.get_active_object())
 
         return {"FINISHED"}
 

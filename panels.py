@@ -471,6 +471,95 @@ def cache_timeline_physics_ui(chr_cache, layout : bpy.types.UILayout):
         row.operator("ptcache.bake_all", text="Bake All Dynamics", icon="REC", depress=all_depress).bake = True
 
 
+def character_tools_ui(context, layout):
+    props = vars.props()
+    prefs = vars.prefs()
+
+    chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
+    non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj) is None ]
+    generic_rig = None
+    rig = None
+    if chr_cache:
+        rig = chr_cache.get_armature()
+    else:
+        generic_rig = characters.get_generic_rig(context.selected_objects)
+        if generic_rig:
+            rig = generic_rig
+
+    if chr_cache:
+        chr_name = chr_cache.character_name
+    elif generic_rig:
+        chr_name = generic_rig.name
+    elif non_chr_objects:
+        chr_name = non_chr_objects[0].name
+    else:
+        chr_name = "None Selected"
+
+    if chr_cache:
+        if chr_cache.is_non_standard():
+            type_string = chr_cache.non_standard_type.capitalize()
+        else:
+            type_string = chr_cache.generation.capitalize()
+    elif generic_rig or non_chr_objects:
+        type_string = "Generic"
+    else:
+        type_string = ""
+
+    box = layout.box()
+    if type_string:
+        box.label(text=f"{chr_name} ({type_string})", icon="TOOL_SETTINGS")
+    else:
+        box.label(text=f"{chr_name}", icon="TOOL_SETTINGS")
+    col = layout.column(align=True)
+    grid = col.grid_flow(row_major=True, columns=2, align=True)
+    grid.scale_y = 1.5
+    grid.operator("cc3.character", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_ACTOR_ALL"
+    grid.operator("cc3.character", icon="ARMATURE_DATA", text="Select Rig").param = "SELECT_ACTOR_RIG"
+    grid.operator("ccic.rename_character", icon="GREASEPENCIL", text="Edit")
+    grid.operator("cc3.character", icon="DUPLICATE", text="Duplicate").param = "DUPLICATE"
+    if not chr_cache:
+        grid.enabled = False
+
+    split = col.split(factor=0.5, align=True)
+    col_1 = split.column(align=True)
+    col_2 = split.column(align=True)
+    col_1.scale_y = 1.5
+    col_2.scale_y = 1.5
+    col_1.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param ="DATALINK_RIGIFY"
+    if not (chr_cache and chr_cache.is_avatar()):
+        col_1.enabled = False
+    if chr_cache:
+        col_2.operator("cc3.importer", icon="PANEL_CLOSE", text="Delete").param ="DELETE_CHARACTER"
+    elif generic_rig or non_chr_objects:
+        if generic_rig:
+            col_2.operator("ccic.convert_generic", icon="COMMUNITY", text="Convert")
+        elif non_chr_objects:
+            col_2.operator("ccic.convert_generic", icon="OUTLINER_OB_META", text="Convert")
+    else:
+        col_2.operator("cc3.importer", icon="PANEL_CLOSE", text="Delete").param ="DELETE_CHARACTER"
+        col_2.enabled = False
+
+    if chr_cache or generic_rig or non_chr_objects:
+        if chr_cache:
+            if chr_cache.link_id:
+                row = layout.row()
+                row.label(text=f"Link ID: {chr_cache.link_id}")
+                if chr_cache.import_file:
+                    row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
+            else:
+                layout.row().label(text=f"{type_string}: Unlinked")
+        elif generic_rig:
+            layout.row().label(text=f"Armature: {generic_rig.name}")
+        elif non_chr_objects:
+            obj_text = "Objects: "
+            for i, obj in enumerate(non_chr_objects):
+                if i > 0:
+                    obj_text += ", "
+                obj_text += obj.name
+            if len(non_chr_objects) == 0:
+                obj_text += "None"
+            layout.row().label(text=obj_text)
+
 
 class ARMATURE_UL_List(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -841,44 +930,8 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column = layout.column()
 
-        # Converting
-
-        if not rigified:
-
-            column.box().label(text="Converting", icon="DRIVER")
-
-            if chr_cache:
-
-                box = character_info_box(chr_cache, arm, column)
-
-                if chr_cache.is_standard():
-
-                    row = box.row()
-                    row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
-                    if not chr_cache or chr_cache.is_non_standard():
-                        row.enabled = False
-
-            if generic_rig or non_chr_objects:
-
-                obj_text = "Objects: "
-                for i, obj in enumerate(non_chr_objects):
-                    if i > 0:
-                        obj_text += ", "
-                    obj_text += obj.name
-                if len(non_chr_objects) == 0:
-                    obj_text += "None"
-
-                column.box().label(text=obj_text)
-
-                row = column.row()
-                if generic_rig:
-                    row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
-                else:
-                    row.operator("cc3.character", icon="OUTLINER_OB_META", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
-                if not (generic_rig or non_chr_objects):
-                    row.enabled = False
-
-            column.separator()
+        # Character Tools
+        character_tools_ui(context, column)
 
         # Accessory Management
 
@@ -1689,8 +1742,6 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     row = layout.row()
                     row.prop(chr_cache, "rig_mode", expand=True)
-
-                    layout.separator()
 
                     if chr_cache.rigified:
 
@@ -2833,7 +2884,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             column = layout.column()
             row = column.row()
             row.operator("cc3.transfer_mesh", icon="MESH_ICOSPHERE", text="Transfer Mesh")
-            if not bpy.context.active_object or len(bpy.context.selected_objects) < 2:
+            if not utils.get_active_object() or len(bpy.context.selected_objects) < 2:
                 row.enabled = False
 
 
@@ -2864,18 +2915,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
         prefs = vars.prefs()
         link_props = vars.link_props()
         prefs = vars.prefs()
-        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
-        strict_chr_cache = chr_cache if obj and obj_cache else None
 
-        non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj) is None ]
-        generic_rig = None
-        rig = None
-        if chr_cache:
-            rig = chr_cache.get_armature()
-        else:
-            generic_rig = characters.get_generic_rig(context.selected_objects)
-            if generic_rig:
-                rig = generic_rig
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
 
         link_service = link.get_link_service()
         connected = link_service and link_service.is_connected
@@ -2972,7 +3013,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
-                if chr_cache.is_morph():
+                if chr_cache and chr_cache.is_morph():
                     grid.operator("ccic.datalink", icon="MESH_ICOSPHERE", text="Go CC").param = "SEND_MORPH"
                 else:
                     grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
@@ -2993,34 +3034,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
         layout.separator()
 
-        layout.label(text="Tools:")
-        col = layout.column(align=True)
-        grid = col.grid_flow(row_major=True, columns=2, align=True)
-        grid.scale_y = 1.5
-        grid.operator("cc3.character", icon="OUTLINER_OB_ARMATURE", text="Select").param = "SELECT_ACTOR_ALL"
-        grid.operator("cc3.character", icon="ARMATURE_DATA", text="Select Rig").param = "SELECT_ACTOR_RIG"
-        grid.operator("ccic.rename_character", icon="GREASEPENCIL", text="Rename")
-        grid.operator("cc3.character", icon="DUPLICATE", text="Duplicate").param = "DUPLICATE"
-        if not chr_cache:
-            grid.enabled = False
-        grid = col.grid_flow(row_major=True, columns=1, align=True)
-        grid.scale_y = 1.5
-        if chr_cache:
-            if chr_cache.is_avatar():
-                grid.operator("cc3.importer", icon="PANEL_CLOSE", text="Delete Actor").param ="DELETE_CHARACTER"
-            else:
-                grid.operator("cc3.importer", icon="PANEL_CLOSE", text="Delete Prop").param ="DELETE_CHARACTER"
-        if generic_rig:
-            grid.operator("cc3.character", icon="COMMUNITY", text="Convert to Actor").param = "CONVERT_FROM_GENERIC"
-        elif non_chr_objects:
-            grid.operator("cc3.character", icon="OUTLINER_OB_META", text="Convert to Prop").param = "CONVERT_FROM_GENERIC"
+        character_tools_ui(context, layout)
 
-        if chr_cache:
-            layout.separator()
-            row = layout.row()
-            row.label(text=f"link id: {chr_cache.link_id}")
-            row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
-
+        #if chr_cache:
             #row = layout.row()
             #row.operator("ccic.datalink", icon="ANIM", text="De-pivot").param = "DEPIVOT"
 

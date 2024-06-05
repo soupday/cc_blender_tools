@@ -20,6 +20,7 @@ import subprocess
 import time
 import difflib
 import random
+import re
 from mathutils import Vector, Quaternion, Matrix, Euler
 from hashlib import md5
 import bpy
@@ -155,14 +156,22 @@ def unique_material_name(name, mat = None):
     return name
 
 
-def unique_object_name(name, obj = None):
+def unique_object_name(name, obj = None, capitalize=False):
     name = strip_name(name)
+    if capitalize:
+        name = name.capitalize()
     if name in bpy.data.objects and bpy.data.objects[name] != obj:
         index = 1
         while name + "_" + str(index).zfill(2) in bpy.data.objects:
             index += 1
         return name + "_" + str(index).zfill(2)
     return name
+
+
+def un_suffix_name(name):
+    """Removes any combination of numerical suffixes from the end of a string"""
+    base_name = re.sub("([._+|/\,]\d+)*$", "", name)
+    return base_name
 
 
 def is_same_path(pa, pb):
@@ -311,8 +320,8 @@ def image_exists(img: bpy.types.Image):
 
 
 def get_selected_mesh():
-    if object_exists_is_mesh(bpy.context.active_object):
-        return bpy.context.active_object
+    if object_exists_is_mesh(get_active_object()):
+        return get_active_object()
     elif bpy.context.selected_objects:
         for obj in bpy.context.selected_objects:
             if object_exists_is_mesh(obj):
@@ -549,7 +558,13 @@ def find_edit_bone_in_armature(arm, *name):
 
 
 def get_active_object():
-    return bpy.context.active_object
+    """Return the actual active object and not the context reference."""
+    try:
+        if bpy.context.active_object:
+            return bpy.data.objects[bpy.context.active_object.name]
+    except:
+        pass
+    return None
 
 
 def get_active_view_layer_object():
@@ -1430,10 +1445,12 @@ def restore_mode_selection_state(store):
         pass
 
 
-def store_render_visibility_state():
+def store_render_visibility_state(objects=None):
     rv = {}
     obj : bpy.types.Object
-    for obj in bpy.data.objects:
+    if objects is None:
+        objects = bpy.data.objects
+    for obj in objects:
         if object_exists(obj):
             visible = obj.visible_get()
             render = not obj.hide_render

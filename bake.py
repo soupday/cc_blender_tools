@@ -125,7 +125,7 @@ def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format=I
         bpy.ops.object.select_all(action='DESELECT')
         # create the baking plane, a single quad baking surface for an even sampling across the entire texture
         bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0))
-        bake_surface = bpy.context.active_object
+        bake_surface = utils.get_active_object()
         bake_state["bake_surface"] = bake_surface
         set_bake_material(bake_state, mat)
         # replicate any material node UV layers in bake surface
@@ -785,7 +785,7 @@ def combine_normal(chr_cache, mat_cache):
     bake_path = get_bake_dir(chr_cache)
 
     selection = bpy.context.selected_objects.copy()
-    active = bpy.context.active_object
+    active = utils.get_active_object()
 
     if mat_cache.material_type == "DEFAULT" or mat_cache.material_type == "SSS":
 
@@ -2437,7 +2437,7 @@ def bake_character(chr_cache):
     utils.log_info("")
 
     objects = get_export_objects(chr_cache)
-    #objects = [ bpy.context.active_object ]
+    #objects = [ utils.get_active_object() ]
 
     bake_state = prep_bake(samples=props.bake_samples,
                            image_format=props.target_format,

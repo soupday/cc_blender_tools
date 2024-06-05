@@ -1775,7 +1775,7 @@ class CC3OperatorHair(bpy.types.Operator):
         if self.param == "CARDS_TO_CURVES":
 
             if hair_mesh:
-                selected_cards_to_curves(chr_cache, bpy.context.active_object,
+                selected_cards_to_curves(chr_cache, utils.get_active_object(),
                                          props.hair_dir_vectors(),
                                          one_loop_per_card = props.hair_curve_merge_loops == "MERGE")
 
