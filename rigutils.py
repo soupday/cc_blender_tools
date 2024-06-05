@@ -1051,7 +1051,6 @@ def custom_avatar_rig(rig):
         for pose_bone in rig.pose.bones:
             bone = pose_bone.bone
             if bone.parent is None:
-                print(f"root bone {bone.name}")
                 if not pose_bone.parent:
                     pose_bone.custom_shape = widgets["root"]
                     pose_bone.custom_shape_scale_xyz = Vector((20,20,20))
@@ -1062,7 +1061,6 @@ def custom_avatar_rig(rig):
                 pose_bone.use_custom_shape_bone_size = False
                 bones.set_bone_color(pose_bone, "ROOT")
             else:
-                print(f"skin bone {bone.name}")
                 pose_bone.custom_shape = widgets["skin"]
                 bone.hide = False
                 pose_bone.use_custom_shape_bone_size = True
