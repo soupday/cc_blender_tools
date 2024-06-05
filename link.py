@@ -90,20 +90,30 @@ VISEME_NAME_MAP = {
 class LinkActor():
     name: str = "Name"
     chr_cache = None
-    bones: list = []
-    skin_meshes: dict = {}
-    meshes: list = []
-    rig_bones: list = []
-    expressions: list = []
-    visemes: list = []
-    morphs: list = []
+    bones: list = None
+    skin_meshes: dict = None
+    meshes: list = None
+    rig_bones: list = None
+    expressions: list = None
+    visemes: list = None
+    morphs: list = None
     cache: dict = None
-    alias: list = []
-    shape_keys: dict = {}
+    alias: list = None
+    shape_keys: dict = None
 
     def __init__(self, chr_cache):
         self.chr_cache = chr_cache
         self.name = chr_cache.character_name
+        self.bones = []
+        self.skin_meshes = {}
+        self.meshes = []
+        self.rig_bones = []
+        self.expressions = []
+        self.visemes = []
+        self.morphs = []
+        self.cache = None
+        self.alias = []
+        self.shape_keys = {}
         return
 
     def get_chr_cache(self):
@@ -213,7 +223,7 @@ class LinkActor():
         return False
 
     def collect_shape_keys(self):
-        self.shape_keys.clear()
+        self.shape_keys = {}
         objects: list = self.get_mesh_objects()
         # sort objects by reverse shape_key count (this should put the body mesh first)
         objects.sort(key=utils.key_count, reverse=True)

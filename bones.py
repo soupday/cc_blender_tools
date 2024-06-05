@@ -259,7 +259,7 @@ def copy_edit_bone(rig, src_name, dst_name, parent_name, scale):
             if src_name not in rig.data.edit_bones:
                 utils.log_error(f"Unable to find source bone {src_name} in rig!")
             if dst_name in rig.data.edit_bones:
-                utils.log_warn(f"Destination bone {dst_name} already exists in rig!")
+                utils.log_error(f"Destination bone {dst_name} already exists in rig!")
     else:
         utils.log_error(f"Unable to edit rig!")
     return None
@@ -280,7 +280,7 @@ def new_edit_bone(rig, bone_name, parent_name, allow_existing = True):
                     utils.log_error(f"Unable to find parent bone {parent_name} in rig!")
             return bone
         else:
-            utils.log_warn(f"Destination bone {bone_name} already exists in rig!")
+            utils.log_error(f"Destination bone {bone_name} already exists in rig!")
     else:
         utils.log_error(f"Unable to edit rig!")
     return None
