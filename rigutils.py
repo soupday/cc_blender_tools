@@ -673,29 +673,58 @@ def bake_rig_action_from_source(src_rig, dst_rig):
     utils.restore_visible_in_scene(temp_collection)
 
 
+DISABLE_TWEAK_STRETCH_IN = [
+    "DEF-thigh.R",
+    "DEF-thigh.R.001",
+    "DEF-shin.R",
+    "DEF-shin.R.001",
+    "DEF-foot.R",
+    "DEF-thigh.L",
+    "DEF-thigh.L.001",
+    "DEF-shin.L",
+    "DEF-shin.L.001",
+    "DEF-foot.L",
+]
+
+DISABLE_TWEAK_STRETCH_FOR = [
+    "thigh_tweak.R",
+    "thigh_tweak.R.001",
+    "shin_tweak.R",
+    "shin_tweak.R.001",
+    "foot_tweak.R",
+    "thigh_tweak.L",
+    "thigh_tweak.L.001",
+    "shin_tweak.L",
+    "shin_tweak.L.001",
+    "foot_tweak.L",
+]
+
+
+
+
 def update_avatar_rig(rig):
     prefs = vars.prefs()
+
+    utils.log_info("Updating avatar rig...")
 
     if is_rigify_armature(rig):
         # disable all stretch-to tweak constraints and hide tweak bones...
         # tweak bones are not fully compatible with CC/iC animation (probably Blender only)
         # and cause positioning errors as they stretch/compress the bones.
         if prefs.datalink_disable_tweak_bones:
-            hide = True
+            disable = True
             influence = 0.0
         else:
-            hide = False
+            disable = False
             influence = 1.0
         pose_bone: bpy.types.PoseBone
         for pose_bone in rig.pose.bones:
-            if "tweak" in pose_bone.name:
-                pose_bone.bone.hide = False
-                if hide:
+            if pose_bone.name in DISABLE_TWEAK_STRETCH_FOR:
+                if disable:
                     bones.set_bone_color(pose_bone, "TWEAK_DISABLED")
                 else:
                     bones.set_bone_color(pose_bone, "TWEAK")
-                pose_bone.bone.hide_select = hide
-            elif pose_bone.name.startswith("DEF-"):
+            elif prefs.datalink_disable_tweak_bones and pose_bone.name in DISABLE_TWEAK_STRETCH_IN:
                 for con in pose_bone.constraints:
                     if con.type == "STRETCH_TO":
                         if "tweak" in con.subtarget:
@@ -709,6 +738,8 @@ def update_prop_rig(rig):
     prefs = vars.prefs()
 
     if not rig: return
+
+    utils.log_info("Updating prop rig...")
 
     skin_bones = set()
     rigid_bones = set()
@@ -820,7 +851,7 @@ def get_bone_orientation(rig, bone_set: set):
     C: bpy.types.Bone
     for bone_name in bone_set:
         B = rig.data.bones[bone_name]
-        if B.children:
+        if B.children and B.parent:
             for C in B.children:
                 if B.length > 0.01:
                     # convert heads and tail to B local space
@@ -841,20 +872,35 @@ def get_bone_orientation(rig, bone_set: set):
     return Euler((0,0,0), "XYZ")
 
 
-def custom_prop_rig(rig):
-    prefs = vars.prefs()
-
-    if not rig: return
+def get_custom_widgets():
     wgt_pivot = bones.make_axes_widget("WGT-datalink_pivot", 1)
     wgt_mesh = bones.make_cone_widget("WGT-datalink_mesh", 1)
     wgt_default = bones.make_sphere_widget("WGT-datalink_default", 1)
     wgt_root = bones.make_root_widget("WGT-datalink_root", 2.5)
-    wgt_skin = bones.make_limb_widget("WGT-datalink_skin", 1)
+    wgt_skin = bones.make_spike_widget("WGT-datalink_skin", 1)
     bones.add_widget_to_collection(wgt_pivot, "WGTS_Datalink")
     bones.add_widget_to_collection(wgt_mesh, "WGTS_Datalink")
     bones.add_widget_to_collection(wgt_default, "WGTS_Datalink")
     bones.add_widget_to_collection(wgt_root, "WGTS_Datalink")
     bones.add_widget_to_collection(wgt_skin, "WGTS_Datalink")
+    widgets = {
+        "pivot": wgt_pivot,
+        "mesh": wgt_mesh,
+        "default": wgt_default,
+        "root": wgt_root,
+        "skin": wgt_skin,
+    }
+    return widgets
+
+
+def custom_prop_rig(rig):
+    prefs = vars.prefs()
+
+    if not rig: return
+
+    utils.log_info("Applying custom prop rig...")
+
+    widgets = get_custom_widgets()
     rig.show_in_front = True #not is_skinned_rig(rig)
     rig.data.display_type = 'WIRE'
 
@@ -864,7 +910,7 @@ def custom_prop_rig(rig):
     root_bones = set()
     skinned_root_bones = set()
 
-    root_bones.add(rig.data.bones[0])
+    root_bones.add(rig.data.bones[0].name)
     USE_JSON_BONE_DATA = True
 
     meshes = utils.get_child_objects(rig)
@@ -931,51 +977,98 @@ def custom_prop_rig(rig):
             node_bone = not (skin_bone or rigid_bone or mesh_bone) and len(bone.children) > 0
             if root_bone:
                 if not pose_bone.parent:
-                    pose_bone.custom_shape = wgt_root
+                    pose_bone.custom_shape = widgets["root"]
                     pose_bone.custom_shape_scale_xyz = Vector((20,20,20))
                 else:
-                    pose_bone.custom_shape = wgt_default
+                    pose_bone.custom_shape = widgets["default"]
                     pose_bone.custom_shape_scale_xyz = Vector((15,15,15))
                 bone.hide = False
                 pose_bone.use_custom_shape_bone_size = False
                 bones.set_bone_color(pose_bone, "ROOT")
             elif pivot_bone:
-                pose_bone.custom_shape = wgt_pivot
+                pose_bone.custom_shape = widgets["pivot"]
                 bone.hide = True
                 pose_bone.use_custom_shape_bone_size = False
                 pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
                 bones.set_bone_color(pose_bone, "SPECIAL")
             elif skin_bone:
-                pose_bone.custom_shape = wgt_skin
-                bone.hide = False
+                pose_bone.custom_shape = widgets["skin"]
                 bone.hide = prefs.datalink_hide_prop_bones
                 pose_bone.use_custom_shape_bone_size = True
+                pose_bone.use
+                #pose_bone.bone.show_wire = True
                 pose_bone.custom_shape_rotation_euler = skin_bone_orientation
-                bones.set_bone_color(pose_bone, "FK")
+                bones.set_bone_color(pose_bone, "SKIN")
             elif mesh_bone:
-                pose_bone.custom_shape = wgt_mesh
+                pose_bone.custom_shape = widgets["mesh"]
                 bone.hide = True
                 pose_bone.use_custom_shape_bone_size = False
                 pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
                 bones.set_bone_color(pose_bone, "SPECIAL")
             elif rigid_bone:
-                pose_bone.custom_shape = wgt_default
+                pose_bone.custom_shape = widgets["default"]
                 bone.hide = False
                 pose_bone.use_custom_shape_bone_size = False
                 pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
                 bones.set_bone_color(pose_bone, "TWEAK")
             elif dummy_bone:
-                pose_bone.custom_shape = wgt_pivot
+                pose_bone.custom_shape = widgets["pivot"]
                 bone.hide = True
                 pose_bone.use_custom_shape_bone_size = False
                 pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
                 bones.set_bone_color(pose_bone, "IK")
             elif node_bone:
-                pose_bone.custom_shape = wgt_default
+                pose_bone.custom_shape = widgets["default"]
                 bone.hide = prefs.datalink_hide_prop_bones
                 pose_bone.use_custom_shape_bone_size = False
                 pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
                 bones.set_bone_color(pose_bone, "SPECIAL")
+
+
+def custom_avatar_rig(rig):
+    prefs = vars.prefs()
+
+    if not rig: return
+
+    utils.log_info("Applying custom avatar rig...")
+
+    widgets = get_custom_widgets()
+    rig.show_in_front = False
+    rig.data.display_type = 'OCTAHEDRAL'
+
+    skin_bones = set()
+    root_bones = set()
+
+    root_bones.add(rig.data.bones[0].name)
+    for bone in rig.data.bones:
+        if bone not in root_bones:
+            skin_bones.add(bone.name)
+
+    skin_bone_orientation = get_bone_orientation(rig, skin_bones)
+
+    if select_rig(rig):
+        pose_bone: bpy.types.PoseBone
+        for pose_bone in rig.pose.bones:
+            bone = pose_bone.bone
+            if bone.parent is None:
+                print(f"root bone {bone.name}")
+                if not pose_bone.parent:
+                    pose_bone.custom_shape = widgets["root"]
+                    pose_bone.custom_shape_scale_xyz = Vector((20,20,20))
+                else:
+                    pose_bone.custom_shape = widgets["default"]
+                    pose_bone.custom_shape_scale_xyz = Vector((15,15,15))
+                bone.hide = False
+                pose_bone.use_custom_shape_bone_size = False
+                bones.set_bone_color(pose_bone, "ROOT")
+            else:
+                print(f"skin bone {bone.name}")
+                pose_bone.custom_shape = widgets["skin"]
+                bone.hide = False
+                pose_bone.use_custom_shape_bone_size = True
+                #pose_bone.bone.show_wire = True
+                pose_bone.custom_shape_rotation_euler = skin_bone_orientation
+                bones.set_bone_color(pose_bone, "SKIN")
 
 
 def de_pivot(chr_cache):

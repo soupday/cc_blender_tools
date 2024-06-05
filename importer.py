@@ -318,14 +318,15 @@ def detect_generation(chr_cache, json_data, character_id):
     material_names = characters.get_character_material_names(arm)
     object_names = characters.get_character_object_names(arm)
 
-    if generation == "Unknown":
+    if generation in ["Unknown", "Humanoid", "Creature"]:
         if len(material_names) == 1 and characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
             generation = "ActorCore"
+        elif characters.character_has_bones(arm, ["root", "pelvis", "spine_03", "CC_Base_FacialBone"]):
+            generation = "GameBase"
         elif characters.character_has_materials(arm, ["Ga_Skin_Body"]):
             if characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
                 generation = "ActorBuild"
-            elif characters.character_has_bones(arm, ["root", "hip"]):
-                generation = "GameBase"
+
 
     if generation == "Unknown" and arm:
         if utils.find_pose_bone_in_armature(arm, "RootNode_0_", "RL_BoneRoot"):

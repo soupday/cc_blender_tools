@@ -2515,6 +2515,10 @@ class LinkService():
                 arm = actor.get_armature()
                 rigutils.custom_prop_rig(arm)
                 #rigutils.de_pivot(actor.get_chr_cache())
+            elif actor and actor.get_type() == "AVATAR":
+                if actor.get_chr_cache().is_non_standard():
+                    arm = actor.get_armature()
+                    #rigutils.custom_avatar_rig(arm)
             update_link_status(f"Character Imported: {actor.name}")
 
     def receive_motion_import(self, data):

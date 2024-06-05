@@ -526,7 +526,7 @@ def character_tools_ui(context, layout):
     col_1.scale_y = 1.5
     col_2.scale_y = 1.5
     col_1.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param ="DATALINK_RIGIFY"
-    if not (chr_cache and chr_cache.is_avatar()):
+    if not (chr_cache and chr_cache.is_avatar() and not chr_cache.rigified and chr_cache.can_be_rigged()):
         col_1.enabled = False
     if chr_cache:
         col_2.operator("cc3.importer", icon="PANEL_CLOSE", text="Delete").param ="DELETE_CHARACTER"
@@ -2979,7 +2979,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2.prop(prefs, "datalink_retarget_prop_actions", text="")
             col_1.label(text="Hide Prop Bones")
             col_2.prop(prefs, "datalink_hide_prop_bones", text="")
-            col_1.label(text="Disable Tweak Bones")
+            col_1.label(text="Disable Leg Stretch")
             col_2.prop(prefs, "datalink_disable_tweak_bones", text="")
             box.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_DATALINK"
 
@@ -3005,6 +3005,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
             grid.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
             # no pose or sequence for props yet...
             if not chr_cache or not chr_cache.is_avatar():
+                grid.enabled = False
+            # for now rigified Game base don't work
+            if chr_cache and chr_cache.rigified and chr_cache.generation == "GameBase":
                 grid.enabled = False
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"

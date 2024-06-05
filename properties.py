@@ -1593,6 +1593,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def can_be_rigged(self):
         """Returns True if the character can be rigified."""
+        if self.rigified:
+            return False
         if (self.generation == "G3" or
             self.generation == "G3Plus" or
             self.generation == "NonStandardG3" or

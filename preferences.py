@@ -361,9 +361,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                     "which means the animation must be retargeted to (if checked) or the rest pose must be adjusted to "\
                                     "match the incoming motion (not checked)")
     datalink_disable_tweak_bones: bpy.props.BoolProperty(default=True,
-                        description="Tweak bones cause bone length stretching which is incompatible with CC/iC animations.")
+                        description="Tweak bones cause bone length stretching which is largely incompatible with CC/iC animations. This option disables the stretch constraint to leg tweak bones so that the feet target correctly")
     datalink_hide_prop_bones: bpy.props.BoolProperty(default=True,
-                        description="Hide internal prop bones.")
+                        description="Hide internal prop bones")
 
     # convert
     convert_non_standard_type: bpy.props.EnumProperty(items=[

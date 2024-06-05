@@ -54,6 +54,7 @@ Links
     - Added function to setup a main face tracking camera centered on character's head.
     - Added function to convert current view studio lighting into world lighting node setup.
 - Rigify:
+    - Fix to GameBase detection.
     - Fix to AccuRig generation code not being recognized as valid Rigify target.
     - Fix to support Mixamorigs with suffix numbers in retargeting.
     - Auto-retarget toggle added to automatically retarget any animation on character when using Quick Rigify.
@@ -64,6 +65,11 @@ Links
     - Separate cycles modifiers for Blender 3.4-3.6 and 4.0+.
     - Eye Sclera color tint added.
     - Cycles Tearline shader reworked.
+- Character Management
+    - Character edit function added.
+    - Character duplicate function added (duplicates character objects and meta-data so can be used and configured independently).
+    - Character tools (select/rigify/convert/delete/duplicate), also sub-panel in Datalink.
+    - Convert to accessory fix.
 - Datalink:
     - Added Receiving prop posing and animation live sequence.
     - Added custom prop rig control bones when sending through datalink.
