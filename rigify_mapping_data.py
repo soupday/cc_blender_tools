@@ -52,6 +52,7 @@ def get_mapping_for_generation(generation):
     elif (generation == "ActorCore" or
           generation == "ActorScan" or
           generation == "ActorBuild" or
+          generation == "AccuRig" or
           generation == "G3" or
           generation == "G3Plus" or
           generation == "NonStandardG3"):
@@ -1087,7 +1088,7 @@ GAME_BASE_BONE_NAMES = [
 
 # bone names to test for to see if armature or action is for a mixamo rig
 MIXAMO_BONE_NAMES = [
-    "mixamorig:Hips", "mixamorig:Spine", "mixamorig:Head"
+    "mixamorig(|[0-9]):Hips", "mixamorig(|[0-9]):Spine", "mixamorig(|[0-9]):Head"
 ]
 
 
@@ -1107,7 +1108,7 @@ BOX_PADDING = 0.01
 
 
 ALLOWED_RIG_BONES = [
-    "CC_Base_BoneRoot", "CC_Base_FacialBone", "RL_BoneRoot", "BoneRoot", "mixamorig:Hips",
+    "(CC_Base_|RL_|)BoneRoot", "CC_Base_FacialBone", "mixamorig(|[0-9]):Hips",
 ]
 
 
@@ -1399,88 +1400,88 @@ RETARGET_MIXAMO = [
     # [origin_bone, orign_bone_parent,          source_bone(regex match), rigify_target_bone, flags, *params]
     #
     # mixamorig:Hips = ORG-spine + ORG-spine.001
-    ["ORG-hip", "",                             "mixamorig:Hips", "", "+PLR", "rigify:ORG-spine"],
+    ["ORG-hip", "",                             "mixamorig(|[0-9]):Hips", "", "+PLR", "rigify:ORG-spine"],
     ["ORG-spine", "ORG-hip",                    "", "torso", "LR"],
     ["ORG-spine", "ORG-hip",                    "", "spine_fk", "LR"],
     ["ORG-pelvis", "ORG-spine",                 "", "hips", "LR"],
     ["ORG-spine.001", "ORG-spine",              "", "spine_fk.001", "LR"],
     # mixamorig:Spine = ORG-spine.002
     # reduce the influence of this bone, as it causes too much twisting in the abdomen
-    ["ORG-spine.002", "ORG-spine.001",          "mixamorig:Spine$", "spine_fk.002", "PLRI", 0.25],
+    ["ORG-spine.002", "ORG-spine.001",          "mixamorig(|[0-9]):Spine$", "spine_fk.002", "PLRI", 0.25],
     # mixamorig:Spine1 + mixamorig:Spine2 = ORG-spine.003
-    ["ORG-spine.003", "ORG-spine.002",          "mixamorig:Spine1", "spine_fk.003", "PLR"],
+    ["ORG-spine.003", "ORG-spine.002",          "mixamorig(|[0-9]):Spine1", "spine_fk.003", "PLR"],
     ["ORG-spine.003", "ORG-spine.002",          "", "chest", "LR"],
     # mixamorig:Neck = ORG-spine.004 + ORG.spine.005
-    ["ORG-spine.004", "ORG-spine.003",          "mixamorig:Neck", "neck", "PLR"],
+    ["ORG-spine.004", "ORG-spine.003",          "mixamorig(|[0-9]):Neck", "neck", "PLR"],
     # head
-    ["ORG-spine.006", "ORG-spine.004",          "mixamorig:Head$", "head", "PLR"],
+    ["ORG-spine.006", "ORG-spine.004",          "mixamorig(|[0-9]):Head$", "head", "PLR"],
     # left leg
-    ["ORG-thigh.L", "ORG-pelvis",               "mixamorig:LeftUpLeg", "thigh_fk.L", "TLR", "mixamorig:LeftLeg"],
-    ["ORG-shin.L", "ORG-thigh.L",               "mixamorig:LeftLeg", "shin_fk.L", "TLR", "mixamorig:LeftFoot"],
-    ["ORG-foot.L", "ORG-shin.L",                "mixamorig:LeftFoot", "foot_fk.L", "PLR"],
-    ["ORG-toe.L", "ORG-foot.L",                 "mixamorig:LeftToeBase", "toe_fk.L", "TLR", "mixamorig:LeftToe_End"], #post 3.1
-    ["ORG-toe.L", "ORG-foot.L",                 "mixamorig:LeftToeBase", "toe.L", "TLR", "mixamorig:LeftToe_End"], #pre 3.1
+    ["ORG-thigh.L", "ORG-pelvis",               "mixamorig(|[0-9]):LeftUpLeg", "thigh_fk.L", "TLR", "mixamorig(|[0-9]):LeftLeg"],
+    ["ORG-shin.L", "ORG-thigh.L",               "mixamorig(|[0-9]):LeftLeg", "shin_fk.L", "TLR", "mixamorig(|[0-9]):LeftFoot"],
+    ["ORG-foot.L", "ORG-shin.L",                "mixamorig(|[0-9]):LeftFoot", "foot_fk.L", "PLR"],
+    ["ORG-toe.L", "ORG-foot.L",                 "mixamorig(|[0-9]):LeftToeBase", "toe_fk.L", "TLR", "mixamorig(|[0-9]):LeftToe_End"], #post 3.1
+    ["ORG-toe.L", "ORG-foot.L",                 "mixamorig(|[0-9]):LeftToeBase", "toe.L", "TLR", "mixamorig(|[0-9]):LeftToe_End"], #pre 3.1
     # left arm
-    ["ORG-shoulder.L", "ORG-spine.003",         "mixamorig:LeftShoulder", "shoulder.L", "PLR"],
-    ["ORG-upper_arm.L", "ORG-shoulder.L",       "mixamorig:LeftArm", "upper_arm_fk.L", "TLR", "mixamorig:LeftForeArm"],
-    ["ORG-forearm.L", "ORG-upper_arm.L",        "mixamorig:LeftForeArm", "forearm_fk.L", "TLR", "mixamorig:LeftHand$"],
-    ["ORG-hand.L", "ORG-forearm.L",             "mixamorig:LeftHand$", "hand_fk.L", "TLR", "mixamorig:LeftHandMiddle1"],
+    ["ORG-shoulder.L", "ORG-spine.003",         "mixamorig(|[0-9]):LeftShoulder", "shoulder.L", "PLR"],
+    ["ORG-upper_arm.L", "ORG-shoulder.L",       "mixamorig(|[0-9]):LeftArm", "upper_arm_fk.L", "TLR", "mixamorig(|[0-9]):LeftForeArm"],
+    ["ORG-forearm.L", "ORG-upper_arm.L",        "mixamorig(|[0-9]):LeftForeArm", "forearm_fk.L", "TLR", "mixamorig(|[0-9]):LeftHand$"],
+    ["ORG-hand.L", "ORG-forearm.L",             "mixamorig(|[0-9]):LeftHand$", "hand_fk.L", "TLR", "mixamorig(|[0-9]):LeftHandMiddle1"],
     # left fingers
-    ["ORG-thumb.01.L", "ORG-hand.L",            "mixamorig:LeftHandThumb1", "thumb.01.L", "TLR", "mixamorig:LeftHandThumb2"],
-    ["ORG-f_index.01.L", "ORG-hand.L",          "mixamorig:LeftHandIndex1", "f_index.01.L", "TLR", "mixamorig:LeftHandIndex2"],
-    ["ORG-f_middle.01.L", "ORG-hand.L",         "mixamorig:LeftHandMiddle1", "f_middle.01.L", "TLR", "mixamorig:LeftHandMiddle2"],
-    ["ORG-f_ring.01.L", "ORG-hand.L",           "mixamorig:LeftHandRing1", "f_ring.01.L", "TLR", "mixamorig:LeftHandRing2"],
-    ["ORG-f_pinky.01.L", "ORG-hand.L",          "mixamorig:LeftHandPinky1", "f_pinky.01.L", "TLR", "mixamorig:LeftHandPinky2"],
-    ["ORG-thumb.02.L", "ORG-thumb.01.L",        "mixamorig:LeftHandThumb2", "thumb.02.L", "TR", "mixamorig:LeftHandThumb3"],
-    ["ORG-f_index.02.L", "ORG-f_index.01.L",    "mixamorig:LeftHandIndex2", "f_index.02.L", "TR", "mixamorig:LeftHandIndex3"],
-    ["ORG-f_middle.02.L", "ORG-f_middle.01.L",  "mixamorig:LeftHandMiddle2", "f_middle.02.L", "TR", "mixamorig:LeftHandMiddle3"],
-    ["ORG-f_ring.02.L", "ORG-f_ring.01.L",      "mixamorig:LeftHandRing2", "f_ring.02.L", "TR", "mixamorig:LeftHandRing3"],
-    ["ORG-f_pinky.02.L", "ORG-f_pinky.01.L",    "mixamorig:LeftHandPinky2", "f_pinky.02.L", "TR", "mixamorig:LeftHandPinky3"],
-    ["ORG-thumb.03.L", "ORG-thumb.02.L",        "mixamorig:LeftHandThumb3", "thumb.03.L", "TR", "mixamorig:LeftHandThumb4"],
-    ["ORG-f_index.03.L", "ORG-f_index.02.L",    "mixamorig:LeftHandIndex3", "f_index.03.L", "TR", "mixamorig:LeftHandIndex4"],
-    ["ORG-f_middle.03.L", "ORG-f_middle.02.L",  "mixamorig:LeftHandMiddle3", "f_middle.03.L", "TR", "mixamorig:LeftHandMiddle4"],
-    ["ORG-f_ring.03.L", "ORG-f_ring.02.L",      "mixamorig:LeftHandRing3", "f_ring.03.L", "TR", "mixamorig:LeftHandRing4"],
-    ["ORG-f_pinky.03.L", "ORG-f_pinky.02.L",    "mixamorig:LeftHandPinky3", "f_pinky.03.L", "TR", "mixamorig:LeftHandPinky4"],
+    ["ORG-thumb.01.L", "ORG-hand.L",            "mixamorig(|[0-9]):LeftHandThumb1", "thumb.01.L", "TLR", "mixamorig(|[0-9]):LeftHandThumb2"],
+    ["ORG-f_index.01.L", "ORG-hand.L",          "mixamorig(|[0-9]):LeftHandIndex1", "f_index.01.L", "TLR", "mixamorig(|[0-9]):LeftHandIndex2"],
+    ["ORG-f_middle.01.L", "ORG-hand.L",         "mixamorig(|[0-9]):LeftHandMiddle1", "f_middle.01.L", "TLR", "mixamorig(|[0-9]):LeftHandMiddle2"],
+    ["ORG-f_ring.01.L", "ORG-hand.L",           "mixamorig(|[0-9]):LeftHandRing1", "f_ring.01.L", "TLR", "mixamorig(|[0-9]):LeftHandRing2"],
+    ["ORG-f_pinky.01.L", "ORG-hand.L",          "mixamorig(|[0-9]):LeftHandPinky1", "f_pinky.01.L", "TLR", "mixamorig(|[0-9]):LeftHandPinky2"],
+    ["ORG-thumb.02.L", "ORG-thumb.01.L",        "mixamorig(|[0-9]):LeftHandThumb2", "thumb.02.L", "TR", "mixamorig(|[0-9]):LeftHandThumb3"],
+    ["ORG-f_index.02.L", "ORG-f_index.01.L",    "mixamorig(|[0-9]):LeftHandIndex2", "f_index.02.L", "TR", "mixamorig(|[0-9]):LeftHandIndex3"],
+    ["ORG-f_middle.02.L", "ORG-f_middle.01.L",  "mixamorig(|[0-9]):LeftHandMiddle2", "f_middle.02.L", "TR", "mixamorig(|[0-9]):LeftHandMiddle3"],
+    ["ORG-f_ring.02.L", "ORG-f_ring.01.L",      "mixamorig(|[0-9]):LeftHandRing2", "f_ring.02.L", "TR", "mixamorig(|[0-9]):LeftHandRing3"],
+    ["ORG-f_pinky.02.L", "ORG-f_pinky.01.L",    "mixamorig(|[0-9]):LeftHandPinky2", "f_pinky.02.L", "TR", "mixamorig(|[0-9]):LeftHandPinky3"],
+    ["ORG-thumb.03.L", "ORG-thumb.02.L",        "mixamorig(|[0-9]):LeftHandThumb3", "thumb.03.L", "TR", "mixamorig(|[0-9]):LeftHandThumb4"],
+    ["ORG-f_index.03.L", "ORG-f_index.02.L",    "mixamorig(|[0-9]):LeftHandIndex3", "f_index.03.L", "TR", "mixamorig(|[0-9]):LeftHandIndex4"],
+    ["ORG-f_middle.03.L", "ORG-f_middle.02.L",  "mixamorig(|[0-9]):LeftHandMiddle3", "f_middle.03.L", "TR", "mixamorig(|[0-9]):LeftHandMiddle4"],
+    ["ORG-f_ring.03.L", "ORG-f_ring.02.L",      "mixamorig(|[0-9]):LeftHandRing3", "f_ring.03.L", "TR", "mixamorig(|[0-9]):LeftHandRing4"],
+    ["ORG-f_pinky.03.L", "ORG-f_pinky.02.L",    "mixamorig(|[0-9]):LeftHandPinky3", "f_pinky.03.L", "TR", "mixamorig(|[0-9]):LeftHandPinky4"],
     # right leg
-    ["ORG-thigh.R", "ORG-pelvis",               "mixamorig:RightUpLeg", "thigh_fk.R", "TLR", "mixamorig:RightLeg"],
-    ["ORG-shin.R", "ORG-thigh.R",               "mixamorig:RightLeg", "shin_fk.R", "TLR", "mixamorig:RightFoot"],
-    ["ORG-foot.R", "ORG-shin.R",                "mixamorig:RightFoot", "foot_fk.R", "PLR"],
-    ["ORG-toe.R", "ORG-foot.R",                 "mixamorig:RightToeBase", "toe_fk.R", "TLR", "mixamorig:RightToe_End"], #post 3.1
-    ["ORG-toe.R", "ORG-foot.R",                 "mixamorig:RightToeBase", "toe.R", "TLR", "mixamorig:RightToe_End"], #pre 3.1
+    ["ORG-thigh.R", "ORG-pelvis",               "mixamorig(|[0-9]):RightUpLeg", "thigh_fk.R", "TLR", "mixamorig(|[0-9]):RightLeg"],
+    ["ORG-shin.R", "ORG-thigh.R",               "mixamorig(|[0-9]):RightLeg", "shin_fk.R", "TLR", "mixamorig(|[0-9]):RightFoot"],
+    ["ORG-foot.R", "ORG-shin.R",                "mixamorig(|[0-9]):RightFoot", "foot_fk.R", "PLR"],
+    ["ORG-toe.R", "ORG-foot.R",                 "mixamorig(|[0-9]):RightToeBase", "toe_fk.R", "TLR", "mixamorig(|[0-9]):RightToe_End"], #post 3.1
+    ["ORG-toe.R", "ORG-foot.R",                 "mixamorig(|[0-9]):RightToeBase", "toe.R", "TLR", "mixamorig(|[0-9]):RightToe_End"], #pre 3.1
     # right arm
-    ["ORG-shoulder.R", "ORG-spine.003",         "mixamorig:RightShoulder", "shoulder.R", "PLR"],
-    ["ORG-upper_arm.R", "ORG-shoulder.R",       "mixamorig:RightArm", "upper_arm_fk.R", "TR", "mixamorig:RightForeArm"],
-    ["ORG-forearm.R", "ORG-upper_arm.R",        "mixamorig:RightForeArm", "forearm_fk.R", "TR", "mixamorig:RightHand$"],
-    ["ORG-hand.R", "ORG-forearm.R",             "mixamorig:RightHand$", "hand_fk.R", "TR", "mixamorig:RightHandMiddle1"],
+    ["ORG-shoulder.R", "ORG-spine.003",         "mixamorig(|[0-9]):RightShoulder", "shoulder.R", "PLR"],
+    ["ORG-upper_arm.R", "ORG-shoulder.R",       "mixamorig(|[0-9]):RightArm", "upper_arm_fk.R", "TR", "mixamorig(|[0-9]):RightForeArm"],
+    ["ORG-forearm.R", "ORG-upper_arm.R",        "mixamorig(|[0-9]):RightForeArm", "forearm_fk.R", "TR", "mixamorig(|[0-9]):RightHand$"],
+    ["ORG-hand.R", "ORG-forearm.R",             "mixamorig(|[0-9]):RightHand$", "hand_fk.R", "TR", "mixamorig(|[0-9]):RightHandMiddle1"],
     # right fingers
-    ["ORG-thumb.01.R", "ORG-hand.R",            "mixamorig:RightHandThumb1", "thumb.01.R", "TLR", "mixamorig:RightHandThumb2"],
-    ["ORG-f_index.01.R", "ORG-hand.R",          "mixamorig:RightHandIndex1", "f_index.01.R", "TLR", "mixamorig:RightHandIndex2"],
-    ["ORG-f_middle.01.R", "ORG-hand.R",         "mixamorig:RightHandMiddle1", "f_middle.01.R", "TLR", "mixamorig:RightHandMiddle2"],
-    ["ORG-f_ring.01.R", "ORG-hand.R",           "mixamorig:RightHandRing1", "f_ring.01.R", "TLR", "mixamorig:RightHandRing2"],
-    ["ORG-f_pinky.01.R", "ORG-hand.R",          "mixamorig:RightHandPinky1", "f_pinky.01.R", "TLR", "mixamorig:RightHandPinky2"],
-    ["ORG-thumb.02.R", "ORG-thumb.01.R",        "mixamorig:RightHandThumb2", "thumb.02.R", "TR", "mixamorig:RightHandThumb3"],
-    ["ORG-f_index.02.R", "ORG-f_index.01.R",    "mixamorig:RightHandIndex2", "f_index.02.R", "TR", "mixamorig:RightHandIndex3"],
-    ["ORG-f_middle.02.R", "ORG-f_middle.01.R",  "mixamorig:RightHandMiddle2", "f_middle.02.R", "TR", "mixamorig:RightHandMiddle3"],
-    ["ORG-f_ring.02.R", "ORG-f_ring.01.R",      "mixamorig:RightHandRing2", "f_ring.02.R", "TR", "mixamorig:RightHandRing3"],
-    ["ORG-f_pinky.02.R", "ORG-f_pinky.01.R",    "mixamorig:RightHandPinky2", "f_pinky.02.R", "TR", "mixamorig:RightHandPinky3"],
-    ["ORG-thumb.03.R", "ORG-thumb.02.R",        "mixamorig:RightHandThumb3", "thumb.03.R", "TR", "mixamorig:RightHandThumb4"],
-    ["ORG-f_index.03.R", "ORG-f_index.02.R",    "mixamorig:RightHandIndex3", "f_index.03.R", "TR", "mixamorig:RightHandIndex4"],
-    ["ORG-f_middle.03.R", "ORG-f_middle.02.R",  "mixamorig:RightHandMiddle3", "f_middle.03.R", "TR", "mixamorig:RightHandMiddle4"],
-    ["ORG-f_ring.03.R", "ORG-f_ring.02.R",      "mixamorig:RightHandRing3", "f_ring.03.R", "TR", "mixamorig:RightHandRing4"],
-    ["ORG-f_pinky.03.R", "ORG-f_pinky.02.R",    "mixamorig:RightHandPinky3", "f_pinky.03.R", "TR", "mixamorig:RightHandPinky4"],
+    ["ORG-thumb.01.R", "ORG-hand.R",            "mixamorig(|[0-9]):RightHandThumb1", "thumb.01.R", "TLR", "mixamorig(|[0-9]):RightHandThumb2"],
+    ["ORG-f_index.01.R", "ORG-hand.R",          "mixamorig(|[0-9]):RightHandIndex1", "f_index.01.R", "TLR", "mixamorig(|[0-9]):RightHandIndex2"],
+    ["ORG-f_middle.01.R", "ORG-hand.R",         "mixamorig(|[0-9]):RightHandMiddle1", "f_middle.01.R", "TLR", "mixamorig(|[0-9]):RightHandMiddle2"],
+    ["ORG-f_ring.01.R", "ORG-hand.R",           "mixamorig(|[0-9]):RightHandRing1", "f_ring.01.R", "TLR", "mixamorig(|[0-9]):RightHandRing2"],
+    ["ORG-f_pinky.01.R", "ORG-hand.R",          "mixamorig(|[0-9]):RightHandPinky1", "f_pinky.01.R", "TLR", "mixamorig(|[0-9]):RightHandPinky2"],
+    ["ORG-thumb.02.R", "ORG-thumb.01.R",        "mixamorig(|[0-9]):RightHandThumb2", "thumb.02.R", "TR", "mixamorig(|[0-9]):RightHandThumb3"],
+    ["ORG-f_index.02.R", "ORG-f_index.01.R",    "mixamorig(|[0-9]):RightHandIndex2", "f_index.02.R", "TR", "mixamorig(|[0-9]):RightHandIndex3"],
+    ["ORG-f_middle.02.R", "ORG-f_middle.01.R",  "mixamorig(|[0-9]):RightHandMiddle2", "f_middle.02.R", "TR", "mixamorig(|[0-9]):RightHandMiddle3"],
+    ["ORG-f_ring.02.R", "ORG-f_ring.01.R",      "mixamorig(|[0-9]):RightHandRing2", "f_ring.02.R", "TR", "mixamorig(|[0-9]):RightHandRing3"],
+    ["ORG-f_pinky.02.R", "ORG-f_pinky.01.R",    "mixamorig(|[0-9]):RightHandPinky2", "f_pinky.02.R", "TR", "mixamorig(|[0-9]):RightHandPinky3"],
+    ["ORG-thumb.03.R", "ORG-thumb.02.R",        "mixamorig(|[0-9]):RightHandThumb3", "thumb.03.R", "TR", "mixamorig(|[0-9]):RightHandThumb4"],
+    ["ORG-f_index.03.R", "ORG-f_index.02.R",    "mixamorig(|[0-9]):RightHandIndex3", "f_index.03.R", "TR", "mixamorig(|[0-9]):RightHandIndex4"],
+    ["ORG-f_middle.03.R", "ORG-f_middle.02.R",  "mixamorig(|[0-9]):RightHandMiddle3", "f_middle.03.R", "TR", "mixamorig(|[0-9]):RightHandMiddle4"],
+    ["ORG-f_ring.03.R", "ORG-f_ring.02.R",      "mixamorig(|[0-9]):RightHandRing3", "f_ring.03.R", "TR", "mixamorig(|[0-9]):RightHandRing4"],
+    ["ORG-f_pinky.03.R", "ORG-f_pinky.02.R",    "mixamorig(|[0-9]):RightHandPinky3", "f_pinky.03.R", "TR", "mixamorig(|[0-9]):RightHandPinky4"],
     #face
     ["ORG-face", "ORG-spine.006",               "", "", ""],
     # eyes
-    ["ORG-eye.L", "ORG-face",                   "mixamorig:LeftEye", "eye.L", "PRD", "ORG-eye.L"],
-    ["ORG-eye.R", "ORG-face",                   "mixamorig:RightEye", "eye.R", "PRD", "ORG-eye.R"],
+    ["ORG-eye.L", "ORG-face",                   "mixamorig(|[0-9]):LeftEye", "eye.L", "PRD", "ORG-eye.L"],
+    ["ORG-eye.R", "ORG-face",                   "mixamorig(|[0-9]):RightEye", "eye.R", "PRD", "ORG-eye.R"],
     ["ORG-eyes", "ORG-face",                    "", "eyes", "+LRA", "rigify:eyes", "eye.R", "eye.L"],
     # IK bones
-    ["ORG-hand.L", "ORG-forearm.L",             "mixamorig:LeftHand$", "hand_ik.L", "NTLR", "mixamorig:LeftHandMiddle1"],
-    ["ORG-hand.R", "ORG-forearm.R",             "mixamorig:RightHand$", "hand_ik.R", "NTLR", "mixamorig:RightHandMiddle1"],
-    ["ORG-foot.L", "ORG-shin.L",                "mixamorig:LeftFoot", "foot_ik.L", "NPLR", "mixamorig:LeftToeBase"],
-    ["ORG-foot.R", "ORG-shin.R",                "mixamorig:RightFoot", "foot_ik.R", "NPLR", "mixamorig:RightToeBase"],
-    ["ORG-toe.L", "ORG-foot.L",                 "mixamorig:LeftToeBase", "toe_ik.L", "NTLR", "mixamorig:LeftToe_End"],
-    ["ORG-toe.R", "ORG-foot.R",                 "mixamorig:RightToeBase", "toe_ik.R", "NTLR", "mixamorig:RightToe_End"],
+    ["ORG-hand.L", "ORG-forearm.L",             "mixamorig(|[0-9]):LeftHand$", "hand_ik.L", "NTLR", "mixamorig(|[0-9]):LeftHandMiddle1"],
+    ["ORG-hand.R", "ORG-forearm.R",             "mixamorig(|[0-9]):RightHand$", "hand_ik.R", "NTLR", "mixamorig(|[0-9]):RightHandMiddle1"],
+    ["ORG-foot.L", "ORG-shin.L",                "mixamorig(|[0-9]):LeftFoot", "foot_ik.L", "NPLR", "mixamorig(|[0-9]):LeftToeBase"],
+    ["ORG-foot.R", "ORG-shin.R",                "mixamorig(|[0-9]):RightFoot", "foot_ik.R", "NPLR", "mixamorig(|[0-9]):RightToeBase"],
+    ["ORG-toe.L", "ORG-foot.L",                 "mixamorig(|[0-9]):LeftToeBase", "toe_ik.L", "NTLR", "mixamorig(|[0-9]):LeftToe_End"],
+    ["ORG-toe.R", "ORG-foot.R",                 "mixamorig(|[0-9]):RightToeBase", "toe_ik.R", "NTLR", "mixamorig(|[0-9]):RightToe_End"],
 ]
 
 

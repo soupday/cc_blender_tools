@@ -19,7 +19,7 @@ import shutil
 import bpy
 from enum import IntEnum, IntFlag
 
-from . import (characters, rigging, rigutils, vrm, bones, bake, imageutils, jsonutils, materials,
+from . import (characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
                modifiers, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
                basic, properties, utils, vars)
@@ -28,50 +28,15 @@ debug_counter = 0
 
 
 def delete_import(chr_cache):
-    props = bpy.context.scene.CC3ImportProps
-
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.get_object()
-        if obj and props.paint_object == obj:
-            props.paint_object = None
-            props.paint_material = None
-            props.paint_image = None
-        utils.try_remove(obj, True)
-
-    all_materials_cache = chr_cache.get_all_materials_cache()
-    for mat_cache in all_materials_cache:
-        mat = mat_cache.material
-        utils.try_remove(mat, True)
-
-    chr_cache.import_file = ""
-    chr_cache.import_embedded = False
-
-    chr_cache.tongue_material_cache.clear()
-    chr_cache.teeth_material_cache.clear()
-    chr_cache.head_material_cache.clear()
-    chr_cache.skin_material_cache.clear()
-    chr_cache.tearline_material_cache.clear()
-    chr_cache.eye_occlusion_material_cache.clear()
-    chr_cache.eye_material_cache.clear()
-    chr_cache.hair_material_cache.clear()
-    chr_cache.pbr_material_cache.clear()
-    chr_cache.object_cache.clear()
-
-    utils.remove_from_collection(props.import_cache, chr_cache)
-
-    utils.clean_collection(bpy.data.images)
-    utils.clean_collection(bpy.data.materials)
-    utils.clean_collection(bpy.data.textures)
-    utils.clean_collection(bpy.data.meshes)
-    utils.clean_collection(bpy.data.armatures)
-    utils.clean_collection(bpy.data.node_groups)
-    # as some node_groups are nested...
-    utils.clean_collection(bpy.data.node_groups)
+    props = vars.props()
+    chr_cache.invalidate()
+    props.clean_up()
+    utils.clean_up_unused()
 
 
 def process_material(chr_cache, obj, mat, obj_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     mat_cache = chr_cache.get_material_cache(mat)
     mat_json = jsonutils.get_material_json(obj_json, mat)
@@ -157,8 +122,8 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
 
 
 def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_json, processed_materials, processed_images):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     if obj is None or obj in objects_processed:
         return
@@ -244,7 +209,7 @@ def process_object(chr_cache, obj : bpy.types.Object, objects_processed, chr_jso
 
 
 def cache_object_materials(chr_cache, obj, chr_json, processed):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if obj is None or obj in processed:
         return
@@ -284,7 +249,7 @@ def apply_edit_shapekeys(obj):
     """For objects with shapekeys, set the active visible and edit mode shapekey to the basis.
     """
     # shapekeys data path:
-    #   bpy.context.active_object.data.shape_keys.key_blocks['Basis']
+    #   utils.get_active_object().data.shape_keys.key_blocks['Basis']
     if obj.type == "MESH":
         shape_keys = obj.data.shape_keys
         if shape_keys is not None:
@@ -302,7 +267,7 @@ def apply_edit_shapekeys(obj):
 
 
 def init_shape_key_range(obj):
-    #bpy.context.active_object.data.shape_keys.key_blocks['Basis']
+    #utils.get_active_object().data.shape_keys.key_blocks['Basis']
     if obj.type == "MESH":
         shape_keys: bpy.types.Key = obj.data.shape_keys
         if shape_keys is not None:
@@ -353,14 +318,15 @@ def detect_generation(chr_cache, json_data, character_id):
     material_names = characters.get_character_material_names(arm)
     object_names = characters.get_character_object_names(arm)
 
-    if generation == "Unknown":
+    if generation in ["Unknown", "Humanoid", "Creature"]:
         if len(material_names) == 1 and characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
             generation = "ActorCore"
+        elif characters.character_has_bones(arm, ["root", "pelvis", "spine_03", "CC_Base_FacialBone"]):
+            generation = "GameBase"
         elif characters.character_has_materials(arm, ["Ga_Skin_Body"]):
             if characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
                 generation = "ActorBuild"
-            elif characters.character_has_bones(arm, ["root", "hip"]):
-                generation = "GameBase"
+
 
     if generation == "Unknown" and arm:
         if utils.find_pose_bone_in_armature(arm, "RootNode_0_", "RL_BoneRoot"):
@@ -468,10 +434,23 @@ def remap_action_names(actions, objects, source_name, name):
     return armature_actions, shapekey_actions
 
 
+def process_root_bones(arm, json_data, name):
+    root_bones = jsonutils.get_json(json_data, f"{name}/Root Bones")
+    if root_bones:
+        for root_def in root_bones:
+            name = root_def["Name"]
+            type = root_def["Type"]
+            sub_link_id = root_def["Link_ID"]
+            if name in arm.pose.bones:
+                pose_bone = arm.pose.bones[name]
+                pose_bone["root_id"] = sub_link_id
+                pose_bone["root_type"] = type
+
+
 def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list,
                       actions, json_data, report, link_id):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.log_info("")
     utils.log_info("Processing Reallusion Import:")
@@ -538,6 +517,9 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             if link_id:
                 chr_cache.link_id = link_id
 
+            # root bones
+            process_root_bones(arm, json_data, name)
+
             # determine the main texture dir
             if os.path.exists(chr_cache.get_tex_dir()):
                 chr_cache.import_embedded = False
@@ -601,7 +583,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
             utils.log_recess()
 
-        # any none character aramtures should be scenes or props
+        # any none character armatures should be scenes or props
         for i, arm in enumerate(armatures):
 
             character_name = name
@@ -624,6 +606,9 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
                 link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
             if link_id:
                 chr_cache.link_id = link_id
+
+            # root bones
+            process_root_bones(arm, json_data, name)
 
             # determine the main texture dir
             if os.path.exists(chr_cache.get_tex_dir()):
@@ -744,6 +729,7 @@ class ImportFlags(IntFlag):
     OBJ = 2
     GLB = 4
     VRM = 8
+    USD = 16
     RL = 1024
     KEY = 2048
     RL_FBX = RL | FBX
@@ -763,7 +749,7 @@ class CC3Import(bpy.types.Operator):
 
     filepath: bpy.props.StringProperty(
         name="Filepath",
-        description="Filepath of the fbx or obj to import.",
+        description="Filepath of the model to import.",
         subtype="FILE_PATH"
         )
 
@@ -775,7 +761,7 @@ class CC3Import(bpy.types.Operator):
     )
 
     filter_glob: bpy.props.StringProperty(
-        default="*.fbx;*.obj;*.glb;*.gltf;*.vrm",
+        default="*.fbx;*.obj;*.glb;*.gltf;*.vrm;*.usd*",
         options={"HIDDEN"},
         )
 
@@ -834,8 +820,8 @@ class CC3Import(bpy.types.Operator):
 
 
     def import_character(self):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         utils.start_timer()
 
@@ -856,7 +842,7 @@ class CC3Import(bpy.types.Operator):
         json_generation = jsonutils.get_character_generation_json(json_data, name)
         avatar_type = jsonutils.get_json(json_data, f"{name}/Avatar_Type")
 
-        if utils.is_file_ext(ext, "FBX"):
+        if ImportFlags.FBX in self.import_flags:
 
             # invoke the fbx importer
             utils.tag_objects()
@@ -887,7 +873,8 @@ class CC3Import(bpy.types.Operator):
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, armatures, rl_armatures,
                                                              imported, actions, json_data, self.import_report, self.link_id)
             elif prefs.import_auto_convert:
-                self.imported_characters = characters.convert_generic_to_non_standard(imported, self.filepath)
+                chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_characters = [ chr_cache ]
 
             if self.imported_characters and ImportFlags.RL in self.import_flags:
                 for chr_cache in self.imported_characters:
@@ -898,7 +885,7 @@ class CC3Import(bpy.types.Operator):
 
             utils.log_timer("Done .Fbx Import.")
 
-        elif utils.is_file_ext(ext, "OBJ"):
+        elif ImportFlags.OBJ in self.import_flags:
 
             # invoke the obj importer
             utils.tag_objects()
@@ -916,7 +903,8 @@ class CC3Import(bpy.types.Operator):
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, None, None,
                                                              imported, actions, json_data, self.import_report, self.link_id)
             elif prefs.import_auto_convert:
-                self.imported_characters = characters.convert_generic_to_non_standard(imported, self.filepath)
+                chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_characters = [ chr_cache ]
 
             #if self.param == "IMPORT_MORPH":
             #    if self.imported_character.get_tex_dir() != "":
@@ -925,7 +913,7 @@ class CC3Import(bpy.types.Operator):
 
             utils.log_timer("Done .Obj Import.")
 
-        elif utils.is_file_ext(ext, "GLTF") or utils.is_file_ext(ext, "GLB"):
+        elif ImportFlags.GLB in self.import_flags:
 
             # invoke the GLTF importer
             utils.tag_images()
@@ -939,7 +927,7 @@ class CC3Import(bpy.types.Operator):
 
             utils.log_timer("Done .GLTF Import.")
 
-        elif utils.is_file_ext(ext, "VRM"):
+        elif ImportFlags.VRM in self.import_flags:
 
             # copy .vrm to .glb
             glb_path = os.path.join(dir, name + "_temp.glb")
@@ -954,7 +942,7 @@ class CC3Import(bpy.types.Operator):
 
             # find the armature and rotate it 180 degrees in Z
             armature : bpy.types.Object = utils.get_armature_from_objects(imported)
-            vrm.fix_armature(armature)
+            hik.fix_armature(armature)
             utils.try_select_objects(imported)
 
             os.remove(glb_path)
@@ -965,11 +953,25 @@ class CC3Import(bpy.types.Operator):
 
             utils.log_timer("Done .vrm Import.")
 
+        elif ImportFlags.USD in self.import_flags:
+
+            # invoke the USD importer
+            utils.tag_images()
+            bpy.ops.wm.usd_import(filepath=self.filepath)
+            imported = bpy.context.selected_objects.copy()
+            self.imported_images = utils.untagged_images()
+
+            if prefs.import_auto_convert:
+                chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
+                self.imported_characters = [ chr_cache ]
+
+            utils.log_timer("Done .USD Import?")
+
 
     def build_materials(self, context):
         objects_processed = []
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props: properties.CC3ImportProps = vars.props()
+        prefs = vars.prefs()
 
         utils.start_timer()
 
@@ -1088,6 +1090,11 @@ class CC3Import(bpy.types.Operator):
             utils.log_info("Importing generic VRM character.")
             return
 
+        elif utils.is_file_ext(ext, "USD") or utils.is_file_ext(ext, "USDZ"):
+            self.import_flags = self.import_flags | ImportFlags.USD
+            utils.log_info("Importing Universal Scene Descriptor file.")
+            return
+
         if os.path.exists(json_path) or os.path.exists(textures_path):
             self.import_flags = self.import_flags | ImportFlags.RL
             utils.log_info("Importing RL character without key file.")
@@ -1116,6 +1123,7 @@ class CC3Import(bpy.types.Operator):
                     rigutils.is_G3_armature(obj) or
                     rigutils.is_iClone_armature(obj)):
                     utils.log_info(f"RL character armature found: {obj.name}")
+                    self.import_flags = self.import_flags | ImportFlags.RL
                     if obj not in rl_armatures:
                         rl_armatures.append(obj)
                 else:
@@ -1148,8 +1156,8 @@ class CC3Import(bpy.types.Operator):
 
 
     def run_finish(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         if not self.imported_characters:
             return
@@ -1186,9 +1194,9 @@ class CC3Import(bpy.types.Operator):
                 bpy.context.scene.eevee.use_ssr = True
                 bpy.context.scene.eevee.use_ssr_refraction = True
 
-            # set a minimum of 50 max transparency bounces:
-            if bpy.context.scene.cycles.transparent_max_bounces < 50:
-                bpy.context.scene.cycles.transparent_max_bounces = 50
+            # set a minimum of 100 max transparency bounces:
+            if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                bpy.context.scene.cycles.transparent_max_bounces = 100
 
             scene.zoom_to_character(chr_cache)
             scene.active_select_body(chr_cache)
@@ -1210,9 +1218,7 @@ class CC3Import(bpy.types.Operator):
                 if chr_cache.can_be_rigged():
                     cc3_rig = chr_cache.get_armature()
                     bpy.ops.cc3.rigifier(param="ALL")
-                    props.armature_list_object = cc3_rig
-                    props.action_list_action = utils.safe_get_action(cc3_rig)
-                    rigging.adv_bake_retarget_to_rigify(self, chr_cache)
+                    rigging.retarget_cc3_rig_action(self, chr_cache, cc3_rig)
 
         self.imported_characters = None
         self.imported_materials = []
@@ -1275,8 +1281,8 @@ class CC3Import(bpy.types.Operator):
 
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         self.imported_characters = None
         self.imported_materials = []
         self.imported_images = []
@@ -1310,13 +1316,17 @@ class CC3Import(bpy.types.Operator):
 
         # build materials
         elif self.param == "BUILD":
+            utils.set_mode("OBJECT")
             self.build_materials(context)
             self.do_import_report(context, stage = 1)
 
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
+            utils.set_mode("OBJECT")
             nodeutils.rebuild_node_groups()
             utils.clean_collection(bpy.data.images)
+            self.build_materials(context)
+            self.do_import_report(context, stage = 1)
 
         elif self.param == "DELETE_CHARACTER":
             chr_cache = props.get_context_character_cache(context)
@@ -1354,7 +1364,7 @@ class CC3Import(bpy.types.Operator):
         elif properties.param == "DELETE_CHARACTER":
             return "Removes the character and any associated objects, meshes, materials, nodes, images, armature actions and shapekeys. Basically deletes everything not nailed down.\n**Do not press this if there is anything you want to keep!**"
         elif properties.param == "REBUILD_NODE_GROUPS":
-            return "Rebuilds the shader node groups for the advanced and eye materials."
+            return "Rebuilds the shader node groups for for all material shaders"
         return ""
 
 
@@ -1469,8 +1479,8 @@ class CC3ImportAnimations(bpy.types.Operator):
         return
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         utils.start_timer()
 
@@ -1480,6 +1490,10 @@ class CC3ImportAnimations(bpy.types.Operator):
 
         for fbx_file in self.files:
             self.import_animation_fbx(self.directory, fbx_file.name)
+
+        if not self.files and self.filepath:
+            dir, file = os.path.split(self.filepath)
+            self.import_animation_fbx(dir, file)
 
         utils.log_timer("Done Build.", "s")
 

@@ -20,7 +20,8 @@ import subprocess
 import time
 import difflib
 import random
-from mathutils import Vector, Quaternion, Matrix
+import re
+from mathutils import Vector, Quaternion, Matrix, Euler
 from hashlib import md5
 import bpy
 
@@ -45,27 +46,27 @@ def log_spacing():
 
 
 def log_detail(msg):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     """Log an info message to console."""
     if prefs.log_level == "DETAILS":
         print((" " * LOG_INDENT) + msg)
 
 
 def log_info(msg):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     """Log an info message to console."""
     if prefs.log_level == "ALL" or prefs.log_level == "DETAILS":
         print((" " * LOG_INDENT) + msg)
 
 
 def log_always(msg):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     """Log an info message to console."""
     print((" " * LOG_INDENT) + msg)
 
 
 def log_warn(msg):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     """Log a warning message to console."""
     if prefs.log_level == "ALL" or prefs.log_level == "DETAILS" or prefs.log_level == "WARN":
         print((" " * LOG_INDENT) + "Warning: " + msg)
@@ -86,7 +87,7 @@ def start_timer():
 
 
 def log_timer(msg, unit = "s"):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     global timer
     if prefs.log_level == "ALL":
         duration = time.perf_counter() - timer
@@ -136,7 +137,7 @@ def unique_name(name, no_version = False):
     """Generate a unique name for the node or property to quickly
        identify texture nodes or nodes with parameters."""
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     if no_version:
         name = name + "_" + vars.NODE_PREFIX + str(props.node_id)
     else:
@@ -155,14 +156,22 @@ def unique_material_name(name, mat = None):
     return name
 
 
-def unique_object_name(name, obj = None):
+def unique_object_name(name, obj = None, capitalize=False):
     name = strip_name(name)
+    if capitalize:
+        name = name.capitalize()
     if name in bpy.data.objects and bpy.data.objects[name] != obj:
         index = 1
         while name + "_" + str(index).zfill(2) in bpy.data.objects:
             index += 1
         return name + "_" + str(index).zfill(2)
     return name
+
+
+def un_suffix_name(name):
+    """Removes any combination of numerical suffixes from the end of a string"""
+    base_name = re.sub("([._+|/\,]\d+)*$", "", name)
+    return base_name
 
 
 def is_same_path(pa, pb):
@@ -283,7 +292,7 @@ def object_exists_is_light(obj):
         return False
 
 
-def object_exists(obj):
+def object_exists(obj: bpy.types.Object):
     """Test if Object: obj still exists as an object in the scene."""
     try:
         name = obj.name
@@ -292,9 +301,27 @@ def object_exists(obj):
         return False
 
 
+def material_exists(mat: bpy.types.Material):
+    """Test if material still exists."""
+    try:
+        name = mat.name
+        return True
+    except:
+        return False
+
+
+def image_exists(img: bpy.types.Image):
+    """Test if material still exists."""
+    try:
+        name = img.name
+        return True
+    except:
+        return False
+
+
 def get_selected_mesh():
-    if object_exists_is_mesh(bpy.context.active_object):
-        return bpy.context.active_object
+    if object_exists_is_mesh(get_active_object()):
+        return get_active_object()
     elif bpy.context.selected_objects:
         for obj in bpy.context.selected_objects:
             if object_exists_is_mesh(obj):
@@ -311,7 +338,7 @@ def get_selected_meshes(context = None):
     return objects
 
 
-def try_remove(item, force = False):
+def safe_remove(item, force = False):
 
     if object_exists(item):
 
@@ -366,9 +393,24 @@ def try_remove(item, force = False):
 
 
 def clean_collection(collection, include_fake = False):
+    cleaned = False
     for item in collection:
         if (include_fake and item.use_fake_user and item.users == 1) or item.users == 0:
+            log_detail(f"Clean Collection Removing: {item}")
             collection.remove(item)
+            cleaned = True
+    return cleaned
+
+
+def clean_up_unused():
+    clean_collection(bpy.data.images)
+    clean_collection(bpy.data.materials)
+    clean_collection(bpy.data.textures)
+    clean_collection(bpy.data.meshes)
+    clean_collection(bpy.data.armatures)
+    # as some node_groups are nested...
+    while clean_collection(bpy.data.node_groups):
+        clean_collection(bpy.data.node_groups)
 
 
 def clamp(x, min = 0.0, max = 1.0):
@@ -396,8 +438,10 @@ def remap(edge0, edge1, min, max, x):
     return min + ((x - edge0) * (max - min) / (edge1 - edge0))
 
 
-def lerp(vmin, vmax, t):
-    return min(vmax, max(vmin, vmin + (vmax - vmin) * t))
+def lerp(v0, v1, t):
+    t = max(0, min(1, t))
+    l = v0 + (v1 - v0) * t
+    return l
 
 
 def inverse_lerp(vmin, vmax, value):
@@ -405,10 +449,11 @@ def inverse_lerp(vmin, vmax, value):
 
 
 def lerp_color(c0, c1, t):
-    return (lerp(c0[0], c1[0], t),
-            lerp(c0[1], c1[1], t),
-            lerp(c0[2], c1[2], t),
-            lerp(c0[3], c1[3], t))
+    r = (lerp(c0[0], c1[0], t),
+         lerp(c0[1], c1[1], t),
+         lerp(c0[2], c1[2], t),
+         lerp(c0[3], c1[3], t))
+    return r
 
 
 def inverse_lerp_color(min, max, value):
@@ -487,7 +532,7 @@ def match_dimensions(socket, value):
 
 
 def find_pose_bone(chr_cache, *name):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     arm = chr_cache.get_armature()
     for n in name:
@@ -513,7 +558,13 @@ def find_edit_bone_in_armature(arm, *name):
 
 
 def get_active_object():
-    return bpy.context.active_object
+    """Return the actual active object and not the context reference."""
+    try:
+        if bpy.context.active_object:
+            return bpy.data.objects[bpy.context.active_object.name]
+    except:
+        pass
+    return None
 
 
 def get_active_view_layer_object():
@@ -615,6 +666,58 @@ def remove_all_shape_keys(obj):
             obj.shape_key_remove(key)
 
 
+def force_object_name(obj, name):
+    if name in bpy.data.objects:
+        existing = bpy.data.objects[name]
+        if existing != obj:
+            old_name = obj.name
+            rnd_id = generate_random_id(10)
+            existing.name = existing.name + "_" + rnd_id
+            obj.name = name
+            existing.name = old_name
+    else:
+        obj.name = name
+
+
+def force_mesh_name(mesh, name):
+    if name in bpy.data.meshes:
+        existing = bpy.data.meshes[name]
+        if existing != mesh:
+            old_name = mesh.name
+            rnd_id = generate_random_id(10)
+            existing.name = existing.name + "_" + rnd_id
+            mesh.name = name
+            existing.name = old_name
+    else:
+        mesh.name = name
+
+
+def force_armature_name(arm, name):
+    if name in bpy.data.armatures:
+        existing = bpy.data.armatures[name]
+        if existing != arm:
+            old_name = arm.name
+            rnd_id = generate_random_id(10)
+            existing.name = existing.name + "_" + rnd_id
+            arm.name = name
+            existing.name = old_name
+    else:
+        arm.name = name
+
+
+def force_material_name(mat, name):
+    if name in bpy.data.materials:
+        existing = bpy.data.materials[name]
+        if existing != mat:
+            old_name = mat.name
+            rnd_id = generate_random_id(10)
+            existing.name = existing.name + "_" + rnd_id
+            mat.name = name
+            existing.name = old_name
+    else:
+        mat.name = name
+
+
 def s2lin(x):
     a = 0.055
     if x <= 0.04045:
@@ -645,6 +748,13 @@ def is_blender_duplicate(name):
         if name[-3:].isdigit() and name[-4] == ".":
             return True
     return False
+
+
+def get_duplication_suffix(name):
+    if len(name) >= 4:
+        if name[-3:].isdigit() and name[-4] == ".":
+            return int(name[-3])
+    return 0
 
 
 def make_unique_name_in(name, keys):
@@ -996,77 +1106,78 @@ def delete_light_object(obj):
 
 
 def delete_object(obj):
-    try:
-        data = obj.data
-    except:
-        data = None
-    if data:
-        if obj.type == "MESH":
-            try:
-                bpy.data.meshes.remove(data)
-            except:
-                pass
-        elif obj.type == "ARMATURE":
-            try:
-                bpy.data.armatures.remove(data)
-            except:
-                pass
-        elif obj.type == "LIGHT":
-            try:
-                bpy.data.lights.remove(data)
-            except:
-                pass
-        elif obj.type == "CAMERA":
-            try:
-                bpy.data.camera.remove(data)
-            except:
-                pass
-        elif obj.type == "CURVE" or obj.type=="SURFACE" or obj.type == "FONT":
-            try:
-                bpy.data.curves.remove(data)
-            except:
-                pass
-        elif obj.type == "META":
-            try:
-                bpy.data.metaballs.remove(data)
-            except:
-                pass
-        elif obj.type == "VOLUME":
-            try:
-                bpy.data.volumes.remove(data)
-            except:
-                pass
-        elif obj.type == "GPENCIL":
-            try:
-                bpy.data.grease_pencils.remove(data)
-            except:
-                pass
-        elif obj.type == "LATICE":
-            try:
-                bpy.data.lattices.remove(data)
-            except:
-                pass
-        elif obj.type == "EMPTY":
-            try:
-                if obj.data:
-                    if obj.data.type == "IMAGE":
-                        bpy.data.images.remove(data)
-            except:
-                pass
-        elif obj.type == "LIGHT_PROBE":
-            try:
-                bpy.data.lightprobes.remove(data)
-            except:
-                pass
-        elif obj.type == "SPEAKER":
-            try:
-                bpy.data.speakers.remove(data)
-            except:
-                pass
-    try:
-        bpy.data.objects.remove(obj)
-    except:
-        pass
+    if object_exists(obj):
+        try:
+            data = obj.data
+        except:
+            data = None
+        if data:
+            if obj.type == "MESH":
+                try:
+                    bpy.data.meshes.remove(data)
+                except:
+                    pass
+            elif obj.type == "ARMATURE":
+                try:
+                    bpy.data.armatures.remove(data)
+                except:
+                    pass
+            elif obj.type == "LIGHT":
+                try:
+                    bpy.data.lights.remove(data)
+                except:
+                    pass
+            elif obj.type == "CAMERA":
+                try:
+                    bpy.data.camera.remove(data)
+                except:
+                    pass
+            elif obj.type == "CURVE" or obj.type=="SURFACE" or obj.type == "FONT":
+                try:
+                    bpy.data.curves.remove(data)
+                except:
+                    pass
+            elif obj.type == "META":
+                try:
+                    bpy.data.metaballs.remove(data)
+                except:
+                    pass
+            elif obj.type == "VOLUME":
+                try:
+                    bpy.data.volumes.remove(data)
+                except:
+                    pass
+            elif obj.type == "GPENCIL":
+                try:
+                    bpy.data.grease_pencils.remove(data)
+                except:
+                    pass
+            elif obj.type == "LATICE":
+                try:
+                    bpy.data.lattices.remove(data)
+                except:
+                    pass
+            elif obj.type == "EMPTY":
+                try:
+                    if obj.data:
+                        if obj.data.type == "IMAGE":
+                            bpy.data.images.remove(data)
+                except:
+                    pass
+            elif obj.type == "LIGHT_PROBE":
+                try:
+                    bpy.data.lightprobes.remove(data)
+                except:
+                    pass
+            elif obj.type == "SPEAKER":
+                try:
+                    bpy.data.speakers.remove(data)
+                except:
+                    pass
+        try:
+            bpy.data.objects.remove(obj)
+        except:
+            pass
 
 
 def get_object_tree(obj, objects = None):
@@ -1082,20 +1193,7 @@ def get_object_tree(obj, objects = None):
 def delete_object_tree(obj):
     objects = get_object_tree(obj)
     for obj in objects:
-        if obj.type == "MESH" and obj.data:
-            try:
-                bpy.data.meshes.remove(obj.data)
-            except:
-                pass
-        elif obj.type == "ARMATURE" and obj.data:
-            try:
-                bpy.data.armatures.remove(obj.data)
-            except:
-                pass
-        try:
-            bpy.data.objects.remove(obj)
-        except:
-            pass
+        delete_object(obj)
 
 
 def hide_tree(obj, hide = True):
@@ -1142,7 +1240,7 @@ def get_context_armature(context):
 
 def get_context_character(context, strict=False):
     """strict: selected must part of the character"""
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(context)
 
     obj = context.object
@@ -1163,6 +1261,8 @@ def get_context_character(context, strict=False):
             elif obj.type == "MESH" and obj.parent and obj.parent != arm:
                 chr_cache = None
 
+    # if strict only return chr_cache from valid object_cache context object
+    # otherwise it could return the first and only chr_cache
     if strict and obj and not obj_cache:
         chr_cache = None
 
@@ -1345,10 +1445,12 @@ def restore_mode_selection_state(store):
         pass
 
 
-def store_render_visibility_state():
+def store_render_visibility_state(objects=None):
     rv = {}
     obj : bpy.types.Object
-    for obj in bpy.data.objects:
+    if objects is None:
+        objects = bpy.data.objects
+    for obj in objects:
         if object_exists(obj):
             visible = obj.visible_get()
             render = not obj.hide_render
@@ -1377,7 +1479,6 @@ def restore_render_visibility_state(rv):
                     pass
 
 
-
 def set_only_render_visible(object):
     obj : bpy.types.Object
     for obj in bpy.data.objects:
@@ -1396,6 +1497,70 @@ def set_only_render_visible(object):
                     obj.hide_set(True)
                 except:
                     pass
+
+
+def store_object_transform(obj: bpy.types.Object):
+    T = (obj.location,
+         obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_quaternion, obj.rotation_mode,
+         obj.scale)
+    return T
+
+
+def restore_object_transform(obj: bpy.types.Object, T: list):
+    obj.location, obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_quaternion, obj.rotation_mode, obj.scale = T
+
+
+def reset_object_transform(obj: bpy.types.Object):
+    obj.location = Vector((0,0,0))
+    obj.rotation_quaternion = Quaternion((1.0, 0.0, 0.0, 0.0))
+    obj.rotation_euler = Euler((0.0, -0.0, 0.0), 'XYZ')
+    obj.rotation_axis_angle = [0,0,0,0]
+
+
+def get_region_3d():
+    space = get_view_space()
+    if space:
+        return space, space.region_3d
+    return None, None
+
+
+def get_view_space():
+    area = get_view_area()
+    if area:
+        return area.spaces.active
+    return None
+
+
+def get_view_area():
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            return area
+    return None
+
+
+def align_object_to_view(obj, context):
+    if context is None:
+        context = bpy.context
+    area_3d = None
+    if context.area and context.area.type == 'VIEW_3D':
+        area_3d = bpy.context.area
+    else:
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                area_3d = area
+    if area_3d:
+        view_space = area_3d.spaces.active
+        r3d = view_space.region_3d
+        loc = r3d.view_location
+        rot = r3d.view_rotation
+        D = r3d.view_distance
+        v = Vector((0,0,1))
+
+        obj.location = loc + rot @ v
+        if obj.rotation_mode == "XYZ":
+            obj.rotation_euler = rot.to_euler()
+        elif obj.rotation_mode == "QUATERNION":
+            obj.rotation_quaternion = rot.copy()
 
 
 def safe_get_action(obj) -> bpy.types.Action:
@@ -1499,11 +1664,17 @@ def B330():
 def B340():
     return is_blender_version("3.4.0")
 
+def B341():
+    return is_blender_version("3.4.1")
+
 def B400():
     return is_blender_version("4.0.0")
 
 def B401():
     return is_blender_version("4.0.1")
+
+def B410():
+    return is_blender_version("4.1.0")
 
 
 def is_blender_version(version: str, test = "GTE"):

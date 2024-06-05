@@ -506,7 +506,7 @@ def rigify_spring_rig(chr_cache, rigify_rig, parent_mode):
 
 
 def rigify_spring_rigs(chr_cache, cc3_rig, rigify_rig, bone_mapping):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     rigutils.select_rig(rigify_rig)
     pose_position = rigify_rig.data.pose_position
     rigify_rig.data.pose_position = "REST"
@@ -1346,7 +1346,7 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mapping):
     utils.log_info("Reparenting character objects to new Rigify Control Rig:")
     utils.log_indent()
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     result = 1
 
     if utils.set_mode("OBJECT"):
@@ -1501,7 +1501,7 @@ def test_face_vgroups(rig, obj):
 def store_non_face_vgroups(chr_cache):
     utils.log_info("Storing non face vertex weights.")
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if is_face_object(obj_cache, obj):
                 for vg in obj.vertex_groups:
@@ -1512,7 +1512,7 @@ def store_non_face_vgroups(chr_cache):
 def restore_non_face_vgroups(chr_cache):
     utils.log_info("Restoring non face vertex weights.")
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if is_face_object(obj_cache, obj):
                 for vg in obj.vertex_groups:
@@ -1528,7 +1528,7 @@ def lock_non_face_vgroups(chr_cache):
     utils.log_info("Locking non face vertex weights.")
     body = None
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if is_face_object(obj_cache, obj):
                 if obj_cache.object_type == "BODY":
@@ -1552,7 +1552,7 @@ def lock_non_face_vgroups(chr_cache):
 def unlock_vgroups(chr_cache):
     utils.log_info("Unlocking non face vertex weights.")
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.object_type in rigify_mapping_data.BODY_TYPES:
+        if not obj_cache.disabled and obj_cache.object_type in rigify_mapping_data.BODY_TYPES:
             if obj_cache.is_mesh():
                 obj = obj_cache.get_object()
                 vg : bpy.types.VertexGroup
@@ -1584,7 +1584,7 @@ def clean_up_character_meshes(chr_cache):
     face_objects = []
     arm = chr_cache.get_armature()
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if is_face_object(obj_cache, obj):
                 face_objects.append(obj)
@@ -1671,7 +1671,7 @@ def attempt_reparent_auto_character(chr_cache):
     utils.log_always("Attemping to parent the Body mesh to the Face Rig:")
     utils.log_always("If this fails, the face rig may not work and will need to re-parented by other means.")
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if utils.object_exists_is_mesh(obj) and len(obj.data.vertices) >= 2 and is_face_object(obj_cache, obj):
                 obj_result = try_parent_auto(chr_cache, rig, obj)
@@ -1689,7 +1689,7 @@ def attempt_reparent_voxel_skinning(chr_cache):
     body = None
     dummy_cube = None
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
             if obj_cache.object_type == "BODY":
                 head = separate_head(obj)
@@ -2318,7 +2318,7 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
 
 
 def adv_retarget_remove_pair(op, chr_cache):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     rigify_rig = chr_cache.get_armature()
     retarget_rig = chr_cache.rig_retarget_rig
 
@@ -2344,7 +2344,9 @@ def adv_retarget_remove_pair(op, chr_cache):
 
 
 def adv_preview_retarget(op, chr_cache):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
+    prefs = vars.prefs()
+
     rigify_rig = chr_cache.get_armature()
     source_rig = props.armature_list_object
     source_action = props.action_list_action
@@ -2356,19 +2358,22 @@ def adv_preview_retarget(op, chr_cache):
         bpy.context.scene.frame_start = start_frame
         bpy.context.scene.frame_end = end_frame
 
-        if props.retarget_preview_shape_keys:
+        if prefs.rigify_preview_shape_keys:
             adv_retarget_shape_keys(op, chr_cache, False)
 
 
-def adv_retarget_pair_rigs(op, chr_cache, source_rig_override=None, to_original_rig=False):
-    props = bpy.context.scene.CC3ImportProps
+def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=None, to_original_rig=False):
+    props = vars.props()
     rigify_rig = chr_cache.get_armature()
-    if source_rig_override:
-        source_rig = source_rig_override
+    if rig_override:
+        source_rig = rig_override
         source_action = utils.safe_get_action(source_rig)
     else:
         source_rig = props.armature_list_object
         source_action = props.action_list_action
+        utils.safe_set_action(source_rig, source_action)
+    if action_override:
+        source_action = action_override
         utils.safe_set_action(source_rig, source_action)
 
     if not source_rig:
@@ -2380,7 +2385,7 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig_override=None, to_original_
     if not rigutils.is_rigify_armature(rigify_rig):
             if op: op.report({'ERROR'}, "Character Armature is not a Rigify armature!")
             return None
-    if not source_rig_override:
+    if not rig_override:
         if not source_action:
             if op: op.report({'ERROR'}, "No Source Action!")
             return None
@@ -2432,6 +2437,12 @@ def adv_retarget_pair_rigs(op, chr_cache, source_rig_override=None, to_original_
     return retarget_rig
 
 
+def retarget_cc3_rig_action(op, chr_cache, cc3_rig):
+    cc3_rig_action = utils.safe_get_action(cc3_rig)
+    if cc3_rig_action:
+        adv_bake_retarget_to_rigify(op, chr_cache, rig_override=cc3_rig, action_override=cc3_rig_action)
+
+
 FK_BONE_GROUPS = ["FK", "Special", "Tweak", "Extra", "Root"]
 FK_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
                        "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
@@ -2457,16 +2468,20 @@ BOTH_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
                          "Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
 
 
-def adv_bake_retarget_to_rigify(op, chr_cache):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+def adv_bake_retarget_to_rigify(op, chr_cache, rig_override=None, action_override=None):
+    props = vars.props()
+    prefs = vars.prefs()
 
     rigify_rig = chr_cache.get_armature()
     source_rig = props.armature_list_object
     source_action = props.action_list_action
+    if rig_override:
+        source_rig = rig_override
+    if action_override:
+        source_action = action_override
     utils.safe_set_action(source_rig, source_action)
 
-    retarget_rig = adv_retarget_pair_rigs(op, chr_cache)
+    retarget_rig = adv_retarget_pair_rigs(op, chr_cache, rig_override=source_rig, action_override=source_action)
 
     armature_action = None
     shape_key_actions = None
@@ -2512,8 +2527,8 @@ def adv_bake_retarget_to_rigify(op, chr_cache):
 
 
 def adv_bake_NLA_to_rigify(op, chr_cache):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     rigify_rig = chr_cache.get_armature()
     #utils.safe_set_action(rigify_rig, None)
@@ -2547,7 +2562,7 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
                 bone.select = True
 
         shape_key_objects = []
-        if props.bake_nla_shape_keys:
+        if prefs.rigify_bake_shape_keys:
             for child in rigify_rig.children:
                 if (child.type == "MESH" and
                     child.data.shape_keys and
@@ -2576,7 +2591,7 @@ def reset_shape_keys(chr_cache):
     rigify_rig = chr_cache.get_armature()
     objects = []
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             objects.append(obj_cache.get_object())
     for obj in rigify_rig.children:
         if utils.object_exists_is_mesh(obj) and obj not in objects:
@@ -2679,7 +2694,7 @@ def apply_shape_key_actions(rigify_rig, shape_key_actions):
 
 
 def adv_retarget_shape_keys(op, chr_cache, report):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     rigify_rig = chr_cache.get_armature()
     source_rig = props.armature_list_object
     source_action = props.action_list_action
@@ -2750,18 +2765,19 @@ def clear_drivers_and_constraints(rig):
             pose_bone.custom_shape = None
 
 
-def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, link_target=False, use_meta_rig_names=False):
+def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
+                        link_target=False, bone_naming="CC"):
     rigify_rig = chr_cache.get_armature()
     export_rig = utils.duplicate_object(rigify_rig)
 
     vertex_group_map = {}
     accessory_map = {}
+    if link_target:
+        bone_naming = "LINK"
 
     if export_rig:
-        export_rig.name = chr_cache.character_name + "_Export"
-        export_rig.name = chr_cache.character_name + "_Export"
-        export_rig.data.name = chr_cache.character_name + "_Export"
-        export_rig.data.name = chr_cache.character_name + "_Export"
+        utils.force_object_name(export_rig, chr_cache.character_name + "_Export")
+        utils.force_armature_name(export_rig.data, chr_cache.character_name + "_Export")
     else:
         return None
 
@@ -2811,11 +2827,14 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, link_ta
             bone_name = export_def[0]
             parent_name = export_def[1]
             export_name = export_def[2]
-            if use_meta_rig_names:
+            if bone_naming == "METARIG":
                 if bone_name == "root": continue
                 export_name = bone_name
                 if bone_name.startswith("DEF-"):
                     export_name = bone_name[4:]
+            elif bone_naming == "RIGIFY":
+                if bone_name == "root": continue
+                export_name = export_name.replace("CC_Base_", "Rigify_")
             axis = export_def[3]
             flags = export_def[4]
             bone = None
@@ -2869,7 +2888,7 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, link_ta
         for edit_bone in edit_bones:
             if edit_bone.name not in export_bones:
                 edit_bones.remove(edit_bone)
-        if use_meta_rig_names:
+        if bone_naming == "METARIG" or bone_naming == "RIGIFY":
             if "root" in edit_bones:
                 edit_bones.remove(edit_bones["root"])
 
@@ -2886,10 +2905,12 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, link_ta
             for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
                 bone_name = export_def[0]
                 export_name = export_def[2]
-                if use_meta_rig_names:
+                if bone_naming == "METARIG":
                     export_name = bone_name
                     if bone_name.startswith("DEF-"):
                         export_name = bone_name[4:]
+                elif bone_naming == "RIGIFY":
+                    export_name = export_name.replace("CC_Base_", "Rigify_")
                 if export_name != "" and bone_name in edit_bones:
                     vertex_group_map[bone_name] = export_name
                     edit_bones[bone_name].name = export_name
@@ -2913,11 +2934,15 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, link_ta
 
         if bind_pose_is_a_pose:
             angle = 30.0 * math.pi / 180.0
-            left_arm_name = "CC_Base_L_Upperarm"
-            right_arm_name = "CC_Base_R_Upperarm"
-            if use_meta_rig_names:
+            if bone_naming == "METARIG":
                 left_arm_name = "upper_arm.L"
                 right_arm_name = "upper_arm.R"
+            elif bone_naming == "RIGIFY":
+                left_arm_name = "Rigify_L_Upperarm"
+                right_arm_name = "Rigify_R_Upperarm"
+            else:
+                left_arm_name = "CC_Base_L_Upperarm"
+                right_arm_name = "CC_Base_R_Upperarm"
             if left_arm_name in export_rig.pose.bones and right_arm_name in export_rig.pose.bones:
                 left_arm_bone : bpy.types.PoseBone = export_rig.pose.bones[left_arm_name]
                 right_arm_bone : bpy.types.PoseBone  = export_rig.pose.bones[right_arm_name]
@@ -2942,10 +2967,12 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None, link_ta
         for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
             rigify_bone_name = export_def[0]
             export_bone_name = export_def[2]
-            if use_meta_rig_names:
+            if bone_naming == "METARIG":
                 export_bone_name = rigify_bone_name
                 if rigify_bone_name.startswith("DEF-"):
                     export_bone_name = rigify_bone_name[4:]
+            elif bone_naming == "RIGIFY":
+                export_bone_name = export_bone_name.replace("CC_Base_", "Rigify_")
             axis = export_def[3]
             flags = export_def[4]
             if export_bone_name == "":
@@ -2992,7 +3019,7 @@ def get_bake_action(chr_cache):
 
 
 def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     armature_action = None
     shape_key_actions = None
@@ -3021,8 +3048,8 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
     return armature_action, shape_key_actions
 
 
-def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, link_target=False, use_meta_rig_names=False):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, link_target=False, bone_naming="CC"):
+    prefs = vars.prefs()
 
     # generate export rig
     utils.delete_armature_object(chr_cache.rig_export_rig)
@@ -3030,14 +3057,14 @@ def adv_export_pair_rigs(chr_cache, include_t_pose=False, t_pose_action=None, li
                                                                       use_t_pose=include_t_pose,
                                                                       t_pose_action=t_pose_action,
                                                                       link_target=link_target,
-                                                                      use_meta_rig_names=use_meta_rig_names)
+                                                                      bone_naming=bone_naming)
     chr_cache.rig_export_rig = export_rig
 
     return export_rig, vertex_group_map, accessory_map
 
 
-def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose = False, objects=None):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose = False, objects=None, bone_naming="CC"):
+    prefs = vars.prefs()
 
     rigify_rig = chr_cache.get_armature()
     rigify_rig.location = (0,0,0)
@@ -3060,7 +3087,7 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
                                                                        include_t_pose=include_t_pose,
                                                                        t_pose_action=t_pose_action,
                                                                        link_target=False,
-                                                                       use_meta_rig_names=True)
+                                                                       bone_naming=bone_naming)
     export_rig.location = (0,0,0)
     export_rig.rotation_mode = "XYZ"
     export_rig.rotation_euler = (0,0,0)
@@ -3122,7 +3149,7 @@ def prep_rigify_export(chr_cache, bake_animation, baked_actions, include_t_pose 
 
     rigutils.select_rig(export_rig)
 
-    return export_rig, vertex_group_map
+    return export_rig, vertex_group_map, t_pose_action
 
 
 def select_motion_export_objects(objects):
@@ -3158,7 +3185,6 @@ def restore_from_unity_vertex_groups(obj, vertex_group_map):
             if vertex_group_map[rigify_name] == vg.name:
                 vg.name = rigify_name
                 break
-
 
     for export_def in rigify_mapping_data.GENERIC_EXPORT_RIG:
         rigify_bone_name = export_def[0]
@@ -3340,235 +3366,6 @@ def get_armature_action_source_type(armature, action):
     return "Unknown", "Unknown"
 
 
-BASE_RIG_COLLECTION = ["Face", "Face (Primary)", "Face (Secondary)",
-                       "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
-                       "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
-                       "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
-                       "Root" ]
-BASE_RIG_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,28]
-BASE_DEF_COLLECTION = ["DEF"]
-BASE_DEF_LAYERS = [29]
-
-FULL_RIG_COLLECTION = ["Face", "Face (Primary)", "Face (Secondary)",
-                       "Torso", "Torso (Tweak)", "Fingers", "Fingers (Detail)",
-                       "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)", "Leg.L (IK)", "Leg.L (FK)", "Leg.L (Tweak)",
-                       "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)", "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
-                       "Root",
-                       "Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
-FULL_RIG_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,28]
-FULL_DEF_COLLECTION = ["DEF", "Spring (Edit)", "Spring (Root)"]
-FULL_DEF_LAYERS = [24, 25, 29]
-
-SPRING_RIG_COLLECTION = ["Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
-SPRING_RIG_LAYERS = [19,20,21]
-SPRING_DEF_COLLECTION = ["Spring (Edit)", "Spring (Root)"]
-SPRING_DEF_LAYERS = [24, 25]
-
-
-def is_full_rigify_rig_shown(chr_cache):
-    if chr_cache:
-        arm = chr_cache.get_armature()
-    else:
-        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
-    if arm:
-        if utils.B400():
-
-            for collection in arm.data.collections:
-                if collection.name in FULL_RIG_COLLECTION and not collection.is_visible:
-                    return False
-        else:
-            for i in range(0, 32):
-                if i in FULL_RIG_LAYERS and arm.data.layers[i] == False:
-                    return False
-        return True
-    else:
-        return False
-
-
-def toggle_show_full_rig(chr_cache):
-    show = True
-    if is_full_rigify_rig_shown(chr_cache):
-        show = False
-    if chr_cache:
-        arm = chr_cache.get_armature()
-    else:
-        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
-    if arm:
-        if utils.B400():
-            if show:
-                for collection in arm.data.collections:
-                    collection.is_visible = collection.name in FULL_RIG_COLLECTION
-            else:
-                for collection in arm.data.collections:
-                    collection.is_visible = collection.name in FULL_DEF_COLLECTION
-        else:
-            if show:
-                arm.data.layers[vars.ROOT_BONE_LAYER] = True
-            else:
-                arm.data.layers[vars.DEF_BONE_LAYER] = True
-            for i in range(0, 32):
-                if show:
-                    arm.data.layers[i] = i in FULL_RIG_LAYERS
-                else:
-                    arm.data.layers[i] = i in FULL_DEF_LAYERS
-
-
-def is_base_rig_shown(chr_cache):
-    if chr_cache:
-        arm = chr_cache.get_armature()
-    else:
-        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
-    if arm:
-        if utils.B400():
-            for collection in arm.data.collections:
-
-                if collection.name in BASE_RIG_COLLECTION and not collection.is_visible:
-                    return False
-        else:
-            for i in range(0, 32):
-                if i in BASE_RIG_LAYERS and arm.data.layers[i] == False:
-                    return False
-        return True
-    else:
-        return False
-
-
-def toggle_show_base_rig(chr_cache):
-    show = True
-    if is_full_rigify_rig_shown(chr_cache):
-        show = True
-    elif is_base_rig_shown(chr_cache):
-        show = False
-    if chr_cache:
-        arm = chr_cache.get_armature()
-    else:
-        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
-    if arm:
-        if utils.B400():
-            if show:
-                for collection in arm.data.collections:
-                    collection.is_visible = collection.name in BASE_RIG_COLLECTION
-            else:
-                for collection in arm.data.collections:
-                    collection.is_visible = collection.name in BASE_DEF_COLLECTION
-        else:
-            if show:
-                arm.data.layers[vars.ROOT_BONE_LAYER] = True
-            else:
-                arm.data.layers[vars.DEF_BONE_LAYER] = True
-            for i in range(0, 32):
-                if show:
-                    arm.data.layers[i] = i in BASE_RIG_LAYERS
-                else:
-                    arm.data.layers[i] = i in BASE_DEF_LAYERS
-
-
-def is_spring_rig_shown(chr_cache):
-    if chr_cache:
-        arm = chr_cache.get_armature()
-    else:
-        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
-    if arm:
-        if utils.B400():
-            for collection in arm.data.collections:
-                if collection.name in SPRING_RIG_COLLECTION and not collection.is_visible:
-                    return False
-        else:
-            for i in range(0, 32):
-                if i in SPRING_RIG_LAYERS and arm.data.layers[i] == False:
-                    return False
-        return True
-    else:
-        return False
-
-
-def toggle_show_spring_rig(chr_cache):
-
-    show = True
-    if is_full_rigify_rig_shown(chr_cache):
-        show = True
-    elif is_spring_rig_shown(chr_cache):
-        show = False
-
-    if chr_cache:
-        arm = chr_cache.get_armature()
-    else:
-        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
-
-    if arm:
-
-        if utils.B400():
-            if show:
-                for collection in arm.data.collections:
-                    collection.is_visible = collection.name in SPRING_RIG_COLLECTION
-            else:
-                for collection in arm.data.collections:
-                    collection.is_visible = collection.name in SPRING_DEF_COLLECTION
-        else:
-            if show:
-                arm.data.layers[vars.SPRING_IK_LAYER] = True
-            else:
-                arm.data.layers[vars.DEF_BONE_LAYER] = True
-
-            for i in range(0, 32):
-                if show:
-                    arm.data.layers[i] = i in SPRING_RIG_LAYERS
-                else:
-                    arm.data.layers[i] = i in SPRING_DEF_LAYERS
-
-
-def toggle_show_spring_bones(chr_cache):
-    if chr_cache:
-        arm = chr_cache.get_armature()
-    else:
-        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
-    if arm:
-        if bones.is_bone_collection_visible(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER):
-            springbones.show_spring_bone_edit_layer(chr_cache, arm, False)
-        else:
-            springbones.show_spring_bone_edit_layer(chr_cache, arm, True)
-
-
-def reset_pose(chr_cache):
-    if chr_cache:
-        arm = chr_cache.get_armature()
-    else:
-        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
-    if arm:
-            utils.pose_mode_to(arm)
-            arm.data.pose_position = "POSE"
-            selected_bones = [ b for b in arm.data.bones if b.select ]
-            for b in arm.data.bones:
-                b.select = True
-            bpy.ops.pose.transforms_clear()
-            for b in arm.data.bones:
-                if b in selected_bones:
-                    b.select = True
-                else:
-                    b.select = False
-
-
-def is_rig_rest_position(chr_cache):
-    if chr_cache:
-        arm = chr_cache.get_armature()
-    else:
-        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
-    if arm:
-        if arm.data.pose_position == "REST":
-            return True
-    return False
-
-
-def toggle_rig_rest_position(chr_cache):
-    if chr_cache:
-        arm = chr_cache.get_armature()
-    else:
-        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
-    if arm:
-        if arm.data.pose_position == "POSE":
-            arm.data.pose_position = "REST"
-        else:
-            arm.data.pose_position = "POSE"
 
 
 
@@ -3717,7 +3514,7 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("------------------------------")
 
                 bpy.ops.pose.rigify_generate()
-                self.rigify_rig = bpy.context.active_object
+                self.rigify_rig = utils.get_active_object()
 
                 utils.log_info("")
                 utils.log_info("Finalizing Rigify Setup:")
@@ -3780,7 +3577,7 @@ class CC3Rigifier(bpy.types.Operator):
                 # regenerating the rig will replace the existing rigify rig
                 # so there is no need to reparent anything
                 bpy.ops.pose.rigify_generate()
-                self.rigify_rig = bpy.context.active_object
+                self.rigify_rig = utils.get_active_object()
 
                 utils.log_info("")
                 utils.log_info("Re-finalizing Rigify Setup:")
@@ -3833,7 +3630,8 @@ class CC3Rigifier(bpy.types.Operator):
 
 
     def execute(self, context):
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        props: properties.CC3ImportProps = vars.props()
+        prefs = vars.prefs()
         chr_cache = props.get_context_character_cache(context)
 
         self.cc3_rig = None
@@ -3855,12 +3653,22 @@ class CC3Rigifier(bpy.types.Operator):
             self.meta_rig = chr_cache.rig_meta_rig
             self.rigify_data = chr_cache.get_rig_mapping_data()
 
+            if self.param == "DATALINK_RIGIFY":
+                olc = utils.set_active_layer_collection_from(self.cc3_rig)
+                self.generate_meta_rig(chr_cache)
+                self.rigify_meta_rig(chr_cache)
+                utils.set_active_layer_collection(olc)
+                retarget_cc3_rig_action(self, chr_cache, self.cc3_rig)
+                rigutils.update_avatar_rig(self.rigify_rig)
+
             if self.param == "ALL":
 
                 olc = utils.set_active_layer_collection_from(self.cc3_rig)
                 self.generate_meta_rig(chr_cache)
                 self.rigify_meta_rig(chr_cache)
                 utils.set_active_layer_collection(olc)
+                if prefs.rigify_auto_retarget:
+                    retarget_cc3_rig_action(self, chr_cache, self.cc3_rig)
 
             elif self.param == "META_RIG":
 
@@ -3879,6 +3687,7 @@ class CC3Rigifier(bpy.types.Operator):
                 olc = utils.set_active_layer_collection_from(self.cc3_rig)
                 result = self.re_rigify_meta_rig(chr_cache, advanced_mode = True)
                 utils.set_active_layer_collection(olc)
+                rigutils.update_avatar_rig(self.rigify_rig)
 
             elif self.param == "REPORT_FACE_TARGETS":
 
@@ -3971,23 +3780,35 @@ class CC3Rigifier(bpy.types.Operator):
                 group_props_to_value(chr_cache, context.active_pose_bone, "SIM", 1.0)
 
             elif self.param == "TOGGLE_SHOW_FULL_RIG":
-                toggle_show_full_rig(chr_cache)
+                rig = chr_cache.get_armature()
+                if rig:
+                    rigutils.toggle_show_full_rig(rig)
 
             elif self.param == "TOGGLE_SHOW_BASE_RIG":
-                toggle_show_base_rig(chr_cache)
+                rig = chr_cache.get_armature()
+                if rig:
+                    rigutils.toggle_show_base_rig(rig)
 
             elif self.param == "TOGGLE_SHOW_SPRING_RIG":
-                toggle_show_spring_rig(chr_cache)
+                rig = chr_cache.get_armature()
+                if rig:
+                    rigutils.toggle_show_spring_rig(rig)
 
             elif self.param == "TOGGLE_SHOW_RIG_POSE":
-                toggle_rig_rest_position(chr_cache)
+                rig = chr_cache.get_armature()
+                if rig:
+                    rigutils.toggle_rig_rest_position(rig)
 
             elif self.param == "TOGGLE_SHOW_SPRING_BONES":
-                toggle_show_spring_bones(chr_cache)
+                rig = chr_cache.get_armature()
+                if rig:
+                    springbones.toggle_show_spring_bones(rig)
 
             elif self.param == "BUTTON_RESET_POSE":
                 mode_selection = utils.store_mode_selection_state()
-                reset_pose(chr_cache)
+                rig = chr_cache.get_armature()
+                if rig:
+                    rigutils.reset_pose(rig)
                 utils.restore_mode_selection_state(mode_selection)
 
             elif self.param == "SET_LIMB_FK":
@@ -4140,7 +3961,7 @@ class CC3RigifierModal(bpy.types.Operator):
             voxel_skinning_finish = False
 
     def execute(self, context):
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        props: properties.CC3ImportProps = vars.props()
         chr_cache = props.get_context_character_cache(context)
 
         if chr_cache:
@@ -4151,7 +3972,7 @@ class CC3RigifierModal(bpy.types.Operator):
         return {"FINISHED"}
 
     def voxel_re_parent_one(self, context):
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        props: properties.CC3ImportProps = vars.props()
         chr_cache = props.get_context_character_cache(context)
 
         lock_non_face_vgroups(chr_cache)
@@ -4167,7 +3988,7 @@ class CC3RigifierModal(bpy.types.Operator):
         self.timer = context.window_manager.event_timer_add(1.0, window = bpy.context.window)
 
     def voxel_re_parent_two(self, context):
-        props: properties.CC3ImportProps = bpy.context.scene.CC3ImportProps
+        props: properties.CC3ImportProps = vars.props()
         chr_cache = props.get_context_character_cache(context)
 
         if self.dummy_cube:

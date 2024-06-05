@@ -53,7 +53,7 @@ def add_body_node(co, name,
                                           enter_editmode = False,
                                           align = 'WORLD', location = co)
 
-    body_node = bpy.context.active_object
+    body_node = utils.get_active_object()
     body_node.hide_render = True
     body_node.scale = (1.0/UPSCALE, 1.0/UPSCALE, 1.0/UPSCALE)
     body_node.name = utils.unique_name(name)
@@ -142,7 +142,7 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
 
     # add an empty
     bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', radius = BASE_COLLISION_RADIUS * 1.5, location=head_body.location)
-    constraint_object = bpy.context.active_object
+    constraint_object = utils.get_active_object()
     constraint_object.hide_render = True
     if parent_object:
         constraint_object.location = head_body.location
@@ -287,7 +287,7 @@ def connect_spring(arm, prefix, bone_name, head_body, tail_body,
 def connect_fixed(arm, bone_name, head_body, tail_body, parent_object, copy_location = True, size = 0.075):
     # add an empty
     bpy.ops.object.empty_add(type='CIRCLE', align='WORLD', location=head_body.location, radius = size)
-    constraint_object = bpy.context.active_object
+    constraint_object = utils.get_active_object()
     constraint_object.hide_render = True
     if parent_object:
         constraint_object.parent = head_body
@@ -436,7 +436,7 @@ def remove_existing_rigid_body_system(arm, rig_prefix, spring_rig_bone_name):
 def add_rigid_body_system(arm, parent_bone_name, rig_prefix, settings = None):
     rigid_body_system_name = get_rigid_body_system_name(arm, rig_prefix)
     bpy.ops.object.empty_add(type='SINGLE_ARROW', align='WORLD', location=(0,0,0))
-    rigid_body_system = bpy.context.active_object
+    rigid_body_system = utils.get_active_object()
     rigid_body_system.hide_render = True
     rigid_body_system.parent = arm
     rigid_body_system.parent_type = "BONE"
@@ -602,7 +602,7 @@ def get_spring_rigid_body_system(arm, rig_prefix):
 
 
 def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone_name, settings = None):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     arm = chr_cache.get_armature()
     if not arm or spring_rig_bone_name not in arm.data.bones:

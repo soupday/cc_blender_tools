@@ -16,7 +16,10 @@
 
 # Set by __init__.py from the bl_info dict
 
+import bpy
+
 VERSION_STRING = "v0.0.0"
+DEV = False
 
 def set_version_string(bl_info):
     global VERSION_STRING
@@ -26,10 +29,18 @@ def set_version_string(bl_info):
             VERSION_STRING += "."
         VERSION_STRING += str(v)
 
+def prefs():
+    return bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+
+def props():
+    return bpy.context.scene.CC3ImportProps
+
+def link_props():
+    return bpy.context.scene.CCICLinkProps
+
 # blender uses metres, CC3 uses centimetres
 UNIT_SCALE = 0.01
 SKIN_SSS_RADIUS_SCALE = 0.01
-0.003
 DEFAULT_SSS_RADIUS_SCALE = 0.01
 TEETH_SSS_RADIUS_SCALE = 0.01
 TONGUE_SSS_RADIUS_SCALE = 0.01

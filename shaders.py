@@ -17,7 +17,7 @@
 import bpy
 import math
 import os
-from mathutils import Vector
+from mathutils import Vector, Color
 
 from . import imageutils, jsonutils, meshutils, materials, wrinkle, nodeutils, params, utils, vars
 
@@ -31,7 +31,7 @@ def get_prop_value(mat_cache, prop_name):
 
 
 def eval_texture_rules(tex_type):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if tex_type in params.TEXTURE_RULES:
         tex_rule = params.TEXTURE_RULES[tex_type]
@@ -245,10 +245,7 @@ def apply_prop_matrix(bsdf_node, group_node, mat_cache, shader_name):
                     nodeutils.set_node_input_value(group_node, input_def[0], prop_value)
 
     if bsdf_node and matrix_group and "bsdf" in matrix_group.keys():
-        if bsdf_node.type == "GROUP":
-            bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
-        else:
-            bsdf_nodes = [bsdf_node]
+        bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
         for input_def in matrix_group["bsdf"]:
             for n in bsdf_nodes:
                 if input_def[0] in n.inputs:
@@ -271,83 +268,140 @@ def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
 #
 
 def func_iris_brightness(v):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES" and prefs.refractive_eyes == "SSR":
         v = v * prefs.cycles_ssr_iris_brightness
     return v
 
 def func_sss_skin(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_skin_v203
+        if utils.B400():
+            s = s * prefs.cycles_sss_skin_b410
+        else:
+            s = s * prefs.cycles_sss_skin_b341
     return s
 
 def func_sss_hair(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_hair_v203
+        if utils.B400():
+            s = s * prefs.cycles_sss_hair_b410
+        else:
+            s = s * prefs.cycles_sss_hair_b341
     return s
 
 def func_sss_teeth(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_teeth_v203
+        if utils.B400():
+            s = s * prefs.cycles_sss_teeth_b410
+        else:
+            s = s * prefs.cycles_sss_teeth_b341
     return s
 
 def func_sss_tongue(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_tongue_v203
+        if utils.B400():
+            s = s * prefs.cycles_sss_tongue_b410
+        else:
+            s = s * prefs.cycles_sss_tongue_b341
     return s
 
 def func_sss_eyes(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_eyes_v203
+        if utils.B400():
+            s = s * prefs.cycles_sss_eyes_b410
+        else:
+            s = s * prefs.cycles_sss_eyes_b341
     return s
 
 def func_sss_default(s):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     if prefs.render_target == "CYCLES":
-        s = s * prefs.cycles_sss_default_v203
+        if utils.B400():
+            s = s * prefs.cycles_sss_default_b410
+        else:
+            s = s * prefs.cycles_sss_default_b341
     return s
 
-def func_sss_radius_skin(r, f):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    r = r * vars.SKIN_SSS_RADIUS_SCALE
-    return [f[0] * r, f[1] * r, f[2] * r]
+def func_sss_falloff_saturated(f, s):
+    falloff = Color((f[0], f[1], f[2]))
+    falloff.s *= s
+    return [falloff.r, falloff.g, falloff.b, 1.0]
 
-def func_sss_radius_eyes(r, f):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+def func_sss_radius_eyes_cycles(r):
+    prefs = vars.prefs()
+    r = r * vars.EYES_SSS_RADIUS_SCALE
+    return r
+
+def func_sss_radius_eyes_eevee(r, f):
+    prefs = vars.prefs()
     r = r * vars.EYES_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_hair(r, f):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+def func_sss_radius_hair_cycles(r):
+    prefs = vars.prefs()
     r = r * vars.HAIR_SSS_RADIUS_SCALE
-    return [f[0] * r, f[1] * r, f[2] * r]
+    return r
 
-def func_sss_radius_teeth(r, f):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+def func_sss_radius_hair_eevee(r, f, s):
+    prefs = vars.prefs()
+    r = r * vars.HAIR_SSS_RADIUS_SCALE
+    falloff = Color((f[0], f[1], f[2]))
+    falloff.s *= s
+    return [falloff.r * r, falloff.g * r, falloff.b * r]
+
+def func_sss_radius_teeth_eevee(r, f):
+    prefs = vars.prefs()
     r = r * vars.TEETH_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_tongue(r, f):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+def func_sss_radius_tongue_eevee(r, f):
+    prefs = vars.prefs()
     r = r * vars.TONGUE_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
-def func_sss_radius_default(r, f):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+def func_sss_radius_default_eevee(r, f):
+    prefs = vars.prefs()
     r = r * vars.DEFAULT_SSS_RADIUS_SCALE
     return [f[0] * r, f[1] * r, f[2] * r]
 
+def func_sss_radius_skin_cycles(r):
+    prefs = vars.prefs()
+    r = r * vars.SKIN_SSS_RADIUS_SCALE
+    #if utils.B400():
+    #    r *= 2/3
+    return r
+
+def func_sss_radius_skin_eevee(r, f, s):
+    prefs = vars.prefs()
+    r = r * vars.SKIN_SSS_RADIUS_SCALE
+    falloff = Color((f[0], f[1], f[2]))
+    falloff.s *= s
+    return [falloff.r * r, falloff.g * r, falloff.b * r]
+
 def func_roughness_power(p):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    if prefs.build_skin_shader_dual_spec:
-        return p * 1.0
+    prefs = vars.prefs()
+    #if prefs.build_skin_shader_dual_spec:
+    #    return p * 1.0
+    #else:
+    #    return p
+    if prefs.render_target == "CYCLES":
+        return p * 1.125
     else:
-        return p
+        return p * 0.75
+
+def func_a(a, b, c):
+    return a
+
+def func_b(a, b, c):
+    return b
+
+def func_b(a, b, c):
+    return c
 
 def func_mul(a, b):
     return a * b
@@ -377,7 +431,7 @@ def func_occlusion_strength(s):
     return pow(s, 1.0 / 3.0)
 
 def func_occlusion_color(c):
-    return utils.lerp_color(c, (0,0,0,1), 0.5)
+    return utils.lerp_color(c, (0,0,0,1), 0.75)
 
 def func_one_minus(v):
     return 1.0 - v
@@ -388,11 +442,20 @@ def func_sqrt(v):
 def func_pow_2(v):
     return math.pow(v, 2.0)
 
-def func_set_iris_scale(a, b):
-    return (a * b)
+def func_sclera_brightness(b):
+    prefs = vars.prefs()
+    if prefs.render_target == "CYCLES":
+        b *= 1.0
+    return b
 
-def func_set_iris_tiling(v, w):
-    return 1.0 / (func_set_iris_scale(v, w))
+def func_iris_scale(i):
+    return i * 1.1
+
+def func_parallax_iris_scale(i, s):
+    return (func_iris_scale(i) * s)
+
+def func_parallax_iris_tiling(i, s):
+    return 1.0 / (func_parallax_iris_scale(i, s))
 
 def func_get_iris_scale(iris_uv_radius):
     return 0.16 / iris_uv_radius
@@ -402,6 +465,9 @@ def func_set_half(s):
 
 def func_set_third(s):
     return s * 0.3333
+
+def func_set_two_third(s):
+    return s * 0.6666
 
 def func_divide_1000(v):
     return v / 1000.0
@@ -500,7 +566,7 @@ def func_export_combine_xyz(x, y, z):
 # End Prop matrix eval, parameter conversion functions
 
 def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, tex_json):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     tex_type = texture_def[2]
     tiling_mode = "NONE"
@@ -586,7 +652,7 @@ def init_character_property_defaults(chr_cache, chr_json, only:list=None):
     # Advanced properties
     for obj_cache in chr_cache.object_cache:
         obj = obj_cache.get_object()
-        if obj_cache.is_mesh() and obj not in processed:
+        if not obj_cache.disabled and obj_cache.is_mesh() and obj not in processed:
             processed.append(obj)
 
             obj_json = jsonutils.get_object_json(chr_json, obj)
@@ -716,6 +782,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                             sample_color = [image.pixels[0], image.pixels[1], image.pixels[2], 1.0]
                             exec_prop(sample_prop, mat_cache, sample_color)
                             nodeutils.set_node_input_value(shader_node, socket_name, sample_color)
+                            utils.log_detai(f"Sample Map Removing Image: {image}")
                             bpy.data.images.remove(image)
                             vars.block_property_update = False
 
@@ -770,8 +837,8 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
 
 
 def connect_tearline_shader(obj, mat, mat_json, processed_images):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -796,8 +863,8 @@ def connect_tearline_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_eye_occlusion_shader(obj, mat, mat_json, processed_images):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -822,8 +889,8 @@ def connect_eye_occlusion_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_skin_shader(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
@@ -864,18 +931,25 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
 
     if not prefs.build_limit_textures:
         if props.wrinkle_mode and mat_json and "Wrinkle" in mat_json.keys():
+            utils.log_info("Applying Wrinkle System:")
             apply_wrinkle_system(nodes, links, group, shader_name, mat, mat_cache, mat_json, obj, processed_images)
 
+    utils.log_info("Cleaning up unused image nodes:")
     nodeutils.clean_unused_image_nodes(nodes)
 
-    fix_sss_method(bsdf)
+    fix_sss_method(bsdf, is_skin=True)
+    if utils.B410():
+        mat.displacement_method = "DISPLACEMENT"
+    else:
+        mat.cycles.displacement_method = "DISPLACEMENT"
+
 
     materials.set_material_alpha(mat, "OPAQUE")
     mat.use_sss_translucency = True
 
 
 def connect_tongue_shader(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -900,7 +974,7 @@ def connect_tongue_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_teeth_shader(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -930,8 +1004,8 @@ def connect_teeth_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -988,7 +1062,7 @@ def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
 
     nodeutils.clean_unused_image_nodes(nodes)
 
-    fix_sss_method(bsdf)
+    fix_sss_method(bsdf, is_eyes=True)
 
     if mat_cache.is_cornea():
         if prefs.refractive_eyes == "SSR":
@@ -1006,8 +1080,8 @@ def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
 
 
 def connect_hair_shader(obj, mat, mat_json, processed_images):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -1027,7 +1101,7 @@ def connect_hair_shader(obj, mat, mat_json, processed_images):
 
     nodeutils.clean_unused_image_nodes(nodes)
 
-    fix_sss_method(bsdf)
+    fix_sss_method(bsdf, is_hair=True)
 
     materials.set_material_alpha(mat, "HASHED")
     mat.use_sss_translucency = True
@@ -1035,7 +1109,7 @@ def connect_hair_shader(obj, mat, mat_json, processed_images):
 
 
 def connect_pbr_shader(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -1060,16 +1134,19 @@ def connect_pbr_shader(obj, mat, mat_json, processed_images):
     if mat_cache.is_eyelash():
         nodeutils.set_node_input_value(group, "Specular Scale", 0.25)
         nodeutils.set_node_input_value(bsdf, "Subsurface", 0.001)
+        fix_sss_method(bsdf, is_scalp=True)
 
     elif mat_cache.is_scalp():
         nodeutils.set_node_input_value(group, "Specular Scale", 0)
         nodeutils.set_node_input_value(bsdf, "Subsurface", 0.01)
+        fix_sss_method(bsdf, is_scalp=True)
 
-    fix_sss_method(bsdf)
+    else:
+        fix_sss_method(bsdf)
 
 
 def connect_sss_shader(obj, mat, mat_json, processed_images):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
@@ -1093,16 +1170,37 @@ def connect_sss_shader(obj, mat, mat_json, processed_images):
         materials.set_material_alpha(mat, "HASHED")
 
 
-def fix_sss_method(bsdf):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    if prefs.render_target == "CYCLES" and utils.B300():
-        # Blender 3.0 defaults to random walk, which does not work well with hair
-        if bsdf.type == "GROUP":
-            bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
-            for bsdf in bsdf_nodes:
+def fix_sss_method(bsdf, is_skin=False, is_hair=False, is_eyes=False, is_scalp=False):
+    prefs = vars.prefs()
+    bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf)
+    if utils.B400():
+
+        # Blender 4.0+
+        for bsdf in bsdf_nodes:
+            if is_skin or is_hair or is_eyes or is_scalp:
+                bsdf.subsurface_method = "RANDOM_WALK_SKIN"
+                bsdf.inputs['Subsurface Scale'].default_value = 1.0
+                if is_hair:
+                    bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
+                elif is_skin:
+                    bsdf.inputs['Subsurface Anisotropy'].default_value = 0.8
+                elif is_eyes:
+                    bsdf.inputs['Subsurface Anisotropy'].default_value = 1.0
+                    bsdf.inputs['Subsurface Scale'].default_value = 0.01
+                else:
+                    bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
+            else:
                 bsdf.subsurface_method = "BURLEY"
-        else:
-            bsdf.subsurface_method = "BURLEY"
+
+    else:
+
+        # Blender 3.4 - 3.6
+        for bsdf in bsdf_nodes:
+            if is_skin or is_eyes or is_scalp:
+                bsdf.subsurface_method = "RANDOM_WALK"
+                bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
+            else:
+                bsdf.subsurface_method = "BURLEY"
 
 
 def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = None):

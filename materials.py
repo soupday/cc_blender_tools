@@ -68,7 +68,7 @@ def detect_key_words(hints, text):
 
 
 def detect_scalp_material(mat):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     material_name = mat.name.lower()
     hints = prefs.hair_scalp_hint.split(",")
     detect = detect_key_words(hints, material_name)
@@ -137,7 +137,7 @@ def detect_sss_maps(mat, tex_dirs, base_dir):
 
 
 def detect_hair_material(obj, mat, tex_dirs, base_dir, mat_json = None):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     hints = prefs.hair_hint.split(",")
 
     material_name = mat.name.lower()
@@ -168,7 +168,7 @@ def detect_hair_material(obj, mat, tex_dirs, base_dir, mat_json = None):
 
 
 def detect_hair_object(obj, tex_dirs, base_dir, obj_json = None):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     hints = prefs.hair_hint.split(",")
     object_name = obj.name.lower()
 
@@ -575,7 +575,7 @@ def detect_mixer_masks(chr_cache, obj, obj_cache, mat, mat_cache):
 
 
 def get_cornea_mat(obj, eye_mat, eye_mat_cache):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_character_cache(obj, eye_mat)
 
     if eye_mat_cache.is_eye("LEFT"):
@@ -585,7 +585,7 @@ def get_cornea_mat(obj, eye_mat, eye_mat_cache):
 
     # then try to find in the material cache
     for mat_cache in chr_cache.eye_material_cache:
-        if mat_cache.is_cornea(side):
+        if not mat_cache.disabled and mat_cache.is_cornea(side):
             return mat_cache.material, mat_cache
 
     utils.log_error("Unable to find the " + side + " cornea material!")
@@ -645,7 +645,7 @@ def is_material_in_objects(mat, objects):
 
 
 def apply_backface_culling(obj, mat, sides):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     mat_cache = props.get_material_cache(mat)
     if mat_cache is not None:
         mat_cache.culling_sides = sides
@@ -656,7 +656,7 @@ def apply_backface_culling(obj, mat, sides):
 
 
 def apply_alpha_override(obj, mat, method):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     mat_cache = props.get_material_cache(mat)
     if mat_cache is not None:
         mat_cache.alpha_mode = method
@@ -833,8 +833,7 @@ def find_duplicate_material(chr_cache, mat, processed_materials):
                                     # if there is a matching material that is the base name,
                                     # then set the first material name to this base name
                                     if mat.name == source_name:
-                                        processed_mat.name = source_name
-                                        processed_mat.name = source_name
+                                        utils.force_material_name(processed_mat, source_name)
                                     return processed_mat
     return None
 
@@ -917,7 +916,7 @@ def reconstruct_obj_materials(obj):
 
 
 def set_materials_setting(param, obj, context, objects_processed):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     ob = context.object
 
     if obj is not None and obj not in objects_processed:
@@ -988,7 +987,7 @@ class CC3OperatorMaterial(bpy.types.Operator):
 
     def execute(self, context):
 
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
 
         objects_processed = []
         if props.quick_set_mode == "OBJECT":

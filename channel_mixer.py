@@ -91,7 +91,7 @@ MIXER_MASKS = {
 
 
 def update_mixer(mixer, context, field):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     mixer_type_channel = f"{mixer.type}_{mixer.channel}"
 
@@ -106,7 +106,7 @@ def update_mixer(mixer, context, field):
 
 
 def enable_disable_mixer_image(mixer_settings, context):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     # find the current character and material in context
     chr_cache = props.get_context_character_cache(context)
@@ -117,7 +117,7 @@ def enable_disable_mixer_image(mixer_settings, context):
 
 
 def enable_disable_mixer(mixer_settings, context, type_channel):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     # find an existing mixer
     mixer_type, mixer_channel = type_channel.split("_")
@@ -309,7 +309,7 @@ class CC3OperatorChannelMixer(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
 
         # find the current character and material in context
         chr_cache = props.get_context_character_cache(context)
@@ -442,4 +442,12 @@ class CC3MixerSettings(bpy.types.PropertyGroup):
                     self.id_mixers.remove(index)
                     return True
         return False
+
+    def clean_up(self):
+        if utils.image_exists(self.rgb_image):
+            bpy.data.images.remove(self.rgb_image)
+        if utils.image_exists(self.id_image):
+            bpy.data.images.remove(self.id_image)
+        self.rgb_mixers.clear()
+        self.id_mixers.clear()
 

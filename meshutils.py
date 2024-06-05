@@ -126,7 +126,7 @@ def generate_tearline_vertex_groups(obj, mat_left, mat_right):
 def rebuild_eye_vertex_groups(chr_cache):
     for obj_cache in chr_cache.object_cache:
         obj = obj_cache.get_object()
-        if obj and obj_cache.is_eye():
+        if obj and obj_cache.is_eye() and not obj_cache.disabled:
             mat_left, mat_right = materials.get_left_right_eye_materials(obj)
             cache_left = chr_cache.get_material_cache(mat_left)
             cache_right = chr_cache.get_material_cache(mat_right)
@@ -137,7 +137,7 @@ def rebuild_eye_vertex_groups(chr_cache):
 
 
 def generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     vertex_group_l = add_vertex_group(obj, prefs.eye_displacement_group + "_L")
     vertex_group_r = add_vertex_group(obj, prefs.eye_displacement_group + "_R")

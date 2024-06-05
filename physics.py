@@ -28,8 +28,8 @@ CLOTH_THICKNESS = 0.004
 
 
 def apply_cloth_settings(obj, cloth_type, self_collision = False):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     mod = modifiers.get_cloth_physics_mod(obj)
     if mod is None:
@@ -277,8 +277,8 @@ def add_cloth_physics(chr_cache, obj, add_weight_maps = False):
     Repopulates the existing weight maps, depending on their cache settings.
     """
 
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
 
     if not (chr_cache and obj):
         return
@@ -343,7 +343,7 @@ def remove_cloth_physics(obj):
     if not obj:
         return
 
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     utils.object_mode_to(obj)
 
@@ -393,7 +393,7 @@ def remove_all_physics_mods(obj):
 
 
 def enable_collision_physics(chr_cache, obj):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     if chr_cache and obj:
         obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
         obj_cache = chr_cache.get_object_cache(obj)
@@ -405,7 +405,7 @@ def enable_collision_physics(chr_cache, obj):
 
 
 def disable_collision_physics(chr_cache, obj):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     if chr_cache and obj:
         obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
         obj_cache = chr_cache.get_object_cache(obj)
@@ -416,7 +416,7 @@ def disable_collision_physics(chr_cache, obj):
 
 
 def enable_cloth_physics(chr_cache, obj, add_weight_maps = True):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     if chr_cache and obj:
         obj_cache = chr_cache.get_object_cache(obj)
         if obj_cache:
@@ -426,7 +426,7 @@ def enable_cloth_physics(chr_cache, obj, add_weight_maps = True):
 
 
 def disable_cloth_physics(chr_cache, obj):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     if chr_cache and obj:
         obj_cache = chr_cache.get_object_cache(obj)
         if obj_cache:
@@ -510,7 +510,7 @@ def get_weight_map_image(chr_cache, obj, mat, create = False):
     in the material cache as a temporary weight map image.
     """
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     mat_cache = props.get_material_cache(mat)
     weight_map = imageutils.find_material_image(mat, "WEIGHTMAP")
 
@@ -582,8 +582,8 @@ def enable_material_weight_map(chr_cache, obj, mat):
     """Enables the weight map for the object's material and (re)creates the Vertex Weight Edit modifier.
     """
 
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
 
     if chr_cache and obj and mat:
 
@@ -667,7 +667,7 @@ def attach_cloth_weight_map_remap(obj, replace = True, curve_power = 5.0):
     """Attach the final remap vertex weight edit to convert the physx weight
        map values to something more blender physics friendly."""
 
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     remap_mod : bpy.types.VertexWeightEditModifier
 
     if replace:
@@ -704,7 +704,7 @@ def attach_material_weight_map(obj, mat, weight_map):
     but will not create a new weight map if it doesn't already exist.
     """
 
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if obj and mat and weight_map:
 
@@ -788,8 +788,8 @@ def attach_material_weight_map(obj, mat, weight_map):
 def get_physx_weight_range(obj):
     """Get the range (min, max) of weights for physics pin group"""
 
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     weight_min = 1.0
     weight_max = 0.0
@@ -847,7 +847,7 @@ def get_dirty_weightmaps(objects):
 
 
 def physics_paint_strength_update(self, context):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if bpy.context.mode == "PAINT_TEXTURE":
         ups = context.tool_settings.unified_paint_settings
@@ -857,7 +857,7 @@ def physics_paint_strength_update(self, context):
 
 
 def weight_strength_update(self, context):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     strength = props.weight_map_strength
     influence = 1 - math.pow(1 - strength, 3)
@@ -878,7 +878,7 @@ def browse_weight_map(chr_cache, context):
 def begin_paint_weight_map(chr_cache, context):
     obj = context.object
     mat = utils.get_context_material(context)
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     if obj is not None and mat is not None:
         props.paint_store_render = bpy.context.space_data.shading.type
 
@@ -899,14 +899,14 @@ def begin_paint_weight_map(chr_cache, context):
 
 
 def resize_weight_map(chr_cache, context, op):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if bpy.context.mode == "PAINT_TEXTURE":
         return
 
     obj = context.object
     mat = utils.get_context_material(context)
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     if obj is not None and mat is not None:
         weight_map : bpy.types.Image = get_weight_map_image(chr_cache, obj, mat)
         size = int(props.physics_tex_size)
@@ -924,7 +924,7 @@ def resize_weight_map(chr_cache, context, op):
 
 def end_paint_weight_map(chr_cache, op):
     try:
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
         if bpy.context.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
         bpy.context.space_data.shading.type = props.paint_store_render
@@ -980,7 +980,7 @@ def cloth_physics_point_cache_override(mod):
 
 
 def get_context_physics_objects(context, from_selected = False):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(context)
     physics_objects = []
     if chr_cache:
@@ -1151,7 +1151,7 @@ def disable_physics(chr_cache, physics_objects = None):
 
 
 def enable_physics(chr_cache, physics_objects = None):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if not physics_objects:
         physics_objects = chr_cache.get_all_objects(include_armature = False,
@@ -1251,8 +1251,8 @@ def detect_physics(chr_cache, obj, obj_cache, mat, mat_cache, chr_json):
 
 
 def apply_all_physics(chr_cache):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
 
     if chr_cache:
         utils.log_info(f"Adding all Physics modifiers to: {chr_cache.character_name}")
@@ -1266,7 +1266,7 @@ def apply_all_physics(chr_cache):
 
             obj = obj_cache.get_object()
 
-            if obj and obj_cache.is_mesh() and obj not in objects_processed:
+            if obj and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
 
                 cloth_allowed = True
                 if obj_cache:
@@ -1343,7 +1343,7 @@ def remove_all_physics(chr_cache):
         objects_processed = []
         for obj_cache in chr_cache.object_cache:
             obj = obj_cache.get_object()
-            if obj and obj_cache.is_mesh() and obj not in objects_processed:
+            if obj and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
                 remove_all_physics_mods(obj)
             utils.delete_mesh_object(obj_cache.collision_proxy)
         utils.delete_mesh_object(chr_cache.collision_body)
@@ -1407,7 +1407,7 @@ def get_self_collision(chr_cache, obj):
 
 
 def set_physics_settings(op, param, context):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(context)
     obj = None
     if context.object and context.object.type == "MESH":

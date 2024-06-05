@@ -85,8 +85,8 @@ def convert_hair_group_to_particle_systems(obj, curves):
 
 
 def export_blender_hair(op, chr_cache, objects, base_path):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.expand_with_child_objects(objects)
 
@@ -340,7 +340,7 @@ def sort_lateral_card(obj, bm, loops, uv_map, dir):
 
 
 def grid_to_loops(obj, bm, island, card_dirs, one_loop_per_card):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     # each island has a unique UV map
     uv_map = geom.get_uv_island_map(bm, 0, island)
@@ -492,7 +492,7 @@ def project_boundary_loop(src_loop, dst_loop):
 
 
 def mesh_to_loops(obj, bm, island, card_dirs):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     # each island has a unique UV map
     uv_map = geom.get_uv_island_map(bm, 0, island)
@@ -532,8 +532,8 @@ def mesh_to_loops(obj, bm, island, card_dirs):
 
 
 def selected_cards_to_length_loops(chr_cache, obj, card_dirs, one_loop_per_card = True, card_selection_mode = "SELECTED"):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
 
     # select linked and set to edge mode
     utils.edit_mode_to(obj, only_this=True)
@@ -778,7 +778,7 @@ def is_nearby_bone(arm, world_pos):
 def custom_bone(chr_cache, arm, parent_mode, loop_index, bone_length, new_bones):
     """Must be in edit mode on the armature."""
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     hair_rig = springbones.get_spring_rig(chr_cache, arm, parent_mode, create_if_missing=True, mode = "EDIT")
 
@@ -854,7 +854,7 @@ def bone_chain_matches_loop(arm, bone_list, loop, threshold = 0.001):
 def remove_existing_loop_bones(chr_cache, arm, smoothed_loops):
     """Removes any bone chains in the hair rig that align with the loops"""
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     bone_selection_mode = props.hair_rig_bind_bone_mode
 
     if bone_selection_mode == "SELECTED":
@@ -970,7 +970,7 @@ def loop_to_bones(chr_cache, arm, parent_mode, loop, loop_index, bone_length,
                   skip_length, trunc_length, smooth_level, new_bones):
     """Generate hair rig bones from vertex loops. Must be in edit mode on armature."""
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if len(loop) < 2:
         return False
@@ -1046,10 +1046,10 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dirs,
                             skip_length = 0.075, trunc_length = 0.0, smooth_level = 0):
     """Lengths in world space units (m)."""
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     mode_selection = utils.store_mode_selection_state()
-    arm_pose = reset_pose(arm)
+    arm_pose = set_rest_pose(arm)
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
@@ -1092,8 +1092,8 @@ def selected_cards_to_bones(chr_cache, arm, obj, parent_mode, card_dirs,
 
 
 def get_hair_cards_lateral(chr_cache, obj, card_dirs, card_selection_mode):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-    props = bpy.context.scene.CC3ImportProps
+    prefs = vars.prefs()
+    props = vars.props()
 
     # select linked and set to edge mode
     utils.edit_mode_to(obj, only_this=True)
@@ -1203,7 +1203,7 @@ def get_weighted_bone_distance(bone_chain, max_radius, median_loop, median_lengt
 
 def weight_card_to_bones(obj, bm : bmesh.types.BMesh, card, sorted_bones, max_radius, max_bones, max_weight,
                          curve, variance):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     CC4_SPRING_RIG = props.hair_rig_target == "CC4"
 
     bm.verts.layers.deform.verify()
@@ -1414,7 +1414,7 @@ def get_all_spring_bone_names(chr_cache, arm):
 
 
 def smooth_hair_bone_weights(arm, obj, bone_chains, iterations):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if iterations == 0:
         return
@@ -1559,7 +1559,7 @@ def grease_pencil_to_length_loops(bone_length):
 
 def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05,
                            skip_length = 0.0, trunc_length = 0.0, smooth_level = 0):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     grease_pencil_layer = get_active_grease_pencil_layer()
     if not grease_pencil_layer:
@@ -1576,7 +1576,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05,
             bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
 
     #mode_selection = utils.store_mode_selection_state()
-    arm_pose = reset_pose(arm)
+    arm_pose = set_rest_pose(arm)
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
@@ -1637,9 +1637,9 @@ def clear_grease_pencil():
 
 
 def add_custom_bone(chr_cache, arm, parent_mode, bone_length = 0.05, skip_length = 0.0):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
-    arm_pose = reset_pose(arm)
+    arm_pose = set_rest_pose(arm)
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
 
@@ -1677,7 +1677,7 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dirs,
                         card_mode, bone_mode, smoothing, parent_mode):
 
     utils.object_mode_to(arm)
-    reset_pose(arm)
+    set_rest_pose(arm)
     remove_duplicate_bones(chr_cache, arm)
 
     springbones.realign_spring_bones_axis(chr_cache, arm)
@@ -1697,7 +1697,7 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dirs,
             objects = []
             for obj_cache in chr_cache.object_cache:
                 obj = obj_cache.get_object()
-                if obj:
+                if obj and not obj_cache.disabled:
                     for mat in obj.data.materials:
                         mat_cache = chr_cache.get_material_cache(mat)
                         if mat_cache and mat_cache.material_type == "HAIR" and obj not in objects:
@@ -1736,7 +1736,7 @@ def deselect_invalid_materials(chr_cache, obj):
                     meshutils.select_material_faces(obj, mat, False)
 
 
-def reset_pose(arm):
+def set_rest_pose(arm):
     arm_pose = arm.data.pose_position
     arm.data.pose_position = "REST"
     return arm_pose
@@ -1758,8 +1758,8 @@ class CC3OperatorHair(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         mode_selection = utils.store_mode_selection_state()
 
@@ -1775,7 +1775,7 @@ class CC3OperatorHair(bpy.types.Operator):
         if self.param == "CARDS_TO_CURVES":
 
             if hair_mesh:
-                selected_cards_to_curves(chr_cache, bpy.context.active_object,
+                selected_cards_to_curves(chr_cache, utils.get_active_object(),
                                          props.hair_dir_vectors(),
                                          one_loop_per_card = props.hair_curve_merge_loops == "MERGE")
 
@@ -1968,7 +1968,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
     @classmethod
     def description(cls, context, properties):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
 
         if properties.param == "ADD_BONES":
             return "Add bones to the hair rig, generated from the selected hair cards in the active mesh"
@@ -2067,8 +2067,8 @@ class CC3ExportHair(bpy.types.Operator):
     #    )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         objects = bpy.context.selected_objects.copy()
         chr_cache = props.get_any_character_cache_from_objects(objects, True)

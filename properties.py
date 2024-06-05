@@ -17,13 +17,13 @@
 import bpy, os, socket
 from mathutils import Vector
 
-from . import (link, channel_mixer, imageutils, meshutils, sculpting, materials,
+from . import (channel_mixer, imageutils, meshutils, sculpting, materials,
                springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
                params, physics, basic, jsonutils, utils, vars)
 
 
 def open_mouth_update(self, context):
-    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
+    props: CC3ImportProps = vars.props()
     chr_cache = props.get_context_character_cache(context)
 
     bone = utils.find_pose_bone(chr_cache, "CC_Base_JawRoot", "JawRoot")
@@ -50,13 +50,13 @@ def open_mouth_update(self, context):
 
 
 def eye_close_update(self, context):
-    props: CC3ImportProps = bpy.context.scene.CC3ImportProps
+    props: CC3ImportProps = vars.props()
     chr_cache = props.get_context_character_cache(context)
     value = chr_cache.eye_close
 
     objects = []
     for obj_cache in chr_cache.object_cache:
-        if obj_cache.is_mesh():
+        if not obj_cache.disabled and obj_cache.is_mesh():
             if obj_cache.object_type == "BODY":
                 objects.append(obj_cache.get_object())
             elif obj_cache.object_type == "EYE_OCCLUSION":
@@ -77,57 +77,35 @@ def eye_close_update(self, context):
 
 
 def update_property(self, context, prop_name, update_mode = None):
+    props = vars.props()
+
     if vars.block_property_update: return
 
-    props = bpy.context.scene.CC3ImportProps
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
 
     if chr_cache:
 
-        # get the context (currently active) material
         context_obj = context.object
         context_mat = utils.get_context_material(context)
         context_mat_cache = chr_cache.get_material_cache(context_mat)
+        linked_materials = get_linked_materials(chr_cache, context_mat, props.update_mode)
 
-        if context_obj and context_mat and context_mat_cache:
+        for mat_cache in linked_materials:
+            if mat_cache.material == context_mat:
+                update_shader_property(context_obj, mat_cache, prop_name)
+            else:
+                set_linked_property(prop_name, context_mat_cache, mat_cache)
+                update_shader_property(context_obj, mat_cache, prop_name)
 
-            if update_mode is None:
-                update_mode = props.update_mode
-
-            all_materials_cache = chr_cache.get_all_materials_cache()
-            linked_types = get_linked_material_types(context_mat_cache)
-            paired_types = get_paired_material_types(context_mat_cache)
-            linked_names = get_linked_material_names(context_mat_cache.get_base_name())
-
-            for mat_cache in all_materials_cache:
-                mat = mat_cache.material
-
-                if mat:
-
-                    if mat == context_mat:
-                        # Always update the currently active material
-                        update_shader_property(context_obj, mat, mat_cache, prop_name)
-
-                    elif mat_cache.material_type in paired_types:
-                        # Update paired materials
-                        set_linked_property(prop_name, context_mat_cache, mat_cache)
-                        update_shader_property(context_obj, mat, mat_cache, prop_name)
-
-                    elif update_mode == "UPDATE_LINKED":
-                        # Update all other linked materials in the imported objects material cache:
-                        if mat_cache.material_type in linked_types or mat_cache.get_base_name() in linked_names:
-                            set_linked_property(prop_name, context_mat_cache, mat_cache)
-                            update_shader_property(context_obj, mat, mat_cache, prop_name)
-
-            # these properties will cause the eye displacement vertex group to change...
-            if prop_name in ["eye_iris_depth_radius", "eye_iris_scale", "eye_iris_radius"]:
-                meshutils.rebuild_eye_vertex_groups(chr_cache)
+        # these properties will cause the eye displacement vertex group to change...
+        if prop_name in ["eye_iris_depth_radius", "eye_iris_scale", "eye_iris_radius"]:
+            meshutils.rebuild_eye_vertex_groups(chr_cache)
 
 
 def update_basic_property(self, context, prop_name, update_mode=None):
     if vars.block_property_update: return
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         all_materials_cache = chr_cache.get_all_materials_cache()
@@ -139,7 +117,7 @@ def update_basic_property(self, context, prop_name, update_mode=None):
 
 def update_material_property(self, context, prop_name, update_mode=None):
     if vars.block_property_update: return
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         context_obj = context.object
@@ -155,7 +133,7 @@ def update_material_property(self, context, prop_name, update_mode=None):
 
 def update_object_property(self, context, prop_name, update_mode=None):
     if vars.block_property_update: return
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         context_obj = context.object
@@ -206,11 +184,14 @@ def set_linked_property(prop_name, active_mat_cache, mat_cache):
     vars.block_property_update = False
 
 
-def update_shader_property(obj, mat, mat_cache, prop_name):
-    props = bpy.context.scene.CC3ImportProps
+def update_shader_property(obj, mat_cache, prop_name):
+    props = vars.props()
 
-    if mat and mat.node_tree and mat_cache:
+    if not mat_cache: return
 
+    mat = mat_cache.material
+
+    if mat and mat.node_tree:
         shader_name = params.get_shader_name(mat_cache)
         bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
         shader_def = params.get_shader_def(shader_name)
@@ -221,14 +202,9 @@ def update_shader_property(obj, mat, mat_cache, prop_name):
                 update_shader_input(shader_node, mat_cache, prop_name, shader_def["inputs"])
 
             if "bsdf" in shader_def.keys():
-                if bsdf_node:
-                    if bsdf_node.type == "GROUP":
-                        bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
-                        for bsdf_node in bsdf_nodes:
-                            update_bsdf_input(bsdf_node, mat_cache, prop_name, shader_def["bsdf"])
-                    else:
-                        update_bsdf_input(bsdf_node, mat_cache, prop_name, shader_def["bsdf"])
-
+                bsdf_nodes = nodeutils.get_custom_bsdf_nodes(bsdf_node)
+                for bsdf_node in bsdf_nodes:
+                    update_bsdf_input(bsdf_node, mat_cache, prop_name, shader_def["bsdf"])
 
             if "textures" in shader_def.keys():
                 update_shader_tiling(shader_name, mat, mat_cache, prop_name, shader_def["textures"])
@@ -318,24 +294,52 @@ def update_material_setting(mat, mat_cache, prop_name, setting_defs):
                     utils.log_error("update_material_setting(): unable to execute: " + code)
 
 
-def reset_parameters(context = bpy.context):
+def get_linked_materials(chr_cache, context_mat, update_mode):
+    props = vars.props()
+    linked_mats = set()
+    if chr_cache:
+        context_mat_cache = chr_cache.get_material_cache(context_mat)
+        if context_mat and context_mat_cache:
+            linked_mats.add(context_mat_cache)
+            all_materials_cache = chr_cache.get_all_materials_cache()
+            # linked materials are the same material type which need to be updated
+            # at the same time with the same values (but only when updating as linked)
+            linked_types = get_linked_material_types(context_mat_cache)
+            # paired materials are linked materials that must *always* be updated at the same time
+            # regardless of updating linked or not. e.g. Eye_L, Cornea_L
+            paired_types = get_paired_material_types(context_mat_cache)
+            # linked names are linked materials of common default types (pbr/sss) that are usually linked.
+            linked_names = get_linked_material_names(context_mat_cache.get_base_name())
+            all_materials_cache = chr_cache.get_all_materials_cache()
+            for mat_cache in all_materials_cache:
+                mat = mat_cache.material
+                if mat:
+                    if mat_cache.material_type in paired_types:
+                        linked_mats.add(mat_cache)
+                    elif update_mode == "UPDATE_LINKED":
+                        if mat_cache.material_type in linked_types or mat_cache.get_base_name() in linked_names:
+                            linked_mats.add(mat_cache)
+    return [mc for mc in linked_mats]
 
-    props = bpy.context.scene.CC3ImportProps
+
+def reset_parameters(context = bpy.context, all=False):
+    props = vars.props()
     chr_cache = props.get_context_character_cache(context)
     chr_json = chr_cache.get_character_json()
 
     if chr_cache:
-
         vars.block_property_update = True
-
-        shaders.init_character_property_defaults(chr_cache, chr_json)
+        if all:
+            shaders.init_character_property_defaults(chr_cache, chr_json)
+        else:
+            context_mat = utils.get_context_material(context)
+            linked_mats = get_linked_materials(chr_cache, context_mat, props.update_mode)
+            if linked_mats:
+                mats = [mat_cache.material for mat_cache in linked_mats]
+                shaders.init_character_property_defaults(chr_cache, chr_json, only=mats)
         basic.init_basic_default(chr_cache)
-
         vars.block_property_update = False
-
         update_all_properties(context)
-
-    return
 
 
 def update_all_properties(context, update_mode = None):
@@ -343,7 +347,7 @@ def update_all_properties(context, update_mode = None):
 
     utils.start_timer()
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
 
     if chr_cache:
@@ -352,7 +356,7 @@ def update_all_properties(context, update_mode = None):
 
         for obj_cache in chr_cache.object_cache:
             obj = obj_cache.get_object()
-            if obj_cache.is_mesh() and obj not in processed:
+            if not obj_cache.disabled and obj_cache.is_mesh() and obj not in processed:
 
                 processed.append(obj)
 
@@ -377,17 +381,17 @@ def update_all_properties(context, update_mode = None):
                                 for tex_def in shader_def["textures"]:
                                     tiling_props = tex_def[5:]
                                     for prop_name in tiling_props:
-                                        update_shader_property(obj, mat, mat_cache, prop_name)
+                                        update_shader_property(obj, mat_cache, prop_name)
 
                             if "modifiers" in shader_def.keys():
                                 for mod_def in shader_def["modifiers"]:
                                     prop_name = mod_def[0]
-                                    update_shader_property(obj, mat, mat_cache, prop_name)
+                                    update_shader_property(obj, mat_cache, prop_name)
 
                             if "settings" in shader_def.keys():
                                 for mat_def in shader_def["settings"]:
                                     prop_name = mat_def[0]
-                                    update_shader_property(obj, mat, mat_cache, prop_name)
+                                    update_shader_property(obj, mat_cache, prop_name)
 
                 if obj_cache.is_eye():
                     meshutils.rebuild_eye_vertex_groups(chr_cache)
@@ -406,7 +410,7 @@ def init_material_property_defaults(obj, mat, obj_cache, mat_cache, obj_json, ma
 
 def update_sculpt_mix_node(self, context, prop_name):
     if vars.block_property_update: return
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     body = chr_cache.get_body()
     if chr_cache:
@@ -429,7 +433,7 @@ def update_sculpt_mix_node(self, context, prop_name):
 
 
 def update_rig_target(self, context):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
     if chr_cache:
         if self.hair_rig_target == "CC4":
@@ -467,7 +471,7 @@ def update_rig_target(self, context):
             self.hair_rig_bind_bone_variance = 0.75
 
 def update_link_target(self, context):
-    link_props = bpy.context.scene.CCICLinkProps
+    link_props = vars.link_props()
     if link_props.link_target == "BLENDER":
         link_props.link_port = 9334
     elif link_props.link_target == "CCIC":
@@ -479,7 +483,7 @@ def update_link_target(self, context):
 
 
 def update_link_host(self, context):
-    link_props = bpy.context.scene.CCICLinkProps
+    link_props = vars.link_props()
     host = link_props.link_host
     if host:
         try:
@@ -489,13 +493,27 @@ def update_link_host(self, context):
 
 
 def update_link_host_ip(self, context):
-    link_props = bpy.context.scene.CCICLinkProps
+    link_props = vars.link_props()
     host_ip = link_props.link_host_ip
     if host_ip:
         try:
             link_props.link_host = socket.gethostbyaddr(host_ip)
         except:
             link_props.link_host = ""
+
+
+def clean_collection_property(collection_prop):
+    """Remove any item.disabled items from collection property."""
+    repeat = True
+    while repeat:
+        repeat = False
+        for item in collection_prop:
+            valid_func = getattr(item, "is_valid", None)
+            if callable(valid_func):
+                if not item.is_valid():
+                    repeat = True
+                    utils.remove_from_collection(collection_prop, item)
+                    break
 
 
 class CC3OperatorProperties(bpy.types.Operator):
@@ -512,7 +530,10 @@ class CC3OperatorProperties(bpy.types.Operator):
     def execute(self, context):
 
         if self.param == "RESET":
-            reset_parameters(context)
+            reset_parameters(context, all=False)
+
+        if self.param == "RESET_ALL":
+            reset_parameters(context, all=True)
 
         return {"FINISHED"}
 
@@ -520,7 +541,7 @@ class CC3OperatorProperties(bpy.types.Operator):
     def description(cls, context, properties):
 
         if properties.param == "RESET":
-            return "Reset parameters to the defaults"
+            return "Reset parameters to the defaults for this material and any linked materials if in linked mode"
         return ""
 
 
@@ -552,6 +573,7 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_mouth_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_mouth_ao"))
     skin_nostril_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_nostril_ao"))
     skin_lips_ao: bpy.props.FloatProperty(default=2.5, min=0, max=5, update=lambda s,c: update_property(s,c,"skin_lips_ao"))
+    skin_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_saturation"))
     skin_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"skin_subsurface_falloff"))
@@ -602,7 +624,8 @@ class CC3HeadParameters(bpy.types.PropertyGroup):
     skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_head_shader_skin_micro_normal_tiling)
     skin_micro_normal_tiling: bpy.props.FloatProperty(default=20, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_micro_normal_tiling"))
-    skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_height_scale"))
+    skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
+    skin_bump_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_bump_scale"))
     skin_height_delta_scale: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_height_delta_scale"))
 
 class CC3SkinParameters(bpy.types.PropertyGroup):
@@ -616,6 +639,7 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_diffuse_hsv_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_diffuse_hsv_strength"))
     skin_ao_strength: bpy.props.FloatProperty(default=1.0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_ao_strength"))
     skin_ao_power: bpy.props.FloatProperty(default=1, min=0, max=8, update=lambda s,c: update_property(s,c,"skin_ao_power"))
+    skin_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_subsurface_saturation"))
     skin_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                                 default=(1.0, 0.112, 0.072, 1.0), min = 0.0, max = 1.0,
                                 update=lambda s,c: update_property(s,c,"skin_subsurface_falloff"))
@@ -653,6 +677,8 @@ class CC3SkinParameters(bpy.types.PropertyGroup):
     skin_emission_strength: bpy.props.FloatProperty(default=0, min=0, max=1, update=lambda s,c: update_property(s,c,"skin_emission_strength"))
     # tiling (rl_skin_shader_skin_micro_normal_tiling)
     skin_micro_normal_tiling: bpy.props.FloatProperty(default=25, min=0, max=50, update=lambda s,c: update_property(s,c,"skin_micro_normal_tiling"))
+    skin_height_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_height_scale"))
+    skin_bump_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"skin_bump_scale"))
 
 
 class CC3EyeParameters(bpy.types.PropertyGroup):
@@ -679,6 +705,8 @@ class CC3EyeParameters(bpy.types.PropertyGroup):
     eye_iris_radius: bpy.props.FloatProperty(default=0.15, min=0.01, max=0.16, update=lambda s,c: update_property(s,c,"eye_iris_radius"))
     eye_iris_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_color"))
+    eye_sclera_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                        default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_sclera_color"))
     eye_iris_inner_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"eye_iris_inner_color"))
     eye_iris_cloudy_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
@@ -746,7 +774,7 @@ class CC3EyeOcclusionParameters(bpy.types.PropertyGroup):
 class CC3TearlineParameters(bpy.types.PropertyGroup):
     # Tearline
     tearline_specular: bpy.props.FloatProperty(default=1.0, min=0, max=2.0, update=lambda s,c: update_property(s,c,"tearline_specular"))
-    tearline_glossiness: bpy.props.FloatProperty(default=0.025, min=0, max=0.05, update=lambda s,c: update_property(s,c,"tearline_glossiness"))
+    tearline_glossiness: bpy.props.FloatProperty(default=0.85, min=0, max=1.0, update=lambda s,c: update_property(s,c,"tearline_glossiness"))
     tearline_alpha: bpy.props.FloatProperty(default=0.05, min=0, max=0.2, update=lambda s,c: update_property(s,c,"tearline_alpha"))
     tearline_roughness: bpy.props.FloatProperty(default=0.15, min=0, max=0.5, update=lambda s,c: update_property(s,c,"tearline_roughness"))
     tearline_inner: bpy.props.FloatProperty(default=0, min=-0.2, max=0.2, update=lambda s,c: update_property(s,c,"tearline_inner"))
@@ -846,7 +874,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_vertex_color_strength: bpy.props.FloatProperty(default=0.0, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_vertex_color_strength"))
     hair_vertex_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0, 0, 0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_vertex_color"))
-    hair_anisotropic_roughness: bpy.props.FloatProperty(default=0.0375, min=0.001, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_roughness"))
+    hair_anisotropic_roughness: bpy.props.FloatProperty(default=0.0375, min=0.0, max=0.15, update=lambda s,c: update_property(s,c,"hair_anisotropic_roughness"))
     hair_anisotropic_shift_min: bpy.props.FloatProperty(default=0, min=-1, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_shift_min"))
     hair_anisotropic_shift_max: bpy.props.FloatProperty(default=0, min=-1, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic_shift_max"))
     hair_anisotropic: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_anisotropic"))
@@ -857,6 +885,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_anisotropic_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(0.05, 0.038907, 0.0325, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_anisotropic_color"))
     hair_subsurface_scale: bpy.props.FloatProperty(default=1.0, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_scale"))
+    hair_subsurface_saturation: bpy.props.FloatProperty(default=1.5, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_subsurface_saturation"))
     hair_subsurface_falloff: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
                         default=(1.0, 1.0, 1.0, 1.0), min = 0.0, max = 1.0, update=lambda s,c: update_property(s,c,"hair_subsurface_falloff"))
     hair_subsurface_radius: bpy.props.FloatProperty(default=1.0, min=0.1, max=5, update=lambda s,c: update_property(s,c,"hair_subsurface_radius"))
@@ -868,6 +897,7 @@ class CC3HairParameters(bpy.types.PropertyGroup):
     hair_specular_scale: bpy.props.FloatProperty(default=0.3, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_specular_scale"))
     hair_roughness_strength: bpy.props.FloatProperty(default=0.5, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_roughness_strength"))
     hair_alpha_strength: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_alpha_strength"))
+    hair_alpha_power: bpy.props.FloatProperty(default=1, min=0.01, max=2, update=lambda s,c: update_property(s,c,"hair_alpha_power"))
     hair_opacity: bpy.props.FloatProperty(default=1, min=0, max=1, update=lambda s,c: update_property(s,c,"hair_opacity"))
     hair_normal_strength: bpy.props.FloatProperty(default=1, min=0, max=2, update=lambda s,c: update_property(s,c,"hair_normal_strength"))
     hair_bump_strength: bpy.props.FloatProperty(default=1, min=-3, max=3, update=lambda s,c: update_property(s,c,"hair_bump_strength"))
@@ -999,6 +1029,10 @@ class CC3TextureMapping(bpy.types.PropertyGroup):
     rotation: bpy.props.FloatVectorProperty(subtype="EULER", size=3, default=(0.0, 0.0, 0.0))
     scale: bpy.props.FloatVectorProperty(subtype="XYZ", size=3, default=(1.0, 1.0, 1.0))
 
+    def clean_up(self):
+        if utils.image_exists(self.image):
+            bpy.data.images.remove(self.image)
+
 
 class CC3MaterialCache:
     material_id: bpy.props.StringProperty(default="")
@@ -1128,6 +1162,28 @@ class CC3MaterialCache:
             self.material["rl_material_id"] = material_id
             self.material["rl_material_type"] = material_type
 
+    def is_valid(self):
+        return not self.disabled and utils.material_exists(self.material)
+
+    def invalidate(self):
+        self.disabled = True
+        if utils.material_exists(self.material):
+            bpy.data.materials.remove(self.material)
+        if utils.image_exists(self.temp_weight_map):
+            bpy.data.images.remove(self.temp_weight_map)
+
+    def clean_up(self):
+        if self.disabled:
+            self.invalidate()
+            tex_mapping: CC3TextureMapping
+            mixer_setting: channel_mixer.CC3MixerSettings
+            for tex_mapping in self.texture_mappings:
+                tex_mapping.clean_up()
+            for mixer_setting in self.mixer_settings:
+                mixer_setting.clean_up()
+            self.texture_mappings.clear()
+            self.mixer_settings.clear()
+
 
 class CC3EyeMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
     parameters: bpy.props.PointerProperty(type=CC3EyeParameters)
@@ -1202,10 +1258,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     def is_armature(self):
         return utils.object_exists_is_armature(self.object)
 
-    def is_valid(self):
-        return utils.object_exists(self.object)
-
-    def get_object(self, return_invalid = False):
+    def get_object(self, return_invalid=False):
         if utils.object_exists(self.object):
             return self.object
         if return_invalid:
@@ -1253,6 +1306,19 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
         if self.object:
             self.object["rl_object_id"] = self.object_id
             self.object["rl_object_type"] = self.object_type
+
+    def is_valid(self):
+        return not self.disabled and utils.object_exists(self.object)
+
+    def invalidate(self):
+        self.disabled = True
+        utils.delete_object_tree(self.object)
+        utils.delete_object_tree(self.collision_proxy)
+
+    def clean_up(self):
+        if self.disabled:
+            self.invalidate()
+            pass
 
 
 class CCICActionStore(bpy.types.PropertyGroup):
@@ -1308,7 +1374,6 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     rigified: bpy.props.BoolProperty(default=False)
     rigified_full_face_rig: bpy.props.BoolProperty(default=False)
-    rig_face_rig: bpy.props.BoolProperty(default=True)
     rig_mode: bpy.props.EnumProperty(items=[
                         ("QUICK","Quick","Rig the character all in one go."),
                         ("ADVANCED","Advanced","Split the process so that user adjustments can be made to the meta rig before generating."),
@@ -1393,6 +1458,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("NONE_LEGACY","None (Legacy)","None (Legacy)"),
                     ], default="FULL", name="Set bone inherit scale")
 
+    disabled: bpy.props.BoolProperty(default=False)
+
     def select(self):
         arm = self.get_armature()
         if arm:
@@ -1456,8 +1523,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 utils.log_info(f"Updating paths to source file: {local_file}")
                 self.import_file = local_file
 
-    def can_export(self):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    def can_standard_export(self):
+        prefs = vars.prefs()
         result = True
         if prefs.export_require_key:
             if self.generation in vars.STANDARD_GENERATIONS and not self.get_import_has_key():
@@ -1465,6 +1532,24 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if self.rigified:
             result = False
         return result
+
+    def can_go_cc(self):
+        if self.rigified:
+            return False
+        if self.is_standard() and self.get_import_has_key():
+            return True
+        if self.is_morph():
+            return True
+        if self.is_non_standard():
+            return True
+        if self.is_prop():
+            return True
+        return False
+
+    def can_go_ic(self):
+        if self.is_prop():
+            return True
+        return False
 
     def is_morph(self):
         return self.is_import_type("OBJ") and self.get_import_has_key()
@@ -1499,7 +1584,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if (self.generation == "G3" or
             self.generation == "G3Plus" or
             self.generation == "NonStandardG3" or
-            self.generation == "ActorBuild"):
+            self.generation == "ActorBuild" or
+            self.generation == "AccuRig"):
             return True
         elif self.generation == "GameBase":
             return True
@@ -1507,10 +1593,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def can_be_rigged(self):
         """Returns True if the character can be rigified."""
+        if self.rigified:
+            return False
         if (self.generation == "G3" or
             self.generation == "G3Plus" or
             self.generation == "NonStandardG3" or
-            self.generation == "ActorBuild"):
+            self.generation == "ActorBuild" or
+            self.generation == "AccuRig"):
             return True
         elif self.is_actor_core():
             return True
@@ -1525,11 +1614,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return False
 
     def is_rig_full_face(self):
+        prefs = vars.prefs()
         if self.rig_mode == "ADVANCED":
-            return self.rig_face_rig
+            return prefs.rigify_build_face_rig
         else:
             if self.can_rig_full_face():
-                return self.rig_face_rig
+                return prefs.rigify_build_face_rig
             else:
                 return False
 
@@ -1542,89 +1632,94 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return rigify_data.bone_mapping
         return None
 
-    def get_all_materials_cache(self):
+    def get_all_materials_cache(self, include_disabled=False):
         cache_all = []
         for mat_cache in self.tongue_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.teeth_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.head_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.skin_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.tearline_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.eye_occlusion_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.eye_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.hair_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.pbr_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         for mat_cache in self.sss_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 cache_all.append(mat_cache)
         return cache_all
 
-    def get_all_materials(self):
+    def get_all_materials(self, include_disabled=False):
         materials = []
         for mat_cache in self.tongue_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.teeth_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.head_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.skin_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.tearline_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.eye_occlusion_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.eye_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.hair_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.pbr_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         for mat_cache in self.sss_material_cache:
-            if mat_cache.material:
+            if mat_cache.material and (include_disabled or not mat_cache.disabled):
                 materials.append(mat_cache.material)
         return materials
 
-    def get_all_objects(self, include_armature = True, include_children = False, of_type = "ALL"):
+    def get_all_objects(self,
+                        include_armature=True,
+                        include_children=False,
+                        include_disabled=False,
+                        of_type="ALL"):
 
         objects = []
         arm = None
 
         for obj_cache in self.object_cache:
-            obj = obj_cache.get_object()
-            if obj and obj not in objects:
-                if obj.type == "ARMATURE":
-                    arm = obj
-                    if include_armature:
-                        if of_type == "ALL" or of_type == "ARMATURE":
-                            objects.append(obj)
-                elif of_type == "ALL" or of_type == obj.type:
-                    objects.append(obj)
+            if include_disabled or not obj_cache.disabled:
+                obj = obj_cache.get_object()
+                if obj and obj not in objects:
+                    if obj.type == "ARMATURE":
+                        arm = obj
+                        if include_armature:
+                            if of_type == "ALL" or of_type == "ARMATURE":
+                                objects.append(obj)
+                    elif of_type == "ALL" or of_type == obj.type:
+                        objects.append(obj)
 
         if include_children and arm:
             for child in arm.children:
@@ -1681,27 +1776,21 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     utils.remove_from_collection(self.sss_material_cache, mat_cache)
                     return
 
-    def get_object_cache(self, obj, strict=False, by_id=None):
+    def get_object_cache(self, obj, include_disabled=False, by_id=None):
         """Returns the object cache for this object.
         """
         if obj:
             # by object
             for obj_cache in self.object_cache:
-                cache_object = obj_cache.get_object()
-                if cache_object and cache_object == obj:
-                    if strict:
-                        if not obj_cache.disabled:
-                            return obj_cache
-                    else:
+                if include_disabled or not obj_cache.disabled:
+                    cache_object = obj_cache.get_object()
+                    if cache_object and cache_object == obj:
                         return obj_cache
             # by source name
             if by_id:
                 for obj_cache in self.object_cache:
-                    if obj_cache.object_id == by_id:
-                        if strict:
-                            if not obj_cache.disabled:
-                                return obj_cache
-                        else:
+                    if include_disabled or not obj_cache.disabled:
+                        if obj_cache.object_id == by_id:
                             return obj_cache
         return None
 
@@ -1717,11 +1806,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     utils.remove_from_collection(self.object_cache, obj_cache)
                     return
 
-    def has_cache_objects(self, objects):
+    def has_cache_objects(self, objects, include_disabled=False):
         """Returns True if any of the objects are actively the object cache.
         """
         for obj_cache in self.object_cache:
-            if not obj_cache.disabled:
+            if include_disabled or not obj_cache.disabled:
                 cache_object = obj_cache.get_object()
                 if cache_object in objects:
                     return True
@@ -1735,21 +1824,23 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     return True
         return False
 
-    def has_object(self, obj):
-        """Returns True if any of the objects are in the object cache.
+    def has_object(self, obj, include_disabled=False):
+        """Returns True if the object is in the object cache.
         """
         for obj_cache in self.object_cache:
-            cache_object = obj_cache.get_object()
-            if cache_object == obj:
-                return True
+            if include_disabled or not obj_cache.disabled:
+                cache_object = obj_cache.get_object()
+                if cache_object == obj:
+                    return True
         return False
 
-    def get_armature(self):
+    def get_armature(self, include_disabled=False):
         try:
             for obj_cache in self.object_cache:
-                cache_object = obj_cache.get_object()
-                if utils.object_exists_is_armature(cache_object):
-                    return cache_object
+                if include_disabled or not obj_cache.disabled:
+                    cache_object = obj_cache.get_object()
+                    if utils.object_exists_is_armature(cache_object):
+                        return cache_object
         except:
             pass
         return None
@@ -1757,12 +1848,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_body(self):
         return self.get_object_of_type("BODY")
 
-    def get_object_of_type(self, object_type):
+    def get_object_of_type(self, object_type, include_disabled=False):
         try:
             for obj_cache in self.object_cache:
-                cache_object = obj_cache.get_object()
-                if cache_object and obj_cache.object_type == object_type:
-                    return cache_object
+                if include_disabled or not obj_cache.disabled:
+                    cache_object = obj_cache.get_object()
+                    if cache_object and obj_cache.object_type == object_type:
+                        return cache_object
         except:
             pass
         return None
@@ -1771,13 +1863,14 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.rigified = True
         try:
             for obj_cache in self.object_cache:
-                cache_object = obj_cache.get_object()
-                if cache_object.type == "ARMATURE":
-                    self.rig_original_rig = cache_object
-                    obj_cache.set_object(new_arm)
-                    # update the object id
-                    obj_cache.object_id = utils.generate_random_id(20)
-                    new_arm["rl_object_id"] = obj_cache.object_id
+                if not obj_cache.disabled:
+                    cache_object = obj_cache.get_object()
+                    if cache_object.type == "ARMATURE":
+                        self.rig_original_rig = cache_object
+                        obj_cache.set_object(new_arm)
+                        # update the object id
+                        obj_cache.object_id = utils.generate_random_id(20)
+                        new_arm["rl_object_id"] = obj_cache.object_id
         except:
             pass
 
@@ -1929,7 +2022,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return self.pbr_material_cache
 
 
-    def add_material_cache(self, mat, create_type = "DEFAULT", user=False, copy_from=None):
+    def add_material_cache(self, mat,
+                           create_type = "DEFAULT",
+                           is_user=False,
+                           copy_from=None):
+
         """Returns the material cache for this material.
 
         Fetches the material cache for the material. Returns None if the material is not in the cache.
@@ -1948,7 +2045,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             if copy_from:
                 utils.log_info(f"Copying material cache from: {copy_from}")
                 utils.copy_property_group(copy_from, mat_cache)
-                if user:
+                if is_user:
                     mat_cache.user_added = True
                     mat_cache.material_id = utils.generate_random_id(20)
             mat_cache.material = mat
@@ -2046,10 +2143,11 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     is_proxy = True
         return obj, proxy, is_proxy
 
-    def find_object_from_proxy(self, proxy):
+    def find_object_from_proxy(self, proxy, include_disabled=False):
         for obj_cache in self.object_cache:
-            if obj_cache.collision_proxy == proxy:
-                return obj_cache.object
+            if include_disabled or not obj_cache.disabled:
+                if obj_cache.collision_proxy == proxy:
+                    return obj_cache.object
         if self.collision_body == proxy:
             body = self.get_body()
             return body
@@ -2059,6 +2157,69 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         if not self.link_id:
             self.link_id = utils.generate_random_id(14)
         return self.link_id
+
+    def is_valid(self):
+        obj_cache: CC3ObjectCache
+        if self.disabled:
+            return False
+        for obj_cache in self.object_cache:
+            if obj_cache.is_valid():
+                return True
+        return False
+
+    def invalidate(self):
+        self.disabled = True
+        obj_cache: CC3ObjectCache
+        mat_cache: CC3MaterialCache
+        for obj_cache in self.object_cache:
+            obj_cache.invalidate()
+        all_mat_cache = self.get_all_materials_cache(include_disabled=True)
+        for mat_cache in all_mat_cache:
+            mat_cache.invalidate()
+        utils.log_info(f"Deleting Character Meta Objects.")
+        utils.delete_object(self.collision_body)
+        utils.delete_object_tree(self.rig_meta_rig)
+        utils.delete_object_tree(self.rig_export_rig)
+        utils.delete_object_tree(self.rig_original_rig)
+        utils.delete_object_tree(self.rig_retarget_rig)
+        utils.delete_object_tree(self.rig_datalink_rig)
+        utils.delete_object_tree(self.rig_retarget_source_rig)
+        utils.delete_object(self.detail_multires_body)
+        utils.delete_object(self.sculpt_multires_body)
+
+    def clean_up(self):
+        obj_cache: CC3ObjectCache
+        mat_cache: CC3MaterialCache
+        for obj_cache in self.object_cache:
+            obj_cache.clean_up()
+        all_mat_cache = self.get_all_materials_cache(include_disabled=True)
+        for mat_cache in all_mat_cache:
+            mat_cache.clean_up()
+        if self.disabled:
+            self.invalidate()
+            self.tongue_material_cache.clear()
+            self.teeth_material_cache.clear()
+            self.head_material_cache.clear()
+            self.skin_material_cache.clear()
+            self.tearline_material_cache.clear()
+            self.eye_occlusion_material_cache.clear()
+            self.eye_material_cache.clear()
+            self.hair_material_cache.clear()
+            self.pbr_material_cache.clear()
+            self.sss_material_cache.clear()
+            self.proportion_editing_actions.clear()
+        else:
+            clean_collection_property(self.object_cache)
+            clean_collection_property(self.tongue_material_cache)
+            clean_collection_property(self.teeth_material_cache)
+            clean_collection_property(self.head_material_cache)
+            clean_collection_property(self.skin_material_cache)
+            clean_collection_property(self.tearline_material_cache)
+            clean_collection_property(self.eye_occlusion_material_cache)
+            clean_collection_property(self.eye_material_cache)
+            clean_collection_property(self.hair_material_cache)
+            clean_collection_property(self.pbr_material_cache)
+            clean_collection_property(self.sss_material_cache)
 
 
 class CC3ImportProps(bpy.types.PropertyGroup):
@@ -2142,17 +2303,6 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     section_physics_cloth_settings: bpy.props.BoolProperty(default=False)
     section_physics_collision_settings: bpy.props.BoolProperty(default=False)
     show_data_link_prefs: bpy.props.BoolProperty(default=False)
-
-    retarget_preview_shape_keys: bpy.props.BoolProperty(default=True, name="Retarget Shape Keys",
-                                                        description="Retarget any facial expression and viseme shape key actions on the source character rig to the current character meshes on the rigify rig")
-    bake_nla_shape_keys: bpy.props.BoolProperty(default=True, name="Bake Shape Keys",
-                                                description="Bake facial expression and viseme shape keys to new shapekey actions on the character")
-    bake_unity_t_pose: bpy.props.BoolProperty(default=True, name="Include T-Pose", description="Include a T-Pose as the first animation track. This is useful for correct avatar alignment in Unity and for importing animations back into CC4")
-    export_rigify_mode: bpy.props.EnumProperty(items=[
-                        ("MESH","Mesh","Export only the character mesh and materials, with no animation (other than a Unity T-pose)"),
-                        ("MOTION","Motion","Export the animation only, with minimal mesh and no materials. Shapekey animations will also export their requisite mesh objects"),
-                        ("BOTH","Both","Export both the character mesh with materials and the animation"),
-                    ], default="MOTION")
     section_rigify_export: bpy.props.BoolProperty(default=True)
 
     skin_toggle: bpy.props.BoolProperty(default=True)
@@ -2297,6 +2447,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     rigified_action_list_index: bpy.props.IntProperty(default=-1)
     rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
 
+    #
+    light_filter: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
+                                                default=(1.0, 1.0, 1.0, 1.0),
+                                                min = 0.0, max = 1.0)
+    lighting_setup_compositor: bpy.props.BoolProperty(default=False)
+    lighting_setup_camera: bpy.props.BoolProperty(default=False)
+
     def add_character_cache(self, copy_from=None):
         chr_cache = self.import_cache.add()
         if copy_from:
@@ -2309,10 +2466,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
         if objects:
             for chr_cache in self.import_cache:
-                if chr_cache.has_cache_objects(objects):
-                    return chr_cache
-                if chr_cache.rig_meta_rig and chr_cache.rig_meta_rig in objects:
-                    return chr_cache
+                if not chr_cache.disabled:
+                    if chr_cache.has_cache_objects(objects):
+                        return chr_cache
+                    if chr_cache.rig_meta_rig and chr_cache.rig_meta_rig in objects:
+                        return chr_cache
 
         if search_materials:
             materials = []
@@ -2322,49 +2480,51 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         materials.append(mat)
             if materials:
                 for chr_cache in self.import_cache:
-                    if chr_cache.has_any_materials(materials):
+                    if not chr_cache.disabled and chr_cache.has_any_materials(materials):
                         return chr_cache
         return None
 
     def get_character_cache(self, obj, mat):
         if obj:
             for chr_cache in self.import_cache:
-                obj_cache = chr_cache.get_object_cache(obj)
-                if obj_cache and not obj_cache.disabled:
-                    return chr_cache
+                if not chr_cache.disabled:
+                    obj_cache = chr_cache.get_object_cache(obj)
+                    if obj_cache and not obj_cache.disabled:
+                        return chr_cache
         if mat:
             for chr_cache in self.import_cache:
-                mat_cache = chr_cache.get_material_cache(mat)
-                if mat_cache and not mat_cache.disabled:
-                    return chr_cache
+                if not chr_cache.disabled:
+                    mat_cache = chr_cache.get_material_cache(mat)
+                    if mat_cache and not mat_cache.disabled:
+                        return chr_cache
         return None
 
     def get_avatars(self):
         avatars = []
         chr_cache: CC3CharacterCache
         for chr_cache in self.import_cache:
-            if chr_cache.is_avatar():
+            if not chr_cache.disabled and chr_cache.is_avatar():
                 avatars.append(chr_cache)
         return avatars
 
     def get_first_avatar(self):
         chr_cache: CC3CharacterCache
         for chr_cache in self.import_cache:
-            if chr_cache.is_avatar():
+            if not chr_cache.disabled and chr_cache.is_avatar():
                 return chr_cache
         return None
 
     def find_character_by_name(self, name):
         if name:
             for chr_cache in self.import_cache:
-                if chr_cache.character_name == name:
+                if not chr_cache.disabled and chr_cache.character_name == name:
                     return chr_cache
         return None
 
     def find_character_by_link_id(self, link_id):
         if link_id:
             for chr_cache in self.import_cache:
-                if chr_cache.link_id == link_id:
+                if not chr_cache.disabled and chr_cache.link_id == link_id:
                     return chr_cache
         return None
 
@@ -2389,10 +2549,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
         return chr_cache
 
-    def get_object_cache(self, obj, strict = False):
+    def get_object_cache(self, obj, include_disabled=False):
         if obj:
-            for imp_cache in self.import_cache:
-                obj_cache = imp_cache.get_object_cache(obj, strict=strict)
+            for chr_cache in self.import_cache:
+                obj_cache = chr_cache.get_object_cache(obj, include_disabled=include_disabled)
                 if obj_cache:
                     return obj_cache
         return None
@@ -2406,7 +2566,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         return None
 
     def is_unity_project(self):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
         local_path = utils.local_path()
         if local_path:
             if prefs.export_unity_mode == "BLEND" and self.unity_file_path and self.unity_project_path:
@@ -2449,6 +2609,27 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                 vector = Vector((0,-1)).normalized()
             dir_vectors[aspect] = vector
         return dir_vectors
+
+    def validate(self):
+        validation = True
+        chr_cache: CC3CharacterCache
+        for chr_cache in self.import_cache:
+            if not chr_cache.is_valid():
+                utils.log_info(f"Character Cache: {chr_cache.character_name} is no longer valid!")
+                chr_cache.invalidate()
+                validation = False
+        return validation
+
+    def clean_up(self):
+        chr_cache: CC3CharacterCache
+        for chr_cache in self.import_cache:
+            if not chr_cache.is_valid():
+                chr_cache.clean_up()
+        clean_collection_property(self.import_cache)
+
+    def validate_and_clean_up(self):
+        if not self.validate():
+            self.clean_up()
 
 
 class CCICBakeCache(bpy.types.PropertyGroup):
@@ -2533,10 +2714,6 @@ class CCICLinkProps(bpy.types.PropertyGroup):
                     ], default="CCIC", name = "Data Link Target", update=update_link_target)
     link_port: bpy.props.IntProperty(default=9333)
     link_status: bpy.props.StringProperty(default="")
-    link_auto_start: bpy.props.BoolProperty(default=False)
-    sequence_frame_sync: bpy.props.BoolProperty(default=False)
-    sequence_preview_shape_keys: bpy.props.BoolProperty(default=True)
-    match_client_rate: bpy.props.BoolProperty(default=True)
     remote_app: bpy.props.StringProperty(default="")
     remote_version: bpy.props.StringProperty(default="")
     remote_path: bpy.props.StringProperty(default="")

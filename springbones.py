@@ -318,7 +318,7 @@ def realign_spring_bones_axis(chr_cache, arm):
 
 def enumerate_spring_rigs(self, context):
     global AVAILABLE_SPRING_RIG_LIST
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(context)
 
     if chr_cache:
@@ -380,7 +380,7 @@ def stop_spring_animation(context):
 
 
 def reset_spring_physics(context):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     chr_cache = props.get_context_character_cache(context)
     if chr_cache:
         arm = chr_cache.get_armature()
@@ -406,6 +406,18 @@ def add_spring_colliders(chr_cache):
         rigidbody.build_rigid_body_colliders(chr_cache, json_data, bone_mapping=bone_mapping)
 
 
+def toggle_show_spring_bones(chr_cache):
+    if chr_cache:
+        arm = chr_cache.get_armature()
+    else:
+        arm = utils.get_armature_from_objects(bpy.context.selected_objects)
+    if arm:
+        if bones.is_bone_collection_visible(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER):
+            show_spring_bone_edit_layer(chr_cache, arm, False)
+        else:
+            show_spring_bone_edit_layer(chr_cache, arm, True)
+
+
 class CC3OperatorSpringBones(bpy.types.Operator):
     """Blender Spring Bone Functions"""
     bl_idname = "cc3.springbones"
@@ -418,8 +430,8 @@ class CC3OperatorSpringBones(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         mode_selection = utils.store_mode_selection_state()
 
@@ -514,7 +526,7 @@ class CC3OperatorSpringBones(bpy.types.Operator):
 
     @classmethod
     def description(cls, context, properties):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
 
         if properties.param == "MAKE_RIGID_BODY_SYSTEM":
             return "Build the rigid body simulation for the selected spring rig and sets contraints to copy the simulation to the spring bones"

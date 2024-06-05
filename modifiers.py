@@ -182,8 +182,8 @@ def remove_eye_modifiers(obj):
 
 
 def add_eye_modifiers(obj):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     # fetch the eye materials (not the cornea materials)
     mat_left, mat_right = materials.get_left_right_eye_materials(obj)
@@ -221,8 +221,8 @@ def add_eye_modifiers(obj):
 
 
 def add_eye_occlusion_modifiers(obj):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     mat_left, mat_right = materials.get_left_right_materials(obj)
     cache_left = props.get_material_cache(mat_left)
@@ -275,8 +275,8 @@ def add_eye_occlusion_modifiers(obj):
 
 
 def add_tearline_modifiers(obj):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     mat_left, mat_right = materials.get_left_right_materials(obj)
     cache_left = props.get_material_cache(mat_left)

@@ -31,7 +31,7 @@ LINK_TAB_NAME = "CC/iC Link"
 #
 
 def fake_drop_down(row, label, prop_name, prop_bool_value, icon = "TRIA_DOWN", icon_closed = "TRIA_RIGHT"):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     row.alignment="LEFT"
 
     if prop_bool_value:
@@ -82,8 +82,8 @@ def warn_icon(row, icon = "ERROR"):
 
 
 def character_info_box(chr_cache, chr_rig, layout, show_name = True, show_type = True, show_type_selector = True):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     is_character = False
     is_non_standard = True
@@ -148,8 +148,8 @@ def reconnect_character_ui(context, layout: bpy.types.UILayout, chr_cache):
 
 
 def pipeline_export_group(chr_cache, chr_rig, layout: bpy.types.UILayout):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     character_info_box(chr_cache, chr_rig, layout)
 
@@ -173,22 +173,24 @@ def pipeline_export_group(chr_cache, chr_rig, layout: bpy.types.UILayout):
 
 
 def rigify_export_group(chr_cache, layout):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     row = layout.row()
     row.label(text="Include T-Pose")
-    row.prop(props, "bake_unity_t_pose", text="")
+    row.prop(prefs, "rigify_export_t_pose", text="")
+    layout.label(text="Bone Naming:")
+    layout.prop(prefs, "rigify_export_naming", expand=True)
 
     row = layout.row()
     row.scale_y = 2
-    if props.export_rigify_mode == "MESH":
+    if prefs.rigify_export_mode == "MESH":
         row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Mesh").param = "EXPORT_RIGIFY"
-    elif props.export_rigify_mode == "MOTION":
+    elif prefs.rigify_export_mode == "MOTION":
         row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Motion").param = "EXPORT_RIGIFY"
     else:
         row.operator("cc3.exporter", icon="ARMATURE_DATA", text="Export Mesh & Motion").param = "EXPORT_RIGIFY"
-    layout.row().prop(props, "export_rigify_mode", expand=True)
+    layout.row().prop(prefs, "rigify_export_mode", expand=True)
 
 
 def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, scale=2, warn=True):
@@ -206,7 +208,7 @@ def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, sca
             text = "Export Morph Target"
             icon = "ARROW_LEFTRIGHT"
         row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
-        if not chr_cache.can_export():
+        if not chr_cache.can_standard_export():
             row.enabled = False
             if warn and not chr_cache.get_import_has_key():
                 if chr_cache.is_import_type("FBX"):
@@ -233,8 +235,8 @@ def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, sca
 
 
 def character_export_unity_button(chr_cache, layout):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     column = layout.column()
 
@@ -249,13 +251,13 @@ def character_export_unity_button(chr_cache, layout):
         column.row().prop(prefs, "export_unity_mode", expand=True)
 
     # disable if no character, or not an fbx import
-    if not chr_cache or not chr_cache.is_import_type("FBX") or chr_cache.rigified:
+    if not chr_cache or not (chr_cache.is_import_type("FBX") or chr_cache.is_import_type("BLEND")) or chr_cache.rigified:
         column.enabled = False
 
 
 def character_export_unreal_button(chr_cache, layout):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     column = layout.column()
 
@@ -273,7 +275,7 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
                       fixed_parent=False, only_parent_mode=None,
                       show_selector=True, enabled=True):
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if not chr_cache or not arm:
         return
@@ -353,7 +355,7 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
             row = column.row(align=True)
             colliders_visible = rigidbody.colliders_visible(arm)
             row.operator("cc3.springbones", icon=utils.check_icon("HIDE_OFF"), text="", depress=colliders_visible).param = "TOGGLE_SHOW_COLLIDERS"
-            is_pose_position = rigging.is_rig_rest_position(chr_cache)
+            is_pose_position = rigutils.is_rig_rest_position(arm)
             row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
             row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Remove Colliders").param = "REMOVE_COLLIDERS"
             #column.row().prop(rigid_body, "collision_margin", text="Collision Margin", slider=True)
@@ -469,6 +471,98 @@ def cache_timeline_physics_ui(chr_cache, layout : bpy.types.UILayout):
         row.operator("ptcache.bake_all", text="Bake All Dynamics", icon="REC", depress=all_depress).bake = True
 
 
+def character_tools_ui(context, layout):
+    props = vars.props()
+    prefs = vars.prefs()
+
+    chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
+    non_chr_objects = [ obj for obj in context.selected_objects
+                        if props.get_object_cache(obj) is None
+                            and (obj.type == "MESH"
+                                 or obj.type == "EMPTY")]
+    generic_rig = None
+    rig = None
+    if chr_cache:
+        rig = chr_cache.get_armature()
+    else:
+        generic_rig = characters.get_generic_rig(context.selected_objects)
+        if generic_rig:
+            rig = generic_rig
+
+    if chr_cache:
+        chr_name = chr_cache.character_name
+    elif generic_rig:
+        chr_name = generic_rig.name
+    elif non_chr_objects:
+        chr_name = non_chr_objects[0].name
+    else:
+        chr_name = "None Selected"
+
+    if chr_cache:
+        if chr_cache.is_non_standard():
+            type_string = chr_cache.non_standard_type.capitalize()
+        else:
+            type_string = chr_cache.generation.capitalize()
+    elif generic_rig or non_chr_objects:
+        type_string = "Generic"
+    else:
+        type_string = ""
+
+    box = layout.box()
+    if type_string:
+        box.label(text=f"{chr_name} ({type_string})", icon="TOOL_SETTINGS")
+    else:
+        box.label(text=f"{chr_name}", icon="TOOL_SETTINGS")
+    col = layout.column(align=True)
+    grid = col.grid_flow(row_major=True, columns=2, align=True)
+    grid.scale_y = 1.5
+    grid.operator("cc3.character", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_ACTOR_ALL"
+    grid.operator("cc3.character", icon="ARMATURE_DATA", text="Select Rig").param = "SELECT_ACTOR_RIG"
+    grid.operator("ccic.rename_character", icon="GREASEPENCIL", text="Edit")
+    grid.operator("cc3.character", icon="DUPLICATE", text="Duplicate").param = "DUPLICATE"
+    if not chr_cache:
+        grid.enabled = False
+
+    split = col.split(factor=0.5, align=True)
+    col_1 = split.column(align=True)
+    col_2 = split.column(align=True)
+    col_1.scale_y = 1.5
+    col_2.scale_y = 1.5
+    col_1.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="Rigify").param ="DATALINK_RIGIFY"
+    if not (chr_cache and chr_cache.is_avatar() and not chr_cache.rigified and chr_cache.can_be_rigged()):
+        col_1.enabled = False
+    if chr_cache:
+        col_2.operator("cc3.importer", icon="PANEL_CLOSE", text="Delete").param ="DELETE_CHARACTER"
+    elif generic_rig or non_chr_objects:
+        if generic_rig:
+            col_2.operator("ccic.convert_generic", icon="COMMUNITY", text="Convert")
+        elif non_chr_objects:
+            col_2.operator("ccic.convert_generic", icon="OUTLINER_OB_META", text="Convert")
+    else:
+        col_2.operator("cc3.importer", icon="PANEL_CLOSE", text="Delete").param ="DELETE_CHARACTER"
+        col_2.enabled = False
+
+    if chr_cache or generic_rig or non_chr_objects:
+        if chr_cache:
+            if chr_cache.link_id:
+                row = layout.row()
+                row.label(text=f"Link ID: {chr_cache.link_id}")
+                if chr_cache.import_file:
+                    row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
+            else:
+                layout.row().label(text=f"{type_string}: Unlinked")
+        elif generic_rig:
+            layout.row().label(text=f"Armature: {generic_rig.name}")
+        elif non_chr_objects:
+            obj_text = "Objects: "
+            for i, obj in enumerate(non_chr_objects):
+                if i > 0:
+                    obj_text += ", "
+                obj_text += obj.name
+            if len(non_chr_objects) == 0:
+                obj_text += "None"
+            layout.row().label(text=obj_text)
+
 
 class ARMATURE_UL_List(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -491,7 +585,7 @@ class ARMATURE_UL_List(bpy.types.UIList):
                     if "_Retarget" not in item_name: # don't list retarget armatures
                         if len(item.data.bones) > 0:
                             for allowed_bone in rigify_mapping_data.ALLOWED_RIG_BONES: # only list armatures of the allowed sources
-                                if allowed_bone in item.data.bones:
+                                if rigutils.bone_name_in_armature_regex(item, allowed_bone):
                                     allowed = True
             if not allowed:
                     filtered[i] &= ~self.bitflag_filter_item
@@ -511,7 +605,7 @@ class ACTION_UL_List(bpy.types.UIList):
             layout.label(text="", icon_value=icon)
 
     def filter_items(self, context, data, propname):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
         filtered = []
         ordered = []
         arm_name = None
@@ -584,8 +678,8 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
         mesh_in_selection = False
@@ -604,10 +698,13 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 split = box.split(factor=0.4)
                 col_1 = split.column()
                 col_2 = split.column()
-                col_1.label(text="Generation")
+                col_1.label(text="Generation:")
                 col_2.prop(chr_cache, "generation", text="")
-                col_1.label(text="Key File")
-                col_2.prop(chr_cache, "import_has_key", text="")
+                col_1.label(text="Key File:")
+                has_key = "Yes" if chr_cache.get_import_has_key() else "No"
+                col_2.label(text=has_key)
+                col_1.label(text="Render For:")
+                col_2.prop(chr_cache, "render_target", text="")
                 box.prop(chr_cache, "import_file", text="")
                 for obj_cache in chr_cache.object_cache:
                     o = obj_cache.get_object()
@@ -689,18 +786,33 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 split = column.split(factor=0.5)
                 col_1 = split.column()
                 col_2 = split.column()
-                col_1.label(text = "Skin SSS")
-                col_2.prop(prefs, "cycles_sss_skin_v203", text = "")
-                col_1.label(text = "Hair SSS")
-                col_2.prop(prefs, "cycles_sss_hair_v203", text = "")
-                col_1.label(text = "Teeth SSS")
-                col_2.prop(prefs, "cycles_sss_teeth_v203", text = "")
-                col_1.label(text = "Tongue SSS")
-                col_2.prop(prefs, "cycles_sss_tongue_v203", text = "")
-                col_1.label(text = "Eyes SSS")
-                col_2.prop(prefs, "cycles_sss_eyes_v203", text = "")
-                col_1.label(text = "Default SSS")
-                col_2.prop(prefs, "cycles_sss_default_v203", text = "")
+                if utils.B400():
+                    col_1.label(text = "Skin SSS")
+                    col_2.prop(prefs, "cycles_sss_skin_b410", text = "")
+                    col_1.label(text = "Hair SSS")
+                    col_2.prop(prefs, "cycles_sss_hair_b410", text = "")
+                    col_1.label(text = "Teeth SSS")
+                    col_2.prop(prefs, "cycles_sss_teeth_b410", text = "")
+                    col_1.label(text = "Tongue SSS")
+                    col_2.prop(prefs, "cycles_sss_tongue_b410", text = "")
+                    col_1.label(text = "Eyes SSS")
+                    col_2.prop(prefs, "cycles_sss_eyes_b410", text = "")
+                    col_1.label(text = "Default SSS")
+                    col_2.prop(prefs, "cycles_sss_default_b410", text = "")
+                else:
+                    col_1.label(text = "Skin SSS")
+                    col_2.prop(prefs, "cycles_sss_skin_b341", text = "")
+                    col_1.label(text = "Hair SSS")
+                    col_2.prop(prefs, "cycles_sss_hair_b341", text = "")
+                    col_1.label(text = "Teeth SSS")
+                    col_2.prop(prefs, "cycles_sss_teeth_b341", text = "")
+                    col_1.label(text = "Tongue SSS")
+                    col_2.prop(prefs, "cycles_sss_tongue_b341", text = "")
+                    col_1.label(text = "Eyes SSS")
+                    col_2.prop(prefs, "cycles_sss_eyes_b341", text = "")
+                    col_1.label(text = "Default SSS")
+                    col_2.prop(prefs, "cycles_sss_default_b341", text = "")
+                col_2.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_CYCLES"
 
         # Build Button
         if chr_cache:
@@ -715,7 +827,10 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             op.param ="BUILD"
             row = box.row()
             row.prop(props, "build_mode", expand=True)
-            box.row().operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Node Groups").param ="REBUILD_NODE_GROUPS"
+            box.row().operator("cc3.setproperties", icon="DECORATE_OVERRIDE", text="Reset All Parameters").param = "RESET_ALL"
+            row = box.row()
+            row.scale_y = 1.5
+            row.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Shaders").param ="REBUILD_NODE_GROUPS"
 
         # Material Setup
         layout.box().label(text="Object & Material Setup", icon="MATERIAL")
@@ -774,11 +889,9 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
-        strict_chr_cache = chr_cache if obj and obj_cache else None
-        non_chr_objects = [ obj for obj in context.selected_objects if props.get_object_cache(obj, strict=True) is None ]
 
         generic_rig = None
         arm = None
@@ -818,44 +931,8 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column = layout.column()
 
-        # Converting
-
-        if not rigified:
-
-            column.box().label(text="Converting", icon="DRIVER")
-
-            if chr_cache:
-
-                box = character_info_box(chr_cache, arm, column)
-
-                if chr_cache.is_standard():
-
-                    row = box.row()
-                    row.operator("cc3.character", icon="MESH_MONKEY", text="Convert to Non-standard").param = "CONVERT_TO_NON_STANDARD"
-                    if not chr_cache or chr_cache.is_non_standard():
-                        row.enabled = False
-
-            if generic_rig or non_chr_objects:
-
-                obj_text = "Objects: "
-                for i, obj in enumerate(non_chr_objects):
-                    if i > 0:
-                        obj_text += ", "
-                    obj_text += obj.name
-                if len(non_chr_objects) == 0:
-                    obj_text += "None"
-
-                column.box().label(text=obj_text)
-
-                row = column.row()
-                if generic_rig:
-                    row.operator("cc3.character", icon="COMMUNITY", text="Convert from Generic").param = "CONVERT_FROM_GENERIC"
-                else:
-                    row.operator("cc3.character", icon="COMMUNITY", text="Convert from Objects").param = "CONVERT_FROM_GENERIC"
-                if not (generic_rig or non_chr_objects):
-                    row.enabled = False
-
-            column.separator()
+        # Character Tools
+        character_tools_ui(context, column)
 
         # Accessory Management
 
@@ -977,8 +1054,8 @@ class CC3SpringRigPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         arm = None
         can_hair_spring_rig = False
@@ -1076,7 +1153,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
                 else:
                     icon = "BONE_DATA"
                 tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", depress=False).param = "CYCLE_BONE_STYLE"
-                is_pose_position = rigging.is_rig_rest_position(chr_cache)
+                is_pose_position = rigutils.is_rig_rest_position(arm)
                 tool_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
 
             row = col_2.row()
@@ -1191,8 +1268,8 @@ class CC3HairPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
         # Blender Curve Hair
@@ -1232,8 +1309,8 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         shader = "NONE"
@@ -1617,8 +1694,8 @@ class CC3RigifyPanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
         missing_materials = characters.has_missing_materials(chr_cache)
@@ -1666,8 +1743,6 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     row = layout.row()
                     row.prop(chr_cache, "rig_mode", expand=True)
-
-                    layout.separator()
 
                     if chr_cache.rigified:
 
@@ -1722,11 +1797,11 @@ class CC3RigifyPanel(bpy.types.Panel):
                     elif chr_cache.can_be_rigged():
 
                         if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
-                            row = layout.row()
-                            split = row.split(factor=0.5)
-                            split.column().label(text = "Full Face Rig")
-                            split.column().prop(chr_cache, "rig_face_rig", text = "")
-                            if not chr_cache.can_rig_full_face() and chr_cache.rig_face_rig:
+                            grid = layout.grid_flow(columns=2, row_major=True, align=True)
+                            grid.prop(prefs, "rigify_build_face_rig", text = "Face Rig", toggle=True)
+                            if chr_cache.rig_mode == "QUICK":
+                                grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
+                            if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
                                 wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
 
                         if chr_cache.rig_mode == "QUICK":
@@ -1754,7 +1829,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         #row.enabled = chr_cache is not None
 
                     else:
-                        wrapped_text_box(layout, "This character can not be rigged.", width)
+                        wrapped_text_box(layout, "This character cannot be rigged.", width)
 
                 if chr_cache.rigified:
 
@@ -1763,14 +1838,14 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                     # utility widgets minipanel
                     box_row = layout.box().row(align=True)
-                    is_full_rig_show = rigging.is_full_rigify_rig_shown(chr_cache)
+                    is_full_rig_show = rigutils.is_full_rigify_rig_shown(rig)
                     box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
                     if has_spring_rigs:
-                        is_base_rig_show = rigging.is_base_rig_shown(chr_cache)
+                        is_base_rig_show = rigutils.is_base_rig_shown(rig)
                         box_row.operator("cc3.rigifier", icon="ARMATURE_DATA", text="", depress=is_base_rig_show).param = "TOGGLE_SHOW_BASE_RIG"
-                        is_spring_rig_show = rigging.is_spring_rig_shown(chr_cache)
+                        is_spring_rig_show = rigutils.is_spring_rig_shown(rig)
                         box_row.operator("cc3.rigifier", icon="FORCE_MAGNETIC", text="", depress=is_spring_rig_show).param = "TOGGLE_SHOW_SPRING_RIG"
-                    is_pose_position = rigging.is_rig_rest_position(chr_cache)
+                    is_pose_position = rigutils.is_rig_rest_position(rig)
                     box_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
                     box_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
                     box_row.separator()
@@ -1901,7 +1976,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         row = col.row(align=True)
                         row.prop(prefs, "rigify_preview_retarget_fk_ik", expand=True)
-                        row.prop(props, "retarget_preview_shape_keys", text="", toggle=True, icon="KEYINGSET")
+                        row.prop(prefs, "rigify_preview_shape_keys", text="", toggle=True, icon="KEYINGSET")
 
                         row = col.row(align=True)
                         row.scale_y = 1.5
@@ -1938,7 +2013,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         col = layout.column(align=True)
                         row = col.row(align=True)
                         row.prop(prefs, "rigify_bake_nla_fk_ik", expand=True)
-                        row.prop(props, "bake_nla_shape_keys", text="", toggle=True, icon="KEYINGSET")
+                        row.prop(prefs, "rigify_bake_shape_keys", text="", toggle=True, icon="KEYINGSET")
                         row = col.row()
                         row.scale_y = 2
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
@@ -1981,8 +2056,8 @@ class CC3SpringControlPanel(bpy.types.Panel):
     bl_category = "Item"
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         layout = self.layout
 
@@ -2093,42 +2168,59 @@ class CC3SpringControlPanel(bpy.types.Panel):
 
 
 def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
     layout = self.layout
 
-    box = layout.box()
-    box.label(text="Scene Lighting", icon="LIGHT")
+    box = layout.box().label(text="Scene Lighting", icon="LIGHT")
 
-    column = layout.column()
-    grid = column.grid_flow(row_major=True, columns=2, align=True)
-    grid.operator("cc3.scene", icon="SHADING_SOLID", text=" Matcap").param = "MATCAP"
+    grid = layout.grid_flow(row_major=True, columns=2, align=True)
+    grid.operator("cc3.scene", icon="SHADING_SOLID", text="Matcap").param = "MATCAP"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Studio").param = "STUDIO"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Courtyard").param = "COURTYARD"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Studio").param = "STUDIO"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Courtyard").param = "COURTYARD"
+    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Interior").param = "INTERIOR"
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Authority").param = "AUTHORITY"
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Blur Warm").param = "BLUR_WARM"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Exquisite").param = "EXQUISITE"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Leading Role").param = "LEADING_ROLE"
+    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Neon").param = "NEON"
 
-    column.separator()
+    box = layout.box().label(text="Camera & World", icon="NODE_COMPOSITING")
 
-    box = layout.box()
-    box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
-    column = layout.column()
+    grid = layout.grid_flow(row_major=True, columns=2, align=True)
+    grid.operator("cc3.scene", text="Camera", icon="CAMERA_DATA").param = "SETUP_CAMERA"
+    grid.operator("cc3.scene", text="World", icon="WORLD").param = "SETUP_WORLD"
+    if vars.DEV:
+        grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump").param = "DUMP_SETUP"
 
-    op = column.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
-    op.param = "TEMPLATE"
+    box = layout.box().label(text="Tools", icon="TOOL_SETTINGS")
 
-    column.separator()
+    grid = layout.grid_flow(row_major=True, columns=2, align=True)
+    grid.operator("cc3.scene", icon="FILTER", text="Filter").param = "FILTER_LIGHTS"
+    grid.prop(props, "light_filter", text=f"")
+    grid.operator("cc3.scene", icon="GIZMO", text="Align").param = "ALIGN_WITH_VIEW"
+    grid.operator("cc3.scene", icon="VIEW_CAMERA", text="Add").param = "ADD_CAMERA"
+
+    #box = layout.box()
+    #box.label(text="Scene, World & Compositor", icon="NODE_COMPOSITING")
+    #column = layout.column()
+    #
+    #op = layout.operator("cc3.scene", icon="TRACKING", text="3 Point Tracking & Camera")
+    #op.param = "TEMPLATE"
+
+    layout.separator()
 
     chr_cache = props.get_context_character_cache(context)
-    if chr_cache and bpy.context.scene.render.engine == 'CYCLES':
+    if chr_cache: # and bpy.context.scene.render.engine == 'CYCLES':
         box = layout.box()
         box.label(text="Cycles", icon="SHADING_RENDERED")
         column = layout.column()
-        op = column.operator("cc3.scene", icon="PLAY", text="Cycles Setup")
-        op.param = "CYCLES_SETUP"
+        row = column.row()
+        row.scale_y = 2.0
+        row.operator("cc3.scene", icon="PLAY", text="Cycles Setup").param = "CYCLES_SETUP"
         column.separator()
 
     cache_timeline_physics_ui(chr_cache, layout)
@@ -2165,8 +2257,8 @@ class CC3ToolsCreatePanel(bpy.types.Panel):
     bl_category = CREATE_TAB_NAME
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         layout = self.layout
 
         chr_cache = props.get_context_character_cache(context)
@@ -2200,8 +2292,8 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         layout = self.layout
 
         chr_cache = props.get_context_character_cache(context)
@@ -2234,9 +2326,29 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             if chr_cache.physics_applied:
                 column.row().operator("cc3.setphysics", icon="REMOVE", text="Remove All Physics").param = "REMOVE_PHYSICS"
             else:
-                column.row().operator("cc3.setphysics", icon="ADD", text="Apply All Physics").param = "APPLY_PHYSICS"
+                row = column.row()
+                if prefs.physics_cloth_hair and prefs.physics_cloth_clothing:
+                    text = "Apply All Physics"
+                elif prefs.physics_cloth_hair:
+                    text = "Apply Hair Physics"
+                elif prefs.physics_cloth_clothing:
+                    text = "Apply Cloth Physics"
+                else:
+                    text = "Apply No Physics!"
+                    row.enabled = False
+                row.operator("cc3.setphysics", icon="ADD", text=text).param = "APPLY_PHYSICS"
             if chr_cache.physics_disabled:
-                column.row().operator("cc3.setphysics", icon="PLAY", text="Re-enable Physics").param = "ENABLE_PHYSICS"
+                row = column.row()
+                if prefs.physics_cloth_hair and prefs.physics_cloth_clothing:
+                    text = "Re-enable All Physics"
+                elif prefs.physics_cloth_hair:
+                    text = "Re-enable Hair Physics"
+                elif prefs.physics_cloth_clothing:
+                    text = "Re-enable Cloth Physics"
+                else:
+                    text = "Re-enable No Physics!"
+                    row.enabled = False
+                row.operator("cc3.setphysics", icon="PLAY", text=text).param = "ENABLE_PHYSICS"
             else:
                 column.row().operator("cc3.setphysics", icon="PAUSE", text="Disable Physics").param = "DISABLE_PHYSICS"
 
@@ -2518,8 +2630,8 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
 
@@ -2773,7 +2885,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             column = layout.column()
             row = column.row()
             row.operator("cc3.transfer_mesh", icon="MESH_ICOSPHERE", text="Transfer Mesh")
-            if not bpy.context.active_object or len(bpy.context.selected_objects) < 2:
+            if not utils.get_active_object() or len(bpy.context.selected_objects) < 2:
                 row.enabled = False
 
 
@@ -2800,12 +2912,12 @@ class CCICDataLinkPanel(bpy.types.Panel):
     #bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        link_props = bpy.context.scene.CCICLinkProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
+        link_props = vars.link_props()
+        prefs = vars.prefs()
 
-        layout = self.layout
-        chr_cache = props.get_context_character_cache(context)
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
 
         link_service = link.get_link_service()
         connected = link_service and link_service.is_connected
@@ -2813,6 +2925,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
         connecting = link_service and link_service.is_connecting
         is_cc = link_props.remote_app == "Character Creator"
         is_iclone = link_props.remote_app == "iClone"
+
+        layout = self.layout
 
         column = layout.column()
         column.prop(link_props, "link_host", text="Host")
@@ -2855,22 +2969,29 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_1 = split.column()
             col_2 = split.column()
             col_1.label(text="Auto-Start Connection")
-            col_2.prop(link_props, "link_auto_start", text="")
+            col_2.prop(prefs, "datalink_auto_start", text="")
             col_1.label(text="Preview Frame Sync")
-            col_2.prop(link_props, "sequence_frame_sync", text="")
+            col_2.prop(prefs, "datalink_frame_sync", text="")
             col_1.label(text="Preview Shape Keys")
-            col_2.prop(link_props, "sequence_preview_shape_keys", text="")
+            col_2.prop(prefs, "datalink_preview_shape_keys", text="")
             col_1.label(text="Match Client Rate")
-            col_2.prop(link_props, "match_client_rate", text="")
+            col_2.prop(prefs, "datalink_match_client_rate", text="")
+            col_1.label(text="Retarget Prop Actions")
+            col_2.prop(prefs, "datalink_retarget_prop_actions", text="")
+            col_1.label(text="Hide Prop Bones")
+            col_2.prop(prefs, "datalink_hide_prop_bones", text="")
+            col_1.label(text="Disable Leg Stretch")
+            col_2.prop(prefs, "datalink_disable_tweak_bones", text="")
+            box.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_DATALINK"
 
         if True:
 
             row = layout.row()
             text = ""
             if is_cc:
-                text = "Character Creator"
+                text = "Character Creator:"
             elif is_iclone:
-                text = "iClone"
+                text = "iClone:"
             else:
                 text = "Not connected..."
             if (is_cc or is_iclone) and not connected:
@@ -2883,25 +3004,45 @@ class CCICDataLinkPanel(bpy.types.Panel):
             grid.scale_y = 2.0
             grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
             grid.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
+            # no pose or sequence for props yet...
+            if not chr_cache or not chr_cache.is_avatar():
+                grid.enabled = False
+            # for now rigified Game base don't work
+            if chr_cache and chr_cache.rigified and chr_cache.generation == "GameBase":
+                grid.enabled = False
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
-            if is_cc and chr_cache and (chr_cache.get_import_has_key() or chr_cache.is_non_standard()):
+            if is_cc:
+
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
-                if chr_cache.is_morph():
+                if chr_cache and chr_cache.is_morph():
                     grid.operator("ccic.datalink", icon="MESH_ICOSPHERE", text="Go CC").param = "SEND_MORPH"
                 else:
                     grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
+                if not (chr_cache and chr_cache.can_go_cc()):
+                    grid.enabled = False
+
+            elif is_iclone:
+
+                grid = col.grid_flow(row_major=True, columns=1, align=True)
+                grid.scale_y = 2.0
+                grid.operator("ccic.datalink", icon="COMMUNITY", text="Go iC").param = "SEND_ACTOR"
+
+                if not (chr_cache and chr_cache.can_go_ic()):
+                    grid.enabled = False
 
 
             #grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"
 
-        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
-        if chr_cache:
-            row = layout.row()
-            row.label(text=f"link id: {chr_cache.link_id}")
-            row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_ACTOR_FILES"
+        layout.separator()
+
+        character_tools_ui(context, layout)
+
+        #if chr_cache:
+            #row = layout.row()
+            #row.operator("ccic.datalink", icon="ANIM", text="De-pivot").param = "DEPIVOT"
 
 
 class CCICProportionPanel(bpy.types.Panel):
@@ -2913,8 +3054,8 @@ class CCICProportionPanel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
@@ -2969,8 +3110,8 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
 
     def draw(self, context):
         global debug_counter
-        PROPS = bpy.context.scene.CC3ImportProps
-        PREFS = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        PROPS = vars.props()
+        PREFS = vars.prefs()
 
         addon_updater_ops.check_for_update_background()
         if addon_updater_ops.updater.update_ready == True:
@@ -3087,8 +3228,8 @@ class CC3ToolsPipelineExportPanel(bpy.types.Panel):
 
     def draw(self, context):
         global debug_counter
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         addon_updater_ops.check_for_update_background()
         if addon_updater_ops.updater.update_ready == True:
@@ -3231,7 +3372,7 @@ class CCICBakePanel(bpy.types.Panel):
 
     def draw(self, context):
         props = bpy.context.scene.CCICBakeProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
 
         layout = self.layout
         layout.use_property_split = False

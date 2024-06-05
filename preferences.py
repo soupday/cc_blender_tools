@@ -19,8 +19,48 @@ from mathutils import Vector
 
 from . import addon_updater_ops, colorspace, utils, vars
 
+
+def reset_cycles():
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
+    prefs.cycles_sss_skin_b410 = 1.4285
+    prefs.cycles_sss_hair_b410 = 0.25
+    prefs.cycles_sss_teeth_b410 = 1.0
+    prefs.cycles_sss_tongue_b410 = 1.0
+    prefs.cycles_sss_eyes_b410 = 1.0
+    prefs.cycles_sss_default_b410 = 1.0
+    #
+    prefs.cycles_sss_skin_b341 = 0.264
+    prefs.cycles_sss_hair_b341 = 0.05
+    prefs.cycles_sss_teeth_b341 = 0.5
+    prefs.cycles_sss_tongue_b341 = 0.5
+    prefs.cycles_sss_eyes_b341 = 0.01
+    prefs.cycles_sss_default_b341 = 0.5
+
+
+def reset_rigify():
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
+    prefs.rigify_export_t_pose = True
+    prefs.rigify_export_mode = "MOTION"
+    prefs.rigify_export_naming = "METARIG"
+    prefs.rigify_build_face_rig = True
+    prefs.rigify_auto_retarget = True
+    prefs.rigify_preview_retarget_fk_ik = "BOTH"
+    prefs.rigify_bake_nla_fk_ik = "BOTH"
+
+
+def reset_datalink():
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
+    prefs.datalink_auto_start = False
+    prefs.datalink_frame_sync = False
+    prefs.datalink_preview_shape_keys = True
+    prefs.datalink_match_client_rate = True
+    prefs.datalink_retarget_prop_actions = True
+    prefs.datalink_disable_tweak_bones = True
+    prefs.datalink_hide_prop_bones = True
+
+
 def reset_preferences():
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
     prefs.render_target = "EEVEE"
     prefs.quality_lighting = "CC3"
     prefs.pipeline_lighting = "CC3"
@@ -45,12 +85,6 @@ def reset_preferences():
     prefs.export_texture_size = "2048"
     prefs.export_require_key = True
     prefs.export_revert_names = True
-    prefs.cycles_sss_skin_v203 = 0.5
-    prefs.cycles_sss_hair_v203 = 0.1
-    prefs.cycles_sss_teeth_v203 = 1.0
-    prefs.cycles_sss_tongue_v203 = 1.0
-    prefs.cycles_sss_eyes_v203 = 1.0
-    prefs.cycles_sss_default_v203 = 1.0
     prefs.cycles_ssr_iris_brightness = 2.0
     prefs.import_auto_convert = True
     prefs.import_deduplicate = True
@@ -67,6 +101,12 @@ def reset_preferences():
     prefs.build_armature_edit_modifier = True
     prefs.build_armature_preserve_volume = False
     prefs.physics_weightmap_curve = 5.0
+    prefs.rigify_build_face_rig = True
+    prefs.rigify_auto_retarget = True
+    prefs.convert_non_standard_type = "PROP"
+    reset_cycles()
+    reset_rigify()
+    reset_datalink()
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -81,6 +121,12 @@ class CC3OperatorPreferences(bpy.types.Operator):
         )
 
     def execute(self, context):
+
+        if self.param == "RESET_CYCLES":
+            reset_cycles()
+
+        if self.param == "RESET_DATALINK":
+            reset_datalink()
 
         if self.param == "RESET_PREFS":
             reset_preferences()
@@ -242,24 +288,22 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                 description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
                 "Which sets up Reallusion import compatible materials and material parameters")
 
+    # Cycles Modifiers
     cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
+    # Cycles SSS weight mods
+    cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.4285)
+    cycles_sss_hair_b410: bpy.props.FloatProperty(default=0.25)
+    cycles_sss_teeth_b410: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_tongue_b410: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_eyes_b410: bpy.props.FloatProperty(default=1.0)
+    cycles_sss_default_b410: bpy.props.FloatProperty(default=1.0)
     #
-    cycles_sss_skin_v203: bpy.props.FloatProperty(default=0.5)
-    cycles_sss_hair_v203: bpy.props.FloatProperty(default=0.1)
-    cycles_sss_teeth_v203: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_tongue_v203: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_eyes_v203: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_default_v203: bpy.props.FloatProperty(default=1.0)
-    # old
-    cycles_sss_skin_v118: bpy.props.FloatProperty(default=0.5)
-    cycles_sss_hair_v118: bpy.props.FloatProperty(default=0.1)
-    cycles_sss_teeth: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_tongue: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_eyes: bpy.props.FloatProperty(default=1.0)
-    cycles_sss_default: bpy.props.FloatProperty(default=1.0)
-    # older
-    cycles_sss_skin: bpy.props.FloatProperty(default=0.2)
-    cycles_sss_hair: bpy.props.FloatProperty(default=0.05)
+    cycles_sss_skin_b341: bpy.props.FloatProperty(default=0.264)
+    cycles_sss_hair_b341: bpy.props.FloatProperty(default=0.05)
+    cycles_sss_teeth_b341: bpy.props.FloatProperty(default=0.5)
+    cycles_sss_tongue_b341: bpy.props.FloatProperty(default=0.5)
+    cycles_sss_eyes_b341: bpy.props.FloatProperty(default=0.01)
+    cycles_sss_default_b341: bpy.props.FloatProperty(default=0.5)
 
     bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
 
@@ -269,6 +313,29 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                                      description="Power curve used to convert PhysX weightmaps to blender vertex pin weights.")
 
     # rigify prefs
+    rigify_preview_shape_keys: bpy.props.BoolProperty(default=True, name="Retarget Shape Keys",
+                                                        description="Retarget any facial expression and viseme shape key actions on the source character rig to the current character meshes on the rigify rig")
+    rigify_bake_shape_keys: bpy.props.BoolProperty(default=True, name="Bake Shape Keys",
+                                                description="Bake facial expression and viseme shape keys to new shapekey actions on the character")
+    rigify_export_t_pose: bpy.props.BoolProperty(default=True, name="Include T-Pose", description="Include a T-Pose as the first animation track. This is useful for correct avatar alignment in Unity and for importing animations back into CC4")
+    rigify_export_mode: bpy.props.EnumProperty(items=[
+                        ("MESH","Mesh","Export only the character mesh and materials, with no animation (other than a Unity T-pose)"),
+                        ("MOTION","Motion","Export the animation only, with minimal mesh and no materials. Shapekey animations will also export their requisite mesh objects"),
+                        ("BOTH","Both","Export both the character mesh with materials and the animation"),
+                    ], default="MOTION")
+    rigify_export_naming: bpy.props.EnumProperty(items=[
+                        ("METARIG","Metarig","Use metarig bone names without a Root bone.\n" \
+                                             "For exporting animations to CC4/iClone or other applications.\n\n" \
+                                             "Note: CC4 will auto detect a blender meta-rig, but you must use the generated hik (.3dxProfile) profile to import animations back into CC4"),
+                        ("CC","CC Base","Use original CC_Base_ bone names with a Root bone. \n" \
+                                        "For exporting animations and characters to Unity and be compatible with the Unity auto-setup.\n\n" \
+                                        "*Warning*: Does not import correctly back into CC4!"),
+                        #("RIGIFY","Rigify","Use custom Rigify_ bone names"),
+                    ], default="METARIG", name = "Bone names to use when exporting Rigify characters and motions.")
+    rigify_build_face_rig: bpy.props.BoolProperty(default=True,
+                                                  description="Build full face rig (CC3(+) standard characters only)")
+    rigify_auto_retarget: bpy.props.BoolProperty(default=True,
+                                                 description="Auto retarget any animation currently on the character armature")
     rigify_preview_retarget_fk_ik: bpy.props.EnumProperty(items=[
                         ("FK","FK","Retarget to FK controls only"),
                         ("IK","IK","Retarget to IK controls only"),
@@ -279,6 +346,31 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("IK","IK","Bake IK controls only"),
                         ("BOTH","Both","Bake both FK and IK and controls"),
                     ], default="BOTH", name = "Bake NLA to FK/IK")
+
+    # datalink prefs
+    datalink_auto_start: bpy.props.BoolProperty(default=False,
+                        description="Attempt to (re)start the data link connection when ever Blender is started or reloaded")
+    datalink_frame_sync: bpy.props.BoolProperty(default=False,
+                        description="Force the live sequence transfer to stop and render every frame")
+    datalink_preview_shape_keys: bpy.props.BoolProperty(default=True,
+                        description="Previewing shape keys during live sequence transfer results in slower frame rates. It can be disabled to speed up the transfer")
+    datalink_match_client_rate: bpy.props.BoolProperty(default=True,
+                        description="When sending a live sequence, attempt to match the transfer frame rate. Causes less frame jumping in the live preview")
+    datalink_retarget_prop_actions: bpy.props.BoolProperty(default=True,
+                        description="As props do not have a default bind pose, each prop animation has a different rest pose " \
+                                    "which means the animation must be retargeted to (if checked) or the rest pose must be adjusted to "\
+                                    "match the incoming motion (not checked)")
+    datalink_disable_tweak_bones: bpy.props.BoolProperty(default=True,
+                        description="Tweak bones cause bone length stretching which is largely incompatible with CC/iC animations. This option disables the stretch constraint to leg tweak bones so that the feet target correctly")
+    datalink_hide_prop_bones: bpy.props.BoolProperty(default=True,
+                        description="Hide internal prop bones")
+
+    # convert
+    convert_non_standard_type: bpy.props.EnumProperty(items=[
+                    ("HUMANOID","Humanoid","Non standard character is a Humanoid"),
+                    ("CREATURE","Creature","Non standard character is a Creature"),
+                    ("PROP","Prop","Non standard character is a Prop"),
+                ], default="PROP", name = "Non-standard Character Type")
 
     # addon updater preferences
     auto_check_update: bpy.props.BoolProperty(
@@ -362,12 +454,20 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "eye_displacement_group")
 
         layout.label(text="Cycles Adjustments:")
-        layout.prop(self, "cycles_sss_skin_v203")
-        layout.prop(self, "cycles_sss_hair_v203")
-        layout.prop(self, "cycles_sss_teeth_v203")
-        layout.prop(self, "cycles_sss_tongue_v203")
-        layout.prop(self, "cycles_sss_eyes_v203")
-        layout.prop(self, "cycles_sss_default_v203")
+        if utils.B400():
+            layout.prop(self, "cycles_sss_skin_b410")
+            layout.prop(self, "cycles_sss_hair_b410")
+            layout.prop(self, "cycles_sss_teeth_b410")
+            layout.prop(self, "cycles_sss_tongue_b410")
+            layout.prop(self, "cycles_sss_eyes_b410")
+            layout.prop(self, "cycles_sss_default_b410")
+        else:
+            layout.prop(self, "cycles_sss_skin_b341")
+            layout.prop(self, "cycles_sss_hair_b341")
+            layout.prop(self, "cycles_sss_teeth_b341")
+            layout.prop(self, "cycles_sss_tongue_b341")
+            layout.prop(self, "cycles_sss_eyes_b341")
+            layout.prop(self, "cycles_sss_default_b341")
         layout.prop(self, "cycles_ssr_iris_brightness")
 
         layout.label(text="Physics:")
@@ -383,6 +483,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "export_unity_remove_objects")
         layout.prop(self, "export_texture_size")
         layout.prop(self, "export_require_key")
+
+        layout.label(text="Convert:")
+        layout.prop(self, "convert_non_standard_type")
 
         layout.label(text="Debug Settings:")
         layout.prop(self, "log_level")

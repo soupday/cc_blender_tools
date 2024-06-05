@@ -133,11 +133,19 @@ def is_target_bone_name(bone_name, target_name):
         return True
     if cmp_rl_bone_names(target_name, bone_name):
         return True
-    target_name = target_name.replace(' ', '_')
+    target_name = rl_export_bone_name(target_name)
     if target_name == bone_name:
         return True
     if cmp_rl_bone_names(target_name, bone_name):
         return True
+
+
+def rl_export_bone_name(bone_name):
+    bone_name = bone_name.replace(' ', '_')
+    bone_name = bone_name.replace('(', '_')
+    bone_name = bone_name.replace(')', '_')
+    bone_name = bone_name.replace('&', '_')
+    return bone_name
 
 
 def find_target_bone_name(rig, rl_bone_name, bone_mapping=None):
@@ -153,7 +161,7 @@ def find_target_bone_name(rig, rl_bone_name, bone_mapping=None):
     for pose_bone in rig.pose.bones:
         if cmp_rl_bone_names(target_bone_name, pose_bone.name):
             return pose_bone.name
-    target_bone_name = target_bone_name.replace(' ', '_')
+    target_bone_name = rl_export_bone_name(target_bone_name)
     for pose_bone in rig.pose.bones:
         if cmp_rl_bone_names(target_bone_name, pose_bone.name):
             return pose_bone.name
@@ -769,15 +777,21 @@ CUSTOM_COLORS = {
     "SPECIAL": (0.9803922176361084, 0.9019608497619629, 0.2392157018184662),
     "SIM": (0.98, 0.24, 0.9),
     "TWEAK": (0.2196078598499298, 0.49803924560546875, 0.7843137979507446),
+    "TWEAK_DISABLED": (0.270588, 0.396078, 0.521569),
     "ROOT": (0.6901960968971252, 0.46666669845581055, 0.6784313917160034),
     "DETAIL": (0.9843137860298157, 0.5372549295425415, 0.33725491166114807),
+    "DEFAULT": (0.3764706254005432, 0.7803922295570374, 0.20784315466880798),
+    "SKIN": (0.647059, 0.780392, 0.588235),
+    "PIVOT": (0.9803922176361084, 0.9019608497619629, 0.2392157018184662),
+    "MESH": (0.9803922176361084, 0.9019608497619629, 0.2392157018184662),
 }
 
 def set_bone_color(bone, color_code):
-    bone.color.palette = "CUSTOM"
-    bone.color.custom.normal = CUSTOM_COLORS[color_code]
-    bone.color.custom.active = CUSTOM_COLORS["Active"]
-    bone.color.custom.select = CUSTOM_COLORS["Select"]
+    if utils.B400():
+        bone.color.palette = "CUSTOM"
+        bone.color.custom.normal = CUSTOM_COLORS[color_code]
+        bone.color.custom.active = CUSTOM_COLORS["Active"]
+        bone.color.custom.select = CUSTOM_COLORS["Select"]
 
 
 def set_bone_collection_visibility(rig, collection, layer, visible, only=False):
@@ -930,6 +944,252 @@ def generate_eye_widget(rig, bone_name, bones, distance, scale):
     return wgt
 
 
+def make_widget_collection(collection_name) -> bpy.types.Collection:
+    wgt_collection: bpy.types.Collection = None
+    for collection in bpy.data.collections:
+        if collection.name.startswith(collection_name):
+            wgt_collection = collection
+    if not wgt_collection:
+        wgt_collection = bpy.data.collections.new(collection_name)
+        bpy.context.scene.collection.children.link(wgt_collection)
+        wgt_collection.hide_render = True
+        layer_collections = utils.get_view_layer_collections(search=collection_name)
+        for collection in layer_collections:
+            collection.exclude = True
+            collection.hide_viewport = True
+    return wgt_collection
+
+
+def add_widget_to_collection(widget, collection_name=None, collection_suffix=None, remove_other=True):
+    if collection_name:
+        widget_collection = make_widget_collection(collection_name)
+        if widget.name not in widget_collection.objects:
+            widget_collection.objects.link(widget)
+        for collection in bpy.data.collections:
+            if remove_other and collection != widget_collection and widget.name in collection.objects:
+                collection.objects.unlink(widget)
+    if collection_suffix:
+        for collection in bpy.data.collections:
+            if collection.name.startswith(collection_suffix):
+                collection.objects.link(widget)
+            elif remove_other and widget.name in collection.objects:
+                collection.objects.unlink(widget)
+
+
+def make_sphere_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                        rotation=[0,0,0], location=[0,0,0])
+        wgt1 = utils.get_active_object()
+        bpy.ops.object.transform_apply(rotation=True)
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                        rotation=[1.570796,0,0], location=[0,0,0])
+        wgt2 = utils.get_active_object()
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                        rotation=[0,1.570796,0], location=[0,0,0])
+        wgt3 = utils.get_active_object()
+        bpy.ops.object.transform_apply(rotation=True)
+        utils.try_select_objects([wgt1, wgt2, wgt3], True)
+        utils.set_active_object(wgt1)
+        bpy.ops.object.join()
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
+def make_circle_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                        rotation=[0,0,0], location=[0,0,0])
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
+def make_root_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                        rotation=[0,0,0], location=[0,0,0])
+        wgt1 = utils.get_active_object()
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size * 0.95,
+                                        rotation=[0,0,0], location=[0,0,0])
+        wgt2 = utils.get_active_object()
+        mesh = bpy.data.meshes.new(widget_name)
+        mesh.from_pydata([(-size, 0, 0), (size, 0, 0), (0, -size, 0), (0, size, 0)],
+                            [(0, 1), (2,3)],
+                            [])
+        mesh.update()
+        wgt3 = bpy.data.objects.new(widget_name, mesh)
+        wgt3.location = [0,0,0]
+        bpy.context.collection.objects.link(wgt3)
+        utils.try_select_objects([wgt1, wgt2, wgt3], True)
+        utils.set_active_object(wgt1)
+        bpy.ops.object.join()
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
+def make_axes_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        mesh = bpy.data.meshes.new(widget_name)
+        mesh.from_pydata([(-size, 0, 0), (size, 0, 0), (0, -size, 0), (0, size, 0), (0, 0, -size), (0, 0, size)],
+                            [(0, 1), (2,3), (4,5)],
+                            [])
+        mesh.update()
+        wgt = bpy.data.objects.new(widget_name, mesh)
+        wgt.location = [0,0,0]
+        bpy.context.collection.objects.link(wgt)
+        wgt.name = widget_name
+    return wgt
+
+
+def make_spindle_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                            rotation=[1.570796,0,0], location=[0,size,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt1 = utils.get_active_object()
+        mesh = bpy.data.meshes.new(widget_name)
+        mesh.from_pydata([(0, 0, 0), (0, 1, 0)],
+                            [(0, 1)],
+                            [])
+        mesh.update()
+        wgt2 = bpy.data.objects.new(widget_name, mesh)
+        wgt2.location = [0,0,0]
+        bpy.context.collection.objects.link(wgt2)
+        utils.try_select_objects([wgt1, wgt2], True)
+        utils.set_active_object(wgt1)
+        bpy.ops.object.join()
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
+def make_cone_spindle_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size*0.25,
+                                            rotation=[1.570796,0,0], location=[0,size*0.5,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt1 = utils.get_active_object()
+        wgt2 = bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=size*0.125, radius2=0, depth=1,
+                                               rotation=[-1.570796,0,0], location=[0,size*0.5,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt2 = utils.get_active_object()
+        utils.try_select_objects([wgt1, wgt2], True)
+        utils.set_active_object(wgt1)
+        bpy.ops.object.join()
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
+def make_spike_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        wgt1 = bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=size*0.125, radius2=0, depth=size*0.8,
+                                               rotation=[-1.570796,0,0], location=[0,size*0.6,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt1 = utils.get_active_object()
+        wgt2 = bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=size*0.125, radius2=0, depth=size*0.2,
+                                               end_fill_type="NOTHING",
+                                               rotation=[ 1.570796,0,0], location=[0,size*0.1,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt2 = utils.get_active_object()
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size*0.25,
+                                            rotation=[1.570796,0,0], location=[0,size*0.5,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt3 = utils.get_active_object()
+        utils.try_select_objects([wgt1, wgt2, wgt3], True)
+        utils.set_active_object(wgt1)
+        bpy.ops.object.join()
+
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
+def make_limb_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size*0.25,
+                                            rotation=[1.570796,0,0], location=[0,size*0.5,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt1 = utils.get_active_object()
+        mesh = bpy.data.meshes.new(widget_name)
+        mesh.from_pydata([(0, 0, 0), (0, 1, 0)],
+                            [(0, 1)],
+                            [])
+        mesh.update()
+        wgt2 = bpy.data.objects.new(widget_name, mesh)
+        wgt2.location = [0,0,0]
+        bpy.context.collection.objects.link(wgt2)
+        utils.try_select_objects([wgt1, wgt2], True)
+        utils.set_active_object(wgt1)
+        bpy.ops.object.join()
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
+def make_cone_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
+                                            rotation=[1.570796,0,0], location=[0,0,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt1 = utils.get_active_object()
+        mesh = bpy.data.meshes.new(widget_name)
+        mesh.from_pydata([(0, size*2, 0), (0, 0, size), (size, 0, 0), (-size, 0, 0), (0, 0, -size)],
+                            [(0, 1), (0, 2), (0, 3), (0, 4)],
+                            [])
+        mesh.update()
+        wgt2 = bpy.data.objects.new(widget_name, mesh)
+        wgt2.location = [0,0,0]
+        bpy.context.collection.objects.link(wgt2)
+        utils.try_select_objects([wgt1, wgt2], True)
+        utils.set_active_object(wgt1)
+        bpy.ops.object.join()
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
+def make_dbl_circle_widget(widget_name, size):
+    if widget_name in bpy.data.objects:
+        wgt = bpy.data.objects[widget_name]
+    else:
+        bpy.ops.mesh.primitive_circle_add(vertices=64, radius=size,
+                                            rotation=[1.570796,0,0], location=[0,0,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt1 = utils.get_active_object()
+        bpy.ops.mesh.primitive_circle_add(vertices=64, radius=size * 1.025,
+                                        rotation=[1.570796,0,0], location=[0,0,0])
+        bpy.ops.object.transform_apply(rotation=True)
+        wgt2 = utils.get_active_object()
+        utils.try_select_objects([wgt1, wgt2], True)
+        utils.set_active_object(wgt1)
+        bpy.ops.object.join()
+        wgt = utils.get_active_object()
+        wgt.name = widget_name
+    return wgt
+
+
 def generate_spring_widget(rig, name, type, size):
     wgt : bpy.types.Object = None
     wgt_name = "WGT-rig_" + name
@@ -939,80 +1199,20 @@ def generate_spring_widget(rig, name, type, size):
     if utils.set_mode("OBJECT"):
 
         if type == "FK":
-            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
-                                            rotation=[1.570796,0,0], location=[0,size,0])
-            bpy.ops.object.transform_apply(rotation=True)
-            wgt1 = utils.get_active_object()
-            mesh = bpy.data.meshes.new(name+"WGT2")
-            mesh.from_pydata([(0, 0, 0), (0, 1, 0)],
-                             [(0, 1)],
-                             [])
-            mesh.update()
-            wgt2 = bpy.data.objects.new(name+"WGT2", mesh)
-            wgt2.location = [0,0,0]
-            bpy.context.collection.objects.link(wgt2)
-            utils.try_select_objects([wgt1, wgt2], True)
-            utils.set_active_object(wgt1)
-            bpy.ops.object.join()
-            wgt = utils.get_active_object()
+            wgt = make_spindle_widget(wgt_name, size)
 
         if type == "IK":
-            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
-                                            rotation=[1.570796,0,0], location=[0,0,0])
-            bpy.ops.object.transform_apply(rotation=True)
-            wgt1 = utils.get_active_object()
-            mesh = bpy.data.meshes.new(name+"WGT2")
-            mesh.from_pydata([(0, size*2, 0), (0, 0, size), (size, 0, 0), (-size, 0, 0), (0, 0, -size)],
-                             [(0, 1), (0, 2), (0, 3), (0, 4)],
-                             [])
-            mesh.update()
-            wgt2 = bpy.data.objects.new(name+"WGT2", mesh)
-            wgt2.location = [0,0,0]
-            bpy.context.collection.objects.link(wgt2)
-            utils.try_select_objects([wgt1, wgt2], True)
-            utils.set_active_object(wgt1)
-            bpy.ops.object.join()
-            wgt = utils.get_active_object()
+            wgt = make_cone_widget(wgt_name, size)
 
         if type == "GRP":
-            bpy.ops.mesh.primitive_circle_add(vertices=64, radius=size,
-                                            rotation=[1.570796,0,0], location=[0,0,0])
-            bpy.ops.object.transform_apply(rotation=True)
-            wgt1 = utils.get_active_object()
-            bpy.ops.mesh.primitive_circle_add(vertices=64, radius=size * 1.025,
-                                            rotation=[1.570796,0,0], location=[0,0,0])
-            bpy.ops.object.transform_apply(rotation=True)
-            wgt2 = utils.get_active_object()
-            utils.try_select_objects([wgt1, wgt2], True)
-            utils.set_active_object(wgt1)
-            bpy.ops.object.join()
-            wgt = utils.get_active_object()
+            wgt = make_dbl_circle_widget(wgt_name, size)
 
         if type == "TWK":
-            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
-                                            rotation=[0,0,0], location=[0,0,0])
-            wgt1 = utils.get_active_object()
-            bpy.ops.object.transform_apply(rotation=True)
-            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
-                                            rotation=[1.570796,0,0], location=[0,0,0])
-            wgt2 = utils.get_active_object()
-            bpy.ops.mesh.primitive_circle_add(vertices=32, radius=size,
-                                            rotation=[0,1.570796,0], location=[0,0,0])
-            wgt3 = utils.get_active_object()
-            bpy.ops.object.transform_apply(rotation=True)
-            utils.try_select_objects([wgt1, wgt2, wgt3], True)
-            utils.set_active_object(wgt1)
-            bpy.ops.object.join()
-            wgt = utils.get_active_object()
+            wgt = make_sphere_widget(wgt_name, size)
 
-        wgt.name = wgt_name
         if wgt:
-            collection : bpy.types.Collection
-            for collection in bpy.data.collections:
-                if collection.name.startswith("WGTS_rig"):
-                    collection.objects.link(wgt)
-                elif wgt.name in collection.objects:
-                    collection.objects.unlink(wgt)
+            add_widget_to_collection(wgt, collection_suffix="WGTS_rig")
+
     return wgt
 
 

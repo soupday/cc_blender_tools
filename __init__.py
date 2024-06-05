@@ -27,7 +27,7 @@ if "bpy" in locals():
     importlib.reload(channel_mixer)
     importlib.reload(materials)
     importlib.reload(characters)
-    importlib.reload(vrm)
+    importlib.reload(hik)
     importlib.reload(meshutils)
     importlib.reload(modifiers)
     importlib.reload(shaders)
@@ -69,7 +69,7 @@ from . import imageutils
 from . import channel_mixer
 from . import materials
 from . import characters
-from . import vrm
+from . import hik
 from . import meshutils
 from . import modifiers
 from . import shaders
@@ -101,8 +101,8 @@ from . import proportion
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 0, 7),
-    "blender": (2, 93, 0),
+    "version": (2, 0, 8),
+    "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
     "description": "Automatic import and material setup of CC3/4-iClone7/8 characters.",
@@ -170,6 +170,8 @@ classes = (
     channel_mixer.CC3OperatorChannelMixer,
     characters.CC3OperatorTransferCharacterGeometry,
     characters.CC3OperatorTransferMeshGeometry,
+    characters.CCICCharacterRename,
+    characters.CCICCharacterConvertGeneric,
     sculpting.CC3OperatorSculpt,
     sculpting.CC3OperatorSculptExport,
     hair.CC3OperatorHair,

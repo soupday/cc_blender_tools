@@ -26,6 +26,94 @@ from mathutils import Vector, Matrix, Quaternion
 MANDATORY_OBJECTS = ["BODY", "TEETH", "TONGUE", "TEARLINE", "OCCLUSION", "EYE"]
 
 
+def select_character(chr_cache, all=False):
+    if chr_cache:
+        rig = chr_cache.get_armature()
+        objects = chr_cache.get_all_objects(include_armature=True, include_children=True)
+        if all:
+            utils.try_select_objects(objects, clear_selection=True)
+        elif rig:
+            utils.try_select_object(rig, clear_selection=True)
+        else:
+            utils.try_select_objects(objects, clear_selection=True)
+        if rig:
+            utils.set_active_object(rig)
+
+
+def duplicate_character(chr_cache):
+    props = vars.props()
+
+    objects = chr_cache.get_all_objects(include_armature=True, include_children=False,
+                                        include_disabled=False, of_type="ALL")
+    tmp = utils.force_visible_in_scene("TMP_Duplicate", *objects)
+    utils.try_select_objects(objects, clear_selection=True)
+    bpy.ops.object.duplicate()
+    objects = bpy.context.selected_objects.copy()
+    utils.restore_visible_in_scene(tmp)
+
+    # duplicate materials
+    dup_mats = {}
+    for obj in objects:
+        if obj.type == "MESH":
+            mat: bpy.types.Material
+            for mat in obj.data.materials:
+                if mat not in dup_mats:
+                    dup_mats[mat] = mat.copy()
+            for slot in obj.material_slots:
+                slot.material = dup_mats[slot.material]
+
+    # copy chr_cache
+    old_cache = chr_cache
+    chr_cache = props.add_character_cache()
+    utils.copy_property_group(old_cache, chr_cache)
+
+    for obj_cache in chr_cache.object_cache:
+        old_id = obj_cache.object_id
+        new_id = utils.generate_random_id(20)
+        obj_cache.object_id = new_id
+        for obj in objects:
+            if "rl_object_id" in obj and obj["rl_object_id"] == old_id:
+                obj["rl_object_id"] = new_id
+                obj_cache.object = obj
+
+    all_mat_cache = chr_cache.get_all_materials_cache(include_disabled=True)
+    for mat_cache in all_mat_cache:
+        old_id = mat_cache.material_id
+        new_id = utils.generate_random_id(20)
+        mat_cache.material_id = new_id
+        for obj in objects:
+            if obj.type == "MESH":
+                for mat in obj.data.materials:
+                    if "rl_material_id" in mat and mat["rl_material_id"] == old_id:
+                        mat["rl_material_id"] = new_id
+                        mat_cache.material = mat
+
+    chr_rig = utils.get_armature_from_objects(objects)
+    character_name = utils.unique_object_name(utils.un_suffix_name(old_cache.character_name))
+    utils.log_info(f"Using character name: {character_name}")
+    chr_cache.character_name = character_name
+    if chr_cache.rigified:
+        rig_name = character_name + "_Rigify"
+        chr_rig["rig_id"] = utils.generate_random_id(16)
+        # copy the meta-rig too, if it's still there
+        if utils.object_exists_is_armature(chr_cache.rig_meta_rig):
+            tmp = utils.force_visible_in_scene("TMP_Duplicate", chr_cache.rig_meta_rig)
+            utils.set_active_object(chr_cache.rig_meta_rig, deselect_all=True)
+            bpy.ops.object.duplicate()
+            meta_rig = utils.get_active_object()
+            meta_rig.name = character_name + "_metarig"
+            utils.restore_visible_in_scene(tmp)
+            chr_cache.rig_meta_rig = meta_rig
+            utils.set_active_object(chr_rig)
+    else:
+        rig_name = character_name
+
+    chr_rig.name = rig_name
+    chr_rig.data.name = rig_name
+
+    return objects
+
+
 def get_character_objects(arm):
     """Fetch all the objects in the character (or try to)"""
     objects = []
@@ -39,7 +127,7 @@ def get_character_objects(arm):
 
 
 def get_generic_rig(objects):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
     arm = utils.get_armature_from_objects(objects)
     if arm:
         chr_cache = props.get_character_cache(arm, None)
@@ -71,7 +159,7 @@ def make_prop_armature(objects):
             else:
                 single_empty_root = None
 
-    arm_name = "Prop"
+    arm_name = "Prop_" + utils.generate_random_id(8)
     if single_empty_root:
         arm_name = single_empty_root.name
 
@@ -85,7 +173,7 @@ def make_prop_armature(objects):
     root_bone : bpy.types.EditBone = None
     bone : bpy.types.EditBone = None
     root_bone_name = None
-    tail_vector = Vector((0,0,0.1))
+    tail_vector = Vector((0,0.5,0))
     tail_translate = Matrix.Translation(-tail_vector)
 
     if utils.edit_mode_to(arm):
@@ -159,75 +247,88 @@ def make_prop_armature(objects):
     return arm
 
 
-def create_prop_rig(objects):
-    arm_name = "Prop"
-    bone_name = "Root"
-    utils.set_mode("OBJECT")
+def convert_generic_to_non_standard(objects, file_path=None, type_override=None, name_override=None):
+    props = vars.props()
+    prefs = vars.prefs()
 
-    arm = make_prop_armature(objects)
+    utils.log_info("")
+    utils.log_info("Converting Generic Character:")
+    utils.log_info("-----------------------------")
 
-    #utils.try_select_objects(objects, True)
-    #utils.set_active_object(arm)
-    #bpy.ops.object.parent_set(type = "ARMATURE", keep_transform = True)
-    #obj : bpy.types.Object
-    #for obj in objects:
-    #    if obj.type == "MESH":
-    #        vg = meshutils.add_vertex_group(obj, bone_name)
-    #        meshutils.set_vertex_group(obj, vg, 1.0)
-    return arm
+    # get generic objects
+    non_chr_objects = [ obj for obj in objects
+                        if props.get_object_cache(obj) is None
+                            and (obj.type == "MESH"
+                                 or obj.type == "EMPTY")]
+    active_non_chr_object = utils.get_active_object()
+    if active_non_chr_object not in non_chr_objects:
+        active_non_chr_object = non_chr_objects[0]
 
-
-def convert_generic_to_non_standard(objects, file_path = None):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
-
-    non_chr_objects = [ obj for obj in objects if props.get_object_cache(obj, strict=True) is None ]
-
-    # select all child objects of the current selected objects (Humanoid)
+    # select all child objects of the current selected objects
     utils.try_select_objects(non_chr_objects, True)
     for obj in non_chr_objects:
         utils.try_select_child_objects(obj)
 
     objects = bpy.context.selected_objects
-
-    # try to find a character armature
     chr_rig = utils.get_armature_from_objects(objects)
-    chr_type = "HUMANOID"
 
-    # if not generate one from the objects and empty parent transforms (Prop Only)
-    if not chr_rig:
-        chr_rig = create_prop_rig(objects)
-        chr_type = "PROP"
+    utils.log_info(f"Generic character objects:")
+    for obj in objects:
+        utils.log_info(f" - {obj.name} ({obj.type})")
 
+    # determine character type
+    if type_override:
+        chr_type = type_override
+    else:
+        if chr_rig:
+            chr_type = "HUMANOID"
+        else:
+            chr_type = "PROP"
+
+    utils.log_info(f"Generic character type: {chr_type}")
+
+    # determine character name
+    chr_name = "Unnamed"
+    if file_path:
+        dir, file = os.path.split(file_path)
+        name, ext = os.path.splitext(file)
+        chr_name = name
+    elif name_override:
+        chr_name = name_override
+        dir = ""
+    else:
+        if chr_type == "HUMANOID":
+            chr_name = "Humanoid"
+        elif chr_type == "CREATURE":
+            chr_name = "Creature"
+        else:
+            chr_name = "Prop"
+    chr_name = utils.unique_object_name(chr_name, chr_rig)
+
+    utils.log_info(f"Generic character name: {chr_name}")
+
+    # if no rig: generate one from the objects and empty parent transforms
     if not chr_rig:
-        return None
+        utils.log_info(f"Generating Prop Rig...")
+        chr_rig = make_prop_armature(objects)
 
     # now treat the armature as any generic character
     objects = get_character_objects(chr_rig)
 
-    utils.log_info("")
-    utils.log_info("Detecting Generic Character:")
-    utils.log_info("----------------------------")
+    utils.log_info(f"Creating Character Data...")
 
-    ext = ".fbx"
-    if file_path:
-        dir, file = os.path.split(file_path)
-        name, ext = os.path.splitext(file)
-        chr_rig.name = utils.unique_object_name(name, chr_rig)
-        full_name = chr_rig.name
-    else:
-        full_name = chr_rig.name
-        name = utils.strip_name(full_name)
-        dir = ""
-
+    chr_rig.name = chr_name
+    chr_rig.data.name = chr_name
     chr_cache = props.import_cache.add()
     chr_cache.import_file = ""
-    chr_cache.character_name = full_name
+    chr_cache.character_name = chr_name
     chr_cache.import_embedded = False
     chr_cache.generation = "Unknown"
     chr_cache.non_standard_type = chr_type
 
     chr_cache.add_object_cache(chr_rig)
+
+    utils.log_info(f"Adding Character Objects:")
 
     # add child objects to chr_cache
     for obj in objects:
@@ -238,8 +339,8 @@ def convert_generic_to_non_standard(objects, file_path = None):
 
 
 def link_or_append_rl_character(blend_file, link=False):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.log_info("")
     utils.log_info("Link/Append Reallusion Character")
@@ -340,8 +441,8 @@ def link_or_append_rl_character(blend_file, link=False):
 
 
 def reconnect_rl_character_to_fbx(chr_rig, fbx_path):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     objects = get_character_objects(chr_rig)
 
@@ -353,8 +454,8 @@ def reconnect_rl_character_to_fbx(chr_rig, fbx_path):
 
     rig_name = chr_rig.name
     character_name = rig_name
-    if character_name.endswith("_Rigify"):
-        character_name = rig_name[:-7]
+    if "_Rigify" in character_name:
+        character_name = character_name.replace("_Rigify", "")
 
     utils.log_info(f"Using character name: {character_name}")
 
@@ -385,8 +486,8 @@ def reconnect_rl_character_to_fbx(chr_rig, fbx_path):
 
 
 def reconnect_rl_character_to_blend(chr_rig, blend_file):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     objects = get_character_objects(chr_rig)
 
@@ -396,8 +497,8 @@ def reconnect_rl_character_to_blend(chr_rig, blend_file):
 
     rig_name = chr_rig.name
     character_name = rig_name
-    if character_name.endswith("_Rigify"):
-        character_name = rig_name[:-7]
+    if "_Rigify" in character_name:
+        character_name = character_name.replace("_Rigify", "")
     utils.log_info(f"Using character name: {character_name}")
 
     # link or append character data from blend file
@@ -443,8 +544,8 @@ def reconnect_rl_character_to_blend(chr_rig, blend_file):
 
 
 def rebuild_character_cache(chr_cache, chr_rig, src_cache=None):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     chr_cache.add_object_cache(chr_rig)
     objects = get_character_objects(chr_rig)
@@ -534,7 +635,7 @@ def parent_to_rig(rig, obj):
 
 
 def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent=True, no_materials=False):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if chr_cache and utils.object_exists_is_mesh(obj):
 
@@ -569,7 +670,7 @@ def add_object_to_character(chr_cache, obj : bpy.types.Object, reparent=True, no
 
 
 def remove_object_from_character(chr_cache, obj):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if utils.object_exists_is_mesh(obj):
 
@@ -600,7 +701,7 @@ def remove_object_from_character(chr_cache, obj):
 
 
 def copy_objects_character_to_character(context_obj, chr_cache, objects, reparent = True):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     arm = chr_cache.get_armature()
     if not arm:
@@ -693,8 +794,10 @@ def make_accessory(chr_cache, objects):
     obj_data = {}
     for obj in objects:
         if obj.type == "MESH":
-            obj_data[obj] = {}
-            obj_data[obj]["parent_object"] = obj.parent
+            obj_data[obj] = {
+                    "parent_object": obj.parent,
+                    "matrix_world": obj.matrix_world.copy()
+                }
 
     # add any non character objects to character
     for obj in objects:
@@ -763,8 +866,6 @@ def make_accessory(chr_cache, objects):
                         obj_data[obj]["bone"] = obj_bone
                         obj_data[obj]["def_bone"] = def_bone
 
-                utils.object_mode_to(rig)
-
                 # parent the object bone to the accessory bone (or object transform parent bone)
                 for obj in objects:
                     if obj.type == "MESH" and obj in obj_data.keys():
@@ -796,7 +897,7 @@ def make_accessory(chr_cache, objects):
 
 def clean_up_character_data(chr_cache):
 
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     current_mats = []
     current_objects = []
@@ -821,7 +922,7 @@ def clean_up_character_data(chr_cache):
             obj = obj_cache.get_object()
 
             if not obj_cache.is_valid():
-                    delete_objects.append(obj_cache.get_object(return_invalid = True))
+                delete_objects.append(obj_cache.get_object(return_invalid=True))
 
             elif obj != arm:
 
@@ -876,7 +977,7 @@ def has_missing_materials(chr_cache):
 
 
 def add_missing_materials_to_character(chr_cache, obj, obj_cache):
-    props  = bpy.context.scene.CC3ImportProps
+    props  = vars.props()
 
     if chr_cache and obj and obj_cache and obj.type == "MESH":
 
@@ -897,7 +998,7 @@ def add_missing_materials_to_character(chr_cache, obj, obj_cache):
 
 
 def add_material_to_character(chr_cache, obj, obj_cache, mat, update_name = False):
-    props = bpy.context.scene.CC3ImportProps
+    props = vars.props()
 
     if chr_cache and obj and obj_cache and mat:
 
@@ -928,7 +1029,7 @@ def add_material_to_character(chr_cache, obj, obj_cache, mat, update_name = Fals
             mat.use_nodes = True
 
         # add the material into the material cache
-        mat_cache = chr_cache.add_material_cache(mat, "DEFAULT")
+        mat_cache = chr_cache.add_material_cache(mat, "DEFAULT", is_user=True)
         mat_cache.user_added = True
 
         # convert any existing PrincipledBSDF based material to a rl_pbr shader material
@@ -1520,6 +1621,23 @@ def match_materials(chr_cache):
     utils.log_recess()
 
 
+def get_generic_context(context):
+    props = vars.props()
+    chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
+    non_chr_objects = [ obj for obj in context.selected_objects
+                        if props.get_object_cache(obj) is None
+                            and (obj.type == "MESH"
+                                 or obj.type == "EMPTY")]
+    generic_rig = None
+    rig = None
+    if chr_cache:
+        rig = chr_cache.get_armature()
+    else:
+        generic_rig = get_generic_rig(context.selected_objects)
+        if generic_rig:
+            rig = generic_rig
+    return chr_cache, generic_rig, non_chr_objects
+
 
 class CC3OperatorCharacter(bpy.types.Operator):
     """CC3 Character Functions"""
@@ -1533,7 +1651,8 @@ class CC3OperatorCharacter(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
+        prefs = vars.prefs()
 
         if self.param == "ADD_PBR":
             chr_cache = props.get_context_character_cache(context)
@@ -1596,6 +1715,20 @@ class CC3OperatorCharacter(bpy.types.Operator):
             objects = bpy.context.selected_objects.copy()
             make_accessory(chr_cache, objects)
 
+        elif self.param == "SELECT_ACTOR_ALL":
+            chr_cache = props.get_context_character_cache(context)
+            select_character(chr_cache, all=True)
+
+        elif self.param == "SELECT_ACTOR_RIG":
+            chr_cache = props.get_context_character_cache(context)
+            select_character(chr_cache)
+
+        elif self.param == "DUPLICATE":
+            chr_cache = props.get_context_character_cache(context)
+            objects = duplicate_character(chr_cache)
+            utils.try_select_objects(objects, clear_selection=True)
+            bpy.ops.transform.translate("INVOKE_DEFAULT")
+
         return {"FINISHED"}
 
     @classmethod
@@ -1619,6 +1752,10 @@ class CC3OperatorCharacter(bpy.types.Operator):
             return "Convert character to a non-standard Humanoid, Creature or Prop"
         elif properties.param == "CONVERT_FROM_GENERIC":
             return "Convert character from generic armature and objects to Non-Standard character with Reallusion materials."
+        elif properties.param == "SELECT_ACTOR_ALL":
+            return "Select all objects and armatures in the character or prop"
+        elif properties.param == "SELECT_ACTOR_RIG":
+            return "Select the just the parent armature for the character or prop"
         return ""
 
 
@@ -1635,10 +1772,10 @@ class CC3OperatorTransferCharacterGeometry(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
-        active = bpy.context.active_object
+        active = utils.get_active_object()
         selected = bpy.context.selected_objects.copy()
 
         shape_key_name = None
@@ -1715,10 +1852,10 @@ class CC3OperatorTransferMeshGeometry(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
-        active = bpy.context.active_object
+        active = utils.get_active_object()
         selected = bpy.context.selected_objects.copy()
 
         utils.object_mode_to(active)
@@ -1790,8 +1927,8 @@ class CCICCharacterLink(bpy.types.Operator):
 
 
     def invoke(self, context, event):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache = props.get_context_character_cache(context)
         chr_rig = utils.get_context_armature(context)
 
@@ -1816,4 +1953,109 @@ class CCICCharacterLink(bpy.types.Operator):
             return """Link to an existing reallusion characer in a separate blend file."""
         elif properties.param == "APPEND":
             return """Append an existing reallusion characer in a separate blend file."""
+
+
+class CCICCharacterRename(bpy.types.Operator):
+    bl_idname = "ccic.rename_character"
+    bl_label = "Edit Character"
+    name: bpy.props.StringProperty(name="Name", default="")
+    non_standard_type: bpy.props.EnumProperty(items=[
+                    ("HUMANOID","Humanoid","Non standard character is a Humanoid"),
+                    ("CREATURE","Creature","Non standard character is a Creature"),
+                    ("PROP","Prop","Non standard character is a Prop"),
+                ], default="PROP", name = "Type")
+
+    def execute(self, context):
+        props = vars.props()
+        chr_cache = props.get_context_character_cache(context)
+        rig = chr_cache.get_armature()
+        rig_name = utils.unique_object_name(self.name, rig)
+        if rig:
+            rig.name = rig_name
+            rig.data.name = rig_name
+            name = rig.name
+        chr_cache.character_name = name
+        if chr_cache.is_non_standard():
+            chr_cache.non_standard_type = self.non_standard_type
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        props = vars.props()
+        prefs = vars.prefs()
+        chr_cache = props.get_context_character_cache(context)
+        self.name = chr_cache.character_name
+        self.non_standard_type = chr_cache.non_standard_type
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        props = vars.props()
+        chr_cache = props.get_context_character_cache(context)
+
+        layout = self.layout
+
+        split = layout.split(factor=0.25)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.label(text="Name:")
+        col_2.prop(self, "name", text="")
+        col_1.separator()
+        col_2.separator()
+        if chr_cache.is_non_standard():
+            col_1.label(text="Type:")
+            row = col_2.row()
+            row.prop(self, "non_standard_type", expand=True)
+
+        layout.separator()
+
+
+class CCICCharacterConvertGeneric(bpy.types.Operator):
+    bl_idname = "ccic.convert_generic"
+    bl_label = "Convert Generic Character"
+    name: bpy.props.StringProperty(name="Name", default="")
+    non_standard_type: bpy.props.EnumProperty(items=[
+                    ("HUMANOID","Humanoid","Non standard character is a Humanoid"),
+                    ("CREATURE","Creature","Non standard character is a Creature"),
+                    ("PROP","Prop","Non standard character is a Prop"),
+                ], default="PROP", name = "Type")
+
+    def execute(self, context):
+        props = vars.props()
+        prefs = vars.prefs()
+
+        objects = context.selected_objects.copy()
+
+        if convert_generic_to_non_standard(objects, type_override=self.non_standard_type, name_override=self.name):
+            self.report({'INFO'}, message="Generic character converted to Non-Standard!")
+        else:
+            self.report({'ERROR'}, message="Invalid generic character selection!")
+
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        props = vars.props()
+        prefs = vars.prefs()
+
+        chr_cache, generic_rig, non_chr_objects = get_generic_context(context)
+
+        if chr_cache or not (generic_rig or non_chr_objects):
+            self.report({'ERROR'}, message="Invalid generic character selection!")
+            return {"FINISHED"}
+
+        chr_name = "Unknown"
+        if generic_rig:
+            chr_name = utils.unique_object_name(utils.un_suffix_name(generic_rig.name), generic_rig)
+        else:
+            active = utils.get_active_object()
+            if active in non_chr_objects:
+                chr_name = active.name
+            else:
+                chr_name = non_chr_objects[0].name
+            chr_name = utils.unique_object_name(utils.un_suffix_name(chr_name))
+
+        self.name = chr_name
+        self.non_standard_type = prefs.convert_non_standard_type
+
+        return context.window_manager.invoke_props_dialog(self)
+
+
 

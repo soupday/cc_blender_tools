@@ -46,7 +46,7 @@ def set_cycles_samples(samples, adaptive_samples = -1, denoising = False, time_l
         bpy.context.scene.cycles.time_limit = time_limit
 
 
-def prep_bake(mat = None, samples = BAKE_SAMPLES, image_format = IMAGE_FORMAT, make_surface = True):
+def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format=IMAGE_FORMAT, make_surface=True):
     bake_state = {}
 
     # cycles settings
@@ -125,9 +125,17 @@ def prep_bake(mat = None, samples = BAKE_SAMPLES, image_format = IMAGE_FORMAT, m
         bpy.ops.object.select_all(action='DESELECT')
         # create the baking plane, a single quad baking surface for an even sampling across the entire texture
         bpy.ops.mesh.primitive_plane_add(size=2, enter_editmode=False, align='WORLD', location=(0, 0, 0))
-        bake_surface = bpy.context.active_object
+        bake_surface = utils.get_active_object()
         bake_state["bake_surface"] = bake_surface
         set_bake_material(bake_state, mat)
+        # replicate any material node UV layers in bake surface
+        if mat and mat.node_tree and mat.node_tree.nodes:
+            for node in mat.node_tree.nodes:
+                if node.type == "UVMAP":
+                    uv_name = node.uv_map
+                    mesh: bpy.types.Mesh = bake_surface.data
+                    if uv_name not in mesh.uv_layers:
+                        mesh.uv_layers.new(name=uv_name)
 
     return bake_state
 
@@ -573,6 +581,7 @@ def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.
     image_node.name = image_name
 
     utils.log_info("Baking: " + image_name)
+    utils.log_info(f"{source_node} {source_socket}")
 
     if not no_prep:
         bake_state = prep_bake(mat=mat, make_surface=True)
@@ -673,7 +682,7 @@ def get_connected_texture_size(node, override_size, *sockets):
        If no connected image nodes found then returns the preferences minimum export texture size.\n
        Returned width and height can be overridden with override_size."""
 
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
     width = 0
     height = 0
     if override_size > 0:
@@ -776,7 +785,7 @@ def combine_normal(chr_cache, mat_cache):
     bake_path = get_bake_dir(chr_cache)
 
     selection = bpy.context.selected_objects.copy()
-    active = bpy.context.active_object
+    active = utils.get_active_object()
 
     if mat_cache.material_type == "DEFAULT" or mat_cache.material_type == "SSS":
 
@@ -1079,7 +1088,7 @@ def unlink_texture_nodes(mat, *tex_ids):
 
 
 def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     mat = mat_cache.material
     wrinkle_node = wrinkle.get_wrinkle_shader_node(mat)
@@ -1150,7 +1159,7 @@ def pack_skin_shader(chr_cache, mat_cache, shader_node, limit_textures = False):
 
 
 def pack_default_shader(chr_cache, mat_cache, shader_node):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     mat = mat_cache.material
     bake_dir = mat_cache.get_tex_dir(chr_cache)
@@ -1172,7 +1181,7 @@ def pack_default_shader(chr_cache, mat_cache, shader_node):
 
 
 def pack_sss_shader(chr_cache, mat_cache, shader_node):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     mat = mat_cache.material
     bake_dir = mat_cache.get_tex_dir(chr_cache)
@@ -1201,7 +1210,7 @@ def pack_sss_shader(chr_cache, mat_cache, shader_node):
 
 
 def pack_hair_shader(chr_cache, mat_cache, shader_node):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     mat = mat_cache.material
     bake_dir = mat_cache.get_tex_dir(chr_cache)
@@ -1231,7 +1240,7 @@ def pack_hair_shader(chr_cache, mat_cache, shader_node):
 
 def pack_shader_channels(chr_cache, mat_cache):
     global NODE_CURSOR
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     init_bake(5001)
 
@@ -1289,7 +1298,7 @@ class CC3BakeOperator(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
 
         if self.param == "BAKE_FLOW_NORMAL":
             mat = utils.get_context_material(context)
@@ -2421,18 +2430,18 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
 
 def bake_character(chr_cache):
     props = bpy.context.scene.CCICBakeProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     utils.log_info("")
     utils.log_info("Baking Selected Objects:")
     utils.log_info("")
 
     objects = get_export_objects(chr_cache)
-    #objects = [ bpy.context.active_object ]
+    #objects = [ utils.get_active_object() ]
 
-    bake_state = prep_bake(samples = props.bake_samples,
-                           image_format = props.target_format,
-                           make_surface = True)
+    bake_state = prep_bake(samples=props.bake_samples,
+                           image_format=props.target_format,
+                           make_surface=True)
 
     if prefs.bake_use_gpu:
         set_cycles_samples(samples=props.bake_samples, adaptive_samples=0.01, use_gpu=True, denoising=False)
@@ -2764,8 +2773,8 @@ class CCICBaker(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         mode_selection = utils.store_mode_selection_state()
 
@@ -2806,8 +2815,8 @@ class CCICBakeSettings(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
 
         obj = context.object
         mat = utils.get_context_material(context)

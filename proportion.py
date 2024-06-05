@@ -48,7 +48,6 @@ def convert_to_blender_bone_names(chr_cache):
                 bone_name = bone_name.replace("_R_", "_X_") + ".r"
                 bone_remap[bone.name] = bone_name
                 bone.name = bone_name
-            print(f"{source_name} -> {bone_name}")
 
         for obj in objects:
             for vg in obj.vertex_groups:
@@ -144,16 +143,7 @@ def apply_proportion_pose(chr_cache):
         rig = chr_cache.get_armature()
         if rig:
             hide_sub_bones(rig, False)
-            objects = chr_cache.get_all_objects(include_armature=False, include_children=True, of_type="MESH")
-            for obj in objects:
-                mod: bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
-                if mod:
-                    # apply armature modifier with preserve settings and mod order
-                    modifiers.apply_modifier(obj, modifier=mod, preserving=True)
-                    mod = modifiers.get_armature_modifier(obj, create=True, armature=rig)
-        if utils.pose_mode_to(rig):
-            bpy.ops.pose.armature_apply(selected=False)
-        utils.object_mode_to(rig)
+            rigutils.apply_as_rest_pose(rig)
 
 
 def set_child_inherit_scale(rig, pose_bone: bpy.types.PoseBone, inherit_scale):
@@ -199,7 +189,7 @@ class CCICCharacterProportions(bpy.types.Operator):
         )
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
         chr_cache = props.get_context_character_cache(context)
 
         if self.param == "BEGIN":
@@ -213,12 +203,12 @@ class CCICCharacterProportions(bpy.types.Operator):
 
         elif self.param.startswith("INHERIT_SCALE"):
             inherit_scale = self.param[14:]
-            if utils.get_mode() == "POSE" and bpy.context.active_object and bpy.context.active_pose_bone:
-                set_child_inherit_scale(bpy.context.active_object, bpy.context.active_pose_bone, inherit_scale)
+            if utils.get_mode() == "POSE" and utils.get_active_object() and bpy.context.active_pose_bone:
+                set_child_inherit_scale(utils.get_active_object(), bpy.context.active_pose_bone, inherit_scale)
 
         elif self.param == "RESET":
-            if utils.get_mode() == "POSE" and bpy.context.active_object:
-                reset_proportions(bpy.context.active_object)
+            if utils.get_mode() == "POSE" and utils.get_active_object():
+                reset_proportions(utils.get_active_object())
 
         return {"FINISHED"}
 

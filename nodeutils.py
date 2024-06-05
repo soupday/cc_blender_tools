@@ -525,6 +525,7 @@ def get_node_by_id_and_type(nodes, id, type):
 
 
 def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_group, mix_shader_group, custom_bsdf = None):
+    prefs = vars.prefs()
     shader_id = "(" + str(shader_name) + ")"
     bsdf_id = "(" + str(shader_name) + "_BSDF)"
     mix_id = "(" + str(shader_name) + "_MIX)"
@@ -664,11 +665,16 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
 
     output_node.location = (900, -400)
 
+    blocked_bsdf_sockets = []
+    if prefs.render_target != "CYCLES":
+        blocked_bsdf_sockets.append("Subsurface Radius")
+
     # connect all group_node outputs to BSDF inputs:
     if has_group_node and has_bsdf:
         for socket in group_node.outputs:
-            to_socket = input_socket(bsdf_node, socket.name)
-            link_nodes(links, group_node, socket.name, bsdf_node, to_socket)
+            if socket.name not in blocked_bsdf_sockets:
+                to_socket = input_socket(bsdf_node, socket.name)
+                link_nodes(links, group_node, socket.name, bsdf_node, to_socket)
 
     if utils.B400():
         set_node_input_value(bsdf_node, "Subsurface Scale", 1.0)
@@ -853,7 +859,10 @@ def store_texture_mapping(image_node, mat_cache, texture_type):
 # link utils
 
 def append_node_group(path, object_name):
-    filename = "_LIB.blend"
+    if utils.B341():
+        filename = "_LIB341.blend"
+    else:
+        filename = "_LIB293.blend"
     datablock = "NodeTree"
     file = os.path.join(path, filename)
     appended_group = None
@@ -887,7 +896,10 @@ def fetch_node_group(name):
 
 
 def append_lib_image(path, object_name):
-    filename = "_LIB.blend"
+    if utils.B341():
+        filename = "_LIB341.blend"
+    else:
+        filename = "_LIB293.blend"
     datablock = "Image"
     file = os.path.join(path, filename)
     appended_image = None
@@ -959,14 +971,26 @@ def get_bsdf_node(mat):
         for node in nodes:
             if node.type == "BSDF_PRINCIPLED":
                 return node
+        for node in nodes:
+            if node.type == "GROUP" and "_BSDF)" in node.name:
+                return node
     return None
 
 
-def get_custom_bsdf_nodes(custom_bsdf_node):
+def get_custom_bsdf_nodes(mat_or_node):
     bsdf_nodes = []
-    for node in custom_bsdf_node.node_tree.nodes:
-        if node.type == "BSDF_PRINCIPLED":
-            bsdf_nodes.append(node)
+    bsdf_node = None
+    if type(mat_or_node) is bpy.types.Material:
+        bsdf_node = get_bsdf_node(mat_or_node)
+    else:
+        bsdf_node = mat_or_node
+    if bsdf_node:
+        if bsdf_node.type == "GROUP":
+            for node in bsdf_node.node_tree.nodes:
+                if node.type == "BSDF_PRINCIPLED":
+                    bsdf_nodes.append(node)
+        else:
+            bsdf_nodes.append(bsdf_node)
     return bsdf_nodes
 
 

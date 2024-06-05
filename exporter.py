@@ -24,7 +24,7 @@ import math
 import bpy
 from filecmp import cmp
 
-from . import (rigging, rigutils, vrm, bake, shaders, physics, rigidbody, wrinkle, bones, modifiers,
+from . import (hik, rigging, rigutils, bake, shaders, physics, rigidbody, wrinkle, bones, modifiers,
                imageutils, meshutils, nodeutils, jsonutils, utils, params, vars)
 
 UNPACK_INDEX = 1001
@@ -140,7 +140,9 @@ def restore_modifiers(chr_cache, objects):
 
 def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 copy_textures, revert_duplicates, apply_fixes, as_blend_file, bake_values):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
+
+    utils.log_info(f"Prepping Export: {new_name}")
 
     if as_blend_file:
         if prefs.export_unity_remove_objects:
@@ -304,10 +306,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                     utils.log_info(f"Updating Object source json name: {obj_source_name} to {new_obj_name}")
                 if physics_json and jsonutils.rename_json_key(physics_json, obj_source_name, new_obj_name):
                     utils.log_info(f"Updating Physics Object source json name: {obj_source_name} to {new_obj_name}")
-            obj.name = new_obj_name
-            obj.name = new_obj_name
-            obj.data.name = new_obj_name
-            obj.data.name = new_obj_name
+            utils.force_object_name(obj, new_obj_name)
+            utils.force_mesh_name(obj.data, new_obj_name)
             obj_name = new_obj_name
             obj_safe_name = new_obj_name
             obj_source_name = new_obj_name
@@ -365,8 +365,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         utils.log_info(f"Updating material json name: {mat_source_name} to {new_mat_name}")
                     if physics_mesh_json and jsonutils.rename_json_key(physics_mesh_json["Materials"], mat_source_name, new_mat_name):
                         utils.log_info(f"Updating physics material json name: {mat_source_name} to {new_mat_name}")
-                mat.name = new_mat_name
-                mat.name = new_mat_name
+                utils.force_material_name(mat, new_mat_name)
                 mat_name = new_mat_name
                 mat_safe_name = new_mat_name
                 mat_source_name = new_mat_name
@@ -430,8 +429,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         mat_name = new_mat.name
                     if mat_name != mat_safe_name:
                         utils.log_info(f"Reverting material name: {mat_name} to {mat_safe_name}")
-                        mat.name = mat_safe_name
-                        mat.name = mat_safe_name
+                        utils.force_material_name(mat, mat_safe_name)
                 utils.log_recess()
             else:
                 # add pbr material to json for non-cached base object/material
@@ -603,15 +601,14 @@ def restore_export(export_changes : list):
         op = info[0]
         if op == "OBJECT_RENAME":
             obj = info[1]
-            obj.name = info[2]
-            obj.name = info[2]
-            if obj.data:
-                obj.data.name = info[3]
-                obj.data.name = info[3]
+            utils.force_object_name(obj, info[2])
+            if obj.type == "MESH" and obj.data:
+                utils.force_mesh_name(obj.data, info[3])
+            if obj.type == "ARMATURE" and obj.data:
+                utils.force_armature_name(obj.data, info[3])
         elif op == "MATERIAL_RENAME":
             mat = info[1]
-            mat.name = info[2]
-            mat.name = info[2]
+            utils.force_material_name(mat, info[2])
         elif op == "MATERIAL_SLOT_REPLACE":
             slot = info[1]
             slot.material = info[2]
@@ -659,7 +656,7 @@ def write_back_json(mat_json, mat, mat_cache):
 
 def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, bake_values, mat_data, images_processed):
     global UNPACK_INDEX
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if mat_json is None:
         return
@@ -826,6 +823,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                 #    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
                                 #                                            size_override_node = shader_node, size_override_socket = "Roughness Map")
                                 else:
+                                    utils.log_info(f"Baking Socket Input: {shader_node.name} {shader_socket}")
                                     image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
                         tex_info["Texture Path"] = ""
@@ -866,7 +864,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
 def write_back_physics_weightmap(physics_mat_json : dict, obj, mat, mat_cache, base_path, old_name, mat_data):
     global UNPACK_INDEX
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     if physics_mat_json is None:
         return
@@ -935,7 +933,7 @@ def try_unpack_image(image, folder, index_suffix = False):
 
 
 def unpack_embedded_textures(chr_cache, chr_json, objects, base_path):
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    prefs = vars.prefs()
 
     unpack_folder = None
     if chr_cache:
@@ -1527,26 +1525,32 @@ def export_copy_asset_file(chr_cache, dir, name, ext, old_path=None):
 
 def is_arp_installed():
     try:
-        bl_options = bpy.ops.id.arp_export_fbx_panel.bl_options
+        bl_options = bpy.ops.arp.arp_export_fbx_panel.bl_options
         if bl_options is not None:
+            utils.log_info("ARP is installed.")
             return True
         else:
+            utils.log_info("ARP is NOT installed.")
             return False
     except:
+        utils.log_info("ARP is NOT installed.")
         return False
 
 
 def is_arp_rig(rig):
     if utils.object_exists_is_armature(rig):
         if "c_pos" in rig.data.bones and "c_traj" in rig.data.bones and "c_root.x" in rig.data.bones:
+            utils.log_info("Rig is ARP")
             return True
+    utils.log_info("Rig is NOT ARP")
     return False
 
 
 def export_arp(file_path, arm, objects):
+    utils.log_info("Attempting to export ARP rig...")
     try:
-        bpy.data.scenes["Scene"].arp_engine_type = "unity"
-        bpy.data.scenes["Scene"].arp_export_rig_type = "humanoid"
+        bpy.data.scenes["Scene"].arp_engine_type = "UNITY"
+        bpy.data.scenes["Scene"].arp_export_rig_type = "HUMANOID"
         bpy.data.scenes["Scene"].arp_bake_anim = False
         bpy.data.scenes["Scene"].arp_ge_sel_only = True
         bpy.data.scenes["Scene"].arp_ge_sel_bones_only = False
@@ -1572,9 +1576,10 @@ def export_arp(file_path, arm, objects):
         utils.set_active_object(arm)
         # invoke
         utils.log_info("Invoking ARP Export:")
-        bpy.ops.id.arp_export_fbx_panel(filepath=file_path, check_existing = False)
+        bpy.ops.arp.arp_export_fbx_panel(filepath=file_path, check_existing = False)
         return True
-    except:
+    except Exception as e:
+        utils.log_info(f"ARP export failed: {str(e)}")
         return False
 
 
@@ -1607,8 +1612,8 @@ def export_standard(self, chr_cache, file_path, include_selected):
        texture paths are relative to source character, as an .fbx file.
     """
 
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.start_timer()
 
@@ -1630,8 +1635,6 @@ def export_standard(self, chr_cache, file_path, include_selected):
     if arm:
         settings = bones.store_armature_settings(arm, include_pose=True)
 
-
-
     if utils.is_file_ext(ext, "FBX"):
 
         json_data = chr_cache.get_json_data()
@@ -1645,7 +1648,10 @@ def export_standard(self, chr_cache, file_path, include_selected):
         utils.log_info("Preparing character for export:")
         utils.log_indent()
 
-        remove_modifiers_for_export(chr_cache, objects, True)
+        # avatar's should be exported back to CC4 in rest pose.
+        # props should be exported back with animation.
+        use_rest_pose = chr_cache.is_avatar()
+        remove_modifiers_for_export(chr_cache, objects, use_rest_pose)
 
         # restore quaternion rotation modes
         rigutils.reset_rotation_modes(arm)
@@ -1690,7 +1696,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
         # write HIK profile for VRM
         if chr_cache and chr_cache.is_import_type("VRM"):
             hik_path = os.path.join(dir, name + ".3dxProfile")
-            if vrm.generate_hik_profile(arm, name, hik_path):
+            if hik.generate_hik_profile(arm, name, hik_path, hik.VRM_HIK_PROFILE_TEMPLATE):
                 if json_data:
                     json_data[name]["HIK"] = {}
                     json_data[name]["HIK"]["Profile_Path"] = os.path.relpath(hik_path, dir)
@@ -1711,7 +1717,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
 
         # select all the imported objects (should be just one)
         for p in chr_cache.object_cache:
-            if p.object is not None and p.object.type == "MESH":
+            if p.object is not None and p.object.type == "MESH" and not p.disabled:
                 p.object.hide_set(False)
                 p.object.select_set(True)
 
@@ -1740,8 +1746,8 @@ def export_non_standard(self, file_path, include_selected):
     """Exports non-standard character (unconverted and not rigified) to CC4 with json data and textures, as an .fbx file.
     """
 
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.start_timer()
 
@@ -1757,7 +1763,7 @@ def export_non_standard(self, file_path, include_selected):
 
     # store selection
     old_selection = bpy.context.selected_objects.copy()
-    old_active = bpy.context.active_object
+    old_active = utils.get_active_object()
 
     objects = get_export_objects(None, include_selected)
     arm = get_export_armature(None, objects)
@@ -1773,16 +1779,16 @@ def export_non_standard(self, file_path, include_selected):
     remove_modifiers_for_export(None, objects, True)
 
     # attempt any custom exports (ARP)
-    custom_export = False
+    arp_export = False
     if is_arp_installed() and is_arp_rig(arm):
-        custom_export = export_arp(file_path, arm, objects)
+        arp_export = export_arp(file_path, arm, objects)
 
     # double check custom export
     if not os.path.exists(file_path):
-        custom_export = False
+        arp_export = False
 
     # proceed with normal export
-    if not custom_export:
+    if not arp_export:
         bpy.ops.export_scene.fbx(filepath=file_path,
                 use_selection = True,
                 bake_anim = export_anim,
@@ -1811,7 +1817,14 @@ def export_non_standard(self, file_path, include_selected):
     bpy.context.view_layer.objects.active = old_active
 
     utils.log_recess()
-    utils.log_timer("Done Non-standard Export.")
+    if arp_export:
+        utils.log_timer("Done Non-standard ARP Export.")
+        self.report({'INFO'}, "Export Non-standard (ARP) Done!")
+    else:
+        utils.log_timer("Done Non-standard Export.")
+        self.report({'INFO'}, "Export Non-standard Done!")
+
+
 
 
 def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
@@ -1819,8 +1832,8 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
        as either a .blend file or .fbx file.
     """
 
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.start_timer()
 
@@ -1936,8 +1949,8 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
 
 
 def update_to_unity(chr_cache, export_anim, include_selected):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.start_timer()
 
@@ -2015,8 +2028,8 @@ def update_to_unity(chr_cache, export_anim, include_selected):
 
 
 def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
-    props = bpy.context.scene.CC3ImportProps
-    prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+    props = vars.props()
+    prefs = vars.prefs()
 
     utils.start_timer()
 
@@ -2034,7 +2047,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
 
     json_data = None
     include_textures = self.include_textures
-    if props.export_rigify_mode == "MOTION":
+    if prefs.rigify_export_mode == "MOTION":
          include_textures = False
     else:
         json_data = chr_cache.get_json_data()
@@ -2054,16 +2067,18 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     export_actions = False
     export_strips = True
     baked_actions = []
-    export_rig, vertex_group_map = rigging.prep_rigify_export(chr_cache, export_anim, baked_actions,
-                                                              include_t_pose = props.bake_unity_t_pose,
-                                                              objects=objects)
+    export_rig, vertex_group_map, t_pose_action = rigging.prep_rigify_export(chr_cache,
+                                                            export_anim, baked_actions,
+                                                            include_t_pose=prefs.rigify_export_t_pose,
+                                                            objects=objects,
+                                                            bone_naming = prefs.rigify_export_naming)
     if export_rig:
         rigify_rig = chr_cache.get_armature()
         objects.remove(rigify_rig)
         objects.append(export_rig)
 
     use_anim = export_anim
-    if props.bake_unity_t_pose:
+    if prefs.rigify_export_t_pose:
         use_anim = True
 
     # remove custom material modifiers
@@ -2073,7 +2088,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
                 include_textures, False, False, False, False)
 
     # for motion only exports, select armature and any mesh objects that have shape key animations
-    if props.export_rigify_mode == "MOTION":
+    if prefs.rigify_export_mode == "MOTION":
         utils.clear_selected_objects()
         rigging.select_motion_export_objects(objects)
 
@@ -2092,6 +2107,30 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
             #axis_up = "Z",
             mesh_smooth_type = ("FACE" if self.export_face_smoothing else "OFF"),
             use_mesh_modifiers = True)
+
+    if prefs.rigify_export_t_pose:
+        bones.clear_pose(export_rig)
+
+        # put t-pose back on armature
+        utils.safe_set_action(export_rig, t_pose_action)
+
+        bpy.context.view_layer.update()
+
+        # write HIK profile for RIGIFY
+        hik_path = os.path.join(dir, name + ".3dxProfile")
+        if prefs.rigify_export_naming == "METARIG":
+            hik_template = hik.RIGIFY_METARIG_PROFILE_TEMPLATE
+        elif prefs.rigify_export_naming == "CC":
+            hik_template = hik.RIGIFY_CC_BASE_PROFILE_TEMPLATE
+        else:
+            hik_template = hik.RIGIFY_BASE_PROFILE_TEMPLATE
+        if hik.generate_hik_profile(export_rig, name, hik_path, hik_template):
+            if json_data:
+                json_data[name]["HIK"] = {}
+                json_data[name]["HIK"]["Profile_Path"] = os.path.relpath(hik_path, dir)
+
+        # clear armature actions
+        utils.safe_set_action(export_rig, None)
 
     rigutils.restore_armature_names(armature_object, armature_data, name)
 
@@ -2122,7 +2161,7 @@ def export_as_accessory(file_path, filename_ext):
 
     # store selection
     old_selection = bpy.context.selected_objects
-    old_active = bpy.context.active_object
+    old_active = utils.get_active_object()
 
     if utils.is_file_ext(ext, "FBX"):
         bpy.ops.export_scene.fbx(filepath=file_path,
@@ -2153,7 +2192,7 @@ def export_as_replace_mesh(file_path):
 
     # store selection
     old_selection = bpy.context.selected_objects
-    old_active = bpy.context.active_object
+    old_active = utils.get_active_object()
 
     obj_export(file_path, use_selection=True,
                           global_scale=100,
@@ -2231,8 +2270,8 @@ class CC3Export(bpy.types.Operator):
             utils.message_box_multi("Export Check: Some Warnings", "INFO", self.check_report)
 
     def execute(self, context):
-        props = bpy.context.scene.CC3ImportProps
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        props = vars.props()
+        prefs = vars.prefs()
         chr_cache = props.get_context_character_cache(context)
         if self.link_id_override:
             chr_cache = props.find_character_by_link_id(self.link_id_override)
@@ -2265,8 +2304,7 @@ class CC3Export(bpy.types.Operator):
 
         elif self.param == "EXPORT_NON_STANDARD":
 
-            export_non_standard(self, chr_cache, self.filepath, self.include_selected)
-            self.report({'INFO'}, "Export Non-standard Done!")
+            export_non_standard(self, self.filepath, self.include_selected)
             self.error_report()
 
 
@@ -2298,7 +2336,7 @@ class CC3Export(bpy.types.Operator):
 
 
     def invoke(self, context, event):
-        prefs = bpy.context.preferences.addons[__name__.partition(".")[0]].preferences
+        prefs = vars.prefs()
 
         self.check_report = []
         self.check_valid = True
@@ -2311,7 +2349,7 @@ class CC3Export(bpy.types.Operator):
         if self.param == "CHECK_EXPORT":
             return self.execute(context)
 
-        props = bpy.context.scene.CC3ImportProps
+        props = vars.props()
         chr_cache = props.get_context_character_cache(context)
         if self.link_id_override:
             chr_cache = props.find_character_by_link_id(self.link_id_override)
@@ -2335,7 +2373,7 @@ class CC3Export(bpy.types.Operator):
             export_format = "fbx"
         elif self.param == "EXPORT_RIGIFY":
             export_format = "fbx"
-            if props.export_rigify_mode == "MOTION":
+            if prefs.rigify_export_mode == "MOTION":
                 export_suffix = "_motion"
         elif self.param == "EXPORT_UNITY":
             if prefs.export_unity_mode == "FBX":
@@ -2361,10 +2399,10 @@ class CC3Export(bpy.types.Operator):
                 self.export_face_smoothing = True
 
         if self.param == "EXPORT_RIGIFY":
-            if props.export_rigify_mode == "MOTION":
+            if prefs.rigify_export_mode == "MOTION":
                 self.include_textures = False
                 self.include_anim = True
-            elif props.export_rigify_mode == "MESH":
+            elif prefs.rigify_export_mode == "MESH":
                 self.include_textures = True
                 self.include_anim = False
                 self.export_face_smoothing = True

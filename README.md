@@ -27,13 +27,54 @@ Links
 ### To Remove
 - From the menu: **Edit**->**Preferences** then select **Add-ons**
 - In the search box search **All** add-ons for **"CC/iC Blender Tools"**
-- Deactivate the add-on by unticking the checbox next to **Edit**->**Preferences** then select **Add-ons**.
+- Deactivate the add-on by unticking the checkbox next to **Edit**->**Preferences** then select **Add-ons**.
 - Then click the **Remove** button.
 ### To Update
 - Remove the current version of the add-on by following the remove instructions above.
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+
+### 2.0.8
+- Import/Export:
+    - Fix to Update Unity Project being greyed out after saving as Blend file.
+    - Fix to export non-standard character.
+    - Fix to export non-standard ARP rigged character.
+    - (Blender 4.0+) Fix to reverting object and material name changes on export and other force name changes.
+    - Generic character/prop import expanded to support USD/USDZ.
+    - Rigify export now have choice of naming system:
+        - Metarig names (without Root bone) for exporting animations back into CC/iC.
+        - CC Base names (with Root bone) for exporting to Unity Auto-setup.
+    - Rigified characters/motion exports now generate custom HIK profile which can be used to import/convert Rigified motion exports into CC/iC.
+    - Datalink Rigified characters (optionally) disable tweak bones as they are not compatible with CC/iC animation.
+- Scene tools:
+    - Scene lighting presets overhauled.
+    - Added function to align any object to view location and orientation (useful for placing lights and cameras).
+    - Added function to add a camera at current view location and orientation.
+    - Added function to setup a main face tracking camera centered on character's head.
+    - Added function to convert current view studio lighting into world lighting node setup.
+- Rigify:
+    - Fix to GameBase detection.
+    - Fix to AccuRig generation code not being recognized as valid Rigify target.
+    - Fix to support Mixamorigs with suffix numbers in retargeting.
+    - Auto-retarget toggle added to automatically retarget any animation on character when using Quick Rigify.
+- Shaders:
+    - Skin, eye and hair shaders updated to use Blender 4.0+ Random Walk (Skin) Subsurface Scattering.
+    - Displacement map (if present) will be used on skin materials for bump and mesh displacement.
+    - Cycles subsurface calculations and parameters tweaked.
+    - Separate cycles modifiers for Blender 3.4-3.6 and 4.0+.
+    - Eye Sclera color tint added.
+    - Cycles Tearline shader reworked.
+- Character Management
+    - Character edit function added.
+    - Character duplicate function added (duplicates character objects and meta-data so can be used and configured independently).
+    - Character tools (select/rigify/convert/delete/duplicate), also sub-panel in Datalink.
+    - Convert to accessory fix.
+- Datalink:
+    - Added Receiving prop posing and animation live sequence.
+    - Added custom prop rig control bones when sending through datalink.
+    - Added Direct Motion Transfer from CC/iC (automatic motion export->import).
+    - Added "Go iC" button to send (just props for now) back to iClone.
 
 ### 2.0.7
 - Attempts to restore datalink when reloading linked blend file.
