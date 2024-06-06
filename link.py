@@ -1,6 +1,7 @@
 import bpy #, bpy_extras
 #import bpy_extras.view3d_utils as v3d
 import atexit
+import traceback
 from enum import IntEnum
 import os, socket, time, select, struct, json
 #import subprocess
@@ -30,6 +31,7 @@ class OpCodes(IntEnum):
     PING = 2
     STOP = 10
     DISCONNECT = 11
+    DEBUG = 15
     NOTIFY = 50
     SAVE = 60
     MORPH = 90
@@ -1102,8 +1104,8 @@ class LinkService():
             try:
                 r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
             except Exception as e:
-                utils.log_error("Client socket receive:select failed!", e)
-                self.service_lost()
+                utils.log_error("Client socket recv:select failed!", e)
+                self.client_lost()
                 return
             count = 0
             while r:
@@ -1112,11 +1114,11 @@ class LinkService():
                     header = self.client_sock.recv(8)
                     if header == 0:
                         utils.log_always("Socket closed by client")
-                        self.service_lost()
+                        self.client_lost()
                         return
                 except Exception as e:
-                    utils.log_error("Client socket receive:recv failed!", e)
-                    self.service_lost()
+                    utils.log_error("Client socket recv:recv header failed!", e)
+                    self.client_lost()
                     return
                 if header and len(header) == 8:
                     op_code, size = struct.unpack("!II", header)
@@ -1128,8 +1130,8 @@ class LinkService():
                             try:
                                 chunk = self.client_sock.recv(chunk_size)
                             except Exception as e:
-                                utils.log_error("Client socket receive:chunk_recv failed!", e)
-                                self.service_lost()
+                                utils.log_error("Client socket recv:recv chunk failed!", e)
+                                self.client_lost()
                                 return
                             data.extend(chunk)
                             size -= len(chunk)
@@ -1152,8 +1154,8 @@ class LinkService():
                 try:
                     r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
                 except Exception as e:
-                    utils.log_error("Client socket receive:re-select failed!", e)
-                    self.service_lost()
+                    utils.log_error("Client socket recv:select (reselect) failed!", e)
+                    self.client_lost()
                     return
                 if r:
                     self.is_data = True
@@ -1222,10 +1224,13 @@ class LinkService():
 
         elif op_code == OpCodes.DISCONNECT:
             utils.log_info(f"Disconnection Received")
-            self.service_disconnect()
+            self.service_recv_disconnected()
 
         elif op_code == OpCodes.NOTIFY:
             self.receive_notify(data)
+
+        elif op_code == OpCodes.DEBUG:
+            self.receive_debug(data)
 
         ##
         #
@@ -1307,6 +1312,9 @@ class LinkService():
 
     def service_disconnect(self):
         self.send(OpCodes.DISCONNECT)
+        self.service_recv_disconnected()
+
+    def service_recv_disconnected(self):
         if CLIENT_ONLY:
             self.stop_timer()
         self.stop_client()
@@ -1322,6 +1330,12 @@ class LinkService():
         self.stop_timer()
         self.stop_client()
         self.stop_server()
+
+    def client_lost(self):
+        self.lost_connection.emit()
+        if CLIENT_ONLY:
+            self.stop_timer()
+        self.stop_client()
 
     def check_service(self):
         global LINK_SERVICE
@@ -1341,76 +1355,88 @@ class LinkService():
             self.send_hello()
 
     def loop(self):
-        current_time = time.time()
-        delta_time = current_time - self.time
-        self.time = current_time
-        if delta_time > 0:
-            rate = 1.0 / delta_time
-            self.loop_rate = self.loop_rate * 0.75 + rate * 0.25
-            #if self.loop_count % 100 == 0:
-            #    utils.log_detail(f"LinkServer loop timer rate: {self.loop_rate}")
-            self.loop_count += 1
+        try:
+            current_time = time.time()
+            delta_time = current_time - self.time
+            self.time = current_time
+            if delta_time > 0:
+                rate = 1.0 / delta_time
+                self.loop_rate = self.loop_rate * 0.75 + rate * 0.25
+                #if self.loop_count % 100 == 0:
+                #    utils.log_detail(f"LinkServer loop timer rate: {self.loop_rate}")
+                self.loop_count += 1
 
-        self.check_paths()
+            self.check_paths()
 
-        if not self.check_service():
-            return None
-
-        if not self.timer:
-            return None
-
-        if self.is_connected:
-            self.ping_timer -= delta_time
-            self.keepalive_timer -= delta_time
-
-            if USE_PING and self.ping_timer <= 0:
-                self.send(OpCodes.PING)
-
-            if USE_KEEPALIVE and self.keepalive_timer <= 0:
-                utils.log_info("lost connection!")
-                self.service_stop()
+            if not self.check_service():
                 return None
 
-        elif self.is_listening:
-            self.keepalive_timer -= delta_time
-
-            if USE_KEEPALIVE and self.keepalive_timer <= 0:
-                utils.log_info("no connection within time limit!")
-                self.service_stop()
+            if not self.timer:
                 return None
 
-        # accept incoming connections
-        self.accept()
+            if self.is_connected:
+                self.ping_timer -= delta_time
+                self.keepalive_timer -= delta_time
 
-        # receive client data
-        self.recv()
+                if USE_PING and self.ping_timer <= 0:
+                    self.send(OpCodes.PING)
 
-        # run anything in sequence
-        for i in range(0, self.sequence_send_count):
-            self.sequence.emit()
+                if USE_KEEPALIVE and self.keepalive_timer <= 0:
+                    utils.log_info("lost connection!")
+                    self.service_stop()
+                    return None
 
-        if self.is_import:
-            return 0.5
-        else:
-            interval = 0.0 if (self.is_data or self.is_sequence) else TIMER_INTERVAL
-            return interval
+            elif self.is_listening:
+                self.keepalive_timer -= delta_time
+
+                if USE_KEEPALIVE and self.keepalive_timer <= 0:
+                    utils.log_info("no connection within time limit!")
+                    self.service_stop()
+                    return None
+
+            # accept incoming connections
+            self.accept()
+
+            # receive client data
+            self.recv()
+
+            # run anything in sequence
+            for i in range(0, self.sequence_send_count):
+                self.sequence.emit()
+
+            if self.is_import:
+                return 0.5
+            else:
+                interval = 0.0 if (self.is_data or self.is_sequence) else TIMER_INTERVAL
+                return interval
+
+        except Exception as e:
+            utils.log_error("LinkService timer loop crash!")
+            traceback.print_exc()
+            return TIMER_INTERVAL
+
 
     def send(self, op_code, binary_data = None):
-        if self.client_sock and (self.is_connected or self.is_connecting):
-            try:
+        try:
+            if self.client_sock and (self.is_connected or self.is_connecting):
                 data_length = len(binary_data) if binary_data else 0
                 header = struct.pack("!II", op_code, data_length)
                 data = bytearray()
                 data.extend(header)
                 if binary_data:
                     data.extend(binary_data)
-                self.client_sock.sendall(data)
+                try:
+                    self.client_sock.sendall(data)
+                except Exception as e:
+                    utils.log_error("Client socket sendall failed!")
+                    self.client_lost()
+                    return
                 self.ping_timer = PING_INTERVAL_S
                 self.sent.emit()
-            except Exception as e:
-                utils.log_error("Client socket send failed!", e)
-                self.service_lost()
-                return
+
+        except Exception as e:
+            utils.log_error("LinkService send failed!")
+            traceback.print_exc()
 
     def start_sequence(self, func=None):
         self.is_sequence = True
@@ -1452,6 +1478,12 @@ class LinkService():
     def receive_save(self, data):
         if bpy.data.filepath:
             bpy.ops.wm.save_mainfile()
+
+    def receive_debug(self, data):
+        debug_json = None
+        if data:
+            debug_json = decode_to_json(data)
+        debug(debug_json)
 
     def get_key_path(self, model_path, key_ext):
         dir, file = os.path.split(model_path)
@@ -1865,7 +1897,10 @@ class LinkService():
                 rig.location = Vector((0, 0, 0))
                 rig.rotation_mode = "QUATERNION"
                 rig.rotation_quaternion = Quaternion((1, 0, 0, 0))
-                rig.scale = Vector((0.01, 0.01, 0.01))
+                if actor.get_chr_cache().rigified:
+                    rig.scale = Vector((1, 1, 1))
+                else:
+                    rig.scale = Vector((0.01, 0.01, 0.01))
 
             datalink_rig = None
             if actor:
@@ -2857,8 +2892,12 @@ class CCICDataLink(bpy.types.Operator):
                 if chr_cache:
                     rigutils.de_pivot(chr_cache)
 
+            elif self.param == "DEBUG":
+                LINK_SERVICE.send(OpCodes.DEBUG)
+                return {'FINISHED'}
+
             elif self.param == "TEST":
-                LINK_SERVICE.stop_client()
+                test()
                 return {'FINISHED'}
 
             elif self.param == "SHOW_ACTOR_FILES":
@@ -2910,3 +2949,17 @@ class CCICDataLink(bpy.types.Operator):
             LINK_SERVICE.service_disconnect()
 
 
+def debug(debug_json):
+    utils.log_always("")
+    utils.log_always("DEBUG")
+    utils.log_always("=====")
+
+    # simulate service crash
+    l = [0,1]
+    l[2] = 0
+
+
+def test():
+    utils.log_always("")
+    utils.log_always("TEST")
+    utils.log_always("====")

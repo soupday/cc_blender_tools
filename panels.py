@@ -3034,7 +3034,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
                     grid.enabled = False
 
 
-            #grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"
+            if vars.DEV:
+                layout.operator("ccic.datalink", icon="ERROR", text="DEBUG").param = "DEBUG"
+                layout.operator("ccic.datalink", icon="ERROR", text="TEST").param = "TEST"
 
         layout.separator()
 
