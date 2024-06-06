@@ -330,6 +330,7 @@ def get_selected_mesh():
 
 
 def get_selected_meshes(context = None):
+    """Gets selected meshes and includes any current context mesh"""
     objects = [ obj for obj in bpy.context.selected_objects if object_exists_is_mesh(obj) ]
     if context and context.object:
         if object_exists_is_mesh(context.object):

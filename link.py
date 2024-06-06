@@ -36,6 +36,7 @@ class OpCodes(IntEnum):
     SAVE = 60
     MORPH = 90
     MORPH_UPDATE = 91
+    REPLACE_MESH = 95
     CHARACTER = 100
     CHARACTER_UPDATE = 101
     PROP = 102
@@ -1517,6 +1518,15 @@ class LinkService():
         export_path = os.path.join(character_export_folder, file_name)
         return export_path
 
+    def get_actor_from_object(self, obj):
+        global LINK_DATA
+        props = vars.props()
+        chr_cache = props.get_character_cache(obj, None)
+        if chr_cache:
+            actor = LinkActor(chr_cache)
+            return actor
+        return None
+
     def get_selected_actors(self):
         global LINK_DATA
         props = vars.props()
@@ -1601,6 +1611,48 @@ class LinkService():
             })
             self.send(OpCodes.MORPH, export_data)
             update_link_status(f"Sent: {actor.name}")
+
+    def send_replace_mesh(self, op):
+        state = utils.store_mode_selection_state()
+        objects = utils.get_selected_meshes()
+        self.send_frame_sync()
+        count = 0
+        for obj in objects:
+            if obj.type == "MESH":
+                actor = self.get_actor_from_object(obj)
+                if actor:
+                    export_path = self.get_export_path(actor.name, obj.name + "_mesh.obj")
+                    utils.set_active_object(obj, deselect_all=True)
+                    bpy.ops.wm.obj_export(filepath=export_path,
+                                          global_scale=100,
+                                          export_selected_objects=True,
+                                          export_animation=False,
+                                          export_materials=False,
+                                          export_colors=True,
+                                          export_vertex_groups=False,
+                                          apply_modifiers=True)
+                    export_data = encode_from_json({
+                        "path": export_path,
+                        "actor_name": actor.name,
+                        "object_name": obj.name,
+                        "mesh_name": obj.data.name,
+                        "type": actor.get_type(),
+                        "link_id": actor.get_link_id(),
+                    })
+                    self.send(OpCodes.REPLACE_MESH, export_data)
+                    update_link_status(f"Sent Mesh: {actor.name}")
+                    count += 1
+
+        utils.restore_mode_selection_state(state)
+
+        if count == 1:
+            op.report({'INFO'}, f"Replace mesh sent...")
+        elif count > 1:
+            op.report({'INFO'}, f"{count} Replace meshes sent...")
+        else:
+            op.report({'INFO'}, f"No replace meshes sent!")
+
+        return count
 
     def encode_character_templates(self, actors: list):
         pose_bone: bpy.types.PoseBone
@@ -2903,11 +2955,16 @@ class CCICDataLink(bpy.types.Operator):
                 LINK_SERVICE.send_camera_sync()
                 return {'FINISHED'}
 
+            elif self.param == "SEND_REPLACE_MESH":
+                LINK_SERVICE.send_replace_mesh(self)
+                return {'FINISHED'}
+
             elif self.param == "DEPIVOT":
                 props = vars.props()
                 chr_cache = props.get_context_character_cache(context)
                 if chr_cache:
                     rigutils.de_pivot(chr_cache)
+                return {'FINISHED'}
 
             elif self.param == "DEBUG":
                 LINK_SERVICE.send(OpCodes.DEBUG)

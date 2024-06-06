@@ -2191,8 +2191,7 @@ def export_as_replace_mesh(file_path):
     name, ext = os.path.splitext(file)
 
     # store selection
-    old_selection = bpy.context.selected_objects
-    old_active = utils.get_active_object()
+    state = utils.store_mode_selection_state()
 
     obj_export(file_path, use_selection=True,
                           global_scale=100,
@@ -2204,10 +2203,7 @@ def export_as_replace_mesh(file_path):
                           apply_modifiers=True)
 
     # restore selection
-    bpy.ops.object.select_all(action='DESELECT')
-    for obj in old_selection:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = old_active
+    utils.restore_mode_selection_state(state)
 
 
 class CC3Export(bpy.types.Operator):

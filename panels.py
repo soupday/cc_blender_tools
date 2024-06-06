@@ -2905,7 +2905,7 @@ class CC3ToolsUtilityPanel(bpy.types.Panel):
 
 class CCICDataLinkPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_DataLink_Panel"
-    bl_label = "Data Link (WIP)"
+    bl_label = "Data Link"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = LINK_TAB_NAME
@@ -3020,6 +3020,11 @@ class CCICDataLinkPanel(bpy.types.Panel):
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
             if is_cc:
+
+                grid = col.grid_flow(row_major=True, columns=2, align=True)
+                grid.scale_y = 2.0
+                grid.operator("ccic.datalink", icon="MESH_DATA", text="Mesh").param = "SEND_REPLACE_MESH"
+                grid.operator("ccic.datalink", icon="TEXTURE", text="Textures").param = "SEND_TEXTURES"
 
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
