@@ -3000,10 +3000,16 @@ class CCICDataLinkPanel(bpy.types.Panel):
             row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_PROJECT_FILES"
 
             col = layout.column(align=True)
-            grid = col.grid_flow(row_major=True, columns=2, align=True)
-            grid.scale_y = 2.0
-            grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
-            grid.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
+            split = col.split(factor=0.5, align=True)
+            col_1 = split.column(align=True)
+            col_2 = split.column(align=True)
+            col_1.scale_y = 2.0
+            col_2.scale_y = 2.0
+            col_1.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
+            if link_service and link_service.is_sequence:
+                col_2.operator("ccic.datalink", icon="PLAY", text="Sequence", depress=True).param = "STOP_ANIM"
+            else:
+                col_2.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
             # no pose or sequence for props yet...
             if not chr_cache or not chr_cache.is_avatar():
                 grid.enabled = False

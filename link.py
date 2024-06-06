@@ -599,6 +599,16 @@ def next_frame(current_frame=None):
     return current_frame
 
 
+def prev_frame(current_frame=None):
+    if current_frame is None:
+        current_frame = bpy.context.scene.frame_current
+    fps = bpy.context.scene.render.fps
+    start_frame = bpy.context.scene.frame_start
+    current_frame = max(start_frame, current_frame - 1)
+    bpy.context.scene.frame_current = current_frame
+    return current_frame
+
+
 def reset_action(chr_cache):
     if chr_cache:
         rig = chr_cache.get_armature()
@@ -831,11 +841,12 @@ def store_shape_key_cache_keyframes(actor: LinkActor, frame, expression_weights,
         curve[cache_index + 1] = viseme_weights[i]
 
 
-def write_sequence_actions(actor: LinkActor):
+def write_sequence_actions(actor: LinkActor, num_frames):
     if actor.cache:
         rig = actor.cache["rig"]
         rig_action = utils.safe_get_action(rig)
         objects = actor.get_sequence_objects()
+        set_count = num_frames * 2
 
         if rig_action:
             rig_action.fcurves.clear()
@@ -849,40 +860,41 @@ def write_sequence_actions(actor: LinkActor):
                 for i in range(0, 3):
                     data_path = pose_bone.path_from_id("location")
                     fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Location")
-                    fcurve.keyframe_points.add(loc_cache["count"])
-                    fcurve.keyframe_points.foreach_set('co', loc_cache["curves"][i])
+                    fcurve.keyframe_points.add(num_frames)
+                    fcurve.keyframe_points.foreach_set('co', loc_cache["curves"][i][:set_count])
                 for i in range(0, 3):
                     data_path = pose_bone.path_from_id("scale")
                     fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Scale")
-                    fcurve.keyframe_points.add(sca_cache["count"])
-                    fcurve.keyframe_points.foreach_set('co', sca_cache["curves"][i])
+                    fcurve.keyframe_points.add(num_frames)
+                    fcurve.keyframe_points.foreach_set('co', sca_cache["curves"][i][:set_count])
                 for i in range(0, 4):
                     data_path = pose_bone.path_from_id("rotation_quaternion")
                     fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Rotation Quaternion")
-                    fcurve.keyframe_points.add(rot_cache["count"])
-                    fcurve.keyframe_points.foreach_set('co', rot_cache["curves"][i])
+                    fcurve.keyframe_points.add(num_frames)
+                    fcurve.keyframe_points.foreach_set('co', rot_cache["curves"][i][:set_count])
 
         expression_cache = actor.cache["expressions"]
         viseme_cache = actor.cache["visemes"]
         for obj in objects:
             obj_action = utils.safe_get_action(obj.data.shape_keys)
             if obj_action:
+                obj_action.fcurves.clear()
                 for expression_name in expression_cache:
                     if expression_name in obj.data.shape_keys.key_blocks:
                         key_cache = expression_cache[expression_name]
                         key = obj.data.shape_keys.key_blocks[expression_name]
                         data_path = key.path_from_id("value")
                         fcurve = obj_action.fcurves.new(data_path, action_group="Expression")
-                        fcurve.keyframe_points.add(key_cache["count"])
-                        fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0])
+                        fcurve.keyframe_points.add(num_frames)
+                        fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0][:set_count])
                 for viseme_name in viseme_cache:
                     if viseme_name in obj.data.shape_keys.key_blocks:
                         key_cache = viseme_cache[viseme_name]
                         key = obj.data.shape_keys.key_blocks[viseme_name]
                         data_path = key.path_from_id("value")
                         fcurve = obj_action.fcurves.new(data_path, action_group="Viseme")
-                        fcurve.keyframe_points.add(key_cache["count"])
-                        fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0])
+                        fcurve.keyframe_points.add(num_frames)
+                        fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0][:set_count])
 
         actor.clear_cache()
 
@@ -1452,7 +1464,6 @@ class LinkService():
         self.sequence.disconnect()
 
     def update_sequence(self, count, delta_frames):
-        self.is_sequence = True
         if count is None:
             self.sequence_send_rate = 5.0
             self.sequence_send_count = 5
@@ -1467,9 +1478,8 @@ class LinkService():
         self.send_notify("Connected")
 
     def send_notify(self, message):
-        global LINK_SERVICE
         notify_json = { "message": message }
-        LINK_SERVICE.send(OpCodes.NOTIFY, encode_from_json(notify_json))
+        self.send(OpCodes.NOTIFY, encode_from_json(notify_json))
 
     def receive_notify(self, data):
         notify_json = decode_to_json(data)
@@ -1492,9 +1502,8 @@ class LinkService():
         return key_path
 
     def get_export_path(self, character_name, file_name):
-        global LINK_SERVICE
-        remote_path = LINK_SERVICE.remote_path
-        local_path = LINK_SERVICE.local_path
+        remote_path = self.remote_path
+        local_path = self.local_path
 
         if not local_path:
             local_path = get_local_data_path()
@@ -1545,15 +1554,14 @@ class LinkService():
         return None
 
     def send_actor(self):
-        global LINK_SERVICE
         actors = self.get_selected_actors()
         state = utils.store_mode_selection_state()
         utils.clear_selected_objects()
         actor: LinkActor
         utils.log_info(f"Sending LinkActors: {([a.name for a in actors])}")
         for actor in actors:
-            if LINK_SERVICE.is_cc() and not actor.can_go_cc(): continue
-            if LINK_SERVICE.is_iclone() and not actor.can_go_ic(): continue
+            if self.is_cc() and not actor.can_go_cc(): continue
+            if self.is_iclone() and not actor.can_go_ic(): continue
             self.send_notify(f"Blender Exporting: {actor.name}...")
             export_path = self.get_export_path(actor.name, actor.name + ".fbx")
             self.send_notify(f"Exporting: {actor.name}")
@@ -1568,7 +1576,7 @@ class LinkService():
                 "type": actor.get_type(),
                 "link_id": actor.get_link_id(),
             })
-            LINK_SERVICE.send(OpCodes.CHARACTER, export_data)
+            self.send(OpCodes.CHARACTER, export_data)
             update_link_status(f"Sent: {actor.name}")
         utils.restore_mode_selection_state(state)
 
@@ -1591,7 +1599,7 @@ class LinkService():
                 "morph_name": "Test Morph",
                 "morph_path": "Some/Path",
             })
-            LINK_SERVICE.send(OpCodes.MORPH, export_data)
+            self.send(OpCodes.MORPH, export_data)
             update_link_status(f"Sent: {actor.name}")
 
     def encode_character_templates(self, actors: list):
@@ -1738,6 +1746,8 @@ class LinkService():
         end_frame = BFA(bpy.context.scene.frame_end)
         start_time = start_frame / fps
         end_time = end_frame / fps
+        frame = BFA(bpy.context.scene.frame_current)
+        time = frame / fps
         actors_data = []
         data = {
             "fps": fps,
@@ -1745,6 +1755,8 @@ class LinkService():
             "end_time": end_time,
             "start_frame": start_frame,
             "end_frame": end_frame,
+            "time": time,
+            "frame": frame,
             "actors": actors_data,
         }
         actor: LinkActor
@@ -1757,7 +1769,6 @@ class LinkService():
         return encode_from_json(data)
 
     def send_pose(self):
-        global LINK_SERVICE
         global LINK_DATA
 
         # get actors
@@ -1768,17 +1779,17 @@ class LinkService():
             self.send_notify(f"Pose Set")
             # send pose info
             pose_data = self.encode_pose_data(actors)
-            LINK_SERVICE.send(OpCodes.POSE, pose_data)
+            self.send(OpCodes.POSE, pose_data)
             # send template data first
             template_data = self.encode_character_templates(actors)
-            LINK_SERVICE.send(OpCodes.TEMPLATE, template_data)
+            self.send(OpCodes.TEMPLATE, template_data)
             # store the actors
             LINK_DATA.sequence_actors = actors
             # force recalculate all transforms
             bpy.context.view_layer.update()
             # send pose data
             pose_frame_data = self.encode_pose_frame_data(actors)
-            LINK_SERVICE.send(OpCodes.POSE_FRAME, pose_frame_data)
+            self.send(OpCodes.POSE_FRAME, pose_frame_data)
             # clear the actors
             LINK_DATA.sequence_actors = None
             # restore
@@ -1787,8 +1798,15 @@ class LinkService():
     def send_animation(self):
         return
 
+    def abort_sequence(self):
+        global LINK_DATA
+        # as the next frame was never sent, go back 1 frame
+        LINK_DATA.sequence_current_frame = prev_frame(LINK_DATA.sequence_current_frame)
+        update_link_status(f"Sequence Aborted: {LINK_DATA.sequence_current_frame}")
+        self.stop_sequence()
+        self.send_sequence_end()
+
     def send_sequence(self):
-        global LINK_SERVICE
         global LINK_DATA
 
         # get actors
@@ -1801,17 +1819,16 @@ class LinkService():
             LINK_DATA.sequence_current_frame = bpy.context.scene.frame_current
             # send animation meta data
             sequence_data = self.encode_sequence_data(actors)
-            LINK_SERVICE.send(OpCodes.SEQUENCE, sequence_data)
+            self.send(OpCodes.SEQUENCE, sequence_data)
             # send template data first
             template_data = self.encode_character_templates(actors)
-            LINK_SERVICE.send(OpCodes.TEMPLATE, template_data)
+            self.send(OpCodes.TEMPLATE, template_data)
             # store the actors
             LINK_DATA.sequence_actors = actors
             # start the sending sequence
-            LINK_SERVICE.start_sequence(self.send_sequence_frame)
+            self.start_sequence(self.send_sequence_frame)
 
     def send_sequence_frame(self):
-        global LINK_SERVICE
         global LINK_DATA
 
         # set/fetch the current frame in the sequence
@@ -1821,10 +1838,10 @@ class LinkService():
         bpy.context.view_layer.update()
         # send current sequence frame pose
         pose_data = self.encode_pose_frame_data(LINK_DATA.sequence_actors)
-        LINK_SERVICE.send(OpCodes.SEQUENCE_FRAME, pose_data)
+        self.send(OpCodes.SEQUENCE_FRAME, pose_data)
         # check for end
         if current_frame >= bpy.context.scene.frame_end:
-            LINK_SERVICE.stop_sequence()
+            self.stop_sequence()
             self.send_sequence_end()
             return
         # advance to next frame now
@@ -1832,20 +1849,20 @@ class LinkService():
 
 
     def send_sequence_end(self):
+        sequence_data = self.encode_sequence_data(LINK_DATA.sequence_actors)
+        self.send(OpCodes.SEQUENCE_END, sequence_data)
         # clear the actors
         LINK_DATA.sequence_actors = None
-        LINK_SERVICE.send(OpCodes.SEQUENCE_END)
 
     def send_sequence_ack(self, frame):
-        global LINK_SERVICE
         global LINK_DATA
         # encode sequence ack
         data = encode_from_json({
             "frame": BFA(frame),
-            "rate": LINK_SERVICE.loop_rate,
+            "rate": self.loop_rate,
         })
         # send sequence ack
-        LINK_SERVICE.send(OpCodes.SEQUENCE_ACK, data)
+        self.send(OpCodes.SEQUENCE_ACK, data)
 
     def decode_pose_frame_header(self, pose_data):
         count, frame = struct.unpack_from("!II", pose_data)
@@ -2156,7 +2173,7 @@ class LinkService():
             view_space.shading.studiolight_intensity = 0.2
             view_space.shading.studiolight_background_alpha = 0.0
             view_space.shading.studiolight_background_blur = 0.5
-            if LINK_SERVICE.is_cc():
+            if self.is_cc():
                 # only hide the lights if it's from Character Creator
                 view_space.overlay.show_extras = False
 
@@ -2195,7 +2212,6 @@ class LinkService():
         return t
 
     def send_camera_sync(self):
-        global LINK_SERVICE
         #
         update_link_status(f"Synchronizing View Camera")
         self.send_notify(f"Sync View Camera")
@@ -2205,7 +2221,7 @@ class LinkService():
             "view_camera": camera_data,
             "pivot": [pivot.x, pivot.y, pivot.z],
         }
-        LINK_SERVICE.send(OpCodes.CAMERA_SYNC, encode_from_json(data))
+        self.send(OpCodes.CAMERA_SYNC, encode_from_json(data))
 
     def decode_camera_sync_data(self, data):
         data = decode_to_json(data)
@@ -2318,7 +2334,6 @@ class LinkService():
 
     def receive_pose(self, data):
         props = vars.props()
-        global LINK_SERVICE
         global LINK_DATA
 
         props.validate_and_clean_up()
@@ -2377,7 +2392,7 @@ class LinkService():
             for actor in actors:
                 if actor.ready():
                     remove_datalink_import_rig(actor)
-                    write_sequence_actions(actor)
+                    write_sequence_actions(actor, 1)
                     pass
 
                 rig = actor.get_armature()
@@ -2392,7 +2407,6 @@ class LinkService():
 
     def receive_sequence(self, data):
         props = vars.props()
-        global LINK_SERVICE
         global LINK_DATA
 
         props.validate_and_clean_up()
@@ -2426,10 +2440,9 @@ class LinkService():
         set_frame(LINK_DATA.sequence_start_frame)
 
         # start the sequence
-        LINK_SERVICE.start_sequence()
+        self.start_sequence()
 
     def receive_sequence_frame(self, data):
-        global LINK_SERVICE
         global LINK_DATA
 
         # decode and cache pose
@@ -2454,12 +2467,13 @@ class LinkService():
         self.send_sequence_ack(frame)
 
     def receive_sequence_end(self, data):
-        global LINK_SERVICE
         global LINK_DATA
 
         # decode sequence end
         json_data = decode_to_json(data)
         actors_data = json_data["actors"]
+        end_frame = RLFA(json_data["frame"])
+        LINK_DATA.sequence_end_frame = end_frame
         utils.log_info("Receive Sequence End")
 
         # fetch actors
@@ -2473,12 +2487,13 @@ class LinkService():
             if actor:
                 actors.append(actor)
         num_frames = LINK_DATA.sequence_end_frame - LINK_DATA.sequence_start_frame + 1
+        print(f"sequence complete: {LINK_DATA.sequence_start_frame} to {LINK_DATA.sequence_end_frame} = {num_frames}")
         update_link_status(f"Live Sequence Complete: {num_frames} frames")
 
         # write actions
         for actor in actors:
             remove_datalink_import_rig(actor)
-            write_sequence_actions(actor)
+            write_sequence_actions(actor, num_frames)
             rig = actor.get_armature()
             if actor.get_type() == "PROP":
                 rigutils.update_prop_rig(rig)
@@ -2486,7 +2501,7 @@ class LinkService():
                 rigutils.update_avatar_rig(rig)
 
         # stop sequence
-        LINK_SERVICE.stop_sequence()
+        self.stop_sequence()
         LINK_DATA.sequence_actors = None
         bpy.context.scene.frame_current = LINK_DATA.sequence_start_frame
 
@@ -2754,8 +2769,6 @@ class LinkService():
 
     def receive_rigify_request(self, data):
         props = vars.props()
-        global LINK_SERVICE
-
         props.validate_and_clean_up()
 
         # decode rigify request
@@ -2872,6 +2885,10 @@ class CCICDataLink(bpy.types.Operator):
 
             elif self.param == "SEND_ANIM":
                 LINK_SERVICE.send_sequence()
+                return {'FINISHED'}
+
+            elif self.param == "STOP_ANIM":
+                LINK_SERVICE.abort_sequence()
                 return {'FINISHED'}
 
             elif self.param == "SEND_ACTOR":
