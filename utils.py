@@ -21,7 +21,7 @@ import time
 import difflib
 import random
 import re
-from mathutils import Vector, Quaternion, Matrix, Euler
+from mathutils import Vector, Quaternion, Matrix, Euler, Color
 from hashlib import md5
 import bpy
 
@@ -1058,9 +1058,16 @@ def array_to_color(arr, linear=False):
         b = arr[2]
         a = arr[3]
     if linear:
-        return (linear_to_srgbx(r), linear_to_srgbx(g), linear_to_srgbx(b))
+        return Color((linear_to_srgbx(r), linear_to_srgbx(g), linear_to_srgbx(b)))
     else:
-        return (r,g,b)
+        return Color((r,g,b))
+
+
+def color_filter(color: Color, filter: Color):
+    cf = Color((color.r * filter.r, color.g * filter.g, color.b * filter.b))
+    if cf.v < 0.001:
+        return color
+    return cf * (color.v / cf.v)
 
 
 def array_to_quaternion(arr):

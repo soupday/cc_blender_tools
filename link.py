@@ -1569,6 +1569,7 @@ class LinkService():
         utils.clear_selected_objects()
         actor: LinkActor
         utils.log_info(f"Sending LinkActors: {([a.name for a in actors])}")
+        count = 0
         for actor in actors:
             if self.is_cc() and not actor.can_go_cc(): continue
             if self.is_iclone() and not actor.can_go_ic(): continue
@@ -1586,31 +1587,37 @@ class LinkService():
                 "type": actor.get_type(),
                 "link_id": actor.get_link_id(),
             })
-            self.send(OpCodes.CHARACTER, export_data)
-            update_link_status(f"Sent: {actor.name}")
+            if os.path.exists(export_path):
+                self.send(OpCodes.CHARACTER, export_data)
+                update_link_status(f"Sent: {actor.name}")
+                count += 1
         utils.restore_mode_selection_state(state)
+        return count
 
     def send_morph(self):
-        actors = self.get_selected_actors()
-        actor: LinkActor
-        for actor in actors:
-            self.send_notify(f"Blender Exporting: {actor.name}...")
-            export_path = self.get_export_path(actor.name, actor.name + "_morph.obj")
-            key_path = self.get_key_path(export_path, ".ObjKey")
-            self.send_notify(f"Exporting: {actor.name}")
-            bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
-            update_link_status(f"Sending: {actor.name}")
-            export_data = encode_from_json({
-                "path": export_path,
-                "key_path": key_path,
-                "name": actor.name,
-                "type": actor.get_type(),
-                "link_id": actor.get_link_id(),
-                "morph_name": "Test Morph",
-                "morph_path": "Some/Path",
-            })
+        actor: LinkActor = self.get_active_actor()
+        self.send_notify(f"Blender Exporting: {actor.name}...")
+        export_path = self.get_export_path(actor.name, actor.name + "_morph.obj")
+        key_path = self.get_key_path(export_path, ".ObjKey")
+        self.send_notify(f"Exporting: {actor.name}")
+        state = utils.store_mode_selection_state()
+        bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
+        update_link_status(f"Sending: {actor.name}")
+        export_data = encode_from_json({
+            "path": export_path,
+            "key_path": key_path,
+            "name": actor.name,
+            "type": actor.get_type(),
+            "link_id": actor.get_link_id(),
+            "morph_name": "Test Morph",
+            "morph_path": "Some/Path",
+        })
+        utils.restore_mode_selection_state(state)
+        if os.path.exists(export_path):
             self.send(OpCodes.MORPH, export_data)
             update_link_status(f"Sent: {actor.name}")
+            return True
+        return False
 
     def send_replace_mesh(self, op):
         state = utils.store_mode_selection_state()
@@ -1644,13 +1651,6 @@ class LinkService():
                     count += 1
 
         utils.restore_mode_selection_state(state)
-
-        if count == 1:
-            op.report({'INFO'}, f"Replace mesh sent...")
-        elif count > 1:
-            op.report({'INFO'}, f"{count} Replace meshes sent...")
-        else:
-            op.report({'INFO'}, f"No replace meshes sent!")
 
         return count
 
@@ -1825,6 +1825,7 @@ class LinkService():
 
         # get actors
         actors = self.get_selected_actors()
+        count = 0
         if actors:
             mode_selection = utils.store_mode_selection_state()
             update_link_status(f"Sending Current Pose Set")
@@ -1846,6 +1847,8 @@ class LinkService():
             LINK_DATA.sequence_actors = None
             # restore
             utils.restore_mode_selection_state(mode_selection)
+            count += len(actors)
+        return count
 
     def send_animation(self):
         return
@@ -2118,34 +2121,41 @@ class LinkService():
     def decode_lights_data(self, data):
         lights_data = decode_to_json(data)
 
-        RECTANGULAR_SPOTLIGHTS_AS_AREA = False
+        RECTANGULAR_AS_AREA = True
+        TUBE_AS_DIR = True
+
+        ambient_color = utils.array_to_color(lights_data["ambient_color"])
+        ambient_color.s *= 0.2
 
         container = self.add_light_container()
 
         for light_data in lights_data["lights"]:
+            print(light_data["name"])
+            print(light_data["type"])
+            light_type = light_data["type"]
+            if light_type == "DIR":
+                light_type = "SUN"
+            is_tube = light_data["is_tube"]
+            is_rectangle = light_data["is_rectangle"]
+            print(light_type)
 
-            is_dir = light_data["type"] == "DIR"
-            is_point = light_data["type"] == "POINT" and light_data["is_rectangle"] == False and light_data["is_tube"] == False
-            if RECTANGULAR_SPOTLIGHTS_AS_AREA:
-                is_area = ((light_data["type"] == "POINT" and (light_data["is_rectangle"] == True or light_data["is_tube"] == True))
-                        or (light_data["type"] == "SPOT" and light_data["is_rectangle"] == True))
-                is_spot = light_data["type"] == "SPOT" and light_data["is_rectangle"] == False
-            else:
-                is_area = (light_data["type"] == "POINT" and (light_data["is_rectangle"] == True or light_data["is_tube"] == True))
-                is_spot = light_data["type"] == "SPOT"
-
-            light_type = "SUN" if is_dir else "AREA" if is_area else "POINT" if is_point else "SPOT"
+            mmod = 1.0
+            if TUBE_AS_DIR and is_tube:
+                light_type = "SUN"
+                mmod = 0.5
+            if RECTANGULAR_AS_AREA and is_rectangle:
+                light_type == "AREA"
 
             light = self.find_link_id(light_data["link_id"])
             if light and (light.type != "LIGHT" or light.data.type != light_type):
                 utils.delete_light_object(light)
                 light = None
             if not light:
-                if is_area:
+                if light_type == "AREA":
                     light = self.add_area_light(light_data["name"], container)
-                elif is_point:
+                elif light_type == "POINT":
                     light = self.add_point_light(light_data["name"], container)
-                elif is_dir:
+                elif light_type == "SUN":
                     light = self.add_dir_light(light_data["name"], container)
                 else:
                     light = self.add_spot_light(light_data["name"], container)
@@ -2155,29 +2165,39 @@ class LinkService():
             light.rotation_mode = "QUATERNION"
             light.rotation_quaternion = utils.array_to_quaternion(light_data["rot"])
             light.scale = utils.array_to_vector(light_data["sca"])
-            light.data.color = utils.array_to_color(light_data["color"], False)
+            light.data.color = utils.color_filter(utils.array_to_color(light_data["color"], False), ambient_color)
+            fm = 2 - light_data["falloff"] / 100
             mult = light_data["multiplier"]
+            #r = light_data["range"] / 5000
+            #P = 12
+            #rm = 1.0 - 1.0/pow((r + 1.0),P)
+
+            #fm = 1 + (1 - f)
+            #mult *= rm * fm
+            #if light_data["is_tube"]:
+            #    mult *= 2.0
             #if mult > 10:
             #    mult *= (1 + pow((mult - 10)/90, 1.5))
-            if is_dir:
-                light.data.energy = 450 * pow(light_data["multiplier"]/20, 2)
-            elif is_spot:
-                light.data.energy = 40.0 * mult
-            elif is_point:
-                light.data.energy = 40.0 * mult
-            elif is_area:
-                light.data.energy = 10.0 * mult
-            if not is_dir:
+            if light_type == "SUN":
+                #light.data.energy = 450 * pow(light_data["multiplier"]/20, 2) * fm * mmod
+                light.data.energy = 3 * min(1.5, mult) * mmod * fm
+            elif light_type == "SPOT":
+                light.data.energy = 30 * mult * mmod * fm
+            elif light_type == "POINT":
+                light.data.energy = 30 * mult * mmod * fm
+            elif light_type == "AREA":
+                light.data.energy = 10.0 * mult * mmod * fm
+            if light_type != "SUN":
                 light.data.use_custom_distance = True
                 light.data.cutoff_distance = light_data["range"] / 100
-            if is_spot:
+            if light_type == "SPOT":
                 light.data.spot_size = light_data["angle"] * 0.01745329
                 light.data.spot_blend = 0.01 * light_data["falloff"] * (0.5 + 0.01 * light_data["attenuation"] * 0.5)
                 if light_data["is_rectangle"]:
                     light.data.shadow_soft_size = (light_data["rect"][0] + light_data["rect"][0]) / 200
                 elif light_data["is_tube"]:
                     light.data.shadow_soft_size = light_data["tube_radius"] / 100
-            if is_area:
+            if light_type == "AREA":
                 if light_data["is_rectangle"]:
                     light.data.shape = "RECTANGLE"
                     light.data.size = light_data["rect"][0] / 100
@@ -2187,7 +2207,7 @@ class LinkService():
                     light.data.size = light_data["tube_radius"] / 100
             light.data.use_shadow = light_data["cast_shadow"]
             if light_data["cast_shadow"]:
-                if not is_dir:
+                if light_type != "SUN":
                     light.data.shadow_buffer_clip_start = 0.0025
                     light.data.shadow_buffer_bias = 1.0
                 light.data.use_contact_shadow = True
@@ -2222,7 +2242,7 @@ class LinkService():
             view_space.shading.use_scene_world = False
             view_space.shading.studio_light = 'studio.exr'
             view_space.shading.studiolight_rotate_z = 0.0 * 0.01745329
-            view_space.shading.studiolight_intensity = 0.2
+            view_space.shading.studiolight_intensity = ambient_color.v * 1.25
             view_space.shading.studiolight_background_alpha = 0.0
             view_space.shading.studiolight_background_blur = 0.5
             if self.is_cc():
@@ -2922,7 +2942,8 @@ class CCICDataLink(bpy.types.Operator):
             self.link_stop()
             return {'FINISHED'}
 
-        if self.param in ["SEND_POSE", "SEND_ANIM", "SEND_ACTOR", "SEND_MORPH", "SYNC_CAMERA"]:
+        if self.param in ["SEND_POSE", "SEND_ANIM", "SEND_ACTOR", "SEND_MORPH",
+                          "SEND_REPLACE_MESH", "SEND_TEXTURES", "SYNC_CAMERA"]:
             if not LINK_SERVICE or not LINK_SERVICE.is_connected:
                 self.link_start()
             if not LINK_SERVICE or not (LINK_SERVICE.is_connected or LINK_SERVICE.is_connecting):
@@ -2932,23 +2953,40 @@ class CCICDataLink(bpy.types.Operator):
         if LINK_SERVICE:
 
             if self.param == "SEND_POSE":
-                LINK_SERVICE.send_pose()
+                count = LINK_SERVICE.send_pose()
+                if count == 1:
+                    self.report({'INFO'}, f"Pose sent...")
+                elif count > 1:
+                    self.report({'INFO'}, f"{count} Poses sent...")
+                else:
+                    self.report({'ERROR'}, f"No Pose sent!")
                 return {'FINISHED'}
 
             elif self.param == "SEND_ANIM":
                 LINK_SERVICE.send_sequence()
+                self.report({'INFO'}, f"Sequence started...")
                 return {'FINISHED'}
 
             elif self.param == "STOP_ANIM":
                 LINK_SERVICE.abort_sequence()
+                self.report({'INFO'}, f"Sequence stopped!")
                 return {'FINISHED'}
 
             elif self.param == "SEND_ACTOR":
-                LINK_SERVICE.send_actor()
+                count = LINK_SERVICE.send_actor()
+                if count == 1:
+                    self.report({'INFO'}, f"Actor sent...")
+                elif count > 1:
+                    self.report({'INFO'}, f"{count} Actors sent...")
+                else:
+                    self.report({'ERROR'}, f"No Actors sent!")
                 return {'FINISHED'}
 
             elif self.param == "SEND_MORPH":
-                LINK_SERVICE.send_morph()
+                if LINK_SERVICE.send_morph():
+                    self.report({'INFO'}, f"Morph sent...")
+                else:
+                    self.report({'ERROR'}, f"Morph not sent!")
                 return {'FINISHED'}
 
             elif self.param == "SYNC_CAMERA":
@@ -2956,7 +2994,13 @@ class CCICDataLink(bpy.types.Operator):
                 return {'FINISHED'}
 
             elif self.param == "SEND_REPLACE_MESH":
-                LINK_SERVICE.send_replace_mesh(self)
+                count = LINK_SERVICE.send_replace_mesh(self)
+                if count == 1:
+                    self.report({'INFO'}, f"Replace Mesh sent...")
+                elif count > 1:
+                    self.report({'INFO'}, f"{count} Replace Meshes sent...")
+                else:
+                    self.report({'ERROR'}, f"No Replace Meshes sent!")
                 return {'FINISHED'}
 
             elif self.param == "DEPIVOT":

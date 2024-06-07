@@ -2918,6 +2918,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
         prefs = vars.prefs()
 
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
+        selected_meshes = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
 
         link_service = link.get_link_service()
         connected = link_service and link_service.is_connected
@@ -2970,7 +2971,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2 = split.column()
             col_1.label(text="Auto-Start Connection")
             col_2.prop(prefs, "datalink_auto_start", text="")
-            col_1.label(text="Preview Frame Sync")
+            col_1.label(text="Sequence Frame Sync")
             col_2.prop(prefs, "datalink_frame_sync", text="")
             col_1.label(text="Preview Shape Keys")
             col_2.prop(prefs, "datalink_preview_shape_keys", text="")
@@ -3012,10 +3013,10 @@ class CCICDataLinkPanel(bpy.types.Panel):
                 col_2.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
             # no pose or sequence for props yet...
             if not chr_cache or not chr_cache.is_avatar():
-                grid.enabled = False
+                split.enabled = False
             # for now rigified Game base don't work
             if chr_cache and chr_cache.rigified and chr_cache.generation == "GameBase":
-                grid.enabled = False
+                split.enabled = False
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
@@ -3025,6 +3026,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
                 grid.scale_y = 2.0
                 grid.operator("ccic.datalink", icon="MESH_DATA", text="Mesh").param = "SEND_REPLACE_MESH"
                 grid.operator("ccic.datalink", icon="TEXTURE", text="Textures").param = "SEND_TEXTURES"
+                if not chr_cache or not selected_meshes:
+                    grid.enabled = False
 
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
