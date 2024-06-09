@@ -668,7 +668,8 @@ def store_armature_settings(rig, include_pose=False):
         pose_data = {}
         pose_bone: bpy.types.PoseBone
         for pose_bone in rig.pose.bones:
-            pose_data[pose_bone.name] = [pose_bone.matrix.copy(), pose_bone.rotation_mode]
+            pose_data[pose_bone.name] = [pose_bone.location, pose_bone.rotation_axis_angle, pose_bone.rotation_euler,
+                                         pose_bone.rotation_quaternion, pose_bone.scale, pose_bone.rotation_mode]
         visibility["pose"] = pose_data
 
     return visibility
@@ -694,8 +695,12 @@ def restore_armature_settings(rig, visibility, include_pose=False):
     if include_pose:
         pose_data = visibility["pose"]
         for bone_name in pose_data:
-            rig.pose.bones[bone_name].matrix = pose_data[bone_name][0]
-            rig.pose.bones[bone_name].rotation_mode = pose_data[bone_name][1]
+            rig.pose.bones[bone_name].rotation_mode = pose_data[bone_name][5]
+            rig.pose.bones[bone_name].location = pose_data[bone_name][0]
+            rig.pose.bones[bone_name].rotation_axis_angle = pose_data[bone_name][1]
+            rig.pose.bones[bone_name].rotation_euler = pose_data[bone_name][2]
+            rig.pose.bones[bone_name].rotation_quaternion = pose_data[bone_name][3]
+            rig.pose.bones[bone_name].scale = pose_data[bone_name][4]
 
 
 def set_rig_bind_pose(rig):
@@ -1396,6 +1401,8 @@ def clear_pose(arm):
     make_bones_visible(arm)
     for bone in arm.data.bones:
         # show and select bone
+        bone.hide = False
+        bone.hide_select = False
         bone.select = True
         bone.select_head = True
         bone.select_tail = True

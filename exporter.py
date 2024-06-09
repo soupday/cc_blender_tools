@@ -110,11 +110,11 @@ def remove_modifiers_for_export(chr_cache, objects, reset_pose, rig=None):
     if not rig:
         return
     rig.data.pose_position = "POSE"
-    if reset_pose:
-        utils.safe_set_action(rig, None)
-        bones.clear_pose(rig)
     obj : bpy.types.Object
     for obj in objects:
+        if reset_pose:
+            if obj.type == "MESH" and obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                utils.safe_set_action(obj.data.shape_keys, None)
         if chr_cache:
             obj_cache = chr_cache.get_object_cache(obj)
             if obj_cache:
@@ -123,6 +123,9 @@ def remove_modifiers_for_export(chr_cache, objects, reset_pose, rig=None):
                     for mod in obj.modifiers:
                         if vars.NODE_PREFIX in mod.name:
                             obj.modifiers.remove(mod)
+    if reset_pose:
+        utils.safe_set_action(rig, None)
+        bones.clear_pose(rig)
 
 
 def restore_modifiers(chr_cache, objects):
@@ -1707,13 +1710,13 @@ def export_standard(self, chr_cache, file_path, include_selected):
         utils.log_info("Preparing character for export:")
         utils.log_indent()
 
+        # restore quaternion rotation modes
+        rigutils.reset_rotation_modes(arm)
+
         # avatar's should be exported back to CC4 in rest pose.
         # props should be exported back with animation.
         use_rest_pose = chr_cache.is_avatar()
         remove_modifiers_for_export(chr_cache, objects, use_rest_pose)
-
-        # restore quaternion rotation modes
-        rigutils.reset_rotation_modes(arm)
 
         revert_duplicates = prefs.export_revert_names
         prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(),

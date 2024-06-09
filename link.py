@@ -2204,7 +2204,7 @@ class LinkService():
         lights_data = decode_to_json(data)
 
         RECTANGULAR_AS_AREA = True
-        TUBE_AS_DIR = True
+        TUBE_AS_AREA = True
 
         ambient_color = utils.array_to_color(lights_data["ambient_color"])
         ambient_color.s *= 0.2
@@ -2219,14 +2219,13 @@ class LinkService():
                 light_type = "SUN"
             is_tube = light_data["is_tube"]
             is_rectangle = light_data["is_rectangle"]
-
-            mmod = 1.0
-            if TUBE_AS_DIR and is_tube:
-                light_type = "SUN"
-                mmod = 1.0
+            cmod = 1
+            if TUBE_AS_AREA and is_tube:
+                light_type = "AREA"
+                cmod = 2
             if RECTANGULAR_AS_AREA and is_rectangle:
                 light_type = "AREA"
-                mmod = 0.85
+                cmod = 1
 
             print(light_type, is_tube, is_rectangle)
 
@@ -2250,11 +2249,14 @@ class LinkService():
             light.rotation_quaternion = utils.array_to_quaternion(light_data["rot"])
             light.scale = utils.array_to_vector(light_data["sca"])
             light.data.color = utils.color_filter(utils.array_to_color(light_data["color"], False), ambient_color)
-            fm = 2 - light_data["falloff"] / 100
+            print(light_data["falloff"])
+            fm = 2 - pow(light_data["falloff"] / 100, 2)
             mult = light_data["multiplier"]
             r = light_data["range"] / 5000
-            P = 6
+            P = 4
             range_curve = 1.0 - 1.0/pow((r + 1.0),P)
+            S = 1.75
+            E = 1.15
 
             #fm = 1 + (1 - f)
             #mult *= rm * fm
@@ -2264,13 +2266,13 @@ class LinkService():
             #    mult *= (1 + pow((mult - 10)/90, 1.5))
             if light_type == "SUN":
                 #light.data.energy = 450 * pow(light_data["multiplier"]/20, 2) * fm * mmod
-                light.data.energy = 3 * min(1.5, mult) * mmod * fm * range_curve
+                light.data.energy = 3 * min(1.5, mult) * fm * range_curve * E
             elif light_type == "SPOT":
-                light.data.energy = 25 * mult * mmod * fm * range_curve
+                light.data.energy = 25 * mult * fm * range_curve * E
             elif light_type == "POINT":
-                light.data.energy = 25 * mult * mmod * fm * range_curve
+                light.data.energy = 15 * mult * fm * range_curve * E
             elif light_type == "AREA":
-                light.data.energy = 10.0 * mult * mmod * fm * range_curve
+                light.data.energy = 13 * mult * fm * range_curve * E
             if light_type != "SUN":
                 light.data.use_custom_distance = True
                 light.data.cutoff_distance = light_data["range"] / 100
@@ -2284,11 +2286,12 @@ class LinkService():
             if light_type == "AREA":
                 if light_data["is_rectangle"]:
                     light.data.shape = "RECTANGLE"
-                    light.data.size = light_data["rect"][0] / 100
-                    light.data.size_y = light_data["rect"][1] / 100
+                    light.data.size = S * light_data["rect"][0] / 100
+                    light.data.size_y = S * light_data["rect"][1] / 100
                 elif light_data["is_tube"]:
-                    light.data.shape = "DISK"
-                    light.data.size = light_data["tube_radius"] / 100
+                    light.data.shape = "ELLIPSE"
+                    light.data.size = S * light_data["tube_length"] / 100
+                    light.data.size_y = S * light_data["tube_radius"] / 100
             light.data.use_shadow = light_data["cast_shadow"]
             if light_data["cast_shadow"]:
                 if light_type != "SUN":

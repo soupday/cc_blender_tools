@@ -1917,6 +1917,10 @@ def store_object_state(objects=None):
                 for mat in obj.data.materials:
                     if mat not in obj_state:
                         obj_state[mat] = { "name": mat.name }
+                if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                    obj_state[obj]["action"] = safe_get_action(obj.data.shape_keys)
+            if obj.type == "ARMATURE":
+                obj_state[obj]["action"] = safe_get_action(obj)
     return obj_state
 
 
@@ -1932,8 +1936,12 @@ def restore_object_state(obj_state):
                 for i, mat in enumerate(state["slots"]):
                     if obj.material_slots[i].material != mat:
                         obj.material_slots[i].material = mat
+                if "action" in state:
+                    safe_set_action(obj.data.shape_keys, state["action"])
             elif obj.type == "ARMATURE":
                 force_armature_name(obj.data, state["names"][1])
+                if "action" in state:
+                    safe_set_action(obj, state["action"])
         elif type(item) is bpy.types.Material:
             mat: bpy.types.Material = item
             force_material_name(mat, state["name"])
