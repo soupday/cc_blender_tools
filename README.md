@@ -35,6 +35,13 @@ Links
 
 ## Changelog
 
+### 2.0.9
+- Datalink:
+    - Live sequence back to CC4/iClone takes facial expression bone rotations into account.
+    - Live Sequence stop button.
+    - Replace mesh function: Quickly send (non topology changing) mesh alterations back to CC4.
+    - Update material & texture function: Send selected material data and textures back to CC4.
+
 ### 2.0.8
 - Import/Export:
     - Fix to Update Unity Project being greyed out after saving as Blend file.
