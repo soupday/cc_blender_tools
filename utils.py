@@ -1927,11 +1927,13 @@ def restore_object_state(obj_state):
         if type(item) is bpy.types.Object:
             obj: bpy.types.Object = item
             force_object_name(obj, state["names"][0])
-            force_mesh_name(obj.data, state["names"][1])
-            obj.material_slots
-            for i, mat in enumerate(state["slots"]):
-                if obj.material_slots[i] != mat:
-                    obj.material_slots[i] = mat
+            if obj.type == "MESH":
+                force_mesh_name(obj.data, state["names"][1])
+                for i, mat in enumerate(state["slots"]):
+                    if obj.material_slots[i].material != mat:
+                        obj.material_slots[i].material = mat
+            elif obj.type == "ARMATURE":
+                force_armature_name(obj.data, state["names"][1])
         elif type(item) is bpy.types.Material:
             mat: bpy.types.Material = item
             force_material_name(mat, state["name"])
