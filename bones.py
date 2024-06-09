@@ -645,6 +645,7 @@ def set_edit_bone_flags(edit_bone, flags, deform):
 
 
 def store_armature_settings(rig, include_pose=False):
+    if not rig: return None
     collections = {}
     layers = []
 
@@ -667,13 +668,15 @@ def store_armature_settings(rig, include_pose=False):
         pose_data = {}
         pose_bone: bpy.types.PoseBone
         for pose_bone in rig.pose.bones:
-            pose_data[pose_bone.name] = pose_bone.matrix.copy()
+            pose_data[pose_bone.name] = [pose_bone.matrix.copy(), pose_bone.rotation_mode]
         visibility["pose"] = pose_data
 
     return visibility
 
 
 def restore_armature_settings(rig, visibility, include_pose=False):
+    if not rig: return
+
     if utils.B400():
         collections = visibility["collections"]
         for collection in collections:
@@ -691,8 +694,8 @@ def restore_armature_settings(rig, visibility, include_pose=False):
     if include_pose:
         pose_data = visibility["pose"]
         for bone_name in pose_data:
-            pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
-            pose_bone.matrix = pose_data[bone_name]
+            rig.pose.bones[bone_name].matrix = pose_data[bone_name][0]
+            rig.pose.bones[bone_name].rotation_mode = pose_data[bone_name][1]
 
 
 def set_rig_bind_pose(rig):

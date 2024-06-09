@@ -6,7 +6,7 @@ from enum import IntEnum
 import os, socket, time, select, struct, json
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix
-from . import importer, bones, geom, colorspace, rigging, rigutils, modifiers, utils, vars
+from . import importer, exporter, bones, geom, colorspace, rigging, rigutils, modifiers, jsonutils, utils, vars
 
 
 BLENDER_PORT = 9334
@@ -37,6 +37,7 @@ class OpCodes(IntEnum):
     MORPH = 90
     MORPH_UPDATE = 91
     REPLACE_MESH = 95
+    MATERIALS = 96
     CHARACTER = 100
     CHARACTER_UPDATE = 101
     PROP = 102
@@ -1502,7 +1503,7 @@ class LinkService():
         key_path = os.path.normpath(os.path.join(dir, name + key_ext))
         return key_path
 
-    def get_export_path(self, character_name, file_name):
+    def get_export_path(self, folder_name, file_name, reuse_folder=False, reuse_file=False):
         remote_path = self.remote_path
         local_path = self.local_path
 
@@ -1514,8 +1515,8 @@ class LinkService():
         else:
             export_folder = utils.make_sub_folder(remote_path, "exports")
 
-        character_export_folder = utils.get_unique_folder_path(export_folder, character_name, create=True)
-        export_path = os.path.join(character_export_folder, file_name)
+        character_export_folder = utils.get_unique_folder_path(export_folder, folder_name, create=True, reuse=reuse_folder)
+        export_path = utils.get_unique_file_path(character_export_folder, file_name, reuse=reuse_file)
         return export_path
 
     def get_actor_from_object(self, obj):
@@ -1551,6 +1552,20 @@ class LinkService():
             actors.append(actor)
 
         return actors
+
+    def get_actor_mesh_selection(self):
+        selection = {}
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH" or obj.type == "ARMATURE":
+                actor = self.get_actor_from_object(obj)
+                chr_cache = actor.get_chr_cache()
+                selection.setdefault(chr_cache, {"meshes": [], "armatures": []})
+                if obj.type == "MESH":
+                    selection[chr_cache]["meshes"].append(obj)
+                elif obj.type == "ARMATURE":
+                    selection[chr_cache]["armatures"].append(obj)
+        return selection
+
 
     def get_active_actor(self):
         global LINK_DATA
@@ -1597,7 +1612,8 @@ class LinkService():
     def send_morph(self):
         actor: LinkActor = self.get_active_actor()
         self.send_notify(f"Blender Exporting: {actor.name}...")
-        export_path = self.get_export_path(actor.name, actor.name + "_morph.obj")
+        export_path = self.get_export_path("Morphs", actor.name + "_morph.obj",
+                                           reuse_folder=True, reuse_file=False)
         key_path = self.get_key_path(export_path, ".ObjKey")
         self.send_notify(f"Exporting: {actor.name}")
         state = utils.store_mode_selection_state()
@@ -1619,16 +1635,25 @@ class LinkService():
             return True
         return False
 
-    def send_replace_mesh(self, op):
+    def send_replace_mesh(self):
         state = utils.store_mode_selection_state()
         objects = utils.get_selected_meshes()
+        # important that character is in the exact same pose on both sides,
+        # so make sure the character is on the same frame in the animation.
         self.send_frame_sync()
         count = 0
         for obj in objects:
             if obj.type == "MESH":
                 actor = self.get_actor_from_object(obj)
                 if actor:
-                    export_path = self.get_export_path(actor.name, obj.name + "_mesh.obj")
+                    obj_cache = actor.get_chr_cache().get_object_cache(obj)
+                    object_name = obj.name
+                    mesh_name = obj.data.name
+                    if obj_cache:
+                        object_name = obj_cache.source_name
+                        mesh_name = obj_cache.source_name
+                    export_path = self.get_export_path("Meshes", f"{obj.name}_mesh.obj",
+                                                       reuse_folder=True, reuse_file=True)
                     utils.set_active_object(obj, deselect_all=True)
                     bpy.ops.wm.obj_export(filepath=export_path,
                                           global_scale=100,
@@ -1641,14 +1666,71 @@ class LinkService():
                     export_data = encode_from_json({
                         "path": export_path,
                         "actor_name": actor.name,
-                        "object_name": obj.name,
-                        "mesh_name": obj.data.name,
+                        "object_name": object_name,
+                        "mesh_name": mesh_name,
                         "type": actor.get_type(),
                         "link_id": actor.get_link_id(),
                     })
                     self.send(OpCodes.REPLACE_MESH, export_data)
                     update_link_status(f"Sent Mesh: {actor.name}")
                     count += 1
+
+        utils.restore_mode_selection_state(state)
+
+        return count
+
+    def export_object_material_data(self, actor: LinkActor, objects):
+        prefs = vars.prefs()
+        obj: bpy.types.Object
+
+        chr_cache = actor.get_chr_cache()
+        if chr_cache:
+            if prefs.datalink_send_mode == "ACTIVE":
+                materials = []
+                for obj in objects:
+                    idx = obj.active_material_index
+                    if len(obj.material_slots) > idx:
+                        mat = obj.material_slots[idx].material
+                        materials.append(mat)
+            else:
+                materials = None
+            export_path = self.get_export_path("Materials", f"{actor.name}.json",
+                                               reuse_folder=True, reuse_file=True)
+            export_dir, json_file = os.path.split(export_path)
+            json_data = chr_cache.get_json_data()
+            if not json_data:
+                json_data = jsonutils.generate_character_json_data(actor.name)
+                exporter.set_character_generation(json_data, chr_cache, actor.name)
+            exporter.prep_export(chr_cache, actor.name, objects, json_data,
+                                 chr_cache.get_import_dir(), export_dir,
+                                 False, False, False, False, True, materials=materials, sync=True)
+            jsonutils.write_json(json_data, export_path)
+            export_data = encode_from_json({
+                        "path": export_path,
+                        "actor_name": actor.name,
+                        "type": actor.get_type(),
+                        "link_id": actor.get_link_id(),
+                    })
+            self.send(OpCodes.MATERIALS, export_data)
+
+    def send_material_update(self):
+        state = utils.store_mode_selection_state()
+
+        selection = self.get_actor_mesh_selection()
+        count = 0
+        for chr_cache in selection:
+            actor = LinkActor(chr_cache)
+            meshes = selection[chr_cache]["meshes"]
+            armatures = selection[chr_cache]["armatures"]
+            if armatures:
+                # export material info for whole character
+                all_meshes = actor.get_mesh_objects()
+                self.export_object_material_data(actor, all_meshes)
+                count += 1
+            elif meshes:
+                # export material info just for selected meshes
+                self.export_object_material_data(actor, meshes)
+                count += 1
 
         utils.restore_mode_selection_state(state)
 
@@ -2137,14 +2219,16 @@ class LinkService():
                 light_type = "SUN"
             is_tube = light_data["is_tube"]
             is_rectangle = light_data["is_rectangle"]
-            print(light_type)
 
             mmod = 1.0
             if TUBE_AS_DIR and is_tube:
                 light_type = "SUN"
-                mmod = 0.5
+                mmod = 1.0
             if RECTANGULAR_AS_AREA and is_rectangle:
-                light_type == "AREA"
+                light_type = "AREA"
+                mmod = 0.85
+
+            print(light_type, is_tube, is_rectangle)
 
             light = self.find_link_id(light_data["link_id"])
             if light and (light.type != "LIGHT" or light.data.type != light_type):
@@ -2168,9 +2252,9 @@ class LinkService():
             light.data.color = utils.color_filter(utils.array_to_color(light_data["color"], False), ambient_color)
             fm = 2 - light_data["falloff"] / 100
             mult = light_data["multiplier"]
-            #r = light_data["range"] / 5000
-            #P = 12
-            #rm = 1.0 - 1.0/pow((r + 1.0),P)
+            r = light_data["range"] / 5000
+            P = 6
+            range_curve = 1.0 - 1.0/pow((r + 1.0),P)
 
             #fm = 1 + (1 - f)
             #mult *= rm * fm
@@ -2180,13 +2264,13 @@ class LinkService():
             #    mult *= (1 + pow((mult - 10)/90, 1.5))
             if light_type == "SUN":
                 #light.data.energy = 450 * pow(light_data["multiplier"]/20, 2) * fm * mmod
-                light.data.energy = 3 * min(1.5, mult) * mmod * fm
+                light.data.energy = 3 * min(1.5, mult) * mmod * fm * range_curve
             elif light_type == "SPOT":
-                light.data.energy = 30 * mult * mmod * fm
+                light.data.energy = 25 * mult * mmod * fm * range_curve
             elif light_type == "POINT":
-                light.data.energy = 30 * mult * mmod * fm
+                light.data.energy = 25 * mult * mmod * fm * range_curve
             elif light_type == "AREA":
-                light.data.energy = 10.0 * mult * mmod * fm
+                light.data.energy = 10.0 * mult * mmod * fm * range_curve
             if light_type != "SUN":
                 light.data.use_custom_distance = True
                 light.data.cutoff_distance = light_data["range"] / 100
@@ -2211,8 +2295,9 @@ class LinkService():
                     light.data.shadow_buffer_clip_start = 0.0025
                     light.data.shadow_buffer_bias = 1.0
                 light.data.use_contact_shadow = True
-                light.data.contact_shadow_distance = 0.05
-                light.data.contact_shadow_thickness = 0.0025
+                light.data.contact_shadow_distance = 0.1
+                light.data.contact_shadow_bias = 0.03
+                light.data.contact_shadow_thickness = 0.001
             light.hide_set(not light_data["active"])
 
         # clean up lights not found in scene
@@ -2232,7 +2317,7 @@ class LinkService():
         bpy.context.scene.eevee.use_ssr = True
         bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
-        colorspace.set_view_settings("Filmic", "High Contrast", 0, 0.75)
+        colorspace.set_view_settings("Filmic", "Medium High Contrast", 0, 0.75)
         if bpy.context.scene.cycles.transparent_max_bounces < 100:
             bpy.context.scene.cycles.transparent_max_bounces = 100
         view_space: bpy.types.Area = utils.get_view_space()
@@ -2311,7 +2396,7 @@ class LinkService():
         r3d.view_location = loc + dir * dist
         r3d.view_rotation = rot
         r3d.view_distance = dist
-        view_space.lens = camera_data["focal_length"]
+        view_space.lens = camera_data["focal_length"] * 1.625
 
     def receive_camera_sync(self, data):
         update_link_status(f"Camera Data Receveived")
@@ -2994,13 +3079,23 @@ class CCICDataLink(bpy.types.Operator):
                 return {'FINISHED'}
 
             elif self.param == "SEND_REPLACE_MESH":
-                count = LINK_SERVICE.send_replace_mesh(self)
+                count = LINK_SERVICE.send_replace_mesh()
                 if count == 1:
                     self.report({'INFO'}, f"Replace Mesh sent...")
                 elif count > 1:
                     self.report({'INFO'}, f"{count} Replace Meshes sent...")
                 else:
                     self.report({'ERROR'}, f"No Replace Meshes sent!")
+                return {'FINISHED'}
+
+            elif self.param == "SEND_MATERIAL_UPDATE":
+                count = LINK_SERVICE.send_material_update()
+                if count == 1:
+                    self.report({'INFO'}, f"Material sent...")
+                elif count > 1:
+                    self.report({'INFO'}, f"{count} Materials sent...")
+                else:
+                    self.report({'ERROR'}, f"No Materials sent!")
                 return {'FINISHED'}
 
             elif self.param == "DEPIVOT":
@@ -3065,6 +3160,67 @@ class CCICDataLink(bpy.types.Operator):
 
         if LINK_SERVICE:
             LINK_SERVICE.service_disconnect()
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "START":
+            return "Attempt to start the Datalink by connecting to the server running on CC4/iC8"
+
+        elif properties.param == "DISCONNECT":
+            return "Disconnect from the Datalink server"
+
+        elif properties.param == "STOP":
+            return "Stop the Datalink on both client and server"
+
+        elif properties.param == "SEND_POSE":
+            return "Send the current pose (and frame) to CC4/iC8"
+
+        elif properties.param == "SEND_ANIM":
+            return "Send the animation on the character to CC4/iC8 as a live sequence"
+
+        elif properties.param == "STOP_ANIM":
+            return "Stop the live sequence"
+
+        elif properties.param == "SEND_ACTOR":
+            return "Send the character or prop to CC4/iC8"
+
+        elif properties.param == "SEND_MORPH":
+            return "Send the character body back to CC4 and create a morph slider for it"
+
+        elif properties.param == "SYNC_CAMERA":
+            return "TBD"
+
+        elif properties.param == "SEND_REPLACE_MESH":
+            return "Send the mesh alterations back to CC4, only if the mesh topology has not changed"
+
+        elif properties.param == "SEND_REPLACE_MESH_INVALID":
+            return "*Warning* The selected (or one of the selected) mesh has changed in topology and cannot be sent back to CC4 via replace mesh.\n\n" \
+                   "This mesh can now only be sent to CC4 with the entire character (Go CC)"
+
+        elif properties.param == "SEND_MATERIAL_UPDATE":
+            return "Send material data and textures for the currently selected meshe objects back to CC4"
+
+        elif properties.param == "DEPIVOT":
+            return "TBD"
+
+        elif properties.param == "DEBUG":
+            return "Debug!"
+
+        elif properties.param == "TEST":
+            return "Test!"
+
+        elif properties.param == "SHOW_ACTOR_FILES":
+            return "Open the actor imported files folder"
+
+        elif properties.param == "SHOW_PROJECT_FILES":
+            return "Open the project folder"
+
+        return ""
+
+
+
+
 
 
 def debug(debug_json):

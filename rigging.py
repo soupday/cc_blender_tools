@@ -2588,18 +2588,10 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
 
 
 def reset_shape_keys(chr_cache):
-    rigify_rig = chr_cache.get_armature()
-    objects = []
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.is_mesh():
-            objects.append(obj_cache.get_object())
-    for obj in rigify_rig.children:
-        if utils.object_exists_is_mesh(obj) and obj not in objects:
-            objects.append(obj)
-    for obj in objects:
-        if obj.data.shape_keys:
-            for key_block in obj.data.shape_keys.key_blocks:
-                key_block.value = 0.0
+    objects = chr_cache.get_all_objects(include_armature=False,
+                                        include_children=True,
+                                        of_type="MESH")
+    utils.reset_shape_keys(objects)
 
 
 def get_shape_key_name_from_data_path(data_path):
@@ -3832,6 +3824,9 @@ class CC3Rigifier(bpy.types.Operator):
 
         if properties.param == "ALL":
             return "Rigify the character, all in one go"
+
+        elif properties.param == "DATALINK_RIGIFY":
+            return "Rigify the character and retarget any existing animation on the armature"
 
         elif properties.param == "META_RIG":
             return "Attach and align the Rigify Meta-rig to the character"

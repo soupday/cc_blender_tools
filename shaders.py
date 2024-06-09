@@ -518,26 +518,18 @@ def func_export_limbus_dark_scale(ldr):
     return lds
 
 def func_brightness(b):
-    if b <= 1.0:
-        return b
-    B = (b - 1)*4 + 1
+    B = (b - 1)*5 + 1
     return B
 
 def func_export_brightness(B):
-    if B <= 1.0:
-        return B
-    b = (B - 1)/4 + 1
+    b = (B - 1)/5 + 1
     return b
 
 def func_saturation(s):
-    if s <= 1.0:
-        return s
     S = (s - 1)*3 + 1
     return S
 
 def func_export_saturation(S):
-    if S <= 1.0:
-        return S
     s = (S - 1)/3 + 1
     return s
 
@@ -1203,15 +1195,59 @@ def fix_sss_method(bsdf, is_skin=False, is_hair=False, is_eyes=False, is_scalp=F
                 bsdf.subsurface_method = "BURLEY"
 
 
+def get_connected_textures(node: bpy.types.NodeGroup, tex_nodes: set, done=None):
+    if done is None:
+        done = []
+    for input in node.inputs:
+        n, s = nodeutils.get_node_and_socket_connected_to_input(node, input)
+        if n and n not in done:
+            done.append(n)
+            if n.type == "TEX_IMAGE":
+                tex_nodes.add(n)
+            get_connected_textures(n, tex_nodes, done)
+    return tex_nodes
+
+
+def check_tex_count(links, shader_node, wrinkle_shader_node, max_images=32):
+    tex_nodes = set()
+    for node in [shader_node, wrinkle_shader_node]:
+        tex_nodes = get_connected_textures(node, tex_nodes)
+    active_tex_count = len(tex_nodes)
+    if active_tex_count > max_images:
+        if nodeutils.has_connected_input(shader_node, "Specular Map"):
+            nodeutils.unlink_node_input(links, shader_node, "Specular Map")
+            active_tex_count -= 1
+    if active_tex_count > max_images:
+        nbs = nodeutils.get_node_input_value(shader_node, "Normal Blend Strength")
+        if nbs < 0.01 and nodeutils.has_connected_input(shader_node, "Normal Blend Map"):
+            nodeutils.unlink_node_input(links, shader_node, "Normal Blend Map")
+            active_tex_count -= 1
+    if active_tex_count > max_images:
+        cbs = nodeutils.get_node_input_value(shader_node, "Blend Overlay Strength")
+        if cbs < 0.01 and nodeutils.has_connected_input(shader_node, "Blender Overlay"):
+            nodeutils.unlink_node_input(links, shader_node, "Blender Overlay")
+            active_tex_count -= 1
+    if active_tex_count > max_images:
+        if nodeutils.has_connected_input(shader_node, "EN Map"):
+            nodeutils.unlink_node_input(links, shader_node, "EN Map")
+            nodeutils.unlink_node_input(links, shader_node, "EN Alpha")
+            active_tex_count -= 1
+    if active_tex_count > max_images:
+        if nodeutils.has_connected_input(shader_node, "CFULC Map"):
+            nodeutils.unlink_node_input(links, shader_node, "CFULC Map")
+            nodeutils.unlink_node_input(links, shader_node, "CFULC Alpha")
+            active_tex_count -= 1
+    if active_tex_count > max_images:
+        if nodeutils.has_connected_input(shader_node, "NMUIL Map"):
+            nodeutils.unlink_node_input(links, shader_node, "NMUIL Map")
+            nodeutils.unlink_node_input(links, shader_node, "NMUIL Alpha")
+            active_tex_count -= 1
+
+
 def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = None):
     wrinkle_shader_name = "rl_wrinkle_shader"
     wrinkle_shader_node = wrinkle.add_wrinkle_shader(nodes, links, obj, mat, mat_json, main_shader_name, wrinkle_shader_name = wrinkle_shader_name)
     apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle_shader_name, mat_json, obj,
                          processed_images, sub_shader = True, textures = textures)
-
-
-
-
-
-
+    check_tex_count(links, shader_node, wrinkle_shader_node)
 

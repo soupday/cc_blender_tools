@@ -57,6 +57,7 @@ def reset_datalink():
     prefs.datalink_retarget_prop_actions = True
     prefs.datalink_disable_tweak_bones = True
     prefs.datalink_hide_prop_bones = True
+    prefs.datalink_send_mode = "ACTIVE"
 
 
 def reset_preferences():
@@ -364,6 +365,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         description="Tweak bones cause bone length stretching which is largely incompatible with CC/iC animations. This option disables the stretch constraint to leg tweak bones so that the feet target correctly")
     datalink_hide_prop_bones: bpy.props.BoolProperty(default=True,
                         description="Hide internal prop bones")
+
+    datalink_send_mode: bpy.props.EnumProperty(items=[
+                    ("ALL","All","Send all materials in the selected meshes", "RESTRICT_SELECT_OFF", 0),
+                    ("ACTIVE","Active","Send only the active material in each of the selected meshes", "RESTRICT_SELECT_ON", 1),
+                ], default="ACTIVE",
+                   name = "Datalink Send Mode")
 
     # convert
     convert_non_standard_type: bpy.props.EnumProperty(items=[

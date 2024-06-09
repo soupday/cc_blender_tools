@@ -2919,6 +2919,12 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
         selected_meshes = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
+        all_valid_topography = True
+        if chr_cache and selected_meshes:
+            for obj in selected_meshes:
+                obj_cache = chr_cache.get_object_cache(obj)
+                if obj_cache:
+                    all_valid_topography = all_valid_topography and obj_cache.validate_topography()
 
         link_service = link.get_link_service()
         connected = link_service and link_service.is_connected
@@ -3022,12 +3028,23 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
             if is_cc:
 
-                grid = col.grid_flow(row_major=True, columns=2, align=True)
-                grid.scale_y = 2.0
-                grid.operator("ccic.datalink", icon="MESH_DATA", text="Mesh").param = "SEND_REPLACE_MESH"
-                grid.operator("ccic.datalink", icon="TEXTURE", text="Textures").param = "SEND_TEXTURES"
+                split = col.split(factor=0.5, align=True)
+                col_1 = split.column(align=True)
+                col_2 = split.column(align=True)
+                row = col_1.row(align=True)
+                row.scale_y = 2.0
+                param = "SEND_REPLACE_MESH"
+                if not all_valid_topography:
+                    row.alert = True
+                    param = "SEND_REPLACE_MESH_INVALID"
+                op = row.operator("ccic.datalink", icon="MESH_DATA", text="Mesh").param = param
+                if not chr_cache or not all_valid_topography:
+                    row.enabled = False
+                row = col_2.row(align=True)
+                row.scale_y = 2.0
+                row.operator("ccic.datalink", icon="TEXTURE", text="Materials").param = "SEND_MATERIAL_UPDATE"
                 if not chr_cache or not selected_meshes:
-                    grid.enabled = False
+                    split.enabled = False
 
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
@@ -3047,12 +3064,13 @@ class CCICDataLinkPanel(bpy.types.Panel):
                 if not (chr_cache and chr_cache.can_go_ic()):
                     grid.enabled = False
 
-
             if vars.DEV:
                 layout.operator("ccic.datalink", icon="ERROR", text="DEBUG").param = "DEBUG"
                 layout.operator("ccic.datalink", icon="ERROR", text="TEST").param = "TEST"
 
-        layout.separator()
+        layout.label(text="Material Send Mode:")
+        row = layout.row(align=True)
+        row.prop(prefs, "datalink_send_mode", text=text, expand=True)
 
         character_tools_ui(context, layout)
 
