@@ -37,10 +37,17 @@ Links
 
 ### 2.0.9
 - Datalink:
+    - Datalink main loop stability improvements.
     - Live sequence back to CC4/iClone takes facial expression bone rotations into account.
     - Live Sequence stop button.
     - Replace mesh function: Quickly send (non topology changing) mesh alterations back to CC4.
     - Update material & texture function: Send selected material data and textures back to CC4.
+    - Sync lighting recalculations.
+- Export:
+    - Restores armature and object states after export.
+    - Fix to baking custom Diffuse Map channel.
+- Fix to Blender 3.4-3.6 Eevee subsurface color.
+
 
 ### 2.0.8
 - Import/Export:
