@@ -2158,6 +2158,7 @@ class LinkService():
         light = utils.get_active_object()
         light.name = name
         light.data.name = name
+        utils.set_ccic_id(light)
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
@@ -2167,6 +2168,7 @@ class LinkService():
         light = utils.get_active_object()
         light.name = name
         light.data.name = name
+        utils.set_ccic_id(light)
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
@@ -2176,6 +2178,7 @@ class LinkService():
         light = utils.get_active_object()
         light.name = name
         light.data.name = name
+        utils.set_ccic_id(light)
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
@@ -2185,6 +2188,7 @@ class LinkService():
         light = utils.get_active_object()
         light.name = name
         light.data.name = name
+        utils.set_ccic_id(light)
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
@@ -2192,12 +2196,13 @@ class LinkService():
     def add_light_container(self):
         container = None
         for obj in bpy.data.objects:
-            if obj.type == "EMPTY" and vars.NODE_PREFIX in obj.name and "Lighting" in obj.name:
+            if obj.type == "EMPTY" and "Lighting" in obj.name and utils.has_ccic_id(obj):
                 container = obj
         if not container:
             bpy.ops.object.empty_add(type="PLAIN_AXES", radius=0.01)
             container = utils.get_active_object()
-            container.name = utils.unique_name("Lighting", True)
+            container.name = "Lighting"
+            utils.set_ccic_id(container)
         return container
 
     def decode_lights_data(self, data):

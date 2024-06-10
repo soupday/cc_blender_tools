@@ -146,6 +146,20 @@ def unique_name(name, no_version = False):
     return name
 
 
+def set_ccic_id(obj: bpy.types.Object):
+    props = vars.props()
+    obj["ccic_id"] = vars.VERSION_STRING + "_" + str(props.node_id)
+    props.node_id = props.node_id + 1
+
+
+def has_ccic_id(obj: bpy.types.Object):
+    if "ccic_id" in obj:
+        return True
+    if vars.NODE_PREFIX in obj.name:
+        return True
+    return False
+
+
 def unique_material_name(name, mat = None):
     name = strip_name(name)
     index = 1001
