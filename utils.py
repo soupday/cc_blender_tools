@@ -160,6 +160,15 @@ def has_ccic_id(obj: bpy.types.Object):
     return False
 
 
+def obj_is_linked(obj):
+    try:
+        if obj.library is not None:
+            return True
+    except:
+        pass
+    return False
+
+
 def unique_material_name(name, mat = None):
     name = strip_name(name)
     index = 1001

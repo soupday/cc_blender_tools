@@ -1333,6 +1333,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
             #    column.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
 
             column = layout.column()
+            column.enabled = not utils.obj_is_linked(obj)
             row = column.row()
             row.prop(props, "update_mode", expand=True)
 
@@ -1567,6 +1568,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                     props.stage_remapper):
 
                 column = layout.column()
+                column.enabled = not utils.obj_is_linked(obj)
 
                 show_channels = False
 
