@@ -2212,8 +2212,6 @@ class LinkService():
         container = self.add_light_container()
 
         for light_data in lights_data["lights"]:
-            print(light_data["name"])
-            print(light_data["type"])
             light_type = light_data["type"]
             if light_type == "DIR":
                 light_type = "SUN"
@@ -2226,8 +2224,6 @@ class LinkService():
             if RECTANGULAR_AS_AREA and is_rectangle:
                 light_type = "AREA"
                 cmod = 1
-
-            print(light_type, is_tube, is_rectangle)
 
             light = self.find_link_id(light_data["link_id"])
             if light and (light.type != "LIGHT" or light.data.type != light_type):
@@ -2249,7 +2245,8 @@ class LinkService():
             light.rotation_quaternion = utils.array_to_quaternion(light_data["rot"])
             light.scale = utils.array_to_vector(light_data["sca"])
             light.data.color = utils.color_filter(utils.array_to_color(light_data["color"], False), ambient_color)
-            print(light_data["falloff"])
+
+            # range and falloff modifiers
             fm = 2 - pow(light_data["falloff"] / 100, 2)
             mult = light_data["multiplier"]
             r = light_data["range"] / 5000
@@ -2258,12 +2255,6 @@ class LinkService():
             S = 1.75
             E = 1.15
 
-            #fm = 1 + (1 - f)
-            #mult *= rm * fm
-            #if light_data["is_tube"]:
-            #    mult *= 2.0
-            #if mult > 10:
-            #    mult *= (1 + pow((mult - 10)/90, 1.5))
             if light_type == "SUN":
                 #light.data.energy = 450 * pow(light_data["multiplier"]/20, 2) * fm * mmod
                 light.data.energy = 3 * min(1.5, mult) * fm * range_curve * E
@@ -2647,7 +2638,7 @@ class LinkService():
             if actor:
                 actors.append(actor)
         num_frames = LINK_DATA.sequence_end_frame - LINK_DATA.sequence_start_frame + 1
-        print(f"sequence complete: {LINK_DATA.sequence_start_frame} to {LINK_DATA.sequence_end_frame} = {num_frames}")
+        utils.log_info(f"sequence complete: {LINK_DATA.sequence_start_frame} to {LINK_DATA.sequence_end_frame} = {num_frames}")
         update_link_status(f"Live Sequence Complete: {num_frames} frames")
 
         # write actions

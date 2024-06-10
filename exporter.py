@@ -506,11 +506,11 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             obj_json = jsonutils.get_json(json_data, f"{new_name}/Object/{new_name}/Meshes/{obj_key}")
             for key in obj_json["Materials"]:
                 if key not in mat_keys:
-                    print(f"Removing: material {obj_key}/{key}")
+                    utils.log_detail(f"Removing: material {obj_key}/{key}")
                     del_keys.append((obj_json["Materials"], key))
         for key in meshes_json:
             if key not in objects_map:
-                print(f"Removing: object {key}")
+                utils.log_detail(f"Removing: object {key}")
                 del_keys.append((meshes_json, key))
         # find all physics mesh/material keys not used
         physics_meshes_json = jsonutils.get_json(json_data, f"{new_name}/Object/{new_name}/Physics/Soft Physics/Meshes")
@@ -519,11 +519,11 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             physics_mesh_json = jsonutils.get_json(json_data, f"{new_name}/Object/{new_name}/Physics/Soft Physics/Meshes/{physics_mesh_key}")
             for key in physics_mesh_json["Materials"]:
                 if key not in physics_mat_keys:
-                    print(f"Removing: physics material {physics_mesh_key}/{key}")
+                    utils.log_detail(f"Removing: physics material {physics_mesh_key}/{key}")
                     del_keys.append((physics_mesh_json["Materials"], key))
         for key in physics_meshes_json:
             if key not in physics_map:
-                print(f"Removing: physics object {key}")
+                utils.log_detail(f"Removing: physics object {key}")
                 del_keys.append((physics_meshes_json, key))
         # remove the keys
         for dictionary, key in del_keys:
@@ -742,7 +742,7 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                 tex_info = None
                 bake_value_texture = False
                 bake_shader_socket = ""
-                bake_shader_size = 64
+                bake_value_size = 64
 
                 roughness_modified = False
                 if tex_type == "ROUGHNESS":
@@ -758,7 +758,6 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                     roughness_max = nodeutils.get_node_input_value(shader_node, "Roughness Max", def_max)
                     roughness_pow = nodeutils.get_node_input_value(shader_node, "Roughness Power", def_pow)
                     if roughness_min != def_min or roughness_max != def_max or roughness != 0.5:
-                        print("################ ROUGHNESS MODIFIED!")
                         roughness_modified = True
 
                 # find or generate tex_info json.
@@ -766,6 +765,11 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
 
                     # CC3 cannot set metallic or roughness values without textures, so must bake a small value texture
                     if not tex_node:
+
+                        if tex_type == "DIFFUSE":
+                            if bake_values:
+                                bake_value_texture = True
+                                bake_shader_socket = "Base Color"
 
                         if tex_type == "ROUGHNESS":
                             if bake_values and roughness_modified:
@@ -829,7 +833,16 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
 
                             # if it needs a value texture, bake the value
                             if bake_value_texture:
-                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_shader_size)
+
+                                # turn off ao for diffuse bakes
+                                if tex_type == "DIFFUSE":
+                                    ao = nodeutils.get_node_input_value(shader_node, "AO Strength", 1.0)
+                                    nodeutils.set_node_input_value(shader_node, "AO Strength", 0)
+
+                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_value_size)
+
+                                if tex_type == "DIFFUSE":
+                                    ao = nodeutils.get_node_input_value(shader_node, "AO Strength", ao)
 
                             elif nodeutils.is_texture_pack_system(tex_node):
 
@@ -872,16 +885,8 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                                                          bump_socket_name = bump_socket)
                                 else:
 
-                                    # reset roughness power for bake
-                                    if tex_type == "ROUGHNESS":
-                                        roughness_pow = nodeutils.get_node_input_value(shader_node, "Roughness Power", def_pow)
-                                        nodeutils.set_node_input_value(shader_node, "Roughness Power", 1.0)
-
                                     utils.log_info(f"Baking Socket Input: {shader_node.name} {shader_socket}")
                                     image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
-
-                                    if tex_type == "ROUGHNESS":
-                                        nodeutils.set_node_input_value(shader_node, "Roughness Power", roughness_pow)
 
                         tex_info["Texture Path"] = ""
                         mat_data[tex_type] = image
@@ -915,6 +920,10 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
 
                                 tex_info["Texture Path"] = abs_image_path
                                 utils.log_info(f"{mat.name}/{tex_id}: Source texture path: {abs_image_path}")
+
+                    elif not tex_node:
+                        tex_info["Texture Path"] = ""
+
 
             mat_data["write_back"] = True
 
