@@ -47,6 +47,7 @@ Links
     - Restores armature and object states after export.
     - Fix to baking custom Diffuse Map channel.
 - Fix to Blender 3.4-3.6 Eevee subsurface color.
+- Material Parameter controls disabled for linked characters (unless library override).
 
 
 ### 2.0.8
