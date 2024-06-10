@@ -2013,6 +2013,10 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
         bpy.ops.wm.save_as_mainfile(filepath=file_path)
         bpy.ops.file.make_paths_relative()
         bpy.ops.wm.save_as_mainfile(filepath=file_path)
+        # restore some lighting
+        bpy.context.space_data.shading.use_scene_lights = False
+        bpy.context.space_data.shading.use_scene_world = False
+        bpy.context.space_data.shading.studiolight_intensity = 1.0
 
     #export_copy_fbx_key(chr_cache, dir, name)
     export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.get_import_key_file())
