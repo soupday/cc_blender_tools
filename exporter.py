@@ -1154,18 +1154,27 @@ def set_T_pose(arm, chr_json):
     return False
 
 
-def clear_animation_data(obj):
+def clear_animation_data(obj: bpy.types.Object):
     if obj.type == "ARMATURE" or obj.type == "MESH":
         # remove action
         utils.safe_set_action(obj, None)
         # remove strips
-        obj.animation_data_clear()
+        # this removes drivers too...
+        #obj.animation_data_clear()
+        ad = obj.animation_data
+        if ad:
+            while ad.nla_tracks:
+                ad.nla_tracks.remove(ad.nla_tracks[0])
     if obj.type == "MESH":
         # remove shape key action
         utils.safe_set_action(obj.data.shape_keys, None)
         # remove shape key strips
         if obj.data.shape_keys and obj.data.shape_keys.animation_data:
             obj.data.shape_keys.animation_data_clear()
+            ad = obj.data.shape_keys.animation_data
+            if ad:
+                while ad.nla_tracks:
+                    ad.nla_tracks.remove(ad.nla_tracks[0])
 
 
 def create_T_pose_action(arm, objects, export_strips):
@@ -1704,14 +1713,14 @@ def export_standard(self, chr_cache, file_path, include_selected):
         arm = get_export_armature(chr_cache, objects)
 
         # store states and settings
-        object_state = utils.store_object_state(objects)
         armature_settings = bones.store_armature_settings(arm, include_pose=True)
-
-        utils.log_info("Preparing character for export:")
-        utils.log_indent()
+        object_state = utils.store_object_state(objects)
 
         # restore quaternion rotation modes
         rigutils.reset_rotation_modes(arm)
+
+        utils.log_info("Preparing character for export:")
+        utils.log_indent()
 
         # avatar's should be exported back to CC4 in rest pose.
         # props should be exported back with animation.
@@ -1830,8 +1839,11 @@ def export_non_standard(self, file_path, include_selected):
     arm = get_export_armature(None, objects)
 
     # store states and settings
-    object_state = utils.store_object_state(objects)
     armature_settings = bones.store_armature_settings(arm, include_pose=True)
+    object_state = utils.store_object_state(objects)
+
+    # restore quaternion rotation modes
+    rigutils.reset_rotation_modes(arm)
 
     utils.log_info("Generating JSON data for export:")
     utils.log_indent()
@@ -1937,8 +1949,11 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     arm = get_export_armature(chr_cache, objects)
 
     # store states and settings
-    object_state = utils.store_object_state(objects)
     armature_settings = bones.store_armature_settings(arm, include_pose=True)
+    object_state = utils.store_object_state(objects)
+
+    # restore quaternion rotation modes
+    rigutils.reset_rotation_modes(arm)
 
     export_actions = False
     export_strips = True
@@ -2144,8 +2159,11 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     export_rig = None
 
     # store states and settings
-    object_state = utils.store_object_state(objects)
     armature_settings = bones.store_armature_settings(arm, include_pose=True)
+    object_state = utils.store_object_state(objects)
+
+    # restore quaternion rotation modes
+    rigutils.reset_rotation_modes(arm)
 
     export_actions = False
     export_strips = True

@@ -1456,7 +1456,8 @@ def store_mode_selection_state():
     mode = get_mode()
     active = get_active_object()
     selection = bpy.context.selected_objects.copy()
-    return [mode, active, selection]
+    return [mode, active, selection,
+            (bpy.context.scene.frame_current, bpy.context.scene.frame_start, bpy.context.scene.frame_end)]
 
 
 def restore_mode_selection_state(store):
@@ -1465,6 +1466,9 @@ def restore_mode_selection_state(store):
         try_select_objects(store[2], True)
         set_active_object(store[1])
         set_mode(store[0])
+        bpy.context.scene.frame_current = store[3][0]
+        bpy.context.scene.frame_start = store[3][1]
+        bpy.context.scene.frame_end = store[3][2]
     except:
         pass
 
