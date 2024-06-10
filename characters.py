@@ -1752,10 +1752,16 @@ class CC3OperatorCharacter(bpy.types.Operator):
             return "Convert character to a non-standard Humanoid, Creature or Prop"
         elif properties.param == "CONVERT_FROM_GENERIC":
             return "Convert character from generic armature and objects to Non-Standard character with Reallusion materials."
+        elif properties.param == "MATCH_MATERIALS":
+            return "Restore the materials to a character sent to AccuRig"
+        elif properties.param == "CONVERT_ACCESSORY":
+            return "Convert the selected mesh objects into a compatible accessory with CC4"
         elif properties.param == "SELECT_ACTOR_ALL":
             return "Select all objects and armatures in the character or prop"
         elif properties.param == "SELECT_ACTOR_RIG":
             return "Select the just the parent armature for the character or prop"
+        elif properties.param == "DUPLICATE":
+            return "Duplicate the character / prop objects and meta-data to create a fully independent copy of the character or prop"
         return ""
 
 
@@ -2007,6 +2013,10 @@ class CCICCharacterRename(bpy.types.Operator):
 
         layout.separator()
 
+    @classmethod
+    def description(cls, context, properties):
+        return "Edit the character name and non-standard type"
+
 
 class CCICCharacterConvertGeneric(bpy.types.Operator):
     bl_idname = "ccic.convert_generic"
@@ -2056,6 +2066,12 @@ class CCICCharacterConvertGeneric(bpy.types.Operator):
         self.non_standard_type = prefs.convert_non_standard_type
 
         return context.window_manager.invoke_props_dialog(self)
+
+    @classmethod
+    def description(cls, context, properties):
+        return "Convert the armature, child objects and / or selected objects into a character or prop.\n" \
+               "All materials will be converted to work with Reallusion shaders if possible. \n\n" \
+               "Note: Materials must be based on the Principled BSDF shader to successfully convert"
 
 
 

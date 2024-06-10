@@ -18,6 +18,7 @@ import math
 import os
 import time
 import bpy
+import traceback
 from mathutils import Vector, Quaternion, Matrix, Euler
 
 from . import colorspace, imageutils, nodeutils, rigidbody, physics, modifiers, utils, vars
@@ -27,7 +28,8 @@ def add_target(name, location):
     bpy.ops.object.empty_add(type="PLAIN_AXES", radius = 0.1,
         location = location)
     target = utils.get_active_object()
-    target.name = utils.unique_name(name, True)
+    target.name = name
+    utils.set_ccic_id(target)
     return target
 
 def set_contact_shadow(light, distance, thickness):
@@ -46,12 +48,13 @@ def track_to(obj, target):
 def add_light_container():
     container = None
     for obj in bpy.data.objects:
-        if obj.type == "EMPTY" and vars.NODE_PREFIX in obj.name and "Lighting" in obj.name:
+        if obj.type == "EMPTY" and "Lighting" in obj.name and utils.has_ccic_id(obj):
             container = obj
     if not container:
         bpy.ops.object.empty_add(type="PLAIN_AXES", radius=0.01)
         container = utils.get_active_object()
-        container.name = utils.unique_name("Lighting", True)
+        container.name = "Lighting"
+        utils.set_ccic_id(container)
     return container
 
 
@@ -59,9 +62,9 @@ def add_sun_light(name, container, location, rotation, energy, angle):
     bpy.ops.object.light_add(type="SUN",
                     location = location, rotation = rotation)
     light = utils.get_active_object()
-    uname = utils.unique_name(name, True)
-    light.name = uname
-    light.data.name = uname
+    light.name = name
+    light.data.name = name
+    utils.set_ccic_id(light)
     light.data.energy = energy
     light.data.angle = angle
     if container:
@@ -74,9 +77,9 @@ def add_spot_light(name, container, location, rotation, energy, blend, size, dis
     bpy.ops.object.light_add(type="SPOT",
                     location = location, rotation = rotation)
     light = utils.get_active_object()
-    uname = utils.unique_name(name, True)
-    light.name = uname
-    light.data.name = uname
+    light.name = name
+    light.data.name = name
+    utils.set_ccic_id(light)
     light.data.energy = energy
     light.data.shadow_soft_size = radius
     light.data.spot_blend = blend
@@ -93,9 +96,9 @@ def add_area_light(name, container, location, rotation, energy, size, distance):
     bpy.ops.object.light_add(type="AREA",
                     location = location, rotation = rotation)
     light = utils.get_active_object()
-    uname = utils.unique_name(name, True)
-    light.name = uname
-    light.data.name = uname
+    light.name = name
+    light.data.name = name
+    utils.set_ccic_id(light)
     light.data.shape = "DISK"
     light.data.size = size
     light.data.energy = energy
@@ -111,9 +114,9 @@ def add_point_light(name, container, location, rotation, energy, size):
     bpy.ops.object.light_add(type="POINT",
                     location = location, rotation = rotation)
     light = utils.get_active_object()
-    uname = utils.unique_name(name, True)
-    light.name = uname
-    light.data.name = uname
+    light.name = name
+    light.data.name = name
+    utils.set_ccic_id(light)
     light.data.shadow_soft_size = size
     light.data.energy = energy
     if container:
@@ -124,14 +127,17 @@ def add_point_light(name, container, location, rotation, energy, size):
 
 def remove_all_lights(inc_camera = False):
     for obj in bpy.data.objects:
-        if vars.NODE_PREFIX in obj.name:
+
+        if not utils.object_exists(obj):
+            continue
+
+        if utils.has_ccic_id(obj):
 
             if obj.type == "LIGHT":
                 bpy.data.objects.remove(obj)
 
             elif inc_camera and obj.type == "EMPTY" and "CameraTarget" in obj.name:
-                #bpy.data.objects.remove(obj)
-                #obj.hide_set(True)
+                bpy.data.objects.remove(obj)
                 pass
 
             elif obj.type == "EMPTY" and \
@@ -142,18 +148,17 @@ def remove_all_lights(inc_camera = False):
                 utils.delete_object_tree(obj)
 
             elif inc_camera and obj.type == "CAMERA":
-                #bpy.data.objects.remove(obj)
-                obj.hide_set(True)
-                obj.hide_render = True
+                bpy.data.objects.remove(obj)
 
         else:
+
             if obj.type == "LIGHT":
                 obj.hide_set(True)
                 obj.hide_render = True
 
             elif inc_camera and obj.type == "EMPTY" and "CameraTarget" in obj.name:
-                #obj.hide_set(True)
-                #obj.hide_render = True
+                obj.hide_set(True)
+                obj.hide_render = True
                 pass
 
             elif obj.type == "EMPTY" and \
@@ -182,16 +187,17 @@ def camera_setup(camera_loc, target_loc):
     camera = None
     target = None
     for obj in bpy.data.objects:
-        if camera is None and vars.NODE_PREFIX in obj.name and obj.type == "CAMERA":
+        if camera is None and obj.type == "CAMERA" and utils.has_ccic_id(obj):
             camera = obj
             camera.location = camera_loc
-        if target is None and vars.NODE_PREFIX in obj.name and obj.type == "EMPTY" and "CameraTarget" in obj.name:
+        if target is None and obj.type == "EMPTY" and "CameraTarget" in obj.name and utils.has_ccic_id(obj):
             target = obj
             target.location = target_loc
     if camera is None:
         bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=camera_loc)
         camera = utils.get_active_object()
-        camera.name = utils.unique_name("Camera", True)
+        camera.name = "Camera"
+        utils.set_ccic_id(camera)
     if target is None:
         target = add_target("CameraTarget", target_loc)
 
@@ -329,7 +335,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
 
             key1 = add_point_light("Light", None,
@@ -349,7 +355,7 @@ def setup_scene_default(scene_type):
 
         elif scene_type == "MATCAP":
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
 
             bpy.context.space_data.shading.type = 'SOLID'
@@ -375,7 +381,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
             container = add_light_container()
 
@@ -453,7 +459,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
             container = add_light_container()
 
@@ -520,7 +526,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
             container = add_light_container()
 
@@ -583,7 +589,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
             container = add_light_container()
 
@@ -670,7 +676,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
             container = add_light_container()
 
@@ -777,7 +783,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
             container = add_light_container()
 
@@ -895,7 +901,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
             container = add_light_container()
 
@@ -1002,7 +1008,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
             container = add_light_container()
 
@@ -1100,7 +1106,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
             container = add_light_container()
 
@@ -1197,7 +1203,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             restore_hidden_camera()
             container = add_light_container()
 
@@ -1304,7 +1310,7 @@ def setup_scene_default(scene_type):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            remove_all_lights(True)
+            remove_all_lights(False)
             head_pos, camera_pos = target_head(1.0)
             camera, camera_target = camera_setup(camera_pos, head_pos)
             bpy.context.scene.camera = camera
@@ -1341,7 +1347,8 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.clip_start = 0.01
 
     except Exception as e:
-        utils.log_error("Something went wrong adding lights...", e)
+        utils.log_error("Something went wrong adding lights:")
+        traceback.print_exc()
 
     # restore selection
     bpy.ops.object.select_all(action='DESELECT')
@@ -1510,7 +1517,8 @@ def add_view_aligned_camera(context):
     camera = utils.get_active_object()
     bpy.context.scene.camera = camera
     align_with_view(camera, context)
-    camera.name = utils.unique_name("Camera", True)
+    camera.name = "Camera"
+    utils.set_ccic_id(camera)
     view_space, r3d = utils.get_region_3d()
     camera.data.lens = view_space.lens
     camera.data.dof.use_dof = False

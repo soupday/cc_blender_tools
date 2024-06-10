@@ -174,6 +174,18 @@ def get_object_json(chr_json, obj):
         return None
 
 
+def get_object_json_key(chr_json, obj_json):
+    if not chr_json:
+        return None
+    if obj_json is None:
+        return None
+    meshes_json: dict = chr_json["Meshes"]
+    for key, value in meshes_json.items():
+        if value == obj_json:
+            return key
+    return None
+
+
 def get_physics_json(chr_json):
     try:
         return chr_json["Physics"]
@@ -198,18 +210,29 @@ def get_soft_physics_json(physics_json, obj, mat):
         return None
 
 
-def get_physics_mesh_json(physics_json, obj):
-    if not physics_json:
+def get_physics_mesh_json(soft_physics_json, obj):
+    if not soft_physics_json:
         return None
     try:
         name = utils.strip_name(obj.name).lower()
-        for object_name in physics_json.keys():
+        for object_name in soft_physics_json.keys():
             if object_name.lower() == name:
                 utils.log_detail("Physics Object Json data found for: " + obj.name)
-                return physics_json[object_name]
+                return soft_physics_json[object_name]
     except:
         utils.log_warn("Failed to get physics object Json data!")
         return None
+
+
+def get_physics_mesh_json_key(soft_physics_json, physics_mesh_json):
+    if not soft_physics_json:
+        return None
+    if physics_mesh_json is None:
+        return None
+    for key, value in soft_physics_json.items():
+        if value == physics_mesh_json:
+            return key
+    return None
 
 
 def get_custom_shader(mat_json):
@@ -236,6 +259,19 @@ def get_material_json(obj_json, material):
         utils.log_warn("Failed to get material Json data!")
         return None
 
+
+def get_material_json_key(obj_json, mat_json):
+    if not obj_json:
+        return None
+    if mat_json is None:
+        return None
+    materials_json: dict = obj_json["Materials"]
+    for key, value in materials_json.items():
+        if value == mat_json:
+            return key
+    return None
+
+
 def get_physics_material_json(physics_mesh_json, material):
     if not physics_mesh_json:
         return None
@@ -249,6 +285,19 @@ def get_physics_material_json(physics_mesh_json, material):
     except:
         utils.log_warn("Failed to get physics material Json data!")
         return None
+
+
+def get_physics_material_json_key(physics_mesh_json, physics_mat_json):
+    if not physics_mesh_json:
+        return None
+    if physics_mat_json is None:
+        return None
+    materials_json: dict = physics_mesh_json["Materials"]
+    for key, value in materials_json.items():
+        if value == physics_mat_json:
+            return key
+    return None
+
 
 def get_texture_info(mat_json, texture_id):
     tex_info = get_pbr_texture_info(mat_json, texture_id)

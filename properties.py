@@ -1229,6 +1229,9 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     collision_proxy: bpy.props.PointerProperty(type=bpy.types.Object)
     use_collision_proxy: bpy.props.BoolProperty(default=False)
     collision_proxy_decimate: bpy.props.FloatProperty(default=0.125, min=0.0, max=1.0)
+    vertex_count: bpy.props.IntProperty(default=0)
+    face_count: bpy.props.IntProperty(default=0)
+    edge_count: bpy.props.IntProperty(default=0)
     disabled: bpy.props.BoolProperty(default=False)
 
     def is_body(self):
@@ -1319,6 +1322,13 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
         if self.disabled:
             self.invalidate()
             pass
+
+    def validate_topography(self):
+        obj = self.get_object()
+        if utils.object_exists_is_mesh(obj):
+            return (self.vertex_count == len(obj.data.vertices) and
+                    self.face_count == len(obj.data.polygons) and
+                    self.edge_count == len(obj.data.edges))
 
 
 class CCICActionStore(bpy.types.PropertyGroup):
@@ -1894,12 +1904,14 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             obj_cache.set_object(obj)
             obj_cache.source_name = utils.strip_name(obj.name)
             obj_cache.check_id()
+            if obj.type == "MESH":
+                obj_cache.vertex_count = len(obj.data.vertices)
+                obj_cache.face_count = len(obj.data.polygons)
+                obj_cache.edge_count = len(obj.data.edges)
         return obj_cache
-
 
     def has_material(self, mat):
         return (self.get_material_cache(mat) is not None)
-
 
     def has_any_materials(self, materials):
         for mat in materials:

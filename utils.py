@@ -21,7 +21,7 @@ import time
 import difflib
 import random
 import re
-from mathutils import Vector, Quaternion, Matrix, Euler
+from mathutils import Vector, Quaternion, Matrix, Euler, Color
 from hashlib import md5
 import bpy
 
@@ -144,6 +144,29 @@ def unique_name(name, no_version = False):
         name = vars.NODE_PREFIX + name + "_" + vars.VERSION_STRING + "_" + str(props.node_id)
     props.node_id = props.node_id + 1
     return name
+
+
+def set_ccic_id(obj: bpy.types.Object):
+    props = vars.props()
+    obj["ccic_id"] = vars.VERSION_STRING + "_" + str(props.node_id)
+    props.node_id = props.node_id + 1
+
+
+def has_ccic_id(obj: bpy.types.Object):
+    if "ccic_id" in obj:
+        return True
+    if vars.NODE_PREFIX in obj.name:
+        return True
+    return False
+
+
+def obj_is_linked(obj):
+    try:
+        if obj.library is not None:
+            return True
+    except:
+        pass
+    return False
 
 
 def unique_material_name(name, mat = None):
@@ -330,9 +353,20 @@ def get_selected_mesh():
 
 
 def get_selected_meshes(context = None):
+    """Gets selected meshes and includes any current context mesh"""
     objects = [ obj for obj in bpy.context.selected_objects if object_exists_is_mesh(obj) ]
     if context and context.object:
         if object_exists_is_mesh(context.object):
+            if context.object not in objects:
+                objects.append(context.object)
+    return objects
+
+
+def get_selected_armatures(context = None):
+    """Gets selected armatures and includes any current context armature"""
+    objects = [ obj for obj in bpy.context.selected_objects if object_exists_is_armature(obj) ]
+    if context and context.object:
+        if object_exists_is_armature(context.object):
             if context.object not in objects:
                 objects.append(context.object)
     return objects
@@ -1057,9 +1091,16 @@ def array_to_color(arr, linear=False):
         b = arr[2]
         a = arr[3]
     if linear:
-        return (linear_to_srgbx(r), linear_to_srgbx(g), linear_to_srgbx(b))
+        return Color((linear_to_srgbx(r), linear_to_srgbx(g), linear_to_srgbx(b)))
     else:
-        return (r,g,b)
+        return Color((r,g,b))
+
+
+def color_filter(color: Color, filter: Color):
+    cf = Color((color.r * filter.r, color.g * filter.g, color.b * filter.b))
+    if cf.v < 0.001:
+        return color
+    return cf * (color.v / cf.v)
 
 
 def array_to_quaternion(arr):
@@ -1206,19 +1247,25 @@ def hide_tree(obj, hide = True):
 
 
 def get_context_area(context, area_type):
+    if context is None:
+        context = bpy.context
     for area in context.screen.areas:
         if area.type == area_type:
             return area
     return None
 
 
-def get_context_mesh(context):
+def get_context_mesh(context=None):
+    if context is None:
+        context = bpy.context
     if object_exists_is_mesh(context.object):
         return context.object
     return None
 
 
-def get_context_material(context):
+def get_context_material(context=None):
+    if context is None:
+        context = bpy.context
     try:
         return context.object.material_slots[context.object.active_material_index].material
     except:
@@ -1432,7 +1479,8 @@ def store_mode_selection_state():
     mode = get_mode()
     active = get_active_object()
     selection = bpy.context.selected_objects.copy()
-    return [mode, active, selection]
+    return [mode, active, selection,
+            (bpy.context.scene.frame_current, bpy.context.scene.frame_start, bpy.context.scene.frame_end)]
 
 
 def restore_mode_selection_state(store):
@@ -1441,6 +1489,9 @@ def restore_mode_selection_state(store):
         try_select_objects(store[2], True)
         set_active_object(store[1])
         set_mode(store[0])
+        bpy.context.scene.frame_current = store[3][0]
+        bpy.context.scene.frame_start = store[3][1]
+        bpy.context.scene.frame_end = store[3][2]
     except:
         pass
 
@@ -1877,6 +1928,64 @@ def md5sum(filename):
     return hash.hexdigest()
 
 
+def store_object_state(objects=None):
+    """Store object & mesh/armature and material names and slots."""
+    if objects is None:
+        objects = bpy.data.objects
+    obj_state = {}
+    for obj in objects:
+        if (obj.type == "MESH" or obj.type == "ARMATURE") and obj not in obj_state:
+            obj_state[obj] = {
+                "names": [obj.name, obj.data.name],
+                "visible": obj.visible_get(),
+            }
+            if obj.type == "MESH":
+                obj_state[obj]["slots"] = [ slot.material for slot in obj.material_slots ]
+                for mat in obj.data.materials:
+                    if mat not in obj_state:
+                        obj_state[mat] = { "name": mat.name }
+                if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                    obj_state[obj]["action"] = safe_get_action(obj.data.shape_keys)
+            if obj.type == "ARMATURE":
+                obj_state[obj]["action"] = safe_get_action(obj)
+    return obj_state
+
+
+def restore_object_state(obj_state):
+    """Restore object & mesh/armature and material names and slots."""
+    for item in obj_state:
+        state = obj_state[item]
+        if type(item) is bpy.types.Object:
+            obj: bpy.types.Object = item
+            force_object_name(obj, state["names"][0])
+            if obj.type == "MESH":
+                force_mesh_name(obj.data, state["names"][1])
+                for i, mat in enumerate(state["slots"]):
+                    if obj.material_slots[i].material != mat:
+                        obj.material_slots[i].material = mat
+                if "action" in state:
+                    safe_set_action(obj.data.shape_keys, state["action"])
+            elif obj.type == "ARMATURE":
+                force_armature_name(obj.data, state["names"][1])
+                if "action" in state:
+                    safe_set_action(obj, state["action"])
+        elif type(item) is bpy.types.Material:
+            mat: bpy.types.Material = item
+            force_material_name(mat, state["name"])
+
+
+def reset_shape_keys(objects):
+    """Unlock and reset object shape keys to zero."""
+    for obj in objects:
+        if obj.type == "MESH":
+            # disable shape key lock
+            obj.show_only_shape_key = False
+            # reset all shape keys to zero
+            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                for key in obj.data.shape_keys.key_blocks:
+                    key.value = 0.0
+
+
 INVALID_EXPORT_CHARACTERS = "`¬!\"£$%^&*()+-=[]{}:@~;'#<>?,./\| "
 DIGITS = "0123456789"
 
@@ -2068,17 +2177,30 @@ def fix_texture_rel_path(rel_path: str):
     return rel_path
 
 
-def get_unique_folder_path(parent_folder, folder_name, create=False):
+def get_unique_folder_path(parent_folder, folder_name, create=False, reuse=False):
     suffix = 1
     base_name = folder_name
     folder_path = os.path.normpath(os.path.join(parent_folder, folder_name))
-    while os.path.exists(folder_path):
-        folder_name = base_name + "_" + str(suffix)
-        suffix += 1
-        folder_path = os.path.normpath(os.path.join(parent_folder, folder_name))
+    if not reuse:
+        while os.path.exists(folder_path):
+            folder_name = f"{base_name}_{str(suffix)}"
+            folder_path = os.path.normpath(os.path.join(parent_folder, folder_name))
+            suffix += 1
     if create:
-        os.makedirs(folder_path)
+        os.makedirs(folder_path, exist_ok=reuse)
     return folder_path
+
+
+def get_unique_file_path(parent_folder, file_name, reuse=False):
+    suffix = 1
+    base_name, ext = os.path.splitext(file_name)
+    file_path = os.path.normpath(os.path.join(parent_folder, file_name))
+    if not reuse:
+        while os.path.exists(file_path):
+            file_name = f"{base_name}_{str(suffix)}{ext}"
+            file_path = os.path.normpath(os.path.join(parent_folder, file_name))
+            suffix += 1
+    return file_path
 
 
 def make_sub_folder(parent_folder, folder_name):

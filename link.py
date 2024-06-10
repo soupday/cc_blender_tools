@@ -1,11 +1,12 @@
 import bpy #, bpy_extras
 #import bpy_extras.view3d_utils as v3d
 import atexit
+import traceback
 from enum import IntEnum
 import os, socket, time, select, struct, json
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix
-from . import importer, bones, geom, colorspace, rigging, rigutils, modifiers, utils, vars
+from . import importer, exporter, bones, geom, colorspace, rigging, rigutils, modifiers, jsonutils, utils, vars
 
 
 BLENDER_PORT = 9334
@@ -30,10 +31,13 @@ class OpCodes(IntEnum):
     PING = 2
     STOP = 10
     DISCONNECT = 11
+    DEBUG = 15
     NOTIFY = 50
     SAVE = 60
     MORPH = 90
     MORPH_UPDATE = 91
+    REPLACE_MESH = 95
+    MATERIALS = 96
     CHARACTER = 100
     CHARACTER_UPDATE = 101
     PROP = 102
@@ -597,6 +601,16 @@ def next_frame(current_frame=None):
     return current_frame
 
 
+def prev_frame(current_frame=None):
+    if current_frame is None:
+        current_frame = bpy.context.scene.frame_current
+    fps = bpy.context.scene.render.fps
+    start_frame = bpy.context.scene.frame_start
+    current_frame = max(start_frame, current_frame - 1)
+    bpy.context.scene.frame_current = current_frame
+    return current_frame
+
+
 def reset_action(chr_cache):
     if chr_cache:
         rig = chr_cache.get_armature()
@@ -829,11 +843,12 @@ def store_shape_key_cache_keyframes(actor: LinkActor, frame, expression_weights,
         curve[cache_index + 1] = viseme_weights[i]
 
 
-def write_sequence_actions(actor: LinkActor):
+def write_sequence_actions(actor: LinkActor, num_frames):
     if actor.cache:
         rig = actor.cache["rig"]
         rig_action = utils.safe_get_action(rig)
         objects = actor.get_sequence_objects()
+        set_count = num_frames * 2
 
         if rig_action:
             rig_action.fcurves.clear()
@@ -847,40 +862,41 @@ def write_sequence_actions(actor: LinkActor):
                 for i in range(0, 3):
                     data_path = pose_bone.path_from_id("location")
                     fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Location")
-                    fcurve.keyframe_points.add(loc_cache["count"])
-                    fcurve.keyframe_points.foreach_set('co', loc_cache["curves"][i])
+                    fcurve.keyframe_points.add(num_frames)
+                    fcurve.keyframe_points.foreach_set('co', loc_cache["curves"][i][:set_count])
                 for i in range(0, 3):
                     data_path = pose_bone.path_from_id("scale")
                     fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Scale")
-                    fcurve.keyframe_points.add(sca_cache["count"])
-                    fcurve.keyframe_points.foreach_set('co', sca_cache["curves"][i])
+                    fcurve.keyframe_points.add(num_frames)
+                    fcurve.keyframe_points.foreach_set('co', sca_cache["curves"][i][:set_count])
                 for i in range(0, 4):
                     data_path = pose_bone.path_from_id("rotation_quaternion")
                     fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Rotation Quaternion")
-                    fcurve.keyframe_points.add(rot_cache["count"])
-                    fcurve.keyframe_points.foreach_set('co', rot_cache["curves"][i])
+                    fcurve.keyframe_points.add(num_frames)
+                    fcurve.keyframe_points.foreach_set('co', rot_cache["curves"][i][:set_count])
 
         expression_cache = actor.cache["expressions"]
         viseme_cache = actor.cache["visemes"]
         for obj in objects:
             obj_action = utils.safe_get_action(obj.data.shape_keys)
             if obj_action:
+                obj_action.fcurves.clear()
                 for expression_name in expression_cache:
                     if expression_name in obj.data.shape_keys.key_blocks:
                         key_cache = expression_cache[expression_name]
                         key = obj.data.shape_keys.key_blocks[expression_name]
                         data_path = key.path_from_id("value")
                         fcurve = obj_action.fcurves.new(data_path, action_group="Expression")
-                        fcurve.keyframe_points.add(key_cache["count"])
-                        fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0])
+                        fcurve.keyframe_points.add(num_frames)
+                        fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0][:set_count])
                 for viseme_name in viseme_cache:
                     if viseme_name in obj.data.shape_keys.key_blocks:
                         key_cache = viseme_cache[viseme_name]
                         key = obj.data.shape_keys.key_blocks[viseme_name]
                         data_path = key.path_from_id("value")
                         fcurve = obj_action.fcurves.new(data_path, action_group="Viseme")
-                        fcurve.keyframe_points.add(key_cache["count"])
-                        fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0])
+                        fcurve.keyframe_points.add(num_frames)
+                        fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0][:set_count])
 
         actor.clear_cache()
 
@@ -1102,8 +1118,8 @@ class LinkService():
             try:
                 r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
             except Exception as e:
-                utils.log_error("Client socket receive:select failed!", e)
-                self.service_lost()
+                utils.log_error("Client socket recv:select failed!", e)
+                self.client_lost()
                 return
             count = 0
             while r:
@@ -1112,11 +1128,11 @@ class LinkService():
                     header = self.client_sock.recv(8)
                     if header == 0:
                         utils.log_always("Socket closed by client")
-                        self.service_lost()
+                        self.client_lost()
                         return
                 except Exception as e:
-                    utils.log_error("Client socket receive:recv failed!", e)
-                    self.service_lost()
+                    utils.log_error("Client socket recv:recv header failed!", e)
+                    self.client_lost()
                     return
                 if header and len(header) == 8:
                     op_code, size = struct.unpack("!II", header)
@@ -1128,8 +1144,8 @@ class LinkService():
                             try:
                                 chunk = self.client_sock.recv(chunk_size)
                             except Exception as e:
-                                utils.log_error("Client socket receive:chunk_recv failed!", e)
-                                self.service_lost()
+                                utils.log_error("Client socket recv:recv chunk failed!", e)
+                                self.client_lost()
                                 return
                             data.extend(chunk)
                             size -= len(chunk)
@@ -1152,8 +1168,8 @@ class LinkService():
                 try:
                     r,w,x = select.select(self.client_sockets, self.empty_sockets, self.empty_sockets, 0)
                 except Exception as e:
-                    utils.log_error("Client socket receive:re-select failed!", e)
-                    self.service_lost()
+                    utils.log_error("Client socket recv:select (reselect) failed!", e)
+                    self.client_lost()
                     return
                 if r:
                     self.is_data = True
@@ -1222,10 +1238,13 @@ class LinkService():
 
         elif op_code == OpCodes.DISCONNECT:
             utils.log_info(f"Disconnection Received")
-            self.service_disconnect()
+            self.service_recv_disconnected()
 
         elif op_code == OpCodes.NOTIFY:
             self.receive_notify(data)
+
+        elif op_code == OpCodes.DEBUG:
+            self.receive_debug(data)
 
         ##
         #
@@ -1307,6 +1326,9 @@ class LinkService():
 
     def service_disconnect(self):
         self.send(OpCodes.DISCONNECT)
+        self.service_recv_disconnected()
+
+    def service_recv_disconnected(self):
         if CLIENT_ONLY:
             self.stop_timer()
         self.stop_client()
@@ -1322,6 +1344,12 @@ class LinkService():
         self.stop_timer()
         self.stop_client()
         self.stop_server()
+
+    def client_lost(self):
+        self.lost_connection.emit()
+        if CLIENT_ONLY:
+            self.stop_timer()
+        self.stop_client()
 
     def check_service(self):
         global LINK_SERVICE
@@ -1341,76 +1369,88 @@ class LinkService():
             self.send_hello()
 
     def loop(self):
-        current_time = time.time()
-        delta_time = current_time - self.time
-        self.time = current_time
-        if delta_time > 0:
-            rate = 1.0 / delta_time
-            self.loop_rate = self.loop_rate * 0.75 + rate * 0.25
-            #if self.loop_count % 100 == 0:
-            #    utils.log_detail(f"LinkServer loop timer rate: {self.loop_rate}")
-            self.loop_count += 1
+        try:
+            current_time = time.time()
+            delta_time = current_time - self.time
+            self.time = current_time
+            if delta_time > 0:
+                rate = 1.0 / delta_time
+                self.loop_rate = self.loop_rate * 0.75 + rate * 0.25
+                #if self.loop_count % 100 == 0:
+                #    utils.log_detail(f"LinkServer loop timer rate: {self.loop_rate}")
+                self.loop_count += 1
 
-        self.check_paths()
+            self.check_paths()
 
-        if not self.check_service():
-            return None
-
-        if not self.timer:
-            return None
-
-        if self.is_connected:
-            self.ping_timer -= delta_time
-            self.keepalive_timer -= delta_time
-
-            if USE_PING and self.ping_timer <= 0:
-                self.send(OpCodes.PING)
-
-            if USE_KEEPALIVE and self.keepalive_timer <= 0:
-                utils.log_info("lost connection!")
-                self.service_stop()
+            if not self.check_service():
                 return None
 
-        elif self.is_listening:
-            self.keepalive_timer -= delta_time
-
-            if USE_KEEPALIVE and self.keepalive_timer <= 0:
-                utils.log_info("no connection within time limit!")
-                self.service_stop()
+            if not self.timer:
                 return None
 
-        # accept incoming connections
-        self.accept()
+            if self.is_connected:
+                self.ping_timer -= delta_time
+                self.keepalive_timer -= delta_time
 
-        # receive client data
-        self.recv()
+                if USE_PING and self.ping_timer <= 0:
+                    self.send(OpCodes.PING)
 
-        # run anything in sequence
-        for i in range(0, self.sequence_send_count):
-            self.sequence.emit()
+                if USE_KEEPALIVE and self.keepalive_timer <= 0:
+                    utils.log_info("lost connection!")
+                    self.service_stop()
+                    return None
 
-        if self.is_import:
-            return 0.5
-        else:
-            interval = 0.0 if (self.is_data or self.is_sequence) else TIMER_INTERVAL
-            return interval
+            elif self.is_listening:
+                self.keepalive_timer -= delta_time
+
+                if USE_KEEPALIVE and self.keepalive_timer <= 0:
+                    utils.log_info("no connection within time limit!")
+                    self.service_stop()
+                    return None
+
+            # accept incoming connections
+            self.accept()
+
+            # receive client data
+            self.recv()
+
+            # run anything in sequence
+            for i in range(0, self.sequence_send_count):
+                self.sequence.emit()
+
+            if self.is_import:
+                return 0.5
+            else:
+                interval = 0.0 if (self.is_data or self.is_sequence) else TIMER_INTERVAL
+                return interval
+
+        except Exception as e:
+            utils.log_error("LinkService timer loop crash!")
+            traceback.print_exc()
+            return TIMER_INTERVAL
+
 
     def send(self, op_code, binary_data = None):
-        if self.client_sock and (self.is_connected or self.is_connecting):
-            try:
+        try:
+            if self.client_sock and (self.is_connected or self.is_connecting):
                 data_length = len(binary_data) if binary_data else 0
                 header = struct.pack("!II", op_code, data_length)
                 data = bytearray()
                 data.extend(header)
                 if binary_data:
                     data.extend(binary_data)
-                self.client_sock.sendall(data)
+                try:
+                    self.client_sock.sendall(data)
+                except Exception as e:
+                    utils.log_error("Client socket sendall failed!")
+                    self.client_lost()
+                    return
                 self.ping_timer = PING_INTERVAL_S
                 self.sent.emit()
-            except Exception as e:
-                utils.log_error("Client socket send failed!", e)
-                self.service_lost()
-                return
+
+        except Exception as e:
+            utils.log_error("LinkService send failed!")
+            traceback.print_exc()
 
     def start_sequence(self, func=None):
         self.is_sequence = True
@@ -1426,7 +1466,6 @@ class LinkService():
         self.sequence.disconnect()
 
     def update_sequence(self, count, delta_frames):
-        self.is_sequence = True
         if count is None:
             self.sequence_send_rate = 5.0
             self.sequence_send_count = 5
@@ -1441,9 +1480,8 @@ class LinkService():
         self.send_notify("Connected")
 
     def send_notify(self, message):
-        global LINK_SERVICE
         notify_json = { "message": message }
-        LINK_SERVICE.send(OpCodes.NOTIFY, encode_from_json(notify_json))
+        self.send(OpCodes.NOTIFY, encode_from_json(notify_json))
 
     def receive_notify(self, data):
         notify_json = decode_to_json(data)
@@ -1453,16 +1491,21 @@ class LinkService():
         if bpy.data.filepath:
             bpy.ops.wm.save_mainfile()
 
+    def receive_debug(self, data):
+        debug_json = None
+        if data:
+            debug_json = decode_to_json(data)
+        debug(debug_json)
+
     def get_key_path(self, model_path, key_ext):
         dir, file = os.path.split(model_path)
         name, ext = os.path.splitext(file)
         key_path = os.path.normpath(os.path.join(dir, name + key_ext))
         return key_path
 
-    def get_export_path(self, character_name, file_name):
-        global LINK_SERVICE
-        remote_path = LINK_SERVICE.remote_path
-        local_path = LINK_SERVICE.local_path
+    def get_export_path(self, folder_name, file_name, reuse_folder=False, reuse_file=False):
+        remote_path = self.remote_path
+        local_path = self.local_path
 
         if not local_path:
             local_path = get_local_data_path()
@@ -1472,9 +1515,18 @@ class LinkService():
         else:
             export_folder = utils.make_sub_folder(remote_path, "exports")
 
-        character_export_folder = utils.get_unique_folder_path(export_folder, character_name, create=True)
-        export_path = os.path.join(character_export_folder, file_name)
+        character_export_folder = utils.get_unique_folder_path(export_folder, folder_name, create=True, reuse=reuse_folder)
+        export_path = utils.get_unique_file_path(character_export_folder, file_name, reuse=reuse_file)
         return export_path
+
+    def get_actor_from_object(self, obj):
+        global LINK_DATA
+        props = vars.props()
+        chr_cache = props.get_character_cache(obj, None)
+        if chr_cache:
+            actor = LinkActor(chr_cache)
+            return actor
+        return None
 
     def get_selected_actors(self):
         global LINK_DATA
@@ -1501,6 +1553,20 @@ class LinkService():
 
         return actors
 
+    def get_actor_mesh_selection(self):
+        selection = {}
+        for obj in bpy.context.selected_objects:
+            if obj.type == "MESH" or obj.type == "ARMATURE":
+                actor = self.get_actor_from_object(obj)
+                chr_cache = actor.get_chr_cache()
+                selection.setdefault(chr_cache, {"meshes": [], "armatures": []})
+                if obj.type == "MESH":
+                    selection[chr_cache]["meshes"].append(obj)
+                elif obj.type == "ARMATURE":
+                    selection[chr_cache]["armatures"].append(obj)
+        return selection
+
+
     def get_active_actor(self):
         global LINK_DATA
         props = vars.props()
@@ -1513,15 +1579,15 @@ class LinkService():
         return None
 
     def send_actor(self):
-        global LINK_SERVICE
         actors = self.get_selected_actors()
         state = utils.store_mode_selection_state()
         utils.clear_selected_objects()
         actor: LinkActor
         utils.log_info(f"Sending LinkActors: {([a.name for a in actors])}")
+        count = 0
         for actor in actors:
-            if LINK_SERVICE.is_cc() and not actor.can_go_cc(): continue
-            if LINK_SERVICE.is_iclone() and not actor.can_go_ic(): continue
+            if self.is_cc() and not actor.can_go_cc(): continue
+            if self.is_iclone() and not actor.can_go_ic(): continue
             self.send_notify(f"Blender Exporting: {actor.name}...")
             export_path = self.get_export_path(actor.name, actor.name + ".fbx")
             self.send_notify(f"Exporting: {actor.name}")
@@ -1536,31 +1602,139 @@ class LinkService():
                 "type": actor.get_type(),
                 "link_id": actor.get_link_id(),
             })
-            LINK_SERVICE.send(OpCodes.CHARACTER, export_data)
-            update_link_status(f"Sent: {actor.name}")
+            if os.path.exists(export_path):
+                self.send(OpCodes.CHARACTER, export_data)
+                update_link_status(f"Sent: {actor.name}")
+                count += 1
         utils.restore_mode_selection_state(state)
+        return count
 
     def send_morph(self):
-        actors = self.get_selected_actors()
-        actor: LinkActor
-        for actor in actors:
-            self.send_notify(f"Blender Exporting: {actor.name}...")
-            export_path = self.get_export_path(actor.name, actor.name + "_morph.obj")
-            key_path = self.get_key_path(export_path, ".ObjKey")
-            self.send_notify(f"Exporting: {actor.name}")
-            bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
-            update_link_status(f"Sending: {actor.name}")
-            export_data = encode_from_json({
-                "path": export_path,
-                "key_path": key_path,
-                "name": actor.name,
-                "type": actor.get_type(),
-                "link_id": actor.get_link_id(),
-                "morph_name": "Test Morph",
-                "morph_path": "Some/Path",
-            })
-            LINK_SERVICE.send(OpCodes.MORPH, export_data)
+        actor: LinkActor = self.get_active_actor()
+        self.send_notify(f"Blender Exporting: {actor.name}...")
+        export_path = self.get_export_path("Morphs", actor.name + "_morph.obj",
+                                           reuse_folder=True, reuse_file=False)
+        key_path = self.get_key_path(export_path, ".ObjKey")
+        self.send_notify(f"Exporting: {actor.name}")
+        state = utils.store_mode_selection_state()
+        bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
+        update_link_status(f"Sending: {actor.name}")
+        export_data = encode_from_json({
+            "path": export_path,
+            "key_path": key_path,
+            "name": actor.name,
+            "type": actor.get_type(),
+            "link_id": actor.get_link_id(),
+            "morph_name": "Test Morph",
+            "morph_path": "Some/Path",
+        })
+        utils.restore_mode_selection_state(state)
+        if os.path.exists(export_path):
+            self.send(OpCodes.MORPH, export_data)
             update_link_status(f"Sent: {actor.name}")
+            return True
+        return False
+
+    def send_replace_mesh(self):
+        state = utils.store_mode_selection_state()
+        objects = utils.get_selected_meshes()
+        # important that character is in the exact same pose on both sides,
+        # so make sure the character is on the same frame in the animation.
+        self.send_frame_sync()
+        count = 0
+        for obj in objects:
+            if obj.type == "MESH":
+                actor = self.get_actor_from_object(obj)
+                if actor:
+                    obj_cache = actor.get_chr_cache().get_object_cache(obj)
+                    object_name = obj.name
+                    mesh_name = obj.data.name
+                    if obj_cache:
+                        object_name = obj_cache.source_name
+                        mesh_name = obj_cache.source_name
+                    export_path = self.get_export_path("Meshes", f"{obj.name}_mesh.obj",
+                                                       reuse_folder=True, reuse_file=True)
+                    utils.set_active_object(obj, deselect_all=True)
+                    bpy.ops.wm.obj_export(filepath=export_path,
+                                          global_scale=100,
+                                          export_selected_objects=True,
+                                          export_animation=False,
+                                          export_materials=False,
+                                          export_colors=True,
+                                          export_vertex_groups=False,
+                                          apply_modifiers=True)
+                    export_data = encode_from_json({
+                        "path": export_path,
+                        "actor_name": actor.name,
+                        "object_name": object_name,
+                        "mesh_name": mesh_name,
+                        "type": actor.get_type(),
+                        "link_id": actor.get_link_id(),
+                    })
+                    self.send(OpCodes.REPLACE_MESH, export_data)
+                    update_link_status(f"Sent Mesh: {actor.name}")
+                    count += 1
+
+        utils.restore_mode_selection_state(state)
+
+        return count
+
+    def export_object_material_data(self, actor: LinkActor, objects):
+        prefs = vars.prefs()
+        obj: bpy.types.Object
+
+        chr_cache = actor.get_chr_cache()
+        if chr_cache:
+            if prefs.datalink_send_mode == "ACTIVE":
+                materials = []
+                for obj in objects:
+                    idx = obj.active_material_index
+                    if len(obj.material_slots) > idx:
+                        mat = obj.material_slots[idx].material
+                        materials.append(mat)
+            else:
+                materials = None
+            export_path = self.get_export_path("Materials", f"{actor.name}.json",
+                                               reuse_folder=True, reuse_file=True)
+            export_dir, json_file = os.path.split(export_path)
+            json_data = chr_cache.get_json_data()
+            if not json_data:
+                json_data = jsonutils.generate_character_json_data(actor.name)
+                exporter.set_character_generation(json_data, chr_cache, actor.name)
+            exporter.prep_export(chr_cache, actor.name, objects, json_data,
+                                 chr_cache.get_import_dir(), export_dir,
+                                 False, False, False, False, True, materials=materials, sync=True)
+            jsonutils.write_json(json_data, export_path)
+            export_data = encode_from_json({
+                        "path": export_path,
+                        "actor_name": actor.name,
+                        "type": actor.get_type(),
+                        "link_id": actor.get_link_id(),
+                    })
+            self.send(OpCodes.MATERIALS, export_data)
+
+    def send_material_update(self):
+        state = utils.store_mode_selection_state()
+
+        selection = self.get_actor_mesh_selection()
+        count = 0
+        for chr_cache in selection:
+            actor = LinkActor(chr_cache)
+            meshes = selection[chr_cache]["meshes"]
+            armatures = selection[chr_cache]["armatures"]
+            if armatures:
+                # export material info for whole character
+                all_meshes = actor.get_mesh_objects()
+                self.export_object_material_data(actor, all_meshes)
+                count += 1
+            elif meshes:
+                # export material info just for selected meshes
+                self.export_object_material_data(actor, meshes)
+                count += 1
+
+        utils.restore_mode_selection_state(state)
+
+        return count
 
     def encode_character_templates(self, actors: list):
         pose_bone: bpy.types.PoseBone
@@ -1706,6 +1880,8 @@ class LinkService():
         end_frame = BFA(bpy.context.scene.frame_end)
         start_time = start_frame / fps
         end_time = end_frame / fps
+        frame = BFA(bpy.context.scene.frame_current)
+        time = frame / fps
         actors_data = []
         data = {
             "fps": fps,
@@ -1713,6 +1889,8 @@ class LinkService():
             "end_time": end_time,
             "start_frame": start_frame,
             "end_frame": end_frame,
+            "time": time,
+            "frame": frame,
             "actors": actors_data,
         }
         actor: LinkActor
@@ -1725,38 +1903,47 @@ class LinkService():
         return encode_from_json(data)
 
     def send_pose(self):
-        global LINK_SERVICE
         global LINK_DATA
 
         # get actors
         actors = self.get_selected_actors()
+        count = 0
         if actors:
             mode_selection = utils.store_mode_selection_state()
             update_link_status(f"Sending Current Pose Set")
             self.send_notify(f"Pose Set")
             # send pose info
             pose_data = self.encode_pose_data(actors)
-            LINK_SERVICE.send(OpCodes.POSE, pose_data)
+            self.send(OpCodes.POSE, pose_data)
             # send template data first
             template_data = self.encode_character_templates(actors)
-            LINK_SERVICE.send(OpCodes.TEMPLATE, template_data)
+            self.send(OpCodes.TEMPLATE, template_data)
             # store the actors
             LINK_DATA.sequence_actors = actors
             # force recalculate all transforms
             bpy.context.view_layer.update()
             # send pose data
             pose_frame_data = self.encode_pose_frame_data(actors)
-            LINK_SERVICE.send(OpCodes.POSE_FRAME, pose_frame_data)
+            self.send(OpCodes.POSE_FRAME, pose_frame_data)
             # clear the actors
             LINK_DATA.sequence_actors = None
             # restore
             utils.restore_mode_selection_state(mode_selection)
+            count += len(actors)
+        return count
 
     def send_animation(self):
         return
 
+    def abort_sequence(self):
+        global LINK_DATA
+        # as the next frame was never sent, go back 1 frame
+        LINK_DATA.sequence_current_frame = prev_frame(LINK_DATA.sequence_current_frame)
+        update_link_status(f"Sequence Aborted: {LINK_DATA.sequence_current_frame}")
+        self.stop_sequence()
+        self.send_sequence_end()
+
     def send_sequence(self):
-        global LINK_SERVICE
         global LINK_DATA
 
         # get actors
@@ -1769,17 +1956,16 @@ class LinkService():
             LINK_DATA.sequence_current_frame = bpy.context.scene.frame_current
             # send animation meta data
             sequence_data = self.encode_sequence_data(actors)
-            LINK_SERVICE.send(OpCodes.SEQUENCE, sequence_data)
+            self.send(OpCodes.SEQUENCE, sequence_data)
             # send template data first
             template_data = self.encode_character_templates(actors)
-            LINK_SERVICE.send(OpCodes.TEMPLATE, template_data)
+            self.send(OpCodes.TEMPLATE, template_data)
             # store the actors
             LINK_DATA.sequence_actors = actors
             # start the sending sequence
-            LINK_SERVICE.start_sequence(self.send_sequence_frame)
+            self.start_sequence(self.send_sequence_frame)
 
     def send_sequence_frame(self):
-        global LINK_SERVICE
         global LINK_DATA
 
         # set/fetch the current frame in the sequence
@@ -1789,10 +1975,10 @@ class LinkService():
         bpy.context.view_layer.update()
         # send current sequence frame pose
         pose_data = self.encode_pose_frame_data(LINK_DATA.sequence_actors)
-        LINK_SERVICE.send(OpCodes.SEQUENCE_FRAME, pose_data)
+        self.send(OpCodes.SEQUENCE_FRAME, pose_data)
         # check for end
         if current_frame >= bpy.context.scene.frame_end:
-            LINK_SERVICE.stop_sequence()
+            self.stop_sequence()
             self.send_sequence_end()
             return
         # advance to next frame now
@@ -1800,20 +1986,20 @@ class LinkService():
 
 
     def send_sequence_end(self):
+        sequence_data = self.encode_sequence_data(LINK_DATA.sequence_actors)
+        self.send(OpCodes.SEQUENCE_END, sequence_data)
         # clear the actors
         LINK_DATA.sequence_actors = None
-        LINK_SERVICE.send(OpCodes.SEQUENCE_END)
 
     def send_sequence_ack(self, frame):
-        global LINK_SERVICE
         global LINK_DATA
         # encode sequence ack
         data = encode_from_json({
             "frame": BFA(frame),
-            "rate": LINK_SERVICE.loop_rate,
+            "rate": self.loop_rate,
         })
         # send sequence ack
-        LINK_SERVICE.send(OpCodes.SEQUENCE_ACK, data)
+        self.send(OpCodes.SEQUENCE_ACK, data)
 
     def decode_pose_frame_header(self, pose_data):
         count, frame = struct.unpack_from("!II", pose_data)
@@ -1865,7 +2051,10 @@ class LinkService():
                 rig.location = Vector((0, 0, 0))
                 rig.rotation_mode = "QUATERNION"
                 rig.rotation_quaternion = Quaternion((1, 0, 0, 0))
-                rig.scale = Vector((0.01, 0.01, 0.01))
+                if actor.get_chr_cache().rigified:
+                    rig.scale = Vector((1, 1, 1))
+                else:
+                    rig.scale = Vector((0.01, 0.01, 0.01))
 
             datalink_rig = None
             if actor:
@@ -1969,6 +2158,7 @@ class LinkService():
         light = utils.get_active_object()
         light.name = name
         light.data.name = name
+        utils.set_ccic_id(light)
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
@@ -1978,6 +2168,7 @@ class LinkService():
         light = utils.get_active_object()
         light.name = name
         light.data.name = name
+        utils.set_ccic_id(light)
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
@@ -1987,6 +2178,7 @@ class LinkService():
         light = utils.get_active_object()
         light.name = name
         light.data.name = name
+        utils.set_ccic_id(light)
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
@@ -1996,6 +2188,7 @@ class LinkService():
         light = utils.get_active_object()
         light.name = name
         light.data.name = name
+        utils.set_ccic_id(light)
         light.parent = container
         light.matrix_parent_inverse = container.matrix_world.inverted()
         return light
@@ -2003,45 +2196,50 @@ class LinkService():
     def add_light_container(self):
         container = None
         for obj in bpy.data.objects:
-            if obj.type == "EMPTY" and vars.NODE_PREFIX in obj.name and "Lighting" in obj.name:
+            if obj.type == "EMPTY" and "Lighting" in obj.name and utils.has_ccic_id(obj):
                 container = obj
         if not container:
             bpy.ops.object.empty_add(type="PLAIN_AXES", radius=0.01)
             container = utils.get_active_object()
-            container.name = utils.unique_name("Lighting", True)
+            container.name = "Lighting"
+            utils.set_ccic_id(container)
         return container
 
     def decode_lights_data(self, data):
         lights_data = decode_to_json(data)
 
-        RECTANGULAR_SPOTLIGHTS_AS_AREA = False
+        RECTANGULAR_AS_AREA = True
+        TUBE_AS_AREA = True
+
+        ambient_color = utils.array_to_color(lights_data["ambient_color"])
+        ambient_color.s *= 0.2
 
         container = self.add_light_container()
 
         for light_data in lights_data["lights"]:
-
-            is_dir = light_data["type"] == "DIR"
-            is_point = light_data["type"] == "POINT" and light_data["is_rectangle"] == False and light_data["is_tube"] == False
-            if RECTANGULAR_SPOTLIGHTS_AS_AREA:
-                is_area = ((light_data["type"] == "POINT" and (light_data["is_rectangle"] == True or light_data["is_tube"] == True))
-                        or (light_data["type"] == "SPOT" and light_data["is_rectangle"] == True))
-                is_spot = light_data["type"] == "SPOT" and light_data["is_rectangle"] == False
-            else:
-                is_area = (light_data["type"] == "POINT" and (light_data["is_rectangle"] == True or light_data["is_tube"] == True))
-                is_spot = light_data["type"] == "SPOT"
-
-            light_type = "SUN" if is_dir else "AREA" if is_area else "POINT" if is_point else "SPOT"
+            light_type = light_data["type"]
+            if light_type == "DIR":
+                light_type = "SUN"
+            is_tube = light_data["is_tube"]
+            is_rectangle = light_data["is_rectangle"]
+            cmod = 1
+            if TUBE_AS_AREA and is_tube:
+                light_type = "AREA"
+                cmod = 2
+            if RECTANGULAR_AS_AREA and is_rectangle:
+                light_type = "AREA"
+                cmod = 1
 
             light = self.find_link_id(light_data["link_id"])
             if light and (light.type != "LIGHT" or light.data.type != light_type):
                 utils.delete_light_object(light)
                 light = None
             if not light:
-                if is_area:
+                if light_type == "AREA":
                     light = self.add_area_light(light_data["name"], container)
-                elif is_point:
+                elif light_type == "POINT":
                     light = self.add_point_light(light_data["name"], container)
-                elif is_dir:
+                elif light_type == "SUN":
                     light = self.add_dir_light(light_data["name"], container)
                 else:
                     light = self.add_spot_light(light_data["name"], container)
@@ -2051,44 +2249,54 @@ class LinkService():
             light.rotation_mode = "QUATERNION"
             light.rotation_quaternion = utils.array_to_quaternion(light_data["rot"])
             light.scale = utils.array_to_vector(light_data["sca"])
-            light.data.color = utils.array_to_color(light_data["color"], False)
+            light.data.color = utils.color_filter(utils.array_to_color(light_data["color"], False), ambient_color)
+
+            # range and falloff modifiers
+            fm = 2 - pow(light_data["falloff"] / 100, 2)
             mult = light_data["multiplier"]
-            #if mult > 10:
-            #    mult *= (1 + pow((mult - 10)/90, 1.5))
-            if is_dir:
-                light.data.energy = 450 * pow(light_data["multiplier"]/20, 2)
-            elif is_spot:
-                light.data.energy = 40.0 * mult
-            elif is_point:
-                light.data.energy = 40.0 * mult
-            elif is_area:
-                light.data.energy = 10.0 * mult
-            if not is_dir:
+            r = light_data["range"] / 5000
+            P = 4
+            range_curve = 1.0 - 1.0/pow((r + 1.0),P)
+            S = 1.75
+            E = 1.15
+
+            if light_type == "SUN":
+                #light.data.energy = 450 * pow(light_data["multiplier"]/20, 2) * fm * mmod
+                light.data.energy = 3 * min(1.5, mult) * fm * range_curve * E
+            elif light_type == "SPOT":
+                light.data.energy = 25 * mult * fm * range_curve * E
+            elif light_type == "POINT":
+                light.data.energy = 15 * mult * fm * range_curve * E
+            elif light_type == "AREA":
+                light.data.energy = 13 * mult * fm * range_curve * E
+            if light_type != "SUN":
                 light.data.use_custom_distance = True
                 light.data.cutoff_distance = light_data["range"] / 100
-            if is_spot:
+            if light_type == "SPOT":
                 light.data.spot_size = light_data["angle"] * 0.01745329
                 light.data.spot_blend = 0.01 * light_data["falloff"] * (0.5 + 0.01 * light_data["attenuation"] * 0.5)
                 if light_data["is_rectangle"]:
                     light.data.shadow_soft_size = (light_data["rect"][0] + light_data["rect"][0]) / 200
                 elif light_data["is_tube"]:
                     light.data.shadow_soft_size = light_data["tube_radius"] / 100
-            if is_area:
+            if light_type == "AREA":
                 if light_data["is_rectangle"]:
                     light.data.shape = "RECTANGLE"
-                    light.data.size = light_data["rect"][0] / 100
-                    light.data.size_y = light_data["rect"][1] / 100
+                    light.data.size = S * light_data["rect"][0] / 100
+                    light.data.size_y = S * light_data["rect"][1] / 100
                 elif light_data["is_tube"]:
-                    light.data.shape = "DISK"
-                    light.data.size = light_data["tube_radius"] / 100
+                    light.data.shape = "ELLIPSE"
+                    light.data.size = S * light_data["tube_length"] / 100
+                    light.data.size_y = S * light_data["tube_radius"] / 100
             light.data.use_shadow = light_data["cast_shadow"]
             if light_data["cast_shadow"]:
-                if not is_dir:
+                if light_type != "SUN":
                     light.data.shadow_buffer_clip_start = 0.0025
                     light.data.shadow_buffer_bias = 1.0
                 light.data.use_contact_shadow = True
-                light.data.contact_shadow_distance = 0.05
-                light.data.contact_shadow_thickness = 0.0025
+                light.data.contact_shadow_distance = 0.1
+                light.data.contact_shadow_bias = 0.03
+                light.data.contact_shadow_thickness = 0.001
             light.hide_set(not light_data["active"])
 
         # clean up lights not found in scene
@@ -2108,7 +2316,7 @@ class LinkService():
         bpy.context.scene.eevee.use_ssr = True
         bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
-        colorspace.set_view_settings("Filmic", "High Contrast", 0, 0.75)
+        colorspace.set_view_settings("Filmic", "Medium High Contrast", 0, 0.75)
         if bpy.context.scene.cycles.transparent_max_bounces < 100:
             bpy.context.scene.cycles.transparent_max_bounces = 100
         view_space: bpy.types.Area = utils.get_view_space()
@@ -2118,10 +2326,10 @@ class LinkService():
             view_space.shading.use_scene_world = False
             view_space.shading.studio_light = 'studio.exr'
             view_space.shading.studiolight_rotate_z = 0.0 * 0.01745329
-            view_space.shading.studiolight_intensity = 0.2
+            view_space.shading.studiolight_intensity = ambient_color.v * 1.25
             view_space.shading.studiolight_background_alpha = 0.0
             view_space.shading.studiolight_background_blur = 0.5
-            if LINK_SERVICE.is_cc():
+            if self.is_cc():
                 # only hide the lights if it's from Character Creator
                 view_space.overlay.show_extras = False
 
@@ -2160,7 +2368,6 @@ class LinkService():
         return t
 
     def send_camera_sync(self):
-        global LINK_SERVICE
         #
         update_link_status(f"Synchronizing View Camera")
         self.send_notify(f"Sync View Camera")
@@ -2170,7 +2377,7 @@ class LinkService():
             "view_camera": camera_data,
             "pivot": [pivot.x, pivot.y, pivot.z],
         }
-        LINK_SERVICE.send(OpCodes.CAMERA_SYNC, encode_from_json(data))
+        self.send(OpCodes.CAMERA_SYNC, encode_from_json(data))
 
     def decode_camera_sync_data(self, data):
         data = decode_to_json(data)
@@ -2188,7 +2395,7 @@ class LinkService():
         r3d.view_location = loc + dir * dist
         r3d.view_rotation = rot
         r3d.view_distance = dist
-        view_space.lens = camera_data["focal_length"]
+        view_space.lens = camera_data["focal_length"] * 1.625
 
     def receive_camera_sync(self, data):
         update_link_status(f"Camera Data Receveived")
@@ -2283,7 +2490,6 @@ class LinkService():
 
     def receive_pose(self, data):
         props = vars.props()
-        global LINK_SERVICE
         global LINK_DATA
 
         props.validate_and_clean_up()
@@ -2342,7 +2548,7 @@ class LinkService():
             for actor in actors:
                 if actor.ready():
                     remove_datalink_import_rig(actor)
-                    write_sequence_actions(actor)
+                    write_sequence_actions(actor, 1)
                     pass
 
                 rig = actor.get_armature()
@@ -2357,7 +2563,6 @@ class LinkService():
 
     def receive_sequence(self, data):
         props = vars.props()
-        global LINK_SERVICE
         global LINK_DATA
 
         props.validate_and_clean_up()
@@ -2391,10 +2596,9 @@ class LinkService():
         set_frame(LINK_DATA.sequence_start_frame)
 
         # start the sequence
-        LINK_SERVICE.start_sequence()
+        self.start_sequence()
 
     def receive_sequence_frame(self, data):
-        global LINK_SERVICE
         global LINK_DATA
 
         # decode and cache pose
@@ -2419,12 +2623,13 @@ class LinkService():
         self.send_sequence_ack(frame)
 
     def receive_sequence_end(self, data):
-        global LINK_SERVICE
         global LINK_DATA
 
         # decode sequence end
         json_data = decode_to_json(data)
         actors_data = json_data["actors"]
+        end_frame = RLFA(json_data["frame"])
+        LINK_DATA.sequence_end_frame = end_frame
         utils.log_info("Receive Sequence End")
 
         # fetch actors
@@ -2438,12 +2643,13 @@ class LinkService():
             if actor:
                 actors.append(actor)
         num_frames = LINK_DATA.sequence_end_frame - LINK_DATA.sequence_start_frame + 1
+        utils.log_info(f"sequence complete: {LINK_DATA.sequence_start_frame} to {LINK_DATA.sequence_end_frame} = {num_frames}")
         update_link_status(f"Live Sequence Complete: {num_frames} frames")
 
         # write actions
         for actor in actors:
             remove_datalink_import_rig(actor)
-            write_sequence_actions(actor)
+            write_sequence_actions(actor, num_frames)
             rig = actor.get_armature()
             if actor.get_type() == "PROP":
                 rigutils.update_prop_rig(rig)
@@ -2451,7 +2657,7 @@ class LinkService():
                 rigutils.update_avatar_rig(rig)
 
         # stop sequence
-        LINK_SERVICE.stop_sequence()
+        self.stop_sequence()
         LINK_DATA.sequence_actors = None
         bpy.context.scene.frame_current = LINK_DATA.sequence_start_frame
 
@@ -2719,8 +2925,6 @@ class LinkService():
 
     def receive_rigify_request(self, data):
         props = vars.props()
-        global LINK_SERVICE
-
         props.validate_and_clean_up()
 
         # decode rigify request
@@ -2822,7 +3026,8 @@ class CCICDataLink(bpy.types.Operator):
             self.link_stop()
             return {'FINISHED'}
 
-        if self.param in ["SEND_POSE", "SEND_ANIM", "SEND_ACTOR", "SEND_MORPH", "SYNC_CAMERA"]:
+        if self.param in ["SEND_POSE", "SEND_ANIM", "SEND_ACTOR", "SEND_MORPH",
+                          "SEND_REPLACE_MESH", "SEND_TEXTURES", "SYNC_CAMERA"]:
             if not LINK_SERVICE or not LINK_SERVICE.is_connected:
                 self.link_start()
             if not LINK_SERVICE or not (LINK_SERVICE.is_connected or LINK_SERVICE.is_connecting):
@@ -2832,23 +3037,64 @@ class CCICDataLink(bpy.types.Operator):
         if LINK_SERVICE:
 
             if self.param == "SEND_POSE":
-                LINK_SERVICE.send_pose()
+                count = LINK_SERVICE.send_pose()
+                if count == 1:
+                    self.report({'INFO'}, f"Pose sent...")
+                elif count > 1:
+                    self.report({'INFO'}, f"{count} Poses sent...")
+                else:
+                    self.report({'ERROR'}, f"No Pose sent!")
                 return {'FINISHED'}
 
             elif self.param == "SEND_ANIM":
                 LINK_SERVICE.send_sequence()
+                self.report({'INFO'}, f"Sequence started...")
+                return {'FINISHED'}
+
+            elif self.param == "STOP_ANIM":
+                LINK_SERVICE.abort_sequence()
+                self.report({'INFO'}, f"Sequence stopped!")
                 return {'FINISHED'}
 
             elif self.param == "SEND_ACTOR":
-                LINK_SERVICE.send_actor()
+                count = LINK_SERVICE.send_actor()
+                if count == 1:
+                    self.report({'INFO'}, f"Actor sent...")
+                elif count > 1:
+                    self.report({'INFO'}, f"{count} Actors sent...")
+                else:
+                    self.report({'ERROR'}, f"No Actors sent!")
                 return {'FINISHED'}
 
             elif self.param == "SEND_MORPH":
-                LINK_SERVICE.send_morph()
+                if LINK_SERVICE.send_morph():
+                    self.report({'INFO'}, f"Morph sent...")
+                else:
+                    self.report({'ERROR'}, f"Morph not sent!")
                 return {'FINISHED'}
 
             elif self.param == "SYNC_CAMERA":
                 LINK_SERVICE.send_camera_sync()
+                return {'FINISHED'}
+
+            elif self.param == "SEND_REPLACE_MESH":
+                count = LINK_SERVICE.send_replace_mesh()
+                if count == 1:
+                    self.report({'INFO'}, f"Replace Mesh sent...")
+                elif count > 1:
+                    self.report({'INFO'}, f"{count} Replace Meshes sent...")
+                else:
+                    self.report({'ERROR'}, f"No Replace Meshes sent!")
+                return {'FINISHED'}
+
+            elif self.param == "SEND_MATERIAL_UPDATE":
+                count = LINK_SERVICE.send_material_update()
+                if count == 1:
+                    self.report({'INFO'}, f"Material sent...")
+                elif count > 1:
+                    self.report({'INFO'}, f"{count} Materials sent...")
+                else:
+                    self.report({'ERROR'}, f"No Materials sent!")
                 return {'FINISHED'}
 
             elif self.param == "DEPIVOT":
@@ -2856,9 +3102,14 @@ class CCICDataLink(bpy.types.Operator):
                 chr_cache = props.get_context_character_cache(context)
                 if chr_cache:
                     rigutils.de_pivot(chr_cache)
+                return {'FINISHED'}
+
+            elif self.param == "DEBUG":
+                LINK_SERVICE.send(OpCodes.DEBUG)
+                return {'FINISHED'}
 
             elif self.param == "TEST":
-                LINK_SERVICE.stop_client()
+                test()
                 return {'FINISHED'}
 
             elif self.param == "SHOW_ACTOR_FILES":
@@ -2909,4 +3160,79 @@ class CCICDataLink(bpy.types.Operator):
         if LINK_SERVICE:
             LINK_SERVICE.service_disconnect()
 
+    @classmethod
+    def description(cls, context, properties):
 
+        if properties.param == "START":
+            return "Attempt to start the Datalink by connecting to the server running on CC4/iC8"
+
+        elif properties.param == "DISCONNECT":
+            return "Disconnect from the Datalink server"
+
+        elif properties.param == "STOP":
+            return "Stop the Datalink on both client and server"
+
+        elif properties.param == "SEND_POSE":
+            return "Send the current pose (and frame) to CC4/iC8"
+
+        elif properties.param == "SEND_ANIM":
+            return "Send the animation on the character to CC4/iC8 as a live sequence"
+
+        elif properties.param == "STOP_ANIM":
+            return "Stop the live sequence"
+
+        elif properties.param == "SEND_ACTOR":
+            return "Send the character or prop to CC4/iC8"
+
+        elif properties.param == "SEND_MORPH":
+            return "Send the character body back to CC4 and create a morph slider for it"
+
+        elif properties.param == "SYNC_CAMERA":
+            return "TBD"
+
+        elif properties.param == "SEND_REPLACE_MESH":
+            return "Send the mesh alterations back to CC4, only if the mesh topology has not changed"
+
+        elif properties.param == "SEND_REPLACE_MESH_INVALID":
+            return "*Warning* The selected (or one of the selected) mesh has changed in topology and cannot be sent back to CC4 via replace mesh.\n\n" \
+                   "This mesh can now only be sent to CC4 with the entire character (Go CC)"
+
+        elif properties.param == "SEND_MATERIAL_UPDATE":
+            return "Send material data and textures for the currently selected meshe objects back to CC4"
+
+        elif properties.param == "DEPIVOT":
+            return "TBD"
+
+        elif properties.param == "DEBUG":
+            return "Debug!"
+
+        elif properties.param == "TEST":
+            return "Test!"
+
+        elif properties.param == "SHOW_ACTOR_FILES":
+            return "Open the actor imported files folder"
+
+        elif properties.param == "SHOW_PROJECT_FILES":
+            return "Open the project folder"
+
+        return ""
+
+
+
+
+
+
+def debug(debug_json):
+    utils.log_always("")
+    utils.log_always("DEBUG")
+    utils.log_always("=====")
+
+    # simulate service crash
+    l = [0,1]
+    l[2] = 0
+
+
+def test():
+    utils.log_always("")
+    utils.log_always("TEST")
+    utils.log_always("====")

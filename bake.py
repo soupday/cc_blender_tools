@@ -229,8 +229,8 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
 
     is_data = True
     alpha = False
-    rgb_sockets = [ "Diffuse", "Base Color", "Emission", "Emission Color", "Subsurface Color" ]
-    rgb_channels = [ "Diffuse", "Emission", "BaseMap" ]
+    rgb_sockets = [ "Diffuse", "Diffuse Map", "Base Color", "Emission", "Emission Color", "Subsurface Color" ]
+    rgb_channels = [ "Diffuse", "Emission", "BaseMap", "Base Color", "Glow" ]
     if socket_name in rgb_sockets:
         is_data = False
     if channel_id in rgb_channels:
@@ -729,11 +729,9 @@ def get_image_target(image_name, width, height, image_dir, is_data = True, has_a
                     same_folder = False
 
                 if same_folder:
-                    if img.file_format == format and img.depth == depth:
-                        utils.log_info("Reusing image: " + image_name)
+                    if img.file_format == format and img.depth == depth and img.size[0] == width and img.size[1] == height:
+                        utils.log_info(f"Reusing image: {image_name} {color_space}")
                         try:
-                            if img.size[0] != width or img.size[1] != height:
-                                img.scale(width, height)
                             colorspace.set_image_color_space(img, color_space)
                             return img, True
                         except:
@@ -748,9 +746,7 @@ def get_image_target(image_name, width, height, image_dir, is_data = True, has_a
     if file:
         img = imageutils.load_image(file, color_space, reuse_existing = False)
         try:
-            if img.file_format == format and img.depth == depth:
-                if img.size[0] != width or img.size[1] != height:
-                    img.scale(width, height)
+            if img.file_format == format and img.depth == depth and img.size[0] == width and img.size[1] == height:
                 colorspace.set_image_color_space(img, color_space)
                 utils.log_info(f"Reusing found image file: {img.filepath} - {img.colorspace_settings.name}")
                 return img, True

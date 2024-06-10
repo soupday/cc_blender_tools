@@ -668,6 +668,7 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
     blocked_bsdf_sockets = []
     if prefs.render_target != "CYCLES":
         blocked_bsdf_sockets.append("Subsurface Radius")
+        blocked_bsdf_sockets.append("Subsurface Color")
 
     # connect all group_node outputs to BSDF inputs:
     if has_group_node and has_bsdf:
@@ -681,6 +682,9 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
         set_node_input_value(bsdf_node, "Sheen Roughness", 0.05)
         if has_connected_input(bsdf_node, "Emission Color"):
             set_node_input_value(bsdf_node, "Emission Strength", 1.0)
+
+    if prefs.render_target != "CYCLES" and not utils.B400():
+        link_nodes(links, group_node, "Base Color", bsdf_node, "Subsurface Color")
 
     # connect group_node outputs to any mix_node inputs:
     if has_mix_node and has_group_node:

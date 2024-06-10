@@ -110,11 +110,11 @@ def remove_modifiers_for_export(chr_cache, objects, reset_pose, rig=None):
     if not rig:
         return
     rig.data.pose_position = "POSE"
-    if reset_pose:
-        utils.safe_set_action(rig, None)
-        bones.clear_pose(rig)
     obj : bpy.types.Object
     for obj in objects:
+        if reset_pose:
+            if obj.type == "MESH" and obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                utils.safe_set_action(obj.data.shape_keys, None)
         if chr_cache:
             obj_cache = chr_cache.get_object_cache(obj)
             if obj_cache:
@@ -123,6 +123,9 @@ def remove_modifiers_for_export(chr_cache, objects, reset_pose, rig=None):
                     for mod in obj.modifiers:
                         if vars.NODE_PREFIX in mod.name:
                             obj.modifiers.remove(mod)
+    if reset_pose:
+        utils.safe_set_action(rig, None)
+        bones.clear_pose(rig)
 
 
 def restore_modifiers(chr_cache, objects):
@@ -139,8 +142,16 @@ def restore_modifiers(chr_cache, objects):
 
 
 def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
-                copy_textures, revert_duplicates, apply_fixes, as_blend_file, bake_values):
+                copy_textures, revert_duplicates, apply_fixes, as_blend_file, bake_values,
+                materials=None, sync=False):
     prefs = vars.prefs()
+
+    if sync:
+        revert_duplicates=False
+        apply_fixes = False
+        as_blend_file = False
+        bake_values = True
+        copy_textures = False
 
     utils.log_info(f"Prepping Export: {new_name}")
 
@@ -156,6 +167,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
     if not chr_cache or not json_data:
         return None
 
+    objects_map = {}
+    physics_map = {}
     mats_processed = {}
     images_processed = {}
 
@@ -166,27 +179,11 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         if not base_path:
             base_path = new_path
 
-    # store all object names
-    changes = []
-    done = []
-    for obj in objects:
-        if obj not in done and obj.data:
-            changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
-            done.append(obj)
-        if obj.type == "MESH":
-            for mat in obj.data.materials:
-                if mat not in done:
-                    changes.append(["MATERIAL_RENAME", mat, mat.name])
-                    done.append(mat)
-            # disable shape key lock
-            obj.show_only_shape_key = False
-            # reset all shape keys to zero
-            if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-                for key in obj.data.shape_keys.key_blocks:
-                    key.value = 0.0
+    # reset and unlock shape keys
+    if not sync:
+        utils.reset_shape_keys(objects)
 
-    done.clear()
-
+    # update character name in json data
     old_name = chr_cache.get_character_id()
     if new_name != old_name:
         if (old_name in json_data.keys() and
@@ -306,8 +303,9 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                     utils.log_info(f"Updating Object source json name: {obj_source_name} to {new_obj_name}")
                 if physics_json and jsonutils.rename_json_key(physics_json, obj_source_name, new_obj_name):
                     utils.log_info(f"Updating Physics Object source json name: {obj_source_name} to {new_obj_name}")
-            utils.force_object_name(obj, new_obj_name)
-            utils.force_mesh_name(obj.data, new_obj_name)
+            if not sync:
+                utils.force_object_name(obj, new_obj_name)
+                utils.force_mesh_name(obj.data, new_obj_name)
             obj_name = new_obj_name
             obj_safe_name = new_obj_name
             obj_source_name = new_obj_name
@@ -326,8 +324,16 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
             physics_mesh_json = copy.deepcopy(params.JSON_PHYSICS_MESH)
             physics_json[obj_name] = physics_mesh_json
 
+        # store the json keys
+        obj_key = jsonutils.get_object_json_key(chr_json, obj_json)
+        objects_map.setdefault(obj_key, [])
+        if physics_mesh_json:
+            physics_mesh_key = jsonutils.get_physics_mesh_json_key(physics_json, physics_mesh_json)
+            physics_map.setdefault(physics_mesh_key, [])
+
         for slot in obj.material_slots:
             mat = slot.material
+            if materials and mat not in materials: continue
             mat_name = mat.name
             mat_cache = chr_cache.get_material_cache(mat)
             source_changed = False
@@ -365,7 +371,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                         utils.log_info(f"Updating material json name: {mat_source_name} to {new_mat_name}")
                     if physics_mesh_json and jsonutils.rename_json_key(physics_mesh_json["Materials"], mat_source_name, new_mat_name):
                         utils.log_info(f"Updating physics material json name: {mat_source_name} to {new_mat_name}")
-                utils.force_material_name(mat, new_mat_name)
+                if not sync:
+                    utils.force_material_name(mat, new_mat_name)
                 mat_name = new_mat_name
                 mat_safe_name = new_mat_name
                 mat_source_name = new_mat_name
@@ -404,6 +411,13 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 write_physics_json = True
                 write_physics_textures = True
 
+            # store the json keys
+            mat_key = jsonutils.get_material_json_key(obj_json, mat_json)
+            objects_map[obj_key].append(mat_key)
+            if physics_mat_json:
+                physics_mat_key = jsonutils.get_physics_material_json_key(physics_mesh_json, physics_mat_json)
+                physics_map[physics_mesh_key].append(physics_mat_key)
+
             if mat_cache:
                 utils.log_info("Writing Json:")
                 utils.log_indent()
@@ -417,14 +431,12 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                     pass
                 if write_physics_textures:
                     write_back_physics_weightmap(physics_mat_json, obj, mat, mat_cache, base_path, old_name, mat_data)
-                if revert_duplicates:
+                if not sync and revert_duplicates:
                     # replace duplicate materials with a reference to a single source material
                     # (this is to ensure there are no duplicate suffixes in the fbx export)
                     if mat_count[mat_safe_name] > 1:
                         new_mat = mat_remap[mat_safe_name]
                         slot.material = new_mat
-                        utils.log_info("Replacing material: " + mat.name + " with " + new_mat.name)
-                        changes.append(["MATERIAL_SLOT_REPLACE", slot, mat])
                         mat = new_mat
                         mat_name = new_mat.name
                     if mat_name != mat_safe_name:
@@ -485,9 +497,42 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                     bone.roll = 0
                     utils.set_mode("OBJECT")
 
+    if sync:
+        # find all mesh/material keys not used
+        meshes_json = jsonutils.get_json(json_data, f"{new_name}/Object/{new_name}/Meshes")
+        del_keys = []
+        for obj_key in objects_map:
+            mat_keys = objects_map[obj_key]
+            obj_json = jsonutils.get_json(json_data, f"{new_name}/Object/{new_name}/Meshes/{obj_key}")
+            for key in obj_json["Materials"]:
+                if key not in mat_keys:
+                    utils.log_detail(f"Removing: material {obj_key}/{key}")
+                    del_keys.append((obj_json["Materials"], key))
+        for key in meshes_json:
+            if key not in objects_map:
+                utils.log_detail(f"Removing: object {key}")
+                del_keys.append((meshes_json, key))
+        # find all physics mesh/material keys not used
+        physics_meshes_json = jsonutils.get_json(json_data, f"{new_name}/Object/{new_name}/Physics/Soft Physics/Meshes")
+        for physics_mesh_key in physics_map:
+            physics_mat_keys = physics_map[physics_mesh_key]
+            physics_mesh_json = jsonutils.get_json(json_data, f"{new_name}/Object/{new_name}/Physics/Soft Physics/Meshes/{physics_mesh_key}")
+            for key in physics_mesh_json["Materials"]:
+                if key not in physics_mat_keys:
+                    utils.log_detail(f"Removing: physics material {physics_mesh_key}/{key}")
+                    del_keys.append((physics_mesh_json["Materials"], key))
+        for key in physics_meshes_json:
+            if key not in physics_map:
+                utils.log_detail(f"Removing: physics object {key}")
+                del_keys.append((physics_meshes_json, key))
+        # remove the keys
+        for dictionary, key in del_keys:
+            if key in dictionary:
+                del(dictionary[key])
+
+
     # as the baking system can deselect everything, reselect the export objects here.
     utils.try_select_objects(objects, True)
-    return changes
 
 
 def remap_texture_path(tex_info, path_key, old_path, new_path, mat_data):
@@ -654,7 +699,7 @@ def write_back_json(mat_json, mat, mat_cache):
                 jsonutils.set_material_json_var(mat_json, json_var, json_value)
 
 
-def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, bake_values, mat_data, images_processed):
+def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bake_values, mat_data, images_processed):
     global UNPACK_INDEX
     prefs = vars.prefs()
 
@@ -697,7 +742,7 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                 tex_info = None
                 bake_value_texture = False
                 bake_shader_socket = ""
-                bake_shader_size = 64
+                bake_value_size = 64
 
                 roughness_modified = False
                 if tex_type == "ROUGHNESS":
@@ -707,14 +752,12 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                     def_min = 0
                     def_max = 1
                     def_pow = 1
-                    if shader_name == "rl_skin_shader" or shader_name == "rl_head_shader":
-                        def_min = 0.1
-                    if shader_name == "rl_sss_shader":
-                        def_pow = 0.75
+                    #if shader_name == "rl_sss_shader":
+                    #    def_pow = 0.75
                     roughness_min = nodeutils.get_node_input_value(shader_node, "Roughness Min", def_min)
                     roughness_max = nodeutils.get_node_input_value(shader_node, "Roughness Max", def_max)
                     roughness_pow = nodeutils.get_node_input_value(shader_node, "Roughness Power", def_pow)
-                    if roughness_min != def_min or roughness_max != def_max or roughness_pow != def_pow or roughness != 0.5:
+                    if roughness_min != def_min or roughness_max != def_max or roughness != 0.5:
                         roughness_modified = True
 
                 # find or generate tex_info json.
@@ -722,6 +765,11 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
                     # CC3 cannot set metallic or roughness values without textures, so must bake a small value texture
                     if not tex_node:
+
+                        if tex_type == "DIFFUSE":
+                            if bake_values:
+                                bake_value_texture = True
+                                bake_shader_socket = "Base Color"
 
                         if tex_type == "ROUGHNESS":
                             if bake_values and roughness_modified:
@@ -785,7 +833,16 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
                             # if it needs a value texture, bake the value
                             if bake_value_texture:
-                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_shader_size)
+
+                                # turn off ao for diffuse bakes
+                                if tex_type == "DIFFUSE":
+                                    ao = nodeutils.get_node_input_value(shader_node, "AO Strength", 1.0)
+                                    nodeutils.set_node_input_value(shader_node, "AO Strength", 0)
+
+                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_value_size)
+
+                                if tex_type == "DIFFUSE":
+                                    ao = nodeutils.get_node_input_value(shader_node, "AO Strength", ao)
 
                             elif nodeutils.is_texture_pack_system(tex_node):
 
@@ -800,8 +857,16 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                             # if there is an image texture link to the socket
                             elif tex_node and tex_node.type == "TEX_IMAGE":
 
+                                # bake roughnesss min/max adjustments (but not power)
+                                if tex_type == "ROUGHNESS" and roughness_modified:
+                                    roughness_pow = nodeutils.get_node_input_value(shader_node, "Roughness Power", def_pow)
+                                    nodeutils.set_node_input_value(shader_node, "Roughness Power", 1.0)
+                                    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
+                                                                        size_override_node = shader_node, size_override_socket = "Roughness Map")
+                                    nodeutils.set_node_input_value(shader_node, "Roughness Power", roughness_pow)
+
                                 # if there is a normal and a bump map connected, combine into a normal
-                                if prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
+                                elif prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
                                     image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, mat, tex_id, bake_path,
                                                                          normal_socket_name = shader_socket,
                                                                          bump_socket_name = bump_socket)
@@ -818,11 +883,8 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
                                     image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, mat, tex_id, bake_path,
                                                                          normal_socket_name = shader_socket,
                                                                          bump_socket_name = bump_socket)
-                                # don't bake roughnesss adjustments back anymore
-                                #elif tex_type == "ROUGHNESS" and is_pbr_shader and roughness_modified:
-                                #    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
-                                #                                            size_override_node = shader_node, size_override_socket = "Roughness Map")
                                 else:
+
                                     utils.log_info(f"Baking Socket Input: {shader_node.name} {shader_socket}")
                                     image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
 
@@ -858,6 +920,10 @@ def write_back_textures(mat_json : dict, mat, mat_cache, base_path, old_name, ba
 
                                 tex_info["Texture Path"] = abs_image_path
                                 utils.log_info(f"{mat.name}/{tex_id}: Source texture path: {abs_image_path}")
+
+                    elif not tex_node:
+                        tex_info["Texture Path"] = ""
+
 
             mat_data["write_back"] = True
 
@@ -1097,18 +1163,27 @@ def set_T_pose(arm, chr_json):
     return False
 
 
-def clear_animation_data(obj):
+def clear_animation_data(obj: bpy.types.Object):
     if obj.type == "ARMATURE" or obj.type == "MESH":
         # remove action
         utils.safe_set_action(obj, None)
         # remove strips
-        obj.animation_data_clear()
+        # this removes drivers too...
+        #obj.animation_data_clear()
+        ad = obj.animation_data
+        if ad:
+            while ad.nla_tracks:
+                ad.nla_tracks.remove(ad.nla_tracks[0])
     if obj.type == "MESH":
         # remove shape key action
         utils.safe_set_action(obj.data.shape_keys, None)
         # remove shape key strips
         if obj.data.shape_keys and obj.data.shape_keys.animation_data:
             obj.data.shape_keys.animation_data_clear()
+            ad = obj.data.shape_keys.animation_data
+            if ad:
+                while ad.nla_tracks:
+                    ad.nla_tracks.remove(ad.nla_tracks[0])
 
 
 def create_T_pose_action(arm, objects, export_strips):
@@ -1629,11 +1704,11 @@ def export_standard(self, chr_cache, file_path, include_selected):
     dir, file = os.path.split(file_path)
     name, ext = os.path.splitext(file)
 
-    # store state
-    state = utils.store_mode_selection_state()
-    arm = chr_cache.get_armature()
-    if arm:
-        settings = bones.store_armature_settings(arm, include_pose=True)
+    # store mode state
+    mode_selection_state = utils.store_mode_selection_state()
+
+    utils.log_info("Export to: " + file_path)
+    utils.log_info("Exporting as: " + ext)
 
     if utils.is_file_ext(ext, "FBX"):
 
@@ -1642,8 +1717,16 @@ def export_standard(self, chr_cache, file_path, include_selected):
             json_data = jsonutils.generate_character_json_data(name)
             set_character_generation(json_data, chr_cache, name)
 
+        # export objects
         objects = get_export_objects(chr_cache, include_selected)
         arm = get_export_armature(chr_cache, objects)
+
+        # store states and settings
+        armature_settings = bones.store_armature_settings(arm, include_pose=True)
+        object_state = utils.store_object_state(objects)
+
+        # restore quaternion rotation modes
+        rigutils.reset_rotation_modes(arm)
 
         utils.log_info("Preparing character for export:")
         utils.log_indent()
@@ -1653,12 +1736,9 @@ def export_standard(self, chr_cache, file_path, include_selected):
         use_rest_pose = chr_cache.is_avatar()
         remove_modifiers_for_export(chr_cache, objects, use_rest_pose)
 
-        # restore quaternion rotation modes
-        rigutils.reset_rotation_modes(arm)
-
         revert_duplicates = prefs.export_revert_names
-        export_changes = prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(),
-                                     dir, self.include_textures, revert_duplicates, True, False, True)
+        prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(),
+                    dir, self.include_textures, revert_duplicates, True, False, True)
 
         # attempt any custom exports (ARP)
         custom_export = False
@@ -1706,7 +1786,9 @@ def export_standard(self, chr_cache, file_path, include_selected):
             new_json_path = os.path.join(dir, name + ".json")
             jsonutils.write_json(json_data, new_json_path)
 
-        restore_export(export_changes)
+        # restore states and settings
+        utils.restore_object_state(object_state)
+        bones.restore_armature_settings(arm, armature_settings, include_pose=True)
 
         restore_modifiers(chr_cache, objects)
 
@@ -1732,11 +1814,8 @@ def export_standard(self, chr_cache, file_path, include_selected):
         #export_copy_obj_key(chr_cache, dir, name)
         export_copy_asset_file(chr_cache, dir, name, ".ObjKey", chr_cache.get_import_key_file())
 
-    # restore state
-    arm = chr_cache.get_armature()
-    if arm:
-        bones.restore_armature_settings(arm, settings, include_pose=True)
-    utils.restore_mode_selection_state(state)
+    # restore mode state
+    utils.restore_mode_selection_state(mode_selection_state)
 
     utils.log_recess()
     utils.log_timer("Done Character Export.")
@@ -1761,16 +1840,23 @@ def export_non_standard(self, file_path, include_selected):
     dir, file = os.path.split(file_path)
     name, ext = os.path.splitext(file)
 
-    # store selection
-    old_selection = bpy.context.selected_objects.copy()
-    old_active = utils.get_active_object()
+    # store mode state
+    mode_selection_state = utils.store_mode_selection_state()
 
+    # export objects
     objects = get_export_objects(None, include_selected)
     arm = get_export_armature(None, objects)
 
+    # store states and settings
+    armature_settings = bones.store_armature_settings(arm, include_pose=True)
+    object_state = utils.store_object_state(objects)
+
+    # restore quaternion rotation modes
+    rigutils.reset_rotation_modes(arm)
+
     utils.log_info("Generating JSON data for export:")
     utils.log_indent()
-    json_data, export_changes = prep_non_standard_export(objects, dir, name, prefs.export_non_standard_mode)
+    json_data, object_state = prep_non_standard_export(objects, dir, name, prefs.export_non_standard_mode)
 
     utils.log_recess()
     utils.log_info("Preparing character for export:")
@@ -1808,13 +1894,12 @@ def export_non_standard(self, file_path, include_selected):
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
 
-    restore_export(export_changes)
+    # restore states and settings
+    utils.restore_object_state(object_state)
+    bones.restore_armature_settings(arm, armature_settings, include_pose=True)
 
-    # restore selection
-    bpy.ops.object.select_all(action='DESELECT')
-    for obj in old_selection:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = old_active
+    # restore mode state
+    utils.restore_mode_selection_state(mode_selection_state)
 
     utils.log_recess()
     if arp_export:
@@ -1848,6 +1933,9 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     dir, file = os.path.split(file_path)
     name, ext = os.path.splitext(file)
 
+    # store mode state
+    mode_selection_state = utils.store_mode_selection_state()
+
     utils.log_info("Export to: " + file_path)
     utils.log_info("Exporting as: " + ext)
 
@@ -1865,13 +1953,19 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
             utils.delete_mesh_object(chr_cache.collision_body)
             chr_cache.collision_body = None
 
+    # export objects
     objects = get_export_objects(chr_cache, include_selected)
-    export_rig = None
+    arm = get_export_armature(chr_cache, objects)
+
+    # store states and settings
+    armature_settings = bones.store_armature_settings(arm, include_pose=True)
+    object_state = utils.store_object_state(objects)
+
+    # restore quaternion rotation modes
+    rigutils.reset_rotation_modes(arm)
 
     export_actions = False
     export_strips = True
-    export_rig = None
-    baked_actions = []
 
     # FBX exports only T-pose as a strip
     if utils.is_file_ext(ext, "FBX"):
@@ -1890,7 +1984,6 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir, self.include_textures, False, False, as_blend_file, False)
 
     # make the T-pose as an action
-    arm = get_export_armature(chr_cache, objects)
     utils.safe_set_action(arm, None)
     chr_json = None
     if json_data:
@@ -1899,11 +1992,6 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
         except: pass
     set_T_pose(arm, chr_json)
     create_T_pose_action(arm, objects, export_strips)
-
-    # store Unity project paths
-    if utils.is_file_ext(ext, "BLEND"):
-        props.unity_file_path = file_path
-        props.unity_project_path = utils.search_up_path(file_path, "Assets")
 
     if utils.is_file_ext(ext, "FBX"):
         # export as fbx
@@ -1926,11 +2014,18 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
         restore_modifiers(chr_cache, objects)
 
     elif utils.is_file_ext(ext, "BLEND"):
+        # store Unity project paths
+        props.unity_file_path = file_path
+        props.unity_project_path = utils.search_up_path(file_path, "Assets")
         chr_cache.change_import_file(file_path)
         # save blend file at filepath
         bpy.ops.wm.save_as_mainfile(filepath=file_path)
         bpy.ops.file.make_paths_relative()
         bpy.ops.wm.save_as_mainfile(filepath=file_path)
+        # restore some lighting
+        bpy.context.space_data.shading.use_scene_lights = False
+        bpy.context.space_data.shading.use_scene_world = False
+        bpy.context.space_data.shading.studiolight_intensity = 1.0
 
     #export_copy_fbx_key(chr_cache, dir, name)
     export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.get_import_key_file())
@@ -1943,6 +2038,13 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
         update_facial_profile_json(chr_cache, objects, json_data, name)
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
+
+    # restore states and settings (but only for FBX export)
+    if utils.is_file_ext(ext, "FBX"):
+        utils.restore_object_state(object_state)
+        bones.restore_armature_settings(arm, armature_settings, include_pose=True)
+        # restore mode state
+        utils.restore_mode_selection_state(mode_selection_state)
 
     utils.log_recess()
     utils.log_timer("Done Character Export.")
@@ -2042,6 +2144,9 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     dir, file = os.path.split(file_path)
     name, ext = os.path.splitext(file)
 
+    # store mode state
+    mode_selection_state = utils.store_mode_selection_state()
+
     utils.log_info("Export to: " + file_path)
     utils.log_info("Exporting as: " + ext)
 
@@ -2061,8 +2166,17 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
             utils.delete_mesh_object(chr_cache.collision_body)
             chr_cache.collision_body = None
 
+    # export objects
     objects = get_export_objects(chr_cache, include_selected)
+    arm = chr_cache.get_armature()
     export_rig = None
+
+    # store states and settings
+    armature_settings = bones.store_armature_settings(arm, include_pose=True)
+    object_state = utils.store_object_state(objects)
+
+    # restore quaternion rotation modes
+    rigutils.reset_rotation_modes(arm)
 
     export_actions = False
     export_strips = True
@@ -2149,7 +2263,12 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
         new_json_path = os.path.join(dir, name + ".json")
         jsonutils.write_json(json_data, new_json_path)
 
-    utils.object_mode_to(rigify_rig)
+    # restore states and settings
+    utils.restore_object_state(object_state)
+    bones.restore_armature_settings(arm, armature_settings, include_pose=True)
+
+    # restore mode state
+    utils.restore_mode_selection_state(mode_selection_state)
 
     utils.log_recess()
     utils.log_timer("Done Rigify Export.")
@@ -2191,8 +2310,7 @@ def export_as_replace_mesh(file_path):
     name, ext = os.path.splitext(file)
 
     # store selection
-    old_selection = bpy.context.selected_objects
-    old_active = utils.get_active_object()
+    state = utils.store_mode_selection_state()
 
     obj_export(file_path, use_selection=True,
                           global_scale=100,
@@ -2204,10 +2322,7 @@ def export_as_replace_mesh(file_path):
                           apply_modifiers=True)
 
     # restore selection
-    bpy.ops.object.select_all(action='DESELECT')
-    for obj in old_selection:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = old_active
+    utils.restore_mode_selection_state(state)
 
 
 class CC3Export(bpy.types.Operator):

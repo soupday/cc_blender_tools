@@ -1333,6 +1333,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
             #    column.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
 
             column = layout.column()
+            column.enabled = not utils.obj_is_linked(obj)
             row = column.row()
             row.prop(props, "update_mode", expand=True)
 
@@ -1567,6 +1568,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                     props.stage_remapper):
 
                 column = layout.column()
+                column.enabled = not utils.obj_is_linked(obj)
 
                 show_channels = False
 
@@ -2905,7 +2907,7 @@ class CC3ToolsUtilityPanel(bpy.types.Panel):
 
 class CCICDataLinkPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_DataLink_Panel"
-    bl_label = "Data Link (WIP)"
+    bl_label = "Data Link"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = LINK_TAB_NAME
@@ -2918,6 +2920,13 @@ class CCICDataLinkPanel(bpy.types.Panel):
         prefs = vars.prefs()
 
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
+        selected_meshes = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
+        all_valid_topography = True
+        if chr_cache and selected_meshes:
+            for obj in selected_meshes:
+                obj_cache = chr_cache.get_object_cache(obj)
+                if obj_cache:
+                    all_valid_topography = all_valid_topography and obj_cache.validate_topography()
 
         link_service = link.get_link_service()
         connected = link_service and link_service.is_connected
@@ -2970,7 +2979,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2 = split.column()
             col_1.label(text="Auto-Start Connection")
             col_2.prop(prefs, "datalink_auto_start", text="")
-            col_1.label(text="Preview Frame Sync")
+            col_1.label(text="Sequence Frame Sync")
             col_2.prop(prefs, "datalink_frame_sync", text="")
             col_1.label(text="Preview Shape Keys")
             col_2.prop(prefs, "datalink_preview_shape_keys", text="")
@@ -3000,20 +3009,44 @@ class CCICDataLinkPanel(bpy.types.Panel):
             row.operator("ccic.datalink", icon="FILE_FOLDER", text="").param = "SHOW_PROJECT_FILES"
 
             col = layout.column(align=True)
-            grid = col.grid_flow(row_major=True, columns=2, align=True)
-            grid.scale_y = 2.0
-            grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
-            grid.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
+            split = col.split(factor=0.5, align=True)
+            col_1 = split.column(align=True)
+            col_2 = split.column(align=True)
+            col_1.scale_y = 2.0
+            col_2.scale_y = 2.0
+            col_1.operator("ccic.datalink", icon="ARMATURE_DATA", text="Pose").param = "SEND_POSE"
+            if link_service and link_service.is_sequence:
+                col_2.operator("ccic.datalink", icon="PLAY", text="Sequence", depress=True).param = "STOP_ANIM"
+            else:
+                col_2.operator("ccic.datalink", icon="PLAY", text="Sequence").param = "SEND_ANIM"
             # no pose or sequence for props yet...
             if not chr_cache or not chr_cache.is_avatar():
-                grid.enabled = False
+                split.enabled = False
             # for now rigified Game base don't work
             if chr_cache and chr_cache.rigified and chr_cache.generation == "GameBase":
-                grid.enabled = False
+                split.enabled = False
             # can't set the preview camera transform in CC4...
             #grid.operator("ccic.datalink", icon="CAMERA_DATA", text="Sync Camera").param = "SYNC_CAMERA"
 
             if is_cc:
+
+                split = col.split(factor=0.5, align=True)
+                col_1 = split.column(align=True)
+                col_2 = split.column(align=True)
+                row = col_1.row(align=True)
+                row.scale_y = 2.0
+                param = "SEND_REPLACE_MESH"
+                if not all_valid_topography:
+                    row.alert = True
+                    param = "SEND_REPLACE_MESH_INVALID"
+                op = row.operator("ccic.datalink", icon="MESH_DATA", text="Mesh").param = param
+                if not chr_cache or not all_valid_topography:
+                    row.enabled = False
+                row = col_2.row(align=True)
+                row.scale_y = 2.0
+                row.operator("ccic.datalink", icon="TEXTURE", text="Materials").param = "SEND_MATERIAL_UPDATE"
+                if not chr_cache or not selected_meshes:
+                    split.enabled = False
 
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
@@ -3033,10 +3066,13 @@ class CCICDataLinkPanel(bpy.types.Panel):
                 if not (chr_cache and chr_cache.can_go_ic()):
                     grid.enabled = False
 
+            if vars.DEV:
+                layout.operator("ccic.datalink", icon="ERROR", text="DEBUG").param = "DEBUG"
+                layout.operator("ccic.datalink", icon="ERROR", text="TEST").param = "TEST"
 
-            #grid.operator("ccic.datalink", icon="ARMATURE_DATA", text="TEST").param = "TEST"
-
-        layout.separator()
+        layout.label(text="Material Send Mode:")
+        row = layout.row(align=True)
+        row.prop(prefs, "datalink_send_mode", text=text, expand=True)
 
         character_tools_ui(context, layout)
 
