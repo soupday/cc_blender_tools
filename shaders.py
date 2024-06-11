@@ -518,18 +518,50 @@ def func_export_limbus_dark_scale(ldr):
     return lds
 
 def func_brightness(b):
-    B = (b - 1)*5 + 1
+    """Shader brightness adjust"""
+    if b <= 1.0:
+        return b
+    B = (b - 1)*4 + 1
     return B
 
 def func_export_brightness(B):
-    b = (B - 1)/5 + 1
+    """Shader brightness adjust"""
+    if B <= 1.0:
+        return B
+    b = (B - 1)/4 + 1
     return b
 
 def func_saturation(s):
+    """Shader saturation adjust"""
+    if s <= 1.0:
+        return s
     S = (s - 1)*3 + 1
     return S
 
 def func_export_saturation(S):
+    """Shader saturation adjust"""
+    if S <= 1.0:
+        return S
+    s = (S - 1)/3 + 1
+    return s
+
+def func_brightness_mod(b):
+    """Brightness adjust to be used directly in modify color BCHS"""
+    B = (b - 1)*5 + 1
+    return B
+
+def func_export_brightness_mod(B):
+    """Brightness adjust to be used directly in modify color BCHS"""
+    b = (B - 1)/5 + 1
+    return b
+
+def func_saturation_mod(s):
+    """Saturation adjust to be used directly in modify color BCHS"""
+    S = (s - 1)*3 + 1
+    return S
+
+def func_export_saturation_mod(S):
+    """Saturation adjust to be used directly in modify color BCHS"""
     s = (S - 1)/3 + 1
     return s
 
