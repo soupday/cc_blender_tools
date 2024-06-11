@@ -2041,13 +2041,7 @@ class LinkService():
                 loc = Vector((tx, ty, tz)) * 0.01
                 rot = Quaternion((rw, rx, ry, rz))
                 sca = Vector((sx, sy, sz))
-                # don't update the character rig transform
-                # this way the user can place the objects wherever and the animation
-                # will be build around this reference as the root bone and object transform
-                # are the same thing in iClone/CC4, but not in Blender.
-                #rig.location = loc
-                #rig.rotation_mode = "QUATERNION"
-                #rig.rotation_quaternion = rot
+                #
                 rig.location = Vector((0, 0, 0))
                 rig.rotation_mode = "QUATERNION"
                 rig.rotation_quaternion = Quaternion((1, 0, 0, 0))
