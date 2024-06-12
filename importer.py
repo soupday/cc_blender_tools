@@ -395,7 +395,7 @@ def is_iclone_temp_motion(name : str):
         return False
 
 
-def remap_action_names(actions, objects, source_name, name):
+def remap_action_names(actions, objects, source_name, name, action_name_prefix=""):
     key_map = {}
     num_keys = 0
 
@@ -420,7 +420,7 @@ def remap_action_names(actions, objects, source_name, name):
         if action.name.startswith(source_name + "|"):
             new_name = f"{name}|A|{new_action_name}"
             utils.log_info(f"Renaming action: {action.name} to {new_name}")
-            action.name = new_name
+            action.name = f"{action_name_prefix}{new_name}"
             armature_actions.append(action)
         else:
             for new_obj_name in key_map:
@@ -428,7 +428,7 @@ def remap_action_names(actions, objects, source_name, name):
                 if action_key_name == key_name:
                     new_name = f"{name}|K|{new_obj_name}|{new_action_name}"
                     utils.log_info(f"Renaming action: {action.name} to {new_name}")
-                    action.name = new_name
+                    action.name = f"{action_name_prefix}{new_name}"
                     shapekey_actions.append(action)
 
     return armature_actions, shapekey_actions
@@ -1416,6 +1416,11 @@ class CC3ImportAnimations(bpy.types.Operator):
             options={"HIDDEN"}
     )
 
+    action_name_prefix: bpy.props.StringProperty(
+        name = "action_name_prefix",
+        default = ""
+    )
+
     def import_animation_fbx(self, dir, file):
         path = os.path.join(dir, file)
         name = file[:-4]
@@ -1441,7 +1446,7 @@ class CC3ImportAnimations(bpy.types.Operator):
 
         utils.log_info("Renaming actions:")
         utils.log_indent()
-        armature_actions, shapekey_actions = remap_action_names(actions, objects, "Armature", name)
+        armature_actions, shapekey_actions = remap_action_names(actions, objects, "Armature", name, action_name_prefix=self.action_name_prefix)
         utils.log_recess()
 
         utils.log_info("Cleaning up:")
