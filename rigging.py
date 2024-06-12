@@ -2525,7 +2525,9 @@ def adv_bake_retarget_to_rigify(op, chr_cache, rig_override=None, action_overrid
 
         utils.restore_visible_in_scene(temp_collection)
 
-        return armature_action, shape_key_actions
+        return armature_action
+
+    return None
 
 
 def adv_bake_NLA_to_rigify(op, chr_cache):

@@ -448,7 +448,7 @@ def process_root_bones(arm, json_data, name):
 
 
 def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list,
-                      actions, json_data, report, link_id):
+                      actions, json_data, report, link_id, action_name_prefix=""):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -549,7 +549,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             # remame actions
             utils.log_info("Renaming actions:")
             utils.log_indent()
-            remap_action_names(actions, objects, source_name, chr_cache.character_name)
+            remap_action_names(actions, objects, source_name, chr_cache.character_name,
+                               action_name_prefix=action_name_prefix)
             utils.log_recess()
 
             # determine character generation
@@ -633,7 +634,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             # remame actions
             utils.log_info("Renaming actions:")
             utils.log_indent()
-            remap_action_names(actions, objects, source_name, chr_cache.character_name)
+            remap_action_names(actions, objects, source_name, chr_cache.character_name,
+                               action_name_prefix=action_name_prefix)
             utils.log_recess()
 
             # determine character generation
@@ -771,6 +773,11 @@ class CC3Import(bpy.types.Operator):
             options={"HIDDEN"}
         )
 
+    action_name_prefix: bpy.props.StringProperty(
+        name = "Motion Prefix",
+        default = ""
+    )
+
     use_anim: bpy.props.BoolProperty(name = "Import Animation", description = "Import animation with character.\nWarning: long animations take a very long time to import in Blender 2.83", default = True)
 
     count = 0
@@ -871,7 +878,8 @@ class CC3Import(bpy.types.Operator):
             # detect characters and objects
             if ImportFlags.RL in self.import_flags:
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, armatures, rl_armatures,
-                                                             imported, actions, json_data, self.import_report, self.link_id)
+                                                             imported, actions, json_data, self.import_report, self.link_id,
+                                                             self.action_name_prefix)
             elif prefs.import_auto_convert:
                 chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
                 self.imported_characters = [ chr_cache ]
@@ -901,7 +909,8 @@ class CC3Import(bpy.types.Operator):
             # detect characters and objects
             if ImportFlags.RL in self.import_flags:
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, None, None,
-                                                             imported, actions, json_data, self.import_report, self.link_id)
+                                                             imported, actions, json_data, self.import_report, self.link_id,
+                                                             self.action_name_prefix)
             elif prefs.import_auto_convert:
                 chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
                 self.imported_characters = [ chr_cache ]
@@ -1417,7 +1426,7 @@ class CC3ImportAnimations(bpy.types.Operator):
     )
 
     action_name_prefix: bpy.props.StringProperty(
-        name = "action_name_prefix",
+        name = "Motion Prefix",
         default = ""
     )
 

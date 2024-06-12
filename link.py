@@ -352,8 +352,6 @@ class LinkActor():
 
 class LinkData():
     link_host: str = "localhost"
-    action_name_prefix: str = ""
-    use_fake_user: bool = False
     link_host_ip: str = "127.0.0.1"
     link_target: str = "BLENDER"
     link_port: int = 9333
@@ -374,6 +372,9 @@ class LinkData():
     #
     ack_rate: float = 0.0
     ack_time: float = 0.0
+    #
+    action_name_prefix: str = ""
+    use_fake_user: bool = False
 
     def __init__(self):
         return
@@ -397,6 +398,16 @@ class LinkData():
             if link_id in actor.alias:
                 return actor
         return None
+
+    def set_action_settings(self, prefix: str, fake_user):
+        self.action_name_prefix = prefix.strip()
+        self.use_fake_user = fake_user
+
+    def get_action_name_prefix(self):
+        prefix = ""
+        if LINK_DATA.action_name_prefix is not None and LINK_DATA.action_name_prefix.strip() != "":
+            prefix = f"{LINK_DATA.action_name_prefix}|"
+        return prefix
 
 
 LINK_DATA = LinkData()
@@ -452,10 +463,18 @@ def find_rig_pivot_bone(rig, parent):
 
 
 def BFA(f):
+    """Blender Frame Adjust:
+            Convert Blender frame index (starting at frame 1)
+            to CC/iC frame index (starting at frame 0)
+    """
     return max(0, f - 1)
 
 
 def RLFA(f):
+    """Reallusion Frame Adjust:
+            Convert Reallusion frame index (starting at frame 0)
+            to Blender frame index (starting at frame 1)
+    """
     return f + 1
 
 
@@ -635,16 +654,11 @@ def create_fcurves_cache(count, indices, defaults):
     return cache
 
 
-def get_action_name_prefix():
-    prefix = ""
-    if LINK_DATA.action_name_prefix is not None and LINK_DATA.action_name_prefix.strip() != "":
-        prefix = f"{LINK_DATA.action_name_prefix}|"
-    return prefix
-
-
-def get_datalink_rig_action(rig):
+def get_datalink_rig_action(rig, action_id=None):
+    if not action_id:
+        action_id = "Datalink"
     rig_name = utils.strip_name(rig.name)
-    action_name = f"{get_action_name_prefix()}{rig_name}|A|Datalink"
+    action_name = f"{LINK_DATA.get_action_name_prefix()}{rig_name}|A|{action_id}"
     if action_name in bpy.data.actions:
         action = bpy.data.actions[action_name]
     else:
@@ -652,6 +666,23 @@ def get_datalink_rig_action(rig):
     utils.safe_set_action(rig, action)
     action.use_fake_user = LINK_DATA.use_fake_user
     return action
+
+
+def get_action_rig_id(action):
+    if LINK_DATA.action_name_prefix:
+        rig_id = action.name.split("|")[1]
+    else:
+        rig_id = action.name.split("|")[0]
+    return rig_id
+
+
+def replace_action_rig_id(action, old_id, new_id):
+    if LINK_DATA.action_name_prefix:
+        action.name = action.name.replace(f"|{old_id}|", f"|{new_id}|", 1)
+    else:
+        action.name = action.name.replace(f"{old_id}|", f"{new_id}|", 1)
+    utils.log_info(f"Using action name: {action.name}")
+    return
 
 
 def prep_rig(actor: LinkActor, start_frame, end_frame):
@@ -670,7 +701,7 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
 
 
             # rig action
-            action = get_datalink_rig_action(rig)
+            action = get_datalink_rig_action(rig, "Datalink")
             utils.log_info(f"Preparing rig action: {action.name}")
             action.fcurves.clear()
 
@@ -680,7 +711,7 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
             if objects:
                 for obj in objects:
                     obj_name = utils.strip_name(obj.name)
-                    action_name = f"{get_action_name_prefix()}{rig_name}|K|{obj_name}|Datalink"
+                    action_name = f"{LINK_DATA.get_action_name_prefix()}{rig_name}|K|{obj_name}|Datalink"
                     utils.log_info(f"Preparing shape key action: {action_name} / {num_expressions}+{num_visemes} shape keys")
                     if action_name in bpy.data.actions:
                         action = bpy.data.actions[action_name]
@@ -2504,13 +2535,12 @@ class LinkService():
         start_frame = RLFA(json_data["start_frame"])
         end_frame = RLFA(json_data["end_frame"])
         frame = RLFA(json_data["frame"])
-        action_name_prefix = json_data["action_name_prefix"]
+        action_name_prefix = json_data.get("action_name_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
         LINK_DATA.sequence_start_frame = frame
         LINK_DATA.sequence_end_frame = frame
         LINK_DATA.sequence_current_frame = frame
-        LINK_DATA.action_name_prefix = action_name_prefix
-        LINK_DATA.use_fake_user = use_fake_user
+        LINK_DATA.set_action_settings(action_name_prefix, use_fake_user)
         utils.log_info(f"Receive Pose: {frame}")
 
         # fetch actors
@@ -2580,9 +2610,12 @@ class LinkService():
         json_data = decode_to_json(data)
         start_frame = RLFA(json_data["start_frame"])
         end_frame = RLFA(json_data["end_frame"])
+        action_name_prefix = json_data.get("action_name_prefix", "")
+        use_fake_user = json_data.get("use_fake_user", False)
         LINK_DATA.sequence_start_frame = start_frame
         LINK_DATA.sequence_end_frame = end_frame
         LINK_DATA.sequence_current_frame = start_frame
+        LINK_DATA.set_action_settings(action_name_prefix, use_fake_user)
         num_frames = end_frame - start_frame + 1
         utils.log_info(f"Receive Sequence: {start_frame} to {end_frame}, {num_frames} frames")
 
@@ -2718,6 +2751,9 @@ class LinkService():
         name = json_data["name"]
         character_type = json_data["type"]
         link_id = json_data["link_id"]
+        action_name_prefix = json_data.get("action_name_prefix", "")
+        use_fake_user = json_data.get("use_fake_user", False)
+        LINK_DATA.set_action_settings(action_name_prefix, use_fake_user)
 
         utils.log_info(f"Receive Character Import: {name} / {link_id} / {fbx_path}")
 
@@ -2730,7 +2766,8 @@ class LinkService():
         update_link_status(f"Receving Character Import: {name}")
         if os.path.exists(fbx_path):
             try:
-                bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id)
+                bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id,
+                                     action_name_prefix=LINK_DATA.get_action_name_prefix())
             except:
                 utils.log_error(f"Error importing {fbx_path}")
                 return
@@ -2761,13 +2798,12 @@ class LinkService():
         start_frame = RLFA(json_data["start_frame"])
         end_frame = RLFA(json_data["end_frame"])
         frame = RLFA(json_data["frame"])
-        action_name_prefix = json_data["action_name_prefix"]
+        action_name_prefix = json_data.get("action_name_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
         LINK_DATA.sequence_start_frame = start_frame
         LINK_DATA.sequence_end_frame = end_frame
         LINK_DATA.sequence_current_frame = frame
-        LINK_DATA.action_name_prefix = action_name_prefix
-        LINK_DATA.use_fake_user = use_fake_user
+        LINK_DATA.set_action_settings(action_name_prefix, use_fake_user)
         num_frames = end_frame - start_frame + 1
         utils.log_info(f"Receive Motion Import: {name} / {link_id} / {fbx_path}")
         utils.log_info(f"Motion Range: {start_frame} to {end_frame}, {num_frames} frames")
@@ -2787,7 +2823,9 @@ class LinkService():
         update_link_status(f"Receving Motion Import: {name}")
         if os.path.exists(fbx_path):
             #try:
-            bpy.ops.cc3.anim_importer(filepath=fbx_path, remove_meshes=False, remove_materials_images=True, remove_shape_keys=False, action_name_prefix=get_action_name_prefix())
+            bpy.ops.cc3.anim_importer(filepath=fbx_path, remove_meshes=False,
+                                      remove_materials_images=True, remove_shape_keys=False,
+                                      action_name_prefix=LINK_DATA.get_action_name_prefix())
             motion_rig = utils.get_active_object()
             self.replace_actor_motion(actor, motion_rig)
             #except:
@@ -2801,6 +2839,11 @@ class LinkService():
         if actor and motion_rig:
             motion_rig_action = utils.safe_get_action(motion_rig)
             motion_objects = utils.get_child_objects(motion_rig)
+            motion_id = motion_rig_action.name.split("|")[-1]
+            motion_rig_id = get_action_rig_id(motion_rig_action)
+            utils.log_info(f"Replacing Actor Motion:")
+            utils.log_indent()
+            utils.log_info(f"Motion rig action: {motion_rig_action.name}")
             tongue_action = None
             body_action = None
             obj_actions = {}
@@ -2808,49 +2851,51 @@ class LinkService():
                 if utils.object_has_shape_keys(obj):
                     if obj.name.startswith("CC_Base_Tongue"):
                         tongue_action = utils.safe_get_action(obj.data.shape_keys)
+                        utils.log_info(f"Shapekey action (Tongue): {tongue_action.name}")
                     elif obj.name.startswith("CC_Base_Body"):
                         body_action = utils.safe_get_action(obj.data.shape_keys)
-                    else:
-                        source_name = utils.strip_name(obj.name)
-                        obj_actions[source_name] = utils.safe_get_action(obj.data.shape_keys)
+                        utils.log_info(f"Shapekey action (Body): {body_action.name}")
+                    source_name = utils.strip_name(obj.name)
+                    obj_actions[source_name] = utils.safe_get_action(obj.data.shape_keys)
+                    utils.log_info(f"Shapekey action ({source_name}): {obj_actions[source_name].name}")
             # fetch existing actor actions
             actor_objects = actor.get_mesh_objects()
             actor_rig = actor.get_armature()
             actor_rig_action = utils.safe_get_action(actor_rig)
+            chr_cache = actor.get_chr_cache()
+            actor_rig_id = f"{actor.name}_Rigify" if chr_cache.rigified else actor.name
             remove_actions = []
             if actor_rig:
                 if actor.get_type() == "PROP":
-                    motion_rig_action.name = f"{get_action_name_prefix()}{motion_rig_action.name}"
-                    actor_rig_action.name = f"{get_action_name_prefix()}{actor_rig_action.name}"
                     # if it's a prop retarget the animation (or copy the rest pose):
                     #    props have no bind pose so the rest pose is the first frame of
                     #    the animation, which changes with every new animation import...
                     if prefs.datalink_retarget_prop_actions:
-                        action = get_datalink_rig_action(actor_rig)
+                        action = get_datalink_rig_action(actor_rig, motion_id)
                         update_link_status(f"Retargeting Motion...")
                         rigutils.bake_rig_action_from_source(motion_rig, actor_rig)
                         remove_actions.append(motion_rig_action)
                         if action != actor_rig_action:
                             remove_actions.append(actor_rig_action)
                     else:
+                        replace_action_rig_id(motion_rig_action, motion_rig_id, actor_rig_id)
                         rigutils.copy_rest_pose(motion_rig, actor_rig)
                         utils.safe_set_action(actor_rig, motion_rig_action)
                         remove_actions.append(actor_rig_action)
                     rigutils.update_prop_rig(actor_rig)
-                else:
-                    chr_cache = actor.get_chr_cache()
+                else: # Avatar
                     if chr_cache.rigified:
                         update_link_status(f"Retargeting Motion...")
-                        armature_action, shape_key_actions = rigging.adv_bake_retarget_to_rigify(None, chr_cache, rig_override=motion_rig, action_override=motion_rig_action)
-                        armature_action.name = f"{get_action_name_prefix()}{armature_action.name}"
-                        for obj, shape_key_action in shape_key_actions.items():
-                            shape_key_action.name = f"{get_action_name_prefix()}{shape_key_action.name}"
+                        armature_action = rigging.adv_bake_retarget_to_rigify(None, chr_cache, rig_override=motion_rig, action_override=motion_rig_action)
+                        armature_action.name = f"{LINK_DATA.get_action_name_prefix()}{armature_action.name}"
                         remove_actions.append(actor_rig_action)
                         remove_actions.append(motion_rig_action)
                     else:
-                        motion_rig_action.name = f"{get_action_name_prefix()}{motion_rig_action.name}"
+                        replace_action_rig_id(motion_rig_action, motion_rig_id, actor_rig_id)
                         utils.safe_set_action(actor_rig, motion_rig_action)
                         remove_actions.append(actor_rig_action)
+                    for source_name, obj_action in obj_actions.items():
+                        replace_action_rig_id(obj_action, motion_rig_id, actor_rig_id)
                     rigutils.update_avatar_rig(actor_rig)
             for obj in actor_objects:
                 if utils.object_has_shape_keys(obj):
@@ -2858,17 +2903,14 @@ class LinkService():
                     old_action = utils.safe_get_action(obj)
                     remove_actions.append(old_action)
                     # replace with new action
-                    if obj.name.startswith("CC_Base_Tongue") and tongue_action:
+                    source_name = utils.strip_name(obj.name)
+                    if source_name in obj_actions:
+                        obj_action = obj_actions[source_name]
+                        utils.safe_set_action(obj.data.shape_keys, obj_action)
+                    elif "tongue" in source_name.lower() and tongue_action:
                         utils.safe_set_action(obj.data.shape_keys, tongue_action)
-                    elif obj.name.startswith("CC_Base_Body") and body_action:
+                    elif body_action:
                         utils.safe_set_action(obj.data.shape_keys, body_action)
-                    else:
-                        source_name = utils.strip_name(obj.name)
-                        if source_name in obj_actions:
-                            obj_action = obj_actions[source_name]
-                            utils.safe_set_action(obj.data.shape_keys, obj_action)
-                        elif body_action:
-                            utils.safe_set_action(obj.data.shape_keys, body_action)
             # delete imported motion rig and objects
             for obj in motion_objects:
                 utils.delete_mesh_object(obj)
@@ -2876,8 +2918,10 @@ class LinkService():
                 utils.delete_armature_object(motion_rig)
             # remove old actions
             for old_action in remove_actions:
-                if old_action:
+                if old_action and not old_action.users == 0:
+                    utils.log_info(f"Removing old Action: {old_action.name}")
                     bpy.data.actions.remove(old_action)
+            utils.log_recess()
 
     def receive_actor_update(self, data):
         props = vars.props()

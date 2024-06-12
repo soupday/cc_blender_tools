@@ -547,22 +547,23 @@ def func_export_saturation(S):
 
 def func_brightness_mod(b):
     """Brightness adjust to be used directly in modify color BCHS"""
-    B = (b - 1)*4 + 1
+    B = (b - 1)*5 + 1
     return B
 
 def func_export_brightness_mod(B):
     """Brightness adjust to be used directly in modify color BCHS"""
-    b = (B - 1)/4 + 1
+    b = (B - 1)/5 + 1
     return b
 
 def func_saturation_mod(s):
     """Saturation adjust to be used directly in modify color BCHS"""
-    S = (s - 1)*4 + 1
+    S = (s - 1)*3 + 1
     return S
 
 def func_export_saturation_mod(S):
     """Saturation adjust to be used directly in modify color BCHS"""
-    s = (S - 1)/4 + 1
+    s = (S - 1)/3 + 1
+
     return s
 
 def func_get_eye_depth(depth):
