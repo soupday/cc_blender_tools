@@ -2875,42 +2875,46 @@ class LinkService():
                         update_link_status(f"Retargeting Motion...")
                         rigutils.bake_rig_action_from_source(motion_rig, actor_rig)
                         remove_actions.append(motion_rig_action)
-                        if action != actor_rig_action:
-                            remove_actions.append(actor_rig_action)
                     else:
                         replace_action_rig_id(motion_rig_action, motion_rig_id, actor_rig_id)
                         rigutils.copy_rest_pose(motion_rig, actor_rig)
                         utils.safe_set_action(actor_rig, motion_rig_action)
-                        remove_actions.append(actor_rig_action)
                     rigutils.update_prop_rig(actor_rig)
                 else: # Avatar
                     if chr_cache.rigified:
                         update_link_status(f"Retargeting Motion...")
                         armature_action = rigging.adv_bake_retarget_to_rigify(None, chr_cache, rig_override=motion_rig, action_override=motion_rig_action)
                         armature_action.name = f"{LINK_DATA.get_action_name_prefix()}{armature_action.name}"
-                        remove_actions.append(actor_rig_action)
                         remove_actions.append(motion_rig_action)
                     else:
                         replace_action_rig_id(motion_rig_action, motion_rig_id, actor_rig_id)
                         utils.safe_set_action(actor_rig, motion_rig_action)
-                        remove_actions.append(actor_rig_action)
-                    for source_name, obj_action in obj_actions.items():
-                        replace_action_rig_id(obj_action, motion_rig_id, actor_rig_id)
                     rigutils.update_avatar_rig(actor_rig)
+            used_obj_actions = []
+            # rename motion object shape key actions to target rig id
+            for source_name, obj_action in obj_actions.items():
+                replace_action_rig_id(obj_action, motion_rig_id, actor_rig_id)
+            # assign motion object shape key actions:
             for obj in actor_objects:
                 if utils.object_has_shape_keys(obj):
                     # remove old action
                     old_action = utils.safe_get_action(obj)
-                    remove_actions.append(old_action)
                     # replace with new action
                     source_name = utils.strip_name(obj.name)
                     if source_name in obj_actions:
                         obj_action = obj_actions[source_name]
                         utils.safe_set_action(obj.data.shape_keys, obj_action)
+                        used_obj_actions.append(obj_action)
                     elif "tongue" in source_name.lower() and tongue_action:
                         utils.safe_set_action(obj.data.shape_keys, tongue_action)
+                        used_obj_actions.append(tongue_action)
                     elif body_action:
                         utils.safe_set_action(obj.data.shape_keys, body_action)
+                        used_obj_actions.append(body_action)
+            # remove unused motion object actions
+            for source_name, obj_action in obj_actions.items():
+                if obj_action not in used_obj_actions:
+                    remove_actions.append(obj_action)
             # delete imported motion rig and objects
             for obj in motion_objects:
                 utils.delete_mesh_object(obj)
@@ -2918,8 +2922,8 @@ class LinkService():
                 utils.delete_armature_object(motion_rig)
             # remove old actions
             for old_action in remove_actions:
-                if old_action and not old_action.users == 0:
-                    utils.log_info(f"Removing old Action: {old_action.name}")
+                if old_action:
+                    utils.log_info(f"Removing unused Action: {old_action.name}")
                     bpy.data.actions.remove(old_action)
             utils.log_recess()
 
