@@ -581,18 +581,23 @@ class ARMATURE_UL_List(bpy.types.UIList):
             item_name = utils.strip_name(item.name)
             allowed = False
             if item.type == "ARMATURE": # only list armatures
-                if "_Rigify" not in item_name: # don't list rigified armatures
+                if "rl_set_generation" in item:
+                    set_generation = item["rl_set_generation"]
+                    if set_generation != "Rigify" and set_generation != "Rigify+":
+                        allowed = True
+                elif "_Rigify" not in item_name: # don't list rigified armatures
                     if "_Retarget" not in item_name: # don't list retarget armatures
                         if len(item.data.bones) > 0:
                             for allowed_bone in rigify_mapping_data.ALLOWED_RIG_BONES: # only list armatures of the allowed sources
                                 if rigutils.bone_name_in_armature_regex(item, allowed_bone):
                                     allowed = True
+            # filter by name
+            if self.filter_name and self.filter_name != "*":
+                if self.filter_name not in item.name:
+                    allowed = False
+            # block not allowed
             if not allowed:
-                    filtered[i] &= ~self.bitflag_filter_item
-            else:
-                if self.filter_name and self.filter_name != "*":
-                    if self.filter_name not in item.name:
-                        filtered[i] &= ~self.bitflag_filter_item
+                filtered[i] &= ~self.bitflag_filter_item
         return filtered, ordered
 
 
@@ -610,32 +615,51 @@ class ACTION_UL_List(bpy.types.UIList):
         ordered = []
         arm_name = None
         arm_object = utils.collection_at_index(props.armature_list_index, bpy.data.objects)
-        if arm_object and arm_object.type == "ARMATURE":
-            arm_name = arm_object.name
+        arm_set_generation = None
+        if arm_object:
+            if arm_object.type == "ARMATURE":
+                arm_name = arm_object.name
+            if "rl_set_generation" in arm_object:
+                arm_set_generation = arm_object["rl_set_generation"]
+        rl_arm_id = utils.get_rl_object_id(arm_object)
         items = getattr(data, propname)
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
         for i, item in enumerate(items):
+            allowed = False
+            action_set_generation = None
+            action_type = None
+            action_armature_id = None
+            if "rl_set_generation" in item:
+                action_set_generation = item["rl_set_generation"]
+            if "rl_action_type" in item:
+                action_type = item["rl_action_type"]
+            if "rl_armature_id" in item:
+                action_armature_id = item["rl_armature_id"]
             if props.armature_action_filter and arm_object:
-                if arm_name and item.name.startswith(arm_name + "|A|"):
-                    if self.filter_name and self.filter_name != "*":
-                        if self.filter_name not in item.name:
-                            filtered[i] &= ~self.bitflag_filter_item
-                elif arm_name and item.name.startswith(arm_name + "|") and not item.name.startswith(arm_name + "|K"):
-                    if self.filter_name and self.filter_name != "*":
-                        if self.filter_name not in item.name:
-                            filtered[i] &= ~self.bitflag_filter_item
+                if arm_set_generation and action_set_generation and action_type and rl_arm_id and action_armature_id:
+                    if (arm_set_generation == action_set_generation and
+                        action_type == "ARM" and
+                        action_armature_id == rl_arm_id):
+                        allowed = True
                 else:
-                    filtered[i] &= ~self.bitflag_filter_item
+                    prefix, rig_id, type_id, obj_id, motion_id = rigutils.decode_action_name(item)
+                    if type_id and rig_id and type_id == "A" and rig_id == arm_name:
+                        allowed = True
             else:
-                if len(item.fcurves) == 0: # no fcurves, no animation...
-                    filtered[i] &= ~self.bitflag_filter_item
-                elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
-                    filtered[i] &= ~self.bitflag_filter_item
-                else:
-                    if self.filter_name and self.filter_name != "*":
-                        if self.filter_name not in item.name:
-                            filtered[i] &= ~self.bitflag_filter_item
+                if item.fcurves[0].data_path.startswith("key_blocks"):
+                    # no shape key actions
+                    allowed = False
+                elif len(item.fcurves) > 0:
+                    # only actions with curves
+                    allowed = True
+            # filter by name
+            if self.filter_name and self.filter_name != "*":
+                if self.filter_name not in item.name:
+                    allowed = False
+            # block not allowed
+            if not allowed:
+                filtered[i] &= ~self.bitflag_filter_item
         return filtered, ordered
 
 
@@ -1803,6 +1827,12 @@ class CC3RigifyPanel(bpy.types.Panel):
                             grid.prop(prefs, "rigify_build_face_rig", text = "Face Rig", toggle=True)
                             if chr_cache.rig_mode == "QUICK":
                                 grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
+                                if prefs.rigify_auto_retarget:
+                                    # retarget/bake motion prefix
+                                    row = layout.row()
+                                    split = row.split(factor=0.5)
+                                    split.column().label(text="Motion Prefix")
+                                    split.column().prop(prefs, "rigify_retarget_motion_prefix", text="")
                             if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
                                 wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
 
@@ -1953,7 +1983,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         action_list_action = utils.collection_at_index(props.action_list_index, bpy.data.actions)
                         source_type = "Unknown"
                         if armature_list_object:
-                            source_type, source_label = rigging.get_armature_action_source_type(armature_list_object, action_list_action)
+                            source_type, source_label = rigutils.get_armature_action_source_type(armature_list_object, action_list_action)
                             if source_type:
                                 layout.box().label(text = f"{source_label} Animation", icon = "ARMATURE_DATA")
 
@@ -1997,13 +2027,22 @@ class CC3RigifyPanel(bpy.types.Panel):
                         if source_type == "Unknown" and chr_cache.rig_retarget_rig is None:
                             row.enabled = False
 
-                        layout.separator()
+                        col.separator()
+
+                        # retarget/bake motion prefix
+                        row = col.row()
+                        split = row.split(factor=0.5)
+                        split.column().label(text="Motion Prefix")
+                        split.column().prop(prefs, "rigify_retarget_motion_prefix", text="")
+
+                        col.separator()
 
                         # retarget shape keys to character
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="KEYINGSET", text="Retarget Shapekeys").param = "RETARGET_SHAPE_KEYS"
                         row.enabled = source_type != "Unknown"
-                        layout.separator()
+
+                        col.separator()
 
                     # NLA bake
                     box_row = layout.box().row()
@@ -2021,7 +2060,19 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
                         #row.enabled = chr_cache.rig_retarget_rig is None
 
-                        layout.separator()
+                        col.separator()
+
+                        # retarget/bake motion prefix
+                        row = col.row()
+                        split = row.split(factor=0.5)
+                        col_1 = split.column()
+                        col_2 = split.column()
+                        col_1.column().label(text="Motion Prefix")
+                        col_2.column().prop(prefs, "rigify_bake_motion_prefix", text="")
+                        col_1.column().label(text="Motion Name")
+                        col_2.column().prop(prefs, "rigify_bake_motion_name", text="")
+
+                        col.separator()
 
                     if fake_drop_down(layout.box().row(),
                                         "Export",

@@ -314,6 +314,12 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                                                      description="Power curve used to convert PhysX weightmaps to blender vertex pin weights.")
 
     # rigify prefs
+    rigify_retarget_motion_prefix: bpy.props.StringProperty(default="", name="Rigify Retarget Motion Prefix",
+                                                   description="Motion prefix for retargeted motions.")
+    rigify_bake_motion_prefix: bpy.props.StringProperty(default="", name="Rigify Bake Motion Prefix",
+                                                   description="Motion prefix for baked NLA motions.")
+    rigify_bake_motion_name: bpy.props.StringProperty(default="NLA_Bake", name="Rigify Bake Motion Name",
+                                                   description="Motion name for baked NLA motions.")
     rigify_preview_shape_keys: bpy.props.BoolProperty(default=True, name="Retarget Shape Keys",
                                                         description="Retarget any facial expression and viseme shape key actions on the source character rig to the current character meshes on the rigify rig")
     rigify_bake_shape_keys: bpy.props.BoolProperty(default=True, name="Bake Shape Keys",

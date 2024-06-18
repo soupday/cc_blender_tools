@@ -1307,7 +1307,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
         if self.object_id == "":
             self.object_id = utils.generate_random_id(20)
         if self.object:
-            self.object["rl_object_id"] = self.object_id
+            utils.set_rl_object_id(self.object, self.object_id)
             self.object["rl_object_type"] = self.object_type
 
     def is_valid(self):
@@ -1880,7 +1880,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         obj_cache.set_object(new_arm)
                         # update the object id
                         obj_cache.object_id = utils.generate_random_id(20)
-                        new_arm["rl_object_id"] = obj_cache.object_id
+                        utils.set_rl_object_id(new_arm, obj_cache.object_id)
         except:
             pass
 

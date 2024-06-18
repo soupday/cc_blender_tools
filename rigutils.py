@@ -18,6 +18,7 @@ import bpy
 from mathutils import Vector, Matrix, Quaternion, Euler
 from random import random
 import re
+import traceback
 from . import bones, modifiers, rigify_mapping_data, utils, vars
 
 
@@ -164,10 +165,40 @@ def is_Mixamo_armature(armature):
     return False
 
 
+def is_rigify_action(action):
+    if action:
+        if len(action.fcurves) > 0:
+            for bone_name in rigify_mapping_data.RIGIFY_BONE_NAMES:
+                if not name_in_data_paths(action, bone_name):
+                    return False
+            return True
+    return False
+
+
 def is_rigify_armature(armature):
     if armature:
         if len(armature.data.bones) > 0:
             for bone_name in rigify_mapping_data.RIGIFY_BONE_NAMES:
+                if bone_name not in armature.data.bones:
+                    return False
+            return True
+    return False
+
+
+def is_rl_rigify_action(action):
+    if action:
+        if len(action.fcurves) > 0:
+            for bone_name in rigify_mapping_data.RL_RIGIFY_BONE_NAMES:
+                if not name_in_data_paths(action, bone_name):
+                    return False
+            return True
+    return False
+
+
+def is_rl_rigify_armature(armature):
+    if armature:
+        if len(armature.data.bones) > 0:
+            for bone_name in rigify_mapping_data.RL_RIGIFY_BONE_NAMES:
                 if bone_name not in armature.data.bones:
                     return False
             return True
@@ -196,18 +227,387 @@ def get_rig_generation(armature):
         return "Unknown"
 
 
-def is_rl_rigify_armature(armature):
-    if armature:
-        if len(armature.data.bones) > 0:
-            for bone_name in rigify_mapping_data.RL_RIGIFY_BONE_NAMES:
-                if bone_name not in armature.data.bones:
-                    return False
-            return True
+def is_unity_action(action):
+    return "_Unity" in action.name and "|A|" in action.name
+
+
+def get_armature_action_source_type(armature, action=None):
+    if armature and not action and armature.type == "ARMATURE":
+        if is_G3_armature(armature):
+            return "G3", "G3 (CC3/CC3+)"
+        if is_iClone_armature(armature):
+            return "G3", "G3 (iClone)"
+        if is_ActorCore_armature(armature):
+            return "G3", "G3 (ActorCore)"
+        if is_GameBase_armature(armature):
+            return "GameBase", "GameBase (CC3/CC3+)"
+        if is_Mixamo_armature(armature):
+            return "Mixamo", "Mixamo"
+        if is_rl_rigify_armature(armature):
+            return "Rigify+", "Rigify+"
+        if is_rigify_armature(armature):
+            return "Rigify", "Rigify"
+    if armature and action and armature.type == "ARMATURE":
+        if is_G3_armature(armature) and is_G3_action(action):
+            return "G3", "G3 (CC3/CC3+)"
+        if is_iClone_armature(armature) and is_iClone_action(action):
+            return "G3", "G3 (iClone)"
+        if is_ActorCore_armature(armature) and is_ActorCore_action(action):
+            return "G3", "G3 (ActorCore)"
+        if is_GameBase_armature(armature) and is_GameBase_action(action):
+            return "GameBase", "GameBase (CC3/CC3+)"
+        if is_Mixamo_armature(armature) and is_Mixamo_action(action):
+            return "Mixamo", "Mixamo"
+        if is_rl_rigify_armature(armature) and is_rl_rigify_action(action):
+            return "Rigify+", "Rigify+"
+        if is_rigify_armature(armature) and is_rigify_action(action):
+            return "Rigify", "Rigify"
+    # detect other types as they become available...
+    return "Unknown", "Unknown"
+
+
+def find_source_actions(source_action, source_rig=None):
+    src_prefix, src_rig_id, src_type_id, src_object_id, src_motion_id = decode_action_name(source_action)
+    src_set_id, src_set_gen, src_type_id, src_object_id = get_motion_set(source_action)
+    actions = {
+        "motion_info": {
+            "prefix": src_prefix,
+            "rig_id": src_rig_id,
+            "motion_id": src_motion_id,
+            "set_id": src_set_id,
+            "set_generation": src_set_gen,
+        },
+        "count": 0,
+        "armature": None,
+        "keys": {},
+    }
+
+    # try matching actions by set_id (disabled for now: testing name patterns first)
+    if src_set_id:
+        utils.log_info(f"Looking for motion set id: {src_set_id}")
+        for action in bpy.data.actions:
+            if "rl_set_id" in action:
+                set_id, set_gen, type_id, object_id = get_motion_set(action)
+                if set_id == src_set_id:
+                    if type_id == "KEY":
+                        utils.log_info(f" - Found shape-key action: {action.name} for {object_id}")
+                        actions["keys"][object_id] = action
+                    elif type_id == "ARM":
+                        utils.log_info(f" - Found armature action: {action.name}")
+                        actions["armature"] = action
+        return actions
+
+    # try matching actions by action name pattern
+    if src_motion_id:
+        # match actions by name pattern
+        utils.log_info(f"Looking for shape-key actions matching: [<{src_prefix}>|]{src_rig_id}|[K|A]|[<obj>|]{src_motion_id}")
+        for action in bpy.data.actions:
+            motion_prefix, rig_id, type_id, object_id, motion_id = decode_action_name(action)
+            if (motion_id and object_id not in actions and
+                motion_prefix == src_prefix and
+                rig_id == src_rig_id and
+                utils.partial_match(motion_id, src_motion_id)):
+                if type_id == "K":
+                    utils.log_info(f" - Found shape-key action: {action.name} for {object_id}")
+                    actions["keys"][object_id] = action
+                elif type_id == "A":
+                    utils.log_info(f" - Found armature action: {action.name}")
+                    actions["armature"] = action
+        return actions
+
+    # try to fetch shape-key actions from source armature child objects, if supplied
+    elif source_rig:
+        utils.log_info(f"Looking for shape-key actions in armature child objects: {source_rig.name}")
+        action = utils.safe_get_action(source_rig)
+        if action:
+            utils.log_info(f" - Found armature action: {action.name}")
+            actions["armature"] = action
+        for obj in source_rig.children:
+            obj_id = get_action_obj_id(obj)
+            if obj.type == "MESH":
+                action = utils.safe_get_action(obj.data.shape_keys)
+                if action:
+                    utils.log_info(f" - Found shape-key action: {action.name} for {obj_id}")
+                    actions["keys"][obj_id] = action
+        return actions
+
+    return actions
+
+
+def get_main_body_action(source_actions):
+    # find the "Body" action
+    for obj_id in source_actions["keys"]:
+        action: bpy.types.Action = source_actions["keys"][obj_id]
+        l_name = obj_id.lower()
+        if l_name == "body":
+            utils.log_info(f" - Using main body action: {action.name}")
+            return action
+    # find the action with the most shape keys
+    action_with_most_keys = None
+    num_keys = 0
+    for obj_id in source_actions["keys"]:
+        action = source_actions["keys"][obj_id]
+        if len(action.fcurves) > num_keys:
+            num_keys = len(action.fcurves)
+            action_with_most_keys = action
+    utils.log_info(f" - Using action with most shape keys: {action_with_most_keys.name}")
+    return action_with_most_keys
+
+
+def apply_source_armature_action(dst_rig, source_actions, copy=False,
+                                 motion_id=None, motion_prefix=None,
+                                 set_id=None, set_generation=None):
+    obj_used = []
+    actions_used = []
+    rig_id = get_rig_id(dst_rig)
+    rl_arm_id = utils.get_rl_object_id(dst_rig)
+    if not motion_id:
+        motion_id = source_actions["motion_info"]["motion_id"]
+    if motion_prefix is None:
+        motion_prefix = source_actions["motion_info"]["prefix"]
+    utils.log_info(f"Applying source armature action:")
+    action = source_actions["armature"]
+    if action:
+        if copy and motion_id:
+            action_name = make_armature_action_name(rig_id, motion_id, motion_prefix)
+            utils.log_info(f" - Copying action: {action.name} to {action_name}")
+            action = utils.copy_action(action, action_name)
+            if set_id and set_generation:
+                add_motion_set_data(action, set_id, set_generation, rl_arm_id=rl_arm_id)
+        utils.log_info(f" - Applying action: {action.name} to {rig_id}")
+        utils.safe_set_action(dst_rig, action)
+        obj_used.append(dst_rig)
+        actions_used.append(action)
+    return obj_used, actions_used
+
+
+def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=False,
+                             motion_id=None, motion_prefix=None,
+                             set_id=None, set_generation=None):
+    obj_used = []
+    key_actions = {}
+    rig_id = get_rig_id(dst_rig)
+    if motion_id == "" or motion_id == "TEMP":
+        motion_id = "TEMP_" + utils.generate_random_id(12)
+    if motion_id is None:
+        motion_id = source_actions["motion_info"]["motion_id"]
+    if motion_prefix is None:
+        motion_prefix = source_actions["motion_info"]["prefix"]
+
+    # TODO this should really collect all named shape key animation tracks across all source objects
+    #      and create actions specific to each target object.
+    #      e.g. facial hair meshes have tongue shape keys which the body action alone doesn't have.
+
+    # apply to exact matches first
+    utils.log_info(f"Applying source key actions: (copy={copy}, motion_id={motion_id})")
+    for obj in dst_rig.children:
+        if obj.type == "MESH":
+            if utils.object_has_shape_keys(obj):
+                obj_id = get_action_obj_id(obj)
+                if (obj_id in source_actions["keys"] and
+                    obj_has_action_shape_keys(obj, source_actions["keys"][obj_id])):
+                    action = source_actions["keys"][obj_id]
+                    if copy and motion_id:
+                        action_name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
+                        utils.log_info(f" - Copying action: {action.name} to {action_name}")
+                        action = utils.copy_action(action, action_name)
+                        if set_id and set_generation:
+                            add_motion_set_data(action, set_id, set_generation, obj_id=obj_id)
+                    utils.log_info(f" - Applying action: {action.name} to {obj_id}")
+                    utils.safe_set_action(obj.data.shape_keys, action)
+                    obj_used.append(obj)
+                    key_actions[obj_id] = action
+                else:
+                    utils.safe_set_action(obj.data.shape_keys, None)
+
+    # apply to other compatible shape key objects
+    if all_matching:
+        utils.log_info(f"Applying other matching source key actions:")
+        body_action = get_main_body_action(source_actions)
+        for obj in dst_rig.children:
+            if obj not in obj_used and utils.object_has_shape_keys(obj):
+                obj_id = get_action_obj_id(obj)
+                if body_action:
+                    if obj_has_action_shape_keys(obj, body_action):
+                        action = body_action
+                        if copy and motion_id:
+                            action_name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
+                            utils.log_info(f" - Copying action: {action.name} to {action_name}")
+                            action = utils.copy_action(action, action_name)
+                            if set_id and set_generation:
+                                add_motion_set_data(action, set_id, set_generation, obj_id=obj_id)
+                        utils.log_info(f" - Applying action: {action.name} to {obj_id}")
+                        utils.safe_set_action(obj.data.shape_keys, action)
+                        obj_used.append(obj)
+                        key_actions[obj_id] = action
+    return key_actions
+
+
+def obj_has_action_shape_keys(obj, action: bpy.types.Action):
+    if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+        for key in obj.data.shape_keys.key_blocks:
+            for fcurve in action.fcurves:
+                if key.name in fcurve.data_path:
+                    return True
     return False
 
 
-def is_unity_action(action):
-    return "_Unity" in action.name and "|A|" in action.name
+def get_rig_id(rig):
+    rig_id = utils.strip_name(rig.name.strip()).replace("|", "_")
+    return rig_id
+
+
+def decode_action_name(action):
+    """Decode action name into prefix, rig_id, type("A"|"K"), object_id, motion_id.
+       if the action name does not follow this naming pattern all values return None."""
+    if type(action) is str:
+        action_name = action
+    else:
+        action_name = action.name
+    #utils.log_detail(f"Decoding Action name: {action_name}")
+    try:
+        ids = action_name.split("|")
+        for i, id in enumerate(ids):
+            ids[i] = id.strip()
+        if ids[1] == "A":
+            type_id = "A"
+            prefix = ""
+            rig_id = ids[0]
+            obj_id = ""
+        elif ids[2] == "A":
+            type_id = "A"
+            prefix = ids[0]
+            rig_id = ids[1]
+            obj_id = ""
+        elif ids[1] == "K":
+            type_id = "K"
+            prefix = ""
+            rig_id = ids[0]
+            obj_id = ids[2]
+        elif ids[2] == "K":
+            type_id = "K"
+            prefix = ids[0]
+            rig_id = ids[1]
+            obj_id = ids[3]
+        motion_id = ids[-1]
+        if type_id != "A" and type_id != "K":
+            motion_id = None
+            raise Exception("Invalid action type id!")
+        #utils.log_detail(f"rig_id: {rig_id}, type_id: {type_id}, obj_id: {obj_id}, motion_id: {motion_id}, prefix: {prefix}")
+    except Exception as e:
+        prefix = None
+        rig_id = None
+        type_id = None
+        obj_id = None
+        motion_id = None
+        #utils.log_detail("Invalid motion action name!")
+    return prefix, rig_id, type_id, obj_id, motion_id
+
+
+def get_action_motion_id(action, default_name="Motion"):
+    if action:
+        motion_id = action.name.split("|")[-1].strip()
+    else:
+        motion_id = ""
+    if not motion_id and default_name:
+        motion_id = f"{default_name}_{utils.generate_random_id(8)}"
+    return motion_id
+
+
+def get_motion_prefix(action, default_prefix=""):
+    prefix, rig_id, type_id, obj_id, motion_id = decode_action_name(action)
+    prefix = prefix.strip()
+    if not prefix:
+        return default_prefix
+    else:
+        return prefix
+
+
+def get_action_obj_id(obj):
+    obj_id = utils.strip_cc_base_name(obj.name).replace("|", "_")
+    return obj_id
+
+
+def get_formatted_prefix(motion_prefix):
+    motion_prefix = motion_prefix.strip().replace("|", "_")
+    while motion_prefix.endswith("_"):
+        motion_prefix = motion_prefix[:-1]
+    if motion_prefix and not motion_prefix.endswith("|"):
+        motion_prefix += "|"
+    return motion_prefix
+
+
+def get_unique_set_motion_id(rig_id, motion_id, motion_prefix):
+    test_name = make_armature_action_name(rig_id, motion_id, motion_prefix)
+    base_name = test_name
+    num_suffix = 0
+    while test_name in bpy.data.actions:
+        num_suffix += 1
+        test_name = f"{base_name}_{num_suffix:03d}"
+    if num_suffix > 0:
+        motion_id += f"_{num_suffix:03d}"
+    return motion_id
+
+
+def make_armature_action_name(rig_id, motion_id, motion_prefix):
+    f_prefix = get_formatted_prefix(motion_prefix)
+    return f"{f_prefix}{rig_id}|A|{motion_id}"
+
+
+def make_key_action_name(rig_id, motion_id, obj_id, motion_prefix):
+    f_prefix = get_formatted_prefix(motion_prefix)
+    return f"{f_prefix}{rig_id}|K|{obj_id}|{motion_id}"
+
+
+def set_armature_action_name(action, rig_id, motion_id, motion_prefix):
+    action.name = make_armature_action_name(rig_id, motion_id, motion_prefix)
+
+
+def set_key_action_name(action, rig_id, motion_id, obj_id, motion_prefix):
+    action.name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
+
+
+def generate_motion_set(rig, motion_id, motion_prefix):
+    f_prefix = get_formatted_prefix(motion_prefix)
+    rl_set_id = utils.generate_random_id(32)
+    rl_set_generation, source_label = get_armature_action_source_type(rig)
+    if "rl_set_generation" not in rig:
+        rig["rl_set_generation"] = rl_set_generation
+    return rl_set_id, rl_set_generation
+
+
+def get_motion_set(action):
+    set_id = None
+    set_generation = None
+    action_type_id = None
+    key_object = None
+    try:
+        if "rl_set_id" in action:
+            set_id = action["rl_set_id"]
+        if "rl_set_generation" in action:
+            set_generation = action["rl_set_generation"]
+        if "rl_key_object" in action:
+            key_object = action["rl_key_object"]
+        if "rl_action_type" in action:
+            action_type_id = action["rl_action_type"]
+    except:
+        set_id = None
+        set_generation = None
+        action_type_id = None
+        key_object = None
+    return set_id, set_generation, action_type_id, key_object
+
+
+def add_motion_set_data(action, set_id, set_generation, obj_id=None, rl_arm_id=None):
+    action["rl_set_id"] = set_id
+    action["rl_set_generation"] = set_generation
+    if obj_id is not None:
+        action["rl_action_type"] = "KEY"
+        action["rl_key_object"] = obj_id
+    else:
+        action["rl_action_type"] = "ARM"
+    if rl_arm_id is not None:
+        action["rl_armature_id"] = rl_arm_id
 
 
 def rename_armature(arm, name):

@@ -35,6 +35,9 @@ Links
 
 ## Changelog
 
+### 2.1.0
+- Stuff
+
 ### 2.0.9
 - Datalink:
     - Datalink main loop stability improvements.

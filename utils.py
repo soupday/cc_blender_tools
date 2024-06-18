@@ -802,6 +802,7 @@ def make_unique_name_in(name, keys):
 
 
 def partial_match(text, search, start = 0):
+    """Action names can be truncated so sometimes we have to fall back on partial name matches."""
     if text and search:
         ls = len(search)
         lt = len(text)
@@ -1108,8 +1109,9 @@ def array_to_quaternion(arr):
         return Quaternion((arr[3], arr[0], arr[1], arr[2]))
     return Quaternion()
 
-def get_action_shape_key_object_name(name):
-    obj_name = strip_name(name)
+
+def strip_cc_base_name(name):
+    obj_name = strip_name(name.strip())
     if obj_name.startswith("CC_Base_") or obj_name.startswith("CC_Game_"):
         obj_name = obj_name[8:]
     return obj_name
@@ -1425,6 +1427,15 @@ def restore_visible_in_scene(tmp_collection : bpy.types.Collection):
     bpy.data.collections.remove(tmp_collection)
 
 
+def make_visible(obj):
+    # TODO expand this to force visible in tmp collection if unable to make visible with hide_set
+    # but will require something to remove tmp collection later...
+    try:
+        obj.hide_set(False)
+    except:
+        pass
+
+
 def get_object_scene_collections(obj, exclude_rbw = True):
     collections = []
     if obj.name in bpy.context.scene.collection.objects:
@@ -1612,6 +1623,12 @@ def align_object_to_view(obj, context):
             obj.rotation_euler = rot.to_euler()
         elif obj.rotation_mode == "QUATERNION":
             obj.rotation_quaternion = rot.copy()
+
+
+def copy_action(action: bpy.types.Action, new_name):
+    new_action = action.copy()
+    new_action.name = new_name
+    return new_action
 
 
 def safe_get_action(obj) -> bpy.types.Action:
@@ -2164,6 +2181,25 @@ def generate_random_id(length):
     for i in range(0, length):
         id += random.choice(CHARS)
     return id
+
+
+def set_rl_object_id(obj, new_id):
+    if obj:
+        if obj.type == "ARMATURE":
+            obj["rl_armature_id"] = new_id
+            if "rl_object_id" in obj:
+                del(obj["rl_object_id"])
+        else:
+            obj["rl_object_id"] = new_id
+
+
+def get_rl_object_id(obj):
+    if obj:
+        if obj.type == "ARMATURE" and "rl_armature_id" in obj:
+            return obj["rl_armature_id"]
+        if "rl_object_id" in obj:
+            return obj["rl_object_id"]
+    return None
 
 
 def fix_texture_rel_path(rel_path: str):

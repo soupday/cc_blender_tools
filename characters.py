@@ -72,8 +72,8 @@ def duplicate_character(chr_cache):
         new_id = utils.generate_random_id(20)
         obj_cache.object_id = new_id
         for obj in objects:
-            if "rl_object_id" in obj and obj["rl_object_id"] == old_id:
-                obj["rl_object_id"] = new_id
+            if utils.get_rl_object_id(obj) == old_id:
+                utils.set_rl_object_id(obj, new_id)
                 obj_cache.object = obj
 
     all_mat_cache = chr_cache.get_all_materials_cache(include_disabled=True)
@@ -562,7 +562,7 @@ def rebuild_character_cache(chr_cache, chr_rig, src_cache=None):
     processed = []
     defaults = []
     for obj in objects:
-        obj_id = obj["rl_object_id"] if "rl_object_id" in obj else None
+        obj_id = utils.get_rl_object_id(obj)
         if utils.object_exists_is_mesh(obj) and obj not in processed:
             processed.append(obj)
             src_obj_cache = src_cache.get_object_cache(obj, by_id=obj_id) if src_cache else None
