@@ -182,6 +182,7 @@ classes = (
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
+    panels.ACTION_SET_UL_List,
     panels.UNITY_ACTION_UL_List,
     # pipeline panels
     panels.CC3ToolsPipelineImportPanel,
@@ -191,6 +192,9 @@ classes = (
     panels.CC3RigifyPanel,
     panels.CCICBakePanel,
     panels.CC3PipelineScenePanel,
+    # NLA panels
+    panels.CCICNLASetsPanel,
+    panels.CCICNLABakePanel,
     # create panels
     panels.CC3ToolsCreatePanel,
     panels.CC3ObjectManagementPanel,

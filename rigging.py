@@ -3789,6 +3789,50 @@ class CC3Rigifier(bpy.types.Operator):
                     rigutils.set_rigify_ik_fk_influence(rig, 0.0)
                     rigutils.poke_rig(rig)
 
+            elif self.param == "LOAD_ACTION_SET":
+                rig = chr_cache.get_armature()
+                action = props.action_set_list_action
+                if rig:
+                    rigutils.load_motion_set(rig, action)
+
+            elif self.param == "PUSH_ACTION_SET":
+                rig = chr_cache.get_armature()
+                action = props.action_set_list_action
+                auto_index = chr_cache.get_auto_index()
+                if rig:
+                    rigutils.push_motion_set(rig, action, auto_index)
+
+            elif self.param == "CLEAR_ACTION_SET":
+                rig = chr_cache.get_armature()
+                if rig:
+                    rigutils.clear_motion_set(rig)
+
+            elif self.param == "SELECT_SET_STRIPS":
+                rig = chr_cache.get_armature()
+                strip = context.active_nla_strip
+                if rig:
+                    rigutils.select_strips_by_set(rig, strip)
+
+            elif self.param == "NLA_ALIGN_LEFT":
+                strips = context.selected_nla_strips
+                rigutils.align_strips(strips, left=True)
+
+            elif self.param == "NLA_ALIGN_RIGHT":
+                strips = context.selected_nla_strips
+                rigutils.align_strips(strips, left=False)
+
+            elif self.param == "NLA_SIZE_WIDEST":
+                strips = context.selected_nla_strips
+                rigutils.size_strips(strips, widest=True)
+
+            elif self.param == "NLA_SIZE_NARROWEST":
+                strips = context.selected_nla_strips
+                rigutils.size_strips(strips, widest=False)
+
+            elif self.param == "NLA_RESET_SIZE":
+                strips = context.selected_nla_strips
+                rigutils.size_strips(strips, reset=True)
+
             props.restore_ui_list_indices()
 
         return {"FINISHED"}
@@ -3869,6 +3913,34 @@ class CC3Rigifier(bpy.types.Operator):
 
         elif properties.param == "BUTTON_RESET_POSE":
             return "Clears all pose transforms"
+
+        elif properties.param == "LOAD_ACTION_SET":
+            return "Loads the chosen motion set (armature and shape key actions) into the all the character objects"
+
+        elif properties.param == "PUSH_ACTION_SET":
+            return "Pushes the chosen motion set (armature and shape key actions) into the NLA tracks of all the character objects at the current frame. " \
+                   "A suitable track will be chosen to fit the actions. If there is no room available a new track will be added to contain the actions"
+
+        elif properties.param == "CLEAR_ACTION_SET":
+            return "Removes all actions from the character"
+
+        elif properties.param == "SELECT_SET_STRIPS":
+            return "Selects all the strips belonging to the same motion set and strip index"
+
+        elif properties.param == "NLA_ALIGN_LEFT":
+            return "Aligns all selected strips to the left most frame, or as close to as possible"
+
+        elif properties.param == "NLA_ALIGN_RIGHT":
+            return "Aligns all selected strips to the right most frame, or as close to as possible"
+
+        elif properties.param == "NLA_SIZE_WIDEST":
+            return "Sets the frame lengths of all selected strips to the widest selected length"
+
+        elif properties.param == "NLA_SIZE_NARROWEST":
+            return "Sets the frame lengths of all selected strips to the narrowest selected length"
+
+        elif properties.param == "NLA_RESET_SIZE":
+            return "Resets the frame lengths of all selected strips to the length of the underlying action"
 
         return "Rigification!"
 

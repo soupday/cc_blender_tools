@@ -267,8 +267,11 @@ def get_armature_action_source_type(armature, action=None):
 
 
 def find_source_actions(source_action, source_rig=None):
-    src_prefix, src_rig_id, src_type_id, src_object_id, src_motion_id = decode_action_name(source_action)
     src_set_id, src_set_gen, src_type_id, src_object_id = get_motion_set(source_action)
+    src_prefix, src_rig_id, src_type_id, src_object_id, src_motion_id = decode_action_name(source_action)
+    if not src_motion_id:
+        src_motion_id = get_action_motion_id(source_action)
+
     actions = {
         "motion_info": {
             "prefix": src_prefix,
@@ -298,7 +301,7 @@ def find_source_actions(source_action, source_rig=None):
         return actions
 
     # try matching actions by action name pattern
-    if src_motion_id:
+    if src_type_id and src_motion_id:
         # match actions by name pattern
         utils.log_info(f"Looking for shape-key actions matching: [<{src_prefix}>|]{src_rig_id}|[K|A]|[<obj>|]{src_motion_id}")
         for action in bpy.data.actions:
@@ -400,7 +403,8 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
 
     # apply to exact matches first
     utils.log_info(f"Applying source key actions: (copy={copy}, motion_id={motion_id})")
-    for obj in dst_rig.children:
+    objects = utils.get_child_objects(dst_rig)
+    for obj in objects:
         if obj.type == "MESH":
             if utils.object_has_shape_keys(obj):
                 obj_id = get_action_obj_id(obj)
@@ -424,7 +428,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
     if all_matching:
         utils.log_info(f"Applying other matching source key actions:")
         body_action = get_main_body_action(source_actions)
-        for obj in dst_rig.children:
+        for obj in objects:
             if obj not in obj_used and utils.object_has_shape_keys(obj):
                 obj_id = get_action_obj_id(obj)
                 if body_action:
@@ -608,6 +612,187 @@ def add_motion_set_data(action, set_id, set_generation, obj_id=None, rl_arm_id=N
         action["rl_action_type"] = "ARM"
     if rl_arm_id is not None:
         action["rl_armature_id"] = rl_arm_id
+
+
+def load_motion_set(rig, set_armature_action):
+    source_actions = find_source_actions(set_armature_action, None)
+    apply_source_armature_action(rig, source_actions, copy=False)
+    apply_source_key_actions(rig, source_actions, all_matching=True, copy=False)
+
+
+def clear_motion_set(rig):
+    utils.safe_set_action(rig, None)
+    objects = utils.get_child_objects(rig)
+    for obj in objects:
+        if obj.type == "MESH":
+            if utils.object_has_shape_keys(obj):
+                utils.safe_set_action(obj.data.shape_keys, None)
+
+
+def push_motion_set(rig: bpy.types.Object, set_armature_action, push_index = 0):
+    source_actions = find_source_actions(set_armature_action, None)
+    frame = bpy.context.scene.frame_current
+    set_arm_action: bpy.types.Action = source_actions["armature"]
+    length = int(set_arm_action.frame_range[1]) - int(set_arm_action.frame_range[0])
+    objects = utils.get_child_objects(rig)
+    # find all available NLA tracks
+    nla_data = []
+    if rig.animation_data.nla_tracks:
+        nla_data.append(rig.animation_data.nla_tracks)
+    for obj in objects:
+        if obj.data.shape_keys and obj.data.shape_keys.animation_data:
+            if obj.data.shape_keys.animation_data.nla_tracks:
+                nla_data.append(obj.data.shape_keys.animation_data.nla_tracks)
+    # count the mininum number of shared tracks across all action objects
+    min_tracks = 0
+    for nla_tracks in nla_data:
+        l = len(nla_tracks)
+        if l > 0:
+            if min_tracks == 0:
+                min_tracks = l
+            min_tracks = min(min_tracks, l)
+    # find the first available track that can fit the motion set
+    available_tracks = [True] * min_tracks
+    for nla_tracks in nla_data:
+        for i in range(0, min_tracks):
+            track: bpy.types.NlaTrack = nla_tracks[i]
+            strip: bpy.types.NlaStrip
+            for strip in track.strips:
+                if frame >= strip.frame_start and frame < strip.frame_end:
+                    available_tracks[i] = False
+                elif (frame + length) >= strip.frame_start and (frame + length) < strip.frame_end:
+                    available_tracks[i] = False
+                elif strip.frame_start < frame and strip.frame_end >= frame + length:
+                    available_tracks[i] = False
+    track_index = -1
+    for i, available in enumerate(available_tracks):
+        if available:
+            track_index = i
+            break
+    # push the actions
+    action = source_actions["armature"]
+    rig: bpy.types.Object
+    if rig.animation_data is None:
+        rig.animation_data_create()
+    if not rig.animation_data.nla_tracks or track_index == -1:
+        track = rig.animation_data.nla_tracks.new()
+    else:
+        track = rig.animation_data.nla_tracks[track_index]
+    try:
+        strip = track.strips.new(action.name, frame, action)
+    except:
+        track = rig.animation_data.nla_tracks.new()
+        strip = track.strips.new(action.name, frame, action)
+    strip.name = f"{action.name}|{push_index:03d}"
+    for obj in objects:
+        obj_id = get_action_obj_id(obj)
+        if obj.type == "MESH" and obj_id in source_actions["keys"]:
+            action = source_actions["keys"][obj_id]
+            if obj.data.shape_keys:
+                if not obj.data.shape_keys.animation_data:
+                    obj.data.shape_keys.animation_data_create()
+                if not obj.data.shape_keys.animation_data.nla_tracks or track_index == -1:
+                    track = obj.data.shape_keys.animation_data.nla_tracks.new()
+                else:
+                    track = obj.data.shape_keys.animation_data.nla_tracks[track_index]
+                try:
+                    strip = track.strips.new(action.name, frame, action)
+                except:
+                    track = obj.data.shape_keys.animation_data.nla_tracks.new()
+                    strip = track.strips.new(action.name, frame, action)
+                strip.name = f"{action.name}|{push_index:03d}"
+
+
+def get_nla_tracks(data):
+    try:
+        if data and data.animation_data and data.animation_data.nla_tracks:
+            return data.animation_data.nla_tracks
+    except:
+        return None
+
+
+def get_all_nla_strips(data):
+    strips = []
+    tracks = get_nla_tracks(data)
+    if tracks:
+        for track in tracks:
+            for strip in track.strips:
+                strips.append(strip)
+    return strips
+
+
+def get_strips_by_set(rig, active_strip: bpy.types.NlaStrip):
+    strips = []
+    if active_strip:
+        active_set_id = get_motion_set(active_strip.action)[0]
+        active_auto_index = utils.get_auto_index_suffix(active_strip.name)
+        objects = utils.get_child_objects(rig)
+        if active_set_id and active_auto_index > 0:
+            all_strips = get_all_nla_strips(rig)
+            for obj in objects:
+                if obj.type == "MESH":
+                    all_strips.extend(get_all_nla_strips(obj.data.shape_keys))
+        strip: bpy.types.NlaStrip
+        for strip in all_strips:
+            strip_set_id = get_motion_set(strip.action)[0]
+            if strip_set_id == active_set_id:
+                strip_auto_index = utils.get_auto_index_suffix(strip.name)
+                if strip_auto_index == active_auto_index:
+                    strips.append(strip)
+    return strips
+
+
+def select_strips_by_set(rig, active_strip: bpy.types.NlaStrip):
+    bpy.ops.nla.select_all(action='DESELECT')
+    strips = get_strips_by_set(rig, active_strip)
+    for strip in strips:
+        strip.select = True
+
+
+def align_strips(strips, left=True):
+    left_frame = None
+    right_frame = None
+    strip: bpy.types.NlaStrip
+    for strip in strips:
+        if left_frame is None:
+            left_frame = strip.frame_start
+        if right_frame is None:
+            right_frame = strip.frame_end
+        left_frame = min(strip.frame_start, left_frame)
+        right_frame = max(strip.frame_end, right_frame)
+    for strip in strips:
+        length = strip.frame_end - strip.frame_start
+        if left:
+            strip.frame_start = left_frame
+            strip.frame_end = strip.frame_start + length
+        else:
+            strip.frame_end = right_frame
+            strip.frame_start = strip.frame_end - length
+
+
+def size_strips(strips, widest=True, reset=False):
+    min_length = None
+    max_length = None
+    strip: bpy.types.NlaStrip
+    for strip in strips:
+        length = strip.frame_end - strip.frame_start
+        if min_length is None:
+            min_length = length
+        if max_length is None:
+            max_length = length
+        min_length = min(length, min_length)
+        max_length = max(length, max_length)
+    for strip in strips:
+        if reset:
+            action_length = int(strip.action.frame_range[1] - strip.action.frame_range[0])
+            strip.frame_end = strip.frame_start + action_length
+            strip.frame_start = strip.frame_end - action_length
+        elif widest:
+            strip.frame_end = strip.frame_start + max_length
+            strip.frame_start = strip.frame_end - max_length
+        else:
+            strip.frame_end = strip.frame_start + min_length
+            strip.frame_start = strip.frame_end - min_length
 
 
 def rename_armature(arm, name):

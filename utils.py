@@ -777,6 +777,20 @@ def strip_name(name: str):
     return name
 
 
+def get_auto_index_suffix(name):
+    auto_index = 0
+    try:
+        if type(name) is not str:
+            name = name.name
+        if name[-4] == "|" and name[-3:].isdigit():
+            auto_index = int(name[-3:])
+        elif name[-5] == "|" and name[-4:].isdigit():
+            auto_index = int(name[-4:])
+    except:
+        pass
+    return auto_index
+
+
 def is_blender_duplicate(name):
     if len(name) >= 4:
         if name[-3:].isdigit() and name[-4] == ".":
