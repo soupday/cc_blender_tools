@@ -2351,6 +2351,16 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                                                        description="Name to assign to transferred shape key")
 
 
+    # rigify
+
+    rigify_retarget_motion_prefix: bpy.props.StringProperty(default="", name="Rigify Retarget Motion Prefix",
+                                                   description="Motion prefix for retargeted motions.")
+    rigify_bake_motion_prefix: bpy.props.StringProperty(default="", name="Rigify Bake Motion Prefix",
+                                                   description="Motion prefix for baked NLA motions.")
+    rigify_bake_motion_name: bpy.props.StringProperty(default="NLA_Bake", name="Rigify Bake Motion Name",
+                                                   description="Motion name for baked NLA motions.")
+    filter_motion_set: bpy.props.BoolProperty(default=True, name="Filter",
+                                                  description="Show only motion sets compatible with the current character")
 
     # Hair
 

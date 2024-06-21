@@ -1774,16 +1774,16 @@ class CCICMotionSetRename(bpy.types.Operator):
         else:
             self.motion_id = "Motion"
 
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=400)
 
     def draw(self, context):
         layout = self.layout
 
-        split = layout.split(factor=0.4)
+        split = layout.split(factor=0.35)
         col_1 = split.column()
         col_2 = split.column()
 
-        col_1.label(text="Motion Set:")
+        col_1.label(text="Motion Set ID:")
         col_2.label(text=self.set_id)
 
         col_1.separator()
@@ -1809,3 +1809,96 @@ class CCICMotionSetRename(bpy.types.Operator):
     @classmethod
     def description(cls, context, properties):
         return "Change the name, prefix, and character/rig id of the motion set"
+
+
+class CCICMotionSetInfo(bpy.types.Operator):
+    bl_idname = "ccic.motion_set_info"
+    bl_label = "Motion Set Info"
+
+    prefix: bpy.props.StringProperty(name="Motion Prefix", default="")
+    rig_id: bpy.props.StringProperty(name="Character / Rig ID", default="")
+    motion_id: bpy.props.StringProperty(name="Motion Name / ID", default="")
+    set_id = bpy.props.StringProperty(name="Set ID", default="")
+
+    def execute(self, context):
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        props = vars.props()
+        prefs = vars.prefs()
+
+        props.store_ui_list_indices()
+        action = props.action_set_list_action
+        chr_cache = props.get_context_character_cache(context)
+
+        if not action:
+            return {"FINISHED"}
+
+        set_id, set_generation, action_type_id, key_object = get_motion_set(action)
+
+        if not set_id:
+            return {"FINISHED"}
+
+        self.set_id = set_id
+
+        prefix, rig_id, type_id, obj_id, motion_id = decode_action_name(action)
+        if prefix:
+            self.prefix = prefix
+        if rig_id:
+            self.rig_id = rig_id
+        elif chr_cache:
+            self.rig_id = chr_cache.character_name
+        else:
+            self.rig_id = "Rig"
+        if motion_id:
+            self.motion_id = motion_id
+        elif action.name:
+            self.motion_id = action.name.split("|")[-1]
+        else:
+            self.motion_id = "Motion"
+
+        return context.window_manager.invoke_props_dialog(self, width=600)
+
+    def draw(self, context):
+        layout = self.layout
+
+        split = layout.split(factor=0.25)
+        col_1 = split.column()
+        col_2 = split.column()
+
+        col_1.label(text="Motion Set ID:")
+        col_2.label(text=self.set_id)
+
+        col_1.separator()
+        col_2.separator()
+
+        col_1.label(text="Prefix:")
+        col_2.label(text=self.prefix if self.prefix else "(None)")
+        col_1.label(text="Character / Rig ID:")
+        col_2.label(text=self.rig_id if self.rig_id else "(None)")
+        col_1.label(text="Motion Name / ID:")
+        col_2.label(text=self.motion_id if self.motion_id else "(None)")
+
+        layout.separator()
+
+        layout.label(text="Actions:")
+
+        split = layout.split(factor=0.25)
+        col_1 = split.column()
+        col_2 = split.column()
+        for action in bpy.data.actions:
+            action_set_id = utils.custom_prop(action, "rl_set_id")
+            action_type = utils.custom_prop(action, "rl_action_type")
+            if action_set_id == self.set_id:
+                if action_type == "ARM":
+                    col_1.label(text="Armature")
+                elif action_type == "KEY":
+                    obj_id = utils.custom_prop(action, "rl_key_object", "(None)")
+                    col_1.label(text=obj_id)
+                else:
+                    col_1.label(text="?")
+                col_2.label(text=action.name)
+
+    @classmethod
+    def description(cls, context, properties):
+        return "Show motion set info"

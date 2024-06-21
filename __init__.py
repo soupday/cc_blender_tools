@@ -180,6 +180,7 @@ classes = (
     characters.CCICCharacterLink,
     proportion.CCICCharacterProportions,
     rigutils.CCICMotionSetRename,
+    rigutils.CCICMotionSetInfo,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,

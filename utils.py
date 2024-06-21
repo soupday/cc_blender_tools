@@ -2226,6 +2226,12 @@ def get_rl_object_id(obj):
     return None
 
 
+def custom_prop(obj, prop_name, default=None):
+    if prop_name in obj:
+        return obj[prop_name]
+    return default
+
+
 def fix_texture_rel_path(rel_path: str):
     """Fixes json texture relative path export bug in CC4 when exporting character directly
        to the root folder of a drive"""

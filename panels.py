@@ -688,7 +688,6 @@ class ACTION_SET_UL_List(bpy.types.UIList):
             allowed = False
             action_set_generation = None
             action_type = None
-            action_armature_id = None
             if "rl_set_generation" in item:
                 action_set_generation = item["rl_set_generation"]
             if "rl_action_type" in item:
@@ -696,7 +695,7 @@ class ACTION_SET_UL_List(bpy.types.UIList):
             if (arm_set_generation and
                 action_set_generation and
                 action_type == "ARM" and
-                arm_set_generation == action_set_generation):
+                (not props.filter_motion_set or arm_set_generation == action_set_generation)):
                 allowed = True
             # filter by name
             if allowed and self.filter_name and self.filter_name != "*":
@@ -1877,7 +1876,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                                     row = layout.row()
                                     split = row.split(factor=0.5)
                                     split.column().label(text="Motion Prefix")
-                                    split.column().prop(prefs, "rigify_retarget_motion_prefix", text="")
+                                    split.column().prop(props, "rigify_retarget_motion_prefix", text="")
                             if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
                                 wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
 
@@ -2078,7 +2077,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         row = col.row()
                         split = row.split(factor=0.5)
                         split.column().label(text="Motion Prefix")
-                        split.column().prop(prefs, "rigify_retarget_motion_prefix", text="")
+                        split.column().prop(props, "rigify_retarget_motion_prefix", text="")
 
                         col.separator()
 
@@ -2109,22 +2108,15 @@ class CC3RigifyPanel(bpy.types.Panel):
                         rigify_export_group(chr_cache, layout)
 
                 if chr_cache:
-                    # Motion Sets
+
                     box_row = layout.box().row()
                     if fake_drop_down(box_row,
-                                        "Motion Sets",
-                                        "section_rigify_action_sets",
-                                        props.section_rigify_action_sets,
-                                        icon="ANIM_DATA", icon_closed="ANIM_DATA"):
-                        col = layout.column(align=True)
-                        col.label(text="Motion Sets:")
-                        col.template_list("ACTION_SET_UL_List", "action_set_list", bpy.data, "actions", props, "action_set_list_index", rows=1, maxrows=5)
-                        col.operator("ccic.motion_set_rename", icon="GREASEPENCIL", text="Rename Motion Set")
-                        grid = col.grid_flow(row_major=True, align=True, columns=2)
-                        grid.scale_y = 1.5
-                        grid.operator("cc3.rigifier", icon="ACTION_TWEAK", text="Load").param = "LOAD_ACTION_SET"
-                        grid.operator("cc3.rigifier", icon="REMOVE", text="Clear").param = "CLEAR_ACTION_SET"
-                        col.separator()
+                                      "Motion Sets",
+                                      "section_rigify_action_sets",
+                                      props.section_rigify_action_sets,
+                                      icon="ANIM_DATA", icon_closed="ANIM_DATA"):
+                        motion_set_ui(layout, chr_cache)
+
 
             elif not chr_cache:
 
@@ -2132,6 +2124,61 @@ class CC3RigifyPanel(bpy.types.Panel):
 
         else:
             wrapped_text_box(layout, "Rigify add-on is not installed.", width, True)
+
+
+def motion_set_ui(layout: bpy.types.UILayout, chr_cache, show_nla=False):
+    props = vars.props()
+
+    # current selected motion set action
+    action_set_list_action = utils.collection_at_index(props.action_set_list_index, bpy.data.actions)
+    action_set_generation = None
+    if action_set_list_action:
+        action_set_generation = action_set_list_action["rl_set_generation"]
+    rig = None
+    if chr_cache:
+        rig = chr_cache.get_armature()
+    if "rl_set_generation" in rig:
+        rig_set_generation = rig["rl_set_generation"]
+
+    col = layout.column(align=True)
+    split = col.split(factor=0.65)
+    split.column().label(text="Motion Sets:")
+    split.column().prop(props, "filter_motion_set")
+
+    col.template_list("ACTION_SET_UL_List", "action_set_list", bpy.data, "actions", props, "action_set_list_index", rows=1, maxrows=5)
+
+    row = col.row(align=True)
+    row.operator("ccic.motion_set_rename", icon="GREASEPENCIL", text="Rename Motion Set")
+    row.operator("ccic.motion_set_info", icon="VIEWZOOM", text="")
+
+
+    split = col.split(factor=0.5, align=True)
+    split.scale_y = 1.5
+    col_1 = split.column(align=True)
+    col_2 = split.column(align=True)
+    row = col_1.row(align=True)
+    row.operator("cc3.rigifier", icon="ACTION_TWEAK", text="Load").param = "LOAD_ACTION_SET"
+    if rig_set_generation != action_set_generation:
+        row.enabled = False
+    col_2.operator("cc3.rigifier", icon="REMOVE", text="Clear").param = "CLEAR_ACTION_SET"
+
+    if show_nla:
+        row = col_1.row(align=True)
+        row.operator("cc3.rigifier", icon="NLA_PUSHDOWN", text="Push").param = "PUSH_ACTION_SET"
+        if rig_set_generation != action_set_generation:
+            row.enabled = False
+        col_2.operator("cc3.rigifier", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_SET_STRIPS"
+
+        # strip tools
+        grid = layout.grid_flow(row_major=True, align=True, columns=5)
+        grid.operator("cc3.rigifier", icon="ANCHOR_LEFT", text="").param = "NLA_ALIGN_LEFT"
+        grid.operator("cc3.rigifier", icon="FULLSCREEN_EXIT", text="").param = "NLA_SIZE_NARROWEST"
+        grid.operator("cc3.rigifier", icon="FIXED_SIZE", text="").param = "NLA_RESET_SIZE"
+        grid.operator("cc3.rigifier", icon="FULLSCREEN_ENTER", text="").param = "NLA_SIZE_WIDEST"
+        grid.operator("cc3.rigifier", icon="ANCHOR_RIGHT", text="").param = "NLA_ALIGN_RIGHT"
+
+    if not chr_cache:
+        split.enabled = False
 
 
 class CCICAnimationToolsPanel(bpy.types.Panel):
@@ -2152,18 +2199,7 @@ class CCICAnimationToolsPanel(bpy.types.Panel):
         layout.use_property_split = False
         layout.use_property_decorate = False
 
-        # motion sets
-
-        col = layout.column(align=True)
-        col.label(text="Motion Sets:")
-        col.template_list("ACTION_SET_UL_List", "action_set_list", bpy.data, "actions", props, "action_set_list_index", rows=1, maxrows=5)
-        col.operator("ccic.motion_set_rename", icon="GREASEPENCIL", text="Rename Motion Set")
-        grid = col.grid_flow(row_major=True, align=True, columns=2)
-        grid.scale_y = 1.5
-        grid.operator("cc3.rigifier", icon="ACTION_TWEAK", text="Load").param = "LOAD_ACTION_SET"
-        grid.operator("cc3.rigifier", icon="REMOVE", text="Clear").param = "CLEAR_ACTION_SET"
-        if not chr_cache:
-            grid.enabled = False
+        motion_set_ui(layout, chr_cache)
 
 
 class CCICNLASetsPanel(bpy.types.Panel):
@@ -2183,26 +2219,7 @@ class CCICNLASetsPanel(bpy.types.Panel):
         layout.use_property_split = False
         layout.use_property_decorate = False
 
-        # motion sets
-
-        col = layout.column(align=True)
-        col.label(text="Motion Sets:")
-        col.template_list("ACTION_SET_UL_List", "action_set_list", bpy.data, "actions", props, "action_set_list_index", rows=1, maxrows=5)
-        col.operator("ccic.motion_set_rename", icon="GREASEPENCIL", text="Rename Motion Set")
-        grid = col.grid_flow(row_major=True, align=True, columns=2)
-        grid.scale_y = 1.5
-        grid.operator("cc3.rigifier", icon="ACTION_TWEAK", text="Load").param = "LOAD_ACTION_SET"
-        grid.operator("cc3.rigifier", icon="REMOVE", text="Clear").param = "CLEAR_ACTION_SET"
-        grid.operator("cc3.rigifier", icon="NLA_PUSHDOWN", text="Push").param = "PUSH_ACTION_SET"
-        grid.operator("cc3.rigifier", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_SET_STRIPS"
-        if not chr_cache:
-            grid.enabled = False
-        grid = layout.grid_flow(row_major=True, align=True, columns=5)
-        grid.operator("cc3.rigifier", icon="ANCHOR_LEFT", text="").param = "NLA_ALIGN_LEFT"
-        grid.operator("cc3.rigifier", icon="FULLSCREEN_EXIT", text="").param = "NLA_SIZE_NARROWEST"
-        grid.operator("cc3.rigifier", icon="FIXED_SIZE", text="").param = "NLA_RESET_SIZE"
-        grid.operator("cc3.rigifier", icon="FULLSCREEN_ENTER", text="").param = "NLA_SIZE_WIDEST"
-        grid.operator("cc3.rigifier", icon="ANCHOR_RIGHT", text="").param = "NLA_ALIGN_RIGHT"
+        motion_set_ui(layout, chr_cache, show_nla=True)
 
 
 class CCICNLABakePanel(bpy.types.Panel):
@@ -2239,9 +2256,9 @@ class CCICNLABakePanel(bpy.types.Panel):
         col_1 = split.column()
         col_2 = split.column()
         col_1.column().label(text="Motion Prefix")
-        col_2.column().prop(prefs, "rigify_bake_motion_prefix", text="")
+        col_2.column().prop(props, "rigify_bake_motion_prefix", text="")
         col_1.column().label(text="Motion Name")
-        col_2.column().prop(prefs, "rigify_bake_motion_name", text="")
+        col_2.column().prop(props, "rigify_bake_motion_name", text="")
 
         if not chr_cache:
             col.enabled = False

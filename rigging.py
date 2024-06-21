@@ -2461,7 +2461,7 @@ def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None
         rig_id = rigutils.get_rig_id(rigify_rig)
         rl_arm_id = utils.get_rl_object_id(rigify_rig)
         motion_prefix = rigutils.get_motion_prefix(src_action)
-        custom_prefix = prefs.rigify_retarget_motion_prefix.strip()
+        custom_prefix = props.rigify_retarget_motion_prefix.strip()
         if use_custom_motion_prefix and custom_prefix:
             motion_prefix = custom_prefix
         motion_id = rigutils.get_action_motion_id(src_action, "Retarget")
@@ -2604,8 +2604,8 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
                     len(child.data.shape_keys.key_blocks) > 0):
                     shape_key_objects.append(child)
 
-        motion_prefix = prefs.rigify_bake_motion_prefix.strip()
-        motion_id = prefs.rigify_bake_motion_name.strip()
+        motion_prefix = props.rigify_bake_motion_prefix.strip()
+        motion_id = props.rigify_bake_motion_name.strip()
         if not motion_id:
             motion_id = "NLA_Bake"
 
