@@ -402,8 +402,12 @@ def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
     rig_id = rigutils.get_rig_id(arm)
     utils.log_info(f"Remap Action Names:")
     utils.log_info(f"Armature: {source_id} => {rig_id}")
-    rl_arm_id = utils.generate_random_id(20)
-    utils.set_rl_object_id(arm, rl_arm_id)
+
+    # don't change the armature id if it exists
+    rl_arm_id = utils.get_rl_object_id(arm)
+    if not rl_arm_id:
+        rl_arm_id = utils.generate_random_id(20)
+        utils.set_rl_object_id(arm, rl_arm_id)
 
     # find all motions for this armature
     armature_actions = []

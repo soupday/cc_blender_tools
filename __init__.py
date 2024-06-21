@@ -179,6 +179,7 @@ classes = (
     link.CCICDataLink,
     characters.CCICCharacterLink,
     proportion.CCICCharacterProportions,
+    rigutils.CCICMotionSetRename,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
@@ -206,6 +207,7 @@ classes = (
     panels.CC3CreateScenePanel,
     # link panels
     panels.CCICDataLinkPanel,
+    panels.CCICAnimationToolsPanel,
     # control panels
     panels.CC3SpringControlPanel,
     # test panels

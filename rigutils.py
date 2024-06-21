@@ -541,11 +541,14 @@ def get_formatted_prefix(motion_prefix):
     return motion_prefix
 
 
-def get_unique_set_motion_id(rig_id, motion_id, motion_prefix):
+def get_unique_set_motion_id(rig_id, motion_id, motion_prefix, exclude_set_id=None):
     test_name = make_armature_action_name(rig_id, motion_id, motion_prefix)
     base_name = test_name
     num_suffix = 0
     while test_name in bpy.data.actions:
+        if exclude_set_id and "rl_set_id" in bpy.data.actions[test_name]:
+            if exclude_set_id == bpy.data.actions[test_name]["rl_set_id"]:
+                break
         num_suffix += 1
         test_name = f"{base_name}_{num_suffix:03d}"
     if num_suffix > 0:
@@ -625,6 +628,15 @@ def clear_motion_set(rig):
     objects = utils.get_child_objects(rig)
     for obj in objects:
         if obj.type == "MESH":
+            if utils.object_has_shape_keys(obj):
+                utils.safe_set_action(obj.data.shape_keys, None)
+
+
+def clear_all_actions(objects):
+    for obj in objects:
+        if utils.object_exists_is_armature(obj):
+            utils.safe_set_action(obj, None)
+        elif utils.object_exists_is_mesh(obj):
             if utils.object_has_shape_keys(obj):
                 utils.safe_set_action(obj.data.shape_keys, None)
 
@@ -1693,3 +1705,107 @@ def de_pivot(chr_cache):
                 obj.matrix_world = M
 
             select_rig(rig)
+
+
+
+
+
+
+class CCICMotionSetRename(bpy.types.Operator):
+    bl_idname = "ccic.motion_set_rename"
+    bl_label = "Rename Motion Set"
+
+    prefix: bpy.props.StringProperty(name="Motion Prefix", default="")
+    rig_id: bpy.props.StringProperty(name="Character / Rig ID", default="")
+    motion_id: bpy.props.StringProperty(name="Motion Name / ID", default="")
+    set_id = bpy.props.StringProperty(name="Set ID", default="")
+
+    def execute(self, context):
+        props = vars.props()
+
+        prefix = self.prefix
+        rig_id = self.rig_id
+        motion_id = get_unique_set_motion_id(rig_id, self.motion_id, prefix, exclude_set_id=self.set_id)
+
+        for action in bpy.data.actions:
+            if "rl_set_id" in action:
+                if action["rl_set_id"] == self.set_id:
+                    set_id, set_generation, action_type_id, obj_id = get_motion_set(action)
+                    if action_type_id == "ARM":
+                        name = make_armature_action_name(rig_id, motion_id, prefix)
+                        action.name = name
+                    elif action_type_id == "KEY":
+                        name = make_key_action_name(rig_id, motion_id, obj_id, prefix)
+                        action.name = name
+
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        props = vars.props()
+        prefs = vars.prefs()
+
+        props.store_ui_list_indices()
+        action = props.action_set_list_action
+        chr_cache = props.get_context_character_cache(context)
+
+        if not action:
+            return {"FINISHED"}
+
+        set_id, set_generation, action_type_id, key_object = get_motion_set(action)
+
+        if not set_id:
+            return {"FINISHED"}
+
+        self.set_id = set_id
+
+        prefix, rig_id, type_id, obj_id, motion_id = decode_action_name(action)
+        if prefix:
+            self.prefix = prefix
+        if rig_id:
+            self.rig_id = rig_id
+        elif chr_cache:
+            self.rig_id = chr_cache.character_name
+        else:
+            self.rig_id = "Rig"
+        if motion_id:
+            self.motion_id = motion_id
+        elif action.name:
+            self.motion_id = action.name.split("|")[-1]
+        else:
+            self.motion_id = "Motion"
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+
+        split = layout.split(factor=0.4)
+        col_1 = split.column()
+        col_2 = split.column()
+
+        col_1.label(text="Motion Set:")
+        col_2.label(text=self.set_id)
+
+        col_1.separator()
+        col_2.separator()
+
+        col_1.label(text="Prefix:")
+        col_2.prop(self, "prefix", text="")
+
+        col_1.separator()
+        col_2.separator()
+
+        col_1.label(text="Character / Rig ID:")
+        col_2.prop(self, "rig_id", text="")
+
+        col_1.separator()
+        col_2.separator()
+
+        col_1.label(text="Motion Name / ID:")
+        col_2.prop(self, "motion_id", text="")
+
+        layout.separator()
+
+    @classmethod
+    def description(cls, context, properties):
+        return "Change the name, prefix, and character/rig id of the motion set"

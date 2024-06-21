@@ -45,10 +45,13 @@ def duplicate_character(chr_cache):
 
     objects = chr_cache.get_all_objects(include_armature=True, include_children=False,
                                         include_disabled=False, of_type="ALL")
+    state = utils.store_object_state(objects)
+    rigutils.clear_all_actions(objects)
     tmp = utils.force_visible_in_scene("TMP_Duplicate", *objects)
     utils.try_select_objects(objects, clear_selection=True)
     bpy.ops.object.duplicate()
     objects = bpy.context.selected_objects.copy()
+    utils.restore_object_state(state)
     utils.restore_visible_in_scene(tmp)
 
     # duplicate materials
@@ -69,12 +72,19 @@ def duplicate_character(chr_cache):
 
     for obj_cache in chr_cache.object_cache:
         old_id = obj_cache.object_id
+        old_obj = obj_cache.object
         new_id = utils.generate_random_id(20)
         obj_cache.object_id = new_id
         for obj in objects:
             if utils.get_rl_object_id(obj) == old_id:
                 utils.set_rl_object_id(obj, new_id)
                 obj_cache.object = obj
+                if obj.type == "ARMATURE":
+                    action = utils.safe_get_action(old_obj)
+                    utils.safe_set_action(obj, action)
+                elif obj.type == "MESH" and utils.object_has_shape_keys(obj):
+                    action = utils.safe_get_action(old_obj.data.shape_keys)
+                    utils.safe_set_action(obj.data.shape_keys, action)
 
     all_mat_cache = chr_cache.get_all_materials_cache(include_disabled=True)
     for mat_cache in all_mat_cache:

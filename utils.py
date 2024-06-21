@@ -1965,7 +1965,7 @@ def store_object_state(objects=None):
         objects = bpy.data.objects
     obj_state = {}
     for obj in objects:
-        if (obj.type == "MESH" or obj.type == "ARMATURE") and obj not in obj_state:
+        if (object_exists_is_armature(obj) or object_exists_is_mesh(obj)) and obj not in obj_state:
             obj_state[obj] = {
                 "names": [obj.name, obj.data.name],
                 "visible": obj.visible_get(),
@@ -1973,7 +1973,7 @@ def store_object_state(objects=None):
             if obj.type == "MESH":
                 obj_state[obj]["slots"] = [ slot.material for slot in obj.material_slots ]
                 for mat in obj.data.materials:
-                    if mat not in obj_state:
+                    if material_exists(mat) and mat not in obj_state:
                         obj_state[mat] = { "name": mat.name }
                 if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
                     obj_state[obj]["action"] = safe_get_action(obj.data.shape_keys)
@@ -1988,21 +1988,25 @@ def restore_object_state(obj_state):
         state = obj_state[item]
         if type(item) is bpy.types.Object:
             obj: bpy.types.Object = item
-            force_object_name(obj, state["names"][0])
-            if obj.type == "MESH":
-                force_mesh_name(obj.data, state["names"][1])
-                for i, mat in enumerate(state["slots"]):
-                    if obj.material_slots[i].material != mat:
-                        obj.material_slots[i].material = mat
-                if "action" in state:
-                    safe_set_action(obj.data.shape_keys, state["action"])
-            elif obj.type == "ARMATURE":
-                force_armature_name(obj.data, state["names"][1])
-                if "action" in state:
-                    safe_set_action(obj, state["action"])
+            if object_exists(obj):
+                force_object_name(obj, state["names"][0])
+                if obj.type == "MESH":
+                    force_mesh_name(obj.data, state["names"][1])
+                    for i, mat in enumerate(state["slots"]):
+                        if not material_exists(mat):
+                            mat = None
+                        if obj.material_slots[i].material != mat:
+                            obj.material_slots[i].material = mat
+                    if "action" in state:
+                        safe_set_action(obj.data.shape_keys, state["action"])
+                elif obj.type == "ARMATURE":
+                    force_armature_name(obj.data, state["names"][1])
+                    if "action" in state:
+                        safe_set_action(obj, state["action"])
         elif type(item) is bpy.types.Material:
             mat: bpy.types.Material = item
-            force_material_name(mat, state["name"])
+            if material_exists(mat):
+                force_material_name(mat, state["name"])
 
 
 def reset_shape_keys(objects):
