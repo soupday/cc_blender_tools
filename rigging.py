@@ -2406,12 +2406,8 @@ def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=Non
 
     temp_collection = utils.force_visible_in_scene("TMP_Retarget", source_rig, rigify_rig)
 
-    rigify_rig.location = (0,0,0)
-    rigify_rig.rotation_mode = "XYZ"
-    rigify_rig.rotation_euler = (0,0,0)
-    source_rig.location = (0,0,0)
-    source_rig.rotation_mode = "XYZ"
-    #source_rig.rotation_euler = (0,0,0)
+    utils.reset_object_transform(rigify_rig)
+    utils.reset_object_transform(source_rig)
 
     utils.delete_armature_object(chr_cache.rig_retarget_rig)
     retarget_rig = generate_retargeting_rig(chr_cache, source_rig, rigify_rig,
@@ -3341,6 +3337,12 @@ class CC3Rigifier(bpy.types.Operator):
             options={"HIDDEN"}
         )
 
+    auto_retarget: bpy.props.BoolProperty(
+            name = "Auto Retarget Animation",
+            default = False,
+            options={"HIDDEN"}
+        )
+
     cc3_rig = None
     meta_rig = None
     rigify_rig = None
@@ -3361,10 +3363,10 @@ class CC3Rigifier(bpy.types.Operator):
             self.meta_rig = utils.get_active_object()
             if self.meta_rig is not None:
                 utils.log_info("Meta-Rig added.")
-                self.meta_rig.location = (0,0,0)
+                utils.reset_object_transform(self.meta_rig)
                 if self.cc3_rig is not None:
                     self.meta_rig.name = f"{self.cc3_rig.name}_metarig"
-                    self.cc3_rig.location = (0,0,0)
+                    utils.reset_object_transform(self.cc3_rig)
                     self.cc3_rig.data.pose_position = "REST"
                     utils.log_info("Aligning Meta-Rig.")
                     utils.log_indent()
@@ -3478,6 +3480,9 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("Generating Rigify Control Rig:")
                 utils.log_info("------------------------------")
 
+                utils.reset_object_transform(self.cc3_rig)
+                utils.reset_object_transform(self.meta_rig)
+
                 bpy.ops.pose.rigify_generate()
                 self.rigify_rig = utils.get_active_object()
 
@@ -3538,6 +3543,9 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.log_info("")
                 utils.log_info("Re-generating Rigify Control Rig:")
                 utils.log_info("---------------------------------")
+
+                utils.reset_object_transform(self.cc3_rig)
+                utils.reset_object_transform(self.meta_rig)
 
                 # regenerating the rig will replace the existing rigify rig
                 # so there is no need to reparent anything
@@ -3633,8 +3641,9 @@ class CC3Rigifier(bpy.types.Operator):
                 self.generate_meta_rig(chr_cache)
                 self.rigify_meta_rig(chr_cache)
                 utils.set_active_layer_collection(olc)
-                if prefs.rigify_auto_retarget:
-                    full_retarget_source_rig_action(self, chr_cache, self.cc3_rig)
+                if self.auto_retarget or prefs.rigify_auto_retarget:
+                    full_retarget_source_rig_action(self, chr_cache, self.cc3_rig,
+                                                    use_custom_motion_prefix=not self.auto_retarget)
 
             elif self.param == "META_RIG":
 

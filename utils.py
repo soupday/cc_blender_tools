@@ -1576,14 +1576,20 @@ def set_only_render_visible(object):
 
 
 def store_object_transform(obj: bpy.types.Object):
-    T = (obj.location,
-         obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_quaternion, obj.rotation_mode,
-         obj.scale)
+    T = (obj.location.copy(),
+         obj.rotation_mode,
+         obj.rotation_quaternion.copy(),
+         [a for a in obj.rotation_axis_angle],
+         obj.rotation_euler.copy(),
+         obj.scale.copy())
     return T
 
 
-def restore_object_transform(obj: bpy.types.Object, T: list):
-    obj.location, obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_quaternion, obj.rotation_mode, obj.scale = T
+def restore_object_transform(obj: bpy.types.Object, T: tuple, ignore_scale=False):
+    if ignore_scale:
+        obj.location, obj.rotation_mode, obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_euler, scale = T
+    else:
+        obj.location, obj.rotation_mode, obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_euler, obj.scale = T
 
 
 def reset_object_transform(obj: bpy.types.Object):

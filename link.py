@@ -2986,8 +2986,7 @@ class LinkService():
                 update_link_status(f"Rigifying: {actor.name}")
                 chr_cache.select()
                 cc3_rig = chr_cache.get_armature()
-                bpy.ops.cc3.rigifier(param="ALL", no_face_rig=True)
-                rigging.full_retarget_source_rig_action(None, chr_cache, cc3_rig)
+                bpy.ops.cc3.rigifier(param="ALL", no_face_rig=True, auto_retarget=True)
                 rigutils.update_avatar_rig(chr_cache.get_armature())
                 update_link_status(f"Character Rigified: {actor.name}")
 
