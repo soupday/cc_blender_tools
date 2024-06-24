@@ -181,6 +181,7 @@ classes = (
     proportion.CCICCharacterProportions,
     rigutils.CCICMotionSetRename,
     rigutils.CCICMotionSetInfo,
+    rigutils.CCICRigUtils,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,

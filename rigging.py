@@ -2433,7 +2433,8 @@ def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=Non
     return retarget_rig
 
 
-def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None, use_custom_motion_prefix=True):
+def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None,
+                                    use_ui_options=True):
     prefs = vars.prefs()
     props = vars.props()
 
@@ -2462,20 +2463,20 @@ def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None
         rl_arm_id = utils.get_rl_object_id(rigify_rig)
         motion_prefix = rigutils.get_motion_prefix(src_action)
         custom_prefix = props.rigify_retarget_motion_prefix.strip()
-        if use_custom_motion_prefix and custom_prefix:
+        if use_ui_options and custom_prefix:
             motion_prefix = custom_prefix
         motion_id = rigutils.get_action_motion_id(src_action, "Retarget")
         motion_id = rigutils.get_unique_set_motion_id(rig_id, motion_id, motion_prefix)
         set_id, set_generation = rigutils.generate_motion_set(rigify_rig, motion_id, motion_prefix)
         rigutils.set_armature_action_name(armature_action, rig_id, motion_id, motion_prefix)
         rigutils.add_motion_set_data(armature_action, set_id, set_generation, rl_arm_id=rl_arm_id)
+        armature_action.use_fake_user = props.rigify_retarget_use_fake_user if use_ui_options else True
         utils.log_info(f"Renaming armature action to: {armature_action.name}")
         for obj_id, key_action in key_actions.items():
             rigutils.set_key_action_name(key_action, rig_id, motion_id, obj_id, motion_prefix)
             rigutils.add_motion_set_data(key_action, set_id, set_generation, obj_id=obj_id)
             utils.log_info(f"Renaming key action ({obj_id}) to: {key_action.name}")
-
-    return
+            key_action.use_fake_user = props.rigify_retarget_use_fake_user if use_ui_options else True
 
 
 FK_BONE_GROUPS = ["FK", "Special", "Tweak", "Extra", "Root"]
@@ -2612,6 +2613,10 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
         armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, None,
                                                                 shape_key_objects, False, True, motion_id,
                                                                 motion_prefix=motion_prefix)
+
+        armature_action.use_fake_user = props.rigify_bake_use_fake_user
+        for key_action in shape_key_actions:
+            key_action.use_fake_user = props.rigify_bake_use_fake_user
 
         bones.restore_armature_settings(rigify_rig, rigify_settings)
 
@@ -3632,7 +3637,7 @@ class CC3Rigifier(bpy.types.Operator):
                 self.rigify_meta_rig(chr_cache)
                 utils.set_active_layer_collection(olc)
                 full_retarget_source_rig_action(self, chr_cache, self.cc3_rig,
-                                                use_custom_motion_prefix=False)
+                                                use_ui_options=False)
                 rigutils.update_avatar_rig(self.rigify_rig)
 
             if self.param == "ALL":
@@ -3643,7 +3648,7 @@ class CC3Rigifier(bpy.types.Operator):
                 utils.set_active_layer_collection(olc)
                 if self.auto_retarget or prefs.rigify_auto_retarget:
                     full_retarget_source_rig_action(self, chr_cache, self.cc3_rig,
-                                                    use_custom_motion_prefix=not self.auto_retarget)
+                                                    use_ui_options=not self.auto_retarget)
 
             elif self.param == "META_RIG":
 
@@ -3734,7 +3739,7 @@ class CC3Rigifier(bpy.types.Operator):
                 adv_retarget_remove_pair(self, chr_cache)
 
             elif self.param == "RETARGET_CC_BAKE_ACTION":
-                full_retarget_source_rig_action(self, chr_cache)
+                full_retarget_source_rig_action(self, chr_cache, use_ui_options=True)
 
             elif self.param == "NLA_CC_BAKE":
                 adv_bake_NLA_to_rigify(self, chr_cache)
@@ -3753,94 +3758,6 @@ class CC3Rigifier(bpy.types.Operator):
             elif self.param == "SPRING_GROUP_TO_SIM":
                 group_props_to_value(chr_cache, context.active_pose_bone, "IK_FK", 1.0)
                 group_props_to_value(chr_cache, context.active_pose_bone, "SIM", 1.0)
-
-            elif self.param == "TOGGLE_SHOW_FULL_RIG":
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.toggle_show_full_rig(rig)
-
-            elif self.param == "TOGGLE_SHOW_BASE_RIG":
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.toggle_show_base_rig(rig)
-
-            elif self.param == "TOGGLE_SHOW_SPRING_RIG":
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.toggle_show_spring_rig(rig)
-
-            elif self.param == "TOGGLE_SHOW_RIG_POSE":
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.toggle_rig_rest_position(rig)
-
-            elif self.param == "TOGGLE_SHOW_SPRING_BONES":
-                rig = chr_cache.get_armature()
-                if rig:
-                    springbones.toggle_show_spring_bones(rig)
-
-            elif self.param == "BUTTON_RESET_POSE":
-                mode_selection = utils.store_mode_selection_state()
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.reset_pose(rig)
-                utils.restore_mode_selection_state(mode_selection)
-
-            elif self.param == "SET_LIMB_FK":
-                rig = chr_cache.get_armature()
-                if rig and chr_cache.rigified:
-                    rigutils.set_rigify_ik_fk_influence(rig, 1.0)
-                    rigutils.poke_rig(rig)
-
-            elif self.param == "SET_LIMB_IK":
-                rig = chr_cache.get_armature()
-                if rig and chr_cache.rigified:
-                    rigutils.set_rigify_ik_fk_influence(rig, 0.0)
-                    rigutils.poke_rig(rig)
-
-            elif self.param == "LOAD_ACTION_SET":
-                rig = chr_cache.get_armature()
-                action = props.action_set_list_action
-                if rig:
-                    rigutils.load_motion_set(rig, action)
-
-            elif self.param == "PUSH_ACTION_SET":
-                rig = chr_cache.get_armature()
-                action = props.action_set_list_action
-                auto_index = chr_cache.get_auto_index()
-                if rig:
-                    rigutils.push_motion_set(rig, action, auto_index)
-
-            elif self.param == "CLEAR_ACTION_SET":
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.clear_motion_set(rig)
-
-            elif self.param == "SELECT_SET_STRIPS":
-                rig = chr_cache.get_armature()
-                strip = context.active_nla_strip
-                if rig:
-                    rigutils.select_strips_by_set(rig, strip)
-
-            elif self.param == "NLA_ALIGN_LEFT":
-                strips = context.selected_nla_strips
-                rigutils.align_strips(strips, left=True)
-
-            elif self.param == "NLA_ALIGN_RIGHT":
-                strips = context.selected_nla_strips
-                rigutils.align_strips(strips, left=False)
-
-            elif self.param == "NLA_SIZE_WIDEST":
-                strips = context.selected_nla_strips
-                rigutils.size_strips(strips, widest=True)
-
-            elif self.param == "NLA_SIZE_NARROWEST":
-                strips = context.selected_nla_strips
-                rigutils.size_strips(strips, widest=False)
-
-            elif self.param == "NLA_RESET_SIZE":
-                strips = context.selected_nla_strips
-                rigutils.size_strips(strips, reset=True)
 
             props.restore_ui_list_indices()
 
@@ -3899,57 +3816,11 @@ class CC3Rigifier(bpy.types.Operator):
         elif properties.param == "NLA_CC_BAKE":
             return "Bake the NLA track to the character Rigify Rig using the global scene frame range."
 
-        elif properties.param == "TOGGLE_SHOW_SPRING_BONES":
-            return "Quick toggle for the armature layers to show just the spring bones or just the body bones"
-
         elif properties.param == "BUILD_SPRING_RIG":
             return "Builds the spring rig controls for the currently selected spring rig"
 
         elif properties.param == "REMOVE_SPRING_RIG":
             return "Removes the spring rig controls for the currently selected spring rig"
-
-        elif properties.param == "TOGGLE_SHOW_FULL_RIG":
-            return "Toggles showing all the rig controls"
-
-        elif properties.param == "TOGGLE_SHOW_BASE_RIG":
-            return "Toggles showing the base rig controls"
-
-        elif properties.param == "TOGGLE_SHOW_SPRING_RIG":
-            return "Toggles showing just the spring rig controls"
-
-        elif properties.param == "TOGGLE_SHOW_RIG_POSE":
-            return "Toggles the rig between pose mode and rest pose"
-
-        elif properties.param == "BUTTON_RESET_POSE":
-            return "Clears all pose transforms"
-
-        elif properties.param == "LOAD_ACTION_SET":
-            return "Loads the chosen motion set (armature and shape key actions) into the all the character objects"
-
-        elif properties.param == "PUSH_ACTION_SET":
-            return "Pushes the chosen motion set (armature and shape key actions) into the NLA tracks of all the character objects at the current frame. " \
-                   "A suitable track will be chosen to fit the actions. If there is no room available a new track will be added to contain the actions"
-
-        elif properties.param == "CLEAR_ACTION_SET":
-            return "Removes all actions from the character"
-
-        elif properties.param == "SELECT_SET_STRIPS":
-            return "Selects all the strips belonging to the same motion set and strip index"
-
-        elif properties.param == "NLA_ALIGN_LEFT":
-            return "Aligns all selected strips to the left most frame, or as close to as possible"
-
-        elif properties.param == "NLA_ALIGN_RIGHT":
-            return "Aligns all selected strips to the right most frame, or as close to as possible"
-
-        elif properties.param == "NLA_SIZE_WIDEST":
-            return "Sets the frame lengths of all selected strips to the widest selected length"
-
-        elif properties.param == "NLA_SIZE_NARROWEST":
-            return "Sets the frame lengths of all selected strips to the narrowest selected length"
-
-        elif properties.param == "NLA_RESET_SIZE":
-            return "Resets the frame lengths of all selected strips to the length of the underlying action"
 
         return "Rigification!"
 

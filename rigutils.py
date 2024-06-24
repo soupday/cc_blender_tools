@@ -19,7 +19,7 @@ from mathutils import Vector, Matrix, Quaternion, Euler
 from random import random
 import re
 import traceback
-from . import bones, modifiers, rigify_mapping_data, utils, vars
+from . import springbones, bones, modifiers, rigify_mapping_data, utils, vars
 
 
 def edit_rig(rig):
@@ -723,69 +723,103 @@ def get_nla_tracks(data):
         return None
 
 
-def get_all_nla_strips(data):
-    strips = []
+def get_all_nla_strips(data, obj, strips=None):
+    if strips is None:
+        strips = {}
     tracks = get_nla_tracks(data)
     if tracks:
         for track in tracks:
             for strip in track.strips:
-                strips.append(strip)
+                strips[strip] = (obj, track)
     return strips
 
 
-def get_strips_by_set(rig, active_strip: bpy.types.NlaStrip):
-    strips = []
-    if active_strip:
-        active_set_id = get_motion_set(active_strip.action)[0]
-        active_auto_index = utils.get_auto_index_suffix(active_strip.name)
-        objects = utils.get_child_objects(rig)
-        if active_set_id and active_auto_index > 0:
-            all_strips = get_all_nla_strips(rig)
-            for obj in objects:
-                if obj.type == "MESH":
-                    all_strips.extend(get_all_nla_strips(obj.data.shape_keys))
-        strip: bpy.types.NlaStrip
-        for strip in all_strips:
-            strip_set_id = get_motion_set(strip.action)[0]
-            if strip_set_id == active_set_id:
-                strip_auto_index = utils.get_auto_index_suffix(strip.name)
-                if strip_auto_index == active_auto_index:
-                    strips.append(strip)
-    return strips
-
-
-def select_strips_by_set(rig, active_strip: bpy.types.NlaStrip):
-    bpy.ops.nla.select_all(action='DESELECT')
-    strips = get_strips_by_set(rig, active_strip)
-    for strip in strips:
-        strip.select = True
-
-
-def align_strips(strips, left=True):
-    left_frame = None
-    right_frame = None
+def get_strips_by_sets(set_ids: set):
+    all_strips = {}
+    for obj in bpy.data.objects:
+        if utils.object_exists(obj):
+            if obj.type == "ARMATURE":
+                get_all_nla_strips(obj, obj, all_strips)
+            elif obj.type == "MESH":
+                get_all_nla_strips(obj.data.shape_keys, obj, all_strips)
     strip: bpy.types.NlaStrip
+    strips = {}
+    for strip in all_strips:
+        strip_set_id = utils.custom_prop(strip.action, "rl_set_id")
+        for sel_set_id, sel_auto_index in set_ids:
+            if strip_set_id == sel_set_id:
+                strip_auto_index = utils.get_auto_index_suffix(strip.name)
+                if strip_auto_index == sel_auto_index:
+                    obj, track = all_strips[strip]
+                    strips[strip] = (obj, track)
+    return strips
+
+
+def unselect_all_but_strip(active_strip):
+    all_strips = {}
+    for obj in bpy.data.objects:
+        if utils.object_exists(obj):
+            if obj.type == "ARMATURE":
+                get_all_nla_strips(obj, obj, all_strips)
+            elif obj.type == "MESH":
+                get_all_nla_strips(obj.data.shape_keys, obj, all_strips)
+    for strip in all_strips:
+        if strip != active_strip and strip.select:
+            strip.select = False
+
+
+def select_strips_by_set(active_strip: bpy.types.NlaStrip):
+    strips = bpy.context.selected_nla_strips.copy()
+    set_ids = set()
     for strip in strips:
-        if left_frame is None:
-            left_frame = strip.frame_start
-        if right_frame is None:
-            right_frame = strip.frame_end
-        left_frame = min(strip.frame_start, left_frame)
-        right_frame = max(strip.frame_end, right_frame)
+        set_id = utils.custom_prop(strip.action, "rl_set_id")
+        strip_auto_index = utils.get_auto_index_suffix(strip.name)
+        if set_id and strip_auto_index:
+            set_ids.add((set_id, strip_auto_index))
+    if not active_strip and bpy.context.selected_nla_strips:
+        active_strip = bpy.context.selected_nla_strips[0]
+    if active_strip:
+        unselect_all_but_strip(active_strip)
+        strips = get_strips_by_sets(set_ids)
+        for strip in strips:
+            strip.select = True
+
+
+def align_strips(strips, to_strip: bpy.types.NlaStrip=None, left=True):
+    strip: bpy.types.NlaStrip
+    left_frame = None if not to_strip else to_strip.frame_start
+    right_frame = None if not to_strip else to_strip.frame_end
+    # if no active strip, get the left most and right most frame in all strips
+    if not to_strip:
+        for strip in strips:
+            if left_frame is None:
+                left_frame = strip.frame_start
+            if right_frame is None:
+                right_frame = strip.frame_end
+            left_frame = min(strip.frame_start, left_frame)
+            right_frame = max(strip.frame_end, right_frame)
+    # align strips
+    # TODO sort strips in reverse order of direction
     for strip in strips:
         length = strip.frame_end - strip.frame_start
         if left:
             strip.frame_start = left_frame
             strip.frame_end = strip.frame_start + length
+            strip.frame_start = strip.frame_end - length
         else:
             strip.frame_end = right_frame
             strip.frame_start = strip.frame_end - length
+            strip.frame_end = strip.frame_start + length
 
 
-def size_strips(strips, widest=True, reset=False):
+def size_strips(strips, to_strip: bpy.types.NlaStrip=None, longest=True, reset=False):
+    to_length = 0
+    if to_strip:
+        to_length = to_strip.frame_end - to_strip.frame_start
     min_length = None
     max_length = None
     strip: bpy.types.NlaStrip
+    # find the shortest and longest strip lengths
     for strip in strips:
         length = strip.frame_end - strip.frame_start
         if min_length is None:
@@ -794,17 +828,39 @@ def size_strips(strips, widest=True, reset=False):
             max_length = length
         min_length = min(length, min_length)
         max_length = max(length, max_length)
+    if not to_strip:
+        to_length = max_length if longest else min_length
     for strip in strips:
         if reset:
             action_length = int(strip.action.frame_range[1] - strip.action.frame_range[0])
             strip.frame_end = strip.frame_start + action_length
             strip.frame_start = strip.frame_end - action_length
-        elif widest:
-            strip.frame_end = strip.frame_start + max_length
-            strip.frame_start = strip.frame_end - max_length
-        else:
-            strip.frame_end = strip.frame_start + min_length
-            strip.frame_start = strip.frame_end - min_length
+        elif to_length > 0:
+            strip.frame_end = strip.frame_start + to_length
+            strip.frame_start = strip.frame_end - to_length
+
+
+def set_action_set_fake_user(action, use_fake_user):
+    set_id = utils.custom_prop(action, "rl_set_id")
+    if set_id:
+        for action in bpy.data.actions:
+            action_set_id = utils.custom_prop(action, "rl_set_id")
+            if action_set_id == set_id:
+                action.use_fake_user = use_fake_user
+    utils.update_ui(all=True)
+
+
+def delete_motion_set(action):
+    set_id = utils.custom_prop(action, "rl_set_id")
+    if set_id:
+        to_remove = []
+        for action in bpy.data.actions:
+            action_set_id = utils.custom_prop(action, "rl_set_id")
+            if action_set_id == set_id:
+                to_remove.append(action)
+    for action in to_remove:
+        bpy.data.actions.remove(action)
+    utils.update_ui(all=True)
 
 
 def rename_armature(arm, name):
@@ -1246,28 +1302,22 @@ def bake_rig_action(src_rig, dst_rig):
 
 def bake_rig_action_from_source(src_rig, dst_rig):
     temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", src_rig, dst_rig)
-
     rig_settings = bones.store_armature_settings(dst_rig)
-
     # constrain the destination rig rest pose to the source rig pose
     constraints = constrain_pose_rigs(src_rig, dst_rig)
-
+    baked_action = None
     if select_rig(dst_rig):
         bones.make_bones_visible(dst_rig)
         bone : bpy.types.Bone
         for bone in dst_rig.data.bones:
             bone.select = True
-
         baked_action = bake_rig_action(src_rig, dst_rig)
-
     # remove contraints
     unconstrain_pose_rigs(constraints)
-
     bones.restore_armature_settings(dst_rig, rig_settings)
-
     utils.safe_set_action(dst_rig, baked_action)
-
     utils.restore_visible_in_scene(temp_collection)
+    return baked_action
 
 
 DISABLE_TWEAK_STRETCH_IN = [
@@ -1818,7 +1868,7 @@ class CCICMotionSetInfo(bpy.types.Operator):
     prefix: bpy.props.StringProperty(name="Motion Prefix", default="")
     rig_id: bpy.props.StringProperty(name="Character / Rig ID", default="")
     motion_id: bpy.props.StringProperty(name="Motion Name / ID", default="")
-    set_id = bpy.props.StringProperty(name="Set ID", default="")
+    set_id: bpy.props.StringProperty(name="Set ID", default="")
 
     def execute(self, context):
         return {"FINISHED"}
@@ -1830,6 +1880,10 @@ class CCICMotionSetInfo(bpy.types.Operator):
         props.store_ui_list_indices()
         action = props.action_set_list_action
         chr_cache = props.get_context_character_cache(context)
+
+        self.delete_me = False
+        # TODO make delete an op button?
+        # TODO use_fake_user button
 
         if not action:
             return {"FINISHED"}
@@ -1857,7 +1911,7 @@ class CCICMotionSetInfo(bpy.types.Operator):
         else:
             self.motion_id = "Motion"
 
-        return context.window_manager.invoke_props_dialog(self, width=600)
+        return context.window_manager.invoke_popup(self, width=600)
 
     def draw(self, context):
         layout = self.layout
@@ -1898,7 +1952,207 @@ class CCICMotionSetInfo(bpy.types.Operator):
                 else:
                     col_1.label(text="?")
                 col_2.label(text=action.name)
+        col_1.separator()
+        col_2.separator()
+        col_1.separator()
+        row = col_2.split(factor=0.5).column().row()
+        row.alert = True
+        row.scale_y = 1.5
+        row.operator("ccic.rigutils", text="Delete Motion Set", icon="ERROR").param = "DELETE_MOTION_SET"
+        layout.separator()
+        layout.separator()
+        layout.separator()
 
     @classmethod
     def description(cls, context, properties):
         return "Show motion set info"
+
+
+class CCICRigUtils(bpy.types.Operator):
+    """Rig Utilities"""
+    bl_idname = "ccic.rigutils"
+    bl_label = "Rig Utils"
+    bl_options = {"REGISTER"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = "",
+            options={"HIDDEN"}
+        )
+
+    def execute(self, context):
+        props = vars.props()
+        prefs = vars.prefs()
+        chr_cache = props.get_context_character_cache(context)
+
+        if chr_cache:
+
+            props.store_ui_list_indices()
+            rig = chr_cache.get_armature()
+
+            if rig:
+                if self.param == "TOGGLE_SHOW_FULL_RIG":
+                    toggle_show_full_rig(rig)
+
+                elif self.param == "TOGGLE_SHOW_BASE_RIG":
+                    toggle_show_base_rig(rig)
+
+                elif self.param == "TOGGLE_SHOW_SPRING_RIG":
+                    toggle_show_spring_rig(rig)
+
+                elif self.param == "TOGGLE_SHOW_RIG_POSE":
+                    toggle_rig_rest_position(rig)
+
+                elif self.param == "TOGGLE_SHOW_SPRING_BONES":
+                    springbones.toggle_show_spring_bones(rig)
+
+                elif self.param == "BUTTON_RESET_POSE":
+                    mode_selection = utils.store_mode_selection_state()
+                    reset_pose(rig)
+                    utils.restore_mode_selection_state(mode_selection)
+
+                elif self.param == "SET_LIMB_FK":
+                    if chr_cache.rigified:
+                        set_rigify_ik_fk_influence(rig, 1.0)
+                        poke_rig(rig)
+
+                elif self.param == "SET_LIMB_IK":
+                    if chr_cache.rigified:
+                        set_rigify_ik_fk_influence(rig, 0.0)
+                        poke_rig(rig)
+
+                elif self.param == "LOAD_ACTION_SET":
+                    action = props.action_set_list_action
+                    load_motion_set(rig, action)
+
+                elif self.param == "PUSH_ACTION_SET":
+                    action = props.action_set_list_action
+                    auto_index = chr_cache.get_auto_index()
+                    push_motion_set(rig, action, auto_index)
+
+                elif self.param == "CLEAR_ACTION_SET":
+                    clear_motion_set(rig)
+
+            if self.param == "SELECT_SET_STRIPS":
+                strip = context.active_nla_strip
+                select_strips_by_set(strip)
+
+            elif self.param == "NLA_ALIGN_LEFT":
+                strips = context.selected_nla_strips
+                align_strips(strips, left=True)
+
+            elif self.param == "NLA_ALIGN_TO_LEFT":
+                strips = context.selected_nla_strips
+                active_strip = context.active_nla_strip
+                align_strips(strips, to_strip=active_strip, left=True)
+
+            elif self.param == "NLA_ALIGN_RIGHT":
+                strips = context.selected_nla_strips
+                align_strips(strips, left=False)
+
+            elif self.param == "NLA_ALIGN_TO_RIGHT":
+                strips = context.selected_nla_strips
+                active_strip = context.active_nla_strip
+                align_strips(strips, to_strip=active_strip, left=False)
+
+            elif self.param == "NLA_SIZE_SHORTEST":
+                strips = context.selected_nla_strips
+                size_strips(strips, longest=False)
+
+            elif self.param == "NLA_SIZE_LONGEST":
+                strips = context.selected_nla_strips
+                size_strips(strips, longest=True)
+
+            elif self.param == "NLA_SIZE_TO":
+                strips = context.selected_nla_strips
+                active_strip = context.active_nla_strip
+                size_strips(strips, to_strip=active_strip)
+
+            elif self.param == "NLA_RESET_SIZE":
+                strips = context.selected_nla_strips
+                size_strips(strips, reset=True)
+
+            elif self.param == "SET_FAKE_USER_ON":
+                action = props.action_set_list_action
+                set_action_set_fake_user(action, True)
+
+            elif self.param == "SET_FAKE_USER_OFF":
+                action = props.action_set_list_action
+                set_action_set_fake_user(action, False)
+
+            elif self.param == "DELETE_MOTION_SET":
+                action = props.action_set_list_action
+                delete_motion_set(action)
+
+            props.restore_ui_list_indices()
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "TOGGLE_SHOW_SPRING_BONES":
+            return "Quick toggle for the armature layers to show just the spring bones or just the body bones"
+
+        elif properties.param == "TOGGLE_SHOW_FULL_RIG":
+            return "Toggles showing all the rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_BASE_RIG":
+            return "Toggles showing the base rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_SPRING_RIG":
+            return "Toggles showing just the spring rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_RIG_POSE":
+            return "Toggles the rig between pose mode and rest pose"
+
+        elif properties.param == "BUTTON_RESET_POSE":
+            return "Clears all pose transforms"
+
+        elif properties.param == "LOAD_ACTION_SET":
+            return "Loads the chosen motion set (armature and shape key actions) into the all the character objects"
+
+        elif properties.param == "PUSH_ACTION_SET":
+            return "Pushes the chosen motion set (armature and shape key actions) into the NLA tracks of all the character objects at the current frame. " \
+                   "A suitable track will be chosen to fit the actions. If there is no room available a new track will be added to contain the actions"
+
+        elif properties.param == "CLEAR_ACTION_SET":
+            return "Removes all actions from the character"
+
+        elif properties.param == "SELECT_SET_STRIPS":
+            return "Selects all the strips belonging to the same motion set and strip index"
+
+        elif properties.param == "NLA_ALIGN_LEFT":
+            return "Aligns all selected strips to the left most of frame of all selected strips"
+
+        elif properties.param == "NLA_ALIGN_RIGHT":
+            return "Aligns all selected strips to right most of frame of all selected strips"
+
+        elif properties.param == "NLA_ALIGN_TO_LEFT":
+            return "Aligns all selected strips to the left hand frame of the active strip"
+
+        elif properties.param == "NLA_ALIGN_TO_RIGHT":
+            return "Aligns all selected strips to the right hand frame of the active strip"
+
+        elif properties.param == "NLA_SIZE_SHORTEST":
+            return "Sets the frame lengths of all selected strips to the length of the shortest strip in the selection"
+
+        elif properties.param == "NLA_SIZE_TO":
+            return "Sets the frame lengths of all selected strips to the length of the active strip"
+
+        elif properties.param == "NLA_SIZE_LONGEST":
+            return "Sets the frame lengths of all selected strips to the length of the longest strip in the selection"
+
+        elif properties.param == "NLA_RESET_SIZE":
+            return "Resets the frame lengths of all selected strips to the length of the underlying action"
+
+        elif properties.param == "SET_FAKE_USER_ON":
+            return "Set fake user on all actions in the motion set"
+
+        elif properties.param == "SET_FAKE_USER_OFF":
+            return "Clear fake user on all actions in the motion set"
+
+        elif properties.param == "DELETE_MOTION_SET":
+            return "Delete all actions in the motion set"
+
+        return ""

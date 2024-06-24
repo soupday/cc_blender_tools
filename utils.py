@@ -106,14 +106,13 @@ def message_box(message = "", title = "Info", icon = 'INFO'):
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
 
 
-def update_ui(context = None, area_type="VIEW_3D", region_type="UI"):
+def update_ui(context = None, area_type="VIEW_3D", region_type="UI", all=False):
     for screen in bpy.data.screens:
         for area in screen.areas:
-            if area.type == area_type:
+            if area.type == area_type or all:
                 for region in area.regions:
-                    if region.type == region_type:
+                    if region.type == region_type or all:
                         region.tag_redraw()
-
 
 
 def report_multi(op, icon = 'INFO', messages = None):

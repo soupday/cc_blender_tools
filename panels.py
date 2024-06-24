@@ -356,7 +356,7 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
             colliders_visible = rigidbody.colliders_visible(arm)
             row.operator("cc3.springbones", icon=utils.check_icon("HIDE_OFF"), text="", depress=colliders_visible).param = "TOGGLE_SHOW_COLLIDERS"
             is_pose_position = rigutils.is_rig_rest_position(arm)
-            row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+            row.operator("ccic.rigutils", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
             row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Remove Colliders").param = "REMOVE_COLLIDERS"
             #column.row().prop(rigid_body, "collision_margin", text="Collision Margin", slider=True)
         else:
@@ -1204,7 +1204,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
             tool_row = col_1.row(align=True)
             if arm:
                 depress = bones.is_bone_collection_visible(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER)
-                tool_row.operator("cc3.rigifier", icon=utils.check_icon("HIDE_OFF"), text="",
+                tool_row.operator("ccic.rigutils", icon=utils.check_icon("HIDE_OFF"), text="",
                                   depress=depress).param = "TOGGLE_SHOW_SPRING_BONES"
                 is_grease_pencil_tool = "builtin.annotate" in utils.get_current_tool_idname(context)
                 tool_row.operator("cc3.hair", icon=utils.check_icon("GREASEPENCIL"), text="", depress=is_grease_pencil_tool).param = "TOGGLE_GREASE_PENCIL"
@@ -1222,7 +1222,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
                     icon = "BONE_DATA"
                 tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", depress=False).param = "CYCLE_BONE_STYLE"
                 is_pose_position = rigutils.is_rig_rest_position(arm)
-                tool_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+                tool_row.operator("ccic.rigutils", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
 
             row = col_2.row()
             row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
@@ -1874,9 +1874,12 @@ class CC3RigifyPanel(bpy.types.Panel):
                                 if prefs.rigify_auto_retarget:
                                     # retarget/bake motion prefix
                                     row = layout.row()
-                                    split = row.split(factor=0.5)
+                                    split = row.split(factor=0.45)
                                     split.column().label(text="Motion Prefix")
-                                    split.column().prop(props, "rigify_retarget_motion_prefix", text="")
+                                    row = split.column().row(align=True)
+                                    row.prop(props, "rigify_retarget_motion_prefix", text="")
+                                    icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
+                                    row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
                             if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
                                 wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
 
@@ -1915,20 +1918,20 @@ class CC3RigifyPanel(bpy.types.Panel):
                     # utility widgets minipanel
                     box_row = layout.box().row(align=True)
                     is_full_rig_show = rigutils.is_full_rigify_rig_shown(rig)
-                    box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
+                    box_row.operator("ccic.rigutils", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
                     if has_spring_rigs:
                         is_base_rig_show = rigutils.is_base_rig_shown(rig)
-                        box_row.operator("cc3.rigifier", icon="ARMATURE_DATA", text="", depress=is_base_rig_show).param = "TOGGLE_SHOW_BASE_RIG"
+                        box_row.operator("ccic.rigutils", icon="ARMATURE_DATA", text="", depress=is_base_rig_show).param = "TOGGLE_SHOW_BASE_RIG"
                         is_spring_rig_show = rigutils.is_spring_rig_shown(rig)
-                        box_row.operator("cc3.rigifier", icon="FORCE_MAGNETIC", text="", depress=is_spring_rig_show).param = "TOGGLE_SHOW_SPRING_RIG"
+                        box_row.operator("ccic.rigutils", icon="FORCE_MAGNETIC", text="", depress=is_spring_rig_show).param = "TOGGLE_SHOW_SPRING_RIG"
                     is_pose_position = rigutils.is_rig_rest_position(rig)
-                    box_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
-                    box_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
+                    box_row.operator("ccic.rigutils", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+                    box_row.operator("ccic.rigutils", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
                     box_row.separator()
                     depress = True if ik_fk > 0.995 else False
-                    box_row.operator("cc3.rigifier", text="FK", depress=depress).param = "SET_LIMB_FK"
+                    box_row.operator("ccic.rigutils", text="FK", depress=depress).param = "SET_LIMB_FK"
                     depress = True if ik_fk < 0.005 else False
-                    box_row.operator("cc3.rigifier", text="IK", depress=depress).param = "SET_LIMB_IK"
+                    box_row.operator("ccic.rigutils", text="IK", depress=depress).param = "SET_LIMB_IK"
 
 
                     if has_spring_rigs:
@@ -2075,9 +2078,12 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         # retarget/bake motion prefix
                         row = col.row()
-                        split = row.split(factor=0.5)
+                        split = row.split(factor=0.45)
                         split.column().label(text="Motion Prefix")
-                        split.column().prop(props, "rigify_retarget_motion_prefix", text="")
+                        row = split.column().row(align=True)
+                        row.prop(props, "rigify_retarget_motion_prefix", text="")
+                        icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
+                        row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
 
                         col.separator()
 
@@ -2135,6 +2141,7 @@ def motion_set_ui(layout: bpy.types.UILayout, chr_cache, show_nla=False):
     if action_set_list_action:
         action_set_generation = action_set_list_action["rl_set_generation"]
     rig = None
+    rig_set_generation = None
     if chr_cache:
         rig = chr_cache.get_armature()
     if "rl_set_generation" in rig:
@@ -2150,6 +2157,12 @@ def motion_set_ui(layout: bpy.types.UILayout, chr_cache, show_nla=False):
     row = col.row(align=True)
     row.operator("ccic.motion_set_rename", icon="GREASEPENCIL", text="Rename Motion Set")
     row.operator("ccic.motion_set_info", icon="VIEWZOOM", text="")
+    depress = False
+    if action_set_list_action:
+        depress = action_set_list_action.use_fake_user
+    icon = "FAKE_USER_ON" if depress else "FAKE_USER_OFF"
+    param = "SET_FAKE_USER_OFF" if depress else "SET_FAKE_USER_ON"
+    row.operator("ccic.rigutils", icon=icon, text="", depress=depress).param = param
 
 
     split = col.split(factor=0.5, align=True)
@@ -2157,25 +2170,45 @@ def motion_set_ui(layout: bpy.types.UILayout, chr_cache, show_nla=False):
     col_1 = split.column(align=True)
     col_2 = split.column(align=True)
     row = col_1.row(align=True)
-    row.operator("cc3.rigifier", icon="ACTION_TWEAK", text="Load").param = "LOAD_ACTION_SET"
+    row.operator("ccic.rigutils", icon="ACTION_TWEAK", text="Load").param = "LOAD_ACTION_SET"
     if rig_set_generation != action_set_generation:
         row.enabled = False
-    col_2.operator("cc3.rigifier", icon="REMOVE", text="Clear").param = "CLEAR_ACTION_SET"
+    col_2.operator("ccic.rigutils", icon="REMOVE", text="Clear").param = "CLEAR_ACTION_SET"
 
     if show_nla:
         row = col_1.row(align=True)
-        row.operator("cc3.rigifier", icon="NLA_PUSHDOWN", text="Push").param = "PUSH_ACTION_SET"
+        row.operator("ccic.rigutils", icon="NLA_PUSHDOWN", text="Push").param = "PUSH_ACTION_SET"
         if rig_set_generation != action_set_generation:
             row.enabled = False
-        col_2.operator("cc3.rigifier", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_SET_STRIPS"
+        col_2.operator("ccic.rigutils", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_SET_STRIPS"
 
         # strip tools
-        grid = layout.grid_flow(row_major=True, align=True, columns=5)
-        grid.operator("cc3.rigifier", icon="ANCHOR_LEFT", text="").param = "NLA_ALIGN_LEFT"
-        grid.operator("cc3.rigifier", icon="FULLSCREEN_EXIT", text="").param = "NLA_SIZE_NARROWEST"
-        grid.operator("cc3.rigifier", icon="FIXED_SIZE", text="").param = "NLA_RESET_SIZE"
-        grid.operator("cc3.rigifier", icon="FULLSCREEN_ENTER", text="").param = "NLA_SIZE_WIDEST"
-        grid.operator("cc3.rigifier", icon="ANCHOR_RIGHT", text="").param = "NLA_ALIGN_RIGHT"
+        active_strip = bpy.context.active_nla_strip
+        split = layout.split(align=True)
+        col_1 = split.column(align=True)
+        col_2 = split.column(align=True)
+        col_3 = split.column(align=True)
+        col_4 = split.column(align=True)
+        col_1.operator("ccic.rigutils", icon="ALIGN_LEFT", text="").param = "NLA_ALIGN_LEFT"
+        row = col_2.column(align=True)
+        row.operator("ccic.rigutils", icon="ANCHOR_LEFT", text="").param = "NLA_ALIGN_TO_LEFT"
+        if not active_strip:
+            row.enabled = False
+        row = col_3.column(align=True)
+        row.operator("ccic.rigutils", icon="ANCHOR_RIGHT", text="").param = "NLA_ALIGN_TO_RIGHT"
+        if not active_strip:
+            row.enabled = False
+        col_4.operator("ccic.rigutils", icon="ALIGN_RIGHT", text="").param = "NLA_ALIGN_RIGHT"
+
+        col_1.operator("ccic.rigutils", icon="FULLSCREEN_EXIT", text="").param = "NLA_SIZE_SHORTEST"
+        col_2.operator("ccic.rigutils", icon="FULLSCREEN_ENTER", text="").param = "NLA_SIZE_LONGEST"
+        row = col_3.column(align=True)
+        row.operator("ccic.rigutils", icon="SNAP_MIDPOINT", text="").param = "NLA_SIZE_TO"
+        if not active_strip:
+            row.enabled = False
+        col_4.operator("ccic.rigutils", icon="FIXED_SIZE", text="").param = "NLA_RESET_SIZE"
+        if not bpy.context.selected_nla_strips:
+            split.enabled = False
 
     if not chr_cache:
         split.enabled = False

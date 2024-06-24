@@ -808,6 +808,11 @@ class CC3Import(bpy.types.Operator):
         default = ""
     )
 
+    use_fake_user: bpy.props.BoolProperty(
+        name = "Use Fake User",
+        default = True
+    )
+
     use_anim: bpy.props.BoolProperty(name = "Import Animation", description = "Import animation with character.\nWarning: long animations take a very long time to import in Blender 2.83", default = True)
 
     count = 0
@@ -903,6 +908,8 @@ class CC3Import(bpy.types.Operator):
             actions = utils.untagged_actions()
             self.imported_images = utils.untagged_images()
 
+            for action in actions:
+                action.use_fake_user = self.use_fake_user
             armatures, rl_armatures = self.get_character_armatures(imported, avatar_type, json_generation)
 
             # detect characters and objects
@@ -1257,7 +1264,8 @@ class CC3Import(bpy.types.Operator):
                 if chr_cache.can_be_rigged():
                     cc3_rig = chr_cache.get_armature()
                     bpy.ops.cc3.rigifier(param="ALL")
-                    rigging.full_retarget_source_rig_action(self, chr_cache, cc3_rig)
+                    rigging.full_retarget_source_rig_action(self, chr_cache, cc3_rig,
+                                                            use_ui_options=True)
 
         self.imported_characters = None
         self.imported_materials = []
@@ -1460,6 +1468,11 @@ class CC3ImportAnimations(bpy.types.Operator):
         default = ""
     )
 
+    use_fake_user: bpy.props.BoolProperty(
+        name = "Use Fake User",
+        default = True
+    )
+
     def import_animation_fbx(self, dir, file):
         path = os.path.join(dir, file)
         name = file[:-4]
@@ -1476,6 +1489,9 @@ class CC3ImportAnimations(bpy.types.Operator):
         actions = utils.untagged_actions()
         images = utils.untagged_images()
         materials = utils.untagged_materials()
+
+        for action in actions:
+            action.use_fake_user = self.use_fake_user
 
         utils.log_info("Renaming actions:")
         utils.log_indent()

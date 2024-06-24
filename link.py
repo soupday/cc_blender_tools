@@ -2762,7 +2762,8 @@ class LinkService():
         if os.path.exists(fbx_path):
             try:
                 bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id,
-                                     motion_prefix=LINK_DATA.motion_prefix)
+                                     motion_prefix=LINK_DATA.motion_prefix,
+                                     use_fake_user=LINK_DATA.use_fake_user)
             except:
                 utils.log_error(f"Error importing {fbx_path}")
                 return
@@ -2820,7 +2821,8 @@ class LinkService():
             #try:
             bpy.ops.cc3.anim_importer(filepath=fbx_path, remove_meshes=False,
                                       remove_materials_images=True, remove_shape_keys=False,
-                                      motion_prefix=LINK_DATA.motion_prefix)
+                                      motion_prefix=LINK_DATA.motion_prefix,
+                                      use_fake_user=LINK_DATA.use_fake_user)
             motion_rig = utils.get_active_object()
             self.replace_actor_motion(actor, motion_rig)
             #except:
@@ -2858,11 +2860,13 @@ class LinkService():
                         action = get_datalink_rig_action(actor_rig, motion_id)
                         rigutils.add_motion_set_data(action, set_id, set_generation, rl_arm_id=rl_arm_id)
                         update_link_status(f"Retargeting Motion...")
-                        rigutils.bake_rig_action_from_source(motion_rig, actor_rig)
+                        armature_action = rigutils.bake_rig_action_from_source(motion_rig, actor_rig)
+                        armature_action.use_fake_user = LINK_DATA.use_fake_user
                         remove_actions.append(motion_rig_action)
                     else:
                         rigutils.add_motion_set_data(motion_rig_action, set_id, set_generation, rl_arm_id=rl_arm_id)
                         rigutils.set_armature_action_name(motion_rig_action, actor_rig_id, motion_id, LINK_DATA.motion_prefix)
+                        motion_rig_action.use_fake_user = LINK_DATA.use_fake_user
                         rigutils.copy_rest_pose(motion_rig, actor_rig)
                         utils.safe_set_action(actor_rig, motion_rig_action)
                     rigutils.update_prop_rig(actor_rig)
@@ -2870,22 +2874,27 @@ class LinkService():
                     if chr_cache.rigified:
                         update_link_status(f"Retargeting Motion...")
                         armature_action = rigging.adv_bake_retarget_to_rigify(None, chr_cache, motion_rig, motion_rig_action)[0]
+                        armature_action.use_fake_user = LINK_DATA.use_fake_user
                         rigutils.add_motion_set_data(armature_action, set_id, set_generation, rl_arm_id=rl_arm_id)
                         rigutils.set_armature_action_name(armature_action, actor_rig_id, motion_id, LINK_DATA.motion_prefix)
                         remove_actions.append(motion_rig_action)
                     else:
                         rigutils.add_motion_set_data(motion_rig_action, set_id, set_generation, rl_arm_id=rl_arm_id)
                         rigutils.set_armature_action_name(motion_rig_action, actor_rig_id, motion_id, LINK_DATA.motion_prefix)
+                        motion_rig_action.use_fake_user = LINK_DATA.use_fake_user
                         utils.safe_set_action(actor_rig, motion_rig_action)
                     rigutils.update_avatar_rig(actor_rig)
             # assign motion object shape key actions:
             key_actions = rigutils.apply_source_key_actions(actor_rig,
                                                 source_actions, copy=True,
-                                                motion_id=motion_id, motion_prefix=LINK_DATA.motion_prefix,
+                                                motion_id=motion_id,
+                                                motion_prefix=LINK_DATA.motion_prefix,
                                                 all_matching=True,
                                                 set_id=set_id, set_generation=set_generation)
+            for action in key_actions.values():
+                action.use_fake_user = LINK_DATA.use_fake_user
             # remove unused motion key actions
-            for obj_id, obj_action in source_actions["keys"].items():
+            for obj_action in source_actions["keys"].values():
                 if obj_action not in key_actions.values():
                     remove_actions.append(obj_action)
             # delete imported motion rig and objects

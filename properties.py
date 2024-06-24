@@ -2352,9 +2352,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
 
     # rigify
-
+    rigify_retarget_use_fake_user: bpy.props.BoolProperty(default=True, name="Fake User")
     rigify_retarget_motion_prefix: bpy.props.StringProperty(default="", name="Rigify Retarget Motion Prefix",
                                                    description="Motion prefix for retargeted motions.")
+    rigify_bake_use_fake_user: bpy.props.BoolProperty(default=True, name="Fake User")
     rigify_bake_motion_prefix: bpy.props.StringProperty(default="", name="Rigify Bake Motion Prefix",
                                                    description="Motion prefix for baked NLA motions.")
     rigify_bake_motion_name: bpy.props.StringProperty(default="NLA_Bake", name="Rigify Bake Motion Name",
