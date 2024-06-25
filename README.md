@@ -35,6 +35,21 @@ Links
 
 ## Changelog
 
+### 2.1.0
+- Motion Sets:
+    - Action name remapping and retargetting overhaul.
+    - Motion set functions: Load/Push/Clear/Select/Rename/Delete
+    - Motion prefix and use fake user option added for all animation retargeting and import.
+    - Motion set filter and motion set info function.
+- NLA Tools:
+    - NLA Bake functions moved to NLA editor panel.
+    - Motion set panel in rigging and NLA editor and Datalink.
+    - NLA strip alignment and sizing utility functions.
+- Fixes:
+    - Duplicating character no longer duplicates actions.
+    - Store object state checks objects/materials exist.
+    - Positioning fixes with rigify
+
 ### 2.0.9
 - Datalink:
     - Datalink main loop stability improvements.

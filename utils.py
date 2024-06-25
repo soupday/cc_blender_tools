@@ -106,14 +106,13 @@ def message_box(message = "", title = "Info", icon = 'INFO'):
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
 
 
-def update_ui(context = None, area_type="VIEW_3D", region_type="UI"):
+def update_ui(context = None, area_type="VIEW_3D", region_type="UI", all=False):
     for screen in bpy.data.screens:
         for area in screen.areas:
-            if area.type == area_type:
+            if area.type == area_type or all:
                 for region in area.regions:
-                    if region.type == region_type:
+                    if region.type == region_type or all:
                         region.tag_redraw()
-
 
 
 def report_multi(op, icon = 'INFO', messages = None):
@@ -777,6 +776,20 @@ def strip_name(name: str):
     return name
 
 
+def get_auto_index_suffix(name):
+    auto_index = 0
+    try:
+        if type(name) is not str:
+            name = name.name
+        if name[-4] == "|" and name[-3:].isdigit():
+            auto_index = int(name[-3:])
+        elif name[-5] == "|" and name[-4:].isdigit():
+            auto_index = int(name[-4:])
+    except:
+        pass
+    return auto_index
+
+
 def is_blender_duplicate(name):
     if len(name) >= 4:
         if name[-3:].isdigit() and name[-4] == ".":
@@ -802,6 +815,7 @@ def make_unique_name_in(name, keys):
 
 
 def partial_match(text, search, start = 0):
+    """Action names can be truncated so sometimes we have to fall back on partial name matches."""
     if text and search:
         ls = len(search)
         lt = len(text)
@@ -1108,8 +1122,9 @@ def array_to_quaternion(arr):
         return Quaternion((arr[3], arr[0], arr[1], arr[2]))
     return Quaternion()
 
-def get_action_shape_key_object_name(name):
-    obj_name = strip_name(name)
+
+def strip_cc_base_name(name):
+    obj_name = strip_name(name.strip())
     if obj_name.startswith("CC_Base_") or obj_name.startswith("CC_Game_"):
         obj_name = obj_name[8:]
     return obj_name
@@ -1425,6 +1440,15 @@ def restore_visible_in_scene(tmp_collection : bpy.types.Collection):
     bpy.data.collections.remove(tmp_collection)
 
 
+def make_visible(obj):
+    # TODO expand this to force visible in tmp collection if unable to make visible with hide_set
+    # but will require something to remove tmp collection later...
+    try:
+        obj.hide_set(False)
+    except:
+        pass
+
+
 def get_object_scene_collections(obj, exclude_rbw = True):
     collections = []
     if obj.name in bpy.context.scene.collection.objects:
@@ -1551,14 +1575,20 @@ def set_only_render_visible(object):
 
 
 def store_object_transform(obj: bpy.types.Object):
-    T = (obj.location,
-         obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_quaternion, obj.rotation_mode,
-         obj.scale)
+    T = (obj.location.copy(),
+         obj.rotation_mode,
+         obj.rotation_quaternion.copy(),
+         [a for a in obj.rotation_axis_angle],
+         obj.rotation_euler.copy(),
+         obj.scale.copy())
     return T
 
 
-def restore_object_transform(obj: bpy.types.Object, T: list):
-    obj.location, obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_quaternion, obj.rotation_mode, obj.scale = T
+def restore_object_transform(obj: bpy.types.Object, T: tuple, ignore_scale=False):
+    if ignore_scale:
+        obj.location, obj.rotation_mode, obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_euler, scale = T
+    else:
+        obj.location, obj.rotation_mode, obj.rotation_quaternion, obj.rotation_axis_angle, obj.rotation_euler, obj.scale = T
 
 
 def reset_object_transform(obj: bpy.types.Object):
@@ -1612,6 +1642,12 @@ def align_object_to_view(obj, context):
             obj.rotation_euler = rot.to_euler()
         elif obj.rotation_mode == "QUATERNION":
             obj.rotation_quaternion = rot.copy()
+
+
+def copy_action(action: bpy.types.Action, new_name):
+    new_action = action.copy()
+    new_action.name = new_name
+    return new_action
 
 
 def safe_get_action(obj) -> bpy.types.Action:
@@ -1934,7 +1970,7 @@ def store_object_state(objects=None):
         objects = bpy.data.objects
     obj_state = {}
     for obj in objects:
-        if (obj.type == "MESH" or obj.type == "ARMATURE") and obj not in obj_state:
+        if (object_exists_is_armature(obj) or object_exists_is_mesh(obj)) and obj not in obj_state:
             obj_state[obj] = {
                 "names": [obj.name, obj.data.name],
                 "visible": obj.visible_get(),
@@ -1942,7 +1978,7 @@ def store_object_state(objects=None):
             if obj.type == "MESH":
                 obj_state[obj]["slots"] = [ slot.material for slot in obj.material_slots ]
                 for mat in obj.data.materials:
-                    if mat not in obj_state:
+                    if material_exists(mat) and mat not in obj_state:
                         obj_state[mat] = { "name": mat.name }
                 if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
                     obj_state[obj]["action"] = safe_get_action(obj.data.shape_keys)
@@ -1957,21 +1993,25 @@ def restore_object_state(obj_state):
         state = obj_state[item]
         if type(item) is bpy.types.Object:
             obj: bpy.types.Object = item
-            force_object_name(obj, state["names"][0])
-            if obj.type == "MESH":
-                force_mesh_name(obj.data, state["names"][1])
-                for i, mat in enumerate(state["slots"]):
-                    if obj.material_slots[i].material != mat:
-                        obj.material_slots[i].material = mat
-                if "action" in state:
-                    safe_set_action(obj.data.shape_keys, state["action"])
-            elif obj.type == "ARMATURE":
-                force_armature_name(obj.data, state["names"][1])
-                if "action" in state:
-                    safe_set_action(obj, state["action"])
+            if object_exists(obj):
+                force_object_name(obj, state["names"][0])
+                if obj.type == "MESH":
+                    force_mesh_name(obj.data, state["names"][1])
+                    for i, mat in enumerate(state["slots"]):
+                        if not material_exists(mat):
+                            mat = None
+                        if obj.material_slots[i].material != mat:
+                            obj.material_slots[i].material = mat
+                    if "action" in state:
+                        safe_set_action(obj.data.shape_keys, state["action"])
+                elif obj.type == "ARMATURE":
+                    force_armature_name(obj.data, state["names"][1])
+                    if "action" in state:
+                        safe_set_action(obj, state["action"])
         elif type(item) is bpy.types.Material:
             mat: bpy.types.Material = item
-            force_material_name(mat, state["name"])
+            if material_exists(mat):
+                force_material_name(mat, state["name"])
 
 
 def reset_shape_keys(objects):
@@ -2164,6 +2204,31 @@ def generate_random_id(length):
     for i in range(0, length):
         id += random.choice(CHARS)
     return id
+
+
+def set_rl_object_id(obj, new_id):
+    if obj:
+        if obj.type == "ARMATURE":
+            obj["rl_armature_id"] = new_id
+            if "rl_object_id" in obj:
+                del(obj["rl_object_id"])
+        else:
+            obj["rl_object_id"] = new_id
+
+
+def get_rl_object_id(obj):
+    if obj:
+        if obj.type == "ARMATURE" and "rl_armature_id" in obj:
+            return obj["rl_armature_id"]
+        if "rl_object_id" in obj:
+            return obj["rl_object_id"]
+    return None
+
+
+def custom_prop(obj, prop_name, default=None):
+    if prop_name in obj:
+        return obj[prop_name]
+    return default
 
 
 def fix_texture_rel_path(rel_path: str):

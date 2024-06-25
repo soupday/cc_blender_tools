@@ -101,7 +101,7 @@ from . import proportion
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 0, 10),
+    "version": (2, 1, 0),
     "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -179,9 +179,13 @@ classes = (
     link.CCICDataLink,
     characters.CCICCharacterLink,
     proportion.CCICCharacterProportions,
+    rigutils.CCICMotionSetRename,
+    rigutils.CCICMotionSetInfo,
+    rigutils.CCICRigUtils,
 
     panels.ARMATURE_UL_List,
     panels.ACTION_UL_List,
+    panels.ACTION_SET_UL_List,
     panels.UNITY_ACTION_UL_List,
     # pipeline panels
     panels.CC3ToolsPipelineImportPanel,
@@ -191,6 +195,9 @@ classes = (
     panels.CC3RigifyPanel,
     panels.CCICBakePanel,
     panels.CC3PipelineScenePanel,
+    # NLA panels
+    panels.CCICNLASetsPanel,
+    panels.CCICNLABakePanel,
     # create panels
     panels.CC3ToolsCreatePanel,
     panels.CC3ObjectManagementPanel,
@@ -202,6 +209,7 @@ classes = (
     panels.CC3CreateScenePanel,
     # link panels
     panels.CCICDataLinkPanel,
+    panels.CCICAnimationToolsPanel,
     # control panels
     panels.CC3SpringControlPanel,
     # test panels

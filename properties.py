@@ -1307,7 +1307,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
         if self.object_id == "":
             self.object_id = utils.generate_random_id(20)
         if self.object:
-            self.object["rl_object_id"] = self.object_id
+            utils.set_rl_object_id(self.object, self.object_id)
             self.object["rl_object_type"] = self.object_type
 
     def is_valid(self):
@@ -1367,6 +1367,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     accessory_parent_bone: bpy.props.StringProperty(default="CC_Base_Head")
     # counter (how many times have the materials been built)
     build_count: bpy.props.IntProperty(default=0)
+    # auto index
+    auto_index: bpy.props.IntProperty(default=0)
 
     setup_mode: bpy.props.EnumProperty(items=[
                         ("BASIC","Basic","Build basic PBR materials."),
@@ -1469,6 +1471,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     ], default="FULL", name="Set bone inherit scale")
 
     disabled: bpy.props.BoolProperty(default=False)
+
+    def get_auto_index(self):
+        self.auto_index += 1
+        return self.auto_index
 
     def select(self):
         arm = self.get_armature()
@@ -1880,7 +1886,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         obj_cache.set_object(new_arm)
                         # update the object id
                         obj_cache.object_id = utils.generate_random_id(20)
-                        new_arm["rl_object_id"] = obj_cache.object_id
+                        utils.set_rl_object_id(new_arm, obj_cache.object_id)
         except:
             pass
 
@@ -2308,7 +2314,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     show_build_prefs2: bpy.props.BoolProperty(default=False)
     section_rigify_setup: bpy.props.BoolProperty(default=True)
     section_rigify_retarget: bpy.props.BoolProperty(default=True)
-    section_rigify_nla_bake: bpy.props.BoolProperty(default=True)
+    section_rigify_action_sets: bpy.props.BoolProperty(default=True)
     section_rigify_controls: bpy.props.BoolProperty(default=False)
     section_rigify_spring: bpy.props.BoolProperty(default=False)
     section_rigidbody_spring_ui: bpy.props.BoolProperty(default=True)
@@ -2345,6 +2351,17 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                                                        description="Name to assign to transferred shape key")
 
 
+    # rigify
+    rigify_retarget_use_fake_user: bpy.props.BoolProperty(default=True, name="Fake User")
+    rigify_retarget_motion_prefix: bpy.props.StringProperty(default="", name="Rigify Retarget Motion Prefix",
+                                                   description="Motion prefix for retargeted motions.")
+    rigify_bake_use_fake_user: bpy.props.BoolProperty(default=True, name="Fake User")
+    rigify_bake_motion_prefix: bpy.props.StringProperty(default="", name="Rigify Bake Motion Prefix",
+                                                   description="Motion prefix for baked NLA motions.")
+    rigify_bake_motion_name: bpy.props.StringProperty(default="NLA_Bake", name="Rigify Bake Motion Name",
+                                                   description="Motion name for baked NLA motions.")
+    filter_motion_set: bpy.props.BoolProperty(default=True, name="Filter",
+                                                  description="Show only motion sets compatible with the current character")
 
     # Hair
 
@@ -2452,6 +2469,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     armature_action_filter: bpy.props.BoolProperty(default=True)
     action_list_index: bpy.props.IntProperty(default=-1)
     action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
+    action_set_list_index: bpy.props.IntProperty(default=-1)
+    action_set_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
     armature_list_index: bpy.props.IntProperty(default=-1)
     armature_list_object: bpy.props.PointerProperty(type=bpy.types.Object)
     unity_action_list_index: bpy.props.IntProperty(default=-1)
@@ -2597,6 +2616,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         """Store the indices as objects, because adding new objects will cause the indices to become invalid."""
         self.armature_list_object = utils.collection_at_index(self.armature_list_index, bpy.data.objects)
         self.action_list_action = utils.collection_at_index(self.action_list_index, bpy.data.actions)
+        self.action_set_list_action = utils.collection_at_index(self.action_set_list_index, bpy.data.actions)
         self.unity_action_list_action = utils.collection_at_index(self.unity_action_list_index, bpy.data.actions)
         self.rigified_action_list_action = utils.collection_at_index(self.rigified_action_list_index, bpy.data.actions)
         if self.armature_list_object and self.armature_list_object.type != "ARMATURE":

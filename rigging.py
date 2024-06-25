@@ -2359,7 +2359,7 @@ def adv_preview_retarget(op, chr_cache):
         bpy.context.scene.frame_end = end_frame
 
         if prefs.rigify_preview_shape_keys:
-            adv_retarget_shape_keys(op, chr_cache, False)
+            adv_retarget_shape_keys(op, chr_cache)
 
 
 def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=None, to_original_rig=False):
@@ -2393,7 +2393,7 @@ def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=Non
             if op: op.report({'ERROR'}, "Source Action does not match Source Armature!")
             return None
 
-    source_type, source_label = get_armature_action_source_type(source_rig, source_action)
+    source_type, source_label = rigutils.get_armature_action_source_type(source_rig, source_action)
     retarget_data = rigify_mapping_data.get_retarget_for_source(source_type)
 
     if not retarget_data:
@@ -2406,12 +2406,8 @@ def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=Non
 
     temp_collection = utils.force_visible_in_scene("TMP_Retarget", source_rig, rigify_rig)
 
-    rigify_rig.location = (0,0,0)
-    rigify_rig.rotation_mode = "XYZ"
-    rigify_rig.rotation_euler = (0,0,0)
-    source_rig.location = (0,0,0)
-    source_rig.rotation_mode = "XYZ"
-    #source_rig.rotation_euler = (0,0,0)
+    utils.reset_object_transform(rigify_rig)
+    utils.reset_object_transform(source_rig)
 
     utils.delete_armature_object(chr_cache.rig_retarget_rig)
     retarget_rig = generate_retargeting_rig(chr_cache, source_rig, rigify_rig,
@@ -2437,10 +2433,50 @@ def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=Non
     return retarget_rig
 
 
-def retarget_cc3_rig_action(op, chr_cache, cc3_rig):
-    cc3_rig_action = utils.safe_get_action(cc3_rig)
-    if cc3_rig_action:
-        adv_bake_retarget_to_rigify(op, chr_cache, rig_override=cc3_rig, action_override=cc3_rig_action)
+def full_retarget_source_rig_action(op, chr_cache, src_rig=None, src_action=None,
+                                    use_ui_options=True):
+    prefs = vars.prefs()
+    props = vars.props()
+
+    # if nothing supplied, use the selected rig and action from the rigify panel
+    if not src_action and not src_rig:
+        src_rig = props.armature_list_object
+        src_action = props.action_list_action
+    # if only the rig not supplied, use the selected rig from the rigify panel
+    elif not src_rig and src_action:
+        src_rig = props.armature_list_object
+    # if no action supplied, get the action from the source rig
+    elif src_rig and not src_action:
+        src_action = utils.safe_get_action(src_rig)
+
+    rigify_rig = chr_cache.get_armature()
+
+    if rigify_rig and src_rig and src_action:
+        armature_action = adv_bake_retarget_to_rigify(op, chr_cache,
+                                        src_rig, src_action)[0]
+        key_actions = adv_retarget_shape_keys(op, chr_cache,
+                                        src_rig, src_action,
+                                        copy=True)
+        utils.log_info(f"Armature and shape key actions retargeted:")
+        # assign names and set data
+        rig_id = rigutils.get_rig_id(rigify_rig)
+        rl_arm_id = utils.get_rl_object_id(rigify_rig)
+        motion_prefix = rigutils.get_motion_prefix(src_action)
+        custom_prefix = props.rigify_retarget_motion_prefix.strip()
+        if use_ui_options and custom_prefix:
+            motion_prefix = custom_prefix
+        motion_id = rigutils.get_action_motion_id(src_action, "Retarget")
+        motion_id = rigutils.get_unique_set_motion_id(rig_id, motion_id, motion_prefix)
+        set_id, set_generation = rigutils.generate_motion_set(rigify_rig, motion_id, motion_prefix)
+        rigutils.set_armature_action_name(armature_action, rig_id, motion_id, motion_prefix)
+        rigutils.add_motion_set_data(armature_action, set_id, set_generation, rl_arm_id=rl_arm_id)
+        armature_action.use_fake_user = props.rigify_retarget_use_fake_user if use_ui_options else True
+        utils.log_info(f"Renaming armature action to: {armature_action.name}")
+        for obj_id, key_action in key_actions.items():
+            rigutils.set_key_action_name(key_action, rig_id, motion_id, obj_id, motion_prefix)
+            rigutils.add_motion_set_data(key_action, set_id, set_generation, obj_id=obj_id)
+            utils.log_info(f"Renaming key action ({obj_id}) to: {key_action.name}")
+            key_action.use_fake_user = props.rigify_retarget_use_fake_user if use_ui_options else True
 
 
 FK_BONE_GROUPS = ["FK", "Special", "Tweak", "Extra", "Root"]
@@ -2468,17 +2504,11 @@ BOTH_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
                          "Spring (IK)", "Spring (FK)", "Spring (Tweak)"]
 
 
-def adv_bake_retarget_to_rigify(op, chr_cache, rig_override=None, action_override=None):
+def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
     props = vars.props()
     prefs = vars.prefs()
 
     rigify_rig = chr_cache.get_armature()
-    source_rig = props.armature_list_object
-    source_action = props.action_list_action
-    if rig_override:
-        source_rig = rig_override
-    if action_override:
-        source_action = action_override
     utils.safe_set_action(source_rig, source_action)
 
     retarget_rig = adv_retarget_pair_rigs(op, chr_cache, rig_override=source_rig, action_override=source_action)
@@ -2515,7 +2545,8 @@ def adv_bake_retarget_to_rigify(op, chr_cache, rig_override=None, action_overrid
                         bone.select = True
 
 
-            armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, source_action, None, True, True)
+            armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, source_action,
+                                                                    None, True, True, "Retarget")
 
             adv_retarget_remove_pair(op, chr_cache)
 
@@ -2525,9 +2556,9 @@ def adv_bake_retarget_to_rigify(op, chr_cache, rig_override=None, action_overrid
 
         utils.restore_visible_in_scene(temp_collection)
 
-        return armature_action
+        return armature_action, shape_key_actions
 
-    return None
+    return None, None
 
 
 def adv_bake_NLA_to_rigify(op, chr_cache):
@@ -2574,7 +2605,18 @@ def adv_bake_NLA_to_rigify(op, chr_cache):
                     len(child.data.shape_keys.key_blocks) > 0):
                     shape_key_objects.append(child)
 
-        armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, None, shape_key_objects, False, True, "NLA_Bake")
+        motion_prefix = props.rigify_bake_motion_prefix.strip()
+        motion_id = props.rigify_bake_motion_name.strip()
+        if not motion_id:
+            motion_id = "NLA_Bake"
+
+        armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, None,
+                                                                shape_key_objects, False, True, motion_id,
+                                                                motion_prefix=motion_prefix)
+
+        armature_action.use_fake_user = props.rigify_bake_use_fake_user
+        for key_action in shape_key_actions:
+            key_action.use_fake_user = props.rigify_bake_use_fake_user
 
         bones.restore_armature_settings(rigify_rig, rigify_settings)
 
@@ -2606,43 +2648,6 @@ def get_shape_key_name_from_data_path(data_path):
     return None
 
 
-def get_source_shape_key_actions(source_rig, source_action):
-    actions = {}
-
-    animation_name = None
-    if source_action:
-        names = source_action.name.split("|")
-        if len(names) >= 3:
-            if names[0] == source_rig.name and names[1] == "A":
-                animation_name = names[2]
-
-    if animation_name:
-
-        # match actions by name (if imported using this add-on)
-        utils.log_info(f"looking for shape-key actions with animation name: {source_rig.name}|K|<obj>|{animation_name}")
-        for action in bpy.data.actions:
-            names = action.name.split("|")
-            if len(names) >= 4:
-                if names[0] == source_rig.name and names[1] == "K":
-                    if utils.partial_match(names[3], animation_name):
-                        if names[2] not in actions:
-                            utils.log_info(f"Found shape-key action: {action.name} for object {names[2]}")
-                            actions[names[2]] = action
-    else:
-
-        # try and fetch shape-key actions from source armature child objects
-        utils.log_info(f"looking for shape-key actions in armature child objects: {source_rig.name}")
-        for obj in source_rig.children:
-            obj_name = utils.get_action_shape_key_object_name(obj.name)
-            if obj.type == "MESH":
-                action = utils.safe_get_action(obj.data.shape_keys)
-                if action:
-                    utils.log_info(f"Found shape-key action: {action.name} for object {obj_name}")
-                    actions[obj_name] = action
-
-    return actions
-
-
 def match_obj_shape_key_action_name(obj_name, shape_key_actions):
     try_names = [obj_name]
     if "CC_Base_" in obj_name:
@@ -2657,79 +2662,52 @@ def match_obj_shape_key_action_name(obj_name, shape_key_actions):
     return None
 
 
-def remap_shape_key_actions(rigify_rig, shape_key_actions):
-    body_action = None
-    BODY_NAMES = ["CC_Base_Body", "CC_Game_Body", "Body"]
-    for obj_name in shape_key_actions:
-        if obj_name in BODY_NAMES:
-            body_action = shape_key_actions[obj_name]
-            utils.log_info(f"Body Action: {body_action.name}")
-    if body_action:
-        for child in rigify_rig.children:
-            if child.type == "MESH":
-                child_name = utils.strip_name(child.name)
-                if child_name not in shape_key_actions and has_facial_expression_shape_keys(child):
-                    action = match_obj_shape_key_action_name(child_name, shape_key_actions)
-                    if action:
-                        utils.log_info(f"Remapping Action {action.name} for object: {child_name}")
-                        shape_key_actions[child_name] = action
-                    else:
-                        utils.log_info(f"Adding Body Action to object: {child_name}")
-                        shape_key_actions[child_name] = body_action
-    return shape_key_actions
-
-
-def apply_shape_key_actions(rigify_rig, shape_key_actions):
-    for child in rigify_rig.children:
-        if child.type == "MESH":
-            child_name = utils.strip_name(child.name)
-            if child_name in shape_key_actions:
-                utils.safe_set_action(child.data.shape_keys, shape_key_actions[child_name])
-            else:
-                utils.safe_set_action(child.data.shape_keys, None)
-
-
-def adv_retarget_shape_keys(op, chr_cache, report):
+def adv_retarget_shape_keys(op, chr_cache,
+                            source_rig=None, source_action=None,
+                            copy=False):
     props = vars.props()
     rigify_rig = chr_cache.get_armature()
-    source_rig = props.armature_list_object
-    source_action = props.action_list_action
+    if not source_rig:
+        source_rig = props.armature_list_object
+    if not source_action:
+        source_action = props.action_list_action
 
     if not source_rig:
-        op.report({'ERROR'}, "No source Armature!")
+        if op: op.report({'ERROR'}, "No source Armature!")
         return
     if not rigify_rig:
-        op.report({'ERROR'}, "No Rigify Armature!")
+        if op: op.report({'ERROR'}, "No Rigify Armature!")
         return
     if not source_action:
-        op.report({'ERROR'}, "No Source Action!")
+        if op: op.report({'ERROR'}, "No Source Action!")
         return
     if not rigutils.is_rigify_armature(rigify_rig):
-        op.report({'ERROR'}, "Character Armature is not a Rigify armature!")
+        if op: op.report({'ERROR'}, "Character Armature is not a Rigify armature!")
         return
     if not check_armature_action(source_rig, source_action):
-        op.report({'ERROR'}, "Source Action does not match Source Armature!")
+        if op: op.report({'ERROR'}, "Source Action does not match Source Armature!")
         return
 
-    source_type, source_label = get_armature_action_source_type(source_rig, source_action)
+    source_type, source_label = rigutils.get_armature_action_source_type(source_rig, source_action)
     retarget_data = rigify_mapping_data.get_retarget_for_source(source_type)
 
     if not retarget_data:
-        op.report({'ERROR'}, f"Retargeting from {source_type} not supported!")
+        if op: op.report({'ERROR'}, f"Retargeting from {source_type} not supported!")
         return
 
-    shape_key_actions = get_source_shape_key_actions(source_rig, source_action)
+    source_actions = rigutils.find_source_actions(source_action, source_rig)
 
-    if not shape_key_actions or len(shape_key_actions) == 0:
-        if report:
-            op.report({'WARNING'}, f"No shape-key actions in source animation!")
+    if not source_actions or len(source_actions["keys"]) == 0:
+        key_actions = {}
+        if op: op.report({'WARNING'}, f"No shape-key actions in source animation!")
     else:
-        shape_key_actions = remap_shape_key_actions(rigify_rig, shape_key_actions)
-        apply_shape_key_actions(rigify_rig, shape_key_actions)
-        if report:
-            op.report({'INFO'}, f"Shape-key actions retargeted to character!")
+        key_actions = rigutils.apply_source_key_actions(rigify_rig, source_actions,
+                                                        all_matching=True, copy=copy,
+                                                        motion_id="TEMP", motion_prefix="")
+        if op: op.report({'INFO'}, f"Shape-key actions retargeted to character!")
 
     reset_shape_keys(chr_cache)
+    return key_actions
 
 
 # Unity animation exporting and baking
@@ -3037,7 +3015,8 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
                 bone.select = True
 
             # bake the action on the rigify rig into the export rig
-            armature_action, shape_key_actions = bake_rig_animation(chr_cache, export_rig, None, None, True, True, "NLA_Bake")
+            armature_action, shape_key_actions = bake_rig_animation(chr_cache, export_rig, None,
+                                                                    None, True, True, "Export")
 
     bones.restore_armature_settings(rigify_rig, rigify_settings)
 
@@ -3218,21 +3197,27 @@ def finish_rigify_export(chr_cache, export_rig, export_actions, vertex_group_map
 #
 #
 
-def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constraints, limit_view_layer, action_name = ""):
+def bake_rig_animation(chr_cache, rig, source_action,
+                       shape_key_objects,
+                       clear_constraints, limit_view_layer,
+                       motion_id="Bake", motion_prefix="",
+                       use_random_id=True):
+    """Bakes the current animation timeline on the supplied rig.
+    """
 
     armature_action = None
     shape_key_actions = {}
 
+    rig_id = rigutils.get_rig_id(rig)
+    motion_id = rigutils.get_unique_set_motion_id(rig_id, motion_id, motion_prefix)
+
     if utils.try_select_object(rig, True) and utils.set_active_object(rig):
-        if action_name == "" and action:
-            action_name = action.name
-        name = action_name.split("|")[-1]
-        armature_action_name = f"{rig.name}|A|{name}"
-        utils.log_info(f"Baking action: {name} to {armature_action_name}")
+        armature_action_name = rigutils.make_armature_action_name(rig_id, motion_id, motion_prefix)
+        utils.log_info(f"Baking to: {armature_action_name}")
         # frame range
-        if action:
-            start_frame = int(action.frame_range[0])
-            end_frame = int(action.frame_range[1])
+        if source_action:
+            start_frame = int(source_action.frame_range[0])
+            end_frame = int(source_action.frame_range[1])
         else:
             start_frame = int(bpy.context.scene.frame_start)
             end_frame = int(bpy.context.scene.frame_end)
@@ -3265,10 +3250,10 @@ def bake_rig_animation(chr_cache, rig, action, shape_key_objects, clear_constrai
         # shape key actions
         if shape_key_objects:
             for obj in shape_key_objects:
-                obj_name = utils.get_action_shape_key_object_name(obj.name)
+                obj_id = rigutils.get_action_obj_id(obj)
                 baked_action = utils.safe_get_action(obj.data.shape_keys)
                 if baked_action:
-                    shape_key_action_name = f"{rig.name}|K|{obj_name}|{name}"
+                    shape_key_action_name = rigutils.make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
                     baked_action.name = shape_key_action_name
                     baked_action.use_fake_user = True
                     shape_key_actions[obj] = baked_action
@@ -3335,32 +3320,6 @@ def check_armature_action(armature, action):
     return matching / total > 0
 
 
-def get_armature_action_source_type(armature, action):
-    if armature and not action and armature.type == "ARMATURE":
-        if rigutils.is_G3_armature(armature):
-            return "G3", "G3 (CC3/CC3+)"
-        if rigutils.is_iClone_armature(armature):
-            return "G3", "G3 (iClone)"
-        if rigutils.is_ActorCore_armature(armature):
-            return "G3", "G3 (ActorCore)"
-        if rigutils.is_GameBase_armature(armature):
-            return "GameBase", "GameBase (CC3/CC3+)"
-        if rigutils.is_Mixamo_armature(armature):
-            return "Mixamo", "Mixamo"
-    if armature and action and armature.type == "ARMATURE":
-        if rigutils.is_G3_armature(armature) and rigutils.is_G3_action(action):
-            return "G3", "G3 (CC3/CC3+)"
-        if rigutils.is_iClone_armature(armature) and rigutils.is_iClone_action(action):
-            return "G3", "G3 (iClone)"
-        if rigutils.is_ActorCore_armature(armature) and rigutils.is_ActorCore_action(action):
-            return "G3", "G3 (ActorCore)"
-        if rigutils.is_GameBase_armature(armature) and rigutils.is_GameBase_action(action):
-            return "GameBase", "GameBase (CC3/CC3+)"
-        if rigutils.is_Mixamo_armature(armature) and rigutils.is_Mixamo_action(action):
-            return "Mixamo", "Mixamo"
-    # detect other types as they become available...
-    return "Unknown", "Unknown"
-
 
 
 
@@ -3379,6 +3338,12 @@ class CC3Rigifier(bpy.types.Operator):
 
     no_face_rig: bpy.props.BoolProperty(
             name = "No Face Rig",
+            default = False,
+            options={"HIDDEN"}
+        )
+
+    auto_retarget: bpy.props.BoolProperty(
+            name = "Auto Retarget Animation",
             default = False,
             options={"HIDDEN"}
         )
@@ -3403,10 +3368,10 @@ class CC3Rigifier(bpy.types.Operator):
             self.meta_rig = utils.get_active_object()
             if self.meta_rig is not None:
                 utils.log_info("Meta-Rig added.")
-                self.meta_rig.location = (0,0,0)
+                utils.reset_object_transform(self.meta_rig)
                 if self.cc3_rig is not None:
                     self.meta_rig.name = f"{self.cc3_rig.name}_metarig"
-                    self.cc3_rig.location = (0,0,0)
+                    utils.reset_object_transform(self.cc3_rig)
                     self.cc3_rig.data.pose_position = "REST"
                     utils.log_info("Aligning Meta-Rig.")
                     utils.log_indent()
@@ -3449,6 +3414,8 @@ class CC3Rigifier(bpy.types.Operator):
 
         if utils.object_exists_is_armature(self.cc3_rig):
 
+            utils.make_visible(self.cc3_rig)
+
             self.remove_cc3_rigid_body_systems(chr_cache)
             self.add_meta_rig(chr_cache)
 
@@ -3467,7 +3434,13 @@ class CC3Rigifier(bpy.types.Operator):
         relative_coords = {}
         roll_store = {}
 
-        if rigutils.edit_rig(self.cc3_rig):
+        if utils.object_exists_is_armature(self.cc3_rig) and utils.object_exists_is_armature(self.meta_rig):
+            utils.make_visible(self.cc3_rig)
+            utils.make_visible(self.meta_rig)
+        else:
+            return
+
+        if utils.object_exists_is_armature(self.cc3_rig) and rigutils.edit_rig(self.cc3_rig):
             # store all the meta-rig bone roll axes
             store_bone_roll(self.meta_rig, roll_store)
             #
@@ -3503,11 +3476,17 @@ class CC3Rigifier(bpy.types.Operator):
 
         if utils.object_exists_is_armature(self.cc3_rig) and utils.object_exists_is_armature(self.meta_rig):
 
+            utils.make_visible(self.cc3_rig)
+            utils.make_visible(self.meta_rig)
+
             if utils.set_mode("OBJECT") and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
 
                 utils.log_info("")
                 utils.log_info("Generating Rigify Control Rig:")
                 utils.log_info("------------------------------")
+
+                utils.reset_object_transform(self.cc3_rig)
+                utils.reset_object_transform(self.meta_rig)
 
                 bpy.ops.pose.rigify_generate()
                 self.rigify_rig = utils.get_active_object()
@@ -3561,14 +3540,17 @@ class CC3Rigifier(bpy.types.Operator):
 
         if utils.object_exists_is_armature(self.cc3_rig) and utils.object_exists_is_armature(self.meta_rig):
 
-            self.cc3_rig.hide_set(False)
-            self.meta_rig.hide_set(False)
+            utils.make_visible(self.cc3_rig)
+            utils.make_visible(self.meta_rig)
 
             if utils.set_mode("OBJECT") and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
 
                 utils.log_info("")
                 utils.log_info("Re-generating Rigify Control Rig:")
                 utils.log_info("---------------------------------")
+
+                utils.reset_object_transform(self.cc3_rig)
+                utils.reset_object_transform(self.meta_rig)
 
                 # regenerating the rig will replace the existing rigify rig
                 # so there is no need to reparent anything
@@ -3654,7 +3636,8 @@ class CC3Rigifier(bpy.types.Operator):
                 self.generate_meta_rig(chr_cache)
                 self.rigify_meta_rig(chr_cache)
                 utils.set_active_layer_collection(olc)
-                retarget_cc3_rig_action(self, chr_cache, self.cc3_rig)
+                full_retarget_source_rig_action(self, chr_cache, self.cc3_rig,
+                                                use_ui_options=False)
                 rigutils.update_avatar_rig(self.rigify_rig)
 
             if self.param == "ALL":
@@ -3663,8 +3646,9 @@ class CC3Rigifier(bpy.types.Operator):
                 self.generate_meta_rig(chr_cache)
                 self.rigify_meta_rig(chr_cache)
                 utils.set_active_layer_collection(olc)
-                if prefs.rigify_auto_retarget:
-                    retarget_cc3_rig_action(self, chr_cache, self.cc3_rig)
+                if self.auto_retarget or prefs.rigify_auto_retarget:
+                    full_retarget_source_rig_action(self, chr_cache, self.cc3_rig,
+                                                    use_ui_options=not self.auto_retarget)
 
             elif self.param == "META_RIG":
 
@@ -3755,13 +3739,13 @@ class CC3Rigifier(bpy.types.Operator):
                 adv_retarget_remove_pair(self, chr_cache)
 
             elif self.param == "RETARGET_CC_BAKE_ACTION":
-                adv_bake_retarget_to_rigify(self, chr_cache)
+                full_retarget_source_rig_action(self, chr_cache, use_ui_options=True)
 
             elif self.param == "NLA_CC_BAKE":
                 adv_bake_NLA_to_rigify(self, chr_cache)
 
             elif self.param == "RETARGET_SHAPE_KEYS":
-                adv_retarget_shape_keys(self, chr_cache, True)
+                adv_retarget_shape_keys(self, chr_cache)
 
             elif self.param == "SPRING_GROUP_TO_IK":
                 group_props_to_value(chr_cache, context.active_pose_bone, "IK_FK", 0.0)
@@ -3774,50 +3758,6 @@ class CC3Rigifier(bpy.types.Operator):
             elif self.param == "SPRING_GROUP_TO_SIM":
                 group_props_to_value(chr_cache, context.active_pose_bone, "IK_FK", 1.0)
                 group_props_to_value(chr_cache, context.active_pose_bone, "SIM", 1.0)
-
-            elif self.param == "TOGGLE_SHOW_FULL_RIG":
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.toggle_show_full_rig(rig)
-
-            elif self.param == "TOGGLE_SHOW_BASE_RIG":
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.toggle_show_base_rig(rig)
-
-            elif self.param == "TOGGLE_SHOW_SPRING_RIG":
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.toggle_show_spring_rig(rig)
-
-            elif self.param == "TOGGLE_SHOW_RIG_POSE":
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.toggle_rig_rest_position(rig)
-
-            elif self.param == "TOGGLE_SHOW_SPRING_BONES":
-                rig = chr_cache.get_armature()
-                if rig:
-                    springbones.toggle_show_spring_bones(rig)
-
-            elif self.param == "BUTTON_RESET_POSE":
-                mode_selection = utils.store_mode_selection_state()
-                rig = chr_cache.get_armature()
-                if rig:
-                    rigutils.reset_pose(rig)
-                utils.restore_mode_selection_state(mode_selection)
-
-            elif self.param == "SET_LIMB_FK":
-                rig = chr_cache.get_armature()
-                if rig and chr_cache.rigified:
-                    rigutils.set_rigify_ik_fk_influence(rig, 1.0)
-                    rigutils.poke_rig(rig)
-
-            elif self.param == "SET_LIMB_IK":
-                rig = chr_cache.get_armature()
-                if rig and chr_cache.rigified:
-                    rigutils.set_rigify_ik_fk_influence(rig, 0.0)
-                    rigutils.poke_rig(rig)
 
             props.restore_ui_list_indices()
 
@@ -3876,29 +3816,11 @@ class CC3Rigifier(bpy.types.Operator):
         elif properties.param == "NLA_CC_BAKE":
             return "Bake the NLA track to the character Rigify Rig using the global scene frame range."
 
-        elif properties.param == "TOGGLE_SHOW_SPRING_BONES":
-            return "Quick toggle for the armature layers to show just the spring bones or just the body bones"
-
         elif properties.param == "BUILD_SPRING_RIG":
             return "Builds the spring rig controls for the currently selected spring rig"
 
         elif properties.param == "REMOVE_SPRING_RIG":
             return "Removes the spring rig controls for the currently selected spring rig"
-
-        elif properties.param == "TOGGLE_SHOW_FULL_RIG":
-            return "Toggles showing all the rig controls"
-
-        elif properties.param == "TOGGLE_SHOW_BASE_RIG":
-            return "Toggles showing the base rig controls"
-
-        elif properties.param == "TOGGLE_SHOW_SPRING_RIG":
-            return "Toggles showing just the spring rig controls"
-
-        elif properties.param == "TOGGLE_SHOW_RIG_POSE":
-            return "Toggles the rig between pose mode and rest pose"
-
-        elif properties.param == "BUTTON_RESET_POSE":
-            return "Clears all pose transforms"
 
         return "Rigification!"
 

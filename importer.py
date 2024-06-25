@@ -395,41 +395,69 @@ def is_iclone_temp_motion(name : str):
         return False
 
 
-def remap_action_names(actions, objects, source_name, name, action_name_prefix=""):
+def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
     key_map = {}
     num_keys = 0
 
+    rig_id = rigutils.get_rig_id(arm)
+    utils.log_info(f"Remap Action Names:")
+    utils.log_info(f"Armature: {source_id} => {rig_id}")
+
+    # don't change the armature id if it exists
+    rl_arm_id = utils.get_rl_object_id(arm)
+    if not rl_arm_id:
+        rl_arm_id = utils.generate_random_id(20)
+        utils.set_rl_object_id(arm, rl_arm_id)
+
+    # find all motions for this armature
     armature_actions = []
     shapekey_actions = []
+    motion_ids = set()
+    motion_sets = {}
+    for action in actions:
+        split = action.name.split("|")
+        action_arm_id = split[0]
+        motion_id = split[-1]
+        if action_arm_id == source_id:
+            utils.log_info(f"Motion ID: {motion_id}")
+            motion_ids.add(motion_id)
+            armature_actions.append(action)
+            motion_sets[motion_id] = rigutils.generate_motion_set(arm, motion_id,
+                                                                  motion_prefix)
 
+    # determine how each shape key id relates to each object in the import
     for obj in objects:
         if obj.type == "MESH":
-            new_obj_name = utils.get_action_shape_key_object_name(obj.name)
+            obj_id = rigutils.get_action_obj_id(obj)
             if obj.data.shape_keys:
-                key_map[new_obj_name] = obj.data.shape_keys.name
-                utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {new_obj_name}")
-                num_keys += 1
+                obj_action = utils.safe_get_action(obj.data.shape_keys)
+                if obj_action:
+                    actions.append(obj_action)
+                    key_map[obj_id] = obj.data.shape_keys.name
+                    utils.log_info(f"ShapeKey: {obj.data.shape_keys.name} belongs to: {obj_id}")
+                    num_keys += 1
 
+    # rename all actions associated with this armature and it's motions
     for action in actions:
-        action_key_name = action.name.split("|")[0]
-        new_action_name = action.name.split("|")[-1]
-        if is_iclone_temp_motion(new_action_name):
-            new_action_name = "iCTM"
-        elif new_action_name == "AvatarCurrentMotion":
-            new_action_name = "CCPose"
-        if action.name.startswith(source_name + "|"):
-            new_name = f"{name}|A|{new_action_name}"
-            utils.log_info(f"Renaming action: {action.name} to {new_name}")
-            action.name = f"{action_name_prefix}{new_name}"
-            armature_actions.append(action)
-        else:
-            for new_obj_name in key_map:
-                key_name = key_map[new_obj_name]
-                if action_key_name == key_name:
-                    new_name = f"{name}|K|{new_obj_name}|{new_action_name}"
-                    utils.log_info(f"Renaming action: {action.name} to {new_name}")
-                    action.name = f"{action_name_prefix}{new_name}"
-                    shapekey_actions.append(action)
+        split = action.name.split("|")
+        action_key_name = split[0]
+        motion_id = split[-1]
+        if motion_id in motion_ids:
+            set_id, set_generation = motion_sets[motion_id]
+            if action in armature_actions:
+                action_name = rigutils.make_armature_action_name(rig_id, motion_id, motion_prefix)
+                utils.log_info(f"Renaming action: {action.name} to {action_name}")
+                action.name = action_name
+                rigutils.add_motion_set_data(action, set_id, set_generation, rl_arm_id=rl_arm_id)
+                armature_actions.append(action)
+            else:
+                for obj_id, key_name in key_map.items():
+                    if action_key_name == key_name:
+                        action_name = rigutils.make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
+                        utils.log_info(f"Renaming action: {action.name} to {action_name}")
+                        action.name = action_name
+                        rigutils.add_motion_set_data(action, set_id, set_generation, obj_id=obj_id)
+                        shapekey_actions.append(action)
 
     return armature_actions, shapekey_actions
 
@@ -448,7 +476,7 @@ def process_root_bones(arm, json_data, name):
 
 
 def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list,
-                      actions, json_data, report, link_id, action_name_prefix=""):
+                      actions, json_data, report, link_id, motion_prefix=""):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -495,10 +523,11 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             #   multiple character imports name the armatures after the character
             #   single character imports just name the armature 'armature' so use the file name
             character_name = name
-            source_name = "Armature"
+            source_id = "Armature"
             if len(rl_armatures) > 1:
-                source_name = arm.name
+                source_id = arm.name
                 character_name = utils.safe_export_name(arm.name)
+            armature_objects = utils.get_child_objects(arm, include_parent=True)
 
             utils.log_info(f"Generating Character Data: {character_name}")
             utils.log_indent()
@@ -549,8 +578,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             # remame actions
             utils.log_info("Renaming actions:")
             utils.log_indent()
-            remap_action_names(actions, objects, source_name, chr_cache.character_name,
-                               action_name_prefix=action_name_prefix)
+            remap_action_names(arm, armature_objects, actions, source_id,
+                               motion_prefix=motion_prefix)
             utils.log_recess()
 
             # determine character generation
@@ -588,10 +617,11 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
         for i, arm in enumerate(armatures):
 
             character_name = name
-            source_name = "Armature"
+            source_id = "Armature"
             if len(armatures) > 1:
-                source_name = arm.name
+                source_id = arm.name
                 character_name = utils.safe_export_name(arm.name)
+            armature_objects = utils.get_child_objects(arm, include_parent=True)
 
             utils.log_info(f"Generating Scene/Prop Data: {character_name}")
             utils.log_indent()
@@ -634,8 +664,8 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             # remame actions
             utils.log_info("Renaming actions:")
             utils.log_indent()
-            remap_action_names(actions, objects, source_name, chr_cache.character_name,
-                               action_name_prefix=action_name_prefix)
+            remap_action_names(arm, armature_objects, actions, source_id,
+                               motion_prefix=motion_prefix)
             utils.log_recess()
 
             # determine character generation
@@ -773,9 +803,14 @@ class CC3Import(bpy.types.Operator):
             options={"HIDDEN"}
         )
 
-    action_name_prefix: bpy.props.StringProperty(
+    motion_prefix: bpy.props.StringProperty(
         name = "Motion Prefix",
         default = ""
+    )
+
+    use_fake_user: bpy.props.BoolProperty(
+        name = "Use Fake User",
+        default = True
     )
 
     use_anim: bpy.props.BoolProperty(name = "Import Animation", description = "Import animation with character.\nWarning: long animations take a very long time to import in Blender 2.83", default = True)
@@ -873,13 +908,15 @@ class CC3Import(bpy.types.Operator):
             actions = utils.untagged_actions()
             self.imported_images = utils.untagged_images()
 
+            for action in actions:
+                action.use_fake_user = self.use_fake_user
             armatures, rl_armatures = self.get_character_armatures(imported, avatar_type, json_generation)
 
             # detect characters and objects
             if ImportFlags.RL in self.import_flags:
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, armatures, rl_armatures,
                                                              imported, actions, json_data, self.import_report, self.link_id,
-                                                             self.action_name_prefix)
+                                                             self.motion_prefix)
             elif prefs.import_auto_convert:
                 chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
                 self.imported_characters = [ chr_cache ]
@@ -910,7 +947,7 @@ class CC3Import(bpy.types.Operator):
             if ImportFlags.RL in self.import_flags:
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, None, None,
                                                              imported, actions, json_data, self.import_report, self.link_id,
-                                                             self.action_name_prefix)
+                                                             self.motion_prefix)
             elif prefs.import_auto_convert:
                 chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
                 self.imported_characters = [ chr_cache ]
@@ -1227,7 +1264,8 @@ class CC3Import(bpy.types.Operator):
                 if chr_cache.can_be_rigged():
                     cc3_rig = chr_cache.get_armature()
                     bpy.ops.cc3.rigifier(param="ALL")
-                    rigging.retarget_cc3_rig_action(self, chr_cache, cc3_rig)
+                    rigging.full_retarget_source_rig_action(self, chr_cache, cc3_rig,
+                                                            use_ui_options=True)
 
         self.imported_characters = None
         self.imported_materials = []
@@ -1425,9 +1463,14 @@ class CC3ImportAnimations(bpy.types.Operator):
             options={"HIDDEN"}
     )
 
-    action_name_prefix: bpy.props.StringProperty(
+    motion_prefix: bpy.props.StringProperty(
         name = "Motion Prefix",
         default = ""
+    )
+
+    use_fake_user: bpy.props.BoolProperty(
+        name = "Use Fake User",
+        default = True
     )
 
     def import_animation_fbx(self, dir, file):
@@ -1447,15 +1490,28 @@ class CC3ImportAnimations(bpy.types.Operator):
         images = utils.untagged_images()
         materials = utils.untagged_materials()
 
-        #if "Imported Animations" not in bpy.data.collections:
-        #    collection = bpy.data.collections.new("Imported Animations")
-        #    bpy.context.scene.collection.children.link(collection)
-        #else:
-        #    collection = bpy.data.collections["Imported Animations"]
+        for action in actions:
+            action.use_fake_user = self.use_fake_user
 
         utils.log_info("Renaming actions:")
         utils.log_indent()
-        armature_actions, shapekey_actions = remap_action_names(actions, objects, "Armature", name, action_name_prefix=self.action_name_prefix)
+
+        # find all armatures
+        armatures = []
+        for obj in objects:
+            if obj.type == "ARMATURE":
+                armatures.append(obj)
+
+        # assign animation sets
+        for arm in armatures:
+            armature_objects = utils.get_child_objects(arm)
+            source_id = arm.name
+            # just one armature is always named 'Armature'
+            if len(armatures) == 1:
+                arm.name = name
+                arm.data.name = name
+            shapekey_actions = remap_action_names(arm, armature_objects, actions, source_id,
+                                                  motion_prefix=self.motion_prefix)[1]
         utils.log_recess()
 
         utils.log_info("Cleaning up:")

@@ -18,7 +18,8 @@ import bpy
 from mathutils import Vector, Matrix, Quaternion, Euler
 from random import random
 import re
-from . import bones, modifiers, rigify_mapping_data, utils, vars
+import traceback
+from . import springbones, bones, modifiers, rigify_mapping_data, utils, vars
 
 
 def edit_rig(rig):
@@ -164,10 +165,40 @@ def is_Mixamo_armature(armature):
     return False
 
 
+def is_rigify_action(action):
+    if action:
+        if len(action.fcurves) > 0:
+            for bone_name in rigify_mapping_data.RIGIFY_BONE_NAMES:
+                if not name_in_data_paths(action, bone_name):
+                    return False
+            return True
+    return False
+
+
 def is_rigify_armature(armature):
     if armature:
         if len(armature.data.bones) > 0:
             for bone_name in rigify_mapping_data.RIGIFY_BONE_NAMES:
+                if bone_name not in armature.data.bones:
+                    return False
+            return True
+    return False
+
+
+def is_rl_rigify_action(action):
+    if action:
+        if len(action.fcurves) > 0:
+            for bone_name in rigify_mapping_data.RL_RIGIFY_BONE_NAMES:
+                if not name_in_data_paths(action, bone_name):
+                    return False
+            return True
+    return False
+
+
+def is_rl_rigify_armature(armature):
+    if armature:
+        if len(armature.data.bones) > 0:
+            for bone_name in rigify_mapping_data.RL_RIGIFY_BONE_NAMES:
                 if bone_name not in armature.data.bones:
                     return False
             return True
@@ -196,18 +227,640 @@ def get_rig_generation(armature):
         return "Unknown"
 
 
-def is_rl_rigify_armature(armature):
-    if armature:
-        if len(armature.data.bones) > 0:
-            for bone_name in rigify_mapping_data.RL_RIGIFY_BONE_NAMES:
-                if bone_name not in armature.data.bones:
-                    return False
-            return True
+def is_unity_action(action):
+    return "_Unity" in action.name and "|A|" in action.name
+
+
+def get_armature_action_source_type(armature, action=None):
+    if armature and not action and armature.type == "ARMATURE":
+        if is_G3_armature(armature):
+            return "G3", "G3 (CC3/CC3+)"
+        if is_iClone_armature(armature):
+            return "G3", "G3 (iClone)"
+        if is_ActorCore_armature(armature):
+            return "G3", "G3 (ActorCore)"
+        if is_GameBase_armature(armature):
+            return "GameBase", "GameBase (CC3/CC3+)"
+        if is_Mixamo_armature(armature):
+            return "Mixamo", "Mixamo"
+        if is_rl_rigify_armature(armature):
+            return "Rigify+", "Rigify+"
+        if is_rigify_armature(armature):
+            return "Rigify", "Rigify"
+    if armature and action and armature.type == "ARMATURE":
+        if is_G3_armature(armature) and is_G3_action(action):
+            return "G3", "G3 (CC3/CC3+)"
+        if is_iClone_armature(armature) and is_iClone_action(action):
+            return "G3", "G3 (iClone)"
+        if is_ActorCore_armature(armature) and is_ActorCore_action(action):
+            return "G3", "G3 (ActorCore)"
+        if is_GameBase_armature(armature) and is_GameBase_action(action):
+            return "GameBase", "GameBase (CC3/CC3+)"
+        if is_Mixamo_armature(armature) and is_Mixamo_action(action):
+            return "Mixamo", "Mixamo"
+        if is_rl_rigify_armature(armature) and is_rl_rigify_action(action):
+            return "Rigify+", "Rigify+"
+        if is_rigify_armature(armature) and is_rigify_action(action):
+            return "Rigify", "Rigify"
+    # detect other types as they become available...
+    return "Unknown", "Unknown"
+
+
+def find_source_actions(source_action, source_rig=None):
+    src_set_id, src_set_gen, src_type_id, src_object_id = get_motion_set(source_action)
+    src_prefix, src_rig_id, src_type_id, src_object_id, src_motion_id = decode_action_name(source_action)
+    if not src_motion_id:
+        src_motion_id = get_action_motion_id(source_action)
+
+    actions = {
+        "motion_info": {
+            "prefix": src_prefix,
+            "rig_id": src_rig_id,
+            "motion_id": src_motion_id,
+            "set_id": src_set_id,
+            "set_generation": src_set_gen,
+        },
+        "count": 0,
+        "armature": None,
+        "keys": {},
+    }
+
+    # try matching actions by set_id (disabled for now: testing name patterns first)
+    if src_set_id:
+        utils.log_info(f"Looking for motion set id: {src_set_id}")
+        for action in bpy.data.actions:
+            if "rl_set_id" in action:
+                set_id, set_gen, type_id, object_id = get_motion_set(action)
+                if set_id == src_set_id:
+                    if type_id == "KEY":
+                        utils.log_info(f" - Found shape-key action: {action.name} for {object_id}")
+                        actions["keys"][object_id] = action
+                    elif type_id == "ARM":
+                        utils.log_info(f" - Found armature action: {action.name}")
+                        actions["armature"] = action
+        return actions
+
+    # try matching actions by action name pattern
+    if src_type_id and src_motion_id:
+        # match actions by name pattern
+        utils.log_info(f"Looking for shape-key actions matching: [<{src_prefix}>|]{src_rig_id}|[K|A]|[<obj>|]{src_motion_id}")
+        for action in bpy.data.actions:
+            motion_prefix, rig_id, type_id, object_id, motion_id = decode_action_name(action)
+            if (motion_id and object_id not in actions and
+                motion_prefix == src_prefix and
+                rig_id == src_rig_id and
+                utils.partial_match(motion_id, src_motion_id)):
+                if type_id == "K":
+                    utils.log_info(f" - Found shape-key action: {action.name} for {object_id}")
+                    actions["keys"][object_id] = action
+                elif type_id == "A":
+                    utils.log_info(f" - Found armature action: {action.name}")
+                    actions["armature"] = action
+        return actions
+
+    # try to fetch shape-key actions from source armature child objects, if supplied
+    elif source_rig:
+        utils.log_info(f"Looking for shape-key actions in armature child objects: {source_rig.name}")
+        action = utils.safe_get_action(source_rig)
+        if action:
+            utils.log_info(f" - Found armature action: {action.name}")
+            actions["armature"] = action
+        for obj in source_rig.children:
+            obj_id = get_action_obj_id(obj)
+            if obj.type == "MESH":
+                action = utils.safe_get_action(obj.data.shape_keys)
+                if action:
+                    utils.log_info(f" - Found shape-key action: {action.name} for {obj_id}")
+                    actions["keys"][obj_id] = action
+        return actions
+
+    return actions
+
+
+def get_main_body_action(source_actions):
+    # find the "Body" action
+    for obj_id in source_actions["keys"]:
+        action: bpy.types.Action = source_actions["keys"][obj_id]
+        l_name = obj_id.lower()
+        if l_name == "body":
+            utils.log_info(f" - Using main body action: {action.name}")
+            return action
+    # find the action with the most shape keys
+    action_with_most_keys = None
+    num_keys = 0
+    for obj_id in source_actions["keys"]:
+        action = source_actions["keys"][obj_id]
+        if len(action.fcurves) > num_keys:
+            num_keys = len(action.fcurves)
+            action_with_most_keys = action
+    utils.log_info(f" - Using action with most shape keys: {action_with_most_keys.name}")
+    return action_with_most_keys
+
+
+def apply_source_armature_action(dst_rig, source_actions, copy=False,
+                                 motion_id=None, motion_prefix=None,
+                                 set_id=None, set_generation=None):
+    obj_used = []
+    actions_used = []
+    rig_id = get_rig_id(dst_rig)
+    rl_arm_id = utils.get_rl_object_id(dst_rig)
+    if not motion_id:
+        motion_id = source_actions["motion_info"]["motion_id"]
+    if motion_prefix is None:
+        motion_prefix = source_actions["motion_info"]["prefix"]
+    utils.log_info(f"Applying source armature action:")
+    action = source_actions["armature"]
+    if action:
+        if copy and motion_id:
+            action_name = make_armature_action_name(rig_id, motion_id, motion_prefix)
+            utils.log_info(f" - Copying action: {action.name} to {action_name}")
+            action = utils.copy_action(action, action_name)
+            if set_id and set_generation:
+                add_motion_set_data(action, set_id, set_generation, rl_arm_id=rl_arm_id)
+        utils.log_info(f" - Applying action: {action.name} to {rig_id}")
+        utils.safe_set_action(dst_rig, action)
+        obj_used.append(dst_rig)
+        actions_used.append(action)
+    return obj_used, actions_used
+
+
+def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=False,
+                             motion_id=None, motion_prefix=None,
+                             set_id=None, set_generation=None):
+    obj_used = []
+    key_actions = {}
+    rig_id = get_rig_id(dst_rig)
+    if motion_id == "" or motion_id == "TEMP":
+        motion_id = "TEMP_" + utils.generate_random_id(12)
+    if motion_id is None:
+        motion_id = source_actions["motion_info"]["motion_id"]
+    if motion_prefix is None:
+        motion_prefix = source_actions["motion_info"]["prefix"]
+
+    # TODO this should really collect all named shape key animation tracks across all source objects
+    #      and create actions specific to each target object.
+    #      e.g. facial hair meshes have tongue shape keys which the body action alone doesn't have.
+
+    # apply to exact matches first
+    utils.log_info(f"Applying source key actions: (copy={copy}, motion_id={motion_id})")
+    objects = utils.get_child_objects(dst_rig)
+    for obj in objects:
+        if obj.type == "MESH":
+            if utils.object_has_shape_keys(obj):
+                obj_id = get_action_obj_id(obj)
+                if (obj_id in source_actions["keys"] and
+                    obj_has_action_shape_keys(obj, source_actions["keys"][obj_id])):
+                    action = source_actions["keys"][obj_id]
+                    if copy and motion_id:
+                        action_name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
+                        utils.log_info(f" - Copying action: {action.name} to {action_name}")
+                        action = utils.copy_action(action, action_name)
+                        if set_id and set_generation:
+                            add_motion_set_data(action, set_id, set_generation, obj_id=obj_id)
+                    utils.log_info(f" - Applying action: {action.name} to {obj_id}")
+                    utils.safe_set_action(obj.data.shape_keys, action)
+                    obj_used.append(obj)
+                    key_actions[obj_id] = action
+                else:
+                    utils.safe_set_action(obj.data.shape_keys, None)
+
+    # apply to other compatible shape key objects
+    if all_matching:
+        utils.log_info(f"Applying other matching source key actions:")
+        body_action = get_main_body_action(source_actions)
+        for obj in objects:
+            if obj not in obj_used and utils.object_has_shape_keys(obj):
+                obj_id = get_action_obj_id(obj)
+                if body_action:
+                    if obj_has_action_shape_keys(obj, body_action):
+                        action = body_action
+                        if copy and motion_id:
+                            action_name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
+                            utils.log_info(f" - Copying action: {action.name} to {action_name}")
+                            action = utils.copy_action(action, action_name)
+                            if set_id and set_generation:
+                                add_motion_set_data(action, set_id, set_generation, obj_id=obj_id)
+                        utils.log_info(f" - Applying action: {action.name} to {obj_id}")
+                        utils.safe_set_action(obj.data.shape_keys, action)
+                        obj_used.append(obj)
+                        key_actions[obj_id] = action
+    return key_actions
+
+
+def obj_has_action_shape_keys(obj, action: bpy.types.Action):
+    if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+        for key in obj.data.shape_keys.key_blocks:
+            for fcurve in action.fcurves:
+                if key.name in fcurve.data_path:
+                    return True
     return False
 
 
-def is_unity_action(action):
-    return "_Unity" in action.name and "|A|" in action.name
+def get_rig_id(rig):
+    rig_id = utils.strip_name(rig.name.strip()).replace("|", "_")
+    return rig_id
+
+
+def decode_action_name(action):
+    """Decode action name into prefix, rig_id, type("A"|"K"), object_id, motion_id.
+       if the action name does not follow this naming pattern all values return None."""
+    if type(action) is str:
+        action_name = action
+    else:
+        action_name = action.name
+    #utils.log_detail(f"Decoding Action name: {action_name}")
+    try:
+        ids = action_name.split("|")
+        for i, id in enumerate(ids):
+            ids[i] = id.strip()
+        if ids[1] == "A":
+            type_id = "A"
+            prefix = ""
+            rig_id = ids[0]
+            obj_id = ""
+        elif ids[2] == "A":
+            type_id = "A"
+            prefix = ids[0]
+            rig_id = ids[1]
+            obj_id = ""
+        elif ids[1] == "K":
+            type_id = "K"
+            prefix = ""
+            rig_id = ids[0]
+            obj_id = ids[2]
+        elif ids[2] == "K":
+            type_id = "K"
+            prefix = ids[0]
+            rig_id = ids[1]
+            obj_id = ids[3]
+        motion_id = ids[-1]
+        if type_id != "A" and type_id != "K":
+            motion_id = None
+            raise Exception("Invalid action type id!")
+        #utils.log_detail(f"rig_id: {rig_id}, type_id: {type_id}, obj_id: {obj_id}, motion_id: {motion_id}, prefix: {prefix}")
+    except Exception as e:
+        prefix = None
+        rig_id = None
+        type_id = None
+        obj_id = None
+        motion_id = None
+        #utils.log_detail("Invalid motion action name!")
+    return prefix, rig_id, type_id, obj_id, motion_id
+
+
+def get_action_motion_id(action, default_name="Motion"):
+    if action:
+        motion_id = action.name.split("|")[-1].strip()
+    else:
+        motion_id = ""
+    if not motion_id and default_name:
+        motion_id = f"{default_name}_{utils.generate_random_id(8)}"
+    return motion_id
+
+
+def get_motion_prefix(action, default_prefix=""):
+    prefix, rig_id, type_id, obj_id, motion_id = decode_action_name(action)
+    prefix = prefix.strip()
+    if not prefix:
+        return default_prefix
+    else:
+        return prefix
+
+
+def get_action_obj_id(obj):
+    obj_id = utils.strip_cc_base_name(obj.name).replace("|", "_")
+    return obj_id
+
+
+def get_formatted_prefix(motion_prefix):
+    motion_prefix = motion_prefix.strip().replace("|", "_")
+    while motion_prefix.endswith("_"):
+        motion_prefix = motion_prefix[:-1]
+    if motion_prefix and not motion_prefix.endswith("|"):
+        motion_prefix += "|"
+    return motion_prefix
+
+
+def get_unique_set_motion_id(rig_id, motion_id, motion_prefix, exclude_set_id=None):
+    test_name = make_armature_action_name(rig_id, motion_id, motion_prefix)
+    base_name = test_name
+    num_suffix = 0
+    while test_name in bpy.data.actions:
+        if exclude_set_id and "rl_set_id" in bpy.data.actions[test_name]:
+            if exclude_set_id == bpy.data.actions[test_name]["rl_set_id"]:
+                break
+        num_suffix += 1
+        test_name = f"{base_name}_{num_suffix:03d}"
+    if num_suffix > 0:
+        motion_id += f"_{num_suffix:03d}"
+    return motion_id
+
+
+def make_armature_action_name(rig_id, motion_id, motion_prefix):
+    f_prefix = get_formatted_prefix(motion_prefix)
+    return f"{f_prefix}{rig_id}|A|{motion_id}"
+
+
+def make_key_action_name(rig_id, motion_id, obj_id, motion_prefix):
+    f_prefix = get_formatted_prefix(motion_prefix)
+    return f"{f_prefix}{rig_id}|K|{obj_id}|{motion_id}"
+
+
+def set_armature_action_name(action, rig_id, motion_id, motion_prefix):
+    action.name = make_armature_action_name(rig_id, motion_id, motion_prefix)
+
+
+def set_key_action_name(action, rig_id, motion_id, obj_id, motion_prefix):
+    action.name = make_key_action_name(rig_id, motion_id, obj_id, motion_prefix)
+
+
+def generate_motion_set(rig, motion_id, motion_prefix):
+    f_prefix = get_formatted_prefix(motion_prefix)
+    rl_set_id = utils.generate_random_id(32)
+    rl_set_generation, source_label = get_armature_action_source_type(rig)
+    if "rl_set_generation" not in rig:
+        rig["rl_set_generation"] = rl_set_generation
+    return rl_set_id, rl_set_generation
+
+
+def get_motion_set(action):
+    set_id = None
+    set_generation = None
+    action_type_id = None
+    key_object = None
+    try:
+        if "rl_set_id" in action:
+            set_id = action["rl_set_id"]
+        if "rl_set_generation" in action:
+            set_generation = action["rl_set_generation"]
+        if "rl_key_object" in action:
+            key_object = action["rl_key_object"]
+        if "rl_action_type" in action:
+            action_type_id = action["rl_action_type"]
+    except:
+        set_id = None
+        set_generation = None
+        action_type_id = None
+        key_object = None
+    return set_id, set_generation, action_type_id, key_object
+
+
+def add_motion_set_data(action, set_id, set_generation, obj_id=None, rl_arm_id=None):
+    action["rl_set_id"] = set_id
+    action["rl_set_generation"] = set_generation
+    if obj_id is not None:
+        action["rl_action_type"] = "KEY"
+        action["rl_key_object"] = obj_id
+    else:
+        action["rl_action_type"] = "ARM"
+    if rl_arm_id is not None:
+        action["rl_armature_id"] = rl_arm_id
+
+
+def load_motion_set(rig, set_armature_action):
+    source_actions = find_source_actions(set_armature_action, None)
+    apply_source_armature_action(rig, source_actions, copy=False)
+    apply_source_key_actions(rig, source_actions, all_matching=True, copy=False)
+
+
+def clear_motion_set(rig):
+    utils.safe_set_action(rig, None)
+    objects = utils.get_child_objects(rig)
+    for obj in objects:
+        if obj.type == "MESH":
+            if utils.object_has_shape_keys(obj):
+                utils.safe_set_action(obj.data.shape_keys, None)
+
+
+def clear_all_actions(objects):
+    for obj in objects:
+        if utils.object_exists_is_armature(obj):
+            utils.safe_set_action(obj, None)
+        elif utils.object_exists_is_mesh(obj):
+            if utils.object_has_shape_keys(obj):
+                utils.safe_set_action(obj.data.shape_keys, None)
+
+
+def push_motion_set(rig: bpy.types.Object, set_armature_action, push_index = 0):
+    source_actions = find_source_actions(set_armature_action, None)
+    frame = bpy.context.scene.frame_current
+    set_arm_action: bpy.types.Action = source_actions["armature"]
+    length = int(set_arm_action.frame_range[1]) - int(set_arm_action.frame_range[0])
+    objects = utils.get_child_objects(rig)
+    # find all available NLA tracks
+    nla_data = []
+    if rig.animation_data.nla_tracks:
+        nla_data.append(rig.animation_data.nla_tracks)
+    for obj in objects:
+        if obj.data.shape_keys and obj.data.shape_keys.animation_data:
+            if obj.data.shape_keys.animation_data.nla_tracks:
+                nla_data.append(obj.data.shape_keys.animation_data.nla_tracks)
+    # count the mininum number of shared tracks across all action objects
+    min_tracks = 0
+    for nla_tracks in nla_data:
+        l = len(nla_tracks)
+        if l > 0:
+            if min_tracks == 0:
+                min_tracks = l
+            min_tracks = min(min_tracks, l)
+    # find the first available track that can fit the motion set
+    available_tracks = [True] * min_tracks
+    for nla_tracks in nla_data:
+        for i in range(0, min_tracks):
+            track: bpy.types.NlaTrack = nla_tracks[i]
+            strip: bpy.types.NlaStrip
+            for strip in track.strips:
+                if frame >= strip.frame_start and frame < strip.frame_end:
+                    available_tracks[i] = False
+                elif (frame + length) >= strip.frame_start and (frame + length) < strip.frame_end:
+                    available_tracks[i] = False
+                elif strip.frame_start < frame and strip.frame_end >= frame + length:
+                    available_tracks[i] = False
+    track_index = -1
+    for i, available in enumerate(available_tracks):
+        if available:
+            track_index = i
+            break
+    # push the actions
+    action = source_actions["armature"]
+    rig: bpy.types.Object
+    if rig.animation_data is None:
+        rig.animation_data_create()
+    if not rig.animation_data.nla_tracks or track_index == -1:
+        track = rig.animation_data.nla_tracks.new()
+    else:
+        track = rig.animation_data.nla_tracks[track_index]
+    try:
+        strip = track.strips.new(action.name, frame, action)
+    except:
+        track = rig.animation_data.nla_tracks.new()
+        strip = track.strips.new(action.name, frame, action)
+    strip.name = f"{action.name}|{push_index:03d}"
+    for obj in objects:
+        obj_id = get_action_obj_id(obj)
+        if obj.type == "MESH" and obj_id in source_actions["keys"]:
+            action = source_actions["keys"][obj_id]
+            if obj.data.shape_keys:
+                if not obj.data.shape_keys.animation_data:
+                    obj.data.shape_keys.animation_data_create()
+                if not obj.data.shape_keys.animation_data.nla_tracks or track_index == -1:
+                    track = obj.data.shape_keys.animation_data.nla_tracks.new()
+                else:
+                    track = obj.data.shape_keys.animation_data.nla_tracks[track_index]
+                try:
+                    strip = track.strips.new(action.name, frame, action)
+                except:
+                    track = obj.data.shape_keys.animation_data.nla_tracks.new()
+                    strip = track.strips.new(action.name, frame, action)
+                strip.name = f"{action.name}|{push_index:03d}"
+
+
+def get_nla_tracks(data):
+    try:
+        if data and data.animation_data and data.animation_data.nla_tracks:
+            return data.animation_data.nla_tracks
+    except:
+        return None
+
+
+def get_all_nla_strips(data, obj, strips=None):
+    if strips is None:
+        strips = {}
+    tracks = get_nla_tracks(data)
+    if tracks:
+        for track in tracks:
+            for strip in track.strips:
+                strips[strip] = (obj, track)
+    return strips
+
+
+def get_strips_by_sets(set_ids: set):
+    all_strips = {}
+    for obj in bpy.data.objects:
+        if utils.object_exists(obj):
+            if obj.type == "ARMATURE":
+                get_all_nla_strips(obj, obj, all_strips)
+            elif obj.type == "MESH":
+                get_all_nla_strips(obj.data.shape_keys, obj, all_strips)
+    strip: bpy.types.NlaStrip
+    strips = {}
+    for strip in all_strips:
+        strip_set_id = utils.custom_prop(strip.action, "rl_set_id")
+        for sel_set_id, sel_auto_index in set_ids:
+            if strip_set_id == sel_set_id:
+                strip_auto_index = utils.get_auto_index_suffix(strip.name)
+                if strip_auto_index == sel_auto_index:
+                    obj, track = all_strips[strip]
+                    strips[strip] = (obj, track)
+    return strips
+
+
+def unselect_all_but_strip(active_strip):
+    all_strips = {}
+    for obj in bpy.data.objects:
+        if utils.object_exists(obj):
+            if obj.type == "ARMATURE":
+                get_all_nla_strips(obj, obj, all_strips)
+            elif obj.type == "MESH":
+                get_all_nla_strips(obj.data.shape_keys, obj, all_strips)
+    for strip in all_strips:
+        if strip != active_strip and strip.select:
+            strip.select = False
+
+
+def select_strips_by_set(active_strip: bpy.types.NlaStrip):
+    strips = bpy.context.selected_nla_strips.copy()
+    set_ids = set()
+    for strip in strips:
+        set_id = utils.custom_prop(strip.action, "rl_set_id")
+        strip_auto_index = utils.get_auto_index_suffix(strip.name)
+        if set_id and strip_auto_index:
+            set_ids.add((set_id, strip_auto_index))
+    if not active_strip and bpy.context.selected_nla_strips:
+        active_strip = bpy.context.selected_nla_strips[0]
+    if active_strip:
+        unselect_all_but_strip(active_strip)
+        strips = get_strips_by_sets(set_ids)
+        for strip in strips:
+            strip.select = True
+
+
+def align_strips(strips, to_strip: bpy.types.NlaStrip=None, left=True):
+    strip: bpy.types.NlaStrip
+    left_frame = None if not to_strip else to_strip.frame_start
+    right_frame = None if not to_strip else to_strip.frame_end
+    # if no active strip, get the left most and right most frame in all strips
+    if not to_strip:
+        for strip in strips:
+            if left_frame is None:
+                left_frame = strip.frame_start
+            if right_frame is None:
+                right_frame = strip.frame_end
+            left_frame = min(strip.frame_start, left_frame)
+            right_frame = max(strip.frame_end, right_frame)
+    # align strips
+    # TODO sort strips in reverse order of direction
+    for strip in strips:
+        length = strip.frame_end - strip.frame_start
+        if left:
+            strip.frame_start = left_frame
+            strip.frame_end = strip.frame_start + length
+            strip.frame_start = strip.frame_end - length
+        else:
+            strip.frame_end = right_frame
+            strip.frame_start = strip.frame_end - length
+            strip.frame_end = strip.frame_start + length
+
+
+def size_strips(strips, to_strip: bpy.types.NlaStrip=None, longest=True, reset=False):
+    to_length = 0
+    if to_strip:
+        to_length = to_strip.frame_end - to_strip.frame_start
+    min_length = None
+    max_length = None
+    strip: bpy.types.NlaStrip
+    # find the shortest and longest strip lengths
+    for strip in strips:
+        length = strip.frame_end - strip.frame_start
+        if min_length is None:
+            min_length = length
+        if max_length is None:
+            max_length = length
+        min_length = min(length, min_length)
+        max_length = max(length, max_length)
+    if not to_strip:
+        to_length = max_length if longest else min_length
+    for strip in strips:
+        if reset:
+            action_length = int(strip.action.frame_range[1] - strip.action.frame_range[0])
+            strip.frame_end = strip.frame_start + action_length
+            strip.frame_start = strip.frame_end - action_length
+        elif to_length > 0:
+            strip.frame_end = strip.frame_start + to_length
+            strip.frame_start = strip.frame_end - to_length
+
+
+def set_action_set_fake_user(action, use_fake_user):
+    set_id = utils.custom_prop(action, "rl_set_id")
+    if set_id:
+        for action in bpy.data.actions:
+            action_set_id = utils.custom_prop(action, "rl_set_id")
+            if action_set_id == set_id:
+                action.use_fake_user = use_fake_user
+    utils.update_ui(all=True)
+
+
+def delete_motion_set(action):
+    set_id = utils.custom_prop(action, "rl_set_id")
+    if set_id:
+        to_remove = []
+        for action in bpy.data.actions:
+            action_set_id = utils.custom_prop(action, "rl_set_id")
+            if action_set_id == set_id:
+                to_remove.append(action)
+    for action in to_remove:
+        bpy.data.actions.remove(action)
+    utils.update_ui(all=True)
 
 
 def rename_armature(arm, name):
@@ -649,28 +1302,22 @@ def bake_rig_action(src_rig, dst_rig):
 
 def bake_rig_action_from_source(src_rig, dst_rig):
     temp_collection = utils.force_visible_in_scene("TMP_Bake_Retarget", src_rig, dst_rig)
-
     rig_settings = bones.store_armature_settings(dst_rig)
-
     # constrain the destination rig rest pose to the source rig pose
     constraints = constrain_pose_rigs(src_rig, dst_rig)
-
+    baked_action = None
     if select_rig(dst_rig):
         bones.make_bones_visible(dst_rig)
         bone : bpy.types.Bone
         for bone in dst_rig.data.bones:
             bone.select = True
-
         baked_action = bake_rig_action(src_rig, dst_rig)
-
     # remove contraints
     unconstrain_pose_rigs(constraints)
-
     bones.restore_armature_settings(dst_rig, rig_settings)
-
     utils.safe_set_action(dst_rig, baked_action)
-
     utils.restore_visible_in_scene(temp_collection)
+    return baked_action
 
 
 DISABLE_TWEAK_STRETCH_IN = [
@@ -1108,3 +1755,404 @@ def de_pivot(chr_cache):
                 obj.matrix_world = M
 
             select_rig(rig)
+
+
+
+
+
+
+class CCICMotionSetRename(bpy.types.Operator):
+    bl_idname = "ccic.motion_set_rename"
+    bl_label = "Rename Motion Set"
+
+    prefix: bpy.props.StringProperty(name="Motion Prefix", default="")
+    rig_id: bpy.props.StringProperty(name="Character / Rig ID", default="")
+    motion_id: bpy.props.StringProperty(name="Motion Name / ID", default="")
+    set_id = bpy.props.StringProperty(name="Set ID", default="")
+
+    def execute(self, context):
+        props = vars.props()
+
+        prefix = self.prefix
+        rig_id = self.rig_id
+        motion_id = get_unique_set_motion_id(rig_id, self.motion_id, prefix, exclude_set_id=self.set_id)
+
+        for action in bpy.data.actions:
+            if "rl_set_id" in action:
+                if action["rl_set_id"] == self.set_id:
+                    set_id, set_generation, action_type_id, obj_id = get_motion_set(action)
+                    if action_type_id == "ARM":
+                        name = make_armature_action_name(rig_id, motion_id, prefix)
+                        action.name = name
+                    elif action_type_id == "KEY":
+                        name = make_key_action_name(rig_id, motion_id, obj_id, prefix)
+                        action.name = name
+
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        props = vars.props()
+        prefs = vars.prefs()
+
+        props.store_ui_list_indices()
+        action = props.action_set_list_action
+        chr_cache = props.get_context_character_cache(context)
+
+        if not action:
+            return {"FINISHED"}
+
+        set_id, set_generation, action_type_id, key_object = get_motion_set(action)
+
+        if not set_id:
+            return {"FINISHED"}
+
+        self.set_id = set_id
+
+        prefix, rig_id, type_id, obj_id, motion_id = decode_action_name(action)
+        if prefix:
+            self.prefix = prefix
+        if rig_id:
+            self.rig_id = rig_id
+        elif chr_cache:
+            self.rig_id = chr_cache.character_name
+        else:
+            self.rig_id = "Rig"
+        if motion_id:
+            self.motion_id = motion_id
+        elif action.name:
+            self.motion_id = action.name.split("|")[-1]
+        else:
+            self.motion_id = "Motion"
+
+        return context.window_manager.invoke_props_dialog(self, width=400)
+
+    def draw(self, context):
+        layout = self.layout
+
+        split = layout.split(factor=0.35)
+        col_1 = split.column()
+        col_2 = split.column()
+
+        col_1.label(text="Motion Set ID:")
+        col_2.label(text=self.set_id)
+
+        col_1.separator()
+        col_2.separator()
+
+        col_1.label(text="Prefix:")
+        col_2.prop(self, "prefix", text="")
+
+        col_1.separator()
+        col_2.separator()
+
+        col_1.label(text="Character / Rig ID:")
+        col_2.prop(self, "rig_id", text="")
+
+        col_1.separator()
+        col_2.separator()
+
+        col_1.label(text="Motion Name / ID:")
+        col_2.prop(self, "motion_id", text="")
+
+        layout.separator()
+
+    @classmethod
+    def description(cls, context, properties):
+        return "Change the name, prefix, and character/rig id of the motion set"
+
+
+class CCICMotionSetInfo(bpy.types.Operator):
+    bl_idname = "ccic.motion_set_info"
+    bl_label = "Motion Set Info"
+
+    prefix: bpy.props.StringProperty(name="Motion Prefix", default="")
+    rig_id: bpy.props.StringProperty(name="Character / Rig ID", default="")
+    motion_id: bpy.props.StringProperty(name="Motion Name / ID", default="")
+    set_id: bpy.props.StringProperty(name="Set ID", default="")
+
+    def execute(self, context):
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        props = vars.props()
+        prefs = vars.prefs()
+
+        props.store_ui_list_indices()
+        action = props.action_set_list_action
+        chr_cache = props.get_context_character_cache(context)
+
+        self.delete_me = False
+        # TODO make delete an op button?
+        # TODO use_fake_user button
+
+        if not action:
+            return {"FINISHED"}
+
+        set_id, set_generation, action_type_id, key_object = get_motion_set(action)
+
+        if not set_id:
+            return {"FINISHED"}
+
+        self.set_id = set_id
+
+        prefix, rig_id, type_id, obj_id, motion_id = decode_action_name(action)
+        if prefix:
+            self.prefix = prefix
+        if rig_id:
+            self.rig_id = rig_id
+        elif chr_cache:
+            self.rig_id = chr_cache.character_name
+        else:
+            self.rig_id = "Rig"
+        if motion_id:
+            self.motion_id = motion_id
+        elif action.name:
+            self.motion_id = action.name.split("|")[-1]
+        else:
+            self.motion_id = "Motion"
+
+        return context.window_manager.invoke_popup(self, width=600)
+
+    def draw(self, context):
+        layout = self.layout
+
+        split = layout.split(factor=0.25)
+        col_1 = split.column()
+        col_2 = split.column()
+
+        col_1.label(text="Motion Set ID:")
+        col_2.label(text=self.set_id)
+
+        col_1.separator()
+        col_2.separator()
+
+        col_1.label(text="Prefix:")
+        col_2.label(text=self.prefix if self.prefix else "(None)")
+        col_1.label(text="Character / Rig ID:")
+        col_2.label(text=self.rig_id if self.rig_id else "(None)")
+        col_1.label(text="Motion Name / ID:")
+        col_2.label(text=self.motion_id if self.motion_id else "(None)")
+
+        layout.separator()
+
+        layout.label(text="Actions:")
+
+        split = layout.split(factor=0.25)
+        col_1 = split.column()
+        col_2 = split.column()
+        for action in bpy.data.actions:
+            action_set_id = utils.custom_prop(action, "rl_set_id")
+            action_type = utils.custom_prop(action, "rl_action_type")
+            if action_set_id == self.set_id:
+                if action_type == "ARM":
+                    col_1.label(text="Armature")
+                elif action_type == "KEY":
+                    obj_id = utils.custom_prop(action, "rl_key_object", "(None)")
+                    col_1.label(text=obj_id)
+                else:
+                    col_1.label(text="?")
+                col_2.label(text=action.name)
+        col_1.separator()
+        col_2.separator()
+        col_1.separator()
+        row = col_2.split(factor=0.5).column().row()
+        row.alert = True
+        row.scale_y = 1.5
+        row.operator("ccic.rigutils", text="Delete Motion Set", icon="ERROR").param = "DELETE_MOTION_SET"
+        layout.separator()
+        layout.separator()
+        layout.separator()
+
+    @classmethod
+    def description(cls, context, properties):
+        return "Show motion set info"
+
+
+class CCICRigUtils(bpy.types.Operator):
+    """Rig Utilities"""
+    bl_idname = "ccic.rigutils"
+    bl_label = "Rig Utils"
+    bl_options = {"REGISTER"}
+
+    param: bpy.props.StringProperty(
+            name = "param",
+            default = "",
+            options={"HIDDEN"}
+        )
+
+    def execute(self, context):
+        props = vars.props()
+        prefs = vars.prefs()
+        chr_cache = props.get_context_character_cache(context)
+
+        if chr_cache:
+
+            props.store_ui_list_indices()
+            rig = chr_cache.get_armature()
+
+            if rig:
+                if self.param == "TOGGLE_SHOW_FULL_RIG":
+                    toggle_show_full_rig(rig)
+
+                elif self.param == "TOGGLE_SHOW_BASE_RIG":
+                    toggle_show_base_rig(rig)
+
+                elif self.param == "TOGGLE_SHOW_SPRING_RIG":
+                    toggle_show_spring_rig(rig)
+
+                elif self.param == "TOGGLE_SHOW_RIG_POSE":
+                    toggle_rig_rest_position(rig)
+
+                elif self.param == "TOGGLE_SHOW_SPRING_BONES":
+                    springbones.toggle_show_spring_bones(rig)
+
+                elif self.param == "BUTTON_RESET_POSE":
+                    mode_selection = utils.store_mode_selection_state()
+                    reset_pose(rig)
+                    utils.restore_mode_selection_state(mode_selection)
+
+                elif self.param == "SET_LIMB_FK":
+                    if chr_cache.rigified:
+                        set_rigify_ik_fk_influence(rig, 1.0)
+                        poke_rig(rig)
+
+                elif self.param == "SET_LIMB_IK":
+                    if chr_cache.rigified:
+                        set_rigify_ik_fk_influence(rig, 0.0)
+                        poke_rig(rig)
+
+                elif self.param == "LOAD_ACTION_SET":
+                    action = props.action_set_list_action
+                    load_motion_set(rig, action)
+
+                elif self.param == "PUSH_ACTION_SET":
+                    action = props.action_set_list_action
+                    auto_index = chr_cache.get_auto_index()
+                    push_motion_set(rig, action, auto_index)
+
+                elif self.param == "CLEAR_ACTION_SET":
+                    clear_motion_set(rig)
+
+            if self.param == "SELECT_SET_STRIPS":
+                strip = context.active_nla_strip
+                select_strips_by_set(strip)
+
+            elif self.param == "NLA_ALIGN_LEFT":
+                strips = context.selected_nla_strips
+                align_strips(strips, left=True)
+
+            elif self.param == "NLA_ALIGN_TO_LEFT":
+                strips = context.selected_nla_strips
+                active_strip = context.active_nla_strip
+                align_strips(strips, to_strip=active_strip, left=True)
+
+            elif self.param == "NLA_ALIGN_RIGHT":
+                strips = context.selected_nla_strips
+                align_strips(strips, left=False)
+
+            elif self.param == "NLA_ALIGN_TO_RIGHT":
+                strips = context.selected_nla_strips
+                active_strip = context.active_nla_strip
+                align_strips(strips, to_strip=active_strip, left=False)
+
+            elif self.param == "NLA_SIZE_SHORTEST":
+                strips = context.selected_nla_strips
+                size_strips(strips, longest=False)
+
+            elif self.param == "NLA_SIZE_LONGEST":
+                strips = context.selected_nla_strips
+                size_strips(strips, longest=True)
+
+            elif self.param == "NLA_SIZE_TO":
+                strips = context.selected_nla_strips
+                active_strip = context.active_nla_strip
+                size_strips(strips, to_strip=active_strip)
+
+            elif self.param == "NLA_RESET_SIZE":
+                strips = context.selected_nla_strips
+                size_strips(strips, reset=True)
+
+            elif self.param == "SET_FAKE_USER_ON":
+                action = props.action_set_list_action
+                set_action_set_fake_user(action, True)
+
+            elif self.param == "SET_FAKE_USER_OFF":
+                action = props.action_set_list_action
+                set_action_set_fake_user(action, False)
+
+            elif self.param == "DELETE_MOTION_SET":
+                action = props.action_set_list_action
+                delete_motion_set(action)
+
+            props.restore_ui_list_indices()
+
+        return {"FINISHED"}
+
+    @classmethod
+    def description(cls, context, properties):
+
+        if properties.param == "TOGGLE_SHOW_SPRING_BONES":
+            return "Quick toggle for the armature layers to show just the spring bones or just the body bones"
+
+        elif properties.param == "TOGGLE_SHOW_FULL_RIG":
+            return "Toggles showing all the rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_BASE_RIG":
+            return "Toggles showing the base rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_SPRING_RIG":
+            return "Toggles showing just the spring rig controls"
+
+        elif properties.param == "TOGGLE_SHOW_RIG_POSE":
+            return "Toggles the rig between pose mode and rest pose"
+
+        elif properties.param == "BUTTON_RESET_POSE":
+            return "Clears all pose transforms"
+
+        elif properties.param == "LOAD_ACTION_SET":
+            return "Loads the chosen motion set (armature and shape key actions) into the all the character objects"
+
+        elif properties.param == "PUSH_ACTION_SET":
+            return "Pushes the chosen motion set (armature and shape key actions) into the NLA tracks of all the character objects at the current frame. " \
+                   "A suitable track will be chosen to fit the actions. If there is no room available a new track will be added to contain the actions"
+
+        elif properties.param == "CLEAR_ACTION_SET":
+            return "Removes all actions from the character"
+
+        elif properties.param == "SELECT_SET_STRIPS":
+            return "Selects all the strips belonging to the same motion set and strip index"
+
+        elif properties.param == "NLA_ALIGN_LEFT":
+            return "Aligns all selected strips to the left most of frame of all selected strips"
+
+        elif properties.param == "NLA_ALIGN_RIGHT":
+            return "Aligns all selected strips to right most of frame of all selected strips"
+
+        elif properties.param == "NLA_ALIGN_TO_LEFT":
+            return "Aligns all selected strips to the left hand frame of the active strip"
+
+        elif properties.param == "NLA_ALIGN_TO_RIGHT":
+            return "Aligns all selected strips to the right hand frame of the active strip"
+
+        elif properties.param == "NLA_SIZE_SHORTEST":
+            return "Sets the frame lengths of all selected strips to the length of the shortest strip in the selection"
+
+        elif properties.param == "NLA_SIZE_TO":
+            return "Sets the frame lengths of all selected strips to the length of the active strip"
+
+        elif properties.param == "NLA_SIZE_LONGEST":
+            return "Sets the frame lengths of all selected strips to the length of the longest strip in the selection"
+
+        elif properties.param == "NLA_RESET_SIZE":
+            return "Resets the frame lengths of all selected strips to the length of the underlying action"
+
+        elif properties.param == "SET_FAKE_USER_ON":
+            return "Set fake user on all actions in the motion set"
+
+        elif properties.param == "SET_FAKE_USER_OFF":
+            return "Clear fake user on all actions in the motion set"
+
+        elif properties.param == "DELETE_MOTION_SET":
+            return "Delete all actions in the motion set"
+
+        return ""

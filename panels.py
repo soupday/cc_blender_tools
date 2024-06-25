@@ -356,7 +356,7 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
             colliders_visible = rigidbody.colliders_visible(arm)
             row.operator("cc3.springbones", icon=utils.check_icon("HIDE_OFF"), text="", depress=colliders_visible).param = "TOGGLE_SHOW_COLLIDERS"
             is_pose_position = rigutils.is_rig_rest_position(arm)
-            row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+            row.operator("ccic.rigutils", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
             row.operator("cc3.springbones", icon=utils.check_icon("X"), text="Remove Colliders").param = "REMOVE_COLLIDERS"
             #column.row().prop(rigid_body, "collision_margin", text="Collision Margin", slider=True)
         else:
@@ -581,18 +581,23 @@ class ARMATURE_UL_List(bpy.types.UIList):
             item_name = utils.strip_name(item.name)
             allowed = False
             if item.type == "ARMATURE": # only list armatures
-                if "_Rigify" not in item_name: # don't list rigified armatures
+                if "rl_set_generation" in item:
+                    set_generation = item["rl_set_generation"]
+                    if set_generation != "Rigify" and set_generation != "Rigify+":
+                        allowed = True
+                elif "_Rigify" not in item_name: # don't list rigified armatures
                     if "_Retarget" not in item_name: # don't list retarget armatures
                         if len(item.data.bones) > 0:
                             for allowed_bone in rigify_mapping_data.ALLOWED_RIG_BONES: # only list armatures of the allowed sources
                                 if rigutils.bone_name_in_armature_regex(item, allowed_bone):
                                     allowed = True
+            # filter by name
+            if allowed and self.filter_name and self.filter_name != "*":
+                if self.filter_name not in item.name:
+                    allowed = False
+            # block not allowed
             if not allowed:
-                    filtered[i] &= ~self.bitflag_filter_item
-            else:
-                if self.filter_name and self.filter_name != "*":
-                    if self.filter_name not in item.name:
-                        filtered[i] &= ~self.bitflag_filter_item
+                filtered[i] &= ~self.bitflag_filter_item
         return filtered, ordered
 
 
@@ -610,32 +615,95 @@ class ACTION_UL_List(bpy.types.UIList):
         ordered = []
         arm_name = None
         arm_object = utils.collection_at_index(props.armature_list_index, bpy.data.objects)
-        if arm_object and arm_object.type == "ARMATURE":
-            arm_name = arm_object.name
+        arm_set_generation = None
+        if arm_object:
+            if arm_object.type == "ARMATURE":
+                arm_name = arm_object.name
+            if "rl_set_generation" in arm_object:
+                arm_set_generation = arm_object["rl_set_generation"]
+        rl_arm_id = utils.get_rl_object_id(arm_object)
         items = getattr(data, propname)
         filtered = [self.bitflag_filter_item] * len(items)
         item : bpy.types.Action
         for i, item in enumerate(items):
+            allowed = False
+            action_set_generation = None
+            action_type = None
+            action_armature_id = None
+            if "rl_set_generation" in item:
+                action_set_generation = item["rl_set_generation"]
+            if "rl_action_type" in item:
+                action_type = item["rl_action_type"]
+            if "rl_armature_id" in item:
+                action_armature_id = item["rl_armature_id"]
             if props.armature_action_filter and arm_object:
-                if arm_name and item.name.startswith(arm_name + "|A|"):
-                    if self.filter_name and self.filter_name != "*":
-                        if self.filter_name not in item.name:
-                            filtered[i] &= ~self.bitflag_filter_item
-                elif arm_name and item.name.startswith(arm_name + "|") and not item.name.startswith(arm_name + "|K"):
-                    if self.filter_name and self.filter_name != "*":
-                        if self.filter_name not in item.name:
-                            filtered[i] &= ~self.bitflag_filter_item
+                if arm_set_generation and action_set_generation and action_type and rl_arm_id and action_armature_id:
+                    if (arm_set_generation == action_set_generation and
+                        action_type == "ARM" and
+                        action_armature_id == rl_arm_id):
+                        allowed = True
                 else:
-                    filtered[i] &= ~self.bitflag_filter_item
+                    prefix, rig_id, type_id, obj_id, motion_id = rigutils.decode_action_name(item)
+                    if type_id and rig_id and type_id == "A" and rig_id == arm_name:
+                        allowed = True
             else:
-                if len(item.fcurves) == 0: # no fcurves, no animation...
-                    filtered[i] &= ~self.bitflag_filter_item
-                elif item.fcurves[0].data_path.startswith("key_blocks"): # only shapekey actions have key blocks...
-                    filtered[i] &= ~self.bitflag_filter_item
-                else:
-                    if self.filter_name and self.filter_name != "*":
-                        if self.filter_name not in item.name:
-                            filtered[i] &= ~self.bitflag_filter_item
+                if item.fcurves[0].data_path.startswith("key_blocks"):
+                    # no shape key actions
+                    allowed = False
+                elif len(item.fcurves) > 0:
+                    # only actions with curves
+                    allowed = True
+            # filter by name
+            if allowed and self.filter_name and self.filter_name != "*":
+                if self.filter_name not in item.name:
+                    allowed = False
+            # block not allowed
+            if not allowed:
+                filtered[i] &= ~self.bitflag_filter_item
+        return filtered, ordered
+
+
+class ACTION_SET_UL_List(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name if item else "", translate=False, icon_value=icon)
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+    def filter_items(self, context, data, propname):
+        props = vars.props()
+        filtered = []
+        ordered = []
+        items = getattr(data, propname)
+        filtered = [self.bitflag_filter_item] * len(items)
+        item : bpy.types.Action
+        chr_cache = props.get_context_character_cache(context)
+        arm_set_generation = None
+        if chr_cache:
+            arm = chr_cache.get_armature()
+            if "rl_set_generation" in arm:
+                arm_set_generation = arm["rl_set_generation"]
+        for i, item in enumerate(items):
+            allowed = False
+            action_set_generation = None
+            action_type = None
+            if "rl_set_generation" in item:
+                action_set_generation = item["rl_set_generation"]
+            if "rl_action_type" in item:
+                action_type = item["rl_action_type"]
+            if (arm_set_generation and
+                action_set_generation and
+                action_type == "ARM" and
+                (not props.filter_motion_set or arm_set_generation == action_set_generation)):
+                allowed = True
+            # filter by name
+            if allowed and self.filter_name and self.filter_name != "*":
+                if self.filter_name not in item.name:
+                    allowed = False
+            # block not allowed
+            if not allowed:
+                filtered[i] &= ~self.bitflag_filter_item
         return filtered, ordered
 
 
@@ -1136,7 +1204,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
             tool_row = col_1.row(align=True)
             if arm:
                 depress = bones.is_bone_collection_visible(arm, "Spring (Edit)", vars.SPRING_EDIT_LAYER)
-                tool_row.operator("cc3.rigifier", icon=utils.check_icon("HIDE_OFF"), text="",
+                tool_row.operator("ccic.rigutils", icon=utils.check_icon("HIDE_OFF"), text="",
                                   depress=depress).param = "TOGGLE_SHOW_SPRING_BONES"
                 is_grease_pencil_tool = "builtin.annotate" in utils.get_current_tool_idname(context)
                 tool_row.operator("cc3.hair", icon=utils.check_icon("GREASEPENCIL"), text="", depress=is_grease_pencil_tool).param = "TOGGLE_GREASE_PENCIL"
@@ -1154,7 +1222,7 @@ class CC3SpringRigPanel(bpy.types.Panel):
                     icon = "BONE_DATA"
                 tool_row.operator("cc3.hair", icon=utils.check_icon(icon), text="", depress=False).param = "CYCLE_BONE_STYLE"
                 is_pose_position = rigutils.is_rig_rest_position(arm)
-                tool_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+                tool_row.operator("ccic.rigutils", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
 
             row = col_2.row()
             row.operator("cc3.hair", icon=utils.check_icon("GROUP_BONE"), text="Rename").param = "GROUP_NAME_BONES"
@@ -1803,6 +1871,15 @@ class CC3RigifyPanel(bpy.types.Panel):
                             grid.prop(prefs, "rigify_build_face_rig", text = "Face Rig", toggle=True)
                             if chr_cache.rig_mode == "QUICK":
                                 grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
+                                if prefs.rigify_auto_retarget:
+                                    # retarget/bake motion prefix
+                                    row = layout.row()
+                                    split = row.split(factor=0.45)
+                                    split.column().label(text="Motion Prefix")
+                                    row = split.column().row(align=True)
+                                    row.prop(props, "rigify_retarget_motion_prefix", text="")
+                                    icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
+                                    row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
                             if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
                                 wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
 
@@ -1841,20 +1918,20 @@ class CC3RigifyPanel(bpy.types.Panel):
                     # utility widgets minipanel
                     box_row = layout.box().row(align=True)
                     is_full_rig_show = rigutils.is_full_rigify_rig_shown(rig)
-                    box_row.operator("cc3.rigifier", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
+                    box_row.operator("ccic.rigutils", icon="HIDE_OFF", text="", depress=is_full_rig_show).param = "TOGGLE_SHOW_FULL_RIG"
                     if has_spring_rigs:
                         is_base_rig_show = rigutils.is_base_rig_shown(rig)
-                        box_row.operator("cc3.rigifier", icon="ARMATURE_DATA", text="", depress=is_base_rig_show).param = "TOGGLE_SHOW_BASE_RIG"
+                        box_row.operator("ccic.rigutils", icon="ARMATURE_DATA", text="", depress=is_base_rig_show).param = "TOGGLE_SHOW_BASE_RIG"
                         is_spring_rig_show = rigutils.is_spring_rig_shown(rig)
-                        box_row.operator("cc3.rigifier", icon="FORCE_MAGNETIC", text="", depress=is_spring_rig_show).param = "TOGGLE_SHOW_SPRING_RIG"
+                        box_row.operator("ccic.rigutils", icon="FORCE_MAGNETIC", text="", depress=is_spring_rig_show).param = "TOGGLE_SHOW_SPRING_RIG"
                     is_pose_position = rigutils.is_rig_rest_position(rig)
-                    box_row.operator("cc3.rigifier", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
-                    box_row.operator("cc3.rigifier", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
+                    box_row.operator("ccic.rigutils", icon="OUTLINER_OB_ARMATURE", text="", depress=is_pose_position).param = "TOGGLE_SHOW_RIG_POSE"
+                    box_row.operator("ccic.rigutils", icon="LOOP_BACK", text="").param = "BUTTON_RESET_POSE"
                     box_row.separator()
                     depress = True if ik_fk > 0.995 else False
-                    box_row.operator("cc3.rigifier", text="FK", depress=depress).param = "SET_LIMB_FK"
+                    box_row.operator("ccic.rigutils", text="FK", depress=depress).param = "SET_LIMB_FK"
                     depress = True if ik_fk < 0.005 else False
-                    box_row.operator("cc3.rigifier", text="IK", depress=depress).param = "SET_LIMB_IK"
+                    box_row.operator("ccic.rigutils", text="IK", depress=depress).param = "SET_LIMB_IK"
 
 
                     if has_spring_rigs:
@@ -1953,7 +2030,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         action_list_action = utils.collection_at_index(props.action_list_index, bpy.data.actions)
                         source_type = "Unknown"
                         if armature_list_object:
-                            source_type, source_label = rigging.get_armature_action_source_type(armature_list_object, action_list_action)
+                            source_type, source_label = rigutils.get_armature_action_source_type(armature_list_object, action_list_action)
                             if source_type:
                                 layout.box().label(text = f"{source_label} Animation", icon = "ARMATURE_DATA")
 
@@ -1997,31 +2074,25 @@ class CC3RigifyPanel(bpy.types.Panel):
                         if source_type == "Unknown" and chr_cache.rig_retarget_rig is None:
                             row.enabled = False
 
-                        layout.separator()
+                        col.separator()
+
+                        # retarget/bake motion prefix
+                        row = col.row()
+                        split = row.split(factor=0.45)
+                        split.column().label(text="Motion Prefix")
+                        row = split.column().row(align=True)
+                        row.prop(props, "rigify_retarget_motion_prefix", text="")
+                        icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
+                        row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
+
+                        col.separator()
 
                         # retarget shape keys to character
                         row = layout.row()
                         row.operator("cc3.rigifier", icon="KEYINGSET", text="Retarget Shapekeys").param = "RETARGET_SHAPE_KEYS"
                         row.enabled = source_type != "Unknown"
-                        layout.separator()
 
-                    # NLA bake
-                    box_row = layout.box().row()
-                    if fake_drop_down(box_row,
-                                        "NLA Bake",
-                                        "section_rigify_nla_bake",
-                                        props.section_rigify_nla_bake,
-                                        icon="ANIM_DATA", icon_closed="ANIM_DATA"):
-                        col = layout.column(align=True)
-                        row = col.row(align=True)
-                        row.prop(prefs, "rigify_bake_nla_fk_ik", expand=True)
-                        row.prop(prefs, "rigify_bake_shape_keys", text="", toggle=True, icon="KEYINGSET")
-                        row = col.row()
-                        row.scale_y = 2
-                        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
-                        #row.enabled = chr_cache.rig_retarget_rig is None
-
-                        layout.separator()
+                        col.separator()
 
                     if fake_drop_down(layout.box().row(),
                                         "Export",
@@ -2042,12 +2113,188 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         rigify_export_group(chr_cache, layout)
 
+                if chr_cache:
+
+                    box_row = layout.box().row()
+                    if fake_drop_down(box_row,
+                                      "Motion Sets",
+                                      "section_rigify_action_sets",
+                                      props.section_rigify_action_sets,
+                                      icon="ANIM_DATA", icon_closed="ANIM_DATA"):
+                        motion_set_ui(layout, chr_cache)
+
+
             elif not chr_cache:
 
                 reconnect_character_ui(context, layout, chr_cache)
 
         else:
             wrapped_text_box(layout, "Rigify add-on is not installed.", width, True)
+
+
+def motion_set_ui(layout: bpy.types.UILayout, chr_cache, show_nla=False):
+    props = vars.props()
+
+    # current selected motion set action
+    action_set_list_action = utils.collection_at_index(props.action_set_list_index, bpy.data.actions)
+    action_set_generation = None
+    if action_set_list_action:
+        action_set_generation = action_set_list_action["rl_set_generation"]
+    rig = None
+    rig_set_generation = None
+    if chr_cache:
+        rig = chr_cache.get_armature()
+    if "rl_set_generation" in rig:
+        rig_set_generation = rig["rl_set_generation"]
+
+    col = layout.column(align=True)
+    split = col.split(factor=0.65)
+    split.column().label(text="Motion Sets:")
+    split.column().prop(props, "filter_motion_set")
+
+    col.template_list("ACTION_SET_UL_List", "action_set_list", bpy.data, "actions", props, "action_set_list_index", rows=1, maxrows=5)
+
+    row = col.row(align=True)
+    row.operator("ccic.motion_set_rename", icon="GREASEPENCIL", text="Rename Motion Set")
+    row.operator("ccic.motion_set_info", icon="VIEWZOOM", text="")
+    depress = False
+    if action_set_list_action:
+        depress = action_set_list_action.use_fake_user
+    icon = "FAKE_USER_ON" if depress else "FAKE_USER_OFF"
+    param = "SET_FAKE_USER_OFF" if depress else "SET_FAKE_USER_ON"
+    row.operator("ccic.rigutils", icon=icon, text="", depress=depress).param = param
+
+
+    split = col.split(factor=0.5, align=True)
+    split.scale_y = 1.5
+    col_1 = split.column(align=True)
+    col_2 = split.column(align=True)
+    row = col_1.row(align=True)
+    row.operator("ccic.rigutils", icon="ACTION_TWEAK", text="Load").param = "LOAD_ACTION_SET"
+    if rig_set_generation != action_set_generation:
+        row.enabled = False
+    col_2.operator("ccic.rigutils", icon="REMOVE", text="Clear").param = "CLEAR_ACTION_SET"
+
+    if show_nla:
+        row = col_1.row(align=True)
+        row.operator("ccic.rigutils", icon="NLA_PUSHDOWN", text="Push").param = "PUSH_ACTION_SET"
+        if rig_set_generation != action_set_generation:
+            row.enabled = False
+        col_2.operator("ccic.rigutils", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_SET_STRIPS"
+
+        # strip tools
+        active_strip = bpy.context.active_nla_strip
+        split = layout.split(align=True)
+        col_1 = split.column(align=True)
+        col_2 = split.column(align=True)
+        col_3 = split.column(align=True)
+        col_4 = split.column(align=True)
+        col_1.operator("ccic.rigutils", icon="ALIGN_LEFT", text="").param = "NLA_ALIGN_LEFT"
+        row = col_2.column(align=True)
+        row.operator("ccic.rigutils", icon="ANCHOR_LEFT", text="").param = "NLA_ALIGN_TO_LEFT"
+        if not active_strip:
+            row.enabled = False
+        row = col_3.column(align=True)
+        row.operator("ccic.rigutils", icon="ANCHOR_RIGHT", text="").param = "NLA_ALIGN_TO_RIGHT"
+        if not active_strip:
+            row.enabled = False
+        col_4.operator("ccic.rigutils", icon="ALIGN_RIGHT", text="").param = "NLA_ALIGN_RIGHT"
+
+        col_1.operator("ccic.rigutils", icon="FULLSCREEN_EXIT", text="").param = "NLA_SIZE_SHORTEST"
+        col_2.operator("ccic.rigutils", icon="FULLSCREEN_ENTER", text="").param = "NLA_SIZE_LONGEST"
+        row = col_3.column(align=True)
+        row.operator("ccic.rigutils", icon="SNAP_MIDPOINT", text="").param = "NLA_SIZE_TO"
+        if not active_strip:
+            row.enabled = False
+        col_4.operator("ccic.rigutils", icon="FIXED_SIZE", text="").param = "NLA_RESET_SIZE"
+        if not bpy.context.selected_nla_strips:
+            split.enabled = False
+
+    if not chr_cache:
+        split.enabled = False
+
+
+class CCICAnimationToolsPanel(bpy.types.Panel):
+    bl_idname = "CCIC_PT_Animation_Tools_Panel"
+    bl_label = "Animation Tools"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = LINK_TAB_NAME
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        props = vars.props()
+        prefs = vars.prefs()
+
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
+
+        layout = self.layout
+        layout.use_property_split = False
+        layout.use_property_decorate = False
+
+        motion_set_ui(layout, chr_cache)
+
+
+class CCICNLASetsPanel(bpy.types.Panel):
+    bl_idname = "CCIC_PT_NLA_Sets_Panel"
+    bl_label = "NLA Motion Sets"
+    bl_space_type = "NLA_EDITOR"
+    bl_region_type = "UI"
+    bl_category = "CC/iC"
+
+    def draw(self, context):
+        props = vars.props()
+        prefs = vars.prefs()
+
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
+
+        layout = self.layout
+        layout.use_property_split = False
+        layout.use_property_decorate = False
+
+        motion_set_ui(layout, chr_cache, show_nla=True)
+
+
+class CCICNLABakePanel(bpy.types.Panel):
+    bl_idname = "CCIC_PT_NLA_Bake_Panel"
+    bl_label = "NLA Bake"
+    bl_space_type = "NLA_EDITOR"
+    bl_region_type = "UI"
+    bl_category = "CC/iC"
+
+    def draw(self, context):
+        props = vars.props()
+        prefs = vars.prefs()
+
+        chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
+
+        layout = self.layout
+        layout.use_property_split = False
+        layout.use_property_decorate = False
+
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.prop(prefs, "rigify_bake_nla_fk_ik", expand=True)
+        row.prop(prefs, "rigify_bake_shape_keys", text="", toggle=True, icon="KEYINGSET")
+        row = col.row()
+        row.scale_y = 2
+        row.operator("cc3.rigifier", icon="ANIM_DATA", text="Bake NLA").param = "NLA_CC_BAKE"
+        #row.enabled = chr_cache.rig_retarget_rig is None
+
+        col.separator()
+
+        # NLA bake motion prefix
+        row = col.row()
+        split = row.split(factor=0.5)
+        col_1 = split.column()
+        col_2 = split.column()
+        col_1.column().label(text="Motion Prefix")
+        col_2.column().prop(props, "rigify_bake_motion_prefix", text="")
+        col_1.column().label(text="Motion Name")
+        col_2.column().prop(props, "rigify_bake_motion_name", text="")
+
+        if not chr_cache:
+            col.enabled = False
 
 
 class CC3SpringControlPanel(bpy.types.Panel):
