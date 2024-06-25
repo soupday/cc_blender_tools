@@ -1001,6 +1001,7 @@ class LinkService():
     remote_version: str = None
     remote_path: str = None
     remote_exe: str = None
+    plugin_version: str = None
     link_data: LinkData = None
 
     def __init__(self):
@@ -1247,24 +1248,33 @@ class LinkService():
 
         if op_code == OpCodes.HELLO:
             utils.log_info(f"Hello Received")
-            self.service_initialize()
             if data:
                 json_data = decode_to_json(data)
                 self.remote_app = json_data["Application"]
                 self.remote_version = json_data["Version"]
                 self.remote_path = json_data["Path"]
                 self.remote_exe = json_data["Exe"]
+                self.plugin_version = json_data.get("Plugin", "")
                 self.link_data.remote_app = self.remote_app
                 self.link_data.remote_version = self.remote_version
                 self.link_data.remote_path = self.remote_path
                 self.link_data.remote_exe = self.remote_exe
-                link_props.remote_app = self.remote_app
-                link_props.remote_version = f"{self.remote_version[0]}.{self.remote_version[1]}.{self.remote_version[2]}"
-                link_props.remote_path = self.remote_path
-                link_props.remote_exe = self.remote_exe
-                utils.log_always(f"Connected to: {self.remote_app} {self.remote_version}")
-                utils.log_always(f"Using file path: {self.remote_path}")
-                utils.log_always(f"Using exe path: {self.remote_exe}")
+                if f"v{self.plugin_version}" == vars.VERSION_STRING:
+                    self.service_initialize()
+                    link_props.remote_app = self.remote_app
+                    link_props.remote_version = f"{self.remote_version[0]}.{self.remote_version[1]}.{self.remote_version[2]}"
+                    link_props.remote_path = self.remote_path
+                    link_props.remote_exe = self.remote_exe
+                    utils.log_always(f"Connected to: {self.remote_app} {self.remote_version} / {self.plugin_version}")
+                    utils.log_always(f"Using file path: {self.remote_path}")
+                    utils.log_always(f"Using exe path: {self.remote_exe}")
+                else:
+                    self.service_disconnect()
+                    messages = ["CC/iC Plug-in and Blender Add-on versions do not match!",
+                                f"Blender add-on version: {vars.VERSION_STRING}",
+                                f"CC/iC plug-in version: v{self.plugin_version}"]
+                    utils.message_box_multi("Version Error", icon="ERROR", messages=messages)
+
 
         elif op_code == OpCodes.PING:
             utils.log_info(f"Ping Received")
