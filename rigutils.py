@@ -353,7 +353,10 @@ def get_main_body_action(source_actions):
         if len(action.fcurves) > num_keys:
             num_keys = len(action.fcurves)
             action_with_most_keys = action
-    utils.log_info(f" - Using action with most shape keys: {action_with_most_keys.name}")
+    if action_with_most_keys:
+        utils.log_info(f" - Using action with most shape keys: {action_with_most_keys.name}")
+    else:
+        utils.log_info(f" - No shape key actions in this Motion set!")
     return action_with_most_keys
 
 
