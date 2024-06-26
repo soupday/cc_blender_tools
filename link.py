@@ -2290,7 +2290,7 @@ class LinkService():
             light.rotation_mode = "QUATERNION"
             light.rotation_quaternion = utils.array_to_quaternion(light_data["rot"])
             light.scale = utils.array_to_vector(light_data["sca"])
-            light.data.color = utils.color_filter(utils.array_to_color(light_data["color"], False), ambient_color)
+            light.data.color = utils.color_filter(utils.array_to_color(light_data["color"]), ambient_color)
 
             # range and falloff modifiers
             fm = 2 - pow(light_data["falloff"] / 100, 2)
@@ -2298,8 +2298,14 @@ class LinkService():
             r = light_data["range"] / 5000
             P = 4
             range_curve = 1.0 - 1.0/pow((r + 1.0),P)
-            S = 1.75
-            E = 1.15
+            S = 1.5
+            E = 1.0
+            if light_data["is_tube"]:
+                m = 1 + (S * 20 * light_data["tube_length"] / 100)
+                E *= m
+            elif light_data["is_rectangle"]:
+                a = 1 + (light_data["rect"][0] * light_data["rect"][1] / 10000)
+                E *= a
 
             if light_type == "SUN":
                 #light.data.energy = 450 * pow(light_data["multiplier"]/20, 2) * fm * mmod
@@ -2327,7 +2333,7 @@ class LinkService():
                     light.data.size_y = S * light_data["rect"][1] / 100
                 elif light_data["is_tube"]:
                     light.data.shape = "ELLIPSE"
-                    light.data.size = S * light_data["tube_length"] / 100
+                    light.data.size = S * 10 * light_data["tube_length"] / 100
                     light.data.size_y = S * light_data["tube_radius"] / 100
             light.data.use_shadow = light_data["cast_shadow"]
             if light_data["cast_shadow"]:
