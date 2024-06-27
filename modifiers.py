@@ -371,7 +371,7 @@ def apply_modifier(obj, modifier=None, type=None, preserving=False):
                 utils.remove_all_shape_keys(copy)
                 remove_object_modifiers(copy, except_mods=[modifier])
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
-                geom.copy_vert_positions_by_uv_id(copy, obj)
+                geom.copy_vert_positions_by_uv_id(copy, obj, flatten_udim=False)
                 utils.delete_mesh_object(copy)
             else:
                 utils.object_mode_to(obj)
@@ -394,8 +394,7 @@ def apply_modifier_with_shape_keys(obj, modifier=None, type=None):
 
 
 def copy_base_shape(src_obj, dest_obj):
-
-    geom.copy_vert_positions_by_uv_id(src_obj, dest_obj, accuracy = 5)
+    geom.copy_vert_positions_by_uv_id(src_obj, dest_obj, accuracy = 5, flatten_udim=False)
 
 
 def remove_material_weight_maps(obj, mat):

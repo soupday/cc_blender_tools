@@ -90,11 +90,14 @@ def copy_base_shape(multi_res_object, source_body_obj, layer_target, by_vertex_g
 
         # copy to source body using vertex weights as a copy mask
         geom.copy_vert_positions_by_uv_id(multi_res_object, source_body_obj, accuracy = 5,
-                                          vertex_group = "DISPLACEMENT_MASKED", threshold = 0.0038)
+                                          vertex_group = "DISPLACEMENT_MASKED", threshold = 0.0038,
+                                          flatten_udim=True)
 
     else:
+
         # copy to source body
-        geom.copy_vert_positions_by_uv_id(multi_res_object, source_body_obj, accuracy = 5)
+        geom.copy_vert_positions_by_uv_id(multi_res_object, source_body_obj, accuracy = 5,
+                                          flatten_udim=True)
 
     return
 
