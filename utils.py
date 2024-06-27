@@ -1085,7 +1085,7 @@ def array_to_vector(arr):
     return Vector()
 
 
-def array_to_color(arr, linear=False):
+def array_to_color(arr, to_srgb=False, to_linear=False):
     if len(arr) == 1:
         r = g = b = arr[0]
         a = 1
@@ -1104,8 +1104,10 @@ def array_to_color(arr, linear=False):
         g = arr[1]
         b = arr[2]
         a = arr[3]
-    if linear:
+    if to_srgb:
         return Color((linear_to_srgbx(r), linear_to_srgbx(g), linear_to_srgbx(b)))
+    elif to_linear:
+        return Color((srgb_to_linearx(r), srgb_to_linearx(g), srgb_to_linearx(b)))
     else:
         return Color((r,g,b))
 

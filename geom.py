@@ -174,8 +174,8 @@ def copy_vertex_positions_and_weights(src_obj : bpy.types.Object, dst_obj : bpy.
     dst_bm.to_mesh(dst_mesh)
 
 
-
-def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = None, threshold = 0.004, shape_key_name = None):
+def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy=5, vertex_group=None,
+                                 threshold=0.004, shape_key_name=None, flatten_udim=False):
 
     mesh : bpy.types.Mesh = dst_obj.data
     if shape_key_name:
@@ -234,8 +234,12 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
                     weight = vert[dl][vg_index]
                     if weight < threshold:
                         continue
-                uv = loop[ul].uv
-                uv.x -= int(uv.x)
+                uv = loop[ul].uv.copy()
+                # why flatten the udims?
+                # because the in the sculpting tools, the separate sculpting meshes
+                # must flatten the udims to bake the textures correctly
+                if flatten_udim:
+                    uv.x -= int(uv.x)
                 uv_id = uv.to_tuple(accuracy), dst_material_idx
                 if uv_id in src_map and src_map[uv_id] != loop.vert.index:
                     overlapping[uv_id] = True
@@ -247,8 +251,9 @@ def copy_vert_positions_by_uv_id(src_obj, dst_obj, accuracy = 5, vertex_group = 
         sl = dst_bm.verts.layers.shape.get(shape_key_name)
     for face in dst_bm.faces:
         for loop in face.loops:
-            uv = loop[ul].uv
-            uv.x -= int(uv.x)
+            uv = loop[ul].uv.copy()
+            if flatten_udim:
+                uv.x -= int(uv.x)
             uv_id = uv.to_tuple(accuracy), face.material_index
             # overlapping UV's can't be detected correctly so try to copy from just the index position
             if matching_vert_count and uv_id in overlapping:

@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 2.1.1
+- Fix UDIM flattening on proportion editing and sculpt base mesh transfer.
+- Lighting sync area correction.
+
 ### 2.1.0
 - Motion Sets:
     - Action name remapping and retargetting overhaul.

@@ -1823,7 +1823,9 @@ class CC3OperatorTransferCharacterGeometry(bpy.types.Operator):
                         if src_base_name == dst_base_name:
                             if len(src_obj.data.vertices) == len(dst_obj.data.vertices):
                                 if len(src_obj.data.polygons) == len(dst_obj.data.polygons):
-                                    geom.copy_vert_positions_by_uv_id(src_obj, dst_obj, 5, shape_key_name=shape_key_name)
+                                    geom.copy_vert_positions_by_uv_id(src_obj, dst_obj, 5,
+                                                                      shape_key_name=shape_key_name,
+                                                                      flatten_udim=False)
                                     if shape_key_name:
                                         for sk in dst_obj.data.shape_keys.key_blocks:
                                             sk.value = 0.0
@@ -1883,7 +1885,8 @@ class CC3OperatorTransferMeshGeometry(bpy.types.Operator):
         if active and len(selected) >= 2:
             for obj in selected:
                 if obj != active:
-                    geom.copy_vert_positions_by_uv_id(active, obj, 5, shape_key_name=shape_key_name)
+                    geom.copy_vert_positions_by_uv_id(active, obj, 5, shape_key_name=shape_key_name,
+                                                      flatten_udim=False)
 
             self.report(type={"INFO"}, message="Done!")
 
