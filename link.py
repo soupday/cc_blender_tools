@@ -1015,6 +1015,11 @@ class LinkService():
     def __exit__(self):
         self.service_stop()
 
+    def compatible_plugin(self, plugin_version):
+        if plugin_version in vars.PLUGIN_COMPATIBLE:
+            return True
+        return False
+
     def is_cc(self):
         return self.remote_app == "Character Creator"
 
@@ -1259,7 +1264,7 @@ class LinkService():
                 self.link_data.remote_version = self.remote_version
                 self.link_data.remote_path = self.remote_path
                 self.link_data.remote_exe = self.remote_exe
-                if f"v{self.plugin_version}" == vars.VERSION_STRING:
+                if self.compatible_plugin(self.plugin_version):
                     self.service_initialize()
                     link_props.remote_app = self.remote_app
                     link_props.remote_version = f"{self.remote_version[0]}.{self.remote_version[1]}.{self.remote_version[2]}"
@@ -1272,7 +1277,8 @@ class LinkService():
                     self.service_disconnect()
                     messages = ["CC/iC Plug-in and Blender Add-on versions do not match!",
                                 f"Blender add-on version: {vars.VERSION_STRING}",
-                                f"CC/iC plug-in version: v{self.plugin_version}"]
+                                f"CC/iC plug-in version: {self.plugin_version}",
+                                f"*Compatible plug-in versions: {vars.PLUGIN_COMPATIBLE}"]
                     utils.message_box_multi("Version Error", icon="ERROR", messages=messages)
 
 
