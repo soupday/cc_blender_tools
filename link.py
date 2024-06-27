@@ -2263,13 +2263,10 @@ class LinkService():
                 light_type = "SUN"
             is_tube = light_data["is_tube"]
             is_rectangle = light_data["is_rectangle"]
-            cmod = 1
             if TUBE_AS_AREA and is_tube:
                 light_type = "AREA"
-                cmod = 2
             if RECTANGULAR_AS_AREA and is_rectangle:
                 light_type = "AREA"
-                cmod = 1
 
             light = self.find_link_id(light_data["link_id"])
             if light and (light.type != "LIGHT" or light.data.type != light_type):
@@ -2298,16 +2295,14 @@ class LinkService():
             r = light_data["range"] / 5000
             P = 4
             range_curve = 1.0 - 1.0/pow((r + 1.0),P)
-            S = 1.4
+            S = 1.0
             E = 1.0
+            # area energy modifier
             if light_data["is_tube"]:
-                #m = 1 + (S * 20 * light_data["tube_length"] / 100)
                 m = 1.0 + light_data["tube_length"] * light_data["tube_radius"] / 10000
-                #print(light_data["name"], m, light_data["tube_length"], light_data["tube_radius"])
                 E *= m
             elif light_data["is_rectangle"]:
                 a = 0.75 + light_data["rect"][0] * light_data["rect"][1] / 10000
-                #print(light_data["name"], a, light_data["rect"][0], light_data["rect"][1])
                 E *= a
 
             if light_type == "SUN":
