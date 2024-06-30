@@ -2306,6 +2306,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     export_options: bpy.props.BoolProperty(default=False)
     cycles_options: bpy.props.BoolProperty(default=False)
+    eevee_options: bpy.props.BoolProperty(default=False)
     stage1: bpy.props.BoolProperty(default=True)
     stage1_details: bpy.props.BoolProperty(default=False)
     stage4: bpy.props.BoolProperty(default=True)

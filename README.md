@@ -35,10 +35,14 @@ Links
 
 ## Changelog
 
+### 2.1.2
+- Blender 4.2 lighting settings fixes and adjustments.
+- Blender 4.2 Eevee SSS options.
+
 ### 2.1.1
 - Fix UDIM flattening on proportion editing and sculpt base mesh transfer.
 - Lighting sync area correction.
-- Datalink plugin version compatability check.
+- Datalink plugin version compatibility check.
 
 ### 2.1.0
 - Motion Sets:

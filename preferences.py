@@ -37,6 +37,16 @@ def reset_cycles():
     prefs.cycles_sss_default_b341 = 0.5
 
 
+def reset_eevee():
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
+    prefs.eevee_sss_skin_b420 = 1.0
+    prefs.eevee_sss_hair_b420 = 1.0
+    prefs.eevee_sss_teeth_b420 = 1.5
+    prefs.eevee_sss_tongue_b420 = 1.0
+    prefs.eevee_sss_eyes_b420 = 1.0
+    prefs.eevee_sss_default_b420 = 1.0
+
+
 def reset_rigify():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
     prefs.rigify_export_t_pose = True
@@ -125,6 +135,9 @@ class CC3OperatorPreferences(bpy.types.Operator):
 
         if self.param == "RESET_CYCLES":
             reset_cycles()
+
+        if self.param == "RESET_EEVEE":
+            reset_eevee()
 
         if self.param == "RESET_DATALINK":
             reset_datalink()
@@ -289,6 +302,13 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                 description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
                 "Which sets up Reallusion import compatible materials and material parameters")
 
+    # Eevee Modifiers
+    eevee_sss_skin_b420: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_hair_b420: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_teeth_b420: bpy.props.FloatProperty(default=1.5)
+    eevee_sss_tongue_b420: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_eyes_b420: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_default_b420: bpy.props.FloatProperty(default=1.0)
     # Cycles Modifiers
     cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
     # Cycles SSS weight mods

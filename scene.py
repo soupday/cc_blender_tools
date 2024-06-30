@@ -368,11 +368,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 2.0
-            bpy.context.scene.eevee.bloom_intensity = 1.0
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 2.0
+                bpy.context.scene.eevee.bloom_intensity = 1.0
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
@@ -446,11 +454,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 2.0
-            bpy.context.scene.eevee.bloom_intensity = 0.10000000149011612
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 2.0
+                bpy.context.scene.eevee.bloom_intensity = 0.10000000149011612
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
@@ -513,11 +529,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 2.0
-            bpy.context.scene.eevee.bloom_intensity = 0.10000000149011612
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 2.0
+                bpy.context.scene.eevee.bloom_intensity = 0.10000000149011612
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
@@ -576,11 +600,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 2.0
-            bpy.context.scene.eevee.bloom_intensity = 0.10000000149011612
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 2.0
+                bpy.context.scene.eevee.bloom_intensity = 0.10000000149011612
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
@@ -664,11 +696,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.35
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 2.0
-            bpy.context.scene.eevee.bloom_intensity = 0.1
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.35
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 2.0
+                bpy.context.scene.eevee.bloom_intensity = 0.1
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
@@ -770,11 +810,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 2.0
-            bpy.context.scene.eevee.bloom_intensity = 1.0
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 2.0
+                bpy.context.scene.eevee.bloom_intensity = 1.0
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
@@ -889,11 +937,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.35
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 4.0
-            bpy.context.scene.eevee.bloom_intensity = 0.15
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.35
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 4.0
+                bpy.context.scene.eevee.bloom_intensity = 0.15
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
@@ -995,11 +1051,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 2.0
-            bpy.context.scene.eevee.bloom_intensity = 1.0
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 2.0
+                bpy.context.scene.eevee.bloom_intensity = 1.0
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
@@ -1093,11 +1157,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.65
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 3.0
-            bpy.context.scene.eevee.bloom_intensity = 1.0
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.65
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 3.0
+                bpy.context.scene.eevee.bloom_intensity = 1.0
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
@@ -1190,11 +1262,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.65
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 3.0
-            bpy.context.scene.eevee.bloom_intensity = 1.0
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.65
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 3.0
+                bpy.context.scene.eevee.bloom_intensity = 1.0
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
@@ -1298,11 +1378,19 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_bloom = True
-            bpy.context.scene.eevee.bloom_threshold = 0.5
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 5.0
-            bpy.context.scene.eevee.bloom_intensity = 0.1
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_taa_reprojection = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            else:
+                bpy.context.scene.eevee.use_bloom = True
+                bpy.context.scene.eevee.bloom_threshold = 0.5
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 5.0
+                bpy.context.scene.eevee.bloom_intensity = 0.1
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32

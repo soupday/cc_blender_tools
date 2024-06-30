@@ -564,6 +564,76 @@ def character_tools_ui(context, layout):
             layout.row().label(text=obj_text)
 
 
+def render_prefs_ui(layout: bpy.types.UILayout):
+    prefs = vars.prefs()
+    props = vars.props()
+
+    # Cycles Prefs
+    if prefs.render_target == "CYCLES":
+        box = layout.box()
+        if fake_drop_down(box.row(),
+                "Cycles Prefs",
+                "cycles_options",
+                props.cycles_options):
+            column = box.column()
+            split = column.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            if utils.B400():
+                col_1.label(text = "Skin SSS")
+                col_2.prop(prefs, "cycles_sss_skin_b410", text = "")
+                col_1.label(text = "Hair SSS")
+                col_2.prop(prefs, "cycles_sss_hair_b410", text = "")
+                col_1.label(text = "Teeth SSS")
+                col_2.prop(prefs, "cycles_sss_teeth_b410", text = "")
+                col_1.label(text = "Tongue SSS")
+                col_2.prop(prefs, "cycles_sss_tongue_b410", text = "")
+                col_1.label(text = "Eyes SSS")
+                col_2.prop(prefs, "cycles_sss_eyes_b410", text = "")
+                col_1.label(text = "Default SSS")
+                col_2.prop(prefs, "cycles_sss_default_b410", text = "")
+            else:
+                col_1.label(text = "Skin SSS")
+                col_2.prop(prefs, "cycles_sss_skin_b341", text = "")
+                col_1.label(text = "Hair SSS")
+                col_2.prop(prefs, "cycles_sss_hair_b341", text = "")
+                col_1.label(text = "Teeth SSS")
+                col_2.prop(prefs, "cycles_sss_teeth_b341", text = "")
+                col_1.label(text = "Tongue SSS")
+                col_2.prop(prefs, "cycles_sss_tongue_b341", text = "")
+                col_1.label(text = "Eyes SSS")
+                col_2.prop(prefs, "cycles_sss_eyes_b341", text = "")
+                col_1.label(text = "Default SSS")
+                col_2.prop(prefs, "cycles_sss_default_b341", text = "")
+            col_2.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_CYCLES"
+
+    # Eevee Prefs
+    elif utils.B420():
+        box = layout.box()
+        if fake_drop_down(box.row(),
+                "Eevee Prefs",
+                "eevee_options",
+                props.eevee_options):
+            column = box.column()
+            split = column.split(factor=0.5)
+            col_1 = split.column()
+            col_2 = split.column()
+            if utils.B420():
+                col_1.label(text = "Skin SSS")
+                col_2.prop(prefs, "eevee_sss_skin_b420", text = "")
+                col_1.label(text = "Hair SSS")
+                col_2.prop(prefs, "eevee_sss_hair_b420", text = "")
+                col_1.label(text = "Teeth SSS")
+                col_2.prop(prefs, "eevee_sss_teeth_b420", text = "")
+                col_1.label(text = "Tongue SSS")
+                col_2.prop(prefs, "eevee_sss_tongue_b420", text = "")
+                col_1.label(text = "Eyes SSS")
+                col_2.prop(prefs, "eevee_sss_eyes_b420", text = "")
+                col_1.label(text = "Default SSS")
+                col_2.prop(prefs, "eevee_sss_default_b420", text = "")
+            col_2.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_EEVEE"
+
+
 class ARMATURE_UL_List(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -843,44 +913,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_1.label(text="Data Override")
             col_2.prop(prefs, "aces_data_override", text="")
 
-        # Cycles Prefs
-        if prefs.render_target == "CYCLES":
-            box = layout.box()
-            if fake_drop_down(box.row(),
-                    "Cycles Prefs",
-                    "cycles_options",
-                    props.cycles_options):
-                column = box.column()
-                split = column.split(factor=0.5)
-                col_1 = split.column()
-                col_2 = split.column()
-                if utils.B400():
-                    col_1.label(text = "Skin SSS")
-                    col_2.prop(prefs, "cycles_sss_skin_b410", text = "")
-                    col_1.label(text = "Hair SSS")
-                    col_2.prop(prefs, "cycles_sss_hair_b410", text = "")
-                    col_1.label(text = "Teeth SSS")
-                    col_2.prop(prefs, "cycles_sss_teeth_b410", text = "")
-                    col_1.label(text = "Tongue SSS")
-                    col_2.prop(prefs, "cycles_sss_tongue_b410", text = "")
-                    col_1.label(text = "Eyes SSS")
-                    col_2.prop(prefs, "cycles_sss_eyes_b410", text = "")
-                    col_1.label(text = "Default SSS")
-                    col_2.prop(prefs, "cycles_sss_default_b410", text = "")
-                else:
-                    col_1.label(text = "Skin SSS")
-                    col_2.prop(prefs, "cycles_sss_skin_b341", text = "")
-                    col_1.label(text = "Hair SSS")
-                    col_2.prop(prefs, "cycles_sss_hair_b341", text = "")
-                    col_1.label(text = "Teeth SSS")
-                    col_2.prop(prefs, "cycles_sss_teeth_b341", text = "")
-                    col_1.label(text = "Tongue SSS")
-                    col_2.prop(prefs, "cycles_sss_tongue_b341", text = "")
-                    col_1.label(text = "Eyes SSS")
-                    col_2.prop(prefs, "cycles_sss_eyes_b341", text = "")
-                    col_1.label(text = "Default SSS")
-                    col_2.prop(prefs, "cycles_sss_default_b341", text = "")
-                col_2.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_CYCLES"
+        render_prefs_ui(layout)
 
         # Build Button
         if chr_cache:
@@ -1385,6 +1418,8 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
         parameters = None
         if mat_cache:
             parameters = mat_cache.parameters
+
+        render_prefs_ui(layout)
 
         # Parameters
 

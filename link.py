@@ -2359,11 +2359,19 @@ class LinkService():
         bpy.context.scene.eevee.use_gtao = True
         bpy.context.scene.eevee.gtao_distance = 0.25
         bpy.context.scene.eevee.gtao_factor = 0.5
-        bpy.context.scene.eevee.use_bloom = True
-        bpy.context.scene.eevee.bloom_threshold = 0.8
-        bpy.context.scene.eevee.bloom_knee = 0.5
-        bpy.context.scene.eevee.bloom_radius = 2.0
-        bpy.context.scene.eevee.bloom_intensity = 1.0
+        if utils.B420():
+            bpy.context.scene.eevee.use_shadows = True
+            bpy.context.scene.eevee.use_volumetric_shadows = True
+            bpy.context.scene.eevee.use_raytracing = True
+            bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+            bpy.context.scene.eevee.use_taa_reprojection = True
+            bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+        else:
+            bpy.context.scene.eevee.use_bloom = True
+            bpy.context.scene.eevee.bloom_threshold = 0.8
+            bpy.context.scene.eevee.bloom_knee = 0.5
+            bpy.context.scene.eevee.bloom_radius = 2.0
+            bpy.context.scene.eevee.bloom_intensity = 1.0
         bpy.context.scene.eevee.use_ssr = True
         bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
