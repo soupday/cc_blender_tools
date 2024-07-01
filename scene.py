@@ -1438,6 +1438,9 @@ def setup_scene_default(scene_type):
 
             bpy.context.space_data.clip_start = 0.01
 
+        if bpy.context.scene.view_settings.view_transform == "AgX":
+            filter_lights((0.9, 1, 1, 1))
+
     except Exception as e:
         utils.log_error("Something went wrong adding lights:")
         traceback.print_exc()

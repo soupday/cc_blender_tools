@@ -56,7 +56,7 @@ def reset_eevee():
     prefs.eevee_normal_b420 = 1.0
     prefs.eevee_normal_skin_b420 = 1.0
     prefs.eevee_micro_normal_b420 = 1.0
-    prefs.eevee_roughness_power_b420 = 1.0
+    prefs.eevee_roughness_power_b420 = 0.85
     #
     prefs.eevee_sss_skin_b341 = 1.0
     prefs.eevee_sss_hair_b341 = 1.0
@@ -67,7 +67,7 @@ def reset_eevee():
     prefs.eevee_normal_b341 = 1.0
     prefs.eevee_normal_skin_b341 = 1.0
     prefs.eevee_micro_normal_b341 = 2.0
-    prefs.eevee_roughness_power_b341 = 0.75
+    prefs.eevee_roughness_power_b341 = 0.85
 
 
 def reset_rigify():

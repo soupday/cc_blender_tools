@@ -2257,6 +2257,8 @@ class LinkService():
         return container
 
     def decode_lights_data(self, data):
+        props = vars.props()
+
         lights_data = decode_to_json(data)
 
         RECTANGULAR_AS_AREA = True
@@ -2395,6 +2397,12 @@ class LinkService():
             if self.is_cc():
                 # only hide the lights if it's from Character Creator
                 view_space.overlay.show_extras = False
+        if bpy.context.scene.view_settings.view_transform == "AgX":
+            c = props.light_filter
+            props.light_filter = (0.9, 1, 1, 1)
+            bpy.ops.cc3.scene(param="FILTER_LIGHTS")
+            props.light_filter = c
+
 
     def receive_lights(self, data):
         update_link_status(f"Light Data Receveived")
