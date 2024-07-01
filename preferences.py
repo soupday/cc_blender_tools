@@ -28,6 +28,9 @@ def reset_cycles():
     prefs.cycles_sss_tongue_b410 = 1.0
     prefs.cycles_sss_eyes_b410 = 1.0
     prefs.cycles_sss_default_b410 = 1.0
+    prefs.cycles_normal_b410 = 1.0
+    prefs.cycles_normal_skin_b410 = 1.5
+    prefs.cycles_micro_normal_b410 = 2.0
     #
     prefs.cycles_sss_skin_b341 = 0.264
     prefs.cycles_sss_hair_b341 = 0.05
@@ -35,6 +38,9 @@ def reset_cycles():
     prefs.cycles_sss_tongue_b341 = 0.5
     prefs.cycles_sss_eyes_b341 = 0.01
     prefs.cycles_sss_default_b341 = 0.5
+    prefs.cycles_normal_b341 = 1.0
+    prefs.cycles_normal_skin_b341 = 1.5
+    prefs.cycles_micro_normal_b341 = 2.0
 
 
 def reset_eevee():
@@ -45,6 +51,13 @@ def reset_eevee():
     prefs.eevee_sss_tongue_b420 = 1.0
     prefs.eevee_sss_eyes_b420 = 1.0
     prefs.eevee_sss_default_b420 = 1.0
+    prefs.eevee_normal_b420 = 1.0
+    prefs.eevee_normal_skin_b420 = 1.0
+    prefs.eevee_micro_normal_b420 = 1.0
+    #
+    prefs.eevee_normal_b341 = 1.0
+    prefs.eevee_normal_skin_b341 = 1.0
+    prefs.eevee_micro_normal_b341 = 2.0
 
 
 def reset_rigify():
@@ -303,12 +316,19 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                 "Which sets up Reallusion import compatible materials and material parameters")
 
     # Eevee Modifiers
-    eevee_sss_skin_b420: bpy.props.FloatProperty(default=1.0)
+    eevee_sss_skin_b420: bpy.props.FloatProperty(default=1.25)
     eevee_sss_hair_b420: bpy.props.FloatProperty(default=1.0)
     eevee_sss_teeth_b420: bpy.props.FloatProperty(default=1.5)
     eevee_sss_tongue_b420: bpy.props.FloatProperty(default=1.0)
     eevee_sss_eyes_b420: bpy.props.FloatProperty(default=1.0)
     eevee_sss_default_b420: bpy.props.FloatProperty(default=1.0)
+    eevee_micro_normal_b420: bpy.props.FloatProperty(default=1.0)
+    eevee_normal_b420: bpy.props.FloatProperty(default=1.0)
+    eevee_normal_skin_b420: bpy.props.FloatProperty(default=1.0)
+    #
+    eevee_micro_normal_b341: bpy.props.FloatProperty(default=2.0)
+    eevee_normal_b341: bpy.props.FloatProperty(default=1.0)
+    eevee_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
     # Cycles Modifiers
     cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
     # Cycles SSS weight mods
@@ -318,6 +338,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_sss_tongue_b410: bpy.props.FloatProperty(default=1.0)
     cycles_sss_eyes_b410: bpy.props.FloatProperty(default=1.0)
     cycles_sss_default_b410: bpy.props.FloatProperty(default=1.0)
+    cycles_micro_normal_b410: bpy.props.FloatProperty(default=2)
+    cycles_normal_b410: bpy.props.FloatProperty(default=1.5)
+    cycles_normal_skin_b410: bpy.props.FloatProperty(default=1.5)
     #
     cycles_sss_skin_b341: bpy.props.FloatProperty(default=0.264)
     cycles_sss_hair_b341: bpy.props.FloatProperty(default=0.05)
@@ -325,6 +348,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_sss_tongue_b341: bpy.props.FloatProperty(default=0.5)
     cycles_sss_eyes_b341: bpy.props.FloatProperty(default=0.01)
     cycles_sss_default_b341: bpy.props.FloatProperty(default=0.5)
+    cycles_micro_normal_b341: bpy.props.FloatProperty(default=2)
+    cycles_normal_b341: bpy.props.FloatProperty(default=1.5)
+    cycles_normal_skin_b341: bpy.props.FloatProperty(default=1.5)
 
     bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
 

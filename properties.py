@@ -328,6 +328,7 @@ def reset_parameters(context = bpy.context, all=False):
     chr_json = chr_cache.get_character_json()
 
     if chr_cache:
+
         vars.block_property_update = True
         if all:
             shaders.init_character_property_defaults(chr_cache, chr_json)
@@ -339,6 +340,7 @@ def reset_parameters(context = bpy.context, all=False):
                 shaders.init_character_property_defaults(chr_cache, chr_json, only=mats)
         basic.init_basic_default(chr_cache)
         vars.block_property_update = False
+
         update_all_properties(context)
 
 
@@ -534,6 +536,9 @@ class CC3OperatorProperties(bpy.types.Operator):
 
         if self.param == "RESET_ALL":
             reset_parameters(context, all=True)
+
+        if self.param == "APPLY_ALL":
+            update_all_properties(context)
 
         return {"FINISHED"}
 

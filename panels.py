@@ -592,6 +592,12 @@ def render_prefs_ui(layout: bpy.types.UILayout):
                 col_2.prop(prefs, "cycles_sss_eyes_b410", text = "")
                 col_1.label(text = "Default SSS")
                 col_2.prop(prefs, "cycles_sss_default_b410", text = "")
+                col_1.label(text = "Normal Strength")
+                col_2.prop(prefs, "cycles_normal_b410", text = "")
+                col_1.label(text = "Skin Normal Strength")
+                col_2.prop(prefs, "cycles_normal_skin_b410", text = "")
+                col_1.label(text = "Micro Normal Strength")
+                col_2.prop(prefs, "cycles_micro_normal_b410", text = "")
             else:
                 col_1.label(text = "Skin SSS")
                 col_2.prop(prefs, "cycles_sss_skin_b341", text = "")
@@ -605,7 +611,14 @@ def render_prefs_ui(layout: bpy.types.UILayout):
                 col_2.prop(prefs, "cycles_sss_eyes_b341", text = "")
                 col_1.label(text = "Default SSS")
                 col_2.prop(prefs, "cycles_sss_default_b341", text = "")
-            col_2.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_CYCLES"
+                col_1.label(text = "Normal Strength")
+                col_2.prop(prefs, "cycles_normal_b341", text = "")
+                col_1.label(text = "Skin Normal Strength")
+                col_2.prop(prefs, "cycles_normal_skin_b341", text = "")
+                col_1.label(text = "Micro Normal Strength")
+                col_2.prop(prefs, "cycles_micro_normal_b341", text = "")
+            col_1.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_CYCLES"
+            col_2.operator("cc3.setproperties", icon="DECORATE_DRIVER", text="Update").param = "APPLY_ALL"
 
     # Eevee Prefs
     elif utils.B420():
@@ -631,7 +644,21 @@ def render_prefs_ui(layout: bpy.types.UILayout):
                 col_2.prop(prefs, "eevee_sss_eyes_b420", text = "")
                 col_1.label(text = "Default SSS")
                 col_2.prop(prefs, "eevee_sss_default_b420", text = "")
-            col_2.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_EEVEE"
+                col_1.label(text = "Normal Strength")
+                col_2.prop(prefs, "eevee_normal_b420", text = "")
+                col_1.label(text = "Skin Normal Strength")
+                col_2.prop(prefs, "eevee_normal_skin_b420", text = "")
+                col_1.label(text = "Micro Normal Strength")
+                col_2.prop(prefs, "eevee_micro_normal_b420", text = "")
+            else:
+                col_1.label(text = "Normal Strength")
+                col_2.prop(prefs, "eevee_normal_b341", text = "")
+                col_1.label(text = "Skin Normal Strength")
+                col_2.prop(prefs, "eevee_normal_skin_b341", text = "")
+                col_1.label(text = "Micro Normal Strength")
+                col_2.prop(prefs, "eevee_micro_normal_b341", text = "")
+            col_1.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_EEVEE"
+            col_2.operator("cc3.setproperties", icon="DECORATE_DRIVER", text="Update").param = "APPLY_ALL"
 
 
 class ARMATURE_UL_List(bpy.types.UIList):
@@ -2344,24 +2371,28 @@ class CC3SpringControlPanel(bpy.types.Panel):
         prefs = vars.prefs()
 
         layout = self.layout
-
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
-
-        if not chr_cache or not chr_cache.rigified:
-            return
-
+        if not chr_cache or not chr_cache.rigified: return
         arm = chr_cache.get_armature()
+        if not arm: return
 
-        if not arm:
-            return
+        if not springbones.has_spring_rigs(chr_cache, arm): return
 
         #box = layout.box()
         #box.label(text="Spring Rig Layers", icon="XRAY")
         layout.row().label(text="Spring Rig Layers:", icon="XRAY")
         row = layout.row()
-        row.prop(arm.data, "layers", index = vars.SPRING_FK_LAYER, text="FK", toggle=True)
-        row.prop(arm.data, "layers", index = vars.SPRING_IK_LAYER, text="IK", toggle=True)
-        row.prop(arm.data, "layers", index = vars.SPRING_TWEAK_LAYER, text="Tweak", toggle=True)
+        if utils.B400():
+            if "Spring (FK)" in arm.data.collections_all:
+                row.prop(arm.data, "collections_all[\"Spring (FK)\"].is_visible", text="FK", toggle=True)
+            if "Spring (IK)" in arm.data.collections_all:
+                row.prop(arm.data, "collections_all[\"Spring (IK)\"].is_visible", text="IK", toggle=True)
+            if "Spring (Tweak)" in arm.data.collections_all:
+                row.prop(arm.data, "collections_all[\"Spring (Tweak)\"].is_visible", text="Tweak", toggle=True)
+        else:
+            row.prop(arm.data, "layers", index = vars.SPRING_FK_LAYER, text="FK", toggle=True)
+            row.prop(arm.data, "layers", index = vars.SPRING_IK_LAYER, text="IK", toggle=True)
+            row.prop(arm.data, "layers", index = vars.SPRING_TWEAK_LAYER, text="Tweak", toggle=True)
 
         control_bone = None
         active_pose_bone = context.active_pose_bone

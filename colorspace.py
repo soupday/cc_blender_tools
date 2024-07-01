@@ -118,6 +118,10 @@ def set_view_settings(view_transform, look, exposure, gamma):
         bpy.context.scene.view_settings.gamma = 1.0
 
     else:
+        if utils.B400() and view_transform == "Filmic":
+            view_transform = "AgX"
+            if look != "None":
+                look = "AgX - " + look
         try_set_view_transform(view_transform)
         try_set_look(look)
         bpy.context.scene.view_settings.exposure = exposure

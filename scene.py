@@ -33,9 +33,13 @@ def add_target(name, location):
     return target
 
 def set_contact_shadow(light, distance, thickness):
-    light.data.use_contact_shadow = True
-    light.data.contact_shadow_distance = distance
-    light.data.contact_shadow_thickness = thickness
+    if utils.B420():
+        light.data.use_shadow = True
+        light.data.use_shadow_jitter = True
+    else:
+        light.data.use_contact_shadow = True
+        light.data.contact_shadow_distance = distance
+        light.data.contact_shadow_thickness = thickness
 
 
 def track_to(obj, target):
@@ -368,12 +372,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
@@ -384,7 +388,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "High Contrast",
+            colorspace.set_view_settings("Filmic", "Medium High Contrast",
                                         1.0, 0.5)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -454,12 +458,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
@@ -529,12 +533,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
@@ -600,12 +604,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
@@ -696,12 +700,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
@@ -810,12 +814,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
@@ -937,12 +941,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
@@ -1051,12 +1055,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
@@ -1143,7 +1147,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "interior.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.181662
+            bpy.context.space_data.shading.studiolight_rotate_z = -0.41
             bpy.context.space_data.shading.studiolight_intensity = 0.4551074802875519
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -1157,12 +1161,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
@@ -1173,7 +1177,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            colorspace.set_view_settings("Filmic", "High Contrast",
                                         0.5, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -1262,12 +1266,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
@@ -1378,12 +1382,12 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.25
             bpy.context.scene.eevee.gtao_factor = 0.5
+            bpy.context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 bpy.context.scene.eevee.use_shadows = True
                 bpy.context.scene.eevee.use_volumetric_shadows = True
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_taa_reprojection = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             else:
                 bpy.context.scene.eevee.use_bloom = True

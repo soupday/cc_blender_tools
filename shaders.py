@@ -410,7 +410,10 @@ def func_roughness_power(p):
     if prefs.render_target == "CYCLES":
         return p * 1.125
     else:
-        return p * 0.75
+        if utils.B420():
+            return p * 1.0
+        else:
+            return p * 0.75
 
 def func_a(a, b, c):
     return a
@@ -478,13 +481,13 @@ def func_parallax_iris_tiling(i, s):
 def func_get_iris_scale(iris_uv_radius):
     return 0.16 / iris_uv_radius
 
-def func_set_half(s):
+def func_half(s):
     return s * 0.5
 
-def func_set_third(s):
+def func_third(s):
     return s * 0.3333
 
-def func_set_two_third(s):
+def func_two_third(s):
     return s * 0.6666
 
 def func_divide_1000(v):
@@ -512,6 +515,7 @@ def func_limbus_dark_radius(limbus_dark_scale):
     #return 1 / limbus_dark_scale
     #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
     #return utils.lerp(0.155, 0.08, t) + 0.025
+    limbus_dark_scale = max(limbus_dark_scale, 0.01)
     ds = pow(0.01, 0.2) / limbus_dark_scale
     dm = pow(0.5, 0.2) / limbus_dark_scale
     de = dm + (dm - ds)
@@ -521,6 +525,7 @@ def func_limbus_dark_width(limbus_dark_scale):
     #return 1 / limbus_dark_scale
     #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
     #return utils.lerp(0.155, 0.08, t) + 0.025
+    limbus_dark_scale = max(limbus_dark_scale, 0.01)
     ds = pow(0.01, 0.2) / limbus_dark_scale
     dm = pow(0.5, 0.2) / limbus_dark_scale
     de = dm + (dm - ds)
@@ -604,6 +609,48 @@ def func_index_3(values: list):
 
 def func_export_combine_xyz(x, y, z):
     return [x * 255.0, y * 255.0, z * 255.0]
+
+def func_normal_strength(s):
+    prefs = vars.prefs()
+    if prefs.render_target == "CYCLES":
+        if utils.B400():
+            s = s * prefs.cycles_normal_b410
+        else:
+            s = s * prefs.cycles_normal_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_normal_b420
+        else:
+            s = s * prefs.eevee_normal_b341
+    return s
+
+def func_skin_normal_strength(s):
+    prefs = vars.prefs()
+    if prefs.render_target == "CYCLES":
+        if utils.B400():
+            s = s * prefs.cycles_normal_skin_b410
+        else:
+            s = s * prefs.cycles_normal_skin_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_normal_skin_b420
+        else:
+            s = s * prefs.eevee_normal_skin_b341
+    return s
+
+def func_micro_normal_strength(s):
+    prefs = vars.prefs()
+    if prefs.render_target == "CYCLES":
+        if utils.B400():
+            s = s * prefs.cycles_micro_normal_b410
+        else:
+            s = s * prefs.cycles_micro_normal_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_micro_normal_b420
+        else:
+            s = s * prefs.eevee_micro_normal_b341
+    return s
 
 #
 # End Prop matrix eval, parameter conversion functions

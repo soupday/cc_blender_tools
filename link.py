@@ -2250,6 +2250,10 @@ class LinkService():
             container = utils.get_active_object()
             container.name = "Lighting"
             utils.set_ccic_id(container)
+        children = utils.get_child_objects(container)
+        for child in children:
+            if utils.has_ccic_id(child) and child.type == "LIGHT":
+                utils.delete_object_tree(child)
         return container
 
     def decode_lights_data(self, data):
@@ -2359,12 +2363,12 @@ class LinkService():
         bpy.context.scene.eevee.use_gtao = True
         bpy.context.scene.eevee.gtao_distance = 0.25
         bpy.context.scene.eevee.gtao_factor = 0.5
+        bpy.context.scene.eevee.use_taa_reprojection = True
         if utils.B420():
             bpy.context.scene.eevee.use_shadows = True
             bpy.context.scene.eevee.use_volumetric_shadows = True
             bpy.context.scene.eevee.use_raytracing = True
             bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-            bpy.context.scene.eevee.use_taa_reprojection = True
             bpy.context.scene.eevee.use_shadow_jitter_viewport = True
         else:
             bpy.context.scene.eevee.use_bloom = True
