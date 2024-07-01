@@ -570,9 +570,10 @@ def render_prefs_ui(layout: bpy.types.UILayout):
 
     # Cycles Prefs
     if prefs.render_target == "CYCLES":
+        suffix = "B4.1" if utils.B410() else "B3.4"
         box = layout.box()
         if fake_drop_down(box.row(),
-                "Cycles Prefs",
+                f"Cycles Prefs ({suffix})",
                 "cycles_options",
                 props.cycles_options):
             column = box.column()
@@ -592,6 +593,8 @@ def render_prefs_ui(layout: bpy.types.UILayout):
                 col_2.prop(prefs, "cycles_sss_eyes_b410", text = "")
                 col_1.label(text = "Default SSS")
                 col_2.prop(prefs, "cycles_sss_default_b410", text = "")
+                col_1.label(text = "Roughness Power")
+                col_2.prop(prefs, "cycles_roughness_power_b410", text = "")
                 col_1.label(text = "Normal Strength")
                 col_2.prop(prefs, "cycles_normal_b410", text = "")
                 col_1.label(text = "Skin Normal Strength")
@@ -611,6 +614,8 @@ def render_prefs_ui(layout: bpy.types.UILayout):
                 col_2.prop(prefs, "cycles_sss_eyes_b341", text = "")
                 col_1.label(text = "Default SSS")
                 col_2.prop(prefs, "cycles_sss_default_b341", text = "")
+                col_1.label(text = "Roughness Power")
+                col_2.prop(prefs, "cycles_roughness_power_b341", text = "")
                 col_1.label(text = "Normal Strength")
                 col_2.prop(prefs, "cycles_normal_b341", text = "")
                 col_1.label(text = "Skin Normal Strength")
@@ -621,10 +626,11 @@ def render_prefs_ui(layout: bpy.types.UILayout):
             col_2.operator("cc3.setproperties", icon="DECORATE_DRIVER", text="Update").param = "APPLY_ALL"
 
     # Eevee Prefs
-    elif utils.B420():
+    else:
+        suffix = "B4.2" if utils.B420() else "B3.4"
         box = layout.box()
         if fake_drop_down(box.row(),
-                "Eevee Prefs",
+                f"Eevee Prefs ({suffix})",
                 "eevee_options",
                 props.eevee_options):
             column = box.column()
@@ -644,6 +650,8 @@ def render_prefs_ui(layout: bpy.types.UILayout):
                 col_2.prop(prefs, "eevee_sss_eyes_b420", text = "")
                 col_1.label(text = "Default SSS")
                 col_2.prop(prefs, "eevee_sss_default_b420", text = "")
+                col_1.label(text = "Roughness Power")
+                col_2.prop(prefs, "eevee_roughness_power_b420", text = "")
                 col_1.label(text = "Normal Strength")
                 col_2.prop(prefs, "eevee_normal_b420", text = "")
                 col_1.label(text = "Skin Normal Strength")
@@ -651,6 +659,20 @@ def render_prefs_ui(layout: bpy.types.UILayout):
                 col_1.label(text = "Micro Normal Strength")
                 col_2.prop(prefs, "eevee_micro_normal_b420", text = "")
             else:
+                col_1.label(text = "Skin SSS")
+                col_2.prop(prefs, "eevee_sss_skin_b341", text = "")
+                col_1.label(text = "Hair SSS")
+                col_2.prop(prefs, "eevee_sss_hair_b341", text = "")
+                col_1.label(text = "Teeth SSS")
+                col_2.prop(prefs, "eevee_sss_teeth_b341", text = "")
+                col_1.label(text = "Tongue SSS")
+                col_2.prop(prefs, "eevee_sss_tongue_b341", text = "")
+                col_1.label(text = "Eyes SSS")
+                col_2.prop(prefs, "eevee_sss_eyes_b341", text = "")
+                col_1.label(text = "Default SSS")
+                col_2.prop(prefs, "eevee_sss_default_b341", text = "")
+                col_1.label(text = "Roughness Power")
+                col_2.prop(prefs, "eevee_roughness_power_b341", text = "")
                 col_1.label(text = "Normal Strength")
                 col_2.prop(prefs, "eevee_normal_b341", text = "")
                 col_1.label(text = "Skin Normal Strength")

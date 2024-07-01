@@ -283,6 +283,8 @@ def func_sss_skin(s):
     else:
         if utils.B420():
             s = s * prefs.eevee_sss_skin_b420
+        else:
+            s = s * prefs.eevee_sss_skin_b341
     return s
 
 def func_sss_hair(s):
@@ -295,6 +297,8 @@ def func_sss_hair(s):
     else:
         if utils.B420():
             s = s * prefs.eevee_sss_hair_b420
+        else:
+            s = s * prefs.eevee_sss_hair_b341
     return s
 
 def func_sss_teeth(s):
@@ -307,6 +311,8 @@ def func_sss_teeth(s):
     else:
         if utils.B420():
             s = s * prefs.eevee_sss_teeth_b420
+        else:
+            s = s * prefs.eevee_sss_teeth_b341
     return s
 
 def func_sss_tongue(s):
@@ -319,6 +325,8 @@ def func_sss_tongue(s):
     else:
         if utils.B420():
             s = s * prefs.eevee_sss_tongue_b420
+        else:
+            s = s * prefs.eevee_sss_tongue_b341
     return s
 
 def func_sss_eyes(s):
@@ -331,6 +339,8 @@ def func_sss_eyes(s):
     else:
         if utils.B420():
             s = s * prefs.eevee_sss_eyes_b420
+        else:
+            s = s * prefs.eevee_sss_eyes_b341
     return s
 
 def func_sss_default(s):
@@ -343,6 +353,8 @@ def func_sss_default(s):
     else:
         if utils.B420():
             s = s * prefs.eevee_sss_default_b420
+        else:
+            s = s * prefs.eevee_sss_default_b341
     return s
 
 def func_sss_falloff_saturated(f, s):
@@ -408,12 +420,15 @@ def func_roughness_power(p):
     #else:
     #    return p
     if prefs.render_target == "CYCLES":
-        return p * 1.125
+        if utils.B410():
+            return p * prefs.cycles_roughness_power_b410
+        else:
+            return p * prefs.cycles_roughness_power_b341
     else:
         if utils.B420():
-            return p * 1.0
+            return p * prefs.eevee_roughness_power_b420
         else:
-            return p * 0.75
+            return p * prefs.eevee_roughness_power_b341
 
 def func_a(a, b, c):
     return a
