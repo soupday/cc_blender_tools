@@ -22,7 +22,7 @@ from . import addon_updater_ops, colorspace, utils, vars
 
 def reset_cycles():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.cycles_sss_skin_b410 = 1.4285
+    prefs.cycles_sss_skin_b410 = 1.0 # 1.4285
     prefs.cycles_sss_hair_b410 = 0.25
     prefs.cycles_sss_teeth_b410 = 1.0
     prefs.cycles_sss_tongue_b410 = 1.0
@@ -326,7 +326,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                 "Which sets up Reallusion import compatible materials and material parameters")
 
     # Eevee Modifiers
-    eevee_sss_skin_b420: bpy.props.FloatProperty(default=1.25)
+    eevee_sss_skin_b420: bpy.props.FloatProperty(default=1.0)
     eevee_sss_hair_b420: bpy.props.FloatProperty(default=1.0)
     eevee_sss_teeth_b420: bpy.props.FloatProperty(default=1.5)
     eevee_sss_tongue_b420: bpy.props.FloatProperty(default=1.0)
