@@ -1016,6 +1016,8 @@ class LinkService():
         self.service_stop()
 
     def compatible_plugin(self, plugin_version):
+        if f"v{plugin_version}" == vars.VERSION_STRING:
+            return True
         if plugin_version in vars.PLUGIN_COMPATIBLE:
             return True
         return False
