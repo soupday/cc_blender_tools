@@ -2374,6 +2374,7 @@ class LinkService():
             bpy.context.scene.eevee.use_raytracing = True
             bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
             bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            bpy.context.scene.eevee.use_bokeh_jittered = True
         else:
             bpy.context.scene.eevee.use_bloom = True
             bpy.context.scene.eevee.bloom_threshold = 0.8

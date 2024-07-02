@@ -379,6 +379,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
@@ -465,6 +466,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
@@ -540,6 +542,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
@@ -611,6 +614,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
@@ -707,6 +711,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.35
@@ -821,6 +826,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
@@ -948,6 +954,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.35
@@ -1062,6 +1069,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
@@ -1168,6 +1176,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.65
@@ -1273,6 +1282,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.65
@@ -1389,6 +1399,7 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.use_raytracing = True
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.5
