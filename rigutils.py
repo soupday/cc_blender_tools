@@ -1814,6 +1814,8 @@ class CCICMotionSetRename(bpy.types.Operator):
         prefix, rig_id, type_id, obj_id, motion_id = decode_action_name(action)
         if prefix:
             self.prefix = prefix
+        else:
+            self.prefix = ""
         if rig_id:
             self.rig_id = rig_id
         elif chr_cache:

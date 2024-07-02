@@ -280,6 +280,11 @@ def func_sss_skin(s):
             s = s * prefs.cycles_sss_skin_b410
         else:
             s = s * prefs.cycles_sss_skin_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_sss_skin_b420
+        else:
+            s = s * prefs.eevee_sss_skin_b341
     return s
 
 def func_sss_hair(s):
@@ -289,6 +294,11 @@ def func_sss_hair(s):
             s = s * prefs.cycles_sss_hair_b410
         else:
             s = s * prefs.cycles_sss_hair_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_sss_hair_b420
+        else:
+            s = s * prefs.eevee_sss_hair_b341
     return s
 
 def func_sss_teeth(s):
@@ -298,6 +308,11 @@ def func_sss_teeth(s):
             s = s * prefs.cycles_sss_teeth_b410
         else:
             s = s * prefs.cycles_sss_teeth_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_sss_teeth_b420
+        else:
+            s = s * prefs.eevee_sss_teeth_b341
     return s
 
 def func_sss_tongue(s):
@@ -307,6 +322,11 @@ def func_sss_tongue(s):
             s = s * prefs.cycles_sss_tongue_b410
         else:
             s = s * prefs.cycles_sss_tongue_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_sss_tongue_b420
+        else:
+            s = s * prefs.eevee_sss_tongue_b341
     return s
 
 def func_sss_eyes(s):
@@ -316,6 +336,11 @@ def func_sss_eyes(s):
             s = s * prefs.cycles_sss_eyes_b410
         else:
             s = s * prefs.cycles_sss_eyes_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_sss_eyes_b420
+        else:
+            s = s * prefs.eevee_sss_eyes_b341
     return s
 
 def func_sss_default(s):
@@ -325,6 +350,11 @@ def func_sss_default(s):
             s = s * prefs.cycles_sss_default_b410
         else:
             s = s * prefs.cycles_sss_default_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_sss_default_b420
+        else:
+            s = s * prefs.eevee_sss_default_b341
     return s
 
 def func_sss_falloff_saturated(f, s):
@@ -390,9 +420,15 @@ def func_roughness_power(p):
     #else:
     #    return p
     if prefs.render_target == "CYCLES":
-        return p * 1.125
+        if utils.B410():
+            return p * prefs.cycles_roughness_power_b410
+        else:
+            return p * prefs.cycles_roughness_power_b341
     else:
-        return p * 0.75
+        if utils.B420():
+            return p * prefs.eevee_roughness_power_b420
+        else:
+            return p * prefs.eevee_roughness_power_b341
 
 def func_a(a, b, c):
     return a
@@ -460,13 +496,13 @@ def func_parallax_iris_tiling(i, s):
 def func_get_iris_scale(iris_uv_radius):
     return 0.16 / iris_uv_radius
 
-def func_set_half(s):
+def func_half(s):
     return s * 0.5
 
-def func_set_third(s):
+def func_third(s):
     return s * 0.3333
 
-def func_set_two_third(s):
+def func_two_third(s):
     return s * 0.6666
 
 def func_divide_1000(v):
@@ -494,6 +530,7 @@ def func_limbus_dark_radius(limbus_dark_scale):
     #return 1 / limbus_dark_scale
     #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
     #return utils.lerp(0.155, 0.08, t) + 0.025
+    limbus_dark_scale = max(limbus_dark_scale, 0.01)
     ds = pow(0.01, 0.2) / limbus_dark_scale
     dm = pow(0.5, 0.2) / limbus_dark_scale
     de = dm + (dm - ds)
@@ -503,6 +540,7 @@ def func_limbus_dark_width(limbus_dark_scale):
     #return 1 / limbus_dark_scale
     #t = utils.inverse_lerp(0.0, 10.0, limbus_dark_scale)
     #return utils.lerp(0.155, 0.08, t) + 0.025
+    limbus_dark_scale = max(limbus_dark_scale, 0.01)
     ds = pow(0.01, 0.2) / limbus_dark_scale
     dm = pow(0.5, 0.2) / limbus_dark_scale
     de = dm + (dm - ds)
@@ -586,6 +624,48 @@ def func_index_3(values: list):
 
 def func_export_combine_xyz(x, y, z):
     return [x * 255.0, y * 255.0, z * 255.0]
+
+def func_normal_strength(s):
+    prefs = vars.prefs()
+    if prefs.render_target == "CYCLES":
+        if utils.B400():
+            s = s * prefs.cycles_normal_b410
+        else:
+            s = s * prefs.cycles_normal_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_normal_b420
+        else:
+            s = s * prefs.eevee_normal_b341
+    return s
+
+def func_skin_normal_strength(s):
+    prefs = vars.prefs()
+    if prefs.render_target == "CYCLES":
+        if utils.B400():
+            s = s * prefs.cycles_normal_skin_b410
+        else:
+            s = s * prefs.cycles_normal_skin_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_normal_skin_b420
+        else:
+            s = s * prefs.eevee_normal_skin_b341
+    return s
+
+def func_micro_normal_strength(s):
+    prefs = vars.prefs()
+    if prefs.render_target == "CYCLES":
+        if utils.B400():
+            s = s * prefs.cycles_micro_normal_b410
+        else:
+            s = s * prefs.cycles_micro_normal_b341
+    else:
+        if utils.B420():
+            s = s * prefs.eevee_micro_normal_b420
+        else:
+            s = s * prefs.eevee_micro_normal_b341
+    return s
 
 #
 # End Prop matrix eval, parameter conversion functions

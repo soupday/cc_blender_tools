@@ -1016,6 +1016,8 @@ class LinkService():
         self.service_stop()
 
     def compatible_plugin(self, plugin_version):
+        if f"v{plugin_version}" == vars.VERSION_STRING:
+            return True
         if plugin_version in vars.PLUGIN_COMPATIBLE:
             return True
         return False
@@ -2250,9 +2252,15 @@ class LinkService():
             container = utils.get_active_object()
             container.name = "Lighting"
             utils.set_ccic_id(container)
+        children = utils.get_child_objects(container)
+        for child in children:
+            if utils.has_ccic_id(child) and child.type == "LIGHT":
+                utils.delete_object_tree(child)
         return container
 
     def decode_lights_data(self, data):
+        props = vars.props()
+
         lights_data = decode_to_json(data)
 
         RECTANGULAR_AS_AREA = True
@@ -2359,11 +2367,20 @@ class LinkService():
         bpy.context.scene.eevee.use_gtao = True
         bpy.context.scene.eevee.gtao_distance = 0.25
         bpy.context.scene.eevee.gtao_factor = 0.5
-        bpy.context.scene.eevee.use_bloom = True
-        bpy.context.scene.eevee.bloom_threshold = 0.8
-        bpy.context.scene.eevee.bloom_knee = 0.5
-        bpy.context.scene.eevee.bloom_radius = 2.0
-        bpy.context.scene.eevee.bloom_intensity = 1.0
+        bpy.context.scene.eevee.use_taa_reprojection = True
+        if utils.B420():
+            bpy.context.scene.eevee.use_shadows = True
+            bpy.context.scene.eevee.use_volumetric_shadows = True
+            bpy.context.scene.eevee.use_raytracing = True
+            bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+            bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+            bpy.context.scene.eevee.use_bokeh_jittered = True
+        else:
+            bpy.context.scene.eevee.use_bloom = True
+            bpy.context.scene.eevee.bloom_threshold = 0.8
+            bpy.context.scene.eevee.bloom_knee = 0.5
+            bpy.context.scene.eevee.bloom_radius = 2.0
+            bpy.context.scene.eevee.bloom_intensity = 1.0
         bpy.context.scene.eevee.use_ssr = True
         bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
@@ -2383,6 +2400,12 @@ class LinkService():
             if self.is_cc():
                 # only hide the lights if it's from Character Creator
                 view_space.overlay.show_extras = False
+        if bpy.context.scene.view_settings.view_transform == "AgX":
+            c = props.light_filter
+            props.light_filter = (0.9, 1, 1, 1)
+            bpy.ops.cc3.scene(param="FILTER_LIGHTS")
+            props.light_filter = c
+
 
     def receive_lights(self, data):
         update_link_status(f"Light Data Receveived")

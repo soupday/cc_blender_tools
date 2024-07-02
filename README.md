@@ -35,10 +35,17 @@ Links
 
 ## Changelog
 
+### 2.1.2
+- Blender 4.2 lighting settings fixes and adjustments.
+    - Eevee Raytracing, shadows and shadow jitter enabled on render settings and lights.
+    - Blender 4.0+ lighting presets use AgX.
+- Eevee & Cycles global material options.
+    - Control of SSS weights, roughnes power and normals for various material types.
+
 ### 2.1.1
 - Fix UDIM flattening on proportion editing and sculpt base mesh transfer.
 - Lighting sync area correction.
-- Datalink plugin version compatability check.
+- Datalink plugin version compatibility check.
 
 ### 2.1.0
 - Motion Sets:
