@@ -1,7 +1,6 @@
 import bpy #, bpy_extras
 #import bpy_extras.view3d_utils as v3d
 import atexit
-import traceback
 from enum import IntEnum
 import os, socket, time, select, struct, json
 #import subprocess
@@ -1480,8 +1479,7 @@ class LinkService():
                 return interval
 
         except Exception as e:
-            utils.log_error("LinkService timer loop crash!")
-            traceback.print_exc()
+            utils.log_error("LinkService timer loop crash!", e)
             return TIMER_INTERVAL
 
 
@@ -1504,8 +1502,7 @@ class LinkService():
                 self.sent.emit()
 
         except Exception as e:
-            utils.log_error("LinkService send failed!")
-            traceback.print_exc()
+            utils.log_error("LinkService send failed!", e)
 
     def start_sequence(self, func=None):
         self.is_sequence = True
@@ -3204,18 +3201,18 @@ class CCICDataLink(bpy.types.Operator):
                 test()
                 return {'FINISHED'}
 
-            elif self.param == "SHOW_ACTOR_FILES":
-                props = vars.props()
-                chr_cache = props.get_context_character_cache(context)
-                if chr_cache:
-                    utils.open_folder(chr_cache.get_import_dir())
-                return {'FINISHED'}
+        if self.param == "SHOW_ACTOR_FILES":
+            props = vars.props()
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                utils.open_folder(chr_cache.get_import_dir())
+            return {'FINISHED'}
 
-            elif self.param == "SHOW_PROJECT_FILES":
-                local_path = get_local_data_path()
-                if local_path:
-                    utils.open_folder(local_path)
-                return {'FINISHED'}
+        elif self.param == "SHOW_PROJECT_FILES":
+            local_path = get_local_data_path()
+            if local_path:
+                utils.open_folder(local_path)
+            return {'FINISHED'}
 
         return {'FINISHED'}
 

@@ -581,6 +581,8 @@ def render_prefs_ui(layout: bpy.types.UILayout):
             col_1 = split.column()
             col_2 = split.column()
             if utils.B400():
+                col_1.label(text = "SSR Iris Brightness")
+                col_2.prop(prefs, "cycles_ssr_iris_brightness_b410", text = "")
                 col_1.label(text = "Skin SSS")
                 col_2.prop(prefs, "cycles_sss_skin_b410", text = "")
                 col_1.label(text = "Hair SSS")
@@ -602,6 +604,8 @@ def render_prefs_ui(layout: bpy.types.UILayout):
                 col_1.label(text = "Micro Normal Strength")
                 col_2.prop(prefs, "cycles_micro_normal_b410", text = "")
             else:
+                col_1.label(text = "SSR Iris Brightness")
+                col_2.prop(prefs, "cycles_ssr_iris_brightness_b341", text = "")
                 col_1.label(text = "Skin SSS")
                 col_2.prop(prefs, "cycles_sss_skin_b341", text = "")
                 col_1.label(text = "Hair SSS")
@@ -638,6 +642,8 @@ def render_prefs_ui(layout: bpy.types.UILayout):
             col_1 = split.column()
             col_2 = split.column()
             if utils.B420():
+                col_1.label(text = "SSR Iris Brightness")
+                col_2.prop(prefs, "eevee_ssr_iris_brightness_b420", text = "")
                 col_1.label(text = "Skin SSS")
                 col_2.prop(prefs, "eevee_sss_skin_b420", text = "")
                 col_1.label(text = "Hair SSS")
@@ -659,6 +665,8 @@ def render_prefs_ui(layout: bpy.types.UILayout):
                 col_1.label(text = "Micro Normal Strength")
                 col_2.prop(prefs, "eevee_micro_normal_b420", text = "")
             else:
+                col_1.label(text = "SSR Iris Brightness")
+                col_2.prop(prefs, "eevee_ssr_iris_brightness_b341", text = "")
                 col_1.label(text = "Skin SSS")
                 col_2.prop(prefs, "eevee_sss_skin_b341", text = "")
                 col_1.label(text = "Hair SSS")
@@ -971,10 +979,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             row = box.row()
             row.scale_y = 2
             if chr_cache.setup_mode == "ADVANCED":
-                op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials")
+                op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials").param ="BUILD"
             else:
-                op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Materials")
-            op.param ="BUILD"
+                op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Materials").param ="BUILD"
             row = box.row()
             row.prop(props, "build_mode", expand=True)
             box.row().operator("cc3.setproperties", icon="DECORATE_OVERRIDE", text="Reset All Parameters").param = "RESET_ALL"
@@ -2228,8 +2235,8 @@ def motion_set_ui(layout: bpy.types.UILayout, chr_cache, show_nla=False):
     rig_set_generation = None
     if chr_cache:
         rig = chr_cache.get_armature()
-    if "rl_set_generation" in rig:
-        rig_set_generation = rig["rl_set_generation"]
+        if "rl_set_generation" in rig:
+            rig_set_generation = rig["rl_set_generation"]
 
     col = layout.column(align=True)
     split = col.split(factor=0.65)
@@ -3742,7 +3749,8 @@ class CCICBakePanel(bpy.types.Panel):
                 col_2.prop(props, "micronormalmask_size", text="")
 
     def draw(self, context):
-        props = bpy.context.scene.CCICBakeProps
+        props = vars.props()
+        bake_props = vars.bake_props()
         prefs = vars.prefs()
 
         layout = self.layout
@@ -3756,56 +3764,57 @@ class CCICBakePanel(bpy.types.Panel):
         box = layout.box()
         box.label(text=f"Export Bake Settings", icon="TOOL_SETTINGS")
 
-        bake_maps = vars.get_bake_target_maps(props.target_mode)
+        bake_maps = vars.get_bake_target_maps(bake_props.target_mode)
 
         split = layout.split(factor=0.5)
         col_1 = split.column()
         col_2 = split.column()
         col_1.label(text="Target")
-        col_2.prop(props, "target_mode", text="", slider = True)
+        col_2.prop(bake_props, "target_mode", text="", slider = True)
         col_1.label(text="Bake Samples")
 
         crow = col_2.row(align=True)
-        crow.prop(props, "bake_samples", text="", slider = True)
+        crow.prop(bake_props, "bake_samples", text="", slider = True)
         crow.prop(prefs, "bake_use_gpu", text="GPU", toggle=True)
 
         col_1.label(text="Format")
-        col_2.prop(props, "target_format", text="", slider = True)
-        if props.target_format == "JPEG":
+        col_2.prop(bake_props, "target_format", text="", slider = True)
+        if bake_props.target_format == "JPEG":
             col_1.label(text="JPEG Quality")
-            col_2.prop(props, "jpeg_quality", text="", slider = True)
-        if props.target_format == "PNG":
+            col_2.prop(bake_props, "jpeg_quality", text="", slider = True)
+        if bake_props.target_format == "PNG":
             col_1.label(text="PNG Compression")
-            col_2.prop(props, "png_compression", text="", slider = True)
+            col_2.prop(bake_props, "png_compression", text="", slider = True)
         col_1.label(text="Max Size")
-        col_2.prop(props, "max_size", text="")
+        col_2.prop(bake_props, "max_size", text="")
         col_1.label(text="Bake Mixers")
-        col_2.prop(props, "bake_mixers", text="")
+        col_2.prop(bake_props, "bake_mixers", text="")
         if "Bump" in bake_maps:
             col_1.label(text="Allow Bump Maps")
-            col_2.prop(props, "allow_bump_maps", text="")
+            col_2.prop(bake_props, "allow_bump_maps", text="")
         if "AO" in bake_maps:
             col_1.label(text="AO in Diffuse")
-            col_2.prop(props, "ao_in_diffuse", text="", slider = True)
-        if props.target_mode == "UNITY_HDRP" or props.target_mode == "UNITY_URP":
+            col_2.prop(bake_props, "ao_in_diffuse", text="", slider = True)
+        if bake_props.target_mode == "UNITY_HDRP" or bake_props.target_mode == "UNITY_URP":
             col_1.label(text="Smoothness Mapping")
-            col_2.prop(props, "smoothness_mapping", text="")
-        if props.target_mode == "GLTF":
+            col_2.prop(bake_props, "smoothness_mapping", text="")
+        if bake_props.target_mode == "GLTF":
             col_1.label(text="Pack GLTF")
-            col_2.prop(props, "pack_gltf", text="")
+            col_2.prop(bake_props, "pack_gltf", text="")
         col_1.label(text="Bake Folder")
-        col_2.prop(props, "bake_path", text="")
+        col_2.prop(bake_props, "bake_path", text="")
         col_1.separator()
         col_2.separator()
 
         col_1.label(text="Max Sizes By Type")
-        col_2.prop(props, "custom_sizes", text="")
+        col_2.prop(bake_props, "custom_sizes", text="")
 
         obj = context.object
         mat = utils.get_context_material(context)
+        chr_cache = props.get_character_cache(obj, mat)
         bake_cache = bake.get_export_bake_cache(mat)
 
-        if props.custom_sizes:
+        if bake_props.custom_sizes:
 
             layout.row().box().label(text = "Maximum Texture Sizes")
 
@@ -3813,7 +3822,7 @@ class CCICBakePanel(bpy.types.Panel):
             col_1 = split.column()
             col_2 = split.column()
 
-            self.draw_size_props(context, props, bake_maps, col_1, col_2)
+            self.draw_size_props(context, bake_props, bake_maps, col_1, col_2)
 
             if obj is not None:
                 row = layout.row()
@@ -3849,17 +3858,28 @@ class CCICBakePanel(bpy.types.Panel):
                 row.operator("ccic.bakesettings", icon="LOOP_BACK", text="Revert Source Materials").param = "SOURCE"
 
         valid_bake_path = False
-        if os.path.isabs(props.bake_path) or bpy.data.is_saved:
+        if os.path.isabs(bake_props.bake_path) or bpy.data.is_saved:
             valid_bake_path = True
 
         layout.box().label(text="Select objects to bake", icon="INFO")
 
-        row = layout.row()
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.prop(prefs, "bake_objects_mode", expand=True)
+        row = col.row(align=True)
         row.scale_y = 2
+        if chr_cache and chr_cache.render_target != "EEVEE":
+            row.alert = True
+            box = col.box()
+            box.alert = True
+            box.label(text="Warning:", icon="ERROR")
+            box.label(text="Character should be built")
+            box.label(text="with Eevee materials!")
+            box.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild For Eevee").param ="REBUILD_BAKE"
         row.operator("ccic.baker", icon="PLAY", text="Bake").param = "BAKE"
         if not valid_bake_path:
             row.enabled = False
-            box = layout.box()
+            box = col.box()
             box.alert = True
             box.label(text="Warning:", icon="ERROR")
             box.label(text="SAVE Blend file before baking")

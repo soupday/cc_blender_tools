@@ -43,6 +43,9 @@ def props():
 def link_props():
     return bpy.context.scene.CCICLinkProps
 
+def bake_props():
+    return bpy.context.scene.CCICBakeProps
+
 # blender uses metres, CC3 uses centimetres
 UNIT_SCALE = 0.01
 SKIN_SSS_RADIUS_SCALE = 0.01

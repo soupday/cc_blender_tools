@@ -21,6 +21,7 @@ import time
 import difflib
 import random
 import re
+import traceback
 from mathutils import Vector, Quaternion, Matrix, Euler, Color
 from hashlib import md5
 import bpy
@@ -79,6 +80,9 @@ def log_error(msg, e: Exception = None):
     print("*" + (" " * indent) + "Error: " + msg)
     if e is not None:
         print("    -> " + getattr(e, 'message', repr(e)))
+        print("Stack Trace: ")
+        traceback.print_exc()
+
 
 
 def start_timer():

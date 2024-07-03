@@ -16,9 +16,7 @@
 
 import math
 import os
-import time
 import bpy
-import traceback
 from mathutils import Vector, Quaternion, Matrix, Euler
 
 from . import colorspace, imageutils, nodeutils, rigidbody, physics, modifiers, utils, vars
@@ -1453,8 +1451,7 @@ def setup_scene_default(scene_type):
             filter_lights((0.9, 1, 1, 1))
 
     except Exception as e:
-        utils.log_error("Something went wrong adding lights:")
-        traceback.print_exc()
+        utils.log_error("Something went wrong adding lights:", e)
 
     # restore selection
     bpy.ops.object.select_all(action='DESELECT')
@@ -1812,13 +1809,8 @@ def cycles_setup(context):
     props = vars.props()
     hide_view_extras(False)
     chr_cache = props.get_context_character_cache(context)
-    prefs = vars.prefs()
-    prefs.render_target = "CYCLES"
-    prefs.refractive_eyes = "SSR"
     if chr_cache.render_target != "CYCLES":
-        utils.log_info("Character is currently build for Eevee Rendering.")
-        utils.log_info("Rebuilding Character for Cycles Rendering...")
-        bpy.ops.cc3.importer(param="BUILD")
+        bpy.ops.cc3.importer(param="REBUILD_CYCLES")
     for obj_cache in chr_cache.object_cache:
         if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()

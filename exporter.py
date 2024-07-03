@@ -1056,7 +1056,7 @@ def unpack_embedded_textures(chr_cache, chr_json, objects, base_path):
                                     utils.log_warn(f"Unable to update embedded image Json: {image.name}")
 
 
-def get_export_objects(chr_cache, include_selected = True):
+def get_export_objects(chr_cache, include_selected = True, only_objects=None):
     """Fetch all the objects in the character (or try to)"""
     collider_collection = rigidbody.get_rigidbody_collider_collection()
     objects = []
@@ -1121,6 +1121,11 @@ def get_export_objects(chr_cache, include_selected = True):
     clean_objects = [ obj for obj in objects
                         if utils.object_exists(obj) and
                             (obj == arm or obj.type == "MESH" or obj.type == "EMPTY") ]
+
+    if only_objects:
+        to_remove = [ o for o in clean_objects if o not in only_objects ]
+        for o in to_remove:
+            clean_objects.remove(o)
 
     for obj in clean_objects:
         utils.log_info(f"Export Object: {obj.name} ({obj.type})")

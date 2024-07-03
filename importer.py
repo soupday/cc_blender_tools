@@ -1380,6 +1380,38 @@ class CC3Import(bpy.types.Operator):
             if chr_cache:
                 delete_import(chr_cache)
 
+        elif self.param == "REBUILD_EEVEE":
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                utils.set_mode("OBJECT")
+                prefs.render_target = "EEVEE"
+                prefs.refractive_eyes = "PARALLAX"
+                if chr_cache.render_target != "EEVEE":
+                    utils.log_info("Character is currently build for Cycles Rendering.")
+                    utils.log_info("Rebuilding Character for Eevee Rendering...")
+                    self.build_materials(context)
+
+        elif self.param == "REBUILD_BAKE":
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                utils.set_mode("OBJECT")
+                prefs.render_target = "EEVEE"
+                if chr_cache.render_target != "EEVEE":
+                    utils.log_info("Character is currently build for Cycles Rendering.")
+                    utils.log_info("Rebuilding Character for Eevee Rendering...")
+                    self.build_materials(context)
+
+        elif self.param == "REBUILD_CYCLES":
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                utils.set_mode("OBJECT")
+                prefs.render_target = "CYCLES"
+                prefs.refractive_eyes = "SSR"
+                if chr_cache.render_target != "CYCLES":
+                    utils.log_info("Character is currently build for Eevee Rendering.")
+                    utils.log_info("Rebuilding Character for Cycles Rendering...")
+                    self.build_materials(context)
+
         return {"FINISHED"}
 
 

@@ -701,9 +701,10 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
     elif has_bsdf:
         link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
 
-    # connect the displacement to the output
+    # connect any displacement and/or thickness to the output
     if has_group_node:
         link_nodes(links, group_node, "Displacement", output_node, "Displacement")
+        link_nodes(links, group_node, "Thickness", output_node, "Thickness")
 
     # don't do anything with the old wrinkle shader node yet
 
