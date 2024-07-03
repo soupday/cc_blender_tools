@@ -61,7 +61,7 @@ def reset_eevee():
     prefs.eevee_micro_normal_b420 = 1.0
     prefs.eevee_roughness_power_b420 = 0.85
     #
-    prefs.eevee_ssr_iris_brightness_b341 = 2.5
+    prefs.eevee_ssr_iris_brightness_b341 = 1.0
     prefs.eevee_sss_skin_b341 = 1.0
     prefs.eevee_sss_hair_b341 = 1.0
     prefs.eevee_sss_teeth_b341 = 1.0
@@ -341,7 +341,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     eevee_normal_skin_b420: bpy.props.FloatProperty(default=1.0)
     eevee_roughness_power_b420: bpy.props.FloatProperty(default=1.0)
     #
-    eevee_ssr_iris_brightness_b341: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Eevee")
+    eevee_ssr_iris_brightness_b341: bpy.props.FloatProperty(default=1.0, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Eevee")
     eevee_sss_skin_b341: bpy.props.FloatProperty(default=1.25)
     eevee_sss_hair_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_teeth_b341: bpy.props.FloatProperty(default=1.5)
