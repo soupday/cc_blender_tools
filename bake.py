@@ -21,7 +21,6 @@ from . import normal, colorspace, imageutils, wrinkle, nodeutils, properties, ut
 from .exporter import get_export_objects
 
 BAKE_SAMPLES = 4
-IMAGE_FORMAT = "PNG"
 BAKE_INDEX = 1001
 BUMP_BAKE_MULTIPLIER = 2.0
 NODE_CURSOR = Vector((0, 0))
@@ -46,8 +45,7 @@ def set_cycles_samples(samples, adaptive_samples = -1, denoising = False, time_l
         bpy.context.scene.cycles.time_limit = time_limit
 
 
-def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format=IMAGE_FORMAT, make_surface=True):
-    global IMAGE_FORMAT
+def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format="PNG", make_surface=True):
     bake_state = {}
 
     # cycles settings
@@ -70,6 +68,7 @@ def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format=I
     bake_state["use_pass_indirect"] = bpy.context.scene.render.bake.use_pass_indirect
     bake_state["margin"] = bpy.context.scene.render.bake.margin
     bake_state["use_clear"] = bpy.context.scene.render.bake.use_clear
+    bake_state["image_format"] = bpy.context.scene.render.image_settings.file_format
     # Blender 2.92
     if utils.B292():
         bake_state["target"] = bpy.context.scene.render.bake.target
@@ -80,8 +79,6 @@ def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format=I
     bake_state["exposure"] = bpy.context.scene.view_settings.exposure
     bake_state["colorspace"] = bpy.context.scene.sequencer_colorspace_settings.name
 
-    bake_state["image_format"] = IMAGE_FORMAT
-    IMAGE_FORMAT = image_format
     bpy.context.scene.cycles.samples = samples
     bpy.context.scene.render.image_settings.file_format = image_format
     bpy.context.scene.render.use_bake_multires = False
@@ -159,8 +156,6 @@ def set_bake_material(bake_state, mat):
 
 
 def post_bake(state):
-    global IMAGE_FORMAT
-    IMAGE_FORMAT = "PNG"
     # cycles settings
     bpy.context.scene.cycles.samples = state["samples"]
     # Blender 3.0
@@ -181,6 +176,7 @@ def post_bake(state):
     bpy.context.scene.render.bake.use_pass_indirect = state["use_pass_indirect"]
     bpy.context.scene.render.bake.margin = state["margin"]
     bpy.context.scene.render.bake.use_clear = state["use_clear"]
+    bpy.context.scene.render.image_settings.file_format = state["image_format"]
     # Blender 2.92
     if utils.B292():
         bpy.context.scene.render.bake.target = state["target"]
@@ -204,14 +200,12 @@ def post_bake(state):
 
 
 def get_existing_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir, name_prefix = "", force_srgb = False, channel_pack = False, exact_name = False):
-
-
-
     return None
 
 
 def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir,
-                  name_prefix = "", force_srgb = False, channel_pack = False, exact_name = False, underscores = True):
+                  name_prefix="", force_srgb=False, channel_pack=False,
+                  exact_name=False, underscores=True, image_format="PNG"):
     """Makes an image and image file to bake the shader socket to and returns the image and image name
     """
 
@@ -246,7 +240,8 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
         alpha = True
 
     # make (and save) the target image
-    image, exists = get_image_target(image_name, width, height, bake_dir, is_data, alpha, channel_packed = channel_pack)
+    image, exists = get_image_target(image_name, width, height, bake_dir, is_data, alpha,
+                                     channel_packed=channel_pack, format=image_format)
 
     # make sure we don't reuse an image as the target, that is also in the nodes we are baking from...
     i = 0
@@ -257,14 +252,16 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
             old_name = image_name
             image_name = base_name + "_" + str(i)
             utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
-            image, exists = get_image_target(image_name, width, height, bake_dir, is_data, alpha, channel_packed = channel_pack)
+            image, exists = get_image_target(image_name, width, height, bake_dir, is_data, alpha,
+                                             channel_packed=channel_pack, image_format=image_format)
 
     return image, image_name, exists
 
 
-def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix = "",
-                           override_size = 0, size_override_node = None, size_override_socket = None,
-                           exact_name = False, underscores = True, no_prep = False):
+def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix="",
+                           override_size=0, size_override_node=None, size_override_socket=None,
+                           exact_name=False, underscores=True,
+                           no_prep=False, image_format="PNG"):
     """Bakes the input to the supplied node and socket to an appropriate image.\n
        Image size is determined by the sizes of the connected image nodes (or overriden).\n
        Image name and path is determined by the texture channel id and material name and name prefix.\n
@@ -286,8 +283,10 @@ def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix 
 
     # bake the source node output onto the target image and re-save it
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir,
-                                               name_prefix = name_prefix, exact_name = exact_name, underscores = underscores)
-    image_node = cycles_bake_color_output(mat, source_node, source_socket, image, image_name, no_prep=no_prep)
+                                               name_prefix=name_prefix, exact_name=exact_name,
+                                               underscores=underscores, image_format=image_format)
+    image_node = cycles_bake_color_output(mat, source_node, source_socket, image, image_name,
+                                          no_prep=no_prep, image_format=image_format)
 
     # remove the image node
     if image_node:
@@ -298,8 +297,9 @@ def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix 
 
 
 def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix = "",
-                            override_size = 0, size_override_node = None, size_override_socket = None,
-                            exact_name = False, underscores = True, no_prep = False):
+                            override_size = 0, size_override_node=None, size_override_socket=None,
+                            exact_name=False, underscores=True,
+                            no_prep=False, image_format="PNG"):
     """Bakes the output of the supplied node and socket to an appropriate image.\n
        Image size is determined by the sizes of the connected image nodes (or overriden).\n
        Image name and path is determined by the texture channel id, material name, bake dir and name prefix.\n
@@ -318,8 +318,10 @@ def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix
 
     # bake the source node output onto the target image and re-save it
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir,
-                                               name_prefix = name_prefix, exact_name = exact_name, underscores = underscores)
-    image_node = cycles_bake_color_output(mat, node, socket, image, image_name, no_prep=no_prep)
+                                               name_prefix=name_prefix, exact_name=exact_name,
+                                               underscores=underscores, image_format=image_format)
+    image_node = cycles_bake_color_output(mat, node, socket, image, image_name,
+                                          no_prep=no_prep, image_format=image_format)
 
     # remove the image node
     if image_node:
@@ -330,9 +332,10 @@ def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix
 
 
 def bake_rl_bump_and_normal(shader_node, bsdf_node, mat, channel_id, bake_dir,
-                            normal_socket_name = "Normal Map", bump_socket_name = "Bump Map",
-                            normal_strength_socket_name = "Normal Strength", bump_distance_socket_name = "Bump Strength",
-                            name_prefix = "", override_size = 0, no_prep = False):
+                            normal_socket_name="Normal Map", bump_socket_name="Bump Map",
+                            normal_strength_socket_name="Normal Strength",
+                            bump_distance_socket_name="Bump Strength",
+                            name_prefix="", override_size=0, no_prep=False, image_format="PNG"):
     """Bakes the normal map and bump map inputs to the supplied RL master shader node, to a combined
        normal map image which takes the normal and bump strengths into account.\n
        If supplied socket names are empty they will not be included in the bake.\n
@@ -378,8 +381,11 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, mat, channel_id, bake_dir,
         nodeutils.link_nodes(links, bump_map_node, "Normal", bsdf_node, "Normal")
 
     # bake the source node output onto the target image and re-save it
-    image, image_name, exists = get_bake_image(mat, channel_id, width, height, shader_node, normal_socket_name, bake_dir, name_prefix = name_prefix)
-    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name, no_prep=no_prep)
+    image, image_name, exists = get_bake_image(mat, channel_id, width, height,
+                                               shader_node, normal_socket_name, bake_dir,
+                                               name_prefix=name_prefix, image_format=image_format)
+    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name,
+                                           no_prep=no_prep, image_format=image_format)
 
     # remove the bake nodes and restore the normal links to the bsdf
     if bump_map_node:
@@ -393,7 +399,9 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, mat, channel_id, bake_dir,
     return image
 
 
-def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", override_size = 0, no_prep = False):
+def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir,
+                     name_prefix = "", override_size = 0,
+                     no_prep = False, image_format="PNG"):
     """Bakes the normal output of the supplied BSDF shader node, to a normal map image.\n
        Image size is determined by the sizes of the connected image nodes (or overriden).\n
        Image name and path is determined by the texture channel id, material name, bake dir and name prefix.\n
@@ -413,8 +421,10 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", ove
         nodeutils.set_node_input_value(normal_input_node, "Distance", bump_distance * BUMP_BAKE_MULTIPLIER)
 
     # bake the source node output onto the target image and re-save it
-    image, image_name, exists = get_bake_image(mat, channel_id, width, height, bsdf_node, "Normal", bake_dir, name_prefix = name_prefix)
-    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name, no_prep=no_prep)
+    image, image_name, exists = get_bake_image(mat, channel_id, width, height, bsdf_node, "Normal", bake_dir,
+                                               name_prefix=name_prefix, image_format=image_format)
+    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name,
+                                           no_prep=no_prep, image_format=image_format)
 
     if normal_input_node and normal_input_node.type == "BUMP":
         nodeutils.set_node_input_value(normal_input_node, "Distance", bump_distance)
@@ -425,13 +435,15 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir, name_prefix = "", ove
     return image
 
 
-def pack_value_image(value, mat, channel_id, bake_dir, name_prefix = "", size = 64):
+def pack_value_image(value, mat, channel_id, bake_dir,
+                     name_prefix="", size=64, image_format="PNG"):
     """Generates a 64 x 64 texture of a single value. Linear or sRGB depending on channel id.\n
        Image name and path is determined by the texture channel id, material name, bake dir and name prefix."""
 
     width = size
     height = size
-    image, image_name, exists = get_bake_image(mat, channel_id, width, height, None, "", bake_dir, name_prefix = name_prefix)
+    image, image_name, exists = get_bake_image(mat, channel_id, width, height, None, "", bake_dir,
+                                               name_prefix=name_prefix, image_format=image_format)
 
     image_pixels = list(image.pixels)
 
@@ -451,9 +463,10 @@ def pack_value_image(value, mat, channel_id, bake_dir, name_prefix = "", size = 
 
 
 def pack_RGBA(mat, channel_id, pack_mode, bake_dir,
-              image_r = None, image_g = None, image_b = None, image_a = None,
-              value_r = 0, value_g = 0, value_b = 0, value_a = 0,
-              name_prefix = "", min_size = 64, srgb = False, max_size = 0, reuse_existing = False):
+              image_r=None, image_g=None, image_b=None, image_a=None,
+              value_r=0, value_g=0, value_b=0, value_a=0,
+              name_prefix="", min_size=64, srgb=False, max_size=0,
+              reuse_existing=False, image_format="PNG"):
     """pack_mode = RGB_A, R_G_B_A"""
 
     width = min_size
@@ -477,8 +490,10 @@ def pack_RGBA(mat, channel_id, pack_mode, bake_dir,
     utils.log_info(f"Packing {mat.name} for {channel_id} ({width}x{height})")
 
     # get the bake image
-    image, image_name, exists = get_bake_image(mat, channel_id, width, height, None, "", bake_dir, name_prefix = name_prefix,
-                                               force_srgb=srgb, channel_pack=True, exact_name=True)
+    image, image_name, exists = get_bake_image(mat, channel_id, width, height, None, "", bake_dir,
+                                               name_prefix=name_prefix, force_srgb=srgb,
+                                               channel_pack=True, exact_name=True,
+                                               image_format=image_format)
 
     # if we are reusing an existing image, return this now
     if image and reuse_existing and exists:
@@ -574,7 +589,9 @@ def pack_RGBA(mat, channel_id, pack_mode, bake_dir,
     return image
 
 
-def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.Image, image_name, no_prep = False):
+def cycles_bake_color_output(mat, source_node, source_socket,
+                             image: bpy.types.Image, image_name,
+                             no_prep=False, image_format="PNG"):
     """Runs a cycles bake of the supplied source node and socket output onto the supplied image.\n
        Returns a new image node with the image."""
 
@@ -593,7 +610,7 @@ def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.
     utils.log_info(f"Baking: {image_name} / {source_node.name} / {nodeutils.safe_socket_name(source_socket)}")
 
     if not no_prep:
-        bake_state = prep_bake(mat=mat, make_surface=True)
+        bake_state = prep_bake(mat=mat, image_format=image_format, make_surface=True)
 
     nodeutils.link_nodes(links, source_node, source_socket, output_node, "Surface")
     image_node.select = True
@@ -616,7 +633,8 @@ def cycles_bake_color_output(mat, source_node, source_socket, image : bpy.types.
     return image_node
 
 
-def cycles_bake_normal_output(mat, bsdf_node, image, image_name, no_prep = False):
+def cycles_bake_normal_output(mat, bsdf_node, image, image_name,
+                              no_prep=False, image_format="PNG"):
     """Runs a cycles bake of the normal output of the supplied BSDF shader node to the supplied image.
        Returns a new image node with the image."""
 
@@ -631,7 +649,7 @@ def cycles_bake_normal_output(mat, bsdf_node, image, image_name, no_prep = False
     utils.log_info("Baking normal: " + image_name)
 
     if not no_prep:
-        bake_state = prep_bake(mat=mat, make_surface=True)
+        bake_state = prep_bake(mat=mat, image_format=image_format, make_surface=True)
 
     nodeutils.link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
     image_node.select = True
@@ -710,9 +728,10 @@ def get_connected_texture_size(node, override_size, *sockets):
     return width, height
 
 
-def get_image_target(image_name, width, height, image_dir, is_data = True, has_alpha = False, force_new = False, channel_packed = False):
+def get_image_target(image_name, width, height, image_dir,
+                     is_data = True, has_alpha = False, force_new = False, channel_packed = False,
+                     format="PNG"):
     """Returns (image, exists)"""
-    format = IMAGE_FORMAT
     depth = 24
     if has_alpha:
         depth = 32
@@ -948,7 +967,7 @@ def convert_flow_to_normal(flow_image: bpy.types.Image, normal_image: bpy.types.
 
 def pack_rgb_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
                rgb_id, a_id, rgb_socket, a_socket, rgb_default, a_default,
-               srgb = False, max_size = 0, reuse_existing = False):
+               srgb=False, max_size=0, reuse_existing=False, image_format="PNG"):
     """Pack 2 textures into the RGB and A channels of a single texture."""
 
     global NODE_CURSOR
@@ -973,10 +992,11 @@ def pack_rgb_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
         if not pack_node:
             if rgb_node and a_node:
                 image = pack_RGBA(mat, channel_id, "RGB_A", bake_dir,
-                                  image_r = rgb_node.image, image_a = a_node.image,
-                                  value_r = rgb_default, value_g = rgb_default,
-                                  value_b = rgb_default, value_a = a_default,
-                                  srgb = srgb, max_size = max_size, reuse_existing = reuse_existing)
+                                  image_r=rgb_node.image, image_a=a_node.image,
+                                  value_r=rgb_default, value_g=rgb_default,
+                                  value_b=rgb_default, value_a=a_default,
+                                  srgb=srgb, max_size=max_size, reuse_existing=reuse_existing,
+                                  image_format=image_format)
                 pack_node = nodeutils.make_image_node(nodes, image, f"({pack_node_id})")
 
         n = nodeutils.closest_to(shader_node, Vector((-1, -0.25)), rgb_node, a_node)
@@ -1009,7 +1029,8 @@ def pack_r_g_b_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
                  r_id, g_id, b_id, a_id,
                  r_socket, g_socket, b_socket, a_socket,
                  r_default, g_default, b_default, a_default,
-                 srgb = False, max_size = 0, reuse_existing = False):
+                 srgb=False, max_size=0, reuse_existing=False,
+                 image_format="PNG"):
     """Pack 4 textures into the RGBA channels of a single texture."""
 
     global NODE_CURSOR
@@ -1048,11 +1069,12 @@ def pack_r_g_b_a(mat, bake_dir, channel_id, shader_node, pack_node_id,
 
         if not pack_node:
             image = pack_RGBA(mat, channel_id, "R_G_B_A", bake_dir,
-                              image_r = r_image, image_g = g_image,
-                              image_b = b_image, image_a = a_image,
-                              value_r = r_default, value_g = g_default,
-                              value_b = b_default, value_a = a_default,
-                              srgb = srgb, max_size = max_size, reuse_existing = reuse_existing)
+                              image_r=r_image, image_g=g_image,
+                              image_b=b_image, image_a=a_image,
+                              value_r=r_default, value_g=g_default,
+                              value_b=b_default, value_a=a_default,
+                              srgb=srgb, max_size=max_size, reuse_existing=reuse_existing,
+                              image_format=image_format)
             pack_node = nodeutils.make_image_node(nodes, image, f"({pack_node_id})")
 
         if not sep_node:
@@ -1450,6 +1472,8 @@ def get_bake_image_node_name(mat, global_suffix):
 
 
 def export_bake_shader_normal(source_mat, mat):
+    """Bake bsdf normal output for export bake operator.
+       Uses bake props target format for image file format."""
     props = vars.bake_props()
 
     nodes = mat.node_tree.nodes
@@ -1466,7 +1490,7 @@ def export_bake_shader_normal(source_mat, mat):
     #    size = target_size
 
     image = bake_bsdf_normal(bsdf_node, mat, target_suffix, path,
-                             no_prep=True)
+                             no_prep=True, image_format=props.target_format)
 
     image_node = None
     if image:
@@ -1479,13 +1503,25 @@ def export_bake_shader_normal(source_mat, mat):
     return image_node
 
 
-def export_bake_socket_input(source_mat, source_mat_cache, mat, to_node, to_socket, suffix, data = True):
+def export_bake_socket_input(source_mat, source_mat_cache, mat,
+                             to_node, to_socket, suffix,
+                             data=True):
+    """Bake node socket input for export bake operator.
+       Uses bake props target format for image file format."""
     from_node = nodeutils.get_node_connected_to_input(to_node, to_socket)
     from_socket = nodeutils.get_socket_connected_to_input(to_node, to_socket)
-    return export_bake_socket_output(source_mat, source_mat_cache, mat, from_node, from_socket, suffix, data)
+    return export_bake_socket_output(source_mat, source_mat_cache, mat,
+                                     from_node, from_socket, suffix,
+                                     data=data)
 
 
-def export_bake_socket_output(source_mat, source_mat_cache, mat, from_node, from_socket, suffix, data = True):
+def export_bake_socket_output(source_mat, source_mat_cache, mat,
+                              from_node, from_socket, suffix,
+                              data=True):
+    """Bake node socket output for export bake operator.
+       Uses bake props target format for image file format."""
+    props = vars.bake_props()
+
     if from_node:
         image = None
 
@@ -1496,7 +1532,8 @@ def export_bake_socket_output(source_mat, source_mat_cache, mat, from_node, from
         else:
             path = get_bake_path()
             image = bake_node_socket_output(from_node, from_socket, mat, suffix, path,
-                                            exact_name=True, underscores=True, no_prep=True)
+                                            exact_name=True, underscores=True,
+                                            no_prep=True, image_format=props.target_format)
 
         if image:
             image_node_name = get_bake_image_node_name(mat, suffix)
@@ -1606,7 +1643,8 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                 ao_strength = prep_ao(mat, shader_node)
                 # note: so far, nothing has an "AO" output node.
                 if "AO" in shader_node.outputs:
-                    ao_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "AO", "AO")
+                    ao_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat,
+                                                             shader_node, "AO", "AO")
                 else:
                     ao_node = nodeutils.find_shader_texture(nodes, "AO")
                     if ao_node:
@@ -1625,7 +1663,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                     diffuse_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Base Color", "Diffuse", False)
         elif bsdf_node:
             # bake BSDF base color input
-            diffuse_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, base_color_socket, "Diffuse", False)
+            diffuse_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat,
+                                                         bsdf_node, base_color_socket, "Diffuse",
+                                                         data=False)
 
     # Subsurface Scattering Maps
     sss_bake_node = None
@@ -1924,7 +1964,8 @@ def fetch_pack_image_data(width, height, *nodes, no_rescale = False):
     return data
 
 
-def combine_diffuse_tex(nodes, source_mat, source_mat_cache, mat, diffuse_node, alpha_node):
+def combine_diffuse_tex(nodes, source_mat, source_mat_cache, mat,
+                        diffuse_node, alpha_node, image_format="PNG"):
 
     diffuse_data = None
     alpha_data = None
@@ -1945,7 +1986,8 @@ def combine_diffuse_tex(nodes, source_mat, source_mat_cache, mat, diffuse_node, 
 
     image_name = get_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
-    image, exists = get_image_target(image_name, width, height, path, is_data=False, has_alpha=True, channel_packed=True)
+    image, exists = get_image_target(image_name, width, height, path, is_data=False, has_alpha=True,
+                                     channel_packed=True, image_format=image_format)
     image_node = nodeutils.make_image_node(nodes, image, image_node_name)
     image_node.select = True
     nodes.active = image_node
@@ -1975,7 +2017,8 @@ def combine_diffuse_tex(nodes, source_mat, source_mat_cache, mat, diffuse_node, 
 
 
 def combine_hdrp_mask_tex(nodes, source_mat, source_mat_cache, mat,
-                          metallic_node, ao_node, mask_node, roughness_node):
+                          metallic_node, ao_node, mask_node, roughness_node,
+                          image_format="PNG"):
     props = vars.bake_props()
 
     metallic_data = None
@@ -2004,7 +2047,9 @@ def combine_hdrp_mask_tex(nodes, source_mat, source_mat_cache, mat,
 
     image_name = get_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
-    image, exists = get_image_target(image_name, width, height, path, is_data=True, has_alpa=True, channel_packed=True)
+    image, exists = get_image_target(image_name, width, height, path,
+                                     is_data=True, has_alpa=True, channel_packed=True,
+                                     image_format=image_format)
     image_node = nodeutils.make_image_node(nodes, image, image_node_name)
     image_node.select = True
     nodes.active = image_node
@@ -2059,7 +2104,7 @@ def combine_hdrp_mask_tex(nodes, source_mat, source_mat_cache, mat,
 
 
 def combine_hdrp_detail_tex(nodes, source_mat, source_mat_cache, mat,
-                            detail_normal_node):
+                            detail_normal_node, image_format="PNG"):
 
     detail_data = None
 
@@ -2076,7 +2121,9 @@ def combine_hdrp_detail_tex(nodes, source_mat, source_mat_cache, mat,
 
     image_name = get_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
-    image, exists = get_image_target(image_name, width, height, path, is_data=True, has_alpha=True, channel_packed=True)
+    image, exists = get_image_target(image_name, width, height, path,
+                                     is_data=True, has_alpha=True, channel_packed=True,
+                                     image_format=image_format)
     image_node = nodeutils.make_image_node(nodes, image, image_node_name)
     image_node.select = True
     nodes.active = image_node
@@ -2118,7 +2165,8 @@ def process_hdrp_subsurfaces_tex(sss_node, trans_node):
 
 
 def make_metallic_smoothness_tex(nodes, source_mat, source_mat_cache, mat,
-                                 metallic_node, roughness_node):
+                                 metallic_node, roughness_node,
+                                 image_format="PNG"):
     props = vars.bake_props()
 
     metallic_data = None
@@ -2143,7 +2191,9 @@ def make_metallic_smoothness_tex(nodes, source_mat, source_mat_cache, mat,
 
     image_name = get_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
-    image, exists = get_image_target(image_name, width, height, path, is_data=True, has_alpha=True, channel_packed=True)
+    image, exists = get_image_target(image_name, width, height, path,
+                                     is_data=True, has_alpha=True, channel_packed=True,
+                                     image_format=image_format)
     image_node = nodeutils.make_image_node(nodes, image, image_node_name)
     image_node.select = True
     nodes.active = image_node
@@ -2187,7 +2237,8 @@ def make_metallic_smoothness_tex(nodes, source_mat, source_mat_cache, mat,
 
 
 def combine_gltf(nodes, source_mat, source_mat_cache, mat,
-                 ao_node, roughness_node, metallic_node):
+                 ao_node, roughness_node, metallic_node,
+                 image_format="PNG"):
 
     props = vars.bake_props()
 
@@ -2215,7 +2266,9 @@ def combine_gltf(nodes, source_mat, source_mat_cache, mat,
 
     image_name = get_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
-    image, exists = get_image_target(image_name, width, height, path, is_data=True, has_alpha=False, channel_packed=False)
+    image, exists = get_image_target(image_name, width, height, path,
+                                     is_data=True, has_alpha=False, channel_packed=False,
+                                     image_format=image_format)
     image_node = nodeutils.make_image_node(nodes, image, image_node_name)
     image_node.select = True
     nodes.active = image_node

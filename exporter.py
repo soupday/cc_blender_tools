@@ -839,7 +839,9 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                     ao = nodeutils.get_node_input_value(shader_node, "AO Strength", 1.0)
                                     nodeutils.set_node_input_value(shader_node, "AO Strength", 0)
 
-                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_value_size)
+                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket,
+                                                                    mat, tex_id, bake_path,
+                                                                    override_size=bake_value_size)
 
                                 if tex_type == "DIFFUSE":
                                     ao = nodeutils.get_node_input_value(shader_node, "AO Strength", ao)
@@ -861,15 +863,18 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                 if tex_type == "ROUGHNESS" and roughness_modified:
                                     roughness_pow = nodeutils.get_node_input_value(shader_node, "Roughness Power", def_pow)
                                     nodeutils.set_node_input_value(shader_node, "Roughness Power", 1.0)
-                                    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
-                                                                        size_override_node = shader_node, size_override_socket = "Roughness Map")
+                                    image = bake.bake_node_socket_input(bsdf_node, "Roughness",
+                                                                        mat, tex_id, bake_path,
+                                                                        size_override_node=shader_node,
+                                                                        size_override_socket="Roughness Map")
                                     nodeutils.set_node_input_value(shader_node, "Roughness Power", roughness_pow)
 
                                 # if there is a normal and a bump map connected, combine into a normal
                                 elif prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
-                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, mat, tex_id, bake_path,
-                                                                         normal_socket_name = shader_socket,
-                                                                         bump_socket_name = bump_socket)
+                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node,
+                                                                         mat, tex_id, bake_path,
+                                                                         normal_socket_name=shader_socket,
+                                                                         bump_socket_name=bump_socket)
 
                                 # otherwise use the image texture
                                 else:
@@ -886,7 +891,8 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                 else:
 
                                     utils.log_info(f"Baking Socket Input: {shader_node.name} {shader_socket}")
-                                    image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
+                                    image = bake.bake_node_socket_input(shader_node, shader_socket,
+                                                                        mat, tex_id, bake_path)
 
                         tex_info["Texture Path"] = ""
                         mat_data[tex_type] = image
