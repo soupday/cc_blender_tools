@@ -2436,6 +2436,7 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
     if tex_nodes["Emission"]:
         nodeutils.link_nodes(links, tex_nodes["Emission"], "Color", bsdf_node, emission_socket)
 
+    thickness_value_node = None
     if tex_nodes["Transmission"]:
         nodeutils.link_nodes(links, tex_nodes["Transmission"], "Color", bsdf_node, transmission_socket)
         if utils.B420() and thickness > 0.0:
@@ -2486,6 +2487,8 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
     set_loc(tex_nodes["Diffuse"], (-600, 600))
     set_loc(tex_nodes["AO"], (-900, 600))
     set_loc(mix_node, (-300, 600))
+
+    set_loc(thickness_value_node, (250, 520))
 
     if props.target_mode == "GLTF" and props.pack_gltf:
         set_loc(tex_nodes["BaseMap"], (-600, 600))
