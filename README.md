@@ -35,9 +35,16 @@ Links
 
 ## Changelog
 
+### 2.1.3
+- Motion Set UI errors fixed.
+- Eevee-Next SSR Eyes fixes.
+- Iris brightness render settings for Eevee & Cycles.
+- Bake fixes for Blender 4.2 refractive eyes.
+- Export-Bake warnings when not build for Eevee.
+
 ### 2.1.2
 - Blender 4.2 lighting settings fixes and adjustments.
-    - Eevee Raytracing, shadows and shadow jitter enabled on render settings and lights.
+    - Eevee-Next Raytracing, shadows and shadow jitter enabled on render settings and lights.
     - Blender 4.0+ lighting presets use AgX.
 - Eevee & Cycles global material options.
     - Control of SSS weights, roughnes power and normals for various material types.
