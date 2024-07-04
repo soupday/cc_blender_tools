@@ -324,11 +324,21 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.2
             bpy.context.scene.eevee.gtao_factor = 1.0
-            bpy.context.scene.eevee.use_bloom = False
-            bpy.context.scene.eevee.bloom_threshold = 0.8
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 6.5
-            bpy.context.scene.eevee.bloom_intensity = 0.05
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = False
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
+            else:
+                bpy.context.scene.eevee.use_bloom = False
+                bpy.context.scene.eevee.bloom_threshold = 0.8
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 6.5
+                bpy.context.scene.eevee.bloom_intensity = 0.05
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
@@ -378,6 +388,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
@@ -465,6 +477,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
@@ -541,6 +555,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
@@ -613,6 +629,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
@@ -688,8 +706,8 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.446198464371264
-            bpy.context.space_data.shading.studiolight_intensity = 0.20000000298023224
+            bpy.context.space_data.shading.studiolight_rotate_z = -0.4363
+            bpy.context.space_data.shading.studiolight_intensity = 0.2
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
             bpy.context.space_data.clip_start = 0.009999999776482582
@@ -710,6 +728,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.35
@@ -825,6 +845,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
@@ -953,6 +975,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.35
@@ -1068,6 +1092,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
@@ -1175,6 +1201,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.65
@@ -1281,6 +1309,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.65
@@ -1398,6 +1428,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.5
@@ -1448,7 +1480,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.clip_start = 0.01
 
         if bpy.context.scene.view_settings.view_transform == "AgX":
-            filter_lights((0.9, 1, 1, 1))
+            filter_lights((0.875, 1, 1, 1))
 
     except Exception as e:
         utils.log_error("Something went wrong adding lights:", e)
