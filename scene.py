@@ -457,7 +457,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = -0.725
+            bpy.context.space_data.shading.studiolight_rotate_z = 0
             bpy.context.space_data.shading.studiolight_intensity = 1.0
             bpy.context.space_data.shading.studiolight_background_alpha = 0.0
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -536,7 +536,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = -0.725
+            bpy.context.space_data.shading.studiolight_rotate_z = 0
             bpy.context.space_data.shading.studiolight_intensity = 0.20000000298023224
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -611,7 +611,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "courtyard.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 0.581
+            bpy.context.space_data.shading.studiolight_rotate_z = 0.7854
             bpy.context.space_data.shading.studiolight_intensity = 0.3499999940395355
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -711,7 +711,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.476
+            bpy.context.space_data.shading.studiolight_rotate_z = 3.1416
             bpy.context.space_data.shading.studiolight_intensity = 0.4
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -829,7 +829,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = -45 * 0.01745329
+            bpy.context.space_data.shading.studiolight_rotate_z = 0
             bpy.context.space_data.shading.studiolight_intensity = 0.2
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -1078,7 +1078,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "interior.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.6245987424626946
+            bpy.context.space_data.shading.studiolight_rotate_z = 1.0472
             bpy.context.space_data.shading.studiolight_intensity = 0.10000000298023224
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -1188,7 +1188,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "interior.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 0.396
+            bpy.context.space_data.shading.studiolight_rotate_z = 1.0472
             bpy.context.space_data.shading.studiolight_intensity = 0.4551074802875519
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -1222,7 +1222,7 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-            colorspace.set_view_settings(view_transform, "High Contrast",
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
                                         0.5, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -1297,7 +1297,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "night.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 1.7453292617574334
+            bpy.context.space_data.shading.studiolight_rotate_z = 2.3561945
             bpy.context.space_data.shading.studiolight_intensity = 0.4000000059604645
             bpy.context.space_data.shading.studiolight_background_alpha = 0.0
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -1577,11 +1577,17 @@ def target_head(distance):
 
 
 def align_to_head(container):
+    current_angle = bpy.context.space_data.shading.studiolight_rotate_z
     bpy.context.view_layer.update()
     props = vars.props()
     chr_cache = props.get_context_character_cache(bpy.context)
     z_angle, delta_loc, delta_rot = get_head_delta(chr_cache)
-    bpy.context.space_data.shading.studiolight_rotate_z += z_angle
+    new_angle = current_angle - z_angle
+    if new_angle > math.pi:
+        new_angle -= 2*math.pi
+    elif new_angle < -math.pi:
+        new_angle += 2*math.pi
+    bpy.context.space_data.shading.studiolight_rotate_z = new_angle
     for child in container.children:
         loc = child.location.copy()
         loc = delta_rot @ loc

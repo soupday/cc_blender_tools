@@ -121,7 +121,7 @@ def set_view_settings(view_transform, look, exposure, gamma):
         if view_transform == "AgX":
             if look == "Medium Contrast":
                 look = "AgX - Base Contrast"
-            if look != "None":
+            elif look != "None":
                 look = "AgX - " + look
         try_set_view_transform(view_transform)
         try_set_look(look)

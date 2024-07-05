@@ -1177,7 +1177,7 @@ SHADER_MATRIX = [
             ["eye_blood_vessel_height", 0.5, "DEF"],
             ["eye_iris_bump_height", 1, "DEF"],
             ["eye_iris_roughness", 1, "DEF"],
-            ["eye_iris_transmission_opacity", 1.0, "DEF"],
+            ["eye_iris_transmission_opacity", 0.85, "DEF"],
             ["eye_sclera_hue", 0.5, "DEF"],
             ["eye_sclera_saturation", 1, "DEF"],
             ["eye_sclera_hsv", 1, "DEF"],
