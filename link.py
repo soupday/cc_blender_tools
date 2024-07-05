@@ -160,6 +160,7 @@ class LinkActor():
     @staticmethod
     def find_actor(link_id, search_name=None, search_type=None):
         props = vars.props()
+        prefs = vars.prefs()
 
         utils.log_detail(f"Looking for LinkActor: {search_name} {link_id} {search_type}")
         actor: LinkActor = None
@@ -185,14 +186,20 @@ class LinkActor():
             utils.log_detail(f"Chr not found by name")
 
         # finally if connected to character creator fall back to the first character
+        # or current context character
         # as character creator only ever has one character in the scene.
-        if get_link_data().is_cc() and search_type == "AVATAR":
-            chr_cache = props.get_first_avatar()
-            if chr_cache:
-                utils.log_detail(f"Falling back to first Chr Avatar: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
-                actor = LinkActor(chr_cache)
-                actor.add_alias(link_id)
-                return actor
+        if (prefs.datalink_cc_match_only_avatar and
+            get_link_data().is_cc() and
+            search_type == "AVATAR"):
+                if len(props.get_avatars()) == 1:
+                    chr_cache = props.get_first_avatar()
+                else:
+                    chr_cache = props.get_context_character_cache()
+                if chr_cache:
+                    utils.log_detail(f"Falling back to first Chr Avatar: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
+                    actor = LinkActor(chr_cache)
+                    actor.add_alias(link_id)
+                    return actor
 
         utils.log_info(f"LinkActor not found: {search_name} {link_id} {search_type}")
         return actor
@@ -2257,6 +2264,7 @@ class LinkService():
 
     def decode_lights_data(self, data):
         props = vars.props()
+        prefs = vars.prefs()
 
         lights_data = decode_to_json(data)
 
@@ -2396,7 +2404,8 @@ class LinkService():
         bpy.context.scene.eevee.use_ssr = True
         bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
-        colorspace.set_view_settings("Filmic", "Medium High Contrast", 0, 0.75)
+        view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+        colorspace.set_view_settings(view_transform, "Medium High Contrast", 0, 0.75)
         if bpy.context.scene.cycles.transparent_max_bounces < 100:
             bpy.context.scene.cycles.transparent_max_bounces = 100
         view_space: bpy.types.Area = utils.get_view_space()

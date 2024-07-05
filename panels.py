@@ -1558,6 +1558,8 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                                         cond_res = len(obj.data.vertex_colors) > 0
                                     elif condition[0] == '#':
                                         cond_res = chr_cache.render_target == condition[1:]
+                                    elif condition[0] == '>':
+                                        cond_res = nodeutils.has_connected_output(shader_node, condition[1:])
                                     elif condition[0] == '!':
                                         condition = condition[1:]
                                         cond_res = not nodeutils.has_connected_input(shader_node, condition)
@@ -2532,6 +2534,9 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Leading Role").param = "LEADING_ROLE"
     grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Neon").param = "NEON"
 
+    if utils.B400():
+        layout.prop(prefs, "lighting_use_look", expand=True)
+
     box = layout.box().label(text="Camera & World", icon="NODE_COMPOSITING")
 
     grid = layout.grid_flow(row_major=True, columns=2, align=True)
@@ -3333,6 +3338,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2.prop(prefs, "datalink_hide_prop_bones", text="")
             col_1.label(text="Disable Leg Stretch")
             col_2.prop(prefs, "datalink_disable_tweak_bones", text="")
+            col_1.label(text="CC4 Always Match Avatar")
+            col_2.prop(prefs, "datalink_cc_match_only_avatar", text="")
             box.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_DATALINK"
 
         if True:

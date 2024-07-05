@@ -95,6 +95,7 @@ def reset_datalink():
     prefs.datalink_disable_tweak_bones = True
     prefs.datalink_hide_prop_bones = True
     prefs.datalink_send_mode = "ACTIVE"
+    prefs.datalink_cc_match_only_avatar = True
 
 
 def reset_preferences():
@@ -378,6 +379,11 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
     cycles_roughness_power_b341: bpy.props.FloatProperty(default=1.0)
 
+    lighting_use_look: bpy.props.EnumProperty(items=[
+                        ("Filmic","Filmic","Use Filmic display space"),
+                        ("AgX","AgX","Use AgX display space"),
+                    ], default="AgX", name="Color management display space")
+
     bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
     bake_objects_mode: bpy.props.EnumProperty(items=[
                         ("ALL","All","Bake all character objects"),
@@ -447,6 +453,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                     ("ACTIVE","Active","Send only the active material in each of the selected meshes", "RESTRICT_SELECT_ON", 1),
                 ], default="ACTIVE",
                    name = "Datalink Send Mode")
+    datalink_cc_match_only_avatar: bpy.props.BoolProperty(default=True,
+                        description="When sending characters and animations from CC4, always match the avatar, if it is the only one in the scene or the one selected")
 
     # convert
     convert_non_standard_type: bpy.props.EnumProperty(items=[

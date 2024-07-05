@@ -30,10 +30,10 @@ def add_target(name, location):
     utils.set_ccic_id(target)
     return target
 
-def set_contact_shadow(light, distance, thickness):
+def set_contact_shadow(light, distance, thickness, no_jitter=False):
     if utils.B420():
         light.data.use_shadow = True
-        light.data.use_shadow_jitter = True
+        light.data.use_shadow_jitter = not no_jitter
     else:
         light.data.use_contact_shadow = True
         light.data.contact_shadow_distance = distance
@@ -342,7 +342,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            colorspace.set_view_settings("Filmic", "None", 0.0, 1.0)
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "None", 0.0, 1.0)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
@@ -399,7 +400,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                         1.0, 0.5)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -455,7 +457,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = -0.5222300281748176
+            bpy.context.space_data.shading.studiolight_rotate_z = -0.725
             bpy.context.space_data.shading.studiolight_intensity = 1.0
             bpy.context.space_data.shading.studiolight_background_alpha = 0.0
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -488,7 +490,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "High Contrast",
                                         0.5, 1.0)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -533,7 +536,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 0.0
+            bpy.context.space_data.shading.studiolight_rotate_z = -0.725
             bpy.context.space_data.shading.studiolight_intensity = 0.20000000298023224
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -566,7 +569,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                         0.5, 0.6000000238418579)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -607,7 +611,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "courtyard.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.007129908539355
+            bpy.context.space_data.shading.studiolight_rotate_z = 0.581
             bpy.context.space_data.shading.studiolight_intensity = 0.3499999940395355
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -640,7 +644,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                         0.800000011920929, 0.550000011920929)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -675,7 +680,7 @@ def setup_scene_default(scene_type):
                 2000.0, 1.0,
                 0.6806783080101013, 2.4000000953674316,
                 2.392199993133545)
-            set_contact_shadow(spot_light_002, 0.05000000074505806, 0.0024999999441206455)
+            set_contact_shadow(spot_light_002, 0.05000000074505806, 0.0024999999441206455, no_jitter=True)
             spot_light_002.data.color = (0.7183890342712402, 0.8502671718597412, 1.2038928270339966)
 
 
@@ -706,8 +711,8 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = -0.4363
-            bpy.context.space_data.shading.studiolight_intensity = 0.2
+            bpy.context.space_data.shading.studiolight_rotate_z = 2.476
+            bpy.context.space_data.shading.studiolight_intensity = 0.4
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
             bpy.context.space_data.clip_start = 0.009999999776482582
@@ -739,7 +744,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.5, 0.6)
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.5, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
@@ -856,7 +862,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                         0.550000011920929, 0.6000000238418579)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -986,7 +993,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.75, 0.5)
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.75, 0.5)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
@@ -1103,7 +1111,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "High Contrast",
                                         0.0, 0.75)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -1179,7 +1188,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "interior.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = -0.41
+            bpy.context.space_data.shading.studiolight_rotate_z = 0.396
             bpy.context.space_data.shading.studiolight_intensity = 0.4551074802875519
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -1212,7 +1221,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "High Contrast",
                                         0.5, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -1320,7 +1330,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                         0.75, 0.5)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -1439,7 +1450,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.6, 0.6)
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.6, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
@@ -1970,6 +1982,10 @@ class CC3Scene(bpy.types.Operator):
                 compositor_setup()
                 world_setup()
                 utils.message_box("World nodes and compositor template set up.")
+            elif bpy.context.space_data.shading.type == "RENDERED":
+                world_setup()
+                bpy.context.space_data.shading.use_scene_world_render = True
+
 
         return {"FINISHED"}
 
