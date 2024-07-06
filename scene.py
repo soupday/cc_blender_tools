@@ -1965,7 +1965,7 @@ class CC3Scene(bpy.types.Operator):
             align_with_view(context=context)
 
         elif self.param == "ADD_CAMERA":
-            add_view_aligned_camera()
+            add_view_aligned_camera(context)
 
         elif self.param == "SETUP_CAMERA":
             lighting_setup_camera()
