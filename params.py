@@ -1078,6 +1078,8 @@ SHADER_MATRIX = [
             ["Iris HSV Strength", "", "eye_iris_hsv"],
             ["Iris Radius", "", "eye_iris_radius"],
             ["Iris Cloudy Color", "", "eye_iris_cloudy_color"],
+            ["Iris Depth", "", "eye_iris_depth"],
+            ["Transmission Opacity", "", "eye_iris_transmission_opacity"],
             ["Limbus Width", "", "eye_limbus_width"],
             ["Limbus Dark Radius", "", "eye_limbus_dark_radius"],
             ["Limbus Dark Width", "", "eye_limbus_dark_width"],
@@ -1145,7 +1147,7 @@ SHADER_MATRIX = [
             ["eye_corner_shadow_color", (1.0, 0.497, 0.445, 1.0), "func_color_bytes", "Custom/Eye Corner Darkness Color"],
             ["eye_iris_depth", 0.3, "func_get_eye_depth", "Custom/Iris Depth Scale"],
             ["eye_cornea_roughness", 0, "", "Custom/_Iris Roughness"],
-            ["eye_iris_brightness", 1, "func_brightness", "Custom/Iris Color Brightness"],
+            ["eye_iris_brightness", 1, "", "Custom/Iris Color Brightness"],
             ["eye_pupil_scale", 1, "", "Custom/Pupil Scale"],
             ["eye_ior", 1.4, "", "Custom/_IoR"],
             ["eye_iris_scale", 1, "func_get_iris_scale", "Custom/Iris UV Radius"],
@@ -1175,6 +1177,7 @@ SHADER_MATRIX = [
             ["eye_blood_vessel_height", 0.5, "DEF"],
             ["eye_iris_bump_height", 1, "DEF"],
             ["eye_iris_roughness", 1, "DEF"],
+            ["eye_iris_transmission_opacity", 0.85, "DEF"],
             ["eye_sclera_hue", 0.5, "DEF"],
             ["eye_sclera_saturation", 1, "DEF"],
             ["eye_sclera_hsv", 1, "DEF"],
@@ -1244,6 +1247,7 @@ SHADER_MATRIX = [
             ["PROP", "Radius", "eye_subsurface_radius", True],
             ["HEADER",  "Depth & Refraction", "MOD_THICKNESS"],
             ["PROP", "Iris Depth", "eye_iris_depth", True],
+            ["PROP", "*Transmission Opacity", "eye_iris_transmission_opacity", True, ">Transmission Alpha"],
             ["PROP", "*Depth Radius", "eye_iris_depth_radius", True],
             ["PROP", "Pupil Scale", "eye_pupil_scale", True],
             ["PROP", "IOR", "eye_ior", True],
@@ -1988,18 +1992,20 @@ def get_shader_texture_socket(shader_def, tex_type):
 
 
 def get_shader_name(mat_cache):
-    material_type = mat_cache.get_material_type()
-    for shader in SHADER_LOOKUP:
-        if shader[0] == material_type:
-            return shader[2]
+    if mat_cache:
+        material_type = mat_cache.get_material_type()
+        for shader in SHADER_LOOKUP:
+            if shader[0] == material_type:
+                return shader[2]
     return "rl_pbr_shader"
 
 
 def get_rl_shader_name(mat_cache):
-    material_type = mat_cache.get_material_type()
-    for shader in SHADER_LOOKUP:
-        if shader[0] == mat_cache.material_type:
-            return shader[1]
+    if mat_cache:
+        material_type = mat_cache.get_material_type()
+        for shader in SHADER_LOOKUP:
+            if shader[0] == material_type:
+                return shader[1]
     return "Pbr"
 
 

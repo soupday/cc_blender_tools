@@ -69,6 +69,7 @@ def duplicate_character(chr_cache):
     old_cache = chr_cache
     chr_cache = props.add_character_cache()
     utils.copy_property_group(old_cache, chr_cache)
+    chr_cache.link_id = utils.generate_random_id(14)
 
     for obj_cache in chr_cache.object_cache:
         old_id = obj_cache.object_id
@@ -1739,6 +1740,11 @@ class CC3OperatorCharacter(bpy.types.Operator):
             utils.try_select_objects(objects, clear_selection=True)
             bpy.ops.transform.translate("INVOKE_DEFAULT")
 
+        elif self.param == "REGENERATE_LINK_ID":
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                chr_cache.link_id = utils.generate_random_id(14)
+
         return {"FINISHED"}
 
     @classmethod
@@ -2023,6 +2029,14 @@ class CCICCharacterRename(bpy.types.Operator):
             col_1.label(text="Type:")
             row = col_2.row()
             row.prop(self, "non_standard_type", expand=True)
+        col_1.separator()
+        col_2.separator()
+        col_1.label(text="Link ID:")
+        col_2.label(text=chr_cache.link_id)
+        col_1.separator()
+        col_2.separator()
+        col_1.label(text="")
+        col_2.operator("cc3.character", text="Regenerate Link ID").param = "REGENERATE_LINK_ID"
 
         layout.separator()
 

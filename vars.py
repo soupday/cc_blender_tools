@@ -24,6 +24,7 @@ PLUGIN_COMPATIBLE = [
     "2.1.0",
     "2.1.1",
     "2.1.2",
+    "2.1.3",
 ]
 
 def set_version_string(bl_info):
@@ -42,6 +43,9 @@ def props():
 
 def link_props():
     return bpy.context.scene.CCICLinkProps
+
+def bake_props():
+    return bpy.context.scene.CCICBakeProps
 
 # blender uses metres, CC3 uses centimetres
 UNIT_SCALE = 0.01

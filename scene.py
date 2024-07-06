@@ -16,9 +16,7 @@
 
 import math
 import os
-import time
 import bpy
-import traceback
 from mathutils import Vector, Quaternion, Matrix, Euler
 
 from . import colorspace, imageutils, nodeutils, rigidbody, physics, modifiers, utils, vars
@@ -32,10 +30,10 @@ def add_target(name, location):
     utils.set_ccic_id(target)
     return target
 
-def set_contact_shadow(light, distance, thickness):
+def set_contact_shadow(light, distance, thickness, no_jitter=False):
     if utils.B420():
         light.data.use_shadow = True
-        light.data.use_shadow_jitter = True
+        light.data.use_shadow_jitter = not no_jitter
     else:
         light.data.use_contact_shadow = True
         light.data.contact_shadow_distance = distance
@@ -326,15 +324,26 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_gtao = True
             bpy.context.scene.eevee.gtao_distance = 0.2
             bpy.context.scene.eevee.gtao_factor = 1.0
-            bpy.context.scene.eevee.use_bloom = False
-            bpy.context.scene.eevee.bloom_threshold = 0.8
-            bpy.context.scene.eevee.bloom_knee = 0.5
-            bpy.context.scene.eevee.bloom_radius = 6.5
-            bpy.context.scene.eevee.bloom_intensity = 0.05
+            if utils.B420():
+                bpy.context.scene.eevee.use_shadows = True
+                bpy.context.scene.eevee.use_volumetric_shadows = True
+                bpy.context.scene.eevee.use_raytracing = True
+                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
+                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
+                bpy.context.scene.eevee.use_bokeh_jittered = False
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
+            else:
+                bpy.context.scene.eevee.use_bloom = False
+                bpy.context.scene.eevee.bloom_threshold = 0.8
+                bpy.context.scene.eevee.bloom_knee = 0.5
+                bpy.context.scene.eevee.bloom_radius = 6.5
+                bpy.context.scene.eevee.bloom_intensity = 0.05
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            colorspace.set_view_settings("Filmic", "None", 0.0, 1.0)
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "None", 0.0, 1.0)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
@@ -380,6 +389,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
@@ -389,7 +400,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                         1.0, 0.5)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -445,7 +457,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = -0.5222300281748176
+            bpy.context.space_data.shading.studiolight_rotate_z = 0
             bpy.context.space_data.shading.studiolight_intensity = 1.0
             bpy.context.space_data.shading.studiolight_background_alpha = 0.0
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -467,6 +479,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
@@ -476,7 +490,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "High Contrast",
                                         0.5, 1.0)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -521,7 +536,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 0.0
+            bpy.context.space_data.shading.studiolight_rotate_z = 0
             bpy.context.space_data.shading.studiolight_intensity = 0.20000000298023224
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -543,6 +558,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
@@ -552,7 +569,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                         0.5, 0.6000000238418579)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -593,7 +611,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "courtyard.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.007129908539355
+            bpy.context.space_data.shading.studiolight_rotate_z = 0.7854
             bpy.context.space_data.shading.studiolight_intensity = 0.3499999940395355
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -615,6 +633,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
@@ -624,7 +644,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                         0.800000011920929, 0.550000011920929)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -659,7 +680,7 @@ def setup_scene_default(scene_type):
                 2000.0, 1.0,
                 0.6806783080101013, 2.4000000953674316,
                 2.392199993133545)
-            set_contact_shadow(spot_light_002, 0.05000000074505806, 0.0024999999441206455)
+            set_contact_shadow(spot_light_002, 0.05000000074505806, 0.0024999999441206455, no_jitter=True)
             spot_light_002.data.color = (0.7183890342712402, 0.8502671718597412, 1.2038928270339966)
 
 
@@ -690,8 +711,8 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.446198464371264
-            bpy.context.space_data.shading.studiolight_intensity = 0.20000000298023224
+            bpy.context.space_data.shading.studiolight_rotate_z = 3.1416
+            bpy.context.space_data.shading.studiolight_intensity = 0.4
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
             bpy.context.space_data.clip_start = 0.009999999776482582
@@ -712,6 +733,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.35
@@ -721,7 +744,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.5, 0.6)
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.5, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
@@ -805,7 +829,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = -45 * 0.01745329
+            bpy.context.space_data.shading.studiolight_rotate_z = 0
             bpy.context.space_data.shading.studiolight_intensity = 0.2
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -827,6 +851,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
@@ -836,7 +862,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                         0.550000011920929, 0.6000000238418579)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -955,6 +982,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.35
@@ -964,7 +993,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.75, 0.5)
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.0, 0.8)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
@@ -973,72 +1003,64 @@ def setup_scene_default(scene_type):
             container = add_light_container()
 
 
-            spot_light_000 = add_spot_light("Key", container,
-                (0.2691590487957001, -1.4757589101791382, 0.42834436893463135),
-                (0.06910640001296997, 1.2894277572631836, -1.2877485752105713),
-                80.0, 1.0,
-                1.710422396659851, 9.729999542236328,
-                0.570900022983551)
-            set_contact_shadow(spot_light_000, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_000.data.color = (0.9230769276618958, 0.9230769276618958, 1.1538461446762085)
+            area_light_000 = add_area_light("Key", container,
+                (0.23867405951023102, -1.4948756694793701, 0.3496365547180176),
+                (0.06910630315542221, 1.2894277572631836, -1.3055258989334106),
+                13.334359169006348, 0.570900022983551, 9.729999542236328)
+            set_contact_shadow(area_light_000, 0.20000000298023224, 0.20000000298023224)
+            area_light_000.data.color = (1.0385820865631104, 0.9224395155906677, 0.9496166706085205)
 
 
-            spot_light_001 = add_spot_light("Rim_red", container,
-                (0.12303003668785095, 0.8418980240821838, 0.17553305625915527),
-                (-0.01860266737639904, 1.3557214736938477, 1.3719991445541382),
-                44.0, 1.0,
-                2.6179935932159424, 1.5299999713897705,
-                0.30000001192092896)
-            set_contact_shadow(spot_light_001, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_001.data.color = (0.7021819353103638, 0.26426202058792114, 0.2217913419008255)
+            area_light_001 = add_area_light("Rim_red", container,
+                (0.09254506230354309, 0.8227812051773071, 0.0968252420425415),
+                (-0.01860235258936882, 1.3557215929031372, 1.3542215824127197),
+                1.392878770828247, 0.30000001192092896, 1.5299999713897705)
+            set_contact_shadow(area_light_001, 0.20000000298023224, 0.20000000298023224)
+            area_light_001.data.color = (0.746380627155304, 0.2494838982820511, 0.1724458634853363)
 
 
-            spot_light_002 = add_spot_light("Face", container,
-                (0.38893595337867737, -1.6958913803100586, 0.06533873081207275),
-                (1.354567289352417, 1.4951260089874268, -0.08666757494211197),
-                20.0, 1.0,
-                1.9373152256011963, 9.149999618530273,
-                0.732699990272522)
-            set_contact_shadow(spot_light_002, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_002.data.color = (0.6758977770805359, 0.6177560687065125, 0.7494834661483765)
+            area_light_002 = add_area_light("Face", container,
+                (0.3584509789943695, -1.7150081396102905, -0.013369083404541016),
+                (1.354569673538208, 1.4951262474060059, -0.10444492101669312),
+                4.196816921234131, 0.732699990272522, 9.149999618530273)
+            set_contact_shadow(area_light_002, 0.20000000298023224, 0.20000000298023224)
+            area_light_002.data.color = (0.7566361427307129, 0.6142145395278931, 0.6137133836746216)
 
 
-            spot_light_003 = add_spot_light("Key Light - Up", container,
-                (0.08425332605838776, -1.2027703523635864, -0.3715333938598633),
-                (0.21799425780773163, 1.0667732954025269, -1.586254358291626),
-                80.0, 1.0,
-                2.6179935932159424, 2.799999952316284,
-                1.0)
-            set_contact_shadow(spot_light_003, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_003.data.color = (0.7668284177780151, 0.7341201305389404, 0.8676790595054626)
+            area_light_003 = add_area_light("Key Light - Up", container,
+                (0.0537683479487896, -1.2218871116638184, -0.45024120807647705),
+                (0.21799428761005402, 1.0667732954025269, -1.6040315628051758),
+                8.910563468933105, 1.0, 2.799999952316284)
+            set_contact_shadow(area_light_003, 0.20000000298023224, 0.20000000298023224)
+            area_light_003.data.color = (0.8588783144950867, 0.7302938103675842, 0.7108697295188904)
 
 
             sun_light_004 = add_sun_light("Dir. Light", container,
-                (-0.001717992126941681, -0.03369736298918724, -1.4594181776046753),
-                (0.7853980660438538, 9.530568334525924e-09, 2.939275026321411),
-                1.6200001239776611,
+                (-0.03220297023653984, -0.05281418189406395, -1.538125991821289),
+                (0.7853979468345642, 1.619704370625641e-08, 2.9214975833892822),
+                3.6000001430511475,
                 0.009180432185530663)
-            set_contact_shadow(sun_light_004, 0.05000000074505806, 0.0024999999441206455)
-            sun_light_004.data.color = (0.6841379404067993, 0.5112643837928772, 0.5379310846328735)
+            set_contact_shadow(sun_light_004, 0.20000000298023224, 0.20000000298023224)
+            sun_light_004.data.color = (0.7544040083885193, 0.5007292032241821, 0.4338947832584381)
 
 
             sun_light_005 = add_sun_light("Dir. Light_closeup", container,
-                (-0.001717992126941681, -0.03369736298918724, -1.4594181776046753),
-                (0.785398006439209, -1.6458105989158867e-08, 0.21583415567874908),
-                0.5512499809265137,
+                (-0.03220297023653984, -0.05281418189406395, -1.538125991821289),
+                (0.7853981852531433, -2.2826515788665347e-08, 0.19805686175823212),
+                2.0999999046325684,
                 0.009180432185530663)
-            set_contact_shadow(sun_light_005, 0.05000000074505806, 0.0024999999441206455)
-            sun_light_005.data.color = (0.5791855454444885, 0.5791855454444885, 0.7239819169044495)
+            set_contact_shadow(sun_light_005, 0.20000000298023224, 0.20000000298023224)
+            sun_light_005.data.color = (0.651659369468689, 0.5787855982780457, 0.5958379507064819)
 
 
             spot_light_006 = add_spot_light("Rim_yellow", container,
-                (0.31369492411613464, 0.8418980240821838, 0.17553305625915527),
-                (-0.01860230788588524, 1.355721116065979, 1.371999740600586),
-                100.0, 1.0,
+                (0.2832099497318268, 0.8227812051773071, 0.0968252420425415),
+                (-0.01860201172530651, 1.3557212352752686, 1.354223370552063),
+                13.374069213867188, 1.0,
                 2.6179935932159424, 1.5299999713897705,
                 0.0)
-            set_contact_shadow(spot_light_006, 0.05000000074505806, 0.0024999999441206455)
-            spot_light_006.data.color = (0.9649369120597839, 0.781255841255188, 0.5356820225715637)
+            set_contact_shadow(spot_light_006, 0.20000000298023224, 0.20000000298023224)
+            spot_light_006.data.color = (1.0332900285720825, 0.6694098114967346, 0.2778758704662323)
 
 
             if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
@@ -1047,9 +1069,9 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_world = False
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "interior.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.6245987424626946
-            bpy.context.space_data.shading.studiolight_intensity = 0.10000000298023224
+            bpy.context.space_data.shading.studio_light = "redWall.hdr"
+            bpy.context.space_data.shading.studiolight_rotate_z = 2.356194391846657
+            bpy.context.space_data.shading.studiolight_intensity = 0.25
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
             bpy.context.space_data.clip_start = 0.009999999776482582
@@ -1070,6 +1092,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
@@ -1079,7 +1103,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "High Contrast",
                                         0.0, 0.75)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -1155,7 +1180,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "interior.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = -0.41
+            bpy.context.space_data.shading.studiolight_rotate_z = 1.0472
             bpy.context.space_data.shading.studiolight_intensity = 0.4551074802875519
             bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -1177,6 +1202,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.65
@@ -1186,7 +1213,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
                                         0.5, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -1261,7 +1289,7 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.shading.use_scene_lights_render = True
             bpy.context.space_data.shading.use_scene_world_render = False
             bpy.context.space_data.shading.studio_light = "night.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 1.7453292617574334
+            bpy.context.space_data.shading.studiolight_rotate_z = 2.3561945
             bpy.context.space_data.shading.studiolight_intensity = 0.4000000059604645
             bpy.context.space_data.shading.studiolight_background_alpha = 0.0
             bpy.context.space_data.shading.studiolight_background_blur = 0.5
@@ -1283,6 +1311,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.65
@@ -1292,7 +1322,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32.0
-            colorspace.set_view_settings("Filmic", "Medium High Contrast",
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast",
                                         0.75, 0.5)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
@@ -1400,6 +1431,8 @@ def setup_scene_default(scene_type):
                 bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
                 bpy.context.scene.eevee.use_shadow_jitter_viewport = True
                 bpy.context.scene.eevee.use_bokeh_jittered = True
+                bpy.context.scene.world.use_sun_shadow = True
+                bpy.context.scene.world.use_sun_shadow_jitter = True
             else:
                 bpy.context.scene.eevee.use_bloom = True
                 bpy.context.scene.eevee.bloom_threshold = 0.5
@@ -1409,7 +1442,8 @@ def setup_scene_default(scene_type):
             bpy.context.scene.eevee.use_ssr = True
             bpy.context.scene.eevee.use_ssr_refraction = True
             bpy.context.scene.eevee.bokeh_max_size = 32
-            colorspace.set_view_settings("Filmic", "Medium High Contrast", 0.6, 0.6)
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.6, 0.6)
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
@@ -1450,11 +1484,10 @@ def setup_scene_default(scene_type):
             bpy.context.space_data.clip_start = 0.01
 
         if bpy.context.scene.view_settings.view_transform == "AgX":
-            filter_lights((0.9, 1, 1, 1))
+            filter_lights((0.875, 1, 1, 1))
 
     except Exception as e:
-        utils.log_error("Something went wrong adding lights:")
-        traceback.print_exc()
+        utils.log_error("Something went wrong adding lights:", e)
 
     # restore selection
     bpy.ops.object.select_all(action='DESELECT')
@@ -1536,11 +1569,17 @@ def target_head(distance):
 
 
 def align_to_head(container):
+    current_angle = bpy.context.space_data.shading.studiolight_rotate_z
     bpy.context.view_layer.update()
     props = vars.props()
     chr_cache = props.get_context_character_cache(bpy.context)
     z_angle, delta_loc, delta_rot = get_head_delta(chr_cache)
-    bpy.context.space_data.shading.studiolight_rotate_z += z_angle
+    new_angle = current_angle - z_angle
+    if new_angle > math.pi:
+        new_angle -= 2*math.pi
+    elif new_angle < -math.pi:
+        new_angle += 2*math.pi
+    bpy.context.space_data.shading.studiolight_rotate_z = new_angle
     for child in container.children:
         loc = child.location.copy()
         loc = delta_rot @ loc
@@ -1812,13 +1851,8 @@ def cycles_setup(context):
     props = vars.props()
     hide_view_extras(False)
     chr_cache = props.get_context_character_cache(context)
-    prefs = vars.prefs()
-    prefs.render_target = "CYCLES"
-    prefs.refractive_eyes = "SSR"
     if chr_cache.render_target != "CYCLES":
-        utils.log_info("Character is currently build for Eevee Rendering.")
-        utils.log_info("Rebuilding Character for Cycles Rendering...")
-        bpy.ops.cc3.importer(param="BUILD")
+        bpy.ops.cc3.importer(param="REBUILD_CYCLES")
     for obj_cache in chr_cache.object_cache:
         if not obj_cache.disabled and obj_cache.is_mesh():
             obj = obj_cache.get_object()
@@ -1946,6 +1980,10 @@ class CC3Scene(bpy.types.Operator):
                 compositor_setup()
                 world_setup()
                 utils.message_box("World nodes and compositor template set up.")
+            elif bpy.context.space_data.shading.type == "RENDERED":
+                world_setup()
+                bpy.context.space_data.shading.use_scene_world_render = True
+
 
         return {"FINISHED"}
 

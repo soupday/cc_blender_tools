@@ -270,7 +270,15 @@ def apply_basic_prop_matrix(node: bpy.types.Node, mat_cache, shader_name):
 def func_iris_brightness(v):
     prefs = vars.prefs()
     if prefs.render_target == "CYCLES" and prefs.refractive_eyes == "SSR":
-        v = v * prefs.cycles_ssr_iris_brightness
+        if utils.B410():
+            v = v * prefs.cycles_ssr_iris_brightness_b410
+        else:
+            v = v * prefs.cycles_ssr_iris_brightness_b341
+    elif prefs.render_target == "EEVEE" and prefs.refractive_eyes == "SSR":
+        if utils.B420():
+            v = v * prefs.eevee_ssr_iris_brightness_b420
+        else:
+            v = v * prefs.eevee_ssr_iris_brightness_b341
     return v
 
 def func_sss_skin(s):

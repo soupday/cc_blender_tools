@@ -1,7 +1,6 @@
 import bpy #, bpy_extras
 #import bpy_extras.view3d_utils as v3d
 import atexit
-import traceback
 from enum import IntEnum
 import os, socket, time, select, struct, json
 #import subprocess
@@ -161,6 +160,7 @@ class LinkActor():
     @staticmethod
     def find_actor(link_id, search_name=None, search_type=None):
         props = vars.props()
+        prefs = vars.prefs()
 
         utils.log_detail(f"Looking for LinkActor: {search_name} {link_id} {search_type}")
         actor: LinkActor = None
@@ -186,14 +186,20 @@ class LinkActor():
             utils.log_detail(f"Chr not found by name")
 
         # finally if connected to character creator fall back to the first character
+        # or current context character
         # as character creator only ever has one character in the scene.
-        if get_link_data().is_cc() and search_type == "AVATAR":
-            chr_cache = props.get_first_avatar()
-            if chr_cache:
-                utils.log_detail(f"Falling back to first Chr Avatar: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
-                actor = LinkActor(chr_cache)
-                actor.add_alias(link_id)
-                return actor
+        if (prefs.datalink_cc_match_only_avatar and
+            get_link_data().is_cc() and
+            search_type == "AVATAR"):
+                if len(props.get_avatars()) == 1:
+                    chr_cache = props.get_first_avatar()
+                else:
+                    chr_cache = props.get_context_character_cache()
+                if chr_cache:
+                    utils.log_detail(f"Falling back to first Chr Avatar: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
+                    actor = LinkActor(chr_cache)
+                    actor.add_alias(link_id)
+                    return actor
 
         utils.log_info(f"LinkActor not found: {search_name} {link_id} {search_type}")
         return actor
@@ -1480,8 +1486,7 @@ class LinkService():
                 return interval
 
         except Exception as e:
-            utils.log_error("LinkService timer loop crash!")
-            traceback.print_exc()
+            utils.log_error("LinkService timer loop crash!", e)
             return TIMER_INTERVAL
 
 
@@ -1504,8 +1509,7 @@ class LinkService():
                 self.sent.emit()
 
         except Exception as e:
-            utils.log_error("LinkService send failed!")
-            traceback.print_exc()
+            utils.log_error("LinkService send failed!", e)
 
     def start_sequence(self, func=None):
         self.is_sequence = True
@@ -2260,6 +2264,7 @@ class LinkService():
 
     def decode_lights_data(self, data):
         props = vars.props()
+        prefs = vars.prefs()
 
         lights_data = decode_to_json(data)
 
@@ -2297,7 +2302,8 @@ class LinkService():
                     light = self.add_spot_light(light_data["name"], container)
                 light["link_id"] = light_data["link_id"]
 
-            light.location = utils.array_to_vector(light_data["loc"]) / 100
+            loc = utils.array_to_vector(light_data["loc"]) / 100
+            light.location = loc
             light.rotation_mode = "QUATERNION"
             light.rotation_quaternion = utils.array_to_quaternion(light_data["rot"])
             light.scale = utils.array_to_vector(light_data["sca"])
@@ -2313,15 +2319,23 @@ class LinkService():
             E = 1.0
             # area energy modifier
             if light_data["is_tube"]:
-                m = 1.0 + light_data["tube_length"] * light_data["tube_radius"] / 10000
+                m = 0.75 + light_data["tube_length"] * light_data["tube_radius"] / 10000
                 E *= m
             elif light_data["is_rectangle"]:
                 a = 0.75 + light_data["rect"][0] * light_data["rect"][1] / 10000
                 E *= a
 
+            # non-inverse square light modifier
+            # CC4 lighting is pointed at the center so we can guess the linear->square light difference
+            if self.is_cc() and not light_data["inverse_square"]:
+                dist = max(loc.magnitude * 0.4, 0.01)
+                inv_linear_atten = 1 / dist
+                inv_square_atten = 1 / (dist * dist)
+                E *= max(1, inv_linear_atten / inv_square_atten)
+
             if light_type == "SUN":
                 #light.data.energy = 450 * pow(light_data["multiplier"]/20, 2) * fm * mmod
-                light.data.energy = 3 * min(1.5, mult) * fm * range_curve * E
+                light.data.energy = 3 * mult
             elif light_type == "SPOT":
                 light.data.energy = 25 * mult * fm * range_curve * E
             elif light_type == "POINT":
@@ -2345,17 +2359,21 @@ class LinkService():
                     light.data.size_y = S * light_data["rect"][1] / 100
                 elif light_data["is_tube"]:
                     light.data.shape = "ELLIPSE"
-                    light.data.size = S * 10 * light_data["tube_length"] / 100
+                    light.data.size = S * 10 * max(1, light_data["tube_length"]) / 100
                     light.data.size_y = S * light_data["tube_radius"] / 100
             light.data.use_shadow = light_data["cast_shadow"]
             if light_data["cast_shadow"]:
                 if light_type != "SUN":
                     light.data.shadow_buffer_clip_start = 0.0025
                     light.data.shadow_buffer_bias = 1.0
-                light.data.use_contact_shadow = True
-                light.data.contact_shadow_distance = 0.1
-                light.data.contact_shadow_bias = 0.03
-                light.data.contact_shadow_thickness = 0.001
+                if utils.B420():
+                    light.data.use_shadow = True
+                    light.data.use_shadow_jitter = True
+                else:
+                    light.data.use_contact_shadow = True
+                    light.data.contact_shadow_distance = 0.1
+                    light.data.contact_shadow_bias = 0.03
+                    light.data.contact_shadow_thickness = 0.001
             light.hide_set(not light_data["active"])
 
         # clean up lights not found in scene
@@ -2375,6 +2393,8 @@ class LinkService():
             bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
             bpy.context.scene.eevee.use_shadow_jitter_viewport = True
             bpy.context.scene.eevee.use_bokeh_jittered = True
+            bpy.context.scene.world.use_sun_shadow = True
+            bpy.context.scene.world.use_sun_shadow_jitter = True
         else:
             bpy.context.scene.eevee.use_bloom = True
             bpy.context.scene.eevee.bloom_threshold = 0.8
@@ -2384,7 +2404,8 @@ class LinkService():
         bpy.context.scene.eevee.use_ssr = True
         bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
-        colorspace.set_view_settings("Filmic", "Medium High Contrast", 0, 0.75)
+        view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+        colorspace.set_view_settings(view_transform, "Medium High Contrast", 0, 0.75)
         if bpy.context.scene.cycles.transparent_max_bounces < 100:
             bpy.context.scene.cycles.transparent_max_bounces = 100
         view_space: bpy.types.Area = utils.get_view_space()
@@ -2393,8 +2414,8 @@ class LinkService():
             view_space.shading.use_scene_lights = True
             view_space.shading.use_scene_world = False
             view_space.shading.studio_light = 'studio.exr'
-            view_space.shading.studiolight_rotate_z = 0.0 * 0.01745329
-            view_space.shading.studiolight_intensity = ambient_color.v * 1.25
+            view_space.shading.studiolight_rotate_z = -25 * 0.01745329
+            view_space.shading.studiolight_intensity = 0.125 + ambient_color.v
             view_space.shading.studiolight_background_alpha = 0.0
             view_space.shading.studiolight_background_blur = 0.5
             if self.is_cc():
@@ -2402,7 +2423,7 @@ class LinkService():
                 view_space.overlay.show_extras = False
         if bpy.context.scene.view_settings.view_transform == "AgX":
             c = props.light_filter
-            props.light_filter = (0.9, 1, 1, 1)
+            props.light_filter = (0.875, 1, 1, 1)
             bpy.ops.cc3.scene(param="FILTER_LIGHTS")
             props.light_filter = c
 
@@ -3204,18 +3225,18 @@ class CCICDataLink(bpy.types.Operator):
                 test()
                 return {'FINISHED'}
 
-            elif self.param == "SHOW_ACTOR_FILES":
-                props = vars.props()
-                chr_cache = props.get_context_character_cache(context)
-                if chr_cache:
-                    utils.open_folder(chr_cache.get_import_dir())
-                return {'FINISHED'}
+        if self.param == "SHOW_ACTOR_FILES":
+            props = vars.props()
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                utils.open_folder(chr_cache.get_import_dir())
+            return {'FINISHED'}
 
-            elif self.param == "SHOW_PROJECT_FILES":
-                local_path = get_local_data_path()
-                if local_path:
-                    utils.open_folder(local_path)
-                return {'FINISHED'}
+        elif self.param == "SHOW_PROJECT_FILES":
+            local_path = get_local_data_path()
+            if local_path:
+                utils.open_folder(local_path)
+            return {'FINISHED'}
 
         return {'FINISHED'}
 

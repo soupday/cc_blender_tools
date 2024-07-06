@@ -22,6 +22,7 @@ from . import addon_updater_ops, colorspace, utils, vars
 
 def reset_cycles():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
+    prefs.cycles_ssr_iris_brightness_b410 = 2.5
     prefs.cycles_sss_skin_b410 = 1.0 # 1.4285
     prefs.cycles_sss_hair_b410 = 0.25
     prefs.cycles_sss_teeth_b410 = 1.0
@@ -33,6 +34,7 @@ def reset_cycles():
     prefs.cycles_micro_normal_b410 = 1.25
     prefs.cycles_roughness_power_b410 = 1.0
     #
+    prefs.cycles_ssr_iris_brightness_b341 = 2.5
     prefs.cycles_sss_skin_b341 = 0.264
     prefs.cycles_sss_hair_b341 = 0.05
     prefs.cycles_sss_teeth_b341 = 0.5
@@ -47,6 +49,7 @@ def reset_cycles():
 
 def reset_eevee():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
+    prefs.eevee_ssr_iris_brightness_b420 = 2.5
     prefs.eevee_sss_skin_b420 = 1.0
     prefs.eevee_sss_hair_b420 = 1.0
     prefs.eevee_sss_teeth_b420 = 1.5
@@ -58,6 +61,7 @@ def reset_eevee():
     prefs.eevee_micro_normal_b420 = 1.0
     prefs.eevee_roughness_power_b420 = 0.85
     #
+    prefs.eevee_ssr_iris_brightness_b341 = 1.0
     prefs.eevee_sss_skin_b341 = 1.0
     prefs.eevee_sss_hair_b341 = 1.0
     prefs.eevee_sss_teeth_b341 = 1.0
@@ -91,6 +95,7 @@ def reset_datalink():
     prefs.datalink_disable_tweak_bones = True
     prefs.datalink_hide_prop_bones = True
     prefs.datalink_send_mode = "ACTIVE"
+    prefs.datalink_cc_match_only_avatar = True
 
 
 def reset_preferences():
@@ -119,7 +124,6 @@ def reset_preferences():
     prefs.export_texture_size = "2048"
     prefs.export_require_key = True
     prefs.export_revert_names = True
-    prefs.cycles_ssr_iris_brightness = 2.0
     prefs.import_auto_convert = True
     prefs.import_deduplicate = True
     prefs.build_pack_texture_channels = False
@@ -326,6 +330,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                 "Which sets up Reallusion import compatible materials and material parameters")
 
     # Eevee Modifiers
+    eevee_ssr_iris_brightness_b420: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Eevee")
     eevee_sss_skin_b420: bpy.props.FloatProperty(default=1.0)
     eevee_sss_hair_b420: bpy.props.FloatProperty(default=1.0)
     eevee_sss_teeth_b420: bpy.props.FloatProperty(default=1.5)
@@ -337,6 +342,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     eevee_normal_skin_b420: bpy.props.FloatProperty(default=1.0)
     eevee_roughness_power_b420: bpy.props.FloatProperty(default=1.0)
     #
+    eevee_ssr_iris_brightness_b341: bpy.props.FloatProperty(default=1.0, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Eevee")
     eevee_sss_skin_b341: bpy.props.FloatProperty(default=1.25)
     eevee_sss_hair_b341: bpy.props.FloatProperty(default=1.0)
     eevee_sss_teeth_b341: bpy.props.FloatProperty(default=1.5)
@@ -348,8 +354,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     eevee_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
     eevee_roughness_power_b341: bpy.props.FloatProperty(default=0.75)
     # Cycles Modifiers
-    cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
-    # Cycles SSS weight mods
+    cycles_ssr_iris_brightness_b410: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
     cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.4285)
     cycles_sss_hair_b410: bpy.props.FloatProperty(default=0.25)
     cycles_sss_teeth_b410: bpy.props.FloatProperty(default=1.0)
@@ -361,6 +366,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_normal_skin_b410: bpy.props.FloatProperty(default=1.5)
     cycles_roughness_power_b410: bpy.props.FloatProperty(default=1.125)
     #
+    cycles_ssr_iris_brightness_b341: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
+    cycles_ssr_iris_brightness: bpy.props.FloatProperty(default=2.0, min=0, max=4, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
     cycles_sss_skin_b341: bpy.props.FloatProperty(default=0.264)
     cycles_sss_hair_b341: bpy.props.FloatProperty(default=0.05)
     cycles_sss_teeth_b341: bpy.props.FloatProperty(default=0.5)
@@ -372,7 +379,16 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
     cycles_roughness_power_b341: bpy.props.FloatProperty(default=1.0)
 
+    lighting_use_look: bpy.props.EnumProperty(items=[
+                        ("Filmic","Filmic","Use Filmic display space"),
+                        ("AgX","AgX","Use AgX display space"),
+                    ], default="AgX", name="Color management display space")
+
     bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
+    bake_objects_mode: bpy.props.EnumProperty(items=[
+                        ("ALL","All","Bake all character objects"),
+                        ("SELECTED","Selected","Bake only selected characeter objects"),
+                    ], default="ALL", name = "Character object bake mode")
 
     physics_cloth_hair: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the hair objects.", name="Hair Cloth Physics")
     physics_cloth_clothing: bpy.props.BoolProperty(default=True, description="Set up cloth physics on the clothing and accessory objects.", name="Clothing Cloth Physics")
@@ -437,6 +453,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                     ("ACTIVE","Active","Send only the active material in each of the selected meshes", "RESTRICT_SELECT_ON", 1),
                 ], default="ACTIVE",
                    name = "Datalink Send Mode")
+    datalink_cc_match_only_avatar: bpy.props.BoolProperty(default=True,
+                        description="When sending characters and animations from CC4, always match the avatar, if it is the only one in the scene or the one selected")
 
     # convert
     convert_non_standard_type: bpy.props.EnumProperty(items=[
@@ -525,23 +543,6 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Eyes:")
         layout.prop(self, "refractive_eyes")
         layout.prop(self, "eye_displacement_group")
-
-        layout.label(text="Cycles Adjustments:")
-        if utils.B400():
-            layout.prop(self, "cycles_sss_skin_b410")
-            layout.prop(self, "cycles_sss_hair_b410")
-            layout.prop(self, "cycles_sss_teeth_b410")
-            layout.prop(self, "cycles_sss_tongue_b410")
-            layout.prop(self, "cycles_sss_eyes_b410")
-            layout.prop(self, "cycles_sss_default_b410")
-        else:
-            layout.prop(self, "cycles_sss_skin_b341")
-            layout.prop(self, "cycles_sss_hair_b341")
-            layout.prop(self, "cycles_sss_teeth_b341")
-            layout.prop(self, "cycles_sss_tongue_b341")
-            layout.prop(self, "cycles_sss_eyes_b341")
-            layout.prop(self, "cycles_sss_default_b341")
-        layout.prop(self, "cycles_ssr_iris_brightness")
 
         layout.label(text="Physics:")
         layout.prop(self, "physics_group")

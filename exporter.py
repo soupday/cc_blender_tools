@@ -839,7 +839,9 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                     ao = nodeutils.get_node_input_value(shader_node, "AO Strength", 1.0)
                                     nodeutils.set_node_input_value(shader_node, "AO Strength", 0)
 
-                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket, mat, tex_id, bake_path, override_size = bake_value_size)
+                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket,
+                                                                    mat, tex_id, bake_path,
+                                                                    override_size=bake_value_size)
 
                                 if tex_type == "DIFFUSE":
                                     ao = nodeutils.get_node_input_value(shader_node, "AO Strength", ao)
@@ -861,15 +863,18 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                 if tex_type == "ROUGHNESS" and roughness_modified:
                                     roughness_pow = nodeutils.get_node_input_value(shader_node, "Roughness Power", def_pow)
                                     nodeutils.set_node_input_value(shader_node, "Roughness Power", 1.0)
-                                    image = bake.bake_node_socket_input(bsdf_node, "Roughness", mat, tex_id, bake_path,
-                                                                        size_override_node = shader_node, size_override_socket = "Roughness Map")
+                                    image = bake.bake_node_socket_input(bsdf_node, "Roughness",
+                                                                        mat, tex_id, bake_path,
+                                                                        size_override_node=shader_node,
+                                                                        size_override_socket="Roughness Map")
                                     nodeutils.set_node_input_value(shader_node, "Roughness Power", roughness_pow)
 
                                 # if there is a normal and a bump map connected, combine into a normal
                                 elif prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
-                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, mat, tex_id, bake_path,
-                                                                         normal_socket_name = shader_socket,
-                                                                         bump_socket_name = bump_socket)
+                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node,
+                                                                         mat, tex_id, bake_path,
+                                                                         normal_socket_name=shader_socket,
+                                                                         bump_socket_name=bump_socket)
 
                                 # otherwise use the image texture
                                 else:
@@ -886,7 +891,8 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                 else:
 
                                     utils.log_info(f"Baking Socket Input: {shader_node.name} {shader_socket}")
-                                    image = bake.bake_node_socket_input(shader_node, shader_socket, mat, tex_id, bake_path)
+                                    image = bake.bake_node_socket_input(shader_node, shader_socket,
+                                                                        mat, tex_id, bake_path)
 
                         tex_info["Texture Path"] = ""
                         mat_data[tex_type] = image
@@ -1056,7 +1062,7 @@ def unpack_embedded_textures(chr_cache, chr_json, objects, base_path):
                                     utils.log_warn(f"Unable to update embedded image Json: {image.name}")
 
 
-def get_export_objects(chr_cache, include_selected = True):
+def get_export_objects(chr_cache, include_selected = True, only_objects=None):
     """Fetch all the objects in the character (or try to)"""
     collider_collection = rigidbody.get_rigidbody_collider_collection()
     objects = []
@@ -1121,6 +1127,11 @@ def get_export_objects(chr_cache, include_selected = True):
     clean_objects = [ obj for obj in objects
                         if utils.object_exists(obj) and
                             (obj == arm or obj.type == "MESH" or obj.type == "EMPTY") ]
+
+    if only_objects:
+        to_remove = [ o for o in clean_objects if o not in only_objects ]
+        for o in to_remove:
+            clean_objects.remove(o)
 
     for obj in clean_objects:
         utils.log_info(f"Export Object: {obj.name} ({obj.type})")

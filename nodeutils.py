@@ -455,12 +455,36 @@ def get_node_and_socket_connected_to_input(node, *sockets):
     return None, None
 
 
+def has_input(node, *sockets):
+    for socket in sockets:
+        try:
+            socket = safe_node_input_socket(node, socket)
+            if socket:
+                return True
+        except:
+            pass
+    return False
+
+
 def has_connected_input(node, *sockets):
     """Returns True if the node's input socket (or named input socket) is linked to from another node."""
 
     for socket in sockets:
         try:
             socket = safe_node_input_socket(node, socket)
+            if socket.is_linked:
+                return True
+        except:
+            pass
+    return False
+
+
+def has_connected_output(node, *sockets):
+    """Returns True if the node's input socket (or named input socket) is linked to from another node."""
+
+    for socket in sockets:
+        try:
+            socket = safe_node_output_socket(node, socket)
             if socket.is_linked:
                 return True
         except:
@@ -676,6 +700,7 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
             if socket.name not in blocked_bsdf_sockets:
                 to_socket = input_socket(bsdf_node, socket.name)
                 link_nodes(links, group_node, socket.name, bsdf_node, to_socket)
+    link_nodes(links, group_node, "Transmission Alpha", bsdf_node, "Alpha")
 
     if utils.B400():
         set_node_input_value(bsdf_node, "Subsurface Scale", 1.0)
@@ -701,9 +726,10 @@ def reset_shader(mat_cache, nodes, links, shader_label, shader_name, shader_grou
     elif has_bsdf:
         link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
 
-    # connect the displacement to the output
+    # connect any displacement and/or thickness to the output
     if has_group_node:
         link_nodes(links, group_node, "Displacement", output_node, "Displacement")
+        link_nodes(links, group_node, "Thickness", output_node, "Thickness")
 
     # don't do anything with the old wrinkle shader node yet
 
