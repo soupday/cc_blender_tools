@@ -41,6 +41,7 @@ Links
 - Iris brightness render settings for Eevee & Cycles.
 - Bake fixes for Blender 4.2 refractive eyes.
 - Export-Bake warnings when not build for Eevee.
+- Lighting tweaks.
 
 ### 2.1.2
 - Blender 4.2 lighting settings fixes and adjustments.
