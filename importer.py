@@ -30,7 +30,9 @@ debug_counter = 0
 def delete_import(chr_cache):
     props = vars.props()
     chr_cache.invalidate()
-    props.clean_up()
+    chr_cache.delete()
+    chr_cache.clean_up()
+    utils.remove_from_collection(props.import_cache, chr_cache)
     utils.clean_up_unused()
 
 
@@ -395,6 +397,26 @@ def is_iclone_temp_motion(name : str):
         return False
 
 
+def purge_imported_material(mat, imported_images: list):
+    if utils.material_exists(mat):
+        if mat.node_tree and mat.node_tree.nodes:
+            for node in mat.node_tree.nodes:
+                if node.type == "TEX_IMAGE":
+                    if node.image:
+                        if node.image in imported_images:
+                            imported_images.remove(node.image)
+                            bpy.data.images.remove(node.image)
+    bpy.data.materials.remove(mat)
+
+
+def purge_imported_object(obj, imported_images):
+    if utils.object_exists(obj):
+        if obj.type == "MESH":
+            for mat in obj.data.materials:
+                purge_imported_material(mat, imported_images)
+        utils.delete_object_tree(obj)
+
+
 def remap_action_names(arm, objects, actions, source_id, motion_prefix=""):
     key_map = {}
     num_keys = 0
@@ -476,7 +498,7 @@ def process_root_bones(arm, json_data, name):
 
 
 def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects: list,
-                      actions, json_data, report, link_id, motion_prefix=""):
+                      actions, json_data, report, link_id, only_objects=None, motion_prefix=""):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -573,6 +595,10 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             # add child objects to object_cache
             for obj in objects:
                 if obj.type == "MESH" and obj.parent and obj.parent == arm:
+                    if only_objects:
+                        source_name = utils.strip_name(obj.name)
+                        if source_name not in only_objects:
+                            continue
                     chr_cache.add_object_cache(obj)
 
             # remame actions
@@ -773,6 +799,8 @@ class ImportFlags(IntFlag):
 # Import operator
 #
 
+
+
 class CC3Import(bpy.types.Operator):
     """Import CC3 Character and build materials"""
     bl_idname = "cc3.importer"
@@ -789,6 +817,18 @@ class CC3Import(bpy.types.Operator):
         default="",
         name="Link ID",
         description="Link ID override",
+        options={"HIDDEN"},
+    )
+
+    process_only: bpy.props.StringProperty(
+        default="",
+        options={"HIDDEN"},
+    )
+
+    no_build: bpy.props.BoolProperty(
+        default=False,
+        name="No Build",
+        description="Don't build materials",
         options={"HIDDEN"},
     )
 
@@ -839,7 +879,8 @@ class CC3Import(bpy.types.Operator):
             return None
 
         errors = []
-        json_data = jsonutils.read_json(file_path, errors)
+        # importer operator should always read the original intended json data
+        json_data = jsonutils.read_json(file_path, errors, no_local=True)
 
         msg = None
         if "NO_JSON" in errors:
@@ -884,6 +925,10 @@ class CC3Import(bpy.types.Operator):
         json_generation = jsonutils.get_character_generation_json(json_data, name)
         avatar_type = jsonutils.get_json(json_data, f"{name}/Avatar_Type")
 
+        only_objects = None
+        if self.process_only:
+            only_objects = self.process_only.split("|")
+
         if ImportFlags.FBX in self.import_flags:
 
             # invoke the fbx importer
@@ -908,6 +953,17 @@ class CC3Import(bpy.types.Operator):
             actions = utils.untagged_actions()
             self.imported_images = utils.untagged_images()
 
+            remove_objects = []
+            if only_objects:
+                for obj in imported:
+                    if obj.type == "ARMATURE": continue
+                    source_name = utils.strip_name(obj.name)
+                    if source_name in only_objects: continue
+                    remove_objects.append(obj)
+            for obj in remove_objects:
+                imported.remove(obj)
+                purge_imported_object(obj, self.imported_images)
+
             for action in actions:
                 action.use_fake_user = self.use_fake_user
             armatures, rl_armatures = self.get_character_armatures(imported, avatar_type, json_generation)
@@ -916,7 +972,8 @@ class CC3Import(bpy.types.Operator):
             if ImportFlags.RL in self.import_flags:
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, armatures, rl_armatures,
                                                              imported, actions, json_data, self.import_report, self.link_id,
-                                                             self.motion_prefix)
+                                                             only_objects=only_objects,
+                                                             motion_prefix=self.motion_prefix)
             elif prefs.import_auto_convert:
                 chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
                 self.imported_characters = [ chr_cache ]
@@ -947,7 +1004,7 @@ class CC3Import(bpy.types.Operator):
             if ImportFlags.RL in self.import_flags:
                 self.imported_characters = process_rl_import(self.filepath, self.import_flags, None, None,
                                                              imported, actions, json_data, self.import_report, self.link_id,
-                                                             self.motion_prefix)
+                                                             motion_prefix=self.motion_prefix)
             elif prefs.import_auto_convert:
                 chr_cache = characters.convert_generic_to_non_standard(imported, self.filepath)
                 self.imported_characters = [ chr_cache ]
@@ -1301,18 +1358,19 @@ class CC3Import(bpy.types.Operator):
                 self.clock = 0
                 self.running = False
 
-            elif not self.built:
+            elif not self.no_build and not self.built:
                 self.running = True
                 self.run_build(context)
                 self.clock = 0
                 self.running = False
-            elif not self.lighting:
+
+            elif not self.no_build and not self.lighting:
                 self.running = True
                 self.run_finish(context)
                 self.clock = 0
                 self.running = False
 
-            if self.imported and self.built and self.lighting:
+            if self.imported and (self.no_build or (self.built and self.lighting)):
                 self.cancel(context)
                 self.do_import_report(context, stage = 1)
                 return {'FINISHED'}
@@ -1354,7 +1412,8 @@ class CC3Import(bpy.types.Operator):
                 elif not self.invoked:
                     self.run_import(context)
                     if ImportFlags.RL in self.import_flags:
-                        self.run_build(context)
+                        if not self.no_build:
+                            self.run_build(context)
                         self.run_finish(context)
                     self.do_import_report(context, stage = 1)
                     return {'FINISHED'}

@@ -505,14 +505,14 @@ def update_link_host_ip(self, context):
 
 
 def clean_collection_property(collection_prop):
-    """Remove any item.disabled items from collection property."""
+    """Remove any item.disabled items from validatable objects in collection property."""
     repeat = True
     while repeat:
         repeat = False
         for item in collection_prop:
-            valid_func = getattr(item, "is_valid", None)
+            valid_func = getattr(item, "validate", None)
             if callable(valid_func):
-                if not item.is_valid():
+                if item.disabled:
                     repeat = True
                     utils.remove_from_collection(collection_prop, item)
                     break
@@ -1034,10 +1034,31 @@ class CC3TextureMapping(bpy.types.PropertyGroup):
     location: bpy.props.FloatVectorProperty(subtype="TRANSLATION", size=3, default=(0.0, 0.0, 0.0))
     rotation: bpy.props.FloatVectorProperty(subtype="EULER", size=3, default=(0.0, 0.0, 0.0))
     scale: bpy.props.FloatVectorProperty(subtype="XYZ", size=3, default=(1.0, 1.0, 1.0))
+    disabled: bpy.props.BoolProperty(default=False)
+
+    def validate(self, report=None):
+        if not self.disabled and not utils.image_exists(self.image):
+            rep = f"Texture mapping: {self.texture_type} is no longer valid."
+            utils.log_info(rep)
+            if report is not None:
+                report.append(rep)
+            self.invalidate()
+        return not self.disabled
+
+    def invalidate(self):
+        utils.log_detail(f" - Invalidating Texture mapping: {self.texture_type}")
+        self.disabled = True
+
+    def delete(self):
+        if self.disabled:
+            if utils.image_exists(self.image):
+                utils.log_detail(f" - Deleting texture mapping image: {self.image.name}")
+                bpy.data.images.remove(self.image)
 
     def clean_up(self):
-        if utils.image_exists(self.image):
-            bpy.data.images.remove(self.image)
+        if self.disabled:
+            utils.log_detail(f" - Cleaning up texture mapping: {self.image.name}")
+            self.image = None
 
 
 class CC3MaterialCache:
@@ -1168,27 +1189,51 @@ class CC3MaterialCache:
             self.material["rl_material_id"] = material_id
             self.material["rl_material_type"] = material_type
 
-    def is_valid(self):
-        return not self.disabled and utils.material_exists(self.material)
+    def validate(self, report=None):
+        if not self.disabled and not utils.material_exists(self.material):
+            rep = f"Material: {self.source_name} no longer valid."
+            utils.log_info(rep)
+            if report is not None:
+                report.append(rep)
+            self.invalidate()
+        else:
+            tex_mapping: CC3TextureMapping
+            for tex_mapping in self.texture_mappings:
+                tex_mapping.validate(report)
+            self.mixer_settings.validate(report)
+        return not self.disabled
 
     def invalidate(self):
+        utils.log_info(f"Invalidating Material cache: {self.source_name}")
         self.disabled = True
-        if utils.material_exists(self.material):
-            bpy.data.materials.remove(self.material)
-        if utils.image_exists(self.temp_weight_map):
-            bpy.data.images.remove(self.temp_weight_map)
+        tex_mapping: CC3TextureMapping
+        for tex_mapping in self.texture_mappings:
+            tex_mapping.invalidate()
+        self.mixer_settings.invalidate()
+
+    def delete(self):
+        tex_mapping: CC3TextureMapping
+        for tex_mapping in self.texture_mappings:
+            tex_mapping.delete()
+        self.mixer_settings.delete()
+        if self.disabled:
+            if utils.material_exists(self.material):
+                utils.log_detail(f"Deleting Material: {self.material.name}")
+                bpy.data.materials.remove(self.material)
+            if utils.image_exists(self.temp_weight_map):
+                utils.log_detail(f" - Deleting Temporary weight map image: {self.temp_weight_map.name}")
+                bpy.data.images.remove(self.temp_weight_map)
 
     def clean_up(self):
+        tex_mapping: CC3TextureMapping
+        for tex_mapping in self.texture_mappings:
+            tex_mapping.clean_up()
+        self.mixer_settings.clean_up()
         if self.disabled:
-            self.invalidate()
-            tex_mapping: CC3TextureMapping
-            mixer_setting: channel_mixer.CC3MixerSettings
-            for tex_mapping in self.texture_mappings:
-                tex_mapping.clean_up()
-            for mixer_setting in self.mixer_settings:
-                mixer_setting.clean_up()
+            utils.log_detail(f"Cleaning up material cache: {self.source_name}")
             self.texture_mappings.clear()
-            self.mixer_settings.clear()
+            self.material = None
+            self.temp_weight_map = None
 
 
 class CC3EyeMaterialCache(bpy.types.PropertyGroup, CC3MaterialCache):
@@ -1239,6 +1284,7 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     face_count: bpy.props.IntProperty(default=0)
     edge_count: bpy.props.IntProperty(default=0)
     disabled: bpy.props.BoolProperty(default=False)
+    json_path: bpy.props.StringProperty(default="")
 
     def is_body(self):
         return self.object_type == "BODY"
@@ -1316,17 +1362,31 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
             utils.set_rl_object_id(self.object, self.object_id)
             self.object["rl_object_type"] = self.object_type
 
-    def is_valid(self):
-        return not self.disabled and utils.object_exists(self.object)
+    def validate(self, report=None):
+        if not self.disabled and not utils.object_exists(self.object):
+            rep = f"Object: {self.source_name} no longer valid."
+            utils.log_info(rep)
+            if report is not None:
+                report.append(rep)
+            self.invalidate()
+        return not self.disabled
 
     def invalidate(self):
+        utils.log_info(f"Invalidating Object cache: {self.source_name}")
         self.disabled = True
-        utils.delete_object_tree(self.object)
-        utils.delete_object_tree(self.collision_proxy)
+
+    def delete(self):
+        if self.disabled:
+            if utils.object_exists(self.object):
+                utils.log_info(f"Deleting Object: {self.object}")
+                utils.delete_object_tree(self.object)
+            if utils.object_exists(self.collision_proxy):
+                utils.log_info(f" - Deleting Collision Proxy: {self.collision_proxy}")
+                utils.delete_object_tree(self.collision_proxy)
 
     def clean_up(self):
         if self.disabled:
-            self.invalidate()
+            utils.log_info(f"Cleaning up Object: {self.source_name}")
             pass
 
     def validate_topography(self):
@@ -1937,6 +1997,15 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 return False
         return True
 
+    def count_material(self, mat):
+        count = 0
+        for obj_cache in self.object_cache:
+            obj = obj_cache.get_object()
+            if obj and obj.type == "MESH":
+                for m in obj.data.materials:
+                    if m == mat:
+                        count += 1
+        return count
 
     def get_material_cache(self, mat, by_id=None):
         """Returns the material cache for this material.
@@ -2182,45 +2251,69 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             self.link_id = utils.generate_random_id(14)
         return self.link_id
 
-    def is_valid(self):
+    def validate(self, report=None):
+        """Checks character objects and materials are still valid.
+           Returns True if any objects in the character are still valid"""
         obj_cache: CC3ObjectCache
-        if self.disabled:
-            return False
+        mat_cache: CC3MaterialCache
+        any_valid = False
         for obj_cache in self.object_cache:
-            if obj_cache.is_valid():
-                return True
-        return False
+            obj_valid = obj_cache.validate(report)
+            any_valid = any_valid or obj_valid
+        all_materials_cache = self.get_all_materials_cache(True)
+        for mat_cache in all_materials_cache:
+            mat_valid = mat_cache.validate(report)
+        if not any_valid:
+            rep = f"Character Cache: {self.character_name} is no longer valid!"
+            utils.log_info(rep)
+            if report is not None:
+                report.append(rep)
+            self.invalidate()
+        return not self.disabled
 
     def invalidate(self):
+        utils.log_info(f"Invalidating Character cache: {self.character_name}")
         self.disabled = True
         obj_cache: CC3ObjectCache
         mat_cache: CC3MaterialCache
         for obj_cache in self.object_cache:
             obj_cache.invalidate()
-        all_mat_cache = self.get_all_materials_cache(include_disabled=True)
-        for mat_cache in all_mat_cache:
+        all_materials_cache = self.get_all_materials_cache(include_disabled=True)
+        for mat_cache in all_materials_cache:
             mat_cache.invalidate()
-        utils.log_info(f"Deleting Character Meta Objects.")
-        utils.delete_object(self.collision_body)
-        utils.delete_object_tree(self.rig_meta_rig)
-        utils.delete_object_tree(self.rig_export_rig)
-        utils.delete_object_tree(self.rig_original_rig)
-        utils.delete_object_tree(self.rig_retarget_rig)
-        utils.delete_object_tree(self.rig_datalink_rig)
-        utils.delete_object_tree(self.rig_retarget_source_rig)
-        utils.delete_object(self.detail_multires_body)
-        utils.delete_object(self.sculpt_multires_body)
+
+    def delete(self):
+        obj_cache: CC3ObjectCache
+        mat_cache: CC3MaterialCache
+        for obj_cache in self.object_cache:
+            obj_cache.delete()
+        all_materials_cache = self.get_all_materials_cache(include_disabled=True)
+        for mat_cache in all_materials_cache:
+            mat_cache.delete()
+        if self.disabled:
+            utils.log_info(f"Deleting Character Meta Objects: {self.character_name}")
+            utils.delete_object(self.collision_body)
+            utils.delete_object_tree(self.rig_meta_rig)
+            utils.delete_object_tree(self.rig_export_rig)
+            utils.delete_object_tree(self.rig_original_rig)
+            utils.delete_object_tree(self.rig_retarget_rig)
+            utils.delete_object_tree(self.rig_datalink_rig)
+            utils.delete_object_tree(self.rig_retarget_source_rig)
+            utils.delete_object(self.detail_multires_body)
+            utils.delete_object(self.sculpt_multires_body)
 
     def clean_up(self):
         obj_cache: CC3ObjectCache
         mat_cache: CC3MaterialCache
         for obj_cache in self.object_cache:
             obj_cache.clean_up()
-        all_mat_cache = self.get_all_materials_cache(include_disabled=True)
-        for mat_cache in all_mat_cache:
+        all_materials_cache = self.get_all_materials_cache(include_disabled=True)
+        for mat_cache in all_materials_cache:
             mat_cache.clean_up()
         if self.disabled:
-            self.invalidate()
+            utils.log_detail(f"Clearing object cache.")
+            self.object_cache.clear()
+            utils.log_detail(f"Clearing all material cache.")
             self.tongue_material_cache.clear()
             self.teeth_material_cache.clear()
             self.head_material_cache.clear()
@@ -2233,7 +2326,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             self.sss_material_cache.clear()
             self.proportion_editing_actions.clear()
         else:
+            utils.log_detail(f"Cleaning up object cache.")
             clean_collection_property(self.object_cache)
+            utils.log_detail(f"Cleaning up all material cache.")
             clean_collection_property(self.tongue_material_cache)
             clean_collection_property(self.teeth_material_cache)
             clean_collection_property(self.head_material_cache)
@@ -2649,12 +2744,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             dir_vectors[aspect] = vector
         return dir_vectors
 
-    def validate(self):
+    def validate(self, report=None):
         validation = True
         chr_cache: CC3CharacterCache
         for chr_cache in self.import_cache:
-            if not chr_cache.is_valid():
-                utils.log_info(f"Character Cache: {chr_cache.character_name} is no longer valid!")
+            if not chr_cache.validate(report):
                 chr_cache.invalidate()
                 validation = False
         return validation
@@ -2662,13 +2756,12 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     def clean_up(self):
         chr_cache: CC3CharacterCache
         for chr_cache in self.import_cache:
-            if not chr_cache.is_valid():
-                chr_cache.clean_up()
+            chr_cache.clean_up()
         clean_collection_property(self.import_cache)
 
     def validate_and_clean_up(self):
-        if not self.validate():
-            self.clean_up()
+        self.validate()
+        self.clean_up()
 
 
 class CCICBakeCache(bpy.types.PropertyGroup):

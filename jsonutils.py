@@ -17,11 +17,12 @@
 import json
 import os
 import bpy
+import copy
 
 from . import utils
 
 
-def read_json(fbx_path, errors):
+def read_json(fbx_path, errors, no_local=False):
     json_file_exists = False
     try:
         fbx_file = os.path.basename(fbx_path)
@@ -34,6 +35,11 @@ def read_json(fbx_path, errors):
 
         if json_path and os.path.exists(json_path):
             json_file_exists = True
+            # json_local is a custom version of the json created by the update/replace operator
+            # to incorporate new & replaced objects and materials though the datalink
+            json_local_path = json_path + "_local"
+            if os.path.exists(json_local_path):
+                json_path = json_local_path
 
             # determine start of json text data
             file_bytes = open(json_path, "rb")
@@ -67,12 +73,14 @@ def read_json(fbx_path, errors):
         return None
 
 
-def write_json(json_data, path, is_fbx_path = False):
+def write_json(json_data, path, is_fbx_path=False, is_json_local=False):
     if is_fbx_path:
         file = os.path.basename(path)
         folder = os.path.dirname(path)
         name = os.path.splitext(file)[0]
         path = os.path.join(folder, name + ".json")
+        if is_json_local:
+            path += "_local"
     json_object = json.dumps(json_data, indent = 4)
     with open(path, "w") as write_file:
         write_file.write(json_object)
@@ -245,6 +253,7 @@ def get_custom_shader(mat_json):
             utils.log_warn("Failed to find material shader data!")
             return "Pbr"
 
+
 def get_material_json(obj_json, material):
     if not obj_json:
         return None
@@ -359,6 +368,7 @@ def get_shader_var(mat_json, var_name):
     except:
         return None
 
+
 def get_pbr_var(mat_json, var_name, paths):
     if not mat_json:
         return None
@@ -370,6 +380,7 @@ def get_pbr_var(mat_json, var_name, paths):
     except:
         return None
 
+
 def get_material_var(mat_json, var_name):
     if not mat_json:
         return None
@@ -377,6 +388,7 @@ def get_material_var(mat_json, var_name):
         return mat_json[var_name]
     except:
         return None
+
 
 def get_sss_var(mat_json, var_name):
     if not mat_json:
@@ -408,6 +420,7 @@ def set_shader_var(mat_json, var_name, value):
         except:
             return
 
+
 def set_pbr_var(mat_json, var_name, paths, value):
     if mat_json:
         try:
@@ -421,12 +434,14 @@ def set_pbr_var(mat_json, var_name, paths, value):
         except:
             return
 
+
 def set_material_var(mat_json, var_name, value):
     if mat_json:
         try:
             mat_json[var_name] = value
         except:
             return
+
 
 def set_sss_var(mat_json, var_name, value):
     if mat_json:
@@ -525,4 +540,90 @@ def rename_json_key(json_data, old_name, new_name):
         return True
     return False
 
+
+def add_physics_json(json_data, character_id, collider_source_json=None, collider_source_id=None):
+    phys_meshes = add_json_path(json_data, f"{character_id}/Object/{character_id}/Physics/Soft Physics/Meshes")
+    colliders = add_json_path(json_data, f"{character_id}/Object/{character_id}/Physics/Soft Physics/Collision Shapes")
+    if collider_source_json and collider_source_id:
+        collider_source = get_json(collider_source_json,
+                                   f"{collider_source_id}/Object/{collider_source_id}/Physics/Collision Shapes")
+        colliders = copy.deepcopy(collider_source)
+        set_json(json_data,
+                 f"{character_id}/Object/{character_id}/Physics/Soft Physics/Collision Shapes",
+                 colliders)
+    return phys_meshes, colliders
+
+
+
+def get_character_meshes_json(json_data, character_id):
+    meshes_json: dict = None
+    phys_meshes_json: dict = None
+    try:
+        meshes_json = json_data[character_id]["Object"][character_id]["Meshes"]
+    except:
+        pass
+    try:
+        phys_meshes_json = json_data[character_id]["Object"][character_id]["Physics"]["Soft Physics"]["Meshes"]
+    except:
+        pass
+    return meshes_json, phys_meshes_json
+
+
+def get_physics_collision_shapes_json(json_data, character_id) -> dict:
+    try:
+        return json_data[character_id]["Object"][character_id]["Physics"]["Collision Shapes"]
+    except:
+        pass
+
+
+def remap_mesh_json_tex_paths(obj_json, phys_json, from_dir, to_dir):
+    if obj_json and "Materials" in obj_json:
+        for mat_name in obj_json["Materials"]:
+            mat_json = obj_json["Materials"][mat_name]
+            if "Textures" in mat_json:
+                for tex_channel in mat_json["Textures"]:
+                    tex_info = mat_json["Textures"][tex_channel]
+                    tex_path = tex_info["Texture Path"]
+                    if tex_path:
+                        full_path = os.path.normpath(os.path.join(from_dir, tex_path))
+                        rel_path = os.path.relpath(full_path, to_dir).replace(r"\\","/")
+                        tex_info["Texture Path"] = rel_path
+            if "Custom Shader" in mat_json:
+                for custom_channel in mat_json["Custom Shader"]["Image"]:
+                    tex_info = mat_json["Custom Shader"]["Image"][custom_channel]
+                    tex_path = tex_info["Texture Path"]
+                    if tex_path:
+                        full_path = os.path.normpath(os.path.join(from_dir, tex_path))
+                        rel_path = os.path.relpath(full_path, to_dir).replace(r"\\","/")
+                        tex_info["Texture Path"] = rel_path
+    if phys_json and "Materials" in phys_json:
+        for mat_name in phys_json["Materials"]:
+            mat_json = phys_json["Materials"][mat_name]
+            if "Weight Map Path" in mat_json:
+                tex_path = mat_json["Weight Map Path"]
+                if tex_path:
+                    full_path = os.path.normpath(os.path.join(from_dir, tex_path))
+                    rel_path = os.path.relpath(full_path, to_dir).replace(r"\\","/")
+                    tex_info["Texture Path"] = rel_path
+
+def get_meshes_images(meshes_json, filter=None):
+    images = set()
+    for mesh_name in meshes_json:
+        if filter and mesh_name not in filter: continue
+        mesh_json = meshes_json[mesh_name]
+        for mat_name in mesh_json["Materials"]:
+            mat_json = mesh_json["Materials"][mat_name]
+            if "Textures" in mat_json:
+                for tex_channel in mat_json["Textures"]:
+                    tex_info = mat_json["Textures"][tex_channel]
+                    tex_path = tex_info["Texture Path"]
+                    if tex_path:
+                        images.add(os.path.normpath(tex_path))
+            if "Custom Shader" in mat_json:
+                for custom_channel in mat_json["Custom Shader"]["Image"]:
+                    tex_info = mat_json["Custom Shader"]["Image"][custom_channel]
+                    tex_path = tex_info["Texture Path"]
+                    if tex_path:
+                        images.add(os.path.normpath(tex_path))
+    return images
 

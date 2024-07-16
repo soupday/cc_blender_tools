@@ -1370,5 +1370,7 @@ def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_c
     wrinkle_shader_node = wrinkle.add_wrinkle_shader(nodes, links, obj, mat, mat_json, main_shader_name, wrinkle_shader_name = wrinkle_shader_name)
     apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle_shader_name, mat_json, obj,
                          processed_images, sub_shader = True, textures = textures)
-    check_tex_count(links, shader_node, wrinkle_shader_node)
+
+    max_images = 32 if not utils.B420() else 40
+    check_tex_count(links, shader_node, wrinkle_shader_node, max_images=max_images)
 

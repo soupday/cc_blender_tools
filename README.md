@@ -35,6 +35,8 @@ Links
 
 ## Changelog
 
+### 2.1.4
+
 ### 2.1.3
 - Motion Set UI errors fixed.
 - Eevee-Next SSR Eyes fixes.
