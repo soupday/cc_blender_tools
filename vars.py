@@ -21,10 +21,7 @@ import bpy
 VERSION_STRING = "v0.0.0"
 DEV = False
 PLUGIN_COMPATIBLE = [
-    "2.1.0",
-    "2.1.1",
-    "2.1.2",
-    "2.1.3",
+    "2.1.4",
 ]
 
 def set_version_string(bl_info):
