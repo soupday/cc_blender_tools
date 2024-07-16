@@ -394,6 +394,7 @@ class CC3MixerSettings(bpy.types.PropertyGroup):
     id_cyan_enabled: bpy.props.BoolProperty(default=False, update=lambda s,c: enable_disable_mixer(s,c,"ID_CYAN"))
     id_yellow_enabled: bpy.props.BoolProperty(default=False, update=lambda s,c: enable_disable_mixer(s,c,"ID_YELLOW"))
     id_magenta_enabled: bpy.props.BoolProperty(default=False, update=lambda s,c: enable_disable_mixer(s,c,"ID_MAGENTA"))
+    disabled: bpy.props.BoolProperty(default=False)
 
     def get_mixer(self, type, channel):
         if type == "RGB":
@@ -443,11 +444,25 @@ class CC3MixerSettings(bpy.types.PropertyGroup):
                     return True
         return False
 
+    def validate(self, report=None):
+        return not self.disabled
+
+    def invalidate(self):
+        utils.log_detail(f" - Invalidating Channel mixer:")
+        self.disabled = True
+
+    def delete(self):
+        if self.disabled:
+            if utils.image_exists(self.rgb_image):
+                utils.log_detail(f" - Deleting mixer image: {self.rgb_image.name}")
+                bpy.data.images.remove(self.rgb_image)
+            if utils.image_exists(self.id_image):
+                utils.log_detail(f" - Deleting mixer image: {self.id_image.name}")
+                bpy.data.images.remove(self.id_image)
+
     def clean_up(self):
-        if utils.image_exists(self.rgb_image):
-            bpy.data.images.remove(self.rgb_image)
-        if utils.image_exists(self.id_image):
-            bpy.data.images.remove(self.id_image)
-        self.rgb_mixers.clear()
-        self.id_mixers.clear()
+        if self.disabled:
+            utils.log_detail(f" - Cleaning up channel mixer:")
+            self.rgb_mixers.clear()
+            self.id_mixers.clear()
 

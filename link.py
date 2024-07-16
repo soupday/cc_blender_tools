@@ -2,7 +2,7 @@ import bpy #, bpy_extras
 #import bpy_extras.view3d_utils as v3d
 import atexit
 from enum import IntEnum
-import os, socket, time, select, struct, json
+import os, socket, time, select, struct, json, copy
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix
 from . import importer, exporter, bones, geom, colorspace, rigging, rigutils, modifiers, jsonutils, utils, vars
@@ -41,6 +41,7 @@ class OpCodes(IntEnum):
     CHARACTER_UPDATE = 101
     PROP = 102
     PROP_UPDATE = 103
+    UPDATE_REPLACE = 108
     RIGIFY = 110
     TEMPLATE = 200
     POSE = 210
@@ -1340,6 +1341,9 @@ class LinkService():
         elif op_code == OpCodes.CHARACTER_UPDATE:
             self.receive_actor_update(data)
 
+        elif op_code == OpCodes.UPDATE_REPLACE:
+            self.receive_actor_update_replace(data)
+
         elif op_code == OpCodes.RIGIFY:
             self.receive_rigify_request(data)
 
@@ -1548,6 +1552,7 @@ class LinkService():
 
     def receive_save(self, data):
         if bpy.data.filepath:
+            utils.log_info("Saving Mailfile")
             bpy.ops.wm.save_mainfile()
 
     def receive_debug(self, data):
@@ -2812,6 +2817,7 @@ class LinkService():
         link_id = json_data["link_id"]
         motion_prefix = json_data.get("motion_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
+        save_after_import = json_data.get("save_after_import", False)
         LINK_DATA.set_action_settings(motion_prefix, use_fake_user)
 
         utils.log_info(f"Receive Character Import: {name} / {link_id} / {fbx_path}")
@@ -2842,6 +2848,8 @@ class LinkService():
                     arm = actor.get_armature()
                     #rigutils.custom_avatar_rig(arm)
             update_link_status(f"Character Imported: {actor.name}")
+            if save_after_import:
+                self.receive_save()
 
     def receive_motion_import(self, data):
         props = vars.props()
@@ -3014,6 +3022,11 @@ class LinkService():
             update = True
         else:
             update = False
+        if actor:
+            chr_cache = actor.get_chr_cache()
+            if not chr_cache.is_import_type("OBJ"):
+                update_link_status(f"Character is not for Morph editing!")
+                return
         update_link_status(f"Receving Character Morph: {name}")
         if os.path.exists(obj_path):
             if update:
@@ -3036,6 +3049,225 @@ class LinkService():
                 dest = actor.get_chr_cache().object_cache[0].object
                 geom.copy_vert_positions_by_index(source, dest)
                 utils.delete_mesh_object(source)
+
+    def receive_actor_update_replace(self, data):
+        props = vars.props()
+        global LINK_DATA
+
+        props.validate_and_clean_up()
+
+        json_data = decode_to_json(data)
+        fbx_path = json_data["path"]
+        name = json_data["name"]
+        character_type = json_data["type"]
+        link_id = json_data["link_id"]
+        replace_all = json_data["replace"]
+        objects_to_replace_names = json_data["objects"]
+        utils.log_info(f"Receive Update / Replace: {name} - {objects_to_replace_names}")
+
+        process_only = ""
+        if not replace_all and objects_to_replace_names:
+            for n in objects_to_replace_names:
+                if process_only:
+                    process_only += "|"
+                process_only += n
+
+        # import character assign new link_id
+        temp_link_id = utils.generate_random_id(20)
+        bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=temp_link_id, process_only=process_only)
+
+        # the actor to replace
+        actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
+        rig: bpy.types.Object = actor.get_armature()
+        rig_action = utils.safe_get_action(rig)
+        utils.log_info(f"Character Rig: {rig.name} / {rig_action.name}")
+        chr_cache = actor.get_chr_cache()
+        # the replacements
+        temp_actor = LinkActor.find_actor(temp_link_id, search_name=name, search_type=character_type)
+        temp_rig: bpy.types.Object = temp_actor.get_armature()
+        temp_rig_action = utils.safe_get_action(temp_rig)
+        temp_chr_cache = temp_actor.get_chr_cache()
+        utils.log_info(f"Replacement Rig: {temp_rig.name} / {temp_rig_action.name}")
+
+        # can happen if the link_id's don't match
+        if chr_cache == temp_chr_cache:
+            utils.log_error("Character replacement and original are the same!")
+            return
+
+        if not replace_all:
+
+            # firstly convert the rest pose of the old rig to the new rig
+            # (so the new objects aren't modified by this process)
+            new_rest_pose = False
+            if not rigutils.is_rest_pose_same(temp_rig, rig):
+                utils.log_info(f"Incoming Rest Pose {temp_rig.name} is different: applying new rest pose...")
+                rigutils.copy_rest_pose(temp_rig, rig)
+                new_rest_pose = True
+
+            if rig and temp_rig:
+
+                # find and invalidate the cache data for the objects/materials being replaced
+                original_data = {}
+                for obj_cache in chr_cache.object_cache:
+                    if obj_cache.source_name in objects_to_replace_names:
+                        obj = obj_cache.get_object()
+                        if obj:
+                            original_data[obj_cache.source_name] = {
+                                    "name": obj.name,
+                                    "object_id": obj_cache.object_id
+                                }
+                            if obj.type == "MESH":
+                                for mat in obj.data.materials:
+                                    if chr_cache.count_material(mat) <= 1:
+                                        mat_cache = chr_cache.get_material_cache(mat)
+                                        if mat_cache:
+                                            mat_cache.invalidate()
+                                            mat_cache.delete()
+                        obj_cache.invalidate()
+                        obj_cache.delete()
+
+                # reparent the replacements to the actor rig
+                new_objects = []
+                for child in temp_rig.children:
+                    if utils.object_exists_is_mesh(child):
+                        new_objects.append(child)
+                        child.parent = rig
+                        mod = modifiers.get_armature_modifier(child, armature=rig)
+                        temp_obj_cache = temp_chr_cache.get_object_cache(child)
+                        new_obj_cache = chr_cache.add_object_cache(child, copy_from=temp_obj_cache)
+                        new_obj_cache.object = child
+                        # restore object names and object id's
+                        if temp_obj_cache.source_name in original_data:
+                            utils.force_object_name(child, original_data[temp_obj_cache.source_name]["name"])
+                            new_obj_cache.object_id = original_data[temp_obj_cache.source_name]["object_id"]
+                            utils.set_rl_object_id(child, new_obj_cache.object_id)
+                        for mat in child.data.materials:
+                            if utils.material_exists(mat):
+                                temp_mat_cache = temp_chr_cache.get_material_cache(mat)
+                                material_type = temp_mat_cache.material_type
+                                new_mat_cache = chr_cache.add_material_cache(mat, material_type, copy_from=temp_mat_cache)
+                                new_mat_cache.material = mat
+
+                # generate a new json_local file with the updated data
+                chr_json = chr_cache.get_json_data()
+                chr_dir = chr_cache.get_import_dir()
+                tmp_json = temp_chr_cache.get_json_data()
+                tmp_dir = temp_chr_cache.get_import_dir()
+                chr_meshes, chr_phys_meshes = jsonutils.get_character_meshes_json(chr_json, chr_cache.get_character_id())
+                tmp_meshes, tmp_phys_meshes = jsonutils.get_character_meshes_json(tmp_json, temp_chr_cache.get_character_id())
+                chr_colliders = jsonutils.get_physics_collision_shapes_json(chr_json, chr_cache.get_character_id())
+                tmp_colliders = jsonutils.get_physics_collision_shapes_json(tmp_json, temp_chr_cache.get_character_id())
+                if not chr_meshes:
+                    utils.log_error("No mesh data in character json!")
+                    return
+                if not tmp_meshes:
+                    utils.log_error("No mesh data in replacement character json!")
+                    return
+                # make physics json if none in character (copy colliders over if none)
+                # ensures that chr_phys_meshes and chr_colliders exist
+                if tmp_phys_meshes or tmp_colliders:
+                    if tmp_colliders and not chr_colliders:
+                        chr_phys_meshes, chr_colliders = jsonutils.add_physics_json(chr_json, chr_cache.get_character_id(), tmp_json, temp_chr_cache.get_character_id())
+                    else:
+                        chr_phys_meshes, chr_colliders = jsonutils.add_physics_json(chr_json, chr_cache.get_character_id())
+
+                # replace the mesh json and soft physics mesh json data with the updates
+                for obj_name in objects_to_replace_names:
+                    obj_json = None
+                    phys_obj_json = None
+                    if obj_name in tmp_meshes:
+                        utils.log_info(f"Replacing {obj_name} in chr meshes json.")
+                        obj_json = copy.deepcopy(tmp_meshes[obj_name])
+                        chr_meshes[obj_name] = obj_json
+                    else:
+                        utils.log_info(f"{obj_name} not found in temp meshes json.")
+                    if tmp_phys_meshes and obj_name in tmp_phys_meshes:
+                        utils.log_info(f"Replacing {obj_name} in chr physics meshes json.")
+                        phys_obj_json = copy.deepcopy(tmp_phys_meshes[obj_name])
+                        chr_phys_meshes[obj_name] = phys_obj_json
+                    # remap the texture paths relative to the new json_local file (in chr_dir)
+                    jsonutils.remap_mesh_json_tex_paths(obj_json, phys_obj_json, tmp_dir, chr_dir)
+
+                # replace all the collider data if the rest pose has changed
+                if new_rest_pose and chr_colliders and tmp_colliders:
+                    chr_colliders.clear()
+                    for bone_name in tmp_colliders:
+                        chr_colliders[bone_name] = copy.deepcopy(tmp_colliders[bone_name])
+
+                # write the changes to a .json_local
+                jsonutils.write_json(chr_json, chr_cache.import_file, is_fbx_path=True, is_json_local=True)
+
+                # remove unused images/folders from the update import files
+                tmp_images = jsonutils.get_meshes_images(tmp_meshes)
+                keep_images = jsonutils.get_meshes_images(tmp_meshes, filter=objects_to_replace_names)
+                for img_path in tmp_images:
+                    if img_path not in keep_images:
+                        full_path = os.path.normpath(os.path.join(tmp_dir, img_path))
+                        if os.path.exists(full_path):
+                            utils.log_info(f"Deleting unused image file: {img_path}")
+                            os.remove(full_path)
+
+                # remove temp chr actions (motion set)
+                if temp_rig_action:
+                    rigutils.delete_motion_set(temp_rig_action)
+
+                # remap shapekey actions for the new objects
+                if rig_action:
+                    source_actions = rigutils.find_source_actions(rig_action, rig)
+                    rigutils.apply_source_key_actions(rig, source_actions, all_matching=True, filter=new_objects)
+
+                # invalidate and clean up but don't delete the objects & materials
+                # do this last as it invalidates the references
+                temp_chr_cache.invalidate()
+                temp_chr_cache.clean_up()
+                chr_cache.clean_up()
+                utils.remove_from_collection(props.import_cache, temp_chr_cache)
+
+            # delete the temp rig
+            if temp_rig:
+                utils.delete_object_tree(temp_rig)
+
+        else:
+
+            if rig and temp_rig:
+
+                # copy old transform to new
+                temp_rig.location = rig.location
+                temp_rig.rotation_mode = rig.rotation_mode
+                temp_rig.rotation_quaternion = rig.rotation_quaternion
+                temp_rig.rotation_euler = rig.rotation_euler
+                temp_rig.rotation_axis_angle = rig.rotation_axis_angle
+
+                # remove temp chr actions (motion set)
+                if temp_rig_action:
+                    rigutils.delete_motion_set(temp_rig_action)
+
+                # copy/retarget actions from original rig to the replacement
+                source_actions = rigutils.find_source_actions(rig_action, rig)
+                rigutils.apply_source_armature_action(temp_rig, source_actions)
+                rigutils.apply_source_key_actions(temp_rig, source_actions, all_matching=True)
+
+                link_id = chr_cache.link_id
+                character_name = chr_cache.character_name
+                rig_name = rig.name
+                rig_data_name = rig.data.name
+                rl_armature_id = utils.get_rl_object_id(rig)
+                temp_chr_cache.link_id = link_id
+                temp_chr_cache.character_name = character_name
+
+                utils.set_rl_object_id(temp_rig, rl_armature_id)
+                rig_obj_cache = temp_chr_cache.get_object_cache(temp_rig)
+                if rig_obj_cache:
+                    rig_obj_cache.object_id = rl_armature_id
+                utils.force_object_name(temp_rig, rig_name)
+                utils.force_armature_name(temp_rig.data, rig_data_name)
+
+                # remove the original character
+                # do this last as it invalidates the references
+                chr_cache.invalidate()
+                chr_cache.delete()
+                chr_cache.clean_up()
+                utils.remove_from_collection(props.import_cache, chr_cache)
 
     def receive_rigify_request(self, data):
         props = vars.props()

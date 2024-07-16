@@ -388,7 +388,8 @@ def apply_source_armature_action(dst_rig, source_actions, copy=False,
 
 def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=False,
                              motion_id=None, motion_prefix=None,
-                             set_id=None, set_generation=None):
+                             set_id=None, set_generation=None,
+                             filter=None):
     obj_used = []
     key_actions = {}
     rig_id = get_rig_id(dst_rig)
@@ -407,6 +408,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
     utils.log_info(f"Applying source key actions: (copy={copy}, motion_id={motion_id})")
     objects = utils.get_child_objects(dst_rig)
     for obj in objects:
+        if filter and obj not in filter: continue
         if obj.type == "MESH":
             if utils.object_has_shape_keys(obj):
                 obj_id = get_action_obj_id(obj)
@@ -431,6 +433,7 @@ def apply_source_key_actions(dst_rig, source_actions, all_matching=False, copy=F
         utils.log_info(f"Applying other matching source key actions:")
         body_action = get_main_body_action(source_actions)
         for obj in objects:
+            if filter and obj not in filter: continue
             if obj not in obj_used and utils.object_has_shape_keys(obj):
                 obj_id = get_action_obj_id(obj)
                 if body_action:
@@ -1199,11 +1202,16 @@ def apply_as_rest_pose(rig):
     if rig and select_rig(rig):
         objects = utils.get_child_objects(rig)
         for obj in objects:
-            mod: bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
-            if mod:
-                # apply armature modifier with preserve settings and mod order
-                modifiers.apply_modifier(obj, modifier=mod, preserving=True)
-                modifiers.get_armature_modifier(obj, create=True, armature=rig)
+            if utils.object_exists(obj):
+                vis = obj.visible_get()
+                if not vis:
+                    obj.hide_set(False)
+                mod: bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
+                if mod:
+                    # apply armature modifier with preserve settings and mod order
+                    modifiers.apply_modifier(obj, modifier=mod, preserving=True)
+                    modifiers.get_armature_modifier(obj, create=True, armature=rig)
+                obj.hide_set(not vis)
     if pose_rig(rig):
         bpy.ops.pose.armature_apply(selected=False)
     utils.object_mode_to(rig)
@@ -1230,7 +1238,42 @@ def unconstrain_pose_rigs(constraints):
         dst_bone.constraints.remove(con)
 
 
+def retarget_rig_actions(from_rig, to_rig):
+    rig_action = utils.safe_get_action(from_rig)
+    source_actions = find_source_actions(rig_action, from_rig)
+    apply_source_armature_action(to_rig, source_actions)
+    apply_source_key_actions(to_rig, source_actions, all_matching=True)
+
+
+def cmp_matrix(A: Matrix, B: Matrix):
+    rows = len(A.row)
+    cols = len(A.col)
+    delta = 0
+    for i in range(0, rows):
+        for j in range(0, cols):
+            delta += abs(A[i][j] - B[i][j])
+    if delta < 0.001:
+        return True
+    return False
+
+
+def is_rest_pose_same(src_rig, dst_rig):
+    if len(src_rig.data.bones) != len(dst_rig.data.bones):
+        return False
+    src_bone: bpy.types.Bone
+    dst_bone: bpy.types.Bone
+    for src_bone in src_rig.data.bones:
+        if src_bone.name not in dst_rig.data.bones:
+            return False
+        dst_bone = dst_rig.data.bones[src_bone.name]
+        if not cmp_matrix(src_bone.matrix, dst_bone.matrix):
+            return False
+    return True
+
+
 def copy_rest_pose(src_rig, dst_rig):
+    # TODO make everything visible...
+    temp_collection = utils.force_visible_in_scene("TMP_COPY_POSE", src_rig, dst_rig)
     TS = utils.store_object_transform(src_rig)
     TD = utils.store_object_transform(dst_rig)
     utils.reset_object_transform(src_rig)
@@ -1257,6 +1300,8 @@ def copy_rest_pose(src_rig, dst_rig):
     utils.restore_object_transform(dst_rig, TD)
     utils.safe_set_action(src_rig, src_action)
     utils.safe_set_action(dst_rig, dst_action)
+
+    utils.restore_visible_in_scene(temp_collection)
 
 
 def bake_rig_action(src_rig, dst_rig):
@@ -1347,8 +1392,6 @@ DISABLE_TWEAK_STRETCH_FOR = [
     "shin_tweak.L.001",
     "foot_tweak.L",
 ]
-
-
 
 
 def update_avatar_rig(rig):

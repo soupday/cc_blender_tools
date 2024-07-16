@@ -35,6 +35,9 @@ Links
 
 ## Changelog
 
+### 2.1.4
+- Datalink receive Update / Replace function, to replace whole characters or selected parts.
+
 ### 2.1.3
 - Motion Set UI errors fixed.
 - Eevee-Next SSR Eyes fixes.

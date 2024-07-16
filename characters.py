@@ -900,11 +900,7 @@ def make_accessory(chr_cache, objects):
 
 
     bpy.context.scene.cursor.location = cursor_pos
-
-
     return
-
-
 
 def clean_up_character_data(chr_cache):
 
@@ -915,66 +911,13 @@ def clean_up_character_data(chr_cache):
     arm = chr_cache.get_armature()
     report = []
 
-    if arm:
+    chr_cache.validate(report)
+    chr_cache.clean_up()
 
-        for obj in arm.children:
-            if utils.object_exists_is_mesh(obj):
-                current_objects.append(obj)
-                for mat in obj.data.materials:
-                    if mat and mat not in current_mats:
-                        current_mats.append(mat)
-
-        delete_objects = []
-        unparented_objects = []
-        unparented_materials = []
-
-        for obj_cache in chr_cache.object_cache:
-
-            obj = obj_cache.get_object()
-
-            if not obj_cache.is_valid():
-                delete_objects.append(obj_cache.get_object(return_invalid=True))
-
-            elif obj != arm:
-
-                if obj_cache.is_mesh():
-
-                    # be sure not to delete object and material cache data for objects still existing in the scene,
-                    # but not currently attached to the character
-                    if obj not in current_objects:
-                        unparented_objects.append(obj)
-                        utils.log_info(f"Keeping unparented Object data: {obj.name}")
-                        for mat in obj.data.materials:
-                            if mat and mat not in unparented_materials:
-                                unparented_materials.append(mat)
-                                utils.log_info(f"Keeping unparented Material data: {mat.name}")
-
-                else:
-
-                    # add any invalid cached objects to the delete list
-                    delete_objects.append(obj)
-
-        for obj in delete_objects:
-            if obj and obj not in unparented_objects:
-                report.append(f"Removing deleted/invalid Object from cache data.")
-                chr_cache.remove_object_cache(obj)
-
-        cache_mats = chr_cache.get_all_materials()
-        delete_mats = []
-
-        for mat in cache_mats:
-            if mat and mat not in current_mats:
-                delete_mats.append(mat)
-
-        for mat in delete_mats:
-            if mat not in unparented_materials:
-                report.append(f"Removing Material: {mat.name} from cache data.")
-                chr_cache.remove_mat_cache(mat)
-
-        if len(report) > 0:
-            utils.message_box_multi("Cleanup Report", "INFO", report)
-        else:
-            utils.message_box("Nothing to clean up.", "Cleanup Report", "INFO")
+    if len(report) > 0:
+        utils.message_box_multi("Cleanup Report", "INFO", report)
+    else:
+        utils.message_box("Nothing to clean up.", "Cleanup Report", "INFO")
 
 
 def has_missing_materials(chr_cache):

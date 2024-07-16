@@ -284,6 +284,8 @@ def object_has_material(obj, name):
 
 def object_exists_is_empty(obj):
     """Test if Object: obj still exists as an object in the scene, and is an empty."""
+    if obj is None:
+        return False
     try:
         name = obj.name
         return len(obj.users_scene) > 0 and obj.type == "EMPTY"
@@ -293,6 +295,8 @@ def object_exists_is_empty(obj):
 
 def object_exists_is_mesh(obj):
     """Test if Object: obj still exists as an object in the scene, and is a mesh."""
+    if obj is None:
+        return False
     try:
         name = obj.name
         return len(obj.users_scene) > 0 and obj.type == "MESH"
@@ -302,6 +306,8 @@ def object_exists_is_mesh(obj):
 
 def object_exists_is_armature(obj):
     """Test if Object: obj still exists as an object in the scene, and is an armature."""
+    if obj is None:
+        return False
     try:
         name = obj.name
         return len(obj.users_scene) > 0 and obj.type == "ARMATURE"
@@ -311,6 +317,8 @@ def object_exists_is_armature(obj):
 
 def object_exists_is_light(obj):
     """Test if Object: obj still exists as an object in the scene, and is a light."""
+    if obj is None:
+        return False
     try:
         name = obj.name
         return len(obj.users_scene) > 0 and obj.type == "LIGHT"
@@ -320,6 +328,8 @@ def object_exists_is_light(obj):
 
 def object_exists(obj: bpy.types.Object):
     """Test if Object: obj still exists as an object in the scene."""
+    if obj is None:
+        return False
     try:
         name = obj.name
         return len(obj.users_scene) > 0
@@ -329,6 +339,8 @@ def object_exists(obj: bpy.types.Object):
 
 def material_exists(mat: bpy.types.Material):
     """Test if material still exists."""
+    if mat is None:
+        return False
     try:
         name = mat.name
         return True
@@ -338,6 +350,8 @@ def material_exists(mat: bpy.types.Material):
 
 def image_exists(img: bpy.types.Image):
     """Test if material still exists."""
+    if img is None:
+        return False
     try:
         name = img.name
         return True
