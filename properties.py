@@ -76,6 +76,18 @@ def eye_close_update(self, context):
                         pass
 
 
+def adjust_lighting_brightness(self, context):
+    props = vars.props()
+    for light in bpy.data.objects:
+        if light.type == "LIGHT":
+            if not props.lighting_brightness_all and not utils.has_ccic_id(light):
+                continue
+            if "rl_default_brightness" not in light.data:
+                light.data["rl_default_brightness"] = light.data.energy
+            base_energy = light.data["rl_default_brightness"]
+            light.data.energy = base_energy * props.lighting_brightness
+
+
 def update_property(self, context, prop_name, update_mode = None):
     props = vars.props()
 
@@ -2586,6 +2598,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                                                 min = 0.0, max = 1.0)
     lighting_setup_compositor: bpy.props.BoolProperty(default=False)
     lighting_setup_camera: bpy.props.BoolProperty(default=False)
+    lighting_brightness_all: bpy.props.BoolProperty(default=False,
+                                                    name="All Lights",
+                                                    description="Adjust all lights with the lighting brightness slider, not just the ones created by this add-on")
+    lighting_brightness: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0,
+                                                 name="Lighting Brightness",
+                                                 description="Adjust the lighting brightness of all lights created by this add-on",
+                                                 update=adjust_lighting_brightness)
 
     def add_character_cache(self, copy_from=None):
         chr_cache = self.import_cache.add()

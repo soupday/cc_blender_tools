@@ -487,7 +487,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
 
     if apply_fixes and prefs.export_bone_roll_fix:
         if obj.type == "ARMATURE":
-            if utils.set_mode("OBJECT"):
+            if utils.object_mode():
                 utils.set_active_object(obj)
                 if utils.set_mode("EDIT"):
                     utils.log_info("Applying upper and lower teeth bones roll fix.")
@@ -495,7 +495,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                     bone.roll = 0
                     bone = obj.data.edit_bones["CC_Base_Teeth02"]
                     bone.roll = 0
-                    utils.set_mode("OBJECT")
+                    utils.object_mode()
 
     if sync:
         # find all mesh/material keys not used
@@ -1707,7 +1707,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
     utils.log_info("Exporting Character Model to CC:")
     utils.log_info("--------------------------------")
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
     chr_cache.check_paths()
 
@@ -1845,7 +1845,7 @@ def export_non_standard(self, file_path, include_selected):
     utils.log_info("Exporting Non-Standard Model to CC:")
     utils.log_info("-----------------------------------")
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
     export_anim = False
     dir, file = os.path.split(file_path)
@@ -1937,7 +1937,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     utils.log_info("Exporting Character Model to UNITY:")
     utils.log_info("-----------------------------------")
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
     chr_cache.check_paths()
 
@@ -2071,7 +2071,7 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     utils.log_info("Updating Character Model for UNITY:")
     utils.log_info("-----------------------------------")
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
     chr_cache.check_paths()
 
@@ -2150,7 +2150,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     utils.log_info("Exporting Rigified Character Model:")
     utils.log_info("-----------------------------------")
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
     dir, file = os.path.split(file_path)
     name, ext = os.path.splitext(file)

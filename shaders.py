@@ -752,6 +752,7 @@ def set_image_node_tiling(nodes, links, node, mat_cache, texture_def, shader, te
 
 
 def init_character_property_defaults(chr_cache, chr_json, only:list=None):
+    prefs = vars.prefs()
     processed = []
 
     utils.log_info("")
@@ -792,9 +793,22 @@ def init_character_property_defaults(chr_cache, chr_json, only:list=None):
                         fetch_prop_defaults(obj, mat_cache, mat_json)
 
                         if chr_json is None and chr_cache.is_actor_core():
-                            mat_cache.parameters.default_ao_strength = 0.4
-                            mat_cache.parameters.default_ao_power = 1.0
-                            mat_cache.parameters.default_specular_scale = 0.4
+                            try:
+                                mat_cache.parameters.default_ao_strength = 0.4
+                                mat_cache.parameters.default_ao_power = 1.0
+                                mat_cache.parameters.default_specular_scale = 0.4
+                            except:
+                                pass
+
+                        if mat_cache.source_name.startswith("Ga_Skin_"):
+                            try:
+                                if prefs.render_target == "EEVEE":
+                                    mat_cache.parameters.default_roughness_power = 0.5
+                                else:
+                                    mat_cache.parameters.default_roughness_power = 0.75
+                            except:
+                                pass
+
                         utils.log_recess()
             utils.log_recess()
 
@@ -895,7 +909,7 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
                             sample_color = [image.pixels[0], image.pixels[1], image.pixels[2], 1.0]
                             exec_prop(sample_prop, mat_cache, sample_color)
                             nodeutils.set_node_input_value(shader_node, socket_name, sample_color)
-                            utils.log_detai(f"Sample Map Removing Image: {image}")
+                            utils.log_detail(f"Sample Map Removing Image: {image}")
                             bpy.data.images.remove(image)
                             vars.block_property_update = False
 

@@ -35,8 +35,18 @@ Links
 
 ## Changelog
 
+### 2.1.5
+- Proportion edit should work on all character types (except Rigified)
+- Sync lights and send pose should work in all modes and keeps the active mode.
+- Lighting brightness adjust slider.
+- Some GameBase detection fixes.
+- GameBase skin roughness tweaks.
+- Fix for vertex color sampling when json data is missing.
+
+
 ### 2.1.4
 - Datalink receive Update / Replace function, to replace whole characters or selected parts.
+- Fix to character validation and clean-up.
 
 ### 2.1.3
 - Motion Set UI errors fixed.
