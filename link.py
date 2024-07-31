@@ -2572,9 +2572,6 @@ class LinkService():
                 utils.log_error(f"Unable to find actor: {name} ({link_id})")
 
         update_link_status(f"Character Templates Received")
-
-        print(utils.get_mode(), utils.get_active_object())
-        print(state)
         utils.restore_mode_selection_state(state)
 
     def select_actor_rigs(self, actors, start_frame=0, end_frame=0):
@@ -2677,9 +2674,6 @@ class LinkService():
         # finish
         LINK_DATA.sequence_actors = None
         bpy.context.scene.frame_current = frame
-
-        print(utils.get_mode(), utils.get_active_object())
-        print(state)
         utils.restore_mode_selection_state(state)
 
     def receive_sequence(self, data):
