@@ -93,8 +93,8 @@ def load_image(filename, color_space, processed_images = None, reuse_existing = 
         if processed_images is not None and os.path.exists(filename):
             image_md5 = utils.md5sum(filename)
             for p in processed_images:
-                if p[0] == image_md5:
-                    utils.log_info("Skipping duplicate image, reusing: " + p[1].filepath)
+                if p[0] == image_md5 and utils.image_exists(p[1]):
+                    utils.log_info("Skipping duplicate image, reusing existing: " + p[1].filepath)
                     return p[1]
         utils.log_info("Loading new image: " + filename)
         image = bpy.data.images.load(filename)
