@@ -310,6 +310,9 @@ def setup_scene_default(scene_type):
     props = vars.props()
     prefs = vars.prefs()
 
+    # reset brightness
+    props.lighting_brightness = 1.0
+
     # store selection and mode
     current_selected = bpy.context.selected_objects
     current_active = utils.get_active_object()

@@ -25,7 +25,7 @@ def hide_sub_bones(rig, hide=True):
     bone: bpy.types.Bone
     for bone in rig.data.bones:
         bone_name: str = bone.name
-        if "ShareBone" in bone_name or ("Twist" in bone_name and "NeckTwist" not in bone_name):
+        if "ShareBone" in bone_name or ("Twist" in bone_name and "NeckTwist" not in bone_name) or "_twist_" in bone_name:
             bone.hide = hide
             bone.select = False
 
@@ -192,23 +192,25 @@ class CCICCharacterProportions(bpy.types.Operator):
         props = vars.props()
         chr_cache = props.get_context_character_cache(context)
 
-        if self.param == "BEGIN":
-            prep_rig(chr_cache)
-            convert_to_blender_bone_names(chr_cache)
+        if chr_cache and not chr_cache.rigified:
 
-        elif self.param == "END":
-            apply_proportion_pose(chr_cache)
-            restore_rig(chr_cache)
-            restore_cc_bone_names(chr_cache)
+            if self.param == "BEGIN":
+                prep_rig(chr_cache)
+                convert_to_blender_bone_names(chr_cache)
 
-        elif self.param.startswith("INHERIT_SCALE"):
-            inherit_scale = self.param[14:]
-            if utils.get_mode() == "POSE" and utils.get_active_object() and bpy.context.active_pose_bone:
-                set_child_inherit_scale(utils.get_active_object(), bpy.context.active_pose_bone, inherit_scale)
+            elif self.param == "END":
+                apply_proportion_pose(chr_cache)
+                restore_rig(chr_cache)
+                restore_cc_bone_names(chr_cache)
 
-        elif self.param == "RESET":
-            if utils.get_mode() == "POSE" and utils.get_active_object():
-                reset_proportions(utils.get_active_object())
+            elif self.param.startswith("INHERIT_SCALE"):
+                inherit_scale = self.param[14:]
+                if utils.get_mode() == "POSE" and utils.get_active_object() and bpy.context.active_pose_bone:
+                    set_child_inherit_scale(utils.get_active_object(), bpy.context.active_pose_bone, inherit_scale)
+
+            elif self.param == "RESET":
+                if utils.get_mode() == "POSE" and utils.get_active_object():
+                    reset_proportions(utils.get_active_object())
 
         return {"FINISHED"}
 

@@ -70,7 +70,7 @@ def find_obj_cache(chr_cache, obj):
 
 
 def clear_particle_systems(obj):
-    if utils.set_mode("OBJECT") and utils.set_only_active_object(obj):
+    if utils.object_mode() and utils.set_only_active_object(obj):
         for i in range(0, len(obj.particle_systems)):
             bpy.ops.object.particle_system_remove()
         return True
@@ -1431,7 +1431,7 @@ def smooth_hair_bone_weights(arm, obj, bone_chains, iterations):
 
     # Note: BONE_SELECT group select mode is only available if the armature is also selected with the active mesh
     #       (otherwise it doesn't even exist as an enum option)
-    utils.set_mode("OBJECT")
+    utils.object_mode()
     utils.try_select_objects([arm, obj], True)
     utils.set_active_object(obj)
     utils.set_mode("WEIGHT_PAINT")
@@ -1572,7 +1572,7 @@ def grease_pencil_to_bones(chr_cache, arm, parent_mode, bone_length = 0.05,
         bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
         mode = utils.get_mode()
         if mode != "OBJECT":
-            utils.set_mode("OBJECT")
+            utils.object_mode()
             bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
 
     #mode_selection = utils.store_mode_selection_state()
@@ -1941,7 +1941,7 @@ class CC3OperatorHair(bpy.types.Operator):
             if "builtin.annotate" in tool_idname:
                 mode = utils.get_mode()
                 if mode != "OBJECT":
-                    utils.set_mode("OBJECT")
+                    utils.object_mode()
                     bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
                     utils.set_mode(mode)
                 bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
@@ -1950,7 +1950,7 @@ class CC3OperatorHair(bpy.types.Operator):
             else:
                 mode = utils.get_mode()
                 if mode != "OBJECT":
-                    utils.set_mode("OBJECT")
+                    utils.object_mode()
                     bpy.ops.wm.tool_set_by_id(name="builtin.annotate")
                     utils.set_mode(mode)
                 bpy.ops.wm.tool_set_by_id(name="builtin.annotate")

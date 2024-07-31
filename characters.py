@@ -149,7 +149,7 @@ def get_generic_rig(objects):
 
 def make_prop_armature(objects):
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
     # find the all the root empties and determine if there is one single root
     roots = []
@@ -896,7 +896,7 @@ def make_accessory(chr_cache, objects):
                             obj_bone.parent = accessory_root
 
         # object mode to save new bones
-        utils.set_mode("OBJECT")
+        utils.object_mode()
 
 
     bpy.context.scene.cursor.location = cursor_pos
@@ -1311,7 +1311,7 @@ def get_character_object_names(arm):
 
 def transfer_skin_weights(chr_cache, objects):
 
-    if not utils.set_mode("OBJECT"):
+    if not utils.object_mode():
         return
 
     arm = chr_cache.get_armature()
@@ -1360,7 +1360,7 @@ def transfer_skin_weights(chr_cache, objects):
             #utils.set_mode("WEIGHT_PAINT")
             #bpy.ops.object.vertex_group_smooth(group_select_mode='ALL',
             #                                   factor=0.5, repeat=6, expand=0.5)
-            #utils.set_mode("OBJECT")
+            #utils.object_mode()
 
         # make a copy of the armature and apply the current pose as the rest pose
         arm_posed = utils.duplicate_object(arm)
@@ -1456,7 +1456,7 @@ def transfer_skin_weights(chr_cache, objects):
 
 def normalize_skin_weights(chr_cache, objects):
 
-    if not utils.set_mode("OBJECT"):
+    if not utils.object_mode():
         return
 
     arm = chr_cache.get_armature()

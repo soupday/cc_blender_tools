@@ -320,11 +320,13 @@ def detect_generation(chr_cache, json_data, character_id):
     material_names = characters.get_character_material_names(arm)
     object_names = characters.get_character_object_names(arm)
 
+    # some ActorScan characters are GameBase in disguise...
+    if characters.character_has_bones(arm, ["root", "pelvis", "spine_03", "CC_Base_FacialBone"]):
+        generation = "GameBase"
+
     if generation in ["Unknown", "Humanoid", "Creature"]:
         if len(material_names) == 1 and characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
             generation = "ActorCore"
-        elif characters.character_has_bones(arm, ["root", "pelvis", "spine_03", "CC_Base_FacialBone"]):
-            generation = "GameBase"
         elif characters.character_has_materials(arm, ["Ga_Skin_Body"]):
             if characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
                 generation = "ActorBuild"
@@ -1422,13 +1424,13 @@ class CC3Import(bpy.types.Operator):
 
         # build materials
         elif self.param == "BUILD":
-            utils.set_mode("OBJECT")
+            utils.object_mode()
             self.build_materials(context)
             self.do_import_report(context, stage = 1)
 
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
-            utils.set_mode("OBJECT")
+            utils.object_mode()
             nodeutils.rebuild_node_groups()
             utils.clean_collection(bpy.data.images)
             self.build_materials(context)
@@ -1442,7 +1444,7 @@ class CC3Import(bpy.types.Operator):
         elif self.param == "REBUILD_EEVEE":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
-                utils.set_mode("OBJECT")
+                utils.object_mode()
                 prefs.render_target = "EEVEE"
                 prefs.refractive_eyes = "PARALLAX"
                 if chr_cache.render_target != "EEVEE":
@@ -1453,7 +1455,7 @@ class CC3Import(bpy.types.Operator):
         elif self.param == "REBUILD_BAKE":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
-                utils.set_mode("OBJECT")
+                utils.object_mode()
                 prefs.render_target = "EEVEE"
                 if chr_cache.render_target != "EEVEE":
                     utils.log_info("Character is currently build for Cycles Rendering.")
@@ -1463,7 +1465,7 @@ class CC3Import(bpy.types.Operator):
         elif self.param == "REBUILD_CYCLES":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
-                utils.set_mode("OBJECT")
+                utils.object_mode()
                 prefs.render_target = "CYCLES"
                 prefs.refractive_eyes = "SSR"
                 if chr_cache.render_target != "CYCLES":

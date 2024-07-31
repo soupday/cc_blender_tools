@@ -1188,7 +1188,7 @@ def add_shape_key_drivers(chr_cache, rig):
 
 
 def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def):
-    if utils.set_mode("OBJECT"):
+    if utils.object_mode():
         shape_key = meshutils.find_shape_key(obj, shape_key_name)
         if shape_key:
             fcurve : bpy.types.FCurve
@@ -1243,7 +1243,7 @@ def correct_meta_rig(meta_rig):
     fix_bend(meta_rig, "upper_arm.L", "forearm.L", Vector((0,1,0)))
     fix_bend(meta_rig, "upper_arm.R", "forearm.R", Vector((0,1,0)))
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
     utils.log_recess()
 
@@ -1349,7 +1349,7 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mapping):
     props = vars.props()
     result = 1
 
-    if utils.set_mode("OBJECT"):
+    if utils.object_mode():
 
         # first move rigidbody colliders over
         rigidbody.convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mapping)
@@ -1407,7 +1407,7 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig, remove_meta = False):
         meta_rig.hide_set(True)
     rigify_rig.name = rig_name + "_Rigify"
     rigify_rig.data.name = rig_name + "_Rigify"
-    if utils.set_mode("OBJECT"):
+    if utils.object_mode():
         # delesect all bones (including the hidden ones)
         # Rigimap will bake and clear constraints on the ORG bones if we don't do this...
         for bone in rigify_rig.data.bones:
@@ -1460,7 +1460,7 @@ def init_face_vgroups(rig, obj):
     PREP_VGROUP_VALUE_A = random()
     PREP_VGROUP_VALUE_B = random()
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
     all_verts = []
     for v in obj.data.vertices:
         all_verts.append(v.index)
@@ -1544,7 +1544,7 @@ def lock_non_face_vgroups(chr_cache):
             if bone.name in rigify_mapping_data.FACE_DEF_BONE_PREPASS:
                 bone.use_deform = False
     # select body mesh and active rig
-    if body and arm and utils.set_mode("OBJECT"):
+    if body and arm and utils.object_mode():
         utils.try_select_objects([body, arm], True)
         utils.set_active_object(arm)
 
@@ -1566,7 +1566,7 @@ def unlock_vgroups(chr_cache):
             if bone.name in rigify_mapping_data.FACE_DEF_BONE_PREPASS:
                 bone.use_deform = True
     # select active rig
-    if arm and utils.set_mode("OBJECT"):
+    if arm and utils.object_mode():
         utils.try_select_object(arm, True)
         utils.set_active_object(arm)
 
@@ -1577,7 +1577,7 @@ def mesh_clean_up(obj):
         bpy.ops.mesh.remove_doubles()
         bpy.ops.mesh.delete_loose()
         bpy.ops.mesh.dissolve_degenerate()
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
 
 def clean_up_character_meshes(chr_cache):
@@ -1590,7 +1590,7 @@ def clean_up_character_meshes(chr_cache):
                 face_objects.append(obj)
                 mesh_clean_up(obj)
     # select body mesh and active rig
-    if obj and arm and utils.set_mode("OBJECT"):
+    if obj and arm and utils.object_mode():
         face_objects.append(arm)
         utils.try_select_objects(face_objects, True)
         utils.set_active_object(arm)
@@ -1664,7 +1664,7 @@ def try_parent_auto(chr_cache, rig, obj):
 
 
 def attempt_reparent_auto_character(chr_cache):
-    utils.set_mode("OBJECT")
+    utils.object_mode()
     utils.clear_selected_objects()
     result = 1
     rig = chr_cache.get_armature()
@@ -1681,7 +1681,7 @@ def attempt_reparent_auto_character(chr_cache):
 
 
 def attempt_reparent_voxel_skinning(chr_cache):
-    utils.set_mode("OBJECT")
+    utils.object_mode()
     utils.clear_selected_objects()
     arm = chr_cache.get_armature()
     face_objects = []
@@ -1715,7 +1715,7 @@ def attempt_reparent_voxel_skinning(chr_cache):
 
 
 def separate_head(body_mesh):
-    utils.set_mode("OBJECT")
+    utils.object_mode()
     utils.clear_selected_objects()
     if utils.edit_mode_to(body_mesh):
         bpy.context.object.active_material_index = 0
@@ -1724,7 +1724,7 @@ def separate_head(body_mesh):
             bpy.context.object.active_material_index = 5
             bpy.ops.object.material_slot_select()
         bpy.ops.mesh.separate(type="SELECTED")
-        utils.set_mode("OBJECT")
+        utils.object_mode()
         separated_head = None
         for o in bpy.context.selected_objects:
             if o != body_mesh:
@@ -1733,14 +1733,14 @@ def separate_head(body_mesh):
 
 
 def rejoin_head(head_mesh, body_mesh):
-    utils.set_mode("OBJECT")
+    utils.object_mode()
     utils.try_select_objects([body_mesh, head_mesh], True)
     utils.set_active_object(body_mesh)
     bpy.ops.object.join()
     if utils.edit_mode_to(body_mesh):
         bpy.ops.mesh.select_all(action = 'SELECT')
         bpy.ops.mesh.remove_doubles()
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
 
 # Animation Retargeting
@@ -2337,7 +2337,7 @@ def adv_retarget_remove_pair(op, chr_cache):
     chr_cache.rig_retarget_source_rig = None
     utils.try_select_object(rigify_rig, True)
     utils.set_active_object(rigify_rig)
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
     # clear any animated shape keys
     reset_shape_keys(chr_cache)
@@ -2773,7 +2773,7 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
     bind_pose_is_a_pose = False
     layer = 0
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
     utils.set_mode("EDIT")
 
     if rigutils.edit_rig(export_rig):
@@ -3260,7 +3260,7 @@ def bake_rig_animation(chr_cache, rig, source_action,
                     utils.log_info(f" - Baked shape-key action: {baked_action.name}")
             utils.try_select_objects(shape_key_objects)
 
-        utils.set_mode("OBJECT")
+        utils.object_mode()
 
         # restore view layers
         if limit_view_layer:
@@ -3363,7 +3363,7 @@ class CC3Rigifier(bpy.types.Operator):
         utils.log_info("Generating Meta-Rig:")
         utils.log_indent()
 
-        if utils.set_mode("OBJECT"):
+        if utils.object_mode():
             bpy.ops.object.armature_human_metarig_add()
             self.meta_rig = utils.get_active_object()
             if self.meta_rig is not None:
@@ -3479,7 +3479,7 @@ class CC3Rigifier(bpy.types.Operator):
             utils.make_visible(self.cc3_rig)
             utils.make_visible(self.meta_rig)
 
-            if utils.set_mode("OBJECT") and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
+            if utils.object_mode() and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
 
                 utils.log_info("")
                 utils.log_info("Generating Rigify Control Rig:")
@@ -3543,7 +3543,7 @@ class CC3Rigifier(bpy.types.Operator):
             utils.make_visible(self.cc3_rig)
             utils.make_visible(self.meta_rig)
 
-            if utils.set_mode("OBJECT") and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
+            if utils.object_mode() and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
 
                 utils.log_info("")
                 utils.log_info("Re-generating Rigify Control Rig:")
@@ -3925,7 +3925,7 @@ class CC3RigifierModal(bpy.types.Operator):
         unlock_vgroups(chr_cache)
 
         arm = chr_cache.get_armature()
-        if arm and utils.set_mode("OBJECT"):
+        if arm and utils.object_mode():
             if utils.try_select_object(arm, True) and utils.set_active_object(arm):
                 utils.set_mode("POSE")
 

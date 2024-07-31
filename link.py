@@ -2279,6 +2279,8 @@ class LinkService():
         ambient_color = utils.array_to_color(lights_data["ambient_color"])
         ambient_color.s *= 0.2
 
+        utils.object_mode()
+
         container = self.add_light_container()
 
         for light_data in lights_data["lights"]:
@@ -2434,8 +2436,12 @@ class LinkService():
 
 
     def receive_lights(self, data):
+        props = vars.props()
         update_link_status(f"Light Data Receveived")
+        state = utils.store_mode_selection_state()
+        props.lighting_brightness = 1.0
         self.decode_lights_data(data)
+        utils.restore_mode_selection_state(state)
 
 
     # Camera
@@ -2539,6 +2545,8 @@ class LinkService():
         props = vars.props()
         global LINK_DATA
 
+        state = utils.store_mode_selection_state()
+
         props.validate_and_clean_up()
 
         # decode character templates
@@ -2565,6 +2573,10 @@ class LinkService():
 
         update_link_status(f"Character Templates Received")
 
+        print(utils.get_mode(), utils.get_active_object())
+        print(state)
+        utils.restore_mode_selection_state(state)
+
     def select_actor_rigs(self, actors, start_frame=0, end_frame=0):
         rigs = []
         actor: LinkActor
@@ -2582,7 +2594,7 @@ class LinkService():
                         all_selected = False
                         break
             if not all_selected:
-                utils.set_mode("OBJECT")
+                utils.object_mode()
                 utils.clear_selected_objects()
                 utils.try_select_objects(rigs, True, make_active=True)
                 utils.set_mode("POSE")
@@ -2628,6 +2640,8 @@ class LinkService():
     def receive_pose_frame(self, data):
         global LINK_DATA
 
+        state = utils.store_mode_selection_state()
+
         # decode and cache pose
         frame = self.decode_pose_frame_header(data)
         utils.log_info(f"Receive Pose Frame: {frame}")
@@ -2663,6 +2677,10 @@ class LinkService():
         # finish
         LINK_DATA.sequence_actors = None
         bpy.context.scene.frame_current = frame
+
+        print(utils.get_mode(), utils.get_active_object())
+        print(state)
+        utils.restore_mode_selection_state(state)
 
     def receive_sequence(self, data):
         props = vars.props()

@@ -437,7 +437,7 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
                     bone.parent = parent_bone
 
             # set pose bone layers
-            if utils.set_mode("OBJECT"):
+            if utils.object_mode():
                 for bone_def in src_bone_defs:
                     name = bone_def[7]
                     pose_bone = dst_rig.data.bones[name]
@@ -448,7 +448,7 @@ def copy_rl_edit_bone_subtree(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_n
 
 def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
     try:
-        if utils.set_mode("OBJECT"):
+        if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.CopyTransformsConstraint = to_pose_bone.constraints.new(type="COPY_TRANSFORMS")
             c.target = from_rig
@@ -466,7 +466,7 @@ def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influen
 
 def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
     try:
-        if utils.set_mode("OBJECT"):
+        if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.CopyRotationConstraint = to_pose_bone.constraints.new(type="COPY_ROTATION")
             c.target = from_rig
@@ -491,7 +491,7 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
 
 def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD", axes=None):
     try:
-        if utils.set_mode("OBJECT"):
+        if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.CopyLocationConstraint = to_pose_bone.constraints.new(type="COPY_LOCATION")
             c.target = from_rig
@@ -522,7 +522,7 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
 
 def add_stretch_to_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, head_tail = 0.0, space="WORLD"):
     try:
-        if utils.set_mode("OBJECT"):
+        if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.StretchToConstraint = to_pose_bone.constraints.new(type="STRETCH_TO")
             c.target = from_rig
@@ -541,7 +541,7 @@ def add_stretch_to_constraint(from_rig, to_rig, from_bone, to_bone, influence = 
 
 def add_damped_track_constraint(rig, bone_name, target_name, influence):
     try:
-        if utils.set_mode("OBJECT"):
+        if utils.object_mode():
             pose_bone : bpy.types.PoseBone = rig.pose.bones[bone_name]
             c : bpy.types.DampedTrackConstraint = pose_bone.constraints.new(type="DAMPED_TRACK")
             c.target = rig
@@ -557,7 +557,7 @@ def add_damped_track_constraint(rig, bone_name, target_name, influence):
 
 def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance, influence = 1.0, space="WORLD"):
     try:
-        if utils.set_mode("OBJECT"):
+        if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.LimitDistanceConstraint = to_pose_bone.constraints.new(type="LIMIT_DISTANCE")
             c.target = from_rig
@@ -575,7 +575,7 @@ def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance
 
 def add_child_of_constraint(parent_rig, child_rig, parent_bone, child_bone, influence = 1.0, space="WORLD"):
     try:
-        if utils.set_mode("OBJECT"):
+        if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = child_rig.pose.bones[child_bone]
             c : bpy.types.ChildOfConstraint = to_pose_bone.constraints.new(type="CHILD_OF")
             c.target = parent_rig
@@ -593,7 +593,7 @@ def add_inverse_kinematic_constraint(from_rig, to_rig, from_bone, to_bone, influ
                                      use_tail = True, use_stretch = True, use_rotation = True, use_location = True,
                                      weight = 1.0, orient_weight = 0.0, chain_count = 1):
     try:
-        if utils.set_mode("OBJECT"):
+        if utils.object_mode():
             to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
             c : bpy.types.KinematicConstraint = to_pose_bone.constraints.new(type="IK")
             c.target = from_rig
@@ -921,7 +921,7 @@ def get_distance_between(rig, bone_a_name, bone_b_name):
 
 def generate_eye_widget(rig, bone_name, bones, distance, scale):
     wgt : bpy.types.Object = None
-    if utils.set_mode("OBJECT"):
+    if utils.object_mode():
         if len(bones) == 1:
             bpy.ops.mesh.primitive_circle_add(vertices=16, radius=1, rotation=[0,0,11.25])
             bpy.ops.object.transform_apply(rotation=True)
@@ -1204,7 +1204,7 @@ def generate_spring_widget(rig, name, type, size):
     if wgt_name in bpy.data.objects:
         return bpy.data.objects[wgt_name]
 
-    if utils.set_mode("OBJECT"):
+    if utils.object_mode():
 
         if type == "FK":
             wgt = make_spindle_widget(wgt_name, size)
@@ -1225,14 +1225,14 @@ def generate_spring_widget(rig, name, type, size):
 
 
 def add_pose_bone_custom_property(rig, pose_bone_name, prop_name, prop_value):
-    if utils.set_mode("OBJECT"):
+    if utils.object_mode():
         if pose_bone_name in rig.pose.bones:
             pose_bone = rig.pose.bones[pose_bone_name]
             rna_idprop_ui_create(pose_bone, prop_name, default=prop_value, overridable=True, min=0, max=1)
 
 
 def add_constraint_scripted_influence_driver(rig, pose_bone_name, data_path, variable_name, constraint = None, constraint_type = "", expression = ""):
-    if utils.set_mode("OBJECT"):
+    if utils.object_mode():
         if pose_bone_name in rig.pose.bones:
             pose_bone = rig.pose.bones[pose_bone_name]
             cons = []
@@ -1279,7 +1279,7 @@ def get_data_rigify_limb_property(limb_id, variable_name):
 
 
 def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, props, prop_name, variable_name):
-    if utils.set_mode("OBJECT"):
+    if utils.object_mode():
         pose_bone : bpy.types.PoseBone
         if pose_bone_name in rig.pose.bones:
             pose_bone = rig.pose.bones[pose_bone_name]
@@ -1297,7 +1297,7 @@ def add_bone_prop_driver(rig, pose_bone_name, bone_data_path, bone_data_index, p
 
 def clear_constraints(rig, pose_bone_name):
     if pose_bone_name:
-        if utils.set_mode("OBJECT"):
+        if utils.object_mode():
             if pose_bone_name in rig.pose.bones:
                 pose_bone = rig.pose.bones[pose_bone_name]
                 constraints = []
@@ -1436,7 +1436,7 @@ def reset_root_bone(arm):
             tail = head + mathutils.Vector((0,-1,0)) * length
             root_bone.tail = tail
             root_bone.align_roll(mathutils.Vector((0,0,1)))
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
 
 def bone_mapping_contains_bone(bone_mapping, bone_name):

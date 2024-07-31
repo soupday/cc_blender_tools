@@ -54,7 +54,7 @@ def apply_multi_res_shape(body):
     # applying base shape distorts the displacement maps
     # so it must be done after the displacement map is baked, and it must be final,
     # displacement map masks will no longer work after this
-    if utils.set_mode("OBJECT") and utils.set_only_active_object(body):
+    if utils.object_mode() and utils.set_only_active_object(body):
 
         # removing all shape keys
         utils.log_info("Removing all shape keys")
@@ -552,7 +552,7 @@ def begin_multires_sculpting(chr_cache, layer_target):
     if utils.object_exists_is_mesh(multi_res_mesh):
         set_hide_character(chr_cache, True)
         multi_res_mesh.hide_set(False)
-        utils.set_mode("OBJECT")
+        utils.object_mode()
         utils.set_only_active_object(multi_res_mesh)
         #bpy.ops.view3d.view_selected()
         # TODO mute the detail normal mix nodes (so the normal overlay isn't shown when sculpting)
@@ -570,7 +570,7 @@ def end_multires_sculpting(chr_cache, layer_target, show_baked = False):
         set_multi_res_level(multi_res_mesh, view_level=0)
     else:
         set_multi_res_level(multi_res_mesh, view_level=9)
-    utils.set_mode("OBJECT")
+    utils.object_mode()
     set_hide_character(chr_cache, False)
     multi_res_mesh.hide_set(True)
     utils.set_only_active_object(body)
@@ -608,7 +608,7 @@ def hide_body_parts(chr_cache):
             mat_cache.material_type == "EYELASH"):
             hide_slots.append(i)
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
     utils.clear_selected_objects()
     if utils.edit_mode_to(body):
         bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
@@ -618,7 +618,7 @@ def hide_body_parts(chr_cache):
             bpy.ops.object.material_slot_select()
             bpy.ops.mesh.hide(unselected=False)
 
-    utils.set_mode("OBJECT")
+    utils.object_mode()
 
 
 def add_multires_mesh(chr_cache, layer_target, sub_target = "ALL"):

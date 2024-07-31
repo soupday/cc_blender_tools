@@ -925,45 +925,54 @@ def poke_rig(rig):
     utils.restore_mode_selection_state(state)
 
 
-def set_bone_tail_length(bone: bpy.types.EditBone, new_tail: Vector):
+def set_bone_tail_length(bone: bpy.types.EditBone, tail):
     """Set the length based on a new tail position, but don't set the tail directly
        as it may cause changes in the bone roll and angles."""
-    length = (new_tail - bone.head).length
-    bone.length = length
+    if bone and tail:
+        if type(tail) is bpy.types.EditBone:
+            new_tail = tail.head.copy()
+        elif type(tail) is Vector:
+            new_tail = tail.copy()
+        length = (new_tail - bone.head).length
+        bone.length = length
 
 
 def fix_cc3_bone_sizes(cc3_rig):
     if edit_rig(cc3_rig):
         left_eye = bones.get_edit_bone(cc3_rig, "CC_Base_L_Eye")
         right_eye = bones.get_edit_bone(cc3_rig, "CC_Base_R_Eye")
-        left_hand = bones.get_edit_bone(cc3_rig, "CC_Base_L_Hand")
-        right_hand = bones.get_edit_bone(cc3_rig, "CC_Base_R_Hand")
-        left_foot = bones.get_edit_bone(cc3_rig, "CC_Base_L_Foot")
-        right_foot = bones.get_edit_bone(cc3_rig, "CC_Base_R_Foot")
-        head = bones.get_edit_bone(cc3_rig, "CC_Base_Head")
-        left_upper_arm = bones.get_edit_bone(cc3_rig, "CC_Base_L_Upperarm")
-        right_upper_arm = bones.get_edit_bone(cc3_rig, "CC_Base_R_Upperarm")
-        left_lower_arm = bones.get_edit_bone(cc3_rig, "CC_Base_L_Forearm")
-        right_lower_arm = bones.get_edit_bone(cc3_rig, "CC_Base_R_Forearm")
-        left_thigh = bones.get_edit_bone(cc3_rig, "CC_Base_L_Thigh")
-        right_thigh = bones.get_edit_bone(cc3_rig, "CC_Base_R_Thigh")
-        left_calf = bones.get_edit_bone(cc3_rig, "CC_Base_L_Calf")
-        right_calf = bones.get_edit_bone(cc3_rig, "CC_Base_R_Calf")
-        eye_z = ((left_eye.head + right_eye.head) * 0.5).z
+        left_hand = bones.get_edit_bone(cc3_rig, ["CC_Base_L_Hand", "hand_l"])
+        right_hand = bones.get_edit_bone(cc3_rig, ["CC_Base_R_Hand", "hand_r"])
+        left_foot = bones.get_edit_bone(cc3_rig, ["CC_Base_L_Foot", "foot_l"])
+        right_foot = bones.get_edit_bone(cc3_rig, ["CC_Base_R_Foot", "foot_r"])
+        head = bones.get_edit_bone(cc3_rig, ["CC_Base_Head", "head"])
+        left_upper_arm = bones.get_edit_bone(cc3_rig, ["CC_Base_L_Upperarm", "upperarm_l"])
+        right_upper_arm = bones.get_edit_bone(cc3_rig, ["CC_Base_R_Upperarm", "upperarm_r"])
+        left_lower_arm = bones.get_edit_bone(cc3_rig, ["CC_Base_L_Forearm", "lowerarm_l"])
+        right_lower_arm = bones.get_edit_bone(cc3_rig, ["CC_Base_R_Forearm", "lowerarm_r"])
+        left_thigh = bones.get_edit_bone(cc3_rig, ["CC_Base_L_Thigh", "thigh_l"])
+        right_thigh = bones.get_edit_bone(cc3_rig, ["CC_Base_R_Thigh", "thigh_r"])
+        left_calf = bones.get_edit_bone(cc3_rig, ["CC_Base_L_Calf", "calf_l"])
+        right_calf = bones.get_edit_bone(cc3_rig, ["CC_Base_R_Calf", "calf_r"])
+        # eyes
+        eye_z = None
+        if left_eye and right_eye:
+            eye_z = ((left_eye.head + right_eye.head) * 0.5).z
         # head
-        head_tail = head.tail.copy()
-        head_tail.z = eye_z
-        set_bone_tail_length(head, head_tail)
+        if head:
+            head_tail = head.tail.copy()
+            head_tail.z = eye_z + (eye_z - head.head.z) * 0.5
+            set_bone_tail_length(head, head_tail)
         # arms
-        set_bone_tail_length(left_upper_arm, left_lower_arm.head)
-        set_bone_tail_length(right_upper_arm, right_lower_arm.head)
-        set_bone_tail_length(left_lower_arm, left_hand.head)
-        set_bone_tail_length(right_lower_arm, right_hand.head)
+        set_bone_tail_length(left_upper_arm, left_lower_arm)
+        set_bone_tail_length(right_upper_arm, right_lower_arm)
+        set_bone_tail_length(left_lower_arm, left_hand)
+        set_bone_tail_length(right_lower_arm, right_hand)
         # legs
-        set_bone_tail_length(left_thigh, left_calf.head)
-        set_bone_tail_length(right_thigh, right_calf.head)
-        set_bone_tail_length(left_calf, left_foot.head)
-        set_bone_tail_length(right_calf, right_foot.head)
+        set_bone_tail_length(left_thigh, left_calf)
+        set_bone_tail_length(right_thigh, right_calf)
+        set_bone_tail_length(left_calf, left_foot)
+        set_bone_tail_length(right_calf, right_foot)
 
 
 def reset_rotation_modes(rig, rotation_mode = "QUATERNION"):
@@ -1338,7 +1347,7 @@ def bake_rig_action(src_rig, dst_rig):
         # armature action
         baked_action = utils.safe_get_action(dst_rig)
 
-        utils.set_mode("OBJECT")
+        utils.object_mode()
 
         # restore view layers
         utils.restore_limited_view_layers(tmp_collection, layer_collections, to_hide)

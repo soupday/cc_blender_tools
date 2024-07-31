@@ -637,18 +637,21 @@ def set_only_active_object(obj):
 
 
 def set_mode(mode):
-    if bpy.context.object == None:
-        if mode != "OBJECT":
-            log_error("No context object, unable to set any mode but OBJECT!")
-            return False
-        return True
-    else:
-        if bpy.context.object.mode != mode:
-            bpy.ops.object.mode_set(mode=mode)
-            if bpy.context.object.mode != mode:
-                log_error("Unable to set " + mode + " on object: " + bpy.context.object.name)
+    try:
+        if bpy.context.object == None:
+            if mode != "OBJECT":
+                log_error("No context object, unable to set any mode but OBJECT!")
                 return False
-        return True
+            return True
+        else:
+            if bpy.context.object.mode != mode:
+                bpy.ops.object.mode_set(mode=mode)
+                if bpy.context.object.mode != mode:
+                    log_error("Unable to set " + mode + " on object: " + bpy.context.object.name)
+                    return False
+            return True
+    except:
+        return False
 
 
 def get_mode():
@@ -678,6 +681,10 @@ def edit_mode_to(obj, only_this = False):
             if set_mode("OBJECT") and set_active_object(obj) and set_mode("EDIT"):
                 return True
     return False
+
+
+def object_mode():
+    return set_mode("OBJECT")
 
 
 def object_mode_to(obj):
