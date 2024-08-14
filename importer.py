@@ -886,6 +886,7 @@ class CC3Import(bpy.types.Operator):
     imported_images = []
     import_report = []
     import_warn_level = 0
+    is_morph = False
 
 
     def read_json_data(self, file_path, stage = 0):
@@ -1024,7 +1025,7 @@ class CC3Import(bpy.types.Operator):
                 # invoke the obj importer
                 utils.tag_objects()
                 utils.tag_images()
-                if ImportFlags.RL in import_flags and self.param == "IMPORT_MORPH":
+                if ImportFlags.RL in import_flags and param == "IMPORT_MORPH":
                     obj_import(filepath, split_objects=False, split_groups=False, vgroups=True)
                 else:
                     obj_import(filepath, split_objects=True, split_groups=True, vgroups=False)
@@ -1048,7 +1049,7 @@ class CC3Import(bpy.types.Operator):
                 if imported_character_ids:
                     self.imported_character_ids.extend(imported_character_ids)
 
-                #if self.param == "IMPORT_MORPH":
+                #if param == "IMPORT_MORPH":
                 #    if self.imported_character.get_tex_dir() != "":
                 #        reconstruct_obj_materials(obj)
                 #        pass
@@ -1227,6 +1228,7 @@ class CC3Import(bpy.types.Operator):
                 import_flags = import_flags | ImportFlags.RL
                 import_flags = import_flags | ImportFlags.KEY
                 param = "IMPORT_MORPH"
+                self.is_morph = True
                 utils.log_info("Importing as character morph with ObjKey. (nude character with bind pose)")
                 return import_flags, param
 
@@ -1237,6 +1239,7 @@ class CC3Import(bpy.types.Operator):
                 import_flags = import_flags | ImportFlags.RL
                 import_flags = import_flags | ImportFlags.KEY
                 param = "IMPORT_MORPH"
+                self.is_morph = True
                 utils.log_info("Importing as editable character with fbxkey.")
                 return import_flags, param
 
@@ -1340,18 +1343,19 @@ class CC3Import(bpy.types.Operator):
                     if obj_cache.is_mesh():
                         init_shape_key_range(obj_cache.get_object())
 
-                if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-                    # for any objects with shape keys select basis and enable show in edit mode
-                    for obj_cache in chr_cache.object_cache:
-                        if obj_cache.is_mesh():
-                            apply_edit_shapekeys(obj_cache.get_object())
+                if False:
+                    if self.is_morph:
+                        # for any objects with shape keys select basis and enable show in edit mode
+                        for obj_cache in chr_cache.object_cache:
+                            if obj_cache.is_mesh():
+                                apply_edit_shapekeys(obj_cache.get_object())
 
-                if self.param == "IMPORT_MORPH" or self.param == "IMPORT_ACCESSORY":
-                    if props.lighting_mode:
-                        if chr_cache.is_import_type("FBX"):
-                            scene.setup_scene_default(prefs.pipeline_lighting)
-                        else:
-                            scene.setup_scene_default(prefs.morph_lighting)
+                    if self.is_morph:
+                        if props.lighting_mode:
+                            if chr_cache.is_import_type("FBX"):
+                                scene.setup_scene_default(prefs.pipeline_lighting)
+                            else:
+                                scene.setup_scene_default(prefs.morph_lighting)
 
         if rl_import:
 
@@ -1569,10 +1573,6 @@ class CC3Import(bpy.types.Operator):
                    " - FBX export with motion in 'Current Pose' or 'Custom Motion' does not export an .fbxkey and cannot be exported back to CC3.\n" \
                    " - OBJ export 'Character with Current Pose' does not create an .objkey and cannot be exported back to CC3.\n" \
                    " - OBJ export 'Nude Character in Bind Pose' .obj does not export any materials"
-        elif properties.param == "IMPORT_ACCESSORY":
-            return "Import .fbx or .obj character from CC3 for accessory creation. This will import current pose or animation.\n" \
-                   "Notes for exporting from CC3:\n" \
-                   "1. OBJ or FBX exports in 'Current Pose' are good for accessory creation as they import back into CC3 in exactly the right place"
         elif properties.param == "BUILD":
             return "Rebuild materials for the current imported character with the current build settings"
         elif properties.param == "DELETE_CHARACTER":
