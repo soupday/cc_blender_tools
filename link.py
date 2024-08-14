@@ -1675,28 +1675,29 @@ class LinkService():
 
     def send_morph(self):
         actor: LinkActor = self.get_active_actor()
-        self.send_notify(f"Blender Exporting: {actor.name}...")
-        export_path = self.get_export_path("Morphs", actor.name + "_morph.obj",
-                                           reuse_folder=True, reuse_file=False)
-        key_path = self.get_key_path(export_path, ".ObjKey")
-        self.send_notify(f"Exporting: {actor.name}")
-        state = utils.store_mode_selection_state()
-        bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
-        update_link_status(f"Sending: {actor.name}")
-        export_data = encode_from_json({
-            "path": export_path,
-            "key_path": key_path,
-            "name": actor.name,
-            "type": actor.get_type(),
-            "link_id": actor.get_link_id(),
-            "morph_name": "Test Morph",
-            "morph_path": "Some/Path",
-        })
-        utils.restore_mode_selection_state(state)
-        if os.path.exists(export_path):
-            self.send(OpCodes.MORPH, export_data)
-            update_link_status(f"Sent: {actor.name}")
-            return True
+        if actor:
+            self.send_notify(f"Blender Exporting: {actor.name}...")
+            export_path = self.get_export_path("Morphs", actor.name + "_morph.obj",
+                                            reuse_folder=True, reuse_file=False)
+            key_path = self.get_key_path(export_path, ".ObjKey")
+            self.send_notify(f"Exporting: {actor.name}")
+            state = utils.store_mode_selection_state()
+            bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
+            update_link_status(f"Sending: {actor.name}")
+            export_data = encode_from_json({
+                "path": export_path,
+                "key_path": key_path,
+                "name": actor.name,
+                "type": actor.get_type(),
+                "link_id": actor.get_link_id(),
+                "morph_name": "Test Morph",
+                "morph_path": "Some/Path",
+            })
+            utils.restore_mode_selection_state(state)
+            if os.path.exists(export_path):
+                self.send(OpCodes.MORPH, export_data)
+                update_link_status(f"Sent: {actor.name}")
+                return True
         return False
 
     def send_replace_mesh(self):
@@ -2908,11 +2909,14 @@ class LinkService():
                                       motion_prefix=LINK_DATA.motion_prefix,
                                       use_fake_user=LINK_DATA.use_fake_user)
             motion_rig = utils.get_active_object()
-            self.replace_actor_motion(actor, motion_rig)
-            #except:
-            #    utils.log_error(f"Error importing motion {fbx_path}")
-            #    return
-            update_link_status(f"Motion Imported: {actor.name}")
+            if motion_rig:
+                self.replace_actor_motion(actor, motion_rig)
+                #except:
+                #    utils.log_error(f"Error importing motion {fbx_path}")
+                #    return
+                update_link_status(f"Motion Imported: {actor.name}")
+            else:
+                update_link_status(f"Motion Import Failed!: {actor.name}")
 
     def replace_actor_motion(self, actor: LinkActor, motion_rig):
         prefs = vars.prefs()

@@ -3274,6 +3274,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
         selected_meshes = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
+        #active_chr_cache = props.get_character_cache(obj, mat)
         all_valid_topography = True
         if chr_cache and selected_meshes:
             for obj in selected_meshes:
@@ -3411,6 +3412,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
                 if chr_cache and chr_cache.is_morph():
                     param = "SEND_MORPH"
                     icon="MESH_ICOSPHERE"
+                    #if not active_chr_cache:
+                    #    grid.enabled = False
                 if chr_cache and not chr_cache.is_valid_for_export():
                     grid.alert = True
                     grid.enabled = False

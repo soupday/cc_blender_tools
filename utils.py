@@ -1359,7 +1359,7 @@ def get_context_character(context, strict=False):
 
     # if strict only return chr_cache from valid object_cache context object
     # otherwise it could return the first and only chr_cache
-    if strict and obj and not obj_cache:
+    if strict and (not obj or not obj_cache):
         chr_cache = None
 
     return chr_cache, obj, mat, obj_cache, mat_cache
