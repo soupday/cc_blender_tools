@@ -564,13 +564,12 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             arm["rl_import_file"] = file_path
 
             # link_id
-            if multi_import:
-                link_id = utils.generate_random_id(20)
             json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
-            if not multi_import and json_link_id:
-                chr_cache.link_id = json_link_id
-            else:
-                chr_cache.link_id = link_id
+            if not link_id and json_link_id:
+                link_id = json_link_id
+            if multi_import or not link_id:
+                link_id = utils.generate_random_id(20)
+            chr_cache.link_id = link_id
 
             # root bones
             process_root_bones(arm, json_data, name)
@@ -936,9 +935,9 @@ class CC3Import(bpy.types.Operator):
         file_paths = self.get_file_paths()
         for filepath in file_paths:
 
-            link_id = self.link_id
-            if not link_id or len(file_paths) > 1:
-                link_id = utils.generate_random_id(20)
+            # override link id only if not multi import
+            if len(file_paths) > 1:
+                self.link_id = None
 
             import_flags, param = self.detect_import_mode_from_files(filepath)
 
@@ -999,11 +998,11 @@ class CC3Import(bpy.types.Operator):
                 imported_character_ids = None
                 if ImportFlags.RL in import_flags:
                     imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures,
-                                                            imported, actions, json_data, self.import_report, link_id,
+                                                            imported, actions, json_data, self.import_report, self.link_id,
                                                             only_objects=only_objects,
                                                             motion_prefix=self.motion_prefix)
                 elif prefs.import_auto_convert:
-                    chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=link_id)
+                    chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=self.link_id)
                     imported_character_ids = [chr_cache.link_id]
 
                 # add the imported characters
@@ -1039,10 +1038,10 @@ class CC3Import(bpy.types.Operator):
                 imported_character_ids = None
                 if ImportFlags.RL in import_flags:
                     imported_character_ids = process_rl_import(filepath, import_flags, armatures, rl_armatures,
-                                                            imported, actions, json_data, self.import_report, link_id,
+                                                            imported, actions, json_data, self.import_report, self.link_id,
                                                             motion_prefix=self.motion_prefix)
                 elif prefs.import_auto_convert:
-                    chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=link_id)
+                    chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=self.link_id)
                     imported_character_ids = [ chr_cache.link_id ]
 
                 # add the imported characters
@@ -1066,7 +1065,7 @@ class CC3Import(bpy.types.Operator):
 
                 chr_cache = None
                 if prefs.import_auto_convert:
-                    chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=link_id)
+                    chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=self.link_id)
 
                 # add the imported characters
                 if chr_cache:
@@ -1096,7 +1095,7 @@ class CC3Import(bpy.types.Operator):
 
                 chr_cache = None
                 if prefs.import_auto_convert:
-                    chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=link_id)
+                    chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=self.link_id)
 
                 # add the imported characters
                 if chr_cache:
@@ -1114,7 +1113,7 @@ class CC3Import(bpy.types.Operator):
 
                 chr_cache = None
                 if prefs.import_auto_convert:
-                    chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=link_id)
+                    chr_cache = characters.convert_generic_to_non_standard(imported, filepath, link_id=self.link_id)
 
                 # add the imported characters
                 if chr_cache:

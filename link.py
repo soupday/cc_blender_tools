@@ -1342,7 +1342,7 @@ class LinkService():
             self.receive_actor_update(data)
 
         elif op_code == OpCodes.UPDATE_REPLACE:
-            self.receive_actor_update_replace(data)
+            self.receive_update_replace(data)
 
         elif op_code == OpCodes.RIGIFY:
             self.receive_rigify_request(data)
@@ -3066,7 +3066,7 @@ class LinkService():
                 geom.copy_vert_positions_by_index(source, dest)
                 utils.delete_mesh_object(source)
 
-    def receive_actor_update_replace(self, data):
+    def receive_update_replace(self, data):
         props = vars.props()
         global LINK_DATA
 
@@ -3090,6 +3090,7 @@ class LinkService():
 
         # import character assign new link_id
         temp_link_id = utils.generate_random_id(20)
+        utils.log_info(f"Importing replacement with temp link_id: {temp_link_id}")
         bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=temp_link_id, process_only=process_only)
 
         # the actor to replace
