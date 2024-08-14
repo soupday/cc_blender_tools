@@ -1136,9 +1136,11 @@ class CC3Import(bpy.types.Operator):
 
         nodeutils.check_node_groups()
 
-        on_import = self.imported_character_ids is not None
-        imported_characters = props.get_characters_by_link_id(self.imported_character_ids)
-        if not on_import:
+        if self.imported_character_ids:
+            on_import = True
+            imported_characters = props.get_characters_by_link_id(self.imported_character_ids)
+        else:
+            on_import = False
             chr_cache = props.get_context_character_cache(context)
             imported_characters = [ chr_cache ]
 
