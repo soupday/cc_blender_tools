@@ -2853,7 +2853,7 @@ class LinkService():
             # props have big ugly bones, so show them as wires
             if actor and actor.get_type() == "PROP":
                 arm = actor.get_armature()
-                rigutils.custom_prop_rig(arm)
+                #rigutils.custom_prop_rig(arm)
                 #rigutils.de_pivot(actor.get_chr_cache())
             elif actor and actor.get_type() == "AVATAR":
                 if actor.get_chr_cache().is_non_standard():
@@ -3543,6 +3543,12 @@ class CCICDataLink(bpy.types.Operator):
 
         elif properties.param == "SEND_MORPH":
             return "Send the character body back to CC4 and create a morph slider for it"
+
+        elif properties.param == "SEND_ACTOR_INVALID":
+            return "This standard character has altered topology of the base body mesh and will not re-import into Character Creator"
+
+        elif properties.param == "SEND_MORPH_INVALID":
+            return "This standard character morph has altered topology of the base body mesh and will not re-import into Character Creator"
 
         elif properties.param == "SYNC_CAMERA":
             return "TBD"

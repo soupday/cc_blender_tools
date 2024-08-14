@@ -21,7 +21,7 @@ import bpy
 VERSION_STRING = "v0.0.0"
 DEV = False
 PLUGIN_COMPATIBLE = [
-    "2.1.5",
+    "2.1.6",
 ]
 
 def set_version_string(bl_info):
@@ -113,11 +113,15 @@ ENUM_OBJECT_TYPES = [
 
 CHARACTER_GENERATION = {
     "RL_CC3_Plus": "G3Plus",
+    "G3Plus": "G3Plus",
     "RL_CharacterCreator_Base_Game_G1_Divide_Eyelash_UV": "GameBase",
     "RL_CharacterCreator_Base_Game_G1_Multi_UV": "GameBase",
     "RL_CharacterCreator_Base_Game_G1_One_UV": "GameBase",
+    "GameBase": "GameBase",
     "RL_CharacterCreator_Base_Std_G3": "G3",
+    "G3": "G3",
     "RL_G6_Standard_Series": "G1",
+    "G1": "G1",
     "NonStdLookAtDataCopyFromCCBase": "ActorCore",
     "ActorCore": "ActorCore",
     "ActorBuild": "ActorBuild",

@@ -147,7 +147,7 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     disp_body = utils.duplicate_object(body)
     disp_body.name = body.name + "_DISPBAKE"
 
-    # displacement maps *will not* bake if multiple overlapping materials in the mesh,
+    # displacement masks *will not* bake if multiple overlapping materials in the mesh,
     # so split by materials and bake each separately.
     utils.log_info(f"Baking {layer_target} displacement...")
     utils.clear_selected_objects()

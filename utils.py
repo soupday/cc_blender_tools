@@ -359,6 +359,13 @@ def image_exists(img: bpy.types.Image):
         return False
 
 
+def purge_image(img: bpy.types.Image):
+    if image_exists(img):
+        users = img.users - (1 if img.use_extra_user else 0)
+        if users <= 0:
+            bpy.data.images.remove(img)
+
+
 def get_selected_mesh():
     if object_exists_is_mesh(get_active_object()):
         return get_active_object()

@@ -1062,13 +1062,12 @@ class CC3TextureMapping(bpy.types.PropertyGroup):
         self.disabled = True
 
     def delete(self):
-        if self.disabled:
-            if utils.image_exists(self.image):
-                utils.log_detail(f" - Deleting texture mapping image: {self.image.name}")
-                bpy.data.images.remove(self.image)
+        if self.disabled and utils.image_exists(self.image):
+            utils.log_detail(f" - Deleting texture mapping image: {self.image.name}")
+            utils.purge_image(self.image)
 
     def clean_up(self):
-        if self.disabled:
+        if self.disabled and utils.image_exists(self.image):
             utils.log_detail(f" - Cleaning up texture mapping: {self.image.name}")
             self.image = None
 
@@ -1234,7 +1233,7 @@ class CC3MaterialCache:
                 bpy.data.materials.remove(self.material)
             if utils.image_exists(self.temp_weight_map):
                 utils.log_detail(f" - Deleting Temporary weight map image: {self.temp_weight_map.name}")
-                bpy.data.images.remove(self.temp_weight_map)
+                utils.purge_image(self.temp_weight_map)
 
     def clean_up(self):
         tex_mapping: CC3TextureMapping
@@ -1554,16 +1553,16 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.auto_index += 1
         return self.auto_index
 
-    def select(self):
+    def select(self, only=True):
         arm = self.get_armature()
         if arm:
-            utils.try_select_object(arm, clear_selection=True)
+            utils.try_select_object(arm, clear_selection=only)
         else:
             self.select_all()
 
-    def select_all(self):
+    def select_all(self, only=True):
         objects = self.get_all_objects(include_armature=True, include_children=True)
-        utils.try_select_objects(objects, clear_selection=True)
+        utils.try_select_objects(objects, clear_selection=only)
 
     def get_tex_dir(self):
         dir, file = os.path.split(self.import_file)
@@ -2258,9 +2257,37 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return body
         return None
 
+    def is_valid_for_export(self):
+        """If the character is a standard cc3+ character, is the body topology valid for export"""
+        if self.is_standard():
+            body = None
+            body_cache = None
+            for obj_cache in self.object_cache:
+                if obj_cache.object_type == "BODY":
+                    body = obj_cache.get_object()
+                    if body:
+                        body_cache = obj_cache
+                        break
+                    else:
+                        body_cache = None
+            if body and body_cache:
+                if self.generation == "G3":
+                    if (len(body.data.vertices) == 13286 and
+                        len(body.data.edges) == 26374 and
+                        len(body.data.polygons) == 13100):
+                        return True
+                elif self.generation == "G3Plus":
+                    if (len(body.data.vertices) == 14164 and
+                        len(body.data.edges) == 28202 and
+                        len(body.data.polygons) == 14046):
+                        return True
+            return False
+        else:
+            return True
+
     def get_link_id(self):
         if not self.link_id:
-            self.link_id = utils.generate_random_id(14)
+            self.link_id = utils.generate_random_id(20)
         return self.link_id
 
     def validate(self, report=None):
@@ -2650,6 +2677,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     if mat_cache and not mat_cache.disabled:
                         return chr_cache
         return None
+
+    def get_characters_by_link_id(self, character_ids):
+        characters = []
+        for chr_cache in self.import_cache:
+            if chr_cache.link_id in character_ids:
+                characters.append(chr_cache)
+        return characters
 
     def get_avatars(self):
         avatars = []

@@ -1794,9 +1794,23 @@ def zoom_to_character(chr_cache):
             obj = obj_cache.get_object()
             if not obj_cache.disabled and obj:
                 obj.select_set(True)
-        bpy.ops.view3d.view_selected()
+        zoom_to_selected()
     except:
         pass
+
+
+def zoom_to_selected():
+    for area in bpy.context.screen.areas:
+        if area.type == "VIEW_3D":
+            for region in area.regions:
+                if region.type == "WINDOW":
+                    context = bpy.context.copy()
+                    context['area'] = area
+                    context['region'] = region
+                    with bpy.context.temp_override(**context):
+                        bpy.ops.view3d.view_selected()
+                        # bpy.ops.view3d.camera_to_view_selected()
+
 
 
 def active_select_body(chr_cache):

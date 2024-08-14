@@ -208,7 +208,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         json_data[new_name].pop("Import_Name", None)
 
     if not chr_cache.link_id:
-        chr_cache.link_id = utils.generate_random_id(14)
+        chr_cache.link_id = utils.generate_random_id(20)
     json_data[new_name]["Link_ID"] = chr_cache.link_id
 
     if chr_cache.is_non_standard():
@@ -2604,6 +2604,8 @@ class CC3Export(bpy.types.Operator):
                    "**Mesh must have the same number of vertices as the original mesh to replace**"
         elif properties.param == "CHECK_EXPORT":
             return "Check for issues with the character for export. *Note* This will also test any selected objects as well as all objects attached to the character, as selected objects can also be exported with the character"
+        elif properties.param == "EXPORT_CC3_INVALID":
+            return "This standard character has altered topology of the base body mesh and will not re-import into Character Creator"
         return ""
 
 

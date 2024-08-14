@@ -69,7 +69,7 @@ def duplicate_character(chr_cache):
     old_cache = chr_cache
     chr_cache = props.add_character_cache()
     utils.copy_property_group(old_cache, chr_cache)
-    chr_cache.link_id = utils.generate_random_id(14)
+    chr_cache.link_id = utils.generate_random_id(20)
 
     for obj_cache in chr_cache.object_cache:
         old_id = obj_cache.object_id
@@ -105,7 +105,7 @@ def duplicate_character(chr_cache):
     chr_cache.character_name = character_name
     if chr_cache.rigified:
         rig_name = character_name + "_Rigify"
-        chr_rig["rig_id"] = utils.generate_random_id(16)
+        chr_rig["rig_id"] = utils.generate_random_id(20)
         # copy the meta-rig too, if it's still there
         if utils.object_exists_is_armature(chr_cache.rig_meta_rig):
             tmp = utils.force_visible_in_scene("TMP_Duplicate", chr_cache.rig_meta_rig)
@@ -258,7 +258,7 @@ def make_prop_armature(objects):
     return arm
 
 
-def convert_generic_to_non_standard(objects, file_path=None, type_override=None, name_override=None):
+def convert_generic_to_non_standard(objects, file_path=None, type_override=None, name_override=None, link_id=None):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -336,6 +336,9 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
     chr_cache.import_embedded = False
     chr_cache.generation = "Unknown"
     chr_cache.non_standard_type = chr_type
+    if not link_id:
+        link_id = utils.generate_random_id(20)
+    chr_cache.link_id = link_id
 
     chr_cache.add_object_cache(chr_rig)
 
@@ -1686,7 +1689,7 @@ class CC3OperatorCharacter(bpy.types.Operator):
         elif self.param == "REGENERATE_LINK_ID":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
-                chr_cache.link_id = utils.generate_random_id(14)
+                chr_cache.link_id = utils.generate_random_id(20)
 
         return {"FINISHED"}
 
