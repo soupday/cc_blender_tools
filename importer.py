@@ -778,7 +778,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
 
 def obj_import(file_path, split_objects=False, split_groups=False, vgroups=False):
     split_mode="ON" if (split_objects or split_groups) else "OFF"
-    if utils.B330():
+    if utils.B350():
         bpy.ops.wm.obj_import(filepath=file_path,
                               use_split_objects=split_objects,
                               use_split_groups=split_groups,

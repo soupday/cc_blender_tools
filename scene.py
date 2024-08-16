@@ -1807,9 +1807,12 @@ def zoom_to_selected():
                     context = bpy.context.copy()
                     context['area'] = area
                     context['region'] = region
-                    with bpy.context.temp_override(**context):
-                        bpy.ops.view3d.view_selected()
-                        # bpy.ops.view3d.camera_to_view_selected()
+                    if utils.B320():
+                        with bpy.context.temp_override(**context):
+                            bpy.ops.view3d.view_selected()
+                            # bpy.ops.view3d.camera_to_view_selected()
+                    else:
+                        bpy.ops.view3d.view_selected(context)
 
 
 
