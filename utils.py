@@ -1755,6 +1755,22 @@ def find_layer_collection(name, layer_collection = None):
     return None
 
 
+def clear_prop_collection(col):
+    try:
+        col.clear()
+        return True
+    except:
+        pass
+    try:
+        while col:
+            col.remove(col[0])
+        return True
+    except:
+        pass
+    log_error(f"Unable to clear property collection: {col}")
+    return False
+
+
 def B290():
     return is_blender_version("2.90.0")
 

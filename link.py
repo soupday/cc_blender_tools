@@ -645,7 +645,7 @@ def reset_action(chr_cache):
         rig = chr_cache.get_armature()
         if rig:
             action = utils.safe_get_action(rig)
-            action.fcurves.clear()
+            utils.clear_prop_collection(action.fcurves)
 
 
 def create_fcurves_cache(count, indices, defaults):
@@ -698,7 +698,7 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
             action = get_datalink_rig_action(rig, motion_id)
             rigutils.add_motion_set_data(action, set_id, set_generation, rl_arm_id=rl_arm_id)
             utils.log_info(f"Preparing rig action: {action.name}")
-            action.fcurves.clear()
+            utils.clear_prop_collection(action.fcurves)
 
             # shape key actions
             num_expressions = len(actor.expressions)
@@ -713,7 +713,7 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
                     else:
                         action = bpy.data.actions.new(action_name)
                     rigutils.add_motion_set_data(action, set_id, set_generation, obj_id=obj_id)
-                    action.fcurves.clear()
+                    utils.clear_prop_collection(action.fcurves)
                     utils.safe_set_action(obj.data.shape_keys, action)
                     action.use_fake_user = LINK_DATA.use_fake_user
                 # remove actions from non sequence objects
@@ -892,7 +892,7 @@ def write_sequence_actions(actor: LinkActor, num_frames):
         set_count = num_frames * 2
 
         if rig_action:
-            rig_action.fcurves.clear()
+            utils.clear_prop_collection(rig_action.fcurves)
             bone_cache = actor.cache["bones"]
             for bone_name in bone_cache:
                 pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
@@ -921,7 +921,7 @@ def write_sequence_actions(actor: LinkActor, num_frames):
         for obj in objects:
             obj_action = utils.safe_get_action(obj.data.shape_keys)
             if obj_action:
-                obj_action.fcurves.clear()
+                utils.clear_prop_collection(obj_action.fcurves)
                 for expression_name in expression_cache:
                     if expression_name in obj.data.shape_keys.key_blocks:
                         key_cache = expression_cache[expression_name]
