@@ -37,6 +37,7 @@ Links
 
 ### 2.1.6
 - Import supports multiple file selection.
+    - To import multiple objects from a folder, press shift + select the FBX files in the importer file selection window.
 - Fixes for blender version before 4.0:
     - Replace mesh OBJ export.
     - Rigging bone layer assignment.
