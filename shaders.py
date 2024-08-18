@@ -1322,12 +1322,13 @@ def fix_sss_method(bsdf, is_skin=False, is_hair=False, is_eyes=False, is_scalp=F
     else:
 
         # Blender 3.4 - 3.6
-        for bsdf in bsdf_nodes:
-            if is_skin or is_eyes or is_scalp:
-                bsdf.subsurface_method = "RANDOM_WALK"
-                bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
-            else:
-                bsdf.subsurface_method = "BURLEY"
+        if utils.B340():
+            for bsdf in bsdf_nodes:
+                if is_skin or is_eyes or is_scalp:
+                    bsdf.subsurface_method = "RANDOM_WALK"
+                    bsdf.inputs['Subsurface Anisotropy'].default_value = 0.5
+                else:
+                    bsdf.subsurface_method = "BURLEY"
 
 
 def get_connected_textures(node: bpy.types.NodeGroup, tex_nodes: set, done=None):

@@ -207,7 +207,11 @@ def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, sca
         if chr_cache and chr_cache.is_import_type("OBJ"):
             text = "Export Morph Target"
             icon = "ARROW_LEFTRIGHT"
-        row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3"
+        if not chr_cache.is_valid_for_export():
+            row.alert = True
+            row.enabled = False
+            text = "Invalid Character!"
+        row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3_INVALID"
         if not chr_cache.can_standard_export():
             row.enabled = False
             if warn and not chr_cache.get_import_has_key():
@@ -215,6 +219,7 @@ def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, sca
                     layout.row().label(text="No Fbx-Key file!", icon="ERROR")
                 elif chr_cache.is_import_type("OBJ"):
                     layout.row().label(text="No Obj-Key file!", icon="ERROR")
+
 
     elif chr_rig:
         row = layout.row()
@@ -3269,6 +3274,7 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context, strict=True)
         selected_meshes = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
+        #active_chr_cache = props.get_character_cache(obj, mat)
         all_valid_topography = True
         if chr_cache and selected_meshes:
             for obj in selected_meshes:
@@ -3400,10 +3406,20 @@ class CCICDataLinkPanel(bpy.types.Panel):
 
                 grid = col.grid_flow(row_major=True, columns=1, align=True)
                 grid.scale_y = 2.0
+                text = "Go CC"
+                param = "SEND_ACTOR"
+                icon = "COMMUNITY"
                 if chr_cache and chr_cache.is_morph():
-                    grid.operator("ccic.datalink", icon="MESH_ICOSPHERE", text="Go CC").param = "SEND_MORPH"
-                else:
-                    grid.operator("ccic.datalink", icon="COMMUNITY", text="Go CC").param = "SEND_ACTOR"
+                    param = "SEND_MORPH"
+                    icon="MESH_ICOSPHERE"
+                    #if not active_chr_cache:
+                    #    grid.enabled = False
+                if chr_cache and not chr_cache.is_valid_for_export():
+                    grid.alert = True
+                    grid.enabled = False
+                    text = "Invalid Character!"
+                    param += "_INVALID"
+                grid.operator("ccic.datalink", icon=icon, text=text).param = param
                 if not (chr_cache and chr_cache.can_go_cc()):
                     grid.enabled = False
 

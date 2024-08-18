@@ -645,7 +645,7 @@ def reset_action(chr_cache):
         rig = chr_cache.get_armature()
         if rig:
             action = utils.safe_get_action(rig)
-            action.fcurves.clear()
+            utils.clear_prop_collection(action.fcurves)
 
 
 def create_fcurves_cache(count, indices, defaults):
@@ -698,7 +698,7 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
             action = get_datalink_rig_action(rig, motion_id)
             rigutils.add_motion_set_data(action, set_id, set_generation, rl_arm_id=rl_arm_id)
             utils.log_info(f"Preparing rig action: {action.name}")
-            action.fcurves.clear()
+            utils.clear_prop_collection(action.fcurves)
 
             # shape key actions
             num_expressions = len(actor.expressions)
@@ -713,7 +713,7 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
                     else:
                         action = bpy.data.actions.new(action_name)
                     rigutils.add_motion_set_data(action, set_id, set_generation, obj_id=obj_id)
-                    action.fcurves.clear()
+                    utils.clear_prop_collection(action.fcurves)
                     utils.safe_set_action(obj.data.shape_keys, action)
                     action.use_fake_user = LINK_DATA.use_fake_user
                 # remove actions from non sequence objects
@@ -892,7 +892,7 @@ def write_sequence_actions(actor: LinkActor, num_frames):
         set_count = num_frames * 2
 
         if rig_action:
-            rig_action.fcurves.clear()
+            utils.clear_prop_collection(rig_action.fcurves)
             bone_cache = actor.cache["bones"]
             for bone_name in bone_cache:
                 pose_bone: bpy.types.PoseBone = rig.pose.bones[bone_name]
@@ -921,7 +921,7 @@ def write_sequence_actions(actor: LinkActor, num_frames):
         for obj in objects:
             obj_action = utils.safe_get_action(obj.data.shape_keys)
             if obj_action:
-                obj_action.fcurves.clear()
+                utils.clear_prop_collection(obj_action.fcurves)
                 for expression_name in expression_cache:
                     if expression_name in obj.data.shape_keys.key_blocks:
                         key_cache = expression_cache[expression_name]
@@ -1342,7 +1342,7 @@ class LinkService():
             self.receive_actor_update(data)
 
         elif op_code == OpCodes.UPDATE_REPLACE:
-            self.receive_actor_update_replace(data)
+            self.receive_update_replace(data)
 
         elif op_code == OpCodes.RIGIFY:
             self.receive_rigify_request(data)
@@ -1675,29 +1675,52 @@ class LinkService():
 
     def send_morph(self):
         actor: LinkActor = self.get_active_actor()
-        self.send_notify(f"Blender Exporting: {actor.name}...")
-        export_path = self.get_export_path("Morphs", actor.name + "_morph.obj",
-                                           reuse_folder=True, reuse_file=False)
-        key_path = self.get_key_path(export_path, ".ObjKey")
-        self.send_notify(f"Exporting: {actor.name}")
-        state = utils.store_mode_selection_state()
-        bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
-        update_link_status(f"Sending: {actor.name}")
-        export_data = encode_from_json({
-            "path": export_path,
-            "key_path": key_path,
-            "name": actor.name,
-            "type": actor.get_type(),
-            "link_id": actor.get_link_id(),
-            "morph_name": "Test Morph",
-            "morph_path": "Some/Path",
-        })
-        utils.restore_mode_selection_state(state)
-        if os.path.exists(export_path):
-            self.send(OpCodes.MORPH, export_data)
-            update_link_status(f"Sent: {actor.name}")
-            return True
+        if actor:
+            self.send_notify(f"Blender Exporting: {actor.name}...")
+            export_path = self.get_export_path("Morphs", actor.name + "_morph.obj",
+                                            reuse_folder=True, reuse_file=False)
+            key_path = self.get_key_path(export_path, ".ObjKey")
+            self.send_notify(f"Exporting: {actor.name}")
+            state = utils.store_mode_selection_state()
+            bpy.ops.cc3.exporter(param="EXPORT_CC3", filepath=export_path)
+            update_link_status(f"Sending: {actor.name}")
+            export_data = encode_from_json({
+                "path": export_path,
+                "key_path": key_path,
+                "name": actor.name,
+                "type": actor.get_type(),
+                "link_id": actor.get_link_id(),
+                "morph_name": "Test Morph",
+                "morph_path": "Some/Path",
+            })
+            utils.restore_mode_selection_state(state)
+            if os.path.exists(export_path):
+                self.send(OpCodes.MORPH, export_data)
+                update_link_status(f"Sent: {actor.name}")
+                return True
         return False
+
+    def obj_export(self, file_path, use_selection=False, use_animation=False, global_scale=100,
+                         use_vertex_colors=False, use_vertex_groups=False, apply_modifiers=True,
+                         keep_vertex_order=False, use_materials=False):
+        if utils.B330():
+            bpy.ops.wm.obj_export(filepath=file_path,
+                                global_scale=global_scale,
+                                export_selected_objects=use_selection,
+                                export_animation=use_animation,
+                                export_materials=use_materials,
+                                export_colors=use_vertex_colors,
+                                export_vertex_groups=use_vertex_groups,
+                                apply_modifiers=apply_modifiers)
+        else:
+            bpy.ops.export_scene.obj(filepath=file_path,
+                                    global_scale=global_scale,
+                                    use_selection=use_selection,
+                                    use_materials=use_materials,
+                                    use_animation=use_animation,
+                                    use_vertex_groups=use_vertex_groups,
+                                    use_mesh_modifiers=apply_modifiers,
+                                    keep_vertex_order=keep_vertex_order)
 
     def send_replace_mesh(self):
         state = utils.store_mode_selection_state()
@@ -1719,14 +1742,7 @@ class LinkService():
                     export_path = self.get_export_path("Meshes", f"{obj.name}_mesh.obj",
                                                        reuse_folder=True, reuse_file=True)
                     utils.set_active_object(obj, deselect_all=True)
-                    bpy.ops.wm.obj_export(filepath=export_path,
-                                          global_scale=100,
-                                          export_selected_objects=True,
-                                          export_animation=False,
-                                          export_materials=False,
-                                          export_colors=True,
-                                          export_vertex_groups=False,
-                                          apply_modifiers=True)
+                    self.obj_export(export_path, use_selection=True, use_vertex_colors=True)
                     export_data = encode_from_json({
                         "path": export_path,
                         "actor_name": actor.name,
@@ -1767,7 +1783,8 @@ class LinkService():
                 exporter.set_character_generation(json_data, chr_cache, actor.name)
             exporter.prep_export(chr_cache, actor.name, objects, json_data,
                                  chr_cache.get_import_dir(), export_dir,
-                                 False, False, False, False, True, materials=materials, sync=True)
+                                 False, False, False, False, True,
+                                 materials=materials, sync=True, force_bake=True)
             jsonutils.write_json(json_data, export_path)
             export_data = encode_from_json({
                         "path": export_path,
@@ -2844,6 +2861,7 @@ class LinkService():
         if os.path.exists(fbx_path):
             try:
                 bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id,
+                                     zoom=False, no_rigify=True,
                                      motion_prefix=LINK_DATA.motion_prefix,
                                      use_fake_user=LINK_DATA.use_fake_user)
             except:
@@ -2853,7 +2871,7 @@ class LinkService():
             # props have big ugly bones, so show them as wires
             if actor and actor.get_type() == "PROP":
                 arm = actor.get_armature()
-                rigutils.custom_prop_rig(arm)
+                #rigutils.custom_prop_rig(arm)
                 #rigutils.de_pivot(actor.get_chr_cache())
             elif actor and actor.get_type() == "AVATAR":
                 if actor.get_chr_cache().is_non_standard():
@@ -2908,11 +2926,14 @@ class LinkService():
                                       motion_prefix=LINK_DATA.motion_prefix,
                                       use_fake_user=LINK_DATA.use_fake_user)
             motion_rig = utils.get_active_object()
-            self.replace_actor_motion(actor, motion_rig)
-            #except:
-            #    utils.log_error(f"Error importing motion {fbx_path}")
-            #    return
-            update_link_status(f"Motion Imported: {actor.name}")
+            if motion_rig:
+                self.replace_actor_motion(actor, motion_rig)
+                #except:
+                #    utils.log_error(f"Error importing motion {fbx_path}")
+                #    return
+                update_link_status(f"Motion Imported: {actor.name}")
+            else:
+                update_link_status(f"Motion Import Failed!: {actor.name}")
 
     def replace_actor_motion(self, actor: LinkActor, motion_rig):
         prefs = vars.prefs()
@@ -3062,7 +3083,7 @@ class LinkService():
                 geom.copy_vert_positions_by_index(source, dest)
                 utils.delete_mesh_object(source)
 
-    def receive_actor_update_replace(self, data):
+    def receive_update_replace(self, data):
         props = vars.props()
         global LINK_DATA
 
@@ -3086,6 +3107,7 @@ class LinkService():
 
         # import character assign new link_id
         temp_link_id = utils.generate_random_id(20)
+        utils.log_info(f"Importing replacement with temp link_id: {temp_link_id}")
         bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=temp_link_id, process_only=process_only)
 
         # the actor to replace
@@ -3543,6 +3565,12 @@ class CCICDataLink(bpy.types.Operator):
 
         elif properties.param == "SEND_MORPH":
             return "Send the character body back to CC4 and create a morph slider for it"
+
+        elif properties.param == "SEND_ACTOR_INVALID":
+            return "This standard character has altered topology of the base body mesh and will not re-import into Character Creator"
+
+        elif properties.param == "SEND_MORPH_INVALID":
+            return "This standard character morph has altered topology of the base body mesh and will not re-import into Character Creator"
 
         elif properties.param == "SYNC_CAMERA":
             return "TBD"

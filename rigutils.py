@@ -1594,6 +1594,21 @@ def get_custom_widgets():
     return widgets
 
 
+def set_bone_shape_scale(pose_bone: bpy.types.PoseBone, scale):
+    try:
+        pose_bone.custom_shape_scale_xyz = Vector((scale,scale,scale))
+        return True
+    except:
+        pass
+    try:
+        pose_bone.custom_shape_scale = scale
+        return True
+    except:
+        pass
+    utils.log_error(f"Unable to set bone shape scale: {pose_bone.name} / {scale}")
+    return False
+
+
 def custom_prop_rig(rig):
     prefs = vars.prefs()
 
@@ -1679,10 +1694,10 @@ def custom_prop_rig(rig):
             if root_bone:
                 if not pose_bone.parent:
                     pose_bone.custom_shape = widgets["root"]
-                    pose_bone.custom_shape_scale_xyz = Vector((20,20,20))
+                    set_bone_shape_scale(pose_bone, 20)
                 else:
                     pose_bone.custom_shape = widgets["default"]
-                    pose_bone.custom_shape_scale_xyz = Vector((15,15,15))
+                    set_bone_shape_scale(pose_bone, 15)
                 bone.hide = False
                 pose_bone.use_custom_shape_bone_size = False
                 bones.set_bone_color(pose_bone, "ROOT")
@@ -1690,7 +1705,7 @@ def custom_prop_rig(rig):
                 pose_bone.custom_shape = widgets["pivot"]
                 bone.hide = True
                 pose_bone.use_custom_shape_bone_size = False
-                pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+                set_bone_shape_scale(pose_bone, 10)
                 bones.set_bone_color(pose_bone, "SPECIAL")
             elif skin_bone:
                 pose_bone.custom_shape = widgets["skin"]
@@ -1704,25 +1719,25 @@ def custom_prop_rig(rig):
                 pose_bone.custom_shape = widgets["mesh"]
                 bone.hide = True
                 pose_bone.use_custom_shape_bone_size = False
-                pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+                set_bone_shape_scale(pose_bone, 10)
                 bones.set_bone_color(pose_bone, "SPECIAL")
             elif rigid_bone:
                 pose_bone.custom_shape = widgets["default"]
                 bone.hide = False
                 pose_bone.use_custom_shape_bone_size = False
-                pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+                set_bone_shape_scale(pose_bone, 10)
                 bones.set_bone_color(pose_bone, "TWEAK")
             elif dummy_bone:
                 pose_bone.custom_shape = widgets["pivot"]
                 bone.hide = True
                 pose_bone.use_custom_shape_bone_size = False
-                pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+                set_bone_shape_scale(pose_bone, 10)
                 bones.set_bone_color(pose_bone, "IK")
             elif node_bone:
                 pose_bone.custom_shape = widgets["default"]
                 bone.hide = prefs.datalink_hide_prop_bones
                 pose_bone.use_custom_shape_bone_size = False
-                pose_bone.custom_shape_scale_xyz = Vector((10,10,10))
+                set_bone_shape_scale(pose_bone, 10)
                 bones.set_bone_color(pose_bone, "SPECIAL")
 
 
@@ -1754,10 +1769,10 @@ def custom_avatar_rig(rig):
             if bone.parent is None:
                 if not pose_bone.parent:
                     pose_bone.custom_shape = widgets["root"]
-                    pose_bone.custom_shape_scale_xyz = Vector((20,20,20))
+                    set_bone_shape_scale(pose_bone, 20)
                 else:
                     pose_bone.custom_shape = widgets["default"]
-                    pose_bone.custom_shape_scale_xyz = Vector((15,15,15))
+                    set_bone_shape_scale(pose_bone, 15)
                 bone.hide = False
                 pose_bone.use_custom_shape_bone_size = False
                 bones.set_bone_color(pose_bone, "ROOT")

@@ -359,6 +359,13 @@ def image_exists(img: bpy.types.Image):
         return False
 
 
+def purge_image(img: bpy.types.Image):
+    if image_exists(img):
+        users = img.users - (1 if img.use_extra_user else 0)
+        if users <= 0:
+            bpy.data.images.remove(img)
+
+
 def get_selected_mesh():
     if object_exists_is_mesh(get_active_object()):
         return get_active_object()
@@ -1352,7 +1359,7 @@ def get_context_character(context, strict=False):
 
     # if strict only return chr_cache from valid object_cache context object
     # otherwise it could return the first and only chr_cache
-    if strict and obj and not obj_cache:
+    if strict and (not obj or not obj_cache):
         chr_cache = None
 
     return chr_cache, obj, mat, obj_cache, mat_cache
@@ -1748,6 +1755,22 @@ def find_layer_collection(name, layer_collection = None):
     return None
 
 
+def clear_prop_collection(col):
+    try:
+        col.clear()
+        return True
+    except:
+        pass
+    try:
+        while col:
+            col.remove(col[0])
+        return True
+    except:
+        pass
+    log_error(f"Unable to clear property collection: {col}")
+    return False
+
+
 def B290():
     return is_blender_version("2.90.0")
 
@@ -1780,6 +1803,9 @@ def B340():
 
 def B341():
     return is_blender_version("3.4.1")
+
+def B350():
+    return is_blender_version("3.5.0")
 
 def B400():
     return is_blender_version("4.0.0")

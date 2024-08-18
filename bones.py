@@ -733,7 +733,7 @@ def copy_position(rig, bone, copy_bones, offset):
     return None
 
 
-def is_bone_in_collections(rig, bone, collections=None, groups=None, layers=None):
+def is_bone_in_collections(rig, bone: bpy.types.Bone, collections=None, groups=None, layers=None):
     if utils.B400():
         if collections:
             for collection in collections:
@@ -743,7 +743,7 @@ def is_bone_in_collections(rig, bone, collections=None, groups=None, layers=None
     else:
         if groups:
             if bone.name in rig.pose.bones:
-                pose_bone = rig.pose.bones[bone.name]
+                pose_bone: bpy.types.PoseBone = rig.pose.bones[bone.name]
                 if pose_bone.bone_group and pose_bone.bone_group.name in groups:
                     return True
         if layers:
@@ -771,8 +771,14 @@ def set_bone_collection(rig, bone, collection=None, group=None, layer=None, colo
             if group not in rig.pose.bone_groups:
                 rig.pose.bone_groups.new(name=group)
             group = rig.pose.bone_groups[group]
-            bone.bone_group = group
+            if type(bone) is not bpy.types.PoseBone and bone.name in rig.pose.bones:
+                pose_bone = rig.pose.bones[bone.name]
+                pose_bone.bone_group = group
+            elif type(bone) is bpy.types.PoseBone:
+                bone.bone_group = group
         if layer:
+            if type(bone) is bpy.types.PoseBone:
+                bone = bone.bone
             bone.layers[layer] = True
             for i, l in enumerate(bone.layers):
                 bone.layers[i] = i == layer
@@ -890,19 +896,6 @@ def assign_rl_base_collections(rig):
                     none.assign(bone)
                 else:
                     deform.assign(bone)
-
-
-def set_pose_bone_custom_scale(rig, bone_name, scale):
-    if type(scale) is not list:
-        scale = [float(scale), float(scale), float(scale)]
-    try:
-        rig.pose.bones[bone_name].custom_shape_scale = scale
-    except:
-        pass
-    try:
-        rig.pose.bones[bone_name].custom_shape_scale_xyz = scale
-    except:
-        pass
 
 
 def get_distance_between(rig, bone_a_name, bone_b_name):
