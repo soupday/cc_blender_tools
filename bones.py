@@ -892,19 +892,6 @@ def assign_rl_base_collections(rig):
                     deform.assign(bone)
 
 
-def set_pose_bone_custom_scale(rig, bone_name, scale):
-    if type(scale) is not list:
-        scale = [float(scale), float(scale), float(scale)]
-    try:
-        rig.pose.bones[bone_name].custom_shape_scale = scale
-    except:
-        pass
-    try:
-        rig.pose.bones[bone_name].custom_shape_scale_xyz = scale
-    except:
-        pass
-
-
 def get_distance_between(rig, bone_a_name, bone_b_name):
     if utils.edit_mode_to(rig):
         if bone_a_name in rig.data.edit_bones and bone_b_name in rig.data.edit_bones:

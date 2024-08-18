@@ -363,7 +363,7 @@ def set_spring_rig_constraints(rig, bone_defs, ik_groups, ik_targets, mch_roots)
                 ik_group_bone.use_custom_shape_bone_size = False
                 ik_group_bone.lock_scale[1] = True
                 scale = (ik_group_bone_radius + 0.05) / 0.025
-                bones.set_pose_bone_custom_scale(rig, ik_group_bone_name, scale)
+                rigutils.set_bone_shape_scale(ik_group_bone, scale)
                 bones.set_pose_bone_lock(ik_group_bone, lock_scale = [0,1,0])
                 bones.set_bone_collection(rig, ik_group_bone, "Spring (IK)", "IK", vars.SPRING_IK_LAYER, color="IK")
                 #drivers.add_custom_float_property(ik_group_bone, "IK_FK", 0.0, 0.0, 1.0, description="Group FK Influence")
@@ -1306,7 +1306,7 @@ def modify_rigify_controls(cc3_rig, rigify_rig, rigify_data):
                 bone = bones.get_pose_bone(rigify_rig, bone_name)
                 if bone:
                     utils.log_info(f"Altering: {bone.name}")
-                    bone.custom_shape_scale_xyz = scale
+                    rigutils.set_bone_shape_scale(bone, scale)
                     bone.custom_shape_translation = translation
                     bone.custom_shape_rotation_euler = rotation
             utils.log_recess()

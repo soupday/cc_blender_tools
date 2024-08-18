@@ -1700,6 +1700,28 @@ class LinkService():
                 return True
         return False
 
+    def obj_export(self, file_path, use_selection=False, use_animation=False, global_scale=100,
+                         use_vertex_colors=False, use_vertex_groups=False, apply_modifiers=True,
+                         keep_vertex_order=False, use_materials=False):
+        if utils.B330():
+            bpy.ops.wm.obj_export(filepath=file_path,
+                                global_scale=global_scale,
+                                export_selected_objects=use_selection,
+                                export_animation=use_animation,
+                                export_materials=use_materials,
+                                export_colors=use_vertex_colors,
+                                export_vertex_groups=use_vertex_groups,
+                                apply_modifiers=apply_modifiers)
+        else:
+            bpy.ops.export_scene.obj(filepath=file_path,
+                                    global_scale=global_scale,
+                                    use_selection=use_selection,
+                                    use_materials=use_materials,
+                                    use_animation=use_animation,
+                                    use_vertex_groups=use_vertex_groups,
+                                    use_mesh_modifiers=apply_modifiers,
+                                    keep_vertex_order=keep_vertex_order)
+
     def send_replace_mesh(self):
         state = utils.store_mode_selection_state()
         objects = utils.get_selected_meshes()
@@ -1720,14 +1742,7 @@ class LinkService():
                     export_path = self.get_export_path("Meshes", f"{obj.name}_mesh.obj",
                                                        reuse_folder=True, reuse_file=True)
                     utils.set_active_object(obj, deselect_all=True)
-                    bpy.ops.wm.obj_export(filepath=export_path,
-                                          global_scale=100,
-                                          export_selected_objects=True,
-                                          export_animation=False,
-                                          export_materials=False,
-                                          export_colors=True,
-                                          export_vertex_groups=False,
-                                          apply_modifiers=True)
+                    self.obj_export(export_path, use_selection=True, use_vertex_colors=True)
                     export_data = encode_from_json({
                         "path": export_path,
                         "actor_name": actor.name,
@@ -1768,7 +1783,8 @@ class LinkService():
                 exporter.set_character_generation(json_data, chr_cache, actor.name)
             exporter.prep_export(chr_cache, actor.name, objects, json_data,
                                  chr_cache.get_import_dir(), export_dir,
-                                 False, False, False, False, True, materials=materials, sync=True)
+                                 False, False, False, False, True,
+                                 materials=materials, sync=True, force_bake=True)
             jsonutils.write_json(json_data, export_path)
             export_data = encode_from_json({
                         "path": export_path,
@@ -2845,6 +2861,7 @@ class LinkService():
         if os.path.exists(fbx_path):
             try:
                 bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id,
+                                     zoom=False, no_rigify=True,
                                      motion_prefix=LINK_DATA.motion_prefix,
                                      use_fake_user=LINK_DATA.use_fake_user)
             except:

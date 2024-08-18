@@ -143,7 +143,7 @@ def restore_modifiers(chr_cache, objects):
 
 def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 copy_textures, revert_duplicates, apply_fixes, as_blend_file, bake_values,
-                materials=None, sync=False):
+                materials=None, sync=False, force_bake=False):
     prefs = vars.prefs()
 
     if sync:
@@ -152,6 +152,12 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
         as_blend_file = False
         bake_values = True
         copy_textures = False
+
+    bake_nodes = prefs.export_bake_nodes
+    bake_bump_to_normal = prefs.export_bake_bump_to_normal
+    if force_bake:
+        bake_nodes = True
+        bake_bump_to_normal = True
 
     utils.log_info(f"Prepping Export: {new_name}")
 
@@ -423,7 +429,8 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 utils.log_indent()
                 # update the json parameters with any changes
                 if write_textures:
-                    write_back_textures(mat_json, mat, mat_cache, base_path, old_name, bake_values, mat_data, images_processed)
+                    write_back_textures(mat_json, mat, mat_cache, base_path, old_name, bake_values, mat_data,
+                                        bake_nodes, bake_bump_to_normal, images_processed)
                 if write_json:
                     write_back_json(mat_json, mat, mat_cache)
                 if write_physics_json:
@@ -699,7 +706,8 @@ def write_back_json(mat_json, mat, mat_cache):
                 jsonutils.set_material_json_var(mat_json, json_var, json_value)
 
 
-def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bake_values, mat_data, images_processed):
+def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bake_values, mat_data,
+                        bake_nodes, bake_bump_to_normal, images_processed):
     global UNPACK_INDEX
     prefs = vars.prefs()
 
@@ -724,7 +732,7 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
     bump_socket = params.get_shader_texture_socket(shader_def, "BUMP")
     normal_connected = normal_socket and nodeutils.has_connected_input(shader_node, normal_socket)
     bump_combining = False
-    if prefs.export_bake_bump_to_normal and prefs.export_bake_nodes:
+    if bake_bump_to_normal and bake_nodes:
         bump_combining = normal_connected and bump_socket and nodeutils.has_connected_input(shader_node, bump_socket)
 
     if shader_def and shader_node:
@@ -870,7 +878,7 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                     nodeutils.set_node_input_value(shader_node, "Roughness Power", roughness_pow)
 
                                 # if there is a normal and a bump map connected, combine into a normal
-                                elif prefs.export_bake_nodes and tex_type == "NORMAL" and bump_combining:
+                                elif bake_nodes and tex_type == "NORMAL" and bump_combining:
                                     image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node,
                                                                          mat, tex_id, bake_path,
                                                                          normal_socket_name=shader_socket,
@@ -880,7 +888,7 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                 else:
                                     image = tex_node.image
 
-                            elif prefs.export_bake_nodes:
+                            elif bake_nodes:
 
                                 # if something is connected to the shader socket but is not a texture image
                                 # and baking is enabled: then bake the socket input into a texture for exporting:
@@ -1687,7 +1695,6 @@ def obj_export(file_path, use_selection=False, use_animation=False, global_scale
                                  use_selection=use_selection,
                                  use_materials=use_materials,
                                  use_animation=use_animation,
-                                 use_vertex_colors=use_vertex_colors,
                                  use_vertex_groups=use_vertex_groups,
                                  use_mesh_modifiers=apply_modifiers,
                                  keep_vertex_order=keep_vertex_order)

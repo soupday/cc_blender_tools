@@ -849,6 +849,13 @@ class CC3Import(bpy.types.Operator):
         options={"HIDDEN"},
     )
 
+    no_rigify: bpy.props.BoolProperty(
+        default=False,
+        name="Don't Rigify",
+        description="Don't Rigify Character",
+        options={"HIDDEN"},
+    )
+
     filter_glob: bpy.props.StringProperty(
         default="*.fbx;*.obj;*.glb;*.gltf;*.vrm;*.usd*",
         options={"HIDDEN"},
@@ -871,6 +878,12 @@ class CC3Import(bpy.types.Operator):
     )
 
     use_anim: bpy.props.BoolProperty(name = "Import Animation", description = "Import animation with character.\nWarning: long animations take a very long time to import in Blender 2.83", default = True)
+
+    zoom: bpy.props.BoolProperty(
+        default=False,
+        name="Zoom View",
+        description="Zoom view to imported character",
+    )
 
     count = 0
     running = False
@@ -937,7 +950,7 @@ class CC3Import(bpy.types.Operator):
 
             # override link id only if not multi import
             if len(file_paths) > 1:
-                self.link_id = None
+                self.link_id = ""
 
             import_flags, param = self.detect_import_mode_from_files(filepath)
 
@@ -1373,10 +1386,11 @@ class CC3Import(bpy.types.Operator):
             if bpy.context.scene.cycles.transparent_max_bounces < 100:
                 bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            bpy.ops.object.select_all(action='DESELECT')
-            for chr_cache in imported_characters:
-                chr_cache.select_all(only=False)
-            scene.zoom_to_selected()
+            if self.zoom:
+                bpy.ops.object.select_all(action='DESELECT')
+                for chr_cache in imported_characters:
+                    chr_cache.select_all(only=False)
+                scene.zoom_to_selected()
 
             # clean up unused images from the import
             if len(self.imported_images) > 0:
@@ -1391,7 +1405,7 @@ class CC3Import(bpy.types.Operator):
 
             props.lighting_mode = False
 
-            if props.rigify_mode:
+            if props.rigify_mode and not self.no_rigify:
                 for chr_cache in imported_characters:
                     if chr_cache.can_be_rigged():
                         cc3_rig = chr_cache.get_armature()
