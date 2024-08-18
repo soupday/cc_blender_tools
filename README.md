@@ -35,6 +35,14 @@ Links
 
 ## Changelog
 
+### 2.1.6
+- Import supports multiple file selection.
+- Fixes for blender version before 4.0:
+    - Replace mesh OBJ export.
+    - Rigging bone layer assignment.
+    - Property collection clear.
+    - Rigging widget control scale.
+
 ### 2.1.5
 - Proportion edit should work on all character types (except Rigified)
 - Sync lights and send pose should work in all modes and keeps the active mode.
