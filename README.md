@@ -38,6 +38,7 @@ Links
 ### 2.1.7
 - Sync lights includes Scene IBL from CC/iC visual settings.
 - Export to CC3/4 button fixed.
+- Added extra checks for AccuRig / ActorScan when unknown humanoids detected.
 
 ### 2.1.6
 - Import supports multiple file selection.
