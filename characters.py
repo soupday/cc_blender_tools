@@ -1307,7 +1307,7 @@ def get_character_material_names(arm):
         for obj in arm.children:
             if utils.object_exists_is_mesh(obj):
                 for mat in obj.data.materials:
-                    mat_name = utils.strip_name(mat.name)
+                    mat_name = mat.name #utils.strip_name(mat.name)
                     if mat_name not in mat_names:
                         mat_names.append(mat_name)
     return mat_names
@@ -1318,7 +1318,7 @@ def get_character_object_names(arm):
     if arm:
         for obj in arm.children:
             if utils.object_exists_is_mesh(obj):
-                obj_name = utils.strip_name(obj.name)
+                obj_name = obj.name #utils.strip_name(obj.name)
                 if obj_name not in obj_names:
                     obj_names.append(obj_name)
     return obj_names

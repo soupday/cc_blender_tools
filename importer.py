@@ -322,12 +322,21 @@ def detect_generation(chr_cache, json_data, character_id):
         generation = "GameBase"
 
     if generation in ["Unknown", "Humanoid", "Creature"]:
-        if len(material_names) == 1 and characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
-            generation = "ActorCore"
-        elif characters.character_has_materials(arm, ["Ga_Skin_Body"]):
-            if characters.character_has_bones(arm, ["RL_BoneRoot", "CC_Base_Hip"]):
-                generation = "ActorBuild"
-
+        utils.log_info(f"Determining generation from armature...")
+        if len(material_names) == 1 and rigutils.is_ActorCore_armature(arm):
+            generation = "ActorScan"
+            utils.log_info(" - ActorScan found!")
+        elif characters.character_has_materials(arm, ["Ga_Skin_Body"]) and rigutils.is_ActorCore_armature(arm):
+            generation = "ActorBuild"
+            utils.log_info(" - ActorBuild found!")
+        elif characters.character_has_materials(arm, ["Ga_Skin_Body"]) and rigutils.is_GameBase_armature(arm):
+            generation = "GameBase"
+            utils.log_info(" - GameBase found!")
+        elif rigutils.is_rl_armature(arm):
+            generation = "AccuRig"
+            utils.log_info(" - AccuRig found!")
+        else:
+            utils.log_info(" - Not found...")
 
     if generation == "Unknown" and arm:
         if utils.find_pose_bone_in_armature(arm, "RootNode_0_", "RL_BoneRoot"):
