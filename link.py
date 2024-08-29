@@ -1552,7 +1552,7 @@ class LinkService():
 
     def receive_save(self, data):
         if bpy.data.filepath:
-            utils.log_info("Saving Mailfile")
+            utils.log_info("Saving Mainfile")
             bpy.ops.wm.save_mainfile()
 
     def receive_debug(self, data):
@@ -2294,7 +2294,7 @@ class LinkService():
         TUBE_AS_AREA = True
 
         ambient_color = utils.array_to_color(lights_data["ambient_color"])
-        ambient_color.s *= 0.2
+        ambient_strength = 0.125 + ambient_color.v
 
         utils.object_mode()
 
@@ -2331,7 +2331,9 @@ class LinkService():
             light.rotation_mode = "QUATERNION"
             light.rotation_quaternion = utils.array_to_quaternion(light_data["rot"])
             light.scale = utils.array_to_vector(light_data["sca"])
-            light.data.color = utils.color_filter(utils.array_to_color(light_data["color"]), ambient_color)
+            desat_ambient_color = ambient_color.copy()
+            desat_ambient_color.s *= 0.2
+            light.data.color = utils.color_filter(utils.array_to_color(light_data["color"]), desat_ambient_color)
 
             # range and falloff modifiers
             fm = 2 - pow(light_data["falloff"] / 100, 2)
@@ -2434,12 +2436,15 @@ class LinkService():
             bpy.context.scene.cycles.transparent_max_bounces = 100
         view_space: bpy.types.Area = utils.get_view_space()
         if view_space:
-            view_space.shading.type = 'MATERIAL'
+            if view_space.shading.type != 'MATERIAL' and view_space.shading.type != "RENDERED":
+                view_space.shading.type = 'MATERIAL'
             view_space.shading.use_scene_lights = True
+            view_space.shading.use_scene_lights_render = True
             view_space.shading.use_scene_world = False
+            view_space.shading.use_scene_world_render = True
             view_space.shading.studio_light = 'studio.exr'
             view_space.shading.studiolight_rotate_z = -25 * 0.01745329
-            view_space.shading.studiolight_intensity = 0.125 + ambient_color.v
+            view_space.shading.studiolight_intensity = ambient_strength
             view_space.shading.studiolight_background_alpha = 0.0
             view_space.shading.studiolight_background_blur = 0.5
             if self.is_cc():
@@ -2455,11 +2460,13 @@ class LinkService():
         if use_ibl:
             ibl_path = lights_data.get("ibl_path", "")
             ibl_strength = lights_data.get("ibl_strength", 0.5)
-            ibl_location = utils.array_to_vector(lights_data.get("ibl_location", [0,0,0]))
+            ibl_location = utils.array_to_vector(lights_data.get("ibl_location", [0,0,0])) / 100
             ibl_rotation = utils.array_to_vector(lights_data.get("ibl_rotation", [0,0,0]))
             ibl_scale = lights_data.get("ibl_scale", 1.0)
             if ibl_path:
-                world.world_setup(ibl_path, ibl_location, ibl_rotation, ibl_scale, ibl_strength)
+                world.world_setup(ibl_path, ambient_color, ibl_location, ibl_rotation, ibl_scale, ibl_strength)
+        else:
+            world.world_setup("", ambient_color, Vector((0,0,0)), Vector((0,0,0)), 1.0, ambient_strength)
 
 
     def receive_lights(self, data):

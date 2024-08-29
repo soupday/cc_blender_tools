@@ -1972,10 +1972,8 @@ class CC3Scene(bpy.types.Operator):
                 compositor_setup()
                 world_setup()
                 utils.message_box("World nodes and compositor template set up.")
-            elif bpy.context.space_data.shading.type == "RENDERED":
+            else:
                 world_setup()
-                bpy.context.space_data.shading.use_scene_world_render = True
-
 
         return {"FINISHED"}
 
