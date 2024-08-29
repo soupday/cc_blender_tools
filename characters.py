@@ -30,14 +30,26 @@ def select_character(chr_cache, all=False):
     if chr_cache:
         rig = chr_cache.get_armature()
         objects = chr_cache.get_all_objects(include_armature=True, include_children=True)
+        rig_already_active = (rig and utils.get_active_object() == rig)
+        objects_already_selected = True
+        for obj in objects:
+            if obj not in bpy.context.selected_objects:
+                objects_already_selected = False
         if all:
             utils.try_select_objects(objects, clear_selection=True)
         elif rig:
             utils.try_select_object(rig, clear_selection=True)
         else:
             utils.try_select_objects(objects, clear_selection=True)
-        if rig:
-            utils.set_active_object(rig)
+        try:
+            if rig:
+                utils.set_active_object(rig)
+                if rig_already_active and (not all or objects_already_selected):
+                    rig.show_in_front = not rig.show_in_front
+                else:
+                    rig.show_in_front = False
+        except:
+            pass
 
 
 def duplicate_character(chr_cache):
@@ -1295,7 +1307,7 @@ def get_character_material_names(arm):
         for obj in arm.children:
             if utils.object_exists_is_mesh(obj):
                 for mat in obj.data.materials:
-                    mat_name = utils.strip_name(mat.name)
+                    mat_name = mat.name #utils.strip_name(mat.name)
                     if mat_name not in mat_names:
                         mat_names.append(mat_name)
     return mat_names
@@ -1306,7 +1318,7 @@ def get_character_object_names(arm):
     if arm:
         for obj in arm.children:
             if utils.object_exists_is_mesh(obj):
-                obj_name = utils.strip_name(obj.name)
+                obj_name = obj.name #utils.strip_name(obj.name)
                 if obj_name not in obj_names:
                     obj_names.append(obj_name)
     return obj_names
@@ -1975,6 +1987,11 @@ class CCICCharacterRename(bpy.types.Operator):
             col_1.label(text="Type:")
             row = col_2.row()
             row.prop(self, "non_standard_type", expand=True)
+        else:
+            #CONVERT_TO_NON_STANDARD
+            col_1.label(text="")
+            row = col_2.row()
+            row.operator("cc3.character", text="Convert to Humanoid").param = "CONVERT_TO_NON_STANDARD"
         col_1.separator()
         col_2.separator()
         col_1.label(text="Link ID:")

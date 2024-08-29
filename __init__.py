@@ -51,6 +51,7 @@ if "bpy" in locals():
     importlib.reload(sculpting)
     importlib.reload(hair)
     importlib.reload(colorspace)
+    importlib.reload(world)
     importlib.reload(normal)
     importlib.reload(link)
     importlib.reload(proportion)
@@ -93,6 +94,7 @@ from . import rigutils
 from . import sculpting
 from . import hair
 from . import colorspace
+from . import world
 from . import normal
 from . import link
 from . import proportion
@@ -101,7 +103,7 @@ from . import proportion
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 1, 6),
+    "version": (2, 1, 7),
     "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",

@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 2.1.7
+- Sync lights includes Scene IBL from CC/iC visual settings.
+- Export to CC3/4 button fixed.
+
 ### 2.1.6
 - Import supports multiple file selection.
     - To import multiple objects from a folder, press shift + select the FBX files in the importer file selection window.

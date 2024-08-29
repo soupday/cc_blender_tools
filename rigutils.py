@@ -973,6 +973,8 @@ def fix_cc3_bone_sizes(cc3_rig):
         set_bone_tail_length(right_thigh, right_calf)
         set_bone_tail_length(left_calf, left_foot)
         set_bone_tail_length(right_calf, right_foot)
+        select_rig(cc3_rig)
+
 
 
 def reset_rotation_modes(rig, rotation_mode = "QUATERNION"):

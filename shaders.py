@@ -493,7 +493,7 @@ def func_sclera_brightness(b):
     return b
 
 def func_iris_scale(i):
-    return i * 1.1
+    return i * 1.15
 
 def func_parallax_iris_scale(i, s):
     return (func_iris_scale(i) * s)
