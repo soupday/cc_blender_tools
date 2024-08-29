@@ -5,7 +5,7 @@ from enum import IntEnum
 import os, socket, time, select, struct, json, copy
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix
-from . import importer, exporter, bones, geom, colorspace, rigging, rigutils, modifiers, jsonutils, utils, vars
+from . import importer, exporter, bones, geom, colorspace, world, rigging, rigutils, modifiers, jsonutils, utils, vars
 
 
 BLENDER_PORT = 9334
@@ -2450,6 +2450,16 @@ class LinkService():
             props.light_filter = (0.875, 1, 1, 1)
             bpy.ops.cc3.scene(param="FILTER_LIGHTS")
             props.light_filter = c
+
+        use_ibl = lights_data.get("use_ibl", False)
+        if use_ibl:
+            ibl_path = lights_data.get("ibl_path", "")
+            ibl_strength = lights_data.get("ibl_strength", 0.5)
+            ibl_location = utils.array_to_vector(lights_data.get("ibl_location", [0,0,0]))
+            ibl_rotation = utils.array_to_vector(lights_data.get("ibl_rotation", [0,0,0]))
+            ibl_scale = lights_data.get("ibl_scale", 1.0)
+            if ibl_path:
+                world.world_setup(ibl_path, ibl_location, ibl_rotation, ibl_scale, ibl_strength)
 
 
     def receive_lights(self, data):

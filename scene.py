@@ -19,7 +19,7 @@ import os
 import bpy
 from mathutils import Vector, Quaternion, Matrix, Euler
 
-from . import colorspace, imageutils, nodeutils, rigidbody, physics, modifiers, utils, vars
+from . import colorspace, world, imageutils, nodeutils, rigidbody, physics, modifiers, utils, vars
 
 
 def add_target(name, location):
@@ -272,38 +272,10 @@ def compositor_setup():
     nodeutils.link_nodes(links, lens_node, "Image", c_node, "Image")
     bpy.context.space_data.shading.use_scene_world_render = True
 
+
 def world_setup():
     hide_view_extras(False)
-    studio_light = bpy.context.space_data.shading.selected_studio_light
-    ibl_path = studio_light.path
-    rot = bpy.context.space_data.shading.studiolight_rotate_z
-    str = bpy.context.space_data.shading.studiolight_intensity
-    bpy.context.scene.world.use_nodes = True
-    nodes = bpy.context.scene.world.node_tree.nodes
-    links = bpy.context.scene.world.node_tree.links
-    nodes.clear()
-    tc_node = nodeutils.make_shader_node(nodes, "ShaderNodeTexCoord")
-    mp_node = nodeutils.make_shader_node(nodes, "ShaderNodeMapping")
-    et_node = nodeutils.make_shader_node(nodes, "ShaderNodeTexEnvironment")
-    bg_node = nodeutils.make_shader_node(nodes, "ShaderNodeBackground")
-    wo_node = nodeutils.make_shader_node(nodes, "ShaderNodeOutputWorld")
-    tc_node.location = (-820,350)
-    mp_node.location = (-610,370)
-    et_node.location = (-300,320)
-    bg_node.location = (10,300)
-    wo_node.location = (300,300)
-    nodeutils.set_node_input_value(bg_node, "Strength", str)
-    nodeutils.set_node_input_value(mp_node, "Rotation", Vector((0,0,rot)))
-    nodeutils.link_nodes(links, tc_node, "Generated", mp_node, "Vector")
-    nodeutils.link_nodes(links, mp_node, "Vector", et_node, "Vector")
-    nodeutils.link_nodes(links, et_node, "Color", bg_node, "Color")
-    nodeutils.link_nodes(links, bg_node, "Background", wo_node, "Surface")
-    bin_dir, bin_file = os.path.split(bpy.app.binary_path)
-    version = bpy.app.version_string[:4]
-    #hdri_path = os.path.join(bin_dir, version, "datafiles", "studiolights", "world", ibl)
-    et_node.image = imageutils.load_image(ibl_path, "Linear")
-    if bpy.context.space_data.shading.type == "MATERIAL":
-        bpy.context.space_data.shading.type = 'RENDERED'
+    world.copy_material_to_render_world()
 
 
 def setup_scene_default(scene_type):

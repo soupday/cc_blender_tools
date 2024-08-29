@@ -204,6 +204,7 @@ def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, sca
     if chr_cache:
         row = layout.row()
         row.scale_y = scale
+        param = "EXPORT_CC3"
         if chr_cache and chr_cache.is_import_type("OBJ"):
             text = "Export Morph Target"
             icon = "ARROW_LEFTRIGHT"
@@ -211,7 +212,8 @@ def character_export_button(chr_cache, chr_rig, layout : bpy.types.UILayout, sca
             row.alert = True
             row.enabled = False
             text = "Invalid Character!"
-        row.operator("cc3.exporter", icon=icon, text=text).param = "EXPORT_CC3_INVALID"
+            param = "EXPORT_CC3_INVALID"
+        row.operator("cc3.exporter", icon=icon, text=text).param = param
         if not chr_cache.can_standard_export():
             row.enabled = False
             if warn and not chr_cache.get_import_has_key():
