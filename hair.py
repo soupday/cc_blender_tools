@@ -1730,6 +1730,7 @@ def deselect_invalid_materials(chr_cache, obj):
     if utils.object_exists_is_mesh(obj):
         for slot in obj.material_slots:
             mat = slot.material
+            if mat is None: continue
             mat_cache = chr_cache.get_material_cache(mat)
             if mat_cache:
                 if mat_cache.material_type == "SCALP":

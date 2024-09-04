@@ -557,10 +557,12 @@ def begin_multires_sculpting(chr_cache, layer_target):
         #bpy.ops.view3d.view_selected()
         # TODO mute the detail normal mix nodes (so the normal overlay isn't shown when sculpting)
         utils.set_mode("SCULPT")
-        bpy.context.space_data.shading.type = 'SOLID'
-        bpy.context.space_data.shading.light = 'MATCAP'
-        bpy.context.space_data.shading.studio_light = 'basic_1.exr'
-        bpy.context.space_data.shading.show_cavity = True
+        shading = utils.get_view_3d_shading()
+        if shading:
+            shading.type = 'SOLID'
+            shading.light = 'MATCAP'
+            shading.studio_light = 'basic_1.exr'
+            shading.show_cavity = True
 
 
 def end_multires_sculpting(chr_cache, layer_target, show_baked = False):
@@ -574,7 +576,9 @@ def end_multires_sculpting(chr_cache, layer_target, show_baked = False):
     set_hide_character(chr_cache, False)
     multi_res_mesh.hide_set(True)
     utils.set_only_active_object(body)
-    bpy.context.space_data.shading.type = 'MATERIAL'
+    shading = utils.get_view_3d_shading()
+    if shading:
+        shading.type = 'MATERIAL'
 
 
 def clean_multires_sculpt(chr_cache, layer_target):
@@ -602,11 +606,12 @@ def hide_body_parts(chr_cache):
     for i in range(0, len(body.material_slots)):
         slot = body.material_slots[i]
         mat = slot.material
-        mat_cache = chr_cache.get_material_cache(mat)
-        # hide eyelashes and nails
-        if (mat_cache.material_type == "NAILS" or
-            mat_cache.material_type == "EYELASH"):
-            hide_slots.append(i)
+        if mat:
+            mat_cache = chr_cache.get_material_cache(mat)
+            # hide eyelashes and nails
+            if (mat_cache.material_type == "NAILS" or
+                mat_cache.material_type == "EYELASH"):
+                hide_slots.append(i)
 
     utils.object_mode()
     utils.clear_selected_objects()
@@ -642,20 +647,22 @@ def add_multires_mesh(chr_cache, layer_target, sub_target = "ALL"):
             mat_cache = chr_cache.get_material_cache(mat)
             remove = False
 
-            # always remove eyelashes and nails
-            if (mat_cache.material_type == "NAILS" or
-                mat_cache.material_type == "EYELASH"):
-                remove = True
+            if mat and mat_cache:
 
-            if sub_target == "BODY":
-                # remove head
-                if mat_cache.material_type == "SKIN_HEAD":
+                # always remove eyelashes and nails
+                if (mat_cache.material_type == "NAILS" or
+                    mat_cache.material_type == "EYELASH"):
                     remove = True
 
-            elif sub_target == "HEAD":
-                # remove everything but head
-                if mat_cache.material_type != "SKIN_HEAD":
-                    remove = True
+                if sub_target == "BODY":
+                    # remove head
+                    if mat_cache.material_type == "SKIN_HEAD":
+                        remove = True
+
+                elif sub_target == "HEAD":
+                    # remove everything but head
+                    if mat_cache.material_type != "SKIN_HEAD":
+                        remove = True
 
             if remove:
                 utils.delete_mesh_object(obj)

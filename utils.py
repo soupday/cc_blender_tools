@@ -911,6 +911,15 @@ def is_file_ext(test, ext):
         return False
 
 
+def get_set(collection) -> set:
+    return set(collection)
+
+
+def get_set_new(collection, old: set) -> list:
+    current = get_set(collection)
+    return list(current - old)
+
+
 def tag_objects():
     for obj in bpy.data.objects:
         obj.tag = True
@@ -1633,20 +1642,43 @@ def reset_object_transform(obj: bpy.types.Object):
 
 
 def get_region_3d():
-    space = get_view_space()
+    space = get_view_3d_space()
     if space:
         return space, space.region_3d
     return None, None
 
 
-def get_view_space():
-    area = get_view_area()
-    if area:
-        return area.spaces.active
+def get_view_3d_space() -> bpy.types.Space:
+    try:
+        space_data = bpy.context.space_data
+        if space_data and space_data.tpye == "VIEW_3D":
+            return space_data
+    except: ...
+    try:
+        area = get_view_3d_area()
+        if area:
+            return area.spaces.active
+    except: ...
+    log_warn("Unable to get view 3d space!")
     return None
 
 
-def get_view_area():
+def get_view_3d_shading() -> bpy.types.View3DShading:
+    try:
+        space_data = bpy.context.space_data
+        if space_data and space_data.type == "VIEW_3D":
+            return space_data.shading
+    except: ...
+    try:
+        space_data = get_view_3d_space()
+        if space_data:
+            return space_data.shading
+    except: ...
+    log_warn("Unable to get view space shading!")
+    return None
+
+
+def get_view_3d_area() -> bpy.types.Area:
     for area in bpy.context.screen.areas:
         if area.type == 'VIEW_3D':
             return area

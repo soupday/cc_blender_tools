@@ -879,8 +879,10 @@ def begin_paint_weight_map(chr_cache, context):
     obj = context.object
     mat = utils.get_context_material(context)
     props = vars.props()
+    shading = utils.get_view_3d_shading()
     if obj is not None and mat is not None:
-        props.paint_store_render = bpy.context.space_data.shading.type
+        if shading:
+            props.paint_store_render = shading.type
 
         if bpy.context.mode != "PAINT_TEXTURE":
             bpy.ops.object.mode_set(mode="TEXTURE_PAINT")
@@ -892,10 +894,12 @@ def begin_paint_weight_map(chr_cache, context):
             props.paint_object = obj
             props.paint_material = mat
             props.paint_image = weight_map
+            shading = utils.get_view_3d_shading()
             if weight_map is not None:
                 bpy.context.scene.tool_settings.image_paint.mode = 'IMAGE'
                 bpy.context.scene.tool_settings.image_paint.canvas = weight_map
-                bpy.context.space_data.shading.type = 'SOLID'
+                if shading:
+                    shading.type = 'SOLID'
 
 
 def resize_weight_map(chr_cache, context, op):
@@ -925,9 +929,11 @@ def resize_weight_map(chr_cache, context, op):
 def end_paint_weight_map(chr_cache, op):
     try:
         props = vars.props()
+        shading = utils.get_view_3d_shading()
         if bpy.context.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
-        bpy.context.space_data.shading.type = props.paint_store_render
+        if shading:
+            shading.type = props.paint_store_render
         #props.paint_image.save()
         op.report({'INFO'}, f"Weightmap painting done, Save the weightmap to preserve changes.")
     except Exception as e:
@@ -1117,10 +1123,8 @@ def separate_physics_materials(chr_cache, obj):
         disable_cloth_physics(chr_cache, obj)
 
         # split the mesh by materials
-        utils.tag_objects()
-        obj.tag = False
         bpy.ops.mesh.separate(type='MATERIAL')
-        split_objects = utils.untagged_objects()
+        split_objects = [ o for o in bpy.context.selected_objects if o != obj ]
 
         # re-apply cloth physics to the materials which had weight maps
         for split in split_objects:

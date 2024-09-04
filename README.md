@@ -35,6 +35,11 @@ Links
 
 ## Changelog
 
+### 2.1.8
+- Fixes to view 3d shading context in 4.2.
+- Imported objects, materials, images and actions detection no longer uses tags.
+- Added more checks to skip null material slots.
+
 ### 2.1.7
 - Sync lights includes Scene IBL from CC/iC visual settings.
 - Export to CC3/4 button fixed.

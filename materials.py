@@ -600,11 +600,12 @@ def get_left_right_materials(obj):
 
     for idx in range(0, len(obj.material_slots)):
         slot = obj.material_slots[idx]
-        name = slot.name.lower()
-        if "_l" in name:
-            left = slot.material
-        elif "_r" in name:
-            right = slot.material
+        if slot.material:
+            name = slot.name.lower()
+            if "_l" in name:
+                left = slot.material
+            elif "_r" in name:
+                right = slot.material
 
     return left, right
 
@@ -616,11 +617,12 @@ def get_left_right_eye_materials(obj):
 
     for idx in range(0, len(obj.material_slots)):
         slot = obj.material_slots[idx]
-        name = slot.name.lower()
-        if "std_eye_l" in name:
-            left = slot.material
-        elif "std_eye_r" in name:
-            right = slot.material
+        if slot.material:
+            name = slot.name.lower()
+            if "std_eye_l" in name:
+                left = slot.material
+            elif "std_eye_r" in name:
+                right = slot.material
 
     return left, right
 
@@ -747,9 +749,10 @@ def get_material_slot_by_type(chr_cache, obj, material_type):
     if obj.type == "MESH":
         for slot in obj.material_slots:
             mat = slot.material
-            mat_cache = chr_cache.get_material_cache(mat)
-            if mat_cache and mat_cache.material_type == material_type:
-                return slot.index
+            if mat:
+                mat_cache = chr_cache.get_material_cache(mat)
+                if mat_cache and mat_cache.material_type == material_type:
+                    return slot.index
     return -1
 
 

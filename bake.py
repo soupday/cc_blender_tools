@@ -109,8 +109,10 @@ def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format="
 
     # go into wireframe mode (so Blender doesn't update or recompile the material shaders while
     # we manipulate them for baking, and also so Blender doesn't fire up the cycles viewport...):
-    bake_state["shading"] = bpy.context.space_data.shading.type
-    bpy.context.space_data.shading.type = 'WIREFRAME'
+    shading: bpy.types.View3DShading = utils.get_view_3d_shading()
+    if shading:
+        bake_state["shading"] = shading.type
+        shading.type = 'WIREFRAME'
     # set cycles rendering mode for baking
     bake_state["engine"] = bpy.context.scene.render.engine
     bpy.context.scene.render.engine = 'CYCLES'
@@ -189,7 +191,9 @@ def post_bake(state):
     # render engine
     bpy.context.scene.render.engine = state["engine"]
     # viewport shading
-    bpy.context.space_data.shading.type = state["shading"]
+    shading = utils.get_view_3d_shading()
+    if shading:
+        shading.type = state["shading"]
     # bake type
     bpy.context.scene.cycles.bake_type = state["cycles_bake_type"]
     bpy.context.scene.render.bake_type = state["render_bake_type"]
@@ -2698,6 +2702,7 @@ def bake_character_object(chr_cache, obj, bake_state, materials_done):
 
     for slot in obj.material_slots:
         source_mat = slot.material
+        if source_mat is None: continue
         bake_cache = get_export_bake_cache(source_mat)
 
         # in case we haven't reverted to the source materials get the real source_mat:
@@ -2753,7 +2758,7 @@ def bake_character_object(chr_cache, obj, bake_state, materials_done):
                 for o in bpy.context.scene.objects:
                     if o != obj and o.type == "MESH" and o.data.materials:
                         for s in o.material_slots:
-                            if s.material == old_mat:
+                            if s.material and s.material == old_mat:
                                 s.material = bake_mat
                 # remove the old material once all copies of it have been replaced...
                 bpy.data.materials.remove(old_mat)

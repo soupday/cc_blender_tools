@@ -349,7 +349,7 @@ def map_image_to_vertex_weights(obj, mat, image, vertex_group, func):
 
     mat_index = -1
     for i, slot in enumerate(obj.material_slots):
-        if slot.material == mat:
+        if slot.material and slot.material == mat:
             mat_index = i
             break
 

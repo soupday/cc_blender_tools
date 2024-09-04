@@ -980,9 +980,9 @@ class CC3Import(bpy.types.Operator):
             if ImportFlags.FBX in import_flags:
 
                 # invoke the fbx importer
-                utils.tag_objects()
-                utils.tag_images()
-                utils.tag_actions()
+                old_objects = utils.get_set(bpy.data.objects)
+                old_images = utils.get_set(bpy.data.images)
+                old_actions = utils.get_set(bpy.data.actions)
 
                 # in ACES color space, this will fail trying to set up the textures as it tries to use 'Non-Color' space.
                 # But the mesh is really all we need, so just keep going...
@@ -997,9 +997,9 @@ class CC3Import(bpy.types.Operator):
                     except:
                         utils.log_error("FBX Import Error due to bad mesh?")
 
-                imported = utils.untagged_objects()
-                actions = utils.untagged_actions()
-                self.imported_images = utils.untagged_images()
+                imported = utils.get_set_new(bpy.data.objects, old_objects)
+                actions = utils.get_set_new(bpy.data.actions, old_actions)
+                self.imported_images = utils.get_set_new(bpy.data.images, old_images)
 
                 remove_objects = []
                 if only_objects:
@@ -1045,15 +1045,15 @@ class CC3Import(bpy.types.Operator):
             elif ImportFlags.OBJ in import_flags:
 
                 # invoke the obj importer
-                utils.tag_objects()
-                utils.tag_images()
+                old_objects = utils.get_set(bpy.data.objects)
+                old_images = utils.get_set(bpy.data.images)
                 if ImportFlags.RL in import_flags and param == "IMPORT_MORPH":
                     obj_import(filepath, split_objects=False, split_groups=False, vgroups=True)
                 else:
                     obj_import(filepath, split_objects=True, split_groups=True, vgroups=False)
 
-                imported = utils.untagged_objects()
-                self.imported_images = utils.untagged_images()
+                imported = utils.get_set_new(bpy.data.objects, old_objects)
+                self.imported_images = utils.get_set_new(bpy.data.images, old_images)
 
                 # detect characters and objects
                 armatures = []
@@ -1081,10 +1081,10 @@ class CC3Import(bpy.types.Operator):
             elif ImportFlags.GLB in import_flags:
 
                 # invoke the GLTF importer
-                utils.tag_images()
+                old_images = utils.get_set(bpy.data.images)
                 bpy.ops.import_scene.gltf(filepath=filepath)
                 imported = bpy.context.selected_objects.copy()
-                self.imported_images = utils.untagged_images()
+                self.imported_images = utils.get_set_new(bpy.data.images, old_images)
 
                 chr_cache = None
                 if prefs.import_auto_convert:
@@ -1104,10 +1104,10 @@ class CC3Import(bpy.types.Operator):
                 filepath = glb_path
 
                 # invoke the GLTF importer
-                utils.tag_images()
+                old_images = utils.get_set(bpy.data.images)
                 bpy.ops.import_scene.gltf(filepath = filepath, bone_heuristic="TEMPERANCE")
                 imported = bpy.context.selected_objects.copy()
-                self.imported_images = utils.untagged_images()
+                self.imported_images = utils.get_set_new(bpy.data.images, old_images)
 
                 # find the armature and rotate it 180 degrees in Z
                 armature : bpy.types.Object = utils.get_armature_from_objects(imported)
@@ -1129,10 +1129,10 @@ class CC3Import(bpy.types.Operator):
             elif ImportFlags.USD in import_flags:
 
                 # invoke the USD importer
-                utils.tag_images()
+                old_images = utils.get_set(bpy.data.images)
                 bpy.ops.wm.usd_import(filepath=filepath)
                 imported = bpy.context.selected_objects.copy()
-                self.imported_images = utils.untagged_images()
+                self.imported_images = utils.get_set_new(bpy.data.images, old_images)
 
                 chr_cache = None
                 if prefs.import_auto_convert:
@@ -1672,15 +1672,15 @@ class CC3ImportAnimations(bpy.types.Operator):
         utils.log_info(f"Importing Fbx file: {path}")
 
         # invoke the fbx importer
-        utils.tag_objects()
-        utils.tag_images()
-        utils.tag_actions()
-        utils.tag_materials()
+        old_objects = utils.get_set(bpy.data.objects)
+        old_images = utils.get_set(bpy.data.images)
+        old_actions = utils.get_set(bpy.data.actions)
+        old_materials = utils.get_set(bpy.data.materials)
         bpy.ops.import_scene.fbx(filepath=path, directory=dir, use_anim=True, use_image_search=False)
-        objects = utils.untagged_objects()
-        actions = utils.untagged_actions()
-        images = utils.untagged_images()
-        materials = utils.untagged_materials()
+        objects = utils.get_set_new(bpy.data.objects, old_objects)
+        actions = utils.get_set_new(bpy.data.actions, old_actions)
+        images = utils.get_set_new(bpy.data.images, old_images)
+        materials = utils.get_set_new(bpy.data.materials, old_materials)
 
         for action in actions:
             action.use_fake_user = self.use_fake_user

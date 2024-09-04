@@ -339,6 +339,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
 
         for slot in obj.material_slots:
             mat = slot.material
+            if mat is None: continue
             if materials and mat not in materials: continue
             mat_name = mat.name
             mat_cache = chr_cache.get_material_cache(mat)
@@ -1034,6 +1035,7 @@ def unpack_embedded_textures(chr_cache, chr_json, objects, base_path):
 
                 for slot in obj.material_slots:
                     mat = slot.material
+                    if mat is None: continue
                     mat_json = jsonutils.get_material_json(obj_json, mat)
                     mat_cache = chr_cache.get_material_cache(mat)
                     if mat_cache and mat_json:
@@ -1329,6 +1331,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
             for slot in obj.material_slots:
 
                 mat = slot.material
+                if mat is None: continue
 
                 if mat not in done.keys():
 
@@ -2041,9 +2044,11 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
         bpy.ops.file.make_paths_relative()
         bpy.ops.wm.save_as_mainfile(filepath=file_path)
         # restore some lighting
-        bpy.context.space_data.shading.use_scene_lights = False
-        bpy.context.space_data.shading.use_scene_world = False
-        bpy.context.space_data.shading.studiolight_intensity = 1.0
+        shading = utils.get_view_3d_shading()
+        if shading:
+            shading.use_scene_lights = False
+            shading.use_scene_world = False
+            shading.studiolight_intensity = 1.0
 
     #export_copy_fbx_key(chr_cache, dir, name)
     export_copy_asset_file(chr_cache, dir, name, ".fbxkey", chr_cache.get_import_key_file())

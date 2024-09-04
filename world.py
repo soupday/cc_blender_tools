@@ -30,17 +30,20 @@ def get_default_hdri_path(hdri_name):
 
 
 def copy_material_to_render_world():
-    studio_light = bpy.context.space_data.shading.selected_studio_light
-    ibl_path = studio_light.path
-    loc = Vector((0,0,0))
-    rot_z = bpy.context.space_data.shading.studiolight_rotate_z
-    rot = Vector((0, 0, rot_z))
-    str = bpy.context.space_data.shading.studiolight_intensity
-    col = utils.array_to_color([1,1,1])
-    world_setup(ibl_path, col, loc, rot, 1.0, str)
+    shading = utils.get_view_3d_shading()
+    if shading:
+        studio_light = shading.selected_studio_light
+        ibl_path = studio_light.path
+        loc = Vector((0,0,0))
+        rot_z = shading.studiolight_rotate_z
+        rot = Vector((0, 0, rot_z))
+        str = shading.studiolight_intensity
+        col = utils.array_to_color([1,1,1])
+        world_setup(ibl_path, col, loc, rot, 1.0, str)
 
 
 def world_setup(hdri_path: str, ambient_color, loc: Vector, rot: Vector, sca: float, str: float):
+    shading = utils.get_view_3d_shading()
     if os.path.exists(hdri_path):
         bpy.context.scene.world.use_nodes = True
         nodes = bpy.context.scene.world.node_tree.nodes
@@ -66,9 +69,9 @@ def world_setup(hdri_path: str, ambient_color, loc: Vector, rot: Vector, sca: fl
         nodeutils.link_nodes(links, et_node, "Color", bg_node, "Color")
         nodeutils.link_nodes(links, bg_node, "Background", wo_node, "Surface")
         et_node.image = imageutils.load_image(hdri_path, "Linear")
-        view_space: bpy.types.Area = utils.get_view_space()
-        view_space.shading.use_scene_world = False
-        view_space.shading.use_scene_world_render = True
+        if shading:
+            shading.use_scene_world = False
+            shading.use_scene_world_render = True
     else:
         bpy.context.scene.world.use_nodes = True
         nodes = bpy.context.scene.world.node_tree.nodes
@@ -81,7 +84,7 @@ def world_setup(hdri_path: str, ambient_color, loc: Vector, rot: Vector, sca: fl
         nodeutils.set_node_input_value(bg_node, "Strength", str)
         nodeutils.set_node_input_value(bg_node, "Color", ambient_color)
         nodeutils.link_nodes(links, bg_node, "Background", wo_node, "Surface")
-        view_space: bpy.types.Area = utils.get_view_space()
-        view_space.shading.use_scene_world = False
-        view_space.shading.use_scene_world_render = True
+        if shading:
+            shading.use_scene_world = False
+            shading.use_scene_world_render = True
 

@@ -270,7 +270,9 @@ def compositor_setup():
     nodeutils.link_nodes(links, rlayers_node, "Image", glare_node, "Image")
     nodeutils.link_nodes(links, glare_node, "Image", lens_node, "Image")
     nodeutils.link_nodes(links, lens_node, "Image", c_node, "Image")
-    bpy.context.space_data.shading.use_scene_world_render = True
+    shading = utils.get_view_3d_shading()
+    if shading:
+        shading.use_scene_world_render = True
 
 
 def world_setup():
@@ -289,6 +291,9 @@ def setup_scene_default(scene_type):
     current_selected = bpy.context.selected_objects
     current_active = utils.get_active_object()
     current_mode = bpy.context.mode
+    shading = utils.get_view_3d_shading()
+    space_data = utils.get_view_3d_space()
+
     # go to object mode
     try:
         if current_mode != "OBJECT":
@@ -331,25 +336,27 @@ def setup_scene_default(scene_type):
                     (0.6503279805183411, 0.055217113345861435, 1.8663908243179321),
                     1000, 0.1)
 
-            bpy.context.space_data.shading.type = 'MATERIAL'
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.studio_light = 'forest.exr'
-            bpy.context.space_data.shading.studiolight_rotate_z = 0
-            bpy.context.space_data.shading.studiolight_intensity = 1
-            bpy.context.space_data.shading.studiolight_background_alpha = 0
-            bpy.context.space_data.shading.studiolight_background_blur = 0
-            bpy.context.space_data.clip_start = 0.1
+            if shading:
+                shading.type = 'MATERIAL'
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.studio_light = 'forest.exr'
+                shading.studiolight_rotate_z = 0
+                shading.studiolight_intensity = 1
+                shading.studiolight_background_alpha = 0
+                shading.studiolight_background_blur = 0
+                space_data.clip_start = 0.1
 
         elif scene_type == "MATCAP":
 
             remove_all_lights(False)
             restore_hidden_camera()
 
-            bpy.context.space_data.shading.type = 'SOLID'
-            bpy.context.space_data.shading.light = 'MATCAP'
-            bpy.context.space_data.shading.studio_light = 'basic_1.exr'
-            bpy.context.space_data.shading.show_cavity = True
+            if shading:
+                shading.type = 'SOLID'
+                shading.light = 'MATCAP'
+                shading.studio_light = 'basic_1.exr'
+                shading.show_cavity = True
 
         elif scene_type == "CC3":
 
@@ -424,19 +431,19 @@ def setup_scene_default(scene_type):
             set_contact_shadow(sun_light_003, 0.05000000074505806, 0.0024999999441206455)
             sun_light_003.data.color = (1.0, 1.0, 1.0)
 
-
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 0
-            bpy.context.space_data.shading.studiolight_intensity = 1.0
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.0
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.clip_start = 0.009999999776482582
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = 0
+                shading.studiolight_intensity = 1.0
+                shading.studiolight_background_alpha = 0.0
+                shading.studiolight_background_blur = 0.5
+                space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
 
@@ -503,19 +510,19 @@ def setup_scene_default(scene_type):
             set_contact_shadow(spot_light_002, 0.20000000298023224, 0.20000000298023224)
             spot_light_002.data.color = (1.0, 1.0, 1.0)
 
-
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 0
-            bpy.context.space_data.shading.studiolight_intensity = 0.20000000298023224
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.05
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.clip_start = 0.009999999776482582
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = 0
+                shading.studiolight_intensity = 0.20000000298023224
+                shading.studiolight_background_alpha = 0.05
+                shading.studiolight_background_blur = 0.5
+                space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
 
@@ -578,19 +585,19 @@ def setup_scene_default(scene_type):
             set_contact_shadow(area_light_002, 0.20000000298023224, 0.20000000298023224)
             area_light_002.data.color = (1.0, 1.0, 1.0)
 
-
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "courtyard.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 0.7854
-            bpy.context.space_data.shading.studiolight_intensity = 0.3499999940395355
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.05
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.clip_start = 0.009999999776482582
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "courtyard.exr"
+                shading.studiolight_rotate_z = 0.7854
+                shading.studiolight_intensity = 0.3499999940395355
+                shading.studiolight_background_alpha = 0.05
+                shading.studiolight_background_blur = 0.5
+                space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
 
@@ -678,19 +685,19 @@ def setup_scene_default(scene_type):
             set_contact_shadow(spot_light_004, 0.05000000074505806, 0.0024999999441206455)
             spot_light_004.data.color = (0.6796281933784485, 0.7500560283660889, 0.8958061933517456)
 
-
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 3.1416
-            bpy.context.space_data.shading.studiolight_intensity = 0.4
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.clip_start = 0.009999999776482582
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = 3.1416
+                shading.studiolight_intensity = 0.4
+                shading.studiolight_background_alpha = 0.05000000074505806
+                shading.studiolight_background_blur = 0.5
+                space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
 
@@ -796,19 +803,19 @@ def setup_scene_default(scene_type):
             set_contact_shadow(spot_light_006, 0.05000000074505806, 0.0024999999441206455)
             spot_light_006.data.color = (0.8823530077934265, 0.9411765336990356, 1.0)
 
-
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 0
-            bpy.context.space_data.shading.studiolight_intensity = 0.2
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.05
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.clip_start = 0.01
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = 0
+                shading.studiolight_intensity = 0.2
+                shading.studiolight_background_alpha = 0.05
+                shading.studiolight_background_blur = 0.5
+                space_data.clip_start = 0.01
 
             align_to_head(container)
 
@@ -927,19 +934,19 @@ def setup_scene_default(scene_type):
             set_contact_shadow(spot_light_007, 0.05000000074505806, 0.0024999999441206455)
             spot_light_007.data.color = (0.8823530077934265, 0.9411765336990356, 1.0)
 
-
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "sunset.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 0.6440264591947198
-            bpy.context.space_data.shading.studiolight_intensity = 0.20000000298023224
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.0
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.clip_start = 0.009999999776482582
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "sunset.exr"
+                shading.studiolight_rotate_z = 0.6440264591947198
+                shading.studiolight_intensity = 0.20000000298023224
+                shading.studiolight_background_alpha = 0.0
+                shading.studiolight_background_blur = 0.5
+                space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
 
@@ -1037,19 +1044,19 @@ def setup_scene_default(scene_type):
             set_contact_shadow(spot_light_006, 0.20000000298023224, 0.20000000298023224)
             spot_light_006.data.color = (1.0332900285720825, 0.6694098114967346, 0.2778758704662323)
 
-
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "redWall.hdr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.356194391846657
-            bpy.context.space_data.shading.studiolight_intensity = 0.25
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.05
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.clip_start = 0.009999999776482582
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "redWall.hdr"
+                shading.studiolight_rotate_z = 2.356194391846657
+                shading.studiolight_intensity = 0.25
+                shading.studiolight_background_alpha = 0.05
+                shading.studiolight_background_blur = 0.5
+                space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
 
@@ -1147,19 +1154,19 @@ def setup_scene_default(scene_type):
             set_contact_shadow(spot_light_005, 0.05000000074505806, 0.0024999999441206455)
             spot_light_005.data.color = (1.0, 1.0, 1.0)
 
-
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "interior.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 1.0472
-            bpy.context.space_data.shading.studiolight_intensity = 0.4551074802875519
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.05000000074505806
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.clip_start = 0.009999999776482582
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "interior.exr"
+                shading.studiolight_rotate_z = 1.0472
+                shading.studiolight_intensity = 0.4551074802875519
+                shading.studiolight_background_alpha = 0.05000000074505806
+                shading.studiolight_background_blur = 0.5
+                space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
 
@@ -1256,19 +1263,19 @@ def setup_scene_default(scene_type):
             set_contact_shadow(spot_light_005, 0.05000000074505806, 0.0024999999441206455)
             spot_light_005.data.color = (0.8283909559249878, 0.7455518841743469, 0.9319397807121277)
 
-
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "night.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 2.3561945
-            bpy.context.space_data.shading.studiolight_intensity = 0.4000000059604645
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.0
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.clip_start = 0.009999999776482582
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "night.exr"
+                shading.studiolight_rotate_z = 2.3561945
+                shading.studiolight_intensity = 0.4000000059604645
+                shading.studiolight_background_alpha = 0.0
+                shading.studiolight_background_blur = 0.5
+                space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
 
@@ -1377,18 +1384,19 @@ def setup_scene_default(scene_type):
             spot_light_006.data.color = (0.0, 0.0, 1.0)
 
 
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "studio.exr"
-            bpy.context.space_data.shading.studiolight_rotate_z = 0.0
-            bpy.context.space_data.shading.studiolight_intensity = 0.4000000059604645
-            bpy.context.space_data.shading.studiolight_background_alpha = 0.0
-            bpy.context.space_data.shading.studiolight_background_blur = 0.5
-            bpy.context.space_data.clip_start = 0.009999999776482582
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = 0.0
+                shading.studiolight_intensity = 0.4000000059604645
+                shading.studiolight_background_alpha = 0.0
+                shading.studiolight_background_blur = 0.5
+                space_data.clip_start = 0.009999999776482582
 
             align_to_head(container)
 
@@ -1452,9 +1460,10 @@ def setup_scene_default(scene_type):
             set_contact_shadow(key, 0.05, 0.0025)
             set_contact_shadow(fill, 0.05, 0.0025)
 
-            #bpy.context.space_data.shading.type = 'RENDERED'
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = True
+            if shading:
+                #shading.type = 'RENDERED'
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = True
 
             bpy.context.space_data.clip_start = 0.01
 
@@ -1504,7 +1513,9 @@ def get_head_delta(chr_cache):
             forward = rot @ Vector((0,0,1))
             f_2d = Vector((forward.x, forward.y)).normalized()
             z_angle = f_2d.angle_signed(Vector((0,-1)), 0)
-            bpy.context.space_data.shading.studiolight_rotate_z += z_angle
+            shading = utils.get_view_3d_shading()
+            if shading:
+                shading.studiolight_rotate_z += z_angle
             head_rot_z = Euler((0,0,z_angle), "XYZ").to_quaternion()
     return z_angle, head_pos, head_rot_z
 
@@ -1544,7 +1555,10 @@ def target_head(distance):
 
 
 def align_to_head(container):
-    current_angle = bpy.context.space_data.shading.studiolight_rotate_z
+    shading = utils.get_view_3d_shading()
+    current_angle = 0.0
+    if shading:
+        current_angle = shading.studiolight_rotate_z
     bpy.context.view_layer.update()
     props = vars.props()
     chr_cache = props.get_context_character_cache(bpy.context)
@@ -1554,7 +1568,8 @@ def align_to_head(container):
         new_angle -= 2*math.pi
     elif new_angle < -math.pi:
         new_angle += 2*math.pi
-    bpy.context.space_data.shading.studiolight_rotate_z = new_angle
+    if shading:
+        shading.studiolight_rotate_z = new_angle
     for child in container.children:
         loc = child.location.copy()
         loc = delta_rot @ loc
@@ -1626,7 +1641,7 @@ def align_with_view(obj=None, context=None):
 
 
 def hide_view_extras(hide):
-    view_space: bpy.types.Area = utils.get_view_space()
+    view_space: bpy.types.Area = utils.get_view_3d_space()
     if view_space:
         view_space.overlay.show_extras = not hide
 
@@ -1654,6 +1669,8 @@ def dump_scene_setup():
     props = vars.props()
     chr_cache = props.get_context_character_cache(bpy.context)
     za, dl, dr = get_head_delta(chr_cache)
+    shading = utils.get_view_3d_shading()
+    space_data = utils.get_view_3d_space()
 
     code = f"""
             bpy.context.scene.eevee.use_gtao = {bpy.context.scene.eevee.use_gtao}
@@ -1737,18 +1754,19 @@ def dump_scene_setup():
     """
 
     code += f"""
-            if bpy.context.space_data.shading.type not in ["MATERIAL", "RENDERED"]:
-                bpy.context.space_data.shading.type = "MATERIAL"
-            bpy.context.space_data.shading.use_scene_lights = True
-            bpy.context.space_data.shading.use_scene_world = False
-            bpy.context.space_data.shading.use_scene_lights_render = True
-            bpy.context.space_data.shading.use_scene_world_render = False
-            bpy.context.space_data.shading.studio_light = "{bpy.context.space_data.shading.studio_light}"
-            bpy.context.space_data.shading.studiolight_rotate_z = {(bpy.context.space_data.shading.studiolight_rotate_z - za)}
-            bpy.context.space_data.shading.studiolight_intensity = {bpy.context.space_data.shading.studiolight_intensity}
-            bpy.context.space_data.shading.studiolight_background_alpha = {bpy.context.space_data.shading.studiolight_background_alpha}
-            bpy.context.space_data.shading.studiolight_background_blur = {bpy.context.space_data.shading.studiolight_background_blur}
-            bpy.context.space_data.clip_start = {bpy.context.space_data.clip_start}
+            if shading:
+            if shading.type not in ["MATERIAL", "RENDERED"]:
+                shading.type = "MATERIAL"
+            shading.use_scene_lights = True
+            shading.use_scene_world = False
+            shading.use_scene_lights_render = True
+            shading.use_scene_world_render = False
+            shading.studio_light = "{shading.studio_light}"
+            shading.studiolight_rotate_z = {(shading.studiolight_rotate_z - za)}
+            shading.studiolight_intensity = {shading.studiolight_intensity}
+            shading.studiolight_background_alpha = {shading.studiolight_background_alpha}
+            shading.studiolight_background_blur = {shading.studiolight_background_blur}
+            space_data.clip_start = {space_data.clip_start}
 
             align_to_head(container)
 
