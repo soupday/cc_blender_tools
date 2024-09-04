@@ -113,6 +113,9 @@ def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format="
     if shading:
         bake_state["shading"] = shading.type
         shading.type = 'WIREFRAME'
+    else:
+        bake_state["shading"] = 'MATERIAL'
+        shading.type = 'WIREFRAME'
     # set cycles rendering mode for baking
     bake_state["engine"] = bpy.context.scene.render.engine
     bpy.context.scene.render.engine = 'CYCLES'
@@ -194,6 +197,7 @@ def post_bake(state):
     shading = utils.get_view_3d_shading()
     if shading:
         shading.type = state["shading"]
+
     # bake type
     bpy.context.scene.cycles.bake_type = state["cycles_bake_type"]
     bpy.context.scene.render.bake_type = state["render_bake_type"]

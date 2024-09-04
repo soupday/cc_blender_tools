@@ -883,6 +883,8 @@ def begin_paint_weight_map(chr_cache, context):
     if obj is not None and mat is not None:
         if shading:
             props.paint_store_render = shading.type
+        else:
+            props.paint_store_render = "MATERIAL"
 
         if bpy.context.mode != "PAINT_TEXTURE":
             bpy.ops.object.mode_set(mode="TEXTURE_PAINT")
