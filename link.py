@@ -1771,7 +1771,8 @@ class LinkService():
                     idx = obj.active_material_index
                     if len(obj.material_slots) > idx:
                         mat = obj.material_slots[idx].material
-                        materials.append(mat)
+                        if mat:
+                            materials.append(mat)
             else:
                 materials = None
             export_path = self.get_export_path("Materials", f"{actor.name}.json",
@@ -2434,22 +2435,23 @@ class LinkService():
         colorspace.set_view_settings(view_transform, "Medium High Contrast", 0, 0.75)
         if bpy.context.scene.cycles.transparent_max_bounces < 100:
             bpy.context.scene.cycles.transparent_max_bounces = 100
-        view_space: bpy.types.Area = utils.get_view_space()
-        if view_space:
-            if view_space.shading.type != 'MATERIAL' and view_space.shading.type != "RENDERED":
-                view_space.shading.type = 'MATERIAL'
-            view_space.shading.use_scene_lights = True
-            view_space.shading.use_scene_lights_render = True
-            view_space.shading.use_scene_world = False
-            view_space.shading.use_scene_world_render = True
-            view_space.shading.studio_light = 'studio.exr'
-            view_space.shading.studiolight_rotate_z = -25 * 0.01745329
-            view_space.shading.studiolight_intensity = ambient_strength
-            view_space.shading.studiolight_background_alpha = 0.0
-            view_space.shading.studiolight_background_blur = 0.5
-            if self.is_cc():
-                # only hide the lights if it's from Character Creator
-                view_space.overlay.show_extras = False
+        view_space = utils.get_view_3d_space()
+        shading = utils.get_view_3d_shading()
+        if shading:
+            if shading.type != 'MATERIAL' and shading.type != "RENDERED":
+                shading.type = 'MATERIAL'
+            shading.use_scene_lights = True
+            shading.use_scene_lights_render = True
+            shading.use_scene_world = False
+            shading.use_scene_world_render = True
+            shading.studio_light = 'studio.exr'
+            shading.studiolight_rotate_z = -25 * 0.01745329
+            shading.studiolight_intensity = ambient_strength
+            shading.studiolight_background_alpha = 0.0
+            shading.studiolight_background_blur = 0.5
+        if view_space and self.is_cc():
+            # only hide the lights if it's from Character Creator
+            view_space.overlay.show_extras = False
         if bpy.context.scene.view_settings.view_transform == "AgX":
             c = props.light_filter
             props.light_filter = (0.875, 1, 1, 1)
@@ -3090,9 +3092,9 @@ class LinkService():
     def import_morph_update(self, actor: LinkActor, file_path):
         utils.log_info(f"Import Morph Update: {actor.name} / {file_path}")
 
-        utils.tag_objects()
+        old_objects = utils.get_set(bpy.data.objects)
         importer.obj_import(file_path, split_objects=False, split_groups=False, vgroups=True)
-        objects = utils.untagged_objects()
+        objects = utils.get_set_new(bpy.data.objects, old_objects)
         if objects and actor and actor.get_chr_cache():
             for source in objects:
                 source.scale = (0.01, 0.01, 0.01)

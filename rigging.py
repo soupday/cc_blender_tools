@@ -998,7 +998,7 @@ def mirror_uv_target(uv):
 def get_head_material_slot(obj):
     for i in range(0, len(obj.material_slots)):
         slot = obj.material_slots[i]
-        if slot.material is not None:
+        if slot.material:
             if "Std_Skin_Head" in slot.material.name:
                 return i
     return -1

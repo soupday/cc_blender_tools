@@ -75,7 +75,8 @@ def duplicate_character(chr_cache):
                 if mat not in dup_mats:
                     dup_mats[mat] = mat.copy()
             for slot in obj.material_slots:
-                slot.material = dup_mats[slot.material]
+                if slot.material:
+                    slot.material = dup_mats[slot.material]
 
     # copy chr_cache
     old_cache = chr_cache
@@ -1536,6 +1537,7 @@ def match_materials(chr_cache):
 
         for slot in obj.material_slots:
             mat = slot.material
+            if mat is None: continue
 
             # again strip the numerical duplication suffix from the accurig imported material names
             mat_source_name = utils.strip_name(mat.name)
