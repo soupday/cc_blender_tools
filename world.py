@@ -29,8 +29,8 @@ def get_default_hdri_path(hdri_name):
     return hdri_path
 
 
-def copy_material_to_render_world():
-    shading = utils.get_view_3d_shading()
+def copy_material_to_render_world(context):
+    shading = utils.get_view_3d_shading(context)
     if shading:
         studio_light = shading.selected_studio_light
         ibl_path = studio_light.path
@@ -39,11 +39,11 @@ def copy_material_to_render_world():
         rot = Vector((0, 0, rot_z))
         str = shading.studiolight_intensity
         col = utils.array_to_color([1,1,1])
-        world_setup(ibl_path, col, loc, rot, 1.0, str)
+        world_setup(context, ibl_path, col, loc, rot, 1.0, str)
 
 
-def world_setup(hdri_path: str, ambient_color, loc: Vector, rot: Vector, sca: float, str: float):
-    shading = utils.get_view_3d_shading()
+def world_setup(context, hdri_path: str, ambient_color, loc: Vector, rot: Vector, sca: float, str: float):
+    shading = utils.get_view_3d_shading(context)
     if os.path.exists(hdri_path):
         bpy.context.scene.world.use_nodes = True
         nodes = bpy.context.scene.world.node_tree.nodes

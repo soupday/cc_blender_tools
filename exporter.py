@@ -141,7 +141,7 @@ def restore_modifiers(chr_cache, objects):
                 modifiers.add_eye_modifiers(obj)
 
 
-def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
+def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_path,
                 copy_textures, revert_duplicates, apply_fixes, as_blend_file, bake_values,
                 materials=None, sync=False, force_bake=False):
     prefs = vars.prefs()
@@ -430,7 +430,7 @@ def prep_export(chr_cache, new_name, objects, json_data, old_path, new_path,
                 utils.log_indent()
                 # update the json parameters with any changes
                 if write_textures:
-                    write_back_textures(mat_json, mat, mat_cache, base_path, old_name, bake_values, mat_data,
+                    write_back_textures(context, mat_json, mat, mat_cache, base_path, old_name, bake_values, mat_data,
                                         bake_nodes, bake_bump_to_normal, images_processed)
                 if write_json:
                     write_back_json(mat_json, mat, mat_cache)
@@ -707,7 +707,7 @@ def write_back_json(mat_json, mat, mat_cache):
                 jsonutils.set_material_json_var(mat_json, json_var, json_value)
 
 
-def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bake_values, mat_data,
+def write_back_textures(context, mat_json: dict, mat, mat_cache, base_path, old_name, bake_values, mat_data,
                         bake_nodes, bake_bump_to_normal, images_processed):
     global UNPACK_INDEX
     prefs = vars.prefs()
@@ -848,7 +848,7 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                     ao = nodeutils.get_node_input_value(shader_node, "AO Strength", 1.0)
                                     nodeutils.set_node_input_value(shader_node, "AO Strength", 0)
 
-                                image = bake.bake_node_socket_input(bsdf_node, bake_shader_socket,
+                                image = bake.bake_node_socket_input(context, bsdf_node, bake_shader_socket,
                                                                     mat, tex_id, bake_path,
                                                                     override_size=bake_value_size)
 
@@ -872,7 +872,7 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                 if tex_type == "ROUGHNESS" and roughness_modified:
                                     roughness_pow = nodeutils.get_node_input_value(shader_node, "Roughness Power", def_pow)
                                     nodeutils.set_node_input_value(shader_node, "Roughness Power", 1.0)
-                                    image = bake.bake_node_socket_input(bsdf_node, "Roughness",
+                                    image = bake.bake_node_socket_input(context, bsdf_node, "Roughness",
                                                                         mat, tex_id, bake_path,
                                                                         size_override_node=shader_node,
                                                                         size_override_socket="Roughness Map")
@@ -880,7 +880,7 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
 
                                 # if there is a normal and a bump map connected, combine into a normal
                                 elif bake_nodes and tex_type == "NORMAL" and bump_combining:
-                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node,
+                                    image = bake.bake_rl_bump_and_normal(context, shader_node, bsdf_node,
                                                                          mat, tex_id, bake_path,
                                                                          normal_socket_name=shader_socket,
                                                                          bump_socket_name=bump_socket)
@@ -894,13 +894,13 @@ def write_back_textures(mat_json: dict, mat, mat_cache, base_path, old_name, bak
                                 # if something is connected to the shader socket but is not a texture image
                                 # and baking is enabled: then bake the socket input into a texture for exporting:
                                 if tex_type == "NORMAL" and bump_combining:
-                                    image = bake.bake_rl_bump_and_normal(shader_node, bsdf_node, mat, tex_id, bake_path,
+                                    image = bake.bake_rl_bump_and_normal(context, shader_node, bsdf_node, mat, tex_id, bake_path,
                                                                          normal_socket_name = shader_socket,
                                                                          bump_socket_name = bump_socket)
                                 else:
 
                                     utils.log_info(f"Baking Socket Input: {shader_node.name} {shader_socket}")
-                                    image = bake.bake_node_socket_input(shader_node, shader_socket,
+                                    image = bake.bake_node_socket_input(context, shader_node, shader_socket,
                                                                         mat, tex_id, bake_path)
 
                         tex_info["Texture Path"] = ""
@@ -1484,7 +1484,7 @@ def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
     return
 
 
-def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, path, bake_path, unpack_path):
+def write_or_bake_tex_data_to_json(context, socket_mapping, mat, mat_json, bsdf_node, path, bake_path, unpack_path):
 
     combine_normals = False
     if bsdf_node and "Normal" in socket_mapping and "Bump" in socket_mapping:
@@ -1513,12 +1513,12 @@ def write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, pat
 
         else:
             if tex_id == "Normal" and combine_normals:
-                image = bake.bake_bsdf_normal(bsdf_node, mat, tex_id, bake_path)
+                image = bake.bake_bsdf_normal(context, bsdf_node, mat, tex_id, bake_path)
             else:
                 if bake_value:
                     image = bake.pack_value_image(socket.default_value, mat, tex_id, bake_path)
                 else:
-                    image = bake.bake_node_socket_output(node, socket, mat, tex_id, bake_path)
+                    image = bake.bake_node_socket_output(context, node, socket, mat, tex_id, bake_path)
 
         tex_info = copy.deepcopy(params.JSON_PBR_TEX_INFO)
         if image.filepath:
@@ -1703,7 +1703,7 @@ def obj_export(file_path, use_selection=False, use_animation=False, global_scale
                                  keep_vertex_order=keep_vertex_order)
 
 
-def export_standard(self, chr_cache, file_path, include_selected):
+def export_standard(self, context, chr_cache, file_path, include_selected):
     """Exports standard character (not rigified, not generic) to CC3/4 with json data,
        texture paths are relative to source character, as an .fbx file.
     """
@@ -1758,7 +1758,7 @@ def export_standard(self, chr_cache, file_path, include_selected):
         remove_modifiers_for_export(chr_cache, objects, use_rest_pose)
 
         revert_duplicates = prefs.export_revert_names
-        prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(),
+        prep_export(context, chr_cache, name, objects, json_data, chr_cache.get_import_dir(),
                     dir, self.include_textures, revert_duplicates, True, False, True)
 
         # attempt any custom exports (ARP)
@@ -1933,7 +1933,7 @@ def export_non_standard(self, file_path, include_selected):
 
 
 
-def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
+def export_to_unity(self, context, chr_cache, export_anim, file_path, include_selected):
     """Exports CC3/4 character (not rigified) for Unity with json data and textures,
        as either a .blend file or .fbx file.
     """
@@ -2002,7 +2002,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True)
 
-    prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir, self.include_textures, False, False, as_blend_file, False)
+    prep_export(context, chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir, self.include_textures, False, False, as_blend_file, False)
 
     # make the T-pose as an action
     utils.safe_set_action(arm, None)
@@ -2044,7 +2044,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
         bpy.ops.file.make_paths_relative()
         bpy.ops.wm.save_as_mainfile(filepath=file_path)
         # restore some lighting
-        shading = utils.get_view_3d_shading()
+        shading = utils.get_view_3d_shading(context)
         if shading:
             shading.use_scene_lights = False
             shading.use_scene_world = False
@@ -2073,7 +2073,7 @@ def export_to_unity(self, chr_cache, export_anim, file_path, include_selected):
     utils.log_timer("Done Character Export.")
 
 
-def update_to_unity(chr_cache, export_anim, include_selected):
+def update_to_unity(self, context, chr_cache, export_anim, include_selected):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -2122,7 +2122,7 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True)
 
-    prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir, True, False, False, as_blend_file, False)
+    prep_export(context, chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir, True, False, False, as_blend_file, False)
 
     # make the T-pose as an action
     arm = get_export_armature(chr_cache, objects)
@@ -2152,7 +2152,7 @@ def update_to_unity(chr_cache, export_anim, include_selected):
     utils.log_timer("Done Character Export.")
 
 
-def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
+def export_rigify(self, context, chr_cache, export_anim, file_path, include_selected):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -2221,7 +2221,7 @@ def export_rigify(self, chr_cache, export_anim, file_path, include_selected):
     # remove custom material modifiers
     remove_modifiers_for_export(chr_cache, objects, True, rig=export_rig)
 
-    prep_export(chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir,
+    prep_export(context, chr_cache, name, objects, json_data, chr_cache.get_import_dir(), dir,
                 include_textures, False, False, False, False)
 
     # for motion only exports, select armature and any mesh objects that have shape key animations
@@ -2417,26 +2417,26 @@ class CC3Export(bpy.types.Operator):
 
         if chr_cache and self.param == "EXPORT_CC3":
 
-            export_standard(self, chr_cache, self.filepath, self.include_selected)
+            export_standard(self, context, chr_cache, self.filepath, self.include_selected)
             self.report({'INFO'}, "Export to CC3 Done!")
             self.error_report()
 
         elif chr_cache and self.param == "EXPORT_UNITY":
 
-            export_to_unity(self, chr_cache, self.include_anim, self.filepath, self.include_selected)
+            export_to_unity(self, context, chr_cache, self.include_anim, self.filepath, self.include_selected)
             self.report({'INFO'}, "Export to Unity Done!")
             self.error_report()
 
         elif self.param == "UPDATE_UNITY":
 
             # only called when updating .blend file exports
-            update_to_unity(chr_cache, self.include_anim, True)
+            update_to_unity(self, context, chr_cache, self.include_anim, True)
             self.report({'INFO'}, "Update to Unity Done!")
             self.error_report()
 
         elif chr_cache and self.param == "EXPORT_RIGIFY":
 
-            export_rigify(self, chr_cache, self.include_anim, self.filepath, self.include_selected)
+            export_rigify(self, context, chr_cache, self.include_anim, self.filepath, self.include_selected)
             self.report({'INFO'}, "Export from Rigified Done!")
             self.error_report()
 

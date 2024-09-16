@@ -1759,7 +1759,7 @@ class LinkService():
 
         return count
 
-    def export_object_material_data(self, actor: LinkActor, objects):
+    def export_object_material_data(self, context, actor: LinkActor, objects):
         prefs = vars.prefs()
         obj: bpy.types.Object
 
@@ -1782,7 +1782,7 @@ class LinkService():
             if not json_data:
                 json_data = jsonutils.generate_character_json_data(actor.name)
                 exporter.set_character_generation(json_data, chr_cache, actor.name)
-            exporter.prep_export(chr_cache, actor.name, objects, json_data,
+            exporter.prep_export(context, chr_cache, actor.name, objects, json_data,
                                  chr_cache.get_import_dir(), export_dir,
                                  False, False, False, False, True,
                                  materials=materials, sync=True, force_bake=True)
@@ -1795,7 +1795,7 @@ class LinkService():
                     })
             self.send(OpCodes.MATERIALS, export_data)
 
-    def send_material_update(self):
+    def send_material_update(self, context):
         state = utils.store_mode_selection_state()
 
         selection = self.get_actor_mesh_selection()
@@ -1807,11 +1807,11 @@ class LinkService():
             if armatures:
                 # export material info for whole character
                 all_meshes = actor.get_mesh_objects()
-                self.export_object_material_data(actor, all_meshes)
+                self.export_object_material_data(context, actor, all_meshes)
                 count += 1
             elif meshes:
                 # export material info just for selected meshes
-                self.export_object_material_data(actor, meshes)
+                self.export_object_material_data(context, actor, meshes)
                 count += 1
 
         utils.restore_mode_selection_state(state)
@@ -2466,9 +2466,9 @@ class LinkService():
             ibl_rotation = utils.array_to_vector(lights_data.get("ibl_rotation", [0,0,0]))
             ibl_scale = lights_data.get("ibl_scale", 1.0)
             if ibl_path:
-                world.world_setup(ibl_path, ambient_color, ibl_location, ibl_rotation, ibl_scale, ibl_strength)
+                world.world_setup(None, ibl_path, ambient_color, ibl_location, ibl_rotation, ibl_scale, ibl_strength)
         else:
-            world.world_setup("", ambient_color, Vector((0,0,0)), Vector((0,0,0)), 1.0, ambient_strength)
+            world.world_setup(None, "", ambient_color, Vector((0,0,0)), Vector((0,0,0)), 1.0, ambient_strength)
 
 
     def receive_lights(self, data):
@@ -3486,7 +3486,7 @@ class CCICDataLink(bpy.types.Operator):
                 return {'FINISHED'}
 
             elif self.param == "SEND_MATERIAL_UPDATE":
-                count = LINK_SERVICE.send_material_update()
+                count = LINK_SERVICE.send_material_update(context)
                 if count == 1:
                     self.report({'INFO'}, f"Material sent...")
                 elif count > 1:

@@ -1641,21 +1641,23 @@ def reset_object_transform(obj: bpy.types.Object):
     obj.rotation_axis_angle = [0,0,0,0]
 
 
-def get_region_3d():
-    space = get_view_3d_space()
+def get_region_3d(context=None):
+    space = get_view_3d_space(context)
     if space:
         return space, space.region_3d
     return None, None
 
 
-def get_view_3d_space() -> bpy.types.Space:
+def get_view_3d_space(context=None) -> bpy.types.Space:
     try:
+        if not context:
+            context = bpy.context
         space_data = bpy.context.space_data
         if space_data and space_data.tpye == "VIEW_3D":
             return space_data
     except: ...
     try:
-        area = get_view_3d_area()
+        area = get_view_3d_area(context)
         if area:
             return area.spaces.active
     except: ...
@@ -1663,14 +1665,16 @@ def get_view_3d_space() -> bpy.types.Space:
     return None
 
 
-def get_view_3d_shading() -> bpy.types.View3DShading:
+def get_view_3d_shading(context=None) -> bpy.types.View3DShading:
     try:
-        space_data = bpy.context.space_data
+        if not context:
+            context = bpy.context
+        space_data = context.space_data
         if space_data and space_data.type == "VIEW_3D":
             return space_data.shading
     except: ...
     try:
-        space_data = get_view_3d_space()
+        space_data = get_view_3d_space(context)
         if space_data:
             return space_data.shading
     except: ...
@@ -1678,10 +1682,14 @@ def get_view_3d_shading() -> bpy.types.View3DShading:
     return None
 
 
-def get_view_3d_area() -> bpy.types.Area:
-    for area in bpy.context.screen.areas:
-        if area.type == 'VIEW_3D':
-            return area
+def get_view_3d_area(context=None) -> bpy.types.Area:
+    try:
+        if not context:
+            context = bpy.context
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                return area
+    except: ...
     return None
 
 

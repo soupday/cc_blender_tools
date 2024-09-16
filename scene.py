@@ -184,7 +184,9 @@ def restore_hidden_camera():
             return
 
 
-def camera_setup(camera_loc, target_loc):
+def camera_setup(context, camera_loc, target_loc):
+    context = vars.get_context(context)
+
     # find an active camera
     camera = None
     target = None
@@ -205,7 +207,7 @@ def camera_setup(camera_loc, target_loc):
 
     camera.hide_set(False)
     target.hide_set(False)
-    bpy.context.scene.camera = camera
+    context.scene.camera = camera
     track_to(camera, target)
     camera.data.lens = 80
     camera.data.dof.use_dof = True
@@ -219,9 +221,9 @@ def camera_setup(camera_loc, target_loc):
 
     #camera_auto_target(camera, target)
 
-    bpy.context.scene.render.resolution_x = 1920
-    bpy.context.scene.render.resolution_y = 2560
-    bpy.context.scene.render.resolution_percentage = 100
+    context.scene.render.resolution_x = 1920
+    context.scene.render.resolution_y = 2560
+    context.scene.render.resolution_percentage = 100
 
     return camera, target
 
@@ -249,10 +251,12 @@ def camera_auto_target(camera, target):
         target.location = target_location + head_dir * 0.03
         camera.location = head_location + head_dir * 2
 
-def compositor_setup():
-    bpy.context.scene.use_nodes = True
-    nodes = bpy.context.scene.node_tree.nodes
-    links = bpy.context.scene.node_tree.links
+def compositor_setup(context):
+    context = vars.get_context(context)
+
+    context.scene.use_nodes = True
+    nodes = context.scene.node_tree.nodes
+    links = context.scene.node_tree.links
     nodes.clear()
     rlayers_node = nodeutils.make_shader_node(nodes, "CompositorNodeRLayers")
     c_node = nodeutils.make_shader_node(nodes, "CompositorNodeComposite")
@@ -270,29 +274,32 @@ def compositor_setup():
     nodeutils.link_nodes(links, rlayers_node, "Image", glare_node, "Image")
     nodeutils.link_nodes(links, glare_node, "Image", lens_node, "Image")
     nodeutils.link_nodes(links, lens_node, "Image", c_node, "Image")
-    shading = utils.get_view_3d_shading()
+    shading = utils.get_view_3d_shading(context)
     if shading:
         shading.use_scene_world_render = True
 
 
-def world_setup():
-    hide_view_extras(False)
-    world.copy_material_to_render_world()
+def world_setup(context):
+    context = vars.get_context(context)
+
+    hide_view_extras(context, False)
+    world.copy_material_to_render_world(context)
 
 
-def setup_scene_default(scene_type):
+def setup_scene_default(context, scene_type):
     props = vars.props()
     prefs = vars.prefs()
+    context = vars.get_context(context)
 
     # reset brightness
     props.lighting_brightness = 1.0
 
     # store selection and mode
-    current_selected = bpy.context.selected_objects
+    current_selected = context.selected_objects
     current_active = utils.get_active_object()
-    current_mode = bpy.context.mode
-    shading = utils.get_view_3d_shading()
-    space_data = utils.get_view_3d_space()
+    current_mode = context.mode
+    shading = utils.get_view_3d_shading(context)
+    space_data = utils.get_view_3d_space(context)
 
     # go to object mode
     try:
@@ -301,31 +308,31 @@ def setup_scene_default(scene_type):
 
         if scene_type == "BLENDER":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.2
-            bpy.context.scene.eevee.gtao_factor = 1.0
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.2
+            context.scene.eevee.gtao_factor = 1.0
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = False
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = False
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = False
-                bpy.context.scene.eevee.bloom_threshold = 0.8
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 6.5
-                bpy.context.scene.eevee.bloom_intensity = 0.05
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32
+                context.scene.eevee.use_bloom = False
+                context.scene.eevee.bloom_threshold = 0.8
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 6.5
+                context.scene.eevee.bloom_intensity = 0.05
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "None", 0.0, 1.0)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
 
             remove_all_lights(False)
@@ -360,33 +367,33 @@ def setup_scene_default(scene_type):
 
         elif scene_type == "CC3":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 2.0
-                bpy.context.scene.eevee.bloom_intensity = 1.0
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32.0
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.800000011920929
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 2.0
+                context.scene.eevee.bloom_intensity = 1.0
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast",
-                                        1.0, 0.5)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+                                         1.0, 0.5)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
             restore_hidden_camera()
@@ -445,38 +452,38 @@ def setup_scene_default(scene_type):
                 shading.studiolight_background_blur = 0.5
                 space_data.clip_start = 0.009999999776482582
 
-            align_to_head(container)
+            align_to_head(context, container)
 
 
         elif scene_type == "STUDIO":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 2.0
-                bpy.context.scene.eevee.bloom_intensity = 0.10000000149011612
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32.0
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.3499999940395355
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 2.0
+                context.scene.eevee.bloom_intensity = 0.10000000149011612
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "High Contrast",
-                                        0.5, 1.0)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+                                         0.5, 1.0)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
             restore_hidden_camera()
@@ -524,38 +531,38 @@ def setup_scene_default(scene_type):
                 shading.studiolight_background_blur = 0.5
                 space_data.clip_start = 0.009999999776482582
 
-            align_to_head(container)
+            align_to_head(context, container)
 
 
         elif scene_type == "COURTYARD":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 2.0
-                bpy.context.scene.eevee.bloom_intensity = 0.10000000149011612
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32.0
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.3499999940395355
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 2.0
+                context.scene.eevee.bloom_intensity = 0.10000000149011612
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast",
-                                        0.5, 0.6000000238418579)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+                                         0.5, 0.6000000238418579)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
             restore_hidden_camera()
@@ -599,38 +606,38 @@ def setup_scene_default(scene_type):
                 shading.studiolight_background_blur = 0.5
                 space_data.clip_start = 0.009999999776482582
 
-            align_to_head(container)
+            align_to_head(context, container)
 
 
         elif scene_type == "AQUA":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.3499999940395355
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 2.0
-                bpy.context.scene.eevee.bloom_intensity = 0.10000000149011612
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32.0
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.3499999940395355
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 2.0
+                context.scene.eevee.bloom_intensity = 0.10000000149011612
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast",
-                                        0.800000011920929, 0.550000011920929)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+                                         0.800000011920929, 0.550000011920929)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
             restore_hidden_camera()
@@ -699,37 +706,37 @@ def setup_scene_default(scene_type):
                 shading.studiolight_background_blur = 0.5
                 space_data.clip_start = 0.009999999776482582
 
-            align_to_head(container)
+            align_to_head(context, container)
 
 
         elif scene_type == "AUTHORITY":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.35
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 2.0
-                bpy.context.scene.eevee.bloom_intensity = 0.1
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.35
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 2.0
+                context.scene.eevee.bloom_intensity = 0.1
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.5, 0.6)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
             restore_hidden_camera()
@@ -817,38 +824,38 @@ def setup_scene_default(scene_type):
                 shading.studiolight_background_blur = 0.5
                 space_data.clip_start = 0.01
 
-            align_to_head(container)
+            align_to_head(context, container)
 
 
         elif scene_type == "EXQUISITE":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 2.0
-                bpy.context.scene.eevee.bloom_intensity = 1.0
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32.0
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.800000011920929
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 2.0
+                context.scene.eevee.bloom_intensity = 1.0
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast",
-                                        0.550000011920929, 0.6000000238418579)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+                                         0.550000011920929, 0.6000000238418579)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
             restore_hidden_camera()
@@ -948,37 +955,37 @@ def setup_scene_default(scene_type):
                 shading.studiolight_background_blur = 0.5
                 space_data.clip_start = 0.009999999776482582
 
-            align_to_head(container)
+            align_to_head(context, container)
 
 
         elif scene_type == "BLUR_WARM":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.35
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 4.0
-                bpy.context.scene.eevee.bloom_intensity = 0.15
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.35
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 4.0
+                context.scene.eevee.bloom_intensity = 0.15
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.0, 0.8)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
             restore_hidden_camera()
@@ -1058,38 +1065,38 @@ def setup_scene_default(scene_type):
                 shading.studiolight_background_blur = 0.5
                 space_data.clip_start = 0.009999999776482582
 
-            align_to_head(container)
+            align_to_head(context, container)
 
 
         elif scene_type == "INTERIOR":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.800000011920929
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 2.0
-                bpy.context.scene.eevee.bloom_intensity = 1.0
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32.0
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.800000011920929
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 2.0
+                context.scene.eevee.bloom_intensity = 1.0
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "High Contrast",
-                                        0.0, 0.75)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+                                         0.0, 0.75)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
             restore_hidden_camera()
@@ -1168,38 +1175,38 @@ def setup_scene_default(scene_type):
                 shading.studiolight_background_blur = 0.5
                 space_data.clip_start = 0.009999999776482582
 
-            align_to_head(container)
+            align_to_head(context, container)
 
 
         elif scene_type == "LEADING_ROLE":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.65
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 3.0
-                bpy.context.scene.eevee.bloom_intensity = 1.0
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32.0
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.65
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 3.0
+                context.scene.eevee.bloom_intensity = 1.0
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium Contrast",
-                                        0.5, 0.6)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+                                         0.5, 0.6)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
             restore_hidden_camera()
@@ -1277,38 +1284,38 @@ def setup_scene_default(scene_type):
                 shading.studiolight_background_blur = 0.5
                 space_data.clip_start = 0.009999999776482582
 
-            align_to_head(container)
+            align_to_head(context, container)
 
 
         elif scene_type == "NEON":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.65
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 3.0
-                bpy.context.scene.eevee.bloom_intensity = 1.0
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32.0
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.65
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 3.0
+                context.scene.eevee.bloom_intensity = 1.0
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast",
-                                        0.75, 0.5)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+                                         0.75, 0.5)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
             restore_hidden_camera()
@@ -1398,42 +1405,42 @@ def setup_scene_default(scene_type):
                 shading.studiolight_background_blur = 0.5
                 space_data.clip_start = 0.009999999776482582
 
-            align_to_head(container)
+            align_to_head(context, container)
 
 
         elif scene_type == "TEMPLATE":
 
-            bpy.context.scene.eevee.use_gtao = True
-            bpy.context.scene.eevee.gtao_distance = 0.25
-            bpy.context.scene.eevee.gtao_factor = 0.5
-            bpy.context.scene.eevee.use_taa_reprojection = True
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.25
+            context.scene.eevee.gtao_factor = 0.5
+            context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
-                bpy.context.scene.eevee.use_shadows = True
-                bpy.context.scene.eevee.use_volumetric_shadows = True
-                bpy.context.scene.eevee.use_raytracing = True
-                bpy.context.scene.eevee.ray_tracing_options.use_denoise = True
-                bpy.context.scene.eevee.use_shadow_jitter_viewport = True
-                bpy.context.scene.eevee.use_bokeh_jittered = True
-                bpy.context.scene.world.use_sun_shadow = True
-                bpy.context.scene.world.use_sun_shadow_jitter = True
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
             else:
-                bpy.context.scene.eevee.use_bloom = True
-                bpy.context.scene.eevee.bloom_threshold = 0.5
-                bpy.context.scene.eevee.bloom_knee = 0.5
-                bpy.context.scene.eevee.bloom_radius = 5.0
-                bpy.context.scene.eevee.bloom_intensity = 0.1
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
-            bpy.context.scene.eevee.bokeh_max_size = 32
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.5
+                context.scene.eevee.bloom_knee = 0.5
+                context.scene.eevee.bloom_radius = 5.0
+                context.scene.eevee.bloom_intensity = 0.1
+            context.scene.eevee.use_ssr = True
+            context.scene.eevee.use_ssr_refraction = True
+            context.scene.eevee.bokeh_max_size = 32
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.6, 0.6)
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(False)
-            head_pos, camera_pos = target_head(1.0)
-            camera, camera_target = camera_setup(camera_pos, head_pos)
-            bpy.context.scene.camera = camera
+            head_pos, camera_pos = target_head(context, 1.0)
+            camera, camera_target = camera_setup(context, camera_pos, head_pos)
+            context.scene.camera = camera
             container = add_light_container()
 
             key = add_area_light("Key", container,
@@ -1465,9 +1472,9 @@ def setup_scene_default(scene_type):
                 shading.use_scene_lights_render = True
                 shading.use_scene_world_render = True
 
-            bpy.context.space_data.clip_start = 0.01
+            context.space_data.clip_start = 0.01
 
-        if bpy.context.scene.view_settings.view_transform == "AgX":
+        if context.scene.view_settings.view_transform == "AgX":
             filter_lights((0.875, 1, 1, 1))
 
     except Exception as e:
@@ -1481,21 +1488,25 @@ def setup_scene_default(scene_type):
         except:
             pass
     try:
-        bpy.context.view_layer.objects.active = current_active
+        context.view_layer.objects.active = current_active
         if current_mode != "OBJECT":
             bpy.ops.object.mode_set(mode=current_mode)
     except:
         pass
 
 
-def lighting_setup_camera():
-    hide_view_extras(False)
-    head_pos, camera_pos = target_head(1.0)
-    camera, camera_target = camera_setup(camera_pos, head_pos)
-    bpy.context.scene.camera = camera
+def lighting_setup_camera(context):
+    context = vars.get_context(context)
+
+    hide_view_extras(context, False)
+    head_pos, camera_pos = target_head(context, 1.0)
+    camera, camera_target = camera_setup(context, camera_pos, head_pos)
+    context.scene.camera = camera
 
 
-def get_head_delta(chr_cache):
+def get_head_delta(context, chr_cache):
+    context = vars.get_context(context)
+
     z_angle = 0
     head_pos = Vector((0,0,1.4))
     head_rot_z = Quaternion((1, 0, 0, 0))
@@ -1513,7 +1524,7 @@ def get_head_delta(chr_cache):
             forward = rot @ Vector((0,0,1))
             f_2d = Vector((forward.x, forward.y)).normalized()
             z_angle = f_2d.angle_signed(Vector((0,-1)), 0)
-            shading = utils.get_view_3d_shading()
+            shading = utils.get_view_3d_shading(context)
             if shading:
                 shading.studiolight_rotate_z += z_angle
             head_rot_z = Euler((0,0,z_angle), "XYZ").to_quaternion()
@@ -1544,25 +1555,29 @@ def target_eyes_plane(chr_cache, head_pos, forward):
     return head_pos + fN * 0.09
 
 
-def target_head(distance):
-    bpy.context.view_layer.update()
+def target_head(context, distance):
+    context = vars.get_context(context)
+
+    context.view_layer.update()
     props = vars.props()
-    chr_cache = props.get_context_character_cache(bpy.context)
-    z_angle, head_pos, head_rot = get_head_delta(chr_cache)
+    chr_cache = props.get_context_character_cache(context)
+    z_angle, head_pos, head_rot = get_head_delta(context, chr_cache)
     forward = head_rot @ Vector((0,-1,0))
     head_eyes_plane = target_eyes_plane(chr_cache, head_pos, forward)
     return head_eyes_plane, head_eyes_plane + forward*distance
 
 
-def align_to_head(container):
-    shading = utils.get_view_3d_shading()
+def align_to_head(context, container):
+    context = vars.get_context(context)
+
+    shading = utils.get_view_3d_shading(context)
     current_angle = 0.0
     if shading:
         current_angle = shading.studiolight_rotate_z
-    bpy.context.view_layer.update()
+    context.view_layer.update()
     props = vars.props()
-    chr_cache = props.get_context_character_cache(bpy.context)
-    z_angle, delta_loc, delta_rot = get_head_delta(chr_cache)
+    chr_cache = props.get_context_character_cache(context)
+    z_angle, delta_loc, delta_rot = get_head_delta(context, chr_cache)
     new_angle = current_angle - z_angle
     if new_angle > math.pi:
         new_angle -= 2*math.pi
@@ -1629,33 +1644,42 @@ def filter_lights(filter):
             light.data.color = (r,g,b)
 
 
-def align_with_view(obj=None, context=None):
-    hide_view_extras(False)
+def align_with_view(context, obj=None):
+    context = vars.get_context(context)
+
+    hide_view_extras(context, False)
     if obj is None:
         obj = utils.get_active_object()
     if utils.object_exists(obj):
         utils.align_object_to_view(obj, context)
         if obj.type == "CAMERA":
-            view_space, r3d = utils.get_region_3d()
+            view_space, r3d = utils.get_region_3d(context)
             obj.data.lens = view_space.lens
 
 
-def hide_view_extras(hide):
-    view_space: bpy.types.Area = utils.get_view_3d_space()
+def hide_view_extras(context, hide):
+    context = vars.get_context(context)
+
+    view_space: bpy.types.Area = utils.get_view_3d_space(context)
     if view_space:
         view_space.overlay.show_extras = not hide
 
 
 def add_view_aligned_camera(context):
-    hide_view_extras(False)
+    context = vars.get_context(context)
+
+    hide_view_extras(context, False)
     bpy.ops.object.camera_add(enter_editmode=False, align='VIEW')
     camera = utils.get_active_object()
-    bpy.context.scene.camera = camera
-    align_with_view(camera, context)
+    try:
+        context.scene.camera = camera
+    except: pass
+    align_with_view(context, camera)
     camera.name = "Camera"
     utils.set_ccic_id(camera)
-    view_space, r3d = utils.get_region_3d()
-    camera.data.lens = view_space.lens
+    view_space, r3d = utils.get_region_3d(context)
+    if view_space:
+        camera.data.lens = view_space.lens
     camera.data.dof.use_dof = False
     camera.data.dof.aperture_fstop = 5.4
     camera.data.dof.aperture_blades = 5
@@ -1665,29 +1689,31 @@ def add_view_aligned_camera(context):
     camera.data.show_limits = True
 
 
-def dump_scene_setup():
+def dump_scene_setup(context):
+    context = vars.get_context(context)
+
     props = vars.props()
-    chr_cache = props.get_context_character_cache(bpy.context)
-    za, dl, dr = get_head_delta(chr_cache)
-    shading = utils.get_view_3d_shading()
-    space_data = utils.get_view_3d_space()
+    chr_cache = props.get_context_character_cache(context)
+    za, dl, dr = get_head_delta(context, chr_cache)
+    shading = utils.get_view_3d_shading(context)
+    space_data = utils.get_view_3d_space(context)
 
     code = f"""
-            bpy.context.scene.eevee.use_gtao = {bpy.context.scene.eevee.use_gtao}
-            bpy.context.scene.eevee.gtao_distance = {bpy.context.scene.eevee.gtao_distance}
-            bpy.context.scene.eevee.gtao_factor = {bpy.context.scene.eevee.gtao_factor}
-            bpy.context.scene.eevee.use_bloom = {bpy.context.scene.eevee.use_bloom}
-            bpy.context.scene.eevee.bloom_threshold = {bpy.context.scene.eevee.bloom_threshold}
-            bpy.context.scene.eevee.bloom_knee = {bpy.context.scene.eevee.bloom_knee}
-            bpy.context.scene.eevee.bloom_radius = {bpy.context.scene.eevee.bloom_radius}
-            bpy.context.scene.eevee.bloom_intensity = {bpy.context.scene.eevee.bloom_intensity}
-            bpy.context.scene.eevee.use_ssr = {bpy.context.scene.eevee.use_ssr}
-            bpy.context.scene.eevee.use_ssr_refraction = {bpy.context.scene.eevee.use_ssr_refraction}
-            bpy.context.scene.eevee.bokeh_max_size = {bpy.context.scene.eevee.bokeh_max_size}
-            colorspace.set_view_settings("{bpy.context.scene.view_settings.view_transform}", "{bpy.context.scene.view_settings.look}",
-                                        {bpy.context.scene.view_settings.exposure}, {bpy.context.scene.view_settings.gamma})
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+            context.scene.eevee.use_gtao = {context.scene.eevee.use_gtao}
+            context.scene.eevee.gtao_distance = {context.scene.eevee.gtao_distance}
+            context.scene.eevee.gtao_factor = {context.scene.eevee.gtao_factor}
+            context.scene.eevee.use_bloom = {context.scene.eevee.use_bloom}
+            context.scene.eevee.bloom_threshold = {context.scene.eevee.bloom_threshold}
+            context.scene.eevee.bloom_knee = {context.scene.eevee.bloom_knee}
+            context.scene.eevee.bloom_radius = {context.scene.eevee.bloom_radius}
+            context.scene.eevee.bloom_intensity = {context.scene.eevee.bloom_intensity}
+            context.scene.eevee.use_ssr = {context.scene.eevee.use_ssr}
+            context.scene.eevee.use_ssr_refraction = {context.scene.eevee.use_ssr_refraction}
+            context.scene.eevee.bokeh_max_size = {context.scene.eevee.bokeh_max_size}
+            colorspace.set_view_settings("{context.scene.view_settings.view_transform}", "{context.scene.view_settings.look}",
+                                        {context.scene.view_settings.exposure}, {context.scene.view_settings.gamma})
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
@@ -1696,7 +1722,7 @@ def dump_scene_setup():
     """
 
     i = 0
-    for light in bpy.context.selected_objects:
+    for light in context.selected_objects:
         if light.type == "LIGHT" and light.data.type == "AREA":
             name = f"area_light_{i:03d}"
             i += 1
@@ -1828,17 +1854,19 @@ def fetch_anim_range(context, expand = False, fit = True):
     """Fetch anim range from character animation.
     """
     props = vars.props()
+    context = vars.get_context(context)
+
     chr_cache = props.get_context_character_cache(context)
     arm = chr_cache.get_armature()
     if arm:
         action = utils.safe_get_action(arm)
         if action:
-            if bpy.context.scene.use_preview_range:
-                start = bpy.context.scene.frame_preview_start
-                end = bpy.context.scene.frame_preview_end
+            if context.scene.use_preview_range:
+                start = context.scene.frame_preview_start
+                end = context.scene.frame_preview_end
             else:
-                start = bpy.context.scene.frame_start
-                end = bpy.context.scene.frame_end
+                start = context.scene.frame_start
+                end = context.scene.frame_end
             action_start = math.floor(action.frame_range[0])
             action_end = math.ceil(action.frame_range[1])
             if expand:
@@ -1849,17 +1877,19 @@ def fetch_anim_range(context, expand = False, fit = True):
             elif fit:
                 start = action_start
                 end = action_end
-            if bpy.context.scene.use_preview_range:
-                bpy.context.scene.frame_preview_start = start
-                bpy.context.scene.frame_preview_end = end
+            if context.scene.use_preview_range:
+                context.scene.frame_preview_start = start
+                context.scene.frame_preview_end = end
             else:
-                bpy.context.scene.frame_start = start
-                bpy.context.scene.frame_end = end
+                context.scene.frame_start = start
+                context.scene.frame_end = end
 
 
 def cycles_setup(context):
     props = vars.props()
-    hide_view_extras(False)
+    context = vars.get_context(context)
+
+    hide_view_extras(context, False)
     chr_cache = props.get_context_character_cache(context)
     if chr_cache.render_target != "CYCLES":
         bpy.ops.cc3.importer(param="REBUILD_CYCLES")
@@ -1875,31 +1905,31 @@ def cycles_setup(context):
                     obj.cycles.shadow_terminator_offset = 0.1
 
     try:
-        bpy.context.scene.render.engine = 'CYCLES'
-        bpy.context.scene.cycles.device = 'GPU'
+        context.scene.render.engine = 'CYCLES'
+        context.scene.cycles.device = 'GPU'
     except:
         pass
 
     try:
         # preview
-        bpy.context.scene.cycles.use_preview_adaptive_sampling = True
-        #bpy.context.scene.cycles.preview_adaptive_threshold = 0.05
-        #bpy.context.scene.cycles.preview_samples = 512
-        bpy.context.scene.cycles.use_preview_denoising = True
-        #bpy.context.scene.cycles.preview_denoising_start_sample = 1
-        bpy.context.scene.cycles.preview_denoising_input_passes = 'RGB_ALBEDO_NORMAL'
+        context.scene.cycles.use_preview_adaptive_sampling = True
+        #context.scene.cycles.preview_adaptive_threshold = 0.05
+        #context.scene.cycles.preview_samples = 512
+        context.scene.cycles.use_preview_denoising = True
+        #context.scene.cycles.preview_denoising_start_sample = 1
+        context.scene.cycles.preview_denoising_input_passes = 'RGB_ALBEDO_NORMAL'
         # render
-        bpy.context.scene.cycles.use_adaptive_sampling = True
-        #bpy.context.scene.cycles.adaptive_threshold = 0.02
-        #bpy.context.scene.cycles.samples = 512
-        bpy.context.scene.cycles.use_denoising = True
-        bpy.context.scene.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
+        context.scene.cycles.use_adaptive_sampling = True
+        #context.scene.cycles.adaptive_threshold = 0.02
+        #context.scene.cycles.samples = 512
+        context.scene.cycles.use_denoising = True
+        context.scene.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
     except:
         pass
 
     try:
-        bpy.context.scene.cycles.preview_denoiser = 'OPTIX'
-        bpy.context.scene.cycles.denoiser = 'OPTIX'
+        context.scene.cycles.preview_denoiser = 'OPTIX'
+        context.scene.cycles.denoiser = 'OPTIX'
     except:
         pass
 
@@ -1960,38 +1990,38 @@ class CC3Scene(bpy.types.Operator):
             bpy.ops.ptcache.free_bake_all()
             # reset the animation
             bpy.ops.screen.frame_jump(end = False)
-            bpy.context.view_layer.update()
+            context.view_layer.update()
 
         elif self.param == "CYCLES_SETUP":
             cycles_setup(context)
 
         elif self.param == "DUMP_SETUP":
-            dump_scene_setup()
+            dump_scene_setup(context)
 
         elif self.param == "FILTER_LIGHTS":
             filter_lights(props.light_filter)
 
         elif self.param == "ALIGN_WITH_VIEW":
-            align_with_view(context=context)
+            align_with_view(context)
 
         elif self.param == "ADD_CAMERA":
             add_view_aligned_camera(context)
 
         elif self.param == "SETUP_CAMERA":
-            lighting_setup_camera()
+            lighting_setup_camera(context)
 
         elif self.param == "SETUP_WORLD":
-            compositor_setup()
-            world_setup()
+            compositor_setup(context)
+            world_setup(context)
 
         else:
-            setup_scene_default(self.param)
+            setup_scene_default(context, self.param)
             if self.param == "TEMPLATE":
-                compositor_setup()
-                world_setup()
+                compositor_setup(context)
+                world_setup(context)
                 utils.message_box("World nodes and compositor template set up.")
             else:
-                world_setup()
+                world_setup(context)
 
         return {"FINISHED"}
 
