@@ -1709,7 +1709,7 @@ def align_object_to_view(obj, context):
         loc = r3d.view_location
         rot = r3d.view_rotation
         D = r3d.view_distance
-        v = Vector((0,0,1))
+        v = Vector((0,0,1)) * D
 
         obj.location = loc + rot @ v
         if obj.rotation_mode == "XYZ":
