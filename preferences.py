@@ -432,7 +432,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     # datalink prefs
     datalink_auto_start: bpy.props.BoolProperty(default=False,
-                        description="Attempt to (re)start the data-link connection when ever Blender is started or reloaded")
+                        description="Attempt to (re)start the DataLink connection when ever Blender is started or reloaded")
     datalink_frame_sync: bpy.props.BoolProperty(default=False,
                         description="Force the live sequence transfer to stop and render every frame")
     datalink_preview_shape_keys: bpy.props.BoolProperty(default=True,
