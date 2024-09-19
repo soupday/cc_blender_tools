@@ -3262,7 +3262,7 @@ class CC3ToolsUtilityPanel(bpy.types.Panel):
 
 class CCICDataLinkPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_DataLink_Panel"
-    bl_label = "Data Link"
+    bl_label = "DataLink"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = LINK_TAB_NAME
@@ -3326,9 +3326,9 @@ class CCICDataLinkPanel(bpy.types.Panel):
         if connected or connecting:
             row.operator("ccic.datalink", icon="X", text="").param = "STOP"
 
-        # Datalink prefs
+        # DataLink prefs
         box = layout.box()
-        if fake_drop_down(box.row(), "Data-Link Options", "show_data_link_prefs", props.show_data_link_prefs,
+        if fake_drop_down(box.row(), "DataLink Options", "show_data_link_prefs", props.show_data_link_prefs,
                           icon="PREFERENCES", icon_closed="PREFERENCES"):
             split = box.split(factor=0.9)
             col_1 = split.column()

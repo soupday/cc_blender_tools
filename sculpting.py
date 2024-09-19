@@ -102,7 +102,7 @@ def copy_base_shape(multi_res_object, source_body_obj, layer_target, by_vertex_g
     return
 
 
-def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_body = None):
+def do_multires_bake(context, chr_cache, body, layer_target, apply_shape = False, source_body = None):
     prefs = vars.prefs()
 
     utils.log_info(f"Begin Multi-Res Bake: Layer = {layer_target}")
@@ -119,7 +119,7 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     rv_state = utils.store_render_visibility_state()
 
     # prep for baking directly onto body mesh surface
-    bake_state = bake.prep_bake(samples=32, make_surface=False)
+    bake_state = bake.prep_bake(context, samples=32, make_surface=False)
 
     # AO Baking (full res on body mesh)
     utils.set_only_render_visible(body)
@@ -132,15 +132,15 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
     # *cycles* bake type to AO
     bpy.context.scene.cycles.bake_type = "AO"
     if prefs.bake_use_gpu:
-        bake.set_cycles_samples(samples=2048, adaptive_samples=0.1, time_limit=15, use_gpu=True)
+        bake.set_cycles_samples(context, samples=2048, adaptive_samples=0.1, time_limit=15, use_gpu=True)
     else:
-        bake.set_cycles_samples(samples=16, time_limit=30, use_gpu=False)
+        bake.set_cycles_samples(context, samples=16, time_limit=30, use_gpu=False)
     bpy.ops.object.bake(type="AO")
 
     # Displacement Baking
     select_bake_images(body, BAKE_TYPE_DISPLACEMENT, layer_target)
     bpy.context.scene.render.use_bake_multires = True
-    bake.set_cycles_samples(samples=2)
+    bake.set_cycles_samples(context, samples=2)
 
     # copy the body for displacement baking
     utils.log_info("Duplicating body for displacement baking")
@@ -206,7 +206,7 @@ def do_multires_bake(chr_cache, body, layer_target, apply_shape = False, source_
             copy_base_shape(norm_body, detail_body, layer_target, True)
 
     # restore render engine
-    bake.post_bake(bake_state)
+    bake.post_bake(context, bake_state)
 
     # restore object render visibilty state
     utils.restore_render_visibility_state(rv_state)
@@ -301,7 +301,7 @@ def has_body_multires_mod(body):
     return False
 
 
-def export_skingen(chr_cache, layer_target, export_path):
+def export_skingen(context, chr_cache, layer_target, export_path):
 
     export_dir, export_file = os.path.split(export_path)
     export_name, export_ext = os.path.splitext(export_file)
@@ -328,13 +328,13 @@ def export_skingen(chr_cache, layer_target, export_path):
             mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
 
             if mix_node:
-                bake.bake_node_socket_output(mix_node, "Normal Layer", mat, channel_id + " Normal", export_dir,
+                bake.bake_node_socket_output(context, mix_node, "Normal Layer", mat, channel_id + " Normal", export_dir,
                                              name_prefix = export_name, exact_name=True, underscores=False)
 
-                bake.bake_node_socket_output(mix_node, "AO Layer", mat, channel_id + " AO", export_dir,
+                bake.bake_node_socket_output(context, mix_node, "AO Layer", mat, channel_id + " AO", export_dir,
                                              name_prefix = export_name, exact_name=True, underscores=False)
 
-                bake.bake_node_socket_output(mix_node, "Mask", mat, channel_id + " Mask", export_dir,
+                bake.bake_node_socket_output(context, mix_node, "Mask", mat, channel_id + " Mask", export_dir,
                                              name_prefix = export_name, exact_name=True, underscores=False)
 
 
@@ -522,16 +522,16 @@ def get_layer_target_mesh(chr_cache, layer_target):
     return mesh
 
 
-def bake_multires_sculpt(chr_cache, layer_target, apply_shape = False, source_body = None):
+def bake_multires_sculpt(context, chr_cache, layer_target, apply_shape = False, source_body = None):
     multi_res_mesh = get_layer_target_mesh(chr_cache, layer_target)
     multi_res_mesh.hide_set(False)
     # make sure to go into object mode otherwise the sculpt is not applied.
     if utils.object_mode_to(multi_res_mesh):
         setup_bake_nodes(chr_cache, multi_res_mesh, layer_target)
-        do_multires_bake(chr_cache, multi_res_mesh, layer_target, apply_shape = apply_shape, source_body = source_body)
+        do_multires_bake(context, chr_cache, multi_res_mesh, layer_target, apply_shape = apply_shape, source_body = source_body)
         save_skin_gen_bake(chr_cache, multi_res_mesh, layer_target)
         finish_bake(chr_cache, multi_res_mesh, layer_target)
-        end_multires_sculpting(chr_cache, layer_target, show_baked = True)
+        end_multires_sculpting(context, chr_cache, layer_target, show_baked = True)
 
 
 def set_hide_character(chr_cache, hide):
@@ -547,7 +547,7 @@ def set_hide_character(chr_cache, hide):
     arm.hide_set(hide)
 
 
-def begin_multires_sculpting(chr_cache, layer_target):
+def begin_multires_sculpting(context, chr_cache, layer_target):
     multi_res_mesh = get_layer_target_mesh(chr_cache, layer_target)
     if utils.object_exists_is_mesh(multi_res_mesh):
         set_hide_character(chr_cache, True)
@@ -557,7 +557,7 @@ def begin_multires_sculpting(chr_cache, layer_target):
         #bpy.ops.view3d.view_selected()
         # TODO mute the detail normal mix nodes (so the normal overlay isn't shown when sculpting)
         utils.set_mode("SCULPT")
-        shading = utils.get_view_3d_shading()
+        shading = utils.get_view_3d_shading(context)
         if shading:
             shading.type = 'SOLID'
             shading.light = 'MATCAP'
@@ -565,7 +565,7 @@ def begin_multires_sculpting(chr_cache, layer_target):
             shading.show_cavity = True
 
 
-def end_multires_sculpting(chr_cache, layer_target, show_baked = False):
+def end_multires_sculpting(context, chr_cache, layer_target, show_baked = False):
     multi_res_mesh = get_layer_target_mesh(chr_cache, layer_target)
     body = chr_cache.get_body()
     if show_baked:
@@ -576,13 +576,13 @@ def end_multires_sculpting(chr_cache, layer_target, show_baked = False):
     set_hide_character(chr_cache, False)
     multi_res_mesh.hide_set(True)
     utils.set_only_active_object(body)
-    shading = utils.get_view_3d_shading()
+    shading = utils.get_view_3d_shading(context)
     if shading:
         shading.type = 'MATERIAL'
 
 
-def clean_multires_sculpt(chr_cache, layer_target):
-    end_multires_sculpting(chr_cache, layer_target, show_baked = True)
+def clean_multires_sculpt(context, chr_cache, layer_target):
+    end_multires_sculpting(context, chr_cache, layer_target, show_baked = True)
     remove_multires_body(chr_cache, layer_target)
     remove_bake_nodes(chr_cache, layer_target)
 
@@ -715,7 +715,7 @@ def add_multires_mesh(chr_cache, layer_target, sub_target = "ALL"):
     return multires_mesh
 
 
-def setup_multires_sculpt(chr_cache, layer_target):
+def setup_multires_sculpt(context, chr_cache, layer_target):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -728,25 +728,25 @@ def setup_multires_sculpt(chr_cache, layer_target):
             detail_sculpt_sub_target = chr_cache.detail_sculpt_sub_target
 
             if multires_mesh and detail_sculpt_sub_target == prefs.detail_sculpt_sub_target:
-                begin_multires_sculpting(chr_cache, layer_target)
+                begin_multires_sculpting(context, chr_cache, layer_target)
 
             elif multires_mesh and detail_sculpt_sub_target != prefs.detail_sculpt_sub_target:
                 remove_multires_body(chr_cache, layer_target)
                 multires_mesh = add_multires_mesh(chr_cache, layer_target, prefs.detail_sculpt_sub_target)
-                begin_multires_sculpting(chr_cache, layer_target)
+                begin_multires_sculpting(context, chr_cache, layer_target)
 
             elif multires_mesh is None:
                 multires_mesh = add_multires_mesh(chr_cache, layer_target, prefs.detail_sculpt_sub_target)
-                begin_multires_sculpting(chr_cache, layer_target)
+                begin_multires_sculpting(context, chr_cache, layer_target)
 
         elif layer_target == LAYER_TARGET_SCULPT:
 
             if multires_mesh:
-                begin_multires_sculpting(chr_cache, layer_target)
+                begin_multires_sculpting(context, chr_cache, layer_target)
 
             else:
                 multires_mesh = add_multires_mesh(chr_cache, layer_target)
-                begin_multires_sculpting(chr_cache, layer_target)
+                begin_multires_sculpting(context, chr_cache, layer_target)
 
 
 class CC3OperatorSculpt(bpy.types.Operator):
@@ -768,37 +768,37 @@ class CC3OperatorSculpt(bpy.types.Operator):
         body = chr_cache.get_body()
 
         if self.param == "DETAIL_SETUP":
-            setup_multires_sculpt(chr_cache, LAYER_TARGET_DETAIL)
+            setup_multires_sculpt(context, chr_cache, LAYER_TARGET_DETAIL)
 
         elif self.param == "DETAIL_BEGIN":
-            begin_multires_sculpting(chr_cache, LAYER_TARGET_DETAIL)
+            begin_multires_sculpting(context, chr_cache, LAYER_TARGET_DETAIL)
 
         elif self.param == "DETAIL_END":
-            end_multires_sculpting(chr_cache, LAYER_TARGET_DETAIL)
+            end_multires_sculpting(context, chr_cache, LAYER_TARGET_DETAIL)
 
         elif self.param == "DETAIL_BAKE":
-            bake_multires_sculpt(chr_cache, LAYER_TARGET_DETAIL)
+            bake_multires_sculpt(context, chr_cache, LAYER_TARGET_DETAIL)
 
         elif self.param == "DETAIL_CLEAN":
-            clean_multires_sculpt(chr_cache, LAYER_TARGET_DETAIL)
+            clean_multires_sculpt(context, chr_cache, LAYER_TARGET_DETAIL)
 
         if self.param == "BODY_SETUP":
-            setup_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT)
+            setup_multires_sculpt(context, chr_cache, LAYER_TARGET_SCULPT)
 
         elif self.param == "BODY_BEGIN":
-            begin_multires_sculpting(chr_cache, LAYER_TARGET_SCULPT)
+            begin_multires_sculpting(context, chr_cache, LAYER_TARGET_SCULPT)
 
         elif self.param == "BODY_END":
-            end_multires_sculpting(chr_cache, LAYER_TARGET_SCULPT)
+            end_multires_sculpting(context, chr_cache, LAYER_TARGET_SCULPT)
 
         elif self.param == "BODY_BAKE":
             if chr_cache.multires_bake_apply:
-                bake_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT, apply_shape = True, source_body = body)
+                bake_multires_sculpt(context, chr_cache, LAYER_TARGET_SCULPT, apply_shape = True, source_body = body)
             else:
-                bake_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT)
+                bake_multires_sculpt(context, chr_cache, LAYER_TARGET_SCULPT)
 
         elif self.param == "BODY_CLEAN":
-            clean_multires_sculpt(chr_cache, LAYER_TARGET_SCULPT)
+            clean_multires_sculpt(context, chr_cache, LAYER_TARGET_SCULPT)
 
         return {"FINISHED"}
 
@@ -882,10 +882,10 @@ class CC3OperatorSculptExport(bpy.types.Operator):
         body = chr_cache.get_body()
 
         if self.param == "DETAIL_SKINGEN":
-            export_skingen(chr_cache, LAYER_TARGET_DETAIL, self.filepath)
+            export_skingen(context, chr_cache, LAYER_TARGET_DETAIL, self.filepath)
 
         elif self.param == "BODY_SKINGEN":
-            export_skingen(chr_cache, LAYER_TARGET_SCULPT, self.filepath)
+            export_skingen(context, chr_cache, LAYER_TARGET_SCULPT, self.filepath)
 
         return {"FINISHED"}
 

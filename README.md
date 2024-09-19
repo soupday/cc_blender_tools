@@ -35,6 +35,10 @@ Links
 
 ## Changelog
 
+### 2.1.9
+- Maintain operator context for scene operations.
+- Align to view distance fix.
+
 ### 2.1.8
 - Fixes to view 3d shading context in 4.2.
 - Imported objects, materials, images and actions detection no longer uses tags.
@@ -228,7 +232,7 @@ Links
 
 ### 2.0.0
 - Blender 4.0 support.
-- WIP Experimental Data Link added:
+- WIP Experimental DataLink added:
     - Currently in alpha stages, more a proof of concept at the moment.
 - Bake add-on updated and merged into this project.
 

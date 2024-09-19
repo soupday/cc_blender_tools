@@ -157,8 +157,8 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
                 if prefs.build_armature_preserve_volume:
                     mod_arm.use_deform_preserve_volume = True
 
-        # Set to smooth shading
-        meshutils.set_shading(obj, True)
+        # Set to smooth shading (disabled as may not be needed anymore)
+        #meshutils.set_shading(obj, True)
 
         # remove any modifiers for refractive eyes
         modifiers.remove_eye_modifiers(obj)
@@ -942,7 +942,7 @@ class CC3Import(bpy.types.Operator):
         return json_data
 
 
-    def import_character(self):
+    def import_character(self, context):
         props = vars.props()
         prefs = vars.prefs()
 
@@ -988,12 +988,12 @@ class CC3Import(bpy.types.Operator):
                 # But the mesh is really all we need, so just keep going...
                 if colorspace.is_aces():
                     try:
-                        bpy.ops.import_scene.fbx(filepath=filepath, directory=dir, use_anim=import_anim, use_image_search=False)
+                        bpy.ops.import_scene.fbx(filepath=filepath, directory=dir, use_anim=import_anim, use_image_search=False, use_custom_normals=True)
                     except:
                         utils.log_warn("FBX Import Error: This may be due to color space differences. Continuing...")
                 else:
                     try:
-                        bpy.ops.import_scene.fbx(filepath=filepath, directory=dir, use_anim=import_anim, use_image_search=False)
+                        bpy.ops.import_scene.fbx(filepath=filepath, directory=dir, use_anim=import_anim, use_image_search=False, use_custom_normals=True)
                     except:
                         utils.log_error("FBX Import Error due to bad mesh?")
 
@@ -1334,7 +1334,7 @@ class CC3Import(bpy.types.Operator):
 
 
     def run_import(self, context):
-        self.import_character()
+        self.import_character(context)
         self.imported = True
 
 
@@ -1377,16 +1377,16 @@ class CC3Import(bpy.types.Operator):
                     if self.is_morph:
                         if props.lighting_mode:
                             if chr_cache.is_import_type("FBX"):
-                                scene.setup_scene_default(prefs.pipeline_lighting)
+                                scene.setup_scene_default(context, prefs.pipeline_lighting)
                             else:
-                                scene.setup_scene_default(prefs.morph_lighting)
+                                scene.setup_scene_default(context, prefs.morph_lighting)
 
         if rl_import:
 
             # use portrait lighting for quality mode
             if self.param == "IMPORT_QUALITY":
                 if props.lighting_mode:
-                    scene.setup_scene_default(prefs.quality_lighting)
+                    scene.setup_scene_default(context, prefs.quality_lighting)
 
             if prefs.refractive_eyes == "SSR":
                 bpy.context.scene.eevee.use_ssr = True

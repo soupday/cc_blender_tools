@@ -664,7 +664,7 @@ def create_fcurves_cache(count, indices, defaults):
 
 def get_datalink_rig_action(rig, motion_id=None):
     if not motion_id:
-        motion_id = "Datalink"
+        motion_id = "DataLink"
     rig_id = rigutils.get_rig_id(rig)
     action_name = rigutils.make_armature_action_name(rig_id, motion_id, LINK_DATA.motion_prefix)
     if action_name in bpy.data.actions:
@@ -692,7 +692,7 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
             utils.log_info(f"Preparing Character Rig: {actor.name} {rig_id} / {len(actor.bones)} bones")
 
             # set data
-            motion_id = "Datalink"
+            motion_id = "DataLink"
             set_id, set_generation = rigutils.generate_motion_set(rig, motion_id, LINK_DATA.motion_prefix)
             # rig action
             action = get_datalink_rig_action(rig, motion_id)
@@ -1128,7 +1128,8 @@ class LinkService():
         json_data = {
             "Application": self.local_app,
             "Version": self.local_version,
-            "Path": self.local_path
+            "Path": self.local_path,
+            "Addon": vars.VERSION_STRING[1:],
         }
         utils.log_info(f"Send Hello: {self.local_path}")
         self.send(OpCodes.HELLO, encode_from_json(json_data))
@@ -1390,8 +1391,10 @@ class LinkService():
             self.changed.emit()
 
     def service_disconnect(self):
-        self.send(OpCodes.DISCONNECT)
-        self.service_recv_disconnected()
+        try:
+            self.send(OpCodes.DISCONNECT)
+            self.service_recv_disconnected()
+        except: ...
 
     def service_recv_disconnected(self):
         if CLIENT_ONLY:
@@ -1420,7 +1423,7 @@ class LinkService():
         global LINK_SERVICE
         global LINK_DATA
         if not LINK_SERVICE or not LINK_DATA:
-            utils.log_error("Datalink service data lost. Due to script reload?")
+            utils.log_error("DataLink service data lost. Due to script reload?")
             utils.log_error("Connection is maintained but actor data has been reset.")
             LINK_SERVICE = self
             LINK_DATA = self.link_data
@@ -1759,7 +1762,7 @@ class LinkService():
 
         return count
 
-    def export_object_material_data(self, actor: LinkActor, objects):
+    def export_object_material_data(self, context, actor: LinkActor, objects):
         prefs = vars.prefs()
         obj: bpy.types.Object
 
@@ -1782,7 +1785,7 @@ class LinkService():
             if not json_data:
                 json_data = jsonutils.generate_character_json_data(actor.name)
                 exporter.set_character_generation(json_data, chr_cache, actor.name)
-            exporter.prep_export(chr_cache, actor.name, objects, json_data,
+            exporter.prep_export(context, chr_cache, actor.name, objects, json_data,
                                  chr_cache.get_import_dir(), export_dir,
                                  False, False, False, False, True,
                                  materials=materials, sync=True, force_bake=True)
@@ -1795,7 +1798,7 @@ class LinkService():
                     })
             self.send(OpCodes.MATERIALS, export_data)
 
-    def send_material_update(self):
+    def send_material_update(self, context):
         state = utils.store_mode_selection_state()
 
         selection = self.get_actor_mesh_selection()
@@ -1807,11 +1810,11 @@ class LinkService():
             if armatures:
                 # export material info for whole character
                 all_meshes = actor.get_mesh_objects()
-                self.export_object_material_data(actor, all_meshes)
+                self.export_object_material_data(context, actor, all_meshes)
                 count += 1
             elif meshes:
                 # export material info just for selected meshes
-                self.export_object_material_data(actor, meshes)
+                self.export_object_material_data(context, actor, meshes)
                 count += 1
 
         utils.restore_mode_selection_state(state)
@@ -2466,9 +2469,9 @@ class LinkService():
             ibl_rotation = utils.array_to_vector(lights_data.get("ibl_rotation", [0,0,0]))
             ibl_scale = lights_data.get("ibl_scale", 1.0)
             if ibl_path:
-                world.world_setup(ibl_path, ambient_color, ibl_location, ibl_rotation, ibl_scale, ibl_strength)
+                world.world_setup(None, ibl_path, ambient_color, ibl_location, ibl_rotation, ibl_scale, ibl_strength)
         else:
-            world.world_setup("", ambient_color, Vector((0,0,0)), Vector((0,0,0)), 1.0, ambient_strength)
+            world.world_setup(None, "", ambient_color, Vector((0,0,0)), Vector((0,0,0)), 1.0, ambient_strength)
 
 
     def receive_lights(self, data):
@@ -3384,21 +3387,21 @@ def reconnect():
 
     if link_props.connected:
         if LINK_SERVICE and LINK_SERVICE.is_connected:
-            utils.log_info("Datalink remains connected.")
+            utils.log_info("DataLink remains connected.")
         elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
-            utils.log_info("Datalink was connected. Attempting to reconnect...")
+            utils.log_info("DataLink was connected. Attempting to reconnect...")
             bpy.ops.ccic.datalink(param="START")
 
     elif prefs.datalink_auto_start:
         if LINK_SERVICE and LINK_SERVICE.is_connected:
-            utils.log_info("Datalink already connected.")
+            utils.log_info("DataLink already connected.")
         elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
             utils.log_info("Auto-starting datalink...")
             bpy.ops.ccic.datalink(param="START")
 
 
 class CCICDataLink(bpy.types.Operator):
-    """Data Link Control Operator"""
+    """DataLink Control Operator"""
     bl_idname = "ccic.datalink"
     bl_label = "Listener"
     bl_options = {"REGISTER"}
@@ -3486,7 +3489,7 @@ class CCICDataLink(bpy.types.Operator):
                 return {'FINISHED'}
 
             elif self.param == "SEND_MATERIAL_UPDATE":
-                count = LINK_SERVICE.send_material_update()
+                count = LINK_SERVICE.send_material_update(context)
                 if count == 1:
                     self.report({'INFO'}, f"Material sent...")
                 elif count > 1:
@@ -3562,13 +3565,13 @@ class CCICDataLink(bpy.types.Operator):
     def description(cls, context, properties):
 
         if properties.param == "START":
-            return "Attempt to start the Datalink by connecting to the server running on CC4/iC8"
+            return "Attempt to start the DataLink by connecting to the server running on CC4/iC8"
 
         elif properties.param == "DISCONNECT":
-            return "Disconnect from the Datalink server"
+            return "Disconnect from the DataLink server"
 
         elif properties.param == "STOP":
-            return "Stop the Datalink on both client and server"
+            return "Stop the DataLink on both client and server"
 
         elif properties.param == "SEND_POSE":
             return "Send the current pose (and frame) to CC4/iC8"

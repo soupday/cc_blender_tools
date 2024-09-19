@@ -30,86 +30,91 @@ def init_bake(id = 1001):
     BAKE_INDEX = id
 
 
-def set_cycles_samples(samples, adaptive_samples = -1, denoising = False, time_limit = 0, use_gpu = False):
-    bpy.context.scene.cycles.samples = samples
+def set_cycles_samples(context, samples, adaptive_samples = -1, denoising = False, time_limit = 0, use_gpu = False):
+    if not context:
+        context = bpy.context
+
+    context.scene.cycles.samples = samples
     if utils.B300():
-        bpy.context.scene.cycles.device = 'GPU' if use_gpu else 'CPU'
-        bpy.context.scene.cycles.preview_samples = samples
-        bpy.context.scene.cycles.use_adaptive_sampling = adaptive_samples >= 0
-        bpy.context.scene.cycles.adaptive_threshold = adaptive_samples
-        bpy.context.scene.cycles.use_preview_adaptive_sampling = adaptive_samples >= 0
-        bpy.context.scene.cycles.preview_adaptive_threshold = adaptive_samples
-        bpy.context.scene.cycles.use_denoising = denoising
-        bpy.context.scene.cycles.use_preview_denoising = denoising
-        bpy.context.scene.cycles.use_auto_tile = False
-        bpy.context.scene.cycles.time_limit = time_limit
+        context.scene.cycles.device = 'GPU' if use_gpu else 'CPU'
+        context.scene.cycles.preview_samples = samples
+        context.scene.cycles.use_adaptive_sampling = adaptive_samples >= 0
+        context.scene.cycles.adaptive_threshold = adaptive_samples
+        context.scene.cycles.use_preview_adaptive_sampling = adaptive_samples >= 0
+        context.scene.cycles.preview_adaptive_threshold = adaptive_samples
+        context.scene.cycles.use_denoising = denoising
+        context.scene.cycles.use_preview_denoising = denoising
+        context.scene.cycles.use_auto_tile = False
+        context.scene.cycles.time_limit = time_limit
 
 
-def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format="PNG", make_surface=True):
+def prep_bake(context, mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format="PNG", make_surface=True):
     bake_state = {}
+    if not context:
+        context = bpy.context
 
     # cycles settings
-    bake_state["samples"] = bpy.context.scene.cycles.samples
+    bake_state["samples"] = context.scene.cycles.samples
     # Blender 3.0
     if utils.B300():
-        bake_state["preview_samples"] = bpy.context.scene.cycles.preview_samples
-        bake_state["use_adaptive_sampling"] = bpy.context.scene.cycles.use_adaptive_sampling
-        bake_state["use_preview_adaptive_sampling"] = bpy.context.scene.cycles.use_preview_adaptive_sampling
-        bake_state["use_denoising"] = bpy.context.scene.cycles.use_denoising
-        bake_state["use_preview_denoising"] = bpy.context.scene.cycles.use_preview_denoising
-        bake_state["use_auto_tile"] =  bpy.context.scene.cycles.use_auto_tile
+        bake_state["preview_samples"] = context.scene.cycles.preview_samples
+        bake_state["use_adaptive_sampling"] = context.scene.cycles.use_adaptive_sampling
+        bake_state["use_preview_adaptive_sampling"] = context.scene.cycles.use_preview_adaptive_sampling
+        bake_state["use_denoising"] = context.scene.cycles.use_denoising
+        bake_state["use_preview_denoising"] = context.scene.cycles.use_preview_denoising
+        bake_state["use_auto_tile"] =  context.scene.cycles.use_auto_tile
     # render settings
-    bake_state["file_format"] = bpy.context.scene.render.image_settings.file_format
-    bake_state["color_depth"] = bpy.context.scene.render.image_settings.color_depth
-    bake_state["color_mode"] = bpy.context.scene.render.image_settings.color_mode
-    bake_state["use_bake_multires"] =bpy.context.scene.render.use_bake_multires
-    bake_state["use_selected_to_active"] = bpy.context.scene.render.bake.use_selected_to_active
-    bake_state["use_pass_direct"] = bpy.context.scene.render.bake.use_pass_direct
-    bake_state["use_pass_indirect"] = bpy.context.scene.render.bake.use_pass_indirect
-    bake_state["margin"] = bpy.context.scene.render.bake.margin
-    bake_state["use_clear"] = bpy.context.scene.render.bake.use_clear
-    bake_state["image_format"] = bpy.context.scene.render.image_settings.file_format
+    bake_state["file_format"] = context.scene.render.image_settings.file_format
+    bake_state["color_depth"] = context.scene.render.image_settings.color_depth
+    bake_state["color_mode"] = context.scene.render.image_settings.color_mode
+    bake_state["use_bake_multires"] = context.scene.render.use_bake_multires
+    bake_state["use_selected_to_active"] = context.scene.render.bake.use_selected_to_active
+    bake_state["use_pass_direct"] = context.scene.render.bake.use_pass_direct
+    bake_state["use_pass_indirect"] = context.scene.render.bake.use_pass_indirect
+    bake_state["margin"] = context.scene.render.bake.margin
+    bake_state["use_clear"] = context.scene.render.bake.use_clear
+    bake_state["image_format"] = context.scene.render.image_settings.file_format
     # Blender 2.92
     if utils.B292():
-        bake_state["target"] = bpy.context.scene.render.bake.target
+        bake_state["target"] = context.scene.render.bake.target
     # color management
-    bake_state["view_transform"] = bpy.context.scene.view_settings.view_transform
-    bake_state["look"] = bpy.context.scene.view_settings.look
-    bake_state["gamma"] = bpy.context.scene.view_settings.gamma
-    bake_state["exposure"] = bpy.context.scene.view_settings.exposure
-    bake_state["colorspace"] = bpy.context.scene.sequencer_colorspace_settings.name
+    bake_state["view_transform"] = context.scene.view_settings.view_transform
+    bake_state["look"] = context.scene.view_settings.look
+    bake_state["gamma"] = context.scene.view_settings.gamma
+    bake_state["exposure"] = context.scene.view_settings.exposure
+    bake_state["colorspace"] = context.scene.sequencer_colorspace_settings.name
 
-    bpy.context.scene.cycles.samples = samples
-    bpy.context.scene.render.image_settings.file_format = image_format
-    bpy.context.scene.render.use_bake_multires = False
-    bpy.context.scene.render.bake.use_selected_to_active = False
-    bpy.context.scene.render.bake.use_pass_direct = False
-    bpy.context.scene.render.bake.use_pass_indirect = False
-    bpy.context.scene.render.bake.margin = 16
-    bpy.context.scene.render.bake.use_clear = True
+    context.scene.cycles.samples = samples
+    context.scene.render.image_settings.file_format = image_format
+    context.scene.render.use_bake_multires = False
+    context.scene.render.bake.use_selected_to_active = False
+    context.scene.render.bake.use_pass_direct = False
+    context.scene.render.bake.use_pass_indirect = False
+    context.scene.render.bake.margin = 16
+    context.scene.render.bake.use_clear = True
     # color management settings affect the baked output so set them to standard/raw defaults:
-    bpy.context.scene.view_settings.view_transform = 'Standard'
-    bpy.context.scene.view_settings.look = 'None'
-    bpy.context.scene.view_settings.gamma = 1
-    bpy.context.scene.view_settings.exposure = 0
+    context.scene.view_settings.view_transform = 'Standard'
+    context.scene.view_settings.look = 'None'
+    context.scene.view_settings.gamma = 1
+    context.scene.view_settings.exposure = 0
     colorspace.set_sequencer_color_space("Raw")
 
     # Blender 3.0
     if utils.B300():
-        bpy.context.scene.cycles.preview_samples = samples
-        bpy.context.scene.cycles.use_adaptive_sampling = False
-        bpy.context.scene.cycles.use_preview_adaptive_sampling = False
-        bpy.context.scene.cycles.use_denoising = False
-        bpy.context.scene.cycles.use_preview_denoising = False
-        bpy.context.scene.cycles.use_auto_tile = False
+        context.scene.cycles.preview_samples = samples
+        context.scene.cycles.use_adaptive_sampling = False
+        context.scene.cycles.use_preview_adaptive_sampling = False
+        context.scene.cycles.use_denoising = False
+        context.scene.cycles.use_preview_denoising = False
+        context.scene.cycles.use_auto_tile = False
 
     # Blender 2.92
     if utils.B292():
-        bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
+        context.scene.render.bake.target = 'IMAGE_TEXTURES'
 
     # go into wireframe mode (so Blender doesn't update or recompile the material shaders while
     # we manipulate them for baking, and also so Blender doesn't fire up the cycles viewport...):
-    shading: bpy.types.View3DShading = utils.get_view_3d_shading()
+    shading: bpy.types.View3DShading = utils.get_view_3d_shading(context)
     if shading:
         bake_state["shading"] = shading.type
         shading.type = 'WIREFRAME'
@@ -117,11 +122,11 @@ def prep_bake(mat: bpy.types.Material=None, samples=BAKE_SAMPLES, image_format="
         bake_state["shading"] = 'MATERIAL'
         shading.type = 'WIREFRAME'
     # set cycles rendering mode for baking
-    bake_state["engine"] = bpy.context.scene.render.engine
-    bpy.context.scene.render.engine = 'CYCLES'
-    bake_state["cycles_bake_type"] = bpy.context.scene.cycles.bake_type
-    bake_state["render_bake_type"] = bpy.context.scene.render.bake_type
-    bpy.context.scene.cycles.bake_type = "COMBINED"
+    bake_state["engine"] = context.scene.render.engine
+    context.scene.render.engine = 'CYCLES'
+    bake_state["cycles_bake_type"] = context.scene.cycles.bake_type
+    bake_state["render_bake_type"] = context.scene.render.bake_type
+    context.scene.cycles.bake_type = "COMBINED"
 
 
     if make_surface:
@@ -160,47 +165,50 @@ def set_bake_material(bake_state, mat):
     return False
 
 
-def post_bake(state):
+def post_bake(context, state):
+    if not context:
+        context = bpy.context
+
     # cycles settings
-    bpy.context.scene.cycles.samples = state["samples"]
+    context.scene.cycles.samples = state["samples"]
     # Blender 3.0
     if utils.B300():
-        bpy.context.scene.cycles.preview_samples = state["preview_samples"]
-        bpy.context.scene.cycles.use_adaptive_sampling = state["use_adaptive_sampling"]
-        bpy.context.scene.cycles.use_preview_adaptive_sampling = state["use_preview_adaptive_sampling"]
-        bpy.context.scene.cycles.use_denoising = state["use_denoising"]
-        bpy.context.scene.cycles.use_preview_denoising = state["use_preview_denoising"]
-        bpy.context.scene.cycles.use_auto_tile = state["use_auto_tile"]
+        context.scene.cycles.preview_samples = state["preview_samples"]
+        context.scene.cycles.use_adaptive_sampling = state["use_adaptive_sampling"]
+        context.scene.cycles.use_preview_adaptive_sampling = state["use_preview_adaptive_sampling"]
+        context.scene.cycles.use_denoising = state["use_denoising"]
+        context.scene.cycles.use_preview_denoising = state["use_preview_denoising"]
+        context.scene.cycles.use_auto_tile = state["use_auto_tile"]
     # render settings
-    bpy.context.scene.render.image_settings.file_format = state["file_format"]
-    bpy.context.scene.render.image_settings.color_depth = state["color_depth"]
-    bpy.context.scene.render.image_settings.color_mode = state["color_mode"]
-    bpy.context.scene.render.use_bake_multires = state["use_bake_multires"]
-    bpy.context.scene.render.bake.use_selected_to_active = state["use_selected_to_active"]
-    bpy.context.scene.render.bake.use_pass_direct = state["use_pass_direct"]
-    bpy.context.scene.render.bake.use_pass_indirect = state["use_pass_indirect"]
-    bpy.context.scene.render.bake.margin = state["margin"]
-    bpy.context.scene.render.bake.use_clear = state["use_clear"]
-    bpy.context.scene.render.image_settings.file_format = state["image_format"]
+    context.scene.render.image_settings.file_format = state["file_format"]
+    context.scene.render.image_settings.color_depth = state["color_depth"]
+    context.scene.render.image_settings.color_mode = state["color_mode"]
+    context.scene.render.use_bake_multires = state["use_bake_multires"]
+    context.scene.render.bake.use_selected_to_active = state["use_selected_to_active"]
+    context.scene.render.bake.use_pass_direct = state["use_pass_direct"]
+    context.scene.render.bake.use_pass_indirect = state["use_pass_indirect"]
+    context.scene.render.bake.margin = state["margin"]
+    context.scene.render.bake.use_clear = state["use_clear"]
+    context.scene.render.image_settings.file_format = state["image_format"]
     # Blender 2.92
     if utils.B292():
-        bpy.context.scene.render.bake.target = state["target"]
+        context.scene.render.bake.target = state["target"]
     # color management
-    bpy.context.scene.view_settings.view_transform = state["view_transform"]
-    bpy.context.scene.view_settings.look = state["look"]
-    bpy.context.scene.view_settings.gamma = state["gamma"]
-    bpy.context.scene.view_settings.exposure = state["exposure"]
-    bpy.context.scene.sequencer_colorspace_settings.name = state["colorspace"]
+    context.scene.view_settings.view_transform = state["view_transform"]
+    context.scene.view_settings.look = state["look"]
+    context.scene.view_settings.gamma = state["gamma"]
+    context.scene.view_settings.exposure = state["exposure"]
+    context.scene.sequencer_colorspace_settings.name = state["colorspace"]
     # render engine
-    bpy.context.scene.render.engine = state["engine"]
+    context.scene.render.engine = state["engine"]
     # viewport shading
-    shading = utils.get_view_3d_shading()
+    shading = utils.get_view_3d_shading(context)
     if shading:
         shading.type = state["shading"]
 
     # bake type
-    bpy.context.scene.cycles.bake_type = state["cycles_bake_type"]
-    bpy.context.scene.render.bake_type = state["render_bake_type"]
+    context.scene.cycles.bake_type = state["cycles_bake_type"]
+    context.scene.render.bake_type = state["render_bake_type"]
 
     # remove the bake surface
     if "bake_surface" in state:
@@ -266,7 +274,7 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
     return image, image_name, exists
 
 
-def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix="",
+def bake_node_socket_input(context, node, socket, mat, channel_id, bake_dir, name_prefix="",
                            override_size=0, size_override_node=None, size_override_socket=None,
                            exact_name=False, underscores=True,
                            no_prep=False, image_format="PNG"):
@@ -293,7 +301,7 @@ def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix=
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir,
                                                name_prefix=name_prefix, exact_name=exact_name,
                                                underscores=underscores, image_format=image_format)
-    image_node = cycles_bake_color_output(mat, source_node, source_socket, image, image_name,
+    image_node = cycles_bake_color_output(context, mat, source_node, source_socket, image, image_name,
                                           no_prep=no_prep, image_format=image_format)
 
     # remove the image node
@@ -304,7 +312,7 @@ def bake_node_socket_input(node, socket, mat, channel_id, bake_dir, name_prefix=
     return image
 
 
-def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix = "",
+def bake_node_socket_output(context, node, socket, mat, channel_id, bake_dir, name_prefix = "",
                             override_size = 0, size_override_node=None, size_override_socket=None,
                             exact_name=False, underscores=True,
                             no_prep=False, image_format="PNG"):
@@ -328,7 +336,7 @@ def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir,
                                                name_prefix=name_prefix, exact_name=exact_name,
                                                underscores=underscores, image_format=image_format)
-    image_node = cycles_bake_color_output(mat, node, socket, image, image_name,
+    image_node = cycles_bake_color_output(context, mat, node, socket, image, image_name,
                                           no_prep=no_prep, image_format=image_format)
 
     # remove the image node
@@ -339,7 +347,7 @@ def bake_node_socket_output(node, socket, mat, channel_id, bake_dir, name_prefix
     return image
 
 
-def bake_rl_bump_and_normal(shader_node, bsdf_node, mat, channel_id, bake_dir,
+def bake_rl_bump_and_normal(context, shader_node, bsdf_node, mat, channel_id, bake_dir,
                             normal_socket_name="Normal Map", bump_socket_name="Bump Map",
                             normal_strength_socket_name="Normal Strength",
                             bump_distance_socket_name="Bump Strength",
@@ -392,7 +400,7 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, mat, channel_id, bake_dir,
     image, image_name, exists = get_bake_image(mat, channel_id, width, height,
                                                shader_node, normal_socket_name, bake_dir,
                                                name_prefix=name_prefix, image_format=image_format)
-    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name,
+    image_node = cycles_bake_normal_output(context, mat, bsdf_node, image, image_name,
                                            no_prep=no_prep, image_format=image_format)
 
     # remove the bake nodes and restore the normal links to the bsdf
@@ -407,7 +415,7 @@ def bake_rl_bump_and_normal(shader_node, bsdf_node, mat, channel_id, bake_dir,
     return image
 
 
-def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir,
+def bake_bsdf_normal(context, bsdf_node, mat, channel_id, bake_dir,
                      name_prefix = "", override_size = 0,
                      no_prep = False, image_format="PNG"):
     """Bakes the normal output of the supplied BSDF shader node, to a normal map image.\n
@@ -431,7 +439,7 @@ def bake_bsdf_normal(bsdf_node, mat, channel_id, bake_dir,
     # bake the source node output onto the target image and re-save it
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, bsdf_node, "Normal", bake_dir,
                                                name_prefix=name_prefix, image_format=image_format)
-    image_node = cycles_bake_normal_output(mat, bsdf_node, image, image_name,
+    image_node = cycles_bake_normal_output(context, mat, bsdf_node, image, image_name,
                                            no_prep=no_prep, image_format=image_format)
 
     if normal_input_node and normal_input_node.type == "BUMP":
@@ -597,7 +605,7 @@ def pack_RGBA(mat, channel_id, pack_mode, bake_dir,
     return image
 
 
-def cycles_bake_color_output(mat, source_node, source_socket,
+def cycles_bake_color_output(context, mat, source_node, source_socket,
                              image: bpy.types.Image, image_name,
                              no_prep=False, image_format="PNG"):
     """Runs a cycles bake of the supplied source node and socket output onto the supplied image.\n
@@ -618,7 +626,7 @@ def cycles_bake_color_output(mat, source_node, source_socket,
     utils.log_info(f"Baking: {image_name} / {source_node.name} / {nodeutils.safe_socket_name(source_socket)}")
 
     if not no_prep:
-        bake_state = prep_bake(mat=mat, image_format=image_format, make_surface=True)
+        bake_state = prep_bake(context, mat=mat, image_format=image_format, make_surface=True)
 
     nodeutils.link_nodes(links, source_node, source_socket, output_node, "Surface")
     image_node.select = True
@@ -626,22 +634,22 @@ def cycles_bake_color_output(mat, source_node, source_socket,
 
     bpy.ops.object.bake(type='COMBINED')
 
-    bpy.context.scene.render.image_settings.color_depth = '8'
-    bpy.context.scene.render.image_settings.color_mode = 'RGB' if image.depth == 24 else 'RGBA'
+    context.scene.render.image_settings.color_depth = '8'
+    context.scene.render.image_settings.color_mode = 'RGB' if image.depth == 24 else 'RGBA'
 
-    image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
+    image.save_render(filepath = bpy.path.abspath(image.filepath), scene = context.scene)
     image.reload()
 
     if output_source:
         nodeutils.link_nodes(links, output_source, output_source_socket, output_node, "Surface")
 
     if not no_prep:
-        post_bake(bake_state)
+        post_bake(context, bake_state)
 
     return image_node
 
 
-def cycles_bake_normal_output(mat, bsdf_node, image, image_name,
+def cycles_bake_normal_output(context, mat, bsdf_node, image, image_name,
                               no_prep=False, image_format="PNG"):
     """Runs a cycles bake of the normal output of the supplied BSDF shader node to the supplied image.
        Returns a new image node with the image."""
@@ -657,7 +665,7 @@ def cycles_bake_normal_output(mat, bsdf_node, image, image_name,
     utils.log_info("Baking normal: " + image_name)
 
     if not no_prep:
-        bake_state = prep_bake(mat=mat, image_format=image_format, make_surface=True)
+        bake_state = prep_bake(context, mat=mat, image_format=image_format, make_surface=True)
 
     nodeutils.link_nodes(links, bsdf_node, "BSDF", output_node, "Surface")
     image_node.select = True
@@ -665,13 +673,13 @@ def cycles_bake_normal_output(mat, bsdf_node, image, image_name,
 
     bpy.ops.object.bake(type='NORMAL')
 
-    bpy.context.scene.render.image_settings.color_depth = '8'
-    bpy.context.scene.render.image_settings.color_mode = 'RGB' if image.depth == 24 else 'RGBA'
-    image.save_render(filepath = bpy.path.abspath(image.filepath), scene = bpy.context.scene)
+    context.scene.render.image_settings.color_depth = '8'
+    context.scene.render.image_settings.color_mode = 'RGB' if image.depth == 24 else 'RGBA'
+    image.save_render(filepath = bpy.path.abspath(image.filepath), scene = context.scene)
     image.reload()
 
     if not no_prep:
-        post_bake(bake_state)
+        post_bake(context, bake_state)
 
     return image_node
 
@@ -805,7 +813,7 @@ def get_bake_dir(chr_cache):
     return bake_path
 
 
-def combine_normal(chr_cache, mat_cache):
+def combine_normal(context, chr_cache, mat_cache):
     """Combines the normal and bump maps by baking and connecting a new normal map."""
 
     init_bake(5001)
@@ -818,7 +826,7 @@ def combine_normal(chr_cache, mat_cache):
     bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader)
     bake_path = get_bake_dir(chr_cache)
 
-    selection = bpy.context.selected_objects.copy()
+    selection = context.selected_objects.copy()
     active = utils.get_active_object()
 
     if mat_cache.material_type == "DEFAULT" or mat_cache.material_type == "SSS":
@@ -830,7 +838,7 @@ def combine_normal(chr_cache, mat_cache):
 
         if normal_node and bump_node:
 
-            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, mat, "Normal", bake_path)
+            normal_image = bake_rl_bump_and_normal(context, shader_node, bsdf_node, mat, "Normal", bake_path)
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
             nodeutils.link_nodes(links, normal_image_node, "Color", shader_node, "Normal Map")
@@ -840,7 +848,7 @@ def combine_normal(chr_cache, mat_cache):
 
         elif bump_node:
 
-            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, mat, "Normal", bake_path,
+            normal_image = bake_rl_bump_and_normal(context, shader_node, bsdf_node, mat, "Normal", bake_path,
                                                    normal_socket_name = "", bump_socket_name = "")
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
@@ -851,7 +859,7 @@ def combine_normal(chr_cache, mat_cache):
 
         elif normal_node and normal_node.type != "TEX_IMAGE":
 
-            normal_image = bake_rl_bump_and_normal(shader_node, bsdf_node, mat, "Normal", bake_path,
+            normal_image = bake_rl_bump_and_normal(context, shader_node, bsdf_node, mat, "Normal", bake_path,
                                                    bump_socket_name = "", bump_distance_socket_name = "")
             normal_image_name = utils.unique_name("(NORMAL)")
             normal_image_node = nodeutils.make_image_node(nodes, normal_image, normal_image_name)
@@ -864,7 +872,7 @@ def combine_normal(chr_cache, mat_cache):
         utils.set_active_object(active)
 
 
-def bake_flow_to_normal(chr_cache, mat_cache):
+def bake_flow_to_normal(context, chr_cache, mat_cache):
     """Convert's a hair shader's flow map into an approximate normal map."""
 
     init_bake(4001)
@@ -1341,13 +1349,13 @@ class CC3BakeOperator(bpy.types.Operator):
             mat = utils.get_context_material(context)
             chr_cache = props.get_context_character_cache(context)
             mat_cache = chr_cache.get_material_cache(mat)
-            bake_flow_to_normal(chr_cache, mat_cache)
+            bake_flow_to_normal(context, chr_cache, mat_cache)
 
         if self.param == "BAKE_BUMP_NORMAL":
             mat = utils.get_context_material(context)
             chr_cache = props.get_context_character_cache(context)
             mat_cache = chr_cache.get_material_cache(mat)
-            combine_normal(chr_cache, mat_cache)
+            combine_normal(context, chr_cache, mat_cache)
 
         if self.param == "BUILD_DISPLACEMENT":
             mat = utils.get_context_material(context)
@@ -1479,7 +1487,7 @@ def get_bake_image_node_name(mat, global_suffix):
     return image_node_name
 
 
-def export_bake_shader_normal(source_mat, mat):
+def export_bake_shader_normal(context, source_mat, mat):
     """Bake bsdf normal output for export bake operator.
        Uses bake props target format for image file format."""
     props = vars.bake_props()
@@ -1497,7 +1505,7 @@ def export_bake_shader_normal(source_mat, mat):
     #else:
     #    size = target_size
 
-    image = bake_bsdf_normal(bsdf_node, mat, target_suffix, path,
+    image = bake_bsdf_normal(context, bsdf_node, mat, target_suffix, path,
                              no_prep=True, image_format=props.target_format)
 
     image_node = None
@@ -1511,19 +1519,19 @@ def export_bake_shader_normal(source_mat, mat):
     return image_node
 
 
-def export_bake_socket_input(source_mat, source_mat_cache, mat,
+def export_bake_socket_input(context, source_mat, source_mat_cache, mat,
                              to_node, to_socket, suffix,
                              data=True):
     """Bake node socket input for export bake operator.
        Uses bake props target format for image file format."""
     from_node = nodeutils.get_node_connected_to_input(to_node, to_socket)
     from_socket = nodeutils.get_socket_connected_to_input(to_node, to_socket)
-    return export_bake_socket_output(source_mat, source_mat_cache, mat,
+    return export_bake_socket_output(context, source_mat, source_mat_cache, mat,
                                      from_node, from_socket, suffix,
                                      data=data)
 
 
-def export_bake_socket_output(source_mat, source_mat_cache, mat,
+def export_bake_socket_output(context, source_mat, source_mat_cache, mat,
                               from_node, from_socket, suffix,
                               data=True):
     """Bake node socket output for export bake operator.
@@ -1539,7 +1547,7 @@ def export_bake_socket_output(source_mat, source_mat_cache, mat,
             image = copy_target(source_mat, mat, from_node, suffix, data)
         else:
             path = get_bake_path()
-            image = bake_node_socket_output(from_node, from_socket, mat, suffix, path,
+            image = bake_node_socket_output(context, from_node, from_socket, mat, suffix, path,
                                             exact_name=True, underscores=True,
                                             no_prep=True, image_format=props.target_format)
 
@@ -1610,7 +1618,7 @@ def can_bake_shader_node(shader_node, bsdf_node, bsdf_socket):
     return nodeutils.get_node_connected_to_input(bsdf_node, bsdf_socket) == shader_node
 
 
-def bake_export_material(mat, source_mat, source_mat_cache):
+def bake_export_material(context, mat, source_mat, source_mat_cache):
     props = vars.bake_props()
 
     if not (utils.material_exists(mat) and
@@ -1651,12 +1659,12 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                 ao_strength = prep_ao(mat, shader_node)
                 # note: so far, nothing has an "AO" output node.
                 if "AO" in shader_node.outputs:
-                    ao_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat,
+                    ao_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat,
                                                              shader_node, "AO", "AO")
                 else:
                     ao_node = nodeutils.find_shader_texture(nodes, "AO")
                     if ao_node:
-                        ao_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, ao_node, "Color", "AO")
+                        ao_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, ao_node, "Color", "AO")
                 # disable any further AO contribution
                 disable_ao(mat, shader_node)
             # eye shaders use 1/8 the AO strength
@@ -1666,12 +1674,12 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                 # if there is a "Diffuse" output node, bake that, otherwise bake the "Base Color" output node.
                 prep_diffuse(mat, shader_node, "AO" in bake_maps, ao_strength)
                 if "Diffuse" in shader_node.outputs and "Transmission" not in shader_node.outputs:
-                    diffuse_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Diffuse", "Diffuse", False)
+                    diffuse_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Diffuse", "Diffuse", False)
                 else:
-                    diffuse_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Base Color", "Diffuse", False)
+                    diffuse_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Base Color", "Diffuse", False)
         elif bsdf_node:
             # bake BSDF base color input
-            diffuse_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat,
+            diffuse_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat,
                                                          bsdf_node, base_color_socket, "Diffuse",
                                                          data=False)
 
@@ -1683,9 +1691,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         if "Subsurface" in bake_maps:
             sss_radius = prep_sss(mat, shader_node)
             if can_bake_shader_node(shader_node, bsdf_node, sss_socket):
-                sss_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Subsurface", "Subsurface")
+                sss_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Subsurface", "Subsurface")
             elif bsdf_node:
-                sss_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, sss_socket, "Subsurface")
+                sss_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, sss_socket, "Subsurface")
 
     # Thickness Maps (Subsurface transmission)
     # the transmission map texture is not used, but it is added to the material nodes
@@ -1695,7 +1703,7 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         thickness_node = nodeutils.find_shader_texture(nodes, "TRANSMISSION")
         if thickness_node:
             utils.log_info("thickness texture found...")
-            thickness_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, thickness_node, "Color", "Thickness")
+            thickness_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, thickness_node, "Color", "Thickness")
 
     # Metallic Maps
     metallic_bake_node = None
@@ -1704,9 +1712,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         if "Metallic" in bake_maps:
             utils.log_info("Processing Metallic")
             if can_bake_shader_node(shader_node, bsdf_node, metallic_socket):
-                metallic_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Metallic", "Metallic")
+                metallic_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Metallic", "Metallic")
             elif bsdf_node:
-                metallic_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, metallic_socket, "Metallic")
+                metallic_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, metallic_socket, "Metallic")
 
     # Specular Maps
     specular_bake_node = None
@@ -1715,9 +1723,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         if "Specular" in bake_maps:
             utils.log_info("Processing Specular")
             if can_bake_shader_node(shader_node, bsdf_node, specular_socket):
-                specular_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Specular", "Specular")
+                specular_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Specular", "Specular")
             elif bsdf_node:
-                specular_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, specular_socket, "Specular")
+                specular_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, specular_socket, "Specular")
     specular_scale = 1.0
     if shader_node:
         specular_scale = nodeutils.get_node_input_value(shader_node, "Specular Scale", specular_scale)
@@ -1731,9 +1739,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         if "Roughness" in bake_maps:
             utils.log_info("Processing Roughness")
             if can_bake_shader_node(shader_node, bsdf_node, roughness_socket):
-                roughnesss_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Roughness", "Roughness")
+                roughnesss_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Roughness", "Roughness")
             elif bsdf_node:
-                roughnesss_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, roughness_socket, "Roughness")
+                roughnesss_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, roughness_socket, "Roughness")
 
     # Emission Maps
     # copy emission maps directly...
@@ -1746,9 +1754,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
             emission_node = nodeutils.find_shader_texture(nodes, "EMISSION")
             if emission_node:
                 if can_bake_shader_node(shader_node, bsdf_node, emission_socket):
-                    emission_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, emission_node, "Color", "Emission")
+                    emission_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, emission_node, "Color", "Emission")
                 elif bsdf_node:
-                    emission_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, emission_socket, "Emission")
+                    emission_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, emission_socket, "Emission")
 
     # Alpha Maps
     alpha_bake_node = None
@@ -1760,13 +1768,13 @@ def bake_export_material(mat, source_mat, source_mat_cache):
             if (can_bake_shader_node(shader_node, bsdf_node, alpha_socket)
                 or (shader_node and "Opacity" in shader_node.outputs)):
                 if "Opacity" in shader_node.outputs:
-                    alpha_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Opacity", "Alpha")
+                    alpha_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Opacity", "Alpha")
                     mat.blend_method = "BLEND"
                     mat.shadow_method = "NONE"
                 else:
-                    alpha_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Alpha", "Alpha")
+                    alpha_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Alpha", "Alpha")
             elif bsdf_node:
-                alpha_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, alpha_socket, "Alpha")
+                alpha_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, alpha_socket, "Alpha")
 
     # Transmission Maps (Refractive Transparency)
     transmission_bake_node = None
@@ -1778,9 +1786,9 @@ def bake_export_material(mat, source_mat, source_mat_cache):
     if nodeutils.has_connected_input(bsdf_node, transmission_socket):
         if "Transmission" in bake_maps:
             if can_bake_shader_node(shader_node, bsdf_node, transmission_socket):
-                transmission_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Transmission", "Transmission")
+                transmission_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Transmission", "Transmission")
             elif bsdf_node:
-                transmission_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, bsdf_node, transmission_socket, "Transmission")
+                transmission_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, bsdf_node, transmission_socket, "Transmission")
 
     # Bump Maps
     # if shader group node has a "Bump Map" input, then copy the bump map texture directly
@@ -1793,13 +1801,13 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                 bump_node = nodeutils.find_shader_texture(nodes, "BUMP")
                 bump_distance = nodeutils.get_node_input_value(shader_node, "Bump Strength", 0.01)
                 if bump_node:
-                    bump_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, bump_node, "Color", "Bump")
+                    bump_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, bump_node, "Color", "Bump")
             elif bsdf_node:
                 input_node = nodeutils.get_node_connected_to_input(bsdf_node, normal_socket)
                 if input_node.type == "BUMP":
                     height_node = nodeutils.get_node_connected_to_input(input_node, "Height")
                     if height_node:
-                        bump_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, input_node, "Height", "Bump")
+                        bump_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, input_node, "Height", "Bump")
                         bump_distance = nodeutils.get_node_input_value(input_node, "Distance", 1.0)
 
     # Normal Maps
@@ -1817,19 +1825,19 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                 normal_strength = nodeutils.get_node_input_value(shader_node, "Normal Strength", 1.0)
                 if "Blend Normal" in shader_node.outputs:
                     normal_strength = 1.0
-                    normal_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Blend Normal", "Normal")
+                    normal_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Blend Normal", "Normal")
                 else:
                     normal_node = nodeutils.find_shader_texture(nodes, "NORMAL")
                     if normal_node:
-                        normal_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, normal_node, "Color", "Normal")
+                        normal_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, normal_node, "Color", "Normal")
                     else:
-                        normal_bake_node = export_bake_shader_normal(source_mat, mat)
+                        normal_bake_node = export_bake_shader_normal(context, source_mat, mat)
             elif bsdf_node:
                 input_node = nodeutils.get_node_connected_to_input(bsdf_node, normal_socket)
                 if input_node:
                     if input_node.type == "NORMAL_MAP":
                         # just a normal mapper, bake the entire normal input
-                        normal_bake_node = export_bake_shader_normal(source_mat, mat)
+                        normal_bake_node = export_bake_shader_normal(context, source_mat, mat)
                         normal_strength = nodeutils.get_node_input_value(input_node, "Strength", 1.0)
                     elif input_node.type == "BUMP":
                         # bump node mappers can have heightmap and normal inputs
@@ -1837,16 +1845,16 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                         height_node = nodeutils.get_node_connected_to_input(input_node, "Height")
                         if bump_to_normal:
                             # bake everything into the normal
-                            normal_bake_node = export_bake_shader_normal(source_mat, mat)
+                            normal_bake_node = export_bake_shader_normal(context, source_mat, mat)
                             normal_strength = 1.0
                         else:
                             # bake the normal separately
                             if normal_node:
-                                normal_bake_node = export_bake_socket_input(source_mat, source_mat_cache, mat, input_node, "Normal", "Normal")
+                                normal_bake_node = export_bake_socket_input(context, source_mat, source_mat_cache, mat, input_node, "Normal", "Normal")
                                 normal_strength = nodeutils.get_node_input_value(normal_node, "Strength", 1.0)
                     else:
                         # something is plugged into the normals, but can't tell what, so just bake the shader normals
-                        normal_bake_node = export_bake_shader_normal(source_mat, mat)
+                        normal_bake_node = export_bake_shader_normal(context, source_mat, mat)
 
     # Micro Normals
     # always copy the micro normal map texture directly
@@ -1871,7 +1879,7 @@ def bake_export_material(mat, source_mat, source_mat_cache):
                 utils.log_info(f"Tiling: {micro_normal_scale}")
                 # disconnect any tiling/mapping nodes before baking the micro normal...
                 nodeutils.unlink_node_input(links, micro_normal_node, "Vector")
-                micro_normal_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, micro_normal_node, "Color", "MicroNormal")
+                micro_normal_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, micro_normal_node, "Color", "MicroNormal")
 
     # Micro Normal Mask
     # if the shader group node as a "Normal Mask" float output, bake that,
@@ -1882,13 +1890,13 @@ def bake_export_material(mat, source_mat, source_mat_cache):
         if "MicroNormalMask" in bake_maps:
             if shader_node:
                 if "Normal Mask" in shader_node.outputs:
-                    micro_normal_mask_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, shader_node, "Normal Mask", "MicroNormalMask")
+                    micro_normal_mask_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Normal Mask", "MicroNormalMask")
                     micro_normal_strength = 1.0
                 else:
                     micro_normal_mask_node = nodeutils.find_shader_texture(nodes, "MICRONMASK")
                     micro_normal_strength = nodeutils.get_node_input_value(shader_node, "Micro Normal Strength", 1.0)
                     if micro_normal_mask_node:
-                        micro_normal_mask_bake_node = export_bake_socket_output(source_mat, source_mat_cache, mat, micro_normal_mask_node, "Color", "MicroNormalMask")
+                        micro_normal_mask_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, micro_normal_mask_node, "Color", "MicroNormalMask")
 
     # Post processing
     #
@@ -2533,7 +2541,7 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
     set_loc(micro_mask_mult_node, (-640,-600))
 
 
-def bake_character(chr_cache):
+def bake_character(context, chr_cache):
     props = vars.bake_props()
     prefs = vars.prefs()
 
@@ -2542,26 +2550,26 @@ def bake_character(chr_cache):
     utils.log_info("")
 
     if prefs.bake_objects_mode == "SELECTED":
-        selected_objects = [ o for o in bpy.context.selected_objects if utils.object_exists_is_mesh(o) ]
+        selected_objects = [ o for o in context.selected_objects if utils.object_exists_is_mesh(o) ]
     else:
         selected_objects = None
     objects = get_export_objects(chr_cache, only_objects=selected_objects)
 
-    bake_state = prep_bake(samples=props.bake_samples,
+    bake_state = prep_bake(context, samples=props.bake_samples,
                            image_format=props.target_format,
                            make_surface=True)
 
     if prefs.bake_use_gpu:
-        set_cycles_samples(samples=props.bake_samples, adaptive_samples=0.01, use_gpu=True, denoising=False)
+        set_cycles_samples(context, samples=props.bake_samples, adaptive_samples=0.01, use_gpu=True, denoising=False)
 
     materials_done = []
     obj : bpy.types.Object
     for obj in objects:
         if obj.type == "MESH":
-            bake_character_object(chr_cache, obj, bake_state, materials_done)
+            bake_character_object(context, chr_cache, obj, bake_state, materials_done)
     materials_done.clear()
 
-    post_bake(bake_state)
+    post_bake(context, bake_state)
 
 
 def next_uid():
@@ -2697,7 +2705,7 @@ def get_bake_target_material_name(name, uid):
     return text
 
 
-def bake_character_object(chr_cache, obj, bake_state, materials_done):
+def bake_character_object(context, chr_cache, obj, bake_state, materials_done):
     props = vars.bake_props()
 
     if not utils.object_exists_is_mesh(obj):
@@ -2759,7 +2767,7 @@ def bake_character_object(chr_cache, obj, bake_state, materials_done):
 
             # replace all of the old baked materials with the new copy:
             if old_mat:
-                for o in bpy.context.scene.objects:
+                for o in context.scene.objects:
                     if o != obj and o.type == "MESH" and o.data.materials:
                         for s in o.material_slots:
                             if s.material and s.material == old_mat:
@@ -2777,7 +2785,7 @@ def bake_character_object(chr_cache, obj, bake_state, materials_done):
             set_bake_material(bake_state, bake_mat)
 
             try:
-                bake_export_material(bake_mat, source_mat, source_mat_cache)
+                bake_export_material(context, bake_mat, source_mat, source_mat_cache)
                 slot.material = bake_mat
             except Exception as e:
                utils.log_error("Bake Character Object: Something went horribly wrong!", e)
@@ -2906,7 +2914,7 @@ class CCICBaker(bpy.types.Operator):
         utils.start_timer()
 
         if self.param == "BAKE":
-            bake_character(chr_cache)
+            bake_character(context, chr_cache)
             utils.restore_mode_selection_state(mode_selection)
 
         utils.log_timer("Baking Completed!", "m")
@@ -2994,7 +3002,7 @@ class CCICJpegify(bpy.types.Operator):
 
         bake_path = get_bake_path()
         os.makedirs(bake_path, exist_ok=True)
-        bpy.context.scene.render.image_settings.quality = props.jpeg_quality
+        context.scene.render.image_settings.quality = props.jpeg_quality
 
         for img in bpy.data.images:
 

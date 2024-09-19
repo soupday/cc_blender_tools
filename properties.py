@@ -2896,7 +2896,7 @@ class CCICLinkProps(bpy.types.PropertyGroup):
                         ("BLENDER","Blender","Connect to another Blender instance running on another machine"),
                         ("CCIC","CC4/iClone","Connect to Character Creator 4 or iClone"),
                         ("UNITY","Unity","Connect to Unity"),
-                    ], default="CCIC", name = "Data Link Target", update=update_link_target)
+                    ], default="CCIC", name = "DataLink Target", update=update_link_target)
     link_port: bpy.props.IntProperty(default=9333)
     link_status: bpy.props.StringProperty(default="")
     remote_app: bpy.props.StringProperty(default="")

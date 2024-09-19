@@ -849,7 +849,7 @@ def get_dirty_weightmaps(objects):
 def physics_paint_strength_update(self, context):
     props = vars.props()
 
-    if bpy.context.mode == "PAINT_TEXTURE":
+    if context.mode == "PAINT_TEXTURE":
         ups = context.tool_settings.unified_paint_settings
         prop_owner = ups if ups.use_unified_color else context.tool_settings.image_paint.brush
         s = props.physics_paint_strength
@@ -875,28 +875,28 @@ def browse_weight_map(chr_cache, context):
             utils.show_system_file_browser(path)
 
 
-def begin_paint_weight_map(chr_cache, context):
+def begin_paint_weight_map(context, chr_cache):
     obj = context.object
     mat = utils.get_context_material(context)
     props = vars.props()
-    shading = utils.get_view_3d_shading()
+    shading = utils.get_view_3d_shading(context)
     if obj is not None and mat is not None:
         if shading:
             props.paint_store_render = shading.type
         else:
             props.paint_store_render = "MATERIAL"
 
-        if bpy.context.mode != "PAINT_TEXTURE":
+        if context.mode != "PAINT_TEXTURE":
             bpy.ops.object.mode_set(mode="TEXTURE_PAINT")
 
-        if bpy.context.mode == "PAINT_TEXTURE":
+        if context.mode == "PAINT_TEXTURE":
             physics_paint_strength_update(None, context)
             weight_map = get_weight_map_image(chr_cache, obj, mat)
             weight_map.update()
             props.paint_object = obj
             props.paint_material = mat
             props.paint_image = weight_map
-            shading = utils.get_view_3d_shading()
+            shading = utils.get_view_3d_shading(context)
             if weight_map is not None:
                 bpy.context.scene.tool_settings.image_paint.mode = 'IMAGE'
                 bpy.context.scene.tool_settings.image_paint.canvas = weight_map
@@ -907,7 +907,7 @@ def begin_paint_weight_map(chr_cache, context):
 def resize_weight_map(chr_cache, context, op):
     props = vars.props()
 
-    if bpy.context.mode == "PAINT_TEXTURE":
+    if context.mode == "PAINT_TEXTURE":
         return
 
     obj = context.object
@@ -928,11 +928,11 @@ def resize_weight_map(chr_cache, context, op):
 
 
 
-def end_paint_weight_map(chr_cache, op):
+def end_paint_weight_map(op, context, chr_cache):
     try:
         props = vars.props()
-        shading = utils.get_view_3d_shading()
-        if bpy.context.mode != "OBJECT":
+        shading = utils.get_view_3d_shading(context)
+        if context.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
         if shading:
             shading.type = props.paint_store_render
@@ -1412,7 +1412,7 @@ def get_self_collision(chr_cache, obj):
     return False
 
 
-def set_physics_settings(op, param, context):
+def set_physics_settings(op, context, param):
     props = vars.props()
     chr_cache = props.get_context_character_cache(context)
     obj = None
@@ -1488,10 +1488,10 @@ def set_physics_settings(op, param, context):
 
     elif param == "PHYSICS_PAINT":
         if obj:
-            begin_paint_weight_map(chr_cache, context)
+            begin_paint_weight_map(context, chr_cache)
 
     elif param == "PHYSICS_DONE_PAINTING":
-        end_paint_weight_map(chr_cache, op)
+        end_paint_weight_map(op, context, chr_cache)
 
     elif param == "PHYSICS_SAVE":
         save_dirty_weight_maps(chr_cache, bpy.context.selected_objects)
@@ -1508,11 +1508,11 @@ def set_physics_settings(op, param, context):
 
     elif param == "PHYSICS_FIX_DEGENERATE":
         if obj:
-            if bpy.context.object.mode != "EDIT" and bpy.context.object.mode != "OBJECT":
+            if context.object.mode != "EDIT" and context.object.mode != "OBJECT":
                 bpy.ops.object.mode_set(mode = 'OBJECT')
-            if bpy.context.object.mode != "EDIT":
+            if context.object.mode != "EDIT":
                 bpy.ops.object.mode_set(mode = 'EDIT')
-            if bpy.context.object.mode == "EDIT":
+            if context.object.mode == "EDIT":
                 bpy.ops.mesh.select_all(action = 'SELECT')
                 bpy.ops.mesh.dissolve_degenerate()
             bpy.ops.object.mode_set(mode = 'OBJECT')
@@ -1579,7 +1579,7 @@ class CC3OperatorPhysics(bpy.types.Operator):
 
     def execute(self, context):
 
-        set_physics_settings(self, self.param, context)
+        set_physics_settings(self, context, self.param)
 
         return {"FINISHED"}
 

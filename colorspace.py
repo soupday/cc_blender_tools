@@ -24,7 +24,8 @@ DATA_COLORSPACES = []
 
 
 def is_aces():
-    return bpy.context.scene.display_settings.display_device == "ACES"
+    context = vars.get_context()
+    return context.scene.display_settings.display_device == "ACES"
 
 
 def try_set_color_space(image : bpy.types.Image, color_space_ref):
@@ -75,14 +76,16 @@ def set_image_color_space(image : bpy.types.Image, ref_colorspace : str):
 
 
 def try_set_view_transform(view_transform):
+    context = vars.get_context()
+
     try:
-        bpy.context.scene.view_settings.view_transform = view_transform
+        context.scene.view_settings.view_transform = view_transform
         return True
     except:
         pass
 
     try:
-        bpy.context.scene.view_settings.view_transform = "sRGB"
+        context.scene.view_settings.view_transform = "sRGB"
         return True
     except:
         pass
@@ -91,14 +94,16 @@ def try_set_view_transform(view_transform):
 
 
 def try_set_look(look):
+    context = vars.get_context()
+
     try:
-        bpy.context.scene.view_settings.look = look
+        context.scene.view_settings.look = look
         return True
     except:
         pass
 
     try:
-        bpy.context.scene.view_settings.look = "NONE"
+        context.scene.view_settings.look = "NONE"
         return True
     except:
         pass
@@ -110,12 +115,13 @@ def try_set_look(look):
 
 def set_view_settings(view_transform, look, exposure, gamma):
     prefs = vars.prefs()
+    context = vars.get_context()
 
     if is_aces():
         try_set_view_transform("sRGB")
         try_set_look("None")
-        bpy.context.scene.view_settings.exposure = 0.0
-        bpy.context.scene.view_settings.gamma = 1.0
+        context.scene.view_settings.exposure = 0.0
+        context.scene.view_settings.gamma = 1.0
 
     else:
         if view_transform == "AgX":
@@ -125,8 +131,8 @@ def set_view_settings(view_transform, look, exposure, gamma):
                 look = "AgX - " + look
         try_set_view_transform(view_transform)
         try_set_look(look)
-        bpy.context.scene.view_settings.exposure = exposure
-        bpy.context.scene.view_settings.gamma = gamma
+        context.scene.view_settings.exposure = exposure
+        context.scene.view_settings.gamma = gamma
 
 
 def fetch_all_color_spaces(self, context):
@@ -163,13 +169,14 @@ def fetch_data_color_spaces(self, context):
 
 
 def set_sequencer_color_space(color_space):
+    context = vars.get_context()
     if is_aces():
         if color_space == "Raw":
-            bpy.context.scene.sequencer_colorspace_settings.name = "Utility - Raw"
+            context.scene.sequencer_colorspace_settings.name = "Utility - Raw"
         else:
-            bpy.context.scene.sequencer_colorspace_settings.name = "Utility - Linear - sRGB"
+            context.scene.sequencer_colorspace_settings.name = "Utility - Linear - sRGB"
     else:
         if utils.B400() and color_space == "Raw":
-            bpy.context.scene.sequencer_colorspace_settings.name = "Non-Color"
+            context.scene.sequencer_colorspace_settings.name = "Non-Color"
         else:
-            bpy.context.scene.sequencer_colorspace_settings.name = color_space
+            context.scene.sequencer_colorspace_settings.name = color_space
