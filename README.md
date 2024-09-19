@@ -39,8 +39,6 @@ Links
 - Maintain operator context for scene operations.
 - Align to view distance fix.
 
-
-
 ### 2.1.8
 - Fixes to view 3d shading context in 4.2.
 - Imported objects, materials, images and actions detection no longer uses tags.
