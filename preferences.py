@@ -432,7 +432,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     # datalink prefs
     datalink_auto_start: bpy.props.BoolProperty(default=False,
-                        description="Attempt to (re)start the data link connection when ever Blender is started or reloaded")
+                        description="Attempt to (re)start the data-link connection when ever Blender is started or reloaded")
     datalink_frame_sync: bpy.props.BoolProperty(default=False,
                         description="Force the live sequence transfer to stop and render every frame")
     datalink_preview_shape_keys: bpy.props.BoolProperty(default=True,
@@ -452,7 +452,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                     ("ALL","All","Send all materials in the selected meshes", "RESTRICT_SELECT_OFF", 0),
                     ("ACTIVE","Active","Send only the active material in each of the selected meshes", "RESTRICT_SELECT_ON", 1),
                 ], default="ACTIVE",
-                   name = "Datalink Send Mode")
+                   name = "DataLink Send Mode")
     datalink_cc_match_only_avatar: bpy.props.BoolProperty(default=True,
                         description="When sending characters and animations from CC4, always match the avatar, if it is the only one in the scene or the one selected")
 

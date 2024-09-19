@@ -664,7 +664,7 @@ def create_fcurves_cache(count, indices, defaults):
 
 def get_datalink_rig_action(rig, motion_id=None):
     if not motion_id:
-        motion_id = "Datalink"
+        motion_id = "DataLink"
     rig_id = rigutils.get_rig_id(rig)
     action_name = rigutils.make_armature_action_name(rig_id, motion_id, LINK_DATA.motion_prefix)
     if action_name in bpy.data.actions:
@@ -692,7 +692,7 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
             utils.log_info(f"Preparing Character Rig: {actor.name} {rig_id} / {len(actor.bones)} bones")
 
             # set data
-            motion_id = "Datalink"
+            motion_id = "DataLink"
             set_id, set_generation = rigutils.generate_motion_set(rig, motion_id, LINK_DATA.motion_prefix)
             # rig action
             action = get_datalink_rig_action(rig, motion_id)
@@ -1128,7 +1128,8 @@ class LinkService():
         json_data = {
             "Application": self.local_app,
             "Version": self.local_version,
-            "Path": self.local_path
+            "Path": self.local_path,
+            "Addon": vars.VERSION_STRING[1:],
         }
         utils.log_info(f"Send Hello: {self.local_path}")
         self.send(OpCodes.HELLO, encode_from_json(json_data))
@@ -1422,7 +1423,7 @@ class LinkService():
         global LINK_SERVICE
         global LINK_DATA
         if not LINK_SERVICE or not LINK_DATA:
-            utils.log_error("Datalink service data lost. Due to script reload?")
+            utils.log_error("DataLink service data lost. Due to script reload?")
             utils.log_error("Connection is maintained but actor data has been reset.")
             LINK_SERVICE = self
             LINK_DATA = self.link_data
@@ -3386,21 +3387,21 @@ def reconnect():
 
     if link_props.connected:
         if LINK_SERVICE and LINK_SERVICE.is_connected:
-            utils.log_info("Datalink remains connected.")
+            utils.log_info("DataLink remains connected.")
         elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
-            utils.log_info("Datalink was connected. Attempting to reconnect...")
+            utils.log_info("DataLink was connected. Attempting to reconnect...")
             bpy.ops.ccic.datalink(param="START")
 
     elif prefs.datalink_auto_start:
         if LINK_SERVICE and LINK_SERVICE.is_connected:
-            utils.log_info("Datalink already connected.")
+            utils.log_info("DataLink already connected.")
         elif not LINK_SERVICE or not LINK_SERVICE.is_connected:
             utils.log_info("Auto-starting datalink...")
             bpy.ops.ccic.datalink(param="START")
 
 
 class CCICDataLink(bpy.types.Operator):
-    """Data Link Control Operator"""
+    """DataLink Control Operator"""
     bl_idname = "ccic.datalink"
     bl_label = "Listener"
     bl_options = {"REGISTER"}
@@ -3564,13 +3565,13 @@ class CCICDataLink(bpy.types.Operator):
     def description(cls, context, properties):
 
         if properties.param == "START":
-            return "Attempt to start the Datalink by connecting to the server running on CC4/iC8"
+            return "Attempt to start the DataLink by connecting to the server running on CC4/iC8"
 
         elif properties.param == "DISCONNECT":
-            return "Disconnect from the Datalink server"
+            return "Disconnect from the DataLink server"
 
         elif properties.param == "STOP":
-            return "Stop the Datalink on both client and server"
+            return "Stop the DataLink on both client and server"
 
         elif properties.param == "SEND_POSE":
             return "Send the current pose (and frame) to CC4/iC8"
