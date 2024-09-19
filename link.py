@@ -1390,8 +1390,10 @@ class LinkService():
             self.changed.emit()
 
     def service_disconnect(self):
-        self.send(OpCodes.DISCONNECT)
-        self.service_recv_disconnected()
+        try:
+            self.send(OpCodes.DISCONNECT)
+            self.service_recv_disconnected()
+        except: ...
 
     def service_recv_disconnected(self):
         if CLIENT_ONLY:
