@@ -38,6 +38,29 @@ UPSCALE = 5.0
 COLLIDER_PREFIX = "COLLIDER"
 COLLIDER_COLLECTION_NAME = "Rigid Body Colliders"
 
+
+def init_rigidbody_world():
+    if not bpy.context.scene.rigidbody_world or not bpy.context.scene.rigidbody_world.enabled:
+        try:
+            bpy.ops.rigidbody.world_add()
+        except: ...
+    if "RigidBodyWorld" not in bpy.data.collections:
+        bpy.data.collections.new("RigidBodyWorld")
+    if "RigidBodyConstraints" not in bpy.data.collections:
+        bpy.data.collections.new("RigidBodyConstraints")
+    if bpy.context.scene.rigidbody_world.collection is None:
+        collection_world = bpy.data.collections["RigidBodyWorld"]
+        bpy.context.scene.rigidbody_world.collection = collection_world
+    if bpy.context.scene.rigidbody_world.constraints is None:
+        collection_constraints = bpy.data.collections["RigidBodyConstraints"]
+        bpy.context.scene.rigidbody_world.constraints = collection_constraints
+    bpy.context.scene.rigidbody_world.time_scale = 1.0
+    if bpy.context.scene.rigidbody_world.substeps_per_frame < 10:
+        bpy.context.scene.rigidbody_world.substeps_per_frame = 10
+    if bpy.context.scene.rigidbody_world.solver_iterations < 100:
+        bpy.context.scene.rigidbody_world.solver_iterations = 100
+
+
 def add_body_node(co, name,
                   enabled = True,
                   parent_object = None,
@@ -693,8 +716,8 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
                        )
 
     set_rigify_simulation_influence(arm, spring_rig_bone_name, 1.0, 1.0)
-    if bpy.context.scene.rigidbody_world.solver_iterations < 100:
-        bpy.context.scene.rigidbody_world.solver_iterations = 100
+
+    init_rigidbody_world()
 
     collections = utils.get_object_scene_collections(arm)
     system_objects = utils.get_object_tree(rigid_body_system)
@@ -1090,6 +1113,13 @@ def colliders_visible(arm, colliders = None):
         if not collider.visible_get():
             return False
     return True
+
+
+def hide_colliders(arm):
+    colliders = get_rigid_body_colliders(arm)
+    hide_state = colliders_visible(arm, colliders)
+    if hide_state:
+        toggle_show_colliders(arm)
 
 
 def toggle_show_colliders(arm):

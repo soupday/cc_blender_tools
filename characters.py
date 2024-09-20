@@ -18,7 +18,7 @@ import bpy
 import re
 import os
 
-from . import (materials, modifiers, meshutils, geom, bones, physics, rigutils,
+from . import (springbones, rigidbody, materials, modifiers, meshutils, geom, bones, physics, rigutils,
                shaders, basic, imageutils, nodeutils, jsonutils, utils, vars)
 
 from mathutils import Vector, Matrix, Quaternion
@@ -389,6 +389,8 @@ def link_or_append_rl_character(blend_file, link=False):
             utils.log_info(f"Found Add-on Import Properties")
             break
 
+    has_rigid_body = False
+
     if src_props:
 
         for src_cache in src_props.import_cache:
@@ -419,8 +421,9 @@ def link_or_append_rl_character(blend_file, link=False):
                 ignore.append(src_rig)
 
             # keep all child objects of the rigify rig
+            child_objects = utils.get_child_objects(chr_rig)
             for obj in dst.objects:
-                if obj in chr_rig.children:
+                if obj in child_objects:
                     utils.log_info(f" - Character Object: {obj.name}")
                     keep.append(obj)
                     objects.append(obj)
@@ -461,10 +464,26 @@ def link_or_append_rl_character(blend_file, link=False):
             chr_cache = props.add_character_cache(copy_from=src_cache)
             rebuild_character_cache(chr_cache, chr_rig, src_cache)
 
+            # hide any colliders
+            rigidbody.hide_colliders(chr_rig)
+
+            # get rigidy body systems and hide them
+            spring_systems = springbones.get_spring_systems(chr_cache)
+            print(spring_systems)
+            if spring_systems:
+                has_rigid_body = True
+                for rigidy_body_system in spring_systems:
+                    utils.hide_tree(rigidy_body_system, hide=True)
+
     # clean up unused objects
     for obj in dst.objects:
         if obj not in keep:
             utils.delete_object(obj)
+
+    # init rigidy body world if needed
+    if has_rigid_body:
+        rigidbody.init_rigidbody_world()
+
 
 
 def reconnect_rl_character_to_fbx(chr_rig, fbx_path):

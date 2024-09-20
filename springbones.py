@@ -76,6 +76,20 @@ def has_spring_systems(chr_cache):
     return False
 
 
+def get_spring_systems(chr_cache):
+    spring_systems = []
+    if chr_cache:
+        arm = chr_cache.get_armature()
+        if arm:
+            parent_modes = get_all_parent_modes(chr_cache, arm)
+            for parent_mode in parent_modes:
+                rig_prefix = get_spring_rig_prefix(parent_mode)
+                rigid_body_system = rigidbody.get_spring_rigid_body_system(arm, rig_prefix)
+                if rigid_body_system:
+                    spring_systems.append(rigid_body_system)
+    return spring_systems
+
+
 def rigidbody_state():
     has_rigidbody = False
     is_baked = False
