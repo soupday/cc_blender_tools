@@ -542,10 +542,10 @@ def enable_rigid_body_collision_mesh(chr_cache, obj):
                 hidden = False
                 if not obj.visible_get():
                     hidden = True
-                    obj.hide_set(False)
+                    utils.unhide(obj)
                 bpy.ops.rigidbody.object_remove()
                 if hidden:
-                    obj.hide_set(True)
+                    utils.hide(obj)
             obj = proxy
 
     if obj.rigid_body is None:
@@ -553,10 +553,10 @@ def enable_rigid_body_collision_mesh(chr_cache, obj):
         hidden = False
         if not obj.visible_get():
             hidden = True
-            obj.hide_set(False)
+            utils.unhide(obj)
         bpy.ops.rigidbody.object_add()
         if hidden:
-            obj.hide_set(True)
+            utils.hide(obj)
 
     obj.rigid_body.collision_shape = 'MESH'
     obj.rigid_body.type = "PASSIVE"
@@ -591,10 +591,10 @@ def disable_rigid_body_collision_mesh(chr_cache, obj):
                 hidden = False
                 if not obj.visible_get():
                     hidden = True
-                    obj.hide_set(False)
+                    utils.unhide(obj)
                 bpy.ops.rigidbody.object_remove()
                 if hidden:
-                    obj.hide_set(True)
+                    utils.hide(obj)
             obj = proxy
 
     if obj.rigid_body is not None:
@@ -602,10 +602,10 @@ def disable_rigid_body_collision_mesh(chr_cache, obj):
         hidden = False
         if not obj.visible_get():
             hidden = True
-            obj.hide_set(False)
+            utils.unhide(obj)
         bpy.ops.rigidbody.object_remove()
         if hidden:
-            obj.hide_set(True)
+            utils.hide(obj)
 
     if arm:
         arm.data.pose_position = pose_position
@@ -638,7 +638,8 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
     rigified = "rigified" in spring_rig_bone and spring_rig_bone["rigified"]
 
     # generate a map of the spring rig bones
-    utils.edit_mode_to(arm)
+    if not utils.edit_mode_to(arm):
+        return
     root_bone = arm.data.edit_bones[spring_rig_bone_name]
 
     # fix old spring rig bone name
@@ -723,7 +724,7 @@ def build_spring_rigid_body_system(chr_cache, spring_rig_prefix, spring_rig_bone
     system_objects = utils.get_object_tree(rigid_body_system)
     for obj in system_objects:
         utils.move_object_to_scene_collections(obj, collections)
-        obj.hide_set(True)
+        utils.hide(obj)
 
     arm.data.pose_position = pose_position
 
@@ -997,7 +998,7 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
             # using operators to parent because matrix_parent_inverse doesn't work correctly
             if bones.set_active_bone(arm, target_bone_name, deselect_all=True):
                 utils.set_active_object(arm, True)
-                obj.hide_set(False)
+                utils.unhide(obj)
                 obj.select_set(True)
                 bpy.ops.object.parent_set(type='BONE', keep_transform=True)
             else:
@@ -1030,7 +1031,7 @@ def build_rigid_body_colliders(chr_cache, json_data, first_import = False, bone_
                 obj.rigid_body.linear_damping = 0
                 obj.rigid_body.angular_damping = 0
             utils.move_object_to_scene_collections(obj, [collection])
-            obj.hide_set(True)
+            utils.hide(obj)
             obj.hide_render = True
 
             cache = {"bone_name": bone_name, "shape_name": shape_name, "object": obj }
@@ -1130,7 +1131,7 @@ def toggle_show_colliders(arm):
         collection.exclude = False
         collection.hide_viewport = False
     for collider in colliders:
-        collider.hide_set(hide_state)
+        utils.hide(collider, hide_state)
 
 
 def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mapping):
@@ -1161,7 +1162,7 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mapping):
                 # using operators to parent because matrix_parent_inverse doesn't work correctly
                 utils.set_active_object(rigify_rig, True)
                 if bones.set_active_bone(rigify_rig, rigify_bone_name, deselect_all=True):
-                    obj.hide_set(False)
+                    utils.unhide(obj)
                     obj.select_set(True)
                     bpy.ops.object.parent_set(type='BONE', keep_transform=True)
                 else:
@@ -1174,7 +1175,7 @@ def convert_colliders_to_rigify(chr_cache, cc3_rig, rigify_rig, bone_mapping):
         # hide the colliders
         for obj in colliders:
             if utils.object_exists(obj):
-                obj.hide_set(True)
+                utils.hide(obj)
         for collection in layer_collections:
             collection.hide_viewport = True
 

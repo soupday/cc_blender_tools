@@ -2714,9 +2714,8 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                     return chr_cache
         return None
 
-    def get_context_character_cache(self, context = None):
-        if not context:
-            context = bpy.context
+    def get_context_character_cache(self, context=None, strict=False):
+        context = vars.get_context(context)
 
         chr_cache = None
 

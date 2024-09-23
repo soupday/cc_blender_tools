@@ -485,7 +485,7 @@ def create_collision_proxy(chr_cache, obj_cache, obj):
     obj_cache.use_collision_proxy = True
     obj_cache.collision_proxy = collision_proxy
     obj_cache.collision_physics = "PROXY"
-    collision_proxy.hide_set(True)
+    utils.hide(collision_proxy)
     collision_proxy.hide_render = True
     utils.set_only_active_object(obj)
     return collision_proxy
@@ -1391,7 +1391,7 @@ def get_accessory_colliders(arm, objects, hide = False):
                             if obj not in collider_objects:
                                 collider_objects.append(obj)
                             if hide:
-                                obj.hide_set(True)
+                                utils.hide(obj)
                             break
 
     return collider_objects
@@ -1555,13 +1555,13 @@ def set_physics_settings(op, context, param):
                 obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
         if utils.is_local_view(context):
             if proxy:
-                proxy.hide_set(True)
+                utils.hide(proxy)
             bpy.ops.view3d.localview()
             utils.object_mode_to(obj)
             utils.set_only_active_object(obj)
         else:
             if proxy:
-                proxy.hide_set(False)
+                utils.unhide(proxy)
                 utils.set_only_active_object(proxy)
                 bpy.ops.view3d.localview()
 

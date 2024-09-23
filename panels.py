@@ -295,6 +295,10 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
     prefix = springbones.get_spring_rig_prefix(parent_mode)
     rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
     has_spring_rig = springbones.has_spring_rig(chr_cache, arm, parent_mode)
+    linked_or_override = False
+    if chr_cache:
+        rig = chr_cache.get_armature()
+        linked_or_override = utils.obj_is_override(rig) or utils.obj_is_linked(rig)
 
     box = layout.box()
     if fake_drop_down(box.row(),
@@ -345,7 +349,7 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
                 row.scale_y = 2.0
                 row.operator("cc3.springbones", icon=utils.check_icon("CON_KINEMATIC"), text="Build Simulation").param = "MAKE_RIGID_BODY_SYSTEM"
                 column.separator()
-                if not has_spring_rig:
+                if not has_spring_rig or linked_or_override:
                     row.enabled = False
             else:
                 row = column.row()
@@ -1224,11 +1228,16 @@ class CC3SpringRigPanel(bpy.types.Panel):
         arm = None
         can_hair_spring_rig = False
         can_spring_rig = False
+        linked_or_override = False
         if chr_cache:
             arm = chr_cache.get_armature()
             if arm:
                 can_spring_rig = True
                 can_hair_spring_rig = chr_cache.can_hair_spring_rig()
+                linked_or_override = utils.obj_is_override(arm) or utils.obj_is_linked(arm)
+
+        if linked_or_override:
+            layout.enabled = False
 
         if chr_cache and not can_hair_spring_rig:
             row = layout.row()
@@ -1499,7 +1508,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
             #    column.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
 
             column = layout.column()
-            column.enabled = not utils.obj_is_linked(obj)
+            column.enabled = not (utils.obj_is_linked(obj))
             row = column.row()
             row.prop(props, "update_mode", expand=True)
 

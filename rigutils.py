@@ -1216,13 +1216,13 @@ def apply_as_rest_pose(rig):
             if utils.object_exists(obj):
                 vis = obj.visible_get()
                 if not vis:
-                    obj.hide_set(False)
+                    utils.unhide(obj)
                 mod: bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
                 if mod:
                     # apply armature modifier with preserve settings and mod order
                     modifiers.apply_modifier(obj, modifier=mod, preserving=True)
                     modifiers.get_armature_modifier(obj, create=True, armature=rig)
-                obj.hide_set(not vis)
+                utils.hide(obj, not vis)
     if pose_rig(rig):
         bpy.ops.pose.armature_apply(selected=False)
     utils.object_mode_to(rig)

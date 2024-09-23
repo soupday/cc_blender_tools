@@ -505,7 +505,7 @@ def set_json(json_data, path: str, value):
     return False
 
 
-def generate_character_json_data(name):
+def generate_character_base_json_data(name):
     json_data = {
         name: {
             "Version": "1.10.1822.1",

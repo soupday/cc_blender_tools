@@ -167,8 +167,15 @@ def obj_is_linked(obj):
     try:
         if obj.library is not None:
             return True
-    except:
-        pass
+    except: ...
+    return False
+
+
+def obj_is_override(obj):
+    try:
+        if obj.override_library is not None:
+            return True
+    except: ...
     return False
 
 
@@ -1300,8 +1307,20 @@ def hide_tree(obj, hide = True):
     for obj in objects:
         try:
             obj.hide_set(hide)
-        except:
-            pass
+        except: ...
+
+
+def hide(obj, hide=True):
+    try:
+        obj.hide_set(hide)
+    except:
+        ...
+
+
+def unhide(obj):
+    # TODO expand this to force visible in tmp collection if unable to make visible with hide_set
+    # but will require something to remove tmp collection later...
+    hide(obj, hide=False)
 
 
 def get_context_area(context, area_type):
@@ -1426,10 +1445,10 @@ def limit_view_layer_to_collection(collection_name, *items):
             if type(item) is list:
                 for sub_item in item:
                     tmp_collection.objects.link(sub_item)
-                    sub_item.hide_set(False)
+                    unhide(sub_item)
             else:
                 tmp_collection.objects.link(item)
-                item.hide_set(False)
+                unhide(item)
     # return the temp collection and the layers exlcuded
     return tmp_collection, layer_collections, to_hide
 
@@ -1457,7 +1476,7 @@ def restore_limited_view_layers(tmp_collection, layer_collections, to_hide):
     for layer_collection in layer_collections:
         layer_collection.exclude = False
     for obj in to_hide:
-        obj.hide_set(True)
+        hide(obj)
 
 
 def force_visible_in_scene(collection_name, *objects):
@@ -1466,7 +1485,7 @@ def force_visible_in_scene(collection_name, *objects):
     for obj in objects:
         if not obj.visible_get():
             log_info(f"Object: {obj.name} is not visible or in a hidden collection. Linking to temporary root collection and making visible.")
-            obj.hide_set(False)
+            unhide(obj)
             tmp_collection.objects.link(obj)
     return tmp_collection
 
@@ -1477,19 +1496,10 @@ def restore_visible_in_scene(tmp_collection : bpy.types.Collection):
         objects.append(obj)
     for obj in objects:
         log_info(f"Object: {obj.name} Unlinking from temporary root collection and hiding.")
-        obj.hide_set(True)
+        hide(obj)
         tmp_collection.objects.unlink(obj)
     bpy.context.scene.collection.children.unlink(tmp_collection)
     bpy.data.collections.remove(tmp_collection)
-
-
-def make_visible(obj):
-    # TODO expand this to force visible in tmp collection if unable to make visible with hide_set
-    # but will require something to remove tmp collection later...
-    try:
-        obj.hide_set(False)
-    except:
-        pass
 
 
 def get_object_scene_collections(obj, exclude_rbw = True):
@@ -1585,14 +1595,14 @@ def restore_render_visibility_state(rv):
                 visible, render = rv[obj.name]
                 try:
                     obj.hide_render = not render
-                    obj.hide_set(not visible)
+                    hide(obj,not visible)
                 except:
                     pass
 
             else:
                 try:
                     obj.hide_render = False
-                    obj.hide_set(True)
+                    hide(obj)
                 except:
                     pass
 
@@ -1606,13 +1616,13 @@ def set_only_render_visible(object):
             if obj == object:
                 try:
                     obj.hide_render = False
-                    obj.hide_set(False)
+                    unhide(obj)
                 except:
                     pass
             else:
                 try:
                     obj.hide_render = True
-                    obj.hide_set(True)
+                    hide(obj)
                 except:
                     pass
 

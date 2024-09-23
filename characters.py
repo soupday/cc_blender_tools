@@ -365,6 +365,17 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
     return chr_cache
 
 
+def link_override(obj: bpy.types.Object):
+    if obj:
+        collections = utils.get_object_scene_collections(obj)
+        override = obj.override_create(remap_local_usages=True)
+        coll: bpy.types.Collection
+        for coll in collections:
+            try:
+                coll.objects.link(override)
+            except: ...
+
+
 def link_or_append_rl_character(blend_file, link=False):
     props = vars.props()
     prefs = vars.prefs()
@@ -438,6 +449,43 @@ def link_or_append_rl_character(blend_file, link=False):
 
             # TODO remove all actions or keep them? or get all of them?
 
+            # link overrides
+            if link and False:
+                overrides = {}
+                for obj in objects:
+                    override = obj.override_create(remap_local_usages=True)
+                    if obj == meta_rig:
+                        meta_rig = override
+                    if obj == chr_rig:
+                        chr_rig = override
+                    if obj == src_rig:
+                        src_rig = override
+                    overrides[obj] = override
+                for obj in overrides:
+                    override = overrides[obj]
+                    try:
+                        if hasattr(override, "parent"):
+                            if override.parent and override.parent in overrides:
+                                override.parent = overrides[override.parent]
+                    except: ...
+                    if override.type == "MESH":
+                        for mod in override.modifiers:
+                            if mod:
+                                if hasattr(mod, "object") and mod.object in overrides:
+                                    mod.object = overrides[mod.object]
+                    elif override.type == "EMPTY":
+                        con = override.rigid_body_constraint
+                        if con:
+                            if hasattr(con, "target") and con.target in overrides:
+                                con.target = overrides[con.target]
+                            if hasattr(con, "object") and con.object in overrides:
+                                con.object = overrides[con.object]
+                            if hasattr(con, "object1") and con.object1 in overrides:
+                                con.object1 = overrides[con.object1]
+                            if hasattr(con, "object2") and con.object2 in overrides:
+                                con.object2 = overrides[con.object2]
+                objects = list(overrides.values())
+
             # put all the character objects in the character collection
             character_collection = utils.create_collection(character_name)
             for obj in objects:
@@ -450,7 +498,7 @@ def link_or_append_rl_character(blend_file, link=False):
                                                             parent_collection=character_collection)
                 for widget in widgets:
                     widget_collection.objects.link(widget)
-                    widget.hide_set(True)
+                    utils.hide(widget)
 
                 # hide the widget sub-collection
                 lc = utils.find_layer_collection(widget_collection.name)
@@ -458,7 +506,7 @@ def link_or_append_rl_character(blend_file, link=False):
 
             # hide the meta rig
             if meta_rig:
-                meta_rig.hide_set(True)
+                utils.hide(meta_rig)
 
             # create the character cache and rebuild from the source data
             chr_cache = props.add_character_cache(copy_from=src_cache)
@@ -468,12 +516,17 @@ def link_or_append_rl_character(blend_file, link=False):
             rigidbody.hide_colliders(chr_rig)
 
             # get rigidy body systems and hide them
-            spring_systems = springbones.get_spring_systems(chr_cache)
-            print(spring_systems)
-            if spring_systems:
-                has_rigid_body = True
-                for rigidy_body_system in spring_systems:
-                    utils.hide_tree(rigidy_body_system, hide=True)
+            parent_modes = springbones.get_all_parent_modes(chr_cache, chr_rig)
+            for parent_mode in parent_modes:
+                rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+                rigid_body_system = rigidbody.get_spring_rigid_body_system(chr_rig, rig_prefix)
+                if rigid_body_system:
+                    if link:
+                        rigidbody.remove_existing_rigid_body_system(chr_rig, rig_prefix, rigid_body_system.name)
+                    else:
+                        has_rigid_body = True
+                        utils.hide_tree(rigid_body_system, hide=True)
+
 
     # clean up unused objects
     for obj in dst.objects:
@@ -738,7 +791,7 @@ def remove_object_from_character(chr_cache, obj):
                         if arm_mod:
                             obj.modifiers.remove(arm_mod)
 
-                        #obj.hide_set(True)
+                        #utils.hide(obj)
 
                         utils.clear_selected_objects()
                         # don't reselect the removed object as this may cause
@@ -1935,6 +1988,7 @@ class CCICCharacterLink(bpy.types.Operator):
         prefs = vars.prefs()
         chr_cache = props.get_context_character_cache(context)
         chr_rig = utils.get_context_armature(context)
+        print(chr_rig, chr_cache)
 
         if self.param == "CONNECT":
             self.filter_glob = "*.fbx;*.blend"

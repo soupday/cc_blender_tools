@@ -1783,7 +1783,7 @@ class CC3OperatorHair(bpy.types.Operator):
         if self.param == "ADD_BONES":
 
             if arm and hair_mesh:
-                arm.hide_set(False)
+                utils.unhide(arm)
                 selected_cards_to_bones(chr_cache, arm,
                                         hair_mesh,
                                         props.hair_rig_bone_root,
@@ -1799,7 +1799,7 @@ class CC3OperatorHair(bpy.types.Operator):
         if self.param == "ADD_BONES_GREASE":
 
             if arm:
-                arm.hide_set(False)
+                utils.unhide(arm)
                 grease_pencil_to_bones(chr_cache, arm, props.hair_rig_bone_root,
                                        bone_length = props.hair_rig_bone_length / 100.0,
                                        skip_length = props.hair_rig_bind_skip_length / 100.0,
@@ -1811,7 +1811,7 @@ class CC3OperatorHair(bpy.types.Operator):
         if self.param == "ADD_BONES_CUSTOM":
 
             if arm:
-                arm.hide_set(False)
+                utils.unhide(arm)
                 add_custom_bone(chr_cache, arm, props.hair_rig_bone_root,
                                 bone_length = props.hair_rig_bone_length / 100.0)
 
@@ -1821,7 +1821,7 @@ class CC3OperatorHair(bpy.types.Operator):
         if self.param == "REMOVE_HAIR_BONES":
 
             if arm:
-                arm.hide_set(False)
+                utils.unhide(arm)
                 remove_hair_bones(chr_cache, arm,
                                   props.hair_rig_bind_bone_mode,
                                   props.hair_rig_bone_root)
@@ -1840,7 +1840,7 @@ class CC3OperatorHair(bpy.types.Operator):
                 existing_scale = 0.0
 
             if arm and objects:
-                arm.hide_set(False)
+                utils.unhide(arm)
                 bind_cards_to_bones(chr_cache, arm,
                                     objects,
                                     props.hair_dir_vectors(),
@@ -1872,7 +1872,7 @@ class CC3OperatorHair(bpy.types.Operator):
             objects = utils.get_selected_meshes(context)
 
             if arm:
-                arm.hide_set(False)
+                utils.unhide(arm)
                 clear_hair_bone_weights(chr_cache, arm, objects,
                                         props.hair_rig_bind_card_mode,
                                         props.hair_rig_bind_bone_mode,
@@ -1888,7 +1888,7 @@ class CC3OperatorHair(bpy.types.Operator):
             objects = utils.get_selected_meshes(context)
 
             if arm and objects:
-                arm.hide_set(False)
+                utils.unhide(arm)
                 springbones.convert_spring_rig_to_accessory(chr_cache, arm, props.hair_rig_bone_root)
 
         if self.param == "GROUP_NAME_BONES":
@@ -1898,7 +1898,7 @@ class CC3OperatorHair(bpy.types.Operator):
 
             objects = utils.get_selected_meshes(context)
             if arm:
-                arm.hide_set(False)
+                utils.unhide(arm)
                 rename_hair_bones(chr_cache, arm, group_name, parent_mode)
 
             utils.restore_mode_selection_state(mode_selection)

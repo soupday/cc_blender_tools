@@ -453,7 +453,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
                 utils.log_recess()
             else:
                 # add pbr material to json for non-cached base object/material
-                write_pbr_material_to_json(mat, mat_json, base_path, old_name, bake_values)
+                write_pbr_material_to_json(context, mat, mat_json, base_path, old_name, bake_values)
 
             # copy or remap the texture paths
             utils.log_info("Finalizing Texture Paths:")
@@ -1082,14 +1082,14 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
     if chr_cache:
         arm = chr_cache.get_armature()
         if arm:
-            arm.hide_set(False)
+            utils.unhide(arm)
             if arm not in objects:
                 objects.append(arm)
             for obj_cache in chr_cache.object_cache:
                 if obj_cache.is_mesh() and not obj_cache.disabled:
                     obj = obj_cache.get_object()
                     if obj.parent == arm:
-                        obj.hide_set(False)
+                        utils.unhide(obj)
                         if obj not in objects:
                             objects.append(obj)
 
@@ -1115,7 +1115,7 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
     else:
         arm = utils.get_armature_from_objects(objects)
         if arm:
-            arm.hide_set(False)
+            utils.unhide(arm)
             if arm not in objects:
                 objects.append(arm)
             utils.log_info(f"Character Armature: {arm.name}")
@@ -1282,23 +1282,10 @@ def set_standard_generation(json_data, character_id, generation):
     jsonutils.set_character_generation_json(json_data, character_id, generation)
 
 
-def prep_non_standard_export(objects, dir, name, character_type):
+def prep_non_standard_export(context, objects, dir, name, character_type):
     global UNPACK_INDEX
     bake.init_bake()
     UNPACK_INDEX = 5001
-
-    changes = []
-    done = []
-    for obj in objects:
-        if obj not in done and obj.data:
-            changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
-            done.append(obj)
-        if obj.type == "MESH":
-            for mat in obj.data.materials:
-                if mat not in done:
-                    changes.append(["MATERIAL_RENAME", mat, mat.name])
-                    done.append(mat)
-    done.clear()
 
     # prefer to bake and unpack textures next to blend file, otherwise at the destination.
     blend_path = utils.local_path()
@@ -1306,7 +1293,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
         dir = blend_path
     utils.log_info(f"Texture Root Dir: {dir}")
 
-    json_data = jsonutils.generate_character_json_data(name)
+    json_data = jsonutils.generate_character_base_json_data(name)
 
     set_non_standard_generation(json_data, name, character_type, "Unknown")
 
@@ -1347,7 +1334,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
 
                     mesh_json["Materials"][mat.name] = mat_json
 
-                    write_pbr_material_to_json(mat, mat_json, dir, name, True)
+                    write_pbr_material_to_json(context, mat, mat_json, dir, name, True)
 
                 else:
 
@@ -1356,7 +1343,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
     # select all the export objects
     utils.try_select_objects(objects, True)
 
-    return json_data, changes
+    return json_data
 
 #[ socket_path, node_label_match, source_type, tex_channel, strength_socket_path ]
 BSDF_TEXTURES = [
@@ -1385,7 +1372,7 @@ BSDF_TEXTURE_KEYWORDS = {
     "AO": ["occlusion", "lightmap", "intensity", ".ao$", "_ao$"],
 }
 
-def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
+def write_pbr_material_to_json(context, mat, mat_json, path, name, bake_values):
     if not mat.node_tree or not mat.node_tree.nodes:
         return
 
@@ -1467,7 +1454,7 @@ def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
                         socket_mapping[tex_id] = [bsdf_node, "Metallic", True, strength]
 
 
-        write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, path, bake_path, unpack_path)
+        write_or_bake_tex_data_to_json(context, socket_mapping, mat, mat_json, bsdf_node, path, bake_path, unpack_path)
 
     else:
         # if there is no BSDF shader node, try to match textures by name (both image node name and image name)
@@ -1479,7 +1466,7 @@ def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
                         if re.match(key, node.image.name.lower()) or re.match(key, node.label.lower()) or re.match(key, node.name.lower()):
                             socket_mapping[tex_id] = [node, "Color", False, 100.0]
 
-        write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, None, path, bake_path, unpack_path)
+        write_or_bake_tex_data_to_json(context, socket_mapping, mat, mat_json, None, path, bake_path, unpack_path)
 
     return
 
@@ -1735,7 +1722,7 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
 
         json_data = chr_cache.get_json_data()
         if not json_data:
-            json_data = jsonutils.generate_character_json_data(name)
+            json_data = jsonutils.generate_character_base_json_data(name)
             set_character_generation(json_data, chr_cache, name)
 
         # export objects
@@ -1821,7 +1808,7 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
         # select all the imported objects (should be just one)
         for p in chr_cache.object_cache:
             if p.object is not None and p.object.type == "MESH" and not p.disabled:
-                p.object.hide_set(False)
+                utils.unhide(p.object)
                 p.object.select_set(True)
 
         obj_export(file_path, use_selection=True,
@@ -1842,7 +1829,7 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
     utils.log_timer("Done Character Export.")
 
 
-def export_non_standard(self, file_path, include_selected):
+def export_non_standard(self, context, file_path, include_selected):
     """Exports non-standard character (unconverted and not rigified) to CC4 with json data and textures, as an .fbx file.
     """
 
@@ -1877,7 +1864,7 @@ def export_non_standard(self, file_path, include_selected):
 
     utils.log_info("Generating JSON data for export:")
     utils.log_indent()
-    json_data, object_state = prep_non_standard_export(objects, dir, name, prefs.export_non_standard_mode)
+    json_data = prep_non_standard_export(context, objects, dir, name, prefs.export_non_standard_mode)
 
     utils.log_recess()
     utils.log_info("Preparing character for export:")
@@ -1962,7 +1949,7 @@ def export_to_unity(self, context, chr_cache, export_anim, file_path, include_se
 
     json_data = chr_cache.get_json_data()
     if not json_data:
-        json_data = jsonutils.generate_character_json_data(name)
+        json_data = jsonutils.generate_character_base_json_data(name)
         set_character_generation(json_data, chr_cache, name)
 
     utils.log_info("Preparing character for export:")
@@ -2442,7 +2429,7 @@ class CC3Export(bpy.types.Operator):
 
         elif self.param == "EXPORT_NON_STANDARD":
 
-            export_non_standard(self, self.filepath, self.include_selected)
+            export_non_standard(self, context, self.filepath, self.include_selected)
             self.error_report()
 
 

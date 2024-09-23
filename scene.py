@@ -155,11 +155,11 @@ def remove_all_lights(inc_camera = False):
         else:
 
             if obj.type == "LIGHT":
-                obj.hide_set(True)
+                utils.hide(obj)
                 obj.hide_render = True
 
             elif inc_camera and obj.type == "EMPTY" and "CameraTarget" in obj.name:
-                obj.hide_set(True)
+                utils.hide(obj)
                 obj.hide_render = True
                 pass
 
@@ -167,11 +167,11 @@ def remove_all_lights(inc_camera = False):
                 ("KeyTarget" in obj.name or \
                 "FillTarget" in obj.name or \
                 "BackTarget" in obj.name):
-                obj.hide_set(True)
+                utils.hide(obj)
                 obj.hide_render = True
 
             elif inc_camera and obj.type == "CAMERA":
-                obj.hide_set(True)
+                utils.hide(obj)
                 obj.hide_render = True
 
 
@@ -179,7 +179,7 @@ def restore_hidden_camera():
     # enable the first hidden camera
     for obj in bpy.data.objects:
         if obj.type == "CAMERA" and not obj.visible_get():
-            obj.hide_set(False)
+            utils.unhide(obj)
             bpy.context.scene.camera = obj
             return
 
@@ -205,8 +205,8 @@ def camera_setup(context, camera_loc, target_loc):
     if target is None:
         target = add_target("CameraTarget", target_loc)
 
-    camera.hide_set(False)
-    target.hide_set(False)
+    utils.unhide(camera)
+    utils.unhide(target)
     context.scene.camera = camera
     track_to(camera, target)
     camera.data.lens = 80

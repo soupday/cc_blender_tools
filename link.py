@@ -502,12 +502,12 @@ def make_datalink_import_rig(actor: LinkActor):
     if not chr_rig:
         utils.log_error(f"make_datalink_import_rig - Invalid Actor armature: {actor.name}")
         return None
-    chr_rig.hide_set(False)
+    utils.unhide(chr_rig)
     chr_cache = actor.get_chr_cache()
     is_prop = actor.get_type() == "PROP"
 
     if utils.object_exists_is_armature(chr_cache.rig_datalink_rig):
-        chr_cache.rig_datalink_rig.hide_set(False)
+        utils.unhide(chr_cache.rig_datalink_rig)
         #utils.log_info(f"Using existing datalink transfer rig: {chr_cache.rig_datalink_rig.name}")
         return chr_cache.rig_datalink_rig
 
@@ -550,7 +550,7 @@ def make_datalink_import_rig(actor: LinkActor):
         utils.safe_set_action(datalink_rig, None)
 
     utils.object_mode_to(datalink_rig)
-    datalink_rig.hide_set(True)
+    utils.hide(datalink_rig)
 
     chr_cache.rig_datalink_rig = datalink_rig
 
@@ -582,7 +582,7 @@ def remove_datalink_import_rig(actor: LinkActor):
             else:
                 # remove all contraints on the character rig
                 if utils.object_exists(chr_rig):
-                    chr_rig.hide_set(False)
+                    utils.unhide(chr_rig)
                     if utils.object_mode_to(chr_rig):
                         for pose_bone in chr_rig.pose.bones:
                             bones.clear_constraints(chr_rig, pose_bone.name)
@@ -1783,7 +1783,7 @@ class LinkService():
             export_dir, json_file = os.path.split(export_path)
             json_data = chr_cache.get_json_data()
             if not json_data:
-                json_data = jsonutils.generate_character_json_data(actor.name)
+                json_data = jsonutils.generate_character_base_json_data(actor.name)
                 exporter.set_character_generation(json_data, chr_cache, actor.name)
             exporter.prep_export(context, chr_cache, actor.name, objects, json_data,
                                  chr_cache.get_import_dir(), export_dir,
@@ -2404,7 +2404,7 @@ class LinkService():
                     light.data.contact_shadow_distance = 0.1
                     light.data.contact_shadow_bias = 0.03
                     light.data.contact_shadow_thickness = 0.001
-            light.hide_set(not light_data["active"])
+            utils.hide(light, not light_data["active"])
 
         # clean up lights not found in scene
         for obj in bpy.data.objects:
