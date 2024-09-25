@@ -37,9 +37,10 @@ Links
 
 ### 2.1.10
 - Sets up Rigidbody physics when appending character.
-    - Note: Rigidbody physics does *not* work with _linked_ character overrides.
+    - Note: Rigidbody physics does *not* work with linked character _overrides_.
 - Export non-standard character fix.
-- Export split mesh materials finds correct json.
+- Support for split meshes when exporting and rebuilding materials.
+    - For split body meshes, the mesh with the head will be used as the source for facial expression drivers.
 
 ### 2.1.9
 - Maintain operator context for scene operations.
