@@ -36,7 +36,7 @@ def delete_import(chr_cache):
     utils.clean_up_unused()
 
 
-def process_material(chr_cache, obj, mat, obj_json, processed_images):
+def process_material(chr_cache, obj_cache, obj, mat, obj_json, processed_images):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -57,31 +57,31 @@ def process_material(chr_cache, obj, mat, obj_json, processed_images):
     if chr_cache.setup_mode == "ADVANCED":
 
         if mat_cache.is_cornea() or mat_cache.is_eye():
-            shaders.connect_eye_shader(obj, mat, obj_json, mat_json, processed_images)
+            shaders.connect_eye_shader(obj_cache, obj, mat, obj_json, mat_json, processed_images)
 
         elif mat_cache.is_tearline():
-            shaders.connect_tearline_shader(obj, mat, mat_json, processed_images)
+            shaders.connect_tearline_shader(obj_cache, obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_eye_occlusion():
-            shaders.connect_eye_occlusion_shader(obj, mat, mat_json, processed_images)
+            shaders.connect_eye_occlusion_shader(obj_cache, obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_skin() or mat_cache.is_nails():
-            shaders.connect_skin_shader(obj, mat, mat_json, processed_images)
+            shaders.connect_skin_shader(obj_cache, obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_teeth():
-            shaders.connect_teeth_shader(obj, mat, mat_json, processed_images)
+            shaders.connect_teeth_shader(obj_cache, obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_tongue():
-            shaders.connect_tongue_shader(obj, mat, mat_json, processed_images)
+            shaders.connect_tongue_shader(obj_cache, obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_hair():
-            shaders.connect_hair_shader(obj, mat, mat_json, processed_images)
+            shaders.connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_sss():
-            shaders.connect_sss_shader(obj, mat, mat_json, processed_images)
+            shaders.connect_sss_shader(obj_cache, obj, mat, mat_json, processed_images)
 
         else:
-            shaders.connect_pbr_shader(obj, mat, mat_json, processed_images)
+            shaders.connect_pbr_shader(obj_cache, obj, mat, mat_json, processed_images)
 
         # optional pack channels
         if prefs.build_limit_textures or prefs.build_pack_texture_channels:
@@ -132,7 +132,7 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
 
     objects_processed.append(obj)
 
-    obj_json = jsonutils.get_object_json(chr_json, obj)
+    obj_json = jsonutils.get_object_json(chr_json, obj_cache.source_name)
     physics_json = None
 
     utils.log_info("")
@@ -165,7 +165,8 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
 
         # store the object type and id
         # store the material type and id
-        obj_cache.check_id()
+        if obj_cache:
+            obj_cache.check_id()
 
         # process any materials found in the mesh object
         for slot in obj.material_slots:
@@ -175,7 +176,7 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
                 utils.log_info("Processing Material: " + mat.name)
                 utils.log_indent()
 
-                process_material(chr_cache, obj, mat, obj_json, processed_images)
+                process_material(chr_cache, obj_cache, obj, mat, obj_json, processed_images)
                 if processed_materials is not None:
                     first = materials.find_duplicate_material(chr_cache, mat, processed_materials)
                     if first:
@@ -188,7 +189,7 @@ def process_object(chr_cache, obj, obj_cache, objects_processed, chr_json, proce
                 objects_processed.append(mat)
 
         # setup special modifiers for displacement, UV warp, etc...
-        if chr_cache.setup_mode == "ADVANCED":
+        if obj_cache and chr_cache.setup_mode == "ADVANCED":
             if obj_cache.is_eye():
                 modifiers.add_eye_modifiers(obj)
             elif obj_cache.is_eye_occlusion():
@@ -1195,6 +1196,17 @@ class CC3Import(bpy.types.Operator):
                     if obj:
                         process_object(chr_cache, obj, obj_cache, objects_processed,
                                        chr_json, processed_materials, processed_images)
+                arm = chr_cache.get_armature()
+                if arm:
+                    for child in arm.children:
+                        if child not in objects_processed:
+                            object_id = utils.get_rl_object_id(child)
+                            if object_id:
+                                print(f"Processing by object_id: {object_id}")
+                                obj_cache = chr_cache.get_object_cache(child, by_id=object_id)
+                                if obj_cache:
+                                    process_object(chr_cache, child, obj_cache, objects_processed,
+                                                   chr_json, processed_materials, processed_images)
 
             # only processes the selected objects that are listed in the import_cache (character)
             elif props.build_mode == "SELECTED":

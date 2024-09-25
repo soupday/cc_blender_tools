@@ -501,6 +501,26 @@ def add_body_shape_key_drivers(chr_cache, add_drivers):
     if not body or not arm:
         return
 
+    # collect all possible body objects together
+    head_bones = [ "CC_Base_Head", "head", "spine.006" ]
+    body_objects = {}
+    body_objects[body] = meshutils.total_vertex_group_weight(body, head_bones)
+    body_id = utils.get_rl_object_id(body)
+    for child in arm.children:
+        if child not in body_objects:
+            if utils.get_rl_object_id(child) == body_id:
+                body_objects[child] = meshutils.total_vertex_group_weight(child, head_bones)
+
+    # try to find which one contains the head (contains the most weight to head bone)
+    if body_objects:
+        w = body_objects[body]
+        for o in body_objects:
+            if body_objects[o] > w:
+                w = body_objects[o]
+                body = o
+
+    utils.log_info(f"Using head mesh: {body.name} for driver source")
+
     if utils.object_has_shape_keys(body):
         body_keys = [ key_block.name for key_block in body.data.shape_keys.key_blocks ]
         objects = utils.get_child_objects(arm)

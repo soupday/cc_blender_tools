@@ -309,18 +309,18 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
                     utils.log_info(f"Updating Object source json name: {obj_source_name} to {new_obj_name}")
                 if physics_json and jsonutils.rename_json_key(physics_json, obj_source_name, new_obj_name):
                     utils.log_info(f"Updating Physics Object source json name: {obj_source_name} to {new_obj_name}")
+                obj_source_name = new_obj_name
             if not sync:
                 utils.force_object_name(obj, new_obj_name)
                 utils.force_mesh_name(obj.data, new_obj_name)
             obj_name = new_obj_name
             obj_safe_name = new_obj_name
-            obj_source_name = new_obj_name
 
         obj_names.append(obj_name)
 
         # fetch or create the object json
-        obj_json = jsonutils.get_object_json(chr_json, obj)
-        physics_mesh_json = jsonutils.get_physics_mesh_json(physics_json, obj)
+        obj_json = jsonutils.get_object_json(chr_json, obj_source_name)
+        physics_mesh_json = jsonutils.get_physics_mesh_json(physics_json, obj_source_name)
         if not obj_json:
             utils.log_info(f"Adding Object Json: {obj_name}")
             obj_json = copy.deepcopy(params.JSON_MESH_DATA)
@@ -392,7 +392,65 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
             mat_json = jsonutils.get_material_json(obj_json, mat)
             physics_mat_json = jsonutils.get_physics_material_json(physics_mesh_json, mat)
 
-            # try to create the material json data from the mat_cache shader def
+            # the object and materials may have been split from it's origin,
+            # so try to find the material in another object,
+            # and see if that has valid json...
+            # look by object id's first
+            if mat_cache and not mat_json:
+                object_id = utils.get_rl_object_id(obj)
+                if object_id:
+                    other_obj_cache = chr_cache.get_object_cache(obj, by_id=object_id)
+                    if other_obj_cache:
+                        other = other_obj_cache.get_object()
+                        if utils.object_exists_is_mesh(other):
+                            if mat.name in other.data.materials:
+                                other_source_name = other_obj_cache.source_name
+                                other_obj_json = jsonutils.get_object_json(chr_json, other_source_name)
+                                if other_obj_json:
+                                    other_mat_json = jsonutils.get_material_json(other_obj_json, mat_source_name)
+                                    if other_mat_json:
+                                        utils.log_info(f"Copying Material Json: {mat_safe_name} from existing material Json in Obj by id: {other_source_name} / {mat_source_name}")
+                                        mat_json = copy.deepcopy(other_mat_json)
+
+            # then look for same material in character objects
+            if mat_cache and not mat_json:
+                for other_obj_cache in chr_cache.object_cache:
+                    other = other_obj_cache.get_object()
+                    if utils.object_exists_is_mesh(other):
+                        if mat.name in other.data.materials:
+                            other_source_name = other_obj_cache.source_name
+                            other_obj_json = jsonutils.get_object_json(chr_json, other_source_name)
+                            if other_obj_json:
+                                other_mat_json = jsonutils.get_material_json(other_obj_json, mat_source_name)
+                                if other_mat_json:
+                                    utils.log_info(f"Copying Material Json: {mat_safe_name} from existing material Json in Obj: {other_source_name} / {mat_source_name}")
+                                    mat_json = copy.deepcopy(other_mat_json)
+                                    break
+                if mat_json:
+                    obj_json["Materials"][mat_safe_name] = mat_json
+                    write_json = True
+                    write_textures = True
+
+            # finally try to find a mat_json of the same shader type
+            # with the same source material name in any mesh in the json
+            if mat_cache and not mat_json:
+                for o_json_name, o_json in chr_json["Meshes"].items():
+                    for m_json_name, m_json in o_json["Materials"].items():
+                        if m_json_name.lower() == mat_source_name.lower():
+                            shader_name = params.get_rl_shader_name(mat_cache)
+                            m_shader_name = jsonutils.get_custom_shader(m_json)
+                            if shader_name == m_shader_name:
+                                utils.log_info(f"Copying Material Json: {mat_safe_name} from existing material Json of same name and type: {o_json_name} / {m_json_name}")
+                                mat_json = copy.deepcopy(m_json)
+                                break
+                    if mat_json:
+                        break
+                if mat_json:
+                    obj_json["Materials"][mat_safe_name] = mat_json
+                    write_json = True
+                    write_textures = True
+
+            # if still no json, try to create the material json data from the mat_cache shader def
             if mat_cache and not mat_json:
                 shader_name = params.get_shader_name(mat_cache)
                 json_template = params.get_mat_shader_template(mat_cache)
@@ -1076,8 +1134,7 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
     """Fetch all the objects in the character (or try to)"""
     collider_collection = rigidbody.get_rigidbody_collider_collection()
     objects = []
-    if include_selected:
-        objects.extend(bpy.context.selected_objects)
+    selected = bpy.context.selected_objects.copy()
 
     if chr_cache:
         arm = chr_cache.get_armature()
@@ -1107,10 +1164,10 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
                         continue
                     # add child mesh objects
                     if obj not in objects:
-                        utils.log_info(f"   Including Mesh Object: {obj.name}")
+                        utils.log_info(f"   Including Child Mesh Object: {obj.name}")
                         objects.append(obj)
                 elif utils.object_exists_is_empty(obj):
-                    utils.log_info(f"   Including Empty Transform: {obj.name}")
+                    utils.log_info(f"   Including Child Empty Transform: {obj.name}")
                     objects.append(obj)
     else:
         arm = utils.get_armature_from_objects(objects)
@@ -1127,11 +1184,17 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
                         if collider_collection and obj.name in collider_collection.objects:
                             utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
                             continue
-                        utils.log_info(f"   Including Object: {obj.name}")
+                        utils.log_info(f"   Including Child Object: {obj.name}")
                         objects.append(obj)
                 elif utils.object_exists_is_empty(obj):
-                    utils.log_info(f"   Including Empty Transform: {obj.name}")
+                    utils.log_info(f"   Including Child Empty Transform: {obj.name}")
                     objects.append(obj)
+
+    # include selected objects last
+    if include_selected:
+        for obj in selected:
+            if obj not in objects:
+                objects.append(obj)
 
     # make sure all export objects are valid
     clean_objects = [ obj for obj in objects

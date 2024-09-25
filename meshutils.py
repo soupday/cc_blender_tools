@@ -35,27 +35,53 @@ def remove_vertex_group(obj : bpy.types.Object, name):
         obj.vertex_groups.remove(obj.vertex_groups[name])
 
 
-def get_vertex_group(obj, name):
-    if name not in obj.vertex_groups:
-        None
-    else:
-        #group = obj.vertex_groups[name]
-        #clear_vertex_group(obj, group)
-        return obj.vertex_groups[name]
+def get_vertex_group(obj, names) -> bpy.types.VertexGroup:
+    if type(names) is str:
+        names = [ names ]
+    for name in names:
+        if name in obj.vertex_groups:
+            return obj.vertex_groups[name]
+    return None
 
 
-def clear_vertex_group(obj, vertex_group):
+def clear_vertex_group(obj, vertex_group: bpy.types.VertexGroup):
     all_verts = []
     for v in obj.data.vertices:
         all_verts.append(v.index)
     vertex_group.remove(all_verts)
 
 
-def set_vertex_group(obj, vertex_group, value):
+def set_vertex_group(obj, vertex_group: bpy.types.VertexGroup, value):
     all_verts = []
     for v in obj.data.vertices:
         all_verts.append(v.index)
     vertex_group.add(all_verts, value, 'ADD')
+
+
+def count_vertex_group(obj, vertex_group: bpy.types.VertexGroup):
+    if type(vertex_group) is str or type(vertex_group) is list:
+        vertex_group = get_vertex_group(obj, vertex_group)
+    count = 0
+    if vertex_group:
+        vg_idx = vertex_group.index
+        for vert in obj.data.vertices:
+            for g in vert.groups:
+                if g.group == vg_idx:
+                    count += 1
+    return count
+
+
+def total_vertex_group_weight(obj, vertex_group: bpy.types.VertexGroup):
+    if type(vertex_group) is str or type(vertex_group) is list:
+        vertex_group = get_vertex_group(obj, vertex_group)
+    weight = 0.0
+    if vertex_group:
+        vg_idx = vertex_group.index
+        for vert in obj.data.vertices:
+            for g in vert.groups:
+                if g.group == vg_idx:
+                    weight += g.weight
+    return weight
 
 
 def generate_eye_occlusion_vertex_groups(obj, mat_left, mat_right):

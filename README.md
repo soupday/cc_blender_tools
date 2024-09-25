@@ -35,6 +35,12 @@ Links
 
 ## Changelog
 
+### 2.1.10
+- Sets up Rigidbody physics when appending character.
+    - Note: Rigidbody physics does *not* work with _linked_ character overrides.
+- Export non-standard character fix.
+- Export split mesh materials finds correct json.
+
 ### 2.1.9
 - Maintain operator context for scene operations.
 - Align to view distance fix.

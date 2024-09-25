@@ -1313,14 +1313,15 @@ def hide_tree(obj, hide = True):
 def hide(obj, hide=True):
     try:
         obj.hide_set(hide)
+        return True
     except:
-        ...
+        return False
 
 
 def unhide(obj):
     # TODO expand this to force visible in tmp collection if unable to make visible with hide_set
     # but will require something to remove tmp collection later...
-    hide(obj, hide=False)
+    return hide(obj, hide=False)
 
 
 def get_context_area(context, area_type):
@@ -1595,7 +1596,7 @@ def restore_render_visibility_state(rv):
                 visible, render = rv[obj.name]
                 try:
                     obj.hide_render = not render
-                    hide(obj,not visible)
+                    hide(obj, not visible)
                 except:
                     pass
 

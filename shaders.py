@@ -963,10 +963,10 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
             nodeutils.unlink_node_output(links, shader_node, "Bump Map")
 
 
-def connect_tearline_shader(obj, mat, mat_json, processed_images):
-    prefs = vars.prefs()
+def connect_tearline_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -989,10 +989,10 @@ def connect_tearline_shader(obj, mat, mat_json, processed_images):
     mat.shadow_method = "NONE"
 
 
-def connect_eye_occlusion_shader(obj, mat, mat_json, processed_images):
-    prefs = vars.prefs()
+def connect_eye_occlusion_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1015,11 +1015,10 @@ def connect_eye_occlusion_shader(obj, mat, mat_json, processed_images):
     mat.shadow_method = "NONE"
 
 
-def connect_skin_shader(obj, mat, mat_json, processed_images):
+def connect_skin_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
     prefs = vars.prefs()
 
-    obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1075,9 +1074,10 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
     mat.use_sss_translucency = True
 
 
-def connect_tongue_shader(obj, mat, mat_json, processed_images):
+def connect_tongue_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1100,9 +1100,10 @@ def connect_tongue_shader(obj, mat, mat_json, processed_images):
     mat.use_sss_translucency = True
 
 
-def connect_teeth_shader(obj, mat, mat_json, processed_images):
+def connect_teeth_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1130,10 +1131,10 @@ def connect_teeth_shader(obj, mat, mat_json, processed_images):
     mat.use_sss_translucency = True
 
 
-def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
+def connect_eye_shader(obj_cache, obj, mat, obj_json, mat_json, processed_images):
     props = vars.props()
     prefs = vars.prefs()
-    obj_cache = props.get_object_cache(obj)
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1157,7 +1158,7 @@ def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
                 connect_as_pbr = False
 
     if connect_as_pbr:
-        connect_pbr_shader(obj, mat, mat_json, processed_images)
+        connect_pbr_shader(obj_cache, obj, mat, mat_json, processed_images)
         return
 
     mix_shader_group = ""
@@ -1206,10 +1207,10 @@ def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
         mat.use_screen_refraction = False
 
 
-def connect_hair_shader(obj, mat, mat_json, processed_images):
-    prefs = vars.prefs()
+def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1234,10 +1235,10 @@ def connect_hair_shader(obj, mat, mat_json, processed_images):
     mat.use_sss_translucency = True
 
 
-
-def connect_pbr_shader(obj, mat, mat_json, processed_images):
+def connect_pbr_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1272,9 +1273,10 @@ def connect_pbr_shader(obj, mat, mat_json, processed_images):
         fix_sss_method(bsdf)
 
 
-def connect_sss_shader(obj, mat, mat_json, processed_images):
+def connect_sss_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links

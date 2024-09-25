@@ -86,6 +86,13 @@ def write_json(json_data, path, is_fbx_path=False, is_json_local=False):
         write_file.write(json_object)
 
 
+def safe_name(o):
+    if type(o) is str:
+        return utils.strip_name(o).lower()
+    else:
+        return utils.strip_name(o.name).lower()
+
+
 def get_all_object_keys(chr_json):
     if chr_json:
         meshes_json = chr_json["Meshes"]
@@ -171,11 +178,11 @@ def get_object_json(chr_json, obj):
     if not chr_json:
         return None
     try:
-        name = utils.strip_name(obj.name).lower()
+        name = safe_name(obj)
         meshes_json = chr_json["Meshes"]
         for object_name in meshes_json.keys():
             if object_name.lower() == name:
-                utils.log_detail("Object Json data found for: " + obj.name)
+                utils.log_detail("Object Json data found for: " + name)
                 return meshes_json[object_name]
     except:
         utils.log_warn("Failed to get object Json data!")
@@ -203,8 +210,8 @@ def get_physics_json(chr_json):
 
 def get_soft_physics_json(physics_json, obj, mat):
     try:
-        obj_name = utils.strip_name(obj.name).lower()
-        mat_name = utils.strip_name(mat.name).lower()
+        obj_name = safe_name(obj)
+        mat_name = safe_name(mat)
         soft_physics_mesh_json = physics_json["Soft Physics"]["Meshes"]
         for object_name in soft_physics_mesh_json:
             if object_name.lower() == obj_name:
@@ -222,10 +229,10 @@ def get_physics_mesh_json(soft_physics_json, obj):
     if not soft_physics_json:
         return None
     try:
-        name = utils.strip_name(obj.name).lower()
+        name = safe_name(obj)
         for object_name in soft_physics_json.keys():
             if object_name.lower() == name:
-                utils.log_detail("Physics Object Json data found for: " + obj.name)
+                utils.log_detail("Physics Object Json data found for: " + name)
                 return soft_physics_json[object_name]
     except:
         utils.log_warn("Failed to get physics object Json data!")
@@ -258,11 +265,11 @@ def get_material_json(obj_json, material):
     if not obj_json:
         return None
     try:
-        name = utils.strip_name(material.name).lower()
+        name = safe_name(material)
         materials_json = obj_json["Materials"]
         for material_name in materials_json.keys():
             if material_name.lower() == name:
-                utils.log_detail("Material Json data found for: " + material.name)
+                utils.log_detail("Material Json data found for: " + name)
                 return materials_json[material_name]
     except:
         utils.log_warn("Failed to get material Json data!")
@@ -285,11 +292,11 @@ def get_physics_material_json(physics_mesh_json, material):
     if not physics_mesh_json:
         return None
     try:
-        name = utils.strip_name(material.name).lower()
+        name = safe_name(material)
         materials_json = physics_mesh_json["Materials"]
         for material_name in materials_json.keys():
             if material_name.lower() == name:
-                utils.log_detail("Physics Material Json data found for: " + material.name)
+                utils.log_detail("Physics Material Json data found for: " + name)
                 return materials_json[material_name]
     except:
         utils.log_warn("Failed to get physics material Json data!")

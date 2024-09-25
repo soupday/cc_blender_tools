@@ -1879,7 +1879,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     cache_object = obj_cache.get_object()
                     if cache_object and cache_object == obj:
                         return obj_cache
-            # by source name
+            # by id
             if by_id:
                 for obj_cache in self.object_cache:
                     if include_disabled or not obj_cache.disabled:
@@ -1902,10 +1902,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def has_cache_objects(self, objects, include_disabled=False):
         """Returns True if any of the objects are actively the object cache.
         """
+        object_ids = [ utils.get_rl_object_id(o) for o in objects ]
         for obj_cache in self.object_cache:
             if include_disabled or not obj_cache.disabled:
                 cache_object = obj_cache.get_object()
                 if cache_object in objects:
+                    return True
+                if obj_cache.object_id and obj_cache.object_id in object_ids:
                     return True
         return False
 
@@ -2665,9 +2668,10 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
     def get_character_cache(self, obj, mat):
         if obj:
+            obj_id = utils.get_rl_object_id(obj)
             for chr_cache in self.import_cache:
                 if not chr_cache.disabled:
-                    obj_cache = chr_cache.get_object_cache(obj)
+                    obj_cache = chr_cache.get_object_cache(obj, by_id=obj_id)
                     if obj_cache and not obj_cache.disabled:
                         return chr_cache
         if mat:
@@ -2720,7 +2724,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
         chr_cache = None
 
         # if there is only one character in the scene, this is the only possible character cache:
-        if len(self.import_cache) == 1:
+        if not strict and len(self.import_cache) == 1:
             return self.import_cache[0]
 
         obj = context.object
