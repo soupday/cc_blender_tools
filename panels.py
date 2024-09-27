@@ -995,13 +995,24 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         # Build Button
         if chr_cache:
             box = layout.box()
-            box.row().label(text="Rebuild Materials", icon="MOD_BUILD")
-            row = box.row()
+            box.row().label(text="Rebuild", icon="MOD_BUILD")
+
+            col = box.column()
+            row = col.row()
             row.scale_y = 2
             if chr_cache.setup_mode == "ADVANCED":
                 op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials").param ="BUILD"
             else:
                 op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Materials").param ="BUILD"
+
+            row = col.row()
+            row.scale_y = 1
+            op = row.operator("cc3.importer", icon="DRIVER", text="Rebuild Drivers").param ="BUILD_DRIVERS"
+
+            row = col.row()
+            row.scale_y = 1
+            op = row.operator("cc3.importer", icon="X", text="Remove Drivers").param ="REMOVE_DRIVERS"
+
             row = box.row()
             row.prop(props, "build_mode", expand=True)
             box.row().operator("cc3.setproperties", icon="DECORATE_OVERRIDE", text="Reset All Parameters").param = "RESET_ALL"

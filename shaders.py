@@ -764,9 +764,9 @@ def init_character_property_defaults(chr_cache, chr_json, only:list=None):
         utils.log_info("(No Json Data)")
 
     # Advanced properties
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.get_object()
-        if not obj_cache.disabled and obj_cache.is_mesh() and obj not in processed:
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled and obj_cache.is_mesh() and obj not in processed:
             processed.append(obj)
 
             obj_json = jsonutils.get_object_json(chr_json, obj)

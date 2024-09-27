@@ -491,7 +491,7 @@ def clear_body_shape_key_drivers(chr_cache):
                         obj_key.driver_remove("value")
 
 
-def add_body_shape_key_drivers(chr_cache, add_drivers):
+def add_body_shape_key_drivers(chr_cache, add_drivers, only_objects=None):
     """Drive all expression shape keys on non-body objects from the body shape keys.
     """
 
@@ -525,6 +525,8 @@ def add_body_shape_key_drivers(chr_cache, add_drivers):
         body_keys = [ key_block.name for key_block in body.data.shape_keys.key_blocks ]
         objects = utils.get_child_objects(arm)
         for obj in objects:
+            if only_objects and obj not in only_objects:
+                continue
             if obj != body and utils.object_has_shape_keys(obj):
                 obj_key : bpy.types.ShapeKey
                 for obj_key in obj.data.shape_keys.key_blocks:
@@ -543,6 +545,4 @@ def add_body_shape_key_drivers(chr_cache, add_drivers):
                                                 body.data,
                                                 target_type="MESH",
                                                 data_path=data_path)
-
-
 

@@ -1191,40 +1191,58 @@ class CC3Import(bpy.types.Operator):
                 processed_materials = None
 
             if props.build_mode == "IMPORTED":
-                for obj_cache in chr_cache.object_cache:
-                    obj = obj_cache.get_object()
-                    if obj:
+                chr_objects = chr_cache.get_cache_objects()
+                for obj in chr_objects:
+                    obj_cache = chr_cache.get_object_cache(obj)
+                    if obj and obj_cache:
                         process_object(chr_cache, obj, obj_cache, objects_processed,
                                        chr_json, processed_materials, processed_images)
-                arm = chr_cache.get_armature()
-                if arm:
-                    for child in arm.children:
-                        if child not in objects_processed:
-                            object_id = utils.get_rl_object_id(child)
-                            if object_id:
-                                print(f"Processing by object_id: {object_id}")
-                                obj_cache = chr_cache.get_object_cache(child, by_id=object_id)
-                                if obj_cache:
-                                    process_object(chr_cache, child, obj_cache, objects_processed,
-                                                   chr_json, processed_materials, processed_images)
+
+                # setup default physics
+                if props.physics_mode:
+                    utils.log_info("")
+                    physics.apply_all_physics(chr_cache)
+
+                chr_cache.build_count += 1
 
             # only processes the selected objects that are listed in the import_cache (character)
             elif props.build_mode == "SELECTED":
-                for obj_cache in chr_cache.object_cache:
-                    obj = obj_cache.get_object()
-                    if obj and obj in bpy.context.selected_objects:
+                for obj in bpy.context.selected_objects:
+                    obj_cache = chr_cache.get_object_cache(obj)
+                    if obj_cache:
                         process_object(chr_cache, obj, obj_cache, objects_processed,
                                        chr_json, processed_materials, processed_images)
 
-            # setup default physics
-            if props.physics_mode:
-                utils.log_info("")
-                physics.apply_all_physics(chr_cache)
+                    chr_cache.build_count += 1
 
-            # enable SSR
-            if prefs.refractive_eyes == "SSR":
-                bpy.context.scene.eevee.use_ssr = True
-                bpy.context.scene.eevee.use_ssr_refraction = True
+        # enable SSR
+        if prefs.refractive_eyes == "SSR":
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
+
+        utils.log_timer("Done Build.", "s")
+
+
+    def build_drivers(self, context):
+        props: properties.CC3ImportProps = vars.props()
+        prefs = vars.prefs()
+
+        utils.start_timer()
+
+        utils.log_info("")
+        utils.log_info("Building Character Drivers:")
+        utils.log_info("---------------------------")
+
+        if self.imported_character_ids:
+            imported_characters = props.get_characters_by_link_id(self.imported_character_ids)
+        else:
+            chr_cache = props.get_context_character_cache(context)
+            imported_characters = [ chr_cache ]
+
+        chr_cache: properties.CC3CharacterCache
+        for chr_cache in imported_characters:
+
+            if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
 
             if chr_cache.rigified:
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
@@ -1239,9 +1257,40 @@ class CC3Import(bpy.types.Operator):
                                                prefs.build_shape_key_bone_drivers_eyes,
                                                prefs.build_shape_key_bone_drivers_head)
 
-            drivers.add_body_shape_key_drivers(chr_cache, prefs.build_body_key_drivers)
+            driver_objects = chr_cache.get_all_objects(include_armature=False,
+                                                       of_type="MESH",
+                                                       only_selected=(props.build_mode=="SELECTED"))
+            drivers.add_body_shape_key_drivers(chr_cache, prefs.build_body_key_drivers, driver_objects)
 
-            chr_cache.build_count += 1
+        utils.log_timer("Done Build.", "s")
+
+
+    def remove_drivers(self, context):
+        props: properties.CC3ImportProps = vars.props()
+
+        utils.start_timer()
+
+        utils.log_info("")
+        utils.log_info("Building Character Drivers:")
+        utils.log_info("---------------------------")
+
+        if self.imported_character_ids:
+            imported_characters = props.get_characters_by_link_id(self.imported_character_ids)
+        else:
+            chr_cache = props.get_context_character_cache(context)
+            imported_characters = [ chr_cache ]
+
+        chr_cache: properties.CC3CharacterCache
+        for chr_cache in imported_characters:
+
+            if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
+
+            drivers.clear_facial_shape_key_bone_drivers(chr_cache)
+
+            driver_objects = chr_cache.get_all_objects(include_armature=False,
+                                                       of_type="MESH",
+                                                       only_selected=(props.build_mode=="SELECTED"))
+            drivers.add_body_shape_key_drivers(chr_cache, False, driver_objects)
 
         utils.log_timer("Done Build.", "s")
 
@@ -1353,6 +1402,7 @@ class CC3Import(bpy.types.Operator):
     def run_build(self, context):
         if self.imported_character_ids:
             self.build_materials(context)
+            self.build_drivers(context)
         self.built = True
 
 
@@ -1375,23 +1425,10 @@ class CC3Import(bpy.types.Operator):
 
                 # for any objects with shape keys expand the slider range to -1.0 <> 1.0
                 # Character Creator and iClone both use negative ranges extensively.
-                for obj_cache in chr_cache.object_cache:
-                    if obj_cache.is_mesh():
-                        init_shape_key_range(obj_cache.get_object())
-
-                if False:
-                    if self.is_morph:
-                        # for any objects with shape keys select basis and enable show in edit mode
-                        for obj_cache in chr_cache.object_cache:
-                            if obj_cache.is_mesh():
-                                apply_edit_shapekeys(obj_cache.get_object())
-
-                    if self.is_morph:
-                        if props.lighting_mode:
-                            if chr_cache.is_import_type("FBX"):
-                                scene.setup_scene_default(context, prefs.pipeline_lighting)
-                            else:
-                                scene.setup_scene_default(context, prefs.morph_lighting)
+                for obj in chr_cache.get_cache_objects():
+                    obj_cache = chr_cache.get_object_cache(obj)
+                    if obj_cache and obj_cache.is_mesh():
+                        init_shape_key_range(obj)
 
         if rl_import:
 
@@ -1539,9 +1576,25 @@ class CC3Import(bpy.types.Operator):
 
         # build materials
         elif self.param == "BUILD":
-            utils.object_mode()
-            self.build_materials(context)
-            self.do_import_report(context, stage = 1)
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                utils.object_mode()
+                self.build_materials(context)
+                self.build_drivers(context)
+                self.do_import_report(context, stage = 1)
+
+        elif self.param == "BUILD_DRIVERS":
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                utils.object_mode()
+                self.build_drivers(context)
+                self.do_import_report(context, stage = 1)
+
+        elif self.param == "REMOVE_DRIVERS":
+            chr_cache = props.get_context_character_cache(context)
+            if chr_cache:
+                utils.object_mode()
+                self.remove_drivers(context)
 
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
@@ -1549,6 +1602,7 @@ class CC3Import(bpy.types.Operator):
             nodeutils.rebuild_node_groups()
             utils.clean_collection(bpy.data.images)
             self.build_materials(context)
+            self.build_drivers(context)
             self.do_import_report(context, stage = 1)
 
         elif self.param == "DELETE_CHARACTER":
@@ -1566,6 +1620,7 @@ class CC3Import(bpy.types.Operator):
                     utils.log_info("Character is currently build for Cycles Rendering.")
                     utils.log_info("Rebuilding Character for Eevee Rendering...")
                     self.build_materials(context)
+                    self.build_drivers(context)
 
         elif self.param == "REBUILD_BAKE":
             chr_cache = props.get_context_character_cache(context)
@@ -1576,6 +1631,7 @@ class CC3Import(bpy.types.Operator):
                     utils.log_info("Character is currently build for Cycles Rendering.")
                     utils.log_info("Rebuilding Character for Eevee Rendering...")
                     self.build_materials(context)
+                    self.build_drivers(context)
 
         elif self.param == "REBUILD_CYCLES":
             chr_cache = props.get_context_character_cache(context)
@@ -1587,6 +1643,7 @@ class CC3Import(bpy.types.Operator):
                     utils.log_info("Character is currently build for Eevee Rendering.")
                     utils.log_info("Rebuilding Character for Cycles Rendering...")
                     self.build_materials(context)
+                    self.build_drivers(context)
 
         return {"FINISHED"}
 
@@ -1611,7 +1668,11 @@ class CC3Import(bpy.types.Operator):
                    " - OBJ export 'Character with Current Pose' does not create an .objkey and cannot be exported back to CC3.\n" \
                    " - OBJ export 'Nude Character in Bind Pose' .obj does not export any materials"
         elif properties.param == "BUILD":
-            return "Rebuild materials for the current imported character with the current build settings"
+            return "Rebuild materials and drivers for the current imported character with the current build settings"
+        elif properties.param == "BUILD_DRIVERS":
+            return "Rebuild the facial expression shape-key and bone drivers for the current imported character with the current build settings"
+        elif properties.param == "REMOVE_DRIVERS":
+            return "Remove the facial expression shape-key and bone drivers for the current imported character"
         elif properties.param == "DELETE_CHARACTER":
             return "Removes the character and any associated objects, meshes, materials, nodes, images, armature actions and shapekeys. Basically deletes everything not nailed down.\n**Do not press this if there is anything you want to keep!**"
         elif properties.param == "REBUILD_NODE_GROUPS":

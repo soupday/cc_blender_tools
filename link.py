@@ -3164,23 +3164,51 @@ class LinkService():
 
                 # find and invalidate the cache data for the objects/materials being replaced
                 original_data = {}
+                done = []
+
+                # source cache objects and split meshes are treated separately here
                 for obj_cache in chr_cache.object_cache:
-                    if obj_cache.source_name in objects_to_replace_names:
-                        obj = obj_cache.get_object()
-                        if obj:
-                            original_data[obj_cache.source_name] = {
-                                    "name": obj.name,
-                                    "object_id": obj_cache.object_id
-                                }
-                            if obj.type == "MESH":
-                                for mat in obj.data.materials:
-                                    if chr_cache.count_material(mat) <= 1:
-                                        mat_cache = chr_cache.get_material_cache(mat)
-                                        if mat_cache:
-                                            mat_cache.invalidate()
-                                            mat_cache.delete()
-                        obj_cache.invalidate()
-                        obj_cache.delete()
+                    obj = obj_cache.get_object()
+                    if obj not in done:
+                        done.append(obj)
+                        if obj_cache.source_name in objects_to_replace_names:
+                            if obj:
+                                original_data[obj_cache.source_name] = {
+                                        "name": obj.name,
+                                        "object_id": obj_cache.object_id
+                                    }
+                                if obj.type == "MESH":
+                                    for mat in obj.data.materials:
+                                        if chr_cache.count_material(mat) <= 1:
+                                            mat_cache = chr_cache.get_material_cache(mat)
+                                            if mat_cache:
+                                                mat_cache.invalidate()
+                                                mat_cache.delete()
+                            obj_cache.invalidate()
+                            obj_cache.delete()
+
+                to_delete = []
+                for child in rig.children:
+                    if child not in done and utils.object_exists_is_mesh(child):
+                        done.append(child)
+                        child_source_name = utils.strip_name(child.name)
+                        if child_source_name in objects_to_replace_names:
+                            obj_cache = chr_cache.get_object_cache(child)
+                            if obj_cache:
+                                original_data[child_source_name] = {
+                                        "name": child.name,
+                                        "object_id": obj_cache.object_id
+                                    }
+                                if child.type == "MESH":
+                                    for mat in child.data.materials:
+                                        if chr_cache.count_material(mat) <= 1:
+                                            mat_cache = chr_cache.get_material_cache(mat)
+                                            if mat_cache:
+                                                mat_cache.invalidate()
+                                                mat_cache.delete()
+                                to_delete.append(child)
+
+                utils.delete_objects(to_delete, log=True)
 
                 # reparent the replacements to the actor rig
                 new_objects = []
@@ -3283,7 +3311,7 @@ class LinkService():
             if temp_rig:
                 utils.delete_object_tree(temp_rig)
 
-        else:
+        else: # replace_all
 
             if rig and temp_rig:
 

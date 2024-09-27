@@ -273,10 +273,12 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
 
         obj_name = obj.name
         obj_cache = chr_cache.get_object_cache(obj)
+        is_split = chr_cache.is_split_object(obj)
+        split_source_name = obj_cache.source_name if (is_split and obj_cache) else None
         source_changed = False
         is_new_object = False
 
-        if obj_cache:
+        if obj_cache and not is_split:
             obj_expected_source_name = utils.safe_export_name(utils.strip_name(obj_name))
             obj_source_name = obj_cache.source_name
             utils.log_info(f"Object source name: {obj_source_name}")
@@ -288,8 +290,9 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
                 obj_safe_name = obj_source_name
         else:
             is_new_object = True
-            obj_safe_name = utils.safe_export_name(obj_name)
+            obj_safe_name = utils.safe_export_name(obj_name, is_split=is_split)
             obj_source_name = obj_safe_name
+            obj["rl_do_not_restore_name"] = True
 
         # if the Object name has been changed in some way
         if obj_name != obj_safe_name or obj.data.name != obj_safe_name:
@@ -393,26 +396,20 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
             physics_mat_json = jsonutils.get_physics_material_json(physics_mesh_json, mat)
 
             # the object and materials may have been split from it's origin,
-            # so try to find the material in another object,
-            # and see if that has valid json...
-            # look by object id's first
-            if mat_cache and not mat_json:
-                object_id = utils.get_rl_object_id(obj)
-                if object_id:
-                    other_obj_cache = chr_cache.get_object_cache(obj, by_id=object_id)
-                    if other_obj_cache:
-                        other = other_obj_cache.get_object()
-                        if utils.object_exists_is_mesh(other):
-                            if mat.name in other.data.materials:
-                                other_source_name = other_obj_cache.source_name
-                                other_obj_json = jsonutils.get_object_json(chr_json, other_source_name)
-                                if other_obj_json:
-                                    other_mat_json = jsonutils.get_material_json(other_obj_json, mat_source_name)
-                                    if other_mat_json:
-                                        utils.log_info(f"Copying Material Json: {mat_safe_name} from existing material Json in Obj by id: {other_source_name} / {mat_source_name}")
-                                        mat_json = copy.deepcopy(other_mat_json)
+            # so try to find the material in the source object json
+            if obj_cache and mat_cache and not mat_json and split_source_name:
+                split_obj_json = jsonutils.get_object_json(chr_json, split_source_name)
+                if split_obj_json:
+                    split_mat_json = jsonutils.get_material_json(split_obj_json, mat_source_name)
+                    if split_mat_json:
+                        utils.log_info(f"Copying Material Json: {mat_safe_name} from split source material: {split_source_name} / {mat_source_name}")
+                        mat_json = copy.deepcopy(split_mat_json)
+                if mat_json:
+                    obj_json["Materials"][mat_safe_name] = mat_json
+                    write_json = True
+                    write_textures = True
 
-            # then look for same material in character objects
+            # then look for same material in source character objects
             if mat_cache and not mat_json:
                 for other_obj_cache in chr_cache.object_cache:
                     other = other_obj_cache.get_object()
@@ -1142,9 +1139,10 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
             utils.unhide(arm)
             if arm not in objects:
                 objects.append(arm)
-            for obj_cache in chr_cache.object_cache:
+            chr_objects = chr_cache.get_cache_objects()
+            for obj in chr_objects:
+                obj_cache = chr_cache.get_object_cache(obj)
                 if obj_cache.is_mesh() and not obj_cache.disabled:
-                    obj = obj_cache.get_object()
                     if obj.parent == arm:
                         utils.unhide(obj)
                         if obj not in objects:

@@ -19,7 +19,7 @@ import os
 import bpy
 from mathutils import Vector, Quaternion, Matrix, Euler
 
-from . import colorspace, world, imageutils, nodeutils, rigidbody, physics, modifiers, utils, vars
+from . import colorspace, world, meshutils, nodeutils, rigidbody, physics, modifiers, utils, vars
 
 
 def add_target(name, location):
@@ -1805,12 +1805,9 @@ def dump_scene_setup(context):
 def zoom_to_character(chr_cache):
     props = vars.props()
     try:
-        bpy.ops.object.select_all(action='DESELECT')
-        for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.get_object()
-            if not obj_cache.disabled and obj:
-                obj.select_set(True)
-        zoom_to_selected()
+        if chr_cache:
+            utils.try_select_objects(chr_cache.get_cache_objects(), clear_selection=True)
+            zoom_to_selected()
     except:
         pass
 
@@ -1829,15 +1826,6 @@ def zoom_to_selected():
                             # bpy.ops.view3d.camera_to_view_selected()
                     else:
                         bpy.ops.view3d.view_selected(context)
-
-
-
-def active_select_body(chr_cache):
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.is_mesh():
-            obj = obj_cache.get_object()
-            if obj_cache.object_type == "BODY":
-                utils.set_active_object(obj)
 
 
 def render_image(context):
@@ -1891,11 +1879,22 @@ def cycles_setup(context):
 
     hide_view_extras(context, False)
     chr_cache = props.get_context_character_cache(context)
-    if chr_cache.render_target != "CYCLES":
-        bpy.ops.cc3.importer(param="REBUILD_CYCLES")
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.is_mesh():
-            obj = obj_cache.get_object()
+    extracted = False
+
+    # extract eyelashes from body objects
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled and obj_cache.is_mesh():
+            if obj_cache.object_type == "BODY":
+                eyelashes = meshutils.separate_mesh_material_type(chr_cache, obj, "EYELASH")
+                if eyelashes:
+                    extracted = True
+                    eyelashes.name = obj.name.replace("CC_Base_Body", "CC_Base_Eyelash")
+
+    # add modifiers and terminator offsets
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled and obj_cache.is_mesh():
             if not modifiers.has_modifier(obj, "SUBSURF"):
                 mod = obj.modifiers.new(name = "Subdivision", type = "SUBSURF")
                 if utils.B291():
@@ -1903,6 +1902,13 @@ def cycles_setup(context):
             if utils.B290():
                 if obj.cycles.shadow_terminator_offset == 0.0:
                     obj.cycles.shadow_terminator_offset = 0.1
+
+    # rebuild for cycles if needed
+    if chr_cache.render_target != "CYCLES":
+        bpy.ops.cc3.importer(param="REBUILD_CYCLES")
+    else:
+        if extracted:
+            bpy.ops.cc3.importer(param="BUILD_DRIVERS")
 
     try:
         context.scene.render.engine = 'CYCLES'

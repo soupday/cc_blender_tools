@@ -16,7 +16,7 @@
 
 import math
 
-import bpy
+import bpy, bmesh
 
 from . import materials, utils, vars
 
@@ -150,16 +150,17 @@ def generate_tearline_vertex_groups(obj, mat_left, mat_right):
 
 
 def rebuild_eye_vertex_groups(chr_cache):
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.get_object()
-        if obj and obj_cache.is_eye() and not obj_cache.disabled:
-            mat_left, mat_right = materials.get_left_right_eye_materials(obj)
-            cache_left = chr_cache.get_material_cache(mat_left)
-            cache_right = chr_cache.get_material_cache(mat_right)
+    if chr_cache:
+        for obj in chr_cache.get_cache_objects():
+            obj_cache = chr_cache.get_object_cache(obj)
+            if obj and obj_cache and obj_cache.is_eye() and not obj_cache.disabled:
+                mat_left, mat_right = materials.get_left_right_eye_materials(obj)
+                cache_left = chr_cache.get_material_cache(mat_left)
+                cache_right = chr_cache.get_material_cache(mat_right)
 
-            if cache_left and cache_right:
-                # Re-create the eye displacement group
-                generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right)
+                if cache_left and cache_right:
+                    # Re-create the eye displacement group
+                    generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right)
 
 
 def generate_eye_vertex_groups(obj, mat_left, mat_right, cache_left, cache_right):
@@ -404,6 +405,55 @@ def has_vertex_color_data(obj):
                         return True
     return False
 
+
+def count_selected_vertices(obj):
+    count = 0
+    if bpy.context.mode == 'EDIT_MESH':
+        bm = bmesh.from_edit_mesh(obj.data)
+        for v in bm.verts:
+            if v.select:
+                count += 1
+    else:
+        for v in obj.data.vertices:
+            if v.select:
+                count += 1
+    return count
+
+
+def separate_mesh_by_material_slots(obj: bpy.types.Object, slot_indices: list):
+    if obj:
+        if slot_indices:
+            if utils.edit_mode_to(obj, only_this=True):
+                bpy.ops.mesh.select_all(action='DESELECT')
+                for slot_index in slot_indices:
+                    if len(obj.material_slots) > slot_index:
+                        bpy.context.object.active_material_index = slot_index
+                        bpy.ops.object.material_slot_select()
+                count = count_selected_vertices(obj)
+                if count > 0 and count < len(obj.data.vertices):
+                    bpy.ops.mesh.separate(type="SELECTED")
+                    if utils.object_mode():
+                        print(bpy.context.selected_objects)
+                        for o in bpy.context.selected_objects:
+                            if o != obj:
+                                print(o)
+                                return o
+    return None
+
+
+def separate_mesh_material_type(chr_cache, obj: bpy.types.Object, material_type: str):
+    if chr_cache and obj:
+        material_slots = []
+        if utils.object_exists_is_mesh(obj):
+            for slot in obj.material_slots:
+                mat = slot.material
+                if utils.material_exists(mat):
+                    mat_cache = chr_cache.get_material_cache(mat)
+                    if mat_cache and mat_cache.material_type == material_type:
+                        material_slots.append(slot.slot_index)
+        if material_slots:
+            return separate_mesh_by_material_slots(obj, material_slots)
+    return None
 
 
 

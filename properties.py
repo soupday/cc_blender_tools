@@ -54,26 +54,23 @@ def eye_close_update(self, context):
     chr_cache = props.get_context_character_cache(context)
     value = chr_cache.eye_close
 
-    objects = []
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.is_mesh():
-            if obj_cache.object_type == "BODY":
-                objects.append(obj_cache.get_object())
-            elif obj_cache.object_type == "EYE_OCCLUSION":
-                objects.append(obj_cache.get_object())
-            elif obj_cache.object_type == "TEARLINE":
-                objects.append(obj_cache.get_object())
+    if chr_cache:
+        objects = chr_cache.get_cache_objects()
+        BLINK_SHAPES = ["Eye_Blink", "Eye_Blink_L", "Eye_Blink_R"]
 
-    blink_shapes = ["Eye_Blink", "Eye_Blink_L", "Eye_Blink_R"]
-
-    for obj in objects:
-        if obj and obj.data.shape_keys and obj.data.shape_keys.key_blocks:
-            for key in blink_shapes:
-                if key in obj.data.shape_keys.key_blocks:
-                    try:
-                        obj.data.shape_keys.key_blocks[key].value = value
-                    except:
-                        pass
+        for obj in objects:
+            obj_cache = chr_cache.get_object_cache(obj)
+            if obj_cache and not obj_cache.disabled and obj_cache.is_mesh():
+                if (obj_cache.object_type == "BODY" or
+                    obj_cache.object_type == "EYE_OCCLUSION" or
+                    obj_cache.object_type == "TEARLINE"):
+                    if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
+                        for key in BLINK_SHAPES:
+                            if key in obj.data.shape_keys.key_blocks:
+                                try:
+                                    obj.data.shape_keys.key_blocks[key].value = value
+                                except:
+                                    pass
 
 
 def adjust_lighting_brightness(self, context):
@@ -368,27 +365,28 @@ def update_all_properties(context, update_mode = None):
 
         processed = []
 
-        for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.get_object()
-            if not obj_cache.disabled and obj_cache.is_mesh() and obj not in processed:
+        for obj in chr_cache.get_cache_objects():
+            obj_cache = chr_cache.get_object_cache(obj)
+            if obj_cache and not obj_cache.disabled and obj_cache.is_mesh() and obj not in processed:
 
                 processed.append(obj)
 
                 for mat in obj.data.materials:
-                    if mat and mat not in processed:
-                        processed.append(mat)
-                        mat_cache = chr_cache.get_material_cache(mat)
+                    already_processed = mat in processed
+                    mat_cache = chr_cache.get_material_cache(mat)
 
-                        if chr_cache.setup_mode == "BASIC":
+                    if chr_cache.setup_mode == "BASIC":
 
+                        if not already_processed:
                             basic.update_basic_material(mat, mat_cache, "ALL")
 
-                        else:
+                    else: # ADVANCED
 
-                            shader_name = params.get_shader_name(mat_cache)
-                            bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
-                            shader_def = params.get_shader_def(shader_name)
+                        shader_name = params.get_shader_name(mat_cache)
+                        bsdf_node, shader_node, mix_node = nodeutils.get_shader_nodes(mat, shader_name)
+                        shader_def = params.get_shader_def(shader_name)
 
+                        if not already_processed:
                             shaders.apply_prop_matrix(bsdf_node, shader_node, mat_cache, shader_name)
 
                             if "textures" in shader_def.keys():
@@ -397,15 +395,19 @@ def update_all_properties(context, update_mode = None):
                                     for prop_name in tiling_props:
                                         update_shader_property(obj, mat_cache, prop_name)
 
-                            if "modifiers" in shader_def.keys():
-                                for mod_def in shader_def["modifiers"]:
-                                    prop_name = mod_def[0]
-                                    update_shader_property(obj, mat_cache, prop_name)
+                        # modifiers need updating even if material already processed for split objects
+                        if "modifiers" in shader_def.keys():
+                            for mod_def in shader_def["modifiers"]:
+                                prop_name = mod_def[0]
+                                update_shader_property(obj, mat_cache, prop_name)
 
+                        if not already_processed:
                             if "settings" in shader_def.keys():
                                 for mat_def in shader_def["settings"]:
                                     prop_name = mat_def[0]
                                     update_shader_property(obj, mat_cache, prop_name)
+
+                    processed.append(mat)
 
                 if obj_cache.is_eye():
                     meshutils.rebuild_eye_vertex_groups(chr_cache)
@@ -1373,8 +1375,14 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
             utils.set_rl_object_id(self.object, self.object_id)
             self.object["rl_object_type"] = self.object_type
 
-    def validate(self, report=None):
-        if not self.disabled and not utils.object_exists(self.object):
+    def validate(self, report=None, split_objects=None):
+        objects_exist = utils.object_exists(self.object)
+        if not objects_exist and split_objects:
+            for split_obj in split_objects:
+                if utils.object_exists(split_obj):
+                    objects_exist = True
+                    break
+        if not self.disabled and not objects_exist:
             rep = f"Object: {self.source_name} no longer valid."
             utils.log_info(rep)
             if report is not None:
@@ -1797,7 +1805,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         include_armature=True,
                         include_children=False,
                         include_disabled=False,
-                        of_type="ALL"):
+                        include_split=True,
+                        of_type="ALL",
+                        only_selected=False):
 
         objects = []
         arm = None
@@ -1805,6 +1815,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         for obj_cache in self.object_cache:
             if include_disabled or not obj_cache.disabled:
                 obj = obj_cache.get_object()
+                if only_selected and obj not in bpy.context.selected_objects:
+                    continue
                 if obj and obj not in objects:
                     if obj.type == "ARMATURE":
                         arm = obj
@@ -1816,11 +1828,26 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
         if include_children and arm:
             for child in arm.children:
-                if utils.object_exists(child) and child not in objects:
+                if only_selected and child not in bpy.context.selected_objects:
+                    continue
+                if child not in objects and utils.object_exists(child):
                     if of_type == "ALL" or child.type == of_type:
                         objects.append(child)
+
+        if include_split and arm:
+            for child in arm.children:
+                if only_selected and child not in bpy.context.selected_objects:
+                    continue
+                if child not in objects and utils.object_exists(child) and self.get_object_cache(child):
+                    if of_type == "ALL" or child.type == of_type:
+                        objects.append(child)
+
         return objects
 
+    def get_cache_objects(self):
+        return self.get_all_objects(include_armature=True, include_children=False,
+                                    include_disabled=False, include_split=True,
+                                    of_type="ALL")
 
     def remove_mat_cache(self, mat):
         """Removes the material cache containing this material from the relevant material cache.
@@ -1869,11 +1896,19 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     utils.remove_from_collection(self.sss_material_cache, mat_cache)
                     return
 
-    def get_object_cache(self, obj, include_disabled=False, by_id=None):
+    def is_split_object(self, obj) -> bool:
+        obj_cache = self.get_object_cache(obj, strict=False)
+        if obj_cache:
+            return obj_cache.get_object() != obj
+        return False
+
+    def get_object_cache(self, obj, include_disabled=False, by_id=None, strict=False) -> CC3ObjectCache:
         """Returns the object cache for this object.
         """
         if obj:
             # by object
+            if not strict and not by_id:
+                by_id = utils.get_rl_object_id(obj)
             for obj_cache in self.object_cache:
                 if include_disabled or not obj_cache.disabled:
                     cache_object = obj_cache.get_object()
@@ -1900,7 +1935,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     return
 
     def has_cache_objects(self, objects, include_disabled=False):
-        """Returns True if any of the objects are actively the object cache.
+        """Returns True if *any* of the objects are actively the object cache.
         """
         object_ids = [ utils.get_rl_object_id(o) for o in objects ]
         for obj_cache in self.object_cache:
@@ -1923,12 +1958,31 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def has_object(self, obj, include_disabled=False):
         """Returns True if the object is in the object cache.
         """
-        for obj_cache in self.object_cache:
-            if include_disabled or not obj_cache.disabled:
-                cache_object = obj_cache.get_object()
-                if cache_object == obj:
-                    return True
+        if obj:
+            object_id = utils.get_rl_object_id(obj)
+            for obj_cache in self.object_cache:
+                if include_disabled or not obj_cache.disabled:
+                    cache_object = obj_cache.get_object()
+                    cache_object_id = utils.get_rl_object_id(cache_object_id)
+                    if cache_object == obj or cache_object_id == object_id:
+                        return True
         return False
+
+    def get_split_objects(self, obj):
+        split_objects = []
+        if type(obj) is CC3ObjectCache:
+            obj = obj.get_object()
+        if obj:
+            split_objects.append(obj)
+            obj_id = utils.get_rl_object_id(obj)
+            arm = self.get_armature()
+            if arm:
+                for child in arm.children:
+                    if child not in split_objects:
+                        child_id = utils.get_rl_object_id(child)
+                        if child_id == obj_id:
+                            split_objects.append(obj)
+        return split_objects
 
     def get_armature(self, include_disabled=False):
         try:
@@ -2014,11 +2068,12 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def count_material(self, mat):
         count = 0
         for obj_cache in self.object_cache:
-            obj = obj_cache.get_object()
-            if obj and obj.type == "MESH":
-                for m in obj.data.materials:
-                    if m == mat:
-                        count += 1
+            objects = self.get_split_objects(obj_cache)
+            for obj in objects:
+                if obj and obj.type == "MESH":
+                    for m in obj.data.materials:
+                        if m == mat:
+                            count += 1
         return count
 
     def get_material_cache(self, mat, by_id=None):
@@ -2300,7 +2355,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         mat_cache: CC3MaterialCache
         any_valid = False
         for obj_cache in self.object_cache:
-            obj_valid = obj_cache.validate(report)
+            split_objects = self.get_split_objects(obj_cache)
+            obj_valid = obj_cache.validate(report=report, split_objects=split_objects)
             any_valid = any_valid or obj_valid
         all_materials_cache = self.get_all_materials_cache(True)
         for mat_cache in all_materials_cache:
@@ -2666,12 +2722,13 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                         return chr_cache
         return None
 
-    def get_character_cache(self, obj, mat):
+    def get_character_cache(self, obj, mat, by_id=None):
         if obj:
-            obj_id = utils.get_rl_object_id(obj)
+            if not by_id:
+                by_id = utils.get_rl_object_id(obj)
             for chr_cache in self.import_cache:
                 if not chr_cache.disabled:
-                    obj_cache = chr_cache.get_object_cache(obj, by_id=obj_id)
+                    obj_cache = chr_cache.get_object_cache(obj, by_id=by_id)
                     if obj_cache and not obj_cache.disabled:
                         return chr_cache
         if mat:

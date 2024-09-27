@@ -55,8 +55,7 @@ def select_character(chr_cache, all=False):
 def duplicate_character(chr_cache):
     props = vars.props()
 
-    objects = chr_cache.get_all_objects(include_armature=True, include_children=False,
-                                        include_disabled=False, of_type="ALL")
+    objects = chr_cache.get_cache_objects()
     state = utils.store_object_state(objects)
     rigutils.clear_all_actions(objects)
     tmp = utils.force_visible_in_scene("TMP_Duplicate", *objects)
@@ -1011,7 +1010,8 @@ def clean_up_character_data(chr_cache):
 def has_missing_materials(chr_cache):
     missing_materials = False
     if chr_cache:
-        for obj_cache in chr_cache.object_cache:
+        for obj in chr_cache.get_cache_objects():
+            obj_cache = chr_cache.get_object_cache(obj)
             obj = obj_cache.get_mesh()
             if obj and not chr_cache.has_all_materials(obj.data.materials):
                 missing_materials = True
@@ -1407,6 +1407,8 @@ def transfer_skin_weights(chr_cache, objects):
         return
 
     body = None
+    # TODO if the body mesh has been split, this isn't going to work...
+    # maybe join all body object_id's together?
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type == "BODY":
             body = obj_cache.get_object()
@@ -1552,6 +1554,7 @@ def normalize_skin_weights(chr_cache, objects):
         return
 
     body = None
+    # TODO if the body mesh has been split, this isn't going to work...
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type == "BODY":
             body = obj_cache.get_object()
@@ -1586,12 +1589,12 @@ def match_materials(chr_cache):
     chr_objects = []
     chr_materials = []
 
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.get_object()
-        if obj:
-            chr_objects.append(obj)
-            for mat in obj.data.materials:
-                chr_materials.append(mat)
+    objects = chr_cache.get_cache_objects()
+    for obj in objects:
+        obj_cache = chr_cache.get_object_cache(obj)
+        chr_objects.append(obj)
+        for mat in obj.data.materials:
+            chr_materials.append(mat)
 
     utils.log_info(f"Matching existing materials:")
     utils.log_indent()

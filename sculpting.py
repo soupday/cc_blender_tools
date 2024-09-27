@@ -540,9 +540,9 @@ def set_hide_character(chr_cache, hide):
         for child in arm.children:
             if utils.object_exists(child):
                 utils.hide(child, hide)
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.get_object()
-        if not obj_cache.disabled and obj:
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled:
             utils.hide(obj, hide)
     utils.hide(arm, hide)
 

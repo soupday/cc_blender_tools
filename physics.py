@@ -1268,17 +1268,16 @@ def apply_all_physics(chr_cache):
         objects_processed = []
         accessory_colldiers = get_accessory_colliders(arm, objects, True)
 
-        for obj_cache in chr_cache.object_cache:
+        for obj in chr_cache.get_cache_objects():
 
-            obj = obj_cache.get_object()
+            obj_cache = chr_cache.get_object_cache(obj)
 
-            if obj and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
+            if obj_cache and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
 
                 cloth_allowed = True
-                if obj_cache:
-                    if ((obj_cache.is_hair() and not prefs.physics_cloth_hair) or
-                        (not obj_cache.is_hair() and not prefs.physics_cloth_clothing)):
-                        cloth_allowed = False
+                if ((obj_cache.is_hair() and not prefs.physics_cloth_hair) or
+                    (not obj_cache.is_hair() and not prefs.physics_cloth_clothing)):
+                    cloth_allowed = False
 
                 utils.log_info(f"Object: {obj.name}:")
                 utils.log_indent()
@@ -1347,9 +1346,9 @@ def remove_all_physics(chr_cache):
         utils.log_info(f"Removing all Physics modifiers from: {chr_cache.character_name}")
         utils.log_indent()
         objects_processed = []
-        for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.get_object()
-            if obj and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
+        for obj in chr_cache.get_cache_objects():
+            obj_cache = chr_cache.get_object_cache(obj)
+            if obj_cache and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
                 remove_all_physics_mods(obj)
             utils.delete_mesh_object(obj_cache.collision_proxy)
         utils.delete_mesh_object(chr_cache.collision_body)

@@ -1695,12 +1695,13 @@ def bind_cards_to_bones(chr_cache, arm, objects, card_dirs,
         # if no meshes selected, get a list of all hair objects
         if not objects:
             objects = []
-            for obj_cache in chr_cache.object_cache:
-                obj = obj_cache.get_object()
-                if obj and not obj_cache.disabled:
+            chr_objects = chr_cache.get_cache_objects()
+            for obj in chr_objects:
+                obj_cache = chr_cache.get_object_cache(obj)
+                if obj_cache and not obj_cache.disabled and obj not in objects:
                     for mat in obj.data.materials:
                         mat_cache = chr_cache.get_material_cache(mat)
-                        if mat_cache and mat_cache.material_type == "HAIR" and obj not in objects:
+                        if mat_cache and mat_cache.material_type == "HAIR":
                             objects.append(obj)
                             break
 

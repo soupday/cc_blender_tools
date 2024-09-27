@@ -831,15 +831,21 @@ def get_auto_index_suffix(name):
 
 def is_blender_duplicate(name):
     if len(name) >= 4:
-        if name[-3:].isdigit() and name[-4] == ".":
+        if (name[-1:].isdigit() and
+            name[-2:].isdigit() and
+            name[-3:].isdigit() and
+            name[-4] == "."):
             return True
     return False
 
 
 def get_duplication_suffix(name):
     if len(name) >= 4:
-        if name[-3:].isdigit() and name[-4] == ".":
-            return int(name[-3])
+        if (name[-1:].isdigit() and
+            name[-2:].isdigit() and
+            name[-3:].isdigit() and
+            name[-4] == "."):
+            return int(name[-3:])
     return 0
 
 
@@ -1209,6 +1215,14 @@ def delete_light_object(obj):
         bpy.data.objects.remove(obj)
         if data:
             bpy.data.lights.remove(data)
+
+
+def delete_objects(objects, log=False):
+    if objects:
+        for obj in objects:
+            if log:
+                log_info(f" - Deleting object: {obj.name}")
+            delete_object(obj)
 
 
 def delete_object(obj):
@@ -2100,10 +2114,16 @@ def restore_object_state(obj_state):
         state = obj_state[item]
         if type(item) is bpy.types.Object:
             obj: bpy.types.Object = item
+            restore_name = True
+            if "rl_do_not_restore_name" in obj:
+                restore_name = False
+                del obj["rl_do_not_restore_name"]
             if object_exists(obj):
-                force_object_name(obj, state["names"][0])
+                if restore_name:
+                    force_object_name(obj, state["names"][0])
                 if obj.type == "MESH":
-                    force_mesh_name(obj.data, state["names"][1])
+                    if restore_name:
+                        force_mesh_name(obj.data, state["names"][1])
                     for i, mat in enumerate(state["slots"]):
                         if not material_exists(mat):
                             mat = None
@@ -2112,7 +2132,8 @@ def restore_object_state(obj_state):
                     if "action" in state:
                         safe_set_action(obj.data.shape_keys, state["action"])
                 elif obj.type == "ARMATURE":
-                    force_armature_name(obj.data, state["names"][1])
+                    if restore_name:
+                        force_armature_name(obj.data, state["names"][1])
                     if "action" in state:
                         safe_set_action(obj, state["action"])
         elif type(item) is bpy.types.Material:
@@ -2147,7 +2168,11 @@ def is_invalid_export_name(name, is_material = False):
     return False
 
 
-def safe_export_name(name, is_material = False):
+def safe_export_name(name, is_material = False, is_split=False):
+    if is_split:
+        if is_blender_duplicate(name):
+            num = get_duplication_suffix(name)
+            name = strip_name(name) + f"_S{num:02}"
     for char in INVALID_EXPORT_CHARACTERS:
         if char in name:
             name = name.replace(char, "_")
