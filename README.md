@@ -36,7 +36,7 @@ Links
 ## Changelog
 
 ### 2.1.10
-- Sets up Rigidbody physics when appending character.
+- Sets up Rigidbody physics when _appending_ a character from another library blend file via the Append button in the import panel.
     - Note: Rigidbody physics does *not* work with linked character _overrides_.
 - Export non-standard character fix.
 - Support for split meshes when exporting, rebuilding materials & rigging:
