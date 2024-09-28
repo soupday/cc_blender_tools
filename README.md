@@ -39,9 +39,11 @@ Links
 - Sets up Rigidbody physics when appending character.
     - Note: Rigidbody physics does *not* work with linked character _overrides_.
 - Export non-standard character fix.
-- Support for split meshes when exporting and rebuilding materials.
+- Support for split meshes when exporting, rebuilding materials & rigging:
+    - Any mesh separated or duplicated from a source character mesh will be considered part of the character and an extension of that object.
     - For split body meshes, the mesh with the head will be used as the source for facial expression drivers.
-    - Note: Split body meshes will _not_ import back into CC4 as standard characters.
+    - Note: Split *body* meshes will _not_ import back into CC4 as standard CC3+ characters.
+- Added buttons to rebuild and to remove just the expression and bone drivers to the Character Build Settings panel.
 
 ### 2.1.9
 - Maintain operator context for scene operations.
