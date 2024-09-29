@@ -265,9 +265,6 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
         if not utils.object_exists_is_mesh(obj):
             continue
 
-        if chr_cache.collision_body == obj:
-            continue
-
         utils.log_info(f"Object: {obj.name} / {obj.data.name}")
         utils.log_indent()
 
@@ -2016,11 +2013,12 @@ def export_to_unity(self, context, chr_cache, export_anim, file_path, include_se
     utils.log_info("Preparing character for export:")
     utils.log_indent()
 
-    # remove the collision mesh proxy
+    # remove any collision proxies
     if utils.is_file_ext(ext, "BLEND"):
-        if utils.object_exists_is_mesh(chr_cache.collision_body):
-            utils.delete_mesh_object(chr_cache.collision_body)
-            chr_cache.collision_body = None
+        for obj in chr_cache.get_cache_objects():
+            proxy = chr_cache.get_collision_proxy(obj)
+            if proxy:
+                utils.delete_object_tree(proxy)
 
     # export objects
     objects = get_export_objects(chr_cache, include_selected)
@@ -2158,10 +2156,12 @@ def update_to_unity(self, context, chr_cache, export_anim, include_selected):
     utils.log_info("Preparing character for export:")
     utils.log_indent()
 
-    # remove the collision mesh proxy
-    if utils.object_exists_is_mesh(chr_cache.collision_body):
-        utils.delete_mesh_object(chr_cache.collision_body)
-        chr_cache.collision_body = None
+    # remove any collision proxies
+    if utils.is_file_ext(ext, "BLEND"):
+        for obj in chr_cache.get_cache_objects():
+            proxy = chr_cache.get_collision_proxy(obj)
+            if proxy:
+                utils.delete_object_tree(proxy)
 
     objects = get_export_objects(chr_cache, include_selected)
 
@@ -2230,12 +2230,6 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
 
     utils.log_info("Preparing character for export:")
     utils.log_indent()
-
-    # remove the collision mesh proxy for .blend exports
-    if utils.is_file_ext(ext, "BLEND"):
-        if utils.object_exists_is_mesh(chr_cache.collision_body):
-            utils.delete_mesh_object(chr_cache.collision_body)
-            chr_cache.collision_body = None
 
     # export objects
     objects = get_export_objects(chr_cache, include_selected)

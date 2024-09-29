@@ -1290,7 +1290,6 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
     cloth_settings: bpy.props.StringProperty(default="DEFAULT") # DEFAULT, HAIR, COTTON, DENIM, LEATHER, RUBBER, SILK
     cloth_self_collision: bpy.props.BoolProperty(default=False)
     user_added: bpy.props.BoolProperty(default=False)
-    collision_proxy: bpy.props.PointerProperty(type=bpy.types.Object)
     use_collision_proxy: bpy.props.BoolProperty(default=False)
     collision_proxy_decimate: bpy.props.FloatProperty(default=0.125, min=0.0, max=1.0)
     vertex_count: bpy.props.IntProperty(default=0)
@@ -1354,20 +1353,6 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
             if type == "BODY":
                 self.use_collision_proxy = True
 
-    def has_collision_physics(self):
-        if self.collision_physics == "ON" or self.collision_physics == "PROXY":
-            return True
-        if self.collision_physics == "DEFAULT" and \
-           (self.object_type == "BODY" or self.object_type == "OCCLUSION"):
-            return True
-        return False
-
-    def get_collision_proxy(self):
-        if utils.object_exists(self.collision_proxy):
-            return self.collision_proxy
-        else:
-            return None
-
     def check_id(self):
         if self.object_id == "":
             self.object_id = utils.generate_random_id(20)
@@ -1399,9 +1384,6 @@ class CC3ObjectCache(bpy.types.PropertyGroup):
             if utils.object_exists(self.object):
                 utils.log_info(f"Deleting Object: {self.object}")
                 utils.delete_object_tree(self.object)
-            if utils.object_exists(self.collision_proxy):
-                utils.log_info(f" - Deleting Collision Proxy: {self.collision_proxy}")
-                utils.delete_object_tree(self.collision_proxy)
 
     def clean_up(self):
         if self.disabled:
@@ -1465,7 +1447,6 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         ("CYCLES","Cycles","Build shaders for Cycles rendering."),
                     ], default="EEVEE", name = "Target Renderer")
 
-    collision_body: bpy.props.PointerProperty(type=bpy.types.Object)
     physics_disabled: bpy.props.BoolProperty(default=False)
     physics_applied: bpy.props.BoolProperty(default=False)
 
@@ -1806,6 +1787,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                         include_children=False,
                         include_disabled=False,
                         include_split=True,
+                        include_proxy=False,
                         of_type="ALL",
                         only_selected=False):
 
@@ -1815,20 +1797,25 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         for obj_cache in self.object_cache:
             if include_disabled or not obj_cache.disabled:
                 obj = obj_cache.get_object()
-                if only_selected and obj not in bpy.context.selected_objects:
-                    continue
-                if obj and obj not in objects:
-                    if obj.type == "ARMATURE":
-                        arm = obj
-                        if include_armature:
-                            if of_type == "ALL" or of_type == "ARMATURE":
-                                objects.append(obj)
-                    elif of_type == "ALL" or of_type == obj.type:
-                        objects.append(obj)
+                if obj:
+                    if only_selected and obj not in bpy.context.selected_objects:
+                        continue
+                    if not include_proxy and ("rl_collision_proxy" in obj or obj.name.endswith(".Collision_Proxy")):
+                        continue
+                    if obj and obj not in objects:
+                        if obj.type == "ARMATURE":
+                            arm = obj
+                            if include_armature:
+                                if of_type == "ALL" or of_type == "ARMATURE":
+                                    objects.append(obj)
+                        elif of_type == "ALL" or of_type == obj.type:
+                            objects.append(obj)
 
         if include_children and arm:
             for child in arm.children:
                 if only_selected and child not in bpy.context.selected_objects:
+                    continue
+                if "rl_collision_proxy" in child and not include_proxy:
                     continue
                 if child not in objects and utils.object_exists(child):
                     if of_type == "ALL" or child.type == of_type:
@@ -1838,6 +1825,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             for child in arm.children:
                 if only_selected and child not in bpy.context.selected_objects:
                     continue
+                if "rl_collision_proxy" in child and not include_proxy:
+                    continue
                 if child not in objects and utils.object_exists(child) and self.get_object_cache(child):
                     if of_type == "ALL" or child.type == of_type:
                         objects.append(child)
@@ -1845,9 +1834,25 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         return objects
 
     def get_cache_objects(self):
-        return self.get_all_objects(include_armature=True, include_children=False,
-                                    include_disabled=False, include_split=True,
+        return self.get_all_objects(include_armature=True,
+                                    include_children=False,
+                                    include_disabled=False,
+                                    include_split=True,
+                                    include_proxy=False,
                                     of_type="ALL")
+
+    def get_collision_proxy(self, obj):
+        obj_cache = self.get_object_cache(obj)
+        arm = self.get_armature()
+        for child in arm.children:
+            if obj_cache.object_id == utils.get_rl_object_id(child):
+                if "rl_collision_proxy" in child and child["rl_collision_proxy"] == obj.name:
+                    return child
+        proxy_name = obj.name + ".Collision_Proxy"
+        for child in arm.children:
+            if child.name == proxy_name:
+                return child
+        return None
 
     def remove_mat_cache(self, mat):
         """Removes the material cache containing this material from the relevant material cache.
@@ -2005,6 +2010,16 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                     cache_object = obj_cache.get_object()
                     if cache_object and obj_cache.object_type == object_type:
                         return cache_object
+        except:
+            pass
+        return None
+
+    def get_cache_of_type(self, object_type, include_disabled=False):
+        try:
+            for obj_cache in self.object_cache:
+                if include_disabled or not obj_cache.disabled:
+                    if obj_cache.object_type == object_type:
+                        return obj_cache
         except:
             pass
         return None
@@ -2293,26 +2308,34 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def get_related_physics_objects(self, obj):
         proxy = None
         is_proxy = False
-        if obj:
-            obj_cache = self.get_object_cache(obj)
-            if obj_cache:
-                proxy = obj_cache.get_collision_proxy()
-            else:
-                proxy_obj = self.find_object_from_proxy(obj)
-                if proxy_obj:
-                    proxy = obj
-                    obj = proxy_obj
-                    is_proxy = True
+        obj_cache = self.get_object_cache(obj)
+        if obj_cache:
+            proxy = self.get_collision_proxy(obj)
+            if proxy:
+                is_proxy = False
+                return obj, proxy, is_proxy
+            if "rl_collision_proxy" in obj or obj.name.endswith(".Collision_Proxy"):
+                proxy = obj
+                is_proxy = True
+                obj = self.find_object_from_proxy(proxy)
+                return obj, proxy, is_proxy
         return obj, proxy, is_proxy
 
     def find_object_from_proxy(self, proxy, include_disabled=False):
-        for obj_cache in self.object_cache:
-            if include_disabled or not obj_cache.disabled:
-                if obj_cache.collision_proxy == proxy:
-                    return obj_cache.object
-        if self.collision_body == proxy:
-            body = self.get_body()
-            return body
+        if "rl_collision_proxy" in proxy:
+            proxy_object_id = utils.get_rl_object_id(proxy)
+            for obj in self.get_cache_objects():
+                obj_cache = self.get_object_cache(obj)
+                if include_disabled or not obj_cache.disabled:
+                    if utils.get_rl_object_id(obj) == proxy_object_id and obj.name == proxy["rl_collision_proxy"]:
+                        return obj
+        if proxy.name.endswith(".Collision_Proxy"):
+            obj_name = proxy.name[:-16]
+            for obj in self.get_cache_objects():
+                obj_cache = self.get_object_cache(obj)
+                if include_disabled or not obj_cache.disabled:
+                    if obj.name == obj_name:
+                        return obj
         return None
 
     def is_valid_for_export(self):
@@ -2383,6 +2406,10 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
     def delete(self):
         obj_cache: CC3ObjectCache
         mat_cache: CC3MaterialCache
+        for obj in self.get_cache_objects():
+            proxy = self.get_collision_proxy(obj)
+            if proxy:
+                utils.delete_object_tree(proxy)
         for obj_cache in self.object_cache:
             obj_cache.delete()
         all_materials_cache = self.get_all_materials_cache(include_disabled=True)
@@ -2390,7 +2417,6 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             mat_cache.delete()
         if self.disabled:
             utils.log_info(f"Deleting Character Meta Objects: {self.character_name}")
-            utils.delete_object(self.collision_body)
             utils.delete_object_tree(self.rig_meta_rig)
             utils.delete_object_tree(self.rig_export_rig)
             utils.delete_object_tree(self.rig_original_rig)

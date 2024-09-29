@@ -826,7 +826,9 @@ def set_shader_input_props(shader_def, mat_cache, socket, value):
                 vars.block_property_update = False
 
 
-def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name, mat_json, obj, processed_images,
+def apply_texture_matrix(nodes, links, shader_node,
+                         mat, mat_cache, shader_name, mat_json,
+                         obj, processed_images,
                          offset = Vector((0,0)), sub_shader = False, textures = None):
 
     if textures is None:
@@ -1015,7 +1017,7 @@ def connect_eye_occlusion_shader(obj_cache, obj, mat, mat_json, processed_images
     mat.shadow_method = "NONE"
 
 
-def connect_skin_shader(obj_cache, obj, mat, mat_json, processed_images):
+def connect_skin_shader(chr_cache, obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -1058,7 +1060,7 @@ def connect_skin_shader(obj_cache, obj, mat, mat_json, processed_images):
     if not prefs.build_limit_textures:
         if props.wrinkle_mode and mat_json and "Wrinkle" in mat_json.keys():
             utils.log_info("Applying Wrinkle System:")
-            apply_wrinkle_system(nodes, links, group, shader_name, mat, mat_cache, mat_json, obj, processed_images)
+            apply_wrinkle_system(chr_cache, nodes, links, group, shader_name, mat, mat_cache, mat_json, obj, processed_images)
 
     utils.log_info("Cleaning up unused image nodes:")
     nodeutils.clean_unused_image_nodes(nodes)
@@ -1382,10 +1384,11 @@ def check_tex_count(links, shader_node, wrinkle_shader_node, max_images=32):
             active_tex_count -= 1
 
 
-def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = None):
-    wrinkle_shader_name = "rl_wrinkle_shader"
-    wrinkle_shader_node = wrinkle.add_wrinkle_shader(nodes, links, obj, mat, mat_json, main_shader_name, wrinkle_shader_name = wrinkle_shader_name)
-    apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle_shader_name, mat_json, obj,
+def apply_wrinkle_system(chr_cache, nodes, links, shader_node, main_shader_name,
+                         mat, mat_cache, mat_json, obj, processed_images, textures=None):
+
+    wrinkle_shader_node = wrinkle.add_wrinkle_shader(chr_cache, links, mat, mat_json, main_shader_name, wrinkle_shader_name=wrinkle.WRINKLE_SHADER_NAME)
+    apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle.WRINKLE_SHADER_NAME, mat_json, obj,
                          processed_images, sub_shader = True, textures = textures)
 
     max_images = 32 if not utils.B420() else 40

@@ -16,7 +16,7 @@
 
 import bpy
 from mathutils import Vector
-from . import meshutils, utils, vars
+from . import meshutils, jsonutils, utils, vars
 from rna_prop_ui import rna_idprop_ui_create
 
 def make_driver_var(driver, var_type, var_name, target, target_type = "OBJECT", data_path = "", bone_target = "", transform_type = "", transform_space = ""):
@@ -53,8 +53,10 @@ def make_driver(source, prop_name, driver_type, driver_expression = "", index = 
     if source:
         fcurve : bpy.types.FCurve
         if index > -1:
+            source.driver_remove(prop_name, index)
             fcurve = source.driver_add(prop_name, index)
         else:
+            source.driver_remove(prop_name)
             fcurve = source.driver_add(prop_name)
         driver : bpy.types.Driver = fcurve.driver
         if driver_type == "SUM" or driver_type == "AVERAGE":
@@ -65,46 +67,60 @@ def make_driver(source, prop_name, driver_type, driver_expression = "", index = 
     return driver
 
 
-def add_custom_float_property(object, prop_name, prop_value : float,
+def add_custom_float_property(obj, prop_name, prop_value : float,
                               value_min : float = 0.0, value_max : float = 1.0,
                               soft_min = None, soft_max = None,
                               overridable = True,
                               description : str = ""):
 
-    if soft_max is None:
-        soft_max = value_max
-    if soft_min is None:
-        soft_min = value_min
+    if prop_name not in obj:
 
-    rna_idprop_ui_create(object, prop_name, default=prop_value, overridable=overridable,
-                         min=value_min, max=value_max, soft_min=soft_min, soft_max=soft_max, description=description)
+        if soft_max is None:
+            soft_max = value_max
+        if soft_min is None:
+            soft_min = value_min
+
+        rna_idprop_ui_create(obj, prop_name,
+                             default=prop_value,
+                             overridable=overridable,
+                             min=value_min, max=value_max,
+                             soft_min=soft_min, soft_max=soft_max,
+                             description=description)
 
 
-def add_custom_string_property(object, prop_name, prop_value : str,
+def add_custom_string_property(obj, prop_name, prop_value : str,
                               overridable = True,
                               description : str = ""):
 
-    object[prop_name] = prop_value
-    try:
-        id_props = object.id_properties_ui(prop_name)
-        id_props.update(default=prop_value, description=description)
-    except:
-        pass
+    if prop_name not in obj:
+
+        obj[prop_name] = prop_value
+        try:
+            id_props = obj.id_properties_ui(prop_name)
+            id_props.update(default=prop_value, description=description)
+        except:
+            pass
 
 
-def add_custom_float_array_property(object, prop_name, prop_value : list,
+def add_custom_float_array_property(obj, prop_name, prop_value : list,
                                      value_min : float = 0.0, value_max : float = 1.0,
                                      soft_min = None, soft_max = None,
                                      overridable = True,
                                      description : str = ""):
 
-    if soft_max is None:
-        soft_max = value_max
-    if soft_min is None:
-        soft_min = value_min
+    if prop_name not in obj:
 
-    rna_idprop_ui_create(object, prop_name, default=prop_value, overridable=overridable,
-                         min=value_min, max=value_max, soft_min=soft_min, soft_max=soft_max, description=description)
+        if soft_max is None:
+            soft_max = value_max
+        if soft_min is None:
+            soft_min = value_min
+
+        rna_idprop_ui_create(obj, prop_name,
+                             default=prop_value,
+                             overridable=overridable,
+                             min=value_min, max=value_max,
+                             soft_min=soft_min, soft_max=soft_max,
+                             description=description)
 
 
 SHAPE_KEY_DRIVERS = {
@@ -491,40 +507,85 @@ def clear_body_shape_key_drivers(chr_cache):
                         obj_key.driver_remove("value")
 
 
-def add_body_shape_key_drivers(chr_cache, add_drivers, only_objects=None):
-    """Drive all expression shape keys on non-body objects from the body shape keys.
-    """
+def get_head_material_and_json(chr_cache, chr_json):
+    head_mat = None
+    head_mat_cache = None
+    head_mat_json = None
 
-    body = chr_cache.get_body()
+    # find the head material in the character
+    for mat_cache in chr_cache.head_material_cache:
+        mat = mat_cache.material
+        if mat_cache.material_type == "SKIN_HEAD" and utils.material_exists(mat):
+            head_mat = mat
+            head_mat_cache = mat_cache
+
+    # find the head material json, from it's original json object
+    # the head material may have been split from the original body mesh,
+    # so we look in all the meshes for the head material
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj.type == "MESH":
+            if head_mat.name in obj.data.materials:
+                mat_json = jsonutils.get_json(chr_json, f"Meshes/{obj_cache.source_name}/Materials/{head_mat_cache.source_name}")
+                if mat_json and jsonutils.get_json(mat_json, "Custom Shader/Shader Name") == "RLHead":
+                    head_mat_json = mat_json
+                    break
+
+    return head_mat, head_mat_json
+
+
+def get_head_body_object(chr_cache):
+
+    if not chr_cache: return None
+
+    body_cache = chr_cache.get_cache_of_type("BODY")
     arm = chr_cache.get_armature()
-
-    if not body or not arm:
-        return
 
     # collect all possible body objects together
     head_bones = [ "CC_Base_Head", "head", "spine.006" ]
     body_objects = {}
-    body_objects[body] = meshutils.total_vertex_group_weight(body, head_bones)
-    body_id = utils.get_rl_object_id(body)
-    for child in arm.children:
-        if child not in body_objects:
-            if utils.get_rl_object_id(child) == body_id:
+
+    if body_cache:
+        body_id = body_cache.object_id
+        for child in arm.children:
+            if utils.get_rl_object_id(child) == body_id and child not in body_objects:
+                body_objects[child] = meshutils.total_vertex_group_weight(child, head_bones)
+    else:
+        for child in arm.children:
+            if child not in body_objects:
                 body_objects[child] = meshutils.total_vertex_group_weight(child, head_bones)
 
     # try to find which one contains the head (contains the most weight to head bone)
+    weight = -1
+    body = None
     if body_objects:
-        w = body_objects[body]
-        for o in body_objects:
-            if body_objects[o] > w:
-                w = body_objects[o]
-                body = o
+        for obj in body_objects:
+            if body_objects[obj] > weight:
+                weight = body_objects[obj]
+                body = obj
+
+    # fall back to the imported source body if nothing works
+    if not body:
+        body = chr_cache.get_body()
+
+    return body
+
+
+def add_body_shape_key_drivers(chr_cache, add_drivers, only_objects=None):
+    """Drive all expression shape keys on non-body objects from the body shape keys.
+    """
+
+    arm = chr_cache.get_armature()
+    body = get_head_body_object(chr_cache)
+
+    if not body:
+        return
 
     utils.log_info(f"Using head mesh: {body.name} for driver source")
 
     if utils.object_has_shape_keys(body):
         body_keys = [ key_block.name for key_block in body.data.shape_keys.key_blocks ]
-        objects = utils.get_child_objects(arm)
-        for obj in objects:
+        for obj in chr_cache.get_cache_objects():
             if only_objects and obj not in only_objects:
                 continue
             if obj != body and utils.object_has_shape_keys(obj):

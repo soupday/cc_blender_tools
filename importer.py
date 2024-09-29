@@ -20,7 +20,7 @@ import bpy
 from enum import IntEnum, IntFlag
 
 from . import (characters, hik, rigging, rigutils, bones, bake, imageutils, jsonutils, materials,
-               modifiers, drivers, meshutils, nodeutils, physics,
+               modifiers, wrinkle, drivers, meshutils, nodeutils, physics,
                rigidbody, colorspace, scene, channel_mixer, shaders,
                basic, properties, utils, vars)
 
@@ -66,7 +66,7 @@ def process_material(chr_cache, obj_cache, obj, mat, obj_json, processed_images)
             shaders.connect_eye_occlusion_shader(obj_cache, obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_skin() or mat_cache.is_nails():
-            shaders.connect_skin_shader(obj_cache, obj, mat, mat_json, processed_images)
+            shaders.connect_skin_shader(chr_cache, obj_cache, obj, mat, mat_json, processed_images)
 
         elif mat_cache.is_teeth():
             shaders.connect_teeth_shader(obj_cache, obj, mat, mat_json, processed_images)
@@ -1172,8 +1172,7 @@ class CC3Import(bpy.types.Operator):
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
 
-            filepath = chr_cache.import_file
-            json_data = self.read_json_data(filepath, stage = 1)
+            json_data = self.read_json_data(chr_cache.import_file, stage = 1)
             if not on_import:
                 # when rebuilding, use the currently selected render target
                 chr_cache.render_target = prefs.render_target
@@ -1223,7 +1222,7 @@ class CC3Import(bpy.types.Operator):
         utils.log_timer("Done Build.", "s")
 
 
-    def build_drivers(self, context):
+    def build_drivers(self, context, rebuild_wrinkle=False):
         props: properties.CC3ImportProps = vars.props()
         prefs = vars.prefs()
 
@@ -1244,6 +1243,9 @@ class CC3Import(bpy.types.Operator):
 
             if ImportFlags.RL not in ImportFlags(chr_cache.import_flags): continue
 
+            json_data = self.read_json_data(chr_cache.import_file, stage=1)
+            chr_json = jsonutils.get_character_json(json_data, chr_cache.get_character_id())
+
             if chr_cache.rigified:
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
             else:
@@ -1261,6 +1263,9 @@ class CC3Import(bpy.types.Operator):
                                                        of_type="MESH",
                                                        only_selected=(props.build_mode=="SELECTED"))
             drivers.add_body_shape_key_drivers(chr_cache, prefs.build_body_key_drivers, driver_objects)
+
+            if rebuild_wrinkle:
+                wrinkle.build_wrinkle_drivers(chr_cache, chr_json, wrinkle_shader_name=wrinkle.WRINKLE_SHADER_NAME)
 
         utils.log_timer("Done Build.", "s")
 
@@ -1587,7 +1592,7 @@ class CC3Import(bpy.types.Operator):
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
                 utils.object_mode()
-                self.build_drivers(context)
+                self.build_drivers(context, rebuild_wrinkle=True)
                 self.do_import_report(context, stage = 1)
 
         elif self.param == "REMOVE_DRIVERS":

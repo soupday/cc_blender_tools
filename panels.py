@@ -2833,7 +2833,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         if obj_cache and cloth_mod is None:
             if proxy:
-                local_view = utils.is_local_view(context) and proxy is not None and proxy.visible_get()
+                local_view = proxy is not None and proxy.visible_get()
                 column.row().operator("cc3.setphysics", icon=utils.check_icon("HIDE_OFF"), text="Show Collision Proxy",
                                   depress=local_view).param = "TOGGLE_SHOW_PROXY"
             else:

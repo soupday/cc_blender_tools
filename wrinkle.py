@@ -18,6 +18,7 @@ import bpy
 
 from . import drivers, nodeutils, utils, params, vars
 
+WRINKLE_SHADER_NAME="rl_wrinkle_shader"
 WRINKLE_STRENGTH_PROP = "wrinkle_strength"
 WRINKLE_STRENGTH_VAR = "varstr"
 WRINKLE_CURVE_PROP = "wrinkle_curve"
@@ -34,7 +35,9 @@ def get_wrinkle_shader_node(mat):
                     return node
 
 
-def get_wrinkle_shader(obj, mat, mat_json, shader_name = "rl_wrinkle_shader", create = True):
+def get_wrinkle_shader(obj, mat, mat_json, shader_name="rl_wrinkle_shader",
+                       create=True, remove=True, add_mappings=False):
+
     shader_id = "(" + str(shader_name) + ")"
     wrinkle_node = None
 
@@ -50,22 +53,28 @@ def get_wrinkle_shader(obj, mat, mat_json, shader_name = "rl_wrinkle_shader", cr
                     else:
                         to_remove.append(n)
 
-    for n in to_remove:
-        nodes.remove(n)
+    if remove:
+        for n in to_remove:
+            nodes.remove(n)
 
     # create a new wrinkle shader group node if none
     if create and not wrinkle_node:
         group = nodeutils.get_node_group(shader_name)
         wrinkle_node = nodeutils.make_node_group_node(nodes, group, "Wrinkle Map System", utils.unique_name(shader_id))
         wrinkle_node.width = 240
-        utils.log_info("Creating new wrinkle system shader group: " + wrinkle_node.name)
+        utils.log_info("Created new wrinkle system shader group: " + wrinkle_node.name)
+
+    if wrinkle_node and add_mappings:
         add_wrinkle_mappings(mat, wrinkle_node, obj, mat_json)
 
     return wrinkle_node
 
 
-def add_wrinkle_shader(nodes, links, obj, mat, mat_json, main_shader_name, wrinkle_shader_name = "rl_wrinkle_shader"):
-    wrinkle_shader_node = get_wrinkle_shader(obj, mat, mat_json, shader_name = wrinkle_shader_name)
+def add_wrinkle_shader(chr_cache, links, mat, mat_json, main_shader_name, wrinkle_shader_name=WRINKLE_SHADER_NAME):
+    body_obj = drivers.get_head_body_object(chr_cache)
+    wrinkle_shader_node = get_wrinkle_shader(body_obj, mat, mat_json,
+                                             shader_name=wrinkle_shader_name,
+                                             create=True, remove=True, add_mappings=True)
     bsdf_node, main_shader_node, mix_node = nodeutils.get_shader_nodes(mat, main_shader_name)
     wrinkle_shader_node.location = (-2400, 0)
     nodeutils.link_nodes(links, wrinkle_shader_node, "Diffuse Map", main_shader_node, "Diffuse Map")
@@ -75,6 +84,16 @@ def add_wrinkle_shader(nodes, links, obj, mat, mat_json, main_shader_name, wrink
     #    nodeutils.link_nodes(links, wrinkle_shader_node, "Height Map", main_shader_node, "Height Map")
     #    nodeutils.link_nodes(links, wrinkle_shader_node, "Height Delta", main_shader_node, "Height Delta")
     return wrinkle_shader_node
+
+
+def build_wrinkle_drivers(chr_cache, chr_json, wrinkle_shader_name=WRINKLE_SHADER_NAME):
+    body_obj = drivers.get_head_body_object(chr_cache)
+    head_mat, head_mat_json = drivers.get_head_material_and_json(chr_cache, chr_json)
+    if body_obj and head_mat and head_mat_json:
+        wrinkle_shader_node = get_wrinkle_shader(body_obj, head_mat, head_mat_json,
+                                                 shader_name=wrinkle_shader_name,
+                                                 create=False, remove=False,
+                                                 add_mappings=True)
 
 
 def get_wrinkle_params(mat_json):
@@ -104,6 +123,8 @@ def get_wrinkle_params(mat_json):
 
 
 def add_wrinkle_mappings(mat, node, body_obj, mat_json):
+
+    utils.log_info(f"Building Wrinkle map system drivers: {mat.name} / {node.name}")
 
     if not body_obj.data.shape_keys or not body_obj.data.shape_keys.key_blocks:
         return
@@ -161,7 +182,7 @@ def add_wrinkle_node_driver(mat, node, socket_name, obj, expr_macro : str, wrink
     if len(var_defs) == 0:
         return
 
-    socket = node.inputs[socket_name]
+    socket: bpy.types.NodeSocket = node.inputs[socket_name]
     expr_code = f"{WRINKLE_STRENGTH_VAR} * pow({expr_macro}, {WRINKLE_CURVE_VAR})"
     driver = drivers.make_driver(socket, "default_value", "SCRIPTED", expr_code)
 
