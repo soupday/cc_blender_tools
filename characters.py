@@ -375,13 +375,23 @@ def link_override(obj: bpy.types.Object):
             except: ...
 
 
-def link_or_append_rl_character(blend_file, link=False):
+def link_or_append_rl_character(op, context, blend_file, link=False):
     props = vars.props()
     prefs = vars.prefs()
 
     utils.log_info("")
     utils.log_info("Link/Append Reallusion Character")
     utils.log_info("--------------------------------")
+
+    # if linking, reload any existing library link for this blend file
+    # otherwise it remembers if objects have been previously deleted.
+    existing_lib = None
+    if link:
+        for lib in bpy.data.libraries:
+            if os.path.samefile(lib.filepath, blend_file):
+                lib.reload()
+                existing_lib = lib
+                break
 
     # link or append character data from blend file
     with bpy.data.libraries.load(blend_file, link=link) as (src, dst):
@@ -408,6 +418,11 @@ def link_or_append_rl_character(blend_file, link=False):
             character_name = src_cache.character_name
             import_file = src_cache.import_file
             chr_rig = src_cache.get_armature()
+            chr_objects = src_cache.get_all_objects(include_armature=False,
+                                                    include_children=True,
+                                                    include_disabled=False,
+                                                    include_split=True,
+                                                    include_proxy=True)
             meta_rig = src_cache.rig_meta_rig
             src_rig = src_cache.rig_original_rig
             widgets = []
@@ -416,13 +431,14 @@ def link_or_append_rl_character(blend_file, link=False):
             utils.log_info(f"Character Data Found: {character_name}")
 
             # keep the character rig
-            utils.log_info(f"Character rig: {chr_rig.name}")
-            keep.append(chr_rig)
-            objects.append(chr_rig)
+            if chr_rig:
+                utils.log_info(f"Character rig: {chr_rig.name}")
+                keep.append(chr_rig)
+                objects.append(chr_rig)
 
             # keep the meta rig
             if meta_rig:
-                utils.log_info(f"Meta-rig: {chr_rig.name}")
+                utils.log_info(f"Meta-rig: {meta_rig.name}")
                 keep.append(meta_rig)
                 objects.append(meta_rig)
 
@@ -431,9 +447,8 @@ def link_or_append_rl_character(blend_file, link=False):
                 ignore.append(src_rig)
 
             # keep all child objects of the rigify rig
-            child_objects = utils.get_child_objects(chr_rig)
             for obj in dst.objects:
-                if obj in child_objects:
+                if obj in chr_objects:
                     utils.log_info(f" - Character Object: {obj.name}")
                     keep.append(obj)
                     objects.append(obj)
@@ -485,6 +500,12 @@ def link_or_append_rl_character(blend_file, link=False):
                                 con.object2 = overrides[con.object2]
                 objects = list(overrides.values())
 
+            # after deciding what to keep, check the character has not already been linked
+            if link and (props.get_character_cache(chr_rig, None) or
+                props.get_character_cache_from_objects(chr_objects)):
+                op.report({"ERROR"}, "Character already linked!")
+                continue
+
             # put all the character objects in the character collection
             character_collection = utils.create_collection(character_name)
             for obj in objects:
@@ -509,22 +530,23 @@ def link_or_append_rl_character(blend_file, link=False):
 
             # create the character cache and rebuild from the source data
             chr_cache = props.add_character_cache(copy_from=src_cache)
-            rebuild_character_cache(chr_cache, chr_rig, src_cache)
+            rebuild_character_cache(chr_cache, chr_rig, chr_objects, src_cache)
 
             # hide any colliders
             rigidbody.hide_colliders(chr_rig)
 
             # get rigidy body systems and hide them
-            parent_modes = springbones.get_all_parent_modes(chr_cache, chr_rig)
-            for parent_mode in parent_modes:
-                rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
-                rigid_body_system = rigidbody.get_spring_rigid_body_system(chr_rig, rig_prefix)
-                if rigid_body_system:
-                    if link:
-                        rigidbody.remove_existing_rigid_body_system(chr_rig, rig_prefix, rigid_body_system.name)
-                    else:
-                        has_rigid_body = True
-                        utils.hide_tree(rigid_body_system, hide=True)
+            if chr_rig:
+                parent_modes = springbones.get_all_parent_modes(chr_cache, chr_rig)
+                for parent_mode in parent_modes:
+                    rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+                    rigid_body_system = rigidbody.get_spring_rigid_body_system(chr_rig, rig_prefix)
+                    if rigid_body_system:
+                        if link:
+                            rigidbody.remove_existing_rigid_body_system(chr_rig, rig_prefix, rigid_body_system.name)
+                        else:
+                            has_rigid_body = True
+                            utils.hide_tree(rigid_body_system, hide=True)
 
 
     # clean up unused objects
@@ -578,7 +600,7 @@ def reconnect_rl_character_to_fbx(chr_rig, fbx_path):
     chr_cache.rigified_full_face_rig = character_has_bones(chr_rig, ["nose", "lip.T", "lip.B"])
     chr_cache.add_object_cache(chr_rig)
 
-    rebuild_character_cache(chr_cache, chr_rig)
+    rebuild_character_cache(chr_cache, chr_rig, objects)
 
     return chr_cache
 
@@ -635,18 +657,18 @@ def reconnect_rl_character_to_blend(chr_rig, blend_file):
         # create the character cache and rebuild from the source data
         chr_cache = props.add_character_cache(copy_from=src_cache)
         # can't match objects accurately, so don't try (as they are no longer the same linked objects)
-        rebuild_character_cache(chr_cache, chr_rig, src_cache=src_cache)
+        rebuild_character_cache(chr_cache, chr_rig, objects, src_cache=src_cache)
         return chr_cache
 
     return None
 
 
-def rebuild_character_cache(chr_cache, chr_rig, src_cache=None):
+def rebuild_character_cache(chr_cache, chr_rig, objects, src_cache=None):
     props = vars.props()
     prefs = vars.prefs()
 
-    chr_cache.add_object_cache(chr_rig)
-    objects = get_character_objects(chr_rig)
+    if chr_rig:
+        chr_cache.add_object_cache(chr_rig)
 
     utils.log_info("")
     utils.log_info("Re-building Character Cache:")
@@ -1980,9 +2002,9 @@ class CCICCharacterLink(bpy.types.Operator):
                 else:
                     reconnect_rl_character_to_fbx(chr_rig, self.filepath)
         elif self.param == "LINK":
-            link_or_append_rl_character(self.filepath, link=True)
+            link_or_append_rl_character(self, context, self.filepath, link=True)
         elif self.param == "APPEND":
-            link_or_append_rl_character(self.filepath, link=False)
+            link_or_append_rl_character(self, context, self.filepath, link=False)
         return {"FINISHED"}
 
 

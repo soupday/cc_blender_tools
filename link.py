@@ -159,7 +159,7 @@ class LinkActor():
                 return
 
     @staticmethod
-    def find_actor(link_id, search_name=None, search_type=None):
+    def find_actor(link_id, search_name=None, search_type=None, context_chr_cache=None):
         props = vars.props()
         prefs = vars.prefs()
 
@@ -186,21 +186,22 @@ class LinkActor():
                     return actor
             utils.log_detail(f"Chr not found by name")
 
-        # finally if connected to character creator fall back to the first character
-        # or current context character
-        # as character creator only ever has one character in the scene.
-        if (prefs.datalink_cc_match_only_avatar and
-            get_link_data().is_cc() and
-            search_type == "AVATAR"):
-                if len(props.get_avatars()) == 1:
-                    chr_cache = props.get_first_avatar()
-                else:
-                    chr_cache = props.get_context_character_cache()
-                if chr_cache:
-                    utils.log_detail(f"Falling back to first Chr Avatar: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
-                    actor = LinkActor(chr_cache)
-                    actor.add_alias(link_id)
-                    return actor
+        # finally if matching to any avatar, trying to find an avatar and there is only
+        # one avatar in the scene, use that one avatar, otherwise use the selected avatar
+        if prefs.datalink_match_any_avatar and search_type == "AVATAR":
+            chr_cache = None
+            if len(props.get_avatars()) == 1:
+                chr_cache = props.get_first_avatar()
+            else:
+                if not context_chr_cache:
+                    context_chr_cache = props.get_context_character_cache()
+                if context_chr_cache and context_chr_cache.is_avatar():
+                    chr_cache = context_chr_cache
+            if chr_cache:
+                utils.log_detail(f"Falling back to first Chr Avatar: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
+                actor = LinkActor(chr_cache)
+                actor.add_alias(link_id)
+                return actor
 
         utils.log_info(f"LinkActor not found: {search_name} {link_id} {search_type}")
         return actor
@@ -3111,6 +3112,8 @@ class LinkService():
 
         props.validate_and_clean_up()
 
+        context_chr_cache = props.get_context_character_cache()
+
         json_data = decode_to_json(data)
         fbx_path = json_data["path"]
         name = json_data["name"]
@@ -3133,7 +3136,7 @@ class LinkService():
         bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=temp_link_id, process_only=process_only)
 
         # the actor to replace
-        actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
+        actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type, context_chr_cache=context_chr_cache)
         rig: bpy.types.Object = actor.get_armature()
         rig_action = utils.safe_get_action(rig)
         utils.log_info(f"Character Rig: {rig.name} / {rig_action.name}")
@@ -3148,6 +3151,9 @@ class LinkService():
         # can happen if the link_id's don't match
         if chr_cache == temp_chr_cache:
             utils.log_error("Character replacement and original are the same!")
+            update_link_status(f"Error! Character Mismatch")
+            temp_chr_cache.invalidate()
+            temp_chr_cache.delete()
             return
 
         if not replace_all:

@@ -2073,7 +2073,7 @@ class CC3ExportHair(bpy.types.Operator):
         prefs = vars.prefs()
 
         objects = bpy.context.selected_objects.copy()
-        chr_cache = props.get_any_character_cache_from_objects(objects, True)
+        chr_cache = props.get_character_cache_from_objects(objects, True)
 
         export_blender_hair(self, chr_cache, objects, self.filepath)
 

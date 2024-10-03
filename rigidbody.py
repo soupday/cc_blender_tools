@@ -1117,10 +1117,11 @@ def colliders_visible(arm, colliders = None):
 
 
 def hide_colliders(arm):
-    colliders = get_rigid_body_colliders(arm)
-    hide_state = colliders_visible(arm, colliders)
-    if hide_state:
-        toggle_show_colliders(arm)
+    if arm:
+        colliders = get_rigid_body_colliders(arm)
+        hide_state = colliders_visible(arm, colliders)
+        if hide_state:
+            toggle_show_colliders(arm)
 
 
 def toggle_show_colliders(arm):

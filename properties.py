@@ -2725,7 +2725,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
             utils.copy_property_group(copy_from, chr_cache, exclude=exclude_list)
         return chr_cache
 
-    def get_any_character_cache_from_objects(self, objects, search_materials = False):
+    def get_character_cache_from_objects(self, objects, search_materials=False):
         chr_cache : CC3CharacterCache
 
         if objects:
@@ -2817,7 +2817,7 @@ class CC3ImportProps(bpy.types.PropertyGroup):
 
         # try to find a character from the selected objects
         if chr_cache is None and len(context.selected_objects) > 1:
-            chr_cache = self.get_any_character_cache_from_objects(context.selected_objects, False)
+            chr_cache = self.get_character_cache_from_objects(context.selected_objects, False)
 
         return chr_cache
 

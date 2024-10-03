@@ -480,7 +480,7 @@ def cache_timeline_physics_ui(chr_cache, layout : bpy.types.UILayout):
         row.operator("ptcache.bake_all", text="Bake All Dynamics", icon="REC", depress=all_depress).bake = True
 
 
-def character_tools_ui(context, layout):
+def character_tools_ui(context, layout: bpy.types.UILayout):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -523,14 +523,20 @@ def character_tools_ui(context, layout):
     else:
         box.label(text=f"{chr_name}", icon="TOOL_SETTINGS")
     col = layout.column(align=True)
+
     grid = col.grid_flow(row_major=True, columns=2, align=True)
     grid.scale_y = 1.5
     grid.operator("cc3.character", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_ACTOR_ALL"
     grid.operator("cc3.character", icon="ARMATURE_DATA", text="Select Rig").param = "SELECT_ACTOR_RIG"
-    grid.operator("ccic.rename_character", icon="GREASEPENCIL", text="Edit")
-    grid.operator("cc3.character", icon="DUPLICATE", text="Duplicate").param = "DUPLICATE"
+    row1 = grid.row(align=True)
+    row1.operator("ccic.rename_character", icon="GREASEPENCIL", text="Edit")
+    row2 = grid.row(align=True)
+    row2.operator("cc3.character", icon="DUPLICATE", text="Duplicate").param = "DUPLICATE"
     if not chr_cache:
         grid.enabled = False
+    if is_linked_or_override(chr_cache):
+        row1.enabled = False
+        row2.enabled = False
 
     split = col.split(factor=0.5, align=True)
     col_1 = split.column(align=True)
@@ -700,14 +706,17 @@ def render_prefs_ui(layout: bpy.types.UILayout):
             col_2.operator("cc3.setproperties", icon="DECORATE_DRIVER", text="Update").param = "APPLY_ALL"
 
 
-def disable_on_linked(layout, chr_cache):
+def is_linked_or_override(chr_cache):
     linked_or_override = False
     if chr_cache:
         arm = chr_cache.get_armature()
         if arm:
             linked_or_override = utils.obj_is_override(arm) or utils.obj_is_linked(arm)
-    if linked_or_override:
-        layout.enabled = False
+    return linked_or_override
+
+
+def disable_on_linked(layout, chr_cache):
+    layout.enabled = not is_linked_or_override(chr_cache)
 
 
 class ARMATURE_UL_List(bpy.types.UIList):
@@ -3384,10 +3393,10 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2.prop(prefs, "datalink_retarget_prop_actions", text="")
             col_1.label(text="Hide Prop Bones")
             col_2.prop(prefs, "datalink_hide_prop_bones", text="")
-            col_1.label(text="Disable Leg Stretch")
-            col_2.prop(prefs, "datalink_disable_tweak_bones", text="")
-            col_1.label(text="CC4 Always Match Avatar")
-            col_2.prop(prefs, "datalink_cc_match_only_avatar", text="")
+            #col_1.label(text="Disable Leg Stretch")
+            #col_2.prop(prefs, "datalink_disable_tweak_bones", text="")
+            col_1.label(text="Match Current Avatar")
+            col_2.prop(prefs, "datalink_match_any_avatar", text="")
             box.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_DATALINK"
 
         if True:
