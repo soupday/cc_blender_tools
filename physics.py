@@ -209,6 +209,22 @@ def apply_cloth_settings(obj, cloth_type, self_collision = False):
         mod.collision_settings.self_friction = 1.0
 
 
+def uses_collision_physics(chr_cache, obj):
+    obj_cache = chr_cache.get_object_cache(obj)
+    collision_setting = "OFF"
+    if obj == obj_cache.get_object():
+        collision_setting = obj_cache.collision_physics
+    if "rl_collision_physics" in obj:
+        collision_setting = obj["rl_collision_physics"]
+    if collision_setting == "ON" or collision_setting == "PROXY":
+        return True
+    # Body objects should use collision physics by default
+    if collision_setting == "DEFAULT" and \
+        (obj_cache.object_type == "BODY" or obj_cache.object_type == "OCCLUSION"):
+        return True
+    return False
+
+
 def apply_collision_physics(chr_cache, obj, obj_cache):
     """Adds a Collision modifier to the object, depending on the object cache settings.
        Does not overwrite or re-create any existing Collision modifier.
@@ -225,15 +241,15 @@ def apply_collision_physics(chr_cache, obj, obj_cache):
 
     has_cloth = modifiers.get_cloth_physics_mod(obj) is not None
 
-    if obj_cache.has_collision_physics():
+    if uses_collision_physics(chr_cache, obj):
         if obj_cache.use_collision_proxy and not has_cloth:
-            proxy = get_collision_proxy(chr_cache, obj_cache)
+            proxy = chr_cache.get_collision_proxy(obj)
             if not proxy:
                 proxy = create_collision_proxy(chr_cache, obj_cache, obj)
             if proxy:
                 obj = proxy
         else:
-            remove_collision_proxy(chr_cache, obj_cache)
+            remove_collision_proxy(chr_cache, obj)
         collision_mod = modifiers.get_collision_physics_mod(obj)
         if not collision_mod:
             collision_mod = obj.modifiers.new(utils.unique_name("Collision"), type="COLLISION")
@@ -241,26 +257,22 @@ def apply_collision_physics(chr_cache, obj, obj_cache):
         utils.log_info("Collision Modifier: " + collision_mod.name + " applied to " + obj.name)
 
     elif obj_cache.collision_physics == "OFF":
-        remove_collision_physics(chr_cache, obj, obj_cache)
+        remove_collision_physics(chr_cache, obj)
         utils.log_info("Collision Physics disabled for: " + obj.name)
 
     if arm:
         arm.data.pose_position = pose_position
 
 
-def remove_collision_physics(chr_cache, obj, obj_cache):
+def remove_collision_physics(chr_cache, obj):
     """Removes the Collision modifier from the object.
     """
 
-    if chr_cache and obj and obj_cache:
+    if chr_cache and obj:
 
-        if obj_cache.object_type == "BODY" and utils.object_exists_is_mesh(chr_cache.collision_body):
-            utils.delete_mesh_object(chr_cache.collision_body)
-            chr_cache.collision_body = None
-
-        if utils.object_exists_is_mesh(obj_cache.collision_proxy):
-            utils.delete_mesh_object(obj_cache.collision_proxy)
-            obj_cache.collision_proxy = None
+        proxy = chr_cache.get_collision_proxy(obj)
+        if proxy:
+            utils.delete_mesh_object(proxy)
 
         for mod in obj.modifiers:
             if mod.type == "COLLISION":
@@ -394,25 +406,62 @@ def remove_all_physics_mods(obj):
 
 def enable_collision_physics(chr_cache, obj):
     props = vars.props()
-    if chr_cache and obj:
+    if chr_cache and utils.object_exists_is_mesh(obj):
         obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
         obj_cache = chr_cache.get_object_cache(obj)
         if obj_cache:
             has_cloth = modifiers.get_cloth_physics_mod(obj) is not None
-            obj_cache.collision_physics = "PROXY" if (obj_cache.use_collision_proxy and not has_cloth) else "ON"
+            collision_mode = "PROXY" if (obj_cache.use_collision_proxy and not has_cloth) else "ON"
+            if obj == obj_cache.get_object():
+                obj_cache.collision_physics = collision_mode
+            obj["rl_collision_physics"] = collision_mode
             utils.log_info("Enabling Collision physics for: " + obj.name)
             apply_collision_physics(chr_cache, obj, obj_cache)
 
 
 def disable_collision_physics(chr_cache, obj):
-    props = vars.props()
-    if chr_cache and obj:
+    if chr_cache and utils.object_exists_is_mesh(obj):
         obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
         obj_cache = chr_cache.get_object_cache(obj)
         if obj_cache:
-            obj_cache.collision_physics = "OFF"
+            if obj == obj_cache.get_object():
+                obj_cache.collision_physics = "OFF"
+            obj["rl_collision_physics"] = "OFF"
             utils.log_info("Disabling Collision physics for: " + obj.name)
-            remove_collision_physics(chr_cache, obj, obj_cache)
+            remove_collision_physics(chr_cache, obj)
+
+
+def show_hide_collision_proxies(context, chr_cache, show, select=False, use_local=False):
+    if chr_cache:
+        objects = []
+        proxies = []
+        # get all character objects with proxies
+        for obj in chr_cache.get_cache_objects():
+            obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
+            if obj and proxy:
+                objects.append(obj)
+                proxies.append(proxy)
+        # show / hide all proxy objects
+        if show:
+            if proxies:
+                for proxy in proxies:
+                    utils.unhide(proxy)
+                utils.object_mode()
+                if select or use_local:
+                    utils.try_select_objects(proxies, clear_selection=True)
+                if use_local and not utils.is_local_view(context):
+                    bpy.ops.view3d.localview()
+            return True
+        else:
+            if proxies:
+                for proxy in proxies:
+                    utils.hide(proxy)
+                utils.object_mode()
+                if select:
+                    utils.try_select_objects(objects, clear_selection=True)
+                if use_local and utils.is_local_view(context):
+                    bpy.ops.view3d.localview()
+            return False
 
 
 def enable_cloth_physics(chr_cache, obj, add_weight_maps = True):
@@ -435,31 +484,21 @@ def disable_cloth_physics(chr_cache, obj):
             remove_cloth_physics(obj)
 
 
-def get_collision_proxy(chr_cache, obj_cache):
-    if utils.object_exists_is_mesh(obj_cache.collision_proxy):
-        return obj_cache.collision_proxy
-    if utils.object_exists_is_mesh(chr_cache.collision_body):
-        return chr_cache.collision_body
-
-
-def remove_collision_proxy(chr_cache, obj_cache):
-    # remove legacy collision body
-    if utils.object_exists_is_mesh(chr_cache.collision_body):
-        utils.log_info(f"Removing legacy collision body mesh: {chr_cache.collision_body}")
-        utils.delete_mesh_object(chr_cache.collision_body)
-    # remove existing collision proxy
-    if utils.object_exists_is_mesh(obj_cache.collision_proxy):
-        utils.log_info(f"Removing existing collision proxy: {obj_cache.collision_proxy}")
-        utils.delete_mesh_object(obj_cache.collision_proxy)
+def remove_collision_proxy(chr_cache, obj):
+    proxy = chr_cache.get_collision_proxy(obj)
+    if proxy:
+        utils.log_info(f"Removing collision proxy: {proxy.name}")
+        utils.delete_mesh_object(proxy)
 
 
 def create_collision_proxy(chr_cache, obj_cache, obj):
     utils.log_info(f"Creating collision proxy mesh from: {obj.name}")
     # remove old proxy
-    remove_collision_proxy(chr_cache, obj_cache)
+    remove_collision_proxy(chr_cache, obj)
     # clone obj to proxy
     collision_proxy = utils.duplicate_object(obj)
     collision_proxy.name = obj.name + ".Collision_Proxy"
+    collision_proxy["rl_collision_proxy"] = obj.name
     if utils.object_mode_to(collision_proxy) and utils.set_only_active_object(collision_proxy):
         # remove shape keys
         collision_proxy.shape_key_clear()
@@ -483,9 +522,8 @@ def create_collision_proxy(chr_cache, obj_cache, obj):
 
     utils.log_info(f"Storing collision mesh: {collision_proxy.name}")
     obj_cache.use_collision_proxy = True
-    obj_cache.collision_proxy = collision_proxy
     obj_cache.collision_physics = "PROXY"
-    collision_proxy.hide_set(True)
+    utils.hide(collision_proxy)
     collision_proxy.hide_render = True
     utils.set_only_active_object(obj)
     return collision_proxy
@@ -1140,7 +1178,11 @@ def separate_physics_materials(chr_cache, obj):
 def disable_physics(chr_cache, physics_objects = None):
     changed_objects = []
     if not physics_objects:
-        physics_objects = chr_cache.get_all_objects(include_armature = False, include_children = True, of_type = "MESH")
+        physics_objects = chr_cache.get_all_objects(include_armature = False,
+                                                    include_children = True,
+                                                    include_split=True,
+                                                    include_proxy=True,
+                                                    of_type = "MESH")
     for obj in physics_objects:
         for mod in obj.modifiers:
             if mod.type == "CLOTH":
@@ -1162,6 +1204,8 @@ def enable_physics(chr_cache, physics_objects = None):
     if not physics_objects:
         physics_objects = chr_cache.get_all_objects(include_armature = False,
                                                     include_children = True,
+                                                    include_split=True,
+                                                    include_proxy=True,
                                                     of_type = "MESH")
     for obj in physics_objects:
         obj_cache = chr_cache.get_object_cache(obj)
@@ -1268,17 +1312,16 @@ def apply_all_physics(chr_cache):
         objects_processed = []
         accessory_colldiers = get_accessory_colliders(arm, objects, True)
 
-        for obj_cache in chr_cache.object_cache:
+        for obj in chr_cache.get_cache_objects():
 
-            obj = obj_cache.get_object()
+            obj_cache = chr_cache.get_object_cache(obj)
 
-            if obj and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
+            if obj_cache and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
 
                 cloth_allowed = True
-                if obj_cache:
-                    if ((obj_cache.is_hair() and not prefs.physics_cloth_hair) or
-                        (not obj_cache.is_hair() and not prefs.physics_cloth_clothing)):
-                        cloth_allowed = False
+                if ((obj_cache.is_hair() and not prefs.physics_cloth_hair) or
+                    (not obj_cache.is_hair() and not prefs.physics_cloth_clothing)):
+                    cloth_allowed = False
 
                 utils.log_info(f"Object: {obj.name}:")
                 utils.log_indent()
@@ -1347,12 +1390,11 @@ def remove_all_physics(chr_cache):
         utils.log_info(f"Removing all Physics modifiers from: {chr_cache.character_name}")
         utils.log_indent()
         objects_processed = []
-        for obj_cache in chr_cache.object_cache:
-            obj = obj_cache.get_object()
-            if obj and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
+        for obj in chr_cache.get_cache_objects():
+            obj_cache = chr_cache.get_object_cache(obj)
+            if obj_cache and obj_cache.is_mesh() and obj not in objects_processed and not obj_cache.disabled:
                 remove_all_physics_mods(obj)
-            utils.delete_mesh_object(obj_cache.collision_proxy)
-        utils.delete_mesh_object(chr_cache.collision_body)
+            remove_collision_proxy(chr_cache, obj)
         chr_cache.physics_applied = False
         utils.log_recess()
 
@@ -1391,7 +1433,7 @@ def get_accessory_colliders(arm, objects, hide = False):
                             if obj not in collider_objects:
                                 collider_objects.append(obj)
                             if hide:
-                                obj.hide_set(True)
+                                utils.hide(obj)
                             break
 
     return collider_objects
@@ -1412,6 +1454,28 @@ def get_self_collision(chr_cache, obj):
     return False
 
 
+def restore_collision_proxy_view(context, chr_cache):
+    """Return from local view. Hide the collision proxies.
+       Any collisions proxies selected or active, select their source mesh objects instead."""
+    active = utils.get_active_object()
+    selection = context.selected_objects.copy()
+    new_selection = []
+    if active:
+        active = chr_cache.get_related_physics_objects(active)[0]
+    if selection:
+        for obj in selection:
+            obj = chr_cache.get_related_physics_objects(obj)[0]
+            new_selection.append(obj)
+
+    utils.fix_local_view(context)
+    show_hide_collision_proxies(context, chr_cache, False)
+
+    if new_selection:
+        utils.try_select_objects(new_selection)
+        if active:
+            utils.set_active_object(active)
+
+
 def set_physics_settings(op, context, param):
     props = vars.props()
     chr_cache = props.get_context_character_cache(context)
@@ -1420,24 +1484,28 @@ def set_physics_settings(op, context, param):
         obj = context.object
 
     if param == "PHYSICS_ADD_CLOTH":
-        utils.fix_local_view(context)
+        restore_collision_proxy_view(context, chr_cache)
         for obj in context.selected_objects:
             enable_cloth_physics(chr_cache, obj, True)
 
     elif param == "PHYSICS_REMOVE_CLOTH":
-        utils.fix_local_view(context)
+        restore_collision_proxy_view(context, chr_cache)
         for obj in context.selected_objects:
             disable_cloth_physics(chr_cache, obj)
 
     elif param == "PHYSICS_ADD_COLLISION":
-        utils.fix_local_view(context)
-        for obj in context.selected_objects:
+        restore_collision_proxy_view(context, chr_cache)
+        objects = context.selected_objects
+        for obj in objects:
             enable_collision_physics(chr_cache, obj)
+        show_hide_collision_proxies(context, chr_cache, False)
 
     elif param == "PHYSICS_REMOVE_COLLISION":
-        utils.fix_local_view(context)
-        for obj in context.selected_objects:
+        restore_collision_proxy_view(context, chr_cache)
+        objects = context.selected_objects
+        for obj in objects:
             disable_collision_physics(chr_cache, obj)
+        show_hide_collision_proxies(context, chr_cache, False)
 
     elif param == "PHYSICS_ADD_WEIGHTMAP":
         if obj:
@@ -1520,25 +1588,25 @@ def set_physics_settings(op, context, param):
 
     elif param == "DISABLE_PHYSICS":
         if chr_cache:
-            utils.fix_local_view(context)
+            restore_collision_proxy_view(context, chr_cache)
             disable_physics(chr_cache)
             op.report({'INFO'}, f"Physics disabled for {chr_cache.character_name}")
 
     elif param == "ENABLE_PHYSICS":
         if chr_cache:
-            utils.fix_local_view(context)
+            restore_collision_proxy_view(context, chr_cache)
             enable_physics(chr_cache)
             op.report({'INFO'}, f"Physics enabled for {chr_cache.character_name}")
 
     elif param == "REMOVE_PHYSICS":
         if chr_cache:
-            utils.fix_local_view(context)
+            restore_collision_proxy_view(context, chr_cache)
             remove_all_physics(chr_cache)
             op.report({'INFO'}, f"Physics removed for {chr_cache.character_name}")
 
     elif param == "APPLY_PHYSICS":
         if chr_cache:
-            utils.fix_local_view(context)
+            restore_collision_proxy_view(context, chr_cache)
             apply_all_physics(chr_cache)
             op.report({'INFO'}, f"Physics applied to {chr_cache.character_name}")
 
@@ -1552,18 +1620,16 @@ def set_physics_settings(op, context, param):
 
     elif param == "TOGGLE_SHOW_PROXY":
         if chr_cache and obj:
-                obj, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
-        if utils.is_local_view(context):
-            if proxy:
-                proxy.hide_set(True)
-            bpy.ops.view3d.localview()
-            utils.object_mode_to(obj)
-            utils.set_only_active_object(obj)
-        else:
-            if proxy:
-                proxy.hide_set(False)
-                utils.set_only_active_object(proxy)
-                bpy.ops.view3d.localview()
+            context_object, context_proxy, context_is_proxy = chr_cache.get_related_physics_objects(obj)
+            if context_object and context_proxy:
+                proxy_visible = context_proxy.visible_get()
+                if show_hide_collision_proxies(context, chr_cache,
+                                               not proxy_visible,
+                                               select=False,
+                                               use_local=True):
+                    utils.set_active_object(context_proxy)
+                else:
+                    utils.set_active_object(context_object)
 
 
 class CC3OperatorPhysics(bpy.types.Operator):

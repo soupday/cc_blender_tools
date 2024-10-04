@@ -764,9 +764,9 @@ def init_character_property_defaults(chr_cache, chr_json, only:list=None):
         utils.log_info("(No Json Data)")
 
     # Advanced properties
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.get_object()
-        if not obj_cache.disabled and obj_cache.is_mesh() and obj not in processed:
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled and obj_cache.is_mesh() and obj not in processed:
             processed.append(obj)
 
             obj_json = jsonutils.get_object_json(chr_json, obj)
@@ -826,7 +826,9 @@ def set_shader_input_props(shader_def, mat_cache, socket, value):
                 vars.block_property_update = False
 
 
-def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name, mat_json, obj, processed_images,
+def apply_texture_matrix(nodes, links, shader_node,
+                         mat, mat_cache, shader_name, mat_json,
+                         obj, processed_images,
                          offset = Vector((0,0)), sub_shader = False, textures = None):
 
     if textures is None:
@@ -963,10 +965,10 @@ def apply_texture_matrix(nodes, links, shader_node, mat, mat_cache, shader_name,
             nodeutils.unlink_node_output(links, shader_node, "Bump Map")
 
 
-def connect_tearline_shader(obj, mat, mat_json, processed_images):
-    prefs = vars.prefs()
+def connect_tearline_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -989,10 +991,10 @@ def connect_tearline_shader(obj, mat, mat_json, processed_images):
     mat.shadow_method = "NONE"
 
 
-def connect_eye_occlusion_shader(obj, mat, mat_json, processed_images):
-    prefs = vars.prefs()
+def connect_eye_occlusion_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1015,11 +1017,10 @@ def connect_eye_occlusion_shader(obj, mat, mat_json, processed_images):
     mat.shadow_method = "NONE"
 
 
-def connect_skin_shader(obj, mat, mat_json, processed_images):
+def connect_skin_shader(chr_cache, obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
     prefs = vars.prefs()
 
-    obj_cache = props.get_object_cache(obj)
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1059,7 +1060,7 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
     if not prefs.build_limit_textures:
         if props.wrinkle_mode and mat_json and "Wrinkle" in mat_json.keys():
             utils.log_info("Applying Wrinkle System:")
-            apply_wrinkle_system(nodes, links, group, shader_name, mat, mat_cache, mat_json, obj, processed_images)
+            apply_wrinkle_system(chr_cache, nodes, links, group, shader_name, mat, mat_cache, mat_json, obj, processed_images)
 
     utils.log_info("Cleaning up unused image nodes:")
     nodeutils.clean_unused_image_nodes(nodes)
@@ -1075,9 +1076,10 @@ def connect_skin_shader(obj, mat, mat_json, processed_images):
     mat.use_sss_translucency = True
 
 
-def connect_tongue_shader(obj, mat, mat_json, processed_images):
+def connect_tongue_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1100,9 +1102,10 @@ def connect_tongue_shader(obj, mat, mat_json, processed_images):
     mat.use_sss_translucency = True
 
 
-def connect_teeth_shader(obj, mat, mat_json, processed_images):
+def connect_teeth_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1130,10 +1133,10 @@ def connect_teeth_shader(obj, mat, mat_json, processed_images):
     mat.use_sss_translucency = True
 
 
-def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
+def connect_eye_shader(obj_cache, obj, mat, obj_json, mat_json, processed_images):
     props = vars.props()
     prefs = vars.prefs()
-    obj_cache = props.get_object_cache(obj)
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1157,7 +1160,7 @@ def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
                 connect_as_pbr = False
 
     if connect_as_pbr:
-        connect_pbr_shader(obj, mat, mat_json, processed_images)
+        connect_pbr_shader(obj_cache, obj, mat, mat_json, processed_images)
         return
 
     mix_shader_group = ""
@@ -1206,10 +1209,10 @@ def connect_eye_shader(obj, mat, obj_json, mat_json, processed_images):
         mat.use_screen_refraction = False
 
 
-def connect_hair_shader(obj, mat, mat_json, processed_images):
-    prefs = vars.prefs()
+def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1234,10 +1237,10 @@ def connect_hair_shader(obj, mat, mat_json, processed_images):
     mat.use_sss_translucency = True
 
 
-
-def connect_pbr_shader(obj, mat, mat_json, processed_images):
+def connect_pbr_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1272,9 +1275,10 @@ def connect_pbr_shader(obj, mat, mat_json, processed_images):
         fix_sss_method(bsdf)
 
 
-def connect_sss_shader(obj, mat, mat_json, processed_images):
+def connect_sss_shader(obj_cache, obj, mat, mat_json, processed_images):
     props = vars.props()
-    obj_cache = props.get_object_cache(obj)
+    prefs = vars.prefs()
+
     mat_cache = props.get_material_cache(mat)
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1380,10 +1384,11 @@ def check_tex_count(links, shader_node, wrinkle_shader_node, max_images=32):
             active_tex_count -= 1
 
 
-def apply_wrinkle_system(nodes, links, shader_node, main_shader_name, mat, mat_cache, mat_json, obj, processed_images, textures = None):
-    wrinkle_shader_name = "rl_wrinkle_shader"
-    wrinkle_shader_node = wrinkle.add_wrinkle_shader(nodes, links, obj, mat, mat_json, main_shader_name, wrinkle_shader_name = wrinkle_shader_name)
-    apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle_shader_name, mat_json, obj,
+def apply_wrinkle_system(chr_cache, nodes, links, shader_node, main_shader_name,
+                         mat, mat_cache, mat_json, obj, processed_images, textures=None):
+
+    wrinkle_shader_node = wrinkle.add_wrinkle_shader(chr_cache, links, mat, mat_json, main_shader_name, wrinkle_shader_name=wrinkle.WRINKLE_SHADER_NAME)
+    apply_texture_matrix(nodes, links, wrinkle_shader_node, mat, mat_cache, wrinkle.WRINKLE_SHADER_NAME, mat_json, obj,
                          processed_images, sub_shader = True, textures = textures)
 
     max_images = 32 if not utils.B420() else 40

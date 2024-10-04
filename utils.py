@@ -167,8 +167,15 @@ def obj_is_linked(obj):
     try:
         if obj.library is not None:
             return True
-    except:
-        pass
+    except: ...
+    return False
+
+
+def obj_is_override(obj):
+    try:
+        if obj.override_library is not None:
+            return True
+    except: ...
     return False
 
 
@@ -824,15 +831,21 @@ def get_auto_index_suffix(name):
 
 def is_blender_duplicate(name):
     if len(name) >= 4:
-        if name[-3:].isdigit() and name[-4] == ".":
+        if (name[-1:].isdigit() and
+            name[-2:].isdigit() and
+            name[-3:].isdigit() and
+            name[-4] == "."):
             return True
     return False
 
 
 def get_duplication_suffix(name):
     if len(name) >= 4:
-        if name[-3:].isdigit() and name[-4] == ".":
-            return int(name[-3])
+        if (name[-1:].isdigit() and
+            name[-2:].isdigit() and
+            name[-3:].isdigit() and
+            name[-4] == "."):
+            return int(name[-3:])
     return 0
 
 
@@ -1204,6 +1217,14 @@ def delete_light_object(obj):
             bpy.data.lights.remove(data)
 
 
+def delete_objects(objects, log=False):
+    if objects:
+        for obj in objects:
+            if log:
+                log_info(f" - Deleting object: {obj.name}")
+            delete_object(obj)
+
+
 def delete_object(obj):
     if object_exists(obj):
         try:
@@ -1300,8 +1321,21 @@ def hide_tree(obj, hide = True):
     for obj in objects:
         try:
             obj.hide_set(hide)
-        except:
-            pass
+        except: ...
+
+
+def hide(obj, hide=True):
+    try:
+        obj.hide_set(hide)
+        return True
+    except:
+        return False
+
+
+def unhide(obj):
+    # TODO expand this to force visible in tmp collection if unable to make visible with hide_set
+    # but will require something to remove tmp collection later...
+    return hide(obj, hide=False)
 
 
 def get_context_area(context, area_type):
@@ -1426,10 +1460,10 @@ def limit_view_layer_to_collection(collection_name, *items):
             if type(item) is list:
                 for sub_item in item:
                     tmp_collection.objects.link(sub_item)
-                    sub_item.hide_set(False)
+                    unhide(sub_item)
             else:
                 tmp_collection.objects.link(item)
-                item.hide_set(False)
+                unhide(item)
     # return the temp collection and the layers exlcuded
     return tmp_collection, layer_collections, to_hide
 
@@ -1457,7 +1491,7 @@ def restore_limited_view_layers(tmp_collection, layer_collections, to_hide):
     for layer_collection in layer_collections:
         layer_collection.exclude = False
     for obj in to_hide:
-        obj.hide_set(True)
+        hide(obj)
 
 
 def force_visible_in_scene(collection_name, *objects):
@@ -1466,7 +1500,7 @@ def force_visible_in_scene(collection_name, *objects):
     for obj in objects:
         if not obj.visible_get():
             log_info(f"Object: {obj.name} is not visible or in a hidden collection. Linking to temporary root collection and making visible.")
-            obj.hide_set(False)
+            unhide(obj)
             tmp_collection.objects.link(obj)
     return tmp_collection
 
@@ -1477,19 +1511,10 @@ def restore_visible_in_scene(tmp_collection : bpy.types.Collection):
         objects.append(obj)
     for obj in objects:
         log_info(f"Object: {obj.name} Unlinking from temporary root collection and hiding.")
-        obj.hide_set(True)
+        hide(obj)
         tmp_collection.objects.unlink(obj)
     bpy.context.scene.collection.children.unlink(tmp_collection)
     bpy.data.collections.remove(tmp_collection)
-
-
-def make_visible(obj):
-    # TODO expand this to force visible in tmp collection if unable to make visible with hide_set
-    # but will require something to remove tmp collection later...
-    try:
-        obj.hide_set(False)
-    except:
-        pass
 
 
 def get_object_scene_collections(obj, exclude_rbw = True):
@@ -1585,14 +1610,14 @@ def restore_render_visibility_state(rv):
                 visible, render = rv[obj.name]
                 try:
                     obj.hide_render = not render
-                    obj.hide_set(not visible)
+                    hide(obj, not visible)
                 except:
                     pass
 
             else:
                 try:
                     obj.hide_render = False
-                    obj.hide_set(True)
+                    hide(obj)
                 except:
                     pass
 
@@ -1606,13 +1631,13 @@ def set_only_render_visible(object):
             if obj == object:
                 try:
                     obj.hide_render = False
-                    obj.hide_set(False)
+                    unhide(obj)
                 except:
                     pass
             else:
                 try:
                     obj.hide_render = True
-                    obj.hide_set(True)
+                    hide(obj)
                 except:
                     pass
 
@@ -2089,10 +2114,16 @@ def restore_object_state(obj_state):
         state = obj_state[item]
         if type(item) is bpy.types.Object:
             obj: bpy.types.Object = item
+            restore_name = True
+            if "rl_do_not_restore_name" in obj:
+                restore_name = False
+                del obj["rl_do_not_restore_name"]
             if object_exists(obj):
-                force_object_name(obj, state["names"][0])
+                if restore_name:
+                    force_object_name(obj, state["names"][0])
                 if obj.type == "MESH":
-                    force_mesh_name(obj.data, state["names"][1])
+                    if restore_name:
+                        force_mesh_name(obj.data, state["names"][1])
                     for i, mat in enumerate(state["slots"]):
                         if not material_exists(mat):
                             mat = None
@@ -2101,7 +2132,8 @@ def restore_object_state(obj_state):
                     if "action" in state:
                         safe_set_action(obj.data.shape_keys, state["action"])
                 elif obj.type == "ARMATURE":
-                    force_armature_name(obj.data, state["names"][1])
+                    if restore_name:
+                        force_armature_name(obj.data, state["names"][1])
                     if "action" in state:
                         safe_set_action(obj, state["action"])
         elif type(item) is bpy.types.Material:
@@ -2136,7 +2168,11 @@ def is_invalid_export_name(name, is_material = False):
     return False
 
 
-def safe_export_name(name, is_material = False):
+def safe_export_name(name, is_material = False, is_split=False):
+    if is_split:
+        if is_blender_duplicate(name):
+            num = get_duplication_suffix(name)
+            name = strip_name(name) + f"_S{num:02}"
     for char in INVALID_EXPORT_CHARACTERS:
         if char in name:
             name = name.replace(char, "_")

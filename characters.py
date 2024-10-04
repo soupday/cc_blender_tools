@@ -18,7 +18,7 @@ import bpy
 import re
 import os
 
-from . import (materials, modifiers, meshutils, geom, bones, physics, rigutils,
+from . import (springbones, rigidbody, materials, modifiers, meshutils, geom, bones, physics, rigutils,
                shaders, basic, imageutils, nodeutils, jsonutils, utils, vars)
 
 from mathutils import Vector, Matrix, Quaternion
@@ -55,8 +55,7 @@ def select_character(chr_cache, all=False):
 def duplicate_character(chr_cache):
     props = vars.props()
 
-    objects = chr_cache.get_all_objects(include_armature=True, include_children=False,
-                                        include_disabled=False, of_type="ALL")
+    objects = chr_cache.get_cache_objects()
     state = utils.store_object_state(objects)
     rigutils.clear_all_actions(objects)
     tmp = utils.force_visible_in_scene("TMP_Duplicate", *objects)
@@ -365,13 +364,34 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
     return chr_cache
 
 
-def link_or_append_rl_character(blend_file, link=False):
+def link_override(obj: bpy.types.Object):
+    if obj:
+        collections = utils.get_object_scene_collections(obj)
+        override = obj.override_create(remap_local_usages=True)
+        coll: bpy.types.Collection
+        for coll in collections:
+            try:
+                coll.objects.link(override)
+            except: ...
+
+
+def link_or_append_rl_character(op, context, blend_file, link=False):
     props = vars.props()
     prefs = vars.prefs()
 
     utils.log_info("")
     utils.log_info("Link/Append Reallusion Character")
     utils.log_info("--------------------------------")
+
+    # if linking, reload any existing library link for this blend file
+    # otherwise it remembers if objects have been previously deleted.
+    existing_lib = None
+    if link:
+        for lib in bpy.data.libraries:
+            if os.path.samefile(lib.filepath, blend_file):
+                lib.reload()
+                existing_lib = lib
+                break
 
     # link or append character data from blend file
     with bpy.data.libraries.load(blend_file, link=link) as (src, dst):
@@ -389,6 +409,8 @@ def link_or_append_rl_character(blend_file, link=False):
             utils.log_info(f"Found Add-on Import Properties")
             break
 
+    has_rigid_body = False
+
     if src_props:
 
         for src_cache in src_props.import_cache:
@@ -396,6 +418,11 @@ def link_or_append_rl_character(blend_file, link=False):
             character_name = src_cache.character_name
             import_file = src_cache.import_file
             chr_rig = src_cache.get_armature()
+            chr_objects = src_cache.get_all_objects(include_armature=False,
+                                                    include_children=True,
+                                                    include_disabled=False,
+                                                    include_split=True,
+                                                    include_proxy=True)
             meta_rig = src_cache.rig_meta_rig
             src_rig = src_cache.rig_original_rig
             widgets = []
@@ -404,13 +431,14 @@ def link_or_append_rl_character(blend_file, link=False):
             utils.log_info(f"Character Data Found: {character_name}")
 
             # keep the character rig
-            utils.log_info(f"Character rig: {chr_rig.name}")
-            keep.append(chr_rig)
-            objects.append(chr_rig)
+            if chr_rig:
+                utils.log_info(f"Character rig: {chr_rig.name}")
+                keep.append(chr_rig)
+                objects.append(chr_rig)
 
             # keep the meta rig
             if meta_rig:
-                utils.log_info(f"Meta-rig: {chr_rig.name}")
+                utils.log_info(f"Meta-rig: {meta_rig.name}")
                 keep.append(meta_rig)
                 objects.append(meta_rig)
 
@@ -420,7 +448,7 @@ def link_or_append_rl_character(blend_file, link=False):
 
             # keep all child objects of the rigify rig
             for obj in dst.objects:
-                if obj in chr_rig.children:
+                if obj in chr_objects:
                     utils.log_info(f" - Character Object: {obj.name}")
                     keep.append(obj)
                     objects.append(obj)
@@ -435,6 +463,49 @@ def link_or_append_rl_character(blend_file, link=False):
 
             # TODO remove all actions or keep them? or get all of them?
 
+            # link overrides
+            if link and False:
+                overrides = {}
+                for obj in objects:
+                    override = obj.override_create(remap_local_usages=True)
+                    if obj == meta_rig:
+                        meta_rig = override
+                    if obj == chr_rig:
+                        chr_rig = override
+                    if obj == src_rig:
+                        src_rig = override
+                    overrides[obj] = override
+                for obj in overrides:
+                    override = overrides[obj]
+                    try:
+                        if hasattr(override, "parent"):
+                            if override.parent and override.parent in overrides:
+                                override.parent = overrides[override.parent]
+                    except: ...
+                    if override.type == "MESH":
+                        for mod in override.modifiers:
+                            if mod:
+                                if hasattr(mod, "object") and mod.object in overrides:
+                                    mod.object = overrides[mod.object]
+                    elif override.type == "EMPTY":
+                        con = override.rigid_body_constraint
+                        if con:
+                            if hasattr(con, "target") and con.target in overrides:
+                                con.target = overrides[con.target]
+                            if hasattr(con, "object") and con.object in overrides:
+                                con.object = overrides[con.object]
+                            if hasattr(con, "object1") and con.object1 in overrides:
+                                con.object1 = overrides[con.object1]
+                            if hasattr(con, "object2") and con.object2 in overrides:
+                                con.object2 = overrides[con.object2]
+                objects = list(overrides.values())
+
+            # after deciding what to keep, check the character has not already been linked
+            if link and (props.get_character_cache(chr_rig, None) or
+                props.get_character_cache_from_objects(chr_objects)):
+                op.report({"ERROR"}, "Character already linked!")
+                continue
+
             # put all the character objects in the character collection
             character_collection = utils.create_collection(character_name)
             for obj in objects:
@@ -447,7 +518,7 @@ def link_or_append_rl_character(blend_file, link=False):
                                                             parent_collection=character_collection)
                 for widget in widgets:
                     widget_collection.objects.link(widget)
-                    widget.hide_set(True)
+                    utils.hide(widget)
 
                 # hide the widget sub-collection
                 lc = utils.find_layer_collection(widget_collection.name)
@@ -455,16 +526,38 @@ def link_or_append_rl_character(blend_file, link=False):
 
             # hide the meta rig
             if meta_rig:
-                meta_rig.hide_set(True)
+                utils.hide(meta_rig)
 
             # create the character cache and rebuild from the source data
             chr_cache = props.add_character_cache(copy_from=src_cache)
-            rebuild_character_cache(chr_cache, chr_rig, src_cache)
+            rebuild_character_cache(chr_cache, chr_rig, chr_objects, src_cache)
+
+            # hide any colliders
+            rigidbody.hide_colliders(chr_rig)
+
+            # get rigidy body systems and hide them
+            if chr_rig:
+                parent_modes = springbones.get_all_parent_modes(chr_cache, chr_rig)
+                for parent_mode in parent_modes:
+                    rig_prefix = springbones.get_spring_rig_prefix(parent_mode)
+                    rigid_body_system = rigidbody.get_spring_rigid_body_system(chr_rig, rig_prefix)
+                    if rigid_body_system:
+                        if link:
+                            rigidbody.remove_existing_rigid_body_system(chr_rig, rig_prefix, rigid_body_system.name)
+                        else:
+                            has_rigid_body = True
+                            utils.hide_tree(rigid_body_system, hide=True)
+
 
     # clean up unused objects
     for obj in dst.objects:
         if obj not in keep:
             utils.delete_object(obj)
+
+    # init rigidy body world if needed
+    if has_rigid_body:
+        rigidbody.init_rigidbody_world()
+
 
 
 def reconnect_rl_character_to_fbx(chr_rig, fbx_path):
@@ -507,7 +600,7 @@ def reconnect_rl_character_to_fbx(chr_rig, fbx_path):
     chr_cache.rigified_full_face_rig = character_has_bones(chr_rig, ["nose", "lip.T", "lip.B"])
     chr_cache.add_object_cache(chr_rig)
 
-    rebuild_character_cache(chr_cache, chr_rig)
+    rebuild_character_cache(chr_cache, chr_rig, objects)
 
     return chr_cache
 
@@ -564,18 +657,18 @@ def reconnect_rl_character_to_blend(chr_rig, blend_file):
         # create the character cache and rebuild from the source data
         chr_cache = props.add_character_cache(copy_from=src_cache)
         # can't match objects accurately, so don't try (as they are no longer the same linked objects)
-        rebuild_character_cache(chr_cache, chr_rig, src_cache=src_cache)
+        rebuild_character_cache(chr_cache, chr_rig, objects, src_cache=src_cache)
         return chr_cache
 
     return None
 
 
-def rebuild_character_cache(chr_cache, chr_rig, src_cache=None):
+def rebuild_character_cache(chr_cache, chr_rig, objects, src_cache=None):
     props = vars.props()
     prefs = vars.prefs()
 
-    chr_cache.add_object_cache(chr_rig)
-    objects = get_character_objects(chr_rig)
+    if chr_rig:
+        chr_cache.add_object_cache(chr_rig)
 
     utils.log_info("")
     utils.log_info("Re-building Character Cache:")
@@ -719,7 +812,7 @@ def remove_object_from_character(chr_cache, obj):
                         if arm_mod:
                             obj.modifiers.remove(arm_mod)
 
-                        #obj.hide_set(True)
+                        #utils.hide(obj)
 
                         utils.clear_selected_objects()
                         # don't reselect the removed object as this may cause
@@ -939,7 +1032,8 @@ def clean_up_character_data(chr_cache):
 def has_missing_materials(chr_cache):
     missing_materials = False
     if chr_cache:
-        for obj_cache in chr_cache.object_cache:
+        for obj in chr_cache.get_cache_objects():
+            obj_cache = chr_cache.get_object_cache(obj)
             obj = obj_cache.get_mesh()
             if obj and not chr_cache.has_all_materials(obj.data.materials):
                 missing_materials = True
@@ -1335,6 +1429,8 @@ def transfer_skin_weights(chr_cache, objects):
         return
 
     body = None
+    # TODO if the body mesh has been split, this isn't going to work...
+    # maybe join all body object_id's together?
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type == "BODY":
             body = obj_cache.get_object()
@@ -1480,6 +1576,7 @@ def normalize_skin_weights(chr_cache, objects):
         return
 
     body = None
+    # TODO if the body mesh has been split, this isn't going to work...
     for obj_cache in chr_cache.object_cache:
         if obj_cache.object_type == "BODY":
             body = obj_cache.get_object()
@@ -1514,12 +1611,12 @@ def match_materials(chr_cache):
     chr_objects = []
     chr_materials = []
 
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.get_object()
-        if obj:
-            chr_objects.append(obj)
-            for mat in obj.data.materials:
-                chr_materials.append(mat)
+    objects = chr_cache.get_cache_objects()
+    for obj in objects:
+        obj_cache = chr_cache.get_object_cache(obj)
+        chr_objects.append(obj)
+        for mat in obj.data.materials:
+            chr_materials.append(mat)
 
     utils.log_info(f"Matching existing materials:")
     utils.log_indent()
@@ -1905,9 +2002,9 @@ class CCICCharacterLink(bpy.types.Operator):
                 else:
                     reconnect_rl_character_to_fbx(chr_rig, self.filepath)
         elif self.param == "LINK":
-            link_or_append_rl_character(self.filepath, link=True)
+            link_or_append_rl_character(self, context, self.filepath, link=True)
         elif self.param == "APPEND":
-            link_or_append_rl_character(self.filepath, link=False)
+            link_or_append_rl_character(self, context, self.filepath, link=False)
         return {"FINISHED"}
 
 
@@ -1916,6 +2013,7 @@ class CCICCharacterLink(bpy.types.Operator):
         prefs = vars.prefs()
         chr_cache = props.get_context_character_cache(context)
         chr_rig = utils.get_context_armature(context)
+        print(chr_rig, chr_cache)
 
         if self.param == "CONNECT":
             self.filter_glob = "*.fbx;*.blend"

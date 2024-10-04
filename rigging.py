@@ -1359,7 +1359,7 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mapping):
 
                 hidden = not obj.visible_get()
                 if hidden:
-                    obj.hide_set(False)
+                    utils.unhide(obj)
                 obj_cache = chr_cache.get_object_cache(obj)
 
                 if utils.try_select_object(obj, True) and utils.set_active_object(obj):
@@ -1385,7 +1385,7 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mapping):
                         arm_mod.object = rigify_rig
 
                 if hidden:
-                    obj.hide_set(True)
+                    utils.hide(obj)
 
     utils.log_recess()
     return result
@@ -1398,13 +1398,13 @@ def clean_up(chr_cache, cc3_rig, rigify_rig, meta_rig, remove_meta = False):
 
     utils.log_info("Cleaning Up...")
     rig_name = cc3_rig.name
-    cc3_rig.hide_set(True)
+    utils.hide(cc3_rig)
     # don't delete the meta_rig in advanced mode
     if remove_meta:
         utils.delete_armature_object(meta_rig)
         chr_cache.rig_meta_rig = None
     else:
-        meta_rig.hide_set(True)
+        utils.hide(meta_rig)
     rigify_rig.name = rig_name + "_Rigify"
     rigify_rig.data.name = rig_name + "_Rigify"
     if utils.object_mode():
@@ -1500,9 +1500,9 @@ def test_face_vgroups(rig, obj):
 
 def store_non_face_vgroups(chr_cache):
     utils.log_info("Storing non face vertex weights.")
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.is_mesh():
-            obj = obj_cache.get_object()
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled and obj_cache.is_mesh():
             if is_face_object(obj_cache, obj):
                 for vg in obj.vertex_groups:
                     if not is_face_def_bone(vg):
@@ -1511,9 +1511,9 @@ def store_non_face_vgroups(chr_cache):
 
 def restore_non_face_vgroups(chr_cache):
     utils.log_info("Restoring non face vertex weights.")
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.is_mesh():
-            obj = obj_cache.get_object()
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled and obj_cache.is_mesh():
             if is_face_object(obj_cache, obj):
                 for vg in obj.vertex_groups:
                     if vg.name.startswith("_tmp_shift_"):
@@ -1527,9 +1527,9 @@ def restore_non_face_vgroups(chr_cache):
 def lock_non_face_vgroups(chr_cache):
     utils.log_info("Locking non face vertex weights.")
     body = None
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.is_mesh():
-            obj = obj_cache.get_object()
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled and obj_cache.is_mesh():
             if is_face_object(obj_cache, obj):
                 if obj_cache.object_type == "BODY":
                     body = obj
@@ -1551,10 +1551,10 @@ def lock_non_face_vgroups(chr_cache):
 
 def unlock_vgroups(chr_cache):
     utils.log_info("Unlocking non face vertex weights.")
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.object_type in rigify_mapping_data.BODY_TYPES:
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled and obj_cache.object_type in rigify_mapping_data.BODY_TYPES:
             if obj_cache.is_mesh():
-                obj = obj_cache.get_object()
                 vg : bpy.types.VertexGroup
                 for vg in obj.vertex_groups:
                     vg.lock_weight = False
@@ -1583,9 +1583,9 @@ def mesh_clean_up(obj):
 def clean_up_character_meshes(chr_cache):
     face_objects = []
     arm = chr_cache.get_armature()
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.is_mesh():
-            obj = obj_cache.get_object()
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled and obj_cache.is_mesh():
             if is_face_object(obj_cache, obj):
                 face_objects.append(obj)
                 mesh_clean_up(obj)
@@ -1670,9 +1670,9 @@ def attempt_reparent_auto_character(chr_cache):
     rig = chr_cache.get_armature()
     utils.log_always("Attemping to parent the Body mesh to the Face Rig:")
     utils.log_always("If this fails, the face rig may not work and will need to re-parented by other means.")
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.is_mesh():
-            obj = obj_cache.get_object()
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled:
             if utils.object_exists_is_mesh(obj) and len(obj.data.vertices) >= 2 and is_face_object(obj_cache, obj):
                 obj_result = try_parent_auto(chr_cache, rig, obj)
                 if obj_result < result:
@@ -1688,9 +1688,9 @@ def attempt_reparent_voxel_skinning(chr_cache):
     head = None
     body = None
     dummy_cube = None
-    for obj_cache in chr_cache.object_cache:
-        if not obj_cache.disabled and obj_cache.is_mesh():
-            obj = obj_cache.get_object()
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled and obj_cache.is_mesh():
             if obj_cache.object_type == "BODY":
                 head = separate_head(obj)
                 body = obj
@@ -1779,9 +1779,9 @@ def get_original_rig_data(rigify_rig, cc3_rig):
 
 def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, to_original_rig=False):
 
-    source_rig.hide_set(False)
+    utils.unhide(source_rig)
     source_rig.data.pose_position = "POSE"
-    rigify_rig.hide_set(False)
+    utils.unhide(rigify_rig)
     rigify_rig.data.pose_position = "POSE"
 
     retarget_rig = bpy.data.objects.new(chr_cache.character_name + "_Retarget", bpy.data.armatures.new(chr_cache.character_name + "_Retarget"))
@@ -2324,14 +2324,14 @@ def adv_retarget_remove_pair(op, chr_cache):
 
     # remove all contraints on Rigify control bones
     if utils.object_exists(rigify_rig):
-        rigify_rig.hide_set(False)
+        utils.unhide(rigify_rig)
         if rigutils.select_rig(rigify_rig):
             for rigify_bone_name in rigify_mapping_data.RETARGET_RIGIFY_BONES:
                 bones.clear_constraints(rigify_rig, rigify_bone_name)
 
     # remove the retarget rig
     if utils.object_exists(retarget_rig):
-        retarget_rig.hide_set(False)
+        utils.unhide(retarget_rig)
         utils.delete_armature_object(retarget_rig)
     chr_cache.rig_retarget_rig = None
     chr_cache.rig_retarget_source_rig = None
@@ -2428,7 +2428,7 @@ def adv_retarget_pair_rigs(op, chr_cache, rig_override=None, action_override=Non
 
     utils.set_active_layer_collection(olc)
 
-    retarget_rig.hide_set(True)
+    utils.hide(retarget_rig)
 
     return retarget_rig
 
@@ -3414,7 +3414,7 @@ class CC3Rigifier(bpy.types.Operator):
 
         if utils.object_exists_is_armature(self.cc3_rig):
 
-            utils.make_visible(self.cc3_rig)
+            utils.unhide(self.cc3_rig)
 
             self.remove_cc3_rigid_body_systems(chr_cache)
             self.add_meta_rig(chr_cache)
@@ -3435,8 +3435,8 @@ class CC3Rigifier(bpy.types.Operator):
         roll_store = {}
 
         if utils.object_exists_is_armature(self.cc3_rig) and utils.object_exists_is_armature(self.meta_rig):
-            utils.make_visible(self.cc3_rig)
-            utils.make_visible(self.meta_rig)
+            utils.unhide(self.cc3_rig)
+            utils.unhide(self.meta_rig)
         else:
             return
 
@@ -3476,8 +3476,8 @@ class CC3Rigifier(bpy.types.Operator):
 
         if utils.object_exists_is_armature(self.cc3_rig) and utils.object_exists_is_armature(self.meta_rig):
 
-            utils.make_visible(self.cc3_rig)
-            utils.make_visible(self.meta_rig)
+            utils.unhide(self.cc3_rig)
+            utils.unhide(self.meta_rig)
 
             if utils.object_mode() and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
 
@@ -3540,8 +3540,8 @@ class CC3Rigifier(bpy.types.Operator):
 
         if utils.object_exists_is_armature(self.cc3_rig) and utils.object_exists_is_armature(self.meta_rig):
 
-            utils.make_visible(self.cc3_rig)
-            utils.make_visible(self.meta_rig)
+            utils.unhide(self.cc3_rig)
+            utils.unhide(self.meta_rig)
 
             if utils.object_mode() and utils.try_select_object(self.meta_rig) and utils.set_active_object(self.meta_rig):
 
@@ -3583,8 +3583,8 @@ class CC3Rigifier(bpy.types.Operator):
                     rigify_spring_rigs(chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                     add_shape_key_drivers(chr_cache, self.rigify_rig)
                     adjust_rigify_constraints(chr_cache, self.rigify_rig)
-                    self.cc3_rig.hide_set(True)
-                    self.meta_rig.hide_set(True)
+                    utils.hide(self.cc3_rig)
+                    utils.hide(self.meta_rig)
 
         utils.log_timer("Done Rigify Process!")
 

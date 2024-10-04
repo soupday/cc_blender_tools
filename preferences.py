@@ -95,7 +95,7 @@ def reset_datalink():
     prefs.datalink_disable_tweak_bones = True
     prefs.datalink_hide_prop_bones = True
     prefs.datalink_send_mode = "ACTIVE"
-    prefs.datalink_cc_match_only_avatar = True
+    prefs.datalink_match_any_avatar = True
 
 
 def reset_preferences():
@@ -453,8 +453,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                     ("ACTIVE","Active","Send only the active material in each of the selected meshes", "RESTRICT_SELECT_ON", 1),
                 ], default="ACTIVE",
                    name = "DataLink Send Mode")
-    datalink_cc_match_only_avatar: bpy.props.BoolProperty(default=True,
-                        description="When sending characters and animations from CC4, always match the avatar, if it is the only one in the scene or the one selected")
+    datalink_match_any_avatar: bpy.props.BoolProperty(default=True,
+                        description="When sending items and animations from CC4, always match with the current avatar: i.e. if it is the only one in the scene or the one selected")
 
     # convert
     convert_non_standard_type: bpy.props.EnumProperty(items=[

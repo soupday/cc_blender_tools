@@ -265,18 +265,17 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
         if not utils.object_exists_is_mesh(obj):
             continue
 
-        if chr_cache.collision_body == obj:
-            continue
-
         utils.log_info(f"Object: {obj.name} / {obj.data.name}")
         utils.log_indent()
 
         obj_name = obj.name
         obj_cache = chr_cache.get_object_cache(obj)
+        is_split = chr_cache.is_split_object(obj)
+        split_source_name = obj_cache.source_name if (is_split and obj_cache) else None
         source_changed = False
         is_new_object = False
 
-        if obj_cache:
+        if obj_cache and not is_split:
             obj_expected_source_name = utils.safe_export_name(utils.strip_name(obj_name))
             obj_source_name = obj_cache.source_name
             utils.log_info(f"Object source name: {obj_source_name}")
@@ -288,8 +287,9 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
                 obj_safe_name = obj_source_name
         else:
             is_new_object = True
-            obj_safe_name = utils.safe_export_name(obj_name)
+            obj_safe_name = utils.safe_export_name(obj_name, is_split=is_split)
             obj_source_name = obj_safe_name
+            obj["rl_do_not_restore_name"] = True
 
         # if the Object name has been changed in some way
         if obj_name != obj_safe_name or obj.data.name != obj_safe_name:
@@ -309,18 +309,18 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
                     utils.log_info(f"Updating Object source json name: {obj_source_name} to {new_obj_name}")
                 if physics_json and jsonutils.rename_json_key(physics_json, obj_source_name, new_obj_name):
                     utils.log_info(f"Updating Physics Object source json name: {obj_source_name} to {new_obj_name}")
+                obj_source_name = new_obj_name
             if not sync:
                 utils.force_object_name(obj, new_obj_name)
                 utils.force_mesh_name(obj.data, new_obj_name)
             obj_name = new_obj_name
             obj_safe_name = new_obj_name
-            obj_source_name = new_obj_name
 
         obj_names.append(obj_name)
 
         # fetch or create the object json
-        obj_json = jsonutils.get_object_json(chr_json, obj)
-        physics_mesh_json = jsonutils.get_physics_mesh_json(physics_json, obj)
+        obj_json = jsonutils.get_object_json(chr_json, obj_source_name)
+        physics_mesh_json = jsonutils.get_physics_mesh_json(physics_json, obj_source_name)
         if not obj_json:
             utils.log_info(f"Adding Object Json: {obj_name}")
             obj_json = copy.deepcopy(params.JSON_MESH_DATA)
@@ -392,7 +392,59 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
             mat_json = jsonutils.get_material_json(obj_json, mat)
             physics_mat_json = jsonutils.get_physics_material_json(physics_mesh_json, mat)
 
-            # try to create the material json data from the mat_cache shader def
+            # the object and materials may have been split from it's origin,
+            # so try to find the material in the source object json
+            if obj_cache and mat_cache and not mat_json and split_source_name:
+                split_obj_json = jsonutils.get_object_json(chr_json, split_source_name)
+                if split_obj_json:
+                    split_mat_json = jsonutils.get_material_json(split_obj_json, mat_source_name)
+                    if split_mat_json:
+                        utils.log_info(f"Copying Material Json: {mat_safe_name} from split source material: {split_source_name} / {mat_source_name}")
+                        mat_json = copy.deepcopy(split_mat_json)
+                if mat_json:
+                    obj_json["Materials"][mat_safe_name] = mat_json
+                    write_json = True
+                    write_textures = True
+
+            # then look for same material in source character objects
+            if mat_cache and not mat_json:
+                for other_obj_cache in chr_cache.object_cache:
+                    other = other_obj_cache.get_object()
+                    if utils.object_exists_is_mesh(other):
+                        if mat.name in other.data.materials:
+                            other_source_name = other_obj_cache.source_name
+                            other_obj_json = jsonutils.get_object_json(chr_json, other_source_name)
+                            if other_obj_json:
+                                other_mat_json = jsonutils.get_material_json(other_obj_json, mat_source_name)
+                                if other_mat_json:
+                                    utils.log_info(f"Copying Material Json: {mat_safe_name} from existing material Json in Obj: {other_source_name} / {mat_source_name}")
+                                    mat_json = copy.deepcopy(other_mat_json)
+                                    break
+                if mat_json:
+                    obj_json["Materials"][mat_safe_name] = mat_json
+                    write_json = True
+                    write_textures = True
+
+            # finally try to find a mat_json of the same shader type
+            # with the same source material name in any mesh in the json
+            if mat_cache and not mat_json:
+                for o_json_name, o_json in chr_json["Meshes"].items():
+                    for m_json_name, m_json in o_json["Materials"].items():
+                        if m_json_name.lower() == mat_source_name.lower():
+                            shader_name = params.get_rl_shader_name(mat_cache)
+                            m_shader_name = jsonutils.get_custom_shader(m_json)
+                            if shader_name == m_shader_name:
+                                utils.log_info(f"Copying Material Json: {mat_safe_name} from existing material Json of same name and type: {o_json_name} / {m_json_name}")
+                                mat_json = copy.deepcopy(m_json)
+                                break
+                    if mat_json:
+                        break
+                if mat_json:
+                    obj_json["Materials"][mat_safe_name] = mat_json
+                    write_json = True
+                    write_textures = True
+
+            # if still no json, try to create the material json data from the mat_cache shader def
             if mat_cache and not mat_json:
                 shader_name = params.get_shader_name(mat_cache)
                 json_template = params.get_mat_shader_template(mat_cache)
@@ -453,7 +505,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
                 utils.log_recess()
             else:
                 # add pbr material to json for non-cached base object/material
-                write_pbr_material_to_json(mat, mat_json, base_path, old_name, bake_values)
+                write_pbr_material_to_json(context, mat, mat_json, base_path, old_name, bake_values)
 
             # copy or remap the texture paths
             utils.log_info("Finalizing Texture Paths:")
@@ -1076,20 +1128,20 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
     """Fetch all the objects in the character (or try to)"""
     collider_collection = rigidbody.get_rigidbody_collider_collection()
     objects = []
-    if include_selected:
-        objects.extend(bpy.context.selected_objects)
+    selected = bpy.context.selected_objects.copy()
 
     if chr_cache:
         arm = chr_cache.get_armature()
         if arm:
-            arm.hide_set(False)
+            utils.unhide(arm)
             if arm not in objects:
                 objects.append(arm)
-            for obj_cache in chr_cache.object_cache:
+            chr_objects = chr_cache.get_cache_objects()
+            for obj in chr_objects:
+                obj_cache = chr_cache.get_object_cache(obj)
                 if obj_cache.is_mesh() and not obj_cache.disabled:
-                    obj = obj_cache.get_object()
                     if obj.parent == arm:
-                        obj.hide_set(False)
+                        utils.unhide(obj)
                         if obj not in objects:
                             objects.append(obj)
 
@@ -1107,15 +1159,15 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
                         continue
                     # add child mesh objects
                     if obj not in objects:
-                        utils.log_info(f"   Including Mesh Object: {obj.name}")
+                        utils.log_info(f"   Including Child Mesh Object: {obj.name}")
                         objects.append(obj)
                 elif utils.object_exists_is_empty(obj):
-                    utils.log_info(f"   Including Empty Transform: {obj.name}")
+                    utils.log_info(f"   Including Child Empty Transform: {obj.name}")
                     objects.append(obj)
     else:
         arm = utils.get_armature_from_objects(objects)
         if arm:
-            arm.hide_set(False)
+            utils.unhide(arm)
             if arm not in objects:
                 objects.append(arm)
             utils.log_info(f"Character Armature: {arm.name}")
@@ -1127,11 +1179,17 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
                         if collider_collection and obj.name in collider_collection.objects:
                             utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
                             continue
-                        utils.log_info(f"   Including Object: {obj.name}")
+                        utils.log_info(f"   Including Child Object: {obj.name}")
                         objects.append(obj)
                 elif utils.object_exists_is_empty(obj):
-                    utils.log_info(f"   Including Empty Transform: {obj.name}")
+                    utils.log_info(f"   Including Child Empty Transform: {obj.name}")
                     objects.append(obj)
+
+    # include selected objects last
+    if include_selected:
+        for obj in selected:
+            if obj not in objects:
+                objects.append(obj)
 
     # make sure all export objects are valid
     clean_objects = [ obj for obj in objects
@@ -1282,23 +1340,10 @@ def set_standard_generation(json_data, character_id, generation):
     jsonutils.set_character_generation_json(json_data, character_id, generation)
 
 
-def prep_non_standard_export(objects, dir, name, character_type):
+def prep_non_standard_export(context, objects, dir, name, character_type):
     global UNPACK_INDEX
     bake.init_bake()
     UNPACK_INDEX = 5001
-
-    changes = []
-    done = []
-    for obj in objects:
-        if obj not in done and obj.data:
-            changes.append(["OBJECT_RENAME", obj, obj.name, obj.data.name])
-            done.append(obj)
-        if obj.type == "MESH":
-            for mat in obj.data.materials:
-                if mat not in done:
-                    changes.append(["MATERIAL_RENAME", mat, mat.name])
-                    done.append(mat)
-    done.clear()
 
     # prefer to bake and unpack textures next to blend file, otherwise at the destination.
     blend_path = utils.local_path()
@@ -1306,7 +1351,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
         dir = blend_path
     utils.log_info(f"Texture Root Dir: {dir}")
 
-    json_data = jsonutils.generate_character_json_data(name)
+    json_data = jsonutils.generate_character_base_json_data(name)
 
     set_non_standard_generation(json_data, name, character_type, "Unknown")
 
@@ -1347,7 +1392,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
 
                     mesh_json["Materials"][mat.name] = mat_json
 
-                    write_pbr_material_to_json(mat, mat_json, dir, name, True)
+                    write_pbr_material_to_json(context, mat, mat_json, dir, name, True)
 
                 else:
 
@@ -1356,7 +1401,7 @@ def prep_non_standard_export(objects, dir, name, character_type):
     # select all the export objects
     utils.try_select_objects(objects, True)
 
-    return json_data, changes
+    return json_data
 
 #[ socket_path, node_label_match, source_type, tex_channel, strength_socket_path ]
 BSDF_TEXTURES = [
@@ -1385,7 +1430,7 @@ BSDF_TEXTURE_KEYWORDS = {
     "AO": ["occlusion", "lightmap", "intensity", ".ao$", "_ao$"],
 }
 
-def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
+def write_pbr_material_to_json(context, mat, mat_json, path, name, bake_values):
     if not mat.node_tree or not mat.node_tree.nodes:
         return
 
@@ -1467,7 +1512,7 @@ def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
                         socket_mapping[tex_id] = [bsdf_node, "Metallic", True, strength]
 
 
-        write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, bsdf_node, path, bake_path, unpack_path)
+        write_or_bake_tex_data_to_json(context, socket_mapping, mat, mat_json, bsdf_node, path, bake_path, unpack_path)
 
     else:
         # if there is no BSDF shader node, try to match textures by name (both image node name and image name)
@@ -1479,7 +1524,7 @@ def write_pbr_material_to_json(mat, mat_json, path, name, bake_values):
                         if re.match(key, node.image.name.lower()) or re.match(key, node.label.lower()) or re.match(key, node.name.lower()):
                             socket_mapping[tex_id] = [node, "Color", False, 100.0]
 
-        write_or_bake_tex_data_to_json(socket_mapping, mat, mat_json, None, path, bake_path, unpack_path)
+        write_or_bake_tex_data_to_json(context, socket_mapping, mat, mat_json, None, path, bake_path, unpack_path)
 
     return
 
@@ -1735,7 +1780,7 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
 
         json_data = chr_cache.get_json_data()
         if not json_data:
-            json_data = jsonutils.generate_character_json_data(name)
+            json_data = jsonutils.generate_character_base_json_data(name)
             set_character_generation(json_data, chr_cache, name)
 
         # export objects
@@ -1821,7 +1866,7 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
         # select all the imported objects (should be just one)
         for p in chr_cache.object_cache:
             if p.object is not None and p.object.type == "MESH" and not p.disabled:
-                p.object.hide_set(False)
+                utils.unhide(p.object)
                 p.object.select_set(True)
 
         obj_export(file_path, use_selection=True,
@@ -1842,7 +1887,7 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
     utils.log_timer("Done Character Export.")
 
 
-def export_non_standard(self, file_path, include_selected):
+def export_non_standard(self, context, file_path, include_selected):
     """Exports non-standard character (unconverted and not rigified) to CC4 with json data and textures, as an .fbx file.
     """
 
@@ -1877,7 +1922,7 @@ def export_non_standard(self, file_path, include_selected):
 
     utils.log_info("Generating JSON data for export:")
     utils.log_indent()
-    json_data, object_state = prep_non_standard_export(objects, dir, name, prefs.export_non_standard_mode)
+    json_data = prep_non_standard_export(context, objects, dir, name, prefs.export_non_standard_mode)
 
     utils.log_recess()
     utils.log_info("Preparing character for export:")
@@ -1962,17 +2007,18 @@ def export_to_unity(self, context, chr_cache, export_anim, file_path, include_se
 
     json_data = chr_cache.get_json_data()
     if not json_data:
-        json_data = jsonutils.generate_character_json_data(name)
+        json_data = jsonutils.generate_character_base_json_data(name)
         set_character_generation(json_data, chr_cache, name)
 
     utils.log_info("Preparing character for export:")
     utils.log_indent()
 
-    # remove the collision mesh proxy
+    # remove any collision proxies
     if utils.is_file_ext(ext, "BLEND"):
-        if utils.object_exists_is_mesh(chr_cache.collision_body):
-            utils.delete_mesh_object(chr_cache.collision_body)
-            chr_cache.collision_body = None
+        for obj in chr_cache.get_cache_objects():
+            proxy = chr_cache.get_collision_proxy(obj)
+            if proxy:
+                utils.delete_object_tree(proxy)
 
     # export objects
     objects = get_export_objects(chr_cache, include_selected)
@@ -2110,10 +2156,12 @@ def update_to_unity(self, context, chr_cache, export_anim, include_selected):
     utils.log_info("Preparing character for export:")
     utils.log_indent()
 
-    # remove the collision mesh proxy
-    if utils.object_exists_is_mesh(chr_cache.collision_body):
-        utils.delete_mesh_object(chr_cache.collision_body)
-        chr_cache.collision_body = None
+    # remove any collision proxies
+    if utils.is_file_ext(ext, "BLEND"):
+        for obj in chr_cache.get_cache_objects():
+            proxy = chr_cache.get_collision_proxy(obj)
+            if proxy:
+                utils.delete_object_tree(proxy)
 
     objects = get_export_objects(chr_cache, include_selected)
 
@@ -2182,12 +2230,6 @@ def export_rigify(self, context, chr_cache, export_anim, file_path, include_sele
 
     utils.log_info("Preparing character for export:")
     utils.log_indent()
-
-    # remove the collision mesh proxy for .blend exports
-    if utils.is_file_ext(ext, "BLEND"):
-        if utils.object_exists_is_mesh(chr_cache.collision_body):
-            utils.delete_mesh_object(chr_cache.collision_body)
-            chr_cache.collision_body = None
 
     # export objects
     objects = get_export_objects(chr_cache, include_selected)
@@ -2442,7 +2484,7 @@ class CC3Export(bpy.types.Operator):
 
         elif self.param == "EXPORT_NON_STANDARD":
 
-            export_non_standard(self, self.filepath, self.include_selected)
+            export_non_standard(self, context, self.filepath, self.include_selected)
             self.error_report()
 
 

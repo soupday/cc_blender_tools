@@ -296,6 +296,8 @@ def rigid_body_sim_ui(chr_cache, arm, obj, layout : bpy.types.UILayout,
     rigid_body_sim = rigidbody.get_spring_rigid_body_system(arm, prefix)
     has_spring_rig = springbones.has_spring_rig(chr_cache, arm, parent_mode)
 
+    disable_on_linked(layout, chr_cache)
+
     box = layout.box()
     if fake_drop_down(box.row(),
             "Rigid Body Sim",
@@ -478,7 +480,7 @@ def cache_timeline_physics_ui(chr_cache, layout : bpy.types.UILayout):
         row.operator("ptcache.bake_all", text="Bake All Dynamics", icon="REC", depress=all_depress).bake = True
 
 
-def character_tools_ui(context, layout):
+def character_tools_ui(context, layout: bpy.types.UILayout):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -521,14 +523,20 @@ def character_tools_ui(context, layout):
     else:
         box.label(text=f"{chr_name}", icon="TOOL_SETTINGS")
     col = layout.column(align=True)
+
     grid = col.grid_flow(row_major=True, columns=2, align=True)
     grid.scale_y = 1.5
     grid.operator("cc3.character", icon="RESTRICT_SELECT_OFF", text="Select").param = "SELECT_ACTOR_ALL"
     grid.operator("cc3.character", icon="ARMATURE_DATA", text="Select Rig").param = "SELECT_ACTOR_RIG"
-    grid.operator("ccic.rename_character", icon="GREASEPENCIL", text="Edit")
-    grid.operator("cc3.character", icon="DUPLICATE", text="Duplicate").param = "DUPLICATE"
+    row1 = grid.row(align=True)
+    row1.operator("ccic.rename_character", icon="GREASEPENCIL", text="Edit")
+    row2 = grid.row(align=True)
+    row2.operator("cc3.character", icon="DUPLICATE", text="Duplicate").param = "DUPLICATE"
     if not chr_cache:
         grid.enabled = False
+    if is_linked_or_override(chr_cache):
+        row1.enabled = False
+        row2.enabled = False
 
     split = col.split(factor=0.5, align=True)
     col_1 = split.column(align=True)
@@ -696,6 +704,19 @@ def render_prefs_ui(layout: bpy.types.UILayout):
                 col_2.prop(prefs, "eevee_micro_normal_b341", text = "")
             col_1.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_EEVEE"
             col_2.operator("cc3.setproperties", icon="DECORATE_DRIVER", text="Update").param = "APPLY_ALL"
+
+
+def is_linked_or_override(chr_cache):
+    linked_or_override = False
+    if chr_cache:
+        arm = chr_cache.get_armature()
+        if arm:
+            linked_or_override = utils.obj_is_override(arm) or utils.obj_is_linked(arm)
+    return linked_or_override
+
+
+def disable_on_linked(layout, chr_cache):
+    layout.enabled = not is_linked_or_override(chr_cache)
 
 
 class ARMATURE_UL_List(bpy.types.UIList):
@@ -916,6 +937,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 box.label(text="Name: " + chr_cache.character_name)
         else:
             box.label(text="No Character")
+        disable_on_linked(box, chr_cache)
 
         # Build Settings
 
@@ -982,19 +1004,31 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         # Build Button
         if chr_cache:
             box = layout.box()
-            box.row().label(text="Rebuild Materials", icon="MOD_BUILD")
-            row = box.row()
+            box.row().label(text="Rebuild", icon="MOD_BUILD")
+
+            col = box.column()
+            row = col.row()
             row.scale_y = 2
             if chr_cache.setup_mode == "ADVANCED":
                 op = row.operator("cc3.importer", icon="SHADING_TEXTURE", text="Rebuild Materials").param ="BUILD"
             else:
                 op = row.operator("cc3.importer", icon="NODE_MATERIAL", text="Rebuild Materials").param ="BUILD"
+
+            row = col.row()
+            row.scale_y = 1
+            op = row.operator("cc3.importer", icon="DRIVER", text="Rebuild Drivers").param ="BUILD_DRIVERS"
+
+            row = col.row()
+            row.scale_y = 1
+            op = row.operator("cc3.importer", icon="X", text="Remove Drivers").param ="REMOVE_DRIVERS"
+
             row = box.row()
             row.prop(props, "build_mode", expand=True)
             box.row().operator("cc3.setproperties", icon="DECORATE_OVERRIDE", text="Reset All Parameters").param = "RESET_ALL"
             row = box.row()
             row.scale_y = 1.5
             row.operator("cc3.importer", icon="MOD_BUILD", text="Rebuild Shaders").param ="REBUILD_NODE_GROUPS"
+            disable_on_linked(box, chr_cache)
 
         # Material Setup
         layout.box().label(text="Object & Material Setup", icon="MATERIAL")
@@ -1040,6 +1074,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         op.param = "SINGLE_SIDED"
         op = col_2.operator("cc3.setmaterials", icon="XRAY", text="Double Sided")
         op.param = "DOUBLE_SIDED"
+        disable_on_linked(column, chr_cache)
 
 
 class CC3ObjectManagementPanel(bpy.types.Panel):
@@ -1065,6 +1100,8 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
             generic_rig = characters.get_generic_rig(context.selected_objects)
             if generic_rig:
                 arm = generic_rig
+
+        disable_on_linked(layout, chr_cache)
 
         rigified = chr_cache and chr_cache.rigified
         is_standard = chr_cache and chr_cache.is_standard()
@@ -1238,6 +1275,8 @@ class CC3SpringRigPanel(bpy.types.Panel):
             row = layout.row()
             row.alert = True
             row.label(icon="ERROR", text="Invalid Character")
+
+        disable_on_linked(layout, chr_cache)
 
         # Hair Cards & Spring Bone Rig
 
@@ -1436,6 +1475,8 @@ class CC3HairPanel(bpy.types.Panel):
         prefs = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
+        disable_on_linked(layout, chr_cache)
+
         # Blender Curve Hair
 
         if fake_drop_down(layout.box().row(),
@@ -1499,7 +1540,7 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
             #    column.template_list("MATERIAL_UL_weightedmatslots", "", obj, "material_slots", obj, "active_material_index", rows=1)
 
             column = layout.column()
-            column.enabled = not utils.obj_is_linked(obj)
+            column.enabled = not (utils.obj_is_linked(obj))
             row = column.row()
             row.prop(props, "update_mode", expand=True)
 
@@ -1873,6 +1914,8 @@ class CC3RigifyPanel(bpy.types.Panel):
         layout = self.layout
         layout.use_property_split = False
         layout.use_property_decorate = False
+
+        disable_on_linked(layout, chr_cache)
 
         width = get_layout_width(context, "UI")
 
@@ -2416,6 +2459,8 @@ class CC3SpringControlPanel(bpy.types.Panel):
 
         if not springbones.has_spring_rigs(chr_cache, arm): return
 
+        disable_on_linked(layout, chr_cache)
+
         #box = layout.box()
         #box.label(text="Spring Rig Layers", icon="XRAY")
         layout.row().label(text="Spring Rig Layers:", icon="XRAY")
@@ -2669,6 +2714,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
             else:
                 coll_mod = modifiers.get_collision_physics_mod(obj)
 
+        disable_on_linked(layout, chr_cache)
 
         mat = utils.get_context_material(context)
         edit_mod, mix_mod = modifiers.get_material_weight_map_mods(obj, mat)
@@ -2796,7 +2842,7 @@ class CC3ToolsPhysicsPanel(bpy.types.Panel):
 
         if obj_cache and cloth_mod is None:
             if proxy:
-                local_view = utils.is_local_view(context) and proxy is not None and proxy.visible_get()
+                local_view = proxy is not None and proxy.visible_get()
                 column.row().operator("cc3.setphysics", icon=utils.check_icon("HIDE_OFF"), text="Show Collision Proxy",
                                   depress=local_view).param = "TOGGLE_SHOW_PROXY"
             else:
@@ -2991,6 +3037,8 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
         prefs = vars.prefs()
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
+
+        disable_on_linked(layout, chr_cache)
 
         target_cache = None
         if chr_cache and len(bpy.context.selected_objects) >= 2:
@@ -3345,10 +3393,10 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2.prop(prefs, "datalink_retarget_prop_actions", text="")
             col_1.label(text="Hide Prop Bones")
             col_2.prop(prefs, "datalink_hide_prop_bones", text="")
-            col_1.label(text="Disable Leg Stretch")
-            col_2.prop(prefs, "datalink_disable_tweak_bones", text="")
-            col_1.label(text="CC4 Always Match Avatar")
-            col_2.prop(prefs, "datalink_cc_match_only_avatar", text="")
+            #col_1.label(text="Disable Leg Stretch")
+            #col_2.prop(prefs, "datalink_disable_tweak_bones", text="")
+            col_1.label(text="Match Current Avatar")
+            col_2.prop(prefs, "datalink_match_any_avatar", text="")
             box.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_DATALINK"
 
         if True:
@@ -3471,6 +3519,8 @@ class CCICProportionPanel(bpy.types.Panel):
 
         layout = self.layout
         chr_cache = props.get_context_character_cache(context)
+
+        disable_on_linked(layout, chr_cache)
 
         if chr_cache:
             row = layout.row()
@@ -3847,6 +3897,7 @@ class CCICBakePanel(bpy.types.Panel):
         mat = utils.get_context_material(context)
         chr_cache = props.get_character_cache(obj, mat)
         bake_cache = bake.get_export_bake_cache(mat)
+        disable_on_linked(layout, chr_cache)
 
         if bake_props.custom_sizes:
 

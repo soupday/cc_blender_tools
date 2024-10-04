@@ -159,7 +159,7 @@ class LinkActor():
                 return
 
     @staticmethod
-    def find_actor(link_id, search_name=None, search_type=None):
+    def find_actor(link_id, search_name=None, search_type=None, context_chr_cache=None):
         props = vars.props()
         prefs = vars.prefs()
 
@@ -186,21 +186,22 @@ class LinkActor():
                     return actor
             utils.log_detail(f"Chr not found by name")
 
-        # finally if connected to character creator fall back to the first character
-        # or current context character
-        # as character creator only ever has one character in the scene.
-        if (prefs.datalink_cc_match_only_avatar and
-            get_link_data().is_cc() and
-            search_type == "AVATAR"):
-                if len(props.get_avatars()) == 1:
-                    chr_cache = props.get_first_avatar()
-                else:
-                    chr_cache = props.get_context_character_cache()
-                if chr_cache:
-                    utils.log_detail(f"Falling back to first Chr Avatar: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
-                    actor = LinkActor(chr_cache)
-                    actor.add_alias(link_id)
-                    return actor
+        # finally if matching to any avatar, trying to find an avatar and there is only
+        # one avatar in the scene, use that one avatar, otherwise use the selected avatar
+        if prefs.datalink_match_any_avatar and search_type == "AVATAR":
+            chr_cache = None
+            if len(props.get_avatars()) == 1:
+                chr_cache = props.get_first_avatar()
+            else:
+                if not context_chr_cache:
+                    context_chr_cache = props.get_context_character_cache()
+                if context_chr_cache and context_chr_cache.is_avatar():
+                    chr_cache = context_chr_cache
+            if chr_cache:
+                utils.log_detail(f"Falling back to first Chr Avatar: {chr_cache.character_name} / {chr_cache.link_id} -> {link_id}")
+                actor = LinkActor(chr_cache)
+                actor.add_alias(link_id)
+                return actor
 
         utils.log_info(f"LinkActor not found: {search_name} {link_id} {search_type}")
         return actor
@@ -502,12 +503,12 @@ def make_datalink_import_rig(actor: LinkActor):
     if not chr_rig:
         utils.log_error(f"make_datalink_import_rig - Invalid Actor armature: {actor.name}")
         return None
-    chr_rig.hide_set(False)
+    utils.unhide(chr_rig)
     chr_cache = actor.get_chr_cache()
     is_prop = actor.get_type() == "PROP"
 
     if utils.object_exists_is_armature(chr_cache.rig_datalink_rig):
-        chr_cache.rig_datalink_rig.hide_set(False)
+        utils.unhide(chr_cache.rig_datalink_rig)
         #utils.log_info(f"Using existing datalink transfer rig: {chr_cache.rig_datalink_rig.name}")
         return chr_cache.rig_datalink_rig
 
@@ -550,7 +551,7 @@ def make_datalink_import_rig(actor: LinkActor):
         utils.safe_set_action(datalink_rig, None)
 
     utils.object_mode_to(datalink_rig)
-    datalink_rig.hide_set(True)
+    utils.hide(datalink_rig)
 
     chr_cache.rig_datalink_rig = datalink_rig
 
@@ -582,7 +583,7 @@ def remove_datalink_import_rig(actor: LinkActor):
             else:
                 # remove all contraints on the character rig
                 if utils.object_exists(chr_rig):
-                    chr_rig.hide_set(False)
+                    utils.unhide(chr_rig)
                     if utils.object_mode_to(chr_rig):
                         for pose_bone in chr_rig.pose.bones:
                             bones.clear_constraints(chr_rig, pose_bone.name)
@@ -1783,7 +1784,7 @@ class LinkService():
             export_dir, json_file = os.path.split(export_path)
             json_data = chr_cache.get_json_data()
             if not json_data:
-                json_data = jsonutils.generate_character_json_data(actor.name)
+                json_data = jsonutils.generate_character_base_json_data(actor.name)
                 exporter.set_character_generation(json_data, chr_cache, actor.name)
             exporter.prep_export(context, chr_cache, actor.name, objects, json_data,
                                  chr_cache.get_import_dir(), export_dir,
@@ -2404,7 +2405,7 @@ class LinkService():
                     light.data.contact_shadow_distance = 0.1
                     light.data.contact_shadow_bias = 0.03
                     light.data.contact_shadow_thickness = 0.001
-            light.hide_set(not light_data["active"])
+            utils.hide(light, not light_data["active"])
 
         # clean up lights not found in scene
         for obj in bpy.data.objects:
@@ -3111,6 +3112,8 @@ class LinkService():
 
         props.validate_and_clean_up()
 
+        context_chr_cache = props.get_context_character_cache()
+
         json_data = decode_to_json(data)
         fbx_path = json_data["path"]
         name = json_data["name"]
@@ -3133,7 +3136,7 @@ class LinkService():
         bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=temp_link_id, process_only=process_only)
 
         # the actor to replace
-        actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
+        actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type, context_chr_cache=context_chr_cache)
         rig: bpy.types.Object = actor.get_armature()
         rig_action = utils.safe_get_action(rig)
         utils.log_info(f"Character Rig: {rig.name} / {rig_action.name}")
@@ -3148,6 +3151,9 @@ class LinkService():
         # can happen if the link_id's don't match
         if chr_cache == temp_chr_cache:
             utils.log_error("Character replacement and original are the same!")
+            update_link_status(f"Error! Character Mismatch")
+            temp_chr_cache.invalidate()
+            temp_chr_cache.delete()
             return
 
         if not replace_all:
@@ -3164,23 +3170,51 @@ class LinkService():
 
                 # find and invalidate the cache data for the objects/materials being replaced
                 original_data = {}
+                done = []
+
+                # source cache objects and split meshes are treated separately here
                 for obj_cache in chr_cache.object_cache:
-                    if obj_cache.source_name in objects_to_replace_names:
-                        obj = obj_cache.get_object()
-                        if obj:
-                            original_data[obj_cache.source_name] = {
-                                    "name": obj.name,
-                                    "object_id": obj_cache.object_id
-                                }
-                            if obj.type == "MESH":
-                                for mat in obj.data.materials:
-                                    if chr_cache.count_material(mat) <= 1:
-                                        mat_cache = chr_cache.get_material_cache(mat)
-                                        if mat_cache:
-                                            mat_cache.invalidate()
-                                            mat_cache.delete()
-                        obj_cache.invalidate()
-                        obj_cache.delete()
+                    obj = obj_cache.get_object()
+                    if obj not in done:
+                        done.append(obj)
+                        if obj_cache.source_name in objects_to_replace_names:
+                            if obj:
+                                original_data[obj_cache.source_name] = {
+                                        "name": obj.name,
+                                        "object_id": obj_cache.object_id
+                                    }
+                                if obj.type == "MESH":
+                                    for mat in obj.data.materials:
+                                        if chr_cache.count_material(mat) <= 1:
+                                            mat_cache = chr_cache.get_material_cache(mat)
+                                            if mat_cache:
+                                                mat_cache.invalidate()
+                                                mat_cache.delete()
+                            obj_cache.invalidate()
+                            obj_cache.delete()
+
+                to_delete = []
+                for child in rig.children:
+                    if child not in done and utils.object_exists_is_mesh(child):
+                        done.append(child)
+                        child_source_name = utils.strip_name(child.name)
+                        if child_source_name in objects_to_replace_names:
+                            obj_cache = chr_cache.get_object_cache(child)
+                            if obj_cache:
+                                original_data[child_source_name] = {
+                                        "name": child.name,
+                                        "object_id": obj_cache.object_id
+                                    }
+                                if child.type == "MESH":
+                                    for mat in child.data.materials:
+                                        if chr_cache.count_material(mat) <= 1:
+                                            mat_cache = chr_cache.get_material_cache(mat)
+                                            if mat_cache:
+                                                mat_cache.invalidate()
+                                                mat_cache.delete()
+                                to_delete.append(child)
+
+                utils.delete_objects(to_delete, log=True)
 
                 # reparent the replacements to the actor rig
                 new_objects = []
@@ -3283,7 +3317,7 @@ class LinkService():
             if temp_rig:
                 utils.delete_object_tree(temp_rig)
 
-        else:
+        else: # replace_all
 
             if rig and temp_rig:
 

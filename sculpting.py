@@ -196,8 +196,8 @@ def do_multires_bake(context, chr_cache, body, layer_target, apply_shape = False
 
         utils.log_info("Transfering sculpt base shape to source body...")
 
-        norm_body.hide_set(False)
-        source_body.hide_set(False)
+        utils.unhide(norm_body)
+        utils.unhide(source_body)
         copy_base_shape(norm_body, source_body, layer_target, True)
 
         # if there is a detail sculpt body, update that with the new base shape too
@@ -524,7 +524,7 @@ def get_layer_target_mesh(chr_cache, layer_target):
 
 def bake_multires_sculpt(context, chr_cache, layer_target, apply_shape = False, source_body = None):
     multi_res_mesh = get_layer_target_mesh(chr_cache, layer_target)
-    multi_res_mesh.hide_set(False)
+    utils.unhide(multi_res_mesh)
     # make sure to go into object mode otherwise the sculpt is not applied.
     if utils.object_mode_to(multi_res_mesh):
         setup_bake_nodes(chr_cache, multi_res_mesh, layer_target)
@@ -539,19 +539,19 @@ def set_hide_character(chr_cache, hide):
     if utils.object_exists(arm):
         for child in arm.children:
             if utils.object_exists(child):
-                child.hide_set(hide)
-    for obj_cache in chr_cache.object_cache:
-        obj = obj_cache.get_object()
-        if not obj_cache.disabled and obj:
-            obj.hide_set(hide)
-    arm.hide_set(hide)
+                utils.hide(child, hide)
+    for obj in chr_cache.get_cache_objects():
+        obj_cache = chr_cache.get_object_cache(obj)
+        if obj_cache and not obj_cache.disabled:
+            utils.hide(obj, hide)
+    utils.hide(arm, hide)
 
 
 def begin_multires_sculpting(context, chr_cache, layer_target):
     multi_res_mesh = get_layer_target_mesh(chr_cache, layer_target)
     if utils.object_exists_is_mesh(multi_res_mesh):
         set_hide_character(chr_cache, True)
-        multi_res_mesh.hide_set(False)
+        utils.unhide(multi_res_mesh)
         utils.object_mode()
         utils.set_only_active_object(multi_res_mesh)
         #bpy.ops.view3d.view_selected()
@@ -574,7 +574,7 @@ def end_multires_sculpting(context, chr_cache, layer_target, show_baked = False)
         set_multi_res_level(multi_res_mesh, view_level=9)
     utils.object_mode()
     set_hide_character(chr_cache, False)
-    multi_res_mesh.hide_set(True)
+    utils.hide(multi_res_mesh)
     utils.set_only_active_object(body)
     shading = utils.get_view_3d_shading(context)
     if shading:

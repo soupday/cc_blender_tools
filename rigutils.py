@@ -1216,13 +1216,13 @@ def apply_as_rest_pose(rig):
             if utils.object_exists(obj):
                 vis = obj.visible_get()
                 if not vis:
-                    obj.hide_set(False)
+                    utils.unhide(obj)
                 mod: bpy.types.ArmatureModifier = modifiers.get_object_modifier(obj, "ARMATURE")
                 if mod:
                     # apply armature modifier with preserve settings and mod order
                     modifiers.apply_modifier(obj, modifier=mod, preserving=True)
                     modifiers.get_armature_modifier(obj, create=True, armature=rig)
-                obj.hide_set(not vis)
+                utils.hide(obj, not vis)
     if pose_rig(rig):
         bpy.ops.pose.armature_apply(selected=False)
     utils.object_mode_to(rig)
@@ -1414,27 +1414,35 @@ def update_avatar_rig(rig):
         # disable all stretch-to tweak constraints and hide tweak bones...
         # tweak bones are not fully compatible with CC/iC animation (probably Blender only)
         # and cause positioning errors as they stretch/compress the bones.
-        if prefs.datalink_disable_tweak_bones:
-            disable = True
-            influence = 0.0
-        else:
-            disable = False
-            influence = 1.0
-        pose_bone: bpy.types.PoseBone
-        for pose_bone in rig.pose.bones:
-            if pose_bone.name in DISABLE_TWEAK_STRETCH_FOR:
-                if disable:
-                    bones.set_bone_color(pose_bone, "TWEAK_DISABLED")
-                else:
-                    bones.set_bone_color(pose_bone, "TWEAK")
-            elif prefs.datalink_disable_tweak_bones and pose_bone.name in DISABLE_TWEAK_STRETCH_IN:
-                for con in pose_bone.constraints:
-                    if con.type == "STRETCH_TO":
-                        if "tweak" in con.subtarget:
-                            con.influence = influence
-            # disable IK stretch
-            if "IK_Stretch" in pose_bone:
-                pose_bone["IK_Stretch"] = 0.0
+        # NOTE: Seems to have been because of a bug in Blender 4.1, fixed in 4.2 so disabling this...
+        if False:
+            if prefs.datalink_disable_tweak_bones:
+                disable = True
+                influence = 0.0
+            else:
+                disable = False
+                influence = 1.0
+            pose_bone: bpy.types.PoseBone
+            for pose_bone in rig.pose.bones:
+                if pose_bone.name in DISABLE_TWEAK_STRETCH_FOR:
+                    if disable:
+                        bones.set_bone_color(pose_bone, "TWEAK_DISABLED")
+                    else:
+                        bones.set_bone_color(pose_bone, "TWEAK")
+                elif prefs.datalink_disable_tweak_bones and pose_bone.name in DISABLE_TWEAK_STRETCH_IN:
+                    for con in pose_bone.constraints:
+                        if con.type == "STRETCH_TO":
+                            if "tweak" in con.subtarget:
+                                con.influence = influence
+                # disable IK stretch
+                if "IK_Stretch" in pose_bone:
+                    pose_bone["IK_Stretch"] = 0.0
+        else: # just disable IK Stretch...
+            pose_bone: bpy.types.PoseBone
+            for pose_bone in rig.pose.bones:
+                # disable IK stretch
+                if "IK_Stretch" in pose_bone:
+                    pose_bone["IK_Stretch"] = 0.0
 
 
 def update_prop_rig(rig):
@@ -1598,7 +1606,15 @@ def get_custom_widgets():
 
 def set_bone_shape_scale(pose_bone: bpy.types.PoseBone, scale):
     try:
-        pose_bone.custom_shape_scale_xyz = Vector((scale,scale,scale))
+        if type(scale) is float or type(scale) is int:
+            S = Vector((scale, scale, scale))
+        elif type(scale) is list or type(scale) is tuple:
+            S = Vector(scale)
+        elif type(scale) is Vector:
+            S = scale
+        else:
+            return False
+        pose_bone.custom_shape_scale_xyz = S
         return True
     except:
         pass
