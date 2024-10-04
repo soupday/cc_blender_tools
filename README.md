@@ -39,9 +39,9 @@ Links
 - Sets up Rigidbody physics when _appending_ a character from another library blend file via the Append button in the import panel.
     - Note: Rigidbody physics does *not* work with linked character _overrides_.
 - Export non-standard character fix.
-- Support for split meshes when exporting, rebuilding materials & rigging:
+- Support for split meshes when exporting, rebuilding materials, physics & rigging:
     - Any mesh separated or duplicated from a source character mesh will be considered part of the character and an extension of that object.
-    - For split body meshes, the mesh with the head will be used as the source for facial expression drivers.
+    - For split body meshes, the mesh with the head will be used as the source for facial expression drivers and wrinkle map drivers.
     - Note: Split *body* meshes will _not_ import back into CC4 as standard CC3+ characters.
 - Added buttons to rebuild and to remove just the expression and bone drivers to the Character Build Settings panel.
 
