@@ -2012,19 +2012,21 @@ class CC3RigifyPanel(bpy.types.Panel):
                         if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
                             grid = layout.grid_flow(columns=2, row_major=True, align=True)
                             grid.prop(prefs, "rigify_build_face_rig", text = "Face Rig", toggle=True)
-                            if chr_cache.rig_mode == "QUICK":
-                                grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
-                                if prefs.rigify_auto_retarget:
-                                    # retarget/bake motion prefix
-                                    row = layout.row()
-                                    split = row.split(factor=0.45)
-                                    split.column().label(text="Motion Prefix")
-                                    row = split.column().row(align=True)
-                                    row.prop(props, "rigify_retarget_motion_prefix", text="")
-                                    icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
-                                    row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
                             if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
                                 wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
+                        else:
+                            grid = layout.grid_flow(columns=1, row_major=True, align=True)
+
+                        grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
+                        if prefs.rigify_auto_retarget:
+                            # retarget/bake motion prefix
+                            row = layout.row()
+                            split = row.split(factor=0.45)
+                            split.column().label(text="Motion Prefix")
+                            row = split.column().row(align=True)
+                            row.prop(props, "rigify_retarget_motion_prefix", text="")
+                            icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
+                            row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
 
                         if chr_cache.rig_mode == "QUICK":
 
