@@ -1802,7 +1802,7 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
         use_rest_pose = chr_cache.is_avatar()
         remove_modifiers_for_export(chr_cache, objects, use_rest_pose)
 
-        revert_duplicates = prefs.export_revert_names
+        revert_duplicates = prefs.export_revert_material_names
         prep_export(context, chr_cache, name, objects, json_data, chr_cache.get_import_dir(),
                     dir, self.include_textures, revert_duplicates, True, False, True)
 
