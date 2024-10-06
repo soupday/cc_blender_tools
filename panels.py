@@ -3710,8 +3710,8 @@ class CC3ToolsPipelineExportPanel(bpy.types.Panel):
                     column.prop(prefs, "export_bake_bump_to_normal")
             column.separator()
             column.label(text="Legacy Options (CC3):")
-            column.prop(prefs, "export_bone_roll_fix")
-            column.prop(prefs, "export_revert_material_names")
+            column.prop(prefs, "export_legacy_bone_roll_fix")
+            column.prop(prefs, "export_legacy_revert_material_names")
 
         if chr_cache and chr_cache.rigified:
             rigify_export_group(chr_cache, layout)

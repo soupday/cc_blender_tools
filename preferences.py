@@ -117,13 +117,13 @@ def reset_preferences():
     prefs.max_texture_size = 4096
     prefs.export_json_changes = True
     prefs.export_texture_changes = True
-    prefs.export_bone_roll_fix = False
+    prefs.export_legacy_bone_roll_fix = False
     prefs.export_bake_nodes = False
     prefs.export_bake_bump_to_normal = True
     prefs.export_unity_remove_objects = True
     prefs.export_texture_size = "2048"
     prefs.export_require_key = True
-    prefs.export_revert_material_names = False
+    prefs.export_legacy_revert_material_names = False
     prefs.import_auto_convert = True
     prefs.import_deduplicate = True
     prefs.build_pack_texture_channels = False
@@ -246,14 +246,14 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     export_require_key: bpy.props.BoolProperty(default=True, name="Export Require Key", description="Ensure that exports back to CC3 have a valid Fbx/Obj Key file")
 
-    export_json_changes: bpy.props.BoolProperty(default=True, name="Material parameters", description="Export all material and shader parameter changes to the character Json data. Setting to False keeps original material and shader parameters.")
+    export_json_changes: bpy.props.BoolProperty(default=True, name="Material Parameters", description="Export all material and shader parameter changes to the character Json data. Setting to False keeps original material and shader parameters.")
     export_texture_changes: bpy.props.BoolProperty(default=True, name="Textures", description="Export all texture changes to the character Json data. Setting to False keeps original textures.")
-    export_bone_roll_fix: bpy.props.BoolProperty(default=False, name="Teeth bone fix", description="(Experimental) Apply zero roll to upper and lower teeth bones to fix teeth alignment problems re-importing to CC3")
-    export_bake_nodes: bpy.props.BoolProperty(default=True, name="Bake custom nodes", description="(Very Experimental) Bake any custom nodes (non texture image) attached to shader texture map sockets on export.")
-    export_bake_bump_to_normal: bpy.props.BoolProperty(default=True, name="Combine normals", description="(Very Experimental) When both a bump map and a normal is present, bake the bump map into the normal. (CC3 materials can only have one, normal map or bump map.)")
-    export_unity_remove_objects: bpy.props.BoolProperty(default=True, name="Unity: Remove non-character objects.", description="Removes all objects not attached to the character, when exporting to Unity.")
+    export_legacy_bone_roll_fix: bpy.props.BoolProperty(default=False, name="Teeth Bone Fix", description="(Experimental) Apply zero roll to upper and lower teeth bones to fix teeth alignment problems re-importing to CC3")
+    export_bake_nodes: bpy.props.BoolProperty(default=True, name="Bake Custom Nodes", description="(Very Experimental) Bake any custom nodes (non texture image) attached to shader texture map sockets on export.")
+    export_bake_bump_to_normal: bpy.props.BoolProperty(default=True, name="Combine Normals", description="(Very Experimental) When both a bump map and a normal is present, bake the bump map into the normal. (CC3 materials can only have one, normal map or bump map.)")
+    export_unity_remove_objects: bpy.props.BoolProperty(default=True, name="Unity: Remove Non-Character Objects.", description="Removes all objects not attached to the character, when exporting to Unity.")
     # revert materials is off by default now as CC4 deduplicates by material name even if they are not the same material.
-    export_revert_material_names: bpy.props.BoolProperty(default=False, name="Revert material names", description="Revert material names to match their original names from the source Json. Note: This may only be needed for exporting back CC3 or if there are problems with duplicate materials exporting back to CC4.")
+    export_legacy_revert_material_names: bpy.props.BoolProperty(default=False, name="Revert Material Names", description="Revert material names to match their original names from the source Json. Note: This may only be needed for exporting back CC3 or if there are problems with duplicate materials exporting back to CC4.")
     export_unity_mode: bpy.props.EnumProperty(items=[
                         ("BLEND","Blend File","Save the project as a blend file in a Unity project. All textures and folders will be copied to the new location and made relative to the blend file."),
                         ("FBX","FBX","Export the character as an .Fbx file to the specified location. All textures and folders will be copied."),
@@ -552,7 +552,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Export:")
         layout.prop(self, "export_json_changes")
         layout.prop(self, "export_texture_changes")
-        layout.prop(self, "export_bone_roll_fix")
+        layout.prop(self, "export_legacy_bone_roll_fix")
         layout.prop(self, "export_bake_nodes")
         layout.prop(self, "export_bake_bump_to_normal")
         layout.prop(self, "export_unity_remove_objects")
