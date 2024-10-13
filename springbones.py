@@ -280,7 +280,9 @@ def convert_spring_rig_to_accessory(chr_cache, arm, parent_mode):
 
     # find all character objects with vertex groups for these bones
     accessory_objects = set()
-    objects = chr_cache.get_all_objects(include_armature = False, include_children = True, of_type = "MESH")
+    objects = chr_cache.get_all_objects(include_armature=False,
+                                        include_children=True,
+                                        of_type="MESH")
     for obj in objects:
         for vg in obj.vertex_groups:
             if vg.name in spring_bone_names:

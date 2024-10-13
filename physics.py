@@ -1025,7 +1025,7 @@ def cloth_physics_point_cache_override(mod):
     return override
 
 
-def get_context_physics_objects(context, from_selected = False):
+def get_context_physics_objects(context, from_selected=False):
     props = vars.props()
     chr_cache = props.get_context_character_cache(context)
     physics_objects = []
@@ -1033,9 +1033,9 @@ def get_context_physics_objects(context, from_selected = False):
         if from_selected:
             objects = context.selected_objects.copy()
         else:
-            objects = chr_cache.get_all_objects(include_armature = False,
-                                                include_children = True,
-                                                of_type = "MESH")
+            objects = chr_cache.get_all_objects(include_armature=False,
+                                                include_children=True,
+                                                of_type="MESH")
         for obj in objects:
             cloth_mod = modifiers.get_cloth_physics_mod(obj)
             coll_mod = modifiers.get_collision_physics_mod(obj)
@@ -1178,11 +1178,9 @@ def separate_physics_materials(chr_cache, obj):
 def disable_physics(chr_cache, physics_objects = None):
     changed_objects = []
     if not physics_objects:
-        physics_objects = chr_cache.get_all_objects(include_armature = False,
-                                                    include_children = True,
-                                                    include_split=True,
-                                                    include_proxy=True,
-                                                    of_type = "MESH")
+        physics_objects = chr_cache.get_all_objects(include_armature=False,
+                                                    include_children=True,
+                                                    of_type="MESH")
     for obj in physics_objects:
         for mod in obj.modifiers:
             if mod.type == "CLOTH":
@@ -1202,11 +1200,9 @@ def enable_physics(chr_cache, physics_objects = None):
     prefs = vars.prefs()
 
     if not physics_objects:
-        physics_objects = chr_cache.get_all_objects(include_armature = False,
-                                                    include_children = True,
-                                                    include_split=True,
-                                                    include_proxy=True,
-                                                    of_type = "MESH")
+        physics_objects = chr_cache.get_all_objects(include_armature=False,
+                                                    include_children=True,
+                                                    of_type="MESH")
     for obj in physics_objects:
         obj_cache = chr_cache.get_object_cache(obj)
         cloth_allowed = True
@@ -1308,7 +1304,9 @@ def apply_all_physics(chr_cache):
         utils.log_info(f"Adding all Physics modifiers to: {chr_cache.character_name}")
         utils.log_indent()
         arm = chr_cache.get_armature()
-        objects = chr_cache.get_all_objects(include_armature = False, include_children = False, of_type = "MESH")
+        objects = chr_cache.get_all_objects(include_armature=False,
+                                            include_children=True,
+                                            of_type="MESH")
         objects_processed = []
         accessory_colldiers = get_accessory_colliders(arm, objects, True)
 

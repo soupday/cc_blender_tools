@@ -867,7 +867,7 @@ def map_uv_targets(chr_cache, cc3_rig, meta_rig):
     """Fetch spacial coordinates for bone positions from UV coordinates.
     """
 
-    obj = chr_cache.get_body()
+    obj = drivers.get_head_body_object(chr_cache)
     if obj is None:
         utils.log_error("Cannot find BODY mesh for uv targets!")
         return
@@ -1626,7 +1626,7 @@ def try_parent_auto(chr_cache, rig, obj):
         if parent_set_with_test(rig, obj):
             utils.log_always(f"Success!")
         else:
-            body = chr_cache.get_body()
+            body = drivers.get_head_body_object(chr_cache)
 
             # third attempt
 

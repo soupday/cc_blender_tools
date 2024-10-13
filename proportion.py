@@ -33,7 +33,9 @@ def hide_sub_bones(rig, hide=True):
 def convert_to_blender_bone_names(chr_cache):
     if chr_cache and not chr_cache.rigified and not chr_cache.proportion_editing:
         rig = chr_cache.get_armature()
-        objects = chr_cache.get_all_objects(include_armature=False, include_children=True, of_type="MESH")
+        objects = chr_cache.get_all_objects(include_armature=False,
+                                            include_children=True,
+                                            of_type="MESH")
 
         bone_remap = {}
 
@@ -60,7 +62,9 @@ def convert_to_blender_bone_names(chr_cache):
 def restore_cc_bone_names(chr_cache):
     if chr_cache and not chr_cache.rigified and chr_cache.proportion_editing:
         rig = chr_cache.get_armature()
-        objects = chr_cache.get_all_objects(include_armature=False, include_children=True, of_type="MESH")
+        objects = chr_cache.get_all_objects(include_armature=False,
+                                            include_children=True,
+                                            of_type="MESH")
 
         bone_restore = {}
 
@@ -104,7 +108,9 @@ def prep_rig(chr_cache):
             rigutils.reset_rotation_modes(rig)
             rig.show_in_front = True
             # reset all shape keys
-            objects = chr_cache.get_all_objects(include_armature=False, include_children=True, of_type="MESH")
+            objects = chr_cache.get_all_objects(include_armature=False,
+                                                include_children=True,
+                                                of_type="MESH")
             for obj in objects:
                 if obj.data.shape_keys and obj.data.shape_keys.key_blocks:
                     key_action = utils.safe_get_action(obj.data.shape_keys)

@@ -1809,7 +1809,8 @@ def de_pivot(chr_cache):
 
     if chr_cache:
         rig = chr_cache.get_armature()
-        objects = chr_cache.get_all_objects(include_armature=False, of_type="MESH")
+        objects = chr_cache.get_all_objects(include_armature=False,
+                                            of_type="MESH")
 
         if rig and objects:
 

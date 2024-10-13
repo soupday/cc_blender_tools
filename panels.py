@@ -930,9 +930,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 col_2.prop(chr_cache, "render_target", text="")
                 box.prop(chr_cache, "import_file", text="")
                 for obj_cache in chr_cache.object_cache:
-                    o = obj_cache.get_object()
-                    if o:
-                        box.prop(obj_cache, "object", text="")
+                    #o = obj_cache.get_object()
+                    #if o:
+                    box.prop(obj_cache, "object", text="")
             else:
                 box.label(text="Name: " + chr_cache.character_name)
         else:
@@ -1229,6 +1229,11 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         if not weight_transferable:
             row.enabled = False
 
+        row = column.row()
+        row.operator("cc3.character", icon="ORIENTATION_NORMAL", text="Blend Weights").param = "BLEND_WEIGHTS"
+        if not weight_transferable:
+            row.enabled = False
+
 
 class CC3SpringRigPanel(bpy.types.Panel):
     bl_idname = "CC3_PT_SpringRig_Panel"
@@ -1440,10 +1445,12 @@ class CC3SpringRigPanel(bpy.types.Panel):
                         else:
                             row.operator("cc3.rigifier", icon="MOD_SCREW", text="Build Control Rig").param = "BUILD_SPRING_RIG"
                 column.separator()
-                build_allowed = True
-                if chr_cache.rigified and not rigified_spring_rig:
-                    build_allowed = False
-                rigid_body_sim_ui(chr_cache, arm, obj, column, enabled=build_allowed)
+
+        if chr_cache and arm and obj:
+            build_allowed = True
+            if chr_cache.rigified and not rigified_spring_rig:
+                build_allowed = False
+            rigid_body_sim_ui(chr_cache, arm, obj, layout, enabled=build_allowed)
 
 
 class CC3HairPanel(bpy.types.Panel):
@@ -1559,8 +1566,11 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                             column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
 
                         elif ui_row[0] == "WRINKLE_CONTROLS":
-                            body_object = chr_cache.get_body()
-                            if body_object and ("wrinkle_strength" in body_object or "wrinkle_curve" in body_object):
+                            body_object = None
+                            for o in chr_cache.get_objects_of_type("BODY"):
+                                if "wrinkle_strength" in o or "wrinkle_curve" in o:
+                                    body_object = o
+                            if body_object:
                                 column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
                                 row = column.row()
                                 split = row.split(factor=0.5)
@@ -3039,19 +3049,27 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
         detail_body = None
         sculpt_body = None
+        is_sculpting = False
         detail_sculpting = False
         body_sculpting = False
+        context_obj = utils.get_context_mesh(context)
         if chr_cache:
-            detail_body = chr_cache.get_detail_body()
-            sculpt_body = chr_cache.get_sculpt_body()
-            if detail_body:
-                if utils.get_active_object() == detail_body and utils.get_mode() == "SCULPT":
-                    detail_sculpting = True
-                if detail_body.visible_get():
-                    detail_sculpting = True
-            if sculpt_body:
-                if utils.get_active_object() == sculpt_body and utils.get_mode() == "SCULPT":
-                    body_sculpting = True
+            sculpt_objects = chr_cache.get_sculpt_objects()
+            for obj in sculpt_objects:
+                sculpt_type = 1
+                if obj.name.endswith("DETAIL"):
+                    sculpt_type = 2
+                if obj.visible_get():
+                    is_sculpting = True
+                    if context_obj == obj:
+                        body_sculpting = body_sculpting or (sculpt_type == 1)
+                        detail_sculpting = detail_sculpting or (sculpt_type == 2)
+                if sculpt_type == 1:
+                    if context_obj == obj or chr_cache.get_sculpt_source(obj, "BODY") == context_obj:
+                        sculpt_body = obj
+                elif sculpt_type == 2:
+                    if context_obj == obj or chr_cache.get_sculpt_source(obj, "DETAIL") == context_obj:
+                        detail_body = obj
         has_body_overlay = sculpting.has_overlay_nodes(sculpt_body, sculpting.LAYER_TARGET_SCULPT)
         has_detail_overlay = sculpting.has_overlay_nodes(detail_body, sculpting.LAYER_TARGET_DETAIL)
 
@@ -3067,7 +3085,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             row.label(icon="ERROR", text="Unusupported Character")
             valid_character = False
 
-        # Full Body Sculpting
+        ## Full Body Sculpting
 
         row = layout.row()
         row.scale_y = 1.5
@@ -3097,15 +3115,13 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
                     row.enabled = False
 
                 row = column.row()
-                if not sculpt_body:
-                    row.scale_y = 2
-                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
-                elif not body_sculpting:
-                    row.scale_y = 2
+                row.scale_y = 2
+                if is_sculpting:
+                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
+                elif sculpt_body:
                     row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Body Sculpt").param = "BODY_BEGIN"
                 else:
-                    row.scale_y = 2
-                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
 
                 column.separator()
 
@@ -3149,9 +3165,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
                 if not sculpt_body or not has_body_overlay:
                     row.enabled = False
 
-                column.separator()
-
-        # Detail Sculpting
+        ## Detail Sculpting
 
         #if fake_drop_down(layout.box().row(), "Detail Sculpting", "section_sculpt_detail",
         #                  props.section_sculpt_detail, icon = "POSE_HLT"):
@@ -3180,12 +3194,12 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
                 row = column.row()
                 row.scale_y = 2.0
-                if not detail_body:
-                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
-                elif not detail_sculpting:
+                if is_sculpting:
+                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
+                elif detail_body:
                     row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Detail Sculpt").param = "DETAIL_BEGIN"
                 else:
-                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
 
                 column.separator()
 
@@ -3227,9 +3241,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
                 if not detail_body or not has_detail_overlay:
                     row.enabled = False
 
-                column.separator()
-
-        # Tools
+        ## Tools
 
         if fake_drop_down(layout.box().row(), "Tools", "section_sculpt_cleanup",
                           props.section_sculpt_cleanup, icon = "BRUSH_DATA"):
@@ -3237,12 +3249,19 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             if not chr_cache:
                 column.enabled = False
 
-            column.separator()
+            ## Flatten Layers
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.sculpting", icon="RENDERLAYERS", text="Flatten Layers").param = "FLATTEN_LAYERS"
+            if not has_detail_overlay and not has_body_overlay:
+                row.enabled = False
 
-            column.row().operator("cc3.sculpting", icon="FORWARD", text="TODO: Sync Source Shape").param = "UPDATE_SHAPE"
-            column.row().operator("cc3.sculpting", icon="FORWARD", text="TODO: Reset Base Shapes").param = "RESET_SHAPE"
-
-            column.separator()
+            ## Reset / Update Base Shape
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.sculpting", icon="DECORATE_OVERRIDE", text="Reset Base Shapes").param = "RESET_FROM_SOURCE"
+            if not sculpt_body and not detail_body:
+                row.enabled = False
 
             column.label(text="Remove Sculpts:")
 

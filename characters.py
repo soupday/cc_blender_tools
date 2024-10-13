@@ -29,7 +29,7 @@ MANDATORY_OBJECTS = ["BODY", "TEETH", "TONGUE", "TEARLINE", "OCCLUSION", "EYE"]
 def select_character(chr_cache, all=False):
     if chr_cache:
         rig = chr_cache.get_armature()
-        objects = chr_cache.get_all_objects(include_armature=True, include_children=True)
+        objects = chr_cache.get_all_objects(include_children=True)
         rig_already_active = (rig and utils.get_active_object() == rig)
         objects_already_selected = True
         for obj in objects:
@@ -419,10 +419,7 @@ def link_or_append_rl_character(op, context, blend_file, link=False):
             import_file = src_cache.import_file
             chr_rig = src_cache.get_armature()
             chr_objects = src_cache.get_all_objects(include_armature=False,
-                                                    include_children=True,
-                                                    include_disabled=False,
-                                                    include_split=True,
-                                                    include_proxy=True)
+                                                    include_children=True)
             meta_rig = src_cache.rig_meta_rig
             src_rig = src_cache.rig_original_rig
             widgets = []
@@ -1425,17 +1422,9 @@ def transfer_skin_weights(chr_cache, objects):
         return
 
     arm = chr_cache.get_armature()
-    if arm is None:
-        return
+    body = chr_cache.get_body()
 
-    body = None
-    # TODO if the body mesh has been split, this isn't going to work...
-    # maybe join all body object_id's together?
-    for obj_cache in chr_cache.object_cache:
-        if obj_cache.object_type == "BODY":
-            body = obj_cache.get_object()
-
-    if not body:
+    if not arm or not body:
         return
 
     if body in objects:
@@ -1598,6 +1587,21 @@ def normalize_skin_weights(chr_cache, objects):
     utils.try_select_objects(selected)
 
 
+def blend_skin_weights(chr_cache, objects):
+
+    if not utils.object_mode():
+        return
+
+    arm = chr_cache.get_armature()
+    body = chr_cache.get_body()
+
+    if not arm or not body:
+        return
+
+    if body in objects:
+        objects.remove(body)
+
+
 def convert_to_non_standard(chr_cache):
     if chr_cache.generation == "G3Plus" or chr_cache.generation == "G3":
         chr_cache.generation = "ActorBuild"
@@ -1757,6 +1761,13 @@ class CC3OperatorCharacter(bpy.types.Operator):
             transfer_skin_weights(chr_cache, objects)
             utils.restore_mode_selection_state(mode_selection)
 
+        elif self.param == "BLEND_WEIGHTS":
+            chr_cache = props.get_context_character_cache(context)
+            objects = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH" ]
+            mode_selection = utils.store_mode_selection_state()
+            blend_skin_weights(chr_cache, objects)
+            utils.restore_mode_selection_state(mode_selection)
+
         elif self.param == "NORMALIZE_WEIGHTS":
             chr_cache = props.get_context_character_cache(context)
             objects = [ obj for obj in bpy.context.selected_objects if obj.type == "MESH" ]
@@ -1870,7 +1881,9 @@ class CC3OperatorTransferCharacterGeometry(bpy.types.Operator):
 
         if src_chr and selected_characters:
 
-            src_objects = src_chr.get_all_objects(include_armature = False, include_children = True, of_type = "MESH")
+            src_objects = src_chr.get_all_objects(include_armature=False,
+                                                  include_children=True,
+                                                  of_type="MESH")
             src_arm = src_chr.get_armature()
             utils.object_mode_to(src_arm)
             utils.clear_selected_objects()
@@ -1879,7 +1892,9 @@ class CC3OperatorTransferCharacterGeometry(bpy.types.Operator):
             for src_obj in src_objects:
                 src_base_name = utils.strip_name(src_obj.name)
                 for dst_chr in selected_characters:
-                    dst_objects = dst_chr.get_all_objects(include_armature = False, include_children = True, of_type = "MESH")
+                    dst_objects = dst_chr.get_all_objects(include_armature=False,
+                                                          include_children=True,
+                                                          of_type="MESH")
                     dst_arm = dst_chr.get_armature()
                     for dst_obj in dst_objects:
                         dst_base_name = utils.strip_name(dst_obj.name)

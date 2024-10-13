@@ -326,17 +326,21 @@ def find_texture_folder_in_objects(objects):
     return None
 
 
-def get_custom_image(image_name, size, alpha = False, data = True, float = False, path = ""):
+def get_custom_image(image_name, size, alpha=False, data=True, float=False, path="", unique=False):
     # find the image by name
     image = None
-    if image_name in bpy.data.images:
-        image = bpy.data.images[image_name]
-        if image.size[0] != size or image.size[1] != size:
-            bpy.data.images.remove(image)
-            image = None
-            utils.log_info(f"Deleting Custom image: {image_name}, wrong size.")
-        else:
-            utils.log_info(f"Reusing Custom image: {image_name}")
+
+    if unique:
+        image_name = utils.unique_image_name(image_name)
+    else:
+        if image_name in bpy.data.images:
+            image = bpy.data.images[image_name]
+            if image.size[0] != size or image.size[1] != size:
+                bpy.data.images.remove(image)
+                image = None
+                utils.log_info(f"Deleting Custom image: {image_name}, wrong size.")
+            else:
+                utils.log_info(f"Reusing Custom image: {image_name}")
 
     # or create the bake image
     if not image:

@@ -252,8 +252,8 @@ class LinkActor():
         chr_cache = self.get_chr_cache()
         if chr_cache:
             all_objects = chr_cache.get_all_objects(include_armature=False,
-                                                     include_children=True,
-                                                     of_type="MESH")
+                                                    include_children=True,
+                                                    of_type="MESH")
             for obj in all_objects:
                 if self.object_has_sequence_shape_keys(obj):
                     objects.append(obj)

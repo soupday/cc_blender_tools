@@ -179,22 +179,32 @@ def obj_is_override(obj):
     return False
 
 
-def unique_material_name(name, mat = None):
+def unique_material_name(name, mat=None, start_index=1):
     name = strip_name(name)
-    index = 1001
+    index = start_index
     if name in bpy.data.materials and bpy.data.materials[name] != mat:
-        while name + "_" + str(index) in bpy.data.materials:
+        while name + "_" + str(index).zfill(2) in bpy.data.materials:
             index += 1
-        return name + "_" + str(index)
+        return name + "_" + str(index).zfill(2)
     return name
 
 
-def unique_object_name(name, obj = None, capitalize=False):
+def unique_image_name(name, image=None, start_index=1):
+    name = strip_name(name)
+    index = start_index
+    if name in bpy.data.images and bpy.data.images[name] != image:
+        while name + "_" + str(index).zfill(2) in bpy.data.images:
+            index += 1
+        return name + "_" + str(index).zfill(2)
+    return name
+
+
+def unique_object_name(name, obj=None, capitalize=False, start_index=1):
     name = strip_name(name)
     if capitalize:
         name = name.capitalize()
     if name in bpy.data.objects and bpy.data.objects[name] != obj:
-        index = 1
+        index = start_index
         while name + "_" + str(index).zfill(2) in bpy.data.objects:
             index += 1
         return name + "_" + str(index).zfill(2)

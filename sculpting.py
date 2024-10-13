@@ -102,7 +102,7 @@ def copy_base_shape(multi_res_object, source_body_obj, layer_target, by_vertex_g
     return
 
 
-def do_multires_bake(context, chr_cache, body, layer_target, apply_shape = False, source_body = None):
+def do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shape=False, source_body=None):
     prefs = vars.prefs()
 
     utils.log_info(f"Begin Multi-Res Bake: Layer = {layer_target}")
@@ -111,10 +111,6 @@ def do_multires_bake(context, chr_cache, body, layer_target, apply_shape = False
     if utils.B292():
         bpy.context.scene.render.bake.target = 'IMAGE_TEXTURES'
 
-    # reset UDIM uvs to normal range
-    utils.log_info("Normalizing UV's")
-    materials.normalize_udim_uvs(body)
-
     # store object render visibility state
     rv_state = utils.store_render_visibility_state()
 
@@ -122,11 +118,15 @@ def do_multires_bake(context, chr_cache, body, layer_target, apply_shape = False
     bake_state = bake.prep_bake(context, samples=32, make_surface=False)
 
     # AO Baking (full res on body mesh)
-    utils.set_only_render_visible(body)
-    utils.object_mode_to(body)
-    utils.set_only_active_object(body)
-    select_bake_images(body, BAKE_TYPE_AO, layer_target)
-    set_multi_res_level(body, view_level=9, sculpt_level=9, render_level=9)
+    select_bake_images(multires_mesh, BAKE_TYPE_AO, layer_target)
+
+    ao_body = utils.duplicate_object(multires_mesh)
+    ao_body.name = multires_mesh.name + "_AOBAKE"
+    materials.normalize_udim_uvs(ao_body)
+    utils.set_only_render_visible(ao_body)
+    utils.object_mode_to(ao_body)
+    utils.set_only_active_object(ao_body)
+    set_multi_res_level(ao_body, view_level=9, sculpt_level=9, render_level=9)
     utils.log_info(f"Baking {layer_target} AO...")
     bpy.context.scene.render.use_bake_multires = False
     # *cycles* bake type to AO
@@ -136,16 +136,20 @@ def do_multires_bake(context, chr_cache, body, layer_target, apply_shape = False
     else:
         bake.set_cycles_samples(context, samples=16, time_limit=30, use_gpu=False)
     bpy.ops.object.bake(type="AO")
+    utils.delete_mesh_object(ao_body)
 
     # Displacement Baking
-    select_bake_images(body, BAKE_TYPE_DISPLACEMENT, layer_target)
+    select_bake_images(multires_mesh, BAKE_TYPE_DISPLACEMENT, layer_target)
+
     bpy.context.scene.render.use_bake_multires = True
     bake.set_cycles_samples(context, samples=2)
 
     # copy the body for displacement baking
     utils.log_info("Duplicating body for displacement baking")
-    disp_body = utils.duplicate_object(body)
-    disp_body.name = body.name + "_DISPBAKE"
+    utils.unhide(multires_mesh)
+    disp_body = utils.duplicate_object(multires_mesh)
+    disp_body.name = multires_mesh.name + "_DISPBAKE"
+    materials.normalize_udim_uvs(disp_body)
 
     # displacement masks *will not* bake if multiple overlapping materials in the mesh,
     # so split by materials and bake each separately.
@@ -168,13 +172,14 @@ def do_multires_bake(context, chr_cache, body, layer_target, apply_shape = False
         utils.delete_mesh_object(obj)
 
     # Normal Baking
-    select_bake_images(body, BAKE_TYPE_NORMALS, layer_target)
+    select_bake_images(multires_mesh, BAKE_TYPE_NORMALS, layer_target)
 
     # copy the body for normal baking
-    utils.set_only_render_visible(body)
+    utils.set_only_render_visible(multires_mesh)
     utils.log_info("Duplicating body for normal baking")
-    norm_body = utils.duplicate_object(body)
-    norm_body.name = body.name + "_NORMBAKE"
+    norm_body = utils.duplicate_object(multires_mesh)
+    norm_body.name = multires_mesh.name + "_NORMBAKE"
+    materials.normalize_udim_uvs(norm_body)
     utils.set_only_render_visible(norm_body)
     utils.object_mode_to(norm_body)
     utils.set_only_active_object(norm_body)
@@ -192,26 +197,26 @@ def do_multires_bake(context, chr_cache, body, layer_target, apply_shape = False
     utils.log_recess()
     utils.log_info("Baking complete!")
 
+    utils.delete_mesh_object(norm_body)
+
     if layer_target == LAYER_TARGET_SCULPT and apply_shape and source_body:
 
         utils.log_info("Transfering sculpt base shape to source body...")
 
-        utils.unhide(norm_body)
+        utils.unhide(multires_mesh)
         utils.unhide(source_body)
-        copy_base_shape(norm_body, source_body, layer_target, True)
+        copy_base_shape(multires_mesh, source_body, layer_target, True)
 
         # if there is a detail sculpt body, update that with the new base shape too
-        detail_body = chr_cache.get_detail_body()
+        detail_body = chr_cache.get_detail_body(context_object=source_body)
         if detail_body:
-            copy_base_shape(norm_body, detail_body, layer_target, True)
+            copy_base_shape(multires_mesh, detail_body, layer_target, True)
 
     # restore render engine
     bake.post_bake(context, bake_state)
 
     # restore object render visibilty state
     utils.restore_render_visibility_state(rv_state)
-
-    utils.delete_mesh_object(norm_body)
 
 
 def save_skin_gen_bake(chr_cache, body, layer_target):
@@ -309,18 +314,18 @@ def export_skingen(context, chr_cache, layer_target, export_path):
     utils.log_info(f"Texture save path: {export_dir}")
     os.makedirs(export_dir, exist_ok=True)
 
-    body = chr_cache.get_body()
+    source_obj = utils.get_context_mesh(context)
 
     if layer_target == LAYER_TARGET_DETAIL:
         channel_id = "Detail"
     else:
         channel_id = "Body"
 
-    if body:
+    if source_obj:
 
         mix_node_name = f"{layer_target}_{LAYER_MIX_SUFFIX}"
 
-        for mat in body.data.materials:
+        for mat in source_obj.data.materials:
 
             nodes = mat.node_tree.nodes
             links = mat.node_tree.links
@@ -338,27 +343,32 @@ def export_skingen(context, chr_cache, layer_target, export_path):
                                              name_prefix = export_name, exact_name=True, underscores=False)
 
 
-def update_layer_nodes(body, layer_target, socket, value):
-    if body:
+def update_layer_nodes(context, chr_cache, layer_target, socket, value):
+    context = vars.get_context(context)
+    source_obj = utils.get_context_mesh(context)
+    if chr_cache and source_obj:
         mix_node_name = f"{layer_target}_{LAYER_MIX_SUFFIX}"
-        for mat in body.data.materials:
+        for mat in source_obj.data.materials:
             nodes = mat.node_tree.nodes
             mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
             nodeutils.set_node_input_value(mix_node, socket, value)
 
-
-def setup_bake_nodes(chr_cache, detail_body, layer_target):
-    prefs = vars.prefs()
-
+def get_bake_dir(chr_cache):
     base_dir = utils.local_path()
     if not base_dir:
         base_dir = chr_cache.get_import_dir()
-
     bake_dir = os.path.join(base_dir, BAKE_FOLDER)
     utils.log_info(f"Texture save path: {bake_dir}")
     os.makedirs(bake_dir, exist_ok=True)
+    return bake_dir
 
-    for mat in detail_body.data.materials:
+
+def setup_bake_nodes(context, chr_cache, multires_mesh, layer_target):
+    prefs = vars.prefs()
+
+    bake_dir = get_bake_dir(chr_cache)
+
+    for mat in multires_mesh.data.materials:
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
 
@@ -482,73 +492,172 @@ def finish_bake(chr_cache, detail_body, layer_target):
             nodeutils.link_nodes(links, shader_node, "Normal", bsdf_node, "Normal")
 
 
-def remove_bake_nodes(chr_cache, layer_target):
-    body = chr_cache.get_body()
-    for mat in body.data.materials:
+def remove_bake_nodes(context, chr_cache, layer_target, multires_mesh):
+    if not utils.object_exists_is_mesh(multires_mesh):
+        utils.log_error("Multires mesh not found!")
+        return
+
+    for mat in multires_mesh.data.materials:
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
 
-        utils.log_info(f"Setting up {layer_target} bake and layer nodes for {mat.name}")
+        utils.log_info(f"Removing {layer_target} bake and layer nodes for {mat.name}")
 
         mix_node_name = f"{layer_target}_{LAYER_MIX_SUFFIX}"
         normal_bake_node_name = f"{layer_target}_{BAKE_NORMAL_SUFFIX}"
+        ao_bake_node_name = f"{layer_target}_{BAKE_AO_SUFFIX}"
         displacement_bake_node_name = f"{layer_target}_{BAKE_DISPLACEMENT_SUFFIX}"
         normal_layer_node_name = f"{layer_target}_{LAYER_NORMAL_SUFFIX}"
+        ao_layer_node_name = f"{layer_target}_{LAYER_AO_SUFFIX}"
         displacement_layer_node_name = f"{layer_target}_{LAYER_DISPLACEMENT_SUFFIX}"
 
         # remove the mix layer
         mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", mix_node_name)
-        connected_to_node, connected_to_socket = nodeutils.get_node_and_socket_connected_to_output(mix_node, "Color")
-        connected_from_node, connected_from_socket = nodeutils.get_node_and_socket_connected_to_input(mix_node, "Color1")
+        normal_to_node, normal_to_socket = nodeutils.get_node_and_socket_connected_to_output(mix_node, "Color")
+        normal_from_node, normal_from_socket = nodeutils.get_node_and_socket_connected_to_input(mix_node, "Color1")
+        ao_to_node, ao_to_socket = nodeutils.get_node_and_socket_connected_to_output(mix_node, "AO")
+        ao_from_node, ao_from_socket = nodeutils.get_node_and_socket_connected_to_input(mix_node, "AO1")
+
         if mix_node:
             nodes.remove(mix_node)
-            if connected_from_socket and connected_to_socket:
-                nodeutils.link_nodes(links, connected_from_node, connected_from_socket, connected_to_node, connected_to_socket)
+            if normal_from_socket and normal_to_socket:
+                nodeutils.link_nodes(links, normal_from_node, normal_from_socket, normal_to_node, normal_to_socket)
+            if ao_from_socket and ao_to_socket:
+                nodeutils.link_nodes(links, ao_from_node, ao_from_socket, ao_to_node, ao_to_socket)
 
         # remove the image nodes
         for node_name in [normal_bake_node_name, normal_layer_node_name,
+                          ao_bake_node_name, ao_layer_node_name,
                           displacement_bake_node_name, displacement_layer_node_name]:
             node = nodeutils.find_node_by_type_and_keywords(nodes, "TEX_IMAGE", node_name)
             if node:
                 nodes.remove(node)
 
 
-def get_layer_target_mesh(chr_cache, layer_target):
+def flatten_bake_layers(context, chr_cache):
+    prefs = vars.prefs()
+
+    bake_dir = get_bake_dir(chr_cache)
+    prefix = chr_cache.character_name + "_Flattened"
+
+    context_obj = utils.get_context_mesh(context)
+    if context_obj:
+        for mat in context_obj.data.materials:
+            nodes = mat.node_tree.nodes
+            links = mat.node_tree.links
+
+            sculpt_mix_node_name = f"{LAYER_TARGET_SCULPT}_{LAYER_MIX_SUFFIX}"
+            detail_mix_node_name = f"{LAYER_TARGET_DETAIL}_{LAYER_MIX_SUFFIX}"
+            sculpt_mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", sculpt_mix_node_name)
+            detail_mix_node = nodeutils.find_node_by_type_and_keywords(nodes, "GROUP", detail_mix_node_name)
+            mix_node = detail_mix_node if detail_mix_node else sculpt_mix_node
+
+            if mix_node:
+
+                # bake the full layer outputs
+                flattened_normal_image = bake.bake_node_socket_output(context, mix_node, "Color", mat, "Normal", bake_dir,
+                                            name_prefix=prefix, exact_name=True,
+                                            underscores=True, unique_name=True)
+                flattened_ao_image = bake.bake_node_socket_output(context, mix_node, "AO", mat, "AO", bake_dir,
+                                            name_prefix=prefix, exact_name=True,
+                                            underscores=True, unique_name=True)
+
+                normal_image_node = None
+                ao_image_node = None
+
+                # determine the source Normal and AO image nodes.
+                if (sculpt_mix_node and detail_mix_node) or sculpt_mix_node:
+                    normal_image_node = nodeutils.get_node_connected_to_input(sculpt_mix_node, "Color1")
+                    ao_image_node = nodeutils.get_node_connected_to_input(sculpt_mix_node, "AO1")
+                elif detail_mix_node:
+                    normal_image_node = nodeutils.get_node_connected_to_input(detail_mix_node, "Color1")
+                    ao_image_node = nodeutils.get_node_connected_to_input(detail_mix_node, "AO1")
+
+                # change the Normal image, or create a new Normal node
+                if normal_image_node and normal_image_node.type == "TEX_IMAGE":
+                    normal_image_node.image = flattened_normal_image
+                else:
+                    normal_node_name = f"FLATTENED_{LAYER_NORMAL_SUFFIX}"
+                    normal_image_node = nodeutils.create_custom_image_node(nodes, normal_node_name, flattened_normal_image,
+                                                     location=mathutils.Vector((-500, -1200)))
+
+                # change the AO image, or create a new AO node
+                if ao_image_node and ao_image_node.type == "TEX_IMAGE":
+                    ao_image_node.image = flattened_ao_image
+                else:
+                    ao_node_name = f"FLATTENED_{LAYER_AO_SUFFIX}"
+                    ao_image_node = nodeutils.create_custom_image_node(nodes, ao_node_name, flattened_ao_image,
+                                                     location=mathutils.Vector((-500, -1500)))
+
+                # reconnect the image nodes to the sculpt layer mix nodes
+                # (these will be reconnected when cleaning up the sculpt layers)
+                if (sculpt_mix_node and detail_mix_node) or sculpt_mix_node:
+                    nodeutils.link_nodes(links, normal_image_node, "Color", sculpt_mix_node, "Color1")
+                    nodeutils.link_nodes(links, ao_image_node, "Color", sculpt_mix_node, "AO1")
+                elif detail_mix_node:
+                    nodeutils.link_nodes(links, normal_image_node, "Color", detail_mix_node, "Color1")
+                    nodeutils.link_nodes(links, ao_image_node, "Color", detail_mix_node, "AO1")
+
+
+    clean_multires_sculpt(context, chr_cache, LAYER_TARGET_DETAIL)
+    clean_multires_sculpt(context, chr_cache, LAYER_TARGET_SCULPT)
+
+
+def get_layer_target_mesh(context, chr_cache, layer_target):
     mesh = None
+    context_object = utils.get_context_mesh(context)
     if layer_target == LAYER_TARGET_DETAIL:
-        mesh = chr_cache.get_detail_body()
+        mesh = chr_cache.get_detail_body(context_object=context_object)
     elif layer_target == LAYER_TARGET_SCULPT:
-        mesh = chr_cache.get_sculpt_body()
+        mesh = chr_cache.get_sculpt_body(context_object=context_object)
     return mesh
 
 
-def bake_multires_sculpt(context, chr_cache, layer_target, apply_shape = False, source_body = None):
-    multi_res_mesh = get_layer_target_mesh(chr_cache, layer_target)
-    utils.unhide(multi_res_mesh)
+def set_layer_target_mesh(chr_cache, layer_target, mesh):
+    if layer_target == LAYER_TARGET_DETAIL:
+        chr_cache.set_detail_body(mesh)
+    elif layer_target == LAYER_TARGET_SCULPT:
+        chr_cache.set_sculpt_body(mesh)
+    return mesh
+
+
+def set_sculpt_source(multires_mesh, layer_target, source_object):
+    prop_name = f"rl_multires_{layer_target}"
+    if utils.object_exists_is_mesh(source_object) and utils.object_exists_is_mesh(multires_mesh):
+        multires_mesh[prop_name] = source_object.name
+
+
+def bake_multires_sculpt(context, chr_cache, layer_target, apply_shape=False):
+    multires_mesh = get_layer_target_mesh(context, chr_cache, layer_target)
+    multires_source = chr_cache.get_sculpt_source(multires_mesh, layer_target)
+    utils.unhide(multires_mesh)
     # make sure to go into object mode otherwise the sculpt is not applied.
-    if utils.object_mode_to(multi_res_mesh):
-        setup_bake_nodes(chr_cache, multi_res_mesh, layer_target)
-        do_multires_bake(context, chr_cache, multi_res_mesh, layer_target, apply_shape = apply_shape, source_body = source_body)
-        save_skin_gen_bake(chr_cache, multi_res_mesh, layer_target)
-        finish_bake(chr_cache, multi_res_mesh, layer_target)
+    if utils.object_mode_to(multires_mesh):
+        setup_bake_nodes(context, chr_cache, multires_mesh, layer_target)
+        do_multires_bake(context, chr_cache, multires_mesh, layer_target, apply_shape=apply_shape, source_body=multires_source)
+        save_skin_gen_bake(chr_cache, multires_mesh, layer_target)
+        finish_bake(chr_cache, multires_mesh, layer_target)
         end_multires_sculpting(context, chr_cache, layer_target, show_baked = True)
 
 
 def set_hide_character(chr_cache, hide):
     arm = chr_cache.get_armature()
-    if utils.object_exists(arm):
-        for child in arm.children:
-            if utils.object_exists(child):
-                utils.hide(child, hide)
-    for obj in chr_cache.get_cache_objects():
-        obj_cache = chr_cache.get_object_cache(obj)
-        if obj_cache and not obj_cache.disabled:
+    for obj in chr_cache.get_all_objects(include_armature=True,
+                                         include_children=True):
+        if not hide and chr_cache.is_sculpt_object(obj):
+            # always hide the sculpt objects
+            utils.hide(obj, True)
+        else:
             utils.hide(obj, hide)
     utils.hide(arm, hide)
 
 
 def begin_multires_sculpting(context, chr_cache, layer_target):
-    multi_res_mesh = get_layer_target_mesh(chr_cache, layer_target)
+    # get the context sculpt target
+    multi_res_mesh = get_layer_target_mesh(context, chr_cache, layer_target)
+    # update the last used sculpt target
+    set_layer_target_mesh(chr_cache, layer_target, multi_res_mesh)
+    # begin
     if utils.object_exists_is_mesh(multi_res_mesh):
         set_hide_character(chr_cache, True)
         utils.unhide(multi_res_mesh)
@@ -559,123 +668,157 @@ def begin_multires_sculpting(context, chr_cache, layer_target):
         utils.set_mode("SCULPT")
         shading = utils.get_view_3d_shading(context)
         if shading:
-            shading.type = 'SOLID'
-            shading.light = 'MATCAP'
-            shading.studio_light = 'basic_1.exr'
-            shading.show_cavity = True
+            try:
+                shading.type = 'SOLID'
+                shading.light = 'MATCAP'
+                shading.studio_light = 'basic_1.exr'
+                shading.show_cavity = True
+            except: ...
 
 
-def end_multires_sculpting(context, chr_cache, layer_target, show_baked = False):
-    multi_res_mesh = get_layer_target_mesh(chr_cache, layer_target)
-    body = chr_cache.get_body()
-    if show_baked:
-        set_multi_res_level(multi_res_mesh, view_level=0)
-    else:
-        set_multi_res_level(multi_res_mesh, view_level=9)
-    utils.object_mode()
-    set_hide_character(chr_cache, False)
-    utils.hide(multi_res_mesh)
-    utils.set_only_active_object(body)
-    shading = utils.get_view_3d_shading(context)
-    if shading:
-        shading.type = 'MATERIAL'
+def end_multires_sculpting(context, chr_cache, layer_target, multires_mesh=None, show_baked = False):
+    if not multires_mesh:
+        multires_mesh = get_layer_target_mesh(context, chr_cache, layer_target)
+    if utils.object_exists_is_mesh(multires_mesh):
+        sculpt_source = chr_cache.get_sculpt_source(multires_mesh, layer_target)
+        body_objects = chr_cache.get_objects_of_type(LAYER_TARGET_SCULPT)
+        if show_baked:
+            set_multi_res_level(multires_mesh, view_level=0)
+        else:
+            set_multi_res_level(multires_mesh, view_level=9)
+        utils.object_mode()
+        set_hide_character(chr_cache, False)
+        utils.hide(multires_mesh)
+        if sculpt_source:
+            utils.set_only_active_object(sculpt_source)
+        else:
+            utils.try_select_objects(body_objects)
+        shading = utils.get_view_3d_shading(context)
+        if shading:
+            shading.type = 'MATERIAL'
 
 
 def clean_multires_sculpt(context, chr_cache, layer_target):
-    end_multires_sculpting(context, chr_cache, layer_target, show_baked = True)
-    remove_multires_body(chr_cache, layer_target)
-    remove_bake_nodes(chr_cache, layer_target)
+    multires_mesh = get_layer_target_mesh(context, chr_cache, layer_target)
+    if multires_mesh:
+        end_multires_sculpting(context, chr_cache, layer_target, multires_mesh=multires_mesh, show_baked = True)
+        remove_bake_nodes(context, chr_cache, layer_target, multires_mesh)
+        remove_multires_body(context, chr_cache, layer_target, multires_mesh)
 
 
-def remove_multires_body(chr_cache, layer_target):
-    multires_mesh = get_layer_target_mesh(chr_cache, layer_target)
+def remove_multires_body(context, chr_cache, layer_target, multires_mesh):
     if multires_mesh:
         utils.delete_mesh_object(multires_mesh)
-    if layer_target == LAYER_TARGET_DETAIL:
+    if layer_target == LAYER_TARGET_DETAIL and chr_cache.detail_multires_body == multires_mesh:
         chr_cache.set_detail_body(None)
-    elif layer_target == LAYER_TARGET_SCULPT:
+    elif layer_target == LAYER_TARGET_SCULPT and chr_cache.sculpt_multires_body == multires_mesh:
         chr_cache.set_sculpt_body(None)
 
 
 def hide_body_parts(chr_cache):
     prefs = vars.prefs()
 
-    body = chr_cache.get_body()
-    hide_slots = []
+    body_objects = chr_cache.get_objects_of_type("BODY")
 
-    for i in range(0, len(body.material_slots)):
-        slot = body.material_slots[i]
-        mat = slot.material
-        if mat:
-            mat_cache = chr_cache.get_material_cache(mat)
-            # hide eyelashes and nails
-            if (mat_cache.material_type == "NAILS" or
-                mat_cache.material_type == "EYELASH"):
-                hide_slots.append(i)
+    for body in body_objects:
+        hide_slots = []
 
-    utils.object_mode()
-    utils.clear_selected_objects()
-    if utils.edit_mode_to(body):
-        bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
-        bpy.ops.mesh.select_all(action='DESELECT')
-        for slot_index in hide_slots:
-            bpy.context.object.active_material_index = slot_index
-            bpy.ops.object.material_slot_select()
-            bpy.ops.mesh.hide(unselected=False)
-
-    utils.object_mode()
-
-
-def add_multires_mesh(chr_cache, layer_target, sub_target = "ALL"):
-    prefs = vars.prefs()
-
-    # duplicate the body
-    body = chr_cache.get_body()
-    multires_mesh = utils.duplicate_object(body)
-
-    # split the objects by material
-    utils.clear_selected_objects()
-    utils.edit_mode_to(multires_mesh)
-    bpy.ops.mesh.separate(type='MATERIAL')
-    objects = bpy.context.selected_objects.copy()
-    rejoin = []
-
-    # delete the material parts not wanted by the sculpt target
-    for obj in objects:
-        if len(obj.material_slots) > 0:
-            mat = obj.material_slots[0].material
-            mat_cache = chr_cache.get_material_cache(mat)
-            remove = False
-
-            if mat and mat_cache:
-
-                # always remove eyelashes and nails
+        for i in range(0, len(body.material_slots)):
+            slot = body.material_slots[i]
+            mat = slot.material
+            if mat:
+                mat_cache = chr_cache.get_material_cache(mat)
+                # hide eyelashes and nails
                 if (mat_cache.material_type == "NAILS" or
                     mat_cache.material_type == "EYELASH"):
-                    remove = True
+                    hide_slots.append(i)
 
-                if sub_target == "BODY":
-                    # remove head
-                    if mat_cache.material_type == "SKIN_HEAD":
+        utils.object_mode()
+        utils.clear_selected_objects()
+        if utils.edit_mode_to(body):
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
+            bpy.ops.mesh.select_all(action='DESELECT')
+            for slot_index in hide_slots:
+                bpy.context.object.active_material_index = slot_index
+                bpy.ops.object.material_slot_select()
+                bpy.ops.mesh.hide(unselected=False)
+        utils.object_mode()
+
+
+def add_multires_mesh(context, chr_cache, layer_target, sub_target = "ALL"):
+    prefs = vars.prefs()
+    context = vars.get_context(context=context)
+
+    # duplicate the body
+    context_object = utils.get_context_mesh(context)
+    body_cache = chr_cache.get_body_cache()
+    body_id = body_cache.object_id if body_cache else None
+    body_objects = chr_cache.get_objects_of_type("BODY")
+    cache_objects = chr_cache.get_cache_objects()
+    is_body_type = body_id and utils.get_rl_object_id(context_object) == body_id
+
+    multires_mesh = None
+    multires_source = None
+
+    # if the body object has been split, assume the user wants to keep their split
+    # for sculpting, only split the object when the full body is present.
+
+    if len(body_objects) == 1 and is_body_type:
+
+        body = body_objects[0]
+        multires_mesh = utils.duplicate_object(body)
+        multires_source = body
+
+        # split the objects by material
+        utils.clear_selected_objects()
+        utils.edit_mode_to(multires_mesh)
+        bpy.ops.mesh.separate(type='MATERIAL')
+        objects = context.selected_objects.copy()
+        rejoin = []
+
+        # delete the material parts not wanted by the sculpt target
+        for obj in objects:
+            if len(obj.material_slots) > 0:
+                mat = obj.material_slots[0].material
+                mat_cache = chr_cache.get_material_cache(mat)
+                remove = False
+
+                if mat and mat_cache:
+
+                    # always remove eyelashes and nails
+                    if (mat_cache.material_type == "NAILS" or
+                        mat_cache.material_type == "EYELASH"):
                         remove = True
 
-                elif sub_target == "HEAD":
-                    # remove everything but head
-                    if mat_cache.material_type != "SKIN_HEAD":
-                        remove = True
+                    if sub_target == "BODY":
+                        # remove head
+                        if mat_cache.material_type == "SKIN_HEAD":
+                            remove = True
 
-            if remove:
-                utils.delete_mesh_object(obj)
-            else:
-                rejoin.append(obj)
+                    elif sub_target == "HEAD":
+                        # remove everything but head
+                        if mat_cache.material_type != "SKIN_HEAD":
+                            remove = True
 
-    # rejoin the remaining objects
-    utils.try_select_objects(rejoin, True)
-    multires_mesh = rejoin[0]
-    utils.set_active_object(multires_mesh)
-    bpy.ops.object.join()
+                if remove:
+                    utils.delete_mesh_object(obj)
+                else:
+                    rejoin.append(obj)
 
-    if utils.set_only_active_object(multires_mesh):
+        # rejoin the remaining objects
+        utils.try_select_objects(rejoin, True)
+        multires_mesh = rejoin[0]
+        utils.set_active_object(multires_mesh)
+        bpy.ops.object.join()
+
+    else:
+
+        if context_object in cache_objects:
+            body = context_object
+            multires_mesh = utils.duplicate_object(body)
+            multires_source = body
+
+    if multires_mesh and utils.set_only_active_object(multires_mesh):
 
         # remove doubles
         if utils.edit_mode_to(multires_mesh):
@@ -689,10 +832,11 @@ def add_multires_mesh(chr_cache, layer_target, sub_target = "ALL"):
             multires_mesh.modifiers.clear()
 
             # remove all shapekeys
-            bpy.ops.object.shape_key_remove(all=True)
+            if utils.object_has_shape_keys(multires_mesh):
+                bpy.ops.object.shape_key_remove(all=True)
 
             # unparent and keep transform
-            bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
+            #bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
 
             if layer_target == LAYER_TARGET_DETAIL:
                 sculpt_level = prefs.detail_multires_level
@@ -704,14 +848,14 @@ def add_multires_mesh(chr_cache, layer_target, sub_target = "ALL"):
             # add multi-res modifier
             modifiers.add_multi_res_modifier(multires_mesh, sculpt_level, use_custom_normals=True, quality=6)
 
-    # store the references
-    if layer_target == LAYER_TARGET_DETAIL:
-        chr_cache.detail_multires_body = multires_mesh
-        chr_cache.detail_sculpt_sub_target = sub_target
-    elif layer_target == LAYER_TARGET_SCULPT:
-        chr_cache.sculpt_multires_body = multires_mesh
+        # store the references
+        set_layer_target_mesh(chr_cache, layer_target, multires_mesh)
+        if layer_target == LAYER_TARGET_DETAIL:
+            chr_cache.detail_sculpt_sub_target = sub_target
 
-    multires_mesh.name = body.name + "_" + layer_target
+        multires_mesh.name = body.name + "_" + layer_target
+        set_sculpt_source(multires_mesh, layer_target, multires_source)
+
     return multires_mesh
 
 
@@ -721,7 +865,7 @@ def setup_multires_sculpt(context, chr_cache, layer_target):
 
     if chr_cache:
 
-        multires_mesh = get_layer_target_mesh(chr_cache, layer_target)
+        multires_mesh = get_layer_target_mesh(context, chr_cache, layer_target)
 
         if layer_target == LAYER_TARGET_DETAIL:
 
@@ -731,12 +875,12 @@ def setup_multires_sculpt(context, chr_cache, layer_target):
                 begin_multires_sculpting(context, chr_cache, layer_target)
 
             elif multires_mesh and detail_sculpt_sub_target != prefs.detail_sculpt_sub_target:
-                remove_multires_body(chr_cache, layer_target)
-                multires_mesh = add_multires_mesh(chr_cache, layer_target, prefs.detail_sculpt_sub_target)
+                remove_multires_body(context, chr_cache, layer_target, multires_mesh)
+                multires_mesh = add_multires_mesh(context, chr_cache, layer_target, prefs.detail_sculpt_sub_target)
                 begin_multires_sculpting(context, chr_cache, layer_target)
 
             elif multires_mesh is None:
-                multires_mesh = add_multires_mesh(chr_cache, layer_target, prefs.detail_sculpt_sub_target)
+                multires_mesh = add_multires_mesh(context, chr_cache, layer_target, prefs.detail_sculpt_sub_target)
                 begin_multires_sculpting(context, chr_cache, layer_target)
 
         elif layer_target == LAYER_TARGET_SCULPT:
@@ -745,7 +889,7 @@ def setup_multires_sculpt(context, chr_cache, layer_target):
                 begin_multires_sculpting(context, chr_cache, layer_target)
 
             else:
-                multires_mesh = add_multires_mesh(chr_cache, layer_target)
+                multires_mesh = add_multires_mesh(context, chr_cache, layer_target)
                 begin_multires_sculpting(context, chr_cache, layer_target)
 
 
@@ -765,7 +909,6 @@ class CC3OperatorSculpt(bpy.types.Operator):
         prefs = vars.prefs()
 
         chr_cache = props.get_context_character_cache(context)
-        body = chr_cache.get_body()
 
         if self.param == "DETAIL_SETUP":
             setup_multires_sculpt(context, chr_cache, LAYER_TARGET_DETAIL)
@@ -793,12 +936,20 @@ class CC3OperatorSculpt(bpy.types.Operator):
 
         elif self.param == "BODY_BAKE":
             if chr_cache.multires_bake_apply:
-                bake_multires_sculpt(context, chr_cache, LAYER_TARGET_SCULPT, apply_shape = True, source_body = body)
+                bake_multires_sculpt(context, chr_cache, LAYER_TARGET_SCULPT,
+                                     apply_shape=True)
             else:
                 bake_multires_sculpt(context, chr_cache, LAYER_TARGET_SCULPT)
 
         elif self.param == "BODY_CLEAN":
             clean_multires_sculpt(context, chr_cache, LAYER_TARGET_SCULPT)
+
+        elif self.param == "FLATTEN_LAYERS":
+            flatten_bake_layers(context, chr_cache)
+            pass
+
+        elif self.param == "RESET_FROM_SOURCE":
+            pass
 
         return {"FINISHED"}
 
@@ -879,7 +1030,6 @@ class CC3OperatorSculptExport(bpy.types.Operator):
         prefs = vars.prefs()
 
         chr_cache = props.get_context_character_cache(context)
-        body = chr_cache.get_body()
 
         if self.param == "DETAIL_SKINGEN":
             export_skingen(context, chr_cache, LAYER_TARGET_DETAIL, self.filepath)
