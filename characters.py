@@ -1601,6 +1601,62 @@ def blend_skin_weights(chr_cache, objects):
     if body in objects:
         objects.remove(body)
 
+    for obj in objects:
+        layer_map = add_body_deformation_layers(body, obj)
+        blend_map = map_body_weight_blend(body, obj, layer_map)
+        apply_weight_blend(obj, blend_map)
+
+
+def add_body_deformation_layers(body, obj):
+    return None
+
+
+def map_body_weight_blend(body, obj, layer_map):
+    return None
+
+
+def apply_weight_blend(obj, blend_map):
+    return
+
+
+def calc_key_delta(arm, obj, key: bpy.types.ShapeKey, basis: bpy.types.ShapeKey):
+    delta = 0
+    scale = obj.scale * arm.scale if arm else obj.scale
+    if len(key.points) == len(basis.points):
+        for i in range(0, len(key.points)):
+            key_co: Vector = key.points[i].co
+            basis_co: Vector = basis.points[i].co
+            delta += abs(((key_co - basis_co) * scale).length)
+    return delta
+
+
+def remove_empty_shapekeys(chr_cache):
+    count = 0
+    if chr_cache:
+        utils.log_info(f"Cleaning empty shape keys in character: {chr_cache.character_name}")
+        objects = chr_cache.get_cache_objects()
+        body_objects = chr_cache.get_objects_of_type("BODY")
+        arm = chr_cache.get_armature()
+        for obj in objects:
+            empty_keys = []
+            if obj not in body_objects and obj.type == "MESH" and obj.data.shape_keys:
+                key_blocks = obj.data.shape_keys.key_blocks
+                if key_blocks and len(key_blocks) >= 2 and "Basis" in key_blocks:
+                    basis = key_blocks["Basis"]
+                    for key in key_blocks:
+                        if key != basis:
+                            delta = calc_key_delta(arm, obj, key, basis)
+                            # if overall vertex delta sum is less than 1mm, consider it empty
+                            if delta < 0.001:
+                                empty_keys.append(key.name)
+                for key_name in empty_keys:
+                    key = key_blocks[key_name]
+                    utils.log_info(f" - Removing empty shape key: {obj.name} - {key.name}")
+                    key.driver_remove("value")
+                    obj.shape_key_remove(key)
+                    count += 1
+    return count
+
 
 def convert_to_non_standard(chr_cache):
     if chr_cache.generation == "G3Plus" or chr_cache.generation == "G3":
@@ -1813,6 +1869,12 @@ class CC3OperatorCharacter(bpy.types.Operator):
             if chr_cache:
                 chr_cache.link_id = utils.generate_random_id(20)
 
+        elif self.param == "CLEAN_SHAPE_KEYS":
+            chr_cache = props.get_context_character_cache(context)
+            count = remove_empty_shapekeys(chr_cache)
+            if count > 0:
+                self.report({"INFO"}, f"{count} empty shape keys removed!")
+
         return {"FINISHED"}
 
     @classmethod
@@ -1846,6 +1908,8 @@ class CC3OperatorCharacter(bpy.types.Operator):
             return "Select the just the parent armature for the character or prop"
         elif properties.param == "DUPLICATE":
             return "Duplicate the character / prop objects and meta-data to create a fully independent copy of the character or prop"
+        elif properties.param == "CLEAN_SHAPE_KEYS":
+            return "Clean up empty shape keys in character objects"
         return ""
 
 

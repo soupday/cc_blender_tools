@@ -1212,6 +1212,11 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column.separator()
 
+        row = column.row()
+        row.operator("cc3.character", icon="KEY_DEHLT", text="Clean Shape Keys").param = "CLEAN_SHAPE_KEYS"
+
+        column.separator()
+
         # Armature & Weights
 
         column.box().label(text = "Armature & Weights", icon = "ARMATURE_DATA")
@@ -3313,6 +3318,9 @@ class CC3ToolsUtilityPanel(bpy.types.Panel):
         layout = self.layout
         row = layout.row()
         row.operator("cc3.character", icon="MATERIAL", text="Match Materials").param = "MATCH_MATERIALS"
+
+        row = layout.row()
+        row.operator("cc3.character", icon="KEY_DEHLT", text="Clean Shape Keys").param = "CLEAN_SHAPE_KEYS"
 
 
 class CCICDataLinkPanel(bpy.types.Panel):
