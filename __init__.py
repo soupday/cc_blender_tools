@@ -167,6 +167,7 @@ classes = (
     physics.CC3OperatorPhysics,
     materials.CC3OperatorMaterial,
     characters.CC3OperatorCharacter,
+    characters.CCICWeightTransferBlend,
     properties.CC3OperatorProperties,
     preferences.CC3OperatorPreferences,
     channel_mixer.CC3OperatorChannelMixer,

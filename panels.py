@@ -1229,13 +1229,26 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         if not weight_transferable:
             row.enabled = False
 
+        column = layout.column(align=True)
+        row = column.row(align=True)
+        row.scale_y = 1.5
+        #row.operator("cc3.character", icon="IPO_BEZIER", text="Blend Weights").param = "BLEND_WEIGHTS"
+        #row.operator("ccic.weight_transfer", icon="ANIM", text="")
+        row.operator("ccic.weight_transfer", icon="IPO_BEZIER", text="Blend Weights")
+        grid = column.grid_flow(columns=2, align=True, row_major=True)
+        grid.prop(prefs, "weight_blend_use_range", toggle=True)
+        grid.prop(prefs, "weight_blend_selected_only", toggle=True)
+        grid.prop(prefs, "weight_blend_distance_min", text="", slider=True)
+        if prefs.weight_blend_use_range:
+            grid.prop(prefs, "weight_blend_distance_range", text="", slider=True)
+        else:
+            grid.prop(prefs, "weight_blend_distance_max", text="", slider=True)
+        if not weight_transferable:
+            column.enabled = False
+
+        column = layout.column()
         row = column.row()
         row.operator("cc3.character", icon="ORIENTATION_NORMAL", text="Normalize Weights").param = "NORMALIZE_WEIGHTS"
-        if not weight_transferable:
-            row.enabled = False
-
-        row = column.row()
-        row.operator("cc3.character", icon="ORIENTATION_NORMAL", text="Blend Weights").param = "BLEND_WEIGHTS"
         if not weight_transferable:
             row.enabled = False
 

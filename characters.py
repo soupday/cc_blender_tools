@@ -22,6 +22,7 @@ from . import (springbones, rigidbody, materials, modifiers, meshutils, geom, bo
                shaders, basic, imageutils, nodeutils, jsonutils, utils, vars)
 
 from mathutils import Vector, Matrix, Quaternion
+import mathutils.geometry
 
 MANDATORY_OBJECTS = ["BODY", "TEETH", "TONGUE", "TEARLINE", "OCCLUSION", "EYE"]
 
@@ -1588,6 +1589,8 @@ def normalize_skin_weights(chr_cache, objects):
 
 
 def blend_skin_weights(chr_cache, objects):
+    props = vars.props()
+    prefs = vars.prefs()
 
     if not utils.object_mode():
         return
@@ -1602,20 +1605,106 @@ def blend_skin_weights(chr_cache, objects):
         objects.remove(body)
 
     for obj in objects:
-        layer_map = add_body_deformation_layers(body, obj)
-        blend_map = map_body_weight_blend(body, obj, layer_map)
-        apply_weight_blend(obj, blend_map)
+        pose_mode = arm.data.pose_position
+        arm.data.pose_position = "REST"
+        bpy.context.view_layer.update()
+        layer_map = prep_deformation_layers(arm, body, obj)
+        transfer_skin_weights(chr_cache, objects)
+        post_deformation_layers(obj, layer_map)
+        bm_obj = geom.get_bmesh(obj.data)
+        blend_map = geom.map_body_weight_blends(body, obj, bm_obj)
+        apply_weight_blend(obj, bm_obj, blend_map, layer_map,
+                           prefs.weight_blend_distance_min,
+                           prefs.weight_blend_distance_max,
+                           prefs.weight_blend_distance_range,
+                           prefs.weight_blend_use_range,
+                           prefs.weight_blend_selected_only)
+        clean_up_blend_vertex_groups(obj)
+        arm.data.pose_position = pose_mode
+        bpy.context.view_layer.update()
 
 
-def add_body_deformation_layers(body, obj):
-    return None
+def prep_deformation_layers(arm, body: bpy.types.Object, obj: bpy.types.Object):
+    layer_map = {}
+    for vg in body.vertex_groups:
+        if vg.name not in obj.vertex_groups:
+            if vg.name in arm.data.bones and arm.data.bones[vg.name].use_deform:
+                # TODO don't include face bones or twist parent bones
+                utils.log_info(f"Adding vertex group {vg.name} to {obj.name}")
+                meshutils.add_vertex_group(obj, vg.name)
+    for vg in obj.vertex_groups:
+        if vg.name in body.vertex_groups:
+            bone_name = vg.name
+            id = utils.generate_random_id(4)
+            blend_name = bone_name + "_" + id + "_B"
+            skin_name = bone_name + "_" + id + "_S"
+            vg.name = blend_name
+            layer_map[bone_name] = (blend_name, skin_name)
+    return layer_map
 
 
-def map_body_weight_blend(body, obj, layer_map):
-    return None
+def post_deformation_layers(obj: bpy.types.Object, layer_map):
+    """Move the body transfered weights into new groups,
+       and create empty vertex groups for those bones"""
+    for bone_name in layer_map:
+        blend_name, skin_name = layer_map[bone_name]
+        if bone_name in obj.vertex_groups:
+            vg = obj.vertex_groups[bone_name]
+            vg.name = skin_name
+            meshutils.add_vertex_group(obj, bone_name)
 
 
-def apply_weight_blend(obj, blend_map):
+def apply_weight_blend(obj, bm_obj, blend_map, layer_map,
+                       weight_blend_distance_min,
+                       weight_blend_distance_max,
+                       weight_blend_distance_range,
+                       weight_blend_use_range,
+                       weight_blend_selected_only):
+    d0 = weight_blend_distance_min
+    d1 = weight_blend_distance_max
+    if weight_blend_use_range:
+        max_d1 = 0
+        for v_idx in blend_map:
+            distance = blend_map[v_idx]
+            if distance > max_d1:
+                max_d1 = distance
+        print(weight_blend_distance_range / 100.0)
+        d1 = max(d0, utils.lerp(d0, max_d1, weight_blend_distance_range / 100.0))
+    utils.log_info(f"Using weight blend range: {d0} to {d1}")
+    bm_obj.verts.layers.deform.verify()
+    obj_dl = bm_obj.verts.layers.deform.active
+    for bone_name in layer_map:
+        blend_name, skin_name = layer_map[bone_name]
+        bone_layer = obj.vertex_groups.keys().index(bone_name)
+        blend_layer = obj.vertex_groups.keys().index(blend_name)
+        skin_layer = obj.vertex_groups.keys().index(skin_name)
+        for v_idx in blend_map:
+            distance = blend_map[v_idx]
+            if weight_blend_selected_only and not bm_obj.verts[v_idx].select:
+                distance = -1
+            if distance == -1:
+                try:
+                    blended_weight = bm_obj.verts[v_idx][obj_dl][blend_layer]
+                except:
+                    blended_weight = 0
+            else:
+                try:
+                    w0 = bm_obj.verts[v_idx][obj_dl][skin_layer]
+                except:
+                    w0 = 0
+                try:
+                    w1 = bm_obj.verts[v_idx][obj_dl][blend_layer]
+                except:
+                    w1 = 0
+                blended_weight = utils.map_smoothstep(d0, d1, w0, w1, distance)
+            bm_obj.verts[v_idx][obj_dl][bone_layer] = blended_weight
+    bm_obj.to_mesh(obj.data)
+    return
+
+
+def clean_up_blend_vertex_groups(obj):
+    # remove the _Blend groups
+    # and any empty groups
     return
 
 
@@ -1892,6 +1981,8 @@ class CC3OperatorCharacter(bpy.types.Operator):
             return "Remove any objects from the character data that are no longer part of the character and remove any materials from the character that are no longer in the character objects"
         elif properties.param == "TRANSFER_WEIGHTS":
             return "Transfer skin weights from the character body to the selected objects.\n**THIS OPERATES IN ARMATURE REST MODE**"
+        elif properties.param == "BLEND_WEIGHTS":
+            return "Blend the skin weights from the character body with the weights currently on the selected objects. Weights are blended based on the distance from the surface of the body, governed by the min and max blend distance parameters.\n**THIS OPERATES IN ARMATURE REST MODE**"
         elif properties.param == "NORMALIZE_WEIGHTS":
             return "Recalculate the weights in the vertex groups so they all add up to 1.0 for each vertex, so each vertex is fully weighted across all the bones influencing it"
         elif properties.param == "CONVERT_TO_NON_STANDARD":
@@ -2243,4 +2334,126 @@ class CCICCharacterConvertGeneric(bpy.types.Operator):
                "Note: Materials must be based on the Principled BSDF shader to successfully convert"
 
 
+class CCICWeightTransferBlend(bpy.types.Operator):
+    """Weight Transfer Blend Operator"""
+    bl_idname = "ccic.weight_transfer"
+    bl_label = "Weight Transfer Blend"
+    bl_options = {"REGISTER", "UNDO"}
 
+    weight_blend_distance_min: bpy.props.FloatProperty(default=0.015, min=0.0, soft_max=0.05, max=1.0,
+                                        subtype="DISTANCE", precision=3,
+                                        name="Blend Min Distance",
+                                        description="Distance for full body weights")
+    weight_blend_distance_max: bpy.props.FloatProperty(default=0.05, min=0.0, soft_max=0.25, max=1.0,
+                                        subtype="DISTANCE", precision=3,
+                                        name="Blend Max Distance",
+                                        description="Distance for full source blend weights")
+    weight_blend_distance_range: bpy.props.FloatProperty(default=25, min=0, max=100, subtype="PERCENTAGE",
+                                        name="Blend Range",
+                                        description="Range from Blend Min Distance to the maximum body distance for each mesh to use as the Blend Max Distance")
+    weight_blend_use_range: bpy.props.BoolProperty(default=True,
+                                        name="Use Auto Range",
+                                        description="Use an automatically calculated Distance Blend Max based on a percentage of the largest distance to the selected mesh from the body. Otherwise use a fixed distance for the Distance Blend Max")
+    weight_blend_selected_only: bpy.props.BoolProperty(default=False,
+                                        name="Selected Vertices",
+                                        description="Only blender the weights for the selected vertices in each mesh")
+
+    chr_cache = None
+    objects = []
+    blend_map = None
+    bm_obj = None
+
+    @classmethod
+    def poll(cls, context):
+        props = vars.props()
+        return props.get_context_character_cache(context) is not None
+
+    def draw(self, context):
+        layout = self.layout
+        column = layout.column(align=True)
+        grid = column.grid_flow(columns=2, align=True)
+        grid.prop(self, "weight_blend_use_range")
+        grid.prop(self, "weight_blend_selected_only")
+        column.prop(self, "weight_blend_distance_min", slider=True)
+        if self.weight_blend_use_range:
+            column.prop(self, "weight_blend_distance_range", slider=True)
+        else:
+            column.prop(self, "weight_blend_distance_max", slider=True)
+
+    def begin_blend_skin_weights(self):
+        arm = self.chr_cache.get_armature()
+        body = self.chr_cache.get_body()
+
+        if not arm or not body:
+            return
+
+        objects = [ bpy.data.objects[name] for name in self.objects ]
+
+        if body in objects:
+            self.objects.remove(body)
+
+        for obj in objects:
+            pose_mode = arm.data.pose_position
+            arm.data.pose_position = "REST"
+            #bpy.context.view_layer.update()
+            self.layer_map = prep_deformation_layers(arm, body, obj)
+            transfer_skin_weights(self.chr_cache, objects)
+            post_deformation_layers(obj, self.layer_map)
+            self.bm_obj = geom.get_bmesh(obj.data)
+            self.blend_map = geom.map_body_weight_blends(body, obj, self.bm_obj)
+            arm.data.pose_position = pose_mode
+
+    def do_blend_skin_weights(self):
+        arm = self.chr_cache.get_armature()
+        body = self.chr_cache.get_body()
+
+        if not arm or not body:
+            return
+
+        objects = [ bpy.data.objects[name] for name in self.objects ]
+
+        if body in objects:
+            self.objects.remove(body)
+
+        for obj in objects:
+
+            pose_mode = arm.data.pose_position
+            arm.data.pose_position = "REST"
+            apply_weight_blend(obj, self.bm_obj, self.blend_map, self.layer_map,
+                               self.weight_blend_distance_min,
+                               self.weight_blend_distance_max,
+                               self.weight_blend_distance_range,
+                               self.weight_blend_use_range,
+                               self.weight_blend_selected_only)
+            arm.data.pose_position = pose_mode
+
+    def end_blend_skin_weights(self):
+        pass
+
+    def execute(self, context):
+        props = vars.props()
+        self.chr_cache = props.get_context_character_cache(context)
+        self.do_blend_skin_weights()
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        prefs = vars.prefs()
+        props = vars.props()
+        utils.set_mode("OBJECT")
+        self.weight_blend_distance_max = prefs.weight_blend_distance_max
+        self.weight_blend_distance_min = prefs.weight_blend_distance_min
+        self.weight_blend_distance_range = prefs.weight_blend_distance_range
+        self.weight_blend_use_range = prefs.weight_blend_use_range
+        self.weight_blend_selected_only = prefs.weight_blend_selected_only
+        self.chr_cache = props.get_context_character_cache(context)
+        self.objects = [ obj.name for obj in bpy.context.selected_objects if obj.type == "MESH" ]
+        mode_selection = utils.store_mode_selection_state()
+        self.begin_blend_skin_weights()
+        self.do_blend_skin_weights()
+        utils.restore_mode_selection_state(mode_selection)
+        return context.window_manager.invoke_props_popup(self, event)
+
+
+    @classmethod
+    def description(cls, context, properties):
+        return "Blend the skin weights from the character body with the weights currently on the selected objects. Weights are blended based on the distance from the surface of the body, governed by the min and max blend distance parameters.\n**THIS OPERATES IN ARMATURE REST MODE**"

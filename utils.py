@@ -501,6 +501,14 @@ def smoothstep(edge0, edge1, x):
     return x * x * (3 - 2 * x)
 
 
+def map_smoothstep(edge0, edge1, value0, value1, x):
+    if edge1 == edge0:
+        return value1
+    x = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0)
+    t = x * x * (3 - 2 * x)
+    return value0 + (value1 - value0) * t
+
+
 def saturate(x):
     if x < 0.0:
         x = 0.0

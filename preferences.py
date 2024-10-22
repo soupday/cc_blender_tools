@@ -330,6 +330,26 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                 description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
                 "Which sets up Reallusion import compatible materials and material parameters")
 
+    # weight transfer blend
+    weight_blend_distance_min: bpy.props.FloatProperty(default=0.015, min=0.0, soft_max=0.05, max=1.0,
+                                        subtype="DISTANCE", precision=3,
+                                        name="Blend Min Distance",
+                                        description="Distance for full body weights")
+    weight_blend_distance_max: bpy.props.FloatProperty(default=0.05, min=0.0, soft_max=0.25, max=1.0,
+                                        subtype="DISTANCE", precision=3,
+                                        name="Blend Max Distance",
+                                        description="Distance for full source blend weights")
+    weight_blend_distance_range: bpy.props.FloatProperty(default=25, min=0, max=100, subtype="PERCENTAGE",
+                                        name="Blend Range",
+                                        description="Range from Blend Min Distance to the maximum body distance for each mesh to use as the Blend Max Distance")
+    weight_blend_use_range: bpy.props.BoolProperty(default=False,
+                                        name="Auto Range",
+                                        description="Use an automatically calculated Distance Blend Max based on a percentage of the largest distance to the selected mesh from the body. Otherwise use a fixed distance for the Distance Blend Max")
+    weight_blend_selected_only: bpy.props.BoolProperty(default=False,
+                                        name="Selected Verts",
+                                        description="Only blender the weights for the selected vertices in each mesh")
+
+
     # Eevee Modifiers
     eevee_ssr_iris_brightness_b420: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Eevee")
     eevee_sss_skin_b420: bpy.props.FloatProperty(default=1.0)

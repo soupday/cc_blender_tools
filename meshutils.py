@@ -51,11 +51,17 @@ def clear_vertex_group(obj, vertex_group: bpy.types.VertexGroup):
     vertex_group.remove(all_verts)
 
 
-def set_vertex_group(obj, vertex_group: bpy.types.VertexGroup, value):
-    all_verts = []
-    for v in obj.data.vertices:
-        all_verts.append(v.index)
-    vertex_group.add(all_verts, value, 'ADD')
+def set_vertex_group(obj, vertex_group, value):
+    if type(vertex_group) is str:
+        try:
+            vertex_group = obj.vertex_groups[vertex_group]
+        except:
+            vertex_group = None
+    if vertex_group:
+        all_verts = []
+        for v in obj.data.vertices:
+            all_verts.append(v.index)
+        vertex_group.add(all_verts, value, 'ADD')
 
 
 def count_vertex_group(obj, vertex_group: bpy.types.VertexGroup):
