@@ -1982,7 +1982,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             for obj_cache in self.object_cache:
                 if include_disabled or not obj_cache.disabled:
                     cache_object = obj_cache.get_object()
-                    cache_object_id = utils.get_rl_object_id(cache_object_id)
+                    cache_object_id = utils.get_rl_object_id(cache_object)
                     if cache_object == obj or cache_object_id == object_id:
                         return True
         return False

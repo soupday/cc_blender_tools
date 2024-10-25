@@ -1612,30 +1612,33 @@ def blend_skin_weights(chr_cache, objects):
         transfer_skin_weights(chr_cache, objects)
         post_deformation_layers(obj, layer_map)
         bm_obj = geom.get_bmesh(obj.data)
-        blend_map = geom.map_body_weight_blends(body, obj, bm_obj)
-        apply_weight_blend(obj, bm_obj, blend_map, layer_map,
+        vert_map = geom.map_body_weight_blends(body, obj, bm_obj)
+        apply_weight_blend(obj, bm_obj, vert_map, layer_map,
                            prefs.weight_blend_distance_min,
                            prefs.weight_blend_distance_max,
                            prefs.weight_blend_distance_range,
                            prefs.weight_blend_use_range,
                            prefs.weight_blend_selected_only)
-        clean_up_blend_vertex_groups(obj)
+        clean_up_blend_vertex_groups(obj, layer_map)
         arm.data.pose_position = pose_mode
         bpy.context.view_layer.update()
 
 
-def prep_deformation_layers(arm, body: bpy.types.Object, obj: bpy.types.Object):
+def prep_deformation_layers(arm, body: bpy.types.Object, obj: bpy.types.Object, bm_obj):
     layer_map = {}
+    bones = []
     for vg in body.vertex_groups:
         if vg.name not in obj.vertex_groups:
             if vg.name in arm.data.bones and arm.data.bones[vg.name].use_deform:
+                bones.append(vg.name)
                 # TODO don't include face bones or twist parent bones
                 utils.log_info(f"Adding vertex group {vg.name} to {obj.name}")
                 meshutils.add_vertex_group(obj, vg.name)
+    id = utils.generate_random_id(4)
     for vg in obj.vertex_groups:
-        if vg.name in body.vertex_groups:
+        if vg.name in bones:
             bone_name = vg.name
-            id = utils.generate_random_id(4)
+            b_idx = bones.index(vg.name)
             blend_name = bone_name + "_" + id + "_B"
             skin_name = bone_name + "_" + id + "_S"
             vg.name = blend_name
@@ -1654,7 +1657,18 @@ def post_deformation_layers(obj: bpy.types.Object, layer_map):
             meshutils.add_vertex_group(obj, bone_name)
 
 
-def apply_weight_blend(obj, bm_obj, blend_map, layer_map,
+def clean_up_blend_vertex_groups(obj, layer_map):
+    for bone_name in layer_map:
+        blend_name, skin_name = layer_map[bone_name]
+        if blend_name in obj.vertex_groups:
+            vg = obj.vertex_groups[blend_name]
+            obj.vertex_groups.remove(vg)
+        if skin_name in obj.vertex_groups:
+            vg = obj.vertex_groups[skin_name]
+            obj.vertex_groups.remove(vg)
+
+
+def apply_weight_blend(obj, bm_obj, vert_map, layer_map,
                        weight_blend_distance_min,
                        weight_blend_distance_max,
                        weight_blend_distance_range,
@@ -1664,11 +1678,10 @@ def apply_weight_blend(obj, bm_obj, blend_map, layer_map,
     d1 = weight_blend_distance_max
     if weight_blend_use_range:
         max_d1 = 0
-        for v_idx in blend_map:
-            distance = blend_map[v_idx]
+        for v_idx in vert_map:
+            distance = vert_map[v_idx]
             if distance > max_d1:
                 max_d1 = distance
-        print(weight_blend_distance_range / 100.0)
         d1 = max(d0, utils.lerp(d0, max_d1, weight_blend_distance_range / 100.0))
     utils.log_info(f"Using weight blend range: {d0} to {d1}")
     bm_obj.verts.layers.deform.verify()
@@ -1678,8 +1691,8 @@ def apply_weight_blend(obj, bm_obj, blend_map, layer_map,
         bone_layer = obj.vertex_groups.keys().index(bone_name)
         blend_layer = obj.vertex_groups.keys().index(blend_name)
         skin_layer = obj.vertex_groups.keys().index(skin_name)
-        for v_idx in blend_map:
-            distance = blend_map[v_idx]
+        for v_idx in vert_map:
+            distance = vert_map[v_idx]
             if weight_blend_selected_only and not bm_obj.verts[v_idx].select:
                 distance = -1
             if distance == -1:
@@ -1699,12 +1712,6 @@ def apply_weight_blend(obj, bm_obj, blend_map, layer_map,
                 blended_weight = utils.map_smoothstep(d0, d1, w0, w1, distance)
             bm_obj.verts[v_idx][obj_dl][bone_layer] = blended_weight
     bm_obj.to_mesh(obj.data)
-    return
-
-
-def clean_up_blend_vertex_groups(obj):
-    # remove the _Blend groups
-    # and any empty groups
     return
 
 
@@ -2183,7 +2190,6 @@ class CCICCharacterLink(bpy.types.Operator):
         prefs = vars.prefs()
         chr_cache = props.get_context_character_cache(context)
         chr_rig = utils.get_context_armature(context)
-        print(chr_rig, chr_cache)
 
         if self.param == "CONNECT":
             self.filter_glob = "*.fbx;*.blend"
@@ -2359,9 +2365,7 @@ class CCICWeightTransferBlend(bpy.types.Operator):
                                         description="Only blender the weights for the selected vertices in each mesh")
 
     chr_cache = None
-    objects = []
-    blend_map = None
-    bm_obj = None
+    objects = {}
 
     @classmethod
     def poll(cls, context):
@@ -2387,20 +2391,17 @@ class CCICWeightTransferBlend(bpy.types.Operator):
         if not arm or not body:
             return
 
-        objects = [ bpy.data.objects[name] for name in self.objects ]
-
-        if body in objects:
-            self.objects.remove(body)
-
-        for obj in objects:
+        for obj_name in self.objects:
+            obj = bpy.data.objects[obj_name]
             pose_mode = arm.data.pose_position
             arm.data.pose_position = "REST"
             #bpy.context.view_layer.update()
-            self.layer_map = prep_deformation_layers(arm, body, obj)
-            transfer_skin_weights(self.chr_cache, objects)
-            post_deformation_layers(obj, self.layer_map)
-            self.bm_obj = geom.get_bmesh(obj.data)
-            self.blend_map = geom.map_body_weight_blends(body, obj, self.bm_obj)
+            layer_map = prep_deformation_layers(arm, body, obj)
+            transfer_skin_weights(self.chr_cache, [obj])
+            post_deformation_layers(obj, layer_map)
+            bm_obj = geom.get_bmesh(obj.data)
+            vert_map = geom.map_body_weight_blends(body, obj, bm_obj)
+            self.objects[obj_name] = (bm_obj, layer_map, vert_map)
             arm.data.pose_position = pose_mode
 
     def do_blend_skin_weights(self):
@@ -2410,16 +2411,12 @@ class CCICWeightTransferBlend(bpy.types.Operator):
         if not arm or not body:
             return
 
-        objects = [ bpy.data.objects[name] for name in self.objects ]
-
-        if body in objects:
-            self.objects.remove(body)
-
-        for obj in objects:
-
+        for obj_name in self.objects:
+            obj = bpy.data.objects[obj_name]
+            bm_obj, layer_map, vert_map = self.objects[obj_name]
             pose_mode = arm.data.pose_position
             arm.data.pose_position = "REST"
-            apply_weight_blend(obj, self.bm_obj, self.blend_map, self.layer_map,
+            apply_weight_blend(obj, bm_obj, vert_map, layer_map,
                                self.weight_blend_distance_min,
                                self.weight_blend_distance_max,
                                self.weight_blend_distance_range,
@@ -2428,7 +2425,24 @@ class CCICWeightTransferBlend(bpy.types.Operator):
             arm.data.pose_position = pose_mode
 
     def end_blend_skin_weights(self):
-        pass
+        if self.objects:
+            for obj_name in self.objects:
+                obj = bpy.data.objects[obj_name]
+                bm_obj, layer_map, vert_map = self.objects[obj_name]
+                clean_up_blend_vertex_groups(obj, layer_map)
+                bm_obj.free()
+        self.objects = {}
+
+    def collect_objects(self, context):
+        props = vars.props()
+        self.chr_cache = props.get_context_character_cache(context)
+        self.objects = {}
+        if self.chr_cache:
+            body_objects = self.chr_cache.get_objects_of_type("BODY")
+            for obj in context.selected_objects:
+                if obj in body_objects: continue
+                if utils.object_exists_is_mesh(obj) and self.chr_cache.has_object(obj):
+                    self.objects[obj.name] = None
 
     def execute(self, context):
         props = vars.props()
@@ -2438,16 +2452,16 @@ class CCICWeightTransferBlend(bpy.types.Operator):
 
     def invoke(self, context, event):
         prefs = vars.prefs()
-        props = vars.props()
         utils.set_mode("OBJECT")
         self.weight_blend_distance_max = prefs.weight_blend_distance_max
         self.weight_blend_distance_min = prefs.weight_blend_distance_min
         self.weight_blend_distance_range = prefs.weight_blend_distance_range
         self.weight_blend_use_range = prefs.weight_blend_use_range
         self.weight_blend_selected_only = prefs.weight_blend_selected_only
-        self.chr_cache = props.get_context_character_cache(context)
-        self.objects = [ obj.name for obj in bpy.context.selected_objects if obj.type == "MESH" ]
+        self.collect_objects(context)
         mode_selection = utils.store_mode_selection_state()
+        # TODO will have to store blend and skin weights separately so we don't have to
+        # use the vertex groups (as cant delete them when operator ends)
         self.begin_blend_skin_weights()
         self.do_blend_skin_weights()
         utils.restore_mode_selection_state(mode_selection)

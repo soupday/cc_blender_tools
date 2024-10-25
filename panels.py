@@ -1234,7 +1234,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         row.scale_y = 1.5
         #row.operator("cc3.character", icon="IPO_BEZIER", text="Blend Weights").param = "BLEND_WEIGHTS"
         #row.operator("ccic.weight_transfer", icon="ANIM", text="")
-        row.operator("ccic.weight_transfer", icon="IPO_BEZIER", text="Blend Weights")
+        row.operator("ccic.weight_transfer", icon="IPO_BEZIER", text="Blend Body Weights")
         grid = column.grid_flow(columns=2, align=True, row_major=True)
         grid.prop(prefs, "weight_blend_use_range", toggle=True)
         grid.prop(prefs, "weight_blend_selected_only", toggle=True)

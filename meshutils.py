@@ -439,10 +439,8 @@ def separate_mesh_by_material_slots(obj: bpy.types.Object, slot_indices: list):
                 if count > 0 and count < len(obj.data.vertices):
                     bpy.ops.mesh.separate(type="SELECTED")
                     if utils.object_mode():
-                        print(bpy.context.selected_objects)
                         for o in bpy.context.selected_objects:
                             if o != obj:
-                                print(o)
                                 return o
     return None
 
