@@ -162,6 +162,7 @@ class LinkActor():
     def find_actor(link_id, search_name=None, search_type=None, context_chr_cache=None):
         props = vars.props()
         prefs = vars.prefs()
+        link_data = get_link_data()
 
         utils.log_detail(f"Looking for LinkActor: {search_name} {link_id} {search_type}")
         actor: LinkActor = None
@@ -188,8 +189,9 @@ class LinkActor():
 
         # finally if matching to any avatar, trying to find an avatar and there is only
         # one avatar in the scene, use that one avatar, otherwise use the selected avatar
-        if prefs.datalink_match_any_avatar and search_type == "AVATAR":
+        if link_data and link_data.is_cc() and prefs.datalink_match_any_avatar and search_type == "AVATAR":
             chr_cache = None
+
             if len(props.get_avatars()) == 1:
                 chr_cache = props.get_first_avatar()
             else:
