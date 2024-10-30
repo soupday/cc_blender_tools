@@ -86,7 +86,6 @@ def adjust_lighting_brightness(self, context):
                 light.data["rl_last_brightness"] = current_brightness
             last_brightness = light.data["rl_last_brightness"]
             # if the brightness has been changed by the user, update the custom props
-            print(current_brightness, last_brightness)
             if abs(current_brightness-last_brightness) >= 0.001:
                 light.data["rl_default_brightness"] = current_brightness
                 light.data["rl_last_brightness"] = current_brightness

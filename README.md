@@ -37,8 +37,12 @@ Links
 
 ### 2.1.11
 - Character Management functions - CCiC Create > Character Management:
-    - Clean Shape Keys: Removes empty shape keys from the character.
+    - Transfer weights supports split body meshes.
+    - Voxel head diffuse skinning (if installed) button for selected character meshes.
+    - Clean Empty Data: Removes empty shape keys and empty vertex groups from the character meshes.
     - Blend Body Weights: Blends body vertex weights with existing vertex weights on selected objects based on distance from the surface of the body, to correct vertex weighting for clothing items that don't conform correctly to the body, e.g. from Voxel Heat Diffusion weights or from Daz original weights.
+- New scene presets added:
+    - scene view transform and world background strength controls added.
 
 ### 2.1.10
 - Sets up Rigidbody physics when _appending_ a character from another library blend file via the Append button in the import panel.
