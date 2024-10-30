@@ -90,7 +90,7 @@ def restore_cc_bone_names(chr_cache):
 def prep_rig(chr_cache):
     if chr_cache:
         rig = chr_cache.get_armature()
-        rigutils.fix_cc3_bone_sizes(rig)
+        rigutils.fix_cc3_standard_rig(rig)
         rigutils.select_rig(rig)
         if rig:
             chr_cache.proportion_editing_in_front = rig.show_in_front

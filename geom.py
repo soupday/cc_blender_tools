@@ -737,6 +737,18 @@ def map_body_weight_blends(body, obj, bm_obj: bmesh.types.BMesh):
     return weight_blends
 
 
+def fetch_vertex_layer_weights(bm: bmesh.types.BMesh, layer_index):
+    bm.verts.layers.deform.verify()
+    dl = bm.verts.layers.deform.active
+    weights = {}
+    for vert in bm.verts:
+        try:
+            weights[vert.index] = vert[dl][layer_index]
+        except:
+            weights[vert.index] = 0.0
+    return weights
+
+
 DIAG_NAME = "DiagnosticMesh"
 DIAG = None
 DIAG_BM = None

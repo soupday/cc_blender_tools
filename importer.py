@@ -572,7 +572,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             chr_cache.character_name = character_name
 
             arm["rl_import_file"] = file_path
-            rigutils.fix_cc3_bone_sizes(arm)
+            rigutils.fix_cc3_standard_rig(arm)
 
             # link_id
             json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")

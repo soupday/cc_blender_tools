@@ -2392,6 +2392,12 @@ def fix_texture_rel_path(rel_path: str):
     return rel_path
 
 
+def get_resource_path(folder, file):
+    addon_path = os.path.dirname(os.path.realpath(__file__))
+    resource_path = os.path.join(addon_path, folder, file)
+    return resource_path
+
+
 def get_unique_folder_path(parent_folder, folder_name, create=False, reuse=False):
     suffix = 1
     base_name = folder_name

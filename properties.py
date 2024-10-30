@@ -79,10 +79,42 @@ def adjust_lighting_brightness(self, context):
         if light.type == "LIGHT":
             if not props.lighting_brightness_all and not utils.has_ccic_id(light):
                 continue
+            current_brightness = light.data.energy
             if "rl_default_brightness" not in light.data:
-                light.data["rl_default_brightness"] = light.data.energy
+                light.data["rl_default_brightness"] = current_brightness
+            if "rl_last_brightness" not in light.data:
+                light.data["rl_last_brightness"] = current_brightness
+            last_brightness = light.data["rl_last_brightness"]
+            # if the brightness has been changed by the user, update the custom props
+            print(current_brightness, last_brightness)
+            if abs(current_brightness-last_brightness) >= 0.001:
+                light.data["rl_default_brightness"] = current_brightness
+                light.data["rl_last_brightness"] = current_brightness
             base_energy = light.data["rl_default_brightness"]
-            light.data.energy = base_energy * props.lighting_brightness
+            new_brightness = base_energy * props.lighting_brightness
+            light.data.energy = new_brightness
+            light.data["rl_last_brightness"] = new_brightness
+
+
+def adjust_world_brightness(self, context):
+    props = vars.props()
+    nodes = context.scene.world.node_tree.nodes
+    for node in nodes:
+        if node.type == "BACKGROUND" and "(rl_background_node)" in node.name:
+            current_strength = node.inputs["Strength"].default_value
+            if "rl_default_strength" not in node:
+                node["rl_default_strength"] = current_strength
+            if "rl_last_strength" not in node:
+                node["rl_last_strength"] = current_strength
+            last_strength = node["rl_last_strength"]
+            # if the node strength has been changed by the user, update the custom props
+            if abs(current_strength - last_strength) >= 0.001:
+                node["rl_default_strength"] = current_strength
+                node["rl_last_strength"] = current_strength
+            base_strength = node["rl_default_strength"]
+            new_strength = base_strength * props.world_brightness
+            node.inputs["Strength"].default_value = new_strength
+            node["rl_last_strength"] = new_strength
 
 
 def update_property(self, context, prop_name, update_mode = None):
@@ -2780,6 +2812,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                                                  name="Lighting Brightness",
                                                  description="Adjust the lighting brightness of all lights created by this add-on",
                                                  update=adjust_lighting_brightness)
+    world_brightness: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0,
+                                                 name="World Brightness",
+                                                 description="Adjust the world background brightness if the world setup was created by this add-on",
+                                                 update=adjust_world_brightness)
+
 
     def add_character_cache(self, copy_from=None):
         chr_cache = self.import_cache.add()

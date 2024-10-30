@@ -937,7 +937,14 @@ def set_bone_tail_length(bone: bpy.types.EditBone, tail):
         bone.length = length
 
 
-def fix_cc3_bone_sizes(cc3_rig):
+def set_bone_deform(bone: bpy.types.EditBone, use_deform):
+    try:
+        if bone:
+            bone.use_deform = use_deform
+    except: ...
+
+
+def fix_cc3_standard_rig(cc3_rig):
     if edit_rig(cc3_rig):
         left_eye = bones.get_edit_bone(cc3_rig, "CC_Base_L_Eye")
         right_eye = bones.get_edit_bone(cc3_rig, "CC_Base_R_Eye")
@@ -954,15 +961,28 @@ def fix_cc3_bone_sizes(cc3_rig):
         right_thigh = bones.get_edit_bone(cc3_rig, ["CC_Base_R_Thigh", "thigh_r"])
         left_calf = bones.get_edit_bone(cc3_rig, ["CC_Base_L_Calf", "calf_l"])
         right_calf = bones.get_edit_bone(cc3_rig, ["CC_Base_R_Calf", "calf_r"])
+        hip = bones.get_edit_bone(cc3_rig, ["CC_Base_Hip", "hip"])
+        root = bones.get_edit_bone(cc3_rig, ["CC_Base_BoneRoot", "RL_BoneRoot", "root"])
+        # fix deform state
+        set_bone_deform(left_thigh, False)
+        set_bone_deform(right_thigh, False)
+        set_bone_deform(left_calf, False)
+        set_bone_deform(right_calf, False)
+        set_bone_deform(left_upper_arm, False)
+        set_bone_deform(right_upper_arm, False)
+        set_bone_deform(left_lower_arm, False)
+        set_bone_deform(right_lower_arm, False)
+        set_bone_deform(hip, False)
+        set_bone_deform(root, False)
         # eyes
         eye_z = None
         if left_eye and right_eye:
             eye_z = ((left_eye.head + right_eye.head) * 0.5).z
-        # head
-        if head:
-            head_tail = head.tail.copy()
-            head_tail.z = eye_z + (eye_z - head.head.z) * 0.5
-            set_bone_tail_length(head, head_tail)
+            # head
+            if head:
+                head_tail = head.tail.copy()
+                head_tail.z = eye_z + (eye_z - head.head.z) * 0.5
+                set_bone_tail_length(head, head_tail)
         # arms
         set_bone_tail_length(left_upper_arm, left_lower_arm)
         set_bone_tail_length(right_upper_arm, right_lower_arm)
@@ -974,7 +994,6 @@ def fix_cc3_bone_sizes(cc3_rig):
         set_bone_tail_length(left_calf, left_foot)
         set_bone_tail_length(right_calf, right_foot)
         select_rig(cc3_rig)
-
 
 
 def reset_rotation_modes(rig, rotation_mode = "QUATERNION"):

@@ -3838,12 +3838,16 @@ class CC3RigifierModal(bpy.types.Operator):
         )
 
     timer = None
+    voxel_reparenting = False
     voxel_skinning = False
+    voxel_reparenting_finish = False
     voxel_skinning_finish = False
     processing = False
     dummy_cube = None
     head_mesh = None
     body_mesh = None
+    chr_cache = None
+    objects = []
 
     def modal(self, context, event):
 
@@ -3853,21 +3857,40 @@ class CC3RigifierModal(bpy.types.Operator):
 
         if event.type == 'TIMER' and not self.processing:
 
-            if self.voxel_skinning and self.dummy_cube:
+            if self.voxel_reparenting and self.dummy_cube:
                 self.processing = True
                 try:
                     if self.dummy_cube.parent is not None:
-                        self.voxel_skinning = False
-                        self.voxel_skinning_finish = True
+                        self.voxel_reparenting = False
+                        self.voxel_reparenting_finish = True
                 except:
                     pass
                 self.processing = False
                 return {'PASS_THROUGH'}
 
 
+            if self.voxel_reparenting_finish:
+                self.processing = True
+                self.voxel_re_parent_end(context)
+                self.cancel(context)
+                self.processing = False
+                return {'FINISHED'}
+
+            if self.voxel_skinning and self.objects:
+                self.processing = True
+                all_parented = True
+                for obj in self.objects:
+                    if obj.parent is None:
+                        all_parented = False
+                if all_parented:
+                    self.voxel_skinning = False
+                    self.voxel_skinning_finish = True
+                self.processing = False
+                return {'PASS_THROUGH'}
+
             if self.voxel_skinning_finish:
                 self.processing = True
-                self.voxel_re_parent_two(context)
+                self.voxel_heat_skinning_end(context)
                 self.cancel(context)
                 self.processing = False
                 return {'FINISHED'}
@@ -3878,40 +3901,52 @@ class CC3RigifierModal(bpy.types.Operator):
         if self.timer is not None:
             context.window_manager.event_timer_remove(self.timer)
             self.timer = None
+            self.voxel_reparenting = False
             self.voxel_skinning = False
-            voxel_skinning_finish = False
+            self.voxel_reparenting_finish = False
+            self.voxel_skinning_finish = False
+            self.chr_cache = None
+            self.objects = []
 
     def execute(self, context):
         props: properties.CC3ImportProps = vars.props()
-        chr_cache = props.get_context_character_cache(context)
+        self.chr_cache = props.get_context_character_cache(context)
 
-        if chr_cache:
-            if self.param == "VOXEL_SKINNING":
-                self.voxel_re_parent_one(context)
+        if self.chr_cache:
+
+            # get all selected character non-body objects
+            self.objects = []
+            body_objects = self.chr_cache.get_objects_of_type("BODY")
+            for obj in bpy.context.selected_objects:
+                if utils.object_exists_is_mesh(obj) and obj not in body_objects:
+                    self.objects.append(obj)
+
+            # an alternative to reparent with automatic weights
+            # for reparenting body meshes to full rigify rigs
+            if self.param == "VOXEL_SURFACE_REPARENT":
+                self.voxel_re_parent_start(context)
+                return {'RUNNING_MODAL'}
+
+            if self.param == "VOXEL_HEAT_SKINNING":
+                self.voxel_heat_skinning_start(context)
                 return {'RUNNING_MODAL'}
 
         return {"FINISHED"}
 
-    def voxel_re_parent_one(self, context):
-        props: properties.CC3ImportProps = vars.props()
-        chr_cache = props.get_context_character_cache(context)
-
-        lock_non_face_vgroups(chr_cache)
-        store_non_face_vgroups(chr_cache)
+    def voxel_re_parent_start(self, context):
+        lock_non_face_vgroups(self.chr_cache)
+        store_non_face_vgroups(self.chr_cache)
         # as we have no way of knowing when the operator finishes, we add
         # a dummy cube (unparented) to the objects being skinned and parented.
         # Since the parenting to the armature is the last thing
         # the voxel skinning operator does, we can watch for that to happen.
-        self.dummy_cube, self.head_mesh, self.body_mesh = attempt_reparent_voxel_skinning(chr_cache)
+        self.dummy_cube, self.head_mesh, self.body_mesh = attempt_reparent_voxel_skinning(self.chr_cache)
 
-        self.voxel_skinning = True
+        self.voxel_reparenting = True
         bpy.context.window_manager.modal_handler_add(self)
         self.timer = context.window_manager.event_timer_add(1.0, window = bpy.context.window)
 
-    def voxel_re_parent_two(self, context):
-        props: properties.CC3ImportProps = vars.props()
-        chr_cache = props.get_context_character_cache(context)
-
+    def voxel_re_parent_end(self, context):
         if self.dummy_cube:
             bpy.data.objects.remove(self.dummy_cube)
             self.dummy_cube = None
@@ -3921,19 +3956,47 @@ class CC3RigifierModal(bpy.types.Operator):
             self.head_mesh = None
             self.body_mesh = None
 
-        restore_non_face_vgroups(chr_cache)
-        unlock_vgroups(chr_cache)
+        restore_non_face_vgroups(self.chr_cache)
+        unlock_vgroups(self.chr_cache)
 
-        arm = chr_cache.get_armature()
+        arm = self.chr_cache.get_armature()
         if arm and utils.object_mode():
             if utils.try_select_object(arm, True) and utils.set_active_object(arm):
                 utils.set_mode("POSE")
 
+        self.chr_cache = None
+
         self.report({'INFO'}, "Voxel Face Re-parent Done!")
+
+    def voxel_heat_skinning_start(self, context):
+        # fix cc3 rig (bone lengths & deform settings)
+        arm = self.chr_cache.get_armature()
+        rigutils.fix_cc3_standard_rig(arm)
+
+        # unparent object(s) keep transform
+        utils.try_select_objects(self.objects, clear_selection=True)
+        bpy.ops.object.parent_clear(type = "CLEAR_KEEP_TRANSFORM")
+        utils.set_active_object(arm)
+
+        # start voxel heat diffuse skinning
+        # TODO set operator params...
+        bpy.ops.wm.voxel_heat_diffuse()
+
+        self.voxel_skinning = True
+        bpy.context.window_manager.modal_handler_add(self)
+        self.timer = context.window_manager.event_timer_add(1.0, window = bpy.context.window)
+
+
+    def voxel_heat_skinning_end(self, context):
+        props: properties.CC3ImportProps = vars.props()
+        # apply scale on object(s) NOT armature
+        utils.try_select_objects(self.objects, clear_selection=True)
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+
 
     @classmethod
     def description(cls, context, properties):
-        if properties.param == "VOXEL_SKINNING":
+        if properties.param == "VOXEL_SURFACE_REPARENT":
             return "Attempt to re-parent the character's face objects to the Rigify face rig by using voxel surface head diffuse skinning"
 
         return ""

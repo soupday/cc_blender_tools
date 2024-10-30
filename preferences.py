@@ -147,6 +147,16 @@ def reset_preferences():
     reset_datalink()
 
 
+def set_view_transform(self, context):
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
+    view = context.scene.view_settings
+    try:
+        view.view_transform = prefs.lighting_use_look
+    except:
+        pass
+
+
+
 class CC3OperatorPreferences(bpy.types.Operator):
     """CC3 Preferences Functions"""
     bl_idname = "cc3.setpreferences"
@@ -400,10 +410,13 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
     cycles_roughness_power_b341: bpy.props.FloatProperty(default=1.0)
 
+    lighting_presets_all: bpy.props.BoolProperty(default=False,
+                                                 name="Show All Lighting Presets",
+                                                 description="Show / hide hidden lighting presets")
     lighting_use_look: bpy.props.EnumProperty(items=[
                         ("Filmic","Filmic","Use Filmic display space"),
                         ("AgX","AgX","Use AgX display space"),
-                    ], default="AgX", name="Color management display space")
+                    ], default="AgX", name="Color management display space", update=set_view_transform)
 
     bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
     bake_objects_mode: bpy.props.EnumProperty(items=[

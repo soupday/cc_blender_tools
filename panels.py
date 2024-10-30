@@ -1213,7 +1213,7 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
         column.separator()
 
         row = column.row()
-        row.operator("cc3.character", icon="KEY_DEHLT", text="Clean Shape Keys").param = "CLEAN_SHAPE_KEYS"
+        row.operator("cc3.character", icon="KEY_DEHLT", text="Clean Empty Data").param = "CLEAN_SHAPE_KEYS"
 
         column.separator()
 
@@ -1225,9 +1225,16 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
             column.row().prop(arm.data, "pose_position", expand=True)
 
         row = column.row()
+        row.scale_y = 1.5
         row.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
         if not weight_transferable:
             row.enabled = False
+
+        if rigging.is_surface_heat_voxel_skinning_installed():
+            row = layout.row()
+            row.scale_y = 1.5
+            row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Diffuse Skinning").param = "VOXEL_HEAT_SKINNING"
+            row.enabled = chr_cache is not None and obj is not None and obj.type == "MESH"
 
         column = layout.column(align=True)
         row = column.row(align=True)
@@ -2011,7 +2018,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                                 if rigging.is_surface_heat_voxel_skinning_installed():
                                     row = layout.row()
-                                    row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SKINNING"
+                                    row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SURFACE_REPARENT"
                                     row.enabled = chr_cache is not None
 
                             layout.separator()
@@ -2288,7 +2295,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                 reconnect_character_ui(context, layout, chr_cache)
 
         else:
-            wrapped_text_box(layout, "Rigify add-on is not installed.", width, True)
+            wrapped_text_box(layout, "Rigify add-on is not enabled.", width, True)
 
 
 def motion_set_ui(layout: bpy.types.UILayout, chr_cache, show_nla=False):
@@ -2586,25 +2593,40 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     prefs = vars.prefs()
     layout = self.layout
 
-    box = layout.box().label(text="Scene Lighting", icon="LIGHT")
+    row = layout.box().row()
+    row.label(text="Scene Lighting", icon="LIGHT")
+    row.prop(prefs, "lighting_presets_all", text="", toggle=True, icon="LAYER_ACTIVE" if prefs.lighting_presets_all else "LAYER_USED")
 
     grid = layout.grid_flow(row_major=True, columns=2, align=True)
     grid.operator("cc3.scene", icon="SHADING_SOLID", text="Matcap").param = "MATCAP"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Studio").param = "STUDIO"
-    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Courtyard").param = "COURTYARD"
-    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Interior").param = "INTERIOR"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Authority").param = "AUTHORITY"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Blur Warm").param = "BLUR_WARM"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Exquisite").param = "EXQUISITE"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Leading Role").param = "LEADING_ROLE"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Neon").param = "NEON"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 1").param = "PRESET_1"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 2").param = "PRESET_2"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 3").param = "PRESET_3"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 4").param = "PRESET_4"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 5").param = "PRESET_5"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 6").param = "PRESET_6"
+    if prefs.lighting_presets_all:
+        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Courtyard").param = "COURTYARD"
+        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Interior").param = "INTERIOR"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Authority").param = "AUTHORITY"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Blur Warm").param = "BLUR_WARM"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Exquisite").param = "EXQUISITE"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Leading Role").param = "LEADING_ROLE"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Neon").param = "NEON"
 
+    #layout.operator("cc3.scene", icon="OUTLINER_OB_SURFACE", text="Add Backdrop").param = "BACKDROP"
+
+    row = layout.row(align=True)
     if utils.B400():
-        layout.prop(prefs, "lighting_use_look", expand=True)
+        row.prop(prefs, "lighting_use_look", expand=True)
+    view = context.scene.view_settings
+    row.prop(view, "look", text="")
     layout.prop(props, "lighting_brightness", slider=True)
+    layout.prop(props, "world_brightness", slider=True)
 
     box = layout.box().label(text="Camera & World", icon="NODE_COMPOSITING")
 
@@ -2612,7 +2634,8 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     grid.operator("cc3.scene", text="Camera", icon="CAMERA_DATA").param = "SETUP_CAMERA"
     grid.operator("cc3.scene", text="World", icon="WORLD").param = "SETUP_WORLD"
     if vars.DEV:
-        grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump").param = "DUMP_SETUP"
+        grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump Lights").param = "DUMP_SETUP"
+        grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump Obj").param = "DUMP_OBJ"
 
     box = layout.box().label(text="Tools", icon="TOOL_SETTINGS")
 
@@ -3333,7 +3356,7 @@ class CC3ToolsUtilityPanel(bpy.types.Panel):
         row.operator("cc3.character", icon="MATERIAL", text="Match Materials").param = "MATCH_MATERIALS"
 
         row = layout.row()
-        row.operator("cc3.character", icon="KEY_DEHLT", text="Clean Shape Keys").param = "CLEAN_SHAPE_KEYS"
+        row.operator("cc3.character", icon="KEY_DEHLT", text="Clean Empty Data").param = "CLEAN_SHAPE_KEYS"
 
 
 class CCICDataLinkPanel(bpy.types.Panel):

@@ -19,7 +19,7 @@
 import bpy
 
 VERSION_STRING = "v0.0.0"
-DEV = False
+DEV = True
 PLUGIN_COMPATIBLE = [
     "2.1.7", "2.1.9", "2.1.10", "2.1.11",
 ]

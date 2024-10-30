@@ -1417,19 +1417,57 @@ def get_character_object_names(arm):
     return obj_names
 
 
-def transfer_skin_weights(chr_cache, objects):
+def get_combined_body(chr_cache):
+    combined = None
+    if chr_cache:
+        utils.object_mode()
+        body_objects = chr_cache.get_objects_of_type("BODY")
+        if len(body_objects) == 1:
+            combined = body_objects[0]
+        else:
+            copies = []
+            for body in body_objects:
+                copy = utils.duplicate_object(body)
+                copies.append(copy)
+            if copies:
+                combined = copies[0]
+                utils.try_select_objects(copies, clear_selection=True)
+                utils.set_active_object(combined)
+                bpy.ops.object.join()
+                if utils.edit_mode_to(combined):
+                    bpy.ops.mesh.select_all(action = 'SELECT')
+                    bpy.ops.mesh.remove_doubles()
+                utils.object_mode()
+                combined.name = body_objects[0].name + "_Combined"
+                combined["rl_combined_body"] = True
+    return combined
+
+
+def finish_combined_body(combined):
+    if "rl_combined_body" in combined:
+        utils.delete_object(combined)
+
+
+def remove_list_body_objects(chr_cache, objects):
+    body_objects = chr_cache.get_objects_of_type("BODY")
+    for body in body_objects:
+        if body in objects:
+            objects.remove(body)
+    return objects
+
+
+def transfer_skin_weights(chr_cache, objects, body_override=None):
 
     if not utils.object_mode():
         return
 
     arm = chr_cache.get_armature()
-    body = chr_cache.get_body()
+    if not arm: return
 
-    if not arm or not body:
-        return
+    body = body_override if body_override else get_combined_body(chr_cache)
+    if not body: return
 
-    if body in objects:
-        objects.remove(body)
+    objects = remove_list_body_objects(chr_cache, objects)
 
     if arm.data.pose_position == "POSE":
 
@@ -1534,6 +1572,12 @@ def transfer_skin_weights(chr_cache, objects):
         for obj in objects:
             if obj.type == "MESH":
 
+                # remove all bone vertex groups from obj
+                for bone in arm.data.bones:
+                    if bone.name in obj.vertex_groups:
+                        vg = obj.vertex_groups[bone.name]
+                        obj.vertex_groups.remove(vg)
+
                 if utils.try_select_object(body, True) and utils.set_active_object(obj):
 
                     bpy.ops.object.data_transfer(use_reverse_transfer=True,
@@ -1554,6 +1598,9 @@ def transfer_skin_weights(chr_cache, objects):
                     if arm_mod:
                         modifiers.move_mod_first(obj, arm_mod)
                         arm_mod.object = arm
+
+    if not body_override:
+        finish_combined_body(body)
 
 
 def normalize_skin_weights(chr_cache, objects):
@@ -1596,22 +1643,22 @@ def blend_skin_weights(chr_cache, objects):
         return
 
     arm = chr_cache.get_armature()
-    body = chr_cache.get_body()
+    if not arm: return
+    body = get_combined_body(chr_cache)
+    if not body: return
 
-    if not arm or not body:
-        return
-
-    if body in objects:
-        objects.remove(body)
+    objects = remove_list_body_objects(chr_cache, objects)
 
     for obj in objects:
         pose_mode = arm.data.pose_position
         arm.data.pose_position = "REST"
         bpy.context.view_layer.update()
-        layer_map = prep_deformation_layers(arm, body, obj)
-        transfer_skin_weights(chr_cache, objects)
-        post_deformation_layers(obj, layer_map)
         bm_obj = geom.get_bmesh(obj.data)
+        layer_map = prep_deformation_layers(arm, body, obj, bm_obj)
+        transfer_skin_weights(chr_cache, objects, body_override=body)
+        bm_obj.free()
+        bm_obj = geom.get_bmesh(obj.data)
+        post_deformation_layers(obj, bm_obj, layer_map)
         vert_map = geom.map_body_weight_blends(body, obj, bm_obj)
         apply_weight_blend(obj, bm_obj, vert_map, layer_map,
                            prefs.weight_blend_distance_min,
@@ -1619,7 +1666,6 @@ def blend_skin_weights(chr_cache, objects):
                            prefs.weight_blend_distance_range,
                            prefs.weight_blend_use_range,
                            prefs.weight_blend_selected_only)
-        clean_up_blend_vertex_groups(obj, layer_map)
         arm.data.pose_position = pose_mode
         bpy.context.view_layer.update()
 
@@ -1628,44 +1674,33 @@ def prep_deformation_layers(arm, body: bpy.types.Object, obj: bpy.types.Object, 
     layer_map = {}
     bones = []
     for vg in body.vertex_groups:
-        if vg.name not in obj.vertex_groups:
+        if vg.name in obj.vertex_groups:
             if vg.name in arm.data.bones and arm.data.bones[vg.name].use_deform:
                 bones.append(vg.name)
                 # TODO don't include face bones or twist parent bones
                 utils.log_info(f"Adding vertex group {vg.name} to {obj.name}")
                 meshutils.add_vertex_group(obj, vg.name)
     id = utils.generate_random_id(4)
-    for vg in obj.vertex_groups:
+    for i, vg in enumerate(obj.vertex_groups):
         if vg.name in bones:
             bone_name = vg.name
-            b_idx = bones.index(vg.name)
-            blend_name = bone_name + "_" + id + "_B"
-            skin_name = bone_name + "_" + id + "_S"
-            vg.name = blend_name
-            layer_map[bone_name] = (blend_name, skin_name)
+            blend_weights = geom.fetch_vertex_layer_weights(bm_obj, i)
+            layer_map[bone_name] = { "blend": blend_weights }
     return layer_map
 
 
-def post_deformation_layers(obj: bpy.types.Object, layer_map):
+def post_deformation_layers(obj: bpy.types.Object, bm_obj, layer_map):
     """Move the body transfered weights into new groups,
        and create empty vertex groups for those bones"""
     for bone_name in layer_map:
-        blend_name, skin_name = layer_map[bone_name]
-        if bone_name in obj.vertex_groups:
-            vg = obj.vertex_groups[bone_name]
-            vg.name = skin_name
-            meshutils.add_vertex_group(obj, bone_name)
+        i = obj.vertex_groups.keys().index(bone_name)
+        skin_weights = geom.fetch_vertex_layer_weights(bm_obj, i)
+        layer_map[bone_name]["skin"] = skin_weights
 
 
-def clean_up_blend_vertex_groups(obj, layer_map):
-    for bone_name in layer_map:
-        blend_name, skin_name = layer_map[bone_name]
-        if blend_name in obj.vertex_groups:
-            vg = obj.vertex_groups[blend_name]
-            obj.vertex_groups.remove(vg)
-        if skin_name in obj.vertex_groups:
-            vg = obj.vertex_groups[skin_name]
-            obj.vertex_groups.remove(vg)
+def clean_up_blend_vertex_groups(obj, bm_obj, layer_map):
+    # TODO remove zero weights from vertex groups?
+    return
 
 
 def apply_weight_blend(obj, bm_obj, vert_map, layer_map,
@@ -1687,30 +1722,33 @@ def apply_weight_blend(obj, bm_obj, vert_map, layer_map,
     bm_obj.verts.layers.deform.verify()
     obj_dl = bm_obj.verts.layers.deform.active
     for bone_name in layer_map:
-        blend_name, skin_name = layer_map[bone_name]
+        blend_weights = layer_map[bone_name]["blend"]
+        skin_weights = layer_map[bone_name]["skin"]
         bone_layer = obj.vertex_groups.keys().index(bone_name)
-        blend_layer = obj.vertex_groups.keys().index(blend_name)
-        skin_layer = obj.vertex_groups.keys().index(skin_name)
         for v_idx in vert_map:
             distance = vert_map[v_idx]
             if weight_blend_selected_only and not bm_obj.verts[v_idx].select:
                 distance = -1
             if distance == -1:
                 try:
-                    blended_weight = bm_obj.verts[v_idx][obj_dl][blend_layer]
+                    blended_weight = blend_weights[v_idx]
                 except:
                     blended_weight = 0
             else:
                 try:
-                    w0 = bm_obj.verts[v_idx][obj_dl][skin_layer]
+                    w0 = skin_weights[v_idx]
                 except:
                     w0 = 0
                 try:
-                    w1 = bm_obj.verts[v_idx][obj_dl][blend_layer]
+                    w1 = blend_weights[v_idx]
                 except:
                     w1 = 0
                 blended_weight = utils.map_smoothstep(d0, d1, w0, w1, distance)
-            bm_obj.verts[v_idx][obj_dl][bone_layer] = blended_weight
+            if blended_weight >= 0.0001:
+                bm_obj.verts[v_idx][obj_dl][bone_layer] = blended_weight
+            else:
+                if bone_layer in bm_obj.verts[v_idx][obj_dl]:
+                    del bm_obj.verts[v_idx][obj_dl][bone_layer]
     bm_obj.to_mesh(obj.data)
     return
 
@@ -1726,32 +1764,44 @@ def calc_key_delta(arm, obj, key: bpy.types.ShapeKey, basis: bpy.types.ShapeKey)
     return delta
 
 
-def remove_empty_shapekeys(chr_cache):
-    count = 0
+def remove_empty_shapekeys_vertex_groups(chr_cache):
+    key_count = 0
+    group_count = 0
     if chr_cache:
-        utils.log_info(f"Cleaning empty shape keys in character: {chr_cache.character_name}")
+        utils.log_info(f"Cleaning empty shape keys and vertex groups in character: {chr_cache.character_name}")
         objects = chr_cache.get_cache_objects()
         body_objects = chr_cache.get_objects_of_type("BODY")
         arm = chr_cache.get_armature()
+        obj: bpy.types.Object
         for obj in objects:
             empty_keys = []
-            if obj not in body_objects and obj.type == "MESH" and obj.data.shape_keys:
-                key_blocks = obj.data.shape_keys.key_blocks
-                if key_blocks and len(key_blocks) >= 2 and "Basis" in key_blocks:
-                    basis = key_blocks["Basis"]
-                    for key in key_blocks:
-                        if key != basis:
-                            delta = calc_key_delta(arm, obj, key, basis)
-                            # if overall vertex delta sum is less than 1mm, consider it empty
-                            if delta < 0.001:
-                                empty_keys.append(key.name)
-                for key_name in empty_keys:
-                    key = key_blocks[key_name]
-                    utils.log_info(f" - Removing empty shape key: {obj.name} - {key.name}")
-                    key.driver_remove("value")
-                    obj.shape_key_remove(key)
-                    count += 1
-    return count
+            empty_groups = []
+            if obj not in body_objects and obj.type == "MESH":
+                if obj.data.shape_keys:
+                    key_blocks = obj.data.shape_keys.key_blocks
+                    if key_blocks and len(key_blocks) >= 2 and "Basis" in key_blocks:
+                        basis = key_blocks["Basis"]
+                        for key in key_blocks:
+                            if key != basis:
+                                delta = calc_key_delta(arm, obj, key, basis)
+                                # if overall vertex delta sum is less than 1mm, consider it empty
+                                if delta < 0.001:
+                                    empty_keys.append(key.name)
+                    for key_name in empty_keys:
+                        key = key_blocks[key_name]
+                        utils.log_info(f" - Removing empty shape key: {obj.name} - {key.name}")
+                        key.driver_remove("value")
+                        obj.shape_key_remove(key)
+                        key_count += 1
+                for vg in obj.vertex_groups:
+                    w = meshutils.total_vertex_group_weight(obj, vg)
+                    if w < 0.001:
+                        empty_groups.append(vg)
+                for vg in empty_groups:
+                    obj.vertex_groups.remove(vg)
+                    group_count += 1
+
+    return key_count, group_count
 
 
 def convert_to_non_standard(chr_cache):
@@ -1967,9 +2017,16 @@ class CC3OperatorCharacter(bpy.types.Operator):
 
         elif self.param == "CLEAN_SHAPE_KEYS":
             chr_cache = props.get_context_character_cache(context)
-            count = remove_empty_shapekeys(chr_cache)
-            if count > 0:
-                self.report({"INFO"}, f"{count} empty shape keys removed!")
+            key_count, group_count = remove_empty_shapekeys_vertex_groups(chr_cache)
+            report = ""
+            if key_count > 0:
+                report += f"{key_count} empty shape keys removed."
+            if group_count > 0:
+                if report:
+                    report += " "
+                report += f"{group_count} empty vertex groups removed."
+            if report:
+                self.report({"INFO"}, report)
 
         return {"FINISHED"}
 
@@ -2007,7 +2064,7 @@ class CC3OperatorCharacter(bpy.types.Operator):
         elif properties.param == "DUPLICATE":
             return "Duplicate the character / prop objects and meta-data to create a fully independent copy of the character or prop"
         elif properties.param == "CLEAN_SHAPE_KEYS":
-            return "Clean up empty shape keys in character objects"
+            return "Clean up empty shape keys and vertex groups in character objects"
         return ""
 
 
@@ -2386,30 +2443,32 @@ class CCICWeightTransferBlend(bpy.types.Operator):
 
     def begin_blend_skin_weights(self):
         arm = self.chr_cache.get_armature()
-        body = self.chr_cache.get_body()
+        if not arm: return
+        body = get_combined_body(self.chr_cache)
+        if not body: return
 
-        if not arm or not body:
-            return
+        self.objects = remove_list_body_objects(self.chr_cache, self.objects)
 
         for obj_name in self.objects:
             obj = bpy.data.objects[obj_name]
             pose_mode = arm.data.pose_position
             arm.data.pose_position = "REST"
             #bpy.context.view_layer.update()
-            layer_map = prep_deformation_layers(arm, body, obj)
-            transfer_skin_weights(self.chr_cache, [obj])
-            post_deformation_layers(obj, layer_map)
             bm_obj = geom.get_bmesh(obj.data)
+            layer_map = prep_deformation_layers(arm, body, obj, bm_obj)
+            transfer_skin_weights(self.chr_cache, [obj], body_override=body)
+            bm_obj.free()
+            bm_obj = geom.get_bmesh(obj.data)
+            post_deformation_layers(obj, bm_obj, layer_map)
             vert_map = geom.map_body_weight_blends(body, obj, bm_obj)
             self.objects[obj_name] = (bm_obj, layer_map, vert_map)
             arm.data.pose_position = pose_mode
 
+        finish_combined_body(body)
+
     def do_blend_skin_weights(self):
         arm = self.chr_cache.get_armature()
-        body = self.chr_cache.get_body()
-
-        if not arm or not body:
-            return
+        if not arm or not self.objects: return
 
         for obj_name in self.objects:
             obj = bpy.data.objects[obj_name]
@@ -2423,15 +2482,6 @@ class CCICWeightTransferBlend(bpy.types.Operator):
                                self.weight_blend_use_range,
                                self.weight_blend_selected_only)
             arm.data.pose_position = pose_mode
-
-    def end_blend_skin_weights(self):
-        if self.objects:
-            for obj_name in self.objects:
-                obj = bpy.data.objects[obj_name]
-                bm_obj, layer_map, vert_map = self.objects[obj_name]
-                clean_up_blend_vertex_groups(obj, layer_map)
-                bm_obj.free()
-        self.objects = {}
 
     def collect_objects(self, context):
         props = vars.props()

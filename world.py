@@ -17,7 +17,7 @@
 import math
 import os
 import bpy
-from mathutils import Vector, Quaternion, Matrix, Euler
+from mathutils import Vector, Quaternion, Matrix, Euler, Color
 
 from . import colorspace, imageutils, nodeutils, rigidbody, physics, modifiers, utils, vars
 
@@ -38,13 +38,15 @@ def copy_material_to_render_world(context):
         rot_z = shading.studiolight_rotate_z
         rot = Vector((0, 0, rot_z))
         str = shading.studiolight_intensity
-        col = utils.array_to_color([1,1,1])
+        col = (1,1,1,1)
         world_setup(context, ibl_path, col, loc, rot, 1.0, str)
 
 
 def world_setup(context, hdri_path: str, ambient_color, loc: Vector, rot: Vector, sca: float, str: float):
+    if type(ambient_color) is Color:
+        ambient_color = (ambient_color.r, ambient_color.g, ambient_color.b, 1.0)
     shading = utils.get_view_3d_shading(context)
-    if os.path.exists(hdri_path):
+    if hdri_path and os.path.exists(hdri_path):
         bpy.context.scene.world.use_nodes = True
         nodes = bpy.context.scene.world.node_tree.nodes
         links = bpy.context.scene.world.node_tree.links
@@ -59,6 +61,7 @@ def world_setup(context, hdri_path: str, ambient_color, loc: Vector, rot: Vector
         et_node.location = (-300,320)
         bg_node.location = (10,300)
         wo_node.location = (300,300)
+        bg_node.name = utils.unique_name("(rl_background_node)")
         nodeutils.set_node_input_value(bg_node, "Strength", str)
         nodeutils.set_node_input_value(bg_node, "Color", ambient_color)
         nodeutils.set_node_input_value(mp_node, "Location", loc)
@@ -81,6 +84,7 @@ def world_setup(context, hdri_path: str, ambient_color, loc: Vector, rot: Vector
         wo_node = nodeutils.make_shader_node(nodes, "ShaderNodeOutputWorld")
         bg_node.location = (10,300)
         wo_node.location = (300,300)
+        bg_node.name = utils.unique_name("(rl_background_node)")
         nodeutils.set_node_input_value(bg_node, "Strength", str)
         nodeutils.set_node_input_value(bg_node, "Color", ambient_color)
         nodeutils.link_nodes(links, bg_node, "Background", wo_node, "Surface")
