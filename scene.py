@@ -568,7 +568,7 @@ def setup_scene_default(context, scene_type):
             context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-            colorspace.set_view_settings(view_transform, "None",
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
                                          0.000, 0.900)
             if context.scene.cycles.transparent_max_bounces < 100:
                 context.scene.cycles.transparent_max_bounces = 100
@@ -600,9 +600,9 @@ def setup_scene_default(context, scene_type):
                 shading.use_scene_world = False
                 shading.use_scene_lights_render = True
                 shading.use_scene_world_render = True
-                shading.studio_light = "courtyard.exr"
-                shading.studiolight_rotate_z = 0.7575
-                shading.studiolight_intensity = 0.4
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = -0.7854
+                shading.studiolight_intensity = 1.25
                 shading.studiolight_background_alpha = 0.000
                 shading.studiolight_background_blur = 0.500
                 space_data.clip_start = 0.010
@@ -642,7 +642,7 @@ def setup_scene_default(context, scene_type):
             context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-            colorspace.set_view_settings(view_transform, "None",
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
                                          0.000, 1.000)
             if context.scene.cycles.transparent_max_bounces < 100:
                 context.scene.cycles.transparent_max_bounces = 100
@@ -716,7 +716,7 @@ def setup_scene_default(context, scene_type):
             context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-            colorspace.set_view_settings(view_transform, "None",
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
                                          0.000, 1.000)
             if context.scene.cycles.transparent_max_bounces < 100:
                 context.scene.cycles.transparent_max_bounces = 100
@@ -738,9 +738,9 @@ def setup_scene_default(context, scene_type):
                 shading.use_scene_world = False
                 shading.use_scene_lights_render = True
                 shading.use_scene_world_render = True
-                shading.studio_light = "studio.exr"
-                shading.studiolight_rotate_z = 0.000
-                shading.studiolight_intensity = 1.000
+                shading.studio_light = "courtyard.exr"
+                shading.studiolight_rotate_z = 0.1745
+                shading.studiolight_intensity = 1.25
                 shading.studiolight_background_alpha = 0.000
                 shading.studiolight_background_blur = 0.500
                 space_data.clip_start = 0.010
@@ -780,7 +780,7 @@ def setup_scene_default(context, scene_type):
             context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-            colorspace.set_view_settings(view_transform, "None",
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
                                          0.000, 1.000)
             if context.scene.cycles.transparent_max_bounces < 100:
                 context.scene.cycles.transparent_max_bounces = 100
@@ -809,7 +809,7 @@ def setup_scene_default(context, scene_type):
                 shading.use_scene_world_render = True
                 shading.studio_light = "studio.exr"
                 shading.studiolight_rotate_z = 0.000
-                shading.studiolight_intensity = 1.000
+                shading.studiolight_intensity = 0.05
                 shading.studiolight_background_alpha = 0.000
                 shading.studiolight_background_blur = 0.500
                 space_data.clip_start = 0.010
@@ -849,7 +849,7 @@ def setup_scene_default(context, scene_type):
             context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-            colorspace.set_view_settings(view_transform, "None",
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
                                          0.000, 1.000)
             if context.scene.cycles.transparent_max_bounces < 100:
                 context.scene.cycles.transparent_max_bounces = 100
@@ -883,7 +883,7 @@ def setup_scene_default(context, scene_type):
                 shading.use_scene_world_render = True
                 shading.studio_light = "studio.exr"
                 shading.studiolight_rotate_z = 0.000
-                shading.studiolight_intensity = 1.000
+                shading.studiolight_intensity = 0.1
                 shading.studiolight_background_alpha = 0.000
                 shading.studiolight_background_blur = 0.500
                 space_data.clip_start = 0.010
@@ -923,7 +923,7 @@ def setup_scene_default(context, scene_type):
             context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
-            colorspace.set_view_settings(view_transform, "None",
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
                                          0.000, 1.000)
             if context.scene.cycles.transparent_max_bounces < 100:
                 context.scene.cycles.transparent_max_bounces = 100
@@ -952,7 +952,7 @@ def setup_scene_default(context, scene_type):
                 shading.use_scene_world_render = True
                 shading.studio_light = "studio.exr"
                 shading.studiolight_rotate_z = 0.000
-                shading.studiolight_intensity = 1.000
+                shading.studiolight_intensity = 0.05
                 shading.studiolight_background_alpha = 0.000
                 shading.studiolight_background_blur = 0.500
                 space_data.clip_start = 0.010
