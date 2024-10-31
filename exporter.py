@@ -545,7 +545,7 @@ def prep_export(context, chr_cache, new_name, objects, json_data, old_path, new_
         # object
         utils.log_recess()
 
-    if apply_fixes and prefs.export_bone_roll_fix:
+    if apply_fixes and prefs.export_legacy_bone_roll_fix:
         if obj.type == "ARMATURE":
             if utils.object_mode():
                 utils.set_active_object(obj)
@@ -1153,9 +1153,12 @@ def get_export_objects(chr_cache, include_selected = True, only_objects=None):
                         utils.log_info(f"   Excluding Rigidbody Collider Object: {obj.name}")
                         continue
                     # exclude collider proxies
-                    source, proxy, is_proxy = chr_cache.get_related_physics_objects(obj)
-                    if is_proxy:
+                    if chr_cache.is_collision_object(obj):
                         utils.log_info(f"   Excluding Collider Proxy Object: {obj.name}")
+                        continue
+                    # exclude sculpt objects
+                    if chr_cache.is_sculpt_object(obj):
+                        utils.log_info(f"   Excluding Sculpt Object: {obj.name}")
                         continue
                     # add child mesh objects
                     if obj not in objects:
@@ -1802,7 +1805,7 @@ def export_standard(self, context, chr_cache, file_path, include_selected):
         use_rest_pose = chr_cache.is_avatar()
         remove_modifiers_for_export(chr_cache, objects, use_rest_pose)
 
-        revert_duplicates = prefs.export_revert_names
+        revert_duplicates = prefs.export_legacy_revert_material_names
         prep_export(context, chr_cache, name, objects, json_data, chr_cache.get_import_dir(),
                     dir, self.include_textures, revert_duplicates, True, False, True)
 

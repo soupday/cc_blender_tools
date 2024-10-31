@@ -179,22 +179,32 @@ def obj_is_override(obj):
     return False
 
 
-def unique_material_name(name, mat = None):
+def unique_material_name(name, mat=None, start_index=1):
     name = strip_name(name)
-    index = 1001
+    index = start_index
     if name in bpy.data.materials and bpy.data.materials[name] != mat:
-        while name + "_" + str(index) in bpy.data.materials:
+        while name + "_" + str(index).zfill(2) in bpy.data.materials:
             index += 1
-        return name + "_" + str(index)
+        return name + "_" + str(index).zfill(2)
     return name
 
 
-def unique_object_name(name, obj = None, capitalize=False):
+def unique_image_name(name, image=None, start_index=1):
+    name = strip_name(name)
+    index = start_index
+    if name in bpy.data.images and bpy.data.images[name] != image:
+        while name + "_" + str(index).zfill(2) in bpy.data.images:
+            index += 1
+        return name + "_" + str(index).zfill(2)
+    return name
+
+
+def unique_object_name(name, obj=None, capitalize=False, start_index=1):
     name = strip_name(name)
     if capitalize:
         name = name.capitalize()
     if name in bpy.data.objects and bpy.data.objects[name] != obj:
-        index = 1
+        index = start_index
         while name + "_" + str(index).zfill(2) in bpy.data.objects:
             index += 1
         return name + "_" + str(index).zfill(2)
@@ -489,6 +499,14 @@ def clamp(x, min = 0.0, max = 1.0):
 def smoothstep(edge0, edge1, x):
     x = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0)
     return x * x * (3 - 2 * x)
+
+
+def map_smoothstep(edge0, edge1, value0, value1, x):
+    if edge1 == edge0:
+        return value1
+    x = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0)
+    t = x * x * (3 - 2 * x)
+    return value0 + (value1 - value0) * t
 
 
 def saturate(x):
@@ -2372,6 +2390,12 @@ def fix_texture_rel_path(rel_path: str):
     elif rel_path.startswith("./"):
         rel_path = rel_path[2:]
     return rel_path
+
+
+def get_resource_path(folder, file):
+    addon_path = os.path.dirname(os.path.realpath(__file__))
+    resource_path = os.path.join(addon_path, folder, file)
+    return resource_path
 
 
 def get_unique_folder_path(parent_folder, folder_name, create=False, reuse=False):

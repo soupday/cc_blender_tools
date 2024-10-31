@@ -331,11 +331,9 @@ def clear_facial_shape_key_bone_drivers(chr_cache):
        expression shape keys.
     """
 
-    body = chr_cache.get_body()
     arm = chr_cache.get_armature()
 
-    if not body or not arm:
-        return
+    if not arm: return
 
     bone_names_done = []
 
@@ -364,7 +362,7 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
        expression shape keys.
     """
 
-    body = chr_cache.get_body()
+    body = get_head_body_object(chr_cache)
     arm = chr_cache.get_armature()
 
     if not body or not arm:
@@ -490,21 +488,22 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
 
 
 def clear_body_shape_key_drivers(chr_cache):
-    body = chr_cache.get_body()
+    body_objects = chr_cache.get_objects_of_type("BODY")
     arm = chr_cache.get_armature()
 
-    if not body or not arm:
+    if not body_objects or not arm:
         return
 
-    if utils.object_has_shape_keys(body):
-        body_keys = [ key_block.name for key_block in body.data.shape_keys.key_blocks ]
-        objects = utils.get_child_objects(arm)
-        for obj in objects:
-            if obj != body and utils.object_has_shape_keys(obj):
-                obj_key : bpy.types.ShapeKey
-                for obj_key in obj.data.shape_keys.key_blocks:
-                    if obj_key.name in body_keys:
-                        obj_key.driver_remove("value")
+    for body in body_objects:
+        if utils.object_has_shape_keys(body):
+            body_keys = [ key_block.name for key_block in body.data.shape_keys.key_blocks ]
+            objects = utils.get_child_objects(arm)
+            for obj in objects:
+                if obj != body and utils.object_has_shape_keys(obj):
+                    obj_key : bpy.types.ShapeKey
+                    for obj_key in obj.data.shape_keys.key_blocks:
+                        if obj_key.name in body_keys:
+                            obj_key.driver_remove("value")
 
 
 def get_head_material_and_json(chr_cache, chr_json):
@@ -538,7 +537,7 @@ def get_head_body_object(chr_cache):
 
     if not chr_cache: return None
 
-    body_cache = chr_cache.get_cache_of_type("BODY")
+    body_cache = chr_cache.get_body_cache()
     arm = chr_cache.get_armature()
 
     # collect all possible body objects together

@@ -117,13 +117,13 @@ def reset_preferences():
     prefs.max_texture_size = 4096
     prefs.export_json_changes = True
     prefs.export_texture_changes = True
-    prefs.export_bone_roll_fix = False
+    prefs.export_legacy_bone_roll_fix = False
     prefs.export_bake_nodes = False
     prefs.export_bake_bump_to_normal = True
     prefs.export_unity_remove_objects = True
     prefs.export_texture_size = "2048"
     prefs.export_require_key = True
-    prefs.export_revert_names = True
+    prefs.export_legacy_revert_material_names = False
     prefs.import_auto_convert = True
     prefs.import_deduplicate = True
     prefs.build_pack_texture_channels = False
@@ -145,6 +145,16 @@ def reset_preferences():
     reset_cycles()
     reset_rigify()
     reset_datalink()
+
+
+def set_view_transform(self, context):
+    prefs: CC3ToolsAddonPreferences = vars.prefs()
+    view = context.scene.view_settings
+    try:
+        view.view_transform = prefs.lighting_use_look
+    except:
+        pass
+
 
 
 class CC3OperatorPreferences(bpy.types.Operator):
@@ -246,13 +256,14 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
 
     export_require_key: bpy.props.BoolProperty(default=True, name="Export Require Key", description="Ensure that exports back to CC3 have a valid Fbx/Obj Key file")
 
-    export_json_changes: bpy.props.BoolProperty(default=True, name="Material parameters", description="Export all material and shader parameter changes to the character Json data. Setting to False keeps original material and shader parameters.")
+    export_json_changes: bpy.props.BoolProperty(default=True, name="Material Parameters", description="Export all material and shader parameter changes to the character Json data. Setting to False keeps original material and shader parameters.")
     export_texture_changes: bpy.props.BoolProperty(default=True, name="Textures", description="Export all texture changes to the character Json data. Setting to False keeps original textures.")
-    export_bone_roll_fix: bpy.props.BoolProperty(default=False, name="Teeth bone fix", description="(Experimental) Apply zero roll to upper and lower teeth bones to fix teeth alignment problems re-importing to CC3")
-    export_bake_nodes: bpy.props.BoolProperty(default=True, name="Bake custom nodes", description="(Very Experimental) Bake any custom nodes (non texture image) attached to shader texture map sockets on export.")
-    export_bake_bump_to_normal: bpy.props.BoolProperty(default=True, name="Combine normals", description="(Very Experimental) When both a bump map and a normal is present, bake the bump map into the normal. (CC3 materials can only have one, normal map or bump map.)")
-    export_unity_remove_objects: bpy.props.BoolProperty(default=True, name="Unity: Remove non-character objects.", description="Removes all objects not attached to the character, when exporting to Unity.")
-    export_revert_names: bpy.props.BoolProperty(default=True, name="Revert names", description="Revert object and material names to match their original names from the source Json.")
+    export_legacy_bone_roll_fix: bpy.props.BoolProperty(default=False, name="Teeth Bone Fix", description="(Experimental) Apply zero roll to upper and lower teeth bones to fix teeth alignment problems re-importing to CC3")
+    export_bake_nodes: bpy.props.BoolProperty(default=True, name="Bake Custom Nodes", description="(Very Experimental) Bake any custom nodes (non texture image) attached to shader texture map sockets on export.")
+    export_bake_bump_to_normal: bpy.props.BoolProperty(default=True, name="Combine Normals", description="(Very Experimental) When both a bump map and a normal is present, bake the bump map into the normal. (CC3 materials can only have one, normal map or bump map.)")
+    export_unity_remove_objects: bpy.props.BoolProperty(default=True, name="Unity: Remove Non-Character Objects.", description="Removes all objects not attached to the character, when exporting to Unity.")
+    # revert materials is off by default now as CC4 deduplicates by material name even if they are not the same material.
+    export_legacy_revert_material_names: bpy.props.BoolProperty(default=False, name="Revert Material Names", description="Revert material names to match their original names from the source Json. Note: This may only be needed for exporting back CC3 or if there are problems with duplicate materials exporting back to CC4.")
     export_unity_mode: bpy.props.EnumProperty(items=[
                         ("BLEND","Blend File","Save the project as a blend file in a Unity project. All textures and folders will be copied to the new location and made relative to the blend file."),
                         ("FBX","FBX","Export the character as an .Fbx file to the specified location. All textures and folders will be copied."),
@@ -308,15 +319,15 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     build_armature_edit_modifier: bpy.props.BoolProperty(default=True, name="Use Edit Modifier",
                                                          description="Automatically set to use armature modifier in mesh edit mode for all armature modifiers in the character. (i.e. edit in place)")
     build_armature_preserve_volume: bpy.props.BoolProperty(default=False, name="Preserve Volume",
-                                                         description="Automatically set use preserve volume for all armature modifiers in the character.")
+                                                         description="Automatically set use preserve volume for all armature modifiers in the character")
     build_skin_shader_dual_spec: bpy.props.BoolProperty(default=False, name="Dual Specular Skin",
-                                                         description="Use a dual specular skin shader arrangement.")
+                                                         description="Use a dual specular skin shader arrangement")
     build_shape_key_bone_drivers_jaw: bpy.props.BoolProperty(default=True, name="Shape Keys Drive Jaw Bone",
-                                                         description="Add drivers to the jaw bone from facial expression shape keys.")
+                                                         description="Add drivers to the jaw bone from facial expression shape keys")
     build_shape_key_bone_drivers_eyes: bpy.props.BoolProperty(default=True, name="Shape Keys Drive Eye Bones",
-                                                         description="Add drivers to the eye bones from facial expression shape keys.")
+                                                         description="Add drivers to the eye bones from facial expression shape keys")
     build_shape_key_bone_drivers_head: bpy.props.BoolProperty(default=False, name="Shape Keys Drive Head Bone",
-                                                         description="Add drivers to the head bone from facial expression shape keys.")
+                                                         description="Add drivers to the head bone from facial expression shape keys.\nNote: Not usually needed. Only enable if you want the head tilt to be controlled *only* by the shape-keys")
     build_body_key_drivers: bpy.props.BoolProperty(default=True, name="Body Shape Keys Drive All",
                                                          description="Add drivers so that all shape keys on the character are driven by the body shape keys. " \
                                                                      "(So that only the body shape keys need to be animated or controlled)")
@@ -328,6 +339,26 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     import_auto_convert: bpy.props.BoolProperty(default=True, name="Auto Convert Generic",
                 description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
                 "Which sets up Reallusion import compatible materials and material parameters")
+
+    # weight transfer blend
+    weight_blend_distance_min: bpy.props.FloatProperty(default=0.015, min=0.0, soft_max=0.05, max=1.0,
+                                        subtype="DISTANCE", precision=3,
+                                        name="Blend Min Distance",
+                                        description="Distance for full body weights")
+    weight_blend_distance_max: bpy.props.FloatProperty(default=0.05, min=0.0, soft_max=0.25, max=1.0,
+                                        subtype="DISTANCE", precision=3,
+                                        name="Blend Max Distance",
+                                        description="Distance for full source blend weights")
+    weight_blend_distance_range: bpy.props.FloatProperty(default=25, min=0, max=100, subtype="PERCENTAGE",
+                                        name="Blend Range",
+                                        description="Range from Blend Min Distance to the maximum body distance for each mesh to use as the Blend Max Distance")
+    weight_blend_use_range: bpy.props.BoolProperty(default=False,
+                                        name="Auto Range",
+                                        description="Use an automatically calculated Distance Blend Max based on a percentage of the largest distance to the selected mesh from the body. Otherwise use a fixed distance for the Distance Blend Max")
+    weight_blend_selected_only: bpy.props.BoolProperty(default=False,
+                                        name="Selected Verts",
+                                        description="Only blender the weights for the selected vertices in each mesh")
+
 
     # Eevee Modifiers
     eevee_ssr_iris_brightness_b420: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Eevee")
@@ -379,10 +410,13 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     cycles_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
     cycles_roughness_power_b341: bpy.props.FloatProperty(default=1.0)
 
+    lighting_presets_all: bpy.props.BoolProperty(default=False,
+                                                 name="Show All Lighting Presets",
+                                                 description="Show / hide hidden lighting presets")
     lighting_use_look: bpy.props.EnumProperty(items=[
                         ("Filmic","Filmic","Use Filmic display space"),
                         ("AgX","AgX","Use AgX display space"),
-                    ], default="AgX", name="Color management display space")
+                    ], default="AgX", name="Color management display space", update=set_view_transform)
 
     bake_use_gpu: bpy.props.BoolProperty(default=False, description="Bake on the GPU for faster more accurate baking.", name="GPU Bake")
     bake_objects_mode: bpy.props.EnumProperty(items=[
@@ -551,7 +585,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Export:")
         layout.prop(self, "export_json_changes")
         layout.prop(self, "export_texture_changes")
-        layout.prop(self, "export_bone_roll_fix")
+        layout.prop(self, "export_legacy_bone_roll_fix")
         layout.prop(self, "export_bake_nodes")
         layout.prop(self, "export_bake_bump_to_normal")
         layout.prop(self, "export_unity_remove_objects")

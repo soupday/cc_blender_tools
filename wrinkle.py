@@ -70,7 +70,17 @@ def get_wrinkle_shader(obj, mat, mat_json, shader_name="rl_wrinkle_shader",
     return wrinkle_node
 
 
+def clear_wrinkle_props(chr_cache):
+    body_objects = chr_cache.get_objects_of_type("BODY")
+    for obj in body_objects:
+        if WRINKLE_STRENGTH_PROP in obj:
+            del obj[WRINKLE_STRENGTH_PROP]
+        if WRINKLE_CURVE_PROP in obj:
+            del obj[WRINKLE_CURVE_PROP]
+
+
 def add_wrinkle_shader(chr_cache, links, mat, mat_json, main_shader_name, wrinkle_shader_name=WRINKLE_SHADER_NAME):
+    clear_wrinkle_props(chr_cache)
     body_obj = drivers.get_head_body_object(chr_cache)
     wrinkle_shader_node = get_wrinkle_shader(body_obj, mat, mat_json,
                                              shader_name=wrinkle_shader_name,
@@ -87,6 +97,7 @@ def add_wrinkle_shader(chr_cache, links, mat, mat_json, main_shader_name, wrinkl
 
 
 def build_wrinkle_drivers(chr_cache, chr_json, wrinkle_shader_name=WRINKLE_SHADER_NAME):
+    clear_wrinkle_props(chr_cache)
     body_obj = drivers.get_head_body_object(chr_cache)
     head_mat, head_mat_json = drivers.get_head_material_and_json(chr_cache, chr_json)
     if body_obj and head_mat and head_mat_json:

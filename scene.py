@@ -22,12 +22,15 @@ from mathutils import Vector, Quaternion, Matrix, Euler
 from . import colorspace, world, meshutils, nodeutils, rigidbody, physics, modifiers, utils, vars
 
 
-def add_target(name, location):
+def add_target(name, container, location):
     bpy.ops.object.empty_add(type="PLAIN_AXES", radius = 0.1,
         location = location)
     target = utils.get_active_object()
     target.name = name
     utils.set_ccic_id(target)
+    if container:
+        target.parent = container
+        target.matrix_parent_inverse = container.matrix_world.inverted()
     return target
 
 def set_contact_shadow(light, distance, thickness, no_jitter=False):
@@ -203,7 +206,7 @@ def camera_setup(context, camera_loc, target_loc):
         camera.name = "Camera"
         utils.set_ccic_id(camera)
     if target is None:
-        target = add_target("CameraTarget", target_loc)
+        target = add_target("CameraTarget", None, target_loc)
 
     utils.unhide(camera)
     utils.unhide(target)
@@ -281,7 +284,6 @@ def compositor_setup(context):
 
 def world_setup(context):
     context = vars.get_context(context)
-
     hide_view_extras(context, False)
     world.copy_material_to_render_world(context)
 
@@ -533,6 +535,439 @@ def setup_scene_default(context, scene_type):
 
             align_to_head(context, container)
 
+
+
+
+
+        # New presets
+
+        elif scene_type == "PRESET_1":
+
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.200
+            context.scene.eevee.gtao_factor = 1.000
+            context.scene.eevee.use_taa_reprojection = True
+            if utils.B420():
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
+                context.scene.world.sun_threshold = 0.1
+
+            else:
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.800
+                context.scene.eevee.bloom_knee = 0.500
+                context.scene.eevee.bloom_radius = 6.500
+                context.scene.eevee.bloom_intensity = 0.050
+            context.scene.eevee.use_ssr = False
+            context.scene.eevee.use_ssr_refraction = False
+            context.scene.eevee.bokeh_max_size = 100.000
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
+                                         0.000, 0.900)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
+
+            remove_all_lights(True)
+            restore_hidden_camera()
+            container = add_light_container()
+
+            area_light_001 = add_area_light("Light.002", container, (-1.051, -0.809, -0.354), (0.000, -1.266, 0.802), 35.0, 1.0, 40.0)
+            set_contact_shadow(area_light_001, 0.200, 0.200)
+            area_light_001.data.color = (1.0000, 1.0000, 1.0000)
+            target_001 = add_target("target_001", container, (0.000, 0.000, 0.000))
+            track_to(area_light_001, target_001)
+
+            spot_light_002 = add_spot_light("Light.003", container, (1.230, -1.303, -0.191), (-0.000, -1.368, 2.288), 12.0, 0.8, 1.6, 40.0, 0.1)
+            set_contact_shadow(spot_light_002, 0.200, 0.200)
+            spot_light_002.data.color = (1.0000, 1.0000, 1.0000)
+            track_to(spot_light_002, target_001)
+
+            area_light_003 = add_area_light("Light.001", container, (0.453, 0.974, 0.000), (0.004, -1.175, 2.927), 10.0, 1.0, 40.0)
+            set_contact_shadow(area_light_003, 0.200, 0.200)
+            area_light_003.data.color = (1.0000, 1.0000, 1.0000)
+            track_to(area_light_003, target_001)
+
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = True
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = -0.7854
+                shading.studiolight_intensity = 1.25
+                shading.studiolight_background_alpha = 0.000
+                shading.studiolight_background_blur = 0.500
+                space_data.clip_start = 0.010
+
+            world.world_setup(context,
+                              utils.get_resource_path("presets", "veranda_4k.hdr"),
+                              (1,1,1,1),
+                              Vector((0,0,0)), Vector((0, 0, 0)), 1.0,
+                              1.0)
+            align_to_head(context, container, use_delta_rot=False)
+            create_backdrop(container, (0.799, 0.799, 0.799, 1.0), 0.75)
+
+        elif scene_type == "PRESET_2":
+
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.200
+            context.scene.eevee.gtao_factor = 1.000
+            context.scene.eevee.use_taa_reprojection = True
+            if utils.B420():
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
+                context.scene.world.sun_threshold = 0.1
+
+            else:
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.800
+                context.scene.eevee.bloom_knee = 0.500
+                context.scene.eevee.bloom_radius = 6.500
+                context.scene.eevee.bloom_intensity = 0.050
+            context.scene.eevee.use_ssr = False
+            context.scene.eevee.use_ssr_refraction = False
+            context.scene.eevee.bokeh_max_size = 100.000
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
+                                         0.000, 1.000)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
+
+            remove_all_lights(True)
+            restore_hidden_camera()
+            container = add_light_container()
+
+            area_light_001 = add_area_light("Light.002", container, (-1.051, -0.809, -0.354), (0.000, -1.266, 0.802), 35.0, 1.0, 40.0)
+            set_contact_shadow(area_light_001, 0.200, 0.200)
+            area_light_001.data.color = (1.0000, 1.0000, 1.0000)
+            target_001 = add_target("target_001", container, (0.000, 0.000, 0.000))
+            track_to(area_light_001, target_001)
+
+            spot_light_002 = add_spot_light("Light.003", container, (1.230, -1.303, -0.191), (-0.000, -1.368, 2.288), 12.0, 0.8, 1.6, 40.0, 0.1)
+            set_contact_shadow(spot_light_002, 0.200, 0.200)
+            spot_light_002.data.color = (1.0000, 1.0000, 1.0000)
+            track_to(spot_light_002, target_001)
+
+            area_light_003 = add_area_light("Light.001", container, (0.453, 0.974, 0.000), (0.004, -1.175, 2.927), 10.0, 1.0, 40.0)
+            set_contact_shadow(area_light_003, 0.200, 0.200)
+            area_light_003.data.color = (1.0000, 1.0000, 1.0000)
+            track_to(area_light_003, target_001)
+
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = True
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = 0.000
+                shading.studiolight_intensity = 0.000
+                shading.studiolight_background_alpha = 0.000
+                shading.studiolight_background_blur = 0.500
+                space_data.clip_start = 0.010
+
+            world.world_setup(context,
+                              "",
+                              (0,0,0,1),
+                              Vector((0,0,0)), Vector((0, 0, 0)), 1.0,
+                              1.0)
+            align_to_head(context, container, use_delta_rot=False)
+            create_backdrop(container, (0.799, 0.799, 0.799, 1.0), 0.75)
+
+        elif scene_type == "PRESET_3":
+
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.200
+            context.scene.eevee.gtao_factor = 1.000
+            context.scene.eevee.use_taa_reprojection = True
+            if utils.B420():
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
+                context.scene.world.sun_threshold = 0.1
+
+            else:
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.800
+                context.scene.eevee.bloom_knee = 0.500
+                context.scene.eevee.bloom_radius = 6.500
+                context.scene.eevee.bloom_intensity = 0.050
+            context.scene.eevee.use_ssr = False
+            context.scene.eevee.use_ssr_refraction = False
+            context.scene.eevee.bokeh_max_size = 100.000
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
+                                         0.000, 1.000)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
+
+            remove_all_lights(True)
+            restore_hidden_camera()
+            container = add_light_container()
+
+            spot_light_001 = add_spot_light("Light.001", container, (0.546, -1.256, 0.281), (-0.000, -1.368, 2.288), 50.0, 0.8, 1.6, 40.0, 0.2)
+            set_contact_shadow(spot_light_001, 0.200, 0.200)
+            spot_light_001.data.color = (1.0000, 1.0000, 1.0000)
+            target_001 = add_target("target_001", container, (0.000, 0.000, 0.000))
+            track_to(spot_light_001, target_001)
+
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = True
+                shading.studio_light = "courtyard.exr"
+                shading.studiolight_rotate_z = 0.1745
+                shading.studiolight_intensity = 1.25
+                shading.studiolight_background_alpha = 0.000
+                shading.studiolight_background_blur = 0.500
+                space_data.clip_start = 0.010
+
+            world.world_setup(context,
+                              utils.get_resource_path("presets", "kiara_1_dawn_4k.hdr"),
+                              (1,1,1,1),
+                              Vector((0,0,0)), Vector((0, 0, -0.87266)), 1.0,
+                              1.0)
+            align_to_head(context, container, use_delta_rot=False)
+            create_backdrop(container, (0.799, 0.799, 0.799, 1.0), 0.75)
+
+        elif scene_type == "PRESET_4":
+
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.200
+            context.scene.eevee.gtao_factor = 1.000
+            context.scene.eevee.use_taa_reprojection = True
+            if utils.B420():
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
+                context.scene.world.sun_threshold = 0.1
+
+            else:
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.800
+                context.scene.eevee.bloom_knee = 0.500
+                context.scene.eevee.bloom_radius = 6.500
+                context.scene.eevee.bloom_intensity = 0.050
+            context.scene.eevee.use_ssr = False
+            context.scene.eevee.use_ssr_refraction = False
+            context.scene.eevee.bokeh_max_size = 100.000
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
+                                         0.000, 1.000)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
+
+            remove_all_lights(True)
+            restore_hidden_camera()
+            container = add_light_container()
+
+            area_light_001 = add_area_light("Light.001", container, (-1.051, -0.809, -0.354), (0.000, -1.266, 0.802), 35.0, 1.0, 40.0)
+            set_contact_shadow(area_light_001, 0.200, 0.200)
+            area_light_001.data.color = (0.4760, 0.7875, 1.0000)
+            target_001 = add_target("target_001", container, (0.000, 0.000, 0.000))
+            track_to(area_light_001, target_001)
+
+            spot_light_002 = add_spot_light("Light.002", container, (1.230, -1.303, -0.191), (-0.000, -1.368, 2.288), 12.0, 0.8, 1.6, 40.0, 0.1)
+            set_contact_shadow(spot_light_002, 0.200, 0.200)
+            spot_light_002.data.color = (1.0000, 1.0000, 1.0000)
+            track_to(spot_light_002, target_001)
+
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = True
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = 0.000
+                shading.studiolight_intensity = 0.05
+                shading.studiolight_background_alpha = 0.000
+                shading.studiolight_background_blur = 0.500
+                space_data.clip_start = 0.010
+
+            world.world_setup(context,
+                              "",
+                              (0.109461,0.104617,0.291771,1),
+                              Vector((0,0,0)), Vector((0, 0, 0)), 1.0,
+                              1.0)
+            align_to_head(context, container, use_delta_rot=False)
+            create_backdrop(container, (0.799, 0.799, 0.799, 1.0), 0.75)
+
+        elif scene_type == "PRESET_5":
+
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.200
+            context.scene.eevee.gtao_factor = 1.000
+            context.scene.eevee.use_taa_reprojection = True
+            if utils.B420():
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
+                context.scene.world.sun_threshold = 0.1
+
+            else:
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.800
+                context.scene.eevee.bloom_knee = 0.500
+                context.scene.eevee.bloom_radius = 6.500
+                context.scene.eevee.bloom_intensity = 0.050
+            context.scene.eevee.use_ssr = False
+            context.scene.eevee.use_ssr_refraction = False
+            context.scene.eevee.bokeh_max_size = 100.000
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
+                                         0.000, 1.000)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
+
+            remove_all_lights(True)
+            restore_hidden_camera()
+            container = add_light_container()
+
+            spot_light_001 = add_spot_light("Light.003", container, (1.230, -1.303, -0.191), (-0.000, -1.368, 2.288), 12.0, 0.8, 1.6, 40.0, 0.1)
+            set_contact_shadow(spot_light_001, 0.200, 0.200)
+            spot_light_001.data.color = (1.0000, 1.0000, 1.0000)
+            target_001 = add_target("target_001", container, (0.000, 0.000, 0.000))
+            track_to(spot_light_001, target_001)
+
+            area_light_002 = add_area_light("Light.001", container, (-1.051, -0.809, -0.354), (0.000, -1.266, 0.802), 55.0, 1.0, 40.0)
+            set_contact_shadow(area_light_002, 0.200, 0.200)
+            area_light_002.data.color = (0.4760, 0.7875, 1.0000)
+            track_to(area_light_002, target_001)
+
+            area_light_003 = add_area_light("Light.002", container, (-0.395, 0.584, 0.064), (0.000, -1.266, 0.802), 35.0, 1.0, 40.0)
+            set_contact_shadow(area_light_003, 0.200, 0.200)
+            area_light_003.data.color = (1.0000, 0.6038, 0.2462)
+            track_to(area_light_003, target_001)
+
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = True
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = 0.000
+                shading.studiolight_intensity = 0.1
+                shading.studiolight_background_alpha = 0.000
+                shading.studiolight_background_blur = 0.500
+                space_data.clip_start = 0.010
+
+            world.world_setup(context,
+                              "",
+                              (0.107022,0.23074,0.05127,1),
+                              Vector((0,0,0)), Vector((0, 0, 0)), 1.0,
+                              1.0)
+            align_to_head(context, container, use_delta_rot=False)
+            create_backdrop(container, (0.799, 0.799, 0.799, 1.0), 0.75)
+
+        elif scene_type == "PRESET_6":
+
+            context.scene.eevee.use_gtao = True
+            context.scene.eevee.gtao_distance = 0.200
+            context.scene.eevee.gtao_factor = 1.000
+            context.scene.eevee.use_taa_reprojection = True
+            if utils.B420():
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
+                context.scene.world.sun_threshold = 0.1
+
+            else:
+                context.scene.eevee.use_bloom = True
+                context.scene.eevee.bloom_threshold = 0.800
+                context.scene.eevee.bloom_knee = 0.500
+                context.scene.eevee.bloom_radius = 6.500
+                context.scene.eevee.bloom_intensity = 0.050
+            context.scene.eevee.use_ssr = False
+            context.scene.eevee.use_ssr_refraction = False
+            context.scene.eevee.bokeh_max_size = 100.000
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "Medium Contrast",
+                                         0.000, 1.000)
+            if context.scene.cycles.transparent_max_bounces < 100:
+                context.scene.cycles.transparent_max_bounces = 100
+
+            remove_all_lights(True)
+            restore_hidden_camera()
+            container = add_light_container()
+
+            area_light_001 = add_area_light("Light.001", container, (-0.981, -0.808, -0.343), (0.000, -1.266, 0.802), 20.0, 1.0, 40.0)
+            set_contact_shadow(area_light_001, 0.200, 0.200)
+            area_light_001.data.color = (1.0000, 0.0329, 0.8662)
+            target_001 = add_target("target_001", container, (0.000, 0.000, 0.000))
+            track_to(area_light_001, target_001)
+
+            area_light_002 = add_area_light("Light.002", container, (1.087, 0.150, 0.071), (0.000, -1.266, 0.802), 20.0, 1.0, 40.0)
+            set_contact_shadow(area_light_002, 0.200, 0.200)
+            area_light_002.data.color = (0.0194, 0.0354, 1.0000)
+            track_to(area_light_002, target_001)
+
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = True
+                shading.studio_light = "studio.exr"
+                shading.studiolight_rotate_z = 0.000
+                shading.studiolight_intensity = 0.05
+                shading.studiolight_background_alpha = 0.000
+                shading.studiolight_background_blur = 0.500
+                space_data.clip_start = 0.010
+
+            world.world_setup(context,
+                              "",
+                              (0.0185,0.008568,0.07036,1),
+                              Vector((0,0,0)), Vector((0, 0, 0)), 1.0,
+                              1.0)
+            align_to_head(context, container, use_delta_rot=False)
+            create_backdrop(container, (0.799, 0.799, 0.799, 1.0), 0.75)
+
+
+
+        # Old presets
 
         elif scene_type == "COURTYARD":
 
@@ -1447,21 +1882,21 @@ def setup_scene_default(context, scene_type):
                     (-1.5078026056289673, -1.0891118049621582, 2.208820104598999),
                     (1.0848181247711182, -0.881056010723114, -0.5597077012062073),
                     40, 1, 9)
-            target_key = add_target("KeyTarget", (-0.006276353262364864, -0.004782751202583313, 1.503425121307373))
+            target_key = add_target("KeyTarget", container, (-0.006276353262364864, -0.004782751202583313, 1.503425121307373))
             track_to(key, target_key)
 
             fill = add_area_light("Fill", container,
                     (2.28589, -1.51410, 1.40742),
                     (1.4248263835906982, 0.9756063222885132, 0.8594209551811218),
                     10, 1, 9)
-            target_fill = add_target("FillTarget", (0.013503191992640495, 0.005856933072209358, 1.1814184188842773))
+            target_fill = add_target("FillTarget", container, (0.013503191992640495, 0.005856933072209358, 1.1814184188842773))
             track_to(fill, target_fill)
 
             back = add_area_light("Back", container,
                     (0.36789, 0.61511, 2.36201),
                     (-0.7961875796318054, 0.4831638038158417, -0.12343151122331619),
                     40, 0.5, 9, )
-            target_back = add_target("BackTarget", (0.0032256320118904114, 0.06994983553886414, 1.6254671812057495))
+            target_back = add_target("BackTarget", container, (0.0032256320118904114, 0.06994983553886414, 1.6254671812057495))
             track_to(back, target_back)
 
             set_contact_shadow(key, 0.05, 0.0025)
@@ -1524,9 +1959,9 @@ def get_head_delta(context, chr_cache):
             forward = rot @ Vector((0,0,1))
             f_2d = Vector((forward.x, forward.y)).normalized()
             z_angle = f_2d.angle_signed(Vector((0,-1)), 0)
-            shading = utils.get_view_3d_shading(context)
-            if shading:
-                shading.studiolight_rotate_z += z_angle
+            #shading = utils.get_view_3d_shading(context)
+            #if shading:
+            #    shading.studiolight_rotate_z += z_angle
             head_rot_z = Euler((0,0,z_angle), "XYZ").to_quaternion()
     return z_angle, head_pos, head_rot_z
 
@@ -1567,7 +2002,7 @@ def target_head(context, distance):
     return head_eyes_plane, head_eyes_plane + forward*distance
 
 
-def align_to_head(context, container):
+def align_to_head(context, container, use_delta_rot=True):
     context = vars.get_context(context)
 
     shading = utils.get_view_3d_shading(context)
@@ -1583,33 +2018,39 @@ def align_to_head(context, container):
         new_angle -= 2*math.pi
     elif new_angle < -math.pi:
         new_angle += 2*math.pi
-    if shading:
+    if shading and use_delta_rot:
         shading.studiolight_rotate_z = new_angle
     for child in container.children:
         loc = child.location.copy()
-        loc = delta_rot @ loc
+        if use_delta_rot:
+            loc = delta_rot @ loc
         child.location = loc + delta_loc
-        if child.rotation_mode == "XYZ":
-            rot = child.rotation_euler.to_quaternion()
-        elif child.rotation_mode == "QUATERNION":
-            rot = child.rotation_quaternion
-        child.rotation_mode = "QUATERNION"
-        child.rotation_quaternion = delta_rot @ rot
+        if use_delta_rot:
+            if child.rotation_mode == "XYZ":
+                rot = child.rotation_euler.to_quaternion()
+            elif child.rotation_mode == "QUATERNION":
+                rot = child.rotation_quaternion
+            child.rotation_mode = "QUATERNION"
+            child.rotation_quaternion = delta_rot @ rot
 
 
 def dump_location(o, delta_loc=None):
      if delta_loc is None:
         delta_loc = Vector((0,0,0))
      pos = o.location - delta_loc
-     return f"({pos.x}, {pos.y}, {pos.z})"
+     return f"({pos.x:.3f}, {pos.y:.3f}, {pos.z:.3f})"
+
+
+def dump_vector(v):
+     return f"({v.x:.5f}, {v.y:.5f}, {v.z:.5f})"
 
 
 def dump_color(c):
-    return f"({c.r}, {c.g}, {c.b})"
+    return f"({c.r:.4f}, {c.g:.4f}, {c.b:.4f})"
 
 
 def dump_euler(e):
-    return f"({e.x}, {e.y}, {e.z})"
+    return f"({e.x:.3f}, {e.y:.3f}, {e.z:.3f})"
 
 
 def dump_rotation_euler(o, delta_rot=None):
@@ -1618,11 +2059,11 @@ def dump_rotation_euler(o, delta_rot=None):
     if o.rotation_mode == "XYZ":
         rot = -delta_rot @ o.rotation_euler.to_quaternion()
         euler = rot.to_euler()
-        return f"({euler.x}, {euler.y}, {euler.z})"
+        return f"({euler.x:.3f}, {euler.y:.3f}, {euler.z:.3f})"
     elif o.rotation_mode == "QUATERNION":
         rot = -delta_rot @ o.rotation_quaternion
         euler = rot.to_euler()
-        return f"({euler.x}, {euler.y}, {euler.z})"
+        return f"({euler.x:.3f}, {euler.y:.3f}, {euler.z:.3f})"
 
 
 def filter_lights(filter):
@@ -1689,112 +2130,126 @@ def add_view_aligned_camera(context):
     camera.data.show_limits = True
 
 
-def dump_scene_setup(context):
+def dump_scene_pycode(context):
     context = vars.get_context(context)
 
     props = vars.props()
     chr_cache = props.get_context_character_cache(context)
-    za, dl, dr = get_head_delta(context, chr_cache)
+    if chr_cache:
+        za, dl, dr = get_head_delta(context, chr_cache)
+    else:
+        za = 0
+        dl = bpy.context.active_object.location
+        dr = Euler((0,0,0), "XYZ").to_quaternion()
     shading = utils.get_view_3d_shading(context)
     space_data = utils.get_view_3d_space(context)
 
     code = f"""
             context.scene.eevee.use_gtao = {context.scene.eevee.use_gtao}
-            context.scene.eevee.gtao_distance = {context.scene.eevee.gtao_distance}
-            context.scene.eevee.gtao_factor = {context.scene.eevee.gtao_factor}
-            context.scene.eevee.use_bloom = {context.scene.eevee.use_bloom}
-            context.scene.eevee.bloom_threshold = {context.scene.eevee.bloom_threshold}
-            context.scene.eevee.bloom_knee = {context.scene.eevee.bloom_knee}
-            context.scene.eevee.bloom_radius = {context.scene.eevee.bloom_radius}
-            context.scene.eevee.bloom_intensity = {context.scene.eevee.bloom_intensity}
+            context.scene.eevee.gtao_distance = {context.scene.eevee.gtao_distance:.3f}
+            context.scene.eevee.gtao_factor = {context.scene.eevee.gtao_factor:.3f}
+            context.scene.eevee.use_taa_reprojection = True
+            if utils.B420():
+                context.scene.eevee.use_shadows = True
+                context.scene.eevee.use_volumetric_shadows = True
+                context.scene.eevee.use_raytracing = True
+                context.scene.eevee.ray_tracing_options.use_denoise = True
+                context.scene.eevee.use_shadow_jitter_viewport = True
+                context.scene.eevee.use_bokeh_jittered = True
+                context.scene.world.use_sun_shadow = True
+                context.scene.world.use_sun_shadow_jitter = True
+                context.scene.world.sun_threshold = 0.1
+
+            else:
+                context.scene.eevee.use_bloom = {context.scene.eevee.use_bloom}
+                context.scene.eevee.bloom_threshold = {context.scene.eevee.bloom_threshold:.3f}
+                context.scene.eevee.bloom_knee = {context.scene.eevee.bloom_knee:.3f}
+                context.scene.eevee.bloom_radius = {context.scene.eevee.bloom_radius:.3f}
+                context.scene.eevee.bloom_intensity = {context.scene.eevee.bloom_intensity:.3f}
             context.scene.eevee.use_ssr = {context.scene.eevee.use_ssr}
             context.scene.eevee.use_ssr_refraction = {context.scene.eevee.use_ssr_refraction}
-            context.scene.eevee.bokeh_max_size = {context.scene.eevee.bokeh_max_size}
-            colorspace.set_view_settings("{context.scene.view_settings.view_transform}", "{context.scene.view_settings.look}",
-                                        {context.scene.view_settings.exposure}, {context.scene.view_settings.gamma})
+            context.scene.eevee.bokeh_max_size = {context.scene.eevee.bokeh_max_size:.3f}
+            view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
+            colorspace.set_view_settings(view_transform, "{context.scene.view_settings.look}",
+                                         {context.scene.view_settings.exposure:.3f}, {context.scene.view_settings.gamma:.3f})
             if context.scene.cycles.transparent_max_bounces < 100:
                 context.scene.cycles.transparent_max_bounces = 100
 
             remove_all_lights(True)
             restore_hidden_camera()
-            container = add_light_container()
+            container = add_light_container()"""
 
-    """
-
-    i = 0
+    i = 1
+    t = 1
+    done_targets = {}
     for light in context.selected_objects:
         if light.type == "LIGHT" and light.data.type == "AREA":
             name = f"area_light_{i:03d}"
             i += 1
             code += f"""
-            {name} = add_area_light("{light.name}", container,
-                {dump_location(light, dl)},
-                {dump_rotation_euler(light, dr)},
-                {light.data.energy}, {light.data.size}, {light.data.cutoff_distance})
-            set_contact_shadow({name}, {light.data.contact_shadow_distance}, {light.data.contact_shadow_thickness})
-            {name}.data.color = {dump_color(light.data.color)}
 
-    """
+            {name} = add_area_light("{light.name}", container, {dump_location(light, dl)}, {dump_rotation_euler(light, dr)}, {light.data.energy:.1f}, {light.data.size:.1f}, {light.data.cutoff_distance:.1f})
+            set_contact_shadow({name}, {light.data.contact_shadow_distance:.3f}, {light.data.contact_shadow_thickness:.3f})
+            {name}.data.color = {dump_color(light.data.color)}"""
 
         if light.type == "LIGHT" and light.data.type == "SPOT":
             name = f"spot_light_{i:03d}"
             i += 1
             code += f"""
-            {name} = add_spot_light("{light.name}", container,
-                {dump_location(light, dl)},
-                {dump_rotation_euler(light, dr)},
-                {light.data.energy}, {light.data.spot_blend},
-                {light.data.spot_size}, {light.data.cutoff_distance},
-                {light.data.shadow_soft_size})
-            set_contact_shadow({name}, {light.data.contact_shadow_distance}, {light.data.contact_shadow_thickness})
-            {name}.data.color = {dump_color(light.data.color)}
 
-    """
+            {name} = add_spot_light("{light.name}", container, {dump_location(light, dl)}, {dump_rotation_euler(light, dr)}, {light.data.energy:.1f}, {light.data.spot_blend:.1f}, {light.data.spot_size:.1f}, {light.data.cutoff_distance:.1f}, {light.data.shadow_soft_size:.1f})
+            set_contact_shadow({name}, {light.data.contact_shadow_distance:.3f}, {light.data.contact_shadow_thickness:.3f})
+            {name}.data.color = {dump_color(light.data.color)}"""
 
         if light.type == "LIGHT" and light.data.type == "SUN":
             name = f"sun_light_{i:03d}"
             i += 1
             code += f"""
-            {name} = add_sun_light("{light.name}", container,
-                {dump_location(light, dl)},
-                {dump_rotation_euler(light, dr)},
-                {light.data.energy},
-                {light.data.angle})
-            set_contact_shadow({name}, {light.data.contact_shadow_distance}, {light.data.contact_shadow_thickness})
-            {name}.data.color = {dump_color(light.data.color)}
 
-    """
+            {name} = add_sun_light("{light.name}", container, {dump_location(light, dl)}, {dump_rotation_euler(light, dr)}, {light.data.energy:.1f}, {light.data.angle:.1f})
+            set_contact_shadow({name}, {light.data.contact_shadow_distance:.3f}, {light.data.contact_shadow_thickness:.3f})
+            {name}.data.color = {dump_color(light.data.color)}"""
 
         if light.type == "LIGHT" and light.data.type == "POINT":
             name = f"sun_light_{i:03d}"
             i += 1
             code += f"""
-            {name} = add_point_light("{light.name}", container,
-                {dump_location(light, dl)},
-                {dump_rotation_euler(light, dr)},
-                {light.data.energy},
-                {light.data.shadow_soft_size})
-            set_contact_shadow({name}, {light.data.contact_shadow_distance}, {light.data.contact_shadow_thickness})
-            {name}.data.color = {dump_color(light.data.color)}
 
-    """
+            {name} = add_point_light("{light.name}", container, {dump_location(light, dl)}, {dump_rotation_euler(light, dr)}, {light.data.energy:.1f}, {light.data.shadow_soft_size:.1f})
+            set_contact_shadow({name}, {light.data.contact_shadow_distance:.3f}, {light.data.contact_shadow_thickness:.3f})
+            {name}.data.color = {dump_color(light.data.color)}"""
+
+        for con in light.constraints:
+            if con.type == "TRACK_TO":
+                target = con.target
+                if target and target not in done_targets:
+                    target_name = f"target_{t:03d}"
+                    done_targets[target] = target_name
+                    t += 1
+                    code += f"""
+            {target_name} = add_target({target_name}, container, {dump_location(target, dl)})"""
+                else:
+                    target_name = done_targets[target]
+                code += f"""
+            track_to({name}, {target_name})"""
 
     code += f"""
-            if shading:
-            if shading.type not in ["MATERIAL", "RENDERED"]:
-                shading.type = "MATERIAL"
-            shading.use_scene_lights = True
-            shading.use_scene_world = False
-            shading.use_scene_lights_render = True
-            shading.use_scene_world_render = False
-            shading.studio_light = "{shading.studio_light}"
-            shading.studiolight_rotate_z = {(shading.studiolight_rotate_z - za)}
-            shading.studiolight_intensity = {shading.studiolight_intensity}
-            shading.studiolight_background_alpha = {shading.studiolight_background_alpha}
-            shading.studiolight_background_blur = {shading.studiolight_background_blur}
-            space_data.clip_start = {space_data.clip_start}
 
-            align_to_head(container)
+            if shading:
+                if shading.type not in ["MATERIAL", "RENDERED"]:
+                    shading.type = "MATERIAL"
+                shading.use_scene_lights = True
+                shading.use_scene_world = False
+                shading.use_scene_lights_render = True
+                shading.use_scene_world_render = False
+                shading.studio_light = "{shading.studio_light}"
+                shading.studiolight_rotate_z = {(shading.studiolight_rotate_z - za):.3f}
+                shading.studiolight_intensity = {shading.studiolight_intensity:.3f}
+                shading.studiolight_background_alpha = {shading.studiolight_background_alpha:.3f}
+                shading.studiolight_background_blur = {shading.studiolight_background_blur:.3f}
+                space_data.clip_start = {space_data.clip_start:.3f}
+
+            align_to_head(context, container)
 
     """
 
@@ -1836,6 +2291,102 @@ def render_image(context):
 def render_animation(context):
     # TBD
     pass
+
+
+def dump_mesh_pycode(obj: bpy.types.Object):
+    code = f"""
+    location = {dump_location(obj)}
+    rotation = {dump_rotation_euler(obj)}
+    """
+    mesh: bpy.types.Mesh = obj.data
+    vert_code = ""
+    for i, vert in enumerate(mesh.vertices):
+        if i > 0:
+            vert_code += ", "
+            if i % 4 == 0:
+                vert_code += """
+                        """
+        vert_code += dump_vector(vert.co)
+    face_code = ""
+    for i, face in enumerate(mesh.polygons):
+        if i > 0:
+            face_code += ", "
+            if i % 4 == 0:
+                face_code += """
+                        """
+        face_code += "("
+        for j, vert in enumerate(face.vertices):
+            if j > 0: face_code += ", "
+            face_code += f"{vert}"
+        face_code += ")"
+    code += f"""
+    mesh.from_pydata([{vert_code}],
+                     [],
+                     [{face_code}])
+    """
+    print(code)
+
+
+def create_backdrop(container, color, roughness):
+    backdrop_name = "Backdrop"
+    backdrop_prop = "rl_backdrop_preset"
+    backdrop: bpy.types.Object = None
+    for obj in bpy.data.objects:
+        if obj.name.startswith(backdrop_name) and backdrop_prop in obj:
+            backdrop = obj
+            break
+    if not backdrop:
+        mesh = bpy.data.meshes.new(backdrop_name)
+        mesh.from_pydata([(-2.34281, -2.34281, 0.00000), (2.34281, -2.34281, 0.00000), (-2.34281, 2.34281, 3.41876), (2.34281, 2.34281, 3.41876),
+                          (-2.34281, 1.51495, 0.00000), (-2.34281, 2.34281, 0.82786), (-2.34281, 1.58331, 0.00283), (-2.34281, 1.65121, 0.01129),
+                          (-2.34281, 1.71817, 0.02533), (-2.34281, 1.78375, 0.04486), (-2.34281, 1.84749, 0.06973), (-2.34281, 1.90896, 0.09978),
+                          (-2.34281, 1.96774, 0.13480), (-2.34281, 2.02343, 0.17456), (-2.34281, 2.07564, 0.21878), (-2.34281, 2.12402, 0.26717),
+                          (-2.34281, 2.16825, 0.31938), (-2.34281, 2.20800, 0.37506), (-2.34281, 2.24303, 0.43384), (-2.34281, 2.27308, 0.49531),
+                          (-2.34281, 2.29795, 0.55905), (-2.34281, 2.31748, 0.62463), (-2.34281, 2.33152, 0.69160), (-2.34281, 2.33998, 0.75950),
+                          (2.34281, 2.34281, 0.82786), (2.34281, 1.51495, 0.00000), (2.34281, 2.33998, 0.75950), (2.34281, 2.33152, 0.69160),
+                          (2.34281, 2.31748, 0.62463), (2.34281, 2.29795, 0.55905), (2.34281, 2.27308, 0.49531), (2.34281, 2.24303, 0.43384),
+                          (2.34281, 2.20800, 0.37506), (2.34281, 2.16825, 0.31938), (2.34281, 2.12402, 0.26717), (2.34281, 2.07564, 0.21878),
+                          (2.34281, 2.02343, 0.17456), (2.34281, 1.96774, 0.13480), (2.34281, 1.90896, 0.09978), (2.34281, 1.84749, 0.06973),
+                          (2.34281, 1.78375, 0.04486), (2.34281, 1.71817, 0.02533), (2.34281, 1.65121, 0.01129), (2.34281, 1.58331, 0.00283)],
+                         [],
+                         [(5, 24, 3, 2), (24, 5, 23, 26), (26, 23, 22, 27), (27, 22, 21, 28),
+                          (28, 21, 20, 29), (29, 20, 19, 30), (30, 19, 18, 31), (31, 18, 17, 32),
+                          (32, 17, 16, 33), (33, 16, 15, 34), (34, 15, 14, 35), (35, 14, 13, 36),
+                          (36, 13, 12, 37), (37, 12, 11, 38), (38, 11, 10, 39), (39, 10, 9, 40),
+                          (40, 9, 8, 41), (41, 8, 7, 42), (42, 7, 6, 43), (43, 6, 4, 25),
+                          (0, 1, 25, 4)])
+        for poly in mesh.polygons:
+            poly.use_smooth = True
+        mesh.update()
+        backdrop = bpy.data.objects.new(backdrop_name, mesh)
+        bpy.context.collection.objects.link(backdrop)
+    if backdrop:
+        if container:
+            backdrop.parent = container
+            backdrop.matrix_parent_inverse = container.matrix_world.inverted()
+        backdrop.location = Vector((0.000, -0.994, 0.000))
+        backdrop.rotation_mode = "XYZ"
+        backdrop.rotation_euler = Euler((0.000, -0.000, 0.000), "XYZ")
+        backdrop[backdrop_prop] = True
+    # Material
+    material: bpy.types.Material = None
+    material_name = "Backdrop"
+    material_prop = "rl_backdrop_preset"
+    for mat in bpy.data.materials:
+        if mat.name.startswith(material_name) and material_prop in mat:
+            material = mat
+            break
+    if not material:
+        material = bpy.data.materials.new(material_name)
+        material[material_prop] = True
+    if material:
+        backdrop.data.materials.append(material)
+        material.use_nodes = True
+        for node in material.node_tree.nodes:
+            if node.type == "BSDF_PRINCIPLED":
+                node.inputs["Base Color"].default_value = color
+                node.inputs["Roughness"].default_value = roughness
+    return backdrop
 
 
 def fetch_anim_range(context, expand = False, fit = True):
@@ -2002,7 +2553,10 @@ class CC3Scene(bpy.types.Operator):
             cycles_setup(context)
 
         elif self.param == "DUMP_SETUP":
-            dump_scene_setup(context)
+            dump_scene_pycode(context)
+
+        elif self.param == "DUMP_OBJ":
+            dump_mesh_pycode(context.active_object)
 
         elif self.param == "FILTER_LIGHTS":
             filter_lights(props.light_filter)
@@ -2027,7 +2581,8 @@ class CC3Scene(bpy.types.Operator):
                 world_setup(context)
                 utils.message_box("World nodes and compositor template set up.")
             else:
-                world_setup(context)
+                if not self.param.startswith("PRESET_"):
+                    world_setup(context)
 
         return {"FINISHED"}
 

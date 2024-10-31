@@ -215,13 +215,18 @@ def post_bake(context, state):
         bpy.data.objects.remove(state["bake_surface"])
 
 
-def get_existing_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir, name_prefix = "", force_srgb = False, channel_pack = False, exact_name = False):
+def get_existing_bake_image(mat, channel_id, width, height,
+                            shader_node, socket,
+                            bake_dir, name_prefix="",
+                            force_srgb=False,
+                            channel_pack=False,
+                            exact_name=False):
     return None
 
 
 def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir,
-                  name_prefix="", force_srgb=False, channel_pack=False,
-                  exact_name=False, underscores=True, image_format="PNG"):
+                   name_prefix="", force_srgb=False, channel_pack=False,
+                   exact_name=False, underscores=True, unique_name=False, image_format="PNG"):
     """Makes an image and image file to bake the shader socket to and returns the image and image name
     """
 
@@ -276,7 +281,7 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
 
 def bake_node_socket_input(context, node, socket, mat, channel_id, bake_dir, name_prefix="",
                            override_size=0, size_override_node=None, size_override_socket=None,
-                           exact_name=False, underscores=True,
+                           exact_name=False, underscores=True, unique_name=False,
                            no_prep=False, image_format="PNG"):
     """Bakes the input to the supplied node and socket to an appropriate image.\n
        Image size is determined by the sizes of the connected image nodes (or overriden).\n
@@ -299,7 +304,7 @@ def bake_node_socket_input(context, node, socket, mat, channel_id, bake_dir, nam
 
     # bake the source node output onto the target image and re-save it
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir,
-                                               name_prefix=name_prefix, exact_name=exact_name,
+                                               name_prefix=name_prefix, exact_name=exact_name, unique_name=unique_name,
                                                underscores=underscores, image_format=image_format)
     image_node = cycles_bake_color_output(context, mat, source_node, source_socket, image, image_name,
                                           no_prep=no_prep, image_format=image_format)
@@ -314,7 +319,7 @@ def bake_node_socket_input(context, node, socket, mat, channel_id, bake_dir, nam
 
 def bake_node_socket_output(context, node, socket, mat, channel_id, bake_dir, name_prefix = "",
                             override_size = 0, size_override_node=None, size_override_socket=None,
-                            exact_name=False, underscores=True,
+                            exact_name=False, underscores=True, unique_name=False,
                             no_prep=False, image_format="PNG"):
     """Bakes the output of the supplied node and socket to an appropriate image.\n
        Image size is determined by the sizes of the connected image nodes (or overriden).\n
@@ -334,7 +339,7 @@ def bake_node_socket_output(context, node, socket, mat, channel_id, bake_dir, na
 
     # bake the source node output onto the target image and re-save it
     image, image_name, exists = get_bake_image(mat, channel_id, width, height, node, socket, bake_dir,
-                                               name_prefix=name_prefix, exact_name=exact_name,
+                                               name_prefix=name_prefix, exact_name=exact_name, unique_name=unique_name,
                                                underscores=underscores, image_format=image_format)
     image_node = cycles_bake_color_output(context, mat, node, socket, image, image_name,
                                           no_prep=no_prep, image_format=image_format)

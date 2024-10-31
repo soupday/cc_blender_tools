@@ -79,10 +79,41 @@ def adjust_lighting_brightness(self, context):
         if light.type == "LIGHT":
             if not props.lighting_brightness_all and not utils.has_ccic_id(light):
                 continue
+            current_brightness = light.data.energy
             if "rl_default_brightness" not in light.data:
-                light.data["rl_default_brightness"] = light.data.energy
+                light.data["rl_default_brightness"] = current_brightness
+            if "rl_last_brightness" not in light.data:
+                light.data["rl_last_brightness"] = current_brightness
+            last_brightness = light.data["rl_last_brightness"]
+            # if the brightness has been changed by the user, update the custom props
+            if abs(current_brightness-last_brightness) >= 0.001:
+                light.data["rl_default_brightness"] = current_brightness
+                light.data["rl_last_brightness"] = current_brightness
             base_energy = light.data["rl_default_brightness"]
-            light.data.energy = base_energy * props.lighting_brightness
+            new_brightness = base_energy * props.lighting_brightness
+            light.data.energy = new_brightness
+            light.data["rl_last_brightness"] = new_brightness
+
+
+def adjust_world_brightness(self, context):
+    props = vars.props()
+    nodes = context.scene.world.node_tree.nodes
+    for node in nodes:
+        if node.type == "BACKGROUND" and "(rl_background_node)" in node.name:
+            current_strength = node.inputs["Strength"].default_value
+            if "rl_default_strength" not in node:
+                node["rl_default_strength"] = current_strength
+            if "rl_last_strength" not in node:
+                node["rl_last_strength"] = current_strength
+            last_strength = node["rl_last_strength"]
+            # if the node strength has been changed by the user, update the custom props
+            if abs(current_strength - last_strength) >= 0.001:
+                node["rl_default_strength"] = current_strength
+                node["rl_last_strength"] = current_strength
+            base_strength = node["rl_default_strength"]
+            new_strength = base_strength * props.world_brightness
+            node.inputs["Strength"].default_value = new_strength
+            node["rl_last_strength"] = new_strength
 
 
 def update_property(self, context, prop_name, update_mode = None):
@@ -428,24 +459,23 @@ def update_sculpt_mix_node(self, context, prop_name):
     if vars.block_property_update: return
     props = vars.props()
     chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
-    body = chr_cache.get_body()
     if chr_cache:
         if prop_name == "detail_normal_strength":
-            sculpting.update_layer_nodes(body, "DETAIL", "Normal Strength", chr_cache.detail_normal_strength * 1)
+            sculpting.update_layer_nodes(context, chr_cache, sculpting.LAYER_TARGET_DETAIL, "Normal Strength", chr_cache.detail_normal_strength * 1)
         elif prop_name == "body_normal_strength":
-            sculpting.update_layer_nodes(body, "BODY", "Normal Strength", chr_cache.body_normal_strength * 1)
+            sculpting.update_layer_nodes(context, chr_cache, sculpting.LAYER_TARGET_SCULPT, "Normal Strength", chr_cache.body_normal_strength * 1)
         elif prop_name == "detail_ao_strength":
-            sculpting.update_layer_nodes(body, "DETAIL", "AO Strength", chr_cache.detail_ao_strength * 1)
+            sculpting.update_layer_nodes(context, chr_cache, sculpting.LAYER_TARGET_DETAIL, "AO Strength", chr_cache.detail_ao_strength * 1)
         elif prop_name == "body_ao_strength":
-            sculpting.update_layer_nodes(body, "BODY", "AO Strength", chr_cache.body_ao_strength * 1)
+            sculpting.update_layer_nodes(context, chr_cache, sculpting.LAYER_TARGET_SCULPT, "AO Strength", chr_cache.body_ao_strength * 1)
         elif prop_name == "detail_normal_definition":
-            sculpting.update_layer_nodes(body, "DETAIL", "Definition", chr_cache.detail_normal_definition * 1)
+            sculpting.update_layer_nodes(context, chr_cache, sculpting.LAYER_TARGET_DETAIL, "Definition", chr_cache.detail_normal_definition * 1)
         elif prop_name == "body_normal_definition":
-            sculpting.update_layer_nodes(body, "BODY", "Definition", chr_cache.body_normal_definition * 1)
+            sculpting.update_layer_nodes(context, chr_cache, sculpting.LAYER_TARGET_SCULPT, "Definition", chr_cache.body_normal_definition * 1)
         elif prop_name == "detail_mix_mode":
-            sculpting.update_layer_nodes(body, "DETAIL", "Mix Mode", (1.0 if chr_cache.detail_mix_mode == "REPLACE" else 0.0))
+            sculpting.update_layer_nodes(context, chr_cache, sculpting.LAYER_TARGET_DETAIL, "Mix Mode", (1.0 if chr_cache.detail_mix_mode == "REPLACE" else 0.0))
         elif prop_name == "body_mix_mode":
-            sculpting.update_layer_nodes(body, "BODY", "Mix Mode", (1.0 if chr_cache.body_mix_mode == "REPLACE" else 0.0))
+            sculpting.update_layer_nodes(context, chr_cache, sculpting.LAYER_TARGET_SCULPT, "Mix Mode", (1.0 if chr_cache.body_mix_mode == "REPLACE" else 0.0))
 
 
 def update_rig_target(self, context):
@@ -1550,7 +1580,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             self.select_all()
 
     def select_all(self, only=True):
-        objects = self.get_all_objects(include_armature=True, include_children=True)
+        objects = self.get_all_objects(include_armature=True,
+                                       include_children=True)
         utils.try_select_objects(objects, clear_selection=only)
 
     def get_tex_dir(self):
@@ -1782,64 +1813,78 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
                 materials.append(mat_cache.material)
         return materials
 
+    def is_sculpt_object(self, obj):
+        return ("rl_multires_BODY" in obj or "rl_multires_DETAIL" in obj or
+                obj == self.detail_multires_body or obj == self.sculpt_multires_body)
+
+    def is_collision_object(self, obj):
+        source, proxy, is_proxy = self.get_related_physics_objects(obj)
+        return ("rl_collision_proxy" in obj or obj.name.endswith(".Collision_Proxy") or is_proxy)
+
     def get_all_objects(self,
                         include_armature=True,
+                        include_cache=True,
                         include_children=False,
                         include_disabled=False,
                         include_split=True,
                         include_proxy=False,
+                        include_sculpt=False,
                         of_type="ALL",
                         only_selected=False):
 
         objects = []
-        arm = None
 
+        # cached objects
         for obj_cache in self.object_cache:
-            if include_disabled or not obj_cache.disabled:
-                obj = obj_cache.get_object()
-                if obj:
-                    if only_selected and obj not in bpy.context.selected_objects:
-                        continue
-                    if not include_proxy and ("rl_collision_proxy" in obj or obj.name.endswith(".Collision_Proxy")):
-                        continue
-                    if obj and obj not in objects:
-                        if obj.type == "ARMATURE":
-                            arm = obj
-                            if include_armature:
-                                if of_type == "ALL" or of_type == "ARMATURE":
-                                    objects.append(obj)
-                        elif of_type == "ALL" or of_type == obj.type:
-                            objects.append(obj)
+            if obj_cache.disabled and not include_disabled: continue
+            obj = obj_cache.get_object()
+            if obj and obj not in objects:
+                if obj.type == "ARMATURE":
+                    include = include_armature
+                else:
+                    include = include_cache
+                if only_selected and obj not in bpy.context.selected_objects:
+                    include = False
+                if include:
+                    if of_type == "ALL" or of_type == obj.type:
+                        objects.append(obj)
 
-        if include_children and arm:
+        # non cached objects
+        arm = self.get_armature()
+        if arm:
             for child in arm.children:
-                if only_selected and child not in bpy.context.selected_objects:
-                    continue
-                if "rl_collision_proxy" in child and not include_proxy:
-                    continue
                 if child not in objects and utils.object_exists(child):
-                    if of_type == "ALL" or child.type == of_type:
-                        objects.append(child)
+                    include = include_children
+                    if include_proxy and self.is_collision_object(child):
+                        include = True
+                    if include_sculpt and self.is_sculpt_object(child):
+                        include = True
+                    if include_split and self.is_split_object(child):
+                        include = True
+                    if only_selected and child not in bpy.context.selected_objects:
+                        include = False
+                    if include:
+                        if of_type == "ALL" or child.type == of_type:
+                            objects.append(child)
 
-        if include_split and arm:
-            for child in arm.children:
-                if only_selected and child not in bpy.context.selected_objects:
-                    continue
-                if "rl_collision_proxy" in child and not include_proxy:
-                    continue
-                if child not in objects and utils.object_exists(child) and self.get_object_cache(child):
-                    if of_type == "ALL" or child.type == of_type:
-                        objects.append(child)
+        if include_sculpt:
+            if self.sculpt_multires_body and self.sculpt_multires_body not in objects:
+                objects.append(self.sculpt_multires_body)
+            if self.detail_multires_body and self.detail_multires_body not in objects:
+                objects.append(self.detail_multires_body)
 
         return objects
 
     def get_cache_objects(self):
         return self.get_all_objects(include_armature=True,
+                                    include_cache=True,
                                     include_children=False,
                                     include_disabled=False,
                                     include_split=True,
                                     include_proxy=False,
-                                    of_type="ALL")
+                                    include_sculpt=False,
+                                    of_type="ALL",
+                                    only_selected=False)
 
     def get_collision_proxy(self, obj):
         obj_cache = self.get_object_cache(obj)
@@ -1968,7 +2013,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             for obj_cache in self.object_cache:
                 if include_disabled or not obj_cache.disabled:
                     cache_object = obj_cache.get_object()
-                    cache_object_id = utils.get_rl_object_id(cache_object_id)
+                    cache_object_id = utils.get_rl_object_id(cache_object)
                     if cache_object == obj or cache_object_id == object_id:
                         return True
         return False
@@ -2002,6 +2047,20 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def get_body(self):
         return self.get_object_of_type("BODY")
+
+    def get_body_cache(self):
+        return self.get_cache_of_type("BODY")
+
+    def get_objects_of_type(self, object_type):
+        objects = []
+        for obj_cache in self.object_cache:
+            if obj_cache.object_type == object_type:
+                body_id = obj_cache.object_id
+                chr_objects = self.get_cache_objects()
+                for obj in chr_objects:
+                    if utils.get_rl_object_id(obj) == body_id:
+                        objects.append(obj)
+        return objects
 
     def get_object_of_type(self, object_type, include_disabled=False):
         try:
@@ -2287,13 +2346,48 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         self.check_type(self.pbr_material_cache, recast, chr_json, "DEFAULT", "SCALP", "EYELASH")
         self.check_type(self.sss_material_cache, recast, chr_json, "SSS")
 
-    def get_detail_body(self):
+    def get_sculpt_objects(self):
+        sculpt_objects = self.get_all_objects(include_armature=False,
+                                              include_cache=False,
+                                              include_children=False,
+                                              include_disabled=False,
+                                              include_split=False,
+                                              include_proxy=False,
+                                              include_sculpt=True,
+                                              of_type="MESH")
+        return sculpt_objects
+
+    def get_sculpt_source(self, multires_mesh, layer_target):
+        prop_name = f"rl_multires_{layer_target}"
+        if prop_name in multires_mesh:
+            source_name = multires_mesh[prop_name]
+            if source_name in bpy.data.objects:
+                return bpy.data.objects[source_name]
+        return None
+
+    def get_detail_body(self, context_object=None):
+        sculpt_objects = self.get_sculpt_objects()
+        if context_object:
+            for obj in sculpt_objects:
+                source = self.get_sculpt_source(obj, sculpting.LAYER_TARGET_DETAIL)
+                if obj == context_object or source == context_object:
+                    return obj
+            return None
+        # detail_multires_body contains the last edited detail sculpt object
         if utils.object_exists_is_mesh(self.detail_multires_body):
             return self.detail_multires_body
         else:
             return None
 
-    def get_sculpt_body(self):
+    def get_sculpt_body(self, context_object=None):
+        sculpt_objects = self.get_sculpt_objects()
+        if context_object:
+            for obj in sculpt_objects:
+                source = self.get_sculpt_source(obj, sculpting.LAYER_TARGET_SCULPT)
+                if obj == context_object or source == context_object:
+                    return obj
+            return None
+        # sculpt_multires_body contains the last edited body sculpt object
         if utils.object_exists_is_mesh(self.sculpt_multires_body):
             return self.sculpt_multires_body
         else:
@@ -2717,6 +2811,11 @@ class CC3ImportProps(bpy.types.PropertyGroup):
                                                  name="Lighting Brightness",
                                                  description="Adjust the lighting brightness of all lights created by this add-on",
                                                  update=adjust_lighting_brightness)
+    world_brightness: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0,
+                                                 name="World Brightness",
+                                                 description="Adjust the world background brightness if the world setup was created by this add-on",
+                                                 update=adjust_world_brightness)
+
 
     def add_character_cache(self, copy_from=None):
         chr_cache = self.import_cache.add()

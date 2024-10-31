@@ -51,11 +51,17 @@ def clear_vertex_group(obj, vertex_group: bpy.types.VertexGroup):
     vertex_group.remove(all_verts)
 
 
-def set_vertex_group(obj, vertex_group: bpy.types.VertexGroup, value):
-    all_verts = []
-    for v in obj.data.vertices:
-        all_verts.append(v.index)
-    vertex_group.add(all_verts, value, 'ADD')
+def set_vertex_group(obj, vertex_group, value):
+    if type(vertex_group) is str:
+        try:
+            vertex_group = obj.vertex_groups[vertex_group]
+        except:
+            vertex_group = None
+    if vertex_group:
+        all_verts = []
+        for v in obj.data.vertices:
+            all_verts.append(v.index)
+        vertex_group.add(all_verts, value, 'ADD')
 
 
 def count_vertex_group(obj, vertex_group: bpy.types.VertexGroup):
@@ -433,10 +439,8 @@ def separate_mesh_by_material_slots(obj: bpy.types.Object, slot_indices: list):
                 if count > 0 and count < len(obj.data.vertices):
                     bpy.ops.mesh.separate(type="SELECTED")
                     if utils.object_mode():
-                        print(bpy.context.selected_objects)
                         for o in bpy.context.selected_objects:
                             if o != obj:
-                                print(o)
                                 return o
     return None
 

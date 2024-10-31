@@ -902,7 +902,7 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         layout = self.layout
 
         props = vars.props()
-        prefs = vars.prefs()
+        PREFS = vars.prefs()
         chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(context)
 
         mesh_in_selection = False
@@ -930,9 +930,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
                 col_2.prop(chr_cache, "render_target", text="")
                 box.prop(chr_cache, "import_file", text="")
                 for obj_cache in chr_cache.object_cache:
-                    o = obj_cache.get_object()
-                    if o:
-                        box.prop(obj_cache, "object", text="")
+                    #o = obj_cache.get_object()
+                    #if o:
+                    box.prop(obj_cache, "object", text="")
             else:
                 box.label(text="Name: " + chr_cache.character_name)
         else:
@@ -945,37 +945,23 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         box = layout.box()
         if fake_drop_down(box.row(), "Build Settings", "show_build_prefs2", props.show_build_prefs2,
                           icon="TOOL_SETTINGS", icon_closed="TOOL_SETTINGS"):
-            split = box.split(factor=0.9)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="De-duplicate Materials")
-            col_2.prop(prefs, "import_deduplicate", text="")
-            col_1.label(text="Auto Convert Generic")
-            col_2.prop(prefs, "import_auto_convert", text="")
-            col_1.label(text="Limit Textures")
-            col_2.prop(prefs, "build_limit_textures", text="")
-            col_1.label(text="Pack Texture Channels")
-            col_2.prop(prefs, "build_pack_texture_channels", text="")
-            col_1.label(text="Reuse Channel Packs")
-            col_2.prop(prefs, "build_reuse_baked_channel_packs", text="")
-            col_1.label(text="Use Edit Modifier")
-            col_2.prop(prefs, "build_armature_edit_modifier", text="")
-            col_1.label(text="Use Preserve Volume")
-            col_2.prop(prefs, "build_armature_preserve_volume", text="")
-            col_1.label(text="Dual Specular Skin")
-            col_2.prop(prefs, "build_skin_shader_dual_spec", text="")
-            col_1.separator()
-            col_2.separator()
-            col_1.label(text="Shape Keys Drive Jaw Bone")
-            col_2.prop(prefs, "build_shape_key_bone_drivers_jaw", text="")
-            col_1.label(text="Shape Keys Drive Eye Bones")
-            col_2.prop(prefs, "build_shape_key_bone_drivers_eyes", text="")
-            col_1.label(text="Shape Keys Drive Head Bone")
-            col_2.prop(prefs, "build_shape_key_bone_drivers_head", text="")
-            col_1.separator()
-            col_2.separator()
-            col_1.label(text="Body Shape Keys Drive All")
-            col_2.prop(prefs, "build_body_key_drivers", text="")
+            column = box.column()
+            column.prop(PREFS, "import_deduplicate")
+            column.prop(PREFS, "import_auto_convert")
+            column.prop(PREFS, "build_limit_textures")
+            column.prop(PREFS, "build_pack_texture_channels")
+            column.prop(PREFS, "build_reuse_baked_channel_packs")
+            column.prop(PREFS, "build_armature_edit_modifier")
+            column.prop(PREFS, "build_armature_preserve_volume")
+            column.separator()
+            column.label(text="Drivers:")
+            column.prop(PREFS, "build_shape_key_bone_drivers_jaw")
+            column.prop(PREFS, "build_shape_key_bone_drivers_eyes")
+            column.prop(PREFS, "build_shape_key_bone_drivers_head")
+            column.prop(PREFS, "build_body_key_drivers")
+            column.separator()
+            column.label(text="Experimental:")
+            column.prop(PREFS, "build_skin_shader_dual_spec")
 
         column = layout.column(align=True)
         row = column.row(align=True)
@@ -984,9 +970,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
         row = column.row(align=True)
         row.prop(chr_cache if chr_cache else props, "setup_mode", expand=True)
         row = column.row(align=True)
-        row.prop(prefs, "render_target", expand=True)
+        row.prop(PREFS, "render_target", expand=True)
         row = column.row(align=True)
-        row.prop(prefs, "refractive_eyes", expand=True)
+        row.prop(PREFS, "refractive_eyes", expand=True)
 
         # ACES Prefs
         if colorspace.is_aces():
@@ -995,9 +981,9 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             col_1 = split.column()
             col_2 = split.column()
             col_1.label(text="sRGB Override")
-            col_2.prop(prefs, "aces_srgb_override", text="")
+            col_2.prop(PREFS, "aces_srgb_override", text="")
             col_1.label(text="Data Override")
-            col_2.prop(prefs, "aces_data_override", text="")
+            col_2.prop(PREFS, "aces_data_override", text="")
 
         render_prefs_ui(layout)
 
@@ -1226,6 +1212,11 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
 
         column.separator()
 
+        row = column.row()
+        row.operator("cc3.character", icon="KEY_DEHLT", text="Clean Empty Data").param = "CLEAN_SHAPE_KEYS"
+
+        column.separator()
+
         # Armature & Weights
 
         column.box().label(text = "Armature & Weights", icon = "ARMATURE_DATA")
@@ -1234,10 +1225,35 @@ class CC3ObjectManagementPanel(bpy.types.Panel):
             column.row().prop(arm.data, "pose_position", expand=True)
 
         row = column.row()
+        row.scale_y = 1.5
         row.operator("cc3.character", icon="MOD_DATA_TRANSFER", text="Transfer Weights").param = "TRANSFER_WEIGHTS"
         if not weight_transferable:
             row.enabled = False
 
+        if rigging.is_surface_heat_voxel_skinning_installed():
+            row = layout.row()
+            row.scale_y = 1.5
+            row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Diffuse Skinning").param = "VOXEL_HEAT_SKINNING"
+            row.enabled = chr_cache is not None and obj is not None and obj.type == "MESH"
+
+        column = layout.column(align=True)
+        row = column.row(align=True)
+        row.scale_y = 1.5
+        #row.operator("cc3.character", icon="IPO_BEZIER", text="Blend Weights").param = "BLEND_WEIGHTS"
+        #row.operator("ccic.weight_transfer", icon="ANIM", text="")
+        row.operator("ccic.weight_transfer", icon="IPO_BEZIER", text="Blend Body Weights")
+        grid = column.grid_flow(columns=2, align=True, row_major=True)
+        grid.prop(prefs, "weight_blend_use_range", toggle=True)
+        grid.prop(prefs, "weight_blend_selected_only", toggle=True)
+        grid.prop(prefs, "weight_blend_distance_min", text="", slider=True)
+        if prefs.weight_blend_use_range:
+            grid.prop(prefs, "weight_blend_distance_range", text="", slider=True)
+        else:
+            grid.prop(prefs, "weight_blend_distance_max", text="", slider=True)
+        if not weight_transferable:
+            column.enabled = False
+
+        column = layout.column()
         row = column.row()
         row.operator("cc3.character", icon="ORIENTATION_NORMAL", text="Normalize Weights").param = "NORMALIZE_WEIGHTS"
         if not weight_transferable:
@@ -1454,10 +1470,12 @@ class CC3SpringRigPanel(bpy.types.Panel):
                         else:
                             row.operator("cc3.rigifier", icon="MOD_SCREW", text="Build Control Rig").param = "BUILD_SPRING_RIG"
                 column.separator()
-                build_allowed = True
-                if chr_cache.rigified and not rigified_spring_rig:
-                    build_allowed = False
-                rigid_body_sim_ui(chr_cache, arm, obj, column, enabled=build_allowed)
+
+        if chr_cache and arm and obj:
+            build_allowed = True
+            if chr_cache.rigified and not rigified_spring_rig:
+                build_allowed = False
+            rigid_body_sim_ui(chr_cache, arm, obj, layout, enabled=build_allowed)
 
 
 class CC3HairPanel(bpy.types.Panel):
@@ -1573,8 +1591,11 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                             column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
 
                         elif ui_row[0] == "WRINKLE_CONTROLS":
-                            body_object = chr_cache.get_body()
-                            if body_object and ("wrinkle_strength" in body_object or "wrinkle_curve" in body_object):
+                            body_object = None
+                            for o in chr_cache.get_objects_of_type("BODY"):
+                                if "wrinkle_strength" in o or "wrinkle_curve" in o:
+                                    body_object = o
+                            if body_object:
                                 column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
                                 row = column.row()
                                 split = row.split(factor=0.5)
@@ -1997,7 +2018,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                                 if rigging.is_surface_heat_voxel_skinning_installed():
                                     row = layout.row()
-                                    row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SKINNING"
+                                    row.operator("cc3.rigifier_modal", icon="COMMUNITY", text="Voxel Skinning").param = "VOXEL_SURFACE_REPARENT"
                                     row.enabled = chr_cache is not None
 
                             layout.separator()
@@ -2012,19 +2033,21 @@ class CC3RigifyPanel(bpy.types.Panel):
                         if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
                             grid = layout.grid_flow(columns=2, row_major=True, align=True)
                             grid.prop(prefs, "rigify_build_face_rig", text = "Face Rig", toggle=True)
-                            if chr_cache.rig_mode == "QUICK":
-                                grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
-                                if prefs.rigify_auto_retarget:
-                                    # retarget/bake motion prefix
-                                    row = layout.row()
-                                    split = row.split(factor=0.45)
-                                    split.column().label(text="Motion Prefix")
-                                    row = split.column().row(align=True)
-                                    row.prop(props, "rigify_retarget_motion_prefix", text="")
-                                    icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
-                                    row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
                             if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
                                 wrapped_text_box(layout, "Note: Full face rig cannot be auto-detected for this character.", width)
+                        else:
+                            grid = layout.grid_flow(columns=1, row_major=True, align=True)
+
+                        grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
+                        if prefs.rigify_auto_retarget:
+                            # retarget/bake motion prefix
+                            row = layout.row()
+                            split = row.split(factor=0.45)
+                            split.column().label(text="Motion Prefix")
+                            row = split.column().row(align=True)
+                            row.prop(props, "rigify_retarget_motion_prefix", text="")
+                            icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
+                            row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
 
                         if chr_cache.rig_mode == "QUICK":
 
@@ -2272,7 +2295,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                 reconnect_character_ui(context, layout, chr_cache)
 
         else:
-            wrapped_text_box(layout, "Rigify add-on is not installed.", width, True)
+            wrapped_text_box(layout, "Rigify add-on is not enabled.", width, True)
 
 
 def motion_set_ui(layout: bpy.types.UILayout, chr_cache, show_nla=False):
@@ -2570,25 +2593,40 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     prefs = vars.prefs()
     layout = self.layout
 
-    box = layout.box().label(text="Scene Lighting", icon="LIGHT")
+    row = layout.box().row()
+    row.label(text="Scene Lighting", icon="LIGHT")
+    row.prop(prefs, "lighting_presets_all", text="", toggle=True, icon="LAYER_ACTIVE" if prefs.lighting_presets_all else "LAYER_USED")
 
     grid = layout.grid_flow(row_major=True, columns=2, align=True)
     grid.operator("cc3.scene", icon="SHADING_SOLID", text="Matcap").param = "MATCAP"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Default").param = "BLENDER"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="CC3").param = "CC3"
     grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Studio").param = "STUDIO"
-    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Courtyard").param = "COURTYARD"
-    grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Interior").param = "INTERIOR"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Authority").param = "AUTHORITY"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Blur Warm").param = "BLUR_WARM"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Exquisite").param = "EXQUISITE"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Leading Role").param = "LEADING_ROLE"
-    grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Neon").param = "NEON"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 1").param = "PRESET_1"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 2").param = "PRESET_2"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 3").param = "PRESET_3"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 4").param = "PRESET_4"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 5").param = "PRESET_5"
+    grid.operator("cc3.scene", icon="NODE_COMPOSITING", text="Light Preset 6").param = "PRESET_6"
+    if prefs.lighting_presets_all:
+        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Courtyard").param = "COURTYARD"
+        grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Interior").param = "INTERIOR"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Authority").param = "AUTHORITY"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Blur Warm").param = "BLUR_WARM"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Exquisite").param = "EXQUISITE"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Leading Role").param = "LEADING_ROLE"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Neon").param = "NEON"
 
+    #layout.operator("cc3.scene", icon="OUTLINER_OB_SURFACE", text="Add Backdrop").param = "BACKDROP"
+
+    row = layout.row(align=True)
     if utils.B400():
-        layout.prop(prefs, "lighting_use_look", expand=True)
+        row.prop(prefs, "lighting_use_look", expand=True)
+    view = context.scene.view_settings
+    row.prop(view, "look", text="")
     layout.prop(props, "lighting_brightness", slider=True)
+    layout.prop(props, "world_brightness", slider=True)
 
     box = layout.box().label(text="Camera & World", icon="NODE_COMPOSITING")
 
@@ -2596,7 +2634,8 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     grid.operator("cc3.scene", text="Camera", icon="CAMERA_DATA").param = "SETUP_CAMERA"
     grid.operator("cc3.scene", text="World", icon="WORLD").param = "SETUP_WORLD"
     if vars.DEV:
-        grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump").param = "DUMP_SETUP"
+        grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump Lights").param = "DUMP_SETUP"
+        grid.operator("cc3.scene", icon="VIEWZOOM", text="Dump Obj").param = "DUMP_OBJ"
 
     box = layout.box().label(text="Tools", icon="TOOL_SETTINGS")
 
@@ -3051,19 +3090,27 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
         detail_body = None
         sculpt_body = None
+        is_sculpting = False
         detail_sculpting = False
         body_sculpting = False
+        context_obj = utils.get_context_mesh(context)
         if chr_cache:
-            detail_body = chr_cache.get_detail_body()
-            sculpt_body = chr_cache.get_sculpt_body()
-            if detail_body:
-                if utils.get_active_object() == detail_body and utils.get_mode() == "SCULPT":
-                    detail_sculpting = True
-                if detail_body.visible_get():
-                    detail_sculpting = True
-            if sculpt_body:
-                if utils.get_active_object() == sculpt_body and utils.get_mode() == "SCULPT":
-                    body_sculpting = True
+            sculpt_objects = chr_cache.get_sculpt_objects()
+            for obj in sculpt_objects:
+                sculpt_type = 1
+                if obj.name.endswith("DETAIL"):
+                    sculpt_type = 2
+                if obj.visible_get():
+                    is_sculpting = True
+                    if context_obj == obj:
+                        body_sculpting = body_sculpting or (sculpt_type == 1)
+                        detail_sculpting = detail_sculpting or (sculpt_type == 2)
+                if sculpt_type == 1:
+                    if context_obj == obj or chr_cache.get_sculpt_source(obj, "BODY") == context_obj:
+                        sculpt_body = obj
+                elif sculpt_type == 2:
+                    if context_obj == obj or chr_cache.get_sculpt_source(obj, "DETAIL") == context_obj:
+                        detail_body = obj
         has_body_overlay = sculpting.has_overlay_nodes(sculpt_body, sculpting.LAYER_TARGET_SCULPT)
         has_detail_overlay = sculpting.has_overlay_nodes(detail_body, sculpting.LAYER_TARGET_DETAIL)
 
@@ -3079,7 +3126,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             row.label(icon="ERROR", text="Unusupported Character")
             valid_character = False
 
-        # Full Body Sculpting
+        ## Full Body Sculpting
 
         row = layout.row()
         row.scale_y = 1.5
@@ -3109,15 +3156,13 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
                     row.enabled = False
 
                 row = column.row()
-                if not sculpt_body:
-                    row.scale_y = 2
-                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
-                elif not body_sculpting:
-                    row.scale_y = 2
+                row.scale_y = 2
+                if is_sculpting:
+                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
+                elif sculpt_body:
                     row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Body Sculpt").param = "BODY_BEGIN"
                 else:
-                    row.scale_y = 2
-                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Body Sculpt").param = "BODY_END"
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Body Sculpt").param = "BODY_SETUP"
 
                 column.separator()
 
@@ -3161,9 +3206,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
                 if not sculpt_body or not has_body_overlay:
                     row.enabled = False
 
-                column.separator()
-
-        # Detail Sculpting
+        ## Detail Sculpting
 
         #if fake_drop_down(layout.box().row(), "Detail Sculpting", "section_sculpt_detail",
         #                  props.section_sculpt_detail, icon = "POSE_HLT"):
@@ -3192,12 +3235,12 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
 
                 row = column.row()
                 row.scale_y = 2.0
-                if not detail_body:
-                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
-                elif not detail_sculpting:
+                if is_sculpting:
+                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
+                elif detail_body:
                     row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Resume Detail Sculpt").param = "DETAIL_BEGIN"
                 else:
-                    row.operator("cc3.sculpting", icon="PLAY_REVERSE", text="Stop Detail Sculpt").param = "DETAIL_END"
+                    row.operator("cc3.sculpting", icon="SCULPTMODE_HLT", text="Setup Detail Sculpt").param = "DETAIL_SETUP"
 
                 column.separator()
 
@@ -3239,9 +3282,7 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
                 if not detail_body or not has_detail_overlay:
                     row.enabled = False
 
-                column.separator()
-
-        # Tools
+        ## Tools
 
         if fake_drop_down(layout.box().row(), "Tools", "section_sculpt_cleanup",
                           props.section_sculpt_cleanup, icon = "BRUSH_DATA"):
@@ -3249,12 +3290,19 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             if not chr_cache:
                 column.enabled = False
 
-            column.separator()
+            ## Flatten Layers
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.sculpting", icon="RENDERLAYERS", text="Flatten Layers").param = "FLATTEN_LAYERS"
+            if not has_detail_overlay and not has_body_overlay:
+                row.enabled = False
 
-            column.row().operator("cc3.sculpting", icon="FORWARD", text="TODO: Sync Source Shape").param = "UPDATE_SHAPE"
-            column.row().operator("cc3.sculpting", icon="FORWARD", text="TODO: Reset Base Shapes").param = "RESET_SHAPE"
-
-            column.separator()
+            ## Reset / Update Base Shape
+            row = column.row()
+            row.scale_y = 1.5
+            row.operator("cc3.sculpting", icon="DECORATE_OVERRIDE", text="Reset Base Shapes").param = "RESET_FROM_SOURCE"
+            if not sculpt_body and not detail_body:
+                row.enabled = False
 
             column.label(text="Remove Sculpts:")
 
@@ -3306,6 +3354,9 @@ class CC3ToolsUtilityPanel(bpy.types.Panel):
         layout = self.layout
         row = layout.row()
         row.operator("cc3.character", icon="MATERIAL", text="Match Materials").param = "MATCH_MATERIALS"
+
+        row = layout.row()
+        row.operator("cc3.character", icon="KEY_DEHLT", text="Clean Empty Data").param = "CLEAN_SHAPE_KEYS"
 
 
 class CCICDataLinkPanel(bpy.types.Panel):
@@ -3615,41 +3666,23 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
         box = layout.box()
         if fake_drop_down(box.row(), "Importing", "show_build_prefs", PROPS.show_build_prefs,
                           icon="IMPORT", icon_closed="IMPORT"):
-            split = box.split(factor=0.9)
-            col_1 = split.column()
-            col_2 = split.column()
-            col_1.label(text="De-duplicate Materials")
-            col_2.prop(PREFS, "import_deduplicate", text="")
-            col_1.label(text="Auto Convert Generic")
-            col_2.prop(PREFS, "import_auto_convert", text="")
-            col_1.label(text="Limit Textures")
-            col_2.prop(PREFS, "build_limit_textures", text="")
-            col_1.label(text="Pack Texture Channels")
-            col_2.prop(PREFS, "build_pack_texture_channels", text="")
-            col_1.label(text="Reuse Channel Packs")
-            col_2.prop(PREFS, "build_reuse_baked_channel_packs", text="")
-            col_1.label(text="Use Edit Modifier")
-            col_2.prop(PREFS, "build_armature_edit_modifier", text="")
-            col_1.label(text="Use Preserve Volume")
-            col_2.prop(PREFS, "build_armature_preserve_volume", text="")
-            col_1.label(text="Clothing Physics")
-            col_2.prop(PREFS, "physics_cloth_clothing", text="")
-            col_1.label(text="Hair Cloth Physics")
-            col_2.prop(PREFS, "physics_cloth_hair", text="")
-            col_1.label(text="Dual Specular Skin")
-            col_2.prop(PREFS, "build_skin_shader_dual_spec", text="")
-            col_1.separator()
-            col_2.separator()
-            col_1.label(text="Shape Keys Drive Jaw Bone")
-            col_2.prop(PREFS, "build_shape_key_bone_drivers_jaw", text="")
-            col_1.label(text="Shape Keys Drive Eye Bones")
-            col_2.prop(PREFS, "build_shape_key_bone_drivers_eyes", text="")
-            col_1.label(text="Shape Keys Drive Head Bone")
-            col_2.prop(PREFS, "build_shape_key_bone_drivers_head", text="")
-            col_1.separator()
-            col_2.separator()
-            col_1.label(text="Body Shape Keys Drive All")
-            col_2.prop(PREFS, "build_body_key_drivers", text="")
+            column = box.column()
+            column.prop(PREFS, "import_deduplicate")
+            column.prop(PREFS, "import_auto_convert")
+            column.prop(PREFS, "build_limit_textures")
+            column.prop(PREFS, "build_pack_texture_channels")
+            column.prop(PREFS, "build_reuse_baked_channel_packs")
+            column.prop(PREFS, "build_armature_edit_modifier")
+            column.prop(PREFS, "build_armature_preserve_volume")
+            column.separator()
+            column.label(text="Drivers:")
+            column.prop(PREFS, "build_shape_key_bone_drivers_jaw")
+            column.prop(PREFS, "build_shape_key_bone_drivers_eyes")
+            column.prop(PREFS, "build_shape_key_bone_drivers_head")
+            column.prop(PREFS, "build_body_key_drivers")
+            column.separator()
+            column.label(text="Experimental:")
+            column.prop(PREFS, "build_skin_shader_dual_spec")
 
         row = layout.row()
         row.scale_y = 2
@@ -3731,14 +3764,17 @@ class CC3ToolsPipelineExportPanel(bpy.types.Panel):
                 export_label,
                 "export_options",
                 props.export_options, icon="EXPORT", icon_closed="EXPORT"):
-            box.row().prop(prefs, "export_json_changes", expand=True)
-            box.row().prop(prefs, "export_texture_changes", expand=True)
+            column = box.column()
+            column.prop(prefs, "export_json_changes")
+            column.prop(prefs, "export_texture_changes")
             if prefs.export_texture_changes:
-                box.row().prop(prefs, "export_bake_nodes", expand=True)
+                column.prop(prefs, "export_bake_nodes")
                 if prefs.export_bake_nodes:
-                    box.row().prop(prefs, "export_bake_bump_to_normal", expand=True)
-            box.row().prop(prefs, "export_bone_roll_fix", expand=True)
-            box.row().prop(prefs, "export_revert_names", expand=True)
+                    column.prop(prefs, "export_bake_bump_to_normal")
+            column.separator()
+            column.label(text="Legacy Options (CC3):")
+            column.prop(prefs, "export_legacy_bone_roll_fix")
+            column.prop(prefs, "export_legacy_revert_material_names")
 
         if chr_cache and chr_cache.rigified:
             rigify_export_group(chr_cache, layout)

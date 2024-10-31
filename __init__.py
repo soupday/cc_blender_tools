@@ -103,7 +103,7 @@ from . import proportion
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 1, 10),
+    "version": (2, 1, 11),
     "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -167,6 +167,7 @@ classes = (
     physics.CC3OperatorPhysics,
     materials.CC3OperatorMaterial,
     characters.CC3OperatorCharacter,
+    characters.CCICWeightTransferBlend,
     properties.CC3OperatorProperties,
     preferences.CC3OperatorPreferences,
     channel_mixer.CC3OperatorChannelMixer,

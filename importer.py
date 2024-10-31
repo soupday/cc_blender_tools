@@ -572,7 +572,7 @@ def process_rl_import(file_path, import_flags, armatures, rl_armatures, objects:
             chr_cache.character_name = character_name
 
             arm["rl_import_file"] = file_path
-            rigutils.fix_cc3_bone_sizes(arm)
+            rigutils.fix_cc3_standard_rig(arm)
 
             # link_id
             json_link_id = jsonutils.get_json(json_data, f"{name}/Link_ID")
@@ -1249,7 +1249,8 @@ class CC3Import(bpy.types.Operator):
             if chr_cache.rigified:
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
             else:
-                objects = chr_cache.get_all_objects(include_armature=False, of_type="MESH")
+                objects = chr_cache.get_all_objects(include_armature=False,
+                                                    of_type="MESH")
                 facial_profile, viseme_profile = meshutils.get_facial_profile(objects)
                 utils.log_info(f"Facial Profile: {facial_profile}")
                 utils.log_info(f"Viseme Profile: {viseme_profile}")
@@ -1593,13 +1594,14 @@ class CC3Import(bpy.types.Operator):
             if chr_cache:
                 utils.object_mode()
                 self.build_drivers(context, rebuild_wrinkle=True)
-                self.do_import_report(context, stage = 1)
+                self.report({"INFO"}, "Drivers Rebuilt!")
 
         elif self.param == "REMOVE_DRIVERS":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
                 utils.object_mode()
                 self.remove_drivers(context)
+                self.report({"INFO"}, "Drivers Removed!")
 
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
