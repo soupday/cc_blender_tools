@@ -2611,12 +2611,12 @@ def scene_panel_draw(self : bpy.types.Panel, context : bpy.types.Context):
     if prefs.lighting_presets_all:
         grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Courtyard").param = "COURTYARD"
         grid.operator("cc3.scene", icon="SHADING_TEXTURE", text="Interior").param = "INTERIOR"
-        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua").param = "AQUA"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Aqua Dark").param = "AQUA"
         grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Authority").param = "AUTHORITY"
         grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Blur Warm").param = "BLUR_WARM"
         grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Exquisite").param = "EXQUISITE"
         grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Leading Role").param = "LEADING_ROLE"
-        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Neon").param = "NEON"
+        grid.operator("cc3.scene", icon="SHADING_RENDERED", text="Neon Glow").param = "NEON"
 
     #layout.operator("cc3.scene", icon="OUTLINER_OB_SURFACE", text="Add Backdrop").param = "BACKDROP"
 
