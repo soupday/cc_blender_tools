@@ -1078,7 +1078,7 @@ SHADER_MATRIX = [
             ["Iris HSV Strength", "", "eye_iris_hsv"],
             ["Iris Radius", "", "eye_iris_radius"],
             ["Iris Cloudy Color", "", "eye_iris_cloudy_color"],
-            ["Iris Depth", "", "eye_iris_depth"],
+            ["Iris Depth", "func_set_eye_depth", "eye_iris_depth"],
             ["Transmission Opacity", "", "eye_iris_transmission_opacity"],
             ["Limbus Width", "", "eye_limbus_width"],
             ["Limbus Dark Radius", "", "eye_limbus_dark_radius"],
@@ -1104,9 +1104,9 @@ SHADER_MATRIX = [
         # modifier properties:
         # [prop_name, material_type, modifier_type, modifier_id, expression]
         "modifiers": [
-            [ "eye_iris_depth", "EYE_RIGHT", "DISPLACE", "Eye_Displace_R", "mod.strength = parameters.eye_iris_depth"],
+            [ "eye_iris_depth", "EYE_RIGHT", "DISPLACE", "Eye_Displace_R", "mod.strength = 1.5 * parameters.eye_iris_depth"],
             [ "eye_pupil_scale", "EYE_RIGHT", "UV_WARP", "Eye_UV_Warp_R", "mod.scale = (1.0 / parameters.eye_pupil_scale, 1.0 / parameters.eye_pupil_scale)" ],
-            [ "eye_iris_depth", "EYE_LEFT", "DISPLACE", "Eye_Displace_L", "mod.strength = parameters.eye_iris_depth"],
+            [ "eye_iris_depth", "EYE_LEFT", "DISPLACE", "Eye_Displace_L", "mod.strength = 1.5 * parameters.eye_iris_depth"],
             [ "eye_pupil_scale", "EYE_LEFT", "UV_WARP", "Eye_UV_Warp_L", "mod.scale = (1.0 / parameters.eye_pupil_scale, 1.0 / parameters.eye_pupil_scale)" ],
         ],
         # material setting properties:
@@ -1145,7 +1145,7 @@ SHADER_MATRIX = [
             ["eye_shadow_hardness", 0.5, "", "Custom/Shadow Hardness"],
             ["eye_cornea_specular", 0.8, "", "Custom/Specular Scale"],
             ["eye_corner_shadow_color", (1.0, 0.497, 0.445, 1.0), "func_color_bytes", "Custom/Eye Corner Darkness Color"],
-            ["eye_iris_depth", 0.3, "func_get_eye_depth", "Custom/Iris Depth Scale"],
+            ["eye_iris_depth", 0.5, "func_get_eye_depth", "Custom/Iris Depth Scale"],
             ["eye_cornea_roughness", 0, "", "Custom/_Iris Roughness"],
             ["eye_iris_brightness", 1, "", "Custom/Iris Color Brightness"],
             ["eye_pupil_scale", 1, "", "Custom/Pupil Scale"],
@@ -1198,7 +1198,7 @@ SHADER_MATRIX = [
             ["/Diffuse Saturation", 1.0, "func_export_saturation_mod", "eye_iris_saturation"],
             ["Custom/Iris Inner Color", [255.0, 255.0, 255.0], "func_export_byte3", "eye_iris_inner_color"],
             ["Custom/Iris Cloudy Color", [0, 0, 0], "func_export_byte3", "eye_iris_cloudy_color"],
-            ["Custom/Iris Depth Scale", 0.3, "func_export_eye_depth", "eye_iris_depth"],
+            ["Custom/Iris Depth Scale", 0.5, "func_export_eye_depth", "eye_iris_depth"],
             ["Custom/Sclera Flatten Normal", 0.9, "func_one_minus", "eye_sclera_normal_strength"],
             ["Custom/Sclera Normal UV Scale", 0.5, "func_tiling", "eye_sclera_normal_tiling"],
             ["SSS/Falloff", [255.0, 255.0, 255.0], "func_export_byte3", "eye_subsurface_falloff"],

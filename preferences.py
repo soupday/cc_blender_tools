@@ -22,7 +22,7 @@ from . import addon_updater_ops, colorspace, utils, vars
 
 def reset_cycles():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.cycles_ssr_iris_brightness_b410 = 2.5
+    prefs.cycles_ssr_iris_brightness_b410 = 1.5
     prefs.cycles_sss_skin_b410 = 1.0 # 1.4285
     prefs.cycles_sss_hair_b410 = 0.25
     prefs.cycles_sss_teeth_b410 = 1.0
@@ -385,8 +385,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     eevee_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
     eevee_roughness_power_b341: bpy.props.FloatProperty(default=0.75)
     # Cycles Modifiers
-    cycles_ssr_iris_brightness_b410: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
-    cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.4285)
+    cycles_ssr_iris_brightness_b410: bpy.props.FloatProperty(default=1.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
+    cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.0)
     cycles_sss_hair_b410: bpy.props.FloatProperty(default=0.25)
     cycles_sss_teeth_b410: bpy.props.FloatProperty(default=1.0)
     cycles_sss_tongue_b410: bpy.props.FloatProperty(default=1.0)

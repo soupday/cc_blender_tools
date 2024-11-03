@@ -196,7 +196,7 @@ def add_eye_modifiers(obj):
     if cache_left and cache_left.material_type == "EYE_LEFT":
         displace_mod_l = obj.modifiers.new(utils.unique_name("Eye_Displace_L"), "DISPLACE")
         warp_mod_l = obj.modifiers.new(utils.unique_name("Eye_UV_Warp_L"), "UV_WARP")
-        init_displacement_mod(obj, displace_mod_l, prefs.eye_displacement_group + "_L", "Y", cache_left.parameters.eye_iris_depth)
+        init_displacement_mod(obj, displace_mod_l, prefs.eye_displacement_group + "_L", "Y", 1.5 * cache_left.parameters.eye_iris_depth)
         warp_mod_l.center = (0.5, 0.5)
         warp_mod_l.axis_u = "X"
         warp_mod_l.axis_v = "Y"
@@ -208,7 +208,7 @@ def add_eye_modifiers(obj):
     if cache_right and cache_right.material_type == "EYE_RIGHT":
         displace_mod_r = obj.modifiers.new(utils.unique_name("Eye_Displace_R"), "DISPLACE")
         warp_mod_r = obj.modifiers.new(utils.unique_name("Eye_UV_Warp_R"), "UV_WARP")
-        init_displacement_mod(obj, displace_mod_r, prefs.eye_displacement_group + "_R", "Y", cache_right.parameters.eye_iris_depth)
+        init_displacement_mod(obj, displace_mod_r, prefs.eye_displacement_group + "_R", "Y", 1.5 * cache_right.parameters.eye_iris_depth)
         warp_mod_r.center = (0.5, 0.5)
         warp_mod_r.axis_u = "X"
         warp_mod_r.axis_v = "Y"
