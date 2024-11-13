@@ -125,6 +125,7 @@ def reset_preferences():
     prefs.export_require_key = True
     prefs.export_legacy_revert_material_names = False
     prefs.import_auto_convert = True
+    prefs.auto_convert_materials = True
     prefs.import_deduplicate = True
     prefs.build_pack_texture_channels = False
     prefs.build_pack_wrinkle_diffuse_roughness = False
@@ -339,6 +340,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     import_auto_convert: bpy.props.BoolProperty(default=True, name="Auto Convert Generic",
                 description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
                 "Which sets up Reallusion import compatible materials and material parameters")
+    auto_convert_materials: bpy.props.BoolProperty(default=True, name="Auto Convert Materials",
+                description="When importing generic characters (GLTF, GLB, VRM or OBJ) or adding new objects to a charcater, automatically convert materials to custom Reallusion compatible materials.")
+
 
     # weight transfer blend
     weight_blend_distance_min: bpy.props.FloatProperty(default=0.015, min=0.0, soft_max=0.05, max=1.0,
@@ -539,6 +543,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Import:")
         layout.prop(self, "import_deduplicate")
         layout.prop(self, "import_auto_convert")
+        layout.prop(self, "auto_convert_materials")
         layout.prop(self, "build_limit_textures")
         layout.prop(self, "build_pack_texture_channels")
         layout.prop(self, "build_pack_wrinkle_diffuse_roughness")

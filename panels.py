@@ -948,6 +948,8 @@ class CC3CharacterSettingsPanel(bpy.types.Panel):
             column = box.column()
             column.prop(PREFS, "import_deduplicate")
             column.prop(PREFS, "import_auto_convert")
+            if PREFS.import_auto_convert:
+                column.prop(PREFS, "auto_convert_materials")
             column.prop(PREFS, "build_limit_textures")
             column.prop(PREFS, "build_pack_texture_channels")
             column.prop(PREFS, "build_reuse_baked_channel_packs")
@@ -3669,6 +3671,8 @@ class CC3ToolsPipelineImportPanel(bpy.types.Panel):
             column = box.column()
             column.prop(PREFS, "import_deduplicate")
             column.prop(PREFS, "import_auto_convert")
+            if PREFS.import_auto_convert:
+                column.prop(PREFS, "auto_convert_materials")
             column.prop(PREFS, "build_limit_textures")
             column.prop(PREFS, "build_pack_texture_channels")
             column.prop(PREFS, "build_reuse_baked_channel_packs")
