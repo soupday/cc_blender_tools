@@ -43,6 +43,7 @@ Links
     - This can be disabled in the preferences (or advanced settings) to use the original Metarig bone roll alignments.
 - Datalink Send Avatar will ask to overwrite (or cancel transfer) any existing same character.
 - Generic import option to disable auto-conversion of materials.
+- Fix to import when no characters in FBX.
 
 
 ### 2.2.0
