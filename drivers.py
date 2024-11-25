@@ -323,6 +323,67 @@ SHAPE_KEY_DRIVERS = {
         "translate": [0,0,0],
         "rotate": [19.5,0,0],
     },
+
+
+
+
+
+
+    "A10_Eye_Look_Out_Left": {
+        "bone": ["CC_Base_L_Eye","eye.L"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,32],
+    },
+
+    "A12_Eye_Look_In_Right": {
+        "bone": ["CC_Base_R_Eye","eye.R"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,32],
+    },
+
+    "A11_Eye_Look_In_Left": {
+        "bone": ["CC_Base_L_Eye","eye.L"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,-32],
+    },
+
+    "A13_Eye_Look_Out_Right": {
+        "bone": ["CC_Base_R_Eye","eye.R"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0,0,-32],
+    },
+
+    "A06_Eye_Look_Up_Left": {
+        "bone": ["CC_Base_L_Eye","eye.L"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [-14,0,0],
+    },
+
+    "A07_Eye_Look_Up_Right": {
+        "bone": ["CC_Base_R_Eye","eye.R"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [-14,0,0],
+    },
+
+    "A08_Eye_Look_Down_Left": {
+        "bone": ["CC_Base_L_Eye","eye.L"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [19.5,0,0],
+    },
+
+    "A09_Eye_Look_Down_Right": {
+        "bone": ["CC_Base_R_Eye","eye.R"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [19.5,0,0],
+    },
 }
 
 
