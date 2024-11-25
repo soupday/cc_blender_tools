@@ -1424,6 +1424,23 @@ DISABLE_TWEAK_STRETCH_FOR = [
 ]
 
 
+def disable_ik_stretch(rigify_rig, bone_names=None):
+    con_store = {}
+    for pose_bone in rigify_rig.pose.bones:
+        if bone_names and pose_bone.name not in bone_names:
+            continue
+        for con in pose_bone.constraints:
+            if con and con.type == "IK":
+                con_store[con] = con.use_stretch
+                con.use_stretch = False
+    return con_store
+
+
+def restore_ik_stretch(con_store):
+    for con in con_store:
+        con.use_stretch = con_store[con]
+
+
 def update_avatar_rig(rig):
     prefs = vars.prefs()
 

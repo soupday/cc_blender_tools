@@ -35,7 +35,17 @@ Links
 
 ## Changelog
 
-### 2.1.11
+### 2.2.1
+- Material and Lighting fixes for Blender 4.3
+- When exporting or sending Rigified animations, IK stretch is disabled in the rig.
+    - This should help with limb alignment problems on other platforms.
+- Metarig bone rolls are aligned exactly to the CC/iC source bones now.
+    - This can be disabled in the preferences (or advanced settings) to use the original Metarig bone roll alignments.
+- Datalink Send Avatar will ask to overwrite (or cancel transfer) any existing same character.
+- Generic import option to disable auto-conversion of materials.
+
+
+### 2.2.0
 - Character Management functions - CCiC Create > Character Management:
     - Transfer weights supports split body meshes.
     - Voxel head diffuse skinning (if installed) button for selected character meshes.

@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with CC/iC Blender Tools.  If not, see <https://www.gnu.org/licenses/>.
 
+import math
 from dataclasses import dataclass
 
 @dataclass
@@ -594,29 +595,31 @@ ADD_DEF_BONES = [
     ["CC_Base_R_PinkyToe1", "DEF-toe_pinky.R", "DEF-toe.R", "LR", 29, "DEF"],
 ]
 
+def OODTR(a):
+    return 1.0 / (a * math.pi / 180.0)
 
 # shape key drivers for facial blend shapes
 SHAPE_KEY_DRIVERS = [
     # CC3 ExPlus
-    ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", "var*4.2972 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", "var*-3.9065 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A10_Eye_Look_Out_Left", ["SCRIPTED", "var*2.1486 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A11_Eye_Look_In_Left", ["SCRIPTED", "var*-2.8648 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A07_Eye_Look_Up_Right", ["SCRIPTED", "var*4.2972 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A09_Eye_Look_Down_Right", ["SCRIPTED", "var*-3.9065 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A12_Eye_Look_In_Right", ["SCRIPTED", "var*2.8648 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A13_Eye_Look_Out_Right", ["SCRIPTED", "var*-2.1486 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A10_Eye_Look_Out_Left", ["SCRIPTED", f"var*{OODTR(32)} if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A12_Eye_Look_In_Right", ["SCRIPTED", f"var*{OODTR(32)} if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A11_Eye_Look_In_Left", ["SCRIPTED", f"var*{OODTR(-32)} if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A13_Eye_Look_Out_Right", ["SCRIPTED", f"var*{OODTR(-32)} if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", f"var*{-OODTR(-14)} if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A07_Eye_Look_Up_Right", ["SCRIPTED", f"var*{-OODTR(-14)} if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", f"var*{-OODTR(19.5)} if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A09_Eye_Look_Down_Right", ["SCRIPTED", f"var*{-OODTR(19.5)} if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
     # CC4 extended
-    ["Bfr", "Eye_L_Look_Up", ["SCRIPTED", "var*4.2972 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_L_Look_Down", ["SCRIPTED", "var*-3.9065 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_L_Look_L", ["SCRIPTED", "var*2.1486 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_L_Look_R", ["SCRIPTED", "var*-2.8648 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_R_Look_Up", ["SCRIPTED", "var*4.2972 if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_R_Look_Down", ["SCRIPTED", "var*-3.9065 if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_R_Look_L", ["SCRIPTED", "var*2.8648 if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_R_Look_R", ["SCRIPTED", "var*-2.1486 if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_L", ["SCRIPTED", f"var*{OODTR(32)} if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_L", ["SCRIPTED", f"var*{OODTR(32)} if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_R", ["SCRIPTED", f"var*{OODTR(-32)} if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_R", ["SCRIPTED", f"var*{OODTR(-32)} if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_Up", ["SCRIPTED", f"var*{-OODTR(-14)} if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_Up", ["SCRIPTED", f"var*{-OODTR(-14)} if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_Down", ["SCRIPTED", f"var*{-OODTR(19.5)} if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_Down", ["SCRIPTED", f"var*{-OODTR(19.5)} if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
     # jaw
-    ["", "Jaw_Open", ["SCRIPTED", "var*1.8546"], ["var", "TRANSFORMS", "jaw_master", "ROT_X", "LOCAL_SPACE"]],
+    ["", "Jaw_Open", ["SCRIPTED", f"var*{OODTR(30)}"], ["var", "TRANSFORMS", "jaw_master", "ROT_X", "LOCAL_SPACE"]],
 ]
 
 
@@ -636,33 +639,33 @@ ROLL_CORRECTION = [
     ["palm.03.R", "-Z", "-X"],
     ["palm.04.R", "-Z", "-X"],
 
-    ["thumb.01.L", "-Z", "X"],
+    ["thumb.01.L", "Y", "Y"],
     ["f_index.01.L", "-Z", "X"],
     ["f_middle.01.L", "-Z", "X"],
     ["f_ring.01.L", "-Z", "X"],
     ["f_pinky.01.L", "-Z", "X"],
-    ["thumb.02.L", "-Z", "X"],
+    ["thumb.02.L", "Y", "Y"],
     ["f_index.02.L", "-Z", "X"],
     ["f_middle.02.L", "-Z", "X"],
     ["f_ring.02.L", "-Z", "X"],
     ["f_pinky.02.L", "-Z", "X"],
-    ["thumb.03.L", "-Z", "X"],
+    ["thumb.03.L", "Y", "Y"],
     ["f_index.03.L", "-Z", "X"],
     ["f_middle.03.L", "-Z", "X"],
     ["f_ring.03.L", "-Z", "X"],
     ["f_pinky.03.L", "-Z", "X"],
 
-    ["thumb.01.R", "-Z", "-X"],
+    ["thumb.01.R", "Y", "Y"],
     ["f_index.01.R", "-Z", "-X"],
     ["f_middle.01.R", "-Z", "-X"],
     ["f_ring.01.R", "-Z", "-X"],
     ["f_pinky.01.R", "-Z", "-X"],
-    ["thumb.02.R", "-Z", "-X"],
+    ["thumb.02.R", "Y", "Y"],
     ["f_index.02.R", "-Z", "-X"],
     ["f_middle.02.R", "-Z", "-X"],
     ["f_ring.02.R", "-Z", "-X"],
     ["f_pinky.02.R", "-Z", "-X"],
-    ["thumb.03.R", "-Z", "-X"],
+    ["thumb.03.R", "Y", "Y"],
     ["f_index.03.R", "-Z", "-X"],
     ["f_middle.03.R", "-Z", "-X"],
     ["f_ring.03.R", "-Z", "-X"],
@@ -1248,6 +1251,13 @@ RETARGET_G3 = [
     ["ORG-tongue.001", "ORG-jaw",               "(CC_Base_|)Tongue02", "tongue.001", "PL"],
     ["ORG-tongue.002", "ORG-jaw",               "(CC_Base_|)Tongue01", "tongue.002", "PL"],
     # IK bones
+    # "Z" to zero the pose when retargetting
+    # these bones should reset the pose as they follow a damped track
+    #["ORG-upper_arm.L", "ORG-shoulder.L",       "(CC_Base_|)L_Upperarm$", "upper_arm_ik.L", "Z"],
+    #["ORG-upper_arm.R", "ORG-shoulder.R",       "(CC_Base_|)R_Upperarm$", "upper_arm_ik.R", "Z"],
+    #["ORG-thigh.L", "ORG-pelvis",               "(CC_Base_|)L_Thigh$", "thigh_ik.L", "Z"],
+    #["ORG-thigh.R", "ORG-pelvis",               "(CC_Base_|)R_Thigh$", "thigh_ik.R", "Z"],
+    #/
     ["ORG-hand.L", "ORG-forearm.L",             "(CC_Base_|)L_Hand$", "hand_ik.L", "NLR"],
     ["ORG-hand.R", "ORG-forearm.R",             "(CC_Base_|)R_Hand$", "hand_ik.R", "NLR"],
     ["ORG-foot.L", "ORG-shin.L",                "(CC_Base_|)L_Foot$", "foot_ik.L", "NLR"],

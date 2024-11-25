@@ -1216,8 +1216,9 @@ class CC3Import(bpy.types.Operator):
 
         # enable SSR
         if prefs.refractive_eyes == "SSR":
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
+            if not utils.B420():
+                bpy.context.scene.eevee.use_ssr = True
+                bpy.context.scene.eevee.use_ssr_refraction = True
 
         utils.log_timer("Done Build.", "s")
 
@@ -1444,8 +1445,9 @@ class CC3Import(bpy.types.Operator):
                     scene.setup_scene_default(context, prefs.quality_lighting)
 
             if prefs.refractive_eyes == "SSR":
-                bpy.context.scene.eevee.use_ssr = True
-                bpy.context.scene.eevee.use_ssr_refraction = True
+                if not utils.B420():
+                    bpy.context.scene.eevee.use_ssr = True
+                    bpy.context.scene.eevee.use_ssr_refraction = True
 
             # set a minimum of 100 max transparency bounces:
             if bpy.context.scene.cycles.transparent_max_bounces < 100:

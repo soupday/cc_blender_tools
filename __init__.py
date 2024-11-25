@@ -180,6 +180,7 @@ classes = (
     hair.CC3OperatorHair,
     hair.CC3ExportHair,
     link.CCICDataLink,
+    link.CCICLinkConfirmDialog,
     characters.CCICCharacterLink,
     proportion.CCICCharacterProportions,
     rigutils.CCICMotionSetRename,

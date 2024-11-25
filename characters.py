@@ -1363,10 +1363,7 @@ def convert_to_rl_pbr(mat, mat_cache):
     nodeutils.link_nodes(links, group_node, "Displacement", output_node, "Displacement")
 
     # use alpha hashing by default
-    if mat.blend_method == "BLEND":
-        mat.blend_method = "HASHED"
-        mat.shadow_method = "HASHED"
-        mat.use_backface_culling = False
+    materials.set_material_alpha(mat, "HASHED")
 
     return
 

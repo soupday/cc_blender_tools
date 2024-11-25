@@ -1576,6 +1576,7 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         arm = self.get_armature()
         if arm:
             utils.try_select_object(arm, clear_selection=only)
+            utils.set_active_object(arm)
         else:
             self.select_all()
 
@@ -1583,6 +1584,9 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
         objects = self.get_all_objects(include_armature=True,
                                        include_children=True)
         utils.try_select_objects(objects, clear_selection=only)
+        arm = self.get_armature()
+        if arm:
+            utils.set_active_object(arm)
 
     def get_tex_dir(self):
         dir, file = os.path.split(self.import_file)

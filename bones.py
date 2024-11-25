@@ -489,6 +489,27 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
         return None
 
 
+def add_copy_scale_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD"):
+    try:
+        if utils.object_mode():
+            to_pose_bone : bpy.types.PoseBone = to_rig.pose.bones[to_bone]
+            c : bpy.types.CopyScaleConstraint = to_pose_bone.constraints.new(type="COPY_SCALE")
+            c.target = from_rig
+            c.subtarget = from_bone
+            c.use_x = True
+            c.use_y = True
+            c.use_z = True
+            c.target_space = space
+            if space == "LOCAL_OWNER_ORIENT":
+                space = "LOCAL"
+            c.owner_space = space
+            c.influence = influence
+            return c
+    except:
+        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+        return None
+
+
 def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence = 1.0, space="WORLD", axes=None):
     try:
         if utils.object_mode():

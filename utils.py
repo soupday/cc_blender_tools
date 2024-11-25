@@ -1902,6 +1902,9 @@ def B410():
 def B420():
     return is_blender_version("4.2.0")
 
+def B430():
+    return is_blender_version("4.3.0")
+
 
 def is_blender_version(version: str, test = "GTE"):
     """e.g. is_blender_version("3.0.0", "GTE")"""

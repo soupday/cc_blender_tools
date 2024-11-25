@@ -150,7 +150,7 @@ SHAPE_KEY_DRIVERS = {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 150.0,
         "translate": [0,0,0],
-        "rotate": [0,0,46.331],
+        "rotate": [0,0,45],
     },
 
     "Jaw_Forward": {
@@ -272,56 +272,56 @@ SHAPE_KEY_DRIVERS = {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,40],
+        "rotate": [0,0,32],
     },
 
     "Eye_R_Look_L": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,30],
+        "rotate": [0,0,32],
     },
 
     "Eye_L_Look_R": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,-30],
+        "rotate": [0,0,-32],
     },
 
     "Eye_R_Look_R": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,-40],
+        "rotate": [0,0,-32],
     },
 
     "Eye_L_Look_Up": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-20,0,0],
+        "rotate": [-14,0,0],
     },
 
     "Eye_R_Look_Up": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-20,0,0],
+        "rotate": [-14,0,0],
     },
 
     "Eye_L_Look_Down": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [22,0,0],
+        "rotate": [19.5,0,0],
     },
 
     "Eye_R_Look_Down": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [22,0,0],
+        "rotate": [19.5,0,0],
     },
 }
 

@@ -801,11 +801,11 @@ class ACTION_UL_List(bpy.types.UIList):
                     prefix, rig_id, type_id, obj_id, motion_id = rigutils.decode_action_name(item)
                     if type_id and rig_id and type_id == "A" and rig_id == arm_name:
                         allowed = True
-            else:
+            elif len(item.fcurves) > 0:
                 if item.fcurves[0].data_path.startswith("key_blocks"):
                     # no shape key actions
                     allowed = False
-                elif len(item.fcurves) > 0:
+                else:
                     # only actions with curves
                     allowed = True
             # filter by name
@@ -2033,6 +2033,8 @@ class CC3RigifyPanel(bpy.types.Panel):
                     elif chr_cache.can_be_rigged():
 
                         if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
+                            #row = layout.row()
+                            #row.prop(prefs, "rigify_align_to_cc", expand=True)
                             grid = layout.grid_flow(columns=2, row_major=True, align=True)
                             grid.prop(prefs, "rigify_build_face_rig", text = "Face Rig", toggle=True)
                             if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
@@ -2044,7 +2046,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                         if prefs.rigify_auto_retarget:
                             # retarget/bake motion prefix
                             row = layout.row()
-                            split = row.split(factor=0.45)
+                            split = row.split(factor=0.45, align=True)
                             split.column().label(text="Motion Prefix")
                             row = split.column().row(align=True)
                             row.prop(props, "rigify_retarget_motion_prefix", text="")
@@ -2059,6 +2061,10 @@ class CC3RigifyPanel(bpy.types.Panel):
                             row.enabled = chr_cache is not None
 
                         else:
+
+                            split = layout.split(factor=0.45, align=True)
+                            split.column(align=True).label(text="Align Bones")
+                            split.column(align=True).prop(prefs, "rigify_align_to_cc", text="")
 
                             row = layout.row()
                             row.scale_y = 2
@@ -3448,8 +3454,8 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2.prop(prefs, "datalink_hide_prop_bones", text="")
             #col_1.label(text="Disable Leg Stretch")
             #col_2.prop(prefs, "datalink_disable_tweak_bones", text="")
-            col_1.label(text="Match Current Avatar")
-            col_2.prop(prefs, "datalink_match_any_avatar", text="")
+            #col_1.label(text="Match Current Avatar")
+            #col_2.prop(prefs, "datalink_match_any_avatar", text="")
             box.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_DATALINK"
 
         if True:

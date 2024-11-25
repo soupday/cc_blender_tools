@@ -310,9 +310,6 @@ def setup_scene_default(context, scene_type):
 
         if scene_type == "BLENDER":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.2
-            context.scene.eevee.gtao_factor = 1.0
             if utils.B420():
                 context.scene.eevee.use_shadows = True
                 context.scene.eevee.use_volumetric_shadows = True
@@ -323,13 +320,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.2
+                context.scene.eevee.gtao_factor = 1.0
                 context.scene.eevee.use_bloom = False
                 context.scene.eevee.bloom_threshold = 0.8
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 6.5
                 context.scene.eevee.bloom_intensity = 0.05
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "None", 0.0, 1.0)
@@ -369,9 +369,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "CC3":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -383,13 +380,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.800000011920929
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 2.0
                 context.scene.eevee.bloom_intensity = 1.0
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast",
@@ -459,9 +459,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "STUDIO":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -473,13 +470,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.3499999940395355
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 2.0
                 context.scene.eevee.bloom_intensity = 0.10000000149011612
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "High Contrast",
@@ -543,9 +543,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "PRESET_1":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.200
-            context.scene.eevee.gtao_factor = 1.000
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -557,15 +554,17 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
                 context.scene.world.sun_threshold = 0.1
-
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.200
+                context.scene.eevee.gtao_factor = 1.000
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.800
                 context.scene.eevee.bloom_knee = 0.500
                 context.scene.eevee.bloom_radius = 6.500
                 context.scene.eevee.bloom_intensity = 0.050
-            context.scene.eevee.use_ssr = False
-            context.scene.eevee.use_ssr_refraction = False
+                context.scene.eevee.use_ssr = False
+                context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium Contrast",
@@ -617,9 +616,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "PRESET_2":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.200
-            context.scene.eevee.gtao_factor = 1.000
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -631,15 +627,17 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
                 context.scene.world.sun_threshold = 0.1
-
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.200
+                context.scene.eevee.gtao_factor = 1.000
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.800
                 context.scene.eevee.bloom_knee = 0.500
                 context.scene.eevee.bloom_radius = 6.500
                 context.scene.eevee.bloom_intensity = 0.050
-            context.scene.eevee.use_ssr = False
-            context.scene.eevee.use_ssr_refraction = False
+                context.scene.eevee.use_ssr = False
+                context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium Contrast",
@@ -691,9 +689,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "PRESET_3":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.200
-            context.scene.eevee.gtao_factor = 1.000
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -705,15 +700,17 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
                 context.scene.world.sun_threshold = 0.1
-
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.200
+                context.scene.eevee.gtao_factor = 1.000
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.800
                 context.scene.eevee.bloom_knee = 0.500
                 context.scene.eevee.bloom_radius = 6.500
                 context.scene.eevee.bloom_intensity = 0.050
-            context.scene.eevee.use_ssr = False
-            context.scene.eevee.use_ssr_refraction = False
+                context.scene.eevee.use_ssr = False
+                context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium Contrast",
@@ -755,9 +752,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "PRESET_4":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.200
-            context.scene.eevee.gtao_factor = 1.000
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -769,15 +763,17 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
                 context.scene.world.sun_threshold = 0.1
-
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.200
+                context.scene.eevee.gtao_factor = 1.000
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.800
                 context.scene.eevee.bloom_knee = 0.500
                 context.scene.eevee.bloom_radius = 6.500
                 context.scene.eevee.bloom_intensity = 0.050
-            context.scene.eevee.use_ssr = False
-            context.scene.eevee.use_ssr_refraction = False
+                context.scene.eevee.use_ssr = False
+                context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium Contrast",
@@ -824,9 +820,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "PRESET_5":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.200
-            context.scene.eevee.gtao_factor = 1.000
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -838,15 +831,17 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
                 context.scene.world.sun_threshold = 0.1
-
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.200
+                context.scene.eevee.gtao_factor = 1.000
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.800
                 context.scene.eevee.bloom_knee = 0.500
                 context.scene.eevee.bloom_radius = 6.500
                 context.scene.eevee.bloom_intensity = 0.050
-            context.scene.eevee.use_ssr = False
-            context.scene.eevee.use_ssr_refraction = False
+                context.scene.eevee.use_ssr = False
+                context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium Contrast",
@@ -898,9 +893,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "PRESET_6":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.200
-            context.scene.eevee.gtao_factor = 1.000
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -912,15 +904,17 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
                 context.scene.world.sun_threshold = 0.1
-
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.200
+                context.scene.eevee.gtao_factor = 1.000
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.800
                 context.scene.eevee.bloom_knee = 0.500
                 context.scene.eevee.bloom_radius = 6.500
                 context.scene.eevee.bloom_intensity = 0.050
-            context.scene.eevee.use_ssr = False
-            context.scene.eevee.use_ssr_refraction = False
+                context.scene.eevee.use_ssr = False
+                context.scene.eevee.use_ssr_refraction = False
             context.scene.eevee.bokeh_max_size = 100.000
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium Contrast",
@@ -971,9 +965,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "COURTYARD":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -985,13 +976,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.3499999940395355
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 2.0
                 context.scene.eevee.bloom_intensity = 0.10000000149011612
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast",
@@ -1046,9 +1040,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "AQUA":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -1060,13 +1051,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.3499999940395355
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 2.0
                 context.scene.eevee.bloom_intensity = 0.10000000149011612
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast",
@@ -1146,9 +1140,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "AUTHORITY":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -1160,13 +1151,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.35
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 2.0
                 context.scene.eevee.bloom_intensity = 0.1
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.5, 0.6)
@@ -1264,9 +1258,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "EXQUISITE":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -1278,13 +1269,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.800000011920929
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 2.0
                 context.scene.eevee.bloom_intensity = 1.0
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast",
@@ -1395,9 +1389,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "BLUR_WARM":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -1409,13 +1400,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.35
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 4.0
                 context.scene.eevee.bloom_intensity = 0.15
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.0, 0.8)
@@ -1505,9 +1499,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "INTERIOR":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -1519,13 +1510,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.800000011920929
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 2.0
                 context.scene.eevee.bloom_intensity = 1.0
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "High Contrast",
@@ -1615,9 +1609,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "LEADING_ROLE":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -1629,13 +1620,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.65
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 3.0
                 context.scene.eevee.bloom_intensity = 1.0
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium Contrast",
@@ -1724,9 +1718,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "NEON":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -1738,13 +1729,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.65
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 3.0
                 context.scene.eevee.bloom_intensity = 1.0
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32.0
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast",
@@ -1845,9 +1839,6 @@ def setup_scene_default(context, scene_type):
 
         elif scene_type == "TEMPLATE":
 
-            context.scene.eevee.use_gtao = True
-            context.scene.eevee.gtao_distance = 0.25
-            context.scene.eevee.gtao_factor = 0.5
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -1859,13 +1850,16 @@ def setup_scene_default(context, scene_type):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
             else:
+                context.scene.eevee.use_gtao = True
+                context.scene.eevee.gtao_distance = 0.25
+                context.scene.eevee.gtao_factor = 0.5
                 context.scene.eevee.use_bloom = True
                 context.scene.eevee.bloom_threshold = 0.5
                 context.scene.eevee.bloom_knee = 0.5
                 context.scene.eevee.bloom_radius = 5.0
                 context.scene.eevee.bloom_intensity = 0.1
-            context.scene.eevee.use_ssr = True
-            context.scene.eevee.use_ssr_refraction = True
+                context.scene.eevee.use_ssr = True
+                context.scene.eevee.use_ssr_refraction = True
             context.scene.eevee.bokeh_max_size = 32
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "Medium High Contrast", 0.6, 0.6)
@@ -2145,9 +2139,6 @@ def dump_scene_pycode(context):
     space_data = utils.get_view_3d_space(context)
 
     code = f"""
-            context.scene.eevee.use_gtao = {context.scene.eevee.use_gtao}
-            context.scene.eevee.gtao_distance = {context.scene.eevee.gtao_distance:.3f}
-            context.scene.eevee.gtao_factor = {context.scene.eevee.gtao_factor:.3f}
             context.scene.eevee.use_taa_reprojection = True
             if utils.B420():
                 context.scene.eevee.use_shadows = True
@@ -2159,15 +2150,17 @@ def dump_scene_pycode(context):
                 context.scene.world.use_sun_shadow = True
                 context.scene.world.use_sun_shadow_jitter = True
                 context.scene.world.sun_threshold = 0.1
-
             else:
+                context.scene.eevee.use_gtao = {context.scene.eevee.use_gtao}
+                context.scene.eevee.gtao_distance = {context.scene.eevee.gtao_distance:.3f}
+                context.scene.eevee.gtao_factor = {context.scene.eevee.gtao_factor:.3f}
                 context.scene.eevee.use_bloom = {context.scene.eevee.use_bloom}
                 context.scene.eevee.bloom_threshold = {context.scene.eevee.bloom_threshold:.3f}
                 context.scene.eevee.bloom_knee = {context.scene.eevee.bloom_knee:.3f}
                 context.scene.eevee.bloom_radius = {context.scene.eevee.bloom_radius:.3f}
                 context.scene.eevee.bloom_intensity = {context.scene.eevee.bloom_intensity:.3f}
-            context.scene.eevee.use_ssr = {context.scene.eevee.use_ssr}
-            context.scene.eevee.use_ssr_refraction = {context.scene.eevee.use_ssr_refraction}
+                context.scene.eevee.use_ssr = {context.scene.eevee.use_ssr}
+                context.scene.eevee.use_ssr_refraction = {context.scene.eevee.use_ssr_refraction}
             context.scene.eevee.bokeh_max_size = {context.scene.eevee.bokeh_max_size:.3f}
             view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
             colorspace.set_view_settings(view_transform, "{context.scene.view_settings.look}",
