@@ -740,10 +740,32 @@ def pose_mode_to(arm):
     return False
 
 
-def duplicate_object(obj) -> bpy.types.Object:
-    if set_mode("OBJECT"):
+def duplicate_object(obj, include_action=False) -> bpy.types.Object:
+    if object_exists(obj) and set_mode("OBJECT"):
         if try_select_object(obj, True) and set_active_object(obj):
+
+            obj_action = None
+            shape_key_action = None
+
+            # store existing actions
+            obj_action = safe_get_action(obj)
+            if not include_action:
+                safe_set_action(obj, None, create=False)
+            if obj.type == "MESH":
+                shape_key_action = safe_get_action(obj.data.shape_keys)
+                if not include_action:
+                    safe_set_action(obj.data.shape_keys, None, create=False)
+
+            # duplicate object
             bpy.ops.object.duplicate()
+
+            # restore non-duplicated actions
+            if not include_action:
+                if shape_key_action:
+                    safe_set_action(obj.data.shape_keys, shape_key_action)
+                if obj_action:
+                    safe_set_action(obj, obj_action)
+
             return get_active_object()
     return None
 
@@ -831,6 +853,19 @@ def strip_name(name: str):
         if name[-3:].isdigit() and name[-4] == ".":
             name = name[:-4]
     return name
+
+
+def names_to_list(names: str, delim: str = "|") -> list:
+    name_list = None
+    if names:
+        split = names.strip().split(delim)
+        for s in split:
+            s = s.strip()
+            if s:
+                if name_list is None:
+                    name_list = []
+                name_list.append(s)
+    return name_list
 
 
 def get_auto_index_suffix(name):
@@ -1777,13 +1812,14 @@ def safe_get_action(obj) -> bpy.types.Action:
     return None
 
 
-def safe_set_action(obj, action):
+def safe_set_action(obj, action, create=True):
     if obj:
         try:
-            if obj.animation_data is None:
+            if create and not obj.animation_data:
                 obj.animation_data_create()
-            obj.animation_data.action = action
-            return True
+            if obj.animation_data:
+                obj.animation_data.action = action
+                return True
         except:
             action_name = action.name if action else "None"
             log_warn(f"Unable to set action {action_name} to {obj.name}")

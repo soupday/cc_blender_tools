@@ -459,8 +459,8 @@ def add_copy_transforms_constraint(from_rig, to_rig, from_bone, to_bone, influen
             c.owner_space = space
             c.influence = influence
             return c
-    except:
-        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+    except Exception as e:
+        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}", e)
         return None
 
 
@@ -484,8 +484,8 @@ def add_copy_rotation_constraint(from_rig, to_rig, from_bone, to_bone, influence
             c.owner_space = space
             c.influence = influence
             return c
-    except:
-        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+    except Exception as e:
+        utils.log_error(f"Unable to add copy rotation constraint: {to_bone} {from_bone}", e)
         return None
 
 
@@ -505,8 +505,8 @@ def add_copy_scale_constraint(from_rig, to_rig, from_bone, to_bone, influence = 
             c.owner_space = space
             c.influence = influence
             return c
-    except:
-        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+    except Exception as e:
+        utils.log_error(f"Unable to add copy scale constraint: {to_bone} {from_bone}", e)
         return None
 
 
@@ -536,8 +536,8 @@ def add_copy_location_constraint(from_rig, to_rig, from_bone, to_bone, influence
                 c.invert_y = "-Y" in axes
                 c.invert_z = "-Z" in axes
             return c
-    except:
-        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+    except Exception as e:
+        utils.log_error(f"Unable to add copy location constraint: {to_bone} {from_bone}", e)
         return None
 
 
@@ -555,8 +555,8 @@ def add_stretch_to_constraint(from_rig, to_rig, from_bone, to_bone, influence = 
             c.owner_space = space
             c.influence = influence
             return c
-    except:
-        utils.log_error(f"Unable to add copy transforms constraint: {to_bone} {from_bone}")
+    except Exception as e:
+        utils.log_error(f"Unable to add copy stretch to constraint: {to_bone} {from_bone}", e)
         return None
 
 
@@ -571,8 +571,8 @@ def add_damped_track_constraint(rig, bone_name, target_name, influence):
             c.track_axis = "TRACK_Y"
             c.influence = influence
             return c
-    except:
-        utils.log_error(f"Unable to add damped track constraint: {bone_name} {target_name}")
+    except Exception as e:
+        utils.log_error(f"Unable to add damped track constraint: {bone_name} {target_name}", e)
         return None
 
 
@@ -589,8 +589,8 @@ def add_limit_distance_constraint(from_rig, to_rig, from_bone, to_bone, distance
             c.owner_space = space
             c.influence = influence
             return c
-    except:
-        utils.log_error(f"Unable to add limit distance constraint: {to_bone} {from_bone}")
+    except Exception as e:
+        utils.log_error(f"Unable to add limit distance constraint: {to_bone} {from_bone}", e)
         return None
 
 
@@ -605,8 +605,8 @@ def add_child_of_constraint(parent_rig, child_rig, parent_bone, child_bone, infl
             c.owner_space = space
             c.influence = influence
             return c
-    except:
-        utils.log_error(f"Unable to add child of constraint: {child_bone} {parent_bone}")
+    except Exception as e:
+        utils.log_error(f"Unable to add child of constraint: {child_bone} {parent_bone}", e)
         return None
 
 
@@ -630,8 +630,8 @@ def add_inverse_kinematic_constraint(from_rig, to_rig, from_bone, to_bone, influ
             c.owner_space = space
             c.influence = influence
             return c
-    except:
-        utils.log_error(f"Unable to add inverse kinematic constraint: {to_bone} {from_bone}")
+    except Exception as e:
+        utils.log_error(f"Unable to add inverse kinematic constraint: {to_bone} {from_bone}", e)
         return None
 
 

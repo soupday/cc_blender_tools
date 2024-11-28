@@ -1180,19 +1180,33 @@ def convert_to_basic_face_rig(rigify_rig):
 
 
 def add_shape_key_drivers(chr_cache, rig):
-    for obj in rig.children:
-        if obj.type == "MESH" and obj.parent == rig:
-            obj_cache = chr_cache.get_object_cache(obj)
-            if is_face_object(obj_cache, obj):
-                for skd_def in rigify_mapping_data.SHAPE_KEY_DRIVERS:
-                    flags = skd_def[0]
-                    if "Bfr" in flags and chr_cache.rigified_full_face_rig:
-                        continue
-                    shape_key_name = skd_def[1]
-                    driver_def = skd_def[2]
-                    var_def = skd_def[3]
-                    add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def)
+    """Add drivers from the rig bones to facial expressions"""
 
+    head_body_obj = drivers.get_head_body_object(chr_cache)
+
+    # remove existing shape key drivers on the head body object
+    if utils.object_has_shape_keys(head_body_obj):
+        obj_key: bpy.types.ShapeKey
+        for obj_key in head_body_obj.data.shape_keys.key_blocks:
+            try:
+                obj_key.driver_remove("value")
+            except: ...
+
+    # add drivers from the rig bones to facial expressions
+    for skd_def in rigify_mapping_data.SHAPE_KEY_DRIVERS:
+        flags = skd_def[0]
+        scale = 1.0
+        # "Bfr" == Basic face rig
+        # Using the full shape key strength is a bit strong with the full face rig in effect
+        if "Bfr" in flags and chr_cache.rigified_full_face_rig:
+            scale = 0.5
+        shape_key_name = skd_def[1]
+        driver_def = skd_def[2]
+        var_def = skd_def[3]
+
+        add_shape_key_driver(rig, head_body_obj, shape_key_name, driver_def, var_def, scale)
+
+    # drive the shape keys on any other body objects from the head body object
     drivers.add_body_shape_key_drivers(chr_cache, True)
 
     # seems to be fixed now
@@ -1206,7 +1220,7 @@ def add_shape_key_drivers(chr_cache, rig):
     #                                                   constraint_type="STRETCH_TO", expression=expression)
 
 
-def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def):
+def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def, scale=1.0):
     if utils.object_mode():
         shape_key = meshutils.find_shape_key(obj, shape_key_name)
         if shape_key:
@@ -1215,7 +1229,10 @@ def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def):
             driver : bpy.types.Driver = fcurve.driver
             driver.type = driver_def[0]
             if driver.type == "SCRIPTED":
-                driver.expression = driver_def[1]
+                if scale != 1.0:
+                    driver.expression = f"{driver_def[1]}*{scale}"
+                else:
+                    driver.expression = driver_def[1]
             var : bpy.types.DriverVariable = driver.variables.new()
             var.name = var_def[0]
             var.type = var_def[1]
@@ -2840,6 +2857,7 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
 
             if bone_name in edit_bones:
                 bone = edit_bones[bone_name]
+                source_bone = bone
 
                 # assign parent hierachy
                 if "P" in flags:
@@ -2853,6 +2871,7 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
                         bone.head = copy_bone.head
                         bone.tail = copy_bone.tail
                         bone.roll = copy_bone.roll
+                        source_bone = copy_bone
 
                 # set flags
                 bones.set_edit_bone_flags(bone, flags, True)
@@ -2866,13 +2885,13 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
 
                 # child source bone for link targetting
                 if link_target:
-                    if "orig_name" in bone:
-                        source_name = bone["orig_name"]
-                        # should match export_name
-                        if source_name != export_name:
+                    if "orig_name" in source_bone:
+                        source_name = source_bone["orig_name"]
+                        # should match export_name *unless rigify root bone
+                        if source_name != export_name and "Rigify_BoneRoot" not in export_name:
                             utils.log_error(f"Export target names do not match: {source_name} !=  {export_name}")
-                        source_dir_array = bone["orig_dir"]
-                        source_axis_array = bone["orig_z_axis"]
+                        source_dir_array = source_bone["orig_dir"]
+                        source_axis_array = source_bone["orig_z_axis"]
                         source_dir = Vector(source_dir_array)
                         source_axis = Vector(source_axis_array)
                         export_bone: bpy.types.EditBone = edit_bones.new(export_name)
@@ -2975,12 +2994,12 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
             flags = export_def[4]
             if export_bone_name == "":
                 export_bone_name = rigify_bone_name
-            if "T" in flags and len(export_def) > 5:
-                rigify_bone_name = export_def[5]
             if link_target:
                 to_bone_name = rigify_bone_name
             else:
                 to_bone_name = export_bone_name
+            if "T" in flags and len(export_def) > 5:
+                rigify_bone_name = export_def[5]
             bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
             bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
 

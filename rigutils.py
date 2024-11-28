@@ -295,8 +295,9 @@ def find_source_actions(source_action, source_rig=None):
                         utils.log_info(f" - Found shape-key action: {action.name} for {object_id}")
                         actions["keys"][object_id] = action
                     elif type_id == "ARM":
-                        utils.log_info(f" - Found armature action: {action.name}")
-                        actions["armature"] = action
+                        if not actions["armature"]:
+                            utils.log_info(f" - Found armature action: {action.name}")
+                            actions["armature"] = action
         return actions
 
     # try matching actions by action name pattern
@@ -623,9 +624,12 @@ def add_motion_set_data(action, set_id, set_generation, obj_id=None, rl_arm_id=N
 
 
 def load_motion_set(rig, set_armature_action):
+    utils.log_info(f"Load Motion Set: {set_armature_action.name}")
+    utils.log_indent()
     source_actions = find_source_actions(set_armature_action, None)
     apply_source_armature_action(rig, source_actions, copy=False)
     apply_source_key_actions(rig, source_actions, all_matching=True, copy=False)
+    utils.log_recess()
 
 
 def clear_motion_set(rig):

@@ -974,9 +974,7 @@ class CC3Import(bpy.types.Operator):
             json_generation = jsonutils.get_character_generation_json(json_data, name)
             avatar_type = jsonutils.get_json(json_data, f"{name}/Avatar_Type")
 
-            only_objects = None
-            if self.process_only:
-                only_objects = self.process_only.split("|")
+            only_objects = utils.names_to_list(self.process_only, "|")
 
             if ImportFlags.FBX in import_flags:
 
@@ -1249,13 +1247,14 @@ class CC3Import(bpy.types.Operator):
 
             if chr_cache.rigified:
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
+                rigging.add_shape_key_drivers(chr_cache, chr_cache.get_armature())
             else:
                 objects = chr_cache.get_all_objects(include_armature=False,
                                                     of_type="MESH")
                 facial_profile, viseme_profile = meshutils.get_facial_profile(objects)
                 utils.log_info(f"Facial Profile: {facial_profile}")
                 utils.log_info(f"Viseme Profile: {viseme_profile}")
-                if facial_profile == "Std" or facial_profile == "Ext":
+                if facial_profile == "Std" or facial_profile == "Ext" or facial_profile == "ExPlus":
                     drivers.add_facial_shape_key_bone_drivers(chr_cache,
                                                prefs.build_shape_key_bone_drivers_jaw,
                                                prefs.build_shape_key_bone_drivers_eyes,

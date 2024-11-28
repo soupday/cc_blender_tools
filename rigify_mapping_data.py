@@ -598,28 +598,38 @@ ADD_DEF_BONES = [
 def OODTR(a):
     return 1.0 / (a * math.pi / 180.0)
 
-# shape key drivers for facial blend shapes
+# shape key drivers for facial blend shapes#
+# angle values taken from the standard (CC4 Extended) facial profile and the ExPlus (CC3+ Traditional) profile
 SHAPE_KEY_DRIVERS = [
     # CC3 ExPlus
-    ["Bfr", "A10_Eye_Look_Out_Left", ["SCRIPTED", f"var*{OODTR(32)} if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A12_Eye_Look_In_Right", ["SCRIPTED", f"var*{OODTR(32)} if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A11_Eye_Look_In_Left", ["SCRIPTED", f"var*{OODTR(-32)} if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A13_Eye_Look_Out_Right", ["SCRIPTED", f"var*{OODTR(-32)} if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", f"var*{-OODTR(-14)} if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A07_Eye_Look_Up_Right", ["SCRIPTED", f"var*{-OODTR(-14)} if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", f"var*{-OODTR(19.5)} if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "A09_Eye_Look_Down_Right", ["SCRIPTED", f"var*{-OODTR(19.5)} if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A10_Eye_Look_Out_Left", ["SCRIPTED", f"max(var, 0)*{OODTR(34)}"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A12_Eye_Look_In_Right", ["SCRIPTED", f"max(var, 0)*{OODTR(25)}"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A11_Eye_Look_In_Left", ["SCRIPTED", f"min(var, 0)*{OODTR(-25)}"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A13_Eye_Look_Out_Right", ["SCRIPTED", f"min(var, 0)*{OODTR(-34)}"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "A06_Eye_Look_Up_Left", ["SCRIPTED", f"max(var, 0)*{-OODTR(-20)}"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A07_Eye_Look_Up_Right", ["SCRIPTED", f"max(var, 0)*{-OODTR(-20)}"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A08_Eye_Look_Down_Left", ["SCRIPTED", f"min(var, 0)*{-OODTR(20)}"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "A09_Eye_Look_Down_Right", ["SCRIPTED", f"min(var, 0)*{-OODTR(20)}"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
     # CC4 extended
-    ["Bfr", "Eye_L_Look_L", ["SCRIPTED", f"var*{OODTR(32)} if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_R_Look_L", ["SCRIPTED", f"var*{OODTR(32)} if var >=0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_L_Look_R", ["SCRIPTED", f"var*{OODTR(-32)} if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_R_Look_R", ["SCRIPTED", f"var*{OODTR(-32)} if var <0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_L_Look_Up", ["SCRIPTED", f"var*{-OODTR(-14)} if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_R_Look_Up", ["SCRIPTED", f"var*{-OODTR(-14)} if var >= 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_L_Look_Down", ["SCRIPTED", f"var*{-OODTR(19.5)} if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
-    ["Bfr", "Eye_R_Look_Down", ["SCRIPTED", f"var*{-OODTR(19.5)} if var < 0 else 0"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_L", ["SCRIPTED", f"max(var, 0)*{OODTR(40)}"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_L", ["SCRIPTED", f"max(var, 0)*{OODTR(30)}"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_R", ["SCRIPTED", f"min(var, 0)*{OODTR(-30)}"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_R", ["SCRIPTED", f"min(var, 0)*{OODTR(-40)}"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_Z", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_Up", ["SCRIPTED", f"max(var, 0)*{-OODTR(-20)}"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_Up", ["SCRIPTED", f"max(var, 0)*{-OODTR(-20)}"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_L_Look_Down", ["SCRIPTED", f"min(var, 0)*{-OODTR(22)}"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
+    ["Bfr", "Eye_R_Look_Down", ["SCRIPTED", f"min(var, 0)*{-OODTR(22)}"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
+    # Head rotation expressions
+    ["", "Head_Turn_Up", ["SCRIPTED", f"max(var, 0)*{-OODTR(-30)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_X", "LOCAL_SPACE"]],
+    ["", "Head_Turn_Down", ["SCRIPTED", f"min(var, 0)*{-OODTR(18)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_X", "LOCAL_SPACE"]],
+    ["", "Head_Turn_L", ["SCRIPTED", f"max(var, 0)*{OODTR(51)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_Y", "LOCAL_SPACE"]],
+    ["", "Head_Turn_R", ["SCRIPTED", f"min(var, 0)*{OODTR(-51)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_Y", "LOCAL_SPACE"]],
+    ["", "Head_Tilt_L", ["SCRIPTED", f"min(var, 0)*{OODTR(-23.4)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_Z", "LOCAL_SPACE"]],
+    ["", "Head_Tilt_R", ["SCRIPTED", f"max(var, 0)*{OODTR(23.4)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_Z", "LOCAL_SPACE"]],
     # jaw
-    ["", "Jaw_Open", ["SCRIPTED", f"var*{OODTR(30)}"], ["var", "TRANSFORMS", "jaw_master", "ROT_X", "LOCAL_SPACE"]],
+    ["", "Jaw_Open", ["SCRIPTED", f"max(var, 0)*{OODTR(31)}"], ["var", "TRANSFORMS", "jaw_master", "ROT_X", "LOCAL_SPACE"]],
+    ["", "Mouth_Open", ["SCRIPTED", f"max(var, 0)*{OODTR(17)}"], ["var", "TRANSFORMS", "jaw_master", "ROT_X", "LOCAL_SPACE"]],
+    ["", "A25_Jaw_Open", ["SCRIPTED", f"max(var, 0)*{OODTR(35)}"], ["var", "TRANSFORMS", "jaw_master", "ROT_X", "LOCAL_SPACE"]],
 ]
 
 

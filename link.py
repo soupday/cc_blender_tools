@@ -375,6 +375,7 @@ class LinkData():
     sequence_start_frame: int = 0
     sequence_end_frame: int = 0
     sequence_actors: list = None
+    sequence_type: str = None
     #
     preview_shape_keys: bool = True
     preview_skip_frames: bool = False
@@ -396,7 +397,7 @@ class LinkData():
     def reset(self):
         self.actors = []
         self.sequence_actors = None
-        self.sequence_actors = None
+        self.sequence_type = None
 
     def is_cc(self):
         if self.remote_app == "Character Creator":
@@ -699,7 +700,10 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
             utils.log_info(f"Preparing Character Rig: {actor.name} {rig_id} / {len(actor.bones)} bones")
 
             # set data
-            motion_id = "DataLink"
+            if LINK_DATA.sequence_type == "POSE":
+                motion_id = "Pose"
+            else:
+                motion_id = "Sequence"
             set_id, set_generation = rigutils.generate_motion_set(rig, motion_id, LINK_DATA.motion_prefix)
             # rig action
             action = get_datalink_rig_action(rig, motion_id)
@@ -2031,6 +2035,7 @@ class LinkService():
             self.send(OpCodes.TEMPLATE, template_data)
             # store the actors
             LINK_DATA.sequence_actors = actors
+            LINK_DATA.sequence_type = "POSE"
             # force recalculate all transforms
             bpy.context.view_layer.update()
             # send pose data
@@ -2039,6 +2044,7 @@ class LinkService():
             # clear the actors
             self.restore_actor_rigs(LINK_DATA.sequence_actors)
             LINK_DATA.sequence_actors = None
+            LINK_DATA.sequence_type = None
             # restore
             utils.restore_mode_selection_state(mode_selection)
             count += len(actors)
@@ -2074,6 +2080,7 @@ class LinkService():
             self.send(OpCodes.TEMPLATE, template_data)
             # store the actors
             LINK_DATA.sequence_actors = actors
+            LINK_DATA.sequence_type = "SEQUENCE"
             # start the sending sequence
             self.start_sequence(self.send_sequence_frame)
 
@@ -2103,6 +2110,7 @@ class LinkService():
         # clear the actors
         self.restore_actor_rigs(LINK_DATA.sequence_actors)
         LINK_DATA.sequence_actors = None
+        LINK_DATA.sequence_type = None
 
     def send_sequence_ack(self, frame):
         global LINK_DATA
@@ -2696,6 +2704,7 @@ class LinkService():
         # set pose frame
         update_link_status(f"Receiving Pose Frame: {frame}")
         LINK_DATA.sequence_actors = actors
+        LINK_DATA.sequence_type = "POSE"
         bpy.ops.screen.animation_cancel()
         set_frame_range(start_frame, end_frame)
         set_frame(frame)
@@ -2739,6 +2748,7 @@ class LinkService():
 
         # finish
         LINK_DATA.sequence_actors = None
+        LINK_DATA.sequence_type = None
         bpy.context.scene.frame_current = frame
         utils.restore_mode_selection_state(state)
 
@@ -2772,6 +2782,7 @@ class LinkService():
             if actor:
                 actors.append(actor)
         LINK_DATA.sequence_actors = actors
+        LINK_DATA.sequence_type = "SEQUENCE"
 
         # update scene range
         update_link_status(f"Receiving Live Sequence: {num_frames} frames")
@@ -2843,6 +2854,7 @@ class LinkService():
         # stop sequence
         self.stop_sequence()
         LINK_DATA.sequence_actors = None
+        LINK_DATA.sequence_type = None
         bpy.context.scene.frame_current = LINK_DATA.sequence_start_frame
 
         # play the recorded sequence
