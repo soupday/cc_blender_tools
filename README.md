@@ -37,13 +37,16 @@ Links
 
 ### 2.2.1
 - Material and Lighting fixes for Blender 4.3
-- When exporting or sending Rigified animations, IK stretch is disabled in the rig.
+- When exporting or sending Rigified animations: IK stretch is now disabled in the rig.
     - This should help with limb alignment problems on other platforms.
-- Metarig bone rolls are aligned exactly to the CC/iC source bones now.
+- Rigify Metarig bone rolls are aligned exactly to the CC/iC source bones now.
     - This can be disabled in the preferences (or advanced settings) to use the original Metarig bone roll alignments.
-- Datalink Send Avatar will ask to overwrite (or cancel transfer) any existing same character.
+- Datalink Send Avatar will ask to overwrite (or cancel transfer) any existing *same* character.
 - Generic import option to disable auto-conversion of materials.
-- Fix to import when no characters in FBX.
+- Fix to import hanging when no characters in FBX.
+- Rebuild drivers also rebuilds Rigify shape key drivers.
+- Datalink transfer Sequence and Pose actions separately labelled "Sequence" and "Pose" no longer just "Datalink" for both.
+- Operations that use object or mesh duplicates no longer duplicate the actions on the objects.
 
 
 ### 2.2.0
