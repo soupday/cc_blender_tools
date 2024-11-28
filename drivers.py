@@ -148,50 +148,50 @@ SHAPE_KEY_DRIVERS = {
 
     "Jaw_Open": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
-        "range": 150.0,
+        "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,46.331],
+        "rotate": [0,0,30.894],
     },
 
     "Jaw_Forward": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
-        "range": 150.0,
-        "translate": [1.13,0,0],
+        "range": 100.0,
+        "translate": [0.75,0,0],
         "rotate": [0,0,0],
     },
 
     "Jaw_Backward": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
-        "range": 150.0,
-        "translate": [-0.75,0,0],
+        "range": 100.0,
+        "translate": [-0.5,0,0],
         "rotate": [0,0,0],
     },
 
     "Jaw_L": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
-        "range": 150.0,
-        "translate": [0,0,1.19],
+        "range": 100.0,
+        "translate": [0,0,0.8],
         "rotate": [0,0,0],
     },
 
     "Jaw_R": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
-        "range": 150.0,
-        "translate": [0,0,-1.19],
+        "range": 100.0,
+        "translate": [0,0,-0.8],
         "rotate": [0,0,0],
     },
 
     "Jaw_Up": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
-        "range": 150.0,
-        "translate": [0,-0.35,0],
+        "range": 100.0,
+        "translate": [0,-0.233,0],
         "rotate": [0,0,0],
     },
 
     "Jaw_Down": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
-        "range": 150.0,
-        "translate": [0,0.86,0],
+        "range": 100.0,
+        "translate": [0,0.57,0],
         "rotate": [0,0,0],
     },
 
@@ -199,44 +199,44 @@ SHAPE_KEY_DRIVERS = {
 
     "Head_Turn_Up": {
         "bone": ["CC_Base_Head","head","spine.006"],
-        "range": 150.0,
+        "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-45,0,0],
+        "rotate": [-30.0000, -0.0000, -0.0000],
     },
 
     "Head_Turn_Down": {
         "bone": ["CC_Base_Head","head","spine.006"],
-        "range": 150.0,
+        "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [27,0,0],
+        "rotate": [18.0000, 0.0000, -0.0000],
     },
 
     "Head_Turn_L": {
         "bone": ["CC_Base_Head","head","spine.006"],
-        "range": 150.0,
+        "range": 100.0,
         "translate": [3.02,0,0],
-        "rotate": [-2.26,76.49,-2.46],
+        "rotate": [-0.5062, 50.9982, -0.6514],
     },
 
     "Head_Turn_R": {
         "bone": ["CC_Base_Head","head","spine.006"],
-        "range": 150.0,
+        "range": 100.0,
         "translate": [-3.02,0,0],
-        "rotate": [-2.26,-76.49,2.46],
+        "rotate": [-0.5062, -50.9982, 0.6515],
     },
 
     "Head_Tilt_L": {
         "bone": ["CC_Base_Head","head","spine.006"],
-        "range": 150.0,
+        "range": 100.0,
         "translate": [1.15,0,0],
-        "rotate": [0,0,-35.1],
+        "rotate": [0.0000, 0.0000, -23.4000],
     },
 
     "Head_Tilt_R": {
         "bone": ["CC_Base_Head","head","spine.006"],
-        "range": 150.0,
+        "range": 100.0,
         "translate": [-1.15,0,0],
-        "rotate": [0,0,35.1],
+        "rotate": [0.0000, -0.0000, 23.4000],
     },
 
     "Head_L": {
@@ -272,62 +272,133 @@ SHAPE_KEY_DRIVERS = {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,40],
+        "rotate": [0.0047, -0.0012, 40.0083],
     },
 
     "Eye_R_Look_L": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,30],
+        "rotate": [-0.0038, 0.0006, 29.9917],
     },
 
     "Eye_L_Look_R": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,-30],
+        "rotate": [-0.0038, -0.0006, -29.9917],
     },
 
     "Eye_R_Look_R": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [0,0,-40],
+        "rotate": [0.0047, 0.0012, -40.0083],
     },
 
     "Eye_L_Look_Up": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-20,0,0],
+        "rotate": [-20.0002, -0.0006, 0.0003],
     },
 
     "Eye_R_Look_Up": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [-20,0,0],
+        "rotate": [-20.0002, 0.0006, -0.0003],
     },
 
     "Eye_L_Look_Down": {
         "bone": ["CC_Base_L_Eye","eye.L"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [22,0,0],
+        "rotate": [21.9998, 0.0034, -0.0027],
     },
 
     "Eye_R_Look_Down": {
         "bone": ["CC_Base_R_Eye","eye.R"],
         "range": 100.0,
         "translate": [0,0,0],
-        "rotate": [22,0,0],
+        "rotate": [21.9998, -0.0034, 0.0017],
+    },
+
+
+    "Mouth_Open": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0.0000, -0.0000, 17.0020],
+    },
+
+    "A25_Jaw_Open": {
+        "bone": ["CC_Base_JawRoot","jaw_master"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0.0000, -0.0000, 34.9862],
+    },
+
+    "A10_Eye_Look_Out_Left": {
+        "bone": ["CC_Base_L_Eye","eye.L"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0.0000, -0.0000, 42.0082],
+    },
+
+    "A12_Eye_Look_In_Right": {
+        "bone": ["CC_Base_R_Eye","eye.R"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0.0000, -0.0000, 24.0085],
+    },
+
+    "A11_Eye_Look_In_Left": {
+        "bone": ["CC_Base_L_Eye","eye.L"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0.0000, 0.0000, -24.9917],
+    },
+
+    "A13_Eye_Look_Out_Right": {
+        "bone": ["CC_Base_R_Eye","eye.R"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [0.0000, 0.0000, -34.0000],
+    },
+
+    "A06_Eye_Look_Up_Left": {
+        "bone": ["CC_Base_L_Eye","eye.L"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [-20.0006, 0.0000, 0.0000],
+    },
+
+    "A07_Eye_Look_Up_Right": {
+        "bone": ["CC_Base_R_Eye","eye.R"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [-19.9999, 0.0000, 0.0000],
+    },
+
+    "A08_Eye_Look_Down_Left": {
+        "bone": ["CC_Base_L_Eye","eye.L"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [19.9994, -0.0000, 0.0000],
+    },
+
+    "A09_Eye_Look_Down_Right": {
+        "bone": ["CC_Base_R_Eye","eye.R"],
+        "range": 100.0,
+        "translate": [0,0,0],
+        "rotate": [20.0001, -0.0000, 0.0000],
     },
 }
 
 
 def clear_facial_shape_key_bone_drivers(chr_cache):
-    """Add drivers for the jaw, eye and head bones (optional) based on the facial
+    """clear drivers for the jaw, eye and head bones (optional) based on the facial
        expression shape keys.
     """
 

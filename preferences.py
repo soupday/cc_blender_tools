@@ -22,7 +22,7 @@ from . import addon_updater_ops, colorspace, utils, vars
 
 def reset_cycles():
     prefs: CC3ToolsAddonPreferences = vars.prefs()
-    prefs.cycles_ssr_iris_brightness_b410 = 2.5
+    prefs.cycles_ssr_iris_brightness_b410 = 1.5
     prefs.cycles_sss_skin_b410 = 1.0 # 1.4285
     prefs.cycles_sss_hair_b410 = 0.25
     prefs.cycles_sss_teeth_b410 = 1.0
@@ -83,6 +83,7 @@ def reset_rigify():
     prefs.rigify_auto_retarget = True
     prefs.rigify_preview_retarget_fk_ik = "BOTH"
     prefs.rigify_bake_nla_fk_ik = "BOTH"
+    prefs.rigify_align_to_cc = "CC"
 
 
 def reset_datalink():
@@ -125,6 +126,7 @@ def reset_preferences():
     prefs.export_require_key = True
     prefs.export_legacy_revert_material_names = False
     prefs.import_auto_convert = True
+    prefs.auto_convert_materials = True
     prefs.import_deduplicate = True
     prefs.build_pack_texture_channels = False
     prefs.build_pack_wrinkle_diffuse_roughness = False
@@ -339,6 +341,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     import_auto_convert: bpy.props.BoolProperty(default=True, name="Auto Convert Generic",
                 description="When importing generic characters (GLTF, GLB, VRM or OBJ) automatically convert to Reallusion Non-Standard characters or props."
                 "Which sets up Reallusion import compatible materials and material parameters")
+    auto_convert_materials: bpy.props.BoolProperty(default=True, name="Auto Convert Materials",
+                description="When importing generic characters (GLTF, GLB, VRM or OBJ) or adding new objects to a charcater, automatically convert materials to custom Reallusion compatible materials.")
+
 
     # weight transfer blend
     weight_blend_distance_min: bpy.props.FloatProperty(default=0.015, min=0.0, soft_max=0.05, max=1.0,
@@ -385,8 +390,8 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
     eevee_normal_skin_b341: bpy.props.FloatProperty(default=1.0)
     eevee_roughness_power_b341: bpy.props.FloatProperty(default=0.75)
     # Cycles Modifiers
-    cycles_ssr_iris_brightness_b410: bpy.props.FloatProperty(default=2.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
-    cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.4285)
+    cycles_ssr_iris_brightness_b410: bpy.props.FloatProperty(default=1.5, min=0.0, max=10.0, description="Iris brightness mulitplier when rendering SSR eyes in Cycles")
+    cycles_sss_skin_b410: bpy.props.FloatProperty(default=1.0)
     cycles_sss_hair_b410: bpy.props.FloatProperty(default=0.25)
     cycles_sss_teeth_b410: bpy.props.FloatProperty(default=1.0)
     cycles_sss_tongue_b410: bpy.props.FloatProperty(default=1.0)
@@ -463,6 +468,10 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("IK","IK","Bake IK controls only"),
                         ("BOTH","Both","Bake both FK and IK and controls"),
                     ], default="BOTH", name = "Bake NLA to FK/IK")
+    rigify_align_to_cc: bpy.props.EnumProperty(items=[
+                        ("CC","CC/iC","Align metarig bones to the CC/iC source rig"),
+                        ("METARIG","Metarig","Keep the metarig bone alignments"),
+                    ], default="CC", name="Align Metarig Bones", description="Metarig bone alignments")
 
     # datalink prefs
     datalink_auto_start: bpy.props.BoolProperty(default=False,
@@ -539,6 +548,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Import:")
         layout.prop(self, "import_deduplicate")
         layout.prop(self, "import_auto_convert")
+        layout.prop(self, "auto_convert_materials")
         layout.prop(self, "build_limit_textures")
         layout.prop(self, "build_pack_texture_channels")
         layout.prop(self, "build_pack_wrinkle_diffuse_roughness")
@@ -581,6 +591,9 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.label(text="Physics:")
         layout.prop(self, "physics_group")
         layout.prop(self, "physics_weightmap_curve")
+
+        layout.label(text="Rigify:")
+        layout.prop(self, "rigify_align_to_cc")
 
         layout.label(text="Export:")
         layout.prop(self, "export_json_changes")

@@ -360,7 +360,8 @@ def convert_generic_to_non_standard(objects, file_path=None, type_override=None,
     # add child objects to chr_cache
     for obj in objects:
         if utils.object_exists_is_mesh(obj):
-            add_object_to_character(chr_cache, obj, reparent=False)
+            add_object_to_character(chr_cache, obj, reparent=False,
+                                    no_materials=not prefs.auto_convert_materials)
 
     return chr_cache
 
@@ -905,6 +906,7 @@ def get_accessory_root(chr_cache, object):
 
 
 def make_accessory(chr_cache, objects):
+    prefs = vars.prefs()
 
     rig = chr_cache.get_armature()
 
@@ -922,7 +924,8 @@ def make_accessory(chr_cache, objects):
         obj_cache = chr_cache.get_object_cache(obj)
         if not obj_cache:
             utils.log_info(f"Adding {obj.name} to character.")
-            add_object_to_character(chr_cache, obj, True)
+            add_object_to_character(chr_cache, obj, True,
+                                    no_materials=not prefs.auto_convert_materials)
             obj_cache = chr_cache.get_object_cache(obj)
         else:
             parent_to_rig(rig, obj)
@@ -1360,10 +1363,7 @@ def convert_to_rl_pbr(mat, mat_cache):
     nodeutils.link_nodes(links, group_node, "Displacement", output_node, "Displacement")
 
     # use alpha hashing by default
-    if mat.blend_method == "BLEND":
-        mat.blend_method = "HASHED"
-        mat.shadow_method = "HASHED"
-        mat.use_backface_culling = False
+    materials.set_material_alpha(mat, "HASHED")
 
     return
 
@@ -1932,7 +1932,8 @@ class CC3OperatorCharacter(bpy.types.Operator):
             chr_cache = props.get_context_character_cache(context)
             objects = context.selected_objects.copy()
             for obj in objects:
-                add_object_to_character(chr_cache, obj)
+                add_object_to_character(chr_cache, obj,
+                                        no_materials=not prefs.auto_convert_materials)
 
         elif self.param == "COPY_TO_CHARACTER":
             chr_cache = props.get_context_character_cache(context)

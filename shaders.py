@@ -493,7 +493,7 @@ def func_sclera_brightness(b):
     return b
 
 def func_iris_scale(i):
-    return i * 1.10
+    return i * 1.00
 
 def func_parallax_iris_scale(i, s):
     return (func_iris_scale(i) * s)
@@ -618,8 +618,11 @@ def func_get_eye_depth(depth):
 def func_export_eye_depth(depth):
     return (depth) * 3.0
 
+def func_set_eye_depth(depth):
+    return depth * 1.5
+
 def func_set_parallax_iris_depth(depth):
-    return depth
+    return depth * 1.5
 
 def func_index_1(values: list):
     return values[0] / 255.0
@@ -987,8 +990,7 @@ def connect_tearline_shader(obj_cache, obj, mat, mat_json, processed_images):
 
     nodeutils.clean_unused_image_nodes(nodes)
 
-    materials.set_material_alpha(mat, "BLEND")
-    mat.shadow_method = "NONE"
+    materials.set_material_alpha(mat, "BLEND", shadows=False)
 
 
 def connect_eye_occlusion_shader(obj_cache, obj, mat, mat_json, processed_images):
@@ -1013,8 +1015,7 @@ def connect_eye_occlusion_shader(obj_cache, obj, mat, mat_json, processed_images
 
     nodeutils.clean_unused_image_nodes(nodes)
 
-    materials.set_material_alpha(mat, "BLEND")
-    mat.shadow_method = "NONE"
+    materials.set_material_alpha(mat, "BLEND", shadows=False)
 
 
 def connect_skin_shader(chr_cache, obj_cache, obj, mat, mat_json, processed_images):
@@ -1066,14 +1067,16 @@ def connect_skin_shader(chr_cache, obj_cache, obj, mat, mat_json, processed_imag
     nodeutils.clean_unused_image_nodes(nodes)
 
     fix_sss_method(bsdf, is_skin=True)
+
     if utils.B410():
         mat.displacement_method = "DISPLACEMENT"
     else:
         mat.cycles.displacement_method = "DISPLACEMENT"
 
+    if not utils.B420():
+        mat.use_sss_translucency = True
 
     materials.set_material_alpha(mat, "OPAQUE")
-    mat.use_sss_translucency = True
 
 
 def connect_tongue_shader(obj_cache, obj, mat, mat_json, processed_images):
@@ -1099,7 +1102,9 @@ def connect_tongue_shader(obj_cache, obj, mat, mat_json, processed_images):
     fix_sss_method(bsdf)
 
     materials.set_material_alpha(mat, "OPAQUE")
-    mat.use_sss_translucency = True
+
+    if not utils.B420():
+        mat.use_sss_translucency = True
 
 
 def connect_teeth_shader(obj_cache, obj, mat, mat_json, processed_images):
@@ -1130,7 +1135,9 @@ def connect_teeth_shader(obj_cache, obj, mat, mat_json, processed_images):
     fix_sss_method(bsdf)
 
     materials.set_material_alpha(mat, "OPAQUE")
-    mat.use_sss_translucency = True
+
+    if not utils.B420():
+        mat.use_sss_translucency = True
 
 
 def connect_eye_shader(obj_cache, obj, mat, obj_json, mat_json, processed_images):
@@ -1194,19 +1201,18 @@ def connect_eye_shader(obj_cache, obj, mat, obj_json, mat_json, processed_images
 
     fix_sss_method(bsdf, is_eyes=True)
 
+    if not utils.B420():
+        mat.use_sss_translucency = True
+
     if mat_cache.is_cornea():
         if prefs.refractive_eyes == "SSR":
-            materials.set_material_alpha(mat, "OPAQUE")
-            mat.use_screen_refraction = True
-            mat.refraction_depth = mat_cache.parameters.eye_refraction_depth / 1000
+            materials.set_material_alpha(mat, "OPAQUE",
+                                         refraction=True,
+                                         depth=mat_cache.parameters.eye_refraction_depth / 1000)
         else:
-            #materials.set_material_alpha(mat, "BLEND")
-            #mat.use_screen_refraction = False
-            materials.set_material_alpha(mat, "OPAQUE")
-            mat.use_screen_refraction = False
+            materials.set_material_alpha(mat, "OPAQUE", refraction=False)
     else:
-        materials.set_material_alpha(mat, "OPAQUE")
-        mat.use_screen_refraction = False
+        materials.set_material_alpha(mat, "OPAQUE", refraction=False)
 
 
 def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
@@ -1234,7 +1240,9 @@ def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
     fix_sss_method(bsdf, is_hair=True)
 
     materials.set_material_alpha(mat, "HASHED")
-    mat.use_sss_translucency = True
+
+    if not utils.B420():
+        mat.use_sss_translucency = True
 
 
 def connect_pbr_shader(obj_cache, obj, mat, mat_json, processed_images):

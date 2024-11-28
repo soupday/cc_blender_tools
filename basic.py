@@ -96,8 +96,7 @@ def connect_tearline_material(obj, mat, mat_json, processed_images):
     nodeutils.set_node_input_value(bsdf_node, alpha_socket, parameters.tearline_alpha)
     bsdf_node.name = utils.unique_name("eye_tearline_shader")
 
-    materials.set_material_alpha(mat, "BLEND")
-    mat.shadow_method = "NONE"
+    materials.set_material_alpha(mat, "BLEND", shadows=False, refraction=True)
 
 
 def connect_eye_occlusion_material(obj, mat, mat_json, processed_images):
@@ -133,8 +132,7 @@ def connect_eye_occlusion_material(obj, mat, mat_json, processed_images):
     # links
     nodeutils.link_nodes(links, occ_node, "Alpha", bsdf_node, alpha_socket)
 
-    materials.set_material_alpha(mat, "BLEND")
-    mat.shadow_method = "NONE"
+    materials.set_material_alpha(mat, "BLEND", shadows=False)
 
 
 def connect_basic_eye_material(obj, mat, mat_json, processed_images):
@@ -210,7 +208,7 @@ def connect_basic_eye_material(obj, mat, mat_json, processed_images):
     #
     nodeutils.set_node_input_value(bsdf_node, clearcoat_socket, 1.0)
     nodeutils.set_node_input_value(bsdf_node, clearcoat_roughness_socket, 0.15)
-    mat.use_screen_refraction = False
+    materials.set_material_alpha(mat, "OPAQUE")
 
     return
 

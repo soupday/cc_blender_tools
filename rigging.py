@@ -690,19 +690,37 @@ def restore_relative_mappings(meta_rig, coords):
                     bone.tail = box.coord(rc[1])
 
 
-def store_bone_roll(meta_rig, roll_store):
+def store_bone_roll(cc3_rig, meta_rig, roll_store, rigify_data: rigify_mapping_data.RigifyData):
     """Store the bone roll and roll axis (z_axis) for each bone in the meta rig.
     """
 
+    prefs = vars.prefs()
+
+    cc3_bone_store = {}
+    bone: bpy.types.EditBone
+    if rigutils.edit_rig(cc3_rig):
+        for bone in cc3_rig.data.edit_bones:
+            cc3_bone_store[bone.name] = (cc3_rig.matrix_world @ bone.z_axis)
+
     if rigutils.edit_rig(meta_rig):
         for bone in meta_rig.data.edit_bones:
-            roll_store[bone.name] = [bone.roll, meta_rig.matrix_world @ bone.z_axis]
+            source_name = rigify_data.get_source_bone(bone.name)
+            if prefs.rigify_align_to_cc == "CC" and source_name and source_name in cc3_bone_store:
+                z_axis: Vector = cc3_bone_store[source_name]
+                z_axis.normalize()
+                roll_store[bone.name] = [bone.roll, z_axis]
+            else:
+                z_axis: Vector = (meta_rig.matrix_world @ bone.z_axis)
+                z_axis.normalize()
+                roll_store[bone.name] = [bone.roll, z_axis]
 
 
 def restore_bone_roll(meta_rig, roll_store):
     """Restore the bone roll for each bone in the meta rig, after the positions have matched
        to the CC3 rig.
     """
+
+    prefs = vars.prefs()
 
     if rigutils.edit_rig(meta_rig):
 
@@ -727,13 +745,14 @@ def restore_bone_roll(meta_rig, roll_store):
                 bone_roll = roll_store[bone.name][0]
                 bone_z_axis = roll_store[bone.name][1]
                 bone.align_roll(bone_z_axis)
-                for correction in rigify_mapping_data.ROLL_CORRECTION:
-                    if correction[0] == bone.name:
-                        if steep_a_pose:
-                            axis = correction[2]
-                        else:
-                            axis = correction[1]
-                        bones.align_edit_bone_roll(bone, axis)
+                if prefs.rigify_align_to_cc == "METARIG":
+                    for correction in rigify_mapping_data.ROLL_CORRECTION:
+                        if correction[0] == bone.name:
+                            if steep_a_pose:
+                                axis = correction[2]
+                            else:
+                                axis = correction[1]
+                            bones.align_edit_bone_roll(bone, axis)
 
 
 def set_rigify_params(meta_rig):
@@ -1161,19 +1180,33 @@ def convert_to_basic_face_rig(rigify_rig):
 
 
 def add_shape_key_drivers(chr_cache, rig):
-    for obj in rig.children:
-        if obj.type == "MESH" and obj.parent == rig:
-            obj_cache = chr_cache.get_object_cache(obj)
-            if is_face_object(obj_cache, obj):
-                for skd_def in rigify_mapping_data.SHAPE_KEY_DRIVERS:
-                    flags = skd_def[0]
-                    if "Bfr" in flags and chr_cache.rigified_full_face_rig:
-                        continue
-                    shape_key_name = skd_def[1]
-                    driver_def = skd_def[2]
-                    var_def = skd_def[3]
-                    add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def)
+    """Add drivers from the rig bones to facial expressions"""
 
+    head_body_obj = drivers.get_head_body_object(chr_cache)
+
+    # remove existing shape key drivers on the head body object
+    if utils.object_has_shape_keys(head_body_obj):
+        obj_key: bpy.types.ShapeKey
+        for obj_key in head_body_obj.data.shape_keys.key_blocks:
+            try:
+                obj_key.driver_remove("value")
+            except: ...
+
+    # add drivers from the rig bones to facial expressions
+    for skd_def in rigify_mapping_data.SHAPE_KEY_DRIVERS:
+        flags = skd_def[0]
+        scale = 1.0
+        # "Bfr" == Basic face rig
+        # Using the full shape key strength is a bit strong with the full face rig in effect
+        if "Bfr" in flags and chr_cache.rigified_full_face_rig:
+            scale = 0.5
+        shape_key_name = skd_def[1]
+        driver_def = skd_def[2]
+        var_def = skd_def[3]
+
+        add_shape_key_driver(rig, head_body_obj, shape_key_name, driver_def, var_def, scale)
+
+    # drive the shape keys on any other body objects from the head body object
     drivers.add_body_shape_key_drivers(chr_cache, True)
 
     # seems to be fixed now
@@ -1187,7 +1220,7 @@ def add_shape_key_drivers(chr_cache, rig):
     #                                                   constraint_type="STRETCH_TO", expression=expression)
 
 
-def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def):
+def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def, scale=1.0):
     if utils.object_mode():
         shape_key = meshutils.find_shape_key(obj, shape_key_name)
         if shape_key:
@@ -1196,7 +1229,10 @@ def add_shape_key_driver(rig, obj, shape_key_name, driver_def, var_def):
             driver : bpy.types.Driver = fcurve.driver
             driver.type = driver_def[0]
             if driver.type == "SCRIPTED":
-                driver.expression = driver_def[1]
+                if scale != 1.0:
+                    driver.expression = f"{driver_def[1]}*{scale}"
+                else:
+                    driver.expression = driver_def[1]
             var : bpy.types.DriverVariable = driver.variables.new()
             var.name = var_def[0]
             var.type = var_def[1]
@@ -2208,6 +2244,9 @@ def generate_retargeting_rig(chr_cache, source_rig, rigify_rig, retarget_data, t
                         if f == "R":
                             bones.add_copy_rotation_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
 
+                        if f == "S":
+                            bones.add_copy_scale_constraint(retarget_rig, rigify_rig, rigify_bone_name, rigify_bone_name, 1.0)
+
                         # average bone copy (in retarget rig)
                         if f == "A":
                             bone_1_name = retarget_def[pidx]
@@ -2511,6 +2550,7 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
     rigify_rig = chr_cache.get_armature()
     utils.safe_set_action(source_rig, source_action)
 
+    # generate (or re-use) retargeting rig
     retarget_rig = adv_retarget_pair_rigs(op, chr_cache, rig_override=source_rig, action_override=source_action)
 
     armature_action = None
@@ -2548,7 +2588,8 @@ def adv_bake_retarget_to_rigify(op, chr_cache, source_rig, source_action):
             armature_action, shape_key_actions = bake_rig_animation(chr_cache, rigify_rig, source_action,
                                                                     None, True, True, "Retarget")
 
-            adv_retarget_remove_pair(op, chr_cache)
+        # remove retargeting rig
+        adv_retarget_remove_pair(op, chr_cache)
 
         bones.restore_armature_settings(rigify_rig, rigify_settings)
 
@@ -2816,6 +2857,7 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
 
             if bone_name in edit_bones:
                 bone = edit_bones[bone_name]
+                source_bone = bone
 
                 # assign parent hierachy
                 if "P" in flags:
@@ -2829,6 +2871,7 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
                         bone.head = copy_bone.head
                         bone.tail = copy_bone.tail
                         bone.roll = copy_bone.roll
+                        source_bone = copy_bone
 
                 # set flags
                 bones.set_edit_bone_flags(bone, flags, True)
@@ -2842,13 +2885,13 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
 
                 # child source bone for link targetting
                 if link_target:
-                    if "orig_name" in bone:
-                        source_name = bone["orig_name"]
-                        # should match export_name
-                        if source_name != export_name:
+                    if "orig_name" in source_bone:
+                        source_name = source_bone["orig_name"]
+                        # should match export_name *unless rigify root bone
+                        if source_name != export_name and "Rigify_BoneRoot" not in export_name:
                             utils.log_error(f"Export target names do not match: {source_name} !=  {export_name}")
-                        source_dir_array = bone["orig_dir"]
-                        source_axis_array = bone["orig_z_axis"]
+                        source_dir_array = source_bone["orig_dir"]
+                        source_axis_array = source_bone["orig_z_axis"]
                         source_dir = Vector(source_dir_array)
                         source_axis = Vector(source_axis_array)
                         export_bone: bpy.types.EditBone = edit_bones.new(export_name)
@@ -2951,12 +2994,12 @@ def generate_export_rig(chr_cache, use_t_pose=False, t_pose_action=None,
             flags = export_def[4]
             if export_bone_name == "":
                 export_bone_name = rigify_bone_name
-            if "T" in flags and len(export_def) > 5:
-                rigify_bone_name = export_def[5]
             if link_target:
                 to_bone_name = rigify_bone_name
             else:
                 to_bone_name = export_bone_name
+            if "T" in flags and len(export_def) > 5:
+                rigify_bone_name = export_def[5]
             bones.add_copy_rotation_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
             bones.add_copy_location_constraint(rigify_rig, export_rig, rigify_bone_name, to_bone_name, 1.0)
 
@@ -3007,6 +3050,9 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
 
     rigify_settings = bones.store_armature_settings(rigify_rig)
 
+    # disable stretch in ik constraints when exporting
+    ik_store = rigutils.disable_ik_stretch(rigify_rig)
+
     if export_rig:
         # select all export rig bones
         if rigutils.select_rig(export_rig):
@@ -3017,6 +3063,9 @@ def adv_bake_rigify_for_export(chr_cache, export_rig, accessory_map):
             # bake the action on the rigify rig into the export rig
             armature_action, shape_key_actions = bake_rig_animation(chr_cache, export_rig, None,
                                                                     None, True, True, "Export")
+
+    # restore ik stretch settings
+    rigutils.restore_ik_stretch(ik_store)
 
     bones.restore_armature_settings(rigify_rig, rigify_settings)
 
@@ -3312,12 +3361,15 @@ def unify_cc3_bone_name(name):
 def check_armature_action(armature, action):
     total = 0
     matching = 0
-    for fcurve in action.fcurves:
-        total += 1
-        bone_name = bones.get_bone_name_from_data_path(fcurve.data_path)
-        if bone_name and bone_name in armature.data.bones:
-            matching += 1
-    return matching / total > 0
+    if action.fcurves:
+        for fcurve in action.fcurves:
+            total += 1
+            bone_name = bones.get_bone_name_from_data_path(fcurve.data_path)
+            if bone_name and bone_name in armature.data.bones:
+                matching += 1
+    if total == 0 or matching == 0:
+        return False
+    return matching > 0
 
 
 
@@ -3442,7 +3494,7 @@ class CC3Rigifier(bpy.types.Operator):
 
         if utils.object_exists_is_armature(self.cc3_rig) and rigutils.edit_rig(self.cc3_rig):
             # store all the meta-rig bone roll axes
-            store_bone_roll(self.meta_rig, roll_store)
+            store_bone_roll(self.cc3_rig, self.meta_rig, roll_store, self.rigify_data)
             #
             if rigutils.edit_rig(self.meta_rig):
                 # remove unnecessary bones

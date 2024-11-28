@@ -974,9 +974,7 @@ class CC3Import(bpy.types.Operator):
             json_generation = jsonutils.get_character_generation_json(json_data, name)
             avatar_type = jsonutils.get_json(json_data, f"{name}/Avatar_Type")
 
-            only_objects = None
-            if self.process_only:
-                only_objects = self.process_only.split("|")
+            only_objects = utils.names_to_list(self.process_only, "|")
 
             if ImportFlags.FBX in import_flags:
 
@@ -1216,8 +1214,9 @@ class CC3Import(bpy.types.Operator):
 
         # enable SSR
         if prefs.refractive_eyes == "SSR":
-            bpy.context.scene.eevee.use_ssr = True
-            bpy.context.scene.eevee.use_ssr_refraction = True
+            if not utils.B420():
+                bpy.context.scene.eevee.use_ssr = True
+                bpy.context.scene.eevee.use_ssr_refraction = True
 
         utils.log_timer("Done Build.", "s")
 
@@ -1248,13 +1247,14 @@ class CC3Import(bpy.types.Operator):
 
             if chr_cache.rigified:
                 drivers.clear_facial_shape_key_bone_drivers(chr_cache)
+                rigging.add_shape_key_drivers(chr_cache, chr_cache.get_armature())
             else:
                 objects = chr_cache.get_all_objects(include_armature=False,
                                                     of_type="MESH")
                 facial_profile, viseme_profile = meshutils.get_facial_profile(objects)
                 utils.log_info(f"Facial Profile: {facial_profile}")
                 utils.log_info(f"Viseme Profile: {viseme_profile}")
-                if facial_profile == "Std" or facial_profile == "Ext":
+                if facial_profile == "Std" or facial_profile == "Ext" or facial_profile == "ExPlus":
                     drivers.add_facial_shape_key_bone_drivers(chr_cache,
                                                prefs.build_shape_key_bone_drivers_jaw,
                                                prefs.build_shape_key_bone_drivers_eyes,
@@ -1416,67 +1416,67 @@ class CC3Import(bpy.types.Operator):
         props = vars.props()
         prefs = vars.prefs()
 
-        if not self.imported_character_ids:
-            return
+        if self.imported_character_ids:
 
-        rl_import = False
+            rl_import = False
 
-        imported_characters = props.get_characters_by_link_id(self.imported_character_ids)
+            imported_characters = props.get_characters_by_link_id(self.imported_character_ids)
 
-        for chr_cache in imported_characters:
+            for chr_cache in imported_characters:
 
-            if ImportFlags.RL in ImportFlags(chr_cache.import_flags):
+                if ImportFlags.RL in ImportFlags(chr_cache.import_flags):
 
-                rl_import = True
+                    rl_import = True
 
-                # for any objects with shape keys expand the slider range to -1.0 <> 1.0
-                # Character Creator and iClone both use negative ranges extensively.
-                for obj in chr_cache.get_cache_objects():
-                    obj_cache = chr_cache.get_object_cache(obj)
-                    if obj_cache and obj_cache.is_mesh():
-                        init_shape_key_range(obj)
+                    # for any objects with shape keys expand the slider range to -1.0 <> 1.0
+                    # Character Creator and iClone both use negative ranges extensively.
+                    for obj in chr_cache.get_cache_objects():
+                        obj_cache = chr_cache.get_object_cache(obj)
+                        if obj_cache and obj_cache.is_mesh():
+                            init_shape_key_range(obj)
 
-        if rl_import:
+            if rl_import:
 
-            # use portrait lighting for quality mode
-            if self.param == "IMPORT_QUALITY":
-                if props.lighting_mode:
-                    scene.setup_scene_default(context, prefs.quality_lighting)
+                # use portrait lighting for quality mode
+                if self.param == "IMPORT_QUALITY":
+                    if props.lighting_mode:
+                        scene.setup_scene_default(context, prefs.quality_lighting)
 
-            if prefs.refractive_eyes == "SSR":
-                bpy.context.scene.eevee.use_ssr = True
-                bpy.context.scene.eevee.use_ssr_refraction = True
+                if prefs.refractive_eyes == "SSR":
+                    if not utils.B420():
+                        bpy.context.scene.eevee.use_ssr = True
+                        bpy.context.scene.eevee.use_ssr_refraction = True
 
-            # set a minimum of 100 max transparency bounces:
-            if bpy.context.scene.cycles.transparent_max_bounces < 100:
-                bpy.context.scene.cycles.transparent_max_bounces = 100
+                # set a minimum of 100 max transparency bounces:
+                if bpy.context.scene.cycles.transparent_max_bounces < 100:
+                    bpy.context.scene.cycles.transparent_max_bounces = 100
 
-            if self.zoom:
-                bpy.ops.object.select_all(action='DESELECT')
-                for chr_cache in imported_characters:
-                    chr_cache.select_all(only=False)
-                scene.zoom_to_selected()
+                if self.zoom:
+                    bpy.ops.object.select_all(action='DESELECT')
+                    for chr_cache in imported_characters:
+                        chr_cache.select_all(only=False)
+                    scene.zoom_to_selected()
 
-            # clean up unused images from the import
-            if len(self.imported_images) > 0:
-                utils.log_info("Cleaning up unused images:")
-                img: bpy.types.Image = None
-                for img in self.imported_images:
-                    num_users = img.users
-                    if (img.use_fake_user and img.users == 1) or img.users == 0:
-                        utils.log_info("Removing Image: " + img.name)
-                        bpy.data.images.remove(img)
-            utils.clean_collection(bpy.data.images)
+                # clean up unused images from the import
+                if len(self.imported_images) > 0:
+                    utils.log_info("Cleaning up unused images:")
+                    img: bpy.types.Image = None
+                    for img in self.imported_images:
+                        num_users = img.users
+                        if (img.use_fake_user and img.users == 1) or img.users == 0:
+                            utils.log_info("Removing Image: " + img.name)
+                            bpy.data.images.remove(img)
+                utils.clean_collection(bpy.data.images)
 
-            props.lighting_mode = False
+                props.lighting_mode = False
 
-            if props.rigify_mode and not self.no_rigify:
-                for chr_cache in imported_characters:
-                    if chr_cache.can_be_rigged():
-                        cc3_rig = chr_cache.get_armature()
-                        bpy.ops.cc3.rigifier(param="ALL")
-                        rigging.full_retarget_source_rig_action(self, chr_cache, cc3_rig,
-                                                                use_ui_options=True)
+                if props.rigify_mode and not self.no_rigify:
+                    for chr_cache in imported_characters:
+                        if chr_cache.can_be_rigged():
+                            cc3_rig = chr_cache.get_armature()
+                            bpy.ops.cc3.rigifier(param="ALL")
+                            rigging.full_retarget_source_rig_action(self, chr_cache, cc3_rig,
+                                                                    use_ui_options=True)
 
         self.imported_character_ids = None
         self.imported_materials = []

@@ -6,7 +6,7 @@ import os, socket, time, select, struct, json, copy
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix
 from . import importer, exporter, bones, geom, colorspace, world, rigging, rigutils, modifiers, jsonutils, utils, vars
-
+import textwrap
 
 BLENDER_PORT = 9334
 UNITY_PORT = 9335
@@ -104,6 +104,7 @@ class LinkActor():
     cache: dict = None
     alias: list = None
     shape_keys: dict = None
+    ik_store: dict = None
 
     def __init__(self, chr_cache):
         self.chr_cache = chr_cache
@@ -189,7 +190,7 @@ class LinkActor():
 
         # finally if matching to any avatar, trying to find an avatar and there is only
         # one avatar in the scene, use that one avatar, otherwise use the selected avatar
-        if link_data and link_data.is_cc() and prefs.datalink_match_any_avatar and search_type == "AVATAR":
+        if False and link_data and link_data.is_cc() and prefs.datalink_match_any_avatar and search_type == "AVATAR":
             chr_cache = None
 
             if len(props.get_avatars()) == 1:
@@ -374,6 +375,7 @@ class LinkData():
     sequence_start_frame: int = 0
     sequence_end_frame: int = 0
     sequence_actors: list = None
+    sequence_type: str = None
     #
     preview_shape_keys: bool = True
     preview_skip_frames: bool = False
@@ -395,7 +397,7 @@ class LinkData():
     def reset(self):
         self.actors = []
         self.sequence_actors = None
-        self.sequence_actors = None
+        self.sequence_type = None
 
     def is_cc(self):
         if self.remote_app == "Character Creator":
@@ -510,6 +512,7 @@ def make_datalink_import_rig(actor: LinkActor):
     is_prop = actor.get_type() == "PROP"
 
     if utils.object_exists_is_armature(chr_cache.rig_datalink_rig):
+        actor.rig_bones = actor.bones.copy()
         utils.unhide(chr_cache.rig_datalink_rig)
         #utils.log_info(f"Using existing datalink transfer rig: {chr_cache.rig_datalink_rig.name}")
         return chr_cache.rig_datalink_rig
@@ -581,6 +584,8 @@ def remove_datalink_import_rig(actor: LinkActor):
 
             if chr_cache.rigified:
                 rigging.adv_retarget_remove_pair(None, chr_cache)
+                if actor.ik_store:
+                    rigutils.restore_ik_stretch(actor.ik_store)
 
             else:
                 # remove all contraints on the character rig
@@ -695,7 +700,10 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
             utils.log_info(f"Preparing Character Rig: {actor.name} {rig_id} / {len(actor.bones)} bones")
 
             # set data
-            motion_id = "DataLink"
+            if LINK_DATA.sequence_type == "POSE":
+                motion_id = "Pose"
+            else:
+                motion_id = "Sequence"
             set_id, set_generation = rigutils.generate_motion_set(rig, motion_id, LINK_DATA.motion_prefix)
             # rig action
             action = get_datalink_rig_action(rig, motion_id)
@@ -724,8 +732,10 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
                     utils.safe_set_action(obj.data.shape_keys, None)
 
             if chr_cache.rigified:
+                # disable IK stretch
+                actor.ik_store = rigutils.disable_ik_stretch(rig)
                 BAKE_BONE_GROUPS = ["FK", "IK", "Special", "Root"] #not Tweak and Extra
-                BAKE_BONE_COLLECTIONS = ["Face", "Face (Primary)", "Face (Secondary)",
+                BAKE_BONE_COLLECTIONS = ["Face", #"Face (Primary)", "Face (Secondary)",
                                          "Torso", "Torso (Tweak)",
                                          "Fingers", "Fingers (Detail)",
                                          "Arm.L (IK)", "Arm.L (FK)", "Arm.L (Tweak)",
@@ -733,6 +743,11 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
                                          "Arm.R (IK)", "Arm.R (FK)", "Arm.R (Tweak)",
                                          "Leg.R (IK)", "Leg.R (FK)", "Leg.R (Tweak)",
                                          "Root"]
+                # TODO These bones may need to have their pose reset as they are damped tracked in the rig
+                BAKE_BONE_EXCLUSIONS = [
+                    "thigh_ik.L", "thigh_ik.R", "thigh_parent.L", "thigh_parent.R",
+                    "upper_arm_ik.L", "upper_arm_ik.R", "upper_arm_parent.L", "upper_arm_parent.R"
+                ]
                 BAKE_BONE_LAYERS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,28]
                 if utils.object_mode_to(rig):
                     bone: bpy.types.Bone
@@ -743,10 +758,11 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
                         bone.select = False
                         if bones.is_bone_in_collections(rig, bone, BAKE_BONE_COLLECTIONS,
                                                                 BAKE_BONE_GROUPS):
-                            bone.hide = False
-                            bone.hide_select = False
-                            bone.select = True
-                            pose_bone.rotation_mode = "QUATERNION"
+                            if bone.name not in BAKE_BONE_EXCLUSIONS:
+                                bone.hide = False
+                                bone.hide_select = False
+                                bone.select = True
+                                pose_bone.rotation_mode = "QUATERNION"
             else:
                 if utils.object_mode_to(rig):
                     bone: bpy.types.Bone
@@ -1838,6 +1854,9 @@ class LinkService():
             bones = []
 
             if chr_cache.rigified:
+                rig = actor.get_armature()
+                # disable IK stretch
+                actor.ik_store = rigutils.disable_ik_stretch(rig)
                 # add the export retarget rig
                 if utils.object_exists_is_armature(chr_cache.rig_export_rig):
                     export_rig = chr_cache.rig_export_rig
@@ -1990,6 +2009,14 @@ class LinkService():
             })
         return encode_from_json(data)
 
+    def restore_actor_rigs(self, actors: LinkActor):
+        """Restores any disabled IK stretch settings after export"""
+        for actor in actors:
+            chr_cache = actor.get_chr_cache()
+            if chr_cache.rigified:
+                if actor.ik_store:
+                    rigutils.restore_ik_stretch(actor.ik_store)
+
     def send_pose(self):
         global LINK_DATA
 
@@ -2008,13 +2035,16 @@ class LinkService():
             self.send(OpCodes.TEMPLATE, template_data)
             # store the actors
             LINK_DATA.sequence_actors = actors
+            LINK_DATA.sequence_type = "POSE"
             # force recalculate all transforms
             bpy.context.view_layer.update()
             # send pose data
             pose_frame_data = self.encode_pose_frame_data(actors)
             self.send(OpCodes.POSE_FRAME, pose_frame_data)
             # clear the actors
+            self.restore_actor_rigs(LINK_DATA.sequence_actors)
             LINK_DATA.sequence_actors = None
+            LINK_DATA.sequence_type = None
             # restore
             utils.restore_mode_selection_state(mode_selection)
             count += len(actors)
@@ -2050,6 +2080,7 @@ class LinkService():
             self.send(OpCodes.TEMPLATE, template_data)
             # store the actors
             LINK_DATA.sequence_actors = actors
+            LINK_DATA.sequence_type = "SEQUENCE"
             # start the sending sequence
             self.start_sequence(self.send_sequence_frame)
 
@@ -2077,7 +2108,9 @@ class LinkService():
         sequence_data = self.encode_sequence_data(LINK_DATA.sequence_actors)
         self.send(OpCodes.SEQUENCE_END, sequence_data)
         # clear the actors
+        self.restore_actor_rigs(LINK_DATA.sequence_actors)
         LINK_DATA.sequence_actors = None
+        LINK_DATA.sequence_type = None
 
     def send_sequence_ack(self, frame):
         global LINK_DATA
@@ -2396,13 +2429,12 @@ class LinkService():
                     light.data.size_y = S * light_data["tube_radius"] / 100
             light.data.use_shadow = light_data["cast_shadow"]
             if light_data["cast_shadow"]:
-                if light_type != "SUN":
-                    light.data.shadow_buffer_clip_start = 0.0025
-                    light.data.shadow_buffer_bias = 1.0
                 if utils.B420():
-                    light.data.use_shadow = True
                     light.data.use_shadow_jitter = True
                 else:
+                    if light_type != "SUN":
+                        light.data.shadow_buffer_clip_start = 0.0025
+                        light.data.shadow_buffer_bias = 1.0
                     light.data.use_contact_shadow = True
                     light.data.contact_shadow_distance = 0.1
                     light.data.contact_shadow_bias = 0.03
@@ -2415,9 +2447,6 @@ class LinkService():
                if "link_id" in obj and obj["link_id"] not in lights_data["scene_lights"]:
                    utils.delete_light_object(obj)
         #
-        bpy.context.scene.eevee.use_gtao = True
-        bpy.context.scene.eevee.gtao_distance = 0.25
-        bpy.context.scene.eevee.gtao_factor = 0.5
         bpy.context.scene.eevee.use_taa_reprojection = True
         if utils.B420():
             bpy.context.scene.eevee.use_shadows = True
@@ -2429,13 +2458,16 @@ class LinkService():
             bpy.context.scene.world.use_sun_shadow = True
             bpy.context.scene.world.use_sun_shadow_jitter = True
         else:
+            bpy.context.scene.eevee.use_gtao = True
+            bpy.context.scene.eevee.gtao_distance = 0.25
+            bpy.context.scene.eevee.gtao_factor = 0.5
             bpy.context.scene.eevee.use_bloom = True
             bpy.context.scene.eevee.bloom_threshold = 0.8
             bpy.context.scene.eevee.bloom_knee = 0.5
             bpy.context.scene.eevee.bloom_radius = 2.0
             bpy.context.scene.eevee.bloom_intensity = 1.0
-        bpy.context.scene.eevee.use_ssr = True
-        bpy.context.scene.eevee.use_ssr_refraction = True
+            bpy.context.scene.eevee.use_ssr = True
+            bpy.context.scene.eevee.use_ssr_refraction = True
         bpy.context.scene.eevee.bokeh_max_size = 32
         view_transform = prefs.lighting_use_look if utils.B400() else "Filmic"
         colorspace.set_view_settings(view_transform, "Medium High Contrast", 0, 0.75)
@@ -2672,6 +2704,7 @@ class LinkService():
         # set pose frame
         update_link_status(f"Receiving Pose Frame: {frame}")
         LINK_DATA.sequence_actors = actors
+        LINK_DATA.sequence_type = "POSE"
         bpy.ops.screen.animation_cancel()
         set_frame_range(start_frame, end_frame)
         set_frame(frame)
@@ -2715,6 +2748,7 @@ class LinkService():
 
         # finish
         LINK_DATA.sequence_actors = None
+        LINK_DATA.sequence_type = None
         bpy.context.scene.frame_current = frame
         utils.restore_mode_selection_state(state)
 
@@ -2748,6 +2782,7 @@ class LinkService():
             if actor:
                 actors.append(actor)
         LINK_DATA.sequence_actors = actors
+        LINK_DATA.sequence_type = "SEQUENCE"
 
         # update scene range
         update_link_status(f"Receiving Live Sequence: {num_frames} frames")
@@ -2819,6 +2854,7 @@ class LinkService():
         # stop sequence
         self.stop_sequence()
         LINK_DATA.sequence_actors = None
+        LINK_DATA.sequence_type = None
         bpy.context.scene.frame_current = LINK_DATA.sequence_start_frame
 
         # play the recorded sequence
@@ -2876,35 +2912,48 @@ class LinkService():
 
         utils.log_info(f"Receive Character Import: {name} / {link_id} / {fbx_path}")
 
+        if not os.path.exists(fbx_path):
+            update_link_status(f"Invalid Import Path!")
+            return
+
         actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
         if actor:
             update_link_status(f"Character: {name} exists!")
             utils.log_info(f"Actor {name} ({link_id}) already exists!")
+            bpy.ops.ccic.link_confirm_dialog("INVOKE_DEFAULT",
+                                             message=f"Character {name} already exists in the scene. Do you want to replace the character?",
+                                             mode="REPLACE",
+                                             name=name,
+                                             filepath=fbx_path,
+                                             link_id=link_id,
+                                             character_type=character_type)
             return
 
         update_link_status(f"Receving Character Import: {name}")
-        if os.path.exists(fbx_path):
-            try:
-                bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id,
-                                     zoom=False, no_rigify=True,
-                                     motion_prefix=LINK_DATA.motion_prefix,
-                                     use_fake_user=LINK_DATA.use_fake_user)
-            except:
-                utils.log_error(f"Error importing {fbx_path}")
-                return
-            actor = LinkActor.find_actor(link_id)
-            # props have big ugly bones, so show them as wires
-            if actor and actor.get_type() == "PROP":
+        self.do_character_import(fbx_path, link_id, save_after_import)
+
+    def do_character_import(self, fbx_path, link_id, save_after_import):
+        try:
+            bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id,
+                                 zoom=False, no_rigify=True,
+                                 motion_prefix=LINK_DATA.motion_prefix,
+                                 use_fake_user=LINK_DATA.use_fake_user)
+        except:
+            utils.log_error(f"Error importing {fbx_path}")
+            return
+        actor = LinkActor.find_actor(link_id)
+        # props have big ugly bones, so show them as wires
+        if actor and actor.get_type() == "PROP":
+            arm = actor.get_armature()
+            #rigutils.custom_prop_rig(arm)
+            #rigutils.de_pivot(actor.get_chr_cache())
+        elif actor and actor.get_type() == "AVATAR":
+            if actor.get_chr_cache().is_non_standard():
                 arm = actor.get_armature()
-                #rigutils.custom_prop_rig(arm)
-                #rigutils.de_pivot(actor.get_chr_cache())
-            elif actor and actor.get_type() == "AVATAR":
-                if actor.get_chr_cache().is_non_standard():
-                    arm = actor.get_armature()
-                    #rigutils.custom_avatar_rig(arm)
-            update_link_status(f"Character Imported: {actor.name}")
-            if save_after_import:
-                self.receive_save()
+                #rigutils.custom_avatar_rig(arm)
+        update_link_status(f"Character Imported: {actor.name}")
+        if save_after_import:
+            self.receive_save()
 
     def receive_motion_import(self, data):
         props = vars.props()
@@ -3110,11 +3159,7 @@ class LinkService():
 
     def receive_update_replace(self, data):
         props = vars.props()
-        global LINK_DATA
-
         props.validate_and_clean_up()
-
-        context_chr_cache = props.get_context_character_cache()
 
         json_data = decode_to_json(data)
         fbx_path = json_data["path"]
@@ -3124,6 +3169,13 @@ class LinkService():
         replace_all = json_data["replace"]
         objects_to_replace_names = json_data["objects"]
         utils.log_info(f"Receive Update / Replace: {name} - {objects_to_replace_names}")
+
+        self.do_update_replace(name, link_id, fbx_path, character_type, replace_all, objects_to_replace_names)
+
+    def do_update_replace(self, name, link_id, fbx_path, character_type, replace_all, objects_to_replace_names=None, replace_actions=False):
+        props = vars.props()
+        global LINK_DATA
+        context_chr_cache = props.get_context_character_cache()
 
         process_only = ""
         if not replace_all and objects_to_replace_names:
@@ -3141,14 +3193,14 @@ class LinkService():
         actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type, context_chr_cache=context_chr_cache)
         rig: bpy.types.Object = actor.get_armature()
         rig_action = utils.safe_get_action(rig)
-        utils.log_info(f"Character Rig: {rig.name} / {rig_action.name}")
+        utils.log_info(f"Character Rig: {rig.name} / {rig_action.name if rig_action else 'No Action'}")
         chr_cache = actor.get_chr_cache()
         # the replacements
         temp_actor = LinkActor.find_actor(temp_link_id, search_name=name, search_type=character_type)
         temp_rig: bpy.types.Object = temp_actor.get_armature()
         temp_rig_action = utils.safe_get_action(temp_rig)
         temp_chr_cache = temp_actor.get_chr_cache()
-        utils.log_info(f"Replacement Rig: {temp_rig.name} / {temp_rig_action.name}")
+        utils.log_info(f"Replacement Rig: {temp_rig.name} / {temp_rig_action.name if temp_rig_action else 'No Action'}")
 
         # can happen if the link_id's don't match
         if chr_cache == temp_chr_cache:
@@ -3299,14 +3351,15 @@ class LinkService():
                             utils.log_info(f"Deleting unused image file: {img_path}")
                             os.remove(full_path)
 
-                # remove temp chr actions (motion set)
-                if temp_rig_action:
-                    rigutils.delete_motion_set(temp_rig_action)
+                if not replace_actions:
+                    # remove temp chr actions (motion set)
+                    if temp_rig_action:
+                        rigutils.delete_motion_set(temp_rig_action)
 
-                # remap shapekey actions for the new objects
-                if rig_action:
-                    source_actions = rigutils.find_source_actions(rig_action, rig)
-                    rigutils.apply_source_key_actions(rig, source_actions, all_matching=True, filter=new_objects)
+                    # remap shapekey actions for the new objects
+                    if rig_action:
+                        source_actions = rigutils.find_source_actions(rig_action, rig)
+                        rigutils.apply_source_key_actions(rig, source_actions, all_matching=True, filter=new_objects)
 
                 # invalidate and clean up but don't delete the objects & materials
                 # do this last as it invalidates the references
@@ -3330,14 +3383,16 @@ class LinkService():
                 temp_rig.rotation_euler = rig.rotation_euler
                 temp_rig.rotation_axis_angle = rig.rotation_axis_angle
 
-                # remove temp chr actions (motion set)
-                if temp_rig_action:
-                    rigutils.delete_motion_set(temp_rig_action)
+                if not replace_actions:
+                    # remove temp chr actions (motion set)
+                    if temp_rig_action:
+                        rigutils.delete_motion_set(temp_rig_action)
 
-                # copy/retarget actions from original rig to the replacement
-                source_actions = rigutils.find_source_actions(rig_action, rig)
-                rigutils.apply_source_armature_action(temp_rig, source_actions)
-                rigutils.apply_source_key_actions(temp_rig, source_actions, all_matching=True)
+                    # copy/retarget actions from original rig to the replacement
+                    if rig_action:
+                        source_actions = rigutils.find_source_actions(rig_action, rig)
+                        rigutils.apply_source_armature_action(temp_rig, source_actions)
+                        rigutils.apply_source_key_actions(temp_rig, source_actions, all_matching=True)
 
                 link_id = chr_cache.link_id
                 character_name = chr_cache.character_name
@@ -3381,7 +3436,7 @@ class LinkService():
                     utils.log_error(f"Character {actor.name} already rigified!")
                     return
                 update_link_status(f"Rigifying: {actor.name}")
-                chr_cache.select()
+                chr_cache.select(only=True)
                 cc3_rig = chr_cache.get_armature()
                 bpy.ops.cc3.rigifier(param="ALL", no_face_rig=True, auto_retarget=True)
                 rigutils.update_avatar_rig(chr_cache.get_armature())
@@ -3679,3 +3734,60 @@ def test():
     utils.log_always("")
     utils.log_always("TEST")
     utils.log_always("====")
+
+
+class CCICLinkConfirmDialog(bpy.types.Operator):
+    bl_idname = "ccic.link_confirm_dialog"
+    bl_label = "Confirm Action"
+
+    message: bpy.props.StringProperty(default="")
+    name: bpy.props.StringProperty(default="")
+    filepath: bpy.props.StringProperty(default="")
+    link_id: bpy.props.StringProperty(default="")
+    character_type: bpy.props.StringProperty(default="")
+    mode: bpy.props.StringProperty(default = "")
+
+    width=400
+    wrap_width = width / 5.5
+
+    def execute(self, context):
+        global LINK_SERVICE
+        props = vars.props()
+        prefs = vars.prefs()
+
+        if self.mode:
+            LINK_SERVICE.do_update_replace(self.name, self.link_id, self.filepath,
+                                           self.character_type, True,
+                                           objects_to_replace_names=None,
+                                           replace_actions=True)
+
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        props = vars.props()
+        prefs = vars.prefs()
+        chr_cache = props.get_context_character_cache(context)
+        return context.window_manager.invoke_props_dialog(self, width=self.width)
+
+    def cancel(self, context):
+        #bpy.ops.ccic.link_confirm_dialog('INVOKE_DEFAULT',
+        #                               message=self.message,
+        #                               param=self.param)
+        return
+
+    def draw(self, context):
+        props = vars.props()
+        layout = self.layout
+        message: str = self.message
+        lines = message.splitlines()
+        wrapper = textwrap.TextWrapper(width=self.wrap_width)
+        for line in lines:
+            line = line.strip()
+            wrapped_lines = wrapper.wrap(line)
+            for wrapped_line in wrapped_lines:
+                layout.label(text=wrapped_line)
+        layout.separator()
+
+    @classmethod
+    def description(cls, context, properties):
+        return "Edit the character name and non-standard type"

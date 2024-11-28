@@ -103,7 +103,7 @@ from . import proportion
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 1, 11),
+    "version": (2, 2, 1),
     "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",
@@ -180,6 +180,7 @@ classes = (
     hair.CC3OperatorHair,
     hair.CC3ExportHair,
     link.CCICDataLink,
+    link.CCICLinkConfirmDialog,
     characters.CCICCharacterLink,
     proportion.CCICCharacterProportions,
     rigutils.CCICMotionSetRename,

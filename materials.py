@@ -707,27 +707,64 @@ def determine_material_alpha(obj_cache, mat_cache, mat_json):
         return "OPAQUE"
 
 
-def set_material_alpha(mat, method):
-    if method == "HASHED":
-        mat.blend_method = "HASHED"
-        mat.shadow_method = "HASHED"
-        mat.use_backface_culling = False
-    elif method == "BLEND":
-        mat.blend_method = "BLEND"
-        mat.shadow_method = "CLIP"
-        mat.use_backface_culling = True
-        mat.show_transparent_back = True
-        mat.alpha_threshold = 0.5
-    elif method == "CLIP":
-        mat.blend_method = "CLIP"
-        mat.shadow_method = "CLIP"
-        mat.use_backface_culling = False
-        mat.alpha_threshold = 0.5
-    else:
-        mat.blend_method = "OPAQUE"
-        mat.shadow_method = "OPAQUE"
-        mat.use_backface_culling = False
+def set_material_alpha(mat, method, shadows=True, refraction=False, depth=0.0):
 
+    if utils.B410():
+        mat.use_raytrace_refraction = refraction
+    else:
+        mat.use_screen_refraction = refraction
+        mat.refraction_depth = depth
+
+    if method == "HASHED" or method == "DITHERED":
+
+        if utils.B420():
+            mat.surface_render_method = "DITHERED"
+        else:
+            mat.blend_method = "HASHED"
+            mat.shadow_method = "HASHED" if shadows else "NONE"
+
+        set_backface_culling(mat, False)
+
+    elif method == "BLEND":
+
+        if utils.B420():
+            mat.surface_render_method = "BLENDED"
+        else:
+            mat.blend_method = "BLEND"
+            mat.shadow_method = "CLIP" if shadows else "NONE"
+            mat.alpha_threshold = 0.5
+
+        set_backface_culling(mat, True)
+
+    elif method == "CLIP":
+
+        if utils.B420():
+            mat.surface_render_method = "BLENDED"
+        else:
+            mat.blend_method = "CLIP"
+            mat.shadow_method = "CLIP" if shadows else "NONE"
+            mat.alpha_threshold = 0.5
+
+        set_backface_culling(mat, False)
+
+    else:
+
+        if utils.B420():
+            mat.surface_render_method = "DITHERED"
+        else:
+            mat.blend_method = "OPAQUE"
+            mat.shadow_method = "OPAQUE"
+
+        set_backface_culling(mat, False)
+
+
+def set_backface_culling(mat, backface_culling=True):
+    try:
+        mat.use_backface_culling = backface_culling
+    except: ...
+    try:
+        mat.use_backface_culling_shadow = backface_culling
+    except: ...
 
 def test_for_material_uv_coords(obj, mat_slot, uvs):
     mesh = obj.data

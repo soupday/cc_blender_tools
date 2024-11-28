@@ -17,7 +17,7 @@
 import bpy
 import os
 from mathutils import Vector
-from . import normal, colorspace, imageutils, wrinkle, nodeutils, properties, utils, params, vars
+from . import normal, colorspace, imageutils, wrinkle, nodeutils, properties, materials, utils, params, vars
 from .exporter import get_export_objects
 
 BAKE_SAMPLES = 4
@@ -1767,15 +1767,13 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
     alpha_bake_node = None
     alpha_socket = nodeutils.input_socket(bsdf_node, "Alpha")
     if nodeutils.has_connected_input(bsdf_node, alpha_socket) or (shader_node and "Opacity" in shader_node.outputs):
-        if ((mat.blend_method != "OPAQUE" and "Alpha" in bake_maps) or
-            (shader_node and "Opacity" in shader_node.outputs and "Alpha" in bake_maps)):
+        if shader_node and "Opacity" in shader_node.outputs and "Alpha" in bake_maps:
             prep_alpha(mat, shader_node)
             if (can_bake_shader_node(shader_node, bsdf_node, alpha_socket)
                 or (shader_node and "Opacity" in shader_node.outputs)):
                 if "Opacity" in shader_node.outputs:
                     alpha_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Opacity", "Alpha")
-                    mat.blend_method = "BLEND"
-                    mat.shadow_method = "NONE"
+                    materials.set_material_alpha(mat, "BLEND", shadows=False)
                 else:
                     alpha_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Alpha", "Alpha")
             elif bsdf_node:
@@ -2463,8 +2461,7 @@ def reconnect_material(mat, mat_cache, ao_strength, sss_radius, bump_distance, n
         if utils.B420() and thickness > 0.0:
             thickness_value_node = nodeutils.make_value_node(nodes, "Thickness", "thickness", thickness)
             nodeutils.link_nodes(links, thickness_value_node, "Value", output_node, "Thickness")
-            mat.surface_render_method = "DITHERED"
-            mat.use_raytrace_refraction = True
+            materials.set_material_alpha(mat, "DITHERED")
     elif tex_nodes["Alpha"]:
         nodeutils.link_nodes(links, tex_nodes["Alpha"], "Color", bsdf_node, alpha_socket)
 
