@@ -764,7 +764,7 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
                                 bone.hide = False
                                 bone.hide_select = False
                                 bone.select = True
-                                #pose_bone.rotation_mode = "QUATERNION"
+                                pose_bone.rotation_mode = "QUATERNION"
             else:
                 if utils.object_mode_to(rig):
                     bone: bpy.types.Bone
