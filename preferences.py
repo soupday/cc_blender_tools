@@ -83,7 +83,7 @@ def reset_rigify():
     prefs.rigify_auto_retarget = True
     prefs.rigify_preview_retarget_fk_ik = "BOTH"
     prefs.rigify_bake_nla_fk_ik = "BOTH"
-    prefs.rigify_align_to_cc = "CC"
+    prefs.rigify_align_bones = "CC"
 
 
 def reset_datalink():
@@ -468,10 +468,10 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
                         ("IK","IK","Bake IK controls only"),
                         ("BOTH","Both","Bake both FK and IK and controls"),
                     ], default="BOTH", name = "Bake NLA to FK/IK")
-    rigify_align_to_cc: bpy.props.EnumProperty(items=[
-                        ("CC","CC/iC","Align metarig bones to the CC/iC source rig"),
-                        ("METARIG","Metarig","Keep the metarig bone alignments"),
-                    ], default="CC", name="Align Metarig Bones", description="Metarig bone alignments")
+    rigify_align_bones: bpy.props.EnumProperty(items=[
+                        ("CC","CC/iC Align","Align metarig bones to the CC/iC source rig"),
+                        ("METARIG","Metarig Align","Keep the metarig bone alignments"),
+                    ], default="METARIG", name="Align Metarig Bones", description="Metarig bone alignments")
 
     # datalink prefs
     datalink_auto_start: bpy.props.BoolProperty(default=False,
@@ -593,7 +593,7 @@ class CC3ToolsAddonPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "physics_weightmap_curve")
 
         layout.label(text="Rigify:")
-        layout.prop(self, "rigify_align_to_cc")
+        layout.prop(self, "rigify_align_bones")
 
         layout.label(text="Export:")
         layout.prop(self, "export_json_changes")

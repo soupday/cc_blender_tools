@@ -146,11 +146,29 @@ SHAPE_KEY_DRIVERS = {
         "rotate": [0,0,12.0],
     },
 
+    # - Jaw_Open / CC_Base_Tongue01 = (0.1863, 0.0206, -9.2686)
+    # - Jaw_Open / CC_Base_Teeth02 = (-0.0109, -0.0038, 8.9977)
+    # - Jaw_Open / CC_Base_JawRoot = (0.0000, -0.0000, 30.0881) FACE DRIVER
+
     "Jaw_Open": {
         "bone": ["CC_Base_JawRoot","jaw_master"],
         "range": 100.0,
-        "translate": [0,0,0],
+        "translate": [0.0001,0.0001,0.0001], #using non zero values to lock translation in place
         "rotate": [0,0,30.894],
+    },
+
+    "Jaw_Open.001": {
+        "bone": ["CC_Base_Teeth02"],
+        "range": 100.0,
+        "translate": [0.0001,0.0001,0.0001], #using non zero values to lock translation in place
+        "rotate": [0,0,9],
+    },
+
+    "Jaw_Open.002": {
+        "bone": ["CC_Base_Tongue01"],
+        "range": 100.0,
+        "translate": [0.0001,0.0001,0.0001], #using non zero values to lock translation in place
+        "rotate": [0,0,-9],
     },
 
     "Jaw_Forward": {
@@ -397,6 +415,38 @@ SHAPE_KEY_DRIVERS = {
 }
 
 
+def has_facial_shape_key_bone_drivers(chr_cache):
+    arm = chr_cache.get_armature()
+    if not arm: return False
+    for drv in arm.animation_data.drivers:
+        for key_name in SHAPE_KEY_DRIVERS.keys():
+            bone_names = SHAPE_KEY_DRIVERS[key_name]["bone"]
+            translate = SHAPE_KEY_DRIVERS[key_name]["translate"]
+            rotate = SHAPE_KEY_DRIVERS[key_name]["rotate"]
+            key_name = utils.strip_name(key_name)
+            shape_key_path = f"shape_keys.key_blocks[\"{key_name}\"]"
+            for bone_name in bone_names:
+                if bone_name in arm.pose.bones:
+                    bone: bpy.types.Bone = arm.pose.bones[bone_name]
+                    for i,v in enumerate(translate):
+                        if v != 0:
+                            data_path = f"pose.bones[\"{bone_name}\"].location"
+                            if drv.data_path == data_path and drv.array_index == i:
+                                for var in drv.driver.variables:
+                                    for target in var.targets:
+                                        if shape_key_path in target.data_path:
+                                            return True
+                    for i,v in enumerate(rotate):
+                        if v != 0:
+                            data_path = f"pose.bones[\"{bone_name}\"].rotation_euler"
+                            if drv.data_path == data_path and drv.array_index == i:
+                                for var in drv.driver.variables:
+                                    for target in var.targets:
+                                        if shape_key_path in target.data_path:
+                                            return True
+    return False
+
+
 def clear_facial_shape_key_bone_drivers(chr_cache):
     """clear drivers for the jaw, eye and head bones (optional) based on the facial
        expression shape keys.
@@ -467,6 +517,7 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
         range = SHAPE_KEY_DRIVERS[key_name]["range"]
         translate = SHAPE_KEY_DRIVERS[key_name]["translate"]
         rotate = SHAPE_KEY_DRIVERS[key_name]["rotate"]
+        key_name = utils.strip_name(key_name)
 
         if not meshutils.find_shape_key(body, key_name):
             utils.log_info(f"Shape-key: {key_name} not found, skipping.")

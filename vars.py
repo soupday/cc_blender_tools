@@ -16,12 +16,13 @@
 
 # Set by __init__.py from the bl_info dict
 
-import bpy
+import bpy, uuid
 
-VERSION_STRING = "v0.0.0"
+VERSION_STRING = "v2.2.2"
 DEV = False
+#DEV = True
 PLUGIN_COMPATIBLE = [
-    "2.1.11", "2.1.12", "2.2.0", "2.2.1"
+    "2.1.11", "2.1.12", "2.2.0", "2.2.1", "2.2.2",
 ]
 
 def set_version_string(bl_info):

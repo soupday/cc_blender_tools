@@ -35,17 +35,22 @@ Links
 
 ## Changelog
 
+### 2.2.2
+- Teeth and tongue added to bone / expression drivers.
+- Meta-rig bone alignment options added the Basic rig panel.
+- DataLink pose functions no longer break expression drivers.
+
 ### 2.2.1
-- Material and Lighting fixes for Blender 4.3
+- Material and Lighting fixes for Blender 4.3.
 - When exporting or sending Rigified animations: IK stretch is now disabled in the rig.
     - This should help with limb alignment problems on other platforms.
 - Rigify Metarig bone rolls are aligned exactly to the CC/iC source bones now.
     - This can be disabled in the preferences (or advanced settings) to use the original Metarig bone roll alignments.
-- Datalink Send Avatar will ask to overwrite (or cancel transfer) any existing *same* character.
+- DataLink Send Avatar will ask to overwrite (or cancel transfer) any existing *same* character.
 - Generic import option to disable auto-conversion of materials.
 - Fix to import hanging when no characters in FBX.
 - Rebuild drivers also rebuilds Rigify shape key drivers.
-- Datalink transfer Sequence and Pose actions separately labelled "Sequence" and "Pose" no longer just "Datalink" for both.
+- DataLink transfer Sequence and Pose actions separately labelled "Sequence" and "Pose" no longer just "DataLink" for both.
 - Operations that use object or mesh duplicates no longer duplicate the actions on the objects.
 
 
@@ -101,7 +106,7 @@ Links
 
 
 ### 2.1.4
-- Datalink receive Update / Replace function, to replace whole characters or selected parts.
+- DataLink receive Update / Replace function, to replace whole characters or selected parts.
 - Fix to character validation and clean-up.
 
 ### 2.1.3
@@ -122,7 +127,7 @@ Links
 ### 2.1.1
 - Fix UDIM flattening on proportion editing and sculpt base mesh transfer.
 - Lighting sync area correction.
-- Datalink plugin version compatibility check.
+- DataLink plugin version compatibility check.
 
 ### 2.1.0
 - Motion Sets:
@@ -132,7 +137,7 @@ Links
     - Motion set filter and motion set info function.
 - NLA Tools:
     - NLA Bake functions moved to NLA editor panel.
-    - Motion set panel in rigging and NLA editor and Datalink.
+    - Motion set panel in rigging and NLA editor and DataLink.
     - NLA strip alignment and sizing utility functions.
 - Fixes:
     - Duplicating character no longer duplicates actions.
@@ -140,8 +145,8 @@ Links
     - Positioning fixes with rigify
 
 ### 2.0.9
-- Datalink:
-    - Datalink main loop stability improvements.
+- DataLink:
+    - DataLink main loop stability improvements.
     - Live sequence back to CC4/iClone takes facial expression bone rotations into account.
     - Live Sequence stop button.
     - Replace mesh function: Quickly send (non topology changing) mesh alterations back to CC4.
@@ -165,7 +170,7 @@ Links
         - Metarig names (without Root bone) for exporting animations back into CC/iC.
         - CC Base names (with Root bone) for exporting to Unity Auto-setup.
     - Rigified characters/motion exports now generate custom HIK profile which can be used to import/convert Rigified motion exports into CC/iC.
-    - Datalink Rigified characters (optionally) disable tweak bones as they are not compatible with CC/iC animation.
+    - DataLink Rigified characters (optionally) disable tweak bones as they are not compatible with CC/iC animation.
 - Scene tools:
     - Scene lighting presets overhauled.
     - Added function to align any object to view location and orientation (useful for placing lights and cameras).
@@ -187,9 +192,9 @@ Links
 - Character Management
     - Character edit function added.
     - Character duplicate function added (duplicates character objects and meta-data so can be used and configured independently).
-    - Character tools (select/rigify/convert/delete/duplicate), also sub-panel in Datalink.
+    - Character tools (select/rigify/convert/delete/duplicate), also sub-panel in DataLink.
     - Convert to accessory fix.
-- Datalink:
+- DataLink:
     - Added Receiving prop posing and animation live sequence.
     - Added custom prop rig control bones when sending through datalink.
     - Added Direct Motion Transfer from CC/iC (automatic motion export->import).
@@ -212,7 +217,7 @@ Links
 ### 2.0.5
 - Fix to converting generic objects to props.
 - Fix to baking value textures back to CC4 when exporting converted props and humanoids.
-- Datalink data send rate synchronization improvements.
+- DataLink data send rate synchronization improvements.
 - Rigify retarget and NLA bake options to bake to FK/IK/Both.
     - Rig FK/IK mode set appropriately, unchanged when baking to 'Both'.
 - Quick FK/IK switch button added to rigify mini-panel.
@@ -227,7 +232,7 @@ Links
     - Rebuilding materials will add this custom data to existing characters.
     - Auto-linked/Re-connected characters can use full add-on functionality i.e. rigging, retargeting, exporting, rebuilding materials, etc...
 - Rigify:
-    - Datalink pose retargeting teeth position fix.
+    - DataLink pose retargeting teeth position fix.
     - Eye bone and jaw bone alignments corrected.
     - Face rig jaw constraints adjusted for less lip deformation.
 - Parallax eye shader AO fix.
@@ -235,7 +240,7 @@ Links
 - Importing a bad or incompatible mesh should fail more gracefully.
 
 ### 2.0.3
-- Datalink:
+- DataLink:
     - Lighting and Camera sync.
     - Send Character (Go-CC) back to CC4.
     - Facial expressions and Visemes transferred in the pose and animation sequencing.

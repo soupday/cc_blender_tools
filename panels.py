@@ -2034,7 +2034,7 @@ class CC3RigifyPanel(bpy.types.Panel):
 
                         if chr_cache.rig_mode == "ADVANCED" or chr_cache.can_rig_full_face():
                             #row = layout.row()
-                            #row.prop(prefs, "rigify_align_to_cc", expand=True)
+                            #row.prop(prefs, "rigify_align_bones", expand=True)
                             grid = layout.grid_flow(columns=2, row_major=True, align=True)
                             grid.prop(prefs, "rigify_build_face_rig", text = "Face Rig", toggle=True)
                             if not chr_cache.can_rig_full_face() and prefs.rigify_build_face_rig:
@@ -2043,6 +2043,7 @@ class CC3RigifyPanel(bpy.types.Panel):
                             grid = layout.grid_flow(columns=1, row_major=True, align=True)
 
                         grid.prop(prefs, "rigify_auto_retarget", text = "Auto retarget", toggle=True)
+
                         if prefs.rigify_auto_retarget:
                             # retarget/bake motion prefix
                             row = layout.row()
@@ -2053,6 +2054,8 @@ class CC3RigifyPanel(bpy.types.Panel):
                             icon = "FAKE_USER_OFF" if not props.rigify_retarget_use_fake_user else "FAKE_USER_ON"
                             row.prop(props, "rigify_retarget_use_fake_user", text="", icon=icon, toggle=True)
 
+                        layout.row().prop(prefs, "rigify_align_bones", expand=True)
+
                         if chr_cache.rig_mode == "QUICK":
 
                             row = layout.row()
@@ -2061,10 +2064,6 @@ class CC3RigifyPanel(bpy.types.Panel):
                             row.enabled = chr_cache is not None
 
                         else:
-
-                            split = layout.split(factor=0.45, align=True)
-                            split.column(align=True).label(text="Align Bones")
-                            split.column(align=True).prop(prefs, "rigify_align_to_cc", text="")
 
                             row = layout.row()
                             row.scale_y = 2

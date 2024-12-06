@@ -5,7 +5,9 @@ from enum import IntEnum
 import os, socket, time, select, struct, json, copy
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix
-from . import importer, exporter, bones, geom, colorspace, world, rigging, rigutils, modifiers, jsonutils, utils, vars
+from . import (importer, exporter, bones, geom, colorspace,
+               world, rigging, rigutils, drivers, modifiers,
+               jsonutils, utils, vars)
 import textwrap
 
 BLENDER_PORT = 9334
@@ -301,8 +303,10 @@ class LinkActor():
                         mesh_name = child.name
                         meshes[i] = mesh_name
                     obj = child
+                    rot_mode = obj.rotation_mode
                     obj.rotation_mode = "QUATERNION"
                     skin_meshes[mesh_name] = [obj, obj.location.copy(), obj.rotation_quaternion.copy(), obj.scale.copy()]
+                    obj.rotation_mode = rot_mode
         self.skin_meshes = skin_meshes
 
     def remap_visemes(self, visemes):
@@ -772,7 +776,7 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
                         bone.hide = False
                         bone.hide_select = False
                         bone.select = True
-                        pose_bone.rotation_mode = "QUATERNION"
+                        #pose_bone.rotation_mode = "QUATERNION"
 
             # create keyframe cache for animation sequences
             count = end_frame - start_frame + 1
@@ -1867,15 +1871,21 @@ class LinkService():
                     for pose_bone in export_rig.pose.bones:
                         if pose_bone.name != "root" and not pose_bone.name.startswith("DEF-"):
                             bones.append(pose_bone.name)
+                driver_mode = "BONE"
             else:
                 # get all the bones
                 rig: bpy.types.Object = chr_cache.get_armature()
                 if rigutils.select_rig(rig):
                     for pose_bone in rig.pose.bones:
                         bones.append(pose_bone.name)
+                if drivers.has_facial_shape_key_bone_drivers(chr_cache):
+                    driver_mode = "EXPRESSION"
+                else:
+                    driver_mode = "BONE"
 
             actor.collect_shape_keys()
             shapes = [key for key in actor.shape_keys]
+
 
             actor.bones = bones
             actor_data.append({
@@ -1884,6 +1894,7 @@ class LinkService():
                 "link_id": actor.get_link_id(),
                 "bones": bones,
                 "shapes": shapes,
+                "drivers": driver_mode,
             })
 
         return encode_from_json(character_template)
@@ -2164,12 +2175,14 @@ class LinkService():
                 sca = Vector((sx, sy, sz))
                 #
                 rig.location = Vector((0, 0, 0))
+                rot_mode = rig.rotation_mode
                 rig.rotation_mode = "QUATERNION"
                 rig.rotation_quaternion = Quaternion((1, 0, 0, 0))
                 if actor.get_chr_cache().rigified:
                     rig.scale = Vector((1, 1, 1))
                 else:
                     rig.scale = Vector((0.01, 0.01, 0.01))
+                rig.rotation_mode = rot_mode
 
             datalink_rig = None
             if actor:
@@ -2195,10 +2208,13 @@ class LinkService():
                     loc = Vector((tx, ty, tz)) * 0.01
                     rot = Quaternion((rw, rx, ry, rz))
                     sca = Vector((sx, sy, sz))
+                    rot_mode = pose_bone.rotation_mode
                     pose_bone.rotation_mode = "QUATERNION"
                     pose_bone.rotation_quaternion = rot
                     pose_bone.location = loc
                     pose_bone.scale = sca
+                    pose_bone.rotation_mode = rot_mode
+
 
             # unpack mesh transforms
             num_meshes = struct.unpack_from("!I", pose_data, offset)[0]
@@ -2368,8 +2384,10 @@ class LinkService():
 
             loc = utils.array_to_vector(light_data["loc"]) / 100
             light.location = loc
+            rot_mode = light.rotation_mode
             light.rotation_mode = "QUATERNION"
             light.rotation_quaternion = utils.array_to_quaternion(light_data["rot"])
+            light.rotation_mode = rot_mode
             light.scale = utils.array_to_vector(light_data["sca"])
             desat_ambient_color = ambient_color.copy()
             desat_ambient_color.s *= 0.2

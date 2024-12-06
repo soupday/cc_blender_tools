@@ -159,26 +159,26 @@ def add_def_bones(chr_cache, cc3_rig, rigify_rig):
         # reparent an existing deformation bone
         if src_bone_name == "-":
             reparented_bone = bones.reparent_edit_bone(rigify_rig, dst_bone_name, dst_bone_parent_name)
-            if reparented_bone:
+            if reparented_bone and relation_flags:
                 bones.set_edit_bone_flags(reparented_bone, relation_flags, deform)
                 bones.set_bone_collection(rigify_rig, reparented_bone, collection, None, layer)
 
-        # add a custom DEF or ORG bone
-        elif src_bone_name[:3] == "DEF" or src_bone_name[:3] == "ORG":
-            def_bone = bones.copy_edit_bone(rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
-            if def_bone:
-                bones.set_edit_bone_flags(def_bone, relation_flags, deform)
-                bones.set_bone_collection(rigify_rig, def_bone, collection, None, layer)
+        # add a custom DEF, ORG or MCH bone
+        elif src_bone_name[:3] == "DEF" or src_bone_name[:3] == "ORG" or src_bone_name[:3] == "MCH":
+            new_bone = bones.copy_edit_bone(rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
+            if new_bone:
+                bones.set_edit_bone_flags(new_bone, relation_flags, deform)
+                bones.set_bone_collection(rigify_rig, new_bone, collection, None, layer)
             # partial rotation copy for share bones
-            if "_share" in dst_bone_name and ref:
+            if ref and arg is not None:
                 bones.add_copy_rotation_constraint(rigify_rig, rigify_rig, ref, dst_bone_name, arg)
 
         # or make a copy of a bone from the original character rig
         else:
-            def_bone = bones.copy_rl_edit_bone(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
-            if def_bone:
-                bones.set_edit_bone_flags(def_bone, relation_flags, deform)
-                bones.set_bone_collection(rigify_rig, def_bone, collection, None, layer)
+            new_bone = bones.copy_rl_edit_bone(cc3_rig, rigify_rig, src_bone_name, dst_bone_name, dst_bone_parent_name, scale)
+            if new_bone:
+                bones.set_edit_bone_flags(new_bone, relation_flags, deform)
+                bones.set_bone_collection(rigify_rig, new_bone, collection, None, layer)
 
     utils.log_recess()
 
@@ -705,7 +705,7 @@ def store_bone_roll(cc3_rig, meta_rig, roll_store, rigify_data: rigify_mapping_d
     if rigutils.edit_rig(meta_rig):
         for bone in meta_rig.data.edit_bones:
             source_name = rigify_data.get_source_bone(bone.name)
-            if prefs.rigify_align_to_cc == "CC" and source_name and source_name in cc3_bone_store:
+            if prefs.rigify_align_bones == "CC" and source_name and source_name in cc3_bone_store:
                 z_axis: Vector = cc3_bone_store[source_name]
                 z_axis.normalize()
                 roll_store[bone.name] = [bone.roll, z_axis]
@@ -745,7 +745,7 @@ def restore_bone_roll(meta_rig, roll_store):
                 bone_roll = roll_store[bone.name][0]
                 bone_z_axis = roll_store[bone.name][1]
                 bone.align_roll(bone_z_axis)
-                if prefs.rigify_align_to_cc == "METARIG":
+                if prefs.rigify_align_bones == "METARIG":
                     for correction in rigify_mapping_data.ROLL_CORRECTION:
                         if correction[0] == bone.name:
                             if steep_a_pose:
