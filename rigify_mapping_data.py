@@ -555,7 +555,7 @@ GAME_BASE_VERTEX_GROUP_RENAME = [
 
 
 # additional bones to copy from the cc3 or rigify rigs to generate rigify deformation, mech or control bones
-# [source_bone, new_rigify_bone, rigify_parent, flags, layer, scale, ref, arg]
+# [source_bone, new_rigify_bone, rigify_parent, flags, layer, collection, ["SCALE", scale, ref, arg]]
 # flags C=Connected, L=Local location, R=Inherit rotation
 # layers: 31 = ORG bones, 30 = MCH bones, 29 = DEF bones
 # ref: reference bone(s) for position generation or constraints
@@ -567,6 +567,10 @@ ADD_DEF_BONES = [
 
     ["ORG-teeth.T", "DEF-teeth.T", "ORG-teeth.T", "LR", 29, "DEF"],
     ["ORG-teeth.B", "DEF-teeth.B", "ORG-teeth.B", "LR", 29, "DEF"],
+
+    ["MCH-jaw_master", "MCH-teeth_master", "ORG-face", "LR", 30, "", 0.9, "MCH-jaw_master", 0.8],
+    ["-", "teeth.B", "MCH-teeth_master", "", "", ""],
+    ["-", "tongue.003", "MCH-teeth_master", "", "", ""],
 
     ["CC_Base_L_RibsTwist", "DEF-breast_twist.L", "ORG-breast.L", "LR", 29, "DEF"],
     ["CC_Base_R_RibsTwist", "DEF-breast_twist.R", "ORG-breast.R", "LR", 29, "DEF"],

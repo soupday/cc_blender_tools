@@ -5,7 +5,9 @@ from enum import IntEnum
 import os, socket, time, select, struct, json, copy
 #import subprocess
 from mathutils import Vector, Quaternion, Matrix
-from . import importer, exporter, bones, geom, colorspace, world, rigging, rigutils, modifiers, jsonutils, utils, vars
+from . import (importer, exporter, bones, geom, colorspace,
+               world, rigging, rigutils, drivers, modifiers,
+               jsonutils, utils, vars)
 import textwrap
 
 BLENDER_PORT = 9334
@@ -1869,15 +1871,21 @@ class LinkService():
                     for pose_bone in export_rig.pose.bones:
                         if pose_bone.name != "root" and not pose_bone.name.startswith("DEF-"):
                             bones.append(pose_bone.name)
+                driver_mode = "BONE"
             else:
                 # get all the bones
                 rig: bpy.types.Object = chr_cache.get_armature()
                 if rigutils.select_rig(rig):
                     for pose_bone in rig.pose.bones:
                         bones.append(pose_bone.name)
+                if drivers.has_facial_shape_key_bone_drivers(chr_cache):
+                    driver_mode = "EXPRESSION"
+                else:
+                    driver_mode = "BONE"
 
             actor.collect_shape_keys()
             shapes = [key for key in actor.shape_keys]
+
 
             actor.bones = bones
             actor_data.append({
@@ -1886,6 +1894,7 @@ class LinkService():
                 "link_id": actor.get_link_id(),
                 "bones": bones,
                 "shapes": shapes,
+                "drivers": driver_mode,
             })
 
         return encode_from_json(character_template)
