@@ -274,7 +274,7 @@ def get_bake_image(mat, channel_id, width, height, shader_node, socket, bake_dir
             image_name = base_name + "_" + str(i)
             utils.log_info(f"Image: {old_name} in use, trying: {image_name}")
             image, exists = get_image_target(image_name, width, height, bake_dir, is_data, alpha,
-                                             channel_packed=channel_pack, image_format=image_format)
+                                             channel_packed=channel_pack, format=image_format)
 
     return image, image_name, exists
 
@@ -1569,7 +1569,7 @@ def set_loc(node, loc):
         node.location = loc
 
 
-def prep_diffuse(mat, shader_node, separate, ao_strength):
+def prep_diffuse(mat, shader_name, shader_node, separate, ao_strength):
     props = vars.bake_props()
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -1675,9 +1675,11 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
             # eye shaders use 1/8 the AO strength
             if shader_name in ["rl_cornea_shader", "rl_eye_shader"]:
                 ao_strength /= 8
+                # use unmodified iris brightness
+                nodeutils.set_node_input_value(shader_node, "Iris Brightness", source_mat_cache.parameters.eye_iris_brightness)
             if "Diffuse" in bake_maps:
                 # if there is a "Diffuse" output node, bake that, otherwise bake the "Base Color" output node.
-                prep_diffuse(mat, shader_node, "AO" in bake_maps, ao_strength)
+                prep_diffuse(mat, shader_name, shader_node, "AO" in bake_maps, ao_strength)
                 if "Diffuse" in shader_node.outputs and "Transmission" not in shader_node.outputs:
                     diffuse_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Diffuse", "Diffuse", False)
                 else:
@@ -1766,14 +1768,18 @@ def bake_export_material(context, mat, source_mat, source_mat_cache):
     # Alpha Maps
     alpha_bake_node = None
     alpha_socket = nodeutils.input_socket(bsdf_node, "Alpha")
+    # Opacity output is for baking only
     if nodeutils.has_connected_input(bsdf_node, alpha_socket) or (shader_node and "Opacity" in shader_node.outputs):
-        if shader_node and "Opacity" in shader_node.outputs and "Alpha" in bake_maps:
+        if shader_node and ("Opacity" in shader_node.outputs or "Alpha" in shader_node.outputs) and "Alpha" in bake_maps:
             prep_alpha(mat, shader_node)
             if (can_bake_shader_node(shader_node, bsdf_node, alpha_socket)
                 or (shader_node and "Opacity" in shader_node.outputs)):
                 if "Opacity" in shader_node.outputs:
                     alpha_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Opacity", "Alpha")
-                    materials.set_material_alpha(mat, "BLEND", shadows=False)
+                    if utils.B430():
+                        materials.set_material_alpha(mat, "DITHERED", shadows=False)
+                    else:
+                        materials.set_material_alpha(mat, "BLEND", shadows=False)
                 else:
                     alpha_bake_node = export_bake_socket_output(context, source_mat, source_mat_cache, mat, shader_node, "Alpha", "Alpha")
             elif bsdf_node:
@@ -2006,7 +2012,7 @@ def combine_diffuse_tex(nodes, source_mat, source_mat_cache, mat,
     image_name = get_bake_image_name(mat, map_suffix)
     image_node_name = get_bake_image_node_name(mat, map_suffix)
     image, exists = get_image_target(image_name, width, height, path, is_data=False, has_alpha=True,
-                                     channel_packed=True, image_format=image_format)
+                                     channel_packed=True, format=image_format)
     image_node = nodeutils.make_image_node(nodes, image, image_node_name)
     image_node.select = True
     nodes.active = image_node
@@ -2068,7 +2074,7 @@ def combine_hdrp_mask_tex(nodes, source_mat, source_mat_cache, mat,
     image_node_name = get_bake_image_node_name(mat, map_suffix)
     image, exists = get_image_target(image_name, width, height, path,
                                      is_data=True, has_alpa=True, channel_packed=True,
-                                     image_format=image_format)
+                                     format=image_format)
     image_node = nodeutils.make_image_node(nodes, image, image_node_name)
     image_node.select = True
     nodes.active = image_node
@@ -2142,7 +2148,7 @@ def combine_hdrp_detail_tex(nodes, source_mat, source_mat_cache, mat,
     image_node_name = get_bake_image_node_name(mat, map_suffix)
     image, exists = get_image_target(image_name, width, height, path,
                                      is_data=True, has_alpha=True, channel_packed=True,
-                                     image_format=image_format)
+                                     format=image_format)
     image_node = nodeutils.make_image_node(nodes, image, image_node_name)
     image_node.select = True
     nodes.active = image_node
@@ -2212,7 +2218,7 @@ def make_metallic_smoothness_tex(nodes, source_mat, source_mat_cache, mat,
     image_node_name = get_bake_image_node_name(mat, map_suffix)
     image, exists = get_image_target(image_name, width, height, path,
                                      is_data=True, has_alpha=True, channel_packed=True,
-                                     image_format=image_format)
+                                     format=image_format)
     image_node = nodeutils.make_image_node(nodes, image, image_node_name)
     image_node.select = True
     nodes.active = image_node
@@ -2287,7 +2293,7 @@ def combine_gltf(nodes, source_mat, source_mat_cache, mat,
     image_node_name = get_bake_image_node_name(mat, map_suffix)
     image, exists = get_image_target(image_name, width, height, path,
                                      is_data=True, has_alpha=False, channel_packed=False,
-                                     image_format=image_format)
+                                     format=image_format)
     image_node = nodeutils.make_image_node(nodes, image, image_node_name)
     image_node.select = True
     nodes.active = image_node
