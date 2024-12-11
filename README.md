@@ -11,11 +11,9 @@ This add-on aims to reduce that time spent getting characters into Blender down 
 
 Links
 =====
+[CC4 Blender Pipeline Tool (Installed in CC4)](https://github.com/soupday/CCiC-Blender-Pipeline-Plugin)
+
 [CC3 Blender Pipeline Tool (Installed in CC3)](https://github.com/soupday/CC3-Blender-Tools-Plugin)
-
-[CC4 Blender Pipeline Tool (Installed in CC4)](https://github.com/soupday/CC4-Blender-Tools-Plugin)
-
-[Baking Add-on](https://github.com/soupday/cc3_blender_bake)
 
 ## Installation, Updating, Removal
 ### To Install
@@ -34,6 +32,12 @@ Links
 - Follow the installation instructions, above, to install the new version.
 
 ## Changelog
+
+### 2.2.3
+- Nose crease wrinkle maps added to Mouth_Smile_* expressions.
+- Export Bake:
+    - Fixes and alpha fixes in Blender 4.3
+    - Iris Brightness adjustments removed when baking.
 
 ### 2.2.2
 - Teeth and tongue added to bone / expression drivers.
