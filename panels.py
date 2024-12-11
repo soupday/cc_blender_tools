@@ -18,10 +18,11 @@ import bpy
 import textwrap
 import os
 
-from . import addon_updater_ops, rigging, rigutils
+from . import addon_updater_ops, iconutils, rigging, rigutils
 from . import (link, rigify_mapping_data, bones, characters, sculpting, springbones,
                bake, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils,
                utils, params, vars)
+from .drivers import get_head_body_object_quick
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
@@ -1593,22 +1594,56 @@ class CC3MaterialParametersPanel(bpy.types.Panel):
                             column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
 
                         elif ui_row[0] == "WRINKLE_CONTROLS":
-                            body_object = None
-                            for o in chr_cache.get_objects_of_type("BODY"):
-                                if "wrinkle_strength" in o or "wrinkle_curve" in o:
-                                    body_object = o
-                            if body_object:
-                                column.box().label(text= ui_row[1], icon=utils.check_icon(ui_row[2]))
+                            body_object = get_head_body_object_quick(chr_cache)
+                            if body_object and "wrinkle_strength" in body_object:
+                                column.box().label(text=ui_row[1], icon=utils.check_icon(ui_row[2]))
+                                #row.label(text="", icon_value=iconutils.ICON_WRINKLE_REGIONS.icon_id)
+                                if "wrinkle_source" in body_object:
+                                    row = column.row()
+                                    row.template_icon(icon_value=iconutils.ICON_WRINKLE_REGIONS.icon_id, scale=8)
+                                if "wrinkle_source" in body_object:
+                                    row = column.row()
+                                    split = row.split(factor=0.5)
+                                    row.column().label(text="Region")
+                                    row.column().prop(props, "wrinkle_regions", text="")
+                                else:
+                                    row = column.row()
+                                    row.alert = True
+                                    row.operator("cc3.importer", icon="DRIVER", text="Rebuild Drivers").param ="BUILD_DRIVERS"
                                 row = column.row()
                                 split = row.split(factor=0.5)
                                 col_1 = row.column()
                                 col_2 = row.column()
+                                region = props.wrinkle_regions
+                                if "wrinkle_source" in body_object:
+                                    if region == "ALL":
+                                        col_1.label(text="Strength")
+                                        col_2.prop(props, "wrinkle_strength", text="", slider=True)
+                                    else:
+                                        prop_name = "wrinkle_regions"
+                                        if prop_name in body_object:
+                                            col_1.label(text="Strength")
+                                            col_2.prop(body_object, f"[\"{prop_name}\"]", text="", slider=True, index=int(region)-1)
+                                if "wrinkle_source" in body_object:
+                                    if region == "ALL":
+                                        col_1.label(text="Curve")
+                                        col_2.prop(props, "wrinkle_curve", text="", slider=True)
+                                    else:
+                                        prop_name = "wrinkle_curves"
+                                        if prop_name in body_object:
+                                            col_1.label(text="Curve")
+                                            col_2.prop(body_object, f"[\"{prop_name}\"]", text="", slider=True, index=int(region)-1)
+                                column.separator()
                                 if "wrinkle_strength" in body_object:
-                                    col_1.label(text="Strength")
-                                    col_2.prop(body_object, "[\"wrinkle_strength\"]", text="", slider=True)
+                                    row = column.row()
+                                    split = row.split(factor=0.5)
+                                    row.column().label(text="Overall")
+                                    row.column().prop(body_object, "[\"wrinkle_strength\"]", text="", slider=True)
                                 if "wrinkle_curve" in body_object:
-                                    col_1.label(text="Curve")
-                                    col_2.prop(body_object, "[\"wrinkle_curve\"]", text="", slider=True)
+                                    row = column.row()
+                                    split = row.split(factor=0.5)
+                                    row.column().label(text="Curve")
+                                    row.column().prop(body_object, "[\"wrinkle_curve\"]", text="", slider=True)
 
                         elif ui_row[0] == "PROP":
 

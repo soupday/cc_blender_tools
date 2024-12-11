@@ -55,6 +55,7 @@ if "bpy" in locals():
     importlib.reload(normal)
     importlib.reload(link)
     importlib.reload(proportion)
+    importlib.reload(iconutils)
 
 import bpy
 from bpy.app.handlers import persistent
@@ -98,6 +99,7 @@ from . import world
 from . import normal
 from . import link
 from . import proportion
+from . import iconutils
 
 
 bl_info = {
@@ -231,6 +233,8 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    iconutils.register()
+
     bpy.types.Scene.CC3ImportProps = bpy.props.PointerProperty(type=properties.CC3ImportProps)
     bpy.types.Scene.CCICBakeProps = bpy.props.PointerProperty(type=properties.CCICBakeProps)
     bpy.types.Scene.CCICLinkProps = bpy.props.PointerProperty(type=properties.CCICLinkProps)
@@ -252,6 +256,8 @@ def unregister():
 
     for cls in classes:
         bpy.utils.unregister_class(cls)
+
+    iconutils.unregister()
 
     del(bpy.types.Scene.CC3ImportProps)
     del(bpy.types.Scene.CCICBakeProps)

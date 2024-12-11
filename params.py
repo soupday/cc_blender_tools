@@ -2225,76 +2225,76 @@ WRINKLE_DRIVERS = {
 WRINKLE_RULES = {
 
     # Set 1A L/R
-    "head_wm1_normal_head_wm1_blink_L": [1, "ADD"],
-    "head_wm1_normal_head_wm1_blink_R": [1, "ADD"],
+    "head_wm1_normal_head_wm1_blink_L": [1, "ADD", "03"],
+    "head_wm1_normal_head_wm1_blink_R": [1, "ADD", "03"],
 
-    "head_wm1_normal_head_wm1_browRaiseInner_L": [1, "ADD"],
-    "head_wm1_normal_head_wm1_browRaiseInner_R": [1, "ADD"],
+    "head_wm1_normal_head_wm1_browRaiseInner_L": [1, "ADD", "01"],
+    "head_wm1_normal_head_wm1_browRaiseInner_R": [1, "ADD", "01"],
 
-    "head_wm1_normal_head_wm1_purse_DL": [1, "ADD"],
-    "head_wm1_normal_head_wm1_purse_DR": [1, "ADD"],
+    "head_wm1_normal_head_wm1_purse_DL": [1, "ADD", "08"],
+    "head_wm1_normal_head_wm1_purse_DR": [1, "ADD", "08"],
 
-    "head_wm1_normal_head_wm1_purse_UL": [1, "ADD"],
-    "head_wm1_normal_head_wm1_purse_UR": [1, "ADD"],
+    "head_wm1_normal_head_wm1_purse_UL": [1, "ADD", "08"],
+    "head_wm1_normal_head_wm1_purse_UR": [1, "ADD", "08"],
 
     # Set 1B L/R
-    "head_wm1_normal_head_wm1_browRaiseOuter_L": [1, "ADD"],
-    "head_wm1_normal_head_wm1_browRaiseOuter_R": [1, "ADD"],
+    "head_wm1_normal_head_wm1_browRaiseOuter_L": [1, "ADD", "01"],
+    "head_wm1_normal_head_wm1_browRaiseOuter_R": [1, "ADD", "01"],
 
-    "head_wm1_normal_head_wm1_chinRaise_L": [1, "ADD"],
-    "head_wm1_normal_head_wm1_chinRaise_R": [1, "ADD"],
+    "head_wm1_normal_head_wm1_chinRaise_L": [1, "ADD", "11"],
+    "head_wm1_normal_head_wm1_chinRaise_R": [1, "ADD", "11"],
 
-    "head_wm1_normal_head_wm1_jawOpen_L": [1, "ADD"],
-    "head_wm1_normal_head_wm1_jawOpen_R": [1, "ADD"],
+    "head_wm1_normal_head_wm1_jawOpen_L": [1, "ADD", "12"],
+    "head_wm1_normal_head_wm1_jawOpen_R": [1, "ADD", "12"],
 
-    "head_wm1_normal_head_wm1_squintInner_L": [1, "ADD"],
-    "head_wm1_normal_head_wm1_squintInner_R": [1, "ADD"],
+    "head_wm1_normal_head_wm1_squintInner_L": [1, "ADD", "04"],
+    "head_wm1_normal_head_wm1_squintInner_R": [1, "ADD", "04"],
 
     # Set 2 L/R
-    "head_wm2_normal_head_wm2_browsDown_L": [1, "ADD"],
-    "head_wm2_normal_head_wm2_browsDown_R": [1, "ADD"],
+    "head_wm2_normal_head_wm2_browsDown_L": [1, "ADD", "02"],
+    "head_wm2_normal_head_wm2_browsDown_R": [1, "ADD", "02"],
 
-    "head_wm2_normal_head_wm2_browsLateral_L": [1, "ADD"],
-    "head_wm2_normal_head_wm2_browsLateral_R": [1, "ADD"],
+    "head_wm2_normal_head_wm2_browsLateral_L": [1, "ADD", "02"],
+    "head_wm2_normal_head_wm2_browsLateral_R": [1, "ADD", "02"],
 
-    "head_wm2_normal_head_wm2_mouthStretch_L": [1, "ADD"],
-    "head_wm2_normal_head_wm2_mouthStretch_R": [1, "ADD"],
+    "head_wm2_normal_head_wm2_mouthStretch_L": [1, "ADD", "10"],
+    "head_wm2_normal_head_wm2_mouthStretch_R": [1, "ADD", "10"],
 
-    "head_wm2_normal_head_wm2_neckStretch_L": [1, "ADD"],
-    "head_wm2_normal_head_wm2_neckStretch_R": [1, "ADD"],
+    "head_wm2_normal_head_wm2_neckStretch_L": [1, "ADD", "13"],
+    "head_wm2_normal_head_wm2_neckStretch_R": [1, "ADD", "13"],
 
     # Set 3 L/R
-    "head_wm3_normal_head_wm3_cheekRaiseInner_L": [1, "ADD"],
-    "head_wm3_normal_head_wm3_cheekRaiseInner_R": [1, "ADD"],
+    "head_wm3_normal_head_wm3_cheekRaiseInner_L": [1, "ADD", "06"],
+    "head_wm3_normal_head_wm3_cheekRaiseInner_R": [1, "ADD", "06"],
 
-    "head_wm3_normal_head_wm3_cheekRaiseOuter_L": [1, "ADD"],
-    "head_wm3_normal_head_wm3_cheekRaiseOuter_R": [1, "ADD"],
+    "head_wm3_normal_head_wm3_cheekRaiseOuter_L": [1, "ADD", "06"],
+    "head_wm3_normal_head_wm3_cheekRaiseOuter_R": [1, "ADD", "06"],
 
-    "head_wm3_normal_head_wm3_cheekRaiseUpper_L": [1, "ADD"],
-    "head_wm3_normal_head_wm3_cheekRaiseUpper_R": [1, "ADD"],
+    "head_wm3_normal_head_wm3_cheekRaiseUpper_L": [1, "ADD", "06"],
+    "head_wm3_normal_head_wm3_cheekRaiseUpper_R": [1, "ADD", "06"],
 
-    "head_wm3_normal_head_wm3_smile_L": [1, "ADD"],
-    "head_wm3_normal_head_wm3_smile_R": [1, "ADD"],
+    "head_wm3_normal_head_wm3_smile_L": [1, "ADD", "09"],
+    "head_wm3_normal_head_wm3_smile_R": [1, "ADD", "09"],
 
     # Set 12C L/R
-    "head_wm1_normal_head_wm13_lips_DL": [1, "ADD"],
-    "head_wm1_normal_head_wm13_lips_DR": [1, "ADD"],
+    "head_wm1_normal_head_wm13_lips_DL": [1, "ADD", "08"],
+    "head_wm1_normal_head_wm13_lips_DR": [1, "ADD", "08"],
 
-    "head_wm1_normal_head_wm13_lips_UL": [1, "ADD"],
-    "head_wm1_normal_head_wm13_lips_UR": [1, "ADD"],
+    "head_wm1_normal_head_wm13_lips_UL": [1, "ADD", "08"],
+    "head_wm1_normal_head_wm13_lips_UR": [1, "ADD", "08"],
 
-    "head_wm2_normal_head_wm2_noseWrinkler_L": [1, "ADD"],
-    "head_wm2_normal_head_wm2_noseWrinkler_R": [1, "ADD"],
+    "head_wm2_normal_head_wm2_noseWrinkler_L": [1, "ADD", "05"],
+    "head_wm2_normal_head_wm2_noseWrinkler_R": [1, "ADD", "05"],
 
-    "head_wm2_normal_head_wm2_noseCrease_L": [1, "ADD"],
-    "head_wm2_normal_head_wm2_noseCrease_R": [1, "ADD"],
+    "head_wm2_normal_head_wm2_noseCrease_L": [1, "ADD", "07"],
+    "head_wm2_normal_head_wm2_noseCrease_R": [1, "ADD", "07"],
 
     # Set 3D
-    "head_wm3_normal_head_wm13_lips_DL": [1, "ADD"],
-    "head_wm3_normal_head_wm13_lips_DR": [1, "ADD"],
+    "head_wm3_normal_head_wm13_lips_DL": [1, "ADD", "09"],
+    "head_wm3_normal_head_wm13_lips_DR": [1, "ADD", "09"],
 
-    "head_wm3_normal_head_wm13_lips_UL": [1, "ADD"],
-    "head_wm3_normal_head_wm13_lips_UR": [1, "ADD"],
+    "head_wm3_normal_head_wm13_lips_UL": [1, "ADD", "09"],
+    "head_wm3_normal_head_wm13_lips_UR": [1, "ADD", "09"],
 }
 
 # How each shape_key on the body mesh maps to each wrinkle morph.

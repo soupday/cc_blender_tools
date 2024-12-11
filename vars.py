@@ -16,7 +16,7 @@
 
 # Set by __init__.py from the bl_info dict
 
-import bpy, uuid
+import bpy
 
 VERSION_STRING = "v2.2.3"
 DEV = False

@@ -1584,24 +1584,30 @@ class CC3Import(bpy.types.Operator):
         elif self.param == "BUILD":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
+                mode_selection = utils.store_mode_selection_state()
                 utils.object_mode()
                 self.build_materials(context)
                 self.build_drivers(context)
                 self.do_import_report(context, stage = 1)
+                utils.restore_mode_selection_state(mode_selection)
 
         elif self.param == "BUILD_DRIVERS":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
+                mode_selection = utils.store_mode_selection_state()
                 utils.object_mode()
                 self.build_drivers(context, rebuild_wrinkle=True)
                 self.report({"INFO"}, "Drivers Rebuilt!")
+                utils.restore_mode_selection_state(mode_selection)
 
         elif self.param == "REMOVE_DRIVERS":
             chr_cache = props.get_context_character_cache(context)
             if chr_cache:
+                mode_selection = utils.store_mode_selection_state()
                 utils.object_mode()
                 self.remove_drivers(context)
                 self.report({"INFO"}, "Drivers Removed!")
+                utils.restore_mode_selection_state(mode_selection)
 
         # rebuild the node groups for advanced materials
         elif self.param == "REBUILD_NODE_GROUPS":
