@@ -655,6 +655,15 @@ def get_head_material_and_json(chr_cache, chr_json):
     return head_mat, head_mat_json
 
 
+def get_head_body_object_quick(chr_cache):
+    body_objects = chr_cache.get_objects_of_type("BODY")
+    for obj in body_objects:
+        if "wrinkle_source" in obj:
+            if obj["wrinkle_source"]:
+                return obj
+    return get_head_body_object(chr_cache)
+
+
 def get_head_body_object(chr_cache):
 
     if not chr_cache: return None
@@ -681,6 +690,9 @@ def get_head_body_object(chr_cache):
     body = None
     if body_objects:
         for obj in body_objects:
+            try:
+                del obj["wrinkle_source"]
+            except: ...
             if body_objects[obj] > weight:
                 weight = body_objects[obj]
                 body = obj
@@ -688,6 +700,11 @@ def get_head_body_object(chr_cache):
     # fall back to the imported source body if nothing works
     if not body:
         body = chr_cache.get_body()
+
+    if body:
+        try:
+            body["wrinkle_source"] = True
+        except: ...
 
     return body
 

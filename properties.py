@@ -20,6 +20,7 @@ from mathutils import Vector
 from . import (channel_mixer, imageutils, meshutils, sculpting, materials,
                springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
                params, physics, basic, jsonutils, utils, vars)
+from .drivers import get_head_body_object_quick
 
 
 def open_mouth_update(self, context):
@@ -332,6 +333,34 @@ def update_material_setting(mat, mat_cache, prop_name, setting_defs):
                     exec(code, None, locals())
                 except:
                     utils.log_error("update_material_setting(): unable to execute: " + code)
+
+
+def update_wrinkle_strength_all(self, context):
+    if vars.block_property_update: return
+    props = vars.props()
+    chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
+    obj = get_head_body_object_quick(chr_cache)
+    if obj:
+        value = props.wrinkle_strength
+        prop_name = "wrinkle_regions"
+        for i in range(0,13):
+            if prop_name in obj:
+                obj[prop_name][i] = value
+    return
+
+
+def update_wrinkle_curve_all(self, context):
+    if vars.block_property_update: return
+    props = vars.props()
+    chr_cache: CC3CharacterCache = props.get_context_character_cache(context)
+    obj = get_head_body_object_quick(chr_cache)
+    if obj:
+        value = props.wrinkle_curve
+        prop_name = "wrinkle_curves"
+        for i in range(0,13):
+            if prop_name in obj:
+                obj[prop_name][i] = value
+    return
 
 
 def get_linked_materials(chr_cache, context_mat, update_mode):
@@ -2801,6 +2830,27 @@ class CC3ImportProps(bpy.types.PropertyGroup):
     unity_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
     rigified_action_list_index: bpy.props.IntProperty(default=-1)
     rigified_action_list_action: bpy.props.PointerProperty(type=bpy.types.Action)
+
+    wrinkle_regions: bpy.props.EnumProperty(items=[
+                        ("ALL", "All", "All Regions"),
+                        ("01", " 1 - Brow Raise", "Brow Raise"),
+                        ("02", " 2 - Brow Drop", "Brow Drop"),
+                        ("03", " 3 - Blink", "Blink"),
+                        ("04", " 4 - Squint", "Squint"),
+                        ("05", " 5 - Nose", "Nose"),
+                        ("06", " 6 - Cheek Raise", "Cheek Raise"),
+                        ("07", " 7 - Nostril Crease", "Nostril Crease"),
+                        ("08", " 8 - Purse Lips", "Purse Lips"),
+                        ("09", " 9 - Smile Lip Stretch", "Smile Lip Stretch"),
+                        ("10", "10 - Mouth Stretch", "Mouth Stretch"),
+                        ("11", "11 - Chin", "Chin"),
+                        ("12", "12 - Jaw", "Jaw"),
+                        ("13", "13 - Neck Stretch", "Neck Stretch"),
+                    ], default="ALL", name = "Wrinkle Region")
+    wrinkle_strength: bpy.props.FloatProperty(default=1.0, min=0.0, max=2.0, name = "Wrinkle Strength",
+                                              update=update_wrinkle_strength_all)
+    wrinkle_curve: bpy.props.FloatProperty(default=1.0, min=0.1, max=2.0, name = "Wrinkle Curve",
+                                              update=update_wrinkle_curve_all)
 
     #
     light_filter: bpy.props.FloatVectorProperty(subtype="COLOR", size=4,
