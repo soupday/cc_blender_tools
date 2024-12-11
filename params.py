@@ -2384,24 +2384,28 @@ WRINKLE_MAPPINGS = [
     ["Mouth_Smile_L", "head_wm3_normal_head_wm3_smile_L", 0.0, 1.0],
     ["Mouth_Smile_L", "head_wm3_normal_head_wm13_lips_DL", 0.0, 1.0],
     ["Mouth_Smile_L", "head_wm3_normal_head_wm13_lips_UL", 0.0, 1.0],
+    ["Mouth_Smile_L", "head_wm2_normal_head_wm2_noseCrease_L", 0.0, 0.7],
 
     ["Mouth_Smile_R", "head_wm3_normal_head_wm3_cheekRaiseInner_R", 0.0, 0.6],
     ["Mouth_Smile_R", "head_wm3_normal_head_wm3_cheekRaiseOuter_R", 0.0, 0.6],
     ["Mouth_Smile_R", "head_wm3_normal_head_wm3_smile_R", 0.0, 1.0],
     ["Mouth_Smile_R", "head_wm3_normal_head_wm13_lips_DR", 0.0, 1.0],
     ["Mouth_Smile_R", "head_wm3_normal_head_wm13_lips_UR", 0.0, 1.0],
+    ["Mouth_Smile_R", "head_wm2_normal_head_wm2_noseCrease_R", 0.0, 0.7],
 
     ["Mouth_Smile_Sharp_L", "head_wm3_normal_head_wm3_cheekRaiseInner_L", 0.0, 0.4],
     ["Mouth_Smile_Sharp_L", "head_wm3_normal_head_wm3_cheekRaiseOuter_L", 0.0, 0.4],
     ["Mouth_Smile_Sharp_L", "head_wm3_normal_head_wm3_smile_L", 0.0, 0.8],
     ["Mouth_Smile_Sharp_L", "head_wm3_normal_head_wm13_lips_DL", 0.0, 0.8],
     ["Mouth_Smile_Sharp_L", "head_wm3_normal_head_wm13_lips_UL", 0.0, 0.8],
+    ["Mouth_Smile_Sharp_L", "head_wm2_normal_head_wm2_noseCrease_L", 0.0, 0.7],
 
     ["Mouth_Smile_Sharp_R", "head_wm3_normal_head_wm3_cheekRaiseInner_R", 0.0, 0.4],
     ["Mouth_Smile_Sharp_R", "head_wm3_normal_head_wm3_cheekRaiseOuter_R", 0.0, 0.4],
     ["Mouth_Smile_Sharp_R", "head_wm3_normal_head_wm3_smile_R", 0.0, 0.8],
     ["Mouth_Smile_Sharp_R", "head_wm3_normal_head_wm13_lips_DR", 0.0, 0.8],
     ["Mouth_Smile_Sharp_R", "head_wm3_normal_head_wm13_lips_UR", 0.0, 0.8],
+    ["Mouth_Smile_Sharp_R", "head_wm2_normal_head_wm2_noseCrease_R", 0.0, 0.7],
 
     ["Mouth_Dimple_L", "head_wm3_normal_head_wm3_cheekRaiseInner_L", 0.0, 0.15],
     ["Mouth_Dimple_L", "head_wm3_normal_head_wm3_cheekRaiseOuter_L", 0.0, 0.15],
