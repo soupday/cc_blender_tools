@@ -34,6 +34,7 @@ Links
 ## Changelog
 
 ### 2.2.3
+- Wrinkle map region strength controls added.
 - Nose crease wrinkle maps added to Mouth_Smile_* expressions.
 - Export Bake:
     - Fixes and alpha fixes in Blender 4.3
