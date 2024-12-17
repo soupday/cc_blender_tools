@@ -633,12 +633,19 @@ def load_motion_set(rig, set_armature_action):
 
 
 def clear_motion_set(rig):
+    mode_selection = utils.store_mode_selection_state()
+    has_actions = utils.safe_get_action(rig)
+    if not has_actions:
+        reset_pose(rig)
     utils.safe_set_action(rig, None)
     objects = utils.get_child_objects(rig)
     for obj in objects:
         if obj.type == "MESH":
             if utils.object_has_shape_keys(obj):
                 utils.safe_set_action(obj.data.shape_keys, None)
+                if not has_actions:
+                    reset_shape_keys(obj)
+    utils.restore_mode_selection_state(mode_selection)
 
 
 def clear_all_actions(objects):
@@ -1179,15 +1186,22 @@ def reset_pose(rig):
     if rig:
         utils.pose_mode_to(rig)
         rig.data.pose_position = "POSE"
-        selected_bones = [ b for b in rig.data.bones if b.select ]
-        for b in rig.data.bones:
-            b.select = True
+        bones_data = {}
+        for bone in rig.data.bones:
+            bones_data[bone] = (bone.select, bone.hide, bone.hide_select)
+            bone.select = True
+            bone.hide = False
+            bone.hide_select = False
         bpy.ops.pose.transforms_clear()
-        for b in rig.data.bones:
-            if b in selected_bones:
-                b.select = True
-            else:
-                b.select = False
+        for bone in rig.data.bones:
+            bone.select, bone.hide, bone.hide_select = bones_data[bone]
+
+
+def reset_shape_keys(mesh):
+    if mesh and utils.object_has_shape_keys(mesh):
+        key: bpy.types.ShapeKey
+        for key in mesh.data.shape_keys.key_blocks:
+            key.value = 0.0
 
 
 def is_rig_rest_position(rig):
