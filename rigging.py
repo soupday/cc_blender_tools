@@ -1405,7 +1405,8 @@ def reparent_to_rigify(self, chr_cache, cc3_rig, rigify_rig, bone_mapping):
                 if (chr_cache.rigified_full_face_rig and
                     utils.object_exists_is_mesh(obj) and
                     len(obj.data.vertices) >= 2 and
-                    is_face_object(obj_cache, obj)):
+                    is_face_object(obj_cache, obj) and
+                    obj.name != "CC_Base_Tongue"):
 
                     obj_result = try_parent_auto(chr_cache, rigify_rig, obj)
                     if obj_result < result:
@@ -1632,11 +1633,116 @@ def clean_up_character_meshes(chr_cache):
         utils.set_active_object(arm)
 
 
-def parent_set_with_test(rig, obj):
+def prep_envelope_deform(rig, meta_rig):
+    """In case face rigging fails. Prep the DEF bones for envelope waights.
+       Not as good as heat map weights but better than nothing"""
+    bone: bpy.types.Bone = None
+    meta_bone: bpy.types.Bone = None
+    pose_bone: bpy.types.PoseBone = None
+    for pose_bone in rig.pose.bones:
+        bone = pose_bone.bone
+        if bone.use_deform:
+            if bone.name.startswith("DEF-"):
+                meta_name = bone.name[4:]
+                if meta_name in meta_rig.data.bones:
+                    meta_bone = meta_rig.data.bones[meta_name]
+                    length = meta_bone.length
+                    bone.envelope_weight = 0.5
+                    bone.envelope_distance = max(length, 0.01)
+                    bone.use_envelope_multiply = False
+                    # 1mm radius
+                    bone.head_radius = 0.005
+                    bone.tail_radius = 0.005
+
+
+def fix_envelope_lips(chr_cache, rig, obj):
+    """Mask out upper or lower jaw vertices (by box regions on the UV maps)
+       from the face rig vertex groups"""
+    jaw_group = meshutils.get_vertex_group(obj, "CC_Base_JawRoot")
+    if not jaw_group:
+        return
+
+    mat_slot = -1
+    for i, slot in enumerate(obj.material_slots):
+        if slot.material and slot.material.name == "Std_Skin_Head":
+            mat_slot = i
+    if mat_slot == -1:
+        return
+
+    if chr_cache.generation == "G3Plus":
+        uv_boxes = [
+            # outer skin
+            [0.239191, 0.0, 0.45725, 0.48796],
+            [0.45725, 0.0, 0.54275, 0.48825],
+            [0.54275, 0.0, 0.758507, 0.48796],
+            # inner mouth
+            [0.174256, 0.014343, 0.222045, 0.155825],
+            [0.769057, 0.014343, 0.82557, 0.155825],
+        ]
+    elif chr_cache.generation == "G3":
+        uv_boxes = [
+            # outer skin
+            [0.0, 0.0, 1.0, 0.20482],
+            # inner mouth
+            [0.359772, 0.789814, 0.437885, 1.0],
+            [0.560676, 0.789738, 0.641371, 1.0],
+        ]
+    else:
+        return
+
+    utils.log_info(f"#################### Fixing Lips {chr_cache.generation}")
+
+    upper_jaw_groups = []
+    lower_jaw_groups = []
+    for vg in obj.vertex_groups:
+        if vg.name.startswith("DEF-"):
+            if "lip.T" in vg.name or "nose" in vg.name or "cheek" in vg.name:
+                upper_jaw_groups.append(vg.index)
+            elif "lip.B" in vg.name or "chin" in vg.name or "jaw" in vg.name:
+                lower_jaw_groups.append(vg.index)
+    bm = geom.get_bmesh(obj)
+    dl = bm.verts.layers.deform.active
+    ul = bm.loops.layers.uv[0]
+    for face in bm.faces:
+        if face.material_index == mat_slot:
+            for i, l in enumerate(face.loops):
+                vert = face.verts[i]
+                jaw_mask = 0.0
+                uv = l[ul].uv
+                for uv_box in uv_boxes:
+                    if (uv_box[0] <= uv[0] and uv[0] < uv_box[2] and
+                        uv_box[1] <= uv[1] and uv[1] < uv_box[3]):
+                        jaw_mask = 1.0
+                        break
+                inv_mask = 1.0 - jaw_mask
+                for idx in lower_jaw_groups:
+                    if idx in vert[dl]:
+                        w = vert[dl][idx] * jaw_mask
+                        if w < 0.001:
+                            del(vert[dl][idx])
+                        else:
+                            vert[dl][idx] = w
+                for idx in upper_jaw_groups:
+                    if idx in vert[dl]:
+                        w = vert[dl][idx] * inv_mask
+                        if w < 0.001:
+                            del(vert[dl][idx])
+                        else:
+                            vert[dl][idx] = w
+    bm.to_mesh(obj.data)
+
+
+def parent_set_with_test(chr_cache, rig, obj, envelope=False):
     init_face_vgroups(rig, obj)
     if utils.try_select_objects([obj, rig], True) and utils.set_active_object(rig):
-        utils.log_always(f"Parenting: {obj.name}")
-        bpy.ops.object.parent_set(type = "ARMATURE_AUTO", keep_transform = True)
+        utils.log_always(f"Parenting: {obj.name}" + (" with envelope weights" if envelope else ""))
+        if envelope:
+            bpy.ops.object.parent_set(type="ARMATURE_ENVELOPE", keep_transform=True)
+            if chr_cache and (chr_cache.generation == "G3" or chr_cache.generation == "G3Plus"):
+                fix_envelope_lips(chr_cache, rig, obj)
+        else:
+            bpy.ops.object.parent_set(type="ARMATURE_AUTO", keep_transform=True)
+
         if not test_face_vgroups(rig, obj):
             return False
     return True
@@ -1649,20 +1755,20 @@ def try_parent_auto(chr_cache, rig, obj):
 
     # first attempt
 
-    if parent_set_with_test(rig, obj):
+    if parent_set_with_test(chr_cache, rig, obj):
         utils.log_always(f"Success!")
     else:
         utils.log_always(f"Parent with automatic weights failed: attempting mesh clean up...")
         mesh_clean_up(obj)
-        if result == 1:
-            result = 0
+        result = 0
 
         # second attempt
 
-        if parent_set_with_test(rig, obj):
+        if parent_set_with_test(chr_cache, rig, obj):
             utils.log_always(f"Success!")
         else:
             body = drivers.get_head_body_object(chr_cache)
+            body_objects = chr_cache.get_objects_of_type("BODY")
 
             # third attempt
 
@@ -1670,13 +1776,24 @@ def try_parent_auto(chr_cache, rig, obj):
                 utils.log_always(f"Parent with automatic weights failed again: trying just the head mesh...")
                 head = separate_head(obj)
 
-                if parent_set_with_test(rig, head):
+                if parent_set_with_test(chr_cache, rig, head):
                     utils.log_always(f"Success!")
                 else:
-                    utils.log_always(f"Automatic weights failed for {obj.name}, will need to re-parented by other means!")
-                    result = -1
+                    utils.log_always(f"Automatic weights failed for head mesh {obj.name}, attempting envelope weights...")
+
+                    # fourth attempt, parent with envelope weights
+                    if parent_set_with_test(chr_cache, rig, head, envelope=True):
+                        utils.log_always(f"Success!")
+                    else:
+                        result = -1
+                        utils.log_always(f"Automatic weights failed for {obj.name}, will need to re-parented by other means!")
 
                 rejoin_head(head, body)
+
+            elif obj in body_objects:
+
+                result = 1
+                utils.log_always(f"Non head body object does not need to be weighted.")
 
             else:
 
@@ -3558,6 +3675,7 @@ class CC3Rigifier(bpy.types.Operator):
                         convert_to_basic_face_rig(self.rigify_rig)
                         chr_cache.rigified_full_face_rig = False
                     modify_rigify_controls(self.cc3_rig, self.rigify_rig, self.rigify_data)
+                    prep_envelope_deform(self.rigify_rig, self.meta_rig)
                     face_result = reparent_to_rigify(self, chr_cache, self.cc3_rig, self.rigify_rig, self.rigify_data.bone_mapping)
                     acc_vertex_group_map = {}
                     fix_rigify_bones(chr_cache, self.rigify_rig)
@@ -3581,7 +3699,7 @@ class CC3Rigifier(bpy.types.Operator):
         elif face_result == 0:
             self.report({'WARNING'}, "Rigify Complete! Some issues with the face rig were detected and fixed automatically. See console log.")
         else:
-            self.report({'ERROR'}, "Rigify Incomplete! Face rig weighting Failed!. See console log.")
+            self.report({'ERROR'}, "Rigify Incomplete! Face rig weighting Failed! See console log.")
 
 
     def re_rigify_meta_rig(self, chr_cache, advanced_mode = False):
@@ -3623,6 +3741,7 @@ class CC3Rigifier(bpy.types.Operator):
                         convert_to_basic_face_rig(self.rigify_rig)
                         chr_cache.rigified_full_face_rig = False
                     modify_rigify_controls(self.cc3_rig, self.rigify_rig, self.rigify_data)
+                    prep_envelope_deform(self.rigify_rig, self.meta_rig)
                     if chr_cache.rigified_full_face_rig:
                         face_result = self.reparent_face_rig(chr_cache)
                     else:
