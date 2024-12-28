@@ -2715,7 +2715,7 @@ class LinkService():
         frame = RLFA(json_data["frame"])
         motion_prefix = json_data.get("motion_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
-        set_keyframes = json_data.get("set_keyframes", False)
+        set_keyframes = json_data.get("set_keyframes", True)
         LINK_DATA.sequence_start_frame = frame
         LINK_DATA.sequence_end_frame = frame
         LINK_DATA.sequence_current_frame = frame
@@ -2800,7 +2800,7 @@ class LinkService():
         end_frame = RLFA(json_data["end_frame"])
         motion_prefix = json_data.get("motion_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
-        set_keyframes = json_data.get("set_keyframes", False)
+        set_keyframes = json_data.get("set_keyframes", True)
         LINK_DATA.sequence_start_frame = start_frame
         LINK_DATA.sequence_end_frame = end_frame
         LINK_DATA.sequence_current_frame = start_frame
@@ -2944,7 +2944,7 @@ class LinkService():
         link_id = json_data["link_id"]
         motion_prefix = json_data.get("motion_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
-        set_keyframes = json_data.get("set_keyframes", False)
+        set_keyframes = json_data.get("set_keyframes", True)
         save_after_import = json_data.get("save_after_import", False)
         LINK_DATA.set_action_settings(motion_prefix, use_fake_user, set_keyframes)
 
@@ -3011,7 +3011,7 @@ class LinkService():
         frame = RLFA(json_data["frame"])
         motion_prefix = json_data.get("motion_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
-        set_keyframes = json_data.get("set_keyframes", False)
+        set_keyframes = json_data.get("set_keyframes", True)
         LINK_DATA.sequence_start_frame = start_frame
         LINK_DATA.sequence_end_frame = end_frame
         LINK_DATA.sequence_current_frame = frame
