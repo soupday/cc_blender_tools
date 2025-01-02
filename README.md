@@ -35,6 +35,7 @@ Links
 
 ### 2.2.4
 - Rigify face rig fallback to envelope weights if auto weights fail.
+- DataLink Import motion will optionally import motion to active character if no matching character.
 
 ### 2.2.3
 - Wrinkle map region strength controls added.
