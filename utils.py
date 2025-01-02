@@ -1433,6 +1433,8 @@ def get_context_armature(context):
 def get_context_character(context, strict=False):
     """strict: selected must part of the character"""
     props = vars.props()
+    if not context:
+        context = bpy.context
     chr_cache = props.get_context_character_cache(context)
 
     obj = context.object

@@ -214,10 +214,7 @@ class LinkActor():
     @staticmethod
     def chr_cache_type(chr_cache):
         if chr_cache:
-            if chr_cache.is_avatar():
-                return "AVATAR"
-            else:
-                return "PROP"
+            return chr_cache.cache_type()
         return "NONE"
 
     def get_mesh_objects(self):
@@ -2932,6 +2929,7 @@ class LinkService():
 
     def receive_character_import(self, data):
         props = vars.props()
+        prefs = vars.prefs()
         global LINK_DATA
 
         props.validate_and_clean_up()
@@ -2958,13 +2956,19 @@ class LinkService():
         if actor:
             update_link_status(f"Character: {name} exists!")
             utils.log_info(f"Actor {name} ({link_id}) already exists!")
-            bpy.ops.ccic.link_confirm_dialog("INVOKE_DEFAULT",
-                                             message=f"Character {name} already exists in the scene. Do you want to replace the character?",
-                                             mode="REPLACE",
-                                             name=name,
-                                             filepath=fbx_path,
-                                             link_id=link_id,
-                                             character_type=character_type)
+            if prefs.datalink_confirm_replace:
+                bpy.ops.ccic.link_confirm_dialog("INVOKE_DEFAULT",
+                                                 message=f"Character {name} already exists in the scene. Do you want to replace the character?",
+                                                 mode="REPLACE",
+                                                 name=name,
+                                                 filepath=fbx_path,
+                                                 link_id=link_id,
+                                                 character_type=character_type,
+                                                 prefs="datalink_confirm_replace")
+            else:
+                self.do_update_replace(name, link_id, fbx_path, character_type, True,
+                                       objects_to_replace_names=None,
+                                       replace_actions=True)
             return
 
         update_link_status(f"Receving Character Import: {name}")
@@ -2996,6 +3000,7 @@ class LinkService():
 
     def receive_motion_import(self, data):
         props = vars.props()
+        prefs = vars.prefs()
         global LINK_DATA
 
         props.validate_and_clean_up()
@@ -3028,11 +3033,37 @@ class LinkService():
 
         actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
         if not actor:
+            chr_cache, obj, mat, obj_cache, mat_cache = utils.get_context_character(bpy.context)
             update_link_status(f"Character: {name} not found!")
             utils.log_info(f"Actor {name} ({link_id}) not found!")
+            if chr_cache and LinkActor.chr_cache_type(chr_cache) == character_type:
+                link_id = chr_cache.link_id
+                if link_id:
+                    utils.log_info(f"Redirecting to active character: {chr_cache.character_name}")
+                    if prefs.datalink_confirm_mismatch:
+                        bpy.ops.ccic.link_confirm_dialog("INVOKE_DEFAULT",
+                                                        message=f"Character {name} not found, do you want to apply the motion to the current character: {chr_cache.character_name}?",
+                                                        mode="MOTION",
+                                                        name=name,
+                                                        filepath=fbx_path,
+                                                        link_id=chr_cache.link_id,
+                                                        character_type=character_type,
+                                                        prefs="datalink_confirm_mismatch")
+                    else:
+                        self.do_motion_import(link_id, fbx_path, character_type)
             return
 
-        update_link_status(f"Receving Motion Import: {name}")
+        link_id = actor.get_link_id()
+        self.do_motion_import(link_id, fbx_path, character_type)
+
+    def do_motion_import(self, link_id, fbx_path, character_type):
+        actor = LinkActor.find_actor(link_id)
+        update_link_status(f"Receving Motion Import: {actor.name}")
+
+        if actor.get_type() != character_type:
+            update_link_status(f"Invalid character type for motion!")
+            return
+
         if os.path.exists(fbx_path):
             #try:
             bpy.ops.cc3.anim_importer(filepath=fbx_path, remove_meshes=False,
@@ -3786,7 +3817,8 @@ class CCICLinkConfirmDialog(bpy.types.Operator):
     filepath: bpy.props.StringProperty(default="")
     link_id: bpy.props.StringProperty(default="")
     character_type: bpy.props.StringProperty(default="")
-    mode: bpy.props.StringProperty(default = "")
+    mode: bpy.props.StringProperty(default="")
+    prefs: bpy.props.StringProperty(default="")
 
     width=400
     wrap_width = width / 5.5
@@ -3796,11 +3828,13 @@ class CCICLinkConfirmDialog(bpy.types.Operator):
         props = vars.props()
         prefs = vars.prefs()
 
-        if self.mode:
+        if self.mode == "REPLACE":
             LINK_SERVICE.do_update_replace(self.name, self.link_id, self.filepath,
                                            self.character_type, True,
                                            objects_to_replace_names=None,
                                            replace_actions=True)
+        if self.mode == "MOTION":
+            LINK_SERVICE.do_motion_import(self.link_id, self.filepath, self.character_type)
 
         return {"FINISHED"}
 
@@ -3818,6 +3852,7 @@ class CCICLinkConfirmDialog(bpy.types.Operator):
 
     def draw(self, context):
         props = vars.props()
+        prefs = vars.prefs()
         layout = self.layout
         message: str = self.message
         lines = message.splitlines()
@@ -3827,6 +3862,14 @@ class CCICLinkConfirmDialog(bpy.types.Operator):
             wrapped_lines = wrapper.wrap(line)
             for wrapped_line in wrapped_lines:
                 layout.label(text=wrapped_line)
+        if self.prefs:
+            layout.separator()
+            if self.prefs == "datalink_confirm_mismatch":
+                layout.prop(prefs, self.prefs, text="Always Confirm Mismatch")
+            elif self.prefs == "datalink_confirm_replace":
+                layout.prop(prefs, self.prefs, text="Always Confirm Character Replace")
+            else:
+                layout.prop(prefs, self.prefs, text="Always Confirm")
         layout.separator()
 
     @classmethod

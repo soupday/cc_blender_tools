@@ -1719,6 +1719,13 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
             return True
         return False
 
+    def cache_type(self):
+        if self.is_avatar():
+            return "AVATAR"
+        else:
+            return "PROP"
+        return "NONE"
+
     def is_actor_core(self):
         if (self.generation == "ActorCore"
          or self.generation == "ActorScan"):
