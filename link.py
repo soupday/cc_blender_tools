@@ -2960,8 +2960,8 @@ class LinkService():
                                  zoom=False, no_rigify=True,
                                  motion_prefix=LINK_DATA.motion_prefix,
                                  use_fake_user=LINK_DATA.use_fake_user)
-        except:
-            utils.log_error(f"Error importing {fbx_path}")
+        except Exception as e:
+            utils.log_error(f"Error importing {fbx_path}", e)
             return
         actor = LinkActor.find_actor(link_id)
         # props have big ugly bones, so show them as wires
@@ -3043,11 +3043,13 @@ class LinkService():
             return
 
         if os.path.exists(fbx_path):
-            #try:
-            bpy.ops.cc3.anim_importer(filepath=fbx_path, remove_meshes=False,
-                                      remove_materials_images=True, remove_shape_keys=False,
-                                      motion_prefix=LINK_DATA.motion_prefix,
-                                      use_fake_user=LINK_DATA.use_fake_user)
+            try:
+                bpy.ops.cc3.anim_importer(filepath=fbx_path, remove_meshes=False,
+                                          remove_materials_images=True, remove_shape_keys=False,
+                                          motion_prefix=LINK_DATA.motion_prefix,
+                                          use_fake_user=LINK_DATA.use_fake_user)
+            except Exception as e:
+                utils.log_error(f"Error importing {fbx_path}", e)
             motion_rig = utils.get_active_object()
             if motion_rig:
                 self.replace_actor_motion(actor, motion_rig)
@@ -3189,7 +3191,10 @@ class LinkService():
                 self.import_morph_update(actor, obj_path)
                 update_link_status(f"Morph Updated: {actor.name}")
             else:
-                bpy.ops.cc3.importer(param="IMPORT", filepath=obj_path, link_id=link_id)
+                try:
+                    bpy.ops.cc3.importer(param="IMPORT", filepath=obj_path, link_id=link_id)
+                except Exception as e:
+                    utils.log_error(f"Error importing {obj_path}", e)
                 actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type)
                 update_link_status(f"Morph Imported: {actor.name}")
 
@@ -3236,7 +3241,10 @@ class LinkService():
         # import character assign new link_id
         temp_link_id = utils.generate_random_id(20)
         utils.log_info(f"Importing replacement with temp link_id: {temp_link_id}")
-        bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=temp_link_id, process_only=process_only)
+        try:
+            bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=temp_link_id, process_only=process_only)
+        except Exception as e:
+            utils.log_error(f"Error importing {fbx_path}", e)
 
         # the actor to replace
         actor = LinkActor.find_actor(link_id, search_name=name, search_type=character_type, context_chr_cache=context_chr_cache)
