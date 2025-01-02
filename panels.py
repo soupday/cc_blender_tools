@@ -3488,8 +3488,10 @@ class CCICDataLinkPanel(bpy.types.Panel):
             col_2.prop(prefs, "datalink_hide_prop_bones", text="")
             #col_1.label(text="Disable Leg Stretch")
             #col_2.prop(prefs, "datalink_disable_tweak_bones", text="")
-            #col_1.label(text="Match Current Avatar")
-            #col_2.prop(prefs, "datalink_match_any_avatar", text="")
+            col_1.label(text="Confirm Motion")
+            col_2.prop(prefs, "datalink_confirm_mismatch", text="")
+            col_1.label(text="Confirm Replace")
+            col_2.prop(prefs, "datalink_confirm_replace", text="")
             box.operator("cc3.setpreferences", icon="FILE_REFRESH", text="Reset").param="RESET_DATALINK"
 
         if True:

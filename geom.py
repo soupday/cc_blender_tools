@@ -25,6 +25,8 @@ from . import utils
 
 def get_triangulated_bmesh(mesh):
     """Be in object mode"""
+    if type(mesh) is bpy.types.Object:
+        mesh = mesh.data
     bm = bmesh.new()
     bm.from_mesh(mesh)
     # viewport seems to use fixed / clipping instead of beauty
@@ -37,6 +39,8 @@ def get_triangulated_bmesh(mesh):
 
 def get_bmesh(mesh):
     """Be in object mode"""
+    if type(mesh) is bpy.types.Object:
+        mesh = mesh.data
     bm = bmesh.new()
     bm.from_mesh(mesh)
     bm.faces.ensure_lookup_table()

@@ -105,7 +105,7 @@ from . import iconutils
 bl_info = {
     "name": "CC/iC Tools",
     "author": "Victor Soupday",
-    "version": (2, 2, 3),
+    "version": (2, 2, 4),
     "blender": (3, 4, 1),
     "category": "Characters",
     "location": "3D View > Properties > CC/iC Pipeline",

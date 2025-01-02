@@ -33,6 +33,9 @@ Links
 
 ## Changelog
 
+### 2.2.4
+- Rigify face rig fallback to envelope weights if auto weights fail.
+
 ### 2.2.3
 - Wrinkle map region strength controls added.
 - Nose crease wrinkle maps added to Mouth_Smile_* expressions.
