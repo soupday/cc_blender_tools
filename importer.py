@@ -888,6 +888,11 @@ class CC3Import(bpy.types.Operator):
         default = True
     )
 
+    set_keyframes: bpy.props.BoolProperty(
+        name = "Set Keyframes",
+        default = True
+    )
+
     use_anim: bpy.props.BoolProperty(name = "Import Animation", description = "Import animation with character.\nWarning: long animations take a very long time to import in Blender 2.83", default = True)
 
     zoom: bpy.props.BoolProperty(

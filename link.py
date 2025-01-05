@@ -391,6 +391,7 @@ class LinkData():
     #
     motion_prefix: str = ""
     use_fake_user: bool = False
+    set_keyframes: bool = True
 
     def __init__(self):
         return
@@ -415,9 +416,10 @@ class LinkData():
                 return actor
         return None
 
-    def set_action_settings(self, prefix: str, fake_user):
+    def set_action_settings(self, prefix: str, fake_user, set_keyframes):
         self.motion_prefix = prefix.strip()
         self.use_fake_user = fake_user
+        self.set_keyframes = set_keyframes
 
 
 
@@ -919,22 +921,27 @@ def write_sequence_actions(actor: LinkActor, num_frames):
                 loc_cache = bone_cache[bone_name]["loc"]
                 sca_cache = bone_cache[bone_name]["sca"]
                 rot_cache = bone_cache[bone_name]["rot"]
-                fcurve: bpy.types.FCurve
-                for i in range(0, 3):
-                    data_path = pose_bone.path_from_id("location")
-                    fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Location")
-                    fcurve.keyframe_points.add(num_frames)
-                    fcurve.keyframe_points.foreach_set('co', loc_cache["curves"][i][:set_count])
-                for i in range(0, 3):
-                    data_path = pose_bone.path_from_id("scale")
-                    fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Scale")
-                    fcurve.keyframe_points.add(num_frames)
-                    fcurve.keyframe_points.foreach_set('co', sca_cache["curves"][i][:set_count])
-                for i in range(0, 4):
-                    data_path = pose_bone.path_from_id("rotation_quaternion")
-                    fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Rotation Quaternion")
-                    fcurve.keyframe_points.add(num_frames)
-                    fcurve.keyframe_points.foreach_set('co', rot_cache["curves"][i][:set_count])
+                if LINK_DATA.set_keyframes:
+                    fcurve: bpy.types.FCurve
+                    for i in range(0, 3):
+                        data_path = pose_bone.path_from_id("location")
+                        fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Location")
+                        fcurve.keyframe_points.add(num_frames)
+                        fcurve.keyframe_points.foreach_set('co', loc_cache["curves"][i][:set_count])
+                    for i in range(0, 3):
+                        data_path = pose_bone.path_from_id("scale")
+                        fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Scale")
+                        fcurve.keyframe_points.add(num_frames)
+                        fcurve.keyframe_points.foreach_set('co', sca_cache["curves"][i][:set_count])
+                    for i in range(0, 4):
+                        data_path = pose_bone.path_from_id("rotation_quaternion")
+                        fcurve = rig_action.fcurves.new(data_path, index=i, action_group="Rotation Quaternion")
+                        fcurve.keyframe_points.add(num_frames)
+                        fcurve.keyframe_points.foreach_set('co', rot_cache["curves"][i][:set_count])
+                else:
+                    pose_bone.location = [x[1] for x in loc_cache["curves"]][0:3]
+                    pose_bone.scale = [x[1] for x in sca_cache["curves"]][0:3]
+                    pose_bone.rotation_quaternion = [x[1] for x in rot_cache["curves"]][0:4]
 
         expression_cache = actor.cache["expressions"]
         viseme_cache = actor.cache["visemes"]
@@ -946,18 +953,24 @@ def write_sequence_actions(actor: LinkActor, num_frames):
                     if expression_name in obj.data.shape_keys.key_blocks:
                         key_cache = expression_cache[expression_name]
                         key = obj.data.shape_keys.key_blocks[expression_name]
-                        data_path = key.path_from_id("value")
-                        fcurve = obj_action.fcurves.new(data_path, action_group="Expression")
-                        fcurve.keyframe_points.add(num_frames)
-                        fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0][:set_count])
+                        if LINK_DATA.set_keyframes:
+                            data_path = key.path_from_id("value")
+                            fcurve = obj_action.fcurves.new(data_path, action_group="Expression")
+                            fcurve.keyframe_points.add(num_frames)
+                            fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0][:set_count])
+                        else:
+                            key.value = key_cache["curves"][0][:set_count][1]
                 for viseme_name in viseme_cache:
                     if viseme_name in obj.data.shape_keys.key_blocks:
                         key_cache = viseme_cache[viseme_name]
                         key = obj.data.shape_keys.key_blocks[viseme_name]
-                        data_path = key.path_from_id("value")
-                        fcurve = obj_action.fcurves.new(data_path, action_group="Viseme")
-                        fcurve.keyframe_points.add(num_frames)
-                        fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0][:set_count])
+                        if LINK_DATA.set_keyframes:
+                            data_path = key.path_from_id("value")
+                            fcurve = obj_action.fcurves.new(data_path, action_group="Viseme")
+                            fcurve.keyframe_points.add(num_frames)
+                            fcurve.keyframe_points.foreach_set('co', key_cache["curves"][0][:set_count])
+                        else:
+                            key.value = key_cache["curves"][0][:set_count][1]
         # remove actions from non sequence objects
         for obj in none_objects:
             utils.safe_set_action(obj.data.shape_keys, None)
@@ -2699,10 +2712,11 @@ class LinkService():
         frame = RLFA(json_data["frame"])
         motion_prefix = json_data.get("motion_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
+        set_keyframes = json_data.get("set_keyframes", True)
         LINK_DATA.sequence_start_frame = frame
         LINK_DATA.sequence_end_frame = frame
         LINK_DATA.sequence_current_frame = frame
-        LINK_DATA.set_action_settings(motion_prefix, use_fake_user)
+        LINK_DATA.set_action_settings(motion_prefix, use_fake_user, set_keyframes)
         utils.log_info(f"Receive Pose: {frame}")
 
         # fetch actors
@@ -2721,8 +2735,11 @@ class LinkService():
         LINK_DATA.sequence_actors = actors
         LINK_DATA.sequence_type = "POSE"
         bpy.ops.screen.animation_cancel()
-        set_frame_range(start_frame, end_frame)
-        set_frame(frame)
+        if LINK_DATA.set_keyframes:
+            set_frame_range(start_frame, end_frame)
+            set_frame(frame)
+        else:
+            bpy.context.view_layer.update()
 
     def receive_pose_frame(self, data):
         global LINK_DATA
@@ -2764,7 +2781,8 @@ class LinkService():
         # finish
         LINK_DATA.sequence_actors = None
         LINK_DATA.sequence_type = None
-        bpy.context.scene.frame_current = frame
+        if LINK_DATA.set_keyframes:
+            bpy.context.scene.frame_current = frame
         utils.restore_mode_selection_state(state)
 
     def receive_sequence(self, data):
@@ -2779,10 +2797,11 @@ class LinkService():
         end_frame = RLFA(json_data["end_frame"])
         motion_prefix = json_data.get("motion_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
+        set_keyframes = json_data.get("set_keyframes", True)
         LINK_DATA.sequence_start_frame = start_frame
         LINK_DATA.sequence_end_frame = end_frame
         LINK_DATA.sequence_current_frame = start_frame
-        LINK_DATA.set_action_settings(motion_prefix, use_fake_user)
+        LINK_DATA.set_action_settings(motion_prefix, use_fake_user, set_keyframes)
         num_frames = end_frame - start_frame + 1
         utils.log_info(f"Receive Sequence: {start_frame} to {end_frame}, {num_frames} frames")
 
@@ -2923,8 +2942,9 @@ class LinkService():
         link_id = json_data["link_id"]
         motion_prefix = json_data.get("motion_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
+        set_keyframes = json_data.get("set_keyframes", True)
         save_after_import = json_data.get("save_after_import", False)
-        LINK_DATA.set_action_settings(motion_prefix, use_fake_user)
+        LINK_DATA.set_action_settings(motion_prefix, use_fake_user, set_keyframes)
 
         utils.log_info(f"Receive Character Import: {name} / {link_id} / {fbx_path}")
 
@@ -2959,7 +2979,8 @@ class LinkService():
             bpy.ops.cc3.importer(param="IMPORT", filepath=fbx_path, link_id=link_id,
                                  zoom=False, no_rigify=True,
                                  motion_prefix=LINK_DATA.motion_prefix,
-                                 use_fake_user=LINK_DATA.use_fake_user)
+                                 use_fake_user=LINK_DATA.use_fake_user,
+                                 set_keyframes=LINK_DATA.set_keyframes)
         except Exception as e:
             utils.log_error(f"Error importing {fbx_path}", e)
             return
@@ -2995,10 +3016,11 @@ class LinkService():
         frame = RLFA(json_data["frame"])
         motion_prefix = json_data.get("motion_prefix", "")
         use_fake_user = json_data.get("use_fake_user", False)
+        set_keyframes = json_data.get("set_keyframes", True)
         LINK_DATA.sequence_start_frame = start_frame
         LINK_DATA.sequence_end_frame = end_frame
         LINK_DATA.sequence_current_frame = frame
-        LINK_DATA.set_action_settings(motion_prefix, use_fake_user)
+        LINK_DATA.set_action_settings(motion_prefix, use_fake_user, set_keyframes)
         num_frames = end_frame - start_frame + 1
         utils.log_info(f"Receive Motion Import: {name} / {link_id} / {fbx_path}")
         utils.log_info(f"Motion Range: {start_frame} to {end_frame}, {num_frames} frames")
@@ -3047,7 +3069,8 @@ class LinkService():
                 bpy.ops.cc3.anim_importer(filepath=fbx_path, remove_meshes=False,
                                           remove_materials_images=True, remove_shape_keys=False,
                                           motion_prefix=LINK_DATA.motion_prefix,
-                                          use_fake_user=LINK_DATA.use_fake_user)
+                                          use_fake_user=LINK_DATA.use_fake_user,
+                                          set_keyframes=LINK_DATA.set_keyframes)
             except Exception as e:
                 utils.log_error(f"Error importing {fbx_path}", e)
             motion_rig = utils.get_active_object()
