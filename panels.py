@@ -22,7 +22,7 @@ from . import addon_updater_ops, iconutils, rigging, rigutils
 from . import (link, rigify_mapping_data, bones, characters, sculpting, springbones,
                bake, rigidbody, physics, colorspace, modifiers, channel_mixer, nodeutils,
                utils, params, vars)
-from .drivers import get_head_body_object_quick
+from .meshutils import get_head_body_object_quick
 
 PIPELINE_TAB_NAME = "CC/iC Pipeline"
 CREATE_TAB_NAME = "CC/iC Create"
@@ -3382,6 +3382,13 @@ class CC3ToolsSculptingPanel(bpy.types.Panel):
             row.operator("cc3.transfer_mesh", icon="MESH_ICOSPHERE", text="Transfer Mesh")
             if not utils.get_active_object() or len(bpy.context.selected_objects) < 2:
                 row.enabled = False
+
+            if vars.DEV:
+                column = layout.column()
+                row = column.row()
+                row.operator("cc3.sculpting", icon="MESH_ICOSPHERE", text="Store Lash").param = "STORE_LASH"
+                row = column.row()
+                row.operator("cc3.sculpting", icon="MESH_ICOSPHERE", text="Fix Lash").param = "FIX_LASH"
 
 
 class CC3ToolsUtilityPanel(bpy.types.Panel):

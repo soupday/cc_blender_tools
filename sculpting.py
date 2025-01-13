@@ -18,7 +18,7 @@ import os
 import bpy
 import mathutils
 
-from . import nodeutils, imageutils, geom, materials, bake, modifiers, utils, params, vars
+from . import nodeutils, imageutils, meshutils, geom, materials, bake, modifiers, utils, params, vars
 
 LAYER_TARGET_SCULPT = "BODY"
 LAYER_TARGET_DETAIL = "DETAIL"
@@ -950,6 +950,12 @@ class CC3OperatorSculpt(bpy.types.Operator):
 
         elif self.param == "RESET_FROM_SOURCE":
             pass
+
+        elif self.param == "STORE_LASH":
+            meshutils.store_lash_data(chr_cache)
+
+        elif self.param == "FIX_LASH":
+            meshutils.restore_lash_data(chr_cache)
 
         return {"FINISHED"}
 

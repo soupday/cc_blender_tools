@@ -483,7 +483,7 @@ def add_facial_shape_key_bone_drivers(chr_cache, jaw, eye_look, head):
        expression shape keys.
     """
 
-    body = get_head_body_object(chr_cache)
+    body = meshutils.get_head_body_object(chr_cache)
     arm = chr_cache.get_armature()
 
     if not body or not arm:
@@ -628,93 +628,12 @@ def clear_body_shape_key_drivers(chr_cache):
                             obj_key.driver_remove("value")
 
 
-def get_head_material_and_json(chr_cache, chr_json):
-    head_mat = None
-    head_mat_cache = None
-    head_mat_json = None
-
-    # find the head material in the character
-    for mat_cache in chr_cache.head_material_cache:
-        mat = mat_cache.material
-        if mat_cache.material_type == "SKIN_HEAD" and utils.material_exists(mat):
-            head_mat = mat
-            head_mat_cache = mat_cache
-
-    # find the head material json, from it's original json object
-    # the head material may have been split from the original body mesh,
-    # so we look in all the meshes for the head material
-    for obj in chr_cache.get_cache_objects():
-        obj_cache = chr_cache.get_object_cache(obj)
-        if obj.type == "MESH":
-            if head_mat.name in obj.data.materials:
-                mat_json = jsonutils.get_json(chr_json, f"Meshes/{obj_cache.source_name}/Materials/{head_mat_cache.source_name}")
-                if mat_json and jsonutils.get_json(mat_json, "Custom Shader/Shader Name") == "RLHead":
-                    head_mat_json = mat_json
-                    break
-
-    return head_mat, head_mat_json
-
-
-def get_head_body_object_quick(chr_cache):
-    body_objects = chr_cache.get_objects_of_type("BODY")
-    for obj in body_objects:
-        if "wrinkle_source" in obj:
-            if obj["wrinkle_source"]:
-                return obj
-    return get_head_body_object(chr_cache)
-
-
-def get_head_body_object(chr_cache):
-
-    if not chr_cache: return None
-
-    body_cache = chr_cache.get_body_cache()
-    arm = chr_cache.get_armature()
-
-    # collect all possible body objects together
-    head_bones = [ "CC_Base_Head", "head", "spine.006" ]
-    body_objects = {}
-
-    if body_cache:
-        body_id = body_cache.object_id
-        for child in arm.children:
-            if utils.get_rl_object_id(child) == body_id and child not in body_objects:
-                body_objects[child] = meshutils.total_vertex_group_weight(child, head_bones)
-    else:
-        for child in arm.children:
-            if child not in body_objects:
-                body_objects[child] = meshutils.total_vertex_group_weight(child, head_bones)
-
-    # try to find which one contains the head (contains the most weight to head bone)
-    weight = -1
-    body = None
-    if body_objects:
-        for obj in body_objects:
-            try:
-                del obj["wrinkle_source"]
-            except: ...
-            if body_objects[obj] > weight:
-                weight = body_objects[obj]
-                body = obj
-
-    # fall back to the imported source body if nothing works
-    if not body:
-        body = chr_cache.get_body()
-
-    if body:
-        try:
-            body["wrinkle_source"] = True
-        except: ...
-
-    return body
-
-
 def add_body_shape_key_drivers(chr_cache, add_drivers, only_objects=None):
     """Drive all expression shape keys on non-body objects from the body shape keys.
     """
 
     arm = chr_cache.get_armature()
-    body = get_head_body_object(chr_cache)
+    body = meshutils.get_head_body_object(chr_cache)
 
     if not body:
         return

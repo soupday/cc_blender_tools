@@ -20,7 +20,7 @@ from mathutils import Vector
 from . import (channel_mixer, imageutils, meshutils, sculpting, materials,
                springbones, rigify_mapping_data, modifiers, nodeutils, shaders,
                params, physics, basic, jsonutils, utils, vars)
-from .drivers import get_head_body_object_quick
+from .meshutils import get_head_body_object_quick
 
 
 def open_mouth_update(self, context):

@@ -784,12 +784,12 @@ def test_for_material_uv_coords(obj, mat_slot, uvs):
 
 def get_material_slot_by_type(chr_cache, obj, material_type):
     if obj.type == "MESH":
-        for slot in obj.material_slots:
+        for index, slot in enumerate(obj.material_slots):
             mat = slot.material
             if mat:
                 mat_cache = chr_cache.get_material_cache(mat)
                 if mat_cache and mat_cache.material_type == material_type:
-                    return slot.index
+                    return index
     return -1
 
 
