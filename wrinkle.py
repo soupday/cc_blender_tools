@@ -16,7 +16,7 @@
 
 import bpy
 
-from . import drivers, nodeutils, utils, params, vars
+from . import drivers, meshutils, nodeutils, utils, params, vars
 
 WRINKLE_SHADER_NAME="rl_wrinkle_shader"
 WRINKLE_STRENGTH_PROP = "wrinkle_strength"
@@ -91,7 +91,7 @@ def clear_wrinkle_props(chr_cache, exclude=None):
 
 
 def add_wrinkle_shader(chr_cache, links, mat, mat_json, main_shader_name, wrinkle_shader_name=WRINKLE_SHADER_NAME):
-    body_obj = drivers.get_head_body_object(chr_cache)
+    body_obj = meshutils.get_head_body_object(chr_cache)
     clear_wrinkle_props(chr_cache, body_obj)
     wrinkle_shader_node = get_wrinkle_shader(body_obj, mat, mat_json,
                                              shader_name=wrinkle_shader_name,
@@ -108,9 +108,9 @@ def add_wrinkle_shader(chr_cache, links, mat, mat_json, main_shader_name, wrinkl
 
 
 def build_wrinkle_drivers(chr_cache, chr_json, wrinkle_shader_name=WRINKLE_SHADER_NAME):
-    body_obj = drivers.get_head_body_object(chr_cache)
+    body_obj = meshutils.get_head_body_object(chr_cache)
     clear_wrinkle_props(chr_cache, body_obj)
-    head_mat, head_mat_json = drivers.get_head_material_and_json(chr_cache, chr_json)
+    head_mat, head_mat_json = meshutils.get_head_material_and_json(chr_cache, chr_json)
     if body_obj and head_mat and head_mat_json:
         wrinkle_shader_node = get_wrinkle_shader(body_obj, head_mat, head_mat_json,
                                                  shader_name=wrinkle_shader_name,

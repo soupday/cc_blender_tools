@@ -52,14 +52,31 @@ def get_bmesh(mesh):
 def get_world_from_uv(obj, t_mesh, mat_slot, uv_target, threshold):
     world = mesh_world_point_from_uv(obj, t_mesh, mat_slot, uv_target)
     if world is None: # if the point is outside the UV island(s), just find the nearest vertex.
-        world = nearest_vert_from_uv(obj, t_mesh, mat_slot, uv_target, threshold)
+        world = nearest_vert_from_uv(obj, t_mesh, mat_slot, uv_target, threshold, world=True)
     if world is None:
         utils.log_error("Unable to locate uv target: " + str(uv_target))
     return world
 
 
-def get_uv_from_world(obj, t_mesh, mat_slot, world_co):
-    uv = mesh_uv_from_world_point(obj, t_mesh, mat_slot, world_co)
+def get_local_from_uv(obj, t_mesh, mat_slot, uv_target, threshold):
+    local = mesh_local_point_from_uv(t_mesh, mat_slot, uv_target)
+    if local is None: # if the point is outside the UV island(s), just find the nearest vertex.
+        local = nearest_vert_from_uv(obj, t_mesh, mat_slot, uv_target, threshold, world=False)
+    if local is None:
+        utils.log_error("Unable to locate uv target: " + str(uv_target))
+    return local
+
+
+def get_uv_from_world(obj, t_mesh, mat_slot, world_co, project=False):
+    uv = mesh_uv_from_world_point(obj, t_mesh, mat_slot, world_co, project=project)
+    if uv is None:
+        utils.log_error("Unable to local point inside UV islands.")
+        uv = mathutils.Vector((0,0,0))
+    return uv
+
+
+def get_uv_from_local(obj, t_mesh, mat_slot, local_co, project=False):
+    uv = mesh_uv_from_local_point(obj, t_mesh, mat_slot, local_co, project=project)
     if uv is None:
         utils.log_error("Unable to local point inside UV islands.")
         uv = mathutils.Vector((0,0,0))
@@ -73,10 +90,22 @@ def find_coord(obj, ul, uv, face):
     return obj.matrix_world * co
 
 
-def mesh_world_point_from_uv(obj, mesh, mat_slot, uv):
-    ul = mesh.loops.layers.uv[0]
-    for face in mesh.faces:
-        if face.material_index == mat_slot:
+def mesh_local_point_from_uv(b_mesh, mat_slot, uv):
+    ul = b_mesh.loops.layers.uv[0]
+    for face in b_mesh.faces:
+        if mat_slot == -1 or face.material_index == mat_slot:
+            u, v, w = [l[ul].uv.to_3d() for l in face.loops]
+            if mathutils.geometry.intersect_point_tri_2d(uv, u, v, w):
+                x, y, z = [vert.co for vert in face.verts]
+                co = mathutils.geometry.barycentric_transform(uv, u, v, w, x, y, z)
+                return co
+    return None
+
+
+def mesh_world_point_from_uv(obj, b_mesh, mat_slot, uv):
+    ul = b_mesh.loops.layers.uv[0]
+    for face in b_mesh.faces:
+        if mat_slot == -1 or face.material_index == mat_slot:
             u, v, w = [l[ul].uv.to_3d() for l in face.loops]
             if mathutils.geometry.intersect_point_tri_2d(uv, u, v, w):
                 x, y, z = [vert.co for vert in face.verts]
@@ -85,18 +114,19 @@ def mesh_world_point_from_uv(obj, mesh, mat_slot, uv):
     return None
 
 
-def mesh_uv_from_world_point(obj, mesh, mat_slot, co):
+def mesh_uv_from_world_point(obj, b_mesh, mat_slot, co, project=False):
     local_co = obj.matrix_world.inverted() @ co
-    return mesh_uv_from_local_point(obj, mesh, mat_slot, local_co)
+    return mesh_uv_from_local_point(obj, b_mesh, mat_slot, local_co, project=project)
 
 
-def mesh_uv_from_local_point(obj, mesh, mat_slot, co):
-    co = obj.closest_point_on_mesh(co)[1]
-    ul = mesh.loops.layers.uv[0]
+def mesh_uv_from_local_point(obj, b_mesh, mat_slot, co, project=False):
+    if project:
+        co = obj.closest_point_on_mesh(co)[1]
+    ul = b_mesh.loops.layers.uv[0]
     best_uv = None
     best_z = 1
     face : bmesh.types.BMFace
-    for face in mesh.faces:
+    for face in b_mesh.faces:
         if face.material_index == mat_slot:
             x, y, z = [vert.co for vert in face.verts]
             u, v, w = [l[ul].uv.to_3d() for l in face.loops]
@@ -111,7 +141,7 @@ def mesh_uv_from_local_point(obj, mesh, mat_slot, co):
     return best_uv
 
 
-def nearest_vert_from_uv(obj, mesh, mat_slot, uv, thresh = 0):
+def nearest_vert_from_uv(obj, mesh, mat_slot, uv, thresh=0, world=True):
     thresh = 2 * thresh * thresh
     ul = mesh.loops.layers.uv[0]
     near = None
@@ -126,11 +156,14 @@ def nearest_vert_from_uv(obj, mesh, mat_slot, uv, thresh = 0):
                 dsq = du * du + dv * dv
                 if dsq < thresh:
                     return obj.matrix_world @ face.verts[i].co
-                if near_dist < dsq:
+                if dsq < near_dist:
                     near = face.verts[i]
                     near_dist = dsq
     if near:
-        return obj.matrix_world @ near.co
+        if world:
+            return obj.matrix_world @ near.co
+        else:
+            return near.co
     else:
         return None
 
@@ -780,7 +813,7 @@ def diag_to_bmesh() -> bmesh.types.BMesh:
         return DIAG_BM
 
 
-def diag_from_bmesh():
+def diag_finish():
     global DIAG, DIAG_BM
     if DIAG and DIAG_BM:
         DIAG_BM.to_mesh(DIAG.data)

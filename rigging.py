@@ -877,8 +877,8 @@ def report_uv_face_targets(obj, meta_rig):
             if bone.name != "face":
                 head_world = bone.head
                 tail_world = bone.tail
-                head_uv = geom.get_uv_from_world(obj, t_mesh, mat_slot, head_world)
-                tail_uv = geom.get_uv_from_world(obj, t_mesh, mat_slot, tail_world)
+                head_uv = geom.get_uv_from_world(obj, t_mesh, mat_slot, head_world, project=True)
+                tail_uv = geom.get_uv_from_world(obj, t_mesh, mat_slot, tail_world, project=True)
                 utils.log_always(f"{bone.name} - uv: {head_uv} -> {tail_uv}")
 
 
@@ -886,7 +886,7 @@ def map_uv_targets(chr_cache, cc3_rig, meta_rig):
     """Fetch spacial coordinates for bone positions from UV coordinates.
     """
 
-    obj = drivers.get_head_body_object(chr_cache)
+    obj = meshutils.get_head_body_object(chr_cache)
     if obj is None:
         utils.log_error("Cannot find BODY mesh for uv targets!")
         return
@@ -1182,7 +1182,7 @@ def convert_to_basic_face_rig(rigify_rig):
 def add_shape_key_drivers(chr_cache, rig):
     """Add drivers from the rig bones to facial expressions"""
 
-    head_body_obj = drivers.get_head_body_object(chr_cache)
+    head_body_obj = meshutils.get_head_body_object(chr_cache)
 
     # remove existing shape key drivers on the head body object
     if utils.object_has_shape_keys(head_body_obj):
@@ -1767,7 +1767,7 @@ def try_parent_auto(chr_cache, rig, obj):
         if parent_set_with_test(chr_cache, rig, obj):
             utils.log_always(f"Success!")
         else:
-            body = drivers.get_head_body_object(chr_cache)
+            body = meshutils.get_head_body_object(chr_cache)
             body_objects = chr_cache.get_objects_of_type("BODY")
 
             # third attempt
