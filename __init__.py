@@ -183,6 +183,7 @@ classes = (
     hair.CC3ExportHair,
     link.CCICDataLink,
     link.CCICLinkConfirmDialog,
+    link.CCICLinkTest,
     characters.CCICCharacterLink,
     proportion.CCICCharacterProportions,
     rigutils.CCICMotionSetRename,

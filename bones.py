@@ -335,6 +335,25 @@ def copy_rl_edit_bone(cc3_rig, dst_rig, cc3_name, dst_name, dst_parent_name, sca
     return None
 
 
+def copy_pose(rig):
+    pose = {}
+    bone: bpy.types.PoseBone
+    for bone in rig.pose.bones:
+        pose[bone.name] = (bone.rotation_mode,
+                           bone.rotation_quaternion.copy(),
+                           bone.rotation_euler.copy(),
+                           bone.rotation_axis_angle,
+                           bone.location.copy(),
+                           bone.scale.copy())
+    return pose
+
+
+def paste_pose(rig: bpy.types.Object, pose):
+    bone: bpy.types.PoseBone
+    for bone in rig.pose.bones:
+        bone.rotation_mode, bone.rotation_quaternion, bone.rotation_euler, bone.rotation_axis_angle, bone.location, bone.scale = pose[bone.name]
+
+
 def copy_rig_bind_pose(rig_from, rig_to):
     rig_def = {}
     utils.set_only_active_object(rig_from)

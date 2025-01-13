@@ -1630,15 +1630,16 @@ def store_mode_selection_state():
             (bpy.context.scene.frame_current, bpy.context.scene.frame_start, bpy.context.scene.frame_end)]
 
 
-def restore_mode_selection_state(store):
+def restore_mode_selection_state(store, include_frames=True):
     try:
         set_mode("OBJECT")
         try_select_objects(store[2], True)
         set_active_object(store[1])
         set_mode(store[0])
-        bpy.context.scene.frame_current = store[3][0]
-        bpy.context.scene.frame_start = store[3][1]
-        bpy.context.scene.frame_end = store[3][2]
+        if include_frames:
+            bpy.context.scene.frame_current = store[3][0]
+            bpy.context.scene.frame_start = store[3][1]
+            bpy.context.scene.frame_end = store[3][2]
     except:
         pass
 
@@ -1759,6 +1760,17 @@ def get_view_3d_shading(context=None) -> bpy.types.View3DShading:
             return space_data.shading
     except: ...
     log_warn("Unable to get view space shading!")
+    return None
+
+
+def get_view_3d_override_context():
+    for window_manager in bpy.data.window_managers:
+        for window in window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for region in area.regions:
+                        if region.type == 'WINDOW':
+                            return dict(window=window, area=area, region=region)
     return None
 
 
