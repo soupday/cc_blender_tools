@@ -624,8 +624,8 @@ SHAPE_KEY_DRIVERS = [
     ["Bfr", "Eye_L_Look_Down", ["SCRIPTED", f"min(var, 0)*{-OODTR(22)}"], ["var", "TRANSFORMS", "MCH-eye.L", "ROT_X", "LOCAL_SPACE"]],
     ["Bfr", "Eye_R_Look_Down", ["SCRIPTED", f"min(var, 0)*{-OODTR(22)}"], ["var", "TRANSFORMS", "MCH-eye.R", "ROT_X", "LOCAL_SPACE"]],
     # Head rotation expressions
-    ["", "Head_Turn_Up", ["SCRIPTED", f"max(var, 0)*{-OODTR(-30)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_X", "LOCAL_SPACE"]],
-    ["", "Head_Turn_Down", ["SCRIPTED", f"min(var, 0)*{-OODTR(18)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_X", "LOCAL_SPACE"]],
+    ["", "Head_Turn_Up", ["SCRIPTED", f"min(var, 0)*{OODTR(-30)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_X", "LOCAL_SPACE"]],
+    ["", "Head_Turn_Down", ["SCRIPTED", f"max(var, 0)*{OODTR(18)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_X", "LOCAL_SPACE"]],
     ["", "Head_Turn_L", ["SCRIPTED", f"max(var, 0)*{OODTR(51)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_Y", "LOCAL_SPACE"]],
     ["", "Head_Turn_R", ["SCRIPTED", f"min(var, 0)*{OODTR(-51)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_Y", "LOCAL_SPACE"]],
     ["", "Head_Tilt_L", ["SCRIPTED", f"min(var, 0)*{OODTR(-23.4)}"], ["var", "TRANSFORMS", "ORG-spine.006", "ROT_Z", "LOCAL_SPACE"]],
