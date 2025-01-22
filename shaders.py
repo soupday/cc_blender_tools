@@ -19,7 +19,7 @@ import math
 import os
 from mathutils import Vector, Color
 
-from . import imageutils, jsonutils, meshutils, materials, wrinkle, nodeutils, params, utils, vars
+from . import imageutils, jsonutils, meshutils, materials, modifiers, wrinkle, nodeutils, params, utils, vars
 
 
 def get_prop_value(mat_cache, prop_name):
@@ -1245,7 +1245,7 @@ def connect_hair_shader(obj_cache, obj, mat, mat_json, processed_images):
         mat.use_sss_translucency = True
 
 
-def connect_pbr_shader(obj_cache, obj, mat, mat_json, processed_images):
+def connect_pbr_shader(obj_cache, obj, mat: bpy.types.Material, mat_json, processed_images):
     props = vars.props()
     prefs = vars.prefs()
 
@@ -1281,6 +1281,20 @@ def connect_pbr_shader(obj_cache, obj, mat, mat_json, processed_images):
 
     else:
         fix_sss_method(bsdf)
+
+    texture_path, strength, level, multiplier, base = jsonutils.get_displacement_data(mat_json)
+    if texture_path and strength > 0 and level > 0:
+        # add a subdivision modifer but set it to zero.
+        # lots of clothing in CC/iC uses tesselation and displacement, but
+        # subdividing all of it would significantly slow down blender.
+        # so the modifiers are added, but the user must then set their levels.
+        mod = modifiers.add_subdivision(obj, level, "Displacement_Subdiv", max_level=0, view_level=0)
+        if mod:
+            modifiers.move_mod_first(obj, mod)
+        if utils.B410():
+            mat.displacement_method = "BOTH"
+        else:
+            mat.cycles.displacement_method = "BOTH"
 
 
 def connect_sss_shader(obj_cache, obj, mat, mat_json, processed_images):

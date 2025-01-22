@@ -1859,7 +1859,8 @@ class CC3CharacterCache(bpy.types.PropertyGroup):
 
     def is_collision_object(self, obj):
         source, proxy, is_proxy = self.get_related_physics_objects(obj)
-        return ("rl_collision_proxy" in obj or obj.name.endswith(".Collision_Proxy") or is_proxy)
+        result = ("rl_collision_proxy" in obj or obj.name.endswith("_Collision_Proxy") or is_proxy)
+        return result
 
     def get_all_objects(self,
                         include_armature=True,
