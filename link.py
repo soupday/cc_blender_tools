@@ -623,7 +623,7 @@ def remove_datalink_import_rig(actor: LinkActor, apply_contraints=False):
 
 def set_actor_expression_weight(objects, expression_name, weight):
     global LINK_DATA
-    if objects and LINK_DATA.preview_shape_keys:
+    if objects:
         obj: bpy.types.Object
         for obj in objects:
             if expression_name in obj.data.shape_keys.key_blocks:
@@ -719,6 +719,14 @@ def prep_rig(actor: LinkActor, start_frame, end_frame):
             utils.log_info(f"Preparing Character Rig: {actor.name} {rig_id} / {len(actor.bones)} bones")
 
             # set data
+
+            if not LINK_DATA.set_keyframes:
+                # when not setting keyframes remove all actions from the rig
+                # and let the DataLink set the pose and shape keys directly
+                utils.safe_set_action(rig, None)
+                for obj in objects:
+                    utils.safe_set_action(obj.data.shape_keys, None)
+
             if LINK_DATA.set_keyframes:
 
                 if LINK_DATA.sequence_type == "POSE":
@@ -1263,8 +1271,12 @@ class LinkService():
                 # parse may have received a disconnect notice
                 if not self.has_client_sock():
                     return
-                # if preview sync every frame in sequence
+                # if preview frame sync update every frame in sequence
                 if op_code == OpCodes.SEQUENCE_FRAME and prefs.datalink_frame_sync:
+                    self.is_data = True
+                    return
+                # if not key framing, update every frame
+                if not LINK_DATA.set_keyframes:
                     self.is_data = True
                     return
                 if op_code == OpCodes.CHARACTER or op_code == OpCodes.PROP:
@@ -2272,7 +2284,7 @@ class LinkService():
             for i in range(0, num_weights):
                 weight = struct.unpack_from("!f", pose_data, offset)[0]
                 offset += 4
-                if actor and objects and prefs.datalink_preview_shape_keys:
+                if actor and objects and (prefs.datalink_preview_shape_keys or not LINK_DATA.set_keyframes):
                     expression_name = actor.expressions[i]
                     set_actor_expression_weight(objects, expression_name, weight)
                 expression_weights[i] = weight
@@ -2284,7 +2296,7 @@ class LinkService():
             for i in range(0, num_weights):
                 weight = struct.unpack_from("!f", pose_data, offset)[0]
                 offset += 4
-                if actor and objects and prefs.datalink_preview_shape_keys:
+                if actor and objects and (prefs.datalink_preview_shape_keys or not LINK_DATA.set_keyframes):
                     viseme_name = actor.visemes[i]
                     set_actor_viseme_weight(objects, viseme_name, weight)
                 viseme_weights[i] = weight
@@ -2925,7 +2937,8 @@ class LinkService():
         bpy.context.scene.frame_current = LINK_DATA.sequence_start_frame
 
         # play the recorded sequence
-        bpy.ops.screen.animation_play()
+        if LINK_DATA.set_keyframes:
+            bpy.ops.screen.animation_play()
 
     def receive_sequence_ack(self, data):
         prefs = vars.prefs()
