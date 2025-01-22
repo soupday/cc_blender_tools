@@ -38,6 +38,7 @@ Links
 - DataLink Import motion will optionally (confirmation dialog) import motion to active character if no matching character.
 - Rigify head turn expression driver corrected.
 - Fixed collision objects being included in export.
+- Fixed displacement strength export.
 
 ### 2.2.3
 - Wrinkle map region strength controls added.
